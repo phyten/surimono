@@ -26,8 +26,7 @@ extension DocumentViewModel {
         return fileURL.map { .document($0) } ?? .closed(own: nil)
     }
 
-    /// The Document menu's and the list's Add Documents…. Where nothing can be added the item stays, because a menu's
-    /// state goes stale (see `DocumentCommands`), and says why instead.
+    /// Other entry points can request an addition after the window stopped accepting files.
     func chooseDocumentsToAdd() {
         if case .closed = dropReceiver {
             showToast(

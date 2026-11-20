@@ -4,9 +4,17 @@ import SurimonoCore
 struct ClosedClipboardDocuments {
     static let didChange = Notification.Name("SurimonoClosedClipboardDocumentsDidChange")
 
-    struct MenuItem: Identifiable {
+    struct MenuItem: Identifiable, Equatable {
         let id: ContentHash
         let title: String
+
+        init(id: ContentHash, title: String) {
+            self.id = id
+            let line = title.prefix { !$0.isNewline }
+            self.title =
+                line.count > 40 || line.endIndex != title.endIndex
+                ? String(line.prefix(39)) + "…" : String(line)
+        }
     }
 
     struct Entry {

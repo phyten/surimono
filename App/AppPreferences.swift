@@ -384,7 +384,10 @@ final class AppPreferences {
     }
 
     var closedClipboardDocuments = ClosedClipboardDocuments() {
-        didSet { NotificationCenter.default.post(name: ClosedClipboardDocuments.didChange, object: self) }
+        didSet {
+            // A close may hand focus to another window before its clipboard history has been recorded.
+            NotificationCenter.default.post(name: ClosedClipboardDocuments.didChange, object: self)
+        }
     }
     var keepsClosedClipboardDocuments: Bool {
         didSet {

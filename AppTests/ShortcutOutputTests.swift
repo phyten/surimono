@@ -1,5 +1,7 @@
 import AppKit
+import PDFKit
 import SurimonoCore
+import SurimonoRendering
 import Testing
 
 @testable import Surimono
@@ -17,7 +19,6 @@ struct ShortcutOutputTests {
         #expect(f.submissions.count == 0)
         #expect(f.dispatcher.handle(f.event("p", repeating: true)))
         #expect(f.dispatcher.handle(f.event("p")))
-        f.bridge.reconcile()
         f.dispatcher.performFromMenu(.documentPrint, event: f.event("p"))
         #expect(f.submissions.count == 0)
         f.release()
@@ -300,67 +301,39 @@ extension ShortcutOutputTests {
     func menuRecreation() throws {
         let f = ShortcutOutputFixture()
         defer { f.close() }
-        func buildMenu(printTitle: String = "Print…") {
-            f.menu.removeAllItems()
-            for _ in 0..<7 {
-                let item = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-                item.submenu = NSMenu()
-                f.menu.addItem(item)
+        func rows() -> [DocumentMenuDescriptor] {
+            let snapshot = MenuSnapshot(
+                version: 1, content: .init(model: f.model, preferences: f.preferences, controller: f.controller))
+            func flatten(_ rows: [DocumentMenuDescriptor]) -> [DocumentMenuDescriptor] {
+                rows.flatMap { [$0] + flatten($0.children) }
             }
-            let file = f.menu.items[1].submenu!
-            for (title, key, flags): (String, String, NSEvent.ModifierFlags) in [
-                (printTitle, "p", .command), ("Print with System Dialog…", "p", [.command, .option]),
-            ] {
-                let item = NSMenuItem(title: title, action: nil, keyEquivalent: key)
-                item.keyEquivalentModifierMask = flags
-                file.addItem(item)
-            }
-            let exports = NSMenuItem(title: "Export", action: nil, keyEquivalent: "")
-            exports.submenu = NSMenu()
-            file.addItem(exports)
-            exports.submenu!.addItem(NSMenuItem(title: "PDF for Reading…", action: nil, keyEquivalent: ""))
-            let sheets = NSMenuItem(title: "PDF of the Sheets…", action: nil, keyEquivalent: "e")
-            sheets.keyEquivalentModifierMask = [.command, .shift]
-            exports.submenu!.addItem(sheets)
-            let layouts = NSMenuItem(title: "Print Layout", action: nil, keyEquivalent: "")
-            layouts.submenu = NSMenu()
-            f.menu.items[4].submenu!.addItem(layouts)
-            for index in 0..<8 {
-                layouts.submenu!.addItem(
-                    NSMenuItem(title: "Layout \(index)", action: nil, keyEquivalent: index < 6 ? String(index + 1) : "")
-                )
-            }
-            f.bridge.reconcile()
+            return flatten(
+                DocumentMenuDescriptor.Section.allCases.flatMap { DocumentMenuDescriptor.rows(for: $0, in: snapshot) })
         }
-        buildMenu()
-        #expect(f.bridge.items[.documentPrint]?.keyEquivalent == "p")
-        #expect(
-            ShortcutPrintLayouts.operations.prefix(6).compactMap { f.bridge.items[$0]?.keyEquivalent } == [
-                "1", "2", "3", "4", "5", "6",
-            ])
         try f.controller.edit(.documentPrint, keys: [.init(key: .character("k"), modifiers: .command)])
         try f.controller.edit(.documentPrintSystem, keys: [])
         try f.controller.edit(.documentExportPDF, keys: [.init(key: .character("j"), modifiers: [.command, .shift])])
         try f.controller.edit(.documentExportReadingPDF, keys: [.init(key: .character("u"), modifiers: .command)])
         try f.controller.edit(.printLayoutSingle, keys: [])
-        buildMenu()
-        #expect(f.bridge.items[.documentPrint]?.keyEquivalent == "k")
-        #expect(f.bridge.items[.documentPrintSystem]?.keyEquivalent == "")
-        #expect(f.bridge.items[.documentExportPDF]?.keyEquivalent == "j")
-        #expect(f.bridge.items[.documentExportReadingPDF]?.keyEquivalent == "u")
-        #expect(f.bridge.items[.documentExportPDF]?.keyEquivalentModifierMask == [.command, .shift])
-        #expect(f.bridge.items[.printLayoutSingle]?.keyEquivalent == "")
         f.model.choosePaperSeries(.b, remembers: false)
         f.model.enterPrintMode()
-        buildMenu(printTitle: "Print")
-        #expect(f.bridge.items[.documentPrint]?.title == "Print")
-        #expect(f.bridge.items[.documentPrint]?.keyEquivalent == "k")
+        let commands = rows()
+        func row(_ operation: ShortcutOperationID) throws -> DocumentMenuDescriptor {
+            try #require(commands.first { $0.operation == operation })
+        }
+        #expect(try row(.documentPrint).shortcut?.key.character == "k")
+        #expect(try row(.documentPrintSystem).shortcut == nil)
+        #expect(try row(.documentExportPDF).shortcut?.key.character == "j")
+        #expect(try row(.documentExportPDF).shortcut?.modifiers == [.shift, .command])
+        #expect(try row(.documentExportReadingPDF).shortcut?.key.character == "u")
+        #expect(try row(.printLayoutSingle).shortcut == nil)
+        #expect(try row(.documentPrint).title == "Print")
         #expect(
-            f.bridge.items[.printLayoutHandout]?.title == PrintLayout.a4Handout3.displayName(language: f.model.language)
-        )
+            try row(.printLayoutHandout).title
+                == .verbatim(PrintLayout.a4Handout3.displayName(language: f.model.language)))
         #expect(
-            f.bridge.items[.printLayoutTwoUpSmall]?.title == PrintLayout.b5TwoUp.displayName(language: f.model.language)
-        )
+            try row(.printLayoutTwoUpSmall).title
+                == .verbatim(PrintLayout.b5TwoUp.displayName(language: f.model.language)))
         #expect(f.submissions.count == 0 && f.exports == 0)
     }
 
@@ -472,11 +445,11 @@ extension ShortcutOutputTests {
         try f.controller.edit(.printFoldPreview, keys: [key])
         var actions: [ShortcutOperationID] = []
         f.dispatcher.executeOverride = { actions.append($0) }
-        f.model.mode = .compare
+        f.model.enterCompareMode()
         #expect(f.dispatcher.handle(f.event("j", code: 38)))
         #expect(actions == [.compareShuffle])
         f.release(38)
-        f.model.mode = .print
+        f.model.chooseLayout("a4BookletA5")
         #expect(f.dispatcher.handle(f.event("j", code: 38)))
         #expect(actions == [.compareShuffle, .printFoldPreview])
         #expect(f.submissions.count == 0 && f.exports == 0)
@@ -489,11 +462,32 @@ extension ShortcutOutputTests {
             .printFoldPreview, .printReviewIssues, .htmlSmartRemoval, .htmlReviewRemoval,
             .printManualDuplex, .printDuplexTest,
         ])
-    func remainingBindings(operation: ShortcutOperationID) throws {
-        let f = ShortcutOutputFixture()
+    func remainingBindings(operation: ShortcutOperationID) async throws {
+        let format: DocumentFormat
+        switch operation {
+        case .styleCompare, .styleFavorite, .compareShuffle, .printReviewIssues: format = .markdown
+        case .htmlSmartRemoval, .htmlReviewRemoval: format = .html
+        default: format = .pdf
+        }
+        let renderer = DocumentRenderer(paginateWithResult: { _ in
+            var result = WebPaginator.Result(document: try #require(PDFDocument(data: TestFixtures.pdf("Body"))))
+            result.issues = [PrintIssue(id: "vertical-writing", kind: .verticalWriting, detail: "")]
+            return result
+        })
+        let f = ShortcutOutputFixture(format: format, renderer: renderer)
         defer { f.close() }
-        if operation == .compareShuffle { f.model.mode = .compare }
-        if [.printFoldPreview, .printManualDuplex, .printDuplexTest].contains(operation) { f.model.mode = .print }
+        switch operation {
+        case .compareShuffle: f.model.enterCompareMode()
+        case .printFoldPreview, .printManualDuplex, .printDuplexTest:
+            f.model.chooseLayout("a4BookletA5")
+            try await f.render()
+        case .viewOutline:
+            try await f.render()
+            f.model.toggleBookmark()
+        case .printReviewIssues: try await f.render()
+        case .htmlReviewRemoval: f.model.setSmartRemoval(enabled: true)
+        default: break
+        }
         var actions: [ShortcutOperationID] = []
         f.dispatcher.executeOverride = { actions.append($0) }
         try f.controller.edit(operation, keys: [.init(key: .character("j"), modifiers: .command)])
@@ -517,6 +511,9 @@ extension ShortcutOutputTests {
         #expect(f.model.isPrintFinishPresented)
         let key = f.event("p", inWindow: false)
         try #require(key.window == nil)
+        f.menus.start()
+        NotificationCenter.default.post(name: NSMenu.didBeginTrackingNotification, object: f.menu)
+        defer { NotificationCenter.default.post(name: NSMenu.didEndTrackingNotification, object: f.menu) }
         #expect(!f.dispatcher.handle(key))
         f.dispatcher.performFromMenu(.documentPrint, event: key)
         #expect(f.model.mode == .print)

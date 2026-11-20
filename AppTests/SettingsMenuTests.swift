@@ -87,7 +87,7 @@ struct SettingsMenuTests {
             (["Print…", "Print"], NSEvent.ModifierFlags.command),
             (["Print with System Dialog…"], NSEvent.ModifierFlags([.option, .command])),
         ] {
-            let item = try #require(menu.items.first { titles.map(localized).contains($0.title) })
+            let item = try #require(menu.items.first { titles.map { localized($0) }.contains($0.title) })
             #expect(item.keyEquivalent == "p")
             #expect(item.keyEquivalentModifierMask.intersection(.deviceIndependentFlagsMask) == flags)
         }
@@ -114,9 +114,9 @@ struct SettingsMenuTests {
     @Test("文字選択と窓の固定操作は表示メニューにあり、ツールバーを常に表示は⌥⌘Tで切り替わる")
     func secondaryViewCommands() throws {
         let menu = try #require(NSApp.mainMenu?.items[3].submenu)
+        menu.update()
         for key in ["Select Text", "Always Show Toolbar", "Float on Top", "Show on All Spaces", "View Options…"] {
-            let item = try #require(menu.items.first { $0.title == localized(key) })
-            #expect(item.isEnabled)
+            _ = try #require(menu.items.first { $0.title == localized(key) })
         }
         let pin = try #require(menu.items.first { $0.title == localized("Always Show Toolbar") })
         #expect(pin.keyEquivalent == "t")
@@ -126,13 +126,13 @@ struct SettingsMenuTests {
     @Test("表示メニューは単ページと見開きの順で⌥⌘1と⌥⌘2を割り当てる")
     func viewLayoutOrderAndShortcuts() throws {
         let menu = try #require(NSApp.mainMenu?.items[3].submenu)
+        menu.update()
         let entries = menu.items.filter { [localized("Single Page"), localized("Spread")].contains($0.title) }
         #expect(entries.map(\.title) == [localized("Single Page"), localized("Spread")])
         #expect(entries.map(\.keyEquivalent) == ["1", "2"])
         #expect(
             entries.map { $0.keyEquivalentModifierMask.intersection(.deviceIndependentFlagsMask) }
                 == [[.option, .command], [.option, .command]])
-        #expect(entries.allSatisfy { $0.isEnabled })
     }
 
     @Test(
@@ -159,7 +159,7 @@ struct SettingsMenuTests {
                 == [
                     "Print Layout", "Setting Sets", "Print Settings…", "Choose Style…", "Add Documents…",
                     "Reset Document Settings", "Reload",
-                ].map(localized))
+                ].map { localized($0) })
         let layouts = try #require(menu.items.first?.submenu)
         // The six cards keep ⌘1 to ⌘6; the layouts that save paper on the same sheet follow without a key.
         let items = layouts.items.filter { !$0.isSeparatorItem }
@@ -171,22 +171,32 @@ struct SettingsMenuTests {
             })
     }
 
-    @Test("文書メニューには印刷の設定がひとつだけあり、文書がなくても有効なままにする")
+    @Test("文書メニューには印刷の設定がひとつだけある")
     func printSettingsItem() throws {
         let menu = try #require(NSApp.mainMenu?.items.first { $0.title == localized("Document") }?.submenu)
+        menu.update()
         let entries = menu.items.filter { $0.title == localized("Print Settings…") }
         #expect(entries.count == 1)
-        #expect(entries.first?.isEnabled == true)
     }
 
-    @Test("文書メニューの設定セットは文書がなくても保存と管理の項目を有効に保つ")
-    func settingSetCommands() throws {
+    // The menu bar is declared from a snapshot that SwiftUI does not rebuild while another test's window is key,
+    // so availability is checked where the menu, the keys and the actions all read it.
+    @Test("文書がないときは表示と文書の操作を選べず、設定セットは管理だけ選べる")
+    func availabilityWithoutDocument() throws {
         let menu = try #require(NSApp.mainMenu?.items[4].submenu)
         let sets = try #require(menu.items.first { $0.title == localized("Setting Sets") }?.submenu)
         for key in ["Save Current Settings…", "Manage Setting Sets…"] {
-            let item = try #require(sets.items.first { $0.title == localized(key) })
-            #expect(item.isEnabled)
+            _ = try #require(sets.items.first { $0.title == localized(key) })
         }
+        let visibility = MenuSnapshot.Visibility(model: nil, preferences: nil)
+        let needsDocument: [ShortcutOperationID] = [
+            .viewSelectText, .viewToolbarAlways, .viewFloatOnTop, .viewShowOnAllSpaces, .viewOptions,
+            .viewSingle, .viewSpread, .printSettings, .settingSetSave,
+        ]
+        for operation in needsDocument {
+            #expect(!ShortcutDispatcher.isAvailable(operation, model: nil, visibility: visibility))
+        }
+        #expect(ShortcutDispatcher.isAvailable(.settingSetManage, model: nil, visibility: visibility))
     }
 
     @Test("表示の既定値は保存され未設定や不正な値なら自動に戻る")

@@ -22,8 +22,9 @@ final class ShortcutController {
     private(set) var loadError = false
     private(set) var migrationError: String?
     var menuAmbiguities: Set<ShortcutOperationID> = []
+    private(set) var standardMenuKeys: [ShortcutOperationID: ShortcutCombination] = [:]
     private(set) var externalMenuKeys: [ShortcutOperationID: ShortcutCombination] = [:]
-    @ObservationIgnored var synchronizeMenus: () -> Void = {}
+    private var localizedDefaults: [ShortcutOperationID: ShortcutCombination] = [:]
     private var preferences: AppPreferences?
     private let reservations: () -> [ShortcutSystemReservation]?
     private let keyboardLayout: () -> ShortcutKeyboardLayout
@@ -45,7 +46,9 @@ final class ShortcutController {
 
     func refreshEnvironment() {
         let reserved = reservations()
-        layout = keyboardLayout()
+        let currentLayout = keyboardLayout()
+        if layout.projection != currentLayout.projection { localizedDefaults = [:] }
+        layout = currentLayout
         environment = .init(
             reservations: (reserved ?? []) + externalMenuKeys.values.map { .init(combination: $0) },
             projection: layout.projection,
@@ -54,7 +57,6 @@ final class ShortcutController {
 
     func refresh() {
         guard let preferences else { return }
-        defer { synchronizeMenus() }
         refreshEnvironment()
         preferences.reloadKeyboardShortcuts(environment: environment)
         loadError = preferences.keyboardShortcutsLoadState.isUnreadable
@@ -94,7 +96,8 @@ final class ShortcutController {
         var result: [KeyCombo: GlobalHotKeys.Action] = [:]
         for action in GlobalHotKeys.Action.allCases {
             for key in configuration.keys(for: action.operation)
-            where validator.issues(for: action.operation, combination: key).isEmpty
+            where !reservedByStandardMenu(key, for: action.operation)
+                && validator.issues(for: action.operation, combination: key).isEmpty
                 && validator.conflicts(for: action.operation, keys: [key], in: configuration).isEmpty
             {
                 if let combo = KeyCombo(key) { result[combo] = action }
@@ -117,7 +120,6 @@ final class ShortcutController {
         snapshot = plan.configuration
         unavailableBindings = plan.unavailableBindings
         migrationError = nil
-        synchronizeMenus()
     }
 
     func proposal(
@@ -130,8 +132,13 @@ final class ShortcutController {
         // A dialog may have been open while macOS reservations or the input source changed.
         refreshEnvironment()
         let validator = ShortcutValidator(environment: environment)
-        let conflicts = validator.conflicts(
-            for: operation, keys: keys ?? ShortcutDefaults.keys(for: operation), in: snapshot)
+        let proposed = keys ?? ShortcutDefaults.keys(for: operation)
+        if let reserved = proposed.first(where: { reservedByStandardMenu($0, for: operation) }) {
+            throw ShortcutModelError.validation([
+                .init(code: .systemReserved, operation: operation, combination: reserved)
+            ])
+        }
+        let conflicts = validator.conflicts(for: operation, keys: proposed, in: snapshot)
         // Unconnected handlers still own their defaults and cannot surrender them.
         if conflicts.contains(where: { $0.owners.contains { !isConnected($0.operation) } }) {
             throw EditError.localConflict(conflicts)
@@ -153,9 +160,10 @@ final class ShortcutController {
     }
 
     func importBlockedOperations(_ review: ShortcutImportReview) -> [ShortcutOperationID] {
-        review.changed.filter {
-            externalMenuKeys[$0] != nil || menuAmbiguities.contains($0) || !isConnected($0)
-                || ($0 == .appCheckUpdates && !AppUpdater.shared.isAvailable)
+        review.changed.filter { operation in
+            externalMenuKeys[operation] != nil || menuAmbiguities.contains(operation) || !isConnected(operation)
+                || (operation == .appCheckUpdates && !AppUpdater.shared.isAvailable)
+                || review.configuration.keys(for: operation).contains { reservedByStandardMenu($0, for: operation) }
         }
     }
 
@@ -187,7 +195,6 @@ final class ShortcutController {
         snapshot = plan.configuration
         unavailableBindings = plan.unavailableBindings
         migrationError = nil
-        synchronizeMenus()
     }
 
     func logicalKey(_ physical: ShortcutCombination) throws -> ShortcutCombination {
@@ -207,24 +214,107 @@ final class ShortcutController {
             || ShortcutSurfaceKeys.operations.contains(operation)
     }
 
-    func setExternalMenuKeys(_ keys: [ShortcutOperationID: ShortcutCombination]) {
-        guard externalMenuKeys != keys else { return }
+    private func reservedByStandardMenu(_ key: ShortcutCombination, for operation: ShortcutOperationID) -> Bool {
+        standardMenuKeys.contains { $0.key != operation && environment.matches($0.value, key) }
+    }
+
+    func setExternalMenuKeys(
+        _ keys: [ShortcutOperationID: ShortcutCombination], standard: [ShortcutOperationID: ShortcutCombination] = [:]
+    ) {
+        guard externalMenuKeys != keys || standardMenuKeys != standard else { return }
+        standardMenuKeys = standard
         externalMenuKeys = keys
         refreshEnvironment()
         hotKeys.synchronize(registrations(for: snapshot))
     }
 
-    func localKeys(for operation: ShortcutOperationID) -> [ShortcutCombination] {
-        if let key = externalMenuKeys[operation] { return [key] }
-        let keys = snapshot.keys(for: operation)
-        return keys.filter { key in
-            guard !externalMenuKeys.values.contains(where: { environment.matches($0, key) }) else { return false }
+    func observeLocalizedDefaults(_ keys: [ShortcutOperationID: ShortcutCombination]) {
+        // Keep a translation while its row is absent or temporarily has no equivalent because of a conflict.
+        for (operation, key) in keys {
+            let translation = key == ShortcutDefaults.keys(for: operation).first ? nil : key
+            if localizedDefaults[operation] != translation { localizedDefaults[operation] = translation }
+        }
+    }
+
+    private func translatedDefault(_ key: ShortcutCombination, for operation: ShortcutOperationID)
+        -> ShortcutCombination
+    {
+        if let actual = localizedDefaults[operation] { return actual }
+        // AppKit mirrors these equivalents in an RTL main menu. A conditional row may not exist to read yet.
+        guard NSApp?.userInterfaceLayoutDirection == .rightToLeft else { return key }
+        let pairs: [ShortcutKey: ShortcutKey] = [
+            .character("["): .character("]"), .character("{"): .character("}"),
+            .character("("): .character(")"), .character("<"): .character(">"), .named(.leftArrow): .named(.rightArrow),
+        ]
+        let mirrored = pairs[key.key] ?? pairs.first { $0.value == key.key }?.key
+        return mirrored.map { ShortcutCombination(key: $0, modifiers: key.modifiers) } ?? key
+    }
+
+    func automaticMenuKey(for operation: ShortcutOperationID, effective: ShortcutCombination?) -> ShortcutCombination? {
+        guard snapshot.overrides[operation] == nil, externalMenuKeys[operation] == nil,
+            standardMenuKeys[operation] == nil,
+            let base = ShortcutDefaults.keys(for: operation).first,
+            !base.modifiers.intersection([.command, .control]).isEmpty,
+            translatedDefault(base, for: operation) == effective
+        else { return nil }
+        // SwiftUI localizes the base key. Feeding it the already translated key would mirror it twice.
+        return base
+    }
+
+    func localKeys(for operation: ShortcutOperationID, textInput: Bool = false) -> [ShortcutCombination] {
+        let keys = resolvedKeys(for: operation)
+        // A menu equivalent with only Control can swallow an editor command before the text view sees it.
+        return textInput ? keys.filter { $0.modifiers.contains(.command) } : keys
+    }
+
+    private func resolvedKeys(for operation: ShortcutOperationID) -> [ShortcutCombination] {
+        guard !menuAmbiguities.contains(operation) else { return [] }
+        if let key = externalMenuKeys[operation] {
+            if reservedByStandardMenu(key, for: operation) { return [] }
+            let conflict = externalMenuKeys.contains { owner, other in
+                owner != operation && environment.matches(key, other)
+                    && ShortcutOperation.operation(owner).binding(for: other).overlaps(
+                        ShortcutOperation.operation(operation).binding(for: key))
+            }
+            return conflict ? [] : [key]
+        }
+        var keys = snapshot.keys(for: operation)
+        if snapshot.overrides[operation] == nil, let first = keys.first,
+            !first.modifiers.intersection([.command, .control]).isEmpty
+        {
+            keys[0] = translatedDefault(first, for: operation)
+        }
+        let aliases = keys.filter { key in
+            guard !reservedByStandardMenu(key, for: operation),
+                !externalMenuKeys.values.contains(where: { environment.matches($0, key) })
+            else { return false }
             // Built-in equivalents must remain available even when OS reservation discovery fails.
-            guard snapshot.overrides[operation] != nil else { return true }
+            guard snapshot.overrides[operation] != nil else {
+                // A translated default can collide with an explicit binding that was valid in the previous layout.
+                guard localizedDefaults[operation] == key else { return true }
+                return !snapshot.overrides.keys.contains { owner in
+                    resolvedKeys(for: owner).contains { other in
+                        environment.matches(other, key)
+                            && ShortcutOperation.operation(owner).binding(for: other).overlaps(
+                                ShortcutOperation.operation(operation).binding(for: key))
+                    }
+                }
+            }
             let validator = ShortcutValidator(environment: environment)
             return validator.issues(for: operation, combination: key).isEmpty
                 && validator.conflicts(for: operation, keys: [key], in: snapshot).isEmpty
         }
+        // Open and Settings are native commands. Their displayed equivalents still work after an in-app rebind.
+        if let native = standardMenuKeys[operation] {
+            return [native] + aliases.filter { $0 != native }
+        }
+        return aliases
+    }
+
+    func settingsKeys(for operation: ShortcutOperationID) -> [ShortcutCombination] {
+        if standardMenuKeys[operation] != nil { return localKeys(for: operation) }
+        // Keep a rejected stored binding visible in Settings alongside its explanation.
+        return externalMenuKeys[operation].map { [$0] } ?? snapshot.keys(for: operation)
     }
 
     func status(for operation: ShortcutOperationID) -> String {
@@ -238,6 +328,12 @@ final class ShortcutController {
         }
         if let issue = unavailableBindings.first(where: { $0.operation == operation }) {
             return ShortcutText.reason(issue.code)
+        }
+        if snapshot.keys(for: operation).contains(where: { reservedByStandardMenu($0, for: operation) }) {
+            return ShortcutText.reason(.systemReserved)
+        }
+        if standardMenuKeys[operation] != nil && snapshot.keys(for: operation).isEmpty {
+            return String(localized: "Managed in macOS")
         }
         guard !snapshot.keys(for: operation).isEmpty else { return String(localized: "Unassigned") }
         let validator = ShortcutValidator(environment: environment)

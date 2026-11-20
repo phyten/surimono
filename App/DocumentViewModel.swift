@@ -3686,8 +3686,19 @@ final class DocumentViewModel {
         canOutput && pendingPrint == nil && manualDuplexSession == nil && duplexTestResult == nil
     }
 
+    // A command from the reading window may enter the tray or request a fresh capture before output is ready.
+    var canRequestSheetOutput: Bool {
+        !isPrinting && !isExporting
+            && (mode != .print || canOutput || showsWeb || isCapturingWeb
+                || webCaptureFailed || isReviewingSmartRemoval || showsStaleDate)
+    }
+
+    var canRequestPrint: Bool {
+        pendingPrint == nil && manualDuplexSession == nil && duplexTestResult == nil && canRequestSheetOutput
+    }
+
     func printDocument(intent: PrintIntent) {
-        guard pendingPrint == nil, manualDuplexSession == nil, duplexTestResult == nil, !isPrinting else { return }
+        guard canRequestPrint else { return }
         let output: Output = intent == .manualDuplex ? .manualDuplex : .print(quick: intent == .quick)
         guard !deferUntilPrintMode(output), !deferUntilWebIsCaptured(output), !deferUntilReviewEnds(output),
             !deferUntilDateIsCurrent(output)
@@ -3806,11 +3817,11 @@ final class DocumentViewModel {
             printer: destination, pageOrder: pageOrder, copies: request.copies, jobTitle: jobTitle ?? printJobTitle)
     }
 
-    @ObservationIgnored var additionalExportTask: Task<Void, Never>?
+    var additionalExportTask: Task<Void, Never>?
     @ObservationIgnored var exportPanel: NSSavePanel?
     @ObservationIgnored var sharedExportDirectory: URL?
     @ObservationIgnored var sharePicker: NSSharingServicePicker?
-    @ObservationIgnored private var readingExportTask: Task<Void, Never>?
+    private var readingExportTask: Task<Void, Never>?
     @ObservationIgnored private var exportingSourceURLs: [URL] = []
 
     var canExportReadingPDF: Bool {
@@ -3826,8 +3837,15 @@ final class DocumentViewModel {
         return name.replacingOccurrences(of: ":", with: "-").replacingOccurrences(of: "/", with: "-") + ".pdf"
     }
 
+    var canRequestReadingOutput: Bool {
+        !isExporting && !isPrinting
+            && (error == nil || showsWeb || isCapturingWeb || webCaptureFailed || isReviewingSmartRemoval)
+    }
+
+    var canRequestReadingPDF: Bool { readingExportTask == nil && canRequestReadingOutput }
+
     func exportReadingPDF() {
-        guard readingExportTask == nil, !isExporting, !isPrinting,
+        guard canRequestReadingPDF,
             !deferUntilWebIsCaptured(.exportReadingPDF), !deferUntilReviewEnds(.exportReadingPDF)
         else { return }
         // A render already in flight owns the request until its current pages are ready.
@@ -3952,7 +3970,7 @@ final class DocumentViewModel {
     }
 
     func exportPDF() {
-        guard !deferUntilPrintMode(.exportPDF),
+        guard canRequestSheetOutput, !deferUntilPrintMode(.exportPDF),
             !deferUntilWebIsCaptured(.exportPDF), !deferUntilReviewEnds(.exportPDF),
             !deferUntilDateIsCurrent(.exportPDF)
         else { return }

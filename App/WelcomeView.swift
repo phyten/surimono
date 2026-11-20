@@ -17,6 +17,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             appearanceKeeper = AppearanceKeeper(preferences: preferences)
             appearanceKeeper?.start()
         }
+        // Observe assembly before SwiftUI installs the document group's File submenu.
+        ShortcutDispatcher.shared.menus.start()
         RecentFileHistory.shared?.restoreOnLaunch()
         NSWindow.allowsAutomaticWindowTabbing = false
         // The document controller's launch-time open panel opens a multi-file selection one document at a time and
@@ -76,7 +78,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DistributedNotificationCenter.default().addObserver(
             self, selector: #selector(keyboardInputSourceChanged),
             name: Notification.Name(kTISNotifySelectedKeyboardInputSourceChanged as String), object: nil)
-        DocumentEditMenu.startHiding()
         ShortcutDispatcher.shared.start()
         #if DEBUG
             // Screenshots of a clipboard window open a file's text through a private pasteboard, leaving the user's

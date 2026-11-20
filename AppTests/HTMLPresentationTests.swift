@@ -59,6 +59,21 @@ struct HTMLPresentationTests {
         #expect(condition())
     }
 
+    @Test("ウェブと紙面の切り替えは HTML ファイルを表示できるときだけメニューで選べる")
+    func presentationMenuAvailability() throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let html = try model(environment)
+        defer { html.stop() }
+        for (document, enabled): (DocumentViewModel?, Bool) in [(nil, false), (html, true)] {
+            let snapshot = MenuSnapshot(
+                version: 1, content: .init(model: document, preferences: environment.preferences))
+            let row = try #require(
+                DocumentMenuDescriptor.rows(for: .view, in: snapshot).first { $0.operation == .viewHtmlPresentation })
+            #expect(row.isEnabled == enabled)
+        }
+    }
+
     @Test("ライブHTMLも全体設定とプリセットの両方が許すときだけJavaScriptを許可する")
     func liveJavaScriptPolicy() throws {
         let environment = try environment()
@@ -676,6 +691,9 @@ struct HTMLPresentationMenuTests {
         let toggles = items.filter { $0.keyEquivalent == "p" && $0.keyEquivalentModifierMask == [.control, .command] }
         #expect(toggles.count == 1)
         let item = try #require(toggles.first)
-        #expect(item.isEnabled)
+        let title = String(localized: "Show as Paper")
+        #expect(items.filter { $0.title == title }.count == 1)
+        #expect(item.title == title)
+        #expect(item.menu === NSApp.mainMenu?.item(at: 3)?.submenu)
     }
 }

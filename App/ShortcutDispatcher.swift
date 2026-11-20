@@ -5,7 +5,7 @@ import SurimonoCore
 final class ShortcutDispatcher {
     static let shared = ShortcutDispatcher(controller: .shared)
     let controller: ShortcutController
-    let bridge: ShortcutMenuBridge
+    let menus: SystemMenuShortcuts
     private let keyWindow: () -> NSWindow?
     private let firstResponder: (NSWindow) -> NSResponder?
     private let currentModel: () -> DocumentViewModel?
@@ -15,26 +15,23 @@ final class ShortcutDispatcher {
     var executeOverride: ((ShortcutOperationID) -> Void)?
 
     init(
-        controller: ShortcutController, bridge: ShortcutMenuBridge? = nil,
+        controller: ShortcutController, menus: SystemMenuShortcuts? = nil,
         keyWindow: @escaping () -> NSWindow? = { NSApp.keyWindow },
         model: (() -> DocumentViewModel?)? = nil,
         firstResponder: @escaping (NSWindow) -> NSResponder? = { $0.firstResponder }
     ) {
         let resolveModel = model ?? { DocumentWindows.shared.model(for: keyWindow()) }
         self.controller = controller
-        self.bridge = bridge ?? ShortcutMenuBridge(controller: controller, keyWindow: keyWindow, model: resolveModel)
+        self.menus = menus ?? SystemMenuShortcuts(controller: controller, keyWindow: keyWindow, model: resolveModel)
         self.keyWindow = keyWindow
         self.firstResponder = firstResponder
         currentModel = resolveModel
-        self.bridge.dispatch = { [weak self] operation in self?.performFromMenu(operation, event: NSApp.currentEvent) }
-        controller.synchronizeMenus = { [weak self] in
-            self?.bridge.reconcile()
-        }
+
     }
 
     func start() {
         guard monitor == nil else { return }
-        bridge.start()
+        menus.start()
         monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
             let handled = MainActor.assumeIsolated { self?.handle(event) == true }
             return handled ? nil : event
@@ -45,7 +42,7 @@ final class ShortcutDispatcher {
         if let monitor { NSEvent.removeMonitor(monitor) }
         monitor = nil
         held = []
-        bridge.stop()
+        menus.stop()
     }
 
     func handle(_ event: NSEvent, fromMenu: Bool = false) -> Bool {
@@ -54,37 +51,42 @@ final class ShortcutDispatcher {
             return false
         }
         guard event.type == .keyDown else { return false }
-        // Menu tracking can report a windowless event to the monitor before invoking its item. Let the trusted
-        // menu adapter own that press; observing it here must not make its first invocation look like a hold.
-        guard fromMenu || event.window != nil else { return false }
+        // Menu tracking can report a windowless event to the monitor before invoking its item. Let the SwiftUI
+        // action own that press; observing it here must not make its first invocation look like a hold.
+        let window = keyWindow()
+        guard fromMenu || event.window != nil || window == nil || menus.updates.trackingDepth == 0 else { return false }
         // Track even keys received during recording, typing or a sheet. Neither menu synchronization nor a mode/
         // window change proves the physical key was released. A missed key-up costs one press, never a print job.
         let wasHeld = !held.insert(event.keyCode).inserted
         guard !controller.hotKeys.isRecording else { return false }
-        // A rebuilt menu can still carry SwiftUI's stale key or enabled state until this synchronous pass.
-        bridge.reconcile()
-        guard let window = keyWindow(), event.window === window || (fromMenu && event.window == nil),
-            window.attachedSheet == nil, NSApp.modalWindow == nil,
+        guard event.window === window || event.window == nil,
+            window?.attachedSheet == nil, NSApp.modalWindow == nil,
             let combination = Self.combination(event, allowsBareKeys: true)
         else { return false }
-        let responder = firstResponder(window)
-        if Self.isTextInput(responder), !combination.modifiers.contains(.command) { return false }
+        let responder = window.flatMap { firstResponder($0) }
+        let model = modelForKeyWindow(window)
+        let textInput = Self.isTextInput(responder)
+        if textInput, !combination.modifiers.contains(.command) { return false }
+        let visibility = MenuSnapshot.Visibility(model: model, preferences: menus.preferences())
         let matches = Self.operations.filter { operation in
-            controller.localKeys(for: operation).contains { $0 == combination }
+            controller.localKeys(for: operation, textInput: textInput).contains(combination)
+                && visibility.contains(operation)
+                && isPresentedWhileTracking(operation)
         }
         if let input = responder as? NSTextInputClient, input.hasMarkedText() {
             // Keep recognized menu keys consumed during composition, as before surface routing existed.
             // Execute neither menu nor surface operations, and leave unmatched editing keys to the input client.
             return !matches.isEmpty
         }
-        let model = currentModel()
         if let model, model.window === window, !model.blocksSurfaceShortcuts {
             if let surface = ShortcutSurfaceKeys.owner(of: responder),
                 (model.mode == .view && !model.showsWeb && surface.shortcutRegion != .foldedPreview)
                     || (model.mode == .print && model.showsFold && surface.shortcutRegion == .foldedPreview),
                 let operation = ShortcutSurfaceKeys.match(event, region: surface.shortcutRegion, controller: controller)
             {
-                surface.performShortcut(operation, event: event)
+                if !Self.operations.contains(operation) || canPerform(operation, model: model) {
+                    surface.performShortcut(operation, event: event)
+                }
                 return true
             }
             if model.shortcutListFocused, model.binder != nil, responder != nil,
@@ -92,7 +94,7 @@ final class ShortcutDispatcher {
                 !Self.isTextInput(responder), !(responder is NSControl) || responder is NSTableView,
                 ShortcutSurfaceKeys.match(event, region: .focusedList, controller: controller) == .listRemove
             {
-                if let url = model.binder?.selection { model.removeFromBinder(url) }
+                perform(.listRemove)
                 return true
             }
         }
@@ -117,8 +119,9 @@ final class ShortcutDispatcher {
         if Self.isTextInput(responder), matches.contains(where: { ShortcutOperation.operation($0).allowsBareKeys }) {
             return true
         }
-        let activeMatches = matches.filter { Self.isActive($0, model: model) }
-        guard activeMatches.count == 1, let operation = activeMatches.first, !bridge.ambiguous.contains(operation)
+        if window == nil && !matches.contains(where: { Self.isActive($0, model: nil) }) { return false }
+        let activeMatches = matches.filter { canPerform($0, model: model) }
+        guard activeMatches.count == 1, let operation = activeMatches.first
         else {
             return true
         }
@@ -161,20 +164,76 @@ final class ShortcutDispatcher {
     }
 
     static func isActive(_ operation: ShortcutOperationID, model: DocumentViewModel?) -> Bool {
+        isActive(operation, in: region(for: model))
+    }
+
+    static func region(for model: DocumentViewModel?) -> ShortcutRegion? {
+        guard let model else { return nil }
+        switch model.mode {
+        case .view: return model.showsWeb ? .web : .paperReading
+        case .print: return model.showsFold ? .foldedPreview : .printSheet
+        case .compare: return .comparison
+        }
+    }
+
+    static func isActive(_ operation: ShortcutOperationID, in region: ShortcutRegion?) -> Bool {
         let metadata = ShortcutOperation.operation(operation)
         if metadata.applicability == .application || operation == .appCheckUpdates { return true }
-        guard let model else { return false }
-        let region: ShortcutRegion
-        switch model.mode {
-        case .view: region = model.showsWeb ? .web : .paperReading
-        case .print: region = model.showsFold ? .foldedPreview : .printSheet
-        case .compare: region = .comparison
-        }
+        guard let region else { return false }
         return metadata.regions.contains(region)
     }
 
+    static func isAvailable(
+        _ operation: ShortcutOperationID, model: DocumentViewModel?, visibility: MenuSnapshot.Visibility
+    ) -> Bool {
+        guard visibility.contains(operation) else { return false }
+        if operation == .viewOptions { return model?.mode == .view }
+        if operation == .viewSelectText { return model?.canSelectText == true }
+        if operation == .listRemove { return model?.binder?.selection != nil && (model?.binder?.items.count ?? 0) > 1 }
+        guard isActive(operation, model: model) else { return false }
+        guard let model else { return true }
+        switch operation {
+        case .documentPrint: return model.canPerformPrintCommand
+        case .documentPrintSystem: return model.canRequestPrint
+        case .documentExportPDF: return model.canRequestSheetOutput
+        case .documentExportReadingPDF: return model.canRequestReadingPDF
+        case .documentExportHTML, .documentCopyHTML, .documentCopyRichText: return model.canExportReading(.html)
+        case .documentExportPNG, .documentShare: return model.canExportReading(.png)
+        case .documentGoToPage: return model.canGoToPage
+        case .documentFind, .documentFindNext, .documentFindPrevious: return model.hasPaperToSearch
+        case .viewHtmlPresentation: return model.mode == .view && model.usesHTMLPresentation
+        case .viewIgnoreSlides: return model.detectedSlideDeck != nil
+        case .styleCompare: return model.mode == .view && model.usesPrintTheme
+        case .compareShuffle: return model.usesPrintTheme && model.themeComparison != nil
+        case .styleChoose, .styleFavorite, .textIncrease, .textDecrease, .textReset:
+            return model.usesPrintTheme
+        case .readingBack: return model.canNavigateReading && model.pageHistory.canGoBack
+        case .readingForward: return model.canNavigateReading && model.pageHistory.canGoForward
+        case .bookmarkToggle: return model.canNavigateReading
+        case .bookmarkNext: return model.nextBookmark != nil
+        case .bookmarkPrevious: return model.previousBookmark != nil
+        case .viewOutline: return model.hasContents
+        case .viewDocumentInfo: return !model.showsWeb
+        case .documentAdd:
+            if case .closed = model.dropReceiver { return false }
+            return true
+        case .listMoveUp, .listMoveDown:
+            let offset = operation == .listMoveUp ? -1 : 1
+            return model.imageBundle?.canMoveSelection(by: offset) == true
+                || model.binder?.canMoveSelection(by: offset) == true
+        case .listSortByName: return model.imageBundle?.isSortedByName == false || model.binder?.isSortedByName == false
+        case .printFoldPreview: return model.layout.kind == .booklet
+        case .printReviewIssues: return !model.printIssues.isEmpty
+        case .htmlSmartRemoval: return model.format == .html
+        case .htmlReviewRemoval: return model.format == .html && model.isSmartRemovalEnabled
+        case .printManualDuplex: return model.canPrintManualDuplex
+        case .printDuplexTest: return model.canPrintDuplexTest
+        default: return true
+        }
+    }
+
     static var operations: Set<ShortcutOperationID> {
-        ShortcutMenuBridge.operations.union(ShortcutCommands.operations)
+        SystemMenuShortcuts.operations.union(ShortcutCommands.operations)
     }
 
     /// Menu tracking may bypass a local monitor. Recheck the event through the same key-up gate; mouse clicks
@@ -182,12 +241,6 @@ final class ShortcutDispatcher {
     func performFromMenu(_ operation: ShortcutOperationID, event: NSEvent?) {
         if let event, event.type == .keyDown, let key = Self.combination(event) {
             guard controller.localKeys(for: operation).contains(key) else { return }
-            if keyWindow() == nil, operation == .clipboardReopen || operation == .appOpenURL {
-                // Closing the last document can leave the File menu without a key window.
-                bridge.reconcile()
-                if !event.isARepeat, !bridge.ambiguous.contains(operation) { perform(operation) }
-                return
-            }
             _ = handle(event, fromMenu: true)
         } else {
             // Return/Space confirming a focused menu item are fixed native activation, not an assigned equivalent.
@@ -195,20 +248,30 @@ final class ShortcutDispatcher {
         }
     }
 
-    func perform(_ operation: ShortcutOperationID) {
+    private func isPresentedWhileTracking(_ operation: ShortcutOperationID) -> Bool {
+        menus.updates.trackingDepth == 0 || menus.menuState.snapshot.content.visibility.contains(operation)
+    }
+
+    private func modelForKeyWindow(_ window: NSWindow?) -> DocumentViewModel? {
+        guard let window, let model = currentModel(), model.window === window else { return nil }
+        return model
+    }
+
+    private func canPerform(_ operation: ShortcutOperationID, model: DocumentViewModel?) -> Bool {
         guard Self.operations.contains(operation), !controller.hotKeys.isRecording,
             NSApp.modalWindow == nil, keyWindow()?.attachedSheet == nil
-        else { return }
+        else { return false }
         if let window = keyWindow(), let input = firstResponder(window) as? NSTextInputClient, input.hasMarkedText() {
-            return
+            return false
         }
-        let model = currentModel()
-        let application =
-            ShortcutOperation.operation(operation).applicability == .application || operation == .appCheckUpdates
-        if !application {
-            guard let model, model.window === keyWindow() else { return }
-        }
-        guard Self.isActive(operation, model: model) else { return }
+        return isPresentedWhileTracking(operation)
+            && Self.isAvailable(
+                operation, model: model, visibility: .init(model: model, preferences: menus.preferences()))
+    }
+
+    func perform(_ operation: ShortcutOperationID) {
+        let model = modelForKeyWindow(keyWindow())
+        guard canPerform(operation, model: model) else { return }
         if let executeOverride {
             executeOverride(operation)
             return
@@ -233,8 +296,8 @@ final class ShortcutDispatcher {
         case .documentShare: model?.exportReading(.share)
         case .printSettings: model?.presentPrintSettings()
         case .clipboardOpenPrintScreen: openClipboardPrintScreen()
-        case .appOpen: bridge.invokeStandard(.appOpen)
-        case .appSettings: bridge.invokeStandard(.appSettings)
+        case .appOpen: menus.invokeStandard(.appOpen)
+        case .appSettings: menus.invokeStandard(.appSettings)
         case .appOpenURL: OpenURLPanel.present()
         case .clipboardReopen: ClipboardWindows.shared.reopenClosed()
         case .clipboardOpen: ClipboardWindows.shared.open()
@@ -247,7 +310,7 @@ final class ShortcutDispatcher {
             if let preferences = WelcomeController.shared.preferences {
                 BandArrangementEditorSession.showSection(.settingSets, preferences: preferences)
             }
-            bridge.invokeStandard(.appSettings)
+            menus.invokeStandard(.appSettings)
         case .documentFind: model?.performFind()
         case .documentFindNext: model?.findStep(forward: true)
         case .documentFindPrevious: model?.findStep(forward: false)
@@ -262,6 +325,10 @@ final class ShortcutDispatcher {
         case .documentAdd: model?.chooseDocumentsToAdd()
         case .documentOpenBinder: model?.openIncludesAsBinder()
         case .documentResetSettings: model?.resetDocumentSettings()
+        case .viewOptions: model?.isViewOptionsPresented = true
+        case .viewSelectText: model?.toggleSelectingText()
+        case .listRemove:
+            if let url = model?.binder?.selection { model?.removeFromBinder(url) }
         case .viewHtmlPresentation: model?.toggleHTMLPresentation()
         case .viewIgnoreSlides: model?.toggleShowsSlides()
         case .textIncrease: model?.increaseTextSize()

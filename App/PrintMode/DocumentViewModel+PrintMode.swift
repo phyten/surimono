@@ -13,7 +13,7 @@ extension DocumentViewModel {
     }
 
     func performPrintCommand() {
-        guard manualDuplexSession == nil else { return }
+        guard canPerformPrintCommand else { return }
         switch printCommand {
         case .enterPrintMode: enterPrintMode()
         case .printNow: printDocument(quick: true)

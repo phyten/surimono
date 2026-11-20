@@ -1316,6 +1316,14 @@ struct DocumentSettingsFlowTests {
         model.setLayout(.single)
         model.rememberedSettingsDidChange()
         #expect(environment.store.keys().isEmpty)
+        // The host keeps running after the simulated quit. Restore the services the real delegate started at launch.
+        defer {
+            if let preferences = ClipboardWindows.shared.preferences {
+                GlobalHotKeys.shared.start()
+                ShortcutController.shared.start(preferences: preferences)
+            }
+            ShortcutDispatcher.shared.start()
+        }
         AppDelegate().applicationWillTerminate(Notification(name: NSApplication.willTerminateNotification))
         #expect(environment.store.record(for: ContentHash.of(data).hex)?.view?.layout == .single)
     }

@@ -198,10 +198,17 @@ final class BinderModel {
         items.move(fromOffsets: offsets, toOffset: destination)
     }
 
-    func moveSelection(by offset: Int) {
+    private func moveIndices(by offset: Int) -> (Int, Int)? {
         guard let index = items.firstIndex(where: { $0.url == selection }), items.indices.contains(index + offset)
-        else { return }
-        items.swapAt(index, index + offset)
+        else { return nil }
+        return (index, index + offset)
+    }
+
+    func canMoveSelection(by offset: Int) -> Bool { moveIndices(by: offset) != nil }
+
+    func moveSelection(by offset: Int) {
+        guard let (from, to) = moveIndices(by: offset) else { return }
+        items.swapAt(from, to)
     }
 
     func removeSelection() {

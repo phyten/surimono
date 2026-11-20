@@ -204,13 +204,3 @@ final class UpdateRelaunch {
         return true
     }
 }
-
-struct UpdateCommands: Commands {
-    var body: some Commands {
-        CommandGroup(after: .appInfo) {
-            if AppUpdater.shared.isAvailable {
-                Button("Check for Updates…") { ShortcutDispatcher.shared.perform(.appCheckUpdates) }
-            }
-        }
-    }
-}

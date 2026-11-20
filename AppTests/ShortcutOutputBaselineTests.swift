@@ -31,12 +31,12 @@ final class ShortcutOutputFixture {
     })
     lazy var controller = ShortcutController(
         hotKeys: hotKeys, reservations: { [] }, keyboardLayout: { ShortcutOutputFixture.keyboardLayout })
-    lazy var bridge = ShortcutMenuBridge(
+    lazy var menus = SystemMenuShortcuts(
         controller: controller, menu: { [unowned self] in menu },
         keyWindow: { [unowned self] in activeWindow }, model: { [unowned self] in model },
         localize: { $0 }, externalKey: { _ in "" })
     lazy var dispatcher = ShortcutDispatcher(
-        controller: controller, bridge: bridge, keyWindow: { [unowned self] in activeWindow },
+        controller: controller, menus: menus, keyWindow: { [unowned self] in activeWindow },
         model: { [unowned self] in model }, firstResponder: { [unowned self] _ in responder })
     let menu = NSMenu()
     var activeWindow: NSWindow?
@@ -47,7 +47,7 @@ final class ShortcutOutputFixture {
     var allowsPrint = false
     var allowsExport = false
 
-    init(format: DocumentFormat = .pdf) {
+    init(format: DocumentFormat = .pdf, renderer: DocumentRenderer = DocumentRenderer()) {
         window.isReleasedWhenClosed = false
         activeWindow = window
         preferences.layoutID = "a4Single"
@@ -55,6 +55,7 @@ final class ShortcutOutputFixture {
         model = DocumentViewModel(
             data: format == .pdf ? TestFixtures.pdf("Shortcuts", pages: 4) : Data("# Heading\n\nBody".utf8),
             fileURL: nil, format: format, preferences: preferences, library: UserLibrary(root: directory),
+            renderer: renderer,
             settingsStore: DocumentSettingsStore(directory: directory.appendingPathComponent("Settings")))
         if format == .html { model.setHTMLPresentation(.paper, capturesWeb: false) }
         model.window = window

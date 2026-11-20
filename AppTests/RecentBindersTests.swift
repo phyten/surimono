@@ -85,53 +85,57 @@ struct RecentBindersTests {
 
     // MARK: The File menu
 
-    /// The File menu as it is when opened. SwiftUI brings a menu up to date as it is about to open, a moment after
-    /// what the menu follows has changed, so this asks again until the menu is as `condition` wants.
-    private func openedFileMenu(until condition: (NSMenu) -> Bool) async throws -> NSMenu {
-        let file = try #require(NSApp.mainMenu?.items[1].submenu)
-        for _ in 0..<300 {
-            file.delegate?.menuNeedsUpdate?(file)
-            if condition(file) { break }
-            try await Task.sleep(for: .milliseconds(10))
-        }
-        return file
-    }
-
     @Test("ファイルメニューは、最近の合本があるときだけ「最近使った合本」を出し、メニューを消去すると消える", .timeLimit(.minutes(1)))
     func fileMenuListsRecentBinders() async throws {
-        // The running app's own preferences, because the menu follows them; what was there comes back at the end.
-        let preferences = try #require(BinderWindows.shared.preferences)
-        let saved = preferences.recentBinders
-        let wasStored = UserDefaults.standard.object(forKey: "recentBinders") != nil
-        defer {
-            preferences.clearRecentBinders()
-            for entry in saved.entries.reversed() { preferences.recordRecentBinder(entry) }
-            if !wasStored { UserDefaults.standard.removeObject(forKey: "recentBinders") }
+        let fixture = try Fixture()
+        defer { fixture.remove() }
+        let preferences = fixture.preferences
+        let state = MenuState()
+        let root = NSMenu()
+        let updates = MenuUpdates(
+            state: state, root: { root }, model: { nil }, preferences: { preferences },
+            lifecycle: NotificationCenter(), apply: { _ in })
+        updates.start()
+        defer { updates.stop() }
+        func recentMenus() -> [DocumentMenuDescriptor] {
+            DocumentMenuDescriptor.rows(for: .open, in: state.snapshot).filter { $0.id == .menu("Recent Binders") }
         }
-        let name = Bundle.main.localizedString(forKey: "Recent Binders", value: nil, table: nil)
-        let clear = Bundle.main.localizedString(forKey: "Clear Menu", value: nil, table: nil)
-        let language = Bundle.main.preferredLocalizations.first ?? "en"
-        func isListed(_ menu: NSMenu) -> Bool { menu.items.contains { $0.title == name } }
-
-        preferences.clearRecentBinders()
-        var file = try await openedFileMenu { !isListed($0) }
-        #expect(!isListed(file))
-
-        preferences.recordRecentBinder(RecentBinder(files: [.init(path: "/docs/a.md"), .init(path: "/docs/b.md")]))
-        preferences.recordRecentBinder(
-            RecentBinder(files: ["x.md", "y.md", "z.md"].map { .init(path: "/docs/" + $0) }))
-        file = try await openedFileMenu { isListed($0) }
-        let submenu = try #require(file.items.first { $0.title == name }?.submenu)
+        #expect(state.snapshot.content.recentBinders.isEmpty && recentMenus().isEmpty)
+        let first = RecentBinder(files: [.init(path: "/docs/a.md"), .init(path: "/docs/b.md")])
+        let second = RecentBinder(files: ["x.md", "y.md", "z.md"].map { .init(path: "/docs/" + $0) })
+        preferences.recordRecentBinder(first)
+        preferences.recordRecentBinder(second)
+        await withCheckedContinuation { done in DispatchQueue.main.async { done.resume() } }
+        let entries = state.snapshot.content.recentBinders
         let titles = [(first: "x.md", count: 3), (first: "a.md", count: 2)].map {
-            BinderModel.title(firstName: $0.first, count: $0.count, language: language)
+            BinderModel.title(firstName: $0.first, count: $0.count, language: state.snapshot.content.language)
         }
-        #expect(submenu.items.map(\.title) == titles + ["", clear])
-        #expect(submenu.items[2].isSeparatorItem)
-
-        submenu.performActionForItem(at: 3)
+        #expect(entries.map(\.id) == [second.id, first.id])
+        #expect(entries.map(\.title) == titles)
+        try #require(recentMenus().count == 1)
+        let rows = try #require(recentMenus().first).children
+        #expect(rows.map(\.title) == titles.map { .verbatim($0) } + ["", "Clear Menu"])
+        try #require(
+            rows.map(\.id) == [
+                .action(.recentBinder(second.id)), .action(.recentBinder(first.id)),
+                .divider("clear"), .action(.clearBinders),
+            ])
+        guard case .action(let select) = rows[1].id, case .action(let clear) = rows[3].id else {
+            Issue.record("Expected selectable recent binder and clear commands")
+            return
+        }
+        // The same binder can be closed again with a new file order while the old row is on screen.
+        let reordered = RecentBinder(files: first.files.reversed())
+        preferences.recordRecentBinder(reordered)
+        var opened: [RecentBinder] = []
+        select.perform(preferences: preferences, openBinder: { opened.append($0) })
+        #expect(opened == [reordered])
+        clear.perform(preferences: preferences)
+        select.perform(preferences: preferences, openBinder: { opened.append($0) })
+        #expect(opened == [reordered])
         #expect(preferences.recentBinders.isEmpty)
-        file = try await openedFileMenu { !isListed($0) }
-        #expect(!isListed(file))
+        await withCheckedContinuation { done in DispatchQueue.main.async { done.resume() } }
+        #expect(state.snapshot.content.recentBinders.isEmpty && recentMenus().isEmpty)
     }
 
     // MARK: Closing a binder

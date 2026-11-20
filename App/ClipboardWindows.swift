@@ -18,7 +18,12 @@ final class ClipboardWindows {
         }, closeWelcome: { WelcomeController.shared.close() })
 
     var preferences: AppPreferences?
-    var library: UserLibrary?
+    static let libraryDidChange = Notification.Name("SurimonoClipboardLibraryDidChange")
+    var library: UserLibrary? {
+        didSet {
+            if oldValue !== library { NotificationCenter.default.post(name: Self.libraryDidChange, object: self) }
+        }
+    }
     /// Asks which format unsure text opens as; nil is Cancel. Replaceable so that hosted tests answer it.
     var ask: (ClipboardQuestion, ClipboardTextSource, NSWindow?, @escaping (ClipboardTextKind?) -> Void) -> Void = {
         question, source, window, completion in
