@@ -59,7 +59,7 @@ make clean
   - アイコンの絵は、背の外側から見た薄い中綴じの冊子（生成りの冊子、藍の地、朱のホチキス）。16・32px では紙の重なりがつぶれるので、重なりを省いて折り目とホチキスを太くした `AppIcon-small.svg` を使う。
   - PNG は `rsvg-convert -w <px> -h <px> <SVG> -o <名前>.png` で書き出す。公開版も開発版も、`icon_16x16`・`icon_16x16@2x`・`icon_32x32` は small の SVG から、残りの 7 枚は大きい方の SVG から。`AppIcon.svg` か `AppIcon-small.svg` を変えたら、対応する開発版の SVG にも同じ変更を入れて、両方を書き出し直す。
 - CI（`.github/workflows/ci.yml`）は Xcode 26.6 / macOS 26、ローカルは Xcode 27 系を想定。**両方でビルドできるコードにする**。`if #available` は実行時の OS の分岐で、古い SDK でのコンパイルは助けない。CI の SDK（Xcode 26.6）に無い API は使わず、どうしても使う場合は `#if compiler(>=…)` などの条件付きコンパイルと代替の実装を用意する。
-- CI は 5 つの macOS のジョブを同時に走らせる: `lint-and-core`（`make lint`・`make test-formats`・`make test-core`）、`rendering`（`make test-rendering`）、`app-tests`（`make test-app`）、`appstore`（`make check-appstore`）、`package`（`make package` と成果物の保存）。それぞれ自分の runner で組み立てる。必須チェックの `build-and-test` は Linux の門番のジョブで、5 つすべてが成功したときだけ通る（失敗・取り消し・スキップがあれば落ちる）。決まりは `.claude/rules/github-actions.md`。macOS のジョブは同時に 5 つまでなので増やさない。
+- CI は macOS の実行時間をビルドに使う。毎回走るのは `package`（`make package` と成果物の保存）だけで、Xcode 26.6 で組み立てられることをここで確かめる。テストと確認のジョブ（`lint-and-core`（`make lint`・`make test-tools`・`make test-formats`・`make test-core`）、`rendering`（`make test-rendering`）、`app-tests`（`make test-app`）、`appstore`（`make check-appstore`））は、PR にラベル `ci:test` を付けたときと、ワークフローを手で起動したとき（`gh workflow run ci.yml --ref <ブランチ>`）だけ走る。lint とテストは手元で通してから PR を出す。必須チェックの `build-and-test` は Linux の門番のジョブで、`package` が成功し、ほかのジョブが成功か未実行（スキップ）のときだけ通る（走って失敗・取り消しになったジョブがあれば落ちる）。決まりは `.claude/rules/github-actions.md`。macOS のジョブは同時に 5 つまでなので増やさない。
 
 ## スナップショット（見た目の回帰）
 
@@ -489,7 +489,7 @@ WebKit の文書組版もメインディスプレイの倍率に影響される�
 
 ## Git / PR
 
-- `master` は保護されている。topic ブランチ → PR → CI（`build-and-test`）成功でマージ。
+- `master` は保護されている。topic ブランチ → PR → CI（`build-and-test`）成功でマージ。CI が毎回確かめるのはビルドだけなので、テストは手元で走らせる。CI でも走らせたい PR（Xcode 26.6 でしか出ない失敗を疑うとき、CI の runner での時間切れを見たいときなど）にはラベル `ci:test` を付ける。
 - コミットは論理的な最小単位ごと。メッセージは**日本語の Conventional Commits**（例: `feat(print): A5 冊子レイアウトを追加`）。AI と協業したコミットには `Co-Authored-By` を付ける。
 - **エージェントは明示的に頼まれない限り commit / push / merge をしない**。
 - PR を出したら、CI の結果まで利用者に声をかけさせずにエージェントが待つ。落ちたら原因を調べて直し、通ったら頼まれた範囲（マージ・リリース）まで進める。

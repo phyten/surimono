@@ -22,7 +22,7 @@ description: Cuts a Surimono release by choosing the version, pinning the commit
    gh run list --workflow CI --commit "$SHA" --json conclusion,headSha --jq '.[0]'
    ```
 
-   `conclusion` が `success` でなければリリースしない。
+   `conclusion` が `success` でなければリリースしない。この CI が確かめるのはビルドだけ（テストは `ci:test` のラベルを付けた PR か、手で起動した実行でだけ走る）。Release ワークフローもテストを走らせないので、テストの結果が要るときは手元の `make test` か `gh workflow run ci.yml --ref master` で確かめる。
 3. バージョンを決める（SemVer。1.0 までは機能追加でマイナー、修正でパッチ）。書式は `X.Y.Z` か、ベータの `X.Y.Z-beta.N` だけ（先頭に 0 を付けない。Y と Z は 0〜99、N は 1〜98）。ほかの書式（`-rc.1` など）は Release ワークフローの `Determine version` で止まる。
 4. ユーザーに「v<X.Y.Z> を <SHA> から公開してよいか」を確認する。アプリ内アップデートで、入れてある全員に届くことも伝える（プレリリースは届かない）。
    - `gh secret list` に `SPARKLE_PRIVATE_KEY` があることも確かめる（無いとワークフローは署名の前に止まる）。
