@@ -10,18 +10,18 @@ extension LaTeXFrontMatter {
     }
 
     func resolveAMS(in html: String, document: LaTeXDocument) -> String {
-        let book = document.classInfo.name == "amsbook"
+        let verso = document.classInfo.profile.titleBlock.notesOnVerso
         let abstract = abstractHTML ?? ""
         let contacts = amsContacts.joined()
         var lines: [String] = []
         func add(_ kind: String, _ value: String, label: String = "") {
             guard !value.isEmpty else { return }
-            let content = (label.isEmpty ? "" : "<em>\(label)</em> ") + (book ? value : Self.period(value))
+            let content = (label.isEmpty ? "" : "<em>\(label)</em> ") + (verso ? value : Self.period(value))
             lines.append("<p class=\"latex-front-\(kind)\">\(content)</p>")
         }
-        if !book, let date {
+        if !verso, let date {
             let reader = LaTeXReader(date, document: document, isBlock: false)
-            add("date", reader.read(), label: document.classInfo.name == "amsart" ? "Date:" : "Received by the editors")
+            add("date", reader.read(), label: document.classInfo.profile.titleBlock.noteDateLabel)
         }
         add(
             "classifications", classifications.joined(separator: "; "),
@@ -31,7 +31,7 @@ extension LaTeXFrontMatter {
         let details = lines.joined(separator: "\n") + (lines.isEmpty ? "" : "\n")
         var titleEnd = ""
         var afterTitle = abstract
-        if printed && book {
+        if printed && verso {
             titleEnd = contacts
             afterTitle =
                 "<div class=\"latex-amsbook-verso\" data-latex-page-action=\"thispagestyle\" data-value=\"empty\">\n"
@@ -46,6 +46,6 @@ extension LaTeXFrontMatter {
             .replacingOccurrences(of: document.placeholder("F", 1), with: printed ? "" : details)
             .replacingOccurrences(of: document.placeholder("F", 2), with: afterTitle)
             .replacingOccurrences(of: document.placeholder("F", 3), with: titleEnd)
-            + (book ? "" : contacts)
+            + (verso ? "" : contacts)
     }
 }

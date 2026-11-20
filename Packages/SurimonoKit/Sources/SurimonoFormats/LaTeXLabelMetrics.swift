@@ -9,17 +9,18 @@ struct LaTeXLabelMetrics {
 
     init(_ info: LaTeXDocumentClassInfo) {
         let index = info.pointSize - 10
-        if let magnification = info.jsMagnification {
-            let smallDesign = magnification < (info.name.hasPrefix("bx") ? 1 : 0.92)
+        switch info.profile.typography.baselineTable {
+        case .scaled(let magnification, let smallBelow):
+            let smallDesign = magnification < smallBelow
             let normal = smallDesign ? 15.0 : 16.0
             baselines = [6, 8, 11, 13, normal, info.columns == 2 ? normal : 17, 21, 25, 28, 33].map {
                 $0 * magnification
             }
             japaneseScale = 0.924715
-        } else if info.name == "jlreq" {
+        case .characterGrid:
             baselines = [6, 8, 11.5, 13, 17, 17, 21, 25, 28, 33].map { $0 * Double(info.pointSize) / 10 }
             japaneseScale = nil
-        } else if info.journalStyle == .ams {
+        case .ams:
             // The AMS classes define their own size ladder, including Small for footnotes.
             baselines =
                 [
@@ -28,7 +29,7 @@ struct LaTeXLabelMetrics {
                     [10, 11, 12, 13, 14, 17, 20, 24, 30, 30],
                 ][index]
             japaneseScale = nil
-        } else if info.usesTraditionalJapaneseNames {
+        case .traditional:
             baselines =
                 [
                     [6, 8, 9.5, 11, 15, 17, 21, 25, 28, 33],
@@ -36,7 +37,7 @@ struct LaTeXLabelMetrics {
                     [7, 9.5, 12, 13.6, 16.5, 21, 25, 28, 33, 33],
                 ][index]
             japaneseScale = 0.962216
-        } else {
+        case .standard:
             baselines =
                 [
                     [6, 8, 9.5, 11, 12, 14, 18, 22, 25, 30],
@@ -78,7 +79,7 @@ struct LaTeXLabelMetrics {
     }
 
     func headingFace(for info: LaTeXDocumentClassInfo, index: InstalledFontIndex) -> String? {
-        guard info.isJapanese else { return nil }
+        guard info.profile.typography.selectsGothicHeadings else { return nil }
         // Harano Aji Gothic's vertical stem in 目 measures 93/1000 em in corpus 106.
         let candidates = ["HiraginoSans-W5", "HiraginoSans-W4", "HiraKakuProN-W3"]
         guard let face = candidates.lazy.compactMap({ index.face(named: $0) }).first else { return nil }

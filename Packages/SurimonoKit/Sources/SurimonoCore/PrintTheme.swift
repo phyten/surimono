@@ -106,8 +106,11 @@ public enum PrintThemeLibrary {
     public static func defaultLaTeXStyle(for info: LaTeXDocumentClassInfo) -> String {
         if info.mainLanguage.hasPrefix("zh") { return "latex-plain-zh" }
         if info.mainLanguage == "ko" { return "latex-plain-ko" }
-        if info.isJapanese { return "latex-plain-ja" }
-        return info.hasChapters ? "latex-report" : "latex-article"
+        switch info.profile.defaultStyle {
+        case .japanese: return "latex-plain-ja"
+        case .chaptered: return "latex-report"
+        case .sectioned: return "latex-article"
+        }
     }
 
     /// The built-in categories in menu order.

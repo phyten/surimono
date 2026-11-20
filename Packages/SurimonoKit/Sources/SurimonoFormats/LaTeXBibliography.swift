@@ -424,20 +424,23 @@ extension LaTeXReader {
 
     func bibliographyHeading(_ heading: String, id: String? = nil) -> String {
         let anchor = id.map { " id=\"\($0)\"" } ?? ""
-        if document.classInfo.name == "beamer" { return "" }
-        if document.classInfo.journalStyle?.isAPS == true { return "<hr class=\"latex-bibliography-rule\"\(anchor)>\n" }
-        if document.classInfo.usesJSChapterSpacing {
+        switch document.classInfo.profile.headings.bibliography {
+        case .none: return ""
+        case .rule: return "<hr class=\"latex-bibliography-rule\"\(anchor)>\n"
+        case .chapter:
             return
                 "<h2 class=\"latex-bibliography-heading\" data-latex-heading=\"chapter\" data-latex-chapter-opening\(anchor)>"
                 + "<span class=\"latex-chapter-title\">\(heading)</span></h2>\n"
-        }
-        if document.classInfo.isJSArticle {
+        case .section:
             return "<h2 class=\"latex-bibliography-heading\" data-latex-heading=\"section\"\(anchor)>\(heading)</h2>\n"
+        case .inherited:
+            let book = bookHeadingAttributes(document.classInfo.hasChapters ? "chapter" : "section")
+            let opening = document.classInfo.hasChapters ? " data-latex-chapter-opening" : ""
+            let title =
+                document.classInfo.profile.headings.smallCapsSections
+                ? LaTeXJournalStyle.smallCaps(heading, in: document) : heading
+            return "<h2 class=\"latex-bibliography-heading\"\(book)\(opening)\(anchor)>\(title)</h2>\n"
         }
-        let book = bookHeadingAttributes(document.classInfo.hasChapters ? "chapter" : "section")
-        let opening = document.classInfo.hasChapters ? " data-latex-chapter-opening" : ""
-        let title = document.classInfo.name == "amsart" ? LaTeXJournalStyle.smallCaps(heading, in: document) : heading
-        return "<h2 class=\"latex-bibliography-heading\"\(book)\(opening)\(anchor)>\(title)</h2>\n"
     }
 
     func externalBibliography(_ name: String) {

@@ -70,7 +70,7 @@ final class LaTeXFrontMatter {
         let classification =
             classifications.isEmpty
             ? "" : "<p class=\"latex-front-classifications\">\(classifications.joined(separator: "; "))</p>\n"
-        let separator = document.classInfo.name == "llncs" ? " · " : ", "
+        let separator = document.classInfo.profile.titleBlock.keywordSeparator
         let keywordGap = keywordLabel(document).hasSuffix("—") ? "" : " "
         let keywordLine =
             keywords.isEmpty
@@ -107,7 +107,7 @@ final class LaTeXFrontMatter {
         case "el": return "Λέξεις-κλειδιά:"
         case "ar": return "الكلمات المفتاحية:"
         case "he": return "מילות מפתח:"
-        default: return document.classInfo.name == "IEEEtran" ? "Index Terms—" : "Keywords:"
+        default: return document.classInfo.profile.titleBlock.defaultKeywordLabel
         }
     }
 }
@@ -179,11 +179,11 @@ extension LaTeXReader {
             }
         case "address", "affiliation":
             let option = optional()
-            let label = document.classInfo.name == "elsarticle" ? option : nil
+            let label = document.classInfo.profile.titleBlock.usesAffiliationLabels ? option : nil
             let source = argument() ?? ""
             front.addAffiliation(label: label, parts: affiliationParts(source), attach: label == nil)
         case "institute":
-            if document.classInfo.name == "beamer" { _ = optional() }
+            if document.classInfo.profile.titleBlock.readsShortInstitute { _ = optional() }
             let sources = LaTeXLexer.split(argument() ?? "", at: ["\\and"])
             let marked = front.authors.contains { !$0.affiliations.isEmpty }
             for (position, source) in sources.enumerated() {
@@ -291,7 +291,7 @@ extension LaTeXReader {
     private func readFrontAuthor(_ source: String, short: String?) {
         guard !source.isEmpty else { return }
         let front = document.frontMatter
-        let labels = document.classInfo.name == "elsarticle" ? frontLabels(short ?? "") : []
+        let labels = document.classInfo.profile.titleBlock.usesAffiliationLabels ? frontLabels(short ?? "") : []
         var author = LaTeXFrontMatter.Author(name: "", shortName: labels.isEmpty ? short : nil, affiliations: labels)
         var ieeeNames: [String] = []
         var ieeeAffiliations: [String] = []
@@ -316,7 +316,7 @@ extension LaTeXReader {
 
     private func affiliationParts(_ source: String) -> [String] {
         let keys = ["organization", "organisation", "addressline", "city", "state", "postcode", "country"]
-        if document.classInfo.name == "elsarticle", source.contains("=") {
+        if document.classInfo.profile.titleBlock.usesAffiliationLabels, source.contains("=") {
             let fields = LaTeXPageSettings.options(source)
             if fields.contains(where: { keys.contains($0.key) }) { return fields.map(\.value).filter { !$0.isEmpty } }
         }
@@ -384,7 +384,8 @@ extension LaTeXReader {
 
     private var frontDispositionAttribute: String {
         let info = document.classInfo
-        return info.isKOMA ? info.bookStyle.fontAttribute(elements: ["disposition"], size: info.pointSize) : ""
+        return info.profile.headings.readsElementFonts
+            ? info.bookStyle.fontAttribute(elements: ["disposition"], size: info.pointSize) : ""
     }
 
     func makeTitle() {
@@ -394,8 +395,7 @@ extension LaTeXReader {
         document.makingTitle = true
         defer { document.makingTitle = false }
         let info = document.classInfo
-        let pageStyle =
-            info.name == "amsbook" || info.hidesTitlePageNumber ? "empty" : info.journalStyle == .ams ? "plain" : nil
+        let pageStyle = info.profile.titleBlock.pageStyle
         let titleStyle = pageStyle.map { " data-latex-page-action=\"thispagestyle\" data-value=\"\($0)\"" } ?? ""
         let span = document.classInfo.columns > 1 ? " data-latex-wide" : ""
         var html = "<header class=\"latex-title-block\"\(span)\(titleStyle)\(frontDispositionAttribute)>\n"
@@ -412,7 +412,7 @@ extension LaTeXReader {
         for (index, affiliation) in front.affiliations.enumerated()
         where !affiliation.hasPrintedMark && (affiliation.explicitLabel || front.affiliations.count > 1) {
             marks[affiliation.key] =
-                document.classInfo.name == "elsarticle"
+                document.classInfo.profile.titleBlock.usesAffiliationLabels
                 ? LaTeXSymbols.format(index + 1, as: "alph") : String(index + 1)
         }
         if !front.authors.isEmpty {
@@ -445,9 +445,7 @@ extension LaTeXReader {
             html += "</div>\n"
         }
         // These classes do not include a date in their normal title block, even if the author supplies one.
-        if document.classInfo.journalStyle != .ams,
-            !["IEEEtran", "llncs", "acmart", "elsarticle"].contains(document.classInfo.name)
-        {
+        if info.profile.titleBlock.includesDate {
             let date = front.date ?? (document.classInfo.journalFrontMatter ? "" : "\\today")
             let dateHTML = inline(date)
             if !dateHTML.isEmpty {
@@ -459,7 +457,7 @@ extension LaTeXReader {
             html += "<p class=\"latex-front-publishers\">\(inline(publishers))</p>\n"
         }
         if document.classInfo.journalStyle == .ams {
-            if info.name != "amsbook" {
+            if info.profile.titleBlock.writesAuthorMarks {
                 let marks = [
                     ("leftmark", front.authors.map { $0.shortName ?? $0.name }.joined(separator: ", ")),
                     ("rightmark", front.shortTitle ?? front.title ?? ""),

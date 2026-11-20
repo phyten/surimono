@@ -21,10 +21,10 @@ struct LaTeXCorrespondence {
 
 extension LaTeXReader {
     func handleCorrespondence(_ command: String) -> Bool {
-        switch document.classInfo.name {
-        case "letter": return letterCommand(command)
-        case "moderncv": return cvCommand(command)
-        default: return false
+        switch document.classInfo.profile.body.correspondence {
+        case .letter: return letterCommand(command)
+        case .curriculumVitae: return cvCommand(command)
+        case .none: return false
         }
     }
 

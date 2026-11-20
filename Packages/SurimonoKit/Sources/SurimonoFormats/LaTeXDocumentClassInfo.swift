@@ -19,7 +19,7 @@ public struct LaTeXDocumentClassInfo: Sendable, Equatable {
     package var japaneseMainFontName: String?
     package var headerStrutDepth: Double = 0
     // setspace indexes its compensation by @ptsize, which jsclasses holds at zero for all magnifications.
-    var spacingPointSize: Int { jsMagnification == nil ? pointSize : 10 }
+    var spacingPointSize: Int { profile.typography.spacingDesignSize ?? pointSize }
     public var pointSize: Int { profile.typography.pointSize }
     public internal(set) var mainLanguage: String
     var resolvedPageBox: LaTeXPageBox?
@@ -33,7 +33,7 @@ public struct LaTeXDocumentClassInfo: Sendable, Equatable {
     var isKOMA: Bool { profile.page.usesTypeArea }
     var usesTraditionalJapaneseNames: Bool { profile.structure.usesTraditionalJapaneseNames }
 
-    init(name: String = "article", options: String? = nil) {
+    init(name: String = LaTeXClassID.article.rawValue, options: String? = nil) {
         let request = LaTeXClassRequest(name: name, options: (options ?? "").split(separator: ",").map(String.init))
         profile = LaTeXClassRegistry.resolve(request)
         bookStyle = profile.initialBookStyle

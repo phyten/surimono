@@ -1,5 +1,17 @@
 import Foundation
 
+package enum LaTeXClassID: String, CaseIterable, Sendable {
+    case article, report, book, letter, amsart, amsbook, amsproc
+    case ieeetran = "IEEEtran"
+    case llncs, acmart, elsarticle
+    case revtex42 = "revtex4-2"
+    case scrartcl, scrreprt, scrbook, memoir, exam, moderncv, beamer
+    case jsarticle, jsreport, jsbook, ltjsarticle, ltjsreport, ltjsbook, bxjsarticle, bxjsreport, bxjsbook
+    case jlreq, jarticle, jreport, jbook, ltjarticle, ltjreport, ltjbook, ujarticle, ujreport, ujbook
+    case utarticle, utreport, utbook, tarticle, treport, tbook, ctexart, ctexrep, ctexbook, oblivoir
+    case unknown
+}
+
 enum LaTeXClassRegistry {
     private enum Match: Sendable {
         case names([LaTeXClassID])
@@ -49,10 +61,25 @@ enum LaTeXClassRegistry {
             builder.structure.hasChapters = builder.id != .article
             builder.setStandardTitlePage(separate: builder.structure.hasChapters)
             builder.setBookSides(builder.id == .book)
+            builder.headings.wrapsChapterTitle = builder.structure.hasChapters
+            builder.page.layoutRule = .standard(builder.id == .book ? .bookOffsets : .doubleColumn)
+            builder.body.usesSizeFileGlue = true
+            builder.body.usesListingDesignSize = true
         },
         Rule(.names([.amsart, .amsproc, .amsbook])) { builder in
             builder.structure.hasChapters = builder.id == .amsbook
             builder.journal(.ams, commands: Commands.ams)
+            let book = builder.id == .amsbook
+            builder.page.layoutRule = .ams(footSkip: book ? 18 : 12)
+            builder.typography.baselineTable = .ams
+            builder.headings.marksHeadingLevel = true
+            builder.headings.smallCapsSections = builder.id == .amsart
+            builder.headings.unprefixedChapterCounters = book
+            builder.titleBlock.notesOnVerso = book
+            builder.titleBlock.writesAuthorMarks = !book
+            builder.titleBlock.includesDate = false
+            builder.titleBlock.pageStyle = book ? "empty" : "plain"
+            if builder.id == .amsart { builder.titleBlock.noteDateLabel = "Date:" }
             builder.page.usesAMSA4Layout = builder.options.contains("a4paper")
             builder.page.forcedPaper = .letter
             builder.page.twoSidedBox = true
@@ -62,6 +89,8 @@ enum LaTeXClassRegistry {
         },
         Rule(.names([.ieeetran])) { builder in
             let conference = builder.options.contains("conference")
+            builder.titleBlock.includesDate = false
+            builder.titleBlock.defaultKeywordLabel = "Index Terms—"
             let ieeeStyle = Set(builder.options).isDisjoint(with: ["compsoc", "transmag"])
             builder.journal(ieeeStyle ? .ieee : nil, commands: Commands.ieee)
             builder.page.publication = conference ? .ieeeConference : .ieeeJournal
@@ -72,6 +101,8 @@ enum LaTeXClassRegistry {
         Rule(.names([.llncs])) { builder in
             builder.journal(.lncs, commands: Commands.lncs)
             builder.page.publication = .lncs
+            builder.titleBlock.includesDate = false
+            builder.titleBlock.keywordSeparator = " · "
             builder.page.usesFixedClassOrigin = true
             builder.pageStyle.hidesTitlePageNumber = true
             builder.pageStyle.twoSidedFields = true
@@ -80,6 +111,7 @@ enum LaTeXClassRegistry {
         },
         Rule(.names([.acmart])) { builder in
             builder.journal(nil, commands: Commands.acm)
+            builder.titleBlock.includesDate = false
             let formats = [
                 "manuscript", "acmsmall", "acmlarge", "acmtog", "sigconf", "siggraph", "sigplan", "sigchi", "sigchi-a",
                 "acmengage", "acmcp",
@@ -95,6 +127,9 @@ enum LaTeXClassRegistry {
         },
         Rule(.names([.elsarticle])) { builder in
             builder.journal(.elsevier, commands: Commands.elsevier)
+            builder.titleBlock.includesDate = false
+            builder.titleBlock.usesAffiliationLabels = true
+            builder.body.naturalRuleHeight = true
             builder.pageStyle.hidesTitlePageNumber = true
             switch builder.options.last(where: { ["1p", "3p", "5p", "preprint"].contains($0) }) {
             case "1p": builder.page.publication = .elsevierOne
@@ -112,6 +147,8 @@ enum LaTeXClassRegistry {
             if Set(builder.options).isDisjoint(with: ["aip", "aapm", "sor"]) {
                 let mode = builder.options.last { $0 == "preprint" || $0 == "reprint" }
                 builder.journalStyle = mode == "preprint" ? .apsPreprint : .aps
+                builder.headings.bibliography = .rule
+                builder.body.naturalRuleHeight = mode == "preprint"
             }
             builder.page.publication = .aps
             builder.page.usesFixedClassOrigin = true
@@ -120,13 +157,16 @@ enum LaTeXClassRegistry {
         Rule(.names([.scrartcl, .scrreprt, .scrbook])) { builder in
             builder.structure.hasChapters = builder.id != .scrartcl
             builder.setBookSides(builder.id == .scrbook)
-            builder.page.usesTypeArea = true
             builder.page.paperOptions = .keyed
             builder.page.defaultPaper = .a4
             builder.typography.pointSize = 11
             builder.keyedSize = true
             builder.classCommands = Commands.koma
             builder.bookStyle.readOptions(builder.options)
+            builder.headings.chapterLabel = .bareNumber
+            builder.headings.readsElementFonts = true
+            builder.page.layoutRule = .typeArea
+            builder.body.naturalRuleHeight = true
             if builder.id == .scrartcl {
                 let separate = ["titlepage", "titlepage=true", "titlepage=firstiscover"]
                 let selected = builder.options.last {
@@ -139,22 +179,38 @@ enum LaTeXClassRegistry {
             builder.structure.hasChapters = true
             builder.setBookSides(true)
             builder.classCommands = Commands.memoir
+            builder.page.layoutRule = .ruledBook
+            builder.headings.readsChapterStyle = true
+            builder.body.captionSkip = .halfBaseline
+            builder.body.naturalRuleHeight = true
         },
         Rule(.names([.letter])) { builder in
             builder.page.usesFixedClassOrigin = true
             builder.classCommands = Commands.letter
+            builder.body.correspondence = .letter
+            builder.page.layoutRule = .standard(.letterOffsets)
         },
         Rule(.names([.exam])) { builder in
             builder.page.usesFixedClassOrigin = true
             builder.pageStyle.running = .exam
             builder.classCommands = Commands.exam
+            builder.body.readsQuestions = true
+            builder.page.layoutRule = .exam
         },
         Rule(.names([.moderncv])) { builder in
             builder.page.defaultPaper = .a4
             builder.typography.pointSize = 11
             builder.classCommands = Commands.moderncv
+            builder.body.correspondence = .curriculumVitae
         },
-        Rule(.names([.beamer])) { $0.classCommands = Commands.beamer },
+        Rule(.names([.beamer])) { builder in
+            builder.classCommands = Commands.beamer
+            builder.titleBlock.readsShortInstitute = true
+            builder.headings.bibliography = .none
+            builder.headings.navigationOnlySections = true
+            builder.body.readsFrames = true
+            builder.body.numbersCaptions = false
+        },
         Rule(
             .names([
                 .jsarticle, .ltjsarticle, .bxjsarticle, .jsreport, .ltjsreport, .bxjsreport, .jsbook, .ltjsbook,
@@ -165,17 +221,42 @@ enum LaTeXClassRegistry {
             let article = [.jsarticle, .ltjsarticle, .bxjsarticle].contains(builder.id)
             builder.structure.hasChapters = !article
             builder.setStandardTitlePage(separate: !article)
-            builder.structure.usesJSArticleHeadings = article
-            builder.structure.usesJSChapterSpacing = !article
-            builder.setBookSides([.jsbook, .ltjsbook, .bxjsbook].contains(builder.id))
+            let book = [.jsbook, .ltjsbook, .bxjsbook].contains(builder.id)
+            builder.setBookSides(book)
             builder.pageStyle.japanesePlain = true
             let bx = [.bxjsarticle, .bxjsreport, .bxjsbook].contains(builder.id)
-            builder.typography.jsMagnification = magnification(builder.options, bx: bx)
+            let scale = magnification(builder.options, bx: bx)
+            builder.typography.jsMagnification = scale
+            builder.typography.baselineTable = .scaled(magnification: scale, smallBelow: bx ? 1 : 0.92)
+            builder.typography.spacingDesignSize = 10
+            builder.typography.usesScaledBodyFont = true
+            builder.typography.selectsParagraphPitch = true
+            builder.page.layoutRule = .scaledGrid(scale: scale, bookMeasure: book, centersFurniture: bx)
+            builder.headings.chapterLabel = article ? .localized : .spacedJapaneseNumber
+            builder.headings.marksHeadingLevel = true
+            builder.headings.wrapsChapterTitle = !article
+            builder.headings.emptyPartPage = !article
+            builder.structure.contents = article ? .sectionTitle : .chapterMarks
+            builder.headings.readsParagraphMark = true
+            builder.headings.defaultParagraphMark = article ? "■" : nil
+            builder.headings.labelsAppendixSection = article
+            builder.headings.bibliography = article ? .section : .chapter
+            builder.usesGridFlow = true
+            builder.body.captionSkip = .fiveScaledPoints
+            builder.body.usesScaledTableMetrics = true
+            builder.body.alignsDisplayRows = true
+            builder.body.alignsHangingCaptions = true
+            builder.body.naturalRuleHeight = true
         },
         Rule(.names([.jlreq])) { builder in
             builder.japanese()
             builder.keyedSize = true
             builder.structure.hasChapters = builder.options.contains("book") || builder.options.contains("report")
+            builder.page.layoutRule = .characterGrid
+            builder.typography.baselineTable = .characterGrid
+            builder.headings.chapterLabel = .spacedJapaneseNumber
+            builder.headings.emptyPartPage = builder.structure.hasChapters
+            builder.headings.marksHeadingLevel = true
         },
         Rule(
             .names([
@@ -185,6 +266,7 @@ enum LaTeXClassRegistry {
         ) { builder in
             builder.japanese()
             builder.structure.usesTraditionalJapaneseNames = true
+            builder.typography.baselineTable = .traditional
             builder.structure.hasChapters = ![.jarticle, .ltjarticle, .ujarticle, .utarticle, .tarticle].contains(
                 builder.id)
         },
@@ -211,6 +293,10 @@ enum LaTeXClassRegistry {
         var structure = LaTeXClassProfile.Structure()
         var page = LaTeXClassProfile.Page()
         var typography = LaTeXClassProfile.Typography()
+        var headings = LaTeXClassProfile.Headings()
+        var titleBlock = LaTeXClassProfile.TitleBlock()
+        var body = LaTeXClassProfile.Body()
+        var usesGridFlow = false
         var pageStyle = LaTeXClassProfile.PageStyle()
         var journalStyle: LaTeXJournalStyle?
         var frontMatter = LaTeXClassProfile.FrontMatter.standard
@@ -237,6 +323,11 @@ enum LaTeXClassRegistry {
         mutating func japanese() {
             page.paperOptions = .japanese
             typography.usesJapaneseStyle = true
+            typography.selectsGothicHeadings = true
+            typography.prefersHiraginoSansW4 = true
+            body.styledCaptionSeparator = ": "
+            body.untranslatedProofName = "Proof"
+            body.spacesLinkedCounters = true
             typography.mainLanguage = options.contains("english") ? "en" : "ja"
             structure.usesNativeCJKHeadings = true
             page.defaultPaper = .a4
@@ -265,8 +356,10 @@ enum LaTeXClassRegistry {
             // These production grids override even an explicit column count.
             if page.publication == .elsevierOne { structure.columns = 1 }
             if page.publication == .elsevierFive { structure.columns = 2 }
+            if pageStyle.hidesTitlePageNumber { titleBlock.pageStyle = "empty" }
             return LaTeXClassProfile(
-                name: request.name, id: id, structure: structure, page: page, typography: typography,
+                name: request.name, id: id, headings: headings, titleBlock: titleBlock, body: body,
+                usesGridFlow: usesGridFlow, structure: structure, page: page, typography: typography,
                 pageStyle: pageStyle, journalStyle: journalStyle, frontMatter: frontMatter,
                 classCommands: classCommands, initialBookStyle: bookStyle)
         }

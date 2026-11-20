@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import SurimonoFormats
@@ -325,6 +326,194 @@ struct LaTeXClassRegistryTests {
         for name in Self.defaults.flatMap(\.names) {
             let info = LaTeXDocumentClassInfo(name: name)
             #expect(info.profile.classCommands == (expected[name] ?? []))
+        }
+    }
+
+    @Test("章・目次・参考文献の出力形式を登録名と未知の接頭辞ごとに保つ", arguments: defaults)
+    func headingRules(row: Defaults) {
+        for name in row.names {
+            let profile = LaTeXDocumentClassInfo(name: name).profile
+            let headings = profile.headings
+            let scaled = row.jsArticle || row.jsChapters
+            let label: LaTeXClassProfile.ChapterLabel =
+                row.typeArea ? .bareNumber : row.jsChapters || name == "jlreq" ? .spacedJapaneseNumber : .localized
+            #expect(headings.chapterLabel == label)
+            #expect(
+                profile.structure.contents == (row.jsArticle ? .sectionTitle : row.jsChapters ? .chapterMarks : .plain))
+            #expect(headings.readsParagraphMark == scaled)
+            #expect(headings.defaultParagraphMark == (row.jsArticle ? "■" : nil))
+            #expect(headings.labelsAppendixSection == row.jsArticle)
+            #expect(headings.wrapsChapterTitle == (row.jsChapters || ["report", "book"].contains(name)))
+            #expect(headings.emptyPartPage == row.jsChapters)
+            #expect(headings.marksHeadingLevel == (scaled || name == "jlreq" || row.journal == .ams))
+            #expect(headings.smallCapsSections == (name == "amsart"))
+            #expect(headings.navigationOnlySections == (name == "beamer"))
+            #expect(headings.readsElementFonts == row.typeArea)
+            #expect(headings.readsChapterStyle == (name == "memoir"))
+            #expect(headings.unprefixedChapterCounters == (name == "amsbook"))
+            let bib: LaTeXClassProfile.BibliographyHeading
+            switch name {
+            case "beamer": bib = .none
+            case "revtex4-2": bib = .rule
+            default: bib = row.jsChapters ? .chapter : row.jsArticle ? .section : .inherited
+            }
+            #expect(headings.bibliography == bib)
+        }
+    }
+
+    @Test("表題の所属・キーワード・日付・柱はクラスごとの組み合わせを保つ", arguments: defaults)
+    func titleRules(row: Defaults) {
+        for name in row.names {
+            let title = LaTeXDocumentClassInfo(name: name).profile.titleBlock
+            #expect(title.keywordSeparator == (name == "llncs" ? " · " : ", "))
+            #expect(title.defaultKeywordLabel == (name == "IEEEtran" ? "Index Terms—" : "Keywords:"))
+            #expect(title.usesAffiliationLabels == (name == "elsarticle"))
+            #expect(title.readsShortInstitute == (name == "beamer"))
+            let omitDate = ["amsart", "amsproc", "amsbook", "IEEEtran", "llncs", "acmart", "elsarticle"]
+            #expect(title.includesDate == !omitDate.contains(name))
+            #expect(title.notesOnVerso == (name == "amsbook"))
+            #expect(title.noteDateLabel == (name == "amsart" ? "Date:" : "Received by the editors"))
+            #expect(title.writesAuthorMarks == ["amsart", "amsproc"].contains(name))
+            let style: String? =
+                switch name {
+                case "amsbook", "llncs", "elsarticle": "empty"
+                case "amsart", "amsproc": "plain"
+                default: nil
+                }
+            #expect(title.pageStyle == style)
+        }
+    }
+
+    @Test("本文のコマンド・罫線・行送り・余白を全クラスで保つ", arguments: defaults)
+    func bodyRules(row: Defaults) {
+        for name in row.names {
+            let profile = LaTeXDocumentClassInfo(name: name).profile
+            let body = profile.body
+            let scaled = row.jsArticle || row.jsChapters
+            let standard = ["article", "report", "book"].contains(name)
+            #expect(body.correspondence == (name == "letter" ? .letter : name == "moderncv" ? .curriculumVitae : .none))
+            #expect(body.readsQuestions == (name == "exam"))
+            #expect(body.readsFrames == (name == "beamer"))
+            #expect(body.numbersCaptions == (name != "beamer"))
+            #expect(body.naturalRuleHeight == (scaled || row.typeArea || ["memoir", "elsarticle"].contains(name)))
+            #expect(body.usesSizeFileGlue == standard)
+            #expect(body.usesListingDesignSize == standard)
+            #expect(body.captionSkip == (scaled ? .fiveScaledPoints : name == "memoir" ? .halfBaseline : .inherited))
+            let japanese = row.language == "ja"
+            #expect(body.styledCaptionSeparator == (japanese ? ": " : nil))
+            #expect(body.untranslatedProofName == (japanese ? "Proof" : nil))
+            #expect(body.spacesLinkedCounters == japanese)
+            #expect(profile.typography.selectsGothicHeadings == japanese)
+            #expect(profile.typography.prefersHiraginoSansW4 == japanese)
+            #expect(body.usesScaledTableMetrics == scaled)
+            #expect(body.alignsDisplayRows == scaled)
+            #expect(body.alignsHangingCaptions == scaled)
+            #expect(profile.typography.selectsParagraphPitch == scaled)
+            #expect(profile.typography.usesScaledBodyFont == scaled)
+            #expect(profile.typography.spacingDesignSize == (scaled ? 10 : nil))
+            #expect(profile.usesGridFlow == scaled)
+            #expect(profile.defaultStyle == (row.language == "ja" ? .japanese : row.chapters ? .chaptered : .sectioned))
+        }
+    }
+
+    @Test("版面と級数表を全クラスで個別に選ぶ", arguments: defaults)
+    func layoutRules(row: Defaults) {
+        for name in row.names {
+            let p = LaTeXDocumentClassInfo(name: name).profile
+            let layout: LaTeXClassProfile.LayoutRule
+            let baselines: LaTeXClassProfile.BaselineTable
+            switch name {
+            case "scrartcl", "scrreprt", "scrbook": (layout, baselines) = (.typeArea, .standard)
+            case "memoir": (layout, baselines) = (.ruledBook, .standard)
+            case "amsart", "amsproc": (layout, baselines) = (.ams(footSkip: 12), .ams)
+            case "amsbook": (layout, baselines) = (.ams(footSkip: 18), .ams)
+            case "exam": (layout, baselines) = (.exam, .standard)
+            case "jlreq": (layout, baselines) = (.characterGrid, .characterGrid)
+            case "article", "report": (layout, baselines) = (.standard(.doubleColumn), .standard)
+            case "book": (layout, baselines) = (.standard(.bookOffsets), .standard)
+            case "letter": (layout, baselines) = (.standard(.letterOffsets), .standard)
+            default:
+                if row.jsScale != nil {
+                    layout = .scaledGrid(
+                        scale: 1, bookMeasure: name.hasSuffix("book"), centersFurniture: name.hasPrefix("bx"))
+                    baselines = .scaled(magnification: 1, smallBelow: name.hasPrefix("bx") ? 1 : 0.92)
+                } else {
+                    layout = .standard(.inherited)
+                    baselines = row.traditionalNames ? .traditional : .standard
+                }
+            }
+            #expect(p.page.layoutRule == layout)
+            #expect(p.typography.baselineTable == baselines)
+        }
+    }
+
+    @Test("クラスオプションによる罫線・表題・部見出しの違いを保つ")
+    func optionDependentRules() {
+        for (options, heading, rule) in [
+            ("reprint,preprint", LaTeXClassProfile.BibliographyHeading.rule, true),
+            ("preprint,reprint", .rule, false), ("preprint,aip", .inherited, false),
+        ] {
+            let p = LaTeXDocumentClassInfo(name: "revtex4-2", options: options).profile
+            #expect(p.headings.bibliography == heading)
+            #expect(p.body.naturalRuleHeight == rule)
+        }
+        let ieee = LaTeXDocumentClassInfo(name: "IEEEtran", options: "conference,compsoc").profile
+        #expect(ieee.titleBlock.pageStyle == "empty")
+        #expect(ieee.titleBlock.defaultKeywordLabel == "Index Terms—")
+        #expect(!ieee.titleBlock.includesDate)
+        #expect(LaTeXDocumentClassInfo(name: "jlreq", options: "report").profile.headings.emptyPartPage)
+        let scaled = LaTeXDocumentClassInfo(name: "bxjsbook", options: "oneside,8pt").profile
+        #expect(scaled.page.layoutRule == .scaledGrid(scale: 0.8, bookMeasure: true, centersFurniture: true))
+        #expect(scaled.typography.baselineTable == .scaled(magnification: 0.8, smallBelow: 1))
+    }
+
+    @Test("文書クラス名のリテラルはレジストリだけに置く")
+    func classNameLiterals() throws {
+        let sources = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .appendingPathComponent("../../Sources").standardizedFileURL
+        let names = LaTeXClassRegistry.registeredNames.map(NSRegularExpression.escapedPattern(for:))
+        let literal = try NSRegularExpression(pattern: "\"" + "(?:" + names.joined(separator: "|") + ")\"")
+        // Each excerpt exempts one occurrence so another comparison in the same file still fails.
+        let exceptions: [String: [String]] = [
+            // These are HTML element names used to identify block boundaries.
+            "FragmentChanges.swift": [#""header", "article", "main""#],
+            "ClipboardMarkupScanners.swift": [#""section", "article", "aside""#],
+            // The bundled cleanup preset is named for the content it keeps.
+            "HTMLCleanupPreset.swift": [#""clean", "article", "print""#],
+            // CSS accepts letter as a paper size.
+            "PageRule.swift": [#""jis-b4", "letter", "legal""#],
+            // BibTeX entry types are independent of the document class.
+            "LaTeXBibliography.swift": [
+                #"["book", "inbook"].contains(type)"#, #"["book", "inbook", "manual""#,
+                #"case "article":"#, #"case "book", "inbook":"#,
+            ],
+            // The memoir chapterstyle command also accepts a style called article.
+            "LaTeXBookStyle.swift": [#""section", "article"].contains(style)"#],
+            // The letter environment can only open inside a document supporting correspondence.
+            "LaTeXReader.swift": [#"case "letter" where document.classInfo.profile.body.correspondence == .letter:"#],
+            // These selectors are JavaScript embedded in the pagination source.
+            "LaTeXPageReferences.swift": [
+                #"[data-latex-class="amsart"]"#, #"[data-latex-class="amsproc"]"#, #"[data-latex-class="amsbook"]"#,
+            ],
+        ]
+        for module in ["SurimonoFormats", "SurimonoCore", "SurimonoRendering"] {
+            let folder = sources.appendingPathComponent(module)
+            let files = try #require(FileManager.default.enumerator(at: folder, includingPropertiesForKeys: nil))
+            var scanned = 0
+            for case let file as URL in files where file.pathExtension == "swift" {
+                if file == sources.appendingPathComponent("SurimonoFormats/LaTeXClassRegistry.swift") { continue }
+                scanned += 1
+                var source = try String(contentsOf: file, encoding: .utf8)
+                for excerpt in exceptions[file.lastPathComponent] ?? [] {
+                    if let range = source.range(of: excerpt) { source.replaceSubrange(range, with: "") }
+                }
+                let match = literal.firstMatch(in: source, range: NSRange(source.startIndex..., in: source))
+                if let match, let range = Range(match.range, in: source) {
+                    let line = source[..<range.lowerBound].utf8.filter { $0 == 10 }.count + 1
+                    Issue.record("\(file.lastPathComponent):\(line) クラス名 \(source[range])")
+                }
+            }
+            #expect(scanned > 0, "\(module)")
         }
     }
 }
