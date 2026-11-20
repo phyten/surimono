@@ -57,7 +57,7 @@ struct ReadingNavigationTests {
             state: state, root: { nil }, model: { model }, preferences: { fixture.preferences },
             lifecycle: NotificationCenter(), apply: { _ in })
         updates.start()
-        defer { updates.stop {} }
+        defer { updates.stop() }
         await withCheckedContinuation { done in DispatchQueue.main.async { done.resume() } }
         let before = state.snapshot
         #expect(!before.content.bookmarked)

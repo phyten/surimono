@@ -2,13 +2,13 @@ import AppKit
 
 /// SwiftUI's document group adds the document's Save, Duplicate, Rename, Move To, Revert and Lock items. A viewer never
 /// changes the reader's file, and Rename and Move To would rename or move it even though writes are refused. Keep the
-/// native group so Share and Open Recent still work, and disable key equivalents on its hidden items.
+/// native group so Share and Open Recent still work, and leave key-equivalent setters out of item notifications.
 final class DocumentEditMenu {
     private let canScan: () -> Bool
     private let isTracking: () -> Bool
     private var notifiedItem: NSMenuItem?
     private(set) lazy var writes = MenuWrites(
-        "hider", canWrite: { [weak self] in self?.notifiedItem != nil || self?.canScan() == true },
+        canWrite: { [weak self] in self?.notifiedItem != nil || self?.canScan() == true },
         isTracking: isTracking)
 
     init(canScan: @escaping () -> Bool = { true }, isTracking: @escaping () -> Bool = { false }) {
@@ -30,8 +30,11 @@ final class DocumentEditMenu {
         if let action = item.action, hiddenActions.contains(action) { return true }
         // An empty versions submenu has no browseVersions: child until AppKit fills it.
         return item.submenu != nil && previous?.action == #selector(NSDocument.revertToSaved(_:))
-            && !(item.target is ShortcutMenuBridge) && item.identifier?.rawValue.hasPrefix("surimono.shortcut.") != true
-            && (item.title == versionsTitle || item.title == "Revert To")
+            && (item.action == nil || item.action == NSSelectorFromString("submenuAction:"))
+            && item.identifier?.rawValue.hasPrefix("surimono.shortcut.") != true
+            && (item.title == versionsTitle || item.title == "Revert To" || item.title == "バージョンを戻す"
+                || item.submenu?.items.contains(where: { $0.action == #selector(NSDocument.browseVersions(_:)) })
+                    == true)
     }
 
     func hasExposedFileItems(in main: NSMenu?) -> Bool {
@@ -41,11 +44,21 @@ final class DocumentEditMenu {
         var previous: NSMenuItem?
         for item in file.items {
             if Self.protects(item, after: previous),
-                !item.isHidden || item.isAlternate || item.allowsKeyEquivalentWhenHidden || !item.keyEquivalent.isEmpty
+                !item.isHidden || item.isAlternate || item.allowsKeyEquivalentWhenHidden
             {
                 return true
             }
             previous = item
+        }
+        return false
+    }
+
+    static func isInFileMenu(_ menu: NSMenu?, of main: NSMenu?) -> Bool {
+        guard let main, main.numberOfItems > 1, let file = main.item(at: 1)?.submenu else { return false }
+        var ancestor = menu
+        while let current = ancestor {
+            if current === file { return true }
+            ancestor = current.supermenu
         }
         return false
     }
@@ -56,11 +69,8 @@ final class DocumentEditMenu {
             let index = note.userInfo?["NSMenuItemIndex"] as? Int, (0..<menu.numberOfItems).contains(index),
             let item = menu.item(at: index), item !== notifiedItem,
             Self.protects(item, after: index > 0 ? menu.item(at: index - 1) : nil),
-            main.numberOfItems > 1, let file = main.item(at: 1)?.submenu
+            Self.isInFileMenu(menu, of: main)
         else { return }
-        var ancestor: NSMenu? = menu
-        while let current = ancestor, current !== file { ancestor = current.supermenu }
-        guard ancestor === file else { return }
         // Each setter can notify recursively. A different item added during the repair still needs its own pass.
         let previous = notifiedItem
         notifiedItem = item
@@ -68,17 +78,14 @@ final class DocumentEditMenu {
         conceal(item)
     }
 
-    func hideItems(in menu: NSMenu?, clearHiddenKeys: Bool) {
+    func hideItems(in menu: NSMenu?) {
         guard !MenuTrace.noHider, notifiedItem == nil, canScan() else { return }
         var previous: NSMenuItem?
         for item in menu?.items ?? [] {
             if Self.protects(item, after: previous) {
                 conceal(item)
-                // On macOS 26.6.2, performKeyEquivalent can dispatch a hidden Save with the hidden-key flag off.
-                // Only the queued, untracked pass may touch the key table, after AppKit releases its lock.
-                if clearHiddenKeys { writes.set(item, \.keyEquivalent, "keyEquivalent", "") }
             }
-            if let submenu = item.submenu { hideItems(in: submenu, clearHiddenKeys: clearHiddenKeys) }
+            if let submenu = item.submenu { hideItems(in: submenu) }
             previous = item
         }
     }

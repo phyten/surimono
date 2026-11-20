@@ -326,6 +326,27 @@ struct PaperFindTests {
         #expect(!model.isGoToPagePresented)
     }
 
+    @Test("検索・前後の一致・ページ移動・再読み込みは、文書のないときは無効で、複数ページの紙面では選べる")
+    func documentMenuAvailability() async throws {
+        let fixture = ShortcutOutputFixture()
+        defer { fixture.close() }
+        try await fixture.render()
+        try #require(fixture.model.pageCount > 1)
+        for (document, enabled): (DocumentViewModel?, Bool) in [(nil, false), (fixture.model, true)] {
+            let snapshot = MenuSnapshot(
+                version: 1,
+                content: .init(model: document, preferences: fixture.preferences, controller: fixture.controller))
+            for (section, operation): (DocumentMenuDescriptor.Section, ShortcutOperationID) in [
+                (.edit, .documentFind), (.edit, .documentFindNext), (.edit, .documentFindPrevious),
+                (.view, .documentGoToPage), (.document, .documentReload),
+            ] {
+                let row = try #require(
+                    DocumentMenuDescriptor.rows(for: section, in: snapshot).first { $0.operation == operation })
+                #expect(row.isEnabled == enabled, "\(operation)")
+            }
+        }
+    }
+
     @Test("検索・次を検索・前を検索・ページへ移動・再読み込みは、メニューに 1 つずつあり、キーが重ならない")
     func menuItems() throws {
         let menu = try #require(NSApp.mainMenu)
@@ -349,7 +370,6 @@ struct PaperFindTests {
             let named = all.filter { $0.title == localized(title) }
             #expect(named.count == 1, "\(title)")
             #expect(named.first?.menu === owner, "\(title)")
-            #expect(named.first?.isEnabled == true, "\(title)")
             // A shifted letter may be stored as the capital with or without the Shift flag.
             let keyed = all.filter { item in
                 let mask = item.keyEquivalentModifierMask.intersection(.deviceIndependentFlagsMask)

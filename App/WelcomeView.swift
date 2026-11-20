@@ -18,7 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             appearanceKeeper?.start()
         }
         // Observe assembly before SwiftUI installs the document group's File submenu.
-        ShortcutDispatcher.shared.bridge.start()
+        ShortcutDispatcher.shared.menus.start()
         RecentFileHistory.shared?.restoreOnLaunch()
         NSWindow.allowsAutomaticWindowTabbing = false
         // The document controller's launch-time open panel opens a multi-file selection one document at a time and

@@ -2,30 +2,32 @@ import AppKit
 import Observation
 import SurimonoCore
 
-/// One boundary for the document-group hider, shortcut adapter, and SwiftUI command presentation.
+/// One boundary for the document-group hider, read-only shortcut observer, and SwiftUI command presentation.
 final class MenuUpdates: NSObject {
     let state: MenuState
     private(set) lazy var hider = DocumentEditMenu(
         canScan: { [weak self] in self?.allowsWrites == true },
-        isTracking: { [weak self] in self?.tracked.isEmpty == false })
+        isTracking: { [weak self] in self?.sessions.isEmpty == false })
     private let inventory = MenuTraceInventory()
     let root: () -> NSMenu?
     let model: () -> DocumentViewModel?
     let preferences: () -> AppPreferences?
     let lifecycle: NotificationCenter
+    private let textInput: () -> Bool
+    private var observedTextInput = false
+    private let controller: ShortcutController
     private let marginUnit: () -> MarginUnit
     private let apply: (NSMenu) -> Void
-    private var tracked: Set<NSMenu> = []
-    private weak var trackingRoot: NSMenu?
-    private var trackingLoopDepth = 0
-    private var idleObserver: CFRunLoopObserver?
+    // Retain each originating tree through its end, including while SwiftUI installs a different main menu.
+    private var sessions: [NSMenu: [NSMenu: Int]] = [:]
+    var trackingDepth: Int { sessions.values.reduce(0) { $0 + $1.values.reduce(0, +) } }
     private var queued = false
     private var dirty = false
     private var awaitingEndPass = false
-    var allowsWrites: Bool { tracked.isEmpty && !awaitingEndPass }
+    var allowsWrites: Bool { sessions.isEmpty && !awaitingEndPass }
     private var applying = false
     private var started = false
-    private var pendingStop: (() -> Void)?
+    private var pendingStop = false
     private weak var lastMenu: NSMenu?
     private weak var observedPreferences: AppPreferences?
     private weak var observedModel: DocumentViewModel?
@@ -38,19 +40,23 @@ final class MenuUpdates: NSObject {
     init(
         state: MenuState, root: @escaping () -> NSMenu?, model: @escaping () -> DocumentViewModel?,
         preferences: @escaping () -> AppPreferences?, lifecycle: NotificationCenter,
-        marginUnit: @escaping () -> MarginUnit = { .current }, apply: @escaping (NSMenu) -> Void
+        controller: ShortcutController = .shared, textInput: @escaping () -> Bool = { false },
+        marginUnit: @escaping () -> MarginUnit = { .current },
+        apply: @escaping (NSMenu) -> Void
     ) {
         self.state = state
         self.root = root
         self.model = model
         self.preferences = preferences
         self.lifecycle = lifecycle
+        self.textInput = textInput
+        self.controller = controller
         self.marginUnit = marginUnit
         self.apply = apply
     }
 
     func start() {
-        pendingStop = nil
+        pendingStop = false
         guard !started else { return }
         started = true
         snapshotDirty = true
@@ -81,23 +87,13 @@ final class MenuUpdates: NSObject {
         ) {
             [weak self] _ in MainActor.assumeIsolated { self?.invalidateSnapshot("locale") }
         }
-        runPass(refreshSnapshot: true)
+        runPass()
         schedule()
     }
 
-    func stop(restore: @escaping () -> Void) {
-        // Restoring target/action is a mutation too. Leave the observer installed until the last end arrives.
-        if !allowsWrites {
-            pendingStop = restore
-            return
-        }
-        // Native restoration may itself deliver a begin notification. Keep observing through the last setter.
-        let wasApplying = applying
-        applying = true
-        restore()
-        applying = wasApplying
+    func stop() {
         guard allowsWrites else {
-            pendingStop = restore
+            pendingStop = true
             return
         }
         started = false
@@ -113,18 +109,11 @@ final class MenuUpdates: NSObject {
 
     @objc private func windowChanged(_ note: Notification) {
         let main = root()
-        if !tracked.isEmpty {
-            // A rebuilt root or detached submenu cannot still own the application's menu bar.
-            tracked = tracked.filter { Self.top(of: $0) === main }
-            if tracked.isEmpty || trackingRoot !== main {
-                finishTracking("tree replaced")
-            }
-        }
         if note.name == NSApplication.didUpdateNotification {
             // A focus handoff can finish after its notifications. Inspect the settled identity on the next turn.
             if sourcesChanged { invalidateSnapshot("focus") }
-            guard allowsWrites, !applying, main !== lastMenu || hider.hasExposedFileItems(in: main) else { return }
-            reconcile()
+            guard !applying, main !== lastMenu || (allowsWrites && hider.hasExposedFileItems(in: main)) else { return }
+            if !sessions.isEmpty, main !== lastMenu { MenuTrace.record("main menu replaced with tracking outstanding") }
             schedule()
         } else {
             // In particular, willClose still names the outgoing window; resolve the key window after AppKit returns.
@@ -139,7 +128,7 @@ final class MenuUpdates: NSObject {
 
     private var sourcesChanged: Bool {
         let current = model()
-        return current !== observedModel || preferences() !== observedPreferences
+        return current !== observedModel || preferences() !== observedPreferences || textInput() != observedTextInput
             || (current?.library ?? ClipboardWindows.shared.library) !== observedLibrary
     }
 
@@ -155,85 +144,50 @@ final class MenuUpdates: NSObject {
         return top
     }
 
-    private static func hasHighlight(in menu: NSMenu) -> Bool {
-        menu.highlightedItem != nil
-            || menu.items.contains {
-                guard let submenu = $0.submenu else { return false }
-                return hasHighlight(in: submenu)
-            }
-    }
-
     isolated deinit {
         if let localeObserver { lifecycle.removeObserver(localeObserver) }
-        if let idleObserver { CFRunLoopObserverInvalidate(idleObserver) }
-    }
-
-    private func watchForIdleMenuBar() {
-        guard idleObserver == nil else { return }
-        // A modal menu can service the main queue and can even enter a nested default loop.
-        // Only an idle default loop outside those tracking frames provides evidence of a missed end.
-        trackingLoopDepth = RunLoop.main.currentMode == .eventTracking ? 1 : 0
-        let phases: CFRunLoopActivity = [.entry, .exit, .beforeWaiting]
-        let observer = CFRunLoopObserverCreateWithHandler(nil, phases.rawValue, true, 0) { [weak self] _, phase in
-            MainActor.assumeIsolated {
-                guard let self, let main = self.trackingRoot else { return }
-                let mode = RunLoop.main.currentMode
-                if mode == .eventTracking {
-                    if phase == .entry { self.trackingLoopDepth += 1 }
-                    if phase == .exit { self.trackingLoopDepth = max(0, self.trackingLoopDepth - 1) }
-                } else if phase == .beforeWaiting, mode == .default, self.trackingLoopDepth == 0,
-                    !Self.hasHighlight(in: main)
-                {
-                    self.finishTracking("idle menu bar")
-                }
-            }
-        }
-        idleObserver = observer
-        let loop = CFRunLoopGetMain()
-        CFRunLoopAddObserver(loop, observer, .defaultMode)
-        CFRunLoopAddObserver(loop, observer, CFRunLoopMode(RunLoop.Mode.eventTracking.rawValue as CFString))
-    }
-
-    private func finishTracking(_ recovery: String? = nil) {
-        if let recovery { MenuTrace.record("tracking recovered: \(recovery) version=\(state.snapshot.version)") }
-        if let idleObserver { CFRunLoopObserverInvalidate(idleObserver) }
-        idleObserver = nil
-        tracked.removeAll()
-        trackingRoot = nil
-        awaitingEndPass = true
-        schedule()
     }
 
     @objc private func menuChanged(_ note: Notification) {
         guard let menu = note.object as? NSMenu else { return }
         if note.name == NSMenu.didEndTrackingNotification {
-            guard tracked.contains(menu) else { return }
+            // A root end closes its children even if only their begin was delivered. Repeated root begins
+            // need matching ends; an unrelated or ambiguous end is never evidence that tracking stopped.
+            let roots = sessions.keys.filter { $0 === menu || sessions[$0]?[menu] != nil }
+            guard roots.count == 1, let origin = roots.first, var depths = sessions[origin] else {
+                if !sessions.isEmpty { MenuTrace.record("unmatched end depth=\(trackingDepth)") }
+                return
+            }
             MenuTrace.record(
-                "end menu=\(MenuTrace.menuName(menu, root: trackingRoot)) depth=\(tracked.count) version=\(state.snapshot.version)"
+                "end menu=\(MenuTrace.menuName(menu, root: origin)) depth=\(trackingDepth) version=\(state.snapshot.version)"
             )
-            tracked.remove(menu)
-            // The root's end also closes any child whose individual end was lost.
-            if menu === trackingRoot || tracked.isEmpty { finishTracking() }
+            if menu === origin, depths[menu, default: 0] <= 1 {
+                sessions.removeValue(forKey: origin)
+            } else {
+                let count = depths[menu, default: 0] - 1
+                if count > 0 { depths[menu] = count } else { depths.removeValue(forKey: menu) }
+                sessions[origin] = depths.isEmpty ? nil : depths
+            }
+            if sessions.isEmpty {
+                awaitingEndPass = true
+                schedule()
+            }
             return
         }
-        guard let main = root(), Self.top(of: menu) === main else { return }
+        let main = Self.top(of: menu)
+        guard main === root() || sessions[main] != nil else { return }
         if note.name == NSMenu.didBeginTrackingNotification {
-            let startsSession = tracked.isEmpty || trackingRoot !== main
-            if startsSession {
-                tracked.removeAll()
-                trackingRoot = main
-                watchForIdleMenuBar()
-            }
-            tracked.insert(menu)
+            if sessions[main]?[menu] != nil { MenuTrace.record("repeated begin depth=\(trackingDepth)") }
+            sessions[main, default: [:]][menu, default: 0] += 1
             dirty = true
             MenuTrace.record(
-                "begin menu=\(MenuTrace.menuName(menu, root: main)) depth=\(tracked.count) version=\(state.snapshot.version)"
+                "begin menu=\(MenuTrace.menuName(menu, root: main)) depth=\(trackingDepth) version=\(state.snapshot.version)"
             )
             if MenuTrace.enabled { inventory.seed(menu, reportVisibleEditsAt: state.snapshot.version) }
         } else {
             if MenuTrace.enabled {
                 let line = inventory.change(
-                    note, in: menu, root: main, depth: tracked.count, version: state.snapshot.version)
+                    note, in: menu, root: main, depth: trackingDepth, version: state.snapshot.version)
                 MenuTrace.record(line)
             }
             // Record the incoming instance before its synchronous repair emits nested change notifications.
@@ -245,50 +199,40 @@ final class MenuUpdates: NSObject {
 
     private func schedule() {
         dirty = true
-        guard started, tracked.isEmpty, !queued else { return }
+        guard started, sessions.isEmpty, !queued else { return }
         queued = true
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             queued = false
             guard started else { return }
-            guard tracked.isEmpty else {
+            guard sessions.isEmpty else {
                 dirty = true
                 return
             }
             awaitingEndPass = false
-            if let restore = pendingStop {
-                pendingStop = nil
-                stop(restore: restore)
+            if pendingStop {
+                pendingStop = false
+                stop()
             } else if dirty || snapshotDirty {
-                runPass(refreshSnapshot: true, deferred: true)
+                runPass()
             }
         }
     }
 
-    func reconcile() {
-        guard allowsWrites else {
-            dirty = true
-            return
-        }
-        if started, sourcesChanged { invalidateSnapshot("model") }
-        runPass(refreshSnapshot: !started)
-    }
-
-    private func runPass(refreshSnapshot: Bool, deferred: Bool = false) {
+    private func runPass() {
         guard allowsWrites, !applying else { return }
         applying = true
         defer {
             applying = false
-            // A nested AppKit loop may service our queued pass while another pass is still on the stack.
             if started, allowsWrites, dirty || snapshotDirty { schedule() }
         }
-        // An immediate shortcut reconciliation cannot consume queued work that may still need the key table.
-        if deferred { dirty = false }
-        if refreshSnapshot { refreshState() }
-        guard allowsWrites, let menu = root() else { return }
-        lastMenu = menu
-        apply(menu)
-        if allowsWrites { hider.hideItems(in: root(), clearHiddenKeys: deferred) }
+        dirty = false
+        if let menu = root() {
+            lastMenu = menu
+            apply(menu)
+            if allowsWrites, menu.numberOfItems > 1 { hider.hideItems(in: menu.item(at: 1)?.submenu) }
+        }
+        if allowsWrites { refreshState() }
     }
 
     private func refreshState() {
@@ -300,11 +244,13 @@ final class MenuUpdates: NSObject {
             let current = model()
             return MenuSnapshot.Content(
                 model: current, preferences: preferences(),
-                library: current?.library ?? ClipboardWindows.shared.library, marginUnit: marginUnit()
+                library: current?.library ?? ClipboardWindows.shared.library, marginUnit: marginUnit(),
+                controller: controller, textInput: textInput()
             )
         }
         // Repeated key/main notifications for the same sources should not accumulate one-shot observers.
         if observationArmed, !sourcesChanged, read() == state.snapshot.content { return }
+        observedTextInput = textInput()
         observedModel = model()
         observedLibrary = observedModel?.library ?? ClipboardWindows.shared.library
         observedPreferences = preferences()

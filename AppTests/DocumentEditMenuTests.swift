@@ -28,13 +28,13 @@ struct DocumentEditMenuTests {
         let share = item("Share", nil)
         share.submenu = NSMenu()
         for entry in [close] + edits + [.separator(), share] { menu.addItem(entry) }
-        DocumentEditMenu().hideItems(in: menu, clearHiddenKeys: true)
+        DocumentEditMenu().hideItems(in: menu)
         #expect(edits.allSatisfy { $0.isHidden && !$0.allowsKeyEquivalentWhenHidden })
         #expect(!close.isHidden)
         #expect(!share.isHidden)
     }
 
-    @Test("追跡外の照合で代替表示と保存・複製のキーを解除し、閉じるの代替は保つ")
+    @Test("保存・複製の代替表示を解除し、キー文字と閉じるの代替は保つ")
     func hiddenEditsAreNotAlternates() {
         let menu = NSMenu()
         let saveAs = NSMenuItem(title: "Save As…", action: #selector(NSDocument.saveAs(_:)), keyEquivalent: "S")
@@ -48,20 +48,20 @@ struct DocumentEditMenuTests {
         closeAll.keyEquivalentModifierMask = [.command, .option]
         closeAll.isAlternate = true
         for entry in [close, closeAll, saveAs, duplicate] { menu.addItem(entry) }
-        DocumentEditMenu().hideItems(in: menu, clearHiddenKeys: true)
+        DocumentEditMenu().hideItems(in: menu)
         for edit in [saveAs, duplicate] {
             #expect(edit.isHidden)
             #expect(!edit.isAlternate)
             #expect(!edit.allowsKeyEquivalentWhenHidden)
-            #expect(edit.keyEquivalent.isEmpty)
+            #expect(edit.keyEquivalent.lowercased() == "s")
         }
         #expect(closeAll.isAlternate && !closeAll.isHidden && closeAll.keyEquivalent == "w")
         #expect(close.keyEquivalent == "w")
     }
 
-    @Test("アプリのどのメニューにも、隠した項目の代わりに出る項目やショートカットが残っていない")
+    @Test("アプリのどのメニューにも、隠した項目の代わりに出る項目がない")
     func appMenuLeavesNoWayToDocumentEdits() async {
-        // Keys on newly assembled items are cleared after the item notifications have returned.
+        // Include the initial pass over the assembled main menu.
         await withCheckedContinuation { done in DispatchQueue.main.async { done.resume() } }
         func all(_ menu: NSMenu?) -> [NSMenuItem] { (menu?.items ?? []).flatMap { [$0] + all($0.submenu) } }
         let versionsTitle = Bundle(for: NSDocument.self).localizedString(
@@ -72,10 +72,10 @@ struct DocumentEditMenuTests {
                 // An open menu shows an alternate in place of a hidden primary.
                 if item.isAlternate, let previous { #expect(!previous.isHidden || item.isHidden, "\(item.title)") }
                 if previous?.action == #selector(NSDocument.revertToSaved(_:)), let submenu = item.submenu,
-                    [versionsTitle, "Revert To"].contains(item.title)
+                    [versionsTitle, "Revert To", "バージョンを戻す"].contains(item.title)
                         || submenu.items.contains(where: { $0.action == #selector(NSDocument.browseVersions(_:)) })
                 {
-                    #expect(item.isHidden && !item.isAlternate && item.keyEquivalent.isEmpty)
+                    #expect(item.isHidden && !item.isAlternate)
                     #expect(!item.allowsKeyEquivalentWhenHidden)
                 }
                 previous = item
@@ -88,14 +88,13 @@ struct DocumentEditMenuTests {
         for edit in edits {
             #expect(edit.isHidden, "\(edit.title)")
             #expect(!edit.isAlternate, "\(edit.title)")
-            #expect(edit.keyEquivalent.isEmpty, "\(edit.title)")
             #expect(!edit.allowsKeyEquivalentWhenHidden, "\(edit.title)")
         }
         visit(NSApp.mainMenu)
     }
 
-    @Test("追跡中に復帰のすぐ後ろに追加されたバージョンの小メニューだけを同期的に隠す")
-    func hidesRevertSubmenu() {
+    @Test("追跡中に復帰のすぐ後ろに追加されたバージョンの小メニューだけを同期的に隠す", arguments: ["Revert To", "バージョンを戻す"])
+    func hidesRevertSubmenu(title: String) {
         let main = NSMenu()
         main.addItem(NSMenuItem())
         let group = NSMenuItem()
@@ -106,12 +105,12 @@ struct DocumentEditMenuTests {
             state: MenuState(), root: { main }, model: { nil }, preferences: { nil },
             lifecycle: NotificationCenter(), apply: { _ in })
         updates.start()
-        defer { updates.stop {} }
+        defer { updates.stop() }
         let center = NotificationCenter.default
         center.post(name: NSMenu.didBeginTrackingNotification, object: main)
         defer { center.post(name: NSMenu.didEndTrackingNotification, object: main) }
         file.addItem(item("Revert To Saved", #selector(NSDocument.revertToSaved(_:))))
-        let revertTo = item("Revert To", nil)
+        let revertTo = item(title, NSSelectorFromString("submenuAction:"))
         revertTo.submenu = NSMenu()
         file.addItem(revertTo)
         #expect(revertTo.isHidden)
@@ -129,7 +128,7 @@ struct DocumentEditMenuTests {
         let export = item(String(localized: "Export"), nil)
         export.submenu = NSMenu()
         menu.addItem(export)
-        DocumentEditMenu().hideItems(in: menu, clearHiddenKeys: true)
+        DocumentEditMenu().hideItems(in: menu)
         #expect(!export.isHidden)
     }
 

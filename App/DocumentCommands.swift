@@ -44,6 +44,7 @@ struct DocumentMenuRows: View {
 
     var body: some View {
         ForEach(rows) { row in
+            let modifiers = row.modifiers(inMenuBar: inMenuBar)
             switch row.id {
             case .divider: Divider()
             case .menu:
@@ -51,7 +52,7 @@ struct DocumentMenuRows: View {
                     DocumentMenuRows(rows: row.children, inMenuBar: inMenuBar, perform: perform)
                 } label: {
                     row.title.text
-                }
+                }.disabled(modifiers.disabled)
             case .typefacePicker:
                 Picker(
                     selection: Binding(
@@ -62,15 +63,15 @@ struct DocumentMenuRows: View {
                     ForEach(row.children) { choice in choice.title.text.tag(Optional(choice.id)) }
                 } label: {
                     row.title.text
-                }.pickerStyle(.menu)
+                }.pickerStyle(.menu).disabled(modifiers.disabled)
             case .action(let action):
                 if inMenuBar, let operation = row.operation {
-                    // Native validation keeps the displayed availability and a rebound key on the same live target.
                     button(row, action: action)
-                        .accessibilityIdentifier(ShortcutMenuBridge.identifier(operation).rawValue)
-                        .keyboardShortcut(row.shortcut)
+                        .accessibilityIdentifier(SystemMenuShortcuts.accessibilityID(operation))
+                        .keyboardShortcut(modifiers.shortcut)
+                        .disabled(modifiers.disabled)
                 } else {
-                    button(row, action: action)
+                    button(row, action: action).disabled(modifiers.disabled)
                 }
             }
         }

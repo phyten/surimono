@@ -33,12 +33,12 @@ final class ShortcutSurfaceFixture {
                 }
             }
         })
-    lazy var bridge = ShortcutMenuBridge(
+    lazy var menus = SystemMenuShortcuts(
         controller: controller, menu: { NSMenu() },
         keyWindow: { [unowned self] in activeWindow },
         model: { [unowned self] in model })
     lazy var dispatcher = ShortcutDispatcher(
-        controller: controller, bridge: bridge,
+        controller: controller, menus: menus,
         keyWindow: { [unowned self] in activeWindow },
         model: { [unowned self] in model },
         firstResponder: { [unowned self] _ in responder })
@@ -241,7 +241,7 @@ struct ShortcutSurfaceTests {
         #expect(calls.isEmpty)
         #expect(f.model.textScale == 1)
         try f.controller.edit(.viewOptions, keys: [.init(key: .character("k"), modifiers: .command)])
-        #expect(!f.dispatcher.handle(f.event("k", flags: .command)))
+        #expect(f.dispatcher.handle(f.event("k", flags: .command)))
         #expect(!f.dispatcher.handle(f.event("m")))
         #expect(f.operations.isEmpty)
         editor.unmarkText()
@@ -599,9 +599,19 @@ extension ShortcutSurfaceTests {
 @MainActor
 extension ShortcutSurfaceTests {
     @Test("履歴としおりのキーは紙と文字選択に届き、入力欄の裸キーは奪わない")
-    func readingPlacesKeys() throws {
-        let fixture = try ShortcutSurfaceFixture()
+    func readingPlacesKeys() async throws {
+        let fixture = try ShortcutSurfaceFixture(format: .pdf)
         defer { fixture.close() }
+        let model = fixture.model!
+        model.replaceContent(TestFixtures.pdf("Navigation", pages: 6), format: .pdf)
+        model.render()
+        try await ShortcutMenuBaselineTests.waitForMenu { model.pageCount == 6 }
+        model.setLayout(.single)
+        model.jumpToReadingPage(2)
+        model.jumpToReadingPage(4)
+        model.goBack()
+        model.toggleBookmark(page: 0, visiblePages: [0])
+        model.toggleBookmark(page: 5, visiblePages: [5])
         let keys: [(String, NSEvent.ModifierFlags, ShortcutOperationID)] = [
             ("[", .command, .readingBack), ("]", .command, .readingForward),
             ("b", [], .bookmarkToggle), ("]", [], .bookmarkNext), ("[", [], .bookmarkPrevious),

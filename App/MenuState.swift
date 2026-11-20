@@ -26,19 +26,47 @@ struct MenuSnapshot: Equatable {
         }
     }
 
+    struct Visibility: Equatable {
+        let hasHistory: Bool
+        let canCheckUpdates: Bool
+        let canSaveAsFile: Bool
+        let canOpenBinder: Bool
+        let hasBinder: Bool
+        let hasImages: Bool
+
+        init(model: DocumentViewModel?, preferences: AppPreferences?) {
+            hasHistory = preferences?.closedClipboardDocuments.entries.isEmpty == false
+            canCheckUpdates = AppUpdater.shared.isAvailable
+            canSaveAsFile = model?.canSaveAsFile == true
+            canOpenBinder = model?.includePlan != nil
+            hasBinder = model?.binder != nil
+            hasImages = model?.imageBundle != nil
+        }
+
+        func contains(_ operation: ShortcutOperationID) -> Bool {
+            switch operation {
+            case .clipboardReopen: hasHistory
+            case .documentSaveAsFile: canSaveAsFile
+            case .documentOpenBinder: canOpenBinder
+            case .binderOddPageStarts, .listRemove: hasBinder
+            case .listToggle, .listMoveUp, .listMoveDown, .listSortByName: hasBinder || hasImages
+            case .appCheckUpdates: canCheckUpdates
+            default: true
+            }
+        }
+    }
+
     struct Content: Equatable {
-        let overrides: [ShortcutOperationID: [ShortcutCombination]]
+        let enabled: Set<ShortcutOperationID>
+        let automaticMenuKeys: [ShortcutOperationID: ShortcutCombination]
+        let effectiveKeys: [ShortcutOperationID: [ShortcutCombination]]
         let builtInSets: [SettingEntry]
         let savedSets: [SettingEntry]
         let typeface: Typeface?
         let selectingText: Bool
         let history: [Entry]
         let recentBinders: [BinderEntry]
-        let canCheckUpdates: Bool
-        let canSaveAsFile: Bool
-        let canOpenBinder: Bool
-        let hasBinder: Bool
-        let hasImages: Bool
+        let visibility: Visibility
         let region: ShortcutRegion?
         let printing: Bool
         let showsPaper: Bool
@@ -54,7 +82,7 @@ struct MenuSnapshot: Equatable {
 
         init(
             model: DocumentViewModel? = nil, preferences: AppPreferences? = nil, library: UserLibrary? = nil,
-            marginUnit: MarginUnit = .current
+            marginUnit: MarginUnit = .current, controller: ShortcutController = .shared, textInput: Bool = false
         ) {
             let language = model?.language ?? Bundle.main.preferredLocalizations.first ?? "en"
             self.language = language
@@ -64,7 +92,20 @@ struct MenuSnapshot: Equatable {
                 SettingEntry($0, model: model, summary: summary)
             }
             savedSets = preferences?.printSettingSets.map { SettingEntry($0, model: model, summary: summary) } ?? []
-            overrides = preferences?.keyboardShortcuts.overrides ?? [:]
+            let operations = SystemMenuShortcuts.operations
+            let resolved = Dictionary(
+                uniqueKeysWithValues: operations.map { ($0, controller.localKeys(for: $0, textInput: textInput)) })
+            effectiveKeys = resolved
+            automaticMenuKeys = Dictionary(
+                uniqueKeysWithValues: operations.compactMap { operation in
+                    controller.automaticMenuKey(for: operation, effective: resolved[operation]?.first).map {
+                        (operation, $0)
+                    }
+                })
+            let visibility = Visibility(model: model, preferences: preferences)
+            self.visibility = visibility
+            enabled = Set(
+                operations.filter { ShortcutDispatcher.isAvailable($0, model: model, visibility: visibility) })
             history = preferences?.closedClipboardDocuments.entries.map(\.menuItem) ?? []
             recentBinders =
                 preferences?.recentBinders.entries.map {
@@ -72,13 +113,8 @@ struct MenuSnapshot: Equatable {
                         id: $0.id,
                         title: BinderModel.title(firstName: $0.firstName, count: $0.files.count, language: language))
                 } ?? []
-            canCheckUpdates = AppUpdater.shared.isAvailable
             typeface = model?.offersTypeface == true ? model?.typeface : nil
             selectingText = model?.isSelectingText == true
-            canSaveAsFile = model?.canSaveAsFile == true
-            canOpenBinder = model?.includePlan != nil
-            hasBinder = model?.binder != nil
-            hasImages = model?.imageBundle != nil
             region = ShortcutDispatcher.region(for: model)
             printing = model?.mode == .print
             showsPaper = model?.htmlPresentation == .paper
@@ -97,8 +133,8 @@ struct MenuSnapshot: Equatable {
     let content: Content
 
     func shortcut(for operation: ShortcutOperationID) -> KeyboardShortcut? {
-        let override = content.overrides[operation]
-        guard let binding = (override ?? ShortcutDefaults.keys(for: operation)).first,
+        let automatic = content.automaticMenuKeys[operation]
+        guard let binding = automatic ?? content.effectiveKeys[operation]?.first,
             !binding.modifiers.intersection([.command, .control]).isEmpty,
             let character = ShortcutMenuKey.character(binding.key)?.first
         else { return nil }
@@ -108,7 +144,7 @@ struct MenuSnapshot: Equatable {
         if binding.modifiers.contains(.shift) { modifiers.insert(.shift) }
         if binding.modifiers.contains(.option) { modifiers.insert(.option) }
         return KeyboardShortcut(
-            KeyEquivalent(character), modifiers: modifiers, localization: override == nil ? .automatic : .custom)
+            KeyEquivalent(character), modifiers: modifiers, localization: automatic == nil ? .custom : .automatic)
     }
 }
 

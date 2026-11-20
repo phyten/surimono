@@ -6,7 +6,7 @@ enum DocumentMenuAction: Hashable {
     case operation(ShortcutOperationID)
     case history(ContentHash)
     case recentBinder(RecentBinder.ID)
-    case clearBinders, viewOptions, selectText, openSample, removeFromList
+    case clearBinders, openSample
     case typeface(Typeface)
     case setting(UUID)
     case replaceSetting(UUID)
@@ -22,12 +22,7 @@ enum DocumentMenuAction: Hashable {
         case .recentBinder(let id):
             if let current = preferences.recentBinders.entries.first(where: { $0.id == id }) { openBinder(current) }
         case .clearBinders: preferences.clearRecentBinders()
-        case .viewOptions:
-            if let current = model(), current.mode == .view { current.isViewOptionsPresented = true }
-        case .selectText: model()?.toggleSelectingText()
         case .openSample: OpenRouter.shared.openSampleDocument()
-        case .removeFromList:
-            if let current = model(), let url = current.binder?.selection { current.removeFromBinder(url) }
         case .typeface(let value):
             if let current = model(), current.offersTypeface { current.setTypeface(value) }
         case .setting(let id):
@@ -88,21 +83,30 @@ struct DocumentMenuDescriptor: Identifiable {
         return nil
     }
 
-    /// Freeze the whole presentation together. Native validation rechecks the live window, modal state and focus.
+    struct Modifiers {
+        let shortcut: KeyboardShortcut?
+        let disabled: Bool
+    }
+
+    func modifiers(inMenuBar: Bool) -> Modifiers {
+        Modifiers(shortcut: inMenuBar ? shortcut : nil, disabled: !isEnabled)
+    }
+
     private func resolved(in snapshot: MenuSnapshot) -> Self {
         var row = self
-        let validated: ShortcutOperationID?
+        row.children = children.map { $0.resolved(in: snapshot) }
         switch id {
         case .action(.operation(let operation)):
             row.shortcut = snapshot.shortcut(for: operation)
-            validated = operation
-        case .action(.viewOptions): validated = .viewOptions
-        case .action(.selectText): validated = .viewSelectText
-        case .action(.removeFromList): validated = .listRemove
-        default: validated = nil
+            row.isEnabled = snapshot.content.enabled.contains(operation)
+        case .action(.setting), .action(.replaceSetting): row.isEnabled = snapshot.content.region != nil
+        case .menu, .typefacePicker:
+            row.isEnabled = row.children.contains { child in
+                if case .divider = child.id { return false }
+                return child.isEnabled
+            }
+        default: break
         }
-        if let validated { row.isEnabled = ShortcutMenuBridge.menuIsActive(validated, in: snapshot.content.region) }
-        row.children = children.map { $0.resolved(in: snapshot) }
         return row
     }
 
@@ -132,7 +136,7 @@ struct DocumentMenuDescriptor: Identifiable {
                 command("Open Clipboard on the Print Screen", .clipboardOpenPrintScreen),
                 command("Open from URL…", .appOpenURL),
             ]
-            if !state.history.isEmpty {
+            if state.visibility.hasHistory {
                 rows.append(command("Reopen Closed Clipboard Document", .clipboardReopen))
                 rows.append(
                     menu(
@@ -151,7 +155,7 @@ struct DocumentMenuDescriptor: Identifiable {
                         } + [divider("clear"), button("Clear Menu", .clearBinders)]))
             }
             return rows
-        case .save: return state.canSaveAsFile ? [command("Save as File…", .documentSaveAsFile)] : []
+        case .save: return state.visibility.canSaveAsFile ? [command("Save as File…", .documentSaveAsFile)] : []
         case .printItems:
             return [
                 command(state.printing ? "Print" : "Print…", .documentPrint),
@@ -180,7 +184,7 @@ struct DocumentMenuDescriptor: Identifiable {
                 command("Keys and Gestures", .appKeyGuide),
             ]
         case .document: return documentRows(state)
-        case .appInfo: return state.canCheckUpdates ? [command("Check for Updates…", .appCheckUpdates)] : []
+        case .appInfo: return state.visibility.canCheckUpdates ? [command("Check for Updates…", .appCheckUpdates)] : []
         }
     }
 
@@ -193,7 +197,7 @@ struct DocumentMenuDescriptor: Identifiable {
             $0 == .single ? command("Single Page", .viewSingle) : command("Spread", .viewSpread)
         }
         rows += [
-            button("View Options…", .viewOptions), command("Go to Page…", .documentGoToPage),
+            command("View Options…", .viewOptions), command("Go to Page…", .documentGoToPage),
             command("Back", .readingBack), command("Forward", .readingForward), divider("bookmark"),
             command("Bookmark This Page", .bookmarkToggle, checked: state.bookmarked),
             command("Next Bookmark", .bookmarkNext), command("Previous Bookmark", .bookmarkPrevious), divider("text"),
@@ -212,7 +216,7 @@ struct DocumentMenuDescriptor: Identifiable {
         rows += [
             divider("zoom"), command("Zoom In", .viewZoomIn), command("Zoom Out", .viewZoomOut),
             command("Fit to Window", .viewZoomFit), divider("select"),
-            button("Select Text", .selectText, checked: state.selectingText),
+            command("Select Text", .viewSelectText, checked: state.selectingText),
             command("Always Show Toolbar", .viewToolbarAlways, checked: state.toolbarAlways),
             command("Float on Top", .viewFloatOnTop, checked: state.floatOnTop),
             command("Show on All Spaces", .viewShowOnAllSpaces, checked: state.allSpaces),
@@ -233,22 +237,22 @@ struct DocumentMenuDescriptor: Identifiable {
             menu("Setting Sets", settingRows(builtIns: state.builtInSets, saved: state.savedSets)),
             command("Print Settings…", .printSettings), command("Choose Style…", .styleChoose),
         ]
-        if state.canOpenBinder { rows.append(command("Open as Binder", .documentOpenBinder)) }
+        if state.visibility.canOpenBinder { rows.append(command("Open as Binder", .documentOpenBinder)) }
         rows.append(command("Add Documents…", .documentAdd))
-        if state.hasBinder || state.hasImages {
+        if state.visibility.hasBinder || state.visibility.hasImages {
             var list = [command("Show List", .listToggle, checked: state.drawerOpen)]
-            if state.hasBinder {
+            if state.visibility.hasBinder {
                 list += [
-                    button("Remove from List", .removeFromList),
+                    command("Remove from List", .listRemove),
                     command("Start Each Document on an Odd Page", .binderOddPageStarts, checked: state.oddStarts),
                 ]
             }
             list += [
-                command(state.hasBinder ? "Move Document Up" : "Move Image Up", .listMoveUp),
-                command(state.hasBinder ? "Move Document Down" : "Move Image Down", .listMoveDown),
+                command(state.visibility.hasBinder ? "Move Document Up" : "Move Image Up", .listMoveUp),
+                command(state.visibility.hasBinder ? "Move Document Down" : "Move Image Down", .listMoveDown),
                 command("Sort by Name", .listSortByName),
             ]
-            rows.append(menu(state.hasBinder ? "Binder" : "Images", list))
+            rows.append(menu(state.visibility.hasBinder ? "Binder" : "Images", list))
         }
         return rows + [
             divider("reset"), command("Reset Document Settings", .documentResetSettings),

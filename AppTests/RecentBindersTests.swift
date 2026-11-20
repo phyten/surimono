@@ -96,7 +96,7 @@ struct RecentBindersTests {
             state: state, root: { root }, model: { nil }, preferences: { preferences },
             lifecycle: NotificationCenter(), apply: { _ in })
         updates.start()
-        defer { updates.stop {} }
+        defer { updates.stop() }
         func recentMenus() -> [DocumentMenuDescriptor] {
             DocumentMenuDescriptor.rows(for: .open, in: state.snapshot).filter { $0.id == .menu("Recent Binders") }
         }

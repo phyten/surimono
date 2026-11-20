@@ -59,17 +59,15 @@ struct MenuTraceTests {
         let id = ObjectIdentifier(item).hashValue
         let changed = change(NSMenu.didChangeItemNotification, at: 0)
         for field in [
-            "menu=main index=0", "item=saveDocument:", "id=\(id) ", "image=true", "state=1", "indentationLevel=2",
+            "menu=main index=0", "item=saveDocument:", "id=\(id) ", "image=unobserved", "state=1", "indentationLevel=2",
             "writer=unknown depth=2 version=7", "exposed-edit",
         ] {
             #expect(changed.contains(field))
         }
         #expect(!changed.contains(item.title))
-        for owner in ["hider", "bridge"] {
-            MenuTrace.writing(item, owner: owner) {
-                #expect(change(NSMenu.didChangeItemNotification, at: 0).contains("writer=\(owner) "))
-                #expect(change(NSMenu.didChangeItemNotification, at: 1).contains("writer=unknown "))
-            }
+        MenuTrace.writing(item, owner: "hider") {
+            #expect(change(NSMenu.didChangeItemNotification, at: 0).contains("writer=hider "))
+            #expect(change(NSMenu.didChangeItemNotification, at: 1).contains("writer=unknown "))
         }
         menu.removeItem(at: 0)
         let removed = change(NSMenu.didRemoveItemNotification, at: 0)

@@ -3,10 +3,9 @@ import AppKit
 extension DocumentViewModel {
     /// Only the paper of the view mode is searched: the print screen keeps its own keys, and the live page of an HTML
     /// document is not made of pages.
-    private var hasPaperToSearch: Bool { mode == .view && !showsWeb }
+    var hasPaperToSearch: Bool { mode == .view && !showsWeb }
 
-    /// Edit › Find…. The item stays enabled everywhere (see `DocumentCommands`), so where there is no paper to search
-    /// nothing happens.
+    var canGoToPage: Bool { hasPaperToSearch && pageCount > 1 }
     func performFind() {
         guard hasPaperToSearch else { return }
         find.open()
@@ -40,7 +39,7 @@ extension DocumentViewModel {
 
     /// View › Go to Page….
     func presentGoToPage() {
-        guard hasPaperToSearch, pageCount > 0 else { return }
+        guard canGoToPage else { return }
         isGoToPagePresented = true
     }
 

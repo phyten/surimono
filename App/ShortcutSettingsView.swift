@@ -264,7 +264,7 @@ struct ShortcutSettingsView: View {
 
     private func matches(_ operation: ShortcutOperation) -> Bool {
         if settingsHits.anchors.contains(operation.id.rawValue) { return true }
-        let keys = controller.externalMenuKeys[operation.id].map { [$0] } ?? controller.snapshot.keys(for: operation.id)
+        let keys = controller.settingsKeys(for: operation.id)
         return matches(
             [
                 ShortcutText.name(operation.id), ShortcutText.group(operation.group),
@@ -324,7 +324,13 @@ private struct EditableShortcutRow: View {
     private var title: String { ShortcutText.name(operation) }
     private var isGlobal: Bool { ShortcutOperation.operation(operation).isGlobal }
     private var keys: [ShortcutCombination] {
-        controller.externalMenuKeys[operation].map { [$0] } ?? controller.snapshot.keys(for: operation)
+        controller.settingsKeys(for: operation)
+    }
+    private var hasEditableKeys: Bool {
+        if controller.standardMenuKeys[operation] != nil {
+            return controller.snapshot.overrides[operation]?.isEmpty == false
+        }
+        return !keys.isEmpty
     }
     private var status: String { controller.status(for: operation) }
     private var isInlineStatus: Bool {
@@ -472,7 +478,7 @@ private struct EditableShortcutRow: View {
                 controller.refreshEnvironment()
                 choosing = true
             }
-            Button("Clear Shortcut") { apply([]) }.disabled(keys.isEmpty && !hasInactive)
+            Button("Clear Shortcut") { apply([]) }.disabled(!hasEditableKeys && !hasInactive)
             Button("Restore Default") { propose(ShortcutDefaults.keys(for: operation), restoring: true) }
                 .disabled(controller.snapshot.overrides[operation] == nil && !hasInactive)
         } label: {

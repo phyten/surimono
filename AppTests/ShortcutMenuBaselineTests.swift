@@ -31,7 +31,7 @@ struct ShortcutMenuBaselineTests {
         #expect(ran)
     }
 
-    // Captured from DocumentCommands before the menu bridge: independent of ShortcutDefaults.
+    // Captured from DocumentCommands before shortcut customization: independent of ShortcutDefaults.
     static let documentKeys: [(String, String, NSEvent.ModifierFlags)] = [
         ("Open from Clipboard", "n", .command),
         ("Print…", "p", .command), ("Print with System Dialog…", "p", [.option, .command]),
@@ -113,26 +113,6 @@ struct ShortcutMenuBaselineTests {
         #expect(exports.items[0].keyEquivalent.isEmpty)
         #expect(exports.items[1].keyEquivalent == "e")
         #expect(exports.items[1].keyEquivalentModifierMask == [.shift, .command])
-    }
-
-    @Test("起動時の実メニューは印刷項目と八つのレイアウトをブリッジに一度だけ結び付ける")
-    func nativePrintTargets() throws {
-        let bridge = ShortcutDispatcher.shared.bridge
-        let items = Self.items(try #require(NSApp.mainMenu))
-        let before = items.map { ShortcutMenuKey(item: $0) }
-        bridge.reconcile()
-        for operation in [ShortcutOperationID.documentPrint, .documentPrintSystem, .documentExportPDF, .printSettings]
-            + ShortcutPrintLayouts.operations
-        {
-            let item = try #require(bridge.items[operation], "Unmanaged menu operation: \(operation)")
-            #expect(items.contains { $0 === item })
-            #expect(item.target === bridge)
-            #expect(item.identifier == ShortcutMenuBridge.identifier(operation))
-        }
-        for (item, expected) in zip(items, before) {
-            #expect(item.keyEquivalent == expected.key)
-            #expect(item.keyEquivalentModifierMask == expected.modifiers)
-        }
     }
 
     @Test("既定の全メニューバーは従来のキーを保持し標準の開くと設定を一つずつ残す")

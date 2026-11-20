@@ -3,6 +3,14 @@ import SwiftUI
 import WebKit
 
 @main
+enum SurimonoMain {
+    @MainActor static func main() {
+        // SwiftUI creates its own NSApplication singleton unless ours exists before App.main().
+        _ = ViewerApplication.shared
+        SurimonoApp.main()
+    }
+}
+
 struct SurimonoApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @State private var preferences: AppPreferences
@@ -55,7 +63,7 @@ struct SurimonoApp: App {
         // The paper fills the window; the traffic lights appear with the overlay menu.
         .windowStyle(.hiddenTitleBar)
         .commands {
-            DocumentCommands(preferences: preferences, menuState: ShortcutDispatcher.shared.bridge.menuState)
+            DocumentCommands(preferences: preferences, menuState: ShortcutDispatcher.shared.menus.menuState)
         }
         Settings {
             SettingsView(preferences: preferences, library: library, arrangementEditor: arrangementEditor)

@@ -22,9 +22,13 @@ extension DocumentViewModel {
         sharedExportDirectory = nil
     }
 
+    func canExportReading(_ kind: ReadingExportKind) -> Bool {
+        additionalExportTask == nil && canRequestReadingOutput
+            && (!kind.needsTheme || (format.usesPrintTheme && binder == nil && imageBundle == nil))
+    }
+
     func exportReading(_ kind: ReadingExportKind) {
-        guard additionalExportTask == nil, !isExporting, !isPrinting,
-            !kind.needsTheme || (format.usesPrintTheme && binder == nil && imageBundle == nil),
+        guard canExportReading(kind),
             !deferUntilWebIsCaptured(.additional(kind)), !deferUntilReviewEnds(.additional(kind))
         else { return }
         guard isUpToDate else {

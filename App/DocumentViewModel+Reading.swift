@@ -88,20 +88,24 @@ extension DocumentViewModel {
         jumpToReadingPage(page)
     }
 
+    var nextBookmark: Int? {
+        guard canNavigateReading else { return nil }
+        return bookmarks.next(
+            after: visibleReadingPages.max() ?? currentPageIndex, pageCount: pageCount, entries: outlineEntries)
+    }
+
+    var previousBookmark: Int? {
+        guard canNavigateReading else { return nil }
+        return bookmarks.previous(
+            before: visibleReadingPages.min() ?? currentPageIndex, pageCount: pageCount, entries: outlineEntries)
+    }
+
     func goToNextBookmark() {
-        guard canNavigateReading,
-            let page = bookmarks.next(
-                after: visibleReadingPages.max() ?? currentPageIndex, pageCount: pageCount, entries: outlineEntries)
-        else { return }
-        goToBookmark(page: page)
+        if let nextBookmark { goToBookmark(page: nextBookmark) }
     }
 
     func goToPreviousBookmark() {
-        guard canNavigateReading,
-            let page = bookmarks.previous(
-                before: visibleReadingPages.min() ?? currentPageIndex, pageCount: pageCount, entries: outlineEntries)
-        else { return }
-        goToBookmark(page: page)
+        if let previousBookmark { goToBookmark(page: previousBookmark) }
     }
 
     func bookmarkTitle(page: Int) -> String {

@@ -114,10 +114,11 @@ struct SettingsMenuTests {
     @Test("文字選択と窓の固定操作は表示メニューにあり、ツールバーを常に表示は⌥⌘Tで切り替わる")
     func secondaryViewCommands() throws {
         let menu = try #require(NSApp.mainMenu?.items[3].submenu)
+        menu.update()
         for key in ["Select Text", "Always Show Toolbar", "Float on Top", "Show on All Spaces", "View Options…"] {
             let item = try #require(menu.items.first { $0.title == localized(key) })
             #expect(
-                ShortcutDispatcher.shared.bridge.validateMenuItem(item) == (DocumentWindows.shared.currentModel != nil))
+                item.isEnabled == (DocumentWindows.shared.currentModel != nil))
         }
         let pin = try #require(menu.items.first { $0.title == localized("Always Show Toolbar") })
         #expect(pin.keyEquivalent == "t")
@@ -127,6 +128,7 @@ struct SettingsMenuTests {
     @Test("表示メニューは単ページと見開きの順で⌥⌘1と⌥⌘2を割り当てる")
     func viewLayoutOrderAndShortcuts() throws {
         let menu = try #require(NSApp.mainMenu?.items[3].submenu)
+        menu.update()
         let entries = menu.items.filter { [localized("Single Page"), localized("Spread")].contains($0.title) }
         #expect(entries.map(\.title) == [localized("Single Page"), localized("Spread")])
         #expect(entries.map(\.keyEquivalent) == ["1", "2"])
@@ -135,7 +137,7 @@ struct SettingsMenuTests {
                 == [[.option, .command], [.option, .command]])
         #expect(
             entries.allSatisfy {
-                ShortcutDispatcher.shared.bridge.validateMenuItem($0) == (DocumentWindows.shared.currentModel != nil)
+                $0.isEnabled == (DocumentWindows.shared.currentModel != nil)
             })
     }
 
@@ -178,20 +180,22 @@ struct SettingsMenuTests {
     @Test("文書メニューには印刷の設定がひとつだけあり、文書のある窓で有効になる")
     func printSettingsItem() throws {
         let menu = try #require(NSApp.mainMenu?.items.first { $0.title == localized("Document") }?.submenu)
+        menu.update()
         let entries = menu.items.filter { $0.title == localized("Print Settings…") }
         #expect(entries.count == 1)
         let item = try #require(entries.first)
-        #expect(ShortcutDispatcher.shared.bridge.validateMenuItem(item) == (DocumentWindows.shared.currentModel != nil))
+        #expect(item.isEnabled == (DocumentWindows.shared.currentModel != nil))
     }
 
     @Test("文書メニューの設定セットは文書がないときは管理だけ実行できる")
     func settingSetCommands() throws {
         let menu = try #require(NSApp.mainMenu?.items[4].submenu)
         let sets = try #require(menu.items.first { $0.title == localized("Setting Sets") }?.submenu)
+        sets.update()
         for key in ["Save Current Settings…", "Manage Setting Sets…"] {
             let item = try #require(sets.items.first { $0.title == localized(key) })
             #expect(
-                ShortcutDispatcher.shared.bridge.validateMenuItem(item)
+                item.isEnabled
                     == (key == "Manage Setting Sets…" || DocumentWindows.shared.currentModel != nil))
         }
     }

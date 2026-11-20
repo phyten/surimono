@@ -4,11 +4,10 @@ import OSLog
 enum MenuTrace {
     static let enabled = UserDefaults.standard.bool(forKey: "SurimonoMenuTrace")
     static let noHider = UserDefaults.standard.bool(forKey: "SurimonoMenuNoHider")
-    static let noBridgeWrites = UserDefaults.standard.bool(forKey: "SurimonoMenuNoBridgeWrites")
     private static let logger = Logger(subsystem: "io.github.phyten.Surimono", category: "menu")
     private static let file = MenuTraceFile()
     private static let fixedTitles = Set(
-        (ShortcutMenuBridge.entries.flatMap { $0.parents + $0.titles }
+        (SystemMenuShortcuts.entries.flatMap { $0.parents + $0.titles }
             + ["Recently Closed Clipboard Documents", "Recent Binders", "Remove from List"]).map {
                 Bundle.main.localizedString(forKey: $0, value: $0, table: nil)
             })
@@ -37,8 +36,7 @@ enum MenuTrace {
 
     static func start() {
         _ = noHider
-        _ = noBridgeWrites
-        record("start noHider=\(noHider) noBridgeWrites=\(noBridgeWrites)")
+        record("start noHider=\(noHider)")
     }
 
     static func record(_ message: @autoclosure () -> String) {
@@ -95,19 +93,18 @@ final class MenuTraceInventory {
         let fields: String
         let hidden: Bool
 
-        init(_ item: NSMenuItem, inspectImage: Bool) {
+        init(_ item: NSMenuItem) {
             id = ObjectIdentifier(item)
             hidden = item.isHidden
-            // AppKit can materialize an image and notify just by reading it. Never probe images at tracking begin.
-            let image = inspectImage ? String(item.image != nil) : "unobserved"
+            // AppKit can materialize an image and notify just by reading it. Never probe images from a menu notification.
             fields =
-                "item=\(MenuTrace.itemName(item)) id=\(id.hashValue) image=\(image) state=\(item.state.rawValue) indentationLevel=\(item.indentationLevel) hidden=\(hidden) alternate=\(item.isAlternate)"
+                "item=\(MenuTrace.itemName(item)) id=\(id.hashValue) image=unobserved state=\(item.state.rawValue) indentationLevel=\(item.indentationLevel) hidden=\(hidden) alternate=\(item.isAlternate)"
         }
     }
 
     private final class Rows {
         var items: [Row]
-        init(_ items: [NSMenuItem]) { self.items = items.map { Row($0, inspectImage: false) } }
+        init(_ items: [NSMenuItem]) { self.items = items.map { Row($0) } }
     }
 
     private let menus = NSMapTable<NSMenu, Rows>.weakToStrongObjects()
@@ -125,7 +122,7 @@ final class MenuTraceInventory {
         for (index, item) in items.enumerated() {
             if let version, DocumentEditMenu.protects(item, after: previous), !item.isHidden || item.isAlternate {
                 MenuTrace.record(
-                    "exposed-edit index=\(index) \(Row(item, inspectImage: false).fields) version=\(version)")
+                    "exposed-edit index=\(index) \(Row(item).fields) version=\(version)")
             }
             if let submenu = item.submenu { seed(submenu, reportVisibleEditsAt: version) }
             previous = item
@@ -149,7 +146,7 @@ final class MenuTraceInventory {
             }
         } else if (0..<count).contains(index), let item = menu.item(at: index) {
             let previous = prior.flatMap { $0.items.indices.contains(index) ? $0.items[index] : nil }
-            let actual = Row(item, inspectImage: note.name == NSMenu.didChangeItemNotification)
+            let actual = Row(item)
             row = actual
             if let prior, note.name == NSMenu.didAddItemNotification, prior.items.count + 1 == count {
                 prior.items.insert(actual, at: index)
@@ -212,43 +209,32 @@ private final class MenuTraceFile: Sendable {
     }
 }
 
-/// Every native mutation goes through this boundary, including restoration of an original target.
+/// Record only actual repairs to a system document-edit item.
 final class MenuWrites {
     private(set) var counts: [String: Int] = [:]
-    let owner: String
 
     private let canWrite: () -> Bool
-
     private let isTracking: () -> Bool
 
-    init(_ owner: String, canWrite: @escaping () -> Bool, isTracking: @escaping () -> Bool = { false }) {
-        self.owner = owner
+    init(canWrite: @escaping () -> Bool, isTracking: @escaping () -> Bool) {
         self.canWrite = canWrite
         self.isTracking = isTracking
     }
 
-    func change(
-        _ item: NSMenuItem, _ property: String, from old: @autoclosure () -> String,
-        to new: @autoclosure () -> String, _ write: () -> Void
-    ) {
-        // A native setter can synchronously post notifications, even in the middle of a pass.
-        guard canWrite() else { return }
-        counts[property, default: 0] += 1
-        MenuTrace.record(
-            "write writer=\(owner) id=\(ObjectIdentifier(item).hashValue) \(MenuTrace.itemName(item)) \(property) \(old()) → \(new()) tracking=\(isTracking())"
-                + (owner == "hider" && isTracking() ? " exposed-edit property=\(property)" : "")
-                + (owner == "hider" && property == "isHidden" ? MenuTrace.externalFrames(Thread.callStackSymbols) : "")
-        )
-        if MenuTrace.enabled { MenuTrace.writing(item, owner: owner, write) } else { write() }
-    }
-
-    func set<Value: Equatable>(
-        _ item: NSMenuItem, _ path: ReferenceWritableKeyPath<NSMenuItem, Value>,
-        _ property: String, _ value: Value, describe: (Value) -> String = { String(describing: $0) }
+    func set(
+        _ item: NSMenuItem, _ path: ReferenceWritableKeyPath<NSMenuItem, Bool>, _ property: String, _ value: Bool
     ) {
         let previous = item[keyPath: path]
-        guard previous != value else { return }
-        change(item, property, from: describe(previous), to: describe(value)) {
+        guard previous != value, canWrite() else { return }
+        counts[property, default: 0] += 1
+        if MenuTrace.enabled {
+            let tracking = isTracking()
+            MenuTrace.record(
+                "write writer=hider id=\(ObjectIdentifier(item).hashValue) \(MenuTrace.itemName(item)) \(property) \(previous) → \(value) tracking=\(tracking)"
+                    + (tracking ? " exposed-edit property=\(property)" : "")
+                    + (property == "isHidden" ? MenuTrace.externalFrames(Thread.callStackSymbols) : ""))
+            MenuTrace.writing(item, owner: "hider") { item[keyPath: path] = value }
+        } else {
             item[keyPath: path] = value
         }
     }

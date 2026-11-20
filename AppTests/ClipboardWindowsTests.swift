@@ -322,8 +322,8 @@ struct ClipboardWindowsTests {
         defer { presentation.close() }
         prefs.keepsClosedClipboardDocuments = true
         prefs.closedClipboardDocuments = ClosedClipboardDocuments()
-        let bridge = ShortcutDispatcher.shared.bridge
-        let state = bridge.menuState
+        let menus = ShortcutDispatcher.shared.menus
+        let state = menus.menuState
         func openRows() -> [DocumentMenuDescriptor] { DocumentMenuDescriptor.rows(for: .open, in: state.snapshot) }
         let history: DocumentMenuDescriptor.ID = .menu("Recently Closed Clipboard Documents")
         let reopen: DocumentMenuDescriptor.ID = .action(.operation(.clipboardReopen))
@@ -342,19 +342,16 @@ struct ClipboardWindowsTests {
         do {
             defer { center.post(name: NSMenu.didEndTrackingNotification, object: main) }
             ShortcutMenuBaselineTests.trackingTurn {
-                let writes = bridge.writes.counts
                 let version = state.snapshot.version
                 center.post(name: NSMenu.didBeginTrackingNotification, object: main)
-                let hides = bridge.updates.hider.writes.counts
+                let hides = menus.updates.hider.writes.counts
                 windows.open(first, format: .plainText, title: "Menu sample").close()
                 windows.open(second, format: .plainText, title: "Second sample").close()
                 center.post(name: NSMenu.didChangeItemNotification, object: main)
-                bridge.reconcile()
                 #expect(state.snapshot.version == version)
                 #expect(state.snapshot.content.history.isEmpty)
                 #expect(!openRows().contains { $0.id == history || $0.id == reopen })
-                #expect(bridge.writes.counts == writes)
-                #expect(bridge.updates.hider.writes.counts == hides)
+                #expect(menus.updates.hider.writes.counts == hides)
             }
         }
         await withCheckedContinuation { done in DispatchQueue.main.async { done.resume() } }
