@@ -311,7 +311,7 @@ struct LaTeXLatinLineTests {
                 """
                 (() => {
                     const previous = {cost:7,fitness:1,discretionary:true};
-                    return [latinBadness(1,1), latinBadness(.5,1), latinBadness(100,1),
+                    return [texBadness(1,1), texBadness(.5,1), texBadness(100,1),
                         latinDemerits(previous,3,100,50,true,false,latinDefaults),
                         latinDemerits(previous,1,0,-10000,false,true,latinDefaults),
                         latinDemerits(previous,1,20,-10,false,false,latinDefaults)];

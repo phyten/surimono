@@ -83,7 +83,7 @@ enum LaTeXFlowPaginator {
 
     // Body prose and diagram labels share grapheme boundaries and prohibited line starts.
     static func japaneseLineScript() throws -> String {
-        try script("tikz-label-layout") + "\n" + script("latex-japanese-lines")
+        try script("latex-badness") + "\n" + script("tikz-label-layout") + "\n" + script("latex-japanese-lines")
     }
 
     // The pattern licence requires the resource to remain byte-for-byte identical to Plain TeX.
@@ -95,7 +95,7 @@ enum LaTeXFlowPaginator {
         let patterns = try String(contentsOf: url, encoding: .utf8)
         let literal = String(decoding: try JSONEncoder().encode(patterns), as: UTF8.self)
         return try "globalThis.surimonoEnglishPatterns = " + literal + ";\n"
-            + script("latex-latin-plan") + "\n" + script("latex-latin-lines")
+            + script("latex-badness") + "\n" + script("latex-latin-plan") + "\n" + script("latex-latin-lines")
     }
 
     static func latinLineScript() throws -> String { try latinSource.get() }

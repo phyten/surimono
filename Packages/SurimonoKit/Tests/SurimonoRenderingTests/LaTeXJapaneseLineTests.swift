@@ -31,6 +31,40 @@ struct LaTeXJapaneseLineTests {
         #expect(js.evaluateScript("wrap('紙' + 'a'.repeat(90) + '紙', 0) === undefined")?.toBool() == true)
     }
 
+    @Test("学会誌の同点候補は実 TeX と同じ行末を選び、伸び率一付近の段落も四行に保つ")
+    func journalDemerits() throws {
+        let js = try #require(JSContext())
+        js.evaluateScript(try LaTeXFlowPaginator.japaneseLineScript())
+        js.evaluateScript(
+            """
+            function ends(source, width, zw, em, western) {
+                const tokens = [];
+                japaneseGridTokens(source, tokens, em, zw, () => western);
+                const plan = japaneseBreakPlan(tokens, width, zw, em, zw, true);
+                return plan?.lines.map(line => line.end);
+            }
+            """)
+        // The offsets are from the physical pLaTeX and upLaTeX rows, counting a Western run as one box.
+        let samples = [
+            (
+                "溝は積層板のブロックに切り込み，厚紙で壁がへこまないよう薄い真鍮の帯で内張りした．"
+                    + "高さの分かっている滑り線路をスペーサーの上に載せ，ブロックの側面の目盛りで高さを読む．"
+                    + "目盛りが読み取りのあいだに動かないよう，試験中はブロックを作業台に固定した．",
+                "240.1189, 9.24722, 9.61035, 0", [25, 51, 77, 102, 122]
+            ),
+            (
+                "同じスペーサーの繰り返しの読みの差は最大0.02 mmであった．"
+                    + "溝に一晩置いたスペーサーは高さが約0.01 mm減ったが，読みのばらつきより小さいので無視した．",
+                "204.858, 8.53583, 9, 31.553", [21, 43, 64, 68]
+            ),
+        ]
+        for (source, dimensions, expected) in samples {
+            js.setObject(source, forKeyedSubscript: "source" as NSString)
+            let ends = try #require(js.evaluateScript("ends(source, \(dimensions))")?.toArray() as? [Int])
+            #expect(ends == expected)
+        }
+    }
+
     @Test("文献中の全角コロンを半角字面と左右四分の一字の伸縮可能な空きで計る")
     func bibliographyPunctuation() throws {
         let js = try #require(JSContext())

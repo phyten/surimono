@@ -144,17 +144,6 @@ function latinGlue(family, style, weight, em, rawSpace, precedingText, french, s
     return [space + (factor >= 2000 ? extra : 0), stretch * factor / 1000, shrink * 1000 / factor];
 }
 
-// The integer approximation in TeX's badness routine. Input distances are CSS px;
-// rounding to scaled points avoids platform-specific fitness changes near a threshold.
-function latinBadness(delta, available) {
-    const sp = 72.27 / 96 * 65536;
-    const t = Math.round(Math.abs(delta) * sp), s = Math.round(available * sp);
-    if (!t) return 0;
-    if (s <= 0) return 10000;
-    const r = t <= 7230584 ? Math.floor(t * 297 / s) :
-        s >= 1663497 ? Math.floor(t / Math.floor(s/297)) : t;
-    return r > 1290 ? 10000 : Math.floor((r*r*r + 131072) / 262144);
-}
 const latinDefaults = {
     pretolerance:100, tolerance:200, hyphenpenalty:50, exhyphenpenalty:50, linepenalty:10,
     adjdemerits:10000, doublehyphendemerits:10000, finalhyphendemerits:5000, emergencystretch:0,
@@ -241,7 +230,7 @@ function latinBreakPlan(words, width, indent, parameters = {}, measureNatural = 
                     }
                     if (delta < -minus || (!final && delta > 0 && plus <= 0)) continue;
                     const ratio = delta < 0 ? delta / minus : final || !delta ? 0 : delta / plus;
-                    const badness = final && delta >= 0 ? 0 : latinBadness(delta, delta < 0 ? minus : plus + emergency);
+                    const badness = final && delta >= 0 ? 0 : texBadness(delta, delta < 0 ? minus : plus + emergency);
                     if (badness > threshold) continue;
                     const fitness = delta < 0 ? (badness > 12 ? 0 : 1) : badness > 99 ? 3 : badness > 12 ? 2 : 1;
                     const cost = latinDemerits(start, fitness, badness, penalty, discretionary, final, params);

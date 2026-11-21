@@ -349,6 +349,10 @@ public final class WebPaginator: NSObject {
                 in: session.webView, diagnostics: collectsLatinLineDiagnostics, boxes: collectsLatinBoxDiagnostics,
                 until: .now + timeout)
         }
+        if collectsLatinLineDiagnostics && collectsLatinBoxDiagnostics {
+            _ = try await session.webView.evaluateForPrinting(
+                "globalThis.surimonoCollectJapaneseBoxes = true", until: .now + timeout)
+        }
         var capturesLaTeXFlow = latexFlow
         // Page references, their reflow, and the final capture share one print budget.
         let layoutDeadline = ContinuousClock.now + printTimeout
@@ -357,13 +361,16 @@ public final class WebPaginator: NSObject {
             guard collectsLatinLineDiagnostics else { return }
             let route = capturesLaTeXFlow ? "flow" : "native"
             latinLineRoute = route
-            guard composesLatin else { return }
+            guard composesLatin || collectsLatinBoxDiagnostics else { return }
             let script = """
                 const report = globalThis.surimonoLatinLast;
-                if (!report) return null;
-                return JSON.stringify({...report, route:'\(route)', final:\(final)});
+                const japanese = globalThis.surimonoJapaneseBoxes;
+                if (!report && !japanese) return null;
+                const summary = report ?? {qualifying:0, composed:0, fallbacks:0, paragraphs:[], hasLatinDiagnostics:false};
+                return JSON.stringify({...summary, ...(japanese ? {japanese} : {}), route:'\(route)', final:\(final)});
                 """
             guard let record = try await runPreparationScript(script, in: session.webView, timeout: timeout) else {
+                if !composesLatin { return }
                 throw PaginationError.printFailed
             }
             latinLinePasses.append(record)
