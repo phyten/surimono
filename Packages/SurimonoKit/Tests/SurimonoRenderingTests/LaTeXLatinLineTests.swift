@@ -115,6 +115,128 @@ struct LaTeXLatinLineTests {
         #expect(result == expected[corpus])
     }
 
+    @Test("実 TeX のリスト・脚注・参考文献・図説明の箱と糊で行末と伸縮率を再現する", arguments: ["list", "footnote", "bibliography", "caption"])
+    func contextBoxes(category: String) throws {
+        // The reference PDFs were made with pdfLaTeX. The page box dump gives
+        // the line measure, initial label box, interword glue and penalties.
+        // Each word width sums its actual fontcharwd values and kern nodes,
+        // including ligatures and the change of face before punctuation.
+        let url = try #require(
+            Bundle.module.url(forResource: "latin-context-boxes", withExtension: "json", subdirectory: "Fixtures"))
+        let records = try #require(try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [[String: Any]])
+        let fixture = try #require(records.first { $0["category"] as? String == category })
+        let js = try context()
+        js.setObject(fixture, forKeyedSubscript: "fixture" as NSString)
+        let result = js.evaluateScript(
+            """
+            const items = fixture.boxes.map(([text,width,glue,penalty]) => {
+                const cuts = fixture.discretionaries[text] || [];
+                return {text,width,glue:fixture.glue[glue],noBreakAfter:penalty===10000,
+                    breaks:() => cuts.map(([offset]) => ({offset,hyphen:false})),
+                    fragment:(from,to) => from === 0 && to === text.length ? width :
+                        from === 0 ? cuts.find(([offset]) => offset===to)[1] : cuts.find(([offset]) => offset===from)[2]};
+            });
+            latinBreakPlan(items,fixture.measure,fixture.indent,{tolerance:9999}).lines.map(line =>
+                [items[line.endWord].text.slice(0,line.endOffset),line.ratio]);
+            """)
+        let lines = try #require(result?.toArray() as? [[Any]])
+        #expect(lines.compactMap { $0.first as? String } == fixture["ends"] as? [String])
+        let firstRatio = try #require(lines.first?.last as? Double)
+        let expected = try #require(
+            ["list": 0.07689, "footnote": 0.03535, "bibliography": 0.12616, "caption": 0.03755][category])
+        #expect(abs(firstRatio - expected) < 0.0001)
+    }
+
+    @Test(
+        "参考文献の実 TeX の箱・ブロック間の糊・分綴候補から各パスと全行末を再現する",
+        arguments: ["plain-unsrt", "abbrv", "alpha-collection", "alpha-report", "cvpr-first", "cvpr-last"])
+    func bibliographyBoxes(name: String) throws {
+        // Word and fragment widths are pdfTeX hboxes in the corpus font. Glue
+        // includes both adjacent nodes at a newblock. The page box and paragraph
+        // traces supply the expected glue sets, pass and line ends (including backrefs).
+        let url = try #require(
+            Bundle.module.url(forResource: "latin-bibliography-boxes", withExtension: "json", subdirectory: "Fixtures"))
+        let records = try #require(
+            try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: [String: Any]])
+        let entry = try #require(records[name])
+        let js = try context()
+        js.setObject(entry, forKeyedSubscript: "entry" as NSString)
+        let result = js.evaluateScript(
+            #"""
+            const words = entry.items.map(([text,width,g,fragments],i) => ({
+                text,width,glue:entry.glue[g],noBreakAfter:entry.ties.includes(i),
+                breaks:auto => {
+                    const breaks = [...text.matchAll(/–/g)].map(m => ({offset:m.index+1,hyphen:false}));
+                    if (auto) for (const offset of points(text.replace(/[.,]+$/,''))) breaks.push({offset,hyphen:true});
+                    return breaks;
+                },
+                fragment:(a,b) => a===0 && b===text.length ? width : fragments[[a,b]]
+            }));
+            const plan = latinBreakPlan(words,entry.measure,0,{tolerance:9999,emergencystretch:30});
+            [plan.pass,plan.lines.map(l => words[l.endWord].text.slice(0,l.endOffset)+(l.hyphen?'-':'')),
+                plan.lines.map(l => l.ratio)];
+            """#)
+        let values = try #require(result?.toArray())
+        #expect(values[0] as? Int == entry["passNumber"] as? Int)
+        #expect(values[1] as? [String] == entry["ends"] as? [String])
+        let ratios = try #require(values[2] as? [Double])
+        for (actual, expected) in zip(ratios, try #require(entry["ratios"] as? [Double])) {
+            #expect(abs(actual - expected) < 0.001)
+        }
+    }
+
+    @Test("同じ適合度で減点が同じなら、実 TeX が残す後の分綴点を選ぶ")
+    func equalDemerits() throws {
+        let js = try context()
+        // In a 10pt TeX hbox trace both discretionaries have b=2, d=2644.
+        // At the forced break both cost 7744; TeX prints the first line at -0.25.
+        let ratio = js.evaluateScript(
+            """
+            const items = [
+                {text:'x',width:5,glue:[2,2,2],breaks:()=>[],fragment:()=>5},
+                {text:'abc',width:7,glue:[2,2,2],breaks:()=>[1,2].map(offset=>({offset,hyphen:false})),
+                    fragment:(a,b)=>[0,2.5,3.5,7][b]-[0,2.5,3.5,7][a]},
+                {text:'z',width:3.5,glue:[0,0,0],breaks:()=>[],fragment:()=>3.5}
+            ];
+            latinBreakPlan(items,10,0).lines[0].ratio;
+            """)?.toDouble()
+        #expect(ratio == -0.25)
+    }
+
+    @Test("八・九ポイントの脚注と小組の CM は字形別の設計糊を選ぶ")
+    func smallDesignSizes() throws {
+        let js = try context()
+        let actual =
+            js.evaluateScript(
+                """
+                [8,9].flatMap(size => ['normal','italic','bold','bold-italic'].map(shape =>
+                    latinGlue('cm',shape.includes('italic')?'italic':'normal',shape.includes('bold')?700:400,
+                        1,0,'word',false,size)));
+                """)?.toArray() as? [[Double]]
+        #expect(
+            actual == [
+                [0.354172, 0.177086, 0.118057], [0.384029, 0.164583, 0.109722], [0.408337, 0.204168, 0.136112],
+                [0.414441, 0.176664, 0.117777], [0.34259, 0.171295, 0.114197], [0.36729, 0.15741, 0.104939],
+                [0.39444, 0.19722, 0.13148], [0.414441, 0.176664, 0.117777],
+            ])
+    }
+
+    @Test("書誌ではピリオドだけ通常空きになり、別の Times 書体の伸縮量も保つ")
+    func bibliographyPeriod() throws {
+        let js = try context()
+        let actual =
+            js.evaluateScript(
+                """
+                ['item.','what?','some,'].map(word => latinGlue('newtx','italic',400,10,0,word,false,10,1000));
+                """)?.toArray() as? [[Double]]
+        let expected = [[2.5, 2.0, 1.0], [3.61, 6.0, 1.0 / 3.0], [2.5, 2.5, 0.8]]
+        let lines = try #require(actual)
+        #expect(lines.count == expected.count)
+        for (line, values) in zip(lines, expected) {
+            #expect(zip(line, values).allSatisfy { abs($0 - $1) < 0.000001 })
+        }
+    }
+
     @Test("タイの空きは伸ばせるが、タイの位置を行末には選べない")
     func tiedGlue() throws {
         let js = try context()

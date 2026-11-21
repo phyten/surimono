@@ -375,7 +375,7 @@ extension LaTeXReader {
             let content = blocks(body)
             let html =
                 document.classInfo.journalStyle?.abstract(heading: heading, body: content)
-                ?? "<div class=\"abstract latex-front-abstract\"\(disposition)>\n<p class=\"abstract-title\">\(heading)</p>\n\(content)</div>\n"
+                ?? "<div class=\"abstract latex-front-abstract\"\(disposition)\(document.contextLineParameterAttribute)>\n<p class=\"abstract-title\">\(heading)</p>\n\(content)</div>\n"
             front.readingAbstract = previous
             if front.abstractHTML == nil
                 && (inPreamble || front.insideEnvironment || document.classInfo.journalFrontMatter

@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.16409411764705883,
+    "changedAreaRatio" : 0.1610802139037433,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 2,
@@ -10,7 +10,7 @@
     "maxShiftPt" : 9.1,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 159
+    "textEdits" : 151
   },
   "fonts" : [
     "Helvetica",
@@ -70,59 +70,52 @@
         },
         {
           "height" : 9.9,
-          "text" : "stocks in a single test slot and compared the measured",
+          "text" : "stocks in a single test slot and compared the measured heights",
           "width" : 218.6,
           "x" : 64,
           "y" : 255.2
         },
         {
           "height" : 9.9,
-          "text" : "heights with a simple layer model. The model predicts the",
+          "text" : "with a simple layer model. The model predicts the height of a",
           "width" : 218.6,
           "x" : 64,
           "y" : 265.2
         },
         {
           "height" : 9.9,
-          "text" : "height of a folded spacer to within a tenth of a millimetre",
+          "text" : "folded spacer to within a tenth of a millimetre when the crease",
           "width" : 218.6,
           "x" : 64,
           "y" : 275.1
         },
         {
           "height" : 9.9,
-          "text" : "when the crease allowance is taken from a two-layer trial.",
+          "text" : "allowance is taken from a two-layer trial. We describe the",
           "width" : 218.6,
           "x" : 64,
           "y" : 285.1
         },
         {
           "height" : 9.9,
-          "text" : "We describe the slot, the measurement procedure and the",
+          "text" : "slot, the measurement procedure and the remaining sources",
           "width" : 218.6,
           "x" : 64,
           "y" : 295
         },
         {
           "height" : 9.9,
-          "text" : "remaining sources of error, and we list practical rules for",
+          "text" : "of error, and we list practical rules for choosing a card stock",
           "width" : 218.6,
           "x" : 64,
           "y" : 305
         },
         {
           "height" : 9.9,
-          "text" : "choosing a card stock for a given rail height.",
-          "width" : 159.6,
+          "text" : "for a given rail height.",
+          "width" : 79.9,
           "x" : 64,
           "y" : 314.9
-        },
-        {
-          "height" : 13.2,
-          "text" : "Introduction",
-          "width" : 64.9,
-          "x" : 140.8,
-          "y" : 340.5
         },
         {
           "height" : 12.1,
@@ -130,6 +123,13 @@
           "width" : 56.4,
           "x" : 319.5,
           "y" : 231.1
+        },
+        {
+          "height" : 13.2,
+          "text" : "Introduction",
+          "width" : 64.9,
+          "x" : 140.8,
+          "y" : 340.5
         },
         {
           "height" : 11,
@@ -371,15 +371,15 @@
         },
         {
           "height" : 11,
-          "text" : "to measure the height of spacers with two to six layers",
+          "text" : "to measure the height of spacers with two to six layers in",
           "width" : 225.5,
           "x" : 67,
           "y" : 491.9
         },
         {
           "height" : 11,
-          "text" : "in one fixed slot;",
-          "width" : 67.2,
+          "text" : "one fixed slot;",
+          "width" : 57,
           "x" : 67,
           "y" : 502.9
         },
@@ -575,7 +575,7 @@
         {
           "height" : 9.9,
           "text" : "so the moisture content of the card was the same for every spacer.",
-          "width" : 230.4,
+          "width" : 235.8,
           "x" : 54,
           "y" : 652.2
         },
@@ -924,7 +924,7 @@
         {
           "height" : 11,
           "text" : "board. Workshop Leaflet 7, Paper Model Workshop.",
-          "width" : 208.4,
+          "width" : 209.5,
           "x" : 54,
           "y" : 626.6
         },
@@ -938,7 +938,7 @@
         {
           "height" : 11,
           "text" : "ladder. Technical memo, Paper Model Workshop.",
-          "width" : 197.1,
+          "width" : 198.2,
           "x" : 54,
           "y" : 651
         }
@@ -950,5 +950,5 @@
       "width" : 612
     }
   ],
-  "textSHA256" : "3ed482a77741a6bbae022dbeaf746412ef672cf1d307840ef57cbf324e259ec3"
+  "textSHA256" : "eb1ca83d1832b8ad9e2dcb5a242f6e7880d0880bc7715a3e471726e50462b3b2"
 }

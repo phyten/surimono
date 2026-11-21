@@ -3,6 +3,13 @@ import Testing
 
 @testable import SurimonoFormats
 
+extension HTMLFragment {
+    // Field-order tests include emphasis, links and punctuation across BibTeX blocks.
+    fileprivate var publicationHTML: String {
+        body.replacingOccurrences(of: #"<span data-latex-newblock="space"> </span>"#, with: " ")
+    }
+}
+
 struct LaTeXBibliographyTests {
     private func fragment(_ tex: String, files: [String: String]) throws -> HTMLFragment {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -33,7 +40,35 @@ struct LaTeXBibliographyTests {
             #expect(html.contains(">\(label)</a>"))
             #expect(html.contains(">[\(label)]</span>"))
         }
-        #expect(html.contains("[Smi81a]</span> <span>J Smith. <em>Ash</em>"))
+        #expect(html.contains(#"[Smi81a]</span> <span>J Smith.<span data-latex-newblock="space"> </span><em>Ash</em>"#))
+    }
+
+    @Test("abbrv は月マクロだけを略し、出版社の前の文間はブロック間の糊を足さない")
+    func abbreviatedMonthAndPublisher() throws {
+        let records = #"""
+            @string{jan="Snow"}
+            @incollection{a,title={One bend},booktitle={Paper Ways},pages={8--12},publisher={Press},month=sep,year=2017}
+            @misc{b,title={Card},month=jan,year=2018}
+            @misc{c,title={Desk},month={September},year=2019}
+            """#
+        let html = try fragment(
+            #"\nocite{*}\bibliographystyle{abbrv}\bibliography{refs}"#, files: ["refs.bib": records]
+        ).body
+        #expect(html.contains("8–12. Press, Sept. 2017."))
+        #expect(html.contains("Snow 2018."))
+        #expect(html.contains("September 2019."))
+    }
+
+    @Test("openbib の alpha ラベルは全段落と独立した列に置く")
+    func openAlphaLabelColumn() throws {
+        let tex = #"""
+            \documentclass[openbib]{article}\begin{document}
+            \nocite{one}\bibliographystyle{alpha}\bibliography{refs}\end{document}
+            """#
+        let entry = #"@book{one,author={Smith, J},title={Zinc},publisher={Press},year={1981}}"#
+        let result = try fragment(tex, files: ["refs.bib": entry])
+        #expect(result.body.contains(#"<span class="bib-label">[Smi81]</span> <p>"#))
+        #expect(result.body.contains("</p><p>"))
     }
 
     @Test("unsrt は複数ファイルの引用だけを引用順に並べ、連結した文字列・保護した表記・欧文アクセントを読む")
@@ -48,7 +83,7 @@ struct LaTeXBibliographyTests {
               pages={1--5},doi={10.0000/test},url={https://example.test/paper?a=1&b=2})
             """#
         let result = try fragment(tex, files: ["one.bib": first, "two.bib": second])
-        let html = result.body
+        let html = result.publicationHTML
         #expect(result.readingIssues.isEmpty)
         #expect(html.contains(##"[<a href="#bib-db-1">1</a>, <a href="#bib-db-2">2</a>"##))
         #expect(html.contains(#"<span class="latex-missing">missing</span>"#))
@@ -164,7 +199,7 @@ struct LaTeXBibliographyTests {
             """#
         let html = try fragment(
             #"\bibliographystyle{plain}\nocite{*}\bibliography{refs}"#, files: ["refs.bib": database]
-        ).body
+        ).publicationHTML
         #expect(html.contains("Mari Mint, An Ash, and Don Dee. <em><span class=\"latex-logo\">"))
         for expected in [
             "Systems. Press, Town, second edition, 2000.",
@@ -188,7 +223,7 @@ struct LaTeXBibliographyTests {
             """#
         let html = try fragment(
             #"\nocite{*}\bibliographystyle{plain}\bibliography{refs}"#, files: ["refs.bib": database]
-        ).body
+        ).publicationHTML
         for expected in [
             "Jo Kay, editor. <em>The NASA Book</em>, volume 2 of <em>Shelf</em>, part 4, page 17. Press, Town, third edition, 2000.",
             "<em>Title</em>. Number 8 in Papers. Press, 2001.",
@@ -211,7 +246,7 @@ struct LaTeXBibliographyTests {
             """#
         let html = try fragment(
             #"\nocite{*}\bibliographystyle{plain}\bibliography{refs}"#, files: ["refs.bib": database]
-        ).body
+        ).publicationHTML
         for expected in [
             "Paper Guild, Town. <em>Paper Manual</em>, second edition, 2011.",
             "Jo Kay. <em>Print Manual</em>. Press Guild, Port, third edition, 2012.",

@@ -1,16 +1,16 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.09064919786096257,
+    "changedAreaRatio" : 0.08206631016042781,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
-    "lineCountChangedPages" : 2,
+    "lineCountChangedPages" : 1,
     "maxBoxDeltaPt" : 4,
-    "maxLuminance" : 105.390625,
-    "maxShiftPt" : 8,
+    "maxLuminance" : 73.203125,
+    "maxShiftPt" : 4,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 35
+    "textEdits" : 16
   },
   "fonts" : [
     "Helvetica",
@@ -91,43 +91,43 @@
         },
         {
           "height" : 11,
-          "text" : "measured spacers folded from three card stocks in a single test slot and",
+          "text" : "measured spacers folded from three card stocks in a single test slot and compared",
           "width" : 324.3,
           "x" : 143.9,
           "y" : 257.6
         },
         {
           "height" : 11,
-          "text" : "compared the measured heights with a simple layer model. The model predicts",
+          "text" : "the measured heights with a simple layer model. The model predicts the height",
           "width" : 324.3,
           "x" : 143.9,
           "y" : 268.5
         },
         {
           "height" : 11,
-          "text" : "the height of a folded spacer to within a tenth of a millimetre when the crease",
+          "text" : "of a folded spacer to within a tenth of a millimetre when the crease allowance is",
           "width" : 324.3,
           "x" : 143.9,
           "y" : 279.4
         },
         {
           "height" : 11,
-          "text" : "allowance is taken from a two-layer trial. We describe the slot, the measurement",
+          "text" : "taken from a two-layer trial. We describe the slot, the measurement procedure and",
           "width" : 324.3,
           "x" : 143.9,
           "y" : 290.3
         },
         {
           "height" : 11,
-          "text" : "procedure and the remaining sources of error, and we list practical rules for",
+          "text" : "the remaining sources of error, and we list practical rules for choosing a card stock",
           "width" : 324.3,
           "x" : 143.9,
           "y" : 301.2
         },
         {
           "height" : 11,
-          "text" : "choosing a card stock for a given rail height.",
-          "width" : 177.3,
+          "text" : "for a given rail height.",
+          "width" : 88.8,
           "x" : 143.9,
           "y" : 312.1
         },
@@ -323,7 +323,7 @@
         {
           "height" : 8.8,
           "text" : "All parts were cut from the same sheets on the same afternoon, so the moisture content of the card was the same for",
-          "width" : 381.6,
+          "width" : 381.7,
           "x" : 122.3,
           "y" : 695.9
         },
@@ -659,7 +659,7 @@
       "firstY" : 71.3,
       "height" : 792,
       "lastY" : 741,
-      "lineCount" : 9,
+      "lineCount" : 8,
       "lines" : [
         {
           "height" : 13.2,
@@ -670,52 +670,45 @@
         },
         {
           "height" : 9.9,
-          "text" : "Card Stock Bench and Model Rail Desk. 2024. Folding tolerances of layered card. In Proceedings of the",
+          "text" : "Card Stock Bench and Model Rail Desk. 2024. Folding tolerances of layered card. In Proceedings of the Bench",
           "width" : 396,
           "x" : 108,
           "y" : 90
         },
         {
           "height" : 9.9,
-          "text" : "Bench Meeting on Paper Models, pages 12–19.",
-          "width" : 169.8,
+          "text" : "Meeting on Paper Models, pages 12–19.",
+          "width" : 145.2,
           "x" : 118,
           "y" : 100
         },
         {
           "height" : 9.9,
           "text" : "Glue Pot Corner. 2022. Drying times for thin paper joints. Paper Model Quarterly, 4(2):33–41.",
-          "width" : 341.2,
+          "width" : 343.1,
           "x" : 108,
           "y" : 117.9
         },
         {
           "height" : 9.9,
           "text" : "Model Rail Desk. 2025. Spacer Card Register. Trial note, Paper Model Workshop.",
-          "width" : 296.5,
+          "width" : 298.4,
           "x" : 108,
           "y" : 135.8
         },
         {
           "height" : 9.9,
-          "text" : "Scale Fixture Room. 2023. A gauge block made of folded board. Workshop Leaflet 7, Paper Model",
+          "text" : "Scale Fixture Room. 2023. A gauge block made of folded board. Workshop Leaflet 7, Paper Model Workshop.",
           "width" : 396,
           "x" : 108,
           "y" : 153.7
         },
         {
           "height" : 9.9,
-          "text" : "Workshop.",
-          "width" : 38.9,
-          "x" : 118,
-          "y" : 163.7
-        },
-        {
-          "height" : 9.9,
           "text" : "Window Frame Study. 2021. Measuring slots with a card ladder. Technical memo, Paper Model Workshop.",
-          "width" : 383.9,
+          "width" : 385.9,
           "x" : 108,
-          "y" : 181.6
+          "y" : 171.6
         },
         {
           "height" : 11,
@@ -732,5 +725,5 @@
       "width" : 612
     }
   ],
-  "textSHA256" : "f413d93c26f3a9efb9328ab8843a9f5c5a88baad684c8fcd58a6bc1a15bdcf19"
+  "textSHA256" : "4569763878f34f17f2f0a7d9c9f4f4c01dbe3bc7aaf601b4dc5cf25745903b3b"
 }

@@ -71,27 +71,53 @@ function latinHyphenator(source, overrides = '') {
 // TFM fontdimen 2, 3, 4 and 7, in design-size units, from TeX Live 2026 (ptftopl).
 // ptmr7t, ptmb7t, ptmri7t and ptmbi7t have identical glue. Glyphs use browser metrics.
 const latinFontGlue = {
+    cmr5: [0.472229, 0.208338, 0.138891, 0.138891],
+    cmr6: [0.416661, 0.194443, 0.129628, 0.129628],
+    cmr7: [0.384923, 0.184525, 0.123016, 0.123016],
+    cmr8: [0.354172, 0.177086, 0.118057, 0.118057],
+    cmr9: [0.34259, 0.171295, 0.114197, 0.114197],
+    cmr17: [0.3018875, 0.156731, 0.104487, 0.104487],
     cmr10: [0.333334, 0.166667, 0.111112, 0.111112],
+    cmbx5: [0.516657, 0.241663, 0.161108, 0.161108],
+    cmbx6: [0.468516, 0.224998, 0.149999, 0.149999],
+    cmbx7: [0.434126, 0.213096, 0.142064, 0.142064],
+    cmbx8: [0.408337, 0.204168, 0.136112, 0.136112],
+    cmbx9: [0.39444, 0.19722, 0.13148, 0.13148],
     cmbx10: [0.383331, 0.191666, 0.127777, 0.127777],
+    cmti7: [0.426989, 0.176193, 0.117462, 0.117462],
+    cmti8: [0.384029, 0.164583, 0.109722, 0.109722],
+    cmti9: [0.36729, 0.15741, 0.104939, 0.104939],
     cmti10: [0.357776, 0.153333, 0.1022215, 0.1022215],
     cmr12: [0.3263855, 0.163193, 0.108795, 0.108795],
     cmbx12: [0.375, 0.1875, 0.125, 0.125],
     cmti12: [0.350003, 0.150002, 0.100001, 0.100001],
     cmbxti10: [0.414441, 0.176664, 0.117777, 0.117777],
+    cmtt8: [0.531258, 0.0, 0.0, 0.531258],
+    cmtt9: [0.524994, 0.0, 0.0, 0.524994],
+    cmtt12: [0.514584, 0.0, 0.0, 0.514584],
     cmtt10: [0.524996, 0, 0, 0.524996],
+    // ntx-{Regular,Bold,Italic,BoldItalic}-tlf-t1 share these fontdimens.
+    newtx: [0.25, 0.2, 0.1, 0.111],
     ptmr7t: [0.25, 0.15, 0.0599985, 0.0599985],
 };
-function latinGlue(family, style, weight, em, rawSpace, precedingText, french, designSize = 10) {
+function latinGlue(family, style, weight, em, rawSpace, precedingText, french, sizePt = 10, periodSpaceFactor = 3000) {
     const face = family.split(',')[0].replace(/["']/g, '').trim().toLowerCase();
+    // NFSS ladders in ot1cmr.fd and ot1cmtt.fd select optical designs. The
+    // nearest nominal size tolerates fractional CSS font sizes at print zoom.
+    const design = sizePt < 9.5 ? Math.max(5, Math.round(sizePt)) :
+        sizePt < 11.475 ? 10 : sizePt < 15.84 ? 12 : 17;
     let metrics;
     if (face === 'surimono computer modern' || face === 'katex_main' || face === 'cm') {
         const bold = Number(weight) >= 600 || weight === 'bold';
         const italic = style === 'italic' || style === 'oblique';
         const shape = bold ? (italic ? 'cmbxti' : 'cmbx') : (italic ? 'cmti' : 'cmr');
-        // ot1cmr.fd scales the 10pt bold italic design even at 12pt.
-        metrics = latinFontGlue[shape + designSize] || latinFontGlue[shape + '10'];
+        const size = bold && italic ? 10 : italic ? Math.max(7, Math.min(12,design)) :
+            bold ? Math.min(12,design) : design;
+        metrics = latinFontGlue[shape + size];
     } else if (face === 'times' || face === 'times new roman') metrics = latinFontGlue.ptmr7t;
-    else if (face === 'surimono computer modern typewriter' || face === 'typewriter') metrics = latinFontGlue.cmtt10;
+    else if (face === 'newtx') metrics = latinFontGlue.newtx;
+    else if (face === 'surimono computer modern typewriter' || face === 'typewriter')
+        metrics = latinFontGlue['cmtt' + Math.max(8,Math.min(12,design))];
     const [space, stretch, shrink, extra] = metrics ? metrics.map(v => v * em) :
         [rawSpace, rawSpace/2, rawSpace/3, rawSpace/3];
     // Closing quotation marks and parentheses retain the preceding character's space factor.
@@ -99,7 +125,7 @@ function latinGlue(family, style, weight, em, rawSpace, precedingText, french, d
     const punctuation = end.slice(-1);
     let factor = 1000;
     if (!french && !/[A-Z][.!?:;,]$/.test(end)) {
-        factor = ({'.':3000, '?':3000, '!':3000, ':':2000, ';':1500, ',':1250})[punctuation] ?? 1000;
+        factor = ({'.':periodSpaceFactor, '?':3000, '!':3000, ':':2000, ';':1500, ',':1250})[punctuation] ?? 1000;
     }
     return [space + (factor >= 2000 ? extra : 0), stretch * factor / 1000, shrink * 1000 / factor];
 }
@@ -132,7 +158,7 @@ function latinDemerits(previous, fitness, badness, penalty, discretionary, final
     return value;
 }
 
-function latinBreakPlan(words, width, indent, parameters = {}) {
+function latinBreakPlan(words, width, indent, parameters = {}, measureNatural = null) {
     if (!words.length || words.length > 4096 || !(width > 0)) return null;
     const params = {...latinDefaults, ...parameters};
     // Prefix totals include the glue following each word. The end of a line discards it.
@@ -156,7 +182,7 @@ function latinBreakPlan(words, width, indent, parameters = {}) {
             // A completed prefix cannot become narrower by appending more words. Keep starts
             // within this word: shaping across its internal breaks is measured independently.
             active = active.filter(start => start.word >= i ||
-                advance[i] - start.after - (shrink[i] - shrink[start.word]) <= width - (start.previous ? 0 : indent));
+                advance[i] - start.after - (shrink[i] - shrink[start.word]) <= width - (start.previous ? 0 : indent) + (measureNatural ? 1 : 0));
             if (!active.length) break;
             const points = word.breaks(pass > 1 && i > 0);
             for (const point of [...points, {offset:length, hyphen:false}]) {
@@ -164,7 +190,9 @@ function latinBreakPlan(words, width, indent, parameters = {}) {
                 // A TeX tie has ordinary stretch and shrink but forbids the break before that glue.
                 if (!inner && !final && word.noBreakAfter) continue;
                 if (inner && (end <= 0 || end > length)) continue;
-                const penalty = final ? -10000 : !inner ? 0 : point.hyphen ? params.hyphenpenalty : params.exhyphenpenalty;
+                const penalty = final ? -10000 : !inner ? 0 :
+                    point.penalty ?? (point.hyphen ? params.hyphenpenalty : params.exhyphenpenalty);
+                const discretionary = inner && point.discretionary !== false;
                 if (penalty >= 10000) continue;
                 const best = [null, null, null, null];
                 const prefixWidth = inner ? word.fragment(0, end, point.hyphen) : word.width;
@@ -175,16 +203,24 @@ function latinBreakPlan(words, width, indent, parameters = {}) {
                     const natural = sameFragment ? word.fragment(start.offset, end, point.hyphen) :
                         advance[i] - start.after + prefixWidth;
                     const measure = width - (start.previous ? 0 : indent);
-                    const delta = measure - natural;
+                    let delta = measure - natural;
                     const minus = shrink[i] - shrink[start.word], plus = stretch[i] - stretch[start.word];
+                    // Inline layout rounds adjacent advances differently from isolated
+                    // boxes. Near the shrink floor, use the natural span the renderer
+                    // actually lays out. The floor itself has no rounding allowance.
+                    if (measureNatural && delta < 0 && Math.abs(delta + minus) <= 1) {
+                        delta = measure - measureNatural({startWord:start.word,startOffset:start.offset,
+                            endWord:i,endOffset:end,hyphen:point.hyphen});
+                    }
                     if (delta < -minus || (!final && delta > 0 && plus <= 0)) continue;
                     const ratio = delta < 0 ? delta / minus : final || !delta ? 0 : delta / plus;
                     const badness = final && delta >= 0 ? 0 : latinBadness(delta, delta < 0 ? minus : plus + emergency);
                     if (badness > threshold) continue;
                     const fitness = delta < 0 ? (badness > 12 ? 0 : 1) : badness > 99 ? 3 : badness > 12 ? 2 : 1;
-                    const cost = latinDemerits(start, fitness, badness, penalty, inner, final, params);
-                    if (!best[fitness] || cost < best[fitness].cost) {
-                        best[fitness] = {cost, fitness, previous:start, discretionary:inner,
+                    const cost = latinDemerits(start, fitness, badness, penalty, discretionary, final, params);
+                    // TeX replaces best_place on equal minimal_demerits too.
+                    if (!best[fitness] || cost <= best[fitness].cost) {
+                        best[fitness] = {cost, fitness, previous:start, discretionary,
                             line:{startWord:start.word, startOffset:start.offset, endWord:i, endOffset:end, hyphen:point.hyphen, ratio}};
                     }
                 }

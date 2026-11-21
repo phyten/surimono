@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.021124649903368164,
+    "changedAreaRatio" : 0.021140152337250282,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
@@ -33,7 +33,7 @@
         {
           "height" : 11.7,
           "text" : "At the low gate, count the hinges before measuring the leaf.",
-          "width" : 262.3,
+          "width" : 262.2,
           "x" : 150.3,
           "y" : 175.1
         },
@@ -47,7 +47,7 @@
         {
           "height" : 11.7,
           "text" : "Measure at the upper pin. A reading taken at the foot includes",
-          "width" : 278.9,
+          "width" : 279,
           "x" : 165.3,
           "y" : 214.3
         },

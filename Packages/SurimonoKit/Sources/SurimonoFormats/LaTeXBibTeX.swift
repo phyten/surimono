@@ -72,7 +72,7 @@ struct LaTeXBibTeX {
                 result += literal(close: "\"")
             } else {
                 let key = token()
-                if let expansion = document.bibDatabase.strings[key.lowercased()] {
+                if let expansion = document.bibDatabase.expansion(of: key.lowercased()) {
                     // Reusing a long @string many times can grow a tiny database exponentially.
                     guard document.reserveExpansion(characters: expansion.utf8.count) else { return result }
                     result += expansion

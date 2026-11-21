@@ -140,6 +140,7 @@ final class LaTeXDocument {
     var passedPackageOptions: [String: [String]] = [:]
     var styleMainFontRevision = 0
     var loadsTimesPackage = false
+    var breaksURLsAfterHyphens = false
     var readingConferenceTitle = false
     var requestsRaggedBottom: Bool?
     var requestsFrenchSpacing: Bool?
@@ -147,6 +148,22 @@ final class LaTeXDocument {
         didSet { lineParameterAttribute = lineParameters.attribute }
     }
     private(set) var lineParameterAttribute = ""
+
+    var composesEnglishParagraphs: Bool {
+        classInfo.profile.body.composesLatinParagraphs && (language == "en" || language.hasPrefix("en-"))
+    }
+
+    var opensBibliographyBlocks: Bool {
+        composesEnglishParagraphs
+            && (bibDatabase.startsBlocksAsParagraphs || classInfo.profile.body.startsBibliographyBlocksAsParagraphs)
+    }
+
+    // Capture the top-level settings at the point where this environment was read.
+    // In particular, notes and references can move far from that point before printing.
+    var contextLineParameterAttribute: String {
+        composesEnglishParagraphs && lineParameterAttribute != classInfo.initialLineParameters
+            ? lineParameterAttribute : ""
+    }
 
     var finalCopy = false
     var workshopTitle = ""
@@ -307,6 +324,7 @@ final class LaTeXDocument {
     var initialHyperref = LaTeXHyperref()
     var hasLocalLinkColors = false
     var bibliographyCount = 0
+    var readsBibliographyEntry = false
     var citations: [Citation] = []
     /// How many readers are reading inside one another.
     var depth = 0
@@ -612,21 +630,25 @@ final class LaTeXDocument {
             case "B":
                 guard !bibliography.isEmpty, bibDatabase.printedHeadings.indices.contains(index) else { continue }
                 let header = bibDatabase.printedHeadings[index]
-                if header.utf8.count + bibliography.utf8.count <= budget {
-                    output += header
-                    budget -= header.utf8.count
-                    if index == 0 {
-                        output += bibliography
-                    } else {
+                let cost = header.html.utf8.count + header.lineParameters.utf8.count + bibliography.utf8.count
+                if cost <= budget {
+                    output += header.html
+                    var list = bibliography
+                    if index != 0 {
                         // Citation links have a single destination even if the author prints the list twice.
                         let repeated =
                             repeatedBibliography
                             ?? bibliography.replacingOccurrences(
                                 of: #"<li id="bib-db-[0-9]+">"#, with: "<li>", options: .regularExpression)
                         repeatedBibliography = repeated
-                        output += repeated
+                        list = repeated
                     }
-                    budget -= bibliography.utf8.count
+                    if !header.lineParameters.isEmpty, let tagEnd = list.firstIndex(of: ">") {
+                        output += list[..<tagEnd] + header.lineParameters + list[tagEnd...]
+                    } else {
+                        output += list
+                    }
+                    budget -= cost
                 }
             case "T":
                 let toc = contents[index] ?? tableOfContents(index)

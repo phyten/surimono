@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.10655401069518716,
+    "changedAreaRatio" : 0.10653262032085561,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 2,
@@ -10,7 +10,7 @@
     "maxShiftPt" : 3.3,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 76
+    "textEdits" : 62
   },
   "fonts" : [
     "CourierNewPSMT",
@@ -100,7 +100,7 @@
         {
           "height" : 11,
           "text" : "A folded card spacer fixes the height of a model rail above",
-          "width" : 236.2,
+          "width" : 236.3,
           "x" : 58.5,
           "y" : 242.1
         },
@@ -128,7 +128,7 @@
         {
           "height" : 11,
           "text" : "height of a folded spacer to within a tenth of a millimetre",
-          "width" : 236.2,
+          "width" : 236.3,
           "x" : 58.5,
           "y" : 289.9
         },
@@ -142,7 +142,7 @@
         {
           "height" : 11,
           "text" : "We describe the slot, the measurement procedure and the",
-          "width" : 236.2,
+          "width" : 236.3,
           "x" : 58.5,
           "y" : 313.8
         },
@@ -623,79 +623,79 @@
       "lines" : [
         {
           "height" : 9.9,
-          "text" : "[2]",
-          "width" : 10.5,
+          "text" : "[2] Glue Pot Corner. 2022.",
+          "width" : 101.6,
           "x" : 317.3,
           "y" : 74
         },
         {
           "height" : 9.9,
-          "text" : "Glue Pot Corner. 2022. Drying times for thin paper joints.",
-          "width" : 218.3,
-          "x" : 335.2,
+          "text" : "Drying times for thin paper joints.",
+          "width" : 127.9,
+          "x" : 425.6,
           "y" : 74
         },
         {
           "height" : 9.9,
           "text" : "Paper Model Quarterly, 4(2):33–41.",
           "width" : 131.2,
-          "x" : 335.2,
+          "x" : 332.7,
           "y" : 84.9
         },
         {
           "height" : 9.9,
-          "text" : "[3]",
-          "width" : 10.5,
+          "text" : "[3] Model Rail Desk. 2025. Spacer Card Register. Trial note,",
+          "width" : 236.2,
           "x" : 317.3,
-          "y" : 96.9
-        },
-        {
-          "height" : 9.9,
-          "text" : "Model Rail Desk. 2025. Spacer Card Register. Trial note,",
-          "width" : 218.3,
-          "x" : 335.2,
           "y" : 96.9
         },
         {
           "height" : 9.9,
           "text" : "Paper Model Workshop.",
           "width" : 87.2,
-          "x" : 335.2,
+          "x" : 332.7,
           "y" : 107.8
         },
         {
           "height" : 9.9,
-          "text" : "[4]",
-          "width" : 10.5,
+          "text" : "[4] Scale Fixture Room. 2023.",
+          "width" : 115.3,
           "x" : 317.3,
           "y" : 119.8
         },
         {
           "height" : 9.9,
-          "text" : "Scale Fixture Room. 2023. A gauge block made of folded",
-          "width" : 218.3,
-          "x" : 335.2,
+          "text" : "A gauge block made of folded",
+          "width" : 114.1,
+          "x" : 439.4,
           "y" : 119.8
         },
         {
           "height" : 9.9,
           "text" : "board. Workshop Leaflet 7, Paper Model Workshop.",
-          "width" : 187.6,
-          "x" : 335.2,
+          "width" : 188.5,
+          "x" : 332.7,
           "y" : 130.7
         },
         {
           "height" : 9.9,
-          "text" : "[5] Window Frame Study. 2021. Measuring slots with a card",
-          "width" : 236.2,
+          "text" : "[5]",
+          "width" : 10.5,
           "x" : 317.3,
           "y" : 142.6
         },
         {
           "height" : 9.9,
-          "text" : "ladder. Technical memo, Paper Model Workshop.",
-          "width" : 177.4,
-          "x" : 335.2,
+          "text" : "Window Frame Study. 2021. Measuring slots with a card lad-",
+          "width" : 220.8,
+          "x" : 332.7,
+          "y" : 142.6
+        },
+        {
+          "height" : 9.9,
+          "text" : "der. Technical memo, Paper Model Workshop.",
+          "width" : 167.5,
+          "x" : 332.7,
           "y" : 153.6
         },
         {
@@ -959,23 +959,23 @@
         },
         {
           "height" : 9.9,
-          "text" : "Card Stock Bench and Model Rail Desk. 2024. Folding tol-",
-          "width" : 218.3,
-          "x" : 76.4,
+          "text" : "Card Stock Bench and Model Rail Desk. 2024. Folding toler-",
+          "width" : 220.8,
+          "x" : 73.9,
           "y" : 681.1
         },
         {
           "height" : 9.9,
-          "text" : "erances of layered card. In Proceedings of the Bench Meet-",
-          "width" : 218.3,
-          "x" : 76.4,
+          "text" : "ances of layered card. In Proceedings of the Bench Meeting",
+          "width" : 220.8,
+          "x" : 73.9,
           "y" : 692.1
         },
         {
           "height" : 9.9,
-          "text" : "ing on Paper Models, pages 12–19.",
-          "width" : 127.3,
-          "x" : 76.4,
+          "text" : "on Paper Models, pages 12–19.",
+          "width" : 113.6,
+          "x" : 73.9,
           "y" : 703
         }
       ],
@@ -986,5 +986,5 @@
       "width" : 612
     }
   ],
-  "textSHA256" : "e493976c77ddf83c1a21bf4c0a2523a9722bc869c1bed751e135e7f2d884f548"
+  "textSHA256" : "5254e0afe0051c3bc71f4b7ffafb4c60f872d96bc4655cd5c7cb0df85cc2bdd3"
 }

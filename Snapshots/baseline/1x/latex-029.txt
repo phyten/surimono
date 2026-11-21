@@ -4,9 +4,8 @@ drawing [Tra20] and the scale study [Riv19]. The hinge has its own assembly
 card [Hin18].
 References
 [Cop16] Copper Atlas Group. Atlas of Paper Channels. Fold Workshop, 2016.
-[Fol17]
-Fold Workshop. Lining the bend. In Atlas Desk, editor, Paper Wa-
-terways, pages 8–12. Model Quay Press, 2017.
+[Fol17] Fold Workshop. Lining the bend. In Atlas Desk, editor, Paper Water-
+ways, pages 8–12. Model Quay Press, 2017.
 [Gau21] Gauge Desk. Gauge Card Handbook, 2021.
 [Hin18] Hinge Study Group. A reversible flap. In Proceedings of the Model
 Gate Forum, pages 21–24, 2018.

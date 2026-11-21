@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.028720842505606713,
+    "changedAreaRatio" : 0.02859889002573404,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
@@ -10,7 +10,7 @@
     "maxShiftPt" : 27.6,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 9
+    "textEdits" : 5
   },
   "fonts" : [
     "Helvetica"
@@ -53,15 +53,15 @@
         },
         {
           "height" : 10.5,
-          "text" : "Three paper screens were placed along a model courtyard. We",
+          "text" : "Three paper screens were placed along a model courtyard. We recorded",
           "width" : 276.5,
           "x" : 165.8,
           "y" : 292.3
         },
         {
           "height" : 10.5,
-          "text" : "recorded the first position at which the rear lantern disappeared.",
-          "width" : 255.9,
+          "text" : "the first position at which the rear lantern disappeared.",
+          "width" : 219.3,
           "x" : 152.3,
           "y" : 302.7
         },
@@ -104,21 +104,21 @@
           "height" : 9.4,
           "text" : "Drawings use a common scale.*",
           "width" : 104.7,
-          "x" : 139,
+          "x" : 139.8,
           "y" : 678.2
         },
         {
           "height" : 7,
           "text" : "1",
           "width" : 3,
-          "x" : 136,
+          "x" : 136.8,
           "y" : 686.7
         },
         {
           "height" : 9.4,
           "text" : "A tile measures one model unit.",
           "width" : 111.8,
-          "x" : 139,
+          "x" : 139.8,
           "y" : 687.6
         },
         {
@@ -136,5 +136,5 @@
       "width" : 595.3
     }
   ],
-  "textSHA256" : "64114261f51fe3e2c1b047aa3b204f2b09ae3c7200d266f76bc6a92d5eb6100b"
+  "textSHA256" : "fd6cfe924a8b122457bc054ea367bded71b1e942e6996f6e6bc9f4962e07229e"
 }

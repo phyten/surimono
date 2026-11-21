@@ -9,12 +9,22 @@ final class LaTeXBibliography {
     var records: [String: Record] = [:]
     var fileOrder: [String] = []
     // BibTeX's built-in month strings remain overridable by a database's own @string entries.
-    var strings = [
+    private static let months = [
         "jan": "January", "feb": "February", "mar": "March", "apr": "April", "may": "May", "jun": "June",
         "jul": "July", "aug": "August", "sep": "September", "oct": "October", "nov": "November", "dec": "December",
     ]
+    private static let shortMonths = [
+        "jan": "Jan.", "feb": "Feb.", "mar": "Mar.", "apr": "Apr.", "aug": "Aug.",
+        "sep": "Sept.", "oct": "Oct.", "nov": "Nov.", "dec": "Dec.",
+    ]
+    var strings: [String: String] = [:]
+
+    func expansion(of key: String) -> String? {
+        strings[key] ?? (style == "abbrv" ? Self.shortMonths[key] : nil) ?? Self.months[key]
+    }
     var printCount = 0
-    var printedHeadings: [String] = []
+    var usesBibTeXBlocks = false
+    var printedHeadings: [(html: String, lineParameters: String)] = []
     var wantsAll = false
     var citationOrder: [String] = []
     private var seen: Set<String> = []
@@ -25,6 +35,7 @@ final class LaTeXBibliography {
     var natbib = false
     var sortsAndCompresses = false
     var hasManualBibliography = false
+    var startsBlocksAsParagraphs = false
     private var manualSquareBrackets: Bool?
     struct ManualLabel {
         let author: String
@@ -85,6 +96,7 @@ final class LaTeXBibliography {
                 manualSquareBrackets = option == "numbers"
             }
             if option == "square" || option == "round" { manualSquareBrackets = option == "square" }
+            if packageDefaults && option == "openbib" { startsBlocksAsParagraphs = true }
             if option == "sort&compress" { sortsAndCompresses = true }
             if option == "authoryear" { authorYearOption = true }
             if option == "numbers" || option == "super" { authorYearOption = false }
@@ -106,6 +118,9 @@ final class LaTeXBibliography {
         // Unsorted styles follow the first citation, then append uncited records in file order for \nocite{*}.
         // Sort only the selected records, preserving the citation order when two authors have the same name.
         let keys = citationOrder + (wantsAll ? fileOrder.filter { !seen.contains($0) } : [])
+        let marksBlocks = usesBibTeXBlocks && document.composesEnglishParagraphs
+        let openBlocks = marksBlocks && document.opensBibliographyBlocks
+        let blockAttribute = openBlocks ? " data-latex-openbib" : ""
         var selected: [(key: String, entry: Entry)] = []
         for key in keys {
             guard let record = records[key] else { continue }
@@ -159,7 +174,9 @@ final class LaTeXBibliography {
                 html += "<ol class=\"latex-bibliography latex-alpha\">\n"
             } else {
                 let width = labels.map(\.count).max() ?? 1
-                html += "<ol class=\"latex-bibliography latex-numbered\" style=\"--latex-label-digits: \(width)ch\">\n"
+                let sample = marksBlocks ? " data-latex-bib-sample=\"[\(labels.count)]\"" : ""
+                html +=
+                    "<ol class=\"latex-bibliography latex-numbered\" style=\"--latex-label-digits: \(width)ch\"\(sample)>\n"
             }
         }
         for (position, item) in selected.enumerated() {
@@ -168,8 +185,21 @@ final class LaTeXBibliography {
             let label = authorYear ? labels[position] : HTML.escape(labels[position])
             let printed = document.classInfo.journalStyle?.bibliographyLabel(label) ?? "[\(label)]"
             let marker = authorYear ? "" : "<span class=\"bib-label\">\(printed)</span> "
-            let content = style == "alpha" && !authorYear ? "<span>\(entry.html)</span>" : entry.html
-            let row = "<li id=\"\(id)\">\(marker)\(content)</li>\n"
+            let separator = marksBlocks ? "<span data-latex-newblock=\"space\"> </span>" : " "
+            let text: String
+            let usesLabelColumn = style == "alpha" && !authorYear
+            if openBlocks {
+                // Alpha's grid owns the label column, even when a citation has multiple blocks.
+                let paragraphs = entry.blocks.enumerated().map { index, block in
+                    let inlineLabel = index == 0 && !usesLabelColumn ? marker : ""
+                    return "<p>\(inlineLabel)\(block)</p>"
+                }.joined()
+                text = usesLabelColumn ? marker + paragraphs : paragraphs
+            } else {
+                let blocks = entry.blocks.joined(separator: separator)
+                text = marker + (usesLabelColumn ? "<span>\(blocks)</span>" : blocks)
+            }
+            let row = "<li id=\"\(id)\"\(blockAttribute)>\(text)</li>\n"
             guard document.reserveExpansion(characters: row.utf8.count) else { break }
             document.bibliography[item.key] = (label, printCount > 0 ? id : "")
             citationLabels[item.key] = (entry.shortAuthor, entry.year)
@@ -189,7 +219,7 @@ final class LaTeXBibliography {
     }
 
     private struct Entry {
-        let html: String
+        let blocks: [String]
         let shortAuthor: String
         let year: String
         let sortKey: String
@@ -271,10 +301,10 @@ final class LaTeXBibliography {
             }
             // A title's italic closing tag can follow its final punctuation. Inspect its visible
             // ending when adding the period between plain.bst blocks.
-            html = pieces.filter { !$0.isEmpty }.map { piece in
+            blocks = pieces.filter { !$0.isEmpty }.map { piece in
                 let punctuated = piece.range(of: #"[.?!](?:</[a-z]+>)*$"#, options: .regularExpression) != nil
                 return punctuated ? piece : piece + "."
-            }.joined(separator: " ")
+            }
         }
     }
 }
@@ -387,11 +417,12 @@ private struct LaTeXBibPublication {
             blocks = [authors, title, joined(designation, field("institution"), address, date)]
         case "incollection":
             let imprint = joined(publisher, address)
-            blocks = [
-                authors, title,
-                joined(container(editors: editors), volumeAndSeries, numberAndSeries(atStart: false), chapterPages),
-                joined(imprint, edition(afterPreviousField: !imprint.isEmpty), date),
-            ]
+            let location = joined(
+                container(editors: editors), volumeAndSeries, numberAndSeries(atStart: false), chapterPages)
+            let publication = joined(imprint, edition(afterPreviousField: !imprint.isEmpty), date)
+            // plain.bst calls new.sentence before the publisher, within the same block.
+            let stop = location.range(of: #"[.?!](?:</[a-z]+>)*$"#, options: .regularExpression) == nil ? ". " : " "
+            blocks = [authors, title, joined(location, publication, separator: stop)]
         case "inproceedings", "conference":
             let location = joined(container(editors: editors), volumeAndSeries, numberAndSeries(atStart: false), pages)
             blocks = [authors, title] + proceedings(location, organization: organization, date: date)
@@ -454,6 +485,9 @@ extension LaTeXReader {
         }
         for package in packages {
             let passed = document.passedPackageOptions[package] ?? []
+            if LaTeXStylePackageRegistry.breaksURLsAfterHyphens(package, options: passed + options) {
+                document.breaksURLsAfterHyphens = true
+            }
             if package == "times" { document.loadsTimesPackage = true }
             if let request = LaTeXStylePackageRegistry.match(package, options: passed + options) {
                 document.stylePackage = request
@@ -522,10 +556,15 @@ extension LaTeXReader {
             _ = optional()
             loadBibliography(argument() ?? "")
         default:
-            if name == "bibliography" { loadBibliography(argument() ?? "") } else { _ = optional() }
+            if name == "bibliography" {
+                document.bibDatabase.usesBibTeXBlocks = true
+                loadBibliography(argument() ?? "")
+            } else {
+                _ = optional()
+            }
             let heading = captionName(document.hasChapters ? "bibname" : "refname")
             document.bibDatabase.printedHeadings.append(
-                bibliographyHeading(heading))
+                (bibliographyHeading(heading), document.contextLineParameterAttribute))
             appendBlock(styledLinks(document.placeholder("B", document.bibDatabase.printCount), block: true))
             document.bibDatabase.printCount += 1
         }

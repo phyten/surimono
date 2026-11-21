@@ -50,7 +50,14 @@ public struct LaTeXDocumentClassInfo: Sendable, Equatable {
     package var latinLineAttributes: String {
         guard profile.body.composesLatinParagraphs else { return "" }
         let family = resolvedStyle == nil ? "cm" : "times"
-        return " data-latex-line-breaking=\"\(family)\"" + initialLineParameters
+        var contexts = profile.body.lineContexts
+        if let resolvedStyle {
+            // The conference stylesheet already supplies the mark box and the note's indentation.
+            contexts?.footnote.fontSizePt = resolvedStyle.noteSize
+            contexts?.footnote.firstIndentEm = nil
+        }
+        let glue = resolvedStyle?.usesNewTimesGlue == true ? " data-latex-context-glue=\"newtx\"" : ""
+        return " data-latex-line-breaking=\"\(family)\"" + initialLineParameters + (contexts?.attribute ?? "") + glue
     }
     public var isJapanese: Bool { profile.typography.usesJapaneseStyle }
     var usesAMSA4Layout: Bool { profile.page.usesAMSA4Layout }

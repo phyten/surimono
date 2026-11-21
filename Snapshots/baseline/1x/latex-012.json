@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.01923645345652601,
+    "changedAreaRatio" : 0.019239553943302432,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
@@ -40,7 +40,7 @@
         {
           "height" : 10.5,
           "text" : "A bevel leaves a wider impression on the soft face.",
-          "width" : 199,
+          "width" : 198.9,
           "x" : 165.8,
           "y" : 195.8
         },
@@ -96,7 +96,7 @@
         {
           "height" : 11.7,
           "text" : "Casting desk, Press journal, trial edition.",
-          "width" : 180.1,
+          "width" : 180.4,
           "x" : 145.3,
           "y" : 401.9
         },

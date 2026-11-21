@@ -5,11 +5,12 @@ import Foundation
 enum LaTeXGraphicPreparation {
     static func script(in html: String, layoutWidth: Double, layoutHeight: Double? = nil) -> String? {
         let thinSpaces = html.contains("\u{2009}")
+        let bibliography = html.contains(" data-latex-bib-sample=")
         let graphics = html.contains(#"class="latex-graphic-box""#)
         let displays = html.contains(#"class="math math-display""#)
         let exam = html.contains("<svg data-exam-rules ")
         let letters = html.contains(#"class="latex-letter""#) ? layoutHeight : nil
-        guard thinSpaces || graphics || displays || exam || letters != nil else { return nil }
+        guard bibliography || thinSpaces || graphics || displays || exam || letters != nil else { return nil }
         return """
             {
               const root = document.documentElement;
@@ -17,6 +18,7 @@ enum LaTeXGraphicPreparation {
               const zoom = parseFloat(getComputedStyle(root).zoom) || 1;
               root.style.width = (\(layoutWidth) / zoom) + 'px';
               try {
+                \(bibliography ? measureLabels : "")
                 \(thinSpaces ? tieThinSpaces : "")
                 \(displays ? measureDisplays : "")
                 \(graphics ? measure : "")
@@ -26,6 +28,19 @@ enum LaTeXGraphicPreparation {
             }
             """
     }
+
+    // offsetWidth rounds small bracket advances to whole pixels. The computed
+    // max-content width is in layout units even when the print view is zoomed.
+    private static let measureLabels = """
+        for (const list of document.querySelectorAll('ol[data-latex-bib-sample]')) {
+          const sample = document.createElement('span');
+          sample.style.cssText = 'position:absolute;visibility:hidden;white-space:pre;width:max-content;font:inherit';
+          sample.textContent = list.dataset.latexBibSample;
+          list.append(sample);
+          list.style.setProperty('--latex-bib-measured', getComputedStyle(sample).width);
+          sample.remove();
+        }
+        """
 
     // A text-mode thin space is a kern in TeX. The stored HTML may still use U+2009,
     // whose Unicode line-break class permits a break before the following unit.

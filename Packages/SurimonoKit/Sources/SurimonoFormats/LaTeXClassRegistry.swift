@@ -76,6 +76,8 @@ enum LaTeXClassRegistry {
         builder.headings.wrapsChapterTitle = builder.structure.hasChapters
         builder.page.layoutRule = .standard(builder.id == .book ? .bookOffsets : .doubleColumn)
         builder.body.composesLatinParagraphs = true
+        builder.body.lineContexts = .init(footnoteSize: Double((builder.explicitSize ?? 10) - 2))
+        builder.body.startsBibliographyBlocksAsParagraphs = builder.options.contains("openbib")
         builder.body.usesSizeFileGlue = true
         builder.body.usesListingDesignSize = true
     }

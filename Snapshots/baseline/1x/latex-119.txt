@@ -183,11 +183,12 @@ CVPR 2027 Submission. CONFIDENTIAL REVIEW COPY. DO NOT DISTRIBUTE.
 096
 097
 098
-[4]
-Scale Fixture Room. 2023. A gauge block made of folded
+[4] Scale Fixture Room. 2023.
+A gauge block made of folded
 board. Workshop Leaflet 7, Paper Model Workshop.
-[5] Window Frame Study. 2021. Measuring slots with a card
-ladder. Technical memo, Paper Model Workshop.
+[5]
+Window Frame Study. 2021. Measuring slots with a card lad-
+der. Technical memo, Paper Model Workshop.
 099
 100
 101
@@ -225,13 +226,12 @@ three layers are used. A card ladder [5] gives a convenient
 way to check many spacers at once.
 References
 [1]
-Card Stock Bench and Model Rail Desk. 2024. Folding tol-
-erances of layered card. In Proceedings of the Bench Meet-
-ing on Paper Models, pages 12–19.
-[2]
-Glue Pot Corner. 2022. Drying times for thin paper joints.
+Card Stock Bench and Model Rail Desk. 2024. Folding toler-
+ances of layered card. In Proceedings of the Bench Meeting
+on Paper Models, pages 12–19.
+[2] Glue Pot Corner. 2022.
+Drying times for thin paper joints.
 Paper Model Quarterly, 4(2):33–41.
-[3]
-Model Rail Desk. 2025. Spacer Card Register. Trial note,
+[3] Model Rail Desk. 2025. Spacer Card Register. Trial note,
 Paper Model Workshop.
 2

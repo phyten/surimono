@@ -25,6 +25,7 @@ package struct LaTeXResolvedStyle: Equatable, Sendable {
     let anonymousAuthor: String?
     let loadsNatbib: Bool
     let usesTimesRoman: Bool
+    var usesNewTimesGlue = false
     var paper = LaTeXClassProfile.Paper.letter
     var columns = 1
     var textWidthInches = 5.5
@@ -107,6 +108,12 @@ enum LaTeXStylePackageRegistry {
         case "acl": return Request(name: name, year: "", family: .acl, options: options)
         default: return nil
         }
+    }
+
+    static func usesNewTimesGlue(_ package: String) -> Bool { package == "newtxtext" }
+
+    static func breaksURLsAfterHyphens(_ package: String, options: [String]) -> Bool {
+        package == "url" && options.contains("hyphens")
     }
 
     // Keep the pre-existing two-column hint for older, abbreviated package names.
@@ -309,6 +316,7 @@ enum LaTeXStylePackageRegistry {
             width: 504, height: 648, top: 54, gap: 27, baseline: 11,
             anonymous: anonymous ? "Anonymous submission" : nil)
         style.separateAffiliations = true
+        style.usesNewTimesGlue = true
         style.frenchSpacing = true
         style.showsPageNumbers = false
         style.runInSubsubsection = true
@@ -340,6 +348,7 @@ extension LaTeXDocument {
         let ink: String?
         switch request.family {
         case .cvpr:
+            breaksURLsAfterHyphens = true
             bibDatabase.applyConferenceDefaults(authorYear: false, compress: true)
             ink = nil
         case .icml, .acl:
@@ -375,6 +384,9 @@ extension LaTeXDocument {
         style.raggedBottom = requestsRaggedBottom ?? false
         if let requestsFrenchSpacing { style.frenchSpacing = requestsFrenchSpacing }
         if style.frenchSpacing { lineParameters.frenchspacing = true }
+        if !style.usesTimesRoman || pageSettings.fonts.mainFontRevision != styleMainFontRevision {
+            style.usesNewTimesGlue = pageSettings.fonts.usesNewTimesGlue
+        }
         classInfo.resolvedStyle = style
         classInfo.styleDeclaration = styleDeclaration
         classInfo.columns = style.columns

@@ -8,6 +8,7 @@ extension LaTeXDocument {
         var mark: String? = nil
         // nil means the mark still awaits its text. An explicitly empty note is already paired.
         var html: String?
+        var lineParameters = ""
 
         var bearingAttribute: String {
             mark?.first == "（" && mark?.last == "）" ? " data-latex-tight-parentheses" : ""
@@ -50,7 +51,7 @@ extension LaTeXDocument {
                     content = mark + content
                 }
             }
-            return "<li id=\"\(note.id)\"\(attribute)>\(content)</li>\n"
+            return "<li id=\"\(note.id)\"\(attribute)\(note.lineParameters)>\(content)</li>\n"
         }.joined()
         return "<section class=\"footnotes\">\n<ol>\n\(items)</ol>\n</section>\n"
     }
@@ -159,6 +160,7 @@ extension LaTeXReader {
         if let text {
             // Reserve the slot before reading the note so nested notes get their own destinations.
             document.footnotes[slot].html = ""
+            document.footnotes[slot].lineParameters = document.contextLineParameterAttribute
             let html = blocks(text)
             document.footnotes[slot].html = html
         }

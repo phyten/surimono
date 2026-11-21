@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.1708855614973262,
+    "changedAreaRatio" : 0.16847486631016043,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 2,
@@ -10,7 +10,7 @@
     "maxShiftPt" : 9.1,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 159
+    "textEdits" : 151
   },
   "fonts" : [
     "Helvetica",
@@ -98,50 +98,50 @@
         },
         {
           "height" : 9.9,
-          "text" : "stocks in a single test slot and compared the measured",
+          "text" : "stocks in a single test slot and compared the measured heights",
           "width" : 218.6,
           "x" : 64,
           "y" : 256.9
         },
         {
           "height" : 9.9,
-          "text" : "heights with a simple layer model. The model predicts the",
+          "text" : "with a simple layer model. The model predicts the height of a",
           "width" : 218.6,
           "x" : 64,
           "y" : 266.9
         },
         {
           "height" : 9.9,
-          "text" : "height of a folded spacer to within a tenth of a millimetre",
+          "text" : "folded spacer to within a tenth of a millimetre when the crease",
           "width" : 218.6,
           "x" : 64,
           "y" : 276.8
         },
         {
           "height" : 9.9,
-          "text" : "when the crease allowance is taken from a two-layer trial.",
+          "text" : "allowance is taken from a two-layer trial. We describe the",
           "width" : 218.6,
           "x" : 64,
           "y" : 286.8
         },
         {
           "height" : 9.9,
-          "text" : "We describe the slot, the measurement procedure and the",
+          "text" : "slot, the measurement procedure and the remaining sources",
           "width" : 218.6,
           "x" : 64,
           "y" : 296.7
         },
         {
           "height" : 9.9,
-          "text" : "remaining sources of error, and we list practical rules for",
+          "text" : "of error, and we list practical rules for choosing a card stock",
           "width" : 218.6,
           "x" : 64,
           "y" : 306.7
         },
         {
           "height" : 9.9,
-          "text" : "choosing a card stock for a given rail height.",
-          "width" : 159.6,
+          "text" : "for a given rail height.",
+          "width" : 79.9,
           "x" : 64,
           "y" : 316.6
         },
@@ -392,15 +392,15 @@
         },
         {
           "height" : 11,
-          "text" : "to measure the height of spacers with two to six layers",
+          "text" : "to measure the height of spacers with two to six layers in",
           "width" : 225.5,
           "x" : 67,
           "y" : 501.4
         },
         {
           "height" : 11,
-          "text" : "in one fixed slot;",
-          "width" : 67.2,
+          "text" : "one fixed slot;",
+          "width" : 57,
           "x" : 67,
           "y" : 512.4
         },
@@ -617,7 +617,7 @@
         {
           "height" : 9.9,
           "text" : "so the moisture content of the card was the same for every spacer.",
-          "width" : 230.4,
+          "width" : 235.8,
           "x" : 54,
           "y" : 672.1
         },
@@ -931,7 +931,7 @@
         {
           "height" : 11,
           "text" : "board. Workshop Leaflet 7, Paper Model Workshop.",
-          "width" : 208.4,
+          "width" : 209.5,
           "x" : 54,
           "y" : 626.6
         },
@@ -945,7 +945,7 @@
         {
           "height" : 11,
           "text" : "ladder. Technical memo, Paper Model Workshop.",
-          "width" : 197.1,
+          "width" : 198.2,
           "x" : 54,
           "y" : 651
         }
@@ -957,5 +957,5 @@
       "width" : 612
     }
   ],
-  "textSHA256" : "4d62a9feebabc8d7ee7e691ff48f14abac7bc7d18176aeee51b77a8da39064ce"
+  "textSHA256" : "ca265ac1ba3d891d1bef9faa5b20fbde345672f848566abc34dcba17e0f7d2d4"
 }

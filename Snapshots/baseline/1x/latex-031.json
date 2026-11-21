@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.04456743041990926,
+    "changedAreaRatio" : 0.04444651143562873,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
@@ -10,7 +10,7 @@
     "maxShiftPt" : 26.9,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 10
+    "textEdits" : 2
   },
   "fonts" : [
     "Helvetica"
@@ -61,56 +61,56 @@
         {
           "height" : 11.7,
           "text" : "Copper Atlas Group. Atlas of Paper Channels. Fold Workshop, 2016.",
-          "width" : 303.5,
+          "width" : 306.3,
           "x" : 125.4,
           "y" : 252.7
         },
         {
           "height" : 11.7,
           "text" : "Fold Workshop. Lining the bend. In Atlas Desk, editor, Paper Waterways,",
-          "width" : 343.7,
+          "width" : 343.8,
           "x" : 125.4,
           "y" : 272.7
         },
         {
           "height" : 11.7,
           "text" : "pages 8–12. Model Quay Press, 2017.",
-          "width" : 162,
+          "width" : 161.9,
           "x" : 135.4,
           "y" : 284.7
         },
         {
           "height" : 11.7,
           "text" : "Gauge Desk. Gauge Card Handbook, 2021.",
-          "width" : 185.2,
+          "width" : 186.7,
           "x" : 125.4,
           "y" : 304.7
         },
         {
           "height" : 11.7,
-          "text" : "Hinge Study Group. A reversible flap. In Proceedings of the Model Gate Fo-",
+          "text" : "Hinge Study Group. A reversible flap. In Proceedings of the Model Gate Forum,",
           "width" : 343.7,
           "x" : 125.4,
           "y" : 324.7
         },
         {
           "height" : 11.7,
-          "text" : "rum, pages 21–24, 2018.",
-          "width" : 104.7,
+          "text" : "pages 21–24, 2018.",
+          "width" : 80.9,
           "x" : 135.4,
           "y" : 336.7
         },
         {
           "height" : 11.7,
-          "text" : "River Model Circle. Calibrating the sill. Model Quay Notes, 4:11–14, Sep-",
-          "width" : 343.7,
+          "text" : "River Model Circle. Calibrating the sill. Model Quay Notes, 4:11–14, September",
+          "width" : 343.8,
           "x" : 125.4,
           "y" : 356.7
         },
         {
           "height" : 11.7,
-          "text" : "tember 2019.",
-          "width" : 56.5,
+          "text" : "2019.",
+          "width" : 22.7,
           "x" : 135.4,
           "y" : 368.7
         },
@@ -143,5 +143,5 @@
       "width" : 595.3
     }
   ],
-  "textSHA256" : "dbd8f04399c268e1fcbb45a9cfde293d4b137ac662e7bdca85bb75e06d63df8f"
+  "textSHA256" : "781134f0287c3f5ec6d520459667bbad96fccc1d110a50a7b370a785b0b70f3d"
 }

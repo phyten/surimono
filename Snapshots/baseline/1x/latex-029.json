@@ -1,16 +1,16 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.045672237207908306,
+    "changedAreaRatio" : 0.04560092601205056,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
-    "lineCountChangedPages" : 0,
+    "lineCountChangedPages" : 1,
     "maxBoxDeltaPt" : 25.6,
     "maxLuminance" : 153.640625,
     "maxShiftPt" : 26.9,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 10
+    "textEdits" : 5
   },
   "fonts" : [
     "Helvetica"
@@ -21,7 +21,7 @@
       "firstY" : 150.4,
       "height" : 841.9,
       "lastY" : 719.2,
-      "lineCount" : 17,
+      "lineCount" : 16,
       "lines" : [
         {
           "height" : 17.5,
@@ -61,35 +61,28 @@
         {
           "height" : 11.7,
           "text" : "[Cop16] Copper Atlas Group. Atlas of Paper Channels. Fold Workshop, 2016.",
-          "width" : 342.3,
+          "width" : 343.8,
           "x" : 125.4,
           "y" : 252.7
         },
         {
           "height" : 11.7,
-          "text" : "[Fol17]",
-          "width" : 29.8,
+          "text" : "[Fol17] Fold Workshop. Lining the bend. In Atlas Desk, editor, Paper Water-",
+          "width" : 343.7,
           "x" : 125.4,
           "y" : 272.7
         },
         {
           "height" : 11.7,
-          "text" : "Fold Workshop. Lining the bend. In Atlas Desk, editor, Paper Wa-",
-          "width" : 304.9,
-          "x" : 164.3,
-          "y" : 272.7
-        },
-        {
-          "height" : 11.7,
-          "text" : "terways, pages 8–12. Model Quay Press, 2017.",
-          "width" : 200.8,
+          "text" : "ways, pages 8–12. Model Quay Press, 2017.",
+          "width" : 188.6,
           "x" : 164.3,
           "y" : 284.7
         },
         {
           "height" : 11.7,
           "text" : "[Gau21] Gauge Desk. Gauge Card Handbook, 2021.",
-          "width" : 224,
+          "width" : 225.6,
           "x" : 125.4,
           "y" : 304.7
         },
@@ -103,7 +96,7 @@
         {
           "height" : 11.7,
           "text" : "Gate Forum, pages 21–24, 2018.",
-          "width" : 140.3,
+          "width" : 140.5,
           "x" : 164.3,
           "y" : 336.7
         },
@@ -124,14 +117,14 @@
         {
           "height" : 11.7,
           "text" : "[Tra20] Tray Workshop. A bench for tilted channels. Technical Report 7,",
-          "width" : 343.7,
+          "width" : 343.8,
           "x" : 125.4,
           "y" : 388.7
         },
         {
           "height" : 11.7,
           "text" : "Model Quay Laboratory, 2020.",
-          "width" : 134.5,
+          "width" : 134.4,
           "x" : 164.3,
           "y" : 400.7
         },
@@ -150,5 +143,5 @@
       "width" : 595.3
     }
   ],
-  "textSHA256" : "4320c250ab77dd719ea48317c77ce68ea007512ac87e32ddd2709e3645231ae1"
+  "textSHA256" : "2829ac35ceea7890f7681461cbfd3bac272956117501645daf5d6c496ee73f0d"
 }
