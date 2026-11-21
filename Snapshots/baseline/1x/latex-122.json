@@ -1,16 +1,16 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.10848396531588793,
+    "changedAreaRatio" : 0.10106760094668196,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
-    "lineCountChangedPages" : 2,
+    "lineCountChangedPages" : 1,
     "maxBoxDeltaPt" : 371.7,
-    "maxLuminance" : 108.25,
+    "maxLuminance" : 59.265625,
     "maxShiftPt" : 3.3,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 120
+    "textEdits" : 102
   },
   "fonts" : [
     "CourierNewPSMT",
@@ -25,7 +25,7 @@
       "firstY" : 76.6,
       "height" : 841.9,
       "lastY" : 764.8,
-      "lineCount" : 88,
+      "lineCount" : 89,
       "lines" : [
         {
           "height" : 15.9,
@@ -84,97 +84,6 @@
           "y" : 220.2
         },
         {
-          "height" : 11,
-          "text" : "A folded card spacer fixes the height of a",
-          "width" : 184.2,
-          "x" : 87.9,
-          "y" : 243.6
-        },
-        {
-          "height" : 11,
-          "text" : "model rail above its baseboard. We measured",
-          "width" : 184.2,
-          "x" : 87.9,
-          "y" : 255.5
-        },
-        {
-          "height" : 11,
-          "text" : "spacers folded from three card stocks in a sin-",
-          "width" : 184.2,
-          "x" : 87.9,
-          "y" : 267.5
-        },
-        {
-          "height" : 11,
-          "text" : "gle test slot and compared the measured",
-          "width" : 184.2,
-          "x" : 87.9,
-          "y" : 279.4
-        },
-        {
-          "height" : 11,
-          "text" : "heights with a simple layer model. The model",
-          "width" : 184.3,
-          "x" : 87.9,
-          "y" : 291.4
-        },
-        {
-          "height" : 11,
-          "text" : "predicts the height of a folded spacer to",
-          "width" : 184.2,
-          "x" : 87.9,
-          "y" : 303.3
-        },
-        {
-          "height" : 11,
-          "text" : "within a tenth of a millimetre when the crease",
-          "width" : 184.2,
-          "x" : 87.9,
-          "y" : 315.3
-        },
-        {
-          "height" : 11,
-          "text" : "allowance is taken from a two-layer trial. We",
-          "width" : 184.3,
-          "x" : 87.9,
-          "y" : 327.2
-        },
-        {
-          "height" : 11,
-          "text" : "describe the slot, the measurement procedure",
-          "width" : 184.2,
-          "x" : 87.9,
-          "y" : 339.2
-        },
-        {
-          "height" : 11,
-          "text" : "and the remaining sources of error, and we",
-          "width" : 184.3,
-          "x" : 87.9,
-          "y" : 351.1
-        },
-        {
-          "height" : 11,
-          "text" : "list practical rules for choosing a card stock",
-          "width" : 184.2,
-          "x" : 87.9,
-          "y" : 363.1
-        },
-        {
-          "height" : 11,
-          "text" : "for a given rail height.",
-          "width" : 88.8,
-          "x" : 87.9,
-          "y" : 375
-        },
-        {
-          "height" : 13.2,
-          "text" : "1 Introduction",
-          "width" : 82.8,
-          "x" : 70.9,
-          "y" : 396.3
-        },
-        {
           "height" : 12.1,
           "text" : "2024) and on gauge blocks (Scale Fixture Room,",
           "width" : 218.3,
@@ -189,6 +98,97 @@
           "y" : 233.7
         },
         {
+          "height" : 11,
+          "text" : "A folded card spacer fixes the height of a",
+          "width" : 184.3,
+          "x" : 87.9,
+          "y" : 243.6
+        },
+        {
+          "height" : 11,
+          "text" : "model rail above its baseboard.",
+          "width" : 135,
+          "x" : 87.9,
+          "y" : 255.5
+        },
+        {
+          "height" : 11,
+          "text" : "We mea-",
+          "width" : 38.1,
+          "x" : 234,
+          "y" : 255.5
+        },
+        {
+          "height" : 11,
+          "text" : "sured spacers folded from three card stocks",
+          "width" : 184.2,
+          "x" : 87.9,
+          "y" : 267.5
+        },
+        {
+          "height" : 11,
+          "text" : "in a single test slot and compared the mea-",
+          "width" : 184.3,
+          "x" : 87.9,
+          "y" : 279.4
+        },
+        {
+          "height" : 11,
+          "text" : "sured heights with a simple layer model. The",
+          "width" : 184.3,
+          "x" : 87.9,
+          "y" : 291.4
+        },
+        {
+          "height" : 11,
+          "text" : "model predicts the height of a folded spacer to",
+          "width" : 184.3,
+          "x" : 87.9,
+          "y" : 303.3
+        },
+        {
+          "height" : 11,
+          "text" : "within a tenth of a millimetre when the crease",
+          "width" : 184.3,
+          "x" : 87.9,
+          "y" : 315.3
+        },
+        {
+          "height" : 11,
+          "text" : "allowance is taken from a two-layer trial. We",
+          "width" : 184.3,
+          "x" : 87.9,
+          "y" : 327.2
+        },
+        {
+          "height" : 11,
+          "text" : "describe the slot, the measurement procedure",
+          "width" : 184.3,
+          "x" : 87.9,
+          "y" : 339.2
+        },
+        {
+          "height" : 11,
+          "text" : "and the remaining sources of error, and we list",
+          "width" : 184.3,
+          "x" : 87.9,
+          "y" : 351.1
+        },
+        {
+          "height" : 11,
+          "text" : "practical rules for choosing a card stock for a",
+          "width" : 184.3,
+          "x" : 87.9,
+          "y" : 363.1
+        },
+        {
+          "height" : 11,
+          "text" : "given rail height.",
+          "width" : 67.8,
+          "x" : 87.9,
+          "y" : 375
+        },
+        {
           "height" : 13.2,
           "text" : "2 Method",
           "width" : 57.8,
@@ -201,6 +201,13 @@
           "width" : 80.9,
           "x" : 306.1,
           "y" : 281
+        },
+        {
+          "height" : 13.2,
+          "text" : "1 Introduction",
+          "width" : 82.8,
+          "x" : 70.9,
+          "y" : 396.3
         },
         {
           "height" : 12.1,
@@ -533,15 +540,15 @@
         },
         {
           "height" : 12.1,
-          "text" : "to give simple rules for choosing a card",
+          "text" : "to give simple rules for choosing a card stock",
           "width" : 196.4,
           "x" : 92.7,
           "y" : 687.2
         },
         {
           "height" : 12.1,
-          "text" : "stock for a target height.",
-          "width" : 106.1,
+          "text" : "for a target height.",
+          "width" : 80.4,
           "x" : 92.7,
           "y" : 700.7
         },
@@ -624,22 +631,22 @@
         },
         {
           "height" : 9.9,
-          "text" : "All parts were cut from the same sheets on the same",
+          "text" : "All parts were cut from the same sheets on the same af-",
           "width" : 202.1,
           "x" : 322.3,
           "y" : 744.9
         },
         {
           "height" : 9.9,
-          "text" : "afternoon, so the moisture content of the card was the same",
+          "text" : "ternoon, so the moisture content of the card was the same for",
           "width" : 218.3,
           "x" : 306.1,
           "y" : 754.9
         },
         {
           "height" : 9.9,
-          "text" : "for every spacer.",
-          "width" : 59.5,
+          "text" : "every spacer.",
+          "width" : 46.8,
           "x" : 306.1,
           "y" : 764.8
         }
@@ -654,7 +661,7 @@
       "firstY" : 150.2,
       "height" : 841.9,
       "lastY" : 763.1,
-      "lineCount" : 63,
+      "lineCount" : 66,
       "lines" : [
         {
           "height" : 11,
@@ -812,36 +819,50 @@
         },
         {
           "height" : 11,
-          "text" : "Card Stock Bench and Model Rail Desk. 2024. Fold-",
+          "text" : "Card Stock Bench and Model Rail Desk. 2024. Folding",
           "width" : 218.3,
           "x" : 306.1,
           "y" : 221.9
         },
         {
           "height" : 11,
-          "text" : "ing tolerances of layered card. In Proceedings of",
-          "width" : 207.4,
+          "text" : "tolerances of layered card.",
+          "width" : 109.5,
           "x" : 317.1,
           "y" : 232.8
         },
         {
           "height" : 11,
-          "text" : "the Bench Meeting on Paper Models, pages 12–19.",
-          "width" : 203.3,
+          "text" : "In Proceedings of the",
+          "width" : 89.5,
+          "x" : 434.9,
+          "y" : 232.8
+        },
+        {
+          "height" : 11,
+          "text" : "Bench Meeting on Paper Models, pages 12–19.",
+          "width" : 188.7,
           "x" : 317.1,
           "y" : 243.8
         },
         {
           "height" : 11,
-          "text" : "Glue Pot Corner. 2022. Drying times for thin paper",
-          "width" : 218.3,
+          "text" : "Glue Pot Corner. 2022.",
+          "width" : 96.1,
           "x" : 306.1,
           "y" : 263.7
         },
         {
           "height" : 11,
+          "text" : "Drying times for thin paper",
+          "width" : 114.3,
+          "x" : 410.1,
+          "y" : 263.7
+        },
+        {
+          "height" : 11,
           "text" : "joints. Paper Model Quarterly, 4(2):33–41.",
-          "width" : 172.9,
+          "width" : 174,
           "x" : 317.1,
           "y" : 274.7
         },
@@ -861,9 +882,16 @@
         },
         {
           "height" : 11,
-          "text" : "Scale Fixture Room. 2023. A gauge block made of",
-          "width" : 218.3,
+          "text" : "Scale Fixture Room. 2023.",
+          "width" : 111.6,
           "x" : 306.1,
+          "y" : 325.4
+        },
+        {
+          "height" : 11,
+          "text" : "A gauge block made of",
+          "width" : 98.4,
+          "x" : 426.1,
           "y" : 325.4
         },
         {
@@ -1105,5 +1133,5 @@
       "width" : 595.3
     }
   ],
-  "textSHA256" : "bd1a0dfcad45290d413cd05d6ae9fd69e6acb5667d7e730918334cd321b9d644"
+  "textSHA256" : "9d5cddcb7326ea2b1e9dc7fef1862673f23c6d42f76591de6f0e0b2c57e1f7b9"
 }

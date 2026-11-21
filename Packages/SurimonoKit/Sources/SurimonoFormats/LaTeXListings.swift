@@ -249,7 +249,8 @@ extension LaTeXReader {
                         setup.hangs
                         ? "\(label)\(separator)</span><span>\($0)</span>" : "\(label)</span>\(separator)\($0)"
                     let hang = setup.hangs ? " data-latex-caption-hang" : ""
-                    return "<figcaption\(setup.attributes)\(hang)>\(content)</figcaption>\n"
+                    return
+                        "<figcaption\(setup.attributes)\(hang)\(document.contextLineParameterAttribute)>\(content)</figcaption>\n"
                 } ?? ""
             let skips = style.components(separatedBy: "; ").filter {
                 $0.hasPrefix("--latex-listing-") && $0.contains("skip:")

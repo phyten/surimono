@@ -53,22 +53,22 @@
         },
         {
           "height" : 11.7,
-          "text" : "River Model Circle. Calibrating the sill. Model Quay Notes, 4:11–14, Sep-",
+          "text" : "River Model Circle. Calibrating the sill. Model Quay Notes, 4:11–14, September",
           "width" : 343.7,
           "x" : 125.4,
           "y" : 240.7
         },
         {
           "height" : 11.7,
-          "text" : "tember 2019.",
-          "width" : 56.5,
+          "text" : "2019.",
+          "width" : 22.7,
           "x" : 135.4,
           "y" : 252.7
         },
         {
           "height" : 11.7,
           "text" : "Tray Workshop. A bench for tilted channels. Technical Report 7, Model Quay",
-          "width" : 343.7,
+          "width" : 343.8,
           "x" : 125.4,
           "y" : 272.7
         },
@@ -94,5 +94,5 @@
       "width" : 595.3
     }
   ],
-  "textSHA256" : "689a242f8142914f563eec4a79a22b4ec0690f950fe3f1fc74a6713c8380a824"
+  "textSHA256" : "8535ae8d715c0e28f7ecdbf56905bd41a97d42023f7bc11f904c13eeffe0e04f"
 }

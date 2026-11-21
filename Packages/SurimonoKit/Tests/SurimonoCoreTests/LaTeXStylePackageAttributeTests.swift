@@ -40,7 +40,9 @@ struct LaTeXStylePackageAttributeTests {
             let html = HTMLDocumentBuilder.build(fragment: LaTeXConverter.convert(source), format: .latex, theme: theme)
             let tag = try #require(html.components(separatedBy: "<body ").last?.split(separator: ">").first)
             #expect(tag.contains(#"data-latex-line-breaking="cm""#) == enabled)
-            #expect(tag.contains("&quot;tolerance&quot;:9999") == sloppy)
+            let parameters = tag.components(separatedBy: #" data-latex-line-parameters=""#).dropFirst().first?
+                .prefix { $0 != "\"" }
+            #expect((parameters?.contains("&quot;tolerance&quot;:9999") == true) == sloppy)
         }
     }
 

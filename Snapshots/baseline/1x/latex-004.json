@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.014261205675957792,
+    "changedAreaRatio" : 0.014253971206812804,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
@@ -62,7 +62,7 @@
         {
           "height" : 12.2,
           "text" : "Open circle",
-          "width" : 56.4,
+          "width" : 56.9,
           "x" : 125.4,
           "y" : 253
         },
@@ -70,13 +70,13 @@
           "height" : 12.2,
           "text" : "A dry sample well.",
           "width" : 82,
-          "x" : 191.8,
+          "x" : 192.3,
           "y" : 253
         },
         {
           "height" : 12.2,
           "text" : "Solid dot",
-          "width" : 44.7,
+          "width" : 45.2,
           "x" : 125.4,
           "y" : 273
         },
@@ -84,7 +84,7 @@
           "height" : 12.2,
           "text" : "A well reserved for a second reading.",
           "width" : 161,
-          "x" : 180.1,
+          "x" : 180.6,
           "y" : 273
         },
         {
@@ -98,7 +98,7 @@
       "textHeight" : 580.4,
       "textLeft" : 125.4,
       "textTop" : 150.4,
-      "textWidth" : 215.7,
+      "textWidth" : 216.1,
       "width" : 595.3
     }
   ],

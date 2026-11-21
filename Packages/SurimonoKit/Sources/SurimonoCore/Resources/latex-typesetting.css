@@ -238,6 +238,22 @@ ol.latex-bibliography.latex-numbered { padding-inline-start: calc(var(--latex-la
     position: absolute; inset-inline-end: calc(100% + 0.5em); inset-block-start: 0;
     width: calc(var(--latex-label-digits) + 0.56em); min-width: 0; margin: 0; text-align: end; white-space: nowrap;
 }
+/* Numeric thebibliography measures its declared label in the bibliography
+   font. The class set labelsep earlier, at the document's normal size. */
+ol.latex-bibliography[data-latex-bib-sample] {
+    --bib-labelsep: calc(.5 * var(--tex-body) * var(--tex-pt));
+    --bib-labelwidth: var(--latex-bib-measured, calc(var(--latex-label-digits, 1ch) + .56em));
+    padding-inline-start: calc(var(--bib-labelwidth) + var(--bib-labelsep));
+}
+ol.latex-numbered[data-latex-bib-sample] .bib-label {
+    width: var(--bib-labelwidth); inset-inline-end: calc(100% + var(--bib-labelsep));
+}
+/* Manually typeset labels share the first text baseline, including when the
+   conference style trims the top of its first entry. Their net advance is zero. */
+ol[data-latex-bib-sample]:not(.latex-numbered) .bib-label {
+    width: var(--bib-labelwidth); min-width: 0; text-align: end;
+    margin-inline: calc(0px - var(--bib-labelwidth) - var(--bib-labelsep)) var(--bib-labelsep);
+}
 /* The jsclasses trim and pad each bibliography line. The label belongs on its first baseline. */
 body[data-latex-js-toc] .latex-bibliography.latex-numbered .bib-label {
     position: static; vertical-align: baseline;
@@ -582,7 +598,8 @@ figure figcaption[data-latex-caption-style] {
     font-style: var(--latex-caption-shape, inherit); text-align: var(--latex-caption-align, justify);
     width: var(--latex-caption-width, fit-content);
 }
-figcaption[data-latex-caption-style] > .latex-caption-label {
+figcaption[data-latex-caption-style] > .latex-caption-label,
+figcaption[data-latex-caption-style][data-flow-latin] > .latex-line > .latex-caption-label {
     font-size: var(--latex-label-size, inherit); font-family: var(--latex-label-family, inherit);
     font-weight: var(--latex-label-weight, inherit); font-style: var(--latex-label-shape, inherit);
 }
@@ -1034,6 +1051,15 @@ body[data-latex-js-toc] .latex-proof { margin-block: calc(6 * var(--tex-pt)); }
    measures the widest printed label, including its brackets, before adding labelsep. */
 ol.latex-alpha { display: grid; grid-template-columns: max-content minmax(0,1fr); column-gap: .5em; padding-inline-start: 0; }
 ol.latex-alpha > li { display: grid; grid-column: span 2; grid-template-columns: subgrid; }
+ol.latex-alpha > li > p { grid-column: 2; }
+/* The standard openbib list adds bibindent to the measure's left edge and hangs
+   each block's first line back at the label. Natbib author-year keeps bibhang. */
+ol.latex-bibliography > li[data-latex-openbib] > p { margin-block: 0; }
+ol.latex-bibliography:not(.latex-author-year) > li[data-latex-openbib] > p {
+    margin-inline-start: 1.5em; text-indent: -1.5em;
+}
+ol.latex-author-year > li[data-latex-openbib] > p:first-child { text-indent: inherit; }
+ol.latex-author-year > li[data-latex-openbib] > p + p { text-indent: 0; }
 ol.latex-alpha .bib-label { margin: 0; min-width: 0; text-align: start; }
 
 body:is([data-latex-class="article"],[data-latex-class="report"],[data-latex-class="book"]) {
@@ -1068,6 +1094,9 @@ body:is([data-latex-class="article"],[data-latex-class="report"],[data-latex-cla
     & .latex-description > div + div {
         margin-block-start: calc(var(--latex-itemsep, var(--latex-outer-parsep)) + var(--latex-list-parsep, var(--latex-outer-parsep)));
     }
+    /* The number and the text meet at the right edge of the same 1.8em
+       mark box in the standard classes, including before composition. */
+    &:not([data-latex-style],[data-latex-journal]):lang(en) .footnotes ol { padding-inline-start: 1.8em; }
     & .footnotes { line-height: var(--latex-note-pitch); }
     & .footnotes :is(li,li > p) { margin-block: 0; line-height: inherit; }
     & .footnotes li > p { min-block-size: var(--latex-note-pitch); }

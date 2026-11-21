@@ -22,6 +22,12 @@ function boundary(box, strip, y) {
             if (!rect.height || rect.bottom <= target + .01) continue;
             cursors.set(parent,{index:i,target});
             if (rect.top >= target - .01) return [parent,i];
+            // A cut through outer leading owns a whole composed line, just like PDF capture.
+            // Keep generated hyphens, split links and the trailing source space together.
+            if (node.nodeType === 1 && node.matches('[data-flow-latin] > .latex-line')) {
+                if ((rect.top + rect.bottom) / 2 >= target) return [parent,i];
+                continue;
+            }
             if (node.nodeType === 1) {
                 const inner = first(node);
                 if (inner) return inner;

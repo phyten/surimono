@@ -1,16 +1,16 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.08848021390374332,
+    "changedAreaRatio" : 0.08304919786096257,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
     "maxBoxDeltaPt" : 3.7,
-    "maxLuminance" : 80.78125,
+    "maxLuminance" : 73.203125,
     "maxShiftPt" : 4,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 30
+    "textEdits" : 16
   },
   "fonts" : [
     "CourierNewPSMT",
@@ -106,43 +106,43 @@
         },
         {
           "height" : 11,
-          "text" : "measured spacers folded from three card stocks in a single test slot and",
+          "text" : "measured spacers folded from three card stocks in a single test slot and compared",
           "width" : 324.3,
           "x" : 143.9,
           "y" : 236.8
         },
         {
           "height" : 11,
-          "text" : "compared the measured heights with a simple layer model. The model predicts",
+          "text" : "the measured heights with a simple layer model. The model predicts the height",
           "width" : 324.3,
           "x" : 143.9,
           "y" : 247.7
         },
         {
           "height" : 11,
-          "text" : "the height of a folded spacer to within a tenth of a millimetre when the crease",
+          "text" : "of a folded spacer to within a tenth of a millimetre when the crease allowance is",
           "width" : 324.3,
           "x" : 143.9,
           "y" : 258.7
         },
         {
           "height" : 11,
-          "text" : "allowance is taken from a two-layer trial. We describe the slot, the measurement",
+          "text" : "taken from a two-layer trial. We describe the slot, the measurement procedure and",
           "width" : 324.3,
           "x" : 143.9,
           "y" : 269.6
         },
         {
           "height" : 11,
-          "text" : "procedure and the remaining sources of error, and we list practical rules for",
+          "text" : "the remaining sources of error, and we list practical rules for choosing a card stock",
           "width" : 324.3,
           "x" : 143.9,
           "y" : 280.6
         },
         {
           "height" : 11,
-          "text" : "choosing a card stock for a given rail height.",
-          "width" : 177.3,
+          "text" : "for a given rail height.",
+          "width" : 88.8,
           "x" : 143.9,
           "y" : 291.5
         },
@@ -337,15 +337,15 @@
         },
         {
           "height" : 9.9,
-          "text" : "All parts were cut from the same sheets on the same afternoon, so the moisture content of the card was",
-          "width" : 379.8,
+          "text" : "All parts were cut from the same sheets on the same afternoon, so the moisture content of the card was the",
+          "width" : 379.9,
           "x" : 124.1,
           "y" : 711.9
         },
         {
           "height" : 9.9,
-          "text" : "the same for every spacer.",
-          "width" : 93.4,
+          "text" : "same for every spacer.",
+          "width" : 80.2,
           "x" : 108,
           "y" : 721.9
         },
@@ -714,14 +714,14 @@
         {
           "height" : 11,
           "text" : "Glue Pot Corner. 2022. Drying times for thin paper joints. Paper Model Quarterly, 4(2):33–41.",
-          "width" : 379.1,
+          "width" : 381.3,
           "x" : 108,
           "y" : 130.4
         },
         {
           "height" : 11,
           "text" : "Model Rail Desk. 2025. Spacer Card Register. Trial note, Paper Model Workshop.",
-          "width" : 329.4,
+          "width" : 331.6,
           "x" : 108,
           "y" : 149.3
         },
@@ -768,5 +768,5 @@
       "width" : 612
     }
   ],
-  "textSHA256" : "8077acf20cd95120d0b849da858fba283c48dbe2933cc3a47cbcb734cbf0f1c7"
+  "textSHA256" : "964d74a21f19863abbba4f36c5abd99d948f720d2617c18c0fe9fc95c70b85b8"
 }

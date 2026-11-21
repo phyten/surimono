@@ -85,7 +85,8 @@ extension LaTeXReader {
         let body = contents()
         let alignment = position == "t" ? "top" : position == "b" ? "bottom" : "middle"
         let sizing = physicalWidth + (cssWidth.map { "width: \($0); " } ?? "") + "vertical-align: \(alignment)"
-        return "<div class=\"latex-minipage\(cssClass)\" style=\"\(style)\(sizing)\">\(body)</div>"
+        return
+            "<div class=\"latex-minipage\(cssClass)\"\(document.contextLineParameterAttribute) style=\"\(style)\(sizing)\">\(body)</div>"
     }
 
     func subfigureTarget() -> (letter: String, id: String) {
@@ -104,7 +105,7 @@ extension LaTeXReader {
         let text = inline(source)
         document.describeTarget(target.id, kind: "figure", title: text)
         return
-            "<figcaption id=\"\(target.id)\"><span class=\"latex-caption-label\">(\(target.letter))</span> \(text)</figcaption>\n"
+            "<figcaption id=\"\(target.id)\"\(document.contextLineParameterAttribute)><span class=\"latex-caption-label\">(\(target.letter))</span> \(text)</figcaption>\n"
     }
 
     func subfigureCommand(_ name: String) {

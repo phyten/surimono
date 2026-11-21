@@ -121,6 +121,7 @@ struct LaTeXFontSettings {
     init(index: InstalledFontIndex) { self.index = index }
 
     private(set) var mainFontRevision = 0
+    private(set) var usesNewTimesGlue = false
     private(set) var mainFontName: String?
     var japaneseMainFontName: String? { japaneseMain?.name }
     private(set) var japaneseMain: Selection?
@@ -150,6 +151,7 @@ struct LaTeXFontSettings {
     mutating func setRole(_ role: String, selection: Selection) {
         if role == "main" {
             mainFontName = selection.name
+            usesNewTimesGlue = false
             mainFontRevision += 1
         }
         if role == "cjk-main" { japaneseMain = selection }
@@ -208,6 +210,7 @@ struct LaTeXFontSettings {
         }
         if role == "main" {
             mainFontName = family
+            usesNewTimesGlue = LaTeXStylePackageRegistry.usesNewTimesGlue(name)
             mainFontRevision += 1
         }
         roleVariables["\(role)-font"] = "\"\(family)\""

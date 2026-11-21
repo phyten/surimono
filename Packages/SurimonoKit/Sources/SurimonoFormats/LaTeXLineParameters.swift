@@ -28,3 +28,34 @@ struct LaTeXLineParameters: Encodable, Equatable {
         return " data-latex-line-parameters=\"\(HTML.escape(String(decoding: data, as: UTF8.self)))\""
     }
 }
+
+/// Standard classes and their derived conference styles enter these environments
+/// with local settings, even when the surrounding paragraph explicitly selects fussy.
+struct LaTeXLineContexts: Encodable, Equatable, Sendable {
+    struct Settings: Encodable, Equatable, Sendable {
+        var tolerance = 9999
+        var emergencystretch = "3em"
+        var periodSpaceFactor: Int?
+        var fontSizePt: Double?
+        var firstIndentEm: Double?
+        var paragraphIndentEm: Double?
+    }
+
+    // The kernel's parbox restore calls sloppy for all three kinds of box.
+    var footnote: Settings
+    let caption = Settings()
+    let minipage = Settings()
+    // Both standard thebibliography and natbib also reset the period's sfcode.
+    let bibliography = Settings(periodSpaceFactor: 1000)
+
+    init(footnoteSize: Double) {
+        footnote = Settings(fontSizePt: footnoteSize, firstIndentEm: 1.8, paragraphIndentEm: 1)
+    }
+
+    var attribute: String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        guard let data = try? encoder.encode(self) else { return "" }
+        return " data-latex-context-parameters=\"\(HTML.escape(String(decoding: data, as: UTF8.self)))\""
+    }
+}

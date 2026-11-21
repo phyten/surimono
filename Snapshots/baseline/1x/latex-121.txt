@@ -39,23 +39,24 @@
 Measuring Folded Card Spacers for Model Rails
 Anonymous ACL submission
 Abstract
+2024) and on gauge blocks (Scale Fixture Room,
+2023) motivated the layer model used here.1
 A folded card spacer fixes the height of a
-model rail above its baseboard. We measured
-spacers folded from three card stocks in a sin-
-gle test slot and compared the measured
-heights with a simple layer model. The model
-predicts the height of a folded spacer to
+model rail above its baseboard.
+We mea-
+sured spacers folded from three card stocks
+in a single test slot and compared the mea-
+sured heights with a simple layer model. The
+model predicts the height of a folded spacer to
 within a tenth of a millimetre when the crease
 allowance is taken from a two-layer trial. We
 describe the slot, the measurement procedure
-and the remaining sources of error, and we
-list practical rules for choosing a card stock
-for a given rail height.
-1 Introduction
-2024) and on gauge blocks (Scale Fixture Room,
-2023) motivated the layer model used here.1
+and the remaining sources of error, and we list
+practical rules for choosing a card stock for a
+given rail height.
 2 Method
 2.1 The test slot
+1 Introduction
 The slot was cut into a block of laminated board
 and lined with a strip of thin brass so that the card
 could not dent the walls. A sliding rail of known
@@ -103,8 +104,8 @@ The same model was used for the gauge block of
 Scale Fixture Room (2023), where it predicted the
 height of folded board well for up to four layers.
 •
-to give simple rules for choosing a card
-stock for a target height.
+to give simple rules for choosing a card stock
+for a target height.
 Card thickness.
 The thickness t was measured
 with a dial gauge on ten single sheets of each
@@ -116,9 +117,9 @@ summarises the rules.
 Earlier notes on layered
 card (Card Stock Bench and Model Rail Desk,
 1
-All parts were cut from the same sheets on the same
-afternoon, so the moisture content of the card was the same
-for every spacer.
+All parts were cut from the same sheets on the same af-
+ternoon, so the moisture content of the card was the same for
+every spacer.
 1
 039
 040
@@ -204,14 +205,17 @@ Thick 4 1.98 1.92
 0.30 mm and the thick stock 0.45 mm, with a
 spread of less than 0.01 mm in every case.
 References
-Card Stock Bench and Model Rail Desk. 2024. Fold-
-ing tolerances of layered card. In Proceedings of
-the Bench Meeting on Paper Models, pages 12–19.
-Glue Pot Corner. 2022. Drying times for thin paper
+Card Stock Bench and Model Rail Desk. 2024. Folding
+tolerances of layered card.
+In Proceedings of the
+Bench Meeting on Paper Models, pages 12–19.
+Glue Pot Corner. 2022.
+Drying times for thin paper
 joints. Paper Model Quarterly, 4(2):33–41.
 Model Rail Desk. 2025. Spacer Card Register. Trial
 note, Paper Model Workshop.
-Scale Fixture Room. 2023. A gauge block made of
+Scale Fixture Room. 2023.
+A gauge block made of
 folded board. Workshop Leaflet 7, Paper Model
 Workshop.
 Window Frame Study. 2021. Measuring slots with a

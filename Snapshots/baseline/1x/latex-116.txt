@@ -6,13 +6,13 @@ A folded card spacer fixes the height of a model
 rail above its baseboard. We measured spacers
 folded from three card stocks in a single test slot
 and compared the measured heights with a sim-
-ple layer model. The model predicts the height
-of a folded spacer to within a tenth of a millime-
-tre when the crease allowance is taken from a
-two-layer trial. We describe the slot, the mea-
-surement procedure and the remaining sources
-of error, and we list practical rules for choosing
-a card stock for a given rail height.
+ple layer model. The model predicts the height of
+a folded spacer to within a tenth of a millimetre
+when the crease allowance is taken from a two-
+layer trial. We describe the slot, the measure-
+ment procedure and the remaining sources of er-
+ror, and we list practical rules for choosing a card
+stock for a given rail height.
 1. Introduction
 Paper models of railways need many small parts of exact
 height. Rails, platform edges and signal bases all sit on
@@ -49,8 +49,8 @@ thickness t as
 h= n t + (n− 1) c,
 (1)
 •
-to measure the height of spacers with two to six lay-
-ers in one fixed slot;
+to measure the height of spacers with two to six layers
+in one fixed slot;
 •
 where c is the crease allowance added by each fold. The
 allowance is found from a two-layer trial, for which Equa-
@@ -92,7 +92,8 @@ the slot floor and the rail.
 Table 1. Measured and predicted heights of folded spacers (mm).
 Stock Layers Measured Predicted
 References
-Card Stock Bench and Model Rail Desk. 2024. Folding
+Card Stock Bench and Model Rail Desk. 2024.
+Folding
 tolerances of layered card. In Proceedings of the Bench
 Meeting on Paper Models, pages 12–19.
 Glue Pot Corner. 2022. Drying times for thin paper joints.

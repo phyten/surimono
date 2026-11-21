@@ -7,12 +7,12 @@ Scale Fixture Room, Paper Model Workshop
 bench@paper-model.example
 Abstract
 A folded card spacer fixes the height of a model rail above its baseboard. We
-measured spacers folded from three card stocks in a single test slot and
-compared the measured heights with a simple layer model. The model predicts
-the height of a folded spacer to within a tenth of a millimetre when the crease
-allowance is taken from a two-layer trial. We describe the slot, the measurement
-procedure and the remaining sources of error, and we list practical rules for
-choosing a card stock for a given rail height.
+measured spacers folded from three card stocks in a single test slot and compared
+the measured heights with a simple layer model. The model predicts the height
+of a folded spacer to within a tenth of a millimetre when the crease allowance is
+taken from a two-layer trial. We describe the slot, the measurement procedure and
+the remaining sources of error, and we list practical rules for choosing a card stock
+for a given rail height.
 1 Introduction
 Paper models of railways need many small parts of exact height. Rails, platform edges and signal
 bases all sit on spacers, and a spacer that is too thick by a fraction of a millimetre lifts a rail joint
@@ -86,11 +86,10 @@ fold but should be checked in the slot when more than three layers are used. A c
 Frame Study, 2021) gives a convenient way to check many spacers at once.
 2
 References
-Card Stock Bench and Model Rail Desk. 2024. Folding tolerances of layered card. In Proceedings of the
-Bench Meeting on Paper Models, pages 12–19.
+Card Stock Bench and Model Rail Desk. 2024. Folding tolerances of layered card. In Proceedings of the Bench
+Meeting on Paper Models, pages 12–19.
 Glue Pot Corner. 2022. Drying times for thin paper joints. Paper Model Quarterly, 4(2):33–41.
 Model Rail Desk. 2025. Spacer Card Register. Trial note, Paper Model Workshop.
-Scale Fixture Room. 2023. A gauge block made of folded board. Workshop Leaflet 7, Paper Model
-Workshop.
+Scale Fixture Room. 2023. A gauge block made of folded board. Workshop Leaflet 7, Paper Model Workshop.
 Window Frame Study. 2021. Measuring slots with a card ladder. Technical memo, Paper Model Workshop.
 3

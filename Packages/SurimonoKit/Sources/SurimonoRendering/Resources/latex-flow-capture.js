@@ -116,7 +116,7 @@ for (const [id, unique] of byStrip) {
             const r = n.getBoundingClientRect();
             // A verified line is indivisible. The cut can sit inside its outer leading;
             // keep its link pieces, source space and generated hyphen with the same owner.
-            if (r.height && n.matches('p[data-flow-latin] > .latex-line')) {
+            if (r.height && n.matches('[data-flow-latin] > .latex-line')) {
                 memberships[at((r.top + r.bottom) / 2)].push(n);
                 return NodeFilter.FILTER_REJECT;
             }

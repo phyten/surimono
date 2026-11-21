@@ -349,7 +349,7 @@ if (conferencePage && !body.hasAttribute('data-latex-french-spacing')) {
         const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
         const edits = [];
         for (let n = walker.nextNode(); n; n = walker.nextNode()) {
-            if (n.parentElement.closest('code,kbd,pre,a,.math,svg') ||
+            if (n.parentElement.closest('[data-flow-latin],code,kbd,pre,a,.math,svg') ||
                 n.parentElement.closest('p,li') !== p) continue;
             const matches = [...n.data.matchAll(/(?:^|(?<=\s))[A-Za-z][A-Za-z’-]*[a-z]\.["'”’)]*[ \n\t]+(?=[A-Z])/g)];
             if (!matches.length) continue;
@@ -409,7 +409,7 @@ if (measuredGrid && getComputedStyle(body).getPropertyValue('--latex-word-shrink
         (!p.closest('header,figure,table,li,.footnotes,.latex-runin') ||
             preferWholeWords && p.matches(listText) && !p.closest('header,figure,table') ||
             firstColumns && (p.matches('.latex-runin,.latex-bibliography > li') || p.closest('section.footnotes'))) &&
-        !p.matches('.abstract-title,[data-flow-latin],.latex-runin:has(> p[data-flow-latin])') &&
+        !p.matches('.abstract-title,[data-flow-latin]') && !p.querySelector('[data-flow-latin]') &&
         ['normal','0px'].includes(getComputedStyle(p).wordSpacing) && getComputedStyle(p).textAlign === 'justify');
     // Bound optional dictionary-break measurements across all trials. Large papers
     // still receive the ordinary height-based shrink pass after this allowance.
@@ -1117,7 +1117,7 @@ function lines(box, endsPage) {
     function add(rect, el, ids = [], prose = false, broken = false) {
         if (!rect.width || !rect.height) return;
         budget();
-        const para = el.closest('p,li,pre');
+        const para = el.closest('[data-flow-latin],p,li,pre');
         if (para && !paragraphs.has(para)) paragraphs.set(para, paragraphs.size + 1);
         let end = (rect.bottom + scrollY)*unit-origin, shrinkAfter = 0;
         if (el.hasAttribute('data-flow-display') && (el.nextElementSibling || endsPage)) {
@@ -1150,7 +1150,7 @@ function lines(box, endsPage) {
                 const end = Math.min(n.length, offset + 32768);
                 range.setStart(n, offset); range.setEnd(n, end);
                 const rects = range.getClientRects();
-                const imposed = el.closest('p[data-flow-latin] > .latex-line');
+                const imposed = el.closest('[data-flow-latin] > .latex-line');
                 const broken = !imposed && firstColumns && flushBottom && rects.length > 1 && getComputedStyle(el).hyphens === 'auto'
                     ? hyphenatedLines(n, offset, end) : null;
                 for (const r of rects) add(r, el, note ? [note.dataset.flowNote] : [], true, imposed ? imposed.hasAttribute('data-flow-hyphen') : broken?.has(r.top));
@@ -1350,10 +1350,23 @@ const columnLines = ['blueColumnLines','grayColumnLines'].includes(review);
 if (review === 'textLines' || columnLines || proofLines) {
     reviewLines = strips.map(box => {
         const ys = [], origin = origins[+box.dataset.flowStrip].y;
+        // A composed line has one alphabetic baseline, including when its only
+        // visible content is a formula. Marks and mixed-size faces can have other
+        // text-rectangle tops. Measure the line once without splitting any word.
+        if (proofLines) {
+            const probes = [...box.querySelectorAll('[data-flow-latin] > .latex-line')].map(line => {
+                budget();
+                const mark = baselineProbe();
+                line.append(mark);
+                return mark;
+            });
+            for (const mark of probes) ys.push((mark.getBoundingClientRect().bottom + scrollY) * unit - origin);
+            for (const mark of probes) mark.remove();
+        }
         const tree = document.createTreeWalker(box, NodeFilter.SHOW_TEXT);
         for (let n = tree.nextNode(); n; n = tree.nextNode()) {
             const el = n.parentElement;
-            if (!n.data.trim() || el.closest('sup,sub,svg,style,template')) continue;
+            if (!n.data.trim() || el.closest('sup,sub,svg,style,template') || proofLines && el.closest('[data-flow-latin] > .latex-line')) continue;
             if (!proofLines && (!el.closest('p,li,h1,h2,h3,h4,h5,h6,.latex-runin') ||
                 el.closest('header,.latex-title-block,.latex-column-notice,.math-block,figure,table,.footnotes') ||
                 review !== 'grayColumnLines' && el.closest('.abstract-title'))) continue;

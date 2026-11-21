@@ -8,7 +8,7 @@
       "firstY" : 189.7,
       "height" : 841.9,
       "lastY" : 719.2,
-      "lineCount" : 19,
+      "lineCount" : 18,
       "lines" : [
         {
           "height" : 20.2,
@@ -54,86 +54,79 @@
         },
         {
           "height" : 10.5,
-          "text" : "sition at which the rear lantern disap-",
+          "text" : "sition at which the rear lantern disappeared.",
           "width" : 174.9,
           "x" : 90.6,
           "y" : 314.1
-        },
-        {
-          "height" : 10.5,
-          "text" : "peared.",
-          "width" : 28.4,
-          "x" : 90.6,
-          "y" : 324.5
         },
         {
           "height" : 17.5,
           "text" : "1 Arrangement",
           "width" : 118.5,
           "x" : 63.7,
-          "y" : 350.1
+          "y" : 339.7
         },
         {
           "height" : 11.7,
           "text" : "A narrow screen stood beside each gate. The observer",
           "width" : 228.6,
           "x" : 63.7,
-          "y" : 374.8
+          "y" : 364.4
         },
         {
           "height" : 15,
           "text" : "moved one tile at a time.1",
           "width" : 114,
           "x" : 63.7,
-          "y" : 383.5
+          "y" : 373.1
         },
         {
           "height" : 17.5,
           "text" : "2 Result",
           "width" : 69.2,
           "x" : 63.7,
-          "y" : 413.3
+          "y" : 402.9
         },
         {
           "height" : 11.7,
           "text" : "The middle gate concealed the lantern first.",
           "width" : 205.7,
           "x" : 63.7,
-          "y" : 438
+          "y" : 427.6
         },
         {
           "height" : 11.7,
           "text" : "screen crossed the sight line at tile four.",
           "width" : 174.3,
           "x" : 63.7,
-          "y" : 450
+          "y" : 439.6
         },
         {
           "height" : 11.7,
           "text" : "Its",
           "width" : 11.4,
           "x" : 280.9,
-          "y" : 438
+          "y" : 427.6
         },
         {
           "height" : 7,
           "text" : "1",
           "width" : 3,
-          "x" : 74.2,
+          "x" : 75,
           "y" : 667.4
         },
         {
           "height" : 9.4,
           "text" : "A tile measures one model unit.",
           "width" : 111.8,
-          "x" : 77.2,
+          "x" : 78,
           "y" : 668.4
         },
         {
           "height" : 9.4,
           "text" : "Drawings use a common scale.*",
           "width" : 104.7,
-          "x" : 77.2,
+          "x" : 78,
           "y" : 687.8
         },
         {
@@ -151,5 +144,5 @@
       "width" : 595.3
     }
   ],
-  "textSHA256" : "3c2b01b6c6728544a925ee0f84d8057981fa7fd33bbe67ce6dc559a9675e4985"
+  "textSHA256" : "29217e9c31ec93182547630360df606e993df5b9a84e986b032a337e13a3f03c"
 }

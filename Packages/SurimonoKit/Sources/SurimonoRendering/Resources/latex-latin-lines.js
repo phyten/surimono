@@ -8,8 +8,10 @@ function latinCompose(body, rectToCSS = 1, restorations) {
     const summary = {qualifying:0, composed:0, fallbacks:0, paragraphs:[], milliseconds:0};
     const family = body.dataset.latexLineBreaking;
     if (!['cm','times'].includes(family) || !body.matches('.format-latex')) return summary;
-    // The standard 12pt class selects a different CM design at normalsize.
-    const cmBody12 = family === 'cm' && body.dataset.latexSize === '12' ? getComputedStyle(body).fontSize : null;
+    const bodyStyle = getComputedStyle(body);
+    const bodySize = parseFloat(bodyStyle.fontSize);
+    const texPointsPerPixel = (parseFloat(bodyStyle.getPropertyValue('--tex-body')) || 10) / bodySize;
+    const contextParameters = JSON.parse(body.dataset.latexContextParameters || '{}');
     const diagnostics = !!globalThis.surimonoLatinDiagnostics;
     if (diagnostics) summary.skipped = [];
     const cache = globalThis.surimonoLatinCache ??= {
@@ -19,15 +21,16 @@ function latinCompose(body, rectToCSS = 1, restorations) {
     const thinSpaceEm = .16667;
     const sheet = document.createElement('style');
     sheet.textContent = `
-p[data-flow-latin] > .latex-line { display:block; white-space:nowrap; text-indent:0; text-align:start;
+[data-flow-latin] > .latex-line { display:block; white-space:nowrap; text-indent:0; text-align:start;
     text-align-last:start; hyphens:none; -webkit-hyphens:none; }
-:is(.latex-line,.latex-runin > :is(h4,h5,h6)) :is(.latex-line-space-end,.latex-line-end) { display:inline-block; width:0; height:0;
+:is(.latex-line,.latex-runin > :is(h4,h5,h6),.latex-description dt) :is(.latex-line-space-end,.latex-line-end) { display:inline-block; width:0; height:0;
     overflow:hidden; font-size:0; line-height:0; word-spacing:0; padding:0; border:0; margin:0; }
 .latex-line .latex-line-hyphen::after { content:"-"; }
-:is(.latex-line,.latex-runin > :is(h4,h5,h6)) [data-latin-fixed] { word-spacing:0px; white-space:nowrap; }
+:is(.latex-line,.latex-runin > :is(h4,h5,h6),.latex-description dt) [data-latin-fixed] { word-spacing:0px; white-space:nowrap; }
 [data-latin-fixed][data-latex-thin-space] { display:inline-block; inline-size:${thinSpaceEm}em; }
 .latex-runin:has(> p[data-flow-latin]) { white-space:nowrap; text-align:start; text-align-last:start; }
-.latex-runin > p[data-flow-latin] > .latex-line:first-child { display:inline; }
+.latex-runin > p[data-flow-latin] > .latex-line:first-child,
+.latex-description:not(.latex-nextline) :is(dd[data-flow-latin],dd > p:first-child[data-flow-latin]) > .latex-line:first-child { display:inline; }
 `;
     const probe = document.createElement('span');
     probe.style.cssText = 'position:absolute;left:0;top:0;visibility:hidden;white-space:pre;display:inline-block;' +
@@ -112,37 +115,64 @@ p[data-flow-latin] > .latex-line { display:block; white-space:nowrap; text-inden
     }
     const unsupported = new Set(['mixed script','unsupported inline','unsupported inline style',
         'unsupported object','unsupported inline box','empty']);
-    function excluded(p, heading) {
-        let parent = heading ? p.parentElement.parentElement : p.parentElement;
-        while (parent && parent !== body && parent.matches('div[lang],div.latex-link-colors,div[data-flow-strip]')) {
-            if (parent.style.textAlign || parent.hasAttribute('align')) return 'aligned container';
-            parent = parent.parentElement;
+    const gutterSelector = '.item-label,.bib-label,.latex-item-mark,.latex-symbolic-note';
+    const paragraphSelector = 'p,li,dd,figcaption,figcaption[data-latex-caption-hang] > span:nth-child(2),ol.latex-alpha > li > .bib-label + span';
+    function contextOf(p) {
+        if (p.matches('ol.latex-alpha > li')) return null;
+        if (p.matches('li,dd') && p.querySelector(':scope > :is(p,ul,ol,dl,div,blockquote)')) return null;
+        const parent = p.parentElement;
+        const note = p.closest('section.footnotes > ol > li');
+        const bib = p.closest('ol.latex-bibliography > li');
+        const definition = p.closest('dl.latex-description > div > dd');
+        if (p.closest('table,header,nav,.latex-column-notice,.latex-title-block')) return null;
+        if (note && (p === note || parent === note)) return 'footnote';
+        if (bib && (p === bib || parent === bib)) return 'bibliography';
+        if (definition && (p === definition || parent === definition)) return 'description';
+        if (p.matches('figcaption[data-latex-caption-hang]')) return null;
+        if (p.matches('figcaption,figcaption[data-latex-caption-hang] > span:nth-child(2)')) return 'caption';
+        if (p.closest('figure,figcaption,.latex-minipage')?.matches('figure,figcaption')) return null;
+        if (p.matches('ul > li,ol.latex-enumerate > li') || parent.matches('ul > li,ol.latex-enumerate > li') && p.matches('p')) return 'list';
+        if (!p.matches('p')) return null;
+        if (parent.matches('.abstract,.latex-front-abstract') && !p.matches('.abstract-title')) return 'abstract';
+        if (parent.matches('blockquote:not([class])')) return 'quote';
+        if (parent.matches('blockquote.latex-quotation')) return 'quotation';
+        if (parent.matches('.latex-minipage')) return 'minipage';
+        return 'body';
+    }
+    function excluded(p, heading, category) {
+        if (category === 'body') {
+            let parent = heading ? p.parentElement.parentElement : p.parentElement;
+            while (parent && parent !== body && parent.matches('div[lang],div.latex-link-colors,div[data-flow-strip]')) {
+                if (parent.style.textAlign || parent.hasAttribute('align')) return 'aligned container';
+                parent = parent.parentElement;
+            }
+            if (parent !== body) return 'outside body flow';
         }
-        if (parent !== body) return 'outside body flow';
-        if (p.hasAttribute('data-flow-latin')) return 'already composed';
-        if (p.matches('.abstract-title,.latex-runin-paragraph,[align]') || p.style.textAlign) return 'aligned paragraph';
+        if (p.closest('[data-flow-latin]')) return 'already composed';
+        if (p.matches('.abstract-title,.latex-runin-paragraph,[align]') || p.style.textAlign && p.style.textAlign !== 'justify') return 'aligned paragraph';
         if (!/^en(?:-|$)/i.test(p.closest('[lang]')?.lang || '')) return 'language';
         // Non-printing SVG style text can dwarf the visible paragraph. Classify
         // the graphic first so its font program never consumes the prose budget.
         if (p.querySelector('br,img,ruby,table,svg:not(.math-inline svg),.latex-hspace,.latex-graphic-box,.tikz-block,style:not(.math-inline *)'))
             return 'unsupported inline';
         const css = getComputedStyle(p);
-        if (css.display !== (heading ? 'inline' : 'block') || css.direction !== 'ltr' ||
+        if (!(heading ? css.display === 'inline' : ['block','list-item'].includes(css.display)) || css.direction !== 'ltr' ||
             css.writingMode !== 'horizontal-tb' || css.textAlign !== 'justify') return 'paragraph layout';
         if (css.whiteSpace !== 'normal' || css.textTransform !== 'none' ||
             !['normal','0px'].includes(css.letterSpacing)) return 'paragraph text style';
         return faceFamily(css) === family ? null : 'body font';
     }
-    function noteSkip(p,reason) {
-        if (diagnostics) summary.skipped.push({reason, text:p.textContent.trim().slice(0,160),
+    function noteSkip(p,reason,category) {
+        if (diagnostics) summary.skipped.push({reason, category, text:p.textContent.trim().slice(0,160),
             parent:p.parentElement.tagName.toLowerCase(), parentClass:p.parentElement.className});
     }
     // A piece points into one original text node or owns one indivisible inline object.
     // An object has a sentinel in the planner, even for textless SVGs and destinations.
     // Neither that sentinel nor the lexical copy of its punctuation enters the DOM.
     let remainingWords = 65536, remainingNodes = 131072, remainingLines = 12000;
-    function tokenize(p, parameters, followsGlue = false) {
+    function tokenize(p, parameters, followsGlue = false, gutter = null, contextGlue = null) {
         const words = [], leading = [];
+        const fontScale = parameters.fontSizePt ? parameters.fontSizePt / faceFor(p.closest('.footnotes') || p).em : texPointsPerPixel;
         let word, pending = [], count = 0;
         function add(piece, text) {
             if (!word || pending.length) {
@@ -171,6 +201,15 @@ p[data-flow-latin] > .latex-line { display:block; white-space:nowrap; text-inden
                     else if (token[0] === '\u00a0') pending.push({...piece,tie:true});
                     else add(piece,token[0]);
                 }
+                return;
+            }
+            // The reader supplies the url package's breakpoints and already wraps
+            // each protected run. A WBR carries neither glyphs nor word glue.
+            if (node.nodeType === Node.ELEMENT_NODE && node.matches('a.latex-url > wbr')) {
+                const separator = node.previousElementSibling?.textContent.at(-1);
+                const urlPenalty = separator === '-' && !el.hasAttribute('data-latex-url-hyphens') ? null :
+                    separator === '-' || separator === ':' ? 500 : 700;
+                add({owners,face:faceFor(el),atom:node,width:0,urlPenalty},'\ufffc');
                 return;
             }
             if (node.nodeType !== Node.ELEMENT_NODE || !node.matches(inline) ||
@@ -232,21 +271,27 @@ p[data-flow-latin] > .latex-line { display:block; white-space:nowrap; text-inden
                 ? node.lastChild.data : '';
             add({owners,face,atom:node,width},'\ufffc' + suffix);
         }
-        for (const child of p.childNodes) visit(child,[]);
+        for (const child of p.childNodes) if (child !== gutter) visit(child,[]);
         if (word) word.after = pending;
         if (!words.length) throw Error('empty');
         if (leading.some(part=>part.tie) || word.after.some(part=>part.tie)) throw Error('edge tie');
         for (const [index,w] of words.entries()) {
-            const canHyphenate = w.runs.length === 1 && !w.runs[0].atom && !w.runs[0].owners.some(el =>
-                el.matches('a.long-token,.long-token') || el.matches('a') && /^\w+:\/\//.test(el.textContent));
+            const plainText = w.runs.every(run => !run.atom && !run.owners.some(el =>
+                el.matches('.long-token') || el.matches('a') && /^\w+:\/\//.test(el.textContent)));
             w.breaks = automatic => {
-                const points = [];
-                if (!canHyphenate || /^\w+:\/\/|www\.|@|\/\//i.test(w.text)) return points;
+                const points = w.runs.filter(run => run.urlPenalty != null).map(run => ({
+                    offset:run.at+1,hyphen:false,penalty:run.urlPenalty,discretionary:false
+                }));
+                if (!plainText || /^\w+:\/\/|www\.|@|\/\/|^10\.\d{4,9}\//i.test(w.text)) return points;
                 for (const m of w.text.matchAll(/[-–—\u00ad]/g)) {
                     if (m.index + 1 < w.text.length) points.push({offset:m.index+1, hyphen:m[0] === '\u00ad'});
                 }
                 const letters = /^([A-Za-z]+)[.,!?:;”’"')\]]*$/.exec(w.text);
-                if (automatic && (index || followsGlue) && letters) {
+                // TeX scans letters in the same font. A comma in the surrounding
+                // roman text must not prevent hyphenation of an italic title.
+                const letterFace = w.runs[0].face;
+                if (automatic && (index || followsGlue) && letters && w.runs.every(run =>
+                    run.at >= letters[1].length || run.face.key === letterFace.key)) {
                     let hyphenate = cache.patterns.get(parameters.hyphenation || '');
                     if (!hyphenate) {
                         hyphenate = parameters.hyphenation
@@ -276,8 +321,22 @@ p[data-flow-latin] > .latex-line { display:block; white-space:nowrap; text-inden
                 w.rawSpace = w.after[0].text === '\u00a0' ? widthOf(f,'\u00a0') : f.space;
                 const controlSpace = w.after[0].text === '\u00a0' ||
                     w.after[0].owners.some(el => el.hasAttribute('data-latex-control-space'));
-                w.glue = latinGlue(f.family,f.fontStyle,+f.fontWeight,f.em,w.rawSpace,
-                    controlSpace ? '' : w.text,parameters.frenchspacing,f.fontSize === cmBody12 ? 12 : 10);
+                const glueFamily = f.family === 'times' && contextGlue ? contextGlue : f.family;
+                w.glue = latinGlue(glueFamily,f.fontStyle,+f.fontWeight,f.em,w.rawSpace,
+                    controlSpace ? '' : w.text,parameters.frenchspacing,f.em * fontScale,
+                    parameters.periodSpaceFactor);
+                // A bibliography block skip follows (and adds to) an ordinary
+                // space if the source contains both. WebKit collapses their two
+                // source spaces, so paint their combined glue on one separator.
+                const blocks = w.after.filter(piece => piece.owners.some(el => el.hasAttribute('data-latex-newblock')));
+                if (blocks.length) {
+                    if (blocks.length === w.after.length &&
+                        !blocks.some(piece => piece.owners.some(el => el.dataset.latexNewblock === 'space'))) w.glue = [0,0,0];
+                    for (const piece of blocks) {
+                        const em = piece.face.em;
+                        w.glue[0] += .11*em; w.glue[1] += .33*em; w.glue[2] += .07*em;
+                    }
+                }
             }
         }
         return {words,leading};
@@ -291,7 +350,10 @@ p[data-flow-latin] > .latex-line { display:block; white-space:nowrap; text-inden
         for (const [index,part] of plan.lines.entries()) {
             const line = document.createElement('span');
             line.className = 'latex-line';
-            if (!index && !head && indent) line.style.paddingInlineStart = indent + 'px';
+            if (!index && !head && indent) {
+                if (indent > 0) line.style.paddingInlineStart = indent + 'px';
+                else line.style.marginInlineStart = indent + 'px';
+            }
             if (part.hyphen) line.dataset.flowHyphen = '';
             fragment.append(line);
             const row = {line,part,gaps:[],pitch};
@@ -364,7 +426,8 @@ p[data-flow-latin] > .latex-line { display:block; white-space:nowrap; text-inden
                 if (wi === part.endWord || head && wi === headCount-1) {
                     hidden(w.after);
                 } else {
-                    if (w.after.length !== 1) throw Error('ambiguous collapsed space');
+                    if (w.after.length !== 1 && !w.after.some(piece => piece.owners.some(el => el.hasAttribute('data-latex-newblock'))))
+                        throw Error('ambiguous collapsed space');
                     const piece = w.after[0];
                     let target = owner(piece.owners);
                     const base = w.glue[0] - w.rawSpace;
@@ -379,6 +442,7 @@ p[data-flow-latin] > .latex-line { display:block; white-space:nowrap; text-inden
                         target = override;
                     }
                     row.gaps.push({...write(target,piece.text),length:piece.text.length,glue:w.glue,base,override});
+                    if (w.after.length > 1) hidden(w.after.slice(1));
                 }
             }
             row.end = span(line,'latex-line-end');
@@ -403,6 +467,20 @@ p[data-flow-latin] > .latex-line { display:block; white-space:nowrap; text-inden
         }
         return null;
     }
+    // WebKit trims the top and bottom of a block independently. A probe
+    // with the same strut and text-box-edge measures each boundary without
+    // assuming that the font's cap and baseline coincide with CSS pixels.
+    function trimmedPitch(css,face,trim) {
+        useProbe(face);
+        probe.style.lineHeight = css.lineHeight;
+        probe.style.textBoxEdge = css.textBoxEdge;
+        probe.style.textBoxTrim = trim;
+        probe.textContent = 'x';
+        const height = probe.getBoundingClientRect().height * rectToCSS;
+        probe.style.removeProperty('text-box-trim');
+        probe.style.removeProperty('text-box-edge');
+        return height;
+    }
     function lastGlyphInset(p) {
         const tree = document.createTreeWalker(p,NodeFilter.SHOW_TEXT);
         for (let n = tree.lastChild(); n; n = tree.previousNode()) {
@@ -418,11 +496,13 @@ p[data-flow-latin] > .latex-line { display:block; white-space:nowrap; text-inden
     function runInPitch(heading,p,width) {
         // A heading has its own strut. Measure it together with ordinary body
         // text; a tall formula on a later native line must not affect this pitch.
-        const sample = p.parentElement.cloneNode(false), prose = p.cloneNode(false);
+        const block = heading.parentElement, sample = block.cloneNode(false), prose = p.cloneNode(false);
         sample.style.cssText += ';position:absolute;visibility:hidden;margin:0;box-sizing:border-box;width:'+width+'px';
         prose.textContent = 'x';
-        sample.append(heading.cloneNode(true),prose);
-        p.parentElement.after(sample);
+        const container = p.parentElement === block ? prose : p.parentElement.cloneNode(false);
+        if (container !== prose) container.append(prose);
+        sample.append(heading.cloneNode(true),container);
+        block.after(sample);
         try { return sample.getBoundingClientRect().height*rectToCSS; }
         finally { sample.remove(); }
     }
@@ -442,12 +522,13 @@ p[data-flow-latin] > .latex-line { display:block; white-space:nowrap; text-inden
         if (reason) summary.fallbacks++;
         else summary.composed++;
         if (!diagnostics) return;
-        const record = {text, fallback:reason, lines, index:trial.index, renderedLineCount:lines.length};
+        const record = {text, category:trial.category, fallback:reason, lines, index:trial.index, renderedLineCount:lines.length};
         if (trial.boxDiagnostics) record.boxDiagnostics = trial.boxDiagnostics;
+        if (trial.gutter) record.label = trial.gutter.textContent;
         if (trial.heading) record.runInHeading = trial.heading.textContent;
         if (trial.runInGeometry) record.runInGeometry = trial.runInGeometry;
         summary.paragraphs.push(record);
-        if (reason) fallbackRows.push([trial.heading ? trial.p.parentElement : trial.p, record]);
+        if (reason) fallbackRows.push([trial.block || trial.p, record]);
     }
     function nativeLines(p, pitch) {
         const bands = [], tree = document.createTreeWalker(p,NodeFilter.SHOW_TEXT);
@@ -488,7 +569,7 @@ p[data-flow-latin] > .latex-line { display:block; white-space:nowrap; text-inden
             // The first row shares its native inline formatting context with the
             // heading and the class's horizontal afterskip. Its line box extends
             // from the wrapper's top to the next block line, including its leading.
-            const block = row.line.closest('.latex-runin').getBoundingClientRect();
+            const block = row.runIn.block.getBoundingClientRect();
             const bottom = row.line.nextElementSibling?.getBoundingClientRect().top ?? block.bottom;
             return {height:(bottom-block.top)*rectToCSS, measure:block.width*rectToCSS-row.runIn.left,
                 width:(row.end.getBoundingClientRect().left-block.left)*rectToCSS-row.runIn.left};
@@ -497,6 +578,25 @@ p[data-flow-latin] > .latex-line { display:block; white-space:nowrap; text-inden
         const indent = parseFloat(row.line.style.paddingInlineStart) || 0;
         return {height:r.height * rectToCSS, measure:r.width * rectToCSS - indent,
             width:(row.end.getBoundingClientRect().left-r.left) * rectToCSS - indent};
+    }
+    function bibliographyMeasure(p, words, deadline) {
+        const widths = new Map();
+        return part => {
+            const key = [part.startWord,part.startOffset,part.endWord,part.endOffset,part.hyphen].join('/');
+            if (widths.has(key)) return widths.get(key);
+            if (widths.size >= 64 || performance.now() > deadline) throw Error('composition budget');
+            const sample = document.createElement('span');
+            sample.dataset.flowLatin = '';
+            sample.style.cssText = 'position:absolute;visibility:hidden;display:block;width:max-content;pointer-events:none';
+            const {fragment,rows} = assemble({words,leading:[]},{lines:[part]},0,0);
+            sample.append(fragment);
+            p.append(sample);
+            try {
+                const {width} = geometry(rows[0]);
+                widths.set(key,width);
+                return width;
+            } finally { sample.remove(); }
+        };
     }
     function eachTrial(perform) {
         for (const trial of pending) {
@@ -508,41 +608,75 @@ p[data-flow-latin] > .latex-line { display:block; white-space:nowrap; text-inden
         }
     }
     try {
-        for (const p of body.querySelectorAll('p')) {
-            const heading = runInHeading(p);
-            const exclusion = excluded(p,heading);
-            if (exclusion) { noteSkip(p,exclusion); continue; }
-            const index = summary.qualifying++, text = p.textContent;
+        for (const p of body.querySelectorAll(paragraphSelector)) {
+            const category = contextOf(p);
+            if (!category) continue;
+            const definition = category === 'description' ? p.closest('dd') : null;
+            const term = definition?.previousElementSibling;
+            const heading = term && (p === definition || p === definition.firstElementChild) &&
+                getComputedStyle(term).display === 'inline' ? term : runInHeading(p);
+            const exclusion = excluded(p,heading,category);
+            if (exclusion) { noteSkip(p,exclusion,category); continue; }
+            const gutter = p.firstChild?.matches?.(gutterSelector) ? p.firstChild : null;
+            const block = heading ? heading.parentElement : p;
+            const text = gutter ? [...p.childNodes].filter(n => n !== gutter).map(n => n.textContent).join('') : p.textContent;
+            const index = summary.qualifying++;
             const paragraphDeadline = Math.min(deadline, performance.now()+250);
             let boxDiagnostics;
             try {
                 if (text.length + (heading?.textContent.length ?? 0) > 18000 || remainingWords <= 0 || remainingNodes <= 0 ||
                     remainingLines <= 0 || performance.now() > deadline) throw Error('composition budget');
-                const settings = p.dataset.latexLineParameters ?? body.dataset.latexLineParameters;
+                const settings = p.closest('[data-latex-line-parameters]')?.dataset.latexLineParameters;
                 const parameters = Object.assign(family === 'times' ? {tolerance:9999,emergencystretch:'3em'} : {},
-                    settings ? JSON.parse(settings) : {});
-                const prose = tokenize(p,parameters,!!heading);
-                const head = heading ? tokenize(heading,parameters) : null;
+                    settings ? JSON.parse(settings) : {}, contextParameters[category]);
+                const contextGlue = category === 'body' ? null : body.dataset.latexContextGlue;
+                const prose = tokenize(p,parameters,!!heading,gutter,contextGlue);
+                const head = heading ? tokenize(heading,parameters,false,null,contextGlue) : null;
                 const words = head ? [...head.words,...prose.words] : prose.words;
-                const block = heading ? p.parentElement : p;
-                const css = getComputedStyle(p), rect = block.getBoundingClientRect();
+                const css = getComputedStyle(p), blockStyle = getComputedStyle(block), rect = block.getBoundingClientRect();
                 const inset = ['paddingLeft','paddingRight','borderLeftWidth','borderRightWidth']
-                    .reduce((sum,k) => sum + (parseFloat(css[k]) || 0),0);
-                const width = rect.width * rectToCSS - inset;
-                let indent = parseFloat(css.textIndent), runIn;
+                    .reduce((sum,k) => sum + (parseFloat(blockStyle[k]) || 0),0);
+                let width = rect.width * rectToCSS - inset;
+                let indent = parseFloat(css.textIndent), runIn, noteGutter = 0;
+                if (category === 'footnote' && parameters.paragraphIndentEm != null) {
+                    // The native OL reserves the number gutter on every line. The
+                    // class puts its rigid mark on the first line only; keep the
+                    // OL and mark in place and let the lines use that extra measure.
+                    const item = p.closest('li'), list = item.parentElement;
+                    const isFirst = item === p || item.firstElementChild === p;
+                    if (parameters.firstIndentEm != null) {
+                        noteGutter = parseFloat(getComputedStyle(list).paddingInlineStart) || 0;
+                        width += noteGutter;
+                    }
+                    const indentEm = isFirst ? parameters.firstIndentEm : parameters.paragraphIndentEm;
+                    if (indentEm != null) indent = indentEm * faceFor(p).em;
+                    if (!isFirst && p.classList.contains('latex-noindent')) indent = 0;
+                }
+                let gutterAdvance = 0, labelPosition;
+                if (gutter) {
+                    const g = getComputedStyle(gutter), r = gutter.getBoundingClientRect();
+                    if (g.position !== 'absolute') {
+                        gutterAdvance = r.width * rectToCSS + parseFloat(g.marginInlineStart) + parseFloat(g.marginInlineEnd);
+                    }
+                    range.selectNodeContents(gutter);
+                    const ink = range.getBoundingClientRect();
+                    labelPosition = {x:r.left-rect.left,y:r.top-rect.top,ink:ink.left-rect.left};
+                }
                 if (heading) {
                     const first = firstGlyphRect(p), headRect = firstGlyphRect(heading);
                     if (!first || !headRect || heading.getClientRects().length !== 1 ||
                         Math.abs(first.top-headRect.top) * rectToCSS > parseFloat(css.lineHeight)/2)
                         throw Error('wrapped run-in heading');
-                    // All supported classes specify -1em with no stretch or shrink
-                    // in @startsection. The native p margin carries that exact skip.
-                    const skip = parseFloat(css.marginInlineStart);
+                    // The horizontal skip after a run-in heading or description term
+                    // belongs to the class. Interior label spaces participate in justification.
+                    const skip = parseFloat(getComputedStyle(definition || p).marginInlineStart);
                     head.words.at(-1).glue = [skip,0,0];
-                    indent = (headRect.left-rect.left)*rectToCSS;
-                    runIn = {rise:(first.top-headRect.top)*rectToCSS, left:indent, skip};
+                    const left = (headRect.left-rect.left)*rectToCSS;
+                    indent = left - (parseFloat(blockStyle.paddingInlineStart) || 0);
+                    runIn = {block,rise:(first.top-headRect.top)*rectToCSS, left, skip};
                 }
-                if (!(width > 0 && indent >= 0 && indent < width)) throw Error('invalid measure');
+                const planIndent = indent + gutterAdvance;
+                if (!(width > 0 && Number.isFinite(planIndent) && Math.abs(planIndent) < width)) throw Error('invalid measure');
                 if (typeof parameters.emergencystretch === 'string') {
                     useProbe(faceFor(p));
                     probe.style.width = parameters.emergencystretch;
@@ -553,12 +687,13 @@ p[data-flow-latin] > .latex-line { display:block; white-space:nowrap; text-inden
                 // the individual shaping faces and object widths in the plan key.
                 const fonts = [...new Set(words.flatMap(w => w.runs.map(r => r.face.key)))];
                 const fontIDs = new Map(fonts.map((key,i) => [key,i]));
-                const key = JSON.stringify([width,indent,head?.words.length ?? 0,parameters,fonts,words.map(w =>
-                    [w.text,!!w.noBreakAfter,...w.glue,...w.runs.map(r => [r.at,fontIDs.get(r.face.key),r.width ?? null,
+                const key = JSON.stringify([category,width,planIndent,head?.words.length ?? 0,parameters,fonts,words.map(w =>
+                    [w.text,!!w.noBreakAfter,...w.glue,...w.runs.map(r => [r.at,fontIDs.get(r.face.key),r.width ?? null,r.urlPenalty ?? null,
                         r.owners.some(el => el.matches('.long-token') || el.matches('a') && /^\w+:\/\//.test(el.textContent))])])]);
                 let plan = cache.plans.get(key);
                 if (plan === undefined) {
-                    plan = latinBreakPlan(words,width,indent,parameters);
+                    const exact = category === 'bibliography' ? bibliographyMeasure(p,words,paragraphDeadline) : null;
+                    plan = latinBreakPlan(words,width,planIndent,parameters,exact);
                     if (key.length <= 32768) {
                         if (cache.plans.size >= 128) cache.plans.clear();
                         cache.plans.set(key,plan);
@@ -575,9 +710,14 @@ p[data-flow-latin] > .latex-line { display:block; white-space:nowrap; text-inden
                     pitch = probe.getBoundingClientRect().height * rectToCSS;
                     pitches.set(pitchKey,pitch);
                 }
-                const originalLines = nativeLines(block,pitch);
+                // The DD can have further paragraphs under the same description
+                // term. Only this paragraph contributes to its native line budget.
+                const originalLines = nativeLines(definition ? p : block,pitch);
+                if (category === 'caption' && originalLines === 1) {
+                    summary.qualifying--; noteSkip(p,'single-line caption',category); continue;
+                }
                 if (diagnostics && globalThis.surimonoLatinBoxDiagnostics) {
-                    boxDiagnostics = {width,indent,parameters,nativeLines:originalLines,pass:plan?.pass ?? null,
+                    boxDiagnostics = {width,indent:planIndent,parameters,nativeLines:originalLines,pass:plan?.pass ?? null,
                         originalHeight:rect.height*rectToCSS, textBoxTrim:css.textBoxTrim,
                         ratios:plan?.lines.map(l=>l.ratio) ?? [],words:words.map(w => ({
                             text:w.runs.map(r=>r.atom ? r.atom.textContent : r.text).join(''),width:w.width,
@@ -586,7 +726,24 @@ p[data-flow-latin] > .latex-line { display:block; white-space:nowrap; text-inden
                 // text-box-trim removes leading at the native paragraph boundary.
                 // With end trim only, the original text block supplies that last
                 // line's actual height independently of how many lines we compose.
-                let finalPitch, finalInset;
+                let firstPitch, finalPitch, finalInset, firstInset;
+                if (category !== 'body' && !heading && css.textBoxTrim === 'none' && originalLines === 1 && !parseFloat(css.minBlockSize)) {
+                    // A completely bold quote can have a taller native line than
+                    // an upright probe. Its original single line is itself the
+                    // exact reference for the height and both glyph insets.
+                    const edges = ['paddingTop','paddingBottom','borderTopWidth','borderBottomWidth']
+                        .reduce((sum,k) => sum + (parseFloat(css[k]) || 0),0);
+                    finalPitch = rect.height*rectToCSS - edges;
+                    firstInset = firstGlyph(p);
+                    finalInset = lastGlyphInset(p);
+                }
+                if (!heading && css.textBoxTrim === 'trim-both' && originalLines) {
+                    firstPitch = trimmedPitch(css,face,'trim-start');
+                    finalPitch = trimmedPitch(css,face,'trim-end');
+                    if (plan?.lines.length === 1) finalPitch = trimmedPitch(css,face,'trim-both');
+                    firstInset = firstGlyph(p);
+                    finalInset = lastGlyphInset(p);
+                }
                 if (!heading && css.textBoxTrim === 'trim-end' && originalLines) {
                     const blockInset = ['paddingTop','paddingBottom','borderTopWidth','borderBottomWidth']
                         .reduce((sum,k) => sum + (parseFloat(css[k]) || 0),0);
@@ -603,22 +760,47 @@ p[data-flow-latin] > .latex-line { display:block; white-space:nowrap; text-inden
                 if (remainingLines < 0) throw Error('line budget');
                 if (head && plan.lines[0].endWord < head.words.length) throw Error('wrapped run-in heading');
                 const {fragment,rows,headContent} = assemble({words,leading:prose.leading,head},plan,indent,pitch);
+                for (const [i,row] of rows.entries()) {
+                    row.expectedMeasure = width - (i === 0 ? indent : 0);
+                    if (noteGutter) row.line.style.marginInlineStart = -noteGutter + 'px';
+                }
+                if (p.matches('figcaption')) {
+                    // fit-content would shrink to the longest newly imposed line
+                    // while measuring its natural glue. Keep the original width
+                    // on the child: class trim rules can depend on figcaption:not([style]).
+                    rows[0].line.style.boxSizing = 'border-box';
+                    rows[0].line.style.inlineSize = width + 'px';
+                }
                 if (head && headContent.textContent !== heading.textContent) throw Error('content mismatch');
                 if (runIn) {
                     rows[0].runIn = runIn;
                     rows[0].pitch = runInPitch(heading,p,width);
                 }
+                if (firstPitch !== undefined) rows[0].pitch = firstPitch;
                 if (finalPitch !== undefined) rows.at(-1).pitch = finalPitch;
                 if (fragment.textContent !== text) throw Error('content mismatch');
+                if (gutter) {
+                    // text-align-last inherits into an inline-block. Retain the native
+                    // alignment of the glyph within its gutter, as well as its box.
+                    const label = gutter.cloneNode(true), style = getComputedStyle(gutter);
+                    label.style.textAlignLast = style.textAlignLast;
+                    label.style.wordSpacing = style.wordSpacing;
+                    if (noteGutter && gutter.matches('.latex-symbolic-note')) {
+                        label.style.position = 'relative';
+                        label.style.insetInlineStart = noteGutter - indent + parseFloat(css.textIndent) + 'px';
+                    }
+                    rows[0].line.prepend(label);
+                    if (fragment.textContent !== p.textContent) throw Error('content mismatch');
+                }
                 if (performance.now() > paragraphDeadline) throw Error('composition budget');
                 const initialPadding = parseFloat(css.paddingBlockStart);
                 const first = css.textBoxTrim === 'trim-start' && initialPadding > 0 ? firstGlyph(p) : null;
-                pending.push({p,index,text,heading,runIn,headContent,originalHeading:heading && [...heading.childNodes],
+                pending.push({p,index,text,category,block,gutter,labelPosition,heading,runIn,headContent,originalHeading:heading && [...heading.childNodes],
                     oldHeadingStyle:heading?.getAttribute('style'),rows,fragment,boxDiagnostics,original:[...p.childNodes],oldStyle:p.getAttribute('style'),
-                    trim:first !== null, first, initialPadding, finalInset});
+                    trim:first !== null, first, firstInset, initialPadding, finalInset});
             } catch (error) {
-                if (unsupported.has(error.message)) { summary.qualifying--; noteSkip(p,error.message); }
-                else finish({index,p,heading,boxDiagnostics},text,String(error.message));
+                if (unsupported.has(error.message)) { summary.qualifying--; noteSkip(p,error.message,category); }
+                else finish({index,p,category,block,gutter,heading,boxDiagnostics},text,String(error.message));
             }
         }
         // Layout in batches across the document. Alternating writes and natural-width
@@ -667,9 +849,19 @@ p[data-flow-latin] > .latex-line { display:block; white-space:nowrap; text-inden
         });
         eachTrial(trial => {
             trial.lines = [];
+            if (trial.gutter) {
+                const label = trial.p.querySelector(gutterSelector), block = trial.block.getBoundingClientRect();
+                const r = label.getBoundingClientRect();
+                range.selectNodeContents(label);
+                const ink = range.getBoundingClientRect();
+                if (Math.max(Math.abs(r.left-block.left-trial.labelPosition.x),
+                    Math.abs(r.top-block.top-trial.labelPosition.y),Math.abs(ink.left-block.left-trial.labelPosition.ink)) * rectToCSS > .5) {
+                    trial.reason = 'label position'; return;
+                }
+            }
             if (trial.runIn) {
                 const head = firstGlyphRect(trial.heading), first = firstGlyphRect(trial.p);
-                const block = trial.p.parentElement.getBoundingClientRect();
+                const block = trial.block.getBoundingClientRect();
                 // Glyph ranges snap to layout pixels even at a fractional CSS
                 // margin. The inline boxes enclose the actual fixed afterskip.
                 const gapError = (trial.rows[0].line.getClientRects()[0].left -
@@ -682,7 +874,8 @@ p[data-flow-latin] > .latex-line { display:block; white-space:nowrap; text-inden
                     trial.reason = 'run-in baseline'; return;
                 }
             }
-            if (trial.trim && Math.abs(firstGlyph(trial.p)-trial.first) > .05) {
+            if (trial.trim && Math.abs(firstGlyph(trial.p)-trial.first) > .05 ||
+                trial.firstInset != null && Math.abs(firstGlyph(trial.p)-trial.firstInset) > .06) {
                 trial.reason = 'first baseline'; return;
             }
             if (trial.finalInset != null) {
@@ -699,7 +892,9 @@ p[data-flow-latin] > .latex-line { display:block; white-space:nowrap; text-inden
                         row:trial.rows.indexOf(row),text:row.line.textContent,rows:trial.rows.length};
                     trial.reason = 'line pitch'; break;
                 }
-                if (width > measure + .32 || !last && Math.abs(measure-width) > .32) {
+                if (Math.abs(row.expectedMeasure-measure) > .32 || width > measure + .32 ||
+                    !last && Math.abs(measure-width) > .32) {
+                    if (trial.boxDiagnostics) trial.boxDiagnostics.edge = {width,measure,expected:row.expectedMeasure};
                     trial.reason = 'right edge'; break;
                 }
                 // WebKit's Range rectangle of a collapsed space leaves out word-spacing, so the
@@ -711,7 +906,8 @@ p[data-flow-latin] > .latex-line { display:block; white-space:nowrap; text-inden
                 }
                 if (minSpaceSlack < -.00001) { trial.reason = 'space below floor'; break; }
                 if (diagnostics) {
-                    const text = row.line.textContent.trim(), words = text.split(/\s+/);
+                    const lineText = trial.gutter && row === trial.rows[0] ? row.line.textContent.slice(trial.gutter.textContent.length) : row.line.textContent;
+                    const text = lineText.trim(), words = text.split(/\s+/);
                     trial.lines.push({text,first:words[0],last:words.at(-1),hyphen:row.part.hyphen,
                         ratio:row.ratio,measure,width,height,pitch:row.pitch,
                         minSpaceSlack:Number.isFinite(minSpaceSlack) ? minSpaceSlack : null});

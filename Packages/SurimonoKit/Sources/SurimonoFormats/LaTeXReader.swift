@@ -710,8 +710,7 @@ final class LaTeXReader {
         // Keep the original text character for native layout and extraction. A composed line
         // uses the explicit TeX kern even when the font gives that character a different width.
         let conference = document.classInfo.resolvedStyle != nil
-        let english = document.language == "en" || document.language.hasPrefix("en-")
-        if !typewriter && english && document.classInfo.profile.body.composesLatinParagraphs {
+        if !typewriter && document.composesEnglishParagraphs {
             let text = conference ? "&#8239;" : "\u{2009}"
             appendHTML("<span data-latex-thin-space>\(text)</span>", last: conference ? "x" : "\u{2009}")
         } else if conference {
@@ -824,6 +823,13 @@ final class LaTeXReader {
             _ = argument()
             _ = argument()
 
+        case "newblock"
+        where document.readsBibliographyEntry && document.composesEnglishParagraphs:
+            if document.opensBibliographyBlocks {
+                paragraphBreak()
+            } else {
+                appendHTML("<span data-latex-newblock> </span>", last: " ")
+            }
         case "newblock" where document.bibDatabase.natbib: appendText(" ")
         case "today": appendText(document.today())
         case "label": label()
@@ -860,7 +866,10 @@ final class LaTeXReader {
         case "href": link()
         case "url", "nolinkurl":
             let url = unescapedURL(argument(comments: false) ?? "")
-            appendHTML(styledLinks("<a class=\"latex-url\" href=\"\(HTML.escape(url))\">\(breakableURL(url))</a>"))
+            let hyphens =
+                document.breaksURLsAfterHyphens && document.composesEnglishParagraphs ? " data-latex-url-hyphens" : ""
+            appendHTML(
+                styledLinks("<a class=\"latex-url\" href=\"\(HTML.escape(url))\"\(hyphens)>\(breakableURL(url))</a>"))
         case "path":
             appendHTML("<code>\(HTML.escape(unescapedURL(argument(comments: false) ?? "")))</code>")
         case "verb":
@@ -2130,7 +2139,8 @@ final class LaTeXReader {
         case "itemize", "enumerate", "description": appendList(base, body: body)
         case "quote", "quotation":
             let attribute = base == "quotation" ? " class=\"latex-quotation\"" : ""
-            appendBlock("<blockquote\(attribute)>\n\(blocks(body))</blockquote>\n")
+            appendBlock(
+                "<blockquote\(attribute)\(document.contextLineParameterAttribute)>\n\(blocks(body))</blockquote>\n")
         case "verse":
             appendBlock("<blockquote class=\"latex-verse\">\n\(blocks(body))</blockquote>\n")
         case "titlepage":
@@ -2220,7 +2230,8 @@ final class LaTeXReader {
         var html = list(base, options: options, body: reader.rest, nextLine: nextLine)
         let attribute =
             settings.isEmpty ? "" : " style=\"\(HTML.escape(LaTeXPageSettings.cssVariables(settings)))\""
-        if !attribute.isEmpty, let end = html.firstIndex(of: ">") { html.insert(contentsOf: attribute, at: end) }
+        let attributes = attribute + document.contextLineParameterAttribute
+        if !attributes.isEmpty, let end = html.firstIndex(of: ">") { html.insert(contentsOf: attributes, at: end) }
         appendBlock(html)
     }
 
@@ -2466,7 +2477,7 @@ final class LaTeXReader {
         let style = theorem.style == "plain" && document.isJapanese ? "definition" : theorem.style
         let content = blocks(reader.rest)
         appendBlock(
-            "<div class=\"latex-theorem latex-theorem-\(style)\"\(anchor)>\n"
+            "<div class=\"latex-theorem latex-theorem-\(style)\"\(anchor)\(document.contextLineParameterAttribute)>\n"
                 + leading("<span class=\"theorem-head\">\(head)</span> ", content) + "</div>\n")
     }
 
@@ -2523,6 +2534,9 @@ final class LaTeXReader {
         database.hasManualBibliography = true
         if database.natbib && labels.contains(where: { $0 == nil }) { database.authorYearOption = false }
         let authorYear = database.natbib && database.authorYear
+        let previousEntry = document.readsBibliographyEntry
+        document.readsBibliographyEntry = true
+        defer { document.readsBibliographyEntry = previousEntry }
         for (position, item) in items.enumerated() {
             let itemReader = LaTeXReader(item.content, document: document, isBlock: false)
             let key = itemReader.argument()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -2563,12 +2577,17 @@ final class LaTeXReader {
             }
             let printed = document.classInfo.journalStyle?.bibliographyLabel(label) ?? "[\(label)]"
             let marker = authorYear ? "" : "<span class=\"bib-label\">\(printed)</span>"
+            let blockAttribute = document.opensBibliographyBlocks ? " data-latex-openbib" : ""
             entries +=
-                "<li id=\"\(id)\">\(text.hasPrefix("<p>") ? "<p>" + marker + text.dropFirst(3) : marker + text)</li>\n"
+                "<li id=\"\(id)\"\(blockAttribute)>\(text.hasPrefix("<p>") ? "<p>" + marker + text.dropFirst(3) : marker + text)</li>\n"
         }
         let list: String
         if authorYear {
             list = "<ol class=\"latex-bibliography latex-author-year\">"
+        } else if database.natbib, document.composesEnglishParagraphs, let widest, !widest.isEmpty,
+            widest.utf8.allSatisfy({ (48...57).contains($0) })
+        {
+            list = "<ol class=\"latex-bibliography\" data-latex-bib-sample=\"[\(widest)]\">"
         } else if document.language == "ja", document.classInfo.profile.body.usesJapanesePunctuationMetrics,
             let widest, !widest.isEmpty, widest.utf8.allSatisfy({ (48...57).contains($0) })
         {
@@ -2584,6 +2603,7 @@ final class LaTeXReader {
                 String(list.dropLast())
                 + " style=\"font-size: var(--latex-size-\(size)); line-height: calc(\(LaTeXPageSettings.number(pitch)) * var(--tex-pt))\">"
         }
+        opening.insert(contentsOf: document.contextLineParameterAttribute, at: opening.index(before: opening.endIndex))
         appendBlock(headingHTML + opening + "\n\(entries)</ol>\n")
     }
 
@@ -2647,7 +2667,7 @@ final class LaTeXReader {
         }
         if unnumbered {
             document.pictureCaptions?.assign(nil, in: document)
-            appendBlock("<figcaption\(font)>\(inline(source))</figcaption>\n")
+            appendBlock("<figcaption\(font)\(document.contextLineParameterAttribute)>\(inline(source))</figcaption>\n")
             return
         }
         if sub || document.insideSubfigure {
@@ -2714,7 +2734,9 @@ final class LaTeXReader {
             contents = "<span class=\"latex-caption-label\">\(label)</span>\(separator)\(text)"
         }
         let hang = hangs ? " data-latex-caption-hang" : ""
-        appendBlock("<figcaption id=\"\(id)\"\(font)\(hang)>\(contents)</figcaption>\n")
+        appendBlock(
+            "<figcaption id=\"\(id)\"\(font)\(hang)\(document.contextLineParameterAttribute)>\(contents)</figcaption>\n"
+        )
     }
 
     private func image() -> String {

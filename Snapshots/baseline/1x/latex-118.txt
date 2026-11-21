@@ -9,12 +9,12 @@ Scale Fixture Room, Paper Model Workshop
 bench@paper-model.example
 ABSTRACT
 A folded card spacer fixes the height of a model rail above its baseboard. We
-measured spacers folded from three card stocks in a single test slot and
-compared the measured heights with a simple layer model. The model predicts
-the height of a folded spacer to within a tenth of a millimetre when the crease
-allowance is taken from a two-layer trial. We describe the slot, the measurement
-procedure and the remaining sources of error, and we list practical rules for
-choosing a card stock for a given rail height.
+measured spacers folded from three card stocks in a single test slot and compared
+the measured heights with a simple layer model. The model predicts the height
+of a folded spacer to within a tenth of a millimetre when the crease allowance is
+taken from a two-layer trial. We describe the slot, the measurement procedure and
+the remaining sources of error, and we list practical rules for choosing a card stock
+for a given rail height.
 1 INTRODUCTION
 Paper models of railways need many small parts of exact height. Rails, platform edges and signal
 bases all sit on spacers, and a spacer that is too thick by a fraction of a millimetre lifts a rail joint
@@ -42,8 +42,8 @@ Each spacer was inserted with its folded edge towards the back of the slot. The 
 it and left for ten seconds before the reading was taken, because a freshly folded spacer springs back
 slowly. Three readings were taken for each spacer, removing and reinserting it between readings.
 1
-All parts were cut from the same sheets on the same afternoon, so the moisture content of the card was
-the same for every spacer.
+All parts were cut from the same sheets on the same afternoon, so the moisture content of the card was the
+same for every spacer.
 1
 Published as a conference paper at ICLR 2027
 Figure 1: Side view of the test slot with a four-layer spacer under the sliding rail. The dark block is

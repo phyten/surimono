@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.042950009818208124,
+    "changedAreaRatio" : 0.04286733017083682,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
@@ -10,7 +10,7 @@
     "maxShiftPt" : 26.9,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 20
+    "textEdits" : 18
   },
   "fonts" : [
     "Helvetica"
@@ -55,112 +55,112 @@
           "height" : 11.7,
           "text" : "[1]",
           "width" : 10.5,
-          "x" : 125.5,
+          "x" : 125.4,
           "y" : 240.7
         },
         {
           "height" : 11.7,
           "text" : "[2]",
           "width" : 10.5,
-          "x" : 125.5,
+          "x" : 125.4,
           "y" : 260.7
         },
         {
           "height" : 11.7,
           "text" : "[3]",
           "width" : 10.5,
-          "x" : 125.5,
+          "x" : 125.4,
           "y" : 292.7
         },
         {
           "height" : 11.7,
           "text" : "[4]",
           "width" : 10.5,
-          "x" : 125.5,
+          "x" : 125.4,
           "y" : 312.7
         },
         {
           "height" : 11.7,
           "text" : "[5]",
           "width" : 10.5,
-          "x" : 125.5,
+          "x" : 125.4,
           "y" : 344.7
         },
         {
           "height" : 11.7,
           "text" : "[6]",
           "width" : 10.5,
-          "x" : 125.5,
+          "x" : 125.4,
           "y" : 376.7
         },
         {
           "height" : 11.7,
           "text" : "Copper Atlas Group. Atlas of Paper Channels. Fold Workshop, 2016.",
-          "width" : 303.5,
-          "x" : 141,
+          "width" : 306.3,
+          "x" : 140.9,
           "y" : 240.7
         },
         {
           "height" : 11.7,
           "text" : "Fold Workshop. Lining the bend. In Atlas Desk, editor, Paper Waterways,",
           "width" : 328.2,
-          "x" : 141,
+          "x" : 140.9,
           "y" : 260.7
         },
         {
           "height" : 11.7,
           "text" : "pages 8–12. Model Quay Press, 2017.",
-          "width" : 162,
-          "x" : 141,
+          "width" : 161.9,
+          "x" : 140.9,
           "y" : 272.7
         },
         {
           "height" : 11.7,
           "text" : "Gauge Desk. Gauge Card Handbook, 2021.",
-          "width" : 185.2,
-          "x" : 141,
+          "width" : 186.7,
+          "x" : 140.9,
           "y" : 292.7
         },
         {
           "height" : 11.7,
           "text" : "Hinge Study Group. A reversible flap. In Proceedings of the Model Gate",
           "width" : 328.2,
-          "x" : 141,
+          "x" : 140.9,
           "y" : 312.7
         },
         {
           "height" : 11.7,
           "text" : "Forum, pages 21–24, 2018.",
-          "width" : 116.3,
-          "x" : 141,
+          "width" : 116.2,
+          "x" : 140.9,
           "y" : 324.7
         },
         {
           "height" : 11.7,
-          "text" : "River Model Circle. Calibrating the sill. Model Quay Notes, 4:11–14, Sep-",
-          "width" : 328.2,
-          "x" : 141,
+          "text" : "River Model Circle. Calibrating the sill. Model Quay Notes, 4:11–14, Septem-",
+          "width" : 328.3,
+          "x" : 140.9,
           "y" : 344.7
         },
         {
           "height" : 11.7,
-          "text" : "tember 2019.",
-          "width" : 56.5,
-          "x" : 141,
+          "text" : "ber 2019.",
+          "width" : 39.9,
+          "x" : 140.9,
           "y" : 356.7
         },
         {
           "height" : 11.7,
           "text" : "Tray Workshop. A bench for tilted channels. Technical Report 7, Model",
           "width" : 328.2,
-          "x" : 141,
+          "x" : 140.9,
           "y" : 376.7
         },
         {
           "height" : 11.7,
           "text" : "Quay Laboratory, 2020.",
           "width" : 104.3,
-          "x" : 141,
+          "x" : 140.9,
           "y" : 388.7
         },
         {
@@ -178,5 +178,5 @@
       "width" : 595.3
     }
   ],
-  "textSHA256" : "9d4c8df8f0d3dff90ef941879e689a4c60a5bc309e0d622644f99e00165fc03b"
+  "textSHA256" : "df73f937aeed4ba9f53aab87868b836285d311dd8f1b3c44c105b3aa76fd03ef"
 }
