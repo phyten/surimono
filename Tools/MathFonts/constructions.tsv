@@ -1,0 +1,46 @@
+face	unicode	command	components
+Main-Regular	2026	ldots	cmmi10:58:0:0 cmmi10:58:444:0 cmmi10:58:889:0
+Main-Regular	22EF	cdots	cmsy10:1:0:0 cmsy10:1:444:0 cmsy10:1:889:0
+Main-Regular	22EE	vdots	cmr10:46:0:800 cmr10:46:0:400 cmr10:46:0:0
+Main-Regular	22F1	ddots	cmr10:46:56:700 cmr10:46:444:400 cmr10:46:833:100
+Main-Regular	21A6	mapsto	cmsy10:55:0:0 cmsy10:33:0:0
+Main-Regular	21A9	hookleftarrow	cmsy10:32:0:0 cmmi10:45:833:0
+Main-Regular	21AA	hookrightarrow	cmmi10:44:0:0 cmsy10:33:111:0
+Main-Regular	21CC	rightleftharpoons	cmmi10:42:0:167 cmmi10:41:0:-33
+Main-Regular	2245	cong	cmsy10:24:0:267 cmr10:61:0:-50
+Main-Regular	2250	doteq	cmmi10:58:250:567 cmr10:61:0:0
+Main-Regular	22A8	models	cmsy10:106:0:0 cmr10:61:111:0
+Main-Regular	22C8	bowtie	cmmi10:46:0:0 cmmi10:47:333:0
+Main-Regular	27F5	longleftarrow	cmsy10:32:0:0 cmsy10:0:833:0
+Main-Regular	27F6	longrightarrow	cmsy10:0:0:0 cmsy10:33:611:0
+Main-Regular	27F7	longleftrightarrow	cmsy10:32:0:0 cmsy10:33:833:0
+Main-Regular	27F8	Longleftarrow	cmsy10:40:0:0 cmr10:61:833:0
+Main-Regular	27F9	Longrightarrow	cmr10:61:0:0 cmsy10:41:611:0
+Main-Regular	27FA	Longleftrightarrow	cmsy10:40:0:0 cmsy10:41:833:0
+Main-Regular	27FC	longmapsto	cmsy10:55:0:0 cmsy10:0:0:0 cmsy10:33:611:0
+Main-Bold	2026	ldots	cmmib10:58:0:0 cmmib10:58:511:0 cmmib10:58:1022:0
+Main-Bold	22EF	cdots	cmbsy10:1:0:0 cmbsy10:1:511:0 cmbsy10:1:1022:0
+Main-Bold	22EE	vdots	cmr10:46:0:800 cmr10:46:0:400 cmr10:46:0:0
+Main-Bold	22F1	ddots	cmr10:46:64:700 cmr10:46:469:400 cmr10:46:875:100
+Main-Bold	210F	hbar	cmbx10:22:0:0 cmmib10:104:0:0
+Main-Bold	21A6	mapsto	cmbsy10:55:0:0 cmbsy10:33:0:0
+Main-Bold	21A9	hookleftarrow	cmbsy10:32:0:0 cmmib10:45:958:0
+Main-Bold	21AA	hookrightarrow	cmmib10:44:0:0 cmbsy10:33:128:0
+Main-Bold	21CC	rightleftharpoons	cmmib10:42:0:154 cmmib10:41:0:-46
+Main-Bold	2245	cong	cmbsy10:24:0:291 cmbx10:61:0:-50
+Main-Bold	2250	doteq	cmmib10:58:287:591 cmbx10:61:0:0
+Main-Bold	22A8	models	cmbsy10:106:0:0 cmbx10:61:128:0
+Main-Bold	22C8	bowtie	cmmib10:46:0:0 cmmib10:47:383:0
+Main-Bold	27F5	longleftarrow	cmbsy10:32:0:0 cmbsy10:0:958:0
+Main-Bold	27F6	longrightarrow	cmbsy10:0:0:0 cmbsy10:33:703:0
+Main-Bold	27F7	longleftrightarrow	cmbsy10:32:0:0 cmbsy10:33:958:0
+Main-Bold	27F8	Longleftarrow	cmbsy10:40:0:0 cmbx10:61:958:0
+Main-Bold	27F9	Longrightarrow	cmbx10:61:0:0 cmbsy10:41:703:0
+Main-Bold	27FA	Longleftrightarrow	cmbsy10:40:0:0 cmbsy10:41:958:0
+Main-Bold	27FC	longmapsto	cmbsy10:55:0:0 cmbsy10:0:0:0 cmbsy10:33:703:0
+Size1-Regular	222C	iint	cmex10:82:0:806 cmex10:82:500:806
+Size1-Regular	222D	iiint	cmex10:82:0:806 cmex10:82:500:806 cmex10:82:1000:806
+Size2-Regular	222C	iint	cmex10:90:0:1361 cmex10:90:667:1361
+Size2-Regular	222D	iiint	cmex10:90:0:1361 cmex10:90:667:1361 cmex10:90:1333:1361
+AMS-Regular	21E0	dashleftarrow	msam10:76:0:0 msam10:57:500:0 msam10:57:1000:0
+AMS-Regular	21E2	dashrightarrow	msam10:57:0:0 msam10:57:500:0 msam10:75:1000:0

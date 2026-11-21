@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.10005454545454545,
+    "changedAreaRatio" : 0.10004064171122995,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
@@ -672,18 +672,18 @@
           "y" : 678.4
         },
         {
-          "height" : 11.7,
+          "height" : 11.6,
           "text" : "h= n t + (n− 1) c,",
           "width" : 82.1,
           "x" : 265,
-          "y" : 692.8
+          "y" : 692.9
         },
         {
-          "height" : 11.7,
+          "height" : 11.6,
           "text" : "(1)",
           "width" : 11.6,
           "x" : 492.4,
-          "y" : 692.8
+          "y" : 692.9
         },
         {
           "height" : 6.6,
@@ -1182,11 +1182,11 @@
           "y" : 315.2
         },
         {
-          "height" : 12.4,
+          "height" : 12.3,
           "text" : "for which Equation (1) gives c = h2− 2t. The same model was used for the gauge block of Scale",
           "width" : 396,
           "x" : 108,
-          "y" : 326.3
+          "y" : 326.4
         },
         {
           "height" : 11,

@@ -57,7 +57,13 @@ struct LaTeXDisplayGeometryTests {
         js.evaluateScript(
             """
             const label = {style:{top:'50%'}};
+            const at = value => ({baseVal: {getItem: () => ({value})}});
+            const glyph = {x: at(0), y: at(0)};
+            const elements = {};
             const svg = {
+              querySelector: () => elements.clipPath,
+              querySelectorAll: () => [glyph],
+              append() {},
               viewBox:{baseVal:{x:0,y:0,width:80,height:20}},
               width:{baseVal:{unitType:3,valueInSpecifiedUnits:8}},
               height:{baseVal:{unitType:3,valueInSpecifiedUnits:2}},
@@ -71,9 +77,16 @@ struct LaTeXDisplayGeometryTests {
                 } else this[key].baseVal.valueInSpecifiedUnits = parseFloat(value);
               }
             };
-            const document = {querySelectorAll:() => [svg]};
+            const getComputedStyle = () => ({fontFamily:'Math', fontSize:'10px', fontStyle:'normal', fontWeight:'normal'});
+            const metrics = {actualBoundingBoxLeft:200, actualBoundingBoxRight:8200,
+                             actualBoundingBoxAscent:400, actualBoundingBoxDescent:2300};
+            const document = {
+              querySelectorAll:() => [svg], getElementById:() => null,
+              createElement:() => ({getContext:() => ({measureText:() => metrics})}),
+              createElementNS:(_, name) => elements[name] = {append() {}, setAttribute(k,v) { this[k] = v; }}
+            };
             """)
-        for _ in 0..<2 { js.evaluateScript(LaTeXGraphicPreparation.measureDisplays) }
+        for _ in 0..<2 { js.evaluateScript("{\n" + LaTeXGraphicPreparation.measureDisplays + "\n}") }
         #expect(js.exception == nil)
         #expect(js.evaluateScript("svg.viewBox.baseVal.y")?.toDouble() == -3)
         #expect(js.evaluateScript("svg.height.baseVal.valueInSpecifiedUnits")?.toDouble() == 2.5)
@@ -82,7 +95,11 @@ struct LaTeXDisplayGeometryTests {
         #expect(js.evaluateScript("svg.dataset.latexTexFirst")?.toDouble() == 16)
         #expect(js.evaluateScript("svg.dataset.latexTexLast")?.toDouble() == 16)
         #expect(js.evaluateScript("label.style.top")?.toString() == "52%")
-        #expect(js.evaluateScript("svg.style.overflow")?.toString() == "hidden")
+        #expect(js.evaluateScript("svg.style.overflow")?.toString() == "visible")
+        #expect(
+            js.evaluateScript(
+                "[elements.rect.x, elements.rect.y, elements.rect.width, elements.rect.height].join(',')")?.toString()
+                == "-3,-5,86,29")
         #expect(LaTeXGraphicPreparation.script(in: "<p>文章</p>", layoutWidth: 500) == nil)
     }
 }

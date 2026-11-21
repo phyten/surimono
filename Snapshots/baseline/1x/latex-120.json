@@ -1,12 +1,12 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.10653262032085561,
+    "changedAreaRatio" : 0.10645454545454545,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 2,
     "maxBoxDeltaPt" : 3.3,
-    "maxLuminance" : 81.0625,
+    "maxLuminance" : 81.109375,
     "maxShiftPt" : 3.3,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
@@ -343,18 +343,18 @@
           "y" : 444.7
         },
         {
-          "height" : 11.7,
+          "height" : 11.6,
           "text" : "h= n t + (n− 1) c,",
           "width" : 82.1,
           "x" : 394.4,
-          "y" : 462
+          "y" : 462.2
         },
         {
-          "height" : 11.7,
+          "height" : 11.6,
           "text" : "(1)",
           "width" : 11.6,
           "x" : 541.9,
-          "y" : 462
+          "y" : 462.2
         },
         {
           "height" : 11,
@@ -385,11 +385,11 @@
           "y" : 497.4
         },
         {
-          "height" : 12.4,
+          "height" : 12.3,
           "text" : "tion (1) gives c = h2− 2t. The same model was used for",
           "width" : 236.2,
           "x" : 317.3,
-          "y" : 509.2
+          "y" : 509.3
         },
         {
           "height" : 11,

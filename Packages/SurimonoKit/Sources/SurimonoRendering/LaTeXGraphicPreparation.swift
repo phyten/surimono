@@ -125,7 +125,46 @@ enum LaTeXGraphicPreparation {
     /// fonts' metrics, which can extend past all three. Include those runs in the page flow
     /// before clipping the SVG so pagination cannot paint its overflow on the preceding sheet.
     static let measureDisplays = #"""
+        // getBBox() on SVG text measures the font cell. Canvas ink metrics use
+        // the loaded outline, including delimiters extending below that cell.
+        const context = document.createElement('canvas').getContext('2d');
+        let clipIndex = 0;
+        function encloseInk(svg, x, y, w, h) {
+          let left = x, top = y, right = x + w, bottom = y + h;
+          if (!context) return;
+          for (const glyph of svg.querySelectorAll('text')) {
+            const css = getComputedStyle(glyph);
+            context.font = css.fontStyle + ' ' + css.fontWeight + ' 1000px ' + css.fontFamily;
+            const ink = context.measureText(glyph.textContent);
+            const scale = parseFloat(css.fontSize) / 1000;
+            const gx = glyph.x.baseVal.getItem(0).value, gy = glyph.y.baseVal.getItem(0).value;
+            left = Math.min(left, gx - scale * ink.actualBoundingBoxLeft);
+            right = Math.max(right, gx + scale * ink.actualBoundingBoxRight);
+            top = Math.min(top, gy - scale * ink.actualBoundingBoxAscent);
+            bottom = Math.max(bottom, gy + scale * ink.actualBoundingBoxDescent);
+          }
+          // Quartz rounds the printed clipping edge. Leave a clear border around
+          // the ink but keep the TeX baseline and WebKit's measured layout box.
+          const pad = 1;
+          const make = name => document.createElementNS(svg.namespaceURI, name);
+          const group = make('g'), clip = make('clipPath'), rect = make('rect'), defs = make('defs');
+          let id;
+          do { id = 'surimono-math-ink-' + clipIndex++; } while (document.getElementById(id));
+          rect.setAttribute('x', left - pad);
+          rect.setAttribute('y', top - pad);
+          rect.setAttribute('width', right - left + 2 * pad);
+          rect.setAttribute('height', bottom - top + 2 * pad);
+          clip.id = id;
+          clip.append(rect);
+          defs.append(clip);
+          // Clip the paint group in its own user coordinates. A CSS clip on the
+          // outer SVG creates a stacking context and can reorder PDF text.
+          group.setAttribute('clip-path', 'url(#' + id + ')');
+          while (svg.firstChild) group.append(svg.firstChild);
+          svg.append(defs, group);
+        }
         for (const svg of document.querySelectorAll('body.format-latex .math-display > svg')) {
+          if (svg.querySelector(':scope > defs > clipPath[id^=surimono-math-ink-]')) continue;
           const box = svg.viewBox.baseVal;
           const width = svg.width.baseVal, height = svg.height.baseVal;
           // The converter writes dimensions in em (SVG_LENGTHTYPE_EMS = 3).
@@ -159,7 +198,8 @@ enum LaTeXGraphicPreparation {
             svg.setAttribute('height', (height.valueInSpecifiedUnits * h / box.height) + 'em');
             svg.setAttribute('viewBox', [x,y,w,h].join(' '));
           }
-          Object.assign(svg.style, {display:'block', marginInline:'auto', verticalAlign:'top', overflow:'hidden'});
+          Object.assign(svg.style, {display:'block', marginInline:'auto', verticalAlign:'top', overflow:'visible'});
+          encloseInk(svg,x,y,w,h);
         }
         """#
 

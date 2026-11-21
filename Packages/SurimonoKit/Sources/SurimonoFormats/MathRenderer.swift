@@ -2,7 +2,7 @@ import Foundation
 import SwaTex
 
 /// LaTeX math drawn by SwaTex, a KaTeX-compatible engine written in Swift, as inline SVG. The glyphs are text in the
-/// KaTeX fonts, which `fontFaces(for:)` embeds, so formulas print as vectors and stay selectable, with no JavaScript.
+/// bundled math fonts, which `fontFaces(for:)` embeds, so formulas print as vectors and stay selectable, with no JavaScript.
 public enum MathRenderer {
     /// KaTeX sets formulas a little larger than the text around them so their x-height matches it.
     static let scale = 1.1
@@ -90,7 +90,7 @@ public enum MathRenderer {
     private static let face = try? NSRegularExpression(
         pattern: #"font-family="(KaTeX_[A-Za-z0-9]+)"[^>]*? font-weight="(normal|bold)" font-style="(normal|italic)""#)
 
-    /// `@font-face` rules for the KaTeX fonts the formulas use, as data URLs, so the paper renders them without
+    /// `@font-face` rules for the bundled fonts the formulas use, as data URLs, so the paper renders them without
     /// reading any file next to the document.
     public static func fontFaces(for html: String) -> String {
         guard html.contains("KaTeX_"), let face else { return "" }
@@ -107,12 +107,20 @@ public enum MathRenderer {
             }
             rules.append(
                 "@font-face { font-family: \"\(family)\"; font-weight: \(weight); font-style: \(style); "
-                    + "src: url(\"data:font/ttf;base64,\(data.base64EncodedString())\") format(\"truetype\"); }")
+                    + "src: url(\"data:font/otf;base64,\(data.base64EncodedString())\") format(\"opentype\"); }")
         }
         return rules.joined(separator: "\n")
     }
 
-    /// The bundled KaTeX font for a face, named as KaTeX names its files: `KaTeX_Main-BoldItalic.ttf`.
+    // CSS family keys are part of SwaTex's SVG protocol, also consumed by TikZ.
+    // The embedded font programs have independent family and PostScript names.
+    private static let resourceFamily = [
+        "KaTeX_Main": "Main", "KaTeX_Math": "Letters", "KaTeX_AMS": "Symbols",
+        "KaTeX_Caligraphic": "Calligraphic", "KaTeX_Fraktur": "Fraktur", "KaTeX_SansSerif": "Sans",
+        "KaTeX_Script": "Script", "KaTeX_Typewriter": "Typewriter", "KaTeX_Size1": "SizeOne",
+        "KaTeX_Size2": "SizeTwo", "KaTeX_Size3": "SizeThree", "KaTeX_Size4": "SizeFour",
+    ]
+
     package static func fontData(family: String, weight: String, style: String) -> Data? {
         let variant =
             switch (weight == "bold", style == "italic") {
@@ -121,7 +129,9 @@ public enum MathRenderer {
             case (false, true): "Italic"
             case (false, false): "Regular"
             }
-        guard let url = Bundle.module.url(forResource: "\(family)-\(variant)", withExtension: "ttf") else { return nil }
+        guard let resource = resourceFamily[family],
+            let url = Bundle.module.url(forResource: "SurimonoMath\(resource)-\(variant)", withExtension: "otf")
+        else { return nil }
         return try? Data(contentsOf: url)
     }
 }

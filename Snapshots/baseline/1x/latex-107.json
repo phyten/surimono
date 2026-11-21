@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.021101913000341053,
+    "changedAreaRatio" : 0.02106780764580039,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
     "maxBoxDeltaPt" : 450.6,
     "maxLuminance" : 118.1875,
-    "maxShiftPt" : 3.7,
+    "maxShiftPt" : 3.5,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 22
@@ -471,46 +471,46 @@
           "y" : 708.4
         },
         {
-          "height" : 12.8,
+          "height" : 12.6,
           "text" : "a = 27",
           "width" : 31.2,
           "x" : 282,
-          "y" : 86.7
+          "y" : 86.8
         },
         {
-          "height" : 12.8,
+          "height" : 12.6,
           "text" : "b= 28",
           "width" : 30.1,
           "x" : 282.6,
-          "y" : 109.6
+          "y" : 109.7
         },
         {
-          "height" : 12.8,
+          "height" : 12.6,
           "text" : "c = 29",
           "width" : 30.2,
           "x" : 283,
-          "y" : 161.9
+          "y" : 162.1
         },
         {
-          "height" : 12.8,
+          "height" : 12.6,
           "text" : "d= 30",
           "width" : 31.1,
           "x" : 282.1,
-          "y" : 178.3
+          "y" : 178.4
         },
         {
-          "height" : 12.8,
+          "height" : 12.6,
           "text" : "e = 31",
           "width" : 30.5,
           "x" : 282.4,
-          "y" : 213.2
+          "y" : 213.3
         },
         {
-          "height" : 12.8,
+          "height" : 12.6,
           "text" : "f= 32",
           "width" : 32,
           "x" : 281.6,
-          "y" : 229.5
+          "y" : 229.7
         },
         {
           "height" : 32.7,
@@ -520,11 +520,11 @@
           "y" : 292.4
         },
         {
-          "height" : 12.8,
+          "height" : 12.6,
           "text" : "0 x ≤ 0",
           "width" : 42.6,
           "x" : 290.8,
-          "y" : 309.9
+          "y" : 310.1
         },
         {
           "height" : 16.2,

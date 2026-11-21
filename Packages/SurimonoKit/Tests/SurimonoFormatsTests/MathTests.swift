@@ -29,7 +29,7 @@ struct MathRendererTests {
         let css = MathRenderer.fontFaces(for: html)
         #expect(css.contains("font-family: \"KaTeX_Math\"; font-weight: normal; font-style: italic;"))
         #expect(css.contains("font-family: \"KaTeX_Main\"; font-weight: normal; font-style: normal;"))
-        #expect(css.contains("src: url(\"data:font/ttf;base64,"))
+        #expect(css.contains("src: url(\"data:font/otf;base64,"))
         #expect(!css.contains("KaTeX_Size"))
         #expect(MathRenderer.fontFaces(for: "<p>数式なし</p>").isEmpty)
     }

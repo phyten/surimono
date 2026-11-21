@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.014764518029330605,
+    "changedAreaRatio" : 0.014687005859920008,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
     "maxBoxDeltaPt" : 28.9,
     "maxLuminance" : 115.609375,
-    "maxShiftPt" : 103.3,
+    "maxShiftPt" : 103.5,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 22
@@ -38,25 +38,25 @@
           "y" : 173.2
         },
         {
-          "height" : 24.5,
+          "height" : 24.4,
           "text" : "(0−1",
           "width" : 35,
-          "x" : 251.3,
-          "y" : 196.9
+          "x" : 251.2,
+          "y" : 197
         },
         {
-          "height" : 24.5,
+          "height" : 24.4,
           "text" : "1 0 ) [1",
           "width" : 46.9,
           "x" : 258.6,
-          "y" : 196.9
+          "y" : 197
         },
         {
-          "height" : 24.5,
+          "height" : 24.4,
           "text" : "0]= [0",
           "width" : 33.8,
           "x" : 300.5,
-          "y" : 196.9
+          "y" : 197
         },
         {
           "height" : 23.9,
@@ -73,18 +73,18 @@
           "y" : 228.4
         },
         {
-          "height" : 11.7,
+          "height" : 11.5,
           "text" : "0−1",
           "width" : 27.7,
           "x" : 224.9,
-          "y" : 252.1
+          "y" : 252.2
         },
         {
-          "height" : 11.7,
+          "height" : 11.5,
           "text" : "1 0",
           "width" : 23.8,
           "x" : 224.9,
-          "y" : 264
+          "y" : 264.2
         },
         {
           "height" : 9.3,
@@ -94,11 +94,11 @@
           "y" : 253.9
         },
         {
-          "height" : 11.7,
+          "height" : 11.5,
           "text" : "= 1,",
           "width" : 18.3,
           "x" : 258.7,
-          "y" : 258.2
+          "y" : 258.3
         },
         {
           "height" : 23.9,
@@ -115,11 +115,11 @@
           "y" : 252.7
         },
         {
-          "height" : 17,
+          "height" : 16.9,
           "text" : "b.",
           "width" : 14.7,
           "x" : 358.5,
-          "y" : 258.2
+          "y" : 258.3
         },
         {
           "height" : 14.8,
