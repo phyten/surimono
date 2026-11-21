@@ -1477,7 +1477,7 @@ const glueStretch = flushBottom ? Object.fromEntries(Object.entries(insertions).
 // Journal notes are ruled across the actual column, including after a stock change.
 const noteRuleWidth = publicationGrid ? (firstColumns ? (width - firstColumns.gap) / 2 : width) :
     requestedNoteRuleWidth ?? (hasColumnTitleNotes ? undefined : 180);
-return JSON.stringify({segments,notes,glueShrink,glueStretch,floatFractions,noteSkip,noteStrutDepth,noteRuleWidth,noteRuleThickness,textFloatSep,floatSep,inTextSep,probes,review,reviewLines,
+return JSON.stringify({mathProof:globalThis.surimonoMathProofs?.length ? true : undefined,segments,notes,glueShrink,glueStretch,floatFractions,noteSkip,noteStrutDepth,noteRuleWidth,noteRuleThickness,textFloatSep,floatSep,inTextSep,probes,review,reviewLines,
     // The journal grids set both club and widow penalties to zero, including in two-column prose.
     allowsSingleLineFragments:publicationGrid || undefined,
     // These grids choose the left column break before the right column's length is known.

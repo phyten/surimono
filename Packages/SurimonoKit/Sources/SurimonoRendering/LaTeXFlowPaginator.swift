@@ -108,7 +108,7 @@ enum LaTeXFlowPaginator {
         _ = try await view.evaluateForPrinting(
             latinLineScript()
                 + "\nglobalThis.surimonoComposeLatin = latinCompose; globalThis.surimonoLatinDiagnostics = diagnostics;"
-                + "\nglobalThis.surimonoLatinBoxDiagnostics = boxes;",
+                + "\nglobalThis.surimonoLatinBoxDiagnostics = boxes; globalThis.surimonoCheckMathSearch = true;",
             arguments: ["diagnostics": diagnostics, "boxes": boxes], until: deadline)
     }
 
@@ -120,8 +120,7 @@ enum LaTeXFlowPaginator {
         let media = view.mediaType
         view.mediaType = "print"
         defer { view.mediaType = media }
-        _ = try await view.evaluateForPrinting(
-            """
+        let prepare = """
             const root = document.documentElement, saved = root.style.cssText;
             const zoom = parseFloat(getComputedStyle(root).zoom) || 1;
             const undo = [];
@@ -135,7 +134,56 @@ enum LaTeXFlowPaginator {
               await document.fonts.ready;
               globalThis.surimonoLatinLast = surimonoComposeLatin(document.body, 1 / zoom, undo);
             } finally { root.style.cssText = saved; }
-            """, arguments: ["width": width], until: deadline)
+            return !!globalThis.surimonoMathProofs?.length;
+            """
+        let proof = try await view.evaluateForPrinting(prepare, arguments: ["width": width], until: deadline)
+        if proof as? Bool == true, try await rejectsMathSpacing(in: view, until: deadline) {
+            _ = try await view.evaluateForPrinting(
+                "surimonoRestoreLatin();\n" + prepare, arguments: ["width": width], until: deadline)
+        }
+    }
+
+    /// WebKit writes operators as separate text runs. A change in physical
+    /// spacing can silently insert or remove a searchable space in PDFKit.
+    private static func rejectsMathSpacing(in view: WKWebView, until deadline: ContinuousClock.Instant) async throws
+        -> Bool
+    {
+        struct Proof: Decodable {
+            struct Pair: Decodable {
+                let index: Int
+                let top, row: CGFloat
+            }
+            let x, y, width, height: CGFloat
+            let samples: [Pair]
+            let rejected: [Int]
+        }
+        let result = try await view.evaluateForPrinting(script("latex-math-search"), until: deadline)
+        guard let json = result as? String else { throw WebPaginator.PaginationError.printFailed }
+        let proof = try JSONDecoder().decode(Proof.self, from: Data(json.utf8))
+        var rejected = Set(proof.rejected)
+        if !proof.samples.isEmpty {
+            let config = WKPDFConfiguration()
+            config.rect = CGRect(x: proof.x, y: proof.y, width: proof.width, height: proof.height)
+            // A failed optional proof leaves these paragraphs on their original math widths.
+            // Cancellation and an expired print deadline still terminate the pass.
+            let bytes = try? await view.pdfForPrinting(configuration: config, until: deadline)
+            try Task.checkCancellation()
+            guard ContinuousClock.now < deadline else { throw WebPaginator.PaginationError.timedOut }
+            let page = bytes.flatMap { PDFDocument(data: $0) }?.page(at: 0)
+            for pair in proof.samples {
+                func extract(_ top: CGFloat) -> String? {
+                    let rect = CGRect(x: 0, y: proof.height - top - pair.row, width: proof.width, height: pair.row)
+                    return page?.selection(for: rect)?.string
+                }
+                let original = extract(pair.top)
+                if original?.isEmpty != false || original != extract(pair.top + pair.row) {
+                    rejected.insert(pair.index)
+                }
+            }
+        }
+        _ = try await view.evaluateForPrinting(
+            "surimonoFinishMathProof(rejected)", arguments: ["rejected": Array(rejected)], until: deadline)
+        return !rejected.isEmpty
     }
 
     private struct Origin: Decodable {
@@ -281,18 +329,22 @@ enum LaTeXFlowPaginator {
             return try await view.evaluateForPrinting(js, arguments: arguments, until: end)
         }
         // Failed passes are discarded with their session. Successful passes restore the exact preparation DOM.
-        guard
-            let json = try await run(
-                japaneseLineScript() + "\n" + script("latex-flow"),
-                [
-                    "width": width, "leftMargin": margins.left * ratio, "rightMargin": margins.right * ratio,
-                    "paperHeight": pageSize.height * ratio, "bodyHeight": height,
-                ]
-            ) as? String
-        else {
-            throw WebPaginator.PaginationError.printFailed
+        let measure = try japaneseLineScript() + "\n" + script("latex-flow")
+        let dimensions: [String: Any] = [
+            "width": width, "leftMargin": margins.left * ratio, "rightMargin": margins.right * ratio,
+            "paperHeight": pageSize.height * ratio, "bodyHeight": height,
+        ]
+        func measurement(_ script: String) async throws -> LaTeXFlowLayout.Measurement {
+            guard let json = try await run(script, dimensions) as? String else {
+                throw WebPaginator.PaginationError.printFailed
+            }
+            return try await Self.decodeMeasurement(json)
         }
-        let (pages, locations, review) = try await plan(json, width: width, height: height, until: deadline)
+        var input = try await measurement(measure)
+        if input.mathProof == true, try await rejectsMathSpacing(in: view, until: deadline) {
+            input = try await measurement("surimonoRestoreFlow();\n" + measure)
+        }
+        let (pages, locations, review) = try await plan(input, width: width, height: height, until: deadline)
         if let htmlComposition {
             let rows: [[String: Any]] = try pages.map { page in
                 [
@@ -489,12 +541,15 @@ enum LaTeXFlowPaginator {
         return (rect, target)
     }
 
+    @concurrent private static func decodeMeasurement(_ json: String) async throws -> LaTeXFlowLayout.Measurement {
+        try JSONDecoder().decode(LaTeXFlowLayout.Measurement.self, from: Data(json.utf8))
+    }
+
     @concurrent private static func plan(
-        _ json: String, width: CGFloat, height: CGFloat, until deadline: ContinuousClock.Instant
+        _ input: LaTeXFlowLayout.Measurement, width: CGFloat, height: CGFloat, until deadline: ContinuousClock.Instant
     ) async throws -> (
         [LaTeXFlowLayout.Page], [Int: Int], ConferenceReviewDrawing?
     ) {
-        let input = try JSONDecoder().decode(LaTeXFlowLayout.Measurement.self, from: Data(json.utf8))
         let pages = try LaTeXFlowLayout.pages(input, width: width, height: height, until: deadline)
         let review = input.review.map {
             ConferenceReviewDrawing(

@@ -181,8 +181,8 @@ function latinBreakPlan(words, width, indent, parameters = {}, measureNatural = 
         const [g, plus, minus] = word.glue;
         if (![word.width, g, plus, minus].every(Number.isFinite) || g < minus || minus < 0 || plus < 0) return null;
         advance.push(advance.at(-1) + word.width + g);
-        stretch.push(stretch.at(-1) + plus);
-        shrink.push(shrink.at(-1) + minus);
+        stretch.push(stretch.at(-1) + plus + (word.mathStretch || 0));
+        shrink.push(shrink.at(-1) + minus + (word.mathShrink || 0));
     }
 
     let remaining = 150000;
@@ -218,7 +218,20 @@ function latinBreakPlan(words, width, indent, parameters = {}, measureNatural = 
                         advance[i] - start.after + prefixWidth;
                     const measure = width - (start.previous ? 0 : indent);
                     let delta = measure - natural;
-                    const minus = shrink[i] - shrink[start.word], plus = stretch[i] - stretch[start.word];
+                    let minus = shrink[i] - shrink[start.word] + (word.mathShrink || 0);
+                    let plus = stretch[i] - stretch[start.word] + (word.mathStretch || 0);
+                    // URL penalties may split a word adjacent to a formula. Charge
+                    // only the inline objects actually present in the fragment.
+                    if (inner && word.mathStretch) {
+                        for (const run of word.runs) if (run.math && run.at >= end) {
+                            minus -= run.math.shrink; plus -= run.math.stretch;
+                        }
+                    }
+                    if (start.offset && words[start.word].mathStretch) {
+                        for (const run of words[start.word].runs) if (run.math && run.at < start.offset) {
+                            minus -= run.math.shrink; plus -= run.math.stretch;
+                        }
+                    }
                     // Inline layout rounds adjacent advances differently from isolated
                     // boxes. Near the shrink floor, use the natural span the renderer
                     // actually lays out. The floor itself has no rounding allowance.

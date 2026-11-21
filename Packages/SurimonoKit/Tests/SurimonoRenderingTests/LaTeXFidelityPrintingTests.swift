@@ -207,6 +207,9 @@ struct LaTeXFidelityPrintingTests {
         func destination(_ annotation: PDFAnnotation) -> PDFDestination? {
             (annotation.action as? PDFActionGoTo)?.destination ?? annotation.destination
         }
+        // A tight line must still provide the same searchable space after the minus sign.
+        #expect(pdf.findString("c = h2− 2t").count == 1)
+        #expect(first.string?.contains("c = h2− 2t") == true)
         let refs = try #require(pdf.findString("Spacer Card Register").first).bounds(for: last)
         #expect(
             first.annotations.contains { a in

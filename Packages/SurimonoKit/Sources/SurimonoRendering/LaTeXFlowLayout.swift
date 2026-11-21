@@ -88,6 +88,7 @@ struct LaTeXFlowLayout {
     }
 
     struct Measurement: Decodable {
+        var mathProof: Bool?
         var allowsSingleLineFragments: Bool?
         var comparesColumnBreakBadness: Bool?
         var glueShrink: GlueComponents?

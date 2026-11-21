@@ -2,6 +2,28 @@ import SurimonoFormats
 import Testing
 
 struct MathRendererTests {
+    @Test("文中式は展開後の最上段の二項・関係演算子にだけ伸縮する空きを記録する")
+    func inlineGlue() throws {
+        for source in [
+            #"{a+b}"#, #"\left(a=b\right)"#, #"(a+b)"#, #"x_{a+b}"#, #"-x"#,
+            #"a\mkern4mu b"#, #"\scriptstyle a+b"#, #"\mathop{a+b}"#, #"\sin\cos"#,
+            #"\overline{a+b}"#, #"\colorbox{red}{x}+y"#,
+        ] {
+            let html = try #require(MathRenderer.html(source, display: false))
+            #expect(!html.contains("data-math-glue"), "\(source)")
+        }
+        let source = #"x\op y={a+b}"#
+        let macros = #"\newcommand{\op}{+}"#
+        let html = try #require(MathRenderer.html(source, display: false, macros: macros))
+        let field = try #require(html.components(separatedBy: "data-math-glue=\"").dropFirst().first)
+        let cuts = try #require(field.split(separator: "\"").first).split(separator: ";").dropFirst()
+        #expect(cuts.compactMap { $0.split(separator: ",").last } == ["4", "4", "5", "5"])
+        #expect(MathRenderer.html(source, display: true, macros: macros)?.contains("data-math-glue") == false)
+        let fraction = try #require(MathRenderer.html(#"\frac{a+b}{c}=d"#, display: false))
+        #expect(fraction.contains("data-math-glue"))
+        #expect(fraction.contains("<rect "))
+    }
+
     @Test("数式は文字の大きさに合わせた SVG になり、基準線にそろい、テーマの文字色を使う")
     func svg() throws {
         let html = try #require(MathRenderer.html(#"\frac{1}{2}"#, display: false))

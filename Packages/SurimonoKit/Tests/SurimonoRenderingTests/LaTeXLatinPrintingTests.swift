@@ -7,6 +7,75 @@ import Testing
 
 @MainActor
 struct LaTeXLatinPrintingTests {
+    @Test("両端揃えの数式の左右が実TeXと同じだけ伸縮し、検索順と囲んだ式を保つ", .timeLimit(.minutes(1)))
+    func inlineMathGlue() async throws {
+        let source = #"""
+            \documentclass[10pt]{article}\pagestyle{empty}\begin{document}
+            \noindent A $1+1$ $1=1$ blackboard.\par
+            \noindent A $1+1$ $1=1$ blackboard.\par
+            \noindent The group \({1+1}\) stays rigid.\par
+            \noindent A $1+1$ $1=1$ chalkboard.
+            \end{document}
+            """#
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
+        let html = HTMLDocumentBuilder.build(fragment: LaTeXConverter.convert(source), format: .latex, theme: theme)
+        let script =
+            try LaTeXFlowPaginator.latinLineScript() + #"""
+                document.documentElement.style.cssText+=';height:400px;overflow:hidden';
+                document.body.style.width='410px';
+                document.body.style.zoom='32';
+                document.body.style.transform='scale(0.03125)';
+                document.body.style.transformOrigin='top left';
+                const ps = [...document.querySelectorAll('p')];
+                for (const p of ps) {
+                    p.style.textBoxTrim='none';
+                    p.style.lineHeight='1.6';
+                }
+                ps[0].style.width=ps[3].style.width='6.2em'; ps[1].style.width='5.8em';
+                ps[3].classList.add('force-width');
+                const sheet=document.createElement('style');
+                sheet.textContent='.force-width .latex-line svg[style*="width:"] { width: 1px !important; }';
+                document.head.append(sheet);
+                const original=ps[3].innerHTML, nodes=[...ps[3].childNodes];
+                document.body.getBoundingClientRect(); await document.fonts.ready;
+                globalThis.surimonoLatinDiagnostics=globalThis.surimonoLatinBoxDiagnostics=true;
+                const rigid=ps[2].querySelector('svg').outerHTML;
+                const summary=latinCompose(document.body);
+                if (summary.paragraphs[3]?.fallback !== 'math width' || ps[3].innerHTML !== original ||
+                    nodes.some((n,i)=>n!==ps[3].childNodes[i])) return 'formula rollback failed: '+JSON.stringify(summary.paragraphs[3]);
+                for (const p of ps.slice(0,2)) {
+                    const svgs = p.querySelector('.latex-line')?.querySelectorAll('svg');
+                    if (svgs?.length !== 2) return JSON.stringify(summary.paragraphs);
+                }
+                return ps[2].querySelector('svg').outerHTML === rigid ? 'ok' : 'group changed';
+                """#
+        let result = try await WebPaginator().paginateWithResult(
+            .html(html, baseURL: nil), pageSize: PaperSize.a4.size, margins: .uniform(millimeters: 20),
+            allowsJavaScript: false, preparationScript: script, timeout: .seconds(15))
+        let check = try #require(result.preparationResult)
+        try #require(check == "ok", Comment(rawValue: check))
+        let page = try #require(result.document.page(at: 0))
+        func positions(_ glyph: String) -> [CGFloat] {
+            result.document.findString(glyph).map { $0.bounds(for: page).minX }
+        }
+        let digits = positions("1")
+        let plus = positions("+")
+        let equal = positions("=")
+        try #require(digits.count >= 8 && plus.count >= 2 && equal.count >= 2)
+        // From the glyph origins of the pdfLaTeX reference, minus CMR10 advances.
+        // Matching both sides in the printed PDF also detects accidental SVG scaling.
+        let em = 10 * 72 / 72.27
+        let expected = [2.441, 2.433, 3.337, 3.329, 1.634, 1.646, 2.770, 2.762]
+        for (i, op) in [plus[0], equal[0], plus[1], equal[1]].enumerated() {
+            #expect(abs(op - digits[2 * i] - em / 2 - expected[2 * i]) < 0.05)
+            #expect(abs(digits[2 * i + 1] - op - em * 7 / 9 - expected[2 * i + 1]) < 0.05)
+        }
+        let text = try #require(result.document.string).filter { !$0.isWhitespace }
+        #expect(text.contains("A1+11=1blackboard.A1+11=1blackboard."))
+        #expect(result.document.findString("blackboard").count == 2)
+        #expect(result.document.findString("A 1 + 1 1 = 1").count == 3)
+    }
+
     @Test("明示した細い空きは六分の一emで組み、直書きした狭い空白は書体の幅を保つ", .timeLimit(.minutes(1)))
     func explicitThinSpace() async throws {
         let source = #"""

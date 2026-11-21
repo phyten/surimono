@@ -106,10 +106,10 @@ h= n t + (n− 1) c,
 in one fixed slot;
 where c is the crease allowance added by each fold. The
 allowance is found from a two-layer trial, for which Equa-
-tion (1) gives c = h2− 2t. The same model was used for
-the gauge block of Scale Fixture Room (2023), where it
-predicted the height of folded board well for up to four lay-
-ers.
+tion (1) gives c = h2− 2t. The same model was used
+for the gauge block of Scale Fixture Room (2023), where
+it predicted the height of folded board well for up to four
+layers.
 • to compare the measurements with a layer model that
 adds a crease allowance; and
 • to give simple rules for choosing a card stock for a
