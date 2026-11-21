@@ -1,18 +1,18 @@
 A TWO-STEP SPACER
 MODEL RAIL DESK
-ABSTRACT. A folded spacer fixes the height of a model rail. Two card thicknesses
+Abstract. A folded spacer fixes the height of a model rail. Two card thicknesses
 were tested in the same slot.
-1. BENCH TRIAL
+1. Bench trial
 The thin card entered freely. The folded card held the rail level at the second
 mark.
-FIGURE 1. Side view of the spacer
+Figure 1. Side view of the spacer
 Card Height (mm)
 Thin 1
 Folded 2
-TABLE 1. Spacer heights
+Table 1. Spacer heights
 [1]
-REFERENCES
+References
 Model Rail Desk, Spacer card register, trial note (2025).
-PAPER MODEL WORKSHOP
+Paper Model Workshop
 Key words and phrases. Discrete height, spacer.
 1

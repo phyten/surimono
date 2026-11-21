@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.00983911513323278,
+    "changedAreaRatio" : 0.009418803418803419,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 23.9,
-    "maxLuminance" : 133.65625,
-    "maxShiftPt" : 25.3,
+    "maxBoxDeltaPt" : 21.5,
+    "maxLuminance" : 132.5625,
+    "maxShiftPt" : 23.1,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -18,43 +18,43 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 187,
+      "firstY" : 184.6,
       "height" : 841.9,
-      "lastY" : 674.8,
+      "lastY" : 672.8,
       "lineCount" : 4,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.8,
           "text" : "Envelope insert",
-          "width" : 111.4,
+          "width" : 111.8,
           "x" : 138.9,
-          "y" : 187
+          "y" : 184.6
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "The folded insert holds three paper strips. Number them before",
           "width" : 317.5,
           "x" : 138.9,
-          "y" : 211.6
+          "y" : 210.3
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "closing the flap so that their order survives the return trip.",
-          "width" : 282.6,
+          "width" : 281.9,
           "x" : 138.9,
-          "y" : 225.2
+          "y" : 223.9
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "1",
           "width" : 5.5,
           "x" : 294.9,
-          "y" : 674.8
+          "y" : 672.8
         }
       ],
-      "textHeight" : 500.7,
+      "textHeight" : 504.3,
       "textLeft" : 138.9,
-      "textTop" : 187,
+      "textTop" : 184.6,
       "textWidth" : 317.5,
       "width" : 595.3
     }

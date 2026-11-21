@@ -58,11 +58,9 @@ We model the height h of a spacer with n layers of
 card of thickness t as
 h= n t + (n− 1) c,
 (1)
-•
-to measure the height of spacers with two to
+• to measure the height of spacers with two to
 six layers in one fixed slot;
-•
-to compare the measurements with a layer
+• to compare the measurements with a layer
 model that adds a crease allowance; and
 where c is the crease allowance added by each
 fold. The allowance is found from a two-layer
@@ -70,8 +68,7 @@ trial, for which Equation (1) gives c = h2− 2t.
 The same model was used for the gauge block of
 Scale Fixture Room (2023), where it predicted the
 height of folded board well for up to four layers.
-•
-to give simple rules for choosing a card stock
+• to give simple rules for choosing a card stock
 for a target height.
 Card thickness.
 The thickness t was measured

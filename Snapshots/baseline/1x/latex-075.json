@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.01885570638511815,
+    "changedAreaRatio" : 0.01890497737556561,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 25.6,
-    "maxLuminance" : 115.515625,
-    "maxShiftPt" : 26.9,
+    "maxBoxDeltaPt" : 23.3,
+    "maxLuminance" : 108.46875,
+    "maxShiftPt" : 26.4,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -18,86 +18,86 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 150.4,
+      "firstY" : 148.1,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 10,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.8,
           "text" : "Counts by sieve",
-          "width" : 113.1,
+          "width" : 113.7,
           "x" : 125.4,
-          "y" : 150.4
+          "y" : 148.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "8",
           "width" : 5,
-          "x" : 141.9,
-          "y" : 200.9
+          "x" : 142.2,
+          "y" : 199
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "6",
           "width" : 5,
-          "x" : 141.9,
-          "y" : 233.5
+          "x" : 142.2,
+          "y" : 231.6
         },
         {
-          "height" : 27.1,
+          "height" : 26.5,
           "text" : "Count",
-          "width" : 11.7,
-          "x" : 126,
-          "y" : 242.8
+          "width" : 14.8,
+          "x" : 124.4,
+          "y" : 243.2
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "4",
           "width" : 5,
-          "x" : 141.9,
-          "y" : 266.1
+          "x" : 142.2,
+          "y" : 264.2
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "2",
           "width" : 5,
-          "x" : 141.9,
-          "y" : 298.7
+          "x" : 142.2,
+          "y" : 296.8
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "0",
           "width" : 5,
-          "x" : 141.9,
-          "y" : 331.3
+          "x" : 142.2,
+          "y" : 329.4
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1 2 3",
           "width" : 166.9,
-          "x" : 164,
-          "y" : 338
+          "x" : 164.4,
+          "y" : 336.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Sieve",
-          "width" : 22.4,
-          "x" : 236.3,
-          "y" : 351.6
+          "width" : 21.8,
+          "x" : 236.7,
+          "y" : 349.7
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 580.4,
-      "textLeft" : 125.4,
-      "textTop" : 150.4,
-      "textWidth" : 205.5,
+      "textHeight" : 583.9,
+      "textLeft" : 124.4,
+      "textTop" : 148.1,
+      "textWidth" : 206.8,
       "width" : 595.3
     }
   ],

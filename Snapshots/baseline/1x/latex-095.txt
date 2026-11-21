@@ -1,10 +1,8 @@
 A multilingual shelf card
 The shelf card reads “North rail”, 北のレール, and « rail nord » on one line.
 Every label refers to the same removable strip.
-•
-Cabinet
+• Cabinet
 1. Upper drawer
-–
-Blue tray
+– Blue tray
 (a) Folded strip
 1

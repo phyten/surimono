@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.0152223565766492,
+    "changedAreaRatio" : 0.014449301873727508,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
-    "maxBoxDeltaPt" : 61.2,
-    "maxLuminance" : 146.578125,
-    "maxShiftPt" : 26.9,
+    "maxBoxDeltaPt" : 61.1,
+    "maxLuminance" : 134.28125,
+    "maxShiftPt" : 24.8,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 8
@@ -18,79 +18,79 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 150.4,
+      "firstY" : 148.1,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 9,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.8,
           "text" : "An annotated gauge shelf",
-          "width" : 181.2,
+          "width" : 184.3,
           "x" : 125.4,
-          "y" : 150.4
+          "y" : 148.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "The bench drawing (Tray Workshop 2020) accompanies the scale card (River",
-          "width" : 343.8,
+          "width" : 343.7,
           "x" : 125.4,
-          "y" : 175.1
+          "y" : 173.2
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Model Circle 2019).",
-          "width" : 85.5,
+          "width" : 85.8,
           "x" : 125.4,
-          "y" : 187.1
+          "y" : 185.2
         },
         {
-          "height" : 17.5,
+          "height" : 21.8,
           "text" : "References",
-          "width" : 77.5,
+          "width" : 77.4,
           "x" : 125.4,
-          "y" : 214.4
+          "y" : 212.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.9,
           "text" : "River Model Circle. Calibrating the sill. Model Quay Notes, 4:11–14, September",
           "width" : 343.7,
           "x" : 125.4,
-          "y" : 240.7
+          "y" : 239.4
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "2019.",
           "width" : 22.7,
           "x" : 135.4,
-          "y" : 252.7
+          "y" : 251.6
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Tray Workshop. A bench for tilted channels. Technical Report 7, Model Quay",
-          "width" : 343.8,
+          "width" : 343.7,
           "x" : 125.4,
-          "y" : 272.7
+          "y" : 271.6
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Laboratory, 2020.",
-          "width" : 77.4,
+          "width" : 76.8,
           "x" : 135.4,
-          "y" : 284.7
+          "y" : 283.6
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 580.4,
+      "textHeight" : 583.9,
       "textLeft" : 125.4,
-      "textTop" : 150.4,
-      "textWidth" : 343.8,
+      "textTop" : 148.1,
+      "textWidth" : 343.7,
       "width" : 595.3
     }
   ],

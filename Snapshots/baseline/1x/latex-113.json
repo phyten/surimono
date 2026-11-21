@@ -1,16 +1,16 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.07896042780748663,
+    "changedAreaRatio" : 0.0846716577540107,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
-    "maxBoxDeltaPt" : 4,
-    "maxLuminance" : 69.40625,
-    "maxShiftPt" : 4,
+    "maxBoxDeltaPt" : 6.1,
+    "maxLuminance" : 67.890625,
+    "maxShiftPt" : 4.2,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 16
+    "textEdits" : 7
   },
   "fonts" : [
     "Helvetica",
@@ -21,220 +21,220 @@
   "pageCount" : 3,
   "pages" : [
     {
-      "firstY" : 260.7,
+      "firstY" : 260.1,
       "height" : 792,
       "lastY" : 732.7,
-      "lineCount" : 73,
+      "lineCount" : 70,
       "lines" : [
         {
           "height" : 6,
           "text" : "1",
           "width" : 3.3,
           "x" : 94.7,
-          "y" : 260.7
+          "y" : 260.1
         },
         {
           "height" : 6,
           "text" : "2",
           "width" : 3.3,
           "x" : 94.7,
-          "y" : 271.6
+          "y" : 271
         },
         {
           "height" : 6,
           "text" : "3",
           "width" : 3.3,
           "x" : 94.7,
-          "y" : 282.5
+          "y" : 281.9
         },
         {
           "height" : 6,
           "text" : "4",
           "width" : 3.3,
           "x" : 94.7,
-          "y" : 293.4
+          "y" : 292.8
         },
         {
           "height" : 6,
           "text" : "5",
           "width" : 3.3,
           "x" : 94.7,
-          "y" : 304.3
+          "y" : 303.7
         },
         {
           "height" : 6,
           "text" : "6",
           "width" : 3.3,
           "x" : 94.7,
-          "y" : 315.2
+          "y" : 314.6
         },
         {
           "height" : 6,
           "text" : "7",
           "width" : 3.3,
           "x" : 94.7,
-          "y" : 326.1
+          "y" : 325.5
         },
         {
           "height" : 6,
           "text" : "8",
           "width" : 3.3,
           "x" : 94.7,
-          "y" : 357.9
+          "y" : 357.5
         },
         {
           "height" : 6,
           "text" : "9",
           "width" : 3.3,
           "x" : 94.7,
-          "y" : 380.6
+          "y" : 380.2
         },
         {
           "height" : 6,
           "text" : "10",
           "width" : 6.6,
           "x" : 91.4,
-          "y" : 391.5
+          "y" : 391.1
         },
         {
           "height" : 6,
           "text" : "11",
           "width" : 6.2,
           "x" : 91.8,
-          "y" : 402.4
+          "y" : 402
         },
         {
           "height" : 6,
           "text" : "12",
           "width" : 6.6,
           "x" : 91.4,
-          "y" : 413.3
+          "y" : 412.9
         },
         {
           "height" : 6,
           "text" : "13",
           "width" : 6.6,
           "x" : 91.4,
-          "y" : 424.2
+          "y" : 423.8
         },
         {
           "height" : 6,
           "text" : "14",
           "width" : 6.6,
           "x" : 91.4,
-          "y" : 435.1
+          "y" : 434.7
         },
         {
           "height" : 6,
           "text" : "15",
           "width" : 6.6,
           "x" : 91.4,
-          "y" : 451.5
+          "y" : 451.1
         },
         {
           "height" : 6,
           "text" : "16",
           "width" : 6.6,
           "x" : 91.4,
-          "y" : 470.9
+          "y" : 470.6
         },
         {
           "height" : 6,
           "text" : "17",
           "width" : 6.6,
           "x" : 91.4,
-          "y" : 485.4
+          "y" : 485
         },
         {
           "height" : 6,
           "text" : "18",
           "width" : 6.6,
           "x" : 91.4,
-          "y" : 499.8
+          "y" : 499.5
         },
         {
           "height" : 6,
           "text" : "19",
           "width" : 6.6,
           "x" : 91.4,
-          "y" : 519.2
+          "y" : 519
         },
         {
           "height" : 6,
           "text" : "20",
           "width" : 6.6,
           "x" : 91.4,
-          "y" : 530.1
+          "y" : 529.9
         },
         {
           "height" : 6,
           "text" : "21",
           "width" : 6.6,
           "x" : 91.4,
-          "y" : 541
+          "y" : 540.8
         },
         {
           "height" : 6,
           "text" : "22",
           "width" : 6.6,
           "x" : 91.4,
-          "y" : 569.1
+          "y" : 568.9
         },
         {
           "height" : 6,
           "text" : "23",
           "width" : 6.6,
           "x" : 91.4,
-          "y" : 591.8
+          "y" : 591.6
         },
         {
           "height" : 6,
           "text" : "24",
           "width" : 6.6,
           "x" : 91.4,
-          "y" : 611.7
+          "y" : 611.6
         },
         {
           "height" : 6,
           "text" : "25",
           "width" : 6.6,
           "x" : 91.4,
-          "y" : 622.6
+          "y" : 622.5
         },
         {
           "height" : 6,
           "text" : "26",
           "width" : 6.6,
           "x" : 91.4,
-          "y" : 633.5
+          "y" : 633.4
         },
         {
           "height" : 6,
           "text" : "27",
           "width" : 6.6,
           "x" : 91.4,
-          "y" : 644.4
+          "y" : 644.3
         },
         {
           "height" : 6,
           "text" : "28",
           "width" : 6.6,
           "x" : 91.4,
-          "y" : 660.8
+          "y" : 660.6
         },
         {
           "height" : 6,
           "text" : "29",
           "width" : 6.6,
           "x" : 91.4,
-          "y" : 671.7
+          "y" : 671.5
         },
         {
           "height" : 6,
           "text" : "30",
           "width" : 6.6,
           "x" : 91.4,
-          "y" : 682.6
+          "y" : 682.4
         },
         {
           "height" : 19.1,
@@ -265,270 +265,249 @@
           "y" : 181.9
         },
         {
-          "height" : 9.2,
+          "height" : 14.4,
           "text" : "email",
           "width" : 26.2,
           "x" : 292.9,
-          "y" : 194.8
+          "y" : 191.2
         },
         {
           "height" : 13.2,
           "text" : "Abstract",
           "width" : 44.5,
           "x" : 283.8,
-          "y" : 232.1
+          "y" : 231.5
         },
         {
           "height" : 11,
           "text" : "A folded card spacer fixes the height of a model rail above its baseboard. We",
           "width" : 324.3,
           "x" : 143.9,
-          "y" : 256.4
+          "y" : 255.8
         },
         {
           "height" : 11,
           "text" : "measured spacers folded from three card stocks in a single test slot and compared",
           "width" : 324.3,
           "x" : 143.9,
-          "y" : 267.3
+          "y" : 266.7
         },
         {
           "height" : 11,
           "text" : "the measured heights with a simple layer model. The model predicts the height",
           "width" : 324.3,
           "x" : 143.9,
-          "y" : 278.2
+          "y" : 277.6
         },
         {
           "height" : 11,
           "text" : "of a folded spacer to within a tenth of a millimetre when the crease allowance is",
           "width" : 324.3,
           "x" : 143.9,
-          "y" : 289.1
+          "y" : 288.5
         },
         {
           "height" : 11,
           "text" : "taken from a two-layer trial. We describe the slot, the measurement procedure and",
           "width" : 324.3,
           "x" : 143.9,
-          "y" : 300
+          "y" : 299.4
         },
         {
           "height" : 11,
           "text" : "the remaining sources of error, and we list practical rules for choosing a card stock",
           "width" : 324.3,
           "x" : 143.9,
-          "y" : 310.9
+          "y" : 310.3
         },
         {
           "height" : 11,
           "text" : "for a given rail height.",
           "width" : 88.8,
           "x" : 143.9,
-          "y" : 321.8
+          "y" : 321.2
         },
         {
           "height" : 13.2,
           "text" : "1 Introduction",
           "width" : 82.8,
           "x" : 108,
-          "y" : 351.9
+          "y" : 351.4
         },
         {
           "height" : 11,
           "text" : "Paper models of railways need many small parts of exact height. Rails, platform edges and signal",
           "width" : 396,
           "x" : 108,
-          "y" : 376.4
+          "y" : 375.9
         },
         {
           "height" : 11,
           "text" : "bases all sit on spacers, and a spacer that is too thick by a fraction of a millimetre lifts a rail joint",
           "width" : 396,
           "x" : 108,
-          "y" : 387.3
+          "y" : 386.8
         },
         {
           "height" : 11,
           "text" : "enough to derail a light wagon. Most builders cut spacers from card and fold them until they reach",
           "width" : 396,
           "x" : 108,
-          "y" : 398.2
+          "y" : 397.7
         },
         {
           "height" : 11,
           "text" : "the height they want (Model Rail Desk, 2025). Folding is quick and needs no tools, but the height",
           "width" : 396,
           "x" : 108,
-          "y" : 409.1
+          "y" : 408.6
         },
         {
           "height" : 11,
           "text" : "of a folded spacer is not simply the sum of the card thicknesses: each crease adds a small allowance,",
           "width" : 396,
           "x" : 108,
-          "y" : 420
+          "y" : 419.5
         },
         {
           "height" : 11,
           "text" : "and the allowance depends on the card and on how firmly the crease is pressed.",
           "width" : 316.2,
           "x" : 108,
-          "y" : 430.9
+          "y" : 430.4
         },
         {
           "height" : 11,
           "text" : "This note reports a bench trial of folded spacers. Our aims were:",
           "width" : 256.8,
           "x" : 108,
-          "y" : 447.2
+          "y" : 446.8
         },
         {
           "height" : 11,
-          "text" : "•",
-          "width" : 3.5,
+          "text" : "• to measure the height of spacers with two to six layers in one fixed slot;",
+          "width" : 294.6,
           "x" : 135.4,
-          "y" : 466.7
+          "y" : 466.3
         },
         {
           "height" : 11,
-          "text" : "to measure the height of spacers with two to six layers in one fixed slot;",
-          "width" : 286.1,
-          "x" : 143.9,
-          "y" : 466.7
-        },
-        {
-          "height" : 11,
-          "text" : "•",
-          "width" : 3.5,
+          "text" : "• to compare the measurements with a layer model that adds a crease allowance; and",
+          "width" : 339,
           "x" : 135.4,
-          "y" : 481.1
+          "y" : 480.8
         },
         {
           "height" : 11,
-          "text" : "to compare the measurements with a layer model that adds a crease allowance; and",
-          "width" : 330.6,
-          "x" : 143.9,
-          "y" : 481.1
-        },
-        {
-          "height" : 11,
-          "text" : "•",
-          "width" : 3.5,
+          "text" : "• to give simple rules for choosing a card stock for a target height.",
+          "width" : 265.3,
           "x" : 135.4,
-          "y" : 495.5
-        },
-        {
-          "height" : 11,
-          "text" : "to give simple rules for choosing a card stock for a target height.",
-          "width" : 256.8,
-          "x" : 143.9,
-          "y" : 495.5
+          "y" : 495.2
         },
         {
           "height" : 11,
           "text" : "Section 2 describes the slot and the procedure, Section 3 reports the measurements, and Section 4",
           "width" : 396,
           "x" : 108,
-          "y" : 515
+          "y" : 514.7
         },
         {
           "height" : 11,
           "text" : "summarises the rules. Earlier notes on layered card (Card Stock Bench and Model Rail Desk, 2024)",
           "width" : 396,
           "x" : 108,
-          "y" : 525.9
+          "y" : 525.6
         },
         {
           "height" : 12,
           "text" : "and on gauge blocks (Scale Fixture Room, 2023) motivated the layer model used here.1",
           "width" : 348.5,
           "x" : 108,
-          "y" : 535.8
+          "y" : 535.6
         },
         {
           "height" : 13.2,
           "text" : "2 Method",
           "width" : 57.8,
           "x" : 108,
-          "y" : 563
+          "y" : 562.8
         },
         {
           "height" : 11,
           "text" : "2.1 The test slot",
           "width" : 73.9,
           "x" : 108,
-          "y" : 587.5
+          "y" : 587.3
         },
         {
           "height" : 11,
           "text" : "The slot was cut into a block of laminated board and lined with a strip of thin brass so that the card",
           "width" : 396,
           "x" : 108,
-          "y" : 607.5
+          "y" : 607.3
         },
         {
           "height" : 11,
           "text" : "could not dent the walls. A sliding rail of known height rests on top of the spacer, and the height is",
           "width" : 396,
           "x" : 108,
-          "y" : 618.4
+          "y" : 618.2
         },
         {
           "height" : 11,
           "text" : "read from a scale on the side of the block. The block was clamped to the bench throughout the trial",
           "width" : 396,
           "x" : 108,
-          "y" : 629.3
+          "y" : 629.1
         },
         {
           "height" : 11,
           "text" : "so that the scale did not move between readings.",
           "width" : 192.8,
           "x" : 108,
-          "y" : 640.2
+          "y" : 640
         },
         {
           "height" : 11,
           "text" : "Each spacer was inserted with its folded edge towards the back of the slot. The rail was lowered onto",
           "width" : 396,
           "x" : 108,
-          "y" : 656.6
+          "y" : 656.4
         },
         {
           "height" : 11,
           "text" : "it and left for ten seconds before the reading was taken, because a freshly folded spacer springs back",
           "width" : 396,
           "x" : 108,
-          "y" : 667.5
+          "y" : 667.3
         },
         {
           "height" : 11,
           "text" : "slowly. Three readings were taken for each spacer, removing and reinserting it between readings.",
           "width" : 386.8,
           "x" : 108,
-          "y" : 678.4
+          "y" : 678.2
         },
         {
           "height" : 6.6,
           "text" : "1",
           "width" : 3,
           "x" : 119.4,
-          "y" : 696.4
+          "y" : 696.3
         },
         {
           "height" : 8.8,
           "text" : "All parts were cut from the same sheets on the same afternoon, so the moisture content of the card was the same for",
           "width" : 381.7,
           "x" : 122.3,
-          "y" : 697.7
+          "y" : 697.6
         },
         {
           "height" : 8.8,
           "text" : "every spacer.",
           "width" : 41.6,
           "x" : 108,
-          "y" : 707.2
+          "y" : 707
         },
         {
           "height" : 8.8,
@@ -1166,5 +1145,5 @@
       "width" : 612
     }
   ],
-  "textSHA256" : "750fc138dadc4e24b114180a3074880fc03e6d7089a2e3ddfa247ab5266ad3dc"
+  "textSHA256" : "4e4cecfd96e6886ac10b7660002b79127bbe3a0cd3928eb34b85a6b69b42b19a"
 }

@@ -865,7 +865,7 @@ struct DocumentSettingsFlowTests {
         let model = DocumentViewModel(
             data: data, fileURL: nil, format: .markdown, preferences: fixture.preferences, library: fixture.library,
             renderer: DocumentRenderer(paginate: { request in
-                if case .html(let html, _) = request.source { embedded.append(html.contains("data:font/ttf;base64,")) }
+                if case .html(let html, _) = request.source { embedded.append(html.contains("data:font/otf;base64,")) }
                 return PDFDocument(data: self.pdf("Page"))!
             }), settingsStore: fixture.store)
         defer { model.stop() }

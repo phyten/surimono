@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.01780191050779286,
+    "changedAreaRatio" : 0.01753242835595777,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 25.6,
+    "maxBoxDeltaPt" : 23.3,
     "maxLuminance" : 134.109375,
-    "maxShiftPt" : 29.8,
+    "maxShiftPt" : 30.1,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -18,86 +18,86 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 150.4,
+      "firstY" : 148.1,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 10,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.8,
           "text" : "Head along the flume",
-          "width" : 152.4,
+          "width" : 155.6,
           "x" : 125.4,
-          "y" : 150.4
+          "y" : 148.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "8",
           "width" : 5,
-          "x" : 144.3,
-          "y" : 183.3
+          "x" : 144.7,
+          "y" : 181.4
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "7",
           "width" : 5,
-          "x" : 144.3,
-          "y" : 217
+          "x" : 144.7,
+          "y" : 215.1
         },
         {
-          "height" : 49.3,
+          "height" : 50.1,
           "text" : "Head (mm)",
-          "width" : 11.7,
-          "x" : 126,
-          "y" : 231.7
+          "width" : 14.8,
+          "x" : 124.4,
+          "y" : 231.3
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "6",
           "width" : 5,
-          "x" : 144.3,
-          "y" : 250.6
+          "x" : 144.7,
+          "y" : 248.7
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "5",
           "width" : 5,
-          "x" : 144.3,
-          "y" : 284.2
+          "x" : 144.7,
+          "y" : 282.3
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "4",
           "width" : 5,
-          "x" : 144.3,
-          "y" : 317.8
+          "x" : 144.7,
+          "y" : 315.9
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "0 0.5 1 1.5 2 2.5 3",
           "width" : 166.9,
-          "x" : 166.5,
-          "y" : 338
+          "x" : 166.8,
+          "y" : 336.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Station",
-          "width" : 31.6,
-          "x" : 234.2,
-          "y" : 351.6
+          "width" : 31.5,
+          "x" : 234.5,
+          "y" : 349.7
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 580.4,
-      "textLeft" : 125.4,
-      "textTop" : 150.4,
-      "textWidth" : 208,
+      "textHeight" : 583.9,
+      "textLeft" : 124.4,
+      "textTop" : 148.1,
+      "textWidth" : 209.3,
       "width" : 595.3
     }
   ],

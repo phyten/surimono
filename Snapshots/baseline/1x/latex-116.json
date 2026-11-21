@@ -10,7 +10,7 @@
     "maxShiftPt" : 3,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 58
+    "textEdits" : 55
   },
   "fonts" : [
     "Helvetica",
@@ -24,7 +24,7 @@
       "firstY" : 88,
       "height" : 792,
       "lastY" : 731.1,
-      "lineCount" : 87,
+      "lineCount" : 84,
       "lines" : [
         {
           "height" : 15.9,
@@ -378,16 +378,9 @@
         },
         {
           "height" : 11,
-          "text" : "•",
-          "width" : 3.5,
+          "text" : "• to measure the height of spacers with two to six layers",
+          "width" : 222.5,
           "x" : 66.9,
-          "y" : 520.7
-        },
-        {
-          "height" : 11,
-          "text" : "to measure the height of spacers with two to six layers",
-          "width" : 214.1,
-          "x" : 75.4,
           "y" : 520.7
         },
         {
@@ -396,13 +389,6 @@
           "width" : 67.2,
           "x" : 75.4,
           "y" : 532.6
-        },
-        {
-          "height" : 11,
-          "text" : "•",
-          "width" : 3.5,
-          "x" : 66.9,
-          "y" : 550.9
         },
         {
           "height" : 11,
@@ -448,9 +434,9 @@
         },
         {
           "height" : 11,
-          "text" : "to compare the measurements with a layer model that",
-          "width" : 214.1,
-          "x" : 75.4,
+          "text" : "• to compare the measurements with a layer model that",
+          "width" : 222.5,
+          "x" : 66.9,
           "y" : 550.9
         },
         {
@@ -462,16 +448,9 @@
         },
         {
           "height" : 11,
-          "text" : "•",
-          "width" : 3.5,
+          "text" : "• to give simple rules for choosing a card stock for a",
+          "width" : 222.5,
           "x" : 66.9,
-          "y" : 581
-        },
-        {
-          "height" : 11,
-          "text" : "to give simple rules for choosing a card stock for a",
-          "width" : 214.1,
-          "x" : 75.4,
           "y" : 581
         },
         {
@@ -1034,5 +1013,5 @@
       "width" : 612
     }
   ],
-  "textSHA256" : "e60c470f70e1e46ac8e77ef9ec47bb096f387914ed1094f3cf0919477eca8a32"
+  "textSHA256" : "c545485845c53beda277f66a6365d43ebe2e5fcbc609b1c5d788fbca59c2f825"
 }

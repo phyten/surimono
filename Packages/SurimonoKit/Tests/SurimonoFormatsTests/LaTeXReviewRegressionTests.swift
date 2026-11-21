@@ -92,7 +92,9 @@ struct LaTeXReviewRegressionTests {
         let link = "\\\(command){https://example.com/a\(percent)b}" + (command == "href" ? "{リンク}" : "")
         let html = body("\\begin{itemize}\\item \(link)\n\\item 次\\end{itemize}後")
         #expect(html.contains("https://example.com/a%20b"))
-        #expect(html.contains("</li>\n<li>次</li>\n</ul>\n<p class=\"latex-noindent\">後</p>"))
+        #expect(
+            html.contains(
+                "</li>\n<li><span class=\"latex-item-mark\">•</span>次</li>\n</ul>\n<p class=\"latex-noindent\">後</p>"))
     }
 
     @Test("グループ内の URL はコメントを始めず href の表示名と通常の本文ではコメントを消す")
@@ -106,7 +108,10 @@ struct LaTeXReviewRegressionTests {
             """#)
         #expect(html.contains("<strong><a class=\"latex-url\" href=\"https://example.com/a%20b\">"))
         #expect(html.contains("<a href=\"https://example.com/a%20b\">表示</a>"))
-        #expect(html.contains("<li>百%</li>\n<li>次</li>"))
+        #expect(
+            html.contains(
+                "<li><span class=\"latex-item-mark\">•</span>百%</li>\n<li><span class=\"latex-item-mark\">•</span>次</li>"
+            ))
         #expect(!html.contains("コメント"))
     }
 
@@ -155,7 +160,9 @@ struct LaTeXReviewRegressionTests {
             \end{document}
             """#)
         #expect(
-            html.contains("<figcaption id=\"tab-2\"><span class=\"latex-caption-label\">表 2</span>: 長い表</figcaption>"))
+            html.contains(
+                "<figcaption id=\"tab-2\"><span class=\"latex-caption-label\">表<span class=\"latex-xkanjiskip\"> </span>2</span>: 長い表</figcaption>"
+            ))
         #expect(html.contains("<th style=\"text-align: start\">名前</th><th style=\"text-align: end\">数</th>"))
         #expect(html.contains("<td style=\"text-align: start\">甲</td><td style=\"text-align: end\">1</td>"))
         #expect(html.contains("最後の脚注"))
@@ -165,7 +172,7 @@ struct LaTeXReviewRegressionTests {
         #expect(html.contains("途中の脚注"))
         #expect(html.components(separatedBy: "<tr>").count == 7)
         #expect(html.contains("<a class=\"latex-number-ref\" href=\"#tab-2\">2</a>"))
-        #expect(html.contains("<span class=\"latex-caption-label\">図 1</span>"))
+        #expect(html.contains("<span class=\"latex-caption-label\">図<span class=\"latex-xkanjiskip\"> </span>1</span>"))
     }
 
     @Test("長表の継続見出しの表題は同じ番号を使い、空の短縮題を表目次に加えない")
@@ -214,7 +221,9 @@ struct LaTeXReviewRegressionTests {
             \item 次\end{itemize}後
             """#)
         #expect(html.contains("https://example.com/a%20}b/item/end{itemize}"))
-        #expect(html.contains("</li>\n<li>次</li>\n</ul>\n<p class=\"latex-noindent\">後</p>"))
+        #expect(
+            html.contains(
+                "</li>\n<li><span class=\"latex-item-mark\">•</span>次</li>\n</ul>\n<p class=\"latex-noindent\">後</p>"))
     }
 
     @Test(
@@ -226,7 +235,7 @@ struct LaTeXReviewRegressionTests {
             "\\begin{itemize}\\item \\begin{\(environment)}\(language)\n"
                 + "% \\item \\end{itemize}\n\\end{\(environment)}\n\\item 次\\end{itemize}")
         #expect(html.contains("% \\item \\end{itemize}"))
-        #expect(html.contains("<li>次</li>"))
+        #expect(html.contains("<li><span class=\"latex-item-mark\">•</span>次</li>"))
         #expect(html.components(separatedBy: "<li>").count == 3)
     }
 

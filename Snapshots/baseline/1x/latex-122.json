@@ -10,7 +10,7 @@
     "maxShiftPt" : 3.3,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 102
+    "textEdits" : 99
   },
   "fonts" : [
     "CourierNewPSMT",
@@ -25,7 +25,7 @@
       "firstY" : 76.6,
       "height" : 841.9,
       "lastY" : 764.8,
-      "lineCount" : 89,
+      "lineCount" : 86,
       "lines" : [
         {
           "height" : 15.9,
@@ -449,16 +449,9 @@
         },
         {
           "height" : 12.1,
-          "text" : "•",
-          "width" : 3.8,
+          "text" : "• to measure the height of spacers with two to",
+          "width" : 205.7,
           "x" : 83.4,
-          "y" : 615.6
-        },
-        {
-          "height" : 12.1,
-          "text" : "to measure the height of spacers with two to",
-          "width" : 196.4,
-          "x" : 92.7,
           "y" : 615.6
         },
         {
@@ -470,16 +463,9 @@
         },
         {
           "height" : 12.1,
-          "text" : "•",
-          "width" : 3.8,
+          "text" : "• to compare the measurements with a layer",
+          "width" : 205.7,
           "x" : 83.4,
-          "y" : 651.4
-        },
-        {
-          "height" : 12.1,
-          "text" : "to compare the measurements with a layer",
-          "width" : 196.4,
-          "x" : 92.7,
           "y" : 651.4
         },
         {
@@ -533,16 +519,9 @@
         },
         {
           "height" : 12.1,
-          "text" : "•",
-          "width" : 3.8,
+          "text" : "• to give simple rules for choosing a card stock",
+          "width" : 205.7,
           "x" : 83.4,
-          "y" : 687.2
-        },
-        {
-          "height" : 12.1,
-          "text" : "to give simple rules for choosing a card stock",
-          "width" : 196.4,
-          "x" : 92.7,
           "y" : 687.2
         },
         {
@@ -1133,5 +1112,5 @@
       "width" : 595.3
     }
   ],
-  "textSHA256" : "9d5cddcb7326ea2b1e9dc7fef1862673f23c6d42f76591de6f0e0b2c57e1f7b9"
+  "textSHA256" : "b230bbf9f6ebec3dd7898affd419f4c79296b6074d879d2be7cb5ef1a48d3b43"
 }

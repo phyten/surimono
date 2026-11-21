@@ -152,6 +152,8 @@ struct LaTeXSocietyPrintingTests {
         let email = try bounds("desk@paper-model.example", on: first)
         #expect(email.maxX < size.width / 2 && email.midY < 190)
         if !english && !supplement {
+            let abstract = try #require(first.string?.components(separatedBy: "キーワード").first)
+            for boundary in ["3 種類", "2 層", "mm 以内"] { #expect(abstract.contains(boundary)) }
             #expect(try bounds("Model Rail Desk", on: first).width > 20)
             #expect(pdf.findString("0.01 mm").count == 2)
             #expect(pdf.findString("•").count == 3)

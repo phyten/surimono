@@ -5,12 +5,17 @@ import Foundation
 enum LaTeXGraphicPreparation {
     static func script(in html: String, layoutWidth: Double, layoutHeight: Double? = nil) -> String? {
         let thinSpaces = html.contains("\u{2009}")
+        let japaneseAbstract = html.contains(#"class="latex-front-abstract" lang="ja""#)
         let bibliography = html.contains(" data-latex-bib-sample=")
+        let tables = html.contains(#"class="latex-tabular"#)
         let graphics = html.contains(#"class="latex-graphic-box""#)
         let displays = html.contains(#"class="math math-display""#)
         let exam = html.contains("<svg data-exam-rules ")
         let letters = html.contains(#"class="latex-letter""#) ? layoutHeight : nil
-        guard bibliography || thinSpaces || graphics || displays || exam || letters != nil else { return nil }
+        guard japaneseAbstract || bibliography || thinSpaces || tables || graphics || displays || exam || letters != nil
+        else {
+            return nil
+        }
         return """
             {
               const root = document.documentElement;
@@ -18,9 +23,11 @@ enum LaTeXGraphicPreparation {
               const zoom = parseFloat(getComputedStyle(root).zoom) || 1;
               root.style.width = (\(layoutWidth) / zoom) + 'px';
               try {
+                \(japaneseAbstract ? japaneseAbstractGlue : "")
                 \(bibliography ? measureLabels : "")
                 \(thinSpaces ? tieThinSpaces : "")
                 \(displays ? measureDisplays : "")
+                \(tables ? tableStruts : "")
                 \(graphics ? measure : "")
                 \(exam ? examRules : "")
                 \(letters.map { "const availableHeight = \($0) / zoom;\n" + letterGlue } ?? "")
@@ -28,6 +35,31 @@ enum LaTeXGraphicPreparation {
             }
             """
     }
+
+    // WebKit's implicit autospace has no text of its own. PDFKit can omit it when the
+    // neighbouring CFF glyph has a large font bounding box. Paint the JFM glue on paper.
+    private static let japaneseAbstractGlue = #"""
+        for (const abstract of document.querySelectorAll('[data-latex-publication-grid="bilingualJournal"]:not([data-latex-local-main-font]) .latex-front-abstract[lang="ja"] p')) {
+          const walker = document.createTreeWalker(abstract, NodeFilter.SHOW_TEXT);
+          const nodes = [];
+          for (let text = walker.nextNode(); text; text = walker.nextNode()) {
+            if (!text.parentElement.closest('svg,code,.math-inline,.latex-xkanjiskip')) nodes.push(text);
+          }
+          for (const text of nodes) {
+            const boundaries = text.data.matchAll(/(?<=[a-zA-Z0-9])(?=[\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}])/gu);
+            const parts = document.createDocumentFragment();
+            let start = 0;
+            for (const boundary of boundaries) {
+              parts.append(text.data.slice(start, boundary.index));
+              const glue = document.createElement('span');
+              glue.className = 'latex-abstract-xskip';
+              parts.append(glue);
+              start = boundary.index;
+            }
+            if (start) { parts.append(text.data.slice(start)); text.replaceWith(parts); }
+          }
+        }
+        """#
 
     // offsetWidth rounds small bracket advances to whole pixels. The computed
     // max-content width is in layout units even when the print view is zoomed.
@@ -128,6 +160,24 @@ enum LaTeXGraphicPreparation {
             svg.setAttribute('viewBox', [x,y,w,h].join(' '));
           }
           Object.assign(svg.style, {display:'block', marginInline:'auto', verticalAlign:'top', overflow:'hidden'});
+        }
+        """#
+
+    // A simple tabular starts each row with an array strut. Preserve paragraph columns
+    // and multiline cells, which establish their own line boxes.
+    private static let tableStruts = #"""
+        const tables = document.querySelectorAll('.latex-graphic-box table.latex-tabular, figure.latex-table > table.latex-tabular:not(.latex-longtable)');
+        for (const table of tables) {
+          // Journals can set a separate table pitch; their unscaled tables already use that class strut.
+          if (!table.closest('.latex-graphic-box') && document.body.hasAttribute('data-latex-journal')) continue;
+          if (!table.matches(':lang(en)') || !getComputedStyle(table).getPropertyValue('--tex-pt') ||
+              !getComputedStyle(table).fontFamily.startsWith('"Surimono Computer Modern"')) continue;
+          for (const cell of table.querySelectorAll(':scope > :is(tbody,thead,tfoot) > tr > :is(td,th):not([data-latex-column])')) {
+            if (cell.querySelector('br,p,div,table,.latex-array-strut')) continue;
+            const strut = document.createElement('span');
+            strut.className = 'latex-array-strut';
+            cell.prepend(strut);
+          }
         }
         """#
 

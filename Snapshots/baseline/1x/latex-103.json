@@ -1,11 +1,11 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.030113994563813185,
+    "changedAreaRatio" : 0.03006231978420612,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 2,
-    "maxBoxDeltaPt" : 12.4,
+    "maxBoxDeltaPt" : 10.1,
     "maxLuminance" : 113.890625,
     "maxShiftPt" : 6.3,
     "pageDelta" : 0,
@@ -20,17 +20,17 @@
   "pageCount" : 6,
   "pages" : [
     {
-      "firstY" : 46.2,
+      "firstY" : 44.3,
       "height" : 841.9,
-      "lastY" : 314.9,
+      "lastY" : 314.8,
       "lineCount" : 6,
       "lines" : [
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 519.4,
-          "y" : 46.2
+          "y" : 44.3
         },
         {
           "height" : 38.6,
@@ -40,52 +40,52 @@
           "y" : 128.5
         },
         {
-          "height" : 15.5,
+          "height" : 15.6,
           "text" : "第1 章 細い砂窓を三枚並べて夕方の光が通る位置を読み取るための観察記録 3",
           "width" : 453.5,
           "x" : 70.9,
-          "y" : 226.6
+          "y" : 226.4
         },
         {
-          "height" : 14.1,
+          "height" : 15.2,
           "text" : "1.1 曇り窓の寸法 3",
           "width" : 444.3,
           "x" : 80.1,
           "y" : 249.8
         },
         {
-          "height" : 15.5,
+          "height" : 15.6,
           "text" : "第2 章 朝の透かし板 4",
           "width" : 453.5,
           "x" : 70.9,
-          "y" : 282.2
+          "y" : 282
         },
         {
-          "height" : 15.5,
+          "height" : 15.6,
           "text" : "参考文献 6",
           "width" : 453.5,
           "x" : 70.9,
-          "y" : 314.9
+          "y" : 314.8
         }
       ],
-      "textHeight" : 284.2,
+      "textHeight" : 286.1,
       "textLeft" : 70.9,
-      "textTop" : 46.2,
+      "textTop" : 44.3,
       "textWidth" : 453.5,
       "width" : 595.3
     },
     {
-      "firstY" : 46.2,
+      "firstY" : 44.3,
       "height" : 841.9,
       "lastY" : 249.8,
       "lineCount" : 4,
       "lines" : [
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "2",
           "width" : 5,
           "x" : 519.4,
-          "y" : 46.2
+          "y" : 44.3
         },
         {
           "height" : 38.6,
@@ -95,45 +95,45 @@
           "y" : 128.5
         },
         {
-          "height" : 14.1,
+          "height" : 15.2,
           "text" : "1.1 夕方の印。帯の中央に置いた細い印。 3",
           "width" : 444.3,
           "x" : 80.1,
           "y" : 217.1
         },
         {
-          "height" : 14.1,
+          "height" : 15.2,
           "text" : "2.1 明るい方の帯。 4",
           "width" : 444.3,
           "x" : 80.1,
           "y" : 249.8
         }
       ],
-      "textHeight" : 217.7,
+      "textHeight" : 220.7,
       "textLeft" : 70.9,
-      "textTop" : 46.2,
+      "textTop" : 44.3,
       "textWidth" : 453.5,
       "width" : 595.3
     },
     {
-      "firstY" : 46.2,
+      "firstY" : 44.3,
       "height" : 841.9,
       "lastY" : 573.4,
       "lineCount" : 15,
       "lines" : [
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "3",
           "width" : 5,
           "x" : 519.4,
-          "y" : 46.2
+          "y" : 44.3
         },
         {
-          "height" : 32.1,
+          "height" : 32.4,
           "text" : "第1 章",
           "width" : 58.9,
           "x" : 70.9,
-          "y" : 127.7
+          "y" : 127.4
         },
         {
           "height" : 38.6,
@@ -150,11 +150,11 @@
           "y" : 218.8
         },
         {
-          "height" : 22.3,
+          "height" : 22.5,
           "text" : "1.1 曇り窓の寸法",
           "width" : 112.3,
           "x" : 72.5,
-          "y" : 307.5
+          "y" : 307.3
         },
         {
           "height" : 14.1,
@@ -171,10 +171,10 @@
           "y" : 362.2
         },
         {
-          "height" : 12.7,
+          "height" : 13.7,
           "text" : "図 1.1: 夕方の印。",
-          "width" : 68.2,
-          "x" : 265.6,
+          "width" : 68.9,
+          "x" : 265.3,
           "y" : 409.7
         },
         {
@@ -192,21 +192,21 @@
           "y" : 461.3
         },
         {
-          "height" : 14.1,
+          "height" : 15.2,
           "text" : "薄片 北の窓 15",
           "width" : 453.5,
           "x" : 70.9,
           "y" : 485.4
         },
         {
-          "height" : 14.1,
+          "height" : 15.2,
           "text" : "紙片 南の窓 18",
           "width" : 453.5,
           "x" : 70.9,
           "y" : 503.7
         },
         {
-          "height" : 14.1,
+          "height" : 15.2,
           "text" : "小片 西の窓 23",
           "width" : 453.5,
           "x" : 70.9,
@@ -220,38 +220,38 @@
           "y" : 555.1
         },
         {
-          "height" : 14.1,
+          "height" : 15.2,
           "text" : "薄片 短い横線 4",
           "width" : 301,
           "x" : 147.1,
           "y" : 573.4
         }
       ],
-      "textHeight" : 541.2,
+      "textHeight" : 544.2,
       "textLeft" : 70.9,
-      "textTop" : 46.2,
+      "textTop" : 44.3,
       "textWidth" : 453.5,
       "width" : 595.3
     },
     {
-      "firstY" : 46.2,
+      "firstY" : 44.3,
       "height" : 841.9,
       "lastY" : 418.9,
       "lineCount" : 9,
       "lines" : [
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "4",
           "width" : 5,
           "x" : 519.4,
-          "y" : 46.2
+          "y" : 44.3
         },
         {
-          "height" : 32.1,
+          "height" : 32.4,
           "text" : "第2 章",
           "width" : 58.9,
           "x" : 70.9,
-          "y" : 127.7
+          "y" : 127.4
         },
         {
           "height" : 38.6,
@@ -261,10 +261,10 @@
           "y" : 181
         },
         {
-          "height" : 12.7,
+          "height" : 13.7,
           "text" : "図 2.1: 明るい方の帯。",
-          "width" : 84.8,
-          "x" : 255.3,
+          "width" : 85.5,
+          "x" : 254.9,
           "y" : 287.7
         },
         {
@@ -282,37 +282,37 @@
           "y" : 350.8
         },
         {
-          "height" : 12.7,
+          "height" : 13.7,
           "text" : "淡色 手前 2",
           "width" : 453.5,
           "x" : 70.9,
           "y" : 382.2
         },
         {
-          "height" : 12.7,
+          "height" : 13.7,
           "text" : "濃色 中央 5",
           "width" : 453.5,
           "x" : 70.9,
           "y" : 400.6
         },
         {
-          "height" : 12.7,
+          "height" : 13.7,
           "text" : "灰色 奥側 8",
           "width" : 453.5,
           "x" : 70.9,
           "y" : 418.9
         }
       ],
-      "textHeight" : 385.3,
+      "textHeight" : 388.2,
       "textLeft" : 70.9,
-      "textTop" : 46.2,
+      "textTop" : 44.3,
       "textWidth" : 453.5,
       "width" : 595.3
     },
     {
       "firstY" : 128.5,
       "height" : 841.9,
-      "lastY" : 46.2,
+      "lastY" : 44.3,
       "lineCount" : 3,
       "lines" : [
         {
@@ -330,23 +330,23 @@
           "y" : 217.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "5",
           "width" : 5,
           "x" : 519.4,
-          "y" : 46.2
+          "y" : 44.3
         }
       ],
-      "textHeight" : 184.9,
+      "textHeight" : 186.8,
       "textLeft" : 70.9,
-      "textTop" : 46.2,
+      "textTop" : 44.3,
       "textWidth" : 453.5,
       "width" : 595.3
     },
     {
       "firstY" : 128.5,
       "height" : 841.9,
-      "lastY" : 46.2,
+      "lastY" : 44.3,
       "lineCount" : 4,
       "lines" : [
         {
@@ -357,30 +357,30 @@
           "y" : 128.5
         },
         {
-          "height" : 14.1,
+          "height" : 15.2,
           "text" : "[1] 砂窓観察室『試料の読み方』。",
           "width" : 139.9,
           "x" : 70.9,
           "y" : 217.1
         },
         {
-          "height" : 14.1,
+          "height" : 15.2,
           "text" : "[2] 紙帯編集室『印の記録』。",
           "width" : 121.4,
           "x" : 70.9,
           "y" : 235.4
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "6",
           "width" : 5,
           "x" : 519.4,
-          "y" : 46.2
+          "y" : 44.3
         }
       ],
-      "textHeight" : 203.2,
+      "textHeight" : 206.2,
       "textLeft" : 70.9,
-      "textTop" : 46.2,
+      "textTop" : 44.3,
       "textWidth" : 453.5,
       "width" : 595.3
     }

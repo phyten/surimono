@@ -16,7 +16,8 @@ struct HTMLExporterTests {
         let rich = try await HTMLExporter.richText(source: source, settings: settings, title: "Example")
         for output in [html, rich.html] {
             #expect(output.contains("Surimono Computer Modern Typewriter"))
-            #expect(output.components(separatedBy: "data:font/ttf;base64,").count == 6)
+            #expect(output.contains("Andrey V. Panov"))
+            #expect(output.components(separatedBy: "data:font/otf;base64,").count == 12)
         }
         #expect(rich.plain.contains("Western 本文"))
     }

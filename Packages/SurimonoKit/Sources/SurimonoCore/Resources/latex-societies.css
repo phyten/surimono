@@ -32,8 +32,7 @@ body.format-latex[data-latex-size][data-latex-publication-grid] {
     & :is(h2,h3,h4,h5,h6)[id^="sec-"] {
         margin: 0; padding: 0; text-align: start; font: inherit; break-after: avoid;
     }
-    & ul:not(.toc ul) > li:has(.latex-item-mark)::before { content: none; }
-    & .latex-item-mark { position: absolute; inset-inline-end: calc(100% + .5em); text-indent: 0; }
+    & .latex-item-mark { display: inline-block; position: absolute; inset-inline-end: calc(100% + .5em); text-indent: 0; }
     & .latex-grid-line {
         display: block; white-space: nowrap; text-indent: 0; text-autospace: no-autospace;
         text-justify: inter-character; text-spacing-trim: space-all;
@@ -45,6 +44,9 @@ body.format-latex[data-latex-size][data-latex-publication-grid] {
         font-size: var(--society-caption-size); line-height: var(--society-caption-pitch);
         --latex-caption-label-gap: 1ic;
     }
+    /* A hanging caption puts its label and prose on the same alphabetic baseline.
+       A CSS grid otherwise aligns the tops of their different font boxes. */
+    & figcaption[data-latex-caption-hang] { align-items: first baseline; }
     & figure[data-latex-wide] > figcaption:not([data-latex-caption-style]) { max-width: 66%; }
     /* A float installs its own type size before the tabular creates its array strut. */
     & [data-latex-float-size] {
@@ -135,6 +137,9 @@ body.format-latex[data-latex-publication-grid="bilingualJournal"][data-latex-siz
         text-align: center; font-size: calc(7.39 * var(--tex-pt)); line-height: calc(3 * var(--society-mm));
         margin-block-start: calc(6.5 * var(--society-mm) - 1.9 * var(--tex-pt));
     }
+    /* WebKit's inter-script autospace is one eighth of an ideographic advance. */
+    & .latex-abstract-xskip { display: inline-block; inline-size: .125ic; line-height: 0; white-space: pre; text-autospace: no-autospace; }
+    & .latex-abstract-xskip::before { content: " "; }
     & :is(.latex-front-abstract,.latex-front-keywords) { width: 80%; margin-inline: auto; text-align: justify; }
     & :is(.latex-front-abstract,.latex-front-keywords) p { text-indent: 0; }
     & :is(.latex-front-abstract,.latex-front-keywords)[lang="ja"] {

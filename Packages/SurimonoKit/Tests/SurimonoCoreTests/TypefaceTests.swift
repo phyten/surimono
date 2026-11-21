@@ -48,9 +48,9 @@ struct TypefaceTests {
         #expect(css.contains("@font-face { font-family: 'My Face'"))
         #expect(css.contains(#"--surimono-western: "Surimono Computer Modern""#))
         #expect(css.contains(#"--surimono-western: "Surimono Computer Modern Typewriter""#))
-        #expect(css.components(separatedBy: "data:font/ttf;base64,").count == 6)
+        #expect(css.components(separatedBy: "data:font/otf;base64,").count == 12)
         #expect(css.contains("html { zoom: 1.5; }"))
-        #expect(!HTMLDocumentBuilder.styleSheet(theme: theme).contains("data:font/ttf"))
+        #expect(!HTMLDocumentBuilder.styleSheet(theme: theme).contains("data:font/otf"))
     }
 
     @Test("独自の変数でフォントを一括指定したスタイルも元の字の大きさと書体候補を残す")

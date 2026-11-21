@@ -81,20 +81,17 @@ the gauge block of Scale Fixture Room [4], where it pre-
 dicted the height of folded board well for up to four layers.
 This note reports a bench trial of folded spacers. Our
 aims were:
-•
-•
 Card thickness.
 The thickness t was measured with a dial
 gauge on ten single sheets of each stock, and the mean was
 used in the model. The thin stock measured 0.20 mm, the
 medium stock 0.30 mm and the thick stock 0.45 mm, with a
 spread of less than 0.01 mm in every case.
-•
-to measure the height of spacers with two to six layers in
+• to measure the height of spacers with two to six layers in
 one fixed slot;
-to compare the measurements with a layer model that
+• to compare the measurements with a layer model that
 adds a crease allowance; and
-to give simple rules for choosing a card stock for a target
+• to give simple rules for choosing a card stock for a target
 height.
 Section 2 describes the slot and the procedure, Section 3
 reports the measurements, and Section 4 summarises the

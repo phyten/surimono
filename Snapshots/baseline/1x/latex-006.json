@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.009358302586839467,
+    "changedAreaRatio" : 0.008745439700699676,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 4.8,
-    "maxLuminance" : 102.34375,
-    "maxShiftPt" : 3.3,
+    "maxBoxDeltaPt" : 9,
+    "maxLuminance" : 104.203125,
+    "maxShiftPt" : 5.2,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -18,57 +18,57 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 50.9,
+      "firstY" : 48.6,
       "height" : 841.9,
-      "lastY" : 811.8,
+      "lastY" : 809.9,
       "lineCount" : 6,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.7,
           "text" : "The two drying racks",
-          "width" : 152.1,
+          "width" : 153.8,
           "x" : 51,
-          "y" : 50.9
+          "y" : 48.6
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "The upper shelf receives the first batch. A gap between",
           "width" : 241.6,
           "x" : 51,
-          "y" : 75.6
+          "y" : 73.7
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "tiles lets air reach the edges.",
-          "width" : 124.1,
+          "width" : 123.8,
           "x" : 51,
-          "y" : 87.6
+          "y" : 85.7
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "The lower shelf receives the second batch. Record the",
           "width" : 231.7,
           "x" : 312.6,
-          "y" : 50.8
+          "y" : 48.9
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "time when the last tile lifts cleanly.",
-          "width" : 154.5,
+          "width" : 153.5,
           "x" : 302.6,
-          "y" : 62.8
+          "y" : 60.9
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 295.1,
-          "y" : 811.8
+          "y" : 809.9
         }
       ],
-      "textHeight" : 772.7,
+      "textHeight" : 776,
       "textLeft" : 51,
-      "textTop" : 50.8,
+      "textTop" : 48.6,
       "textWidth" : 493.2,
       "width" : 595.3
     }

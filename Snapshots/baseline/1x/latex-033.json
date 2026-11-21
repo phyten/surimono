@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.011608222490931077,
+    "changedAreaRatio" : 0.011199991732035263,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 25.6,
-    "maxLuminance" : 129.28125,
-    "maxShiftPt" : 27.4,
+    "maxBoxDeltaPt" : 23.3,
+    "maxLuminance" : 121.21875,
+    "maxShiftPt" : 25,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -18,65 +18,65 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 150.4,
+      "firstY" : 148.1,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 7,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.8,
           "text" : "Rack card format",
-          "width" : 124.8,
+          "width" : 126.5,
           "x" : 125.4,
-          "y" : 150.4
+          "y" : 148.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Separate the fields with |. The literal # introduces a comment.",
-          "width" : 275,
+          "width" : 275.5,
           "x" : 125.4,
-          "y" : 175.1
+          "y" : 173.2
         },
         {
-          "height" : 9.2,
+          "height" : 14.4,
           "text" : "# rack | shelf | slots",
           "width" : 115.1,
           "x" : 125.4,
-          "y" : 196.4
+          "y" : 192.8
         },
         {
-          "height" : 9.2,
+          "height" : 14.4,
           "text" : "east | upper | 04",
           "width" : 99.4,
           "x" : 125.4,
-          "y" : 208.4
+          "y" : 204.8
         },
         {
-          "height" : 9.2,
+          "height" : 14.4,
           "text" : "east | lower | 06",
           "width" : 99.4,
           "x" : 125.4,
-          "y" : 220.4
+          "y" : 216.8
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Leading zeros keep paper labels aligned.",
-          "width" : 174.9,
+          "width" : 175,
           "x" : 125.4,
-          "y" : 237.5
+          "y" : 234.8
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 580.4,
+      "textHeight" : 583.9,
       "textLeft" : 125.4,
-      "textTop" : 150.4,
-      "textWidth" : 275,
+      "textTop" : 148.1,
+      "textWidth" : 275.5,
       "width" : 595.3
     }
   ],

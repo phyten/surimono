@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.006015977841854504,
+    "changedAreaRatio" : 0.00582168067053194,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 26.4,
-    "maxLuminance" : 142.5625,
-    "maxShiftPt" : 27.7,
+    "maxBoxDeltaPt" : 24.1,
+    "maxLuminance" : 128.484375,
+    "maxShiftPt" : 25.7,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -18,71 +18,71 @@
   "pageCount" : 2,
   "pages" : [
     {
-      "firstY" : 150.4,
+      "firstY" : 148.1,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 3,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.8,
           "text" : "1 Receipt",
           "width" : 77.6,
           "x" : 125.4,
-          "y" : 150.4
+          "y" : 148.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Two blue slips arrived with the brass gauge. The final reading is in Section 2.",
-          "width" : 340.8,
+          "width" : 339,
           "x" : 125.4,
-          "y" : 175.1
+          "y" : 173.2
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 580.4,
+      "textHeight" : 583.9,
       "textLeft" : 125.4,
-      "textTop" : 150.4,
-      "textWidth" : 340.8,
+      "textTop" : 148.1,
+      "textWidth" : 339,
       "width" : 595.3
     },
     {
-      "firstY" : 151.2,
+      "firstY" : 148.9,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 3,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.8,
           "text" : "2 Inspection",
-          "width" : 97,
+          "width" : 97.4,
           "x" : 125.4,
-          "y" : 151.2
+          "y" : 148.9
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "The gauge fitted the middle slot. Both slips carry its mark.",
-          "width" : 260,
+          "width" : 259.7,
           "x" : 125.4,
-          "y" : 175.9
+          "y" : 174
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "2",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 579.6,
+      "textHeight" : 583.1,
       "textLeft" : 125.4,
-      "textTop" : 151.2,
-      "textWidth" : 260,
+      "textTop" : 148.9,
+      "textWidth" : 259.7,
       "width" : 595.3
     }
   ],

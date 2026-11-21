@@ -3,13 +3,12 @@
     "Helvetica",
     "HiraKakuProN-W3",
     "HiraKakuProN-W6",
-    "HiraginoSans-W3",
     "HiraginoSans-W4"
   ],
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 38.3,
+      "firstY" : 37.5,
       "height" : 841.9,
       "lastY" : 716,
       "lineCount" : 21,
@@ -17,9 +16,9 @@
         {
           "height" : 34.9,
           "text" : "Surimono サンプル",
-          "width" : 182,
+          "width" : 184.6,
           "x" : 42.5,
-          "y" : 38.3
+          "y" : 37.5
         },
         {
           "height" : 18.4,
@@ -33,7 +32,7 @@
           "text" : "買い物メモ",
           "width" : 78,
           "x" : 42.5,
-          "y" : 113.8
+          "y" : 113
         },
         {
           "height" : 18.4,
@@ -71,32 +70,32 @@
           "y" : 214
         },
         {
-          "height" : 18.4,
+          "height" : 18.5,
           "text" : "ノート 2",
           "width" : 68.1,
           "x" : 48.9,
           "y" : 239.8
         },
         {
-          "height" : 18.4,
+          "height" : 18.5,
           "text" : "鉛筆 3",
           "width" : 68.1,
           "x" : 48.9,
           "y" : 265.5
         },
         {
-          "height" : 18.4,
-          "text" : "let let let let message = \"こんにちは、摺物\"",
-          "width" : 184.8,
+          "height" : 19.2,
+          "text" : "let message = \"こんにちは、摺物\"",
+          "width" : 183.9,
           "x" : 42.5,
-          "y" : 295.1
+          "y" : 295.9
         },
         {
-          "height" : 10.4,
+          "height" : 16.2,
           "text" : "print(message)",
           "width" : 82.4,
           "x" : 42.5,
-          "y" : 320.7
+          "y" : 317.5
         },
         {
           "height" : 18.4,
@@ -108,9 +107,9 @@
         {
           "height" : 27.1,
           "text" : "Graphviz と PlantUML",
-          "width" : 181.7,
+          "width" : 185.7,
           "x" : 42.5,
-          "y" : 381.3
+          "y" : 380.5
         },
         {
           "height" : 24.7,
@@ -162,12 +161,12 @@
           "y" : 716
         }
       ],
-      "textHeight" : 696.2,
+      "textHeight" : 697,
       "textLeft" : 42.5,
-      "textTop" : 38.3,
+      "textTop" : 37.5,
       "textWidth" : 305.2,
       "width" : 595.3
     }
   ],
-  "textSHA256" : "446b0cff0e6bbdbd5b6721dd0516ad9133be8b6c99fdc93dfd629d08b05f48d9"
+  "textSHA256" : "1cf238049bd0c1d8ab5d75b8251f02a214cc57d41849a36f654863c0a764377f"
 }

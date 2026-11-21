@@ -2280,18 +2280,15 @@ final class LaTeXReader {
         case "itemize":
             let html = items.map { label, content -> String in
                 let text = compact(blocks(content))
-                if label == nil, document.classInfo.profile.page.fixedGrid != nil {
-                    // A generated pseudo-element paints again when two PDF slices share one list item.
-                    // Real label text belongs to the slice containing its first baseline.
-                    let depth = document.listStack.filter { $0 == "itemize" }.count
-                    let bullet = ["•", "–", "∗", "·"][min(max(depth - 1, 0), 3)]
-                    let mark = "<span class=\"latex-item-mark\">\(bullet)</span>"
-                    let item = text.hasPrefix("<p>") ? "<p>" + mark + text.dropFirst(3) : mark + text
-                    return "<li>\(item)</li>\n"
-                }
-                guard let label else { return "<li>\(text)</li>\n" }
-                return
-                    "<li class=\"latex-custom-label\">\(labeled(inline(label), text))</li>\n"
+                if let label { return "<li class=\"latex-custom-label\">\(labeled(inline(label), text))</li>\n" }
+                // A real label stays in reading order and belongs only to the slice with its first baseline.
+                let depth = document.listStack.filter { $0 == "itemize" }.count
+                let bullet = ["•", "–", "∗", "·"][min(max(depth - 1, 0), 3)]
+                let face =
+                    depth == 1 && document.classInfo.profile.body.usesLatinModernBullet ? " data-latex-lm-bullet" : ""
+                let mark = "<span class=\"latex-item-mark\"\(face)>\(bullet)</span>"
+                let item = text.hasPrefix("<p>") ? "<p>" + mark + text.dropFirst(3) : mark + text
+                return "<li>\(item)</li>\n"
             }
             return "<ul>\n\(html.joined())</ul>\n"
         case "description":
@@ -2707,7 +2704,12 @@ final class LaTeXReader {
                     level: 1, number: number, id: id, title: plain))
         }
         let numbered = document.classInfo.profile.body.numbersCaptions || document.numberedBeamerCaptions
-        let label = numbered ? name + " " + HTML.escape(number) + document.headingEndDot : name
+        // jsclasses joins the Japanese name and the Western counter with JFM glue (\nobreak).
+        let japaneseBoundary =
+            info.profile.usesGridFlow && document.language == "ja" && (kind == "figure" || kind == "table")
+            && name.last.map { LaTeXSymbols.isCJK($0) } == true
+        let numberGap = japaneseBoundary ? #"<span class="latex-xkanjiskip"> </span>"# : " "
+        let label = numbered ? name + numberGap + HTML.escape(number) + document.headingEndDot : name
         let separator =
             setup.separator ?? info.resolvedStyle?.captionSeparator ?? document.classInfo.journalStyle?
             .captionSeparator(for: kind)

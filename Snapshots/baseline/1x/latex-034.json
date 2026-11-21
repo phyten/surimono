@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.014759350551369899,
+    "changedAreaRatio" : 0.014472038776754617,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
-    "maxBoxDeltaPt" : 25.4,
-    "maxLuminance" : 138.828125,
-    "maxShiftPt" : 29.7,
+    "maxBoxDeltaPt" : 23.1,
+    "maxLuminance" : 112.640625,
+    "maxShiftPt" : 26.4,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 9
@@ -18,86 +18,86 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 150.2,
+      "firstY" : 147.9,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 10,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.7,
           "text" : "Indexing a sample rack",
-          "width" : 164.5,
+          "width" : 167.2,
           "x" : 125.4,
-          "y" : 150.2
+          "y" : 147.9
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Listing 1: Number a rectangular rack",
-          "width" : 162.5,
-          "x" : 216,
-          "y" : 186.1
+          "width" : 162,
+          "x" : 216.3,
+          "y" : 183.4
         },
         {
-          "height" : 6.6,
+          "height" : 10.3,
           "text" : "1",
           "width" : 3.8,
           "x" : 111.7,
-          "y" : 203.7
+          "y" : 201.1
         },
         {
-          "height" : 6.6,
+          "height" : 10.3,
           "text" : "2",
           "width" : 3.8,
           "x" : 111.7,
-          "y" : 214.9
+          "y" : 212.3
         },
         {
-          "height" : 6.6,
+          "height" : 10.3,
           "text" : "3",
           "width" : 3.8,
           "x" : 111.7,
-          "y" : 226.1
+          "y" : 223.5
         },
         {
-          "height" : 8.3,
+          "height" : 12.9,
           "text" : "def slot(row, column, width=4):",
           "width" : 145.9,
           "x" : 125.4,
-          "y" : 204
+          "y" : 200
         },
         {
-          "height" : 8.3,
+          "height" : 13.1,
           "text" : "# Counting begins at the upper left.",
-          "width" : 169.8,
+          "width" : 169.5,
           "x" : 144.3,
-          "y" : 215.2
+          "y" : 211.1
         },
         {
-          "height" : 8.3,
+          "height" : 12.9,
           "text" : "return row * width + column",
           "width" : 127.1,
           "x" : 144.3,
-          "y" : 226.4
+          "y" : 222.4
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "The first slot on row two is slot(1, 0).",
-          "width" : 172.6,
+          "width" : 171.7,
           "x" : 125.4,
-          "y" : 245.3
+          "y" : 241.8
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 580.6,
+      "textHeight" : 584.1,
       "textLeft" : 111.7,
-      "textTop" : 150.2,
-      "textWidth" : 266.8,
+      "textTop" : 147.9,
+      "textWidth" : 266.6,
       "width" : 595.3
     }
   ],

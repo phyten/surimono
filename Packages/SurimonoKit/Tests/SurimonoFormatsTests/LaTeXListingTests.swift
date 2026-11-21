@@ -120,7 +120,7 @@ struct LaTeXListingTests {
         #expect(fragment.body.components(separatedBy: "<code>if &lt; x</code>").count == 3)
         #expect(fragment.body.contains(#"<span class="hl-comment">% example</span></code></strong> after"#))
         #expect(fragment.body.contains(#"<span class="hl-keyword">\item</span>"#))
-        #expect(fragment.body.contains("<li>next</li>"))
+        #expect(fragment.body.contains("<li><span class=\"latex-item-mark\">•</span>next</li>"))
     }
 
     @Test("listings の枠と字の大きさ・色・折り返しは指定したコードだけに適用する")

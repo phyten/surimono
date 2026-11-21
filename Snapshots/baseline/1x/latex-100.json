@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.009158837937556197,
+    "changedAreaRatio" : 0.009168139397885468,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
     "maxBoxDeltaPt" : 6.3,
     "maxLuminance" : 100.765625,
-    "maxShiftPt" : 4.3,
+    "maxShiftPt" : 3.1,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 4
@@ -20,17 +20,17 @@
   "pageCount" : 2,
   "pages" : [
     {
-      "firstY" : 294.9,
+      "firstY" : 294.5,
       "height" : 841.9,
       "lastY" : 351.9,
       "lineCount" : 2,
       "lines" : [
         {
-          "height" : 38.2,
+          "height" : 38.5,
           "text" : "第I 部",
           "width" : 58.2,
           "x" : 268.5,
-          "y" : 294.9
+          "y" : 294.5
         },
         {
           "height" : 45.8,
@@ -40,24 +40,24 @@
           "y" : 351.9
         }
       ],
-      "textHeight" : 102.8,
+      "textHeight" : 103.2,
       "textLeft" : 229.5,
-      "textTop" : 294.9,
+      "textTop" : 294.5,
       "textWidth" : 136.3,
       "width" : 595.3
     },
     {
-      "firstY" : 156.3,
+      "firstY" : 155.9,
       "height" : 841.9,
-      "lastY" : 758.9,
+      "lastY" : 757,
       "lineCount" : 7,
       "lines" : [
         {
-          "height" : 38.2,
+          "height" : 38.5,
           "text" : "第1 章",
           "width" : 70,
           "x" : 73.1,
-          "y" : 156.3
+          "y" : 155.9
         },
         {
           "height" : 45.8,
@@ -67,11 +67,11 @@
           "y" : 208.5
         },
         {
-          "height" : 26.5,
+          "height" : 26.8,
           "text" : "1.1 流れの確かめ方",
           "width" : 149.3,
           "x" : 75.1,
-          "y" : 304.9
+          "y" : 304.7
         },
         {
           "height" : 16.7,
@@ -81,11 +81,11 @@
           "y" : 340
         },
         {
-          "height" : 22.1,
+          "height" : 22.3,
           "text" : "1.1.1 管の交換",
           "width" : 96,
           "x" : 74.7,
-          "y" : 375.8
+          "y" : 375.6
         },
         {
           "height" : 16.7,
@@ -95,16 +95,16 @@
           "y" : 407.5
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "2",
           "width" : 5,
           "x" : 295.1,
-          "y" : 758.9
+          "y" : 757
         }
       ],
-      "textHeight" : 614.4,
+      "textHeight" : 615.9,
       "textLeft" : 73.1,
-      "textTop" : 156.3,
+      "textTop" : 155.9,
       "textWidth" : 227,
       "width" : 595.3
     }

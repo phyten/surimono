@@ -1,6 +1,6 @@
 Labels for a sample drawer
 Blue tray
-WORKING: Quartz
-RESERVE: Slate
+working: Quartz
+reserve: Slate
 Length: 12 mm
 1

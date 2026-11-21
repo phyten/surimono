@@ -166,6 +166,7 @@ package struct LaTeXClassProfile: Equatable, Sendable {
     struct Body: Equatable, Sendable {
         var footnoteForm = FootnoteForm.number
         var enumLabels = EnumerationLabels.standard
+        var usesLatinModernBullet = false
         var referenceName: String?
         var figName: String?
         var citationListSeparator: String?
@@ -192,6 +193,7 @@ package struct LaTeXClassProfile: Equatable, Sendable {
         var proceedingsTheoremStyle = false
         var spacesLinkedCounters = false
         var captionSkip = CaptionSkip.inherited
+        var naturalTableCaptionHeight = false
         var usesScaledTableMetrics = false
         var alignsDisplayRows = false
         var hangsPlainCaptions = false

@@ -127,7 +127,8 @@ extension LaTeXReader {
                     }
                 case "\\bfseries": styles.append("\(prefix)-weight: bold")
                 case "\\mdseries": styles.append("\(prefix)-weight: normal")
-                case "\\itshape", "\\slshape": styles.append("\(prefix)-shape: italic")
+                case "\\itshape": styles.append("\(prefix)-shape: italic")
+                case "\\slshape": styles.append("\(prefix)-shape: oblique 9.46deg")
                 case "\\upshape": styles.append("\(prefix)-shape: normal")
                 default:
                     let name = String(command.dropFirst())

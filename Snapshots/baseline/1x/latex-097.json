@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.017470209489556528,
+    "changedAreaRatio" : 0.017454707055674406,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
@@ -61,59 +61,59 @@
           "y" : 165.5
         },
         {
-          "height" : 15.5,
+          "height" : 15.6,
           "text" : "第1 章 格子戸の測定 2",
           "width" : 451.4,
           "x" : 71.9,
-          "y" : 249.1
+          "y" : 248.9
         },
         {
-          "height" : 14.1,
+          "height" : 15.2,
           "text" : "1.1 朝の採光 2",
           "width" : 442.2,
           "x" : 81.1,
           "y" : 267.8
         },
         {
-          "height" : 14.1,
+          "height" : 15.2,
           "text" : "1.2 夕方の採光 2",
           "width" : 442.2,
           "x" : 81.1,
           "y" : 286.2
         },
         {
-          "height" : 15.5,
+          "height" : 15.6,
           "text" : "第2 章 遮光板の置き方 4",
           "width" : 451.4,
           "x" : 71.9,
-          "y" : 314
+          "y" : 313.9
         },
         {
-          "height" : 14.1,
+          "height" : 15.2,
           "text" : "2.1 二枚の目印 4",
           "width" : 442.2,
           "x" : 81.1,
           "y" : 332.8
         }
       ],
-      "textHeight" : 181.3,
+      "textHeight" : 182.5,
       "textLeft" : 71.9,
       "textTop" : 165.5,
       "textWidth" : 451.4,
       "width" : 595.3
     },
     {
-      "firstY" : 164.6,
+      "firstY" : 164.3,
       "height" : 841.9,
-      "lastY" : 87.7,
+      "lastY" : 85.8,
       "lineCount" : 12,
       "lines" : [
         {
-          "height" : 32.1,
+          "height" : 32.4,
           "text" : "第1 章",
           "width" : 58.9,
           "x" : 71.9,
-          "y" : 164.6
+          "y" : 164.3
         },
         {
           "height" : 38.6,
@@ -123,11 +123,11 @@
           "y" : 213.5
         },
         {
-          "height" : 22.3,
+          "height" : 22.5,
           "text" : "1.1 朝の採光",
           "width" : 85.7,
           "x" : 73.6,
-          "y" : 297.7
+          "y" : 297.5
         },
         {
           "height" : 14.1,
@@ -144,11 +144,11 @@
           "y" : 347.9
         },
         {
-          "height" : 22.3,
+          "height" : 22.5,
           "text" : "1.2 夕方の採光",
           "width" : 99,
           "x" : 73.6,
-          "y" : 382.3
+          "y" : 382.1
         },
         {
           "height" : 14.1,
@@ -158,7 +158,7 @@
           "y" : 414.1
         },
         {
-          "height" : 13.9,
+          "height" : 14.2,
           "text" : "図 1.1: 窓の幅を写した帯。",
           "width" : 105.9,
           "x" : 246.8,
@@ -186,23 +186,23 @@
           "y" : 547.5
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "2",
           "width" : 5,
           "x" : 518.4,
-          "y" : 87.7
+          "y" : 85.8
         }
       ],
-      "textHeight" : 473.9,
+      "textHeight" : 475.8,
       "textLeft" : 71.9,
-      "textTop" : 87.7,
+      "textTop" : 85.8,
       "textWidth" : 451.4,
       "width" : 595.3
     },
     {
       "firstY" : 80.6,
       "height" : 841.9,
-      "lastY" : 766.1,
+      "lastY" : 764.2,
       "lineCount" : 3,
       "lines" : [
         {
@@ -213,38 +213,38 @@
           "y" : 80.6
         },
         {
-          "height" : 14.1,
+          "height" : 15.2,
           "text" : "図 1.1 の紙帯を次の測定にも使う。",
           "width" : 146.7,
           "x" : 81.1,
           "y" : 113.9
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "3",
           "width" : 5,
           "x" : 295.1,
-          "y" : 766.1
+          "y" : 764.2
         }
       ],
-      "textHeight" : 697.3,
+      "textHeight" : 698.4,
       "textLeft" : 81.1,
       "textTop" : 80.6,
       "textWidth" : 442.2,
       "width" : 595.3
     },
     {
-      "firstY" : 164.6,
+      "firstY" : 164.4,
       "height" : 841.9,
-      "lastY" : 87.7,
+      "lastY" : 85.8,
       "lineCount" : 7,
       "lines" : [
         {
-          "height" : 32.1,
+          "height" : 32.4,
           "text" : "第2 章",
           "width" : 58.9,
           "x" : 71.9,
-          "y" : 164.6
+          "y" : 164.4
         },
         {
           "height" : 38.6,
@@ -254,11 +254,11 @@
           "y" : 213.5
         },
         {
-          "height" : 22.3,
+          "height" : 22.5,
           "text" : "2.1 二枚の目印",
           "width" : 99,
           "x" : 73.6,
-          "y" : 297.6
+          "y" : 297.5
         },
         {
           "height" : 14.1,
@@ -282,16 +282,16 @@
           "y" : 373.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "4",
           "width" : 5,
           "x" : 518.4,
-          "y" : 87.7
+          "y" : 85.8
         }
       ],
-      "textHeight" : 299.5,
+      "textHeight" : 301.4,
       "textLeft" : 71.9,
-      "textTop" : 87.7,
+      "textTop" : 85.8,
       "textWidth" : 451.4,
       "width" : 595.3
     }

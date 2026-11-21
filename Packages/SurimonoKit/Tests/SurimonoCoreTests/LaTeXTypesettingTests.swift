@@ -77,10 +77,10 @@ struct LaTeXTypesettingTests {
         let themes = try PrintThemeLibrary.load()
         for id in ["latex-article", "latex-report", "latex-plain-ja"] {
             let theme = try #require(themes.first { $0.id == id })
-            #expect(theme.css.contains("body { word-spacing: 0.083em; }") == (id != "latex-plain-ja"))
+            #expect(!theme.css.contains("body { word-spacing: 0.083em; }"))
             #expect(theme.css.contains("code, pre, .math { word-spacing: normal; }"))
             #expect(theme.css.contains("-webkit-hyphenate-limit-before: 2; -webkit-hyphenate-limit-after: 3"))
-            #expect(theme.css.contains("letter-spacing: -0.02em") == (id == "latex-article"))
+            #expect(!theme.css.contains("\n.latex-title-block h1 { letter-spacing: -0.02em; }"))
         }
     }
 
@@ -88,10 +88,8 @@ struct LaTeXTypesettingTests {
     func itemize() throws {
         let css = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" }).css
         let rules = css.split(whereSeparator: \.isWhitespace).joined(separator: " ")
-        for (depth, mark) in ["•", "–", "∗", "·"].enumerated() {
-            let list = String(repeating: "ul ", count: depth) + "ul:not(.toc ul)"
-            #expect(rules.contains("\(list) > li:not(.latex-custom-label)::before { content: \"\(mark)\""))
-        }
+        #expect(rules.contains(".latex-item-mark { display: inline-block; width: 1em;"))
+        #expect(rules.contains("margin-inline: calc(-1em - var(--latex-list-labelsep, .5em))"))
         for pair in ["6; --tex-top-sep: 8", "6.5; --tex-top-sep: 9", "7.5; --tex-top-sep: 10"] {
             #expect(css.contains("--tex-item-sep: " + pair))
         }

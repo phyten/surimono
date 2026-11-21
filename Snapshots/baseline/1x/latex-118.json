@@ -10,7 +10,7 @@
     "maxShiftPt" : 4,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 16
+    "textEdits" : 7
   },
   "fonts" : [
     "CourierNewPSMT",
@@ -25,7 +25,7 @@
       "firstY" : 26.5,
       "height" : 792,
       "lastY" : 750.9,
-      "lineCount" : 47,
+      "lineCount" : 44,
       "lines" : [
         {
           "height" : 11,
@@ -204,44 +204,23 @@
         },
         {
           "height" : 11,
-          "text" : "•",
-          "width" : 3.5,
+          "text" : "• to measure the height of spacers with two to six layers in one fixed slot;",
+          "width" : 294.6,
           "x" : 135.4,
           "y" : 451.9
         },
         {
           "height" : 11,
-          "text" : "to measure the height of spacers with two to six layers in one fixed slot;",
-          "width" : 286.1,
-          "x" : 143.9,
-          "y" : 451.9
-        },
-        {
-          "height" : 11,
-          "text" : "•",
-          "width" : 3.5,
+          "text" : "• to compare the measurements with a layer model that adds a crease allowance; and",
+          "width" : 339,
           "x" : 135.4,
           "y" : 470.2
         },
         {
           "height" : 11,
-          "text" : "to compare the measurements with a layer model that adds a crease allowance; and",
-          "width" : 330.6,
-          "x" : 143.9,
-          "y" : 470.2
-        },
-        {
-          "height" : 11,
-          "text" : "•",
-          "width" : 3.5,
+          "text" : "• to give simple rules for choosing a card stock for a target height.",
+          "width" : 265.3,
           "x" : 135.4,
-          "y" : 488.4
-        },
-        {
-          "height" : 11,
-          "text" : "to give simple rules for choosing a card stock for a target height.",
-          "width" : 256.8,
-          "x" : 143.9,
           "y" : 488.4
         },
         {
@@ -768,5 +747,5 @@
       "width" : 612
     }
   ],
-  "textSHA256" : "964d74a21f19863abbba4f36c5abd99d948f720d2617c18c0fe9fc95c70b85b8"
+  "textSHA256" : "19b475a70900558363006147640590c895f1b1d56308ff30f4e196f28dc16ded"
 }

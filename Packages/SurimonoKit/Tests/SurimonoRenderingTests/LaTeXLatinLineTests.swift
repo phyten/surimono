@@ -221,6 +221,22 @@ struct LaTeXLatinLineTests {
             ])
     }
 
+    @Test("スラントとサンセリフの伸縮は実 TeX の字形・字級に従う")
+    func slantedGlue() throws {
+        let js = try context()
+        let rows =
+            js.evaluateScript(
+                """
+                [['cm',400,7],['cm',400,17],['cm',700,8],['sans',700,10]].map(([family,weight,size]) =>
+                    latinGlue(family,'oblique 9.46deg',weight,1,0,'word',false,size))
+                """)?.toArray() as? [[Double]]
+        #expect(
+            rows == [
+                [0.354172, 0.177086, 0.118057], [0.3263855, 0.163193, 0.108795],
+                [0.383331, 0.191666, 0.127777], [0.366669, 0.183334, 0.122223],
+            ])
+    }
+
     @Test("書誌ではピリオドだけ通常空きになり、別の Times 書体の伸縮量も保つ")
     func bibliographyPeriod() throws {
         let js = try context()

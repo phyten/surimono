@@ -74,6 +74,10 @@ struct LaTeXJapaneseGridPrintingTests {
         settings.options.latexMargins = .style
         let result = try await DocumentRenderer().prepare(source, settings: settings)
         let pdf = result.logicalDocument
+        // The fixed-width JFM glue must still paint the source space in the exported label.
+        let bytes = try #require(pdf.dataRepresentation())
+        let saved = try #require(PDFDocument(data: bytes))
+        #expect(saved.findString("図 1").count == 1)
         #expect(pdf.pageCount == 1)
         let page = try #require(pdf.page(at: 0))
         func bounds(_ text: String) throws -> CGRect {
@@ -202,13 +206,17 @@ struct LaTeXJapaneseGridPrintingTests {
         ).logicalDocument
         let page = try #require(pdf.page(at: 0))
         for word in ["1first", "2second"] {
-            let code = try #require(pdf.findString(word).first).bounds(for: page)
-            let digit = try initialGlyph(in: code, on: page)
+            let code = try #require(pdf.findString(word).first)
+            let digit = page.characterBounds(at: code.range(at: 0, on: page).location)
             let gutter = try #require(
-                pdf.findString(String(word.prefix(1))).map { $0.bounds(for: page) }.first {
-                    $0.maxX < code.minX && abs($0.midY - digit.midY) < 8
+                pdf.findString(String(word.prefix(1))).first { selection in
+                    let box = selection.bounds(for: page)
+                    return box.maxX < digit.minX && abs(box.midY - digit.midY) < 8
                 })
-            #expect(abs(try initialGlyph(in: gutter, on: page).minY - digit.minY) < 0.1)
+            // A subset's selection bounds can include whitespace outside the character hit-testing area.
+            let label = page.characterBounds(at: gutter.range(at: 0, on: page).location)
+            #expect(!label.isEmpty && !digit.isEmpty)
+            #expect(abs(label.minY - digit.minY) < 0.1)
         }
     }
 

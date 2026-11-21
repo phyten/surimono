@@ -61,9 +61,10 @@ extension RenderSettings {
             latexFooter?.japaneseFontName = info.japaneseMainFontName
             latexFooter?.japaneseFontScale = info.japaneseFurnitureScale
             latexFooter?.headerStrutDepth = info.headerStrutDepth * textScale
-            if info.resolvedStyle != nil && info.headerStrutDepth > 0 {
-                latexFooter?.headerRuleDepth = info.headerStrutDepth * textScale
-            }
+            // The head rule follows the class strut. The journal can override it for its own rule.
+            latexFooter?.headerRuleDepth =
+                (info.resolvedStyle != nil && info.headerStrutDepth > 0 ? info.headerStrutDepth : info.normalStrutDepth)
+                * textScale
             latexFooter?.headerFont = info.pageHeadFont
             latexFooter?.numberFont = info.pageNumberFont
         }

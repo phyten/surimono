@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.0160656889798365,
+    "changedAreaRatio" : 0.015567544104424395,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
     "maxBoxDeltaPt" : 76.1,
-    "maxLuminance" : 125.375,
-    "maxShiftPt" : 27.1,
+    "maxLuminance" : 113.296875,
+    "maxShiftPt" : 25.6,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 1
@@ -19,45 +19,45 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 150.4,
+      "firstY" : 148.1,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 7,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.8,
           "text" : "Bounds on a tray count",
-          "width" : 167.4,
+          "width" : 170.7,
           "x" : 125.4,
-          "y" : 150.4
+          "y" : 148.1
         },
         {
-          "height" : 12.2,
+          "height" : 15.1,
           "text" : "Definition 1. A full row contains exactly four tokens.",
-          "width" : 238.4,
+          "width" : 237.9,
           "x" : 125.4,
-          "y" : 175.4
+          "y" : 173.8
         },
         {
-          "height" : 12.1,
+          "height" : 15.1,
           "text" : "Lemma 2. Two full rows contain an even number of tokens.",
-          "width" : 264.5,
+          "width" : 266.1,
           "x" : 125.4,
-          "y" : 195.4
+          "y" : 193.8
         },
         {
-          "height" : 11.7,
+          "height" : 14.9,
           "text" : "Verification. Their combined count is eight.",
-          "width" : 192.5,
+          "width" : 190.2,
           "x" : 125.4,
-          "y" : 215.1
+          "y" : 213
         },
         {
-          "height" : 11.7,
+          "height" : 14.9,
           "text" : "Remark. Removing a pair preserves the parity in Lemma 2.",
-          "width" : 260.8,
+          "width" : 259.2,
           "x" : 125.4,
-          "y" : 235.1
+          "y" : 232.2
         },
         {
           "height" : 11,
@@ -67,16 +67,16 @@
           "y" : 215.2
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 580.4,
+      "textHeight" : 583.9,
       "textLeft" : 125.4,
-      "textTop" : 150.4,
+      "textTop" : 148.1,
       "textWidth" : 343.7,
       "width" : 595.3
     }

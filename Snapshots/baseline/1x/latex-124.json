@@ -10,7 +10,7 @@
     "maxShiftPt" : 9.1,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 151
+    "textEdits" : 146
   },
   "fonts" : [
     "Helvetica",
@@ -24,7 +24,7 @@
       "firstY" : 95.7,
       "height" : 792,
       "lastY" : 693.1,
-      "lineCount" : 90,
+      "lineCount" : 87,
       "lines" : [
         {
           "height" : 15.9,
@@ -385,16 +385,9 @@
         },
         {
           "height" : 11,
-          "text" : "•",
-          "width" : 3.5,
+          "text" : "• to measure the height of spacers with two to six layers in",
+          "width" : 234,
           "x" : 58.5,
-          "y" : 501.4
-        },
-        {
-          "height" : 11,
-          "text" : "to measure the height of spacers with two to six layers in",
-          "width" : 225.5,
-          "x" : 67,
           "y" : 501.4
         },
         {
@@ -406,16 +399,9 @@
         },
         {
           "height" : 11,
-          "text" : "•",
-          "width" : 3.5,
+          "text" : "• to compare the measurements with a layer model that",
+          "width" : 234,
           "x" : 58.5,
-          "y" : 528.3
-        },
-        {
-          "height" : 11,
-          "text" : "to compare the measurements with a layer model that",
-          "width" : 225.5,
-          "x" : 67,
           "y" : 528.3
         },
         {
@@ -424,6 +410,20 @@
           "width" : 115.1,
           "x" : 67,
           "y" : 539.3
+        },
+        {
+          "height" : 11,
+          "text" : "• to give simple rules for choosing a card stock for a target",
+          "width" : 234,
+          "x" : 58.5,
+          "y" : 555.2
+        },
+        {
+          "height" : 11,
+          "text" : "height.",
+          "width" : 27.4,
+          "x" : 67,
+          "y" : 566.2
         },
         {
           "height" : 11.1,
@@ -466,27 +466,6 @@
           "width" : 167.9,
           "x" : 319.5,
           "y" : 541.5
-        },
-        {
-          "height" : 11,
-          "text" : "•",
-          "width" : 3.5,
-          "x" : 58.5,
-          "y" : 555.2
-        },
-        {
-          "height" : 11,
-          "text" : "to give simple rules for choosing a card stock for a target",
-          "width" : 225.5,
-          "x" : 67,
-          "y" : 555.2
-        },
-        {
-          "height" : 11,
-          "text" : "height.",
-          "width" : 27.4,
-          "x" : 67,
-          "y" : 566.2
         },
         {
           "height" : 11,
@@ -957,5 +936,5 @@
       "width" : 612
     }
   ],
-  "textSHA256" : "ca265ac1ba3d891d1bef9faa5b20fbde345672f848566abc34dcba17e0f7d2d4"
+  "textSHA256" : "6bebac5b5de2f417660c37fe27a3b016f805a811a076a811d97ba72376c5fd45"
 }

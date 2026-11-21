@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.015281265825401255,
+    "changedAreaRatio" : 0.015425955208301036,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 2.9,
-    "maxLuminance" : 94.921875,
-    "maxShiftPt" : 2.8,
+    "maxBoxDeltaPt" : 6,
+    "maxLuminance" : 81.75,
+    "maxShiftPt" : 3.1,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 4
@@ -18,113 +18,113 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 249.2,
+      "firstY" : 248.1,
       "height" : 841.9,
-      "lastY" : 538.1,
+      "lastY" : 537,
       "lineCount" : 14,
       "lines" : [
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Model workshop",
-          "width" : 71.5,
-          "x" : 406.3,
-          "y" : 249.2
+          "width" : 71.4,
+          "x" : 406.4,
+          "y" : 248.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "East bench",
-          "width" : 48.4,
-          "x" : 406.3,
-          "y" : 261.2
+          "width" : 48.3,
+          "x" : 406.4,
+          "y" : 260.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "14 May 2026",
-          "width" : 55.9,
-          "x" : 406.3,
-          "y" : 286.9
+          "width" : 55.6,
+          "x" : 406.4,
+          "y" : 285.7
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Stores desk",
           "width" : 49.1,
           "x" : 134.2,
-          "y" : 319.7
+          "y" : 318.6
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Paper Model Workshop",
-          "width" : 103.5,
+          "width" : 102.8,
           "x" : 134.2,
-          "y" : 331.7
+          "y" : 330.6
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Dear stores team,",
-          "width" : 77,
+          "width" : 76.9,
           "x" : 134.2,
-          "y" : 364.5
+          "y" : 363.4
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Please reserve two card thicknesses for the next rail trial. The folded strip",
           "width" : 343.7,
           "x" : 134.2,
-          "y" : 383.7
+          "y" : 382.6
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "held the rail level at the second mark.",
-          "width" : 166.2,
+          "width" : 165.7,
           "x" : 134.2,
-          "y" : 395.7
+          "y" : 394.6
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Stock Sheets",
-          "width" : 66.1,
-          "x" : 272.9,
-          "y" : 415.7
+          "width" : 65.8,
+          "x" : 273.1,
+          "y" : 414.6
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Thin 3",
-          "width" : 66.1,
-          "x" : 272.9,
-          "y" : 427.7
+          "width" : 65.8,
+          "x" : 273.1,
+          "y" : 426.6
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Heavy 2",
-          "width" : 66.1,
-          "x" : 272.9,
-          "y" : 439.7
+          "width" : 65.8,
+          "x" : 273.1,
+          "y" : 438.6
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "With thanks,",
           "width" : 57.6,
           "x" : 306,
-          "y" : 465.3
+          "y" : 464.2
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Rail fixture desk",
-          "width" : 72.5,
+          "width" : 72.4,
           "x" : 306,
-          "y" : 519.7
+          "y" : 518.6
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "encl: Trial stock list",
-          "width" : 87.3,
+          "width" : 86.4,
           "x" : 134.2,
-          "y" : 538.1
+          "y" : 537
         }
       ],
-      "textHeight" : 300.5,
+      "textHeight" : 303.6,
       "textLeft" : 134.2,
-      "textTop" : 249.2,
+      "textTop" : 248.1,
       "textWidth" : 343.7,
       "width" : 595.3
     }

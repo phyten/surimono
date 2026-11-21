@@ -31,6 +31,7 @@ public enum HTMLDocumentBuilder {
                     + (info.publicationGridStyle.map { " data-latex-publication-grid=\"\($0)\"" } ?? "")
                     + (info.raggedColumns ? " data-latex-ragged-bottom" : "")
                     + (info.profile.bookOpeningSide.map { " data-latex-book-opening=\"\($0)\"" } ?? "")
+                    + (info.usesNaturalTableCaptionHeight ? " data-latex-natural-table-captions" : "")
                     + (localMain ? " data-latex-local-main-font" : "")
                     + (title.map { " data-latex-title-layout=\"\($0)\"" } ?? "")
                     + (info.columns == 2 && info.profile.usesGridFlow
@@ -44,7 +45,9 @@ public enum HTMLDocumentBuilder {
         // Local font aliases live outside the replaceable theme sheet. Selecting a new
         // theme can then opt into the same document fonts without re-reading the source.
         let localFaces =
-            info.map { [$0.localFontFaces, ideographFaces].filter { !$0.isEmpty }.joined(separator: "\n") } ?? ""
+            format == .latex
+            ? [textShapes, info?.localFontFaces ?? "", info == nil ? "" : ideographFaces]
+                .filter { !$0.isEmpty }.joined(separator: "\n") : ""
         let fontStyle =
             localFaces.isEmpty
             ? ""
@@ -68,6 +71,15 @@ public enum HTMLDocumentBuilder {
             </html>
             """
     }
+
+    // Keep LaTeX font commands available when the user switches to a general print theme.
+    private static let textShapes = """
+        :where(.format-latex .latex-item-mark) { display: none; }
+        .latex-sl { font-style: oblique 9.46deg; }
+        .latex-rm, .latex-normal { font-family: var(--tex-body-fonts, var(--surimono-western,) var(--surimono-style-family, serif)); }
+        .latex-up, .latex-normal { font-style: normal; font-variant-caps: normal; }
+        .latex-md, .latex-normal { font-weight: normal; }
+        """
 
     private static let ideographFaces =
         Bundle.module.url(forResource: "latex-ideograph-faces", withExtension: "css")
@@ -104,7 +116,7 @@ public enum HTMLDocumentBuilder {
         let codeCSS = code.isDefault ? "" : "\n" + code.css
         let usesTypeface = typeface == .latex && Typeface.isAvailable(themeID: theme.id, usesPrintTheme: true)
         let styled = usesTypeface ? LanguageFonts.prefixTypeface(in: css + codeCSS) + Typeface.overlay : css + codeCSS
-        let fonts = usesTypeface ? ThemeFonts.textFaces : ThemeFonts.faces(forStyleSheet: css)
+        let fonts = ThemeFonts.faces(forStyleSheet: styled)
         return styled + scaleCSS + (fonts.isEmpty ? "" : "\n" + fonts)
     }
 }

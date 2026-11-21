@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.010177978883861237,
+    "changedAreaRatio" : 0.009933634992458522,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 25.4,
+    "maxBoxDeltaPt" : 23.1,
     "maxLuminance" : 138.1875,
-    "maxShiftPt" : 28.7,
+    "maxShiftPt" : 26.7,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -18,72 +18,72 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 150.2,
+      "firstY" : 147.9,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 8,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.7,
           "text" : "Reading a travelling sled",
-          "width" : 176.8,
+          "width" : 179.1,
           "x" : 125.4,
-          "y" : 150.2
+          "y" : 147.9
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "lift",
-          "width" : 12.5,
-          "x" : 202.4,
-          "y" : 190
+          "width" : 12.4,
+          "x" : 203.2,
+          "y" : 188.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "2",
           "width" : 5,
-          "x" : 197.9,
-          "y" : 213.7
+          "x" : 198.7,
+          "y" : 211.8
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
-          "x" : 197.9,
-          "y" : 242.1
+          "x" : 198.7,
+          "y" : 240.2
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "travel",
-          "width" : 25.2,
-          "x" : 370.9,
-          "y" : 270.7
+          "width" : 24.1,
+          "x" : 371.7,
+          "y" : 268.8
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1 2 3 4 5",
           "width" : 118.4,
-          "x" : 234.5,
-          "y" : 279.4
+          "x" : 235.3,
+          "y" : 277.5
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Figure 1: The sled rises for three divisions before levelling off.",
-          "width" : 269.3,
-          "x" : 162.6,
-          "y" : 303.6
+          "width" : 269,
+          "x" : 162.8,
+          "y" : 302.5
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 580.6,
+      "textHeight" : 584.1,
       "textLeft" : 125.4,
-      "textTop" : 150.2,
-      "textWidth" : 306.5,
+      "textTop" : 147.9,
+      "textWidth" : 306.3,
       "width" : 595.3
     }
   ],

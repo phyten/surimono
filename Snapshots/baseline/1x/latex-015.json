@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.013787864694757077,
+    "changedAreaRatio" : 0.013383767918229829,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 25.6,
-    "maxLuminance" : 152.515625,
-    "maxShiftPt" : 26.9,
+    "maxBoxDeltaPt" : 23.3,
+    "maxLuminance" : 129.03125,
+    "maxShiftPt" : 24.8,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 2
@@ -18,31 +18,31 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 150.4,
+      "firstY" : 148.1,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 9,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.8,
           "text" : "Two reservoir readings",
-          "width" : 164.1,
+          "width" : 163.8,
           "x" : 125.4,
-          "y" : 150.4
+          "y" : 148.1
         },
         {
-          "height" : 17.5,
+          "height" : 21.8,
           "text" : "1 Averaging",
-          "width" : 96.4,
+          "width" : 94.1,
           "x" : 125.4,
-          "y" : 174.4
+          "y" : 172.1
         },
         {
-          "height" : 12,
+          "height" : 14.8,
           "text" : "For the pair S= (2, 6) the mean level and spread are",
-          "width" : 232.8,
+          "width" : 231.5,
           "x" : 125.4,
-          "y" : 199.1
+          "y" : 197.2
         },
         {
           "height" : 11.7,
@@ -59,37 +59,37 @@
           "y" : 235.8
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Equation (1.1) places the mark halfway between the gauges.",
-          "width" : 263.7,
+          "width" : 262.7,
           "x" : 125.4,
-          "y" : 260.7
+          "y" : 258.8
         },
         {
-          "height" : 10.6,
+          "height" : 13.4,
           "text" : "(1.1)",
           "width" : 18.6,
           "x" : 450.5,
-          "y" : 221.4
+          "y" : 219.7
         },
         {
-          "height" : 10.6,
+          "height" : 13.4,
           "text" : "(R)",
           "width" : 13.7,
           "x" : 455.4,
-          "y" : 236.6
+          "y" : 234.9
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 580.4,
+      "textHeight" : 583.9,
       "textLeft" : 125.4,
-      "textTop" : 150.4,
+      "textTop" : 148.1,
       "textWidth" : 343.7,
       "width" : 595.3
     }

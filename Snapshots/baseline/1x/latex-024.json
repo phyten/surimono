@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.014732479665974225,
+    "changedAreaRatio" : 0.014440000413398237,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 25.4,
+    "maxBoxDeltaPt" : 23.1,
     "maxLuminance" : 255,
-    "maxShiftPt" : 38.5,
+    "maxShiftPt" : 36.3,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -18,58 +18,58 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 150.2,
+      "firstY" : 147.9,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 6,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.7,
           "text" : "Two slot gauges",
-          "width" : 114,
+          "width" : 114.3,
           "x" : 125.4,
-          "y" : 150.2
+          "y" : 147.9
         },
         {
-          "height" : 14.1,
+          "height" : 16.4,
           "text" : "(a) Narrow slot",
-          "width" : 67.4,
-          "x" : 189.7,
-          "y" : 208.4
+          "width" : 67,
+          "x" : 189.9,
+          "y" : 207.3
         },
         {
-          "height" : 14.1,
+          "height" : 16.4,
           "text" : "(b) Wide slot",
-          "width" : 58.5,
-          "x" : 341.9,
-          "y" : 208.4
+          "width" : 58.4,
+          "x" : 342,
+          "y" : 207.3
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Figure 1: Gauge openings at equal scale",
-          "width" : 173.6,
-          "x" : 210.5,
-          "y" : 233.2
+          "width" : 173.7,
+          "x" : 210.4,
+          "y" : 231.3
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Gauge a accepts only the thin tongue.",
-          "width" : 166.4,
+          "width" : 166.3,
           "x" : 125.4,
-          "y" : 257.2
+          "y" : 254.5
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 580.6,
+      "textHeight" : 584.1,
       "textLeft" : 125.4,
-      "textTop" : 150.2,
-      "textWidth" : 275,
+      "textTop" : 147.9,
+      "textWidth" : 274.9,
       "width" : 595.3
     }
   ],
