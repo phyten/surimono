@@ -75,7 +75,10 @@ struct PrintPressBar: View {
                 let compact =
                     index == 4 && model.layout.series == model.trayPaperSeries
                     && (model.layout.kind == .twoUp || model.layout.kind == .fourUp)
-                let layout = compact ? model.layout : preset
+                let journal =
+                    index == 0 && model.trayPaperSeries == .a
+                    && (model.layout == .journalSingle || model.classLayout == .journalSingle)
+                let layout = compact || (journal && model.layout == .journalSingle) ? model.layout : preset
                 let issue = model.printerIssue(for: layout)
                 LayoutCard(
                     layout: layout, title: PrintModeText.cardTitle(layout, language: model.language),
@@ -91,7 +94,9 @@ struct PrintPressBar: View {
                         issue: issue, language: model.language),
                     accessibilityLabel: PrintModeText.cardLabel(layout, issue: issue, language: model.language),
                     isSelected: model.layoutID == layout.id,
-                    variants: index == 4 ? [preset] + PrintLayout.compactPresets(in: model.trayPaperSeries) : [],
+                    variants: journal
+                        ? [preset, .journalSingle]
+                        : index == 4 ? [preset] + PrintLayout.compactPresets(in: model.trayPaperSeries) : [],
                     model: model
                 ) {
                     model.chooseLayout(layout.id)

@@ -26,6 +26,8 @@ public enum HTMLDocumentBuilder {
                             + (style.raggedBottom ? " data-latex-ragged-bottom" : "")
                             + (style.frenchSpacing ? " data-latex-french-spacing" : "")
                     } ?? "")
+                    + (info.publicationGridStyle.map { " data-latex-publication-grid=\"\($0)\"" } ?? "")
+                    + (info.raggedColumns ? " data-latex-ragged-bottom" : "")
                     + (info.profile.bookOpeningSide.map { " data-latex-book-opening=\"\($0)\"" } ?? "")
                     + (localMain ? " data-latex-local-main-font" : "")
                     + (title.map { " data-latex-title-layout=\"\($0)\"" } ?? "")

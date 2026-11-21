@@ -9,11 +9,12 @@ struct LaTeXFlowLayout {
         var end: CGFloat
         var width: CGFloat
         var noteDepth: CGFloat?
+        var noteRuleOffset: CGFloat?
         var height: CGFloat { end - start }
 
         fileprivate var valid: Bool {
             strip >= 0 && start.isFinite && end.isFinite && height.isFinite && height > 0 && width.isFinite && width > 0
-                && (noteDepth ?? 0) >= 0 && (noteDepth ?? 0) <= height
+                && (noteRuleOffset ?? 0).isFinite && (noteDepth ?? 0) >= 0 && (noteDepth ?? 0) <= height
         }
     }
 
@@ -86,9 +87,12 @@ struct LaTeXFlowLayout {
     }
 
     struct Measurement: Decodable {
+        var allowsSingleLineFragments: Bool?
+        var comparesColumnBreakBadness: Bool?
         var glueShrink: GlueComponents?
         var glueStretch: GlueComponents?
         var columnNotice: Slice?
+        var singleColumnNotice: Bool?
         var columnNoticeLast: Bool?
         var reviewBanner: String?
         var reviewCorner: String?
@@ -103,6 +107,7 @@ struct LaTeXFlowLayout {
         var noteSkip: CGFloat
         var noteStrutDepth: CGFloat?
         var noteRuleWidth: CGFloat?
+        var noteRuleThickness: CGFloat?
         var textFloatSep: CGFloat
         var floatSep: CGFloat
         var inTextSep: CGFloat
@@ -213,7 +218,7 @@ struct LaTeXFlowLayout {
             }
         }
 
-        fileprivate mutating func finish(height: CGFloat, full: Lane, ruleWidth: CGFloat) {
+        fileprivate mutating func finish(height: CGFloat, full: Lane, ruleWidth: CGFloat, ruleThickness: CGFloat) {
             // Reserve footers during layout, then splice them into the capture stream at their
             // column ends. Work backwards so earlier offsets remain valid. Page-wide notes read last.
             let bodyCount = pieces.count
@@ -237,11 +242,13 @@ struct LaTeXFlowLayout {
                 if let last = footer.lastNotice, let i = notes.firstIndex(of: last) {
                     notes.append(notes.remove(at: i))
                 }
-                if !notes.isEmpty {
+                if let first = notes.first {
                     let skip = footer.noteSkip
                     y += skip
                     rules.append(
-                        CGRect(x: lane.x, y: y - min(3, skip / 2), width: min(ruleWidth, lane.width), height: 0.5))
+                        CGRect(
+                            x: lane.x, y: y + (first.noteRuleOffset ?? -min(3, skip / 2)),
+                            width: min(ruleWidth, lane.width), height: ruleThickness))
                 }
                 for slice in notes {
                     blocks.append(Piece(slice: slice, x: lane.x, y: y, scale: 1))
@@ -376,7 +383,8 @@ struct LaTeXFlowLayout {
         _ input: Measurement, width: CGFloat, height: CGFloat, until deadline: ContinuousClock.Instant? = nil
     ) throws -> [Page] {
         let spacing = [
-            input.noteSkip, input.noteStrutDepth ?? 0, input.noteRuleWidth ?? 180, input.textFloatSep, input.floatSep,
+            input.noteSkip, input.noteStrutDepth ?? 0, input.noteRuleWidth ?? 180, input.noteRuleThickness ?? 0.5,
+            input.textFloatSep, input.floatSep,
             input.inTextSep,
         ]
         guard width.isFinite, width > 0, height.isFinite, height > 0,
@@ -422,7 +430,9 @@ struct LaTeXFlowLayout {
                     }
                 }
             }
-            segment.items = keptItems(segment.items, capacity: height, inTextSep: input.inTextSep)
+            segment.items = keptItems(
+                segment.items, capacity: height, inTextSep: input.inTextSep,
+                allowsSingleLineFragments: input.allowsSingleLineFragments == true)
             // A clear page drains the old queue before text after the command can enter the new one.
             var start = 0
             for i in segment.items.indices {
@@ -447,7 +457,9 @@ struct LaTeXFlowLayout {
         return layout.pages
     }
 
-    static func keptItems(_ items: [Item], capacity: CGFloat, inTextSep: CGFloat = 0) -> [Item] {
+    static func keptItems(
+        _ items: [Item], capacity: CGFloat, inTextSep: CGFloat = 0, allowsSingleLineFragments: Bool = false
+    ) -> [Item] {
         var result: [Item] = []
         var first = 0
         while first < items.count {
@@ -474,7 +486,7 @@ struct LaTeXFlowLayout {
                 return .init(
                     start: s.start, end: s.end,
                     keepNext: items[i].heading == true || (i + 1 < end && items[i + 1].keepBefore == true)
-                        || sameNext && (firstPair || lastPair && !afterFirstTwo)
+                        || !allowsSingleLineFragments && sameNext && (firstPair || lastPair && !afterFirstTwo)
                 )
             }
             var i = first
@@ -549,7 +561,9 @@ struct LaTeXFlowLayout {
 
     private mutating func endPage(flush: Bool = false) {
         if flush, let glue = input.glueStretch { page.flush(height: height, full: full, glue: glue) }
-        page.finish(height: height, full: full, ruleWidth: input.noteRuleWidth ?? 180)
+        page.finish(
+            height: height, full: full, ruleWidth: input.noteRuleWidth ?? 180,
+            ruleThickness: input.noteRuleThickness ?? 0.5)
         if pages.isEmpty, let notice = input.firstNotice {
             page.pieces.append(Piece(slice: notice, x: 0, y: height + textFloatSep, scale: 1))
         }
@@ -573,6 +587,7 @@ struct LaTeXFlowLayout {
             // replay with finite shrink so a nearly fitting group can still stay.
             let checkNaturalEnd =
                 canFinishRagged && segment.columns == 2 && !segment.balance
+                && input.comparesColumnBreakBadness != true
                 && input.glueStretch != nil && input.glueShrink != nil
             var depth = try fill(segment, cursor: &cursor, limit: height, shrinkColumns: !checkNaturalEnd)
             if checkNaturalEnd && (cursor.item < segment.items.count || !cursor.waiting.isEmpty) {
@@ -705,9 +720,10 @@ struct LaTeXFlowLayout {
                     return result.depth
                 }
                 if cursor.item > naturalCursor.item, cursor.item < segment.items.count,
-                    segment.items[cursor.item - 1].brokenAfter == true,
-                    naturalCursor.item > initial.item, segment.items[naturalCursor.item - 1].brokenAfter != true,
-                    let glue = input.glueStretch
+                    naturalCursor.item > initial.item, let glue = input.glueStretch,
+                    input.comparesColumnBreakBadness == true
+                        || segment.items[cursor.item - 1].brokenAfter == true
+                            && segment.items[naturalCursor.item - 1].brokenAfter != true
                 {
                     // TeX adds brokenpenalty (100) when a column ends mid-word.
                     // Badness is 100 times the cube of the glue adjustment ratio.
@@ -715,7 +731,11 @@ struct LaTeXFlowLayout {
                     let shrink = page.shrinkRatio(
                         in: lane, height: height, full: full,
                         fullyShrunkSpace: fullCompression?.item == cursor.item ? fullCompression?.space : nil)
-                    if !shrink.isFinite || stretch * stretch * stretch < 1 + shrink * shrink * shrink {
+                    let naturalPenalty: CGFloat = segment.items[naturalCursor.item - 1].brokenAfter == true ? 1 : 0
+                    let compressedPenalty: CGFloat = segment.items[cursor.item - 1].brokenAfter == true ? 1 : 0
+                    if !shrink.isFinite
+                        || naturalPenalty + stretch * stretch * stretch < compressedPenalty + shrink * shrink * shrink
+                    {
                         page = naturalPage
                         cursor = naturalCursor
                         y = natural.depth
@@ -744,7 +764,8 @@ struct LaTeXFlowLayout {
         defer {
             if lane != full && page.footers[lane] != nil { page.columnEnds[lane] = page.pieces.count }
         }
-        if pages.isEmpty, segment.columns == 2, index == 0, let notice = input.columnNotice,
+        if pages.isEmpty, segment.columns == 2 || input.singleColumnNotice == true, index == 0,
+            let notice = input.columnNotice,
             !page.footers.values.contains(where: { $0.notes.contains(notice) })
         {
             guard notice.valid, base + notice.height - (notice.noteDepth ?? 0) + noteSkip <= height else {

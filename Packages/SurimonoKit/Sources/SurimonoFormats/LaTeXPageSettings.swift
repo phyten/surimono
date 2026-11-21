@@ -113,6 +113,7 @@ struct LaTeXPageSettings {
 
     func styleVariables(for box: LaTeXPageBox, info: LaTeXDocumentClassInfo) -> String {
         var classSkips = info.publication?.floatStyleVariables(size: info.pointSize) ?? [:]
+        if let grid = info.profile.page.fixedGrid { classSkips.merge(grid.variables) { _, value in value } }
         if info.profile.body.usesSizeFileGlue {
             // size10/11/12.clo give listii the outer parsep as topsep and listiii the inner parsep.
             let outer = Double(info.pointSize - 10) / 2 + 4
@@ -632,6 +633,7 @@ extension LaTeXDocument {
     var columnSpacing: String {
         let gap =
             (pageSettings.columnGap ?? classInfo.resolvedStyle?.columnGap
+            ?? classInfo.profile.page.fixedGrid?.columnGap
             ?? classInfo.publication?.columnGap(size: classInfo.pointSize)).map {
                 "data-latex-gap=\"\(LaTeXPageSettings.number($0))\" "
             } ?? ""

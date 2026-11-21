@@ -76,7 +76,14 @@ package struct LaTeXClassProfile: Equatable, Sendable {
 
     enum EndDots: Equatable, Sendable { case never, automatic, always }
 
+    enum HeadingCounterForm: Equatable, Sendable { case decimal, spacedHierarchy, parenthesizedParagraph }
+
     struct Headings: Equatable, Sendable {
+        var numberingDepth: Int?
+        var groupsParagraphsAtThirdLevel = false
+        var displayParagraphs = false
+        var sectionDot = false
+        var counterForm = HeadingCounterForm.decimal
         var endDots = EndDots.never
         var chapterLabel = ChapterLabel.localized
         var runningNumberSeparator = " "
@@ -89,6 +96,7 @@ package struct LaTeXClassProfile: Equatable, Sendable {
         var emptyPartPage = false
         // AMS and jlreq mark headings without enabling grid flow; kept apart until each consumer is checked against real LaTeX.
         var marksHeadingLevel = false
+        var distributesShortTitles = false
         var smallCapsSections = false
         var navigationOnlySections = false
         var readsElementFonts = false
@@ -97,7 +105,19 @@ package struct LaTeXClassProfile: Equatable, Sendable {
         var bibliography = BibliographyHeading.inherited
     }
 
+    enum SocietyTitle: String, Equatable, Sendable {
+        case bilingualJournal, insetBilingual, framedPaper
+    }
+
     struct TitleBlock: Equatable, Sendable {
+        var societyLayout: SocietyTitle?
+        var englishInTitle = false
+        var datesAtEnd = false
+        var inColumn = false
+        var yearOffset = 1959
+        var paperTypeLabel = ""
+        var journalName = ""
+        var omitsEnglishSupplement = false
         var keywordSeparator = ", "
         // IEEE options may disable the journal style alone; kept apart until each consumer is checked against real LaTeX.
         var defaultKeywordLabel = "Keywords:"
@@ -139,7 +159,16 @@ package struct LaTeXClassProfile: Equatable, Sendable {
         case characterGrid, ams, traditional
     }
 
+    enum FootnoteForm: Equatable, Sendable { case number, japaneseNote, repeatedStar }
+    enum EnumerationLabels: Equatable, Sendable { case standard, parentheses, wideParentheses, periods }
+
     struct Body: Equatable, Sendable {
+        var footnoteForm = FootnoteForm.number
+        var enumLabels = EnumerationLabels.standard
+        var referenceName: String?
+        var figName: String?
+        var citationListSeparator: String?
+        var citationRangeSeparator: String?
         var correspondence = Correspondence.none
         var readsQuestions = false
         var readsFrames = false
@@ -160,17 +189,21 @@ package struct LaTeXClassProfile: Equatable, Sendable {
         var captionSkip = CaptionSkip.inherited
         var usesScaledTableMetrics = false
         var alignsDisplayRows = false
+        var hangsPlainCaptions = false
         var alignsHangingCaptions = false
     }
 
     enum Paper: String, Equatable, Sendable {
         case a4 = "a4paper"
         case letter = "letterpaper"
+        case jisB5, journalTrim
 
         var millimetres: (Double, Double) {
             switch self {
             case .a4: (210, 297)
             case .letter: (215.9, 279.4)
+            case .jisB5: (182, 257)
+            case .journalTrim: (210, 280)
             }
         }
     }
@@ -180,6 +213,7 @@ package struct LaTeXClassProfile: Equatable, Sendable {
     }
 
     struct Page: Equatable, Sendable {
+        var fixedGrid: PublicationGrid?
         var layoutRule = LayoutRule.standard(.inherited)
         var paperOptions = PaperOptions.standard
         var defaultPaper = Paper.letter
@@ -194,6 +228,7 @@ package struct LaTeXClassProfile: Equatable, Sendable {
     }
 
     struct Typography: Equatable, Sendable {
+        var defaultMainFont: String?
         var usesJapaneseStyle = false
         var mainLanguage = "en"
         var pointSize = 10
@@ -212,10 +247,14 @@ package struct LaTeXClassProfile: Equatable, Sendable {
         case ams(fontSize: Double)
         case markedBook(numberInHead: Bool, ruled: Bool)
         case exam, empty, runningHeads
+        case journalIssueLine, ruledArticleType, outerHeadNumber, technicalReportNotice
+        case journalReportTitle(bilingual: Bool)
     }
 
     struct PageStyle: Equatable, Sendable {
         var running = RunningStyle.plain
+        var journalDOIPrefix: String?
+        var runningArticleType: String?
         var japanesePlain = false
         // Differs from page.twoSidedBox today; kept apart until each consumer is checked against real LaTeX.
         var twoSidedFields = false

@@ -93,6 +93,11 @@ struct LaTeXClassBox {
         info: LaTeXDocumentClassInfo, paperWidth: Double, paperHeight: Double, twoSided: Bool
     ) -> Self {
         let size = info.pointSize
+        if let grid = info.profile.page.fixedGrid {
+            return Self(
+                width: grid.width, height: grid.height, left: (paperWidth - grid.width) / 2, top: grid.top,
+                headHeight: grid.headHeight, headSep: grid.headSep, footSkip: grid.footSkip)
+        }
         switch info.profile.page.layoutRule {
         case .typeArea:
             return typeAreaBox(info, width: paperWidth, height: paperHeight, twoSided: twoSided)

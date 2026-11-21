@@ -435,11 +435,12 @@ public final class WebPaginator: NSObject {
                 preparationResult: preparationResult, pageRules: pageRules,
                 requiredFolderAccess: session.localHandler?.requiredFolderAccess)
             // A preamble-only exam header can use final totals without any body destination to measure.
-            if texPages.isEmpty, var state = latexPageNumbers, state.needsExamTotals {
-                for _ in 0..<document.pageCount {
-                    texPages.append(LaTeXPageReferences.Page(state))
-                    state.advance()
-                }
+            if texPages.isEmpty, let state = latexPageNumbers, state.needsExamTotals || state.usesJournalFurniture {
+                texPages =
+                    LaTeXPageReferences.map(
+                        state, targets: [], locations: [:], pageCount: document.pageCount,
+                        restartsAfterTitle: false
+                    ).pages
             }
             result.finishing.latexPages = texPages
             result.drawingBytes = pageData

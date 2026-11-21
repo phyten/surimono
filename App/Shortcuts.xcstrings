@@ -1,6 +1,59 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "210 × 280 mm Single-sided": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "210 × 280 mm Single-sided"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "210 × 280 mm 片面"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "210 × 280 mm 单面"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "210 × 280 mm 單面"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "210 × 280 mm 단면"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "210 × 280 mm Recto"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "210 × 280 mm Einseitig"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "210 × 280 mm Una cara"
+          }
+        }
+      }
+    },
     "Export PDF with Surimono": {
       "extractionState": "manual",
       "localizations": {

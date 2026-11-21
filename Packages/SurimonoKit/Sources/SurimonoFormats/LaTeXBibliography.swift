@@ -498,7 +498,7 @@ extension LaTeXReader {
             let title =
                 document.classInfo.profile.headings.smallCapsSections
                     || document.classInfo.resolvedStyle?.displayFace == .smallCaps
-                ? LaTeXJournalStyle.smallCaps(heading, in: document) : heading
+                ? LaTeXJournalStyle.smallCaps(heading, in: document) : shortHeadingBox(heading)
             return "<h2 class=\"latex-bibliography-heading\"\(book)\(opening)\(anchor)>\(title)</h2>\n"
         }
     }

@@ -48,7 +48,7 @@ struct HeadlessExport {
     ) throws
         -> RenderSettings
     {
-        let layoutID = layoutID ?? preferences.layoutID
+        let layoutID = layoutID ?? UserLibrary.classLayout(for: source, renderer: renderer)?.id ?? preferences.layoutID
         let layout = PrintLayout.presets.first { $0.id == layoutID } ?? .a4Single
         let standard = library.themes.first { $0.id == "standard" }
         let theme: PrintTheme?

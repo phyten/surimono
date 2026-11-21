@@ -135,6 +135,34 @@ struct DocumentSettingsFlowTests {
         #expect(!markdown.availableThemes.contains { $0.id == original.themeID })
     }
 
+    @Test("学会誌の判型で開き、用紙を選び直すとその選択を復元する", .timeLimit(.minutes(1)))
+    func societyStock() async throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        let bytes = Data(#"\documentclass{ieice}\begin{document}Body.\end{document}"#.utf8)
+        let document = pdf("Body", pages: 1)
+        func model() -> DocumentViewModel {
+            DocumentViewModel(
+                data: bytes, fileURL: nil, format: .latex, preferences: fixture.preferences, library: fixture.library,
+                renderer: DocumentRenderer(paginate: { _ in try #require(PDFDocument(data: document)) }),
+                settingsStore: fixture.store)
+        }
+        let initial = model()
+        try await open(initial)
+        #expect(initial.layout == .journalSingle)
+        #expect(fixture.store.keys().isEmpty)
+        initial.chooseCard(at: 0)
+        #expect(initial.layout == .journalSingle)
+        initial.chooseLayout(PrintLayout.b5Single.id)
+        initial.rememberedSettingsDidChange()
+        initial.flushPendingSettings()
+        initial.stop()
+        let restored = model()
+        defer { restored.stop() }
+        try await open(restored)
+        #expect(restored.layout == .b5Single)
+    }
+
     @Test("別ファイルの文書クラスを既定に使い、前置きだけを変えて読み直しても設定を保存しない", .timeLimit(.minutes(1)))
     func includedClassStyle() async throws {
         let fixture = try environment()

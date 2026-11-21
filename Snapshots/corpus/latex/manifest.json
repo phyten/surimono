@@ -1864,5 +1864,53 @@
    "final",
    "natbib"
   ]
+ },
+ {
+  "id": "125",
+  "dir": "125-class-ipsj",
+  "title": "鉄道模型用の折り紙スペーサーの高さの測定",
+  "category": "Japanese society classes",
+  "engine": "platex",
+  "compiles": false,
+  "reason_if_not": "Requires the official society class kit beside the document.",
+  "pages": 2,
+  "features": [
+   "external-style-kit",
+   "two-column",
+   "affiliations",
+   "title"
+  ]
+ },
+ {
+  "id": "126",
+  "dir": "126-class-ieicej",
+  "title": "鉄道模型用の折り紙スペーサーの高さの測定",
+  "category": "Japanese society classes",
+  "engine": "uplatex",
+  "compiles": false,
+  "reason_if_not": "Requires the official society class kit beside the document.",
+  "pages": 3,
+  "features": [
+   "external-style-kit",
+   "two-column",
+   "affiliations",
+   "english-abstract"
+  ]
+ },
+ {
+  "id": "127",
+  "dir": "127-class-ieice",
+  "title": "Measuring Folded Card Spacers for Model Rails",
+  "category": "Japanese society classes",
+  "engine": "pdflatex",
+  "compiles": false,
+  "reason_if_not": "Requires the official society class kit beside the document.",
+  "pages": 2,
+  "features": [
+   "external-style-kit",
+   "two-column",
+   "affiliations",
+   "title"
+  ]
  }
 ]

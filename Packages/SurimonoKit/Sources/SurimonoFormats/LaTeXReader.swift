@@ -3,6 +3,10 @@ import Foundation
 /// Reads LaTeX source into HTML. A block reader makes paragraphs and blocks; an inline reader makes
 /// the text of an argument. Argument and environment readers share the document's state.
 final class LaTeXReader {
+    // A thin kern at the edge of a font argument still separates it from the following unit.
+    private static let paragraphWhitespace = CharacterSet.whitespacesAndNewlines.subtracting(
+        CharacterSet(charactersIn: "\u{2009}\u{202F}"))
+
     private enum Space {
         case space
         case newline
@@ -107,7 +111,7 @@ final class LaTeXReader {
         }
         finishBoxes()
         closeDeclarations()
-        return paragraph.trimmingCharacters(in: .whitespacesAndNewlines)
+        return paragraph.trimmingCharacters(in: Self.paragraphWhitespace)
     }
 
     // MARK: - Characters
@@ -428,7 +432,7 @@ final class LaTeXReader {
         finishBoxes()
         closeDeclarations()
         if inlineLanguage != nil { paragraph += "</span>" }
-        let text = paragraph.trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = paragraph.trimmingCharacters(in: Self.paragraphWhitespace)
         if !text.isEmpty {
             var attribute = noParagraphIndent ? " class=\"latex-noindent\"" : ""
             // A solitary rule starts the float at its natural height, even when shorter than a text line.
@@ -482,7 +486,8 @@ final class LaTeXReader {
         reader.floatKind = floatKind
         reader.typewriter = typewriter ?? self.typewriter
         let html = reader.read()
-        let trailing = reader.pendingSpace != nil || reader.paragraph.last?.isWhitespace == true
+        let endsInSpace = reader.paragraph.unicodeScalars.last.map(Self.paragraphWhitespace.contains) == true
+        let trailing = reader.pendingSpace != nil || endsInSpace
         return trailing && !html.isEmpty ? html + " " : html
     }
 
@@ -625,6 +630,11 @@ final class LaTeXReader {
             readLoop(name)
             return
         }
+        if !next.isASCII, let name = societyDateControlWord() {
+            skipSpacesAfterControlWord()
+            dispatch(name)
+            return
+        }
         guard next.isASCII, next.isLetter else {
             index += 1
             if document.macros[String(next)] != nil {
@@ -752,6 +762,13 @@ final class LaTeXReader {
         case "documentclass": readDocumentClass()
         case "end":
             if argument() == "document", document.startedDocument { document.endedDocument = true }
+        default: typesettingCommand(name)
+        }
+    }
+
+    // Reading a nested environment must not keep the temporaries for unrelated commands on the stack.
+    private func typesettingCommand(_ name: String) {
+        switch name {
         case "part", "chapter", "section", "subsection", "subsubsection", "paragraph", "subparagraph":
             section(name)
         case "frontmatter", "mainmatter", "backmatter":
@@ -766,38 +783,7 @@ final class LaTeXReader {
             let attribution = inline(argument() ?? "")
             appendBlock(
                 "<blockquote class=\"latex-epigraph\">\(quotation)<footer>\(attribution)</footer></blockquote>\n")
-        case "tableofcontents", "listoffigures", "listoftables":
-            let (list, key): (LaTeXDocument.ContentsList, String)
-            switch name {
-            case "listoffigures": (list, key) = (.figures, "listfigurename")
-            case "listoftables": (list, key) = (.tables, "listtablename")
-            default:
-                let depth = min(5, max(-2, document.counters["tocdepth"]))
-                // The .toc stores only the counter. The prefix used when it is read may precede the appendix.
-                let chapterFormat =
-                    document.classInfo.profile.structure.formatsContentsChapterNames && document.language == "ja"
-                    ? numberedHeading(
-                        document.isAppendix ? "appendix" : "chapter", number: document.placeholder("N", 0)) : nil
-                (list, key) = (.headings(depth: depth, chapterFormat: chapterFormat), "contentsname")
-            }
-            let opening = document.classInfo.hasChapters ? " data-latex-chapter-opening" : ""
-            let pageStyle = document.bodyPageStyles ?? document.classInfo.pageNumbers
-            let mark =
-                document.classInfo.profile.structure.contents == .chapterMarks && pageStyle.writesContentsMark
-                ? " data-latex-contents-mark" : ""
-            let caption = captionName(key)
-            let title =
-                document.classInfo.profile.structure.contents == .sectionTitle
-                ? "<h2 class=\"latex-contents-title\" data-latex-heading=\"section\">\(caption)</h2>"
-                : "<p class=\"latex-contents-title\">\(caption)</p>"
-            let bookMark =
-                document.classInfo.profile.structure.bookOpening == nil
-                ? "" : " data-latex-book-mark=\"\(HTML.escape(DocumentOutline.plainText(ofHTML: caption)))\""
-            let measure = document.classInfo.profile.structure.contentsMeasure.attributes
-            let nav =
-                "<nav class=\"toc\"\(opening)\(mark)\(bookMark)\(measure)>\(title)"
-                + document.contentsPlaceholder(list) + "</nav>\n"
-            appendBlock(styledLinks(nav, block: true))
+        case "tableofcontents", "listoffigures", "listoftables": appendContentsList(name)
         case "addcontentsline":
             let list = argument()
             let unit = argument() ?? ""
@@ -924,31 +910,68 @@ final class LaTeXReader {
             appendHTML(inline(argument() ?? ""))
         case "includegraphics": appendHTML(image())
         case "scalebox", "resizebox": scaledBox(name)
-        case "rule":
-            let raise = optional().flatMap(LaTeXSymbols.printLength)
-            let width = argument().flatMap(LaTeXSymbols.printLength)
-            let rawHeight = argument() ?? ""
-            let height = LaTeXSymbols.printLength(rawHeight)
-            if let width, let height {
-                let lift = raise.map { "; vertical-align: \($0)" } ?? ""
-                // A subpixel fill can disappear when WebKit snaps its paint bounds. Paint a taller rectangle
-                // and scale its ink back into the actual TeX box.
-                let hairline =
-                    LaTeXPageSettings.millimetres(rawHeight).map { $0 > 0 && $0 < 0.5 * 25.4 / 72.27 } ?? false
-                let style =
-                    "display: inline-block; width: \(width); height: \(height)\(lift)"
-                    + (hairline ? "; position: relative" : "; background: currentColor")
-                    + "; -webkit-print-color-adjust: exact"
-                let ink =
-                    hairline
-                    ? #"<i aria-hidden="true" style="position: absolute; inset-inline: 0; top: 0; height: 1000%; background: currentColor; transform-origin: top; transform: scaleY(.1)"></i>"#
-                    : ""
-                appendHTML("<span class=\"latex-rule\" style=\"\(style)\">\(ink)</span>")
-            }
+        case "rule": appendRule()
         case "caption": caption()
         case "c", "k", "d", "b", "r", "t", "u", "v", "H":
             if let mark = LaTeXSymbols.accents[Character(name)] { accent(mark) }
         default: generic(name)
+        }
+    }
+
+    private func appendContentsList(_ name: String) {
+        let (list, key): (LaTeXDocument.ContentsList, String)
+        switch name {
+        case "listoffigures": (list, key) = (.figures, "listfigurename")
+        case "listoftables": (list, key) = (.tables, "listtablename")
+        default:
+            let depth = min(5, max(-2, document.counters["tocdepth"]))
+            // The .toc stores only the counter. The prefix used when it is read may precede the appendix.
+            let chapterFormat =
+                document.classInfo.profile.structure.formatsContentsChapterNames && document.language == "ja"
+                ? numberedHeading(
+                    document.isAppendix ? "appendix" : "chapter", number: document.placeholder("N", 0)) : nil
+            (list, key) = (.headings(depth: depth, chapterFormat: chapterFormat), "contentsname")
+        }
+        let opening = document.classInfo.hasChapters ? " data-latex-chapter-opening" : ""
+        let pageStyle = document.bodyPageStyles ?? document.classInfo.pageNumbers
+        let mark =
+            document.classInfo.profile.structure.contents == .chapterMarks && pageStyle.writesContentsMark
+            ? " data-latex-contents-mark" : ""
+        let caption = captionName(key)
+        let title =
+            document.classInfo.profile.structure.contents == .sectionTitle
+            ? "<h2 class=\"latex-contents-title\" data-latex-heading=\"section\">\(caption)</h2>"
+            : "<p class=\"latex-contents-title\">\(caption)</p>"
+        let bookMark =
+            document.classInfo.profile.structure.bookOpening == nil
+            ? "" : " data-latex-book-mark=\"\(HTML.escape(DocumentOutline.plainText(ofHTML: caption)))\""
+        let measure = document.classInfo.profile.structure.contentsMeasure.attributes
+        let nav =
+            "<nav class=\"toc\"\(opening)\(mark)\(bookMark)\(measure)>\(title)"
+            + document.contentsPlaceholder(list) + "</nav>\n"
+        appendBlock(styledLinks(nav, block: true))
+    }
+
+    private func appendRule() {
+        let raise = optional().flatMap(LaTeXSymbols.printLength)
+        let width = argument().flatMap(LaTeXSymbols.printLength)
+        let rawHeight = argument() ?? ""
+        let height = LaTeXSymbols.printLength(rawHeight)
+        if let width, let height {
+            let lift = raise.map { "; vertical-align: \($0)" } ?? ""
+            // A subpixel fill can disappear when WebKit snaps its paint bounds. Paint a taller rectangle
+            // and scale its ink back into the actual TeX box.
+            let hairline =
+                LaTeXPageSettings.millimetres(rawHeight).map { $0 > 0 && $0 < 0.5 * 25.4 / 72.27 } ?? false
+            let style =
+                "display: inline-block; width: \(width); height: \(height)\(lift)"
+                + (hairline ? "; position: relative" : "; background: currentColor")
+                + "; -webkit-print-color-adjust: exact"
+            let ink =
+                hairline
+                ? #"<i aria-hidden="true" style="position: absolute; inset-inline: 0; top: 0; height: 1000%; background: currentColor; transform-origin: top; transform: scaleY(.1)"></i>"#
+                : ""
+            appendHTML("<span class=\"latex-rule\" style=\"\(style)\">\(ink)</span>")
         }
     }
 
@@ -1136,7 +1159,9 @@ final class LaTeXReader {
             switch name {
             case "begin":
                 let environment = argument() ?? ""
-                if ["abstract", "CCSXML", "keyword", "keywords", "IEEEkeywords"].contains(environment) {
+                if let section = societyAbstract(environment) {
+                    readSocietyAbstract(section, body: environmentBody(environment))
+                } else if ["abstract", "CCSXML", "keyword", "keywords", "IEEEkeywords"].contains(environment) {
                     readFrontEnvironment(environment, body: environmentBody(environment))
                 } else if environment == "document" {
                     document.resolveStylePackage()
@@ -1198,6 +1223,7 @@ final class LaTeXReader {
         let name = argument()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? LaTeXClassID.article.rawValue
         document.classInfo = LaTeXDocumentClassInfo(name: name, options: options)
         document.classInfo.journalStyle?.defineCounters(in: document)
+        if let depth = document.classInfo.profile.headings.numberingDepth { document.counters["secnumdepth"] = depth }
         document.pageSettings.readClassOptions(options ?? "", info: document.classInfo)
         document.classLanguageOptions = (options ?? "").components(separatedBy: ",").map {
             $0.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1216,6 +1242,7 @@ final class LaTeXReader {
 
     private func controlTokenName() -> Substring {
         if let name = kernelLoopName() { return name[...] }
+        if let next = peek(), !next.isASCII, let name = societyDateControlWord() { return name[...] }
         let start = index
         while let character = peek(), character.isASCII, character.isLetter { index += 1 }
         if index == start, peek() != nil { index += 1 }
@@ -1316,7 +1343,9 @@ final class LaTeXReader {
         let deepestNumbered = document.counters["secnumdepth"]
         var number: String?
         var display: String?
-        if numbered, !starred, level != 0 || document.numbersChapters, level <= deepestNumbered, level >= first {
+        let numberingLevel = headings.groupsParagraphsAtThirdLevel ? min(level, 3) : level
+        if numbered, !starred, level != 0 || document.numbersChapters, numberingLevel <= deepestNumbered, level >= first
+        {
             number = stepCounter(name)
             if level == 0, let chapter = number {
                 display =
@@ -1333,7 +1362,9 @@ final class LaTeXReader {
         }
         if let number, number.contains(where: \.isLetter) { document.hasNonArabicHeading = true }
         let endDot = document.classInfo.resolvedStyle?.headingDot == true ? "." : document.headingEndDot
-        display = display.map { $0 + endDot }
+        display = display.map {
+            headings.sectionDot && name == "section" && !$0.hasSuffix(".") ? $0 + "." : $0 + endDot
+        }
         let suffix = number?.replacingOccurrences(of: ".", with: "-") ?? "u\(document.headings.count + 1)"
         let id = document.counters.anchor("sec", suffix: suffix)
         let tag = min(level - first + 2, 6)
@@ -1362,7 +1393,7 @@ final class LaTeXReader {
         let numberHTML = display.map { "<span class=\"secnum\">\($0)</span>" } ?? ""
         let amsRunIn = document.classInfo.journalStyle == .ams && ["subsection", "subsubsection"].contains(name)
         let runIn =
-            name == "paragraph" || name == "subparagraph" || amsRunIn
+            (!headings.displayParagraphs && (name == "paragraph" || name == "subparagraph")) || amsRunIn
             || name == "subsubsection" && document.classInfo.resolvedStyle?.runInSubsubsection == true
         let kind = runIn ? " class=\"latex-runin-\(name)\"" : ""
         // An HTML newline becomes an extra word space when the theme puts the heading and paragraph on one line.
@@ -1383,7 +1414,7 @@ final class LaTeXReader {
             ? LaTeXJournalStyle.smallCaps(title, in: document) : title
         let headTitle =
             name == "chapter" && headings.wrapsChapterTitle
-            ? "<span class=\"latex-chapter-title\">\(title)</span>" : sectionTitle
+            ? "<span class=\"latex-chapter-title\">\(title)</span>" : shortHeadingBox(sectionTitle)
         let bookMark: String
         if document.classInfo.profile.structure.bookOpening != nil, !starred, listed, level == 0 || level == 1 {
             let japanese =
@@ -1411,6 +1442,12 @@ final class LaTeXReader {
             appendBlock(heading + "\n")
         }
         precedingUnnumberedHeading = starred || !numbered ? id : nil
+    }
+
+    /// The width is evaluated after font selection, since a mixed title need not be an integral number of cells.
+    func shortHeadingBox(_ html: String) -> String {
+        guard document.classInfo.profile.headings.distributesShortTitles else { return html }
+        return "<span class=\"latex-heading-measure\">\(html)</span>"
     }
 
     /// LaTeX selects a size from the class table even inside a larger title or author line.
@@ -2030,6 +2067,10 @@ final class LaTeXReader {
     ]
 
     private func environment(_ name: String, body: String) {
+        if let section = societyAbstract(name) {
+            readSocietyAbstract(section, body: body)
+            return
+        }
         if handleExamEnvironment(name, body: body) { return }
         let base = name.hasSuffix("*") ? String(name.dropLast()) : name
         if Self.mathEnvironments.keys.contains(base) || base == "alignat" {
@@ -2044,20 +2085,7 @@ final class LaTeXReader {
         switch base {
         case "math":
             appendInlineFormula(body, source: "\\begin{math}\(body)\\end{math}")
-        case "itemize", "enumerate", "description":
-            let reader = LaTeXReader(body, document: document, isBlock: false)
-            let options = reader.optionalOnLine()
-            document.listStack.append(base)
-            defer { document.listStack.removeLast() }
-            var settings = document.pageSettings.listOptions(
-                base, depth: document.listStack.count,
-                kindDepth: document.listStack.filter { $0 == base }.count, options: options)
-            let nextLine = settings.removeValue(forKey: "style") == "nextline"
-            var html = list(base, options: options, body: reader.rest, nextLine: nextLine)
-            let attribute =
-                settings.isEmpty ? "" : " style=\"\(HTML.escape(LaTeXPageSettings.cssVariables(settings)))\""
-            if !attribute.isEmpty, let end = html.firstIndex(of: ">") { html.insert(contentsOf: attribute, at: end) }
-            appendBlock(html)
+        case "itemize", "enumerate", "description": appendList(base, body: body)
         case "quote", "quotation":
             let attribute = base == "quotation" ? " class=\"latex-quotation\"" : ""
             appendBlock("<blockquote\(attribute)>\n\(blocks(body))</blockquote>\n")
@@ -2070,18 +2098,7 @@ final class LaTeXReader {
             appendBlock("<div class=\"latex-titlepage\">\n\(blocks(body))</div>\n")
         case "letter" where document.classInfo.profile.body.correspondence == .letter:
             readLetter(body)
-        case "spacing", "singlespace", "onehalfspace", "doublespace":
-            let reader = LaTeXReader(body, document: document, isBlock: false)
-            var spacing = document.pageSettings
-            if base == "spacing" {
-                spacing.setStretch(reader.argument() ?? "")
-            } else {
-                spacing.lineSpacing(
-                    String(base.dropLast(5)) + "spacing", pointSize: document.classInfo.spacingPointSize)
-            }
-            appendBlock(
-                "<div class=\"latex-leading\" style=\"--latex-stretch: \(spacing.stretch)\">\n\(blocks(reader.rest))</div>\n"
-            )
+        case "spacing", "singlespace", "onehalfspace", "doublespace": appendSpacedBlock(base, body: body)
         case "landscape":
             let boundary = "<template data-latex-break=\"clear\"></template>"
             let before = !document.landscapeBody || document.startedLandscape ? boundary : ""
@@ -2123,26 +2140,7 @@ final class LaTeXReader {
             document.insideSubfigure = previous
         case "strip":
             appendBlock("<div data-latex-wide>\(blocks(body))</div>\n")
-        case "multicols":
-            guard document.reserveExpansion(characters: body.count) else { return }
-            let reader = LaTeXReader(body, document: document, isBlock: false)
-            let count = Int(reader.argument() ?? "") ?? 1
-            let heading = reader.optional()
-            _ = reader.optional()
-            let intro = heading.map { "<div data-latex-wide>\(blocks($0))</div>\n" } ?? ""
-            let columns = max(1, min(count, 2))
-            let scope = document.classInfo.columns == 1 ? "page" : "column"
-            let attributes = document.columnAttributes(columns) + " data-latex-footnotes=\"\(scope)\""
-            let gap = document.pageSettings.columnGap
-            let rule = document.pageSettings.columnRule
-            defer {
-                document.pageSettings.columnGap = gap
-                document.pageSettings.columnRule = rule
-            }
-            appendBlock(
-                intro
-                    + "<div \(attributes) data-latex-balance=\"\(!name.hasSuffix("*"))\">\(blocks(reader.rest))</div>\n"
-            )
+        case "multicols": appendColumns(name, body: body)
         case "tcolorbox", "mdframed", "framed", "shaded":
             let reader = LaTeXReader(body, document: document, isBlock: false)
             let options = reader.optional()
@@ -2166,15 +2164,76 @@ final class LaTeXReader {
         }
     }
 
+    private func appendList(_ base: String, body: String) {
+        let reader = LaTeXReader(body, document: document, isBlock: false)
+        let options = reader.optionalOnLine()
+        document.listStack.append(base)
+        defer { document.listStack.removeLast() }
+        var settings = document.pageSettings.listOptions(
+            base, depth: document.listStack.count,
+            kindDepth: document.listStack.filter { $0 == base }.count, options: options)
+        let nextLine = settings.removeValue(forKey: "style") == "nextline"
+        var html = list(base, options: options, body: reader.rest, nextLine: nextLine)
+        let attribute =
+            settings.isEmpty ? "" : " style=\"\(HTML.escape(LaTeXPageSettings.cssVariables(settings)))\""
+        if !attribute.isEmpty, let end = html.firstIndex(of: ">") { html.insert(contentsOf: attribute, at: end) }
+        appendBlock(html)
+    }
+
+    private func appendSpacedBlock(_ base: String, body: String) {
+        let reader = LaTeXReader(body, document: document, isBlock: false)
+        var spacing = document.pageSettings
+        if base == "spacing" {
+            spacing.setStretch(reader.argument() ?? "")
+        } else {
+            spacing.lineSpacing(
+                String(base.dropLast(5)) + "spacing", pointSize: document.classInfo.spacingPointSize)
+        }
+        appendBlock(
+            "<div class=\"latex-leading\" style=\"--latex-stretch: \(spacing.stretch)\">\n\(blocks(reader.rest))</div>\n"
+        )
+    }
+
+    private func appendColumns(_ name: String, body: String) {
+        guard document.reserveExpansion(characters: body.count) else { return }
+        let reader = LaTeXReader(body, document: document, isBlock: false)
+        let count = Int(reader.argument() ?? "") ?? 1
+        let heading = reader.optional()
+        _ = reader.optional()
+        let intro = heading.map { "<div data-latex-wide>\(blocks($0))</div>\n" } ?? ""
+        let columns = max(1, min(count, 2))
+        let scope = document.classInfo.columns == 1 ? "page" : "column"
+        let attributes = document.columnAttributes(columns) + " data-latex-footnotes=\"\(scope)\""
+        let gap = document.pageSettings.columnGap
+        let rule = document.pageSettings.columnRule
+        defer {
+            document.pageSettings.columnGap = gap
+            document.pageSettings.columnRule = rule
+        }
+        appendBlock(
+            intro
+                + "<div \(attributes) data-latex-balance=\"\(!name.hasSuffix("*"))\">\(blocks(reader.rest))</div>\n"
+        )
+    }
+
     // MARK: - Lists
 
     private func list(_ kind: String, options: String?, body: String, nextLine: Bool) -> String {
         var prefix = ""
-        let items = Self.items(of: body) { prefix = $0 }
+        let items = items(of: body) { prefix = $0 }
         switch kind {
         case "itemize":
             let html = items.map { label, content -> String in
                 let text = compact(blocks(content))
+                if label == nil, document.classInfo.profile.page.fixedGrid != nil {
+                    // A generated pseudo-element paints again when two PDF slices share one list item.
+                    // Real label text belongs to the slice containing its first baseline.
+                    let depth = document.listStack.filter { $0 == "itemize" }.count
+                    let bullet = ["•", "–", "∗", "·"][min(max(depth - 1, 0), 3)]
+                    let mark = "<span class=\"latex-item-mark\">\(bullet)</span>"
+                    let item = text.hasPrefix("<p>") ? "<p>" + mark + text.dropFirst(3) : mark + text
+                    return "<li>\(item)</li>\n"
+                }
                 guard let label else { return "<li>\(text)</li>\n" }
                 return
                     "<li class=\"latex-custom-label\">\(labeled(inline(label), text))</li>\n"
@@ -2220,7 +2279,14 @@ final class LaTeXReader {
     /// enumitem's `label=` and `start=` or from the enumerate package's `[(a)]`.
     private func enumerateStyle(_ options: String?) -> (String, String, Int) {
         let defaults = [("\u{E000}.", "arabic"), ("(\u{E000})", "alph"), ("\u{E000}.", "roman"), ("\u{E000}.", "Alph")]
-        var (template, style) = defaults[min(max(document.enumerateDepth - 1, 0), 3)]
+        let depth = min(max(document.enumerateDepth - 1, 0), 3)
+        var (template, style) = defaults[depth]
+        switch document.classInfo.profile.body.enumLabels {
+        case .parentheses: template = "(\u{E000})"
+        case .wideParentheses where depth < 2: template = "（\u{E000}）"
+        case .periods: template = "\u{E000}."
+        default: break
+        }
         let start = min(max(option("start", in: options).flatMap { Int($0) } ?? 1, -1_000_000), 1_000_000)
         let counters = [
             "\\arabic*": "arabic", "\\alph*": "alph", "\\Alph*": "Alph", "\\roman*": "roman", "\\Roman*": "Roman",
@@ -2249,7 +2315,7 @@ final class LaTeXReader {
 
     /// The items of a list body, split at each `\item` outside nested groups and environments, with the label
     /// written in brackets after it.
-    private static func items(of body: String, command: String = "item", prefix: ((String) -> Void)? = nil)
+    private func items(of body: String, command: String = "item", prefix: ((String) -> Void)? = nil)
         -> [(label: String?, content: String)]
     {
         let characters = Array(body)
@@ -2301,7 +2367,8 @@ final class LaTeXReader {
         }
         if let current { items.append((nil, String(current))) }
         return items.map { _, content in
-            let reader = LaTeXReader(content, document: LaTeXDocument(), isBlock: false)
+            // Label scanning consumes only the child cursor and preserves the parent document state.
+            let reader = LaTeXReader(content, document: document, isBlock: false)
             let label = reader.optional()
             return (label, reader.rest)
         }
@@ -2406,7 +2473,7 @@ final class LaTeXReader {
         }
         var entries = ""
         var number = 0
-        let items = Self.items(of: reader.rest, command: "bibitem")
+        let items = items(of: reader.rest, command: "bibitem")
         let labels = items.map { $0.label.flatMap(LaTeXBibliography.ManualLabel.init) }
         let database = document.bibDatabase
         database.hasManualBibliography = true
@@ -2508,7 +2575,10 @@ final class LaTeXReader {
         let inside = reader.read()
         captions.assign(captions.last, in: document)
         let placement = document.insideBeamerFrame ? "H" : spec.flatMap { $0.isEmpty ? nil : $0 } ?? "tbp"
-        let attributes = floats ? " data-latex-float=\"\(kind)\" data-latex-placement=\"\(placement)\"" : ""
+        var attributes = floats ? " data-latex-float=\"\(kind)\" data-latex-placement=\"\(placement)\"" : ""
+        if let size = document.classInfo.profile.page.fixedGrid?.floatSize {
+            attributes += " data-latex-float-size=\"\(size.rawValue)\""
+        }
         appendBlock(
             "<figure class=\"latex-\(kind)\"\(attributes)\(wide && !document.insideBeamerFrame ? " data-latex-wide" : "")>\n\(inside)</figure>\n"
         )
@@ -2580,7 +2650,8 @@ final class LaTeXReader {
             ?? info.profile.body.captionSeparator
             ?? (longtableCaption != nil ? ": " : document.isJapanese ? "　" : document.language == "fr" ? " – " : ": ")
         let contents: String
-        if setup.hangs {
+        let hangs = setup.hangs || info.profile.body.hangsPlainCaptions && setup.attributes.isEmpty
+        if hangs {
             // A manual break centres the individual lines. Keep the separator space when the grid becomes inline.
             let space: String
             if info.profile.body.alignsHangingCaptions, separator == ": ", text.contains("<br>") {
@@ -2590,14 +2661,15 @@ final class LaTeXReader {
             }
             let separator =
                 text.contains("<br>") && separator.hasSuffix(" ") ? String(separator.dropLast()) + space : separator
-            contents = "<span class=\"latex-caption-label\">\(label)\(separator)</span><span>\(text)</span>"
+            contents =
+                "<span class=\"latex-caption-label\">\(label)\(separator)</span><span>\(shortHeadingBox(text))</span>"
         } else if info.resolvedStyle?.captionSeparator != nil, separator == ". " {
             // The period belongs to the caption label and takes its font.
             contents = "<span class=\"latex-caption-label\">\(label).</span> \(text)"
         } else {
             contents = "<span class=\"latex-caption-label\">\(label)</span>\(separator)\(text)"
         }
-        let hang = setup.hangs ? " data-latex-caption-hang" : ""
+        let hang = hangs ? " data-latex-caption-hang" : ""
         appendBlock("<figcaption id=\"\(id)\"\(font)\(hang)>\(contents)</figcaption>\n")
     }
 
@@ -2729,7 +2801,8 @@ final class LaTeXReader {
         return LaTeXTable(
             spec: spec, body: rest,
             basicBidi: document.basicBidiTables && DocumentLanguage(code: document.language).isRightToLeft,
-            isLongtable: isLong, targetWidth: targetWidth, columnTypes: document.pageSettings.columnTypes,
+            isLongtable: isLong, usesMeasuredRules: document.classInfo.usesPublicationGrid, targetWidth: targetWidth,
+            columnTypes: document.pageSettings.columnTypes,
             spacing: registers, arrayStretch: stretch, extraRowHeight: document.pageSettings.extraRowHeight,
             japaneseSize: document.classInfo.profile.body.usesScaledTableMetrics
                 ? declarations.last(where: { $0.size != nil })?.size : nil,

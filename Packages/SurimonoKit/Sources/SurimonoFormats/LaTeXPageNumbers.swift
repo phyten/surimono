@@ -12,6 +12,29 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
     private var twoSided = false
     private var examFirst: [String: String]?
     private var examRunning = [String: String]()
+    // Like runningTitle, journal metadata belongs to the active page style's text fields.
+    // A named fancy style can replace those fields without altering the document's title.
+    private var journalLayout: LaTeXJournalPage.Layout? {
+        get { fields["journalLayout"].flatMap(LaTeXJournalPage.Layout.init(rawValue:)) }
+        set { fields["journalLayout"] = newValue?.rawValue }
+    }
+    package var usesJournalFurniture: Bool { journalLayout != nil }
+    package var journalPageRange: String {
+        get { fields["journalPageRange"] ?? "" }
+        set { fields["journalPageRange"] = newValue }
+    }
+
+    mutating func setJournalIssue(_ issue: LaTeXJournalIssue) {
+        issue.store(in: &fields)
+    }
+
+    package var journalPage: LaTeXJournalPage? {
+        guard (thisPageStyle ?? style) == "journalIssue", let journalLayout else { return nil }
+        return LaTeXJournalIssue(fields: fields).page(
+            journalLayout, first: firstSheet, even: counter.isMultiple(of: 2), label: label,
+            range: journalPageRange.isEmpty ? label : journalPageRange,
+            doiPrefix: fields["journalDOIPrefix"], runningType: fields["runningArticleType"])
+    }
     private var firstSheet = true
     var examTotals: [String: String] = [:]
     package var needsExamTotals: Bool {
@@ -94,6 +117,16 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
             examRunning["CF"] = #"Page \thepage"#
         case .empty: style = "empty"
         case .runningHeads: style = "runningheads"
+        case .journalIssueLine: journalLayout = .issueAndCopyright
+        case .journalReportTitle(let bilingual): journalLayout = bilingual ? .bilingualReport : .reportTitle
+        case .ruledArticleType: journalLayout = .ruledType
+        case .outerHeadNumber: journalLayout = .outerHeaderNumber
+        case .technicalReportNotice: journalLayout = .reportNotice
+        }
+        if journalLayout != nil {
+            style = "journalIssue"
+            fields["journalDOIPrefix"] = policy.journalDOIPrefix
+            fields["runningArticleType"] = policy.runningArticleType
         }
     }
 
@@ -191,6 +224,7 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
     }
 
     private func row(_ location: String, page: String? = nil) -> [String] {
+        if let journalPage { return location == "H" ? journalPage.top : journalPage.bottom }
         let label = page ?? self.label
         let even = twoSided && counter.isMultiple(of: 2)
         if let selected = activeFields {
@@ -290,6 +324,7 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
                 thisPageStyle = "plain"
             }
         case "thispagestyle": thisPageStyle = value
+        case "journalSupplement": style = "empty"
         case "pagenumbering":
             format = value
             counter = 1

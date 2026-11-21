@@ -232,6 +232,29 @@ struct LaTeXFlowLayoutTests {
         }
     }
 
+    @Test("所属注を初頁の左段末に留め、和文誌の英文要旨は改頁して全幅で始める")
+    func affiliationAndEnglishSupplement() throws {
+        let columns = [item(1, 25), Flow.Item(forced: "column"), item(2, 25), .init(forced: "clear")]
+        let measure = Flow.Measurement(
+            columnNotice: .init(strip: 8, start: 0, end: 19, width: 45),
+            segments: [
+                segment([item(0, 20, wide: true)]), segment(columns, columns: 2),
+                segment([item(3, 12, wide: true)]),
+            ],
+            notes: [:], noteSkip: 5, noteRuleWidth: 45, textFloatSep: 0, floatSep: 0, inTextSep: 0)
+        let paper = try Flow.pages(measure, width: 100, height: 100)
+        #expect(paper.count == 2)
+        let first = try #require(paper.first)
+        let affiliations = try #require(first.pieces.first { $0.slice.strip == 8 })
+        #expect(affiliations.x == 0)
+        #expect(affiliations.y == 81)
+        #expect(first.pieces.first { $0.slice.strip == 2 }?.x == 55)
+        #expect(first.rules.contains { $0.minX == 0 && $0.width == 45 })
+        let last = try #require(paper.last)
+        #expect(last.pieces.map(\.slice.strip) == [3])
+        #expect(last.pieces.first?.x == 0 && last.pieces.first?.y == 0 && last.pieces.first?.slice.width == 100)
+    }
+
     @Test("本文が版面の下端に来るとき字面の下降部を縮みとして請求しない")
     func columnEndsOnBaseline() throws {
         var last = spaced(2, 27, gap: 6, plus: 2)
@@ -554,6 +577,18 @@ struct LaTeXFlowLayoutTests {
         #expect(result.last?.rules.first?.height == 0.5)
     }
 
+    @Test("和文誌の所属注と本文脚注は各段の最初の注のベースラインから罫を配置する")
+    func columnNoteRule() throws {
+        let input = Flow.Measurement(
+            columnNotice: .init(strip: 8, start: 0, end: 20, width: 45, noteDepth: 2, noteRuleOffset: -1.25),
+            segments: [segment([item(0, 30), .init(forced: "column"), item(1, 12, notes: ["a"])], columns: 2)],
+            notes: ["a": .init(strip: 9, start: 0, end: 10, width: 45, noteDepth: 2, noteRuleOffset: -2)],
+            noteSkip: 9, noteRuleWidth: 45, noteRuleThickness: 0.28, textFloatSep: 0, floatSep: 0, inTextSep: 0)
+        let page = try #require(try Flow.pages(input, width: 100, height: 100).first)
+        #expect(page.rules.contains(CGRect(x: 0, y: 80.75, width: 45, height: 0.28)))
+        #expect(page.rules.contains(CGRect(x: 55, y: 90, width: 45, height: 0.28)))
+    }
+
     @Test("右段のページ脚注は左段の既存の本文にも重ならない")
     func pageNotes() throws {
         let result = try pages([
@@ -595,6 +630,42 @@ struct LaTeXFlowLayoutTests {
                 paragraph: paragraph, heading: paragraph == 0)
         }
         #expect(Flow.keptItems(rows, capacity: 135).compactMap { $0.slice?.height } == [18, 72, 18])
+    }
+
+    @Test("学会誌は連続する見出しを本文一行で段末に置き、段落の最終一行も次段に送れる")
+    func journalColumnBreaks() {
+        let rows = [0, 0, 1, 1, 1].enumerated().map { i, paragraph in
+            Flow.Item(
+                slice: .init(strip: 0, start: CGFloat(i * 10), end: CGFloat(i * 10 + 10), width: 50),
+                paragraph: paragraph, heading: paragraph == 0)
+        }
+        let groups = Flow.keptItems(rows, capacity: 50, allowsSingleLineFragments: true)
+        #expect(groups.compactMap { $0.slice?.height } == [30, 10, 10])
+    }
+
+    @Test("最終頁の右段が短くても学会誌の左段は有限の縮みで次の一行を収める")
+    func shrinkFinalJournalColumn() throws {
+        var second = item(2, 35)
+        second.gap = 10
+        second.shrinkBefore = 5
+        let rows = [item(1, 45), second, item(3, 14), item(4, 20)]
+        let input = Flow.Measurement(
+            comparesColumnBreakBadness: true, glueShrink: .init(), glueStretch: .init(),
+            segments: [segment(rows, columns: 2)], notes: [:], noteSkip: 0, textFloatSep: 0, floatSep: 0, inTextSep: 0)
+        let page = try #require(Flow.pages(input, width: 100, height: 100).first)
+        #expect(page.pieces.map(\.x) == [0, 0, 0, 55])
+    }
+
+    @Test("学会誌は無理に次の一行を詰めず、伸縮率の小さい改段位置を選ぶ")
+    func journalBreakBadness() throws {
+        var second = spaced(2, 35, gap: 10, plus: 20)
+        second.shrinkBefore = 5
+        let rows = [item(1, 45), second, item(3, 14), item(4, 20)]
+        let input = Flow.Measurement(
+            comparesColumnBreakBadness: true, glueShrink: .init(), glueStretch: .init(),
+            segments: [segment(rows, columns: 2)], notes: [:], noteSkip: 0, textFloatSep: 0, floatSep: 0, inTextSep: 0)
+        let page = try #require(Flow.pages(input, width: 100, height: 100).first)
+        #expect(page.pieces.map(\.x) == [0, 0, 55, 55])
     }
 
     @Test("段末で収まる見出しを本文と一緒に送ったときだけ直後の図を次段の頭に置く")

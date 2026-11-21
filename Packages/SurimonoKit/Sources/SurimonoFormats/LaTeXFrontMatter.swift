@@ -18,6 +18,7 @@ final class LaTeXFrontMatter {
         var parts: [String]
     }
 
+    var society = LaTeXSocietyFrontMatter()
     var title: String?
     var shortTitle: String?
     var runningTitle: String?
@@ -68,6 +69,9 @@ final class LaTeXFrontMatter {
     }
 
     func resolve(in html: String, document: LaTeXDocument) -> String {
+        if let layout = document.classInfo.profile.titleBlock.societyLayout {
+            return society.resolveAbstracts(in: html, layout: layout, document: document)
+        }
         if document.classInfo.journalStyle == .ams {
             return resolveAMS(in: html, document: document)
         }
@@ -135,6 +139,11 @@ extension LaTeXDocumentClassInfo {
 extension LaTeXReader {
     func handleFrontMatter(_ command: String) -> Bool {
         let front = document.frontMatter
+        if let layout = document.classInfo.profile.titleBlock.societyLayout,
+            handleSocietyCommand(command, layout: layout)
+        {
+            return true
+        }
         if document.stylePackage?.usesAffiliationList == true && handleAffiliationList(command) { return true }
         if document.stylePackage?.separateAffiliations == true, command == "affiliations" {
             front.addAffiliation(label: nil, parts: [argument() ?? ""], attach: false, hasPrintedMark: true)
@@ -409,6 +418,10 @@ extension LaTeXReader {
         document.makingTitle = true
         defer { document.makingTitle = false }
         let info = document.classInfo
+        if let layout = info.profile.titleBlock.societyLayout {
+            makeSocietyTitle(layout)
+            return
+        }
         let pageStyle =
             info.resolvedStyle?.firstPageNotice != nil
             ? "empty"

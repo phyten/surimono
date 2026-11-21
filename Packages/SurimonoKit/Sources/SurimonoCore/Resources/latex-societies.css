@@ -1,0 +1,361 @@
+/* Physical lengths follow the paginator's TeX point (one mm is 72.27/25.4 TeX points). */
+body.format-latex[data-latex-size][data-latex-publication-grid] {
+    --society-mm: calc(2.84527559 * var(--tex-pt));
+    --tex-baseline: var(--latex-body-pitch);
+    --tex-body-fonts: var(--latex-jfm-face, var(--latex-main-font, Times)), var(--latex-main-font, Times), "Hiragino Mincho ProN", serif;
+    --society-gothic: var(--latex-main-font, Times), var(--latex-cjk-sans-font, "Surimono JS Gothic"), "Hiragino Kaku Gothic ProN", sans-serif;
+    --latex-itemsep: 0px; --latex-list-parsep: 0px; --latex-list-topsep: 0px;
+    /* The Japanese grids have rigid heading and list skips. English paper headings override these below. */
+    --latex-glue-heading: 0 0; --latex-glue-section-after: 0 0; --latex-glue-subsection-after: 0 0;
+    --latex-glue-item: 0 0; --latex-glue-list: 0 0; --latex-glue-bib: 0 0;
+    font-family: var(--tex-body-fonts); font-size: var(--latex-body-size);
+    line-height: calc(var(--latex-body-pitch) * var(--latex-stretch, 1)); word-spacing: normal;
+    & .latex-title-block { padding: 0; margin: 0; break-after: auto; }
+    & .latex-title-block .latex-front-title {
+        all: unset; display: block; color: inherit;
+        hyphens: none; -webkit-hyphens: none;
+    }
+    & :is(.latex-front-author-row,.latex-society-dates,.latex-front-abstract,.latex-front-keywords)[lang] {
+        font-family: var(--tex-body-fonts);
+    }
+    & .latex-front-mark { font-size: .65em; font-weight: normal; line-height: 0; vertical-align: super; }
+    & :is(.latex-front-keywords,.latex-front-abstract) p { text-align: justify; line-height: inherit; margin: 0; }
+    & .latex-column-notice, & .footnotes { font-size: var(--latex-note-size); line-height: var(--latex-note-pitch); }
+    & .latex-column-notice p { margin: 0; text-align: start; }
+    & .latex-column-notice .latex-note-mark {
+        display: inline-block; text-indent: 0; width: var(--society-note-indent); margin-inline-start: calc(-1 * var(--society-note-indent));
+        box-sizing: border-box; padding-inline-end: .3em; text-align: end; line-height: 0;
+    }
+    & .footnotes > ol { padding: 0; margin: 0; }
+    & .footnotes > ol > li { margin: 0; }
+    & sup.footnote-ref, & sup.latex-symbolic-note { font-size: .7em; line-height: 0; vertical-align: super; }
+    & :is(h2,h3,h4,h5,h6)[id^="sec-"] {
+        margin: 0; padding: 0; text-align: start; font: inherit; break-after: avoid;
+    }
+    & ul:not(.toc ul) > li:has(.latex-item-mark)::before { content: none; }
+    & .latex-item-mark { position: absolute; inset-inline-end: calc(100% + .5em); text-indent: 0; }
+    & .latex-grid-line {
+        display: block; white-space: nowrap; text-indent: 0; text-autospace: no-autospace;
+        text-justify: inter-character; text-spacing-trim: space-all;
+    }
+    & .secnum { margin-inline-end: 1em; }
+    & :is(.latex-front-title,.latex-paper-type,.latex-front-author-row,.latex-society-dates) { text-indent: 0; }
+    & figure > figcaption:not([data-latex-caption-style]) {
+        width: fit-content; max-width: 100%; margin-inline: auto; text-align: justify;
+        font-size: var(--society-caption-size); line-height: var(--society-caption-pitch);
+        --latex-caption-label-gap: 1ic;
+    }
+    & figure[data-latex-wide] > figcaption:not([data-latex-caption-style]) { max-width: 66%; }
+    /* A float installs its own type size before the tabular creates its array strut. */
+    & [data-latex-float-size] {
+        font-size: var(--society-caption-size); line-height: var(--society-caption-pitch);
+        --latex-array-baseline: var(--latex-float-row-baseline);
+    }
+    & [data-latex-float-size] table { font: inherit; }
+    & figure.latex-table .latex-tabular :is(td,th) {
+        padding-inline: var(--latex-tabcolsep, calc(6 * var(--tex-pt)));
+    }
+    & .latex-tabular {
+        --latex-arrayrulewidth: var(--latex-float-rule-width);
+        /* A closing hline follows the 0.3-baseline depth of the array strut.
+           The rule is painted inside the cell, so its full thickness needs space too. */
+        & .latex-rule-depth {
+            --rule-depth: calc(.3 * var(--latex-array-baseline) * var(--tex-pt) * var(--latex-stretch, 1)
+                * var(--latex-arraystretch, 1) + var(--latex-row-skip, 0px) + var(--latex-arrayrulewidth));
+            display: inline-block; width: 0; height: var(--rule-depth); vertical-align: calc(-1 * var(--rule-depth));
+        }
+        & :is(.latex-top-hline,.latex-bottom-hline) { position: relative; }
+        & .latex-top-hline { border-top-color: transparent !important; }
+        & .latex-bottom-hline { border-bottom-color: transparent !important; }
+    }
+    & .math-block {
+        padding-block: 0; margin-block: var(--latex-display-skip);
+    }
+    & .math-block > .math-display {
+        box-sizing: border-box; padding-inline: var(--latex-mathindent) var(--latex-tag-inset);
+        text-align: start;
+    }
+    /* SVG preparation centres the expanded ink viewport with inline auto margins. */
+    & .math-block > .math-display > svg { margin-inline: 0 !important; }
+    & .math-block :is(.eqno,.latex-row-number) { inset-inline-end: var(--latex-tag-inset); }
+
+    & table.latex-tabular :is(th,td) { line-height: inherit; }
+    & ol.latex-bibliography {
+        margin-block: 0; padding-inline-start: var(--society-bib-indent);
+        font-size: var(--society-bib-size); line-height: var(--society-bib-pitch);
+    }
+    & .latex-bibliography li { position: relative; margin: 0; }
+    & .latex-bibliography li p { margin: 0; text-indent: 0; }
+    & .latex-bibliography .bib-label {
+        position: absolute; inset-inline-start: calc(-1 * var(--society-bib-indent)); inset-block-start: 0;
+        width: calc(var(--society-bib-indent) - var(--society-bib-gap)); min-width: 0; margin: 0;
+        text-indent: 0; text-align: end; white-space: nowrap;
+    }
+}
+
+body.format-latex[data-latex-publication-grid="bilingualJournal"][data-latex-size] {
+    --tex-body-fonts: var(--latex-jfm-face, var(--latex-main-font, "Surimono Computer Modern")), var(--latex-main-font, "Surimono Computer Modern"), serif;
+    --society-gothic: "Surimono Computer Modern", var(--latex-cjk-sans-font, "Surimono JS Gothic"), "Hiragino Kaku Gothic ProN", sans-serif;
+    --latex-footnote-rule-thickness: calc(.4 * var(--tex-pt));
+    --latex-footnote-rule-to-baseline: calc(2 * var(--tex-pt) + 2.5 * var(--society-mm));
+    --society-note-indent: calc(1.58 * var(--latex-zw));
+    --society-caption-size: calc(8.13 * var(--tex-pt)); --society-caption-pitch: calc(4.5 * var(--society-mm));
+    & figure[data-latex-float-size] > p { line-height: calc(4 * var(--society-mm)); }
+    --latex-caption-tail-adjust: -1.067; --latex-glue-display: 2 4;
+    &:lang(ja) figure.latex-table > figcaption[data-flow-single-caption]:has(+ table) {
+        /* The short caption cancels belowcaptionskip. A tall alignment still triggers lineskip. */
+        --latex-natural-caption-depth: 1; margin-block-end: var(--tex-pt);
+    }
+    --latex-bib-zw: calc(3 * var(--society-mm)); --society-bib-size: calc(8.87 * var(--tex-pt)); --society-bib-pitch: calc(3.75 * var(--society-mm));
+    --society-bib-indent: calc(2 * var(--latex-zw)); --society-bib-gap: var(--latex-zw);
+    --latex-list-margin: calc(2 * var(--latex-zw));
+    --latex-heading-topskip: calc(.54 * var(--tex-baseline));
+    & [data-latex-heading="subsection"] .secnum { margin-inline-end: var(--latex-zw); }
+    & .latex-item-mark {
+        display: inline-block; position: static; width: var(--latex-list-margin);
+        margin-inline-start: calc(-1 * var(--latex-list-margin)); line-height: 0;
+        text-align: center; text-align-last: center; vertical-align: baseline;
+        font-family: STIXGeneral, "Times New Roman", serif; font-weight: bold; font-size: .93em;
+    }
+    --latex-abovecaptionskip: var(--society-mm); --latex-table-caption-skip: var(--society-mm);
+    /* Account for the differing ascents and depths of each title strut when adjoining line boxes. */
+    & .latex-title-block {
+        text-align: center; padding-block: calc(13 * var(--society-mm) + 1.1 * var(--tex-pt)) calc(13.7 * var(--society-mm));
+    }
+    & .latex-title-block .latex-front-title {
+        text-align: center; font-size: calc(19.22 * var(--tex-pt)); line-height: calc(8.5 * var(--society-mm)); font-weight: bold;
+    }
+    & .latex-title-block .latex-front-title[lang="ja"] { font-family: var(--society-gothic); }
+    & .latex-paper-type { font-family: var(--society-gothic); margin-block-end: calc(6.2 * var(--society-mm)); }
+    & .latex-front-author-row[lang="ja"] {
+        margin-block-start: calc(9 * var(--society-mm) - 2 * var(--tex-pt)); font-size: calc(11.83 * var(--tex-pt)); line-height: calc(5.5 * var(--society-mm));
+    }
+    & .latex-front-author + .latex-front-author { margin-inline-start: .75em; }
+    & .latex-society-dates {
+        text-align: center; font-size: calc(7.39 * var(--tex-pt)); line-height: calc(3 * var(--society-mm));
+        margin-block-start: calc(6.5 * var(--society-mm) - 1.9 * var(--tex-pt));
+    }
+    & :is(.latex-front-abstract,.latex-front-keywords) { width: 80%; margin-inline: auto; text-align: justify; }
+    & :is(.latex-front-abstract,.latex-front-keywords) p { text-indent: 0; }
+    & :is(.latex-front-abstract,.latex-front-keywords)[lang="ja"] {
+        font-size: calc(8.87 * var(--tex-pt)); line-height: calc(4.5 * var(--society-mm));
+    }
+    & :is(.latex-front-abstract,.latex-front-keywords)[lang="ja"] strong { font-family: var(--society-gothic); }
+    & .latex-front-abstract[lang="ja"] { margin-block-start: calc(2.5 * var(--society-mm) + 3.7 * var(--tex-pt)); }
+    & .latex-front-keywords[lang="ja"] { margin-block-start: calc(5.5 * var(--society-mm) - 2.8 * var(--tex-pt)); line-height: calc(3.75 * var(--society-mm)); }
+    &:lang(en) .latex-title-block h1.latex-front-title { font-size: calc(7 * var(--society-mm)); }
+    &:lang(en) .latex-front-author-row { font-size: calc(12.57 * var(--tex-pt)); }
+    & .latex-title-block h2.latex-front-title {
+        margin-block-start: calc(14.2 * var(--society-mm) - .4 * var(--tex-pt)); font-size: calc(14.23 * var(--tex-pt)); line-height: calc(5.5 * var(--society-mm));
+    }
+    & .latex-front-author-row[lang="en"] {
+        margin-block-start: calc(5.5 * var(--society-mm)); font-size: calc(10.35 * var(--tex-pt));
+        line-height: calc(4.5 * var(--society-mm));
+    }
+    /* Real smcp glyphs keep one source-case run for selection and PDF search. */
+    & .latex-front-author-row[lang="en"] .latex-front-author {
+        font-family: "Iowan Old Style", var(--tex-body-fonts); font-feature-settings: "smcp"; font-synthesis: none;
+    }
+    & .latex-front-mark { font-family: var(--tex-body-fonts); font-size: .7em; font-feature-settings: normal; }
+    & .latex-society-dates[lang="ja"] { text-autospace: no-autospace; }
+    & .latex-society-dates[lang="en"] { margin-block-start: calc(5.5 * var(--society-mm) - var(--tex-pt)); }
+    & :is(.latex-front-abstract,.latex-front-keywords)[lang="en"] {
+        font-size: calc(8.54 * var(--tex-pt)); line-height: calc(3.75 * var(--society-mm));
+    }
+    & :is(.latex-front-abstract,.latex-front-keywords)[lang="en"] strong { font-style: italic; margin-inline-end: .25em; }
+    & .latex-front-abstract[lang="en"] { margin-block-start: calc(1.5 * var(--society-mm) + 4.9 * var(--tex-pt)); }
+    & .latex-front-keywords[lang="en"] { margin-block-start: calc(5 * var(--society-mm) - 2 * var(--tex-pt)); }
+    & :is(h2,h3,h4,h5,h6)[id^="sec-"], & .latex-bibliography-heading, & figcaption:not([data-latex-caption-style]) > .latex-caption-label {
+        font-family: var(--society-gothic); font-weight: bold;
+    }
+    & h2[id^="sec-"] { font-size: calc(11.83 * var(--tex-pt)); line-height: var(--tex-baseline); padding-block: calc(.5 * var(--tex-baseline)); }
+    & h3[id^="sec-"] { margin-block-start: var(--tex-baseline); }
+    & h2 + h3[id^="sec-"] { margin-block-start: 0; }
+    & :is(h2,h3,h4,h5,h6)[id^="sec-"] + p:not(.latex-noindent) { text-indent: var(--latex-parindent); }
+    & .latex-column-notice p, & .footnotes ol { padding-inline-start: var(--society-note-indent); }
+    & .latex-column-notice p { text-indent: 0; }
+    & .latex-column-notice .latex-note-mark, & .footnotes .latex-symbolic-note {
+        box-sizing: border-box; width: var(--society-note-indent); margin-inline-start: calc(-1 * var(--society-note-indent));
+        padding-inline-end: 0; text-align: start; font-size: .7em; vertical-align: super;
+    }
+    /* Align the intact note mark to the lowered asterisk in the class's superscript. */
+    & .footnotes .latex-symbolic-note { transform: translateY(.19em); }
+    & .latex-bibliography-heading {
+        /* The class switches to the bibliography pitch before adding its 2 mm skip. */
+        font-size: 1em; line-height: var(--tex-baseline);
+        margin-block: var(--tex-baseline) calc(2 * var(--society-mm) - (var(--tex-baseline) - var(--society-bib-pitch)) / 2);
+    }
+    & ol.latex-bibliography {
+        --latex-itemsep: calc(.25 * var(--society-mm)); --latex-list-parsep: 0px;
+    }
+    & ol.latex-bibliography > li + li { margin-block-start: var(--latex-itemsep); }
+    & .latex-bibliography .bib-label { text-align: start; }
+}
+
+body.format-latex[data-latex-publication-grid="insetBilingual"][data-latex-size] {
+    --latex-footnote-rule-thickness: calc(.1 * var(--society-mm));
+    --latex-footnote-rule-to-baseline: calc(3 * var(--tex-pt) + 2.275 * var(--society-mm));
+    --society-note-indent: calc(4.5 * var(--society-mm));
+    --latex-tabcolsep: calc(.5 * var(--society-caption-size));
+    --latex-rule-lineskip: 2; --latex-caption-tail-adjust: 1.423; --latex-glue-display: 3 4;
+    --society-caption-size: calc(7 * var(--tex-pt)); --society-caption-pitch: calc(3.25 * var(--society-mm));
+    --latex-bib-zw: calc(2.5 * var(--society-mm)); --society-bib-size: calc(7 * var(--tex-pt)); --society-bib-pitch: calc(3.75 * var(--society-mm));
+    --society-bib-indent: calc(7.5 * var(--society-mm)); --society-bib-gap: calc(2.5 * var(--society-mm));
+    --latex-list-margin: 0px; --latex-abovecaptionskip: var(--society-mm); --latex-table-caption-skip: calc(3 * var(--tex-pt));
+    & .latex-title-block {
+        /* TeX starts at the title's natural height. The CSS line also has half-leading above the glyphs. */
+        padding-block: calc((4.5 - (8.25 - 4.5) / 2) * var(--society-mm) + .5 * var(--tex-pt)) calc(2 * var(--tex-baseline) - 1.5 * var(--tex-pt));
+        padding-inline-start: calc(14 * var(--society-mm)); text-align: start;
+    }
+    & .latex-title-block .latex-front-title {
+        text-align: start; font-weight: normal;
+        font-family: "Surimono Title Mincho", var(--tex-body-fonts); font-size: calc(12 * var(--tex-pt)); line-height: calc(8.25 * var(--society-mm));
+    }
+    & .latex-front-author-row[lang="ja"] {
+        display: flex; flex-wrap: wrap;
+        margin-block-start: calc(2.75 * var(--society-mm) + 1.4 * var(--tex-pt));
+        font-family: "Surimono Author Mincho", var(--tex-body-fonts); font-size: calc(10.95 * var(--tex-pt)); line-height: calc(5.25 * var(--society-mm));
+    }
+    & .latex-front-author-row[lang="ja"] .latex-front-author { white-space: nowrap; }
+    & .latex-japanese-name { display: inline-flex; min-width: 5ic; justify-content: space-between; }
+    /* The 15 mm between consecutive name boxes includes the normal inline affiliation mark. */
+    & .latex-front-author-row[lang="ja"] .latex-front-author:not(:last-child) > sup {
+        display: inline-block; min-width: calc(15 * var(--society-mm));
+    }
+    & .latex-front-author-row[lang="ja"] .latex-front-author:not(:last-child,:has(sup)) {
+        margin-inline-end: calc(15 * var(--society-mm));
+    }
+    & .latex-title-block .latex-front-title[lang="en"] {
+        font-family: var(--tex-body-fonts); margin-block-start: calc(4.5 * var(--society-mm) - 2.7 * var(--tex-pt));
+        font-size: calc(10.95 * var(--tex-pt)); line-height: calc(6 * var(--society-mm));
+    }
+    & .latex-front-author-row[lang="en"] {
+        margin-block-start: calc(2 * var(--society-mm) - .7 * var(--tex-pt)); font-size: calc(10 * var(--tex-pt)); line-height: calc(5.25 * var(--society-mm));
+    }
+    & .latex-title-block :is(.latex-front-abstract,.latex-front-keywords) {
+        font-family: "Surimono Abstract Mincho", var(--tex-body-fonts); font-size: calc(8 * var(--tex-pt)); line-height: calc(4 * var(--society-mm));
+    }
+    & .latex-title-block .latex-front-abstract { margin-block-start: calc(8.75 * var(--society-mm) + 4.65 * var(--tex-pt)); }
+    & .latex-title-block .latex-front-keywords { margin-block-start: calc(var(--society-mm) - 1.65 * var(--tex-pt)); }
+    & :is(.latex-front-abstract,.latex-front-keywords) strong { margin-inline-end: .7ic; font-family: var(--society-gothic); }
+    & :is(.latex-front-abstract,.latex-front-keywords) p:first-child { text-indent: 1ic; }
+    & .latex-title-block :is(.latex-front-abstract,.latex-front-keywords) strong { font-family: inherit; }
+    & :is(.latex-column-notice,.footnotes) { font-family: "Surimono Note Mincho", var(--tex-body-fonts); }
+    & ol.latex-bibliography { font-family: "Surimono Caption Mincho", var(--tex-body-fonts); }
+    & .latex-english-supplement strong { font-family: inherit; }
+    & .latex-english-supplement .latex-front-keywords { margin-block-start: calc(.5 * var(--tex-baseline)); }
+    --society-heading-cell: var(--latex-zw);
+    & h2[id^="sec-"] { --society-heading-cell: calc(3.5 * var(--society-mm)); }
+    & figcaption { --society-heading-cell: calc(2.5 * var(--society-mm)); }
+    & :is(h2,h3,h4,h5,h6)[id^="sec-"] { text-indent: var(--society-heading-cell); }
+    & .secnum { margin-inline-end: var(--society-heading-cell); }
+    & :is(h2,h3)[id^="sec-"], & .latex-bibliography-heading { font-family: var(--society-gothic); font-weight: bold; }
+    & h2[id^="sec-"] { font-size: calc(10.95 * var(--tex-pt)); margin-block: calc(.5 * var(--tex-baseline)); line-height: var(--tex-baseline); }
+    --latex-heading-topskip: calc(.5 * var(--tex-baseline));
+    & .latex-heading-measure[data-flow-distributed] {
+        display: inline-block; inline-size: calc(5 * var(--society-heading-cell)); text-indent: 0;
+        text-align: justify; text-align-last: justify; text-justify: inter-character;
+    }
+    & :is(h2,h3,h4,h5,h6)[id^="sec-"] + p:not(.latex-noindent) { text-indent: var(--latex-parindent); }
+    & :is(ol.latex-enumerate,ul:not(.toc ul)) { padding-inline-start: 0; }
+    & ul:not(.toc ul) > li { text-indent: calc(3 * var(--latex-zw)); }
+    & .latex-item-mark {
+        inset-inline: var(--latex-zw) auto; width: var(--latex-zw); text-align: center;
+        font-family: "Times New Roman", serif; transform: translateY(-.125em);
+    }
+    & ol.latex-enumerate > li { text-indent: var(--latex-zw); }
+    & ol.latex-enumerate > li .item-label { text-indent: 0; width: auto; margin-inline: 0 var(--latex-zw); }
+    --society-caption-font: "Surimono Caption Mincho", var(--tex-body-fonts);
+    & figure > figcaption:not([data-latex-caption-style]), & figure.latex-table > table { font-family: var(--society-caption-font); }
+    & figure:not([data-latex-wide]) > figcaption:not([data-latex-caption-style]) { max-width: min(100%, calc(65 * var(--society-mm))); }
+    & .latex-column-notice p { padding-inline-start: var(--society-note-indent); text-indent: 0; }
+    /* Trim the outer half-cell bearings of the parentheses while retaining the searchable full-width mark. */
+    & sup.footnote-ref[data-latex-tight-parentheses] {
+        display: inline-block;
+        font-family: var(--latex-cjk-main-font, var(--latex-main-font, Times)), var(--latex-main-font, Times), "Hiragino Mincho ProN", serif;
+        font-size: calc(5 * var(--tex-pt)); line-height: 0; vertical-align: calc(3.27 * var(--tex-pt));
+        white-space: nowrap; text-autospace: no-autospace; text-spacing-trim: space-all;
+    }
+    & sup.footnote-ref[data-latex-tight-parentheses] > a { margin-inline: -.5ic; }
+    & .footnotes li > p:has(> [data-latex-tight-parentheses]) { text-indent: 0; }
+    & .footnotes .latex-symbolic-note[data-latex-tight-parentheses] {
+        display: inline-block; width: auto; margin-inline: -.5ic 0; padding: 0; font-size: inherit;
+        vertical-align: baseline; text-autospace: no-autospace; text-spacing-trim: space-all; white-space: nowrap;
+    }
+    & .footnotes [data-latex-tight-parentheses]::after { content: "："; margin-inline-start: -.5ic; }
+    & .latex-bibliography-heading { font-size: 1em; text-align: center; margin: 0 0 calc(.15 * var(--tex-baseline)); line-height: inherit; }
+}
+
+body.format-latex[data-latex-publication-grid="framedPaper"][data-latex-size] {
+    --tex-body-fonts: var(--latex-main-font, Times), "Times New Roman", serif;
+    /* Times interword glue may shrink by a third of its quarter-em natural space. */
+    --latex-word-shrink: .083333em;
+    --latex-prefer-whole-words: 1;
+    & .math-inline { line-height: 0; }
+    --latex-footnote-rule-thickness: calc(.4 * var(--tex-pt));
+    --latex-footnote-rule-to-baseline: calc(3 * var(--tex-pt) + 2.45 * var(--society-mm));
+    --society-note-indent: calc(2 * var(--latex-note-size));
+    --society-caption-size: calc(8 * var(--tex-pt)); --society-caption-pitch: calc(3.375 * var(--society-mm));
+    --society-bib-size: calc(8 * var(--tex-pt)); --society-bib-pitch: calc(3.5 * var(--society-mm));
+    --society-bib-indent: calc(16.7 * var(--tex-pt)); --society-bib-gap: calc(5 * var(--tex-pt));
+    --latex-list-margin: var(--latex-parindent); --latex-list-topsep: calc(.5 * var(--tex-baseline));
+    --latex-glue-list: 3 2; --latex-glue-display: 2 4;
+    --latex-glue-heading: 2.845 1.423; --latex-glue-section-after: 2.845 1.423;
+    --latex-glue-subsection-after: 2.845 1.423;
+    --latex-glue-minor-heading: 1.423 .711;
+    --latex-integral-line-pitch: 1;
+    --latex-abovecaptionskip: calc(4 * var(--tex-pt)); --latex-table-caption-skip: calc(3 * var(--tex-pt));
+    & .latex-title-block {
+        box-sizing: border-box; min-height: calc(10 * var(--tex-baseline)); padding-block-end: calc(2.5 * var(--tex-baseline));
+    }
+    & .latex-framed-title {
+        box-sizing: border-box; min-height: calc(25 * var(--society-mm));
+        border-block-end: calc(.15 * var(--society-mm)) solid; padding-block-end: calc(3 * var(--society-mm));
+    }
+    & .latex-paper-type {
+        border: calc(.15 * var(--society-mm)) solid; box-sizing: border-box;
+        margin-inline: calc(-.15 * var(--society-mm));
+        min-height: calc(3.8 * var(--society-mm)); text-align: start; padding-inline: .15em;
+        font: calc(11.3 * var(--tex-pt))/1 "Helvetica Neue", Helvetica, sans-serif;
+    }
+    & .latex-title-block .latex-front-title {
+        text-align: start; font-size: calc(17.28 * var(--tex-pt)); font-weight: bold; line-height: calc(22 * var(--tex-pt));
+        margin-block-start: calc(-.75 * var(--society-mm));
+    }
+    & .latex-front-author-row {
+        text-align: end; margin-inline-start: auto; margin-block-start: calc(.75 * var(--society-mm));
+        max-width: calc(170 * var(--society-mm)); font-weight: bold;
+        font-size: calc(10 * var(--tex-pt)); line-height: calc(3.75 * var(--society-mm));
+    }
+    & :is(.latex-front-abstract,.latex-front-keywords) { font-size: var(--society-caption-size); line-height: var(--society-caption-pitch); }
+    & :is(.latex-front-abstract,.latex-front-keywords) p { text-indent: 0; }
+    & .latex-front-abstract strong { margin-inline-end: calc(10 * var(--tex-pt)); }
+    & .latex-front-keywords { font-style: italic; }
+    & :is(h2,h3,h4,h5,h6)[id^="sec-"] { margin-block: var(--tex-baseline); }
+    & h2[id^="sec-"] { font-weight: bold; }
+    & :is(h5,h6)[id^="sec-"] { margin-block: calc(.5 * var(--tex-baseline)); }
+    & :is(h2,h3,h4,h5,h6) + :is(h3,h4,h5,h6)[id^="sec-"] { margin-block-start: 0; }
+    & figcaption:not([data-latex-caption-style]) > .latex-caption-label { font-weight: bold; margin-inline-end: calc(4 * var(--society-mm)); }
+    & .latex-column-notice p { text-indent: var(--society-note-indent); }
+    & .latex-column-notice sup.latex-note-mark { padding-inline-end: 0; }
+    & .footnotes li > p:has(> .latex-symbolic-note) { text-indent: var(--society-note-indent); }
+    & .footnotes .latex-symbolic-note {
+        box-sizing: border-box; width: var(--society-note-indent); margin-inline-start: calc(-1 * var(--society-note-indent));
+        padding-inline-end: .07em; text-indent: 0;
+    }
+    & p .math-inline { line-height: 0; }
+    & .latex-bibliography-heading { font-size: calc(8 * var(--tex-pt)); margin-block: var(--tex-baseline); }
+}
+
+/* Letters put their title and abstract in the stream of the first column. */
+body.format-latex[data-latex-publication-grid="insetBilingual"][data-latex-size] .latex-title-block[data-latex-in-column] {
+    padding-inline: 0; padding-block: 0 var(--tex-baseline);
+    & .latex-front-title[lang="ja"] {
+        font: bold var(--latex-body-size)/calc(4.5 * var(--society-mm)) var(--society-gothic);
+    }
+    & .latex-front-author-row[lang="ja"] { margin-block-start: var(--society-mm); font-size: calc(8 * var(--tex-pt)); }
+    & :is(.latex-front-author-row,.latex-front-title)[lang="en"] {
+        margin-block-start: var(--society-mm); font-size: var(--latex-note-size); line-height: var(--latex-note-pitch);
+    }
+    & .latex-front-abstract { margin-block-start: var(--tex-baseline); }
+}

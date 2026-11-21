@@ -2,7 +2,7 @@ import CoreGraphics
 import Foundation
 
 public enum PaperSize: String, CaseIterable, Codable, Sendable {
-    case a3, a4, a5, b4, b5, b6, letter, tabloid, halfLetter
+    case a3, a4, a5, b4, b5, b6, letter, tabloid, halfLetter, journalTrim
 
     public var size: CGSize {
         if self == .letter { return CGSize(width: 612, height: 792) }
@@ -19,6 +19,7 @@ public enum PaperSize: String, CaseIterable, Codable, Sendable {
             case .letter: (215.9, 279.4)
             case .tabloid: (279.4, 431.8)
             case .halfLetter: (139.7, 215.9)
+            case .journalTrim: (210, 280)
             }
         return CGSize(width: millimeters.0 * 72 / 25.4, height: millimeters.1 * 72 / 25.4)
     }
@@ -34,6 +35,7 @@ public enum PaperSize: String, CaseIterable, Codable, Sendable {
         case .letter: "Letter"
         case .tabloid: "Tabloid"
         case .halfLetter: "Half Letter"
+        case .journalTrim: "210 × 280 mm"
         }
     }
 
@@ -337,7 +339,21 @@ public struct PrintLayout: Codable, Hashable, Sendable, Identifiable {
     public static let b5FourUp = PrintLayout(validatedID: "b5FourUp", kind: .fourUp, sheet: .b5, duplex: .none)
     public static let letterFourUp = PrintLayout(
         validatedID: "letterFourUp", kind: .fourUp, sheet: .letter, duplex: .none)
-    public static let presets: [PrintLayout] = PaperSeries.allCases.flatMap { presets(in: $0) + compactPresets(in: $0) }
+    public static let journalSingle = PrintLayout(
+        validatedID: "journalSingle", kind: .normal, sheet: .journalTrim, duplex: .none)
+
+    /// A new journal document opens on its trim. An explicitly selected sheet still wins.
+    public static func defaultLaTeXLayout(for info: LaTeXDocumentClassInfo) -> PrintLayout? {
+        guard info.usesPublicationGrid else { return nil }
+        let box = info.pageBox
+        return [.a4Single, .b5Single, .journalSingle, .letterSingle].first {
+            abs(min(box.paperWidth, box.paperHeight) - $0.sheet.size.width) < 0.1
+                && abs(max(box.paperWidth, box.paperHeight) - $0.sheet.size.height) < 0.1
+        }
+    }
+
+    public static let presets: [PrintLayout] =
+        PaperSeries.allCases.flatMap { presets(in: $0) + compactPresets(in: $0) } + [.journalSingle]
 
     public static func presets(in series: PaperSeries) -> [PrintLayout] {
         switch series {

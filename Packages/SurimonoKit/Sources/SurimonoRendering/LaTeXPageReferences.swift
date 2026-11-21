@@ -25,6 +25,20 @@ enum LaTeXPageReferences {
 
         init(_ state: LaTeXPageNumbers) {
             label = state.label
+            if let journal = state.journalPage {
+                lines = .init(top: journal.top, bottom: journal.bottom)
+                lines.journalPage = journal
+                lines.headerFont = journal.headerFont
+                lines.numberFont = journal.numberFont
+                lines.headerNumberRanges = journal.top.enumerated().map { i, text in
+                    i == journal.headerNumberSlot ? [NSRange(location: 0, length: text.utf16.count)] : []
+                }
+                lines.footerNumberRanges = journal.bottom.enumerated().map { i, text in
+                    i == journal.footerNumberSlot ? [NSRange(location: 0, length: text.utf16.count)] : []
+                }
+                lines.headRule = journal.headRule
+                return
+            }
             lines = .init(top: state.header, bottom: state.footer)
             if let title = state.runningTitle, !title.isEmpty, lines.top[1] == title {
                 lines.oversizedTitleFallback = state.runningTitleFallback
@@ -221,12 +235,15 @@ enum LaTeXPageReferences {
         let byPage = Dictionary(grouping: targets.indices.filter { locations[$0] != nil }) { locations[$0] }
         let hasAllCredits = targets.indices.allSatisfy { targets[$0].action != "examCredit" || locations[$0] != nil }
         var result = Map(pages: [], references: [:])
+        var journalStates: [LaTeXPageNumbers] = []
+        var endOfPaper = pageCount
         for page in 0..<pageCount {
             let indices = byPage[page] ?? []
             var title = false
             var score = 0.0
             for index in indices {
                 let target = targets[index]
+                if target.action == "journalSupplement" { endOfPaper = min(endOfPaper, page) }
                 if target.classPlain == true { state.apply("classPlain", value: "") }
                 if target.action == "title" {
                     state.apply("thispagestyle", value: "empty")
@@ -244,12 +261,27 @@ enum LaTeXPageReferences {
                 result.examScores.append(ExamScore(label: state.label, points: score))
             }
             if blankPages.contains(page) { state.apply("thispagestyle", value: "empty") }
-            result.pages.append(Page(state))
+            if initial.usesJournalFurniture {
+                journalStates.append(state)
+            } else {
+                result.pages.append(Page(state))
+            }
             for index in indices where targets[index].referenced {
                 result.references[String(index)] = state.label
             }
             state.advance()
             if title && restartsAfterTitle { state.apply("page", value: "1") }
+        }
+        if let first = journalStates.first, let last = journalStates.prefix(endOfPaper).last {
+            // Only shipout knows the last printed label; a separate English abstract is outside this range.
+            let range = "\(first.label)–\(last.label)"
+            result.pages = journalStates.map { state in
+                var page = state
+                page.journalPageRange = range
+                return Page(page)
+            }
+        } else if !journalStates.isEmpty {
+            result.pages = journalStates.map(Page.init)
         }
         return result
     }

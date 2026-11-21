@@ -4,11 +4,12 @@ import Foundation
 /// Measure after resources and fonts settle and keep the scaled box in the page flow.
 enum LaTeXGraphicPreparation {
     static func script(in html: String, layoutWidth: Double, layoutHeight: Double? = nil) -> String? {
+        let thinSpaces = html.contains("\u{2009}")
         let graphics = html.contains(#"class="latex-graphic-box""#)
         let displays = html.contains(#"class="math math-display""#)
         let exam = html.contains("<svg data-exam-rules ")
         let letters = html.contains(#"class="latex-letter""#) ? layoutHeight : nil
-        guard graphics || displays || exam || letters != nil else { return nil }
+        guard thinSpaces || graphics || displays || exam || letters != nil else { return nil }
         return """
             {
               const root = document.documentElement;
@@ -16,6 +17,7 @@ enum LaTeXGraphicPreparation {
               const zoom = parseFloat(getComputedStyle(root).zoom) || 1;
               root.style.width = (\(layoutWidth) / zoom) + 'px';
               try {
+                \(thinSpaces ? tieThinSpaces : "")
                 \(displays ? measureDisplays : "")
                 \(graphics ? measure : "")
                 \(exam ? examRules : "")
@@ -24,6 +26,19 @@ enum LaTeXGraphicPreparation {
             }
             """
     }
+
+    // A text-mode thin space is a kern in TeX. The stored HTML may still use U+2009,
+    // whose Unicode line-break class permits a break before the following unit.
+    static let tieThinSpaces = #"""
+        for (const root of [document.body, ...Array.from(document.querySelectorAll('template'), t => t.content)]) {
+          const text = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+          for (let node = text.nextNode(); node; node = text.nextNode()) {
+            if (node.data.includes('\u2009') && !node.parentElement?.closest('pre,code,svg,math,style,script,textarea')) {
+              node.data = node.data.replaceAll('\u2009', '\u202f');
+            }
+          }
+        }
+        """#
 
     // letter.cls distributes spare space 3:5. In a PDF only the leading glue has to
     // participate in pagination. A full-height flex box can push its empty tail onto another sheet.
@@ -74,7 +89,7 @@ enum LaTeXGraphicPreparation {
           const h = Math.max(box.y + box.height, ink.y + ink.height) - y;
           if (!(Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0)) continue;
           const math = svg.parentElement;
-          if (math.closest('[data-latex-js-toc],[data-latex-style]')
+          if (math.closest('[data-latex-js-toc],[data-latex-style],[data-latex-publication-grid]')
               && svg.dataset.latexTexTop === undefined) {
             // Expanding the viewport protects the glyph ink. Save the original TeX box and
             // its baselines before verticalAlign becomes "top" for the prepared block.

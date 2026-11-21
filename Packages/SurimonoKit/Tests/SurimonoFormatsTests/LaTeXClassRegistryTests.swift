@@ -171,7 +171,7 @@ struct LaTeXClassRegistryTests {
     func registration() {
         let names = LaTeXClassRegistry.registeredNames
         #expect(names.count == Set(names).count)
-        #expect(Set(names) == Set(Self.defaults.filter { !$0.unknown }.flatMap(\.names)))
+        #expect(Set(names) == Set(Self.defaults.filter { !$0.unknown }.flatMap(\.names) + ["ipsj", "ieicej", "ieice"]))
         let ids = names.map { LaTeXClassRegistry.resolve(.init(name: $0, options: [])).id }
         #expect(Set(ids) == Set(LaTeXClassID.allCases.filter { $0 != .unknown }))
     }

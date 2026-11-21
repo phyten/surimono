@@ -84,6 +84,7 @@ final class DocumentViewModel {
     private(set) var format: DocumentFormat
     private(set) var data: Data
     private var classStyle: String?
+    private(set) var classLayout: PrintLayout?
     var themeFormat: DocumentFormat? { binder == nil && imageBundle == nil ? format : nil }
     var availableThemes: [PrintTheme] { library.themes.filter { $0.supports(themeFormat) } }
 
@@ -530,10 +531,12 @@ final class DocumentViewModel {
         bandVisibility = preferences.defaultBandVisibility
         self.library = library
         self.renderer = renderer
-        layoutID = Self.defaultLayoutID(preferences)
         bookletBinding = nil
         let themeFormat = binder == nil && imageBundle == nil ? format : nil
         let source = themeFormat.map { DocumentSource(data: data, fileURL: fileURL, format: $0) }
+        let inferredLayout = UserLibrary.classLayout(for: source, renderer: renderer)
+        classLayout = inferredLayout
+        layoutID = inferredLayout?.id ?? Self.defaultLayoutID(preferences)
         let inferredStyle = UserLibrary.classStyle(for: source, renderer: renderer)
         classStyle = inferredStyle
         let initialTheme = library.defaultThemeID(
@@ -829,6 +832,10 @@ final class DocumentViewModel {
 
     /// The six default card shortcuts keep their positions; the compact alternatives start unassigned.
     func chooseCard(at index: Int) {
+        if index == 0 && trayPaperSeries == .a && layout == .journalSingle {
+            chooseLayout(layout.id)
+            return
+        }
         let cards = PrintLayout.presets(in: trayPaperSeries)
         let choice =
             trayPaperSeries == .b && index == 5
@@ -1248,13 +1255,15 @@ final class DocumentViewModel {
         }
         let updatedDirectives = currentDirectives
         let updatedClassStyle = UserLibrary.classStyle(for: themedSource, renderer: renderer)
+        let updatedClassLayout = UserLibrary.classLayout(for: themedSource, renderer: renderer)
         let printSettingsChanged = !updatedDirectives.hasSamePrintSettings(as: documentDirectives)
         documentDirectives = updatedDirectives
-        if printSettingsChanged || updatedClassStyle != classStyle {
+        if printSettingsChanged || updatedClassStyle != classStyle || updatedClassLayout != classLayout {
             let canApply =
                 !hasSavedSettings && !didCustomizeSinceLoad && !didResizeWindow
                 && rememberedSettings == settingsBaseline
             classStyle = updatedClassStyle
+            classLayout = updatedClassLayout
             if canApply {
                 settingsBaseline = nil
                 notes = NotePages()
@@ -1348,6 +1357,7 @@ final class DocumentViewModel {
     func reopenAsText() {
         format = .plainText
         classStyle = nil
+        classLayout = nil
         if theme(themeID) == nil { themeID = defaultThemeID }
         renderer.clearCache()
         themeTrial.clear()
@@ -2576,7 +2586,8 @@ final class DocumentViewModel {
 
     private var appDefaultSettings: DocumentSettings {
         DocumentSettings(
-            view: viewDefaults(forTheme: defaultThemeID), zoom: 1, layoutID: Self.defaultLayoutID(preferences),
+            view: viewDefaults(forTheme: defaultThemeID), zoom: 1,
+            layoutID: classLayout?.id ?? Self.defaultLayoutID(preferences),
             themeID: usesPrintTheme ? defaultThemeID : nil,
             textScale: usesPrintTheme ? defaultTextScale : nil,
             typeface: usesPrintTheme && defaultTypeface != .style ? defaultTypeface : nil,
@@ -3015,7 +3026,7 @@ final class DocumentViewModel {
         typeface = usesPrintTheme ? defaultTypeface : .style
         textScale = usesPrintTheme ? defaultTextScale : 1
         paperOrientation = defaultPaperOrientation
-        layoutID = Self.defaultLayoutID(preferences)
+        layoutID = classLayout?.id ?? Self.defaultLayoutID(preferences)
         bookletBinding = nil
         themeID = defaultThemeID
         codePaletteID = Self.defaultCodePaletteID(preferences, library)
@@ -3361,7 +3372,13 @@ final class DocumentViewModel {
         // A newly readable preamble can set the document class. Change only an untouched default and
         // its baseline, so granting permission alone creates no settings record.
         let followsClass = !hasSavedSettings && !didCustomizeSinceLoad && themeID == classStyle
+        let followedTrim = layoutID == (classLayout?.id ?? Self.defaultLayoutID(preferences))
         classStyle = UserLibrary.classStyle(for: themedSource, renderer: renderer)
+        classLayout = UserLibrary.classLayout(for: themedSource, renderer: renderer)
+        if followedTrim && !hasSavedSettings && !didCustomizeSinceLoad {
+            layoutID = classLayout?.id ?? Self.defaultLayoutID(preferences)
+            settingsBaseline?.layoutID = layoutID
+        }
         if followsClass {
             themeID = defaultThemeID
             settingsBaseline?.themeID = themeID
