@@ -33,9 +33,9 @@ extension LaTeXDocument {
 
     /// Keep the printed number on the list item as well as its anchor. The class styles can lift this
     /// exact mark into a superscript, including jumps, resets, and symbolic title acknowledgements.
-    func footnoteSection() -> String {
-        guard !footnotes.isEmpty else { return "" }
-        let items = footnotes.map { note in
+    func footnoteSection(from start: Int = 0) -> String {
+        guard start < footnotes.count else { return "" }
+        let items = footnotes[start...].map { note in
             let value = note.mark == nil ? Int(note.number) : nil
             let attribute = value.map { " value=\"\($0)\"" } ?? " style=\"list-style:none\""
             var content = note.html ?? ""

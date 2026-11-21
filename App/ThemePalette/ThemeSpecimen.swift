@@ -15,12 +15,22 @@ enum ThemeSpecimen {
             preset: HTMLCleanupPreset(id: "none", name: "None"))
     }
 
-    static func source(language: String, format: DocumentFormat? = nil) -> DocumentSource {
+    static func source(language: String, format: DocumentFormat? = nil, classStyle: String? = nil) -> DocumentSource {
         if format == .latex {
             // A Markdown specimen lacks the title, section and equation markup these styles are designed to print.
             let code = UILanguage.candidates(for: language).first(where: UILanguage.supported.contains) ?? "en"
             let bundle = Bundle.main.path(forResource: code, ofType: "lproj").flatMap(Bundle.init(path:)) ?? .main
             func sample(_ key: String) -> String { bundle.localizedString(forKey: key, value: key, table: nil) }
+            if classStyle == PrintThemeLibrary.slideStyleID {
+                let source = #"""
+                    \documentclass{beamer}
+                    \begin{document}\begin{frame}{\#(sample("A Little Library"))}
+                    \begin{block}{\#(sample("Today’s reading"))}
+                    \#(sample("An open book changes the everyday view."))
+                    \end{block}\end{frame}\end{document}
+                    """#
+                return DocumentSource(data: Data(source.utf8), format: .latex)
+            }
             let source = #"""
                 \documentclass{\#(code == "ja" ? "jsarticle" : "article")}
                 \title{\#(sample("A Little Library"))}\author{Surimono}\date{}

@@ -114,7 +114,7 @@ struct PrintThemeMenuTests {
             PrintThemeMenu.search("LaTeX", in: all, categories: groups, language: "ja", format: .markdown).map(\.id)
                 == ["latex"])
         #expect(all.filter { $0.supports(.markdown) }.count == 109)
-        #expect(all.filter { $0.supports(.latex) }.count == 113)
+        #expect(all.filter { $0.isAvailable(for: .latex, classStyle: "latex-article") }.count == 113)
     }
 
     @Test("行間広めの横書き HTML は縦書き追加前とバイト単位で一致する")

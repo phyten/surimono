@@ -61,21 +61,28 @@ public enum HTMLExporter {
         let input = renderer.exportSource(
             .html(html, baseURL: directory ?? FileManager.default.temporaryDirectory),
             for: source)
-        let size = settings.layout.logicalPageSize(options: settings.options)
-        let margins = WebPaginator.Margins(settings.layout.logicalMargins(options: settings.options))
+        let slide = fragment.latexClass?.beamerPageSize
+        let size = slide ?? settings.layout.logicalPageSize(options: settings.options)
+        let margins = WebPaginator.Margins(
+            slide == nil ? settings.layout.logicalMargins(options: settings.options) : .zero)
         let code =
             CodeFitScript.javaScript(
                 for: settings.code,
                 layoutWidth: (size.width - margins.left - margins.right) * WebPaginator.printPixelsPerPoint) ?? ""
+        let graphicWidth =
+            slide == nil
+            ? size.width - margins.left - margins.right : fragment.latexClass?.pageBox.textWidth ?? size.width
         let graphic =
             source.format == .latex
             ? LaTeXGraphicPreparation.script(
                 in: body.body,
-                layoutWidth: (size.width - margins.left - margins.right) * WebPaginator.printPixelsPerPoint,
+                layoutWidth: graphicWidth * WebPaginator.printPixelsPerPoint,
                 layoutHeight: settings.theme.formats == [.latex]
                     ? (size.height - margins.top - margins.bottom) * WebPaginator.printPixelsPerPoint : nil)
             : nil
-        let preparation = [graphic, code, settings.theme.script].compactMap { $0 }.joined(separator: "\n")
+        let slideScript = slide == nil ? nil : try DocumentRenderer.beamerPreparation()
+        let preparation = [graphic, code, slideScript ?? settings.theme.script].compactMap { $0 }.joined(
+            separator: "\n")
         let composedHTML = !richText && (fragment.latexClass?.composition ?? .document) != .document
         let shift = settings.mirrorsLaidOutPages ? settings.layout.versoContentShift(options: settings.options) : 0
         let result = try await WebPaginator().paginateWithResult(
@@ -132,6 +139,8 @@ public enum HTMLExporter {
         const latexBody = copy.querySelector('body.format-latex');
         for (const el of [copy, ...copy.querySelectorAll('*')]) {
           for (const attr of Array.from(el.attributes)) {
+            if (latexBody && el.closest('.beamer-frame') &&
+                /^(data-align|data-kind|data-plain|data-shaded|data-squeeze|data-beamer-covered|data-text-width)$/.test(attr.name)) continue;
             if (composedHTML && /^data-latex-(size|class|chapters|title-layout|js-toc|js-chapters|js-twocolumn|heading|float|column|placement|caption-style|caption-hang|tabularx|rule-line|breakable|undotted|text-size)$/.test(attr.name) &&
                 /^[a-zA-Z0-9 *._-]{0,50}$/.test(attr.value)) continue;
             if (el === latexBody && ((attr.name === 'data-latex-size' && /^(10|11|12)$/.test(attr.value)) ||
@@ -198,6 +207,15 @@ public enum HTMLExporter {
         const screenLayout = classMeasure ? 'html { padding:2rem clamp(1rem,4vw,3rem); }' :
           'body { box-sizing:border-box; max-width:52rem; margin-inline:auto; padding:2rem clamp(1rem,4vw,3rem); }';
         screen.textContent = '@media screen { ' + screenLayout + ' img,svg { max-width:100%; } }';
+        if (latexBody?.querySelector('.beamer-frame')) {
+          // A standalone browser uses 96 CSS pixels per inch; AppKit's print view uses 90.
+          const style = getComputedStyle(document.body);
+          const w = parseFloat(style.getPropertyValue('--beamer-width')) / 1.25;
+          const h = parseFloat(style.getPropertyValue('--beamer-height')) / 1.25;
+          screen.textContent = '@page { size:' + w + 'pt ' + h + 'pt; margin:0 } ' +
+            '@media print { body.surimono.format-latex { zoom:' + (96/90) + ' } } ' +
+            '@media screen { body.format-latex > .beamer-frame { margin:1rem auto; outline:1px solid #ddd; } }';
+        }
         head.append(screen);
         return '<!DOCTYPE html>\n' + copy.outerHTML;
         """#

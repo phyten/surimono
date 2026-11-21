@@ -1,0 +1,63 @@
+{
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 2,
+  "pages" : [
+    {
+      "firstY" : 4.8,
+      "height" : 255.1,
+      "lastY" : 107.3,
+      "lineCount" : 2,
+      "lines" : [
+        {
+          "height" : 22.2,
+          "text" : "At the inlet",
+          "width" : 68.7,
+          "x" : 8.5,
+          "y" : 4.8
+        },
+        {
+          "height" : 16.9,
+          "text" : "Low water",
+          "width" : 47,
+          "x" : 28.3,
+          "y" : 107.3
+        }
+      ],
+      "textHeight" : 119.3,
+      "textLeft" : 8.5,
+      "textTop" : 4.8,
+      "textWidth" : 68.7,
+      "width" : 453.5
+    },
+    {
+      "firstY" : 4.8,
+      "height" : 255.1,
+      "lastY" : 107.3,
+      "lineCount" : 2,
+      "lines" : [
+        {
+          "height" : 22.2,
+          "text" : "At the inlet",
+          "width" : 68.7,
+          "x" : 8.5,
+          "y" : 4.8
+        },
+        {
+          "height" : 16.9,
+          "text" : "High water shows the next mark.",
+          "width" : 150.6,
+          "x" : 28.3,
+          "y" : 107.3
+        }
+      ],
+      "textHeight" : 119.3,
+      "textLeft" : 8.5,
+      "textTop" : 4.8,
+      "textWidth" : 170.5,
+      "width" : 453.5
+    }
+  ],
+  "textSHA256" : "204c1bfb6ce7e987cbad0dc91757a7e52968c10b30167c6d52900554ea7a7ec3"
+}

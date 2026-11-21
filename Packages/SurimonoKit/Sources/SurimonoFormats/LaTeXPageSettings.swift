@@ -70,6 +70,12 @@ struct LaTeXPageSettings {
     }
 
     func pageBox(for info: LaTeXDocumentClassInfo) -> LaTeXPageBox {
+        if let size = info.beamerPageSize {
+            let margin = 10 * 72.0 / 25.4
+            return .init(
+                paperWidth: size.width, paperHeight: size.height, left: margin, right: margin,
+                top: 0, bottom: 0, headSep: 0, footSkip: 0, mirrorsSides: false)
+        }
         let stock =
             self.stock ?? info.resolvedStyle?.paper.millimetres ?? classStock
             ?? info.profile.page.defaultPaper.millimetres

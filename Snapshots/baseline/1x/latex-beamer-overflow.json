@@ -1,0 +1,199 @@
+{
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 6,
+  "pages" : [
+    {
+      "firstY" : 4.8,
+      "height" : 272.1,
+      "lastY" : 252.7,
+      "lineCount" : 2,
+      "lines" : [
+        {
+          "height" : 22.1,
+          "text" : "Close fit",
+          "width" : 49.3,
+          "x" : 8.5,
+          "y" : 4.8
+        },
+        {
+          "height" : 15.8,
+          "text" : "Last mark",
+          "width" : 42.7,
+          "x" : 34.4,
+          "y" : 252.7
+        }
+      ],
+      "textHeight" : 263.6,
+      "textLeft" : 8.5,
+      "textTop" : 4.8,
+      "textWidth" : 68.6,
+      "width" : 362.8
+    },
+    {
+      "firstY" : 4.8,
+      "height" : 272.1,
+      "lastY" : 224.7,
+      "lineCount" : 4,
+      "lines" : [
+        {
+          "height" : 22.1,
+          "text" : "Soundings I",
+          "width" : 69.6,
+          "x" : 8.5,
+          "y" : 4.8
+        },
+        {
+          "height" : 16.8,
+          "text" : "First sounding.",
+          "width" : 67.5,
+          "x" : 28.3,
+          "y" : 40.1
+        },
+        {
+          "height" : 16.8,
+          "text" : "Second sounding.",
+          "width" : 79.3,
+          "x" : 28.3,
+          "y" : 132.8
+        },
+        {
+          "height" : 16.8,
+          "text" : "Third sounding.",
+          "width" : 71.9,
+          "x" : 28.3,
+          "y" : 224.7
+        }
+      ],
+      "textHeight" : 236.7,
+      "textLeft" : 8.5,
+      "textTop" : 4.8,
+      "textWidth" : 99.1,
+      "width" : 362.8
+    },
+    {
+      "firstY" : 4.8,
+      "height" : 272.1,
+      "lastY" : 114.4,
+      "lineCount" : 2,
+      "lines" : [
+        {
+          "height" : 22.1,
+          "text" : "Soundings II",
+          "width" : 74,
+          "x" : 8.5,
+          "y" : 4.8
+        },
+        {
+          "height" : 16.8,
+          "text" : "Last sounding.",
+          "width" : 66.1,
+          "x" : 28.3,
+          "y" : 114.4
+        }
+      ],
+      "textHeight" : 126.4,
+      "textLeft" : 8.5,
+      "textTop" : 4.8,
+      "textWidth" : 85.9,
+      "width" : 362.8
+    },
+    {
+      "firstY" : 4.8,
+      "height" : 272.1,
+      "lastY" : 114.4,
+      "lineCount" : 2,
+      "lines" : [
+        {
+          "height" : 22.1,
+          "text" : "Survey I",
+          "width" : 48.6,
+          "x" : 8.5,
+          "y" : 4.8
+        },
+        {
+          "height" : 16.8,
+          "text" : "West bank.",
+          "width" : 51.4,
+          "x" : 28.3,
+          "y" : 114.4
+        }
+      ],
+      "textHeight" : 126.4,
+      "textLeft" : 8.5,
+      "textTop" : 4.8,
+      "textWidth" : 71.2,
+      "width" : 362.8
+    },
+    {
+      "firstY" : 4.8,
+      "height" : 272.1,
+      "lastY" : 114.4,
+      "lineCount" : 2,
+      "lines" : [
+        {
+          "height" : 22.1,
+          "text" : "Survey II",
+          "width" : 53,
+          "x" : 8.5,
+          "y" : 4.8
+        },
+        {
+          "height" : 16.8,
+          "text" : "East bank.",
+          "width" : 48.3,
+          "x" : 28.3,
+          "y" : 114.4
+        }
+      ],
+      "textHeight" : 126.4,
+      "textLeft" : 8.5,
+      "textTop" : 4.8,
+      "textWidth" : 68.2,
+      "width" : 362.8
+    },
+    {
+      "firstY" : 4.8,
+      "height" : 272.1,
+      "lastY" : 47.6,
+      "lineCount" : 4,
+      "lines" : [
+        {
+          "height" : 22.1,
+          "text" : "Summary",
+          "width" : 56.1,
+          "x" : 8.5,
+          "y" : 4.8
+        },
+        {
+          "height" : 14.5,
+          "text" : "▶ Rise",
+          "width" : 27.7,
+          "x" : 35,
+          "y" : 25.3
+        },
+        {
+          "height" : 14.5,
+          "text" : "▶ Hold",
+          "width" : 30,
+          "x" : 35,
+          "y" : 36.4
+        },
+        {
+          "height" : 14.5,
+          "text" : "▶ Fall",
+          "width" : 25.7,
+          "x" : 35,
+          "y" : 47.6
+        }
+      ],
+      "textHeight" : 57.3,
+      "textLeft" : 8.5,
+      "textTop" : 4.8,
+      "textWidth" : 56.5,
+      "width" : 362.8
+    }
+  ],
+  "textSHA256" : "2f7ae7e4444976c9fd15c2324091fec7d9e88f44d5bd362dd977b59b43ef1c3a"
+}

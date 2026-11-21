@@ -12,6 +12,14 @@ package enum LaTeXClassID: String, CaseIterable, Sendable {
     case unknown
 }
 
+enum BeamerMode: String, CaseIterable {
+    case all, presentation, beamer, handout, article, trans, second
+
+    func active(handout: Bool) -> Bool {
+        self == .all || self == .presentation || self == (handout ? .handout : .beamer)
+    }
+}
+
 extension LaTeXClassRequest {
     var isDefaultArticle: Bool { name == LaTeXClassID.article.rawValue && options.isEmpty }
 }
@@ -271,6 +279,27 @@ enum LaTeXClassRegistry {
         builder.titleBlock.readsShortInstitute = true
         builder.headings.bibliography = .none
         builder.headings.navigationOnlySections = true
+        let ratio = builder.options.last { $0.hasPrefix("aspectratio=") }?.dropFirst("aspectratio=".count)
+        let dimensions: (Double, Double) =
+            switch ratio {
+            case "2013": (140, 91)
+            case "1610": (160, 100)
+            case "169": (160, 90)
+            case "149": (140, 90)
+            case "54": (125, 100)
+            case "32": (135, 90)
+            case "141": (148.5, 105)
+            default: (128, 96)
+            }
+        builder.page.slideSize = CGSize(width: dimensions.0 * 72 / 25.4, height: dimensions.1 * 72 / 25.4)
+        builder.page.setsOutputPaper = true
+        builder.page.handout = builder.options.contains("handout")
+        builder.page.slideAlignment = builder.options.last { ["c", "t"].contains($0) } ?? "c"
+        let sizes: [String: Double] = [
+            "8pt": 8, "9pt": 9, "10pt": 10, "smaller": 10, "11pt": 10.95, "12pt": 12, "bigger": 12,
+            "14pt": 14.4, "17pt": 17.28, "20pt": 20.74,
+        ]
+        builder.page.slideFontSize = builder.options.compactMap { sizes[$0] }.last ?? 10.95
         builder.body.readsFrames = true
         builder.body.numbersCaptions = false
     }

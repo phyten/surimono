@@ -1,147 +1,159 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.013874678324496946,
-    "dimensionsChanged" : true,
+    "changedAreaRatio" : 0.021683673469387755,
+    "dimensionsChanged" : false,
     "layoutChanged" : true,
-    "lineCountChangedPages" : 1,
-    "maxBoxDeltaPt" : 546.3,
-    "maxLuminance" : 150,
-    "maxShiftPt" : 388,
-    "pageDelta" : -2,
-    "repaginatedLines" : 10,
-    "textEdits" : 2
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 9.4,
+    "maxLuminance" : 42.109375,
+    "maxShiftPt" : 7.3,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 0
   },
   "fonts" : [
     "Helvetica"
   ],
-  "pageCount" : 1,
+  "pageCount" : 3,
   "pages" : [
     {
-      "firstY" : 147.2,
-      "height" : 841.9,
-      "lastY" : 717.2,
-      "lineCount" : 16,
+      "firstY" : 74.7,
+      "height" : 272.1,
+      "lastY" : 165.9,
+      "lineCount" : 4,
       "lines" : [
         {
-          "height" : 25.5,
+          "height" : 22.1,
           "text" : "A folded rail spacer",
-          "width" : 147.3,
-          "x" : 223.6,
-          "y" : 147.2
+          "width" : 116.1,
+          "x" : 123.2,
+          "y" : 74.7
         },
         {
-          "height" : 17.7,
+          "height" : 16.8,
           "text" : "Model Rail Desk",
-          "width" : 87.3,
-          "x" : 253.6,
-          "y" : 182.5
+          "width" : 75.3,
+          "x" : 143.6,
+          "y" : 118
         },
         {
-          "height" : 13.3,
+          "height" : 12.3,
           "text" : "Paper Model Workshop",
-          "width" : 92.6,
-          "x" : 251,
-          "y" : 205
+          "width" : 78.2,
+          "x" : 142.1,
+          "y" : 144.7
         },
         {
-          "height" : 17.7,
+          "height" : 16.8,
           "text" : "14 May 2026",
-          "width" : 66.7,
-          "x" : 263.9,
-          "y" : 226.5
-        },
-        {
-          "height" : 21.7,
-          "text" : "A fixed rail height",
-          "width" : 132.6,
-          "x" : 125.4,
-          "y" : 256.4
-        },
-        {
-          "height" : 15.1,
-          "text" : "Observation",
-          "width" : 60.4,
-          "x" : 140.4,
-          "y" : 283.7
-        },
-        {
-          "height" : 14.8,
-          "text" : "The folded card held the rail level.",
-          "width" : 150.7,
-          "x" : 140.4,
-          "y" : 296.7
-        },
-        {
-          "height" : 14.8,
-          "text" : "Figure: The folded edge",
-          "width" : 103.6,
-          "x" : 245.5,
-          "y" : 343.1
-        },
-        {
-          "height" : 21.7,
-          "text" : "Readings",
-          "width" : 65.6,
-          "x" : 125.4,
-          "y" : 381.1
-        },
-        {
-          "height" : 14.8,
-          "text" : "Card mm",
-          "width" : 56.5,
-          "x" : 269.1,
-          "y" : 419.8
-        },
-        {
-          "height" : 14.8,
-          "text" : "Thin 1",
-          "width" : 56.5,
-          "x" : 269.1,
-          "y" : 431.8
-        },
-        {
-          "height" : 14.8,
-          "text" : "Folded 2",
-          "width" : 56.5,
-          "x" : 269.1,
-          "y" : 443.8
-        },
-        {
-          "height" : 14.8,
-          "text" : "Table: Spacer heights",
-          "width" : 93,
-          "x" : 250.8,
-          "y" : 467
-        },
-        {
-          "height" : 14.9,
-          "text" : "[1]",
-          "width" : 10.5,
-          "x" : 125.4,
-          "y" : 498
-        },
-        {
-          "height" : 14.9,
-          "text" : "Model Rail Desk, Spacer register.",
-          "width" : 144.8,
-          "x" : 145.3,
-          "y" : 498
-        },
-        {
-          "height" : 14.8,
-          "text" : "1",
-          "width" : 5,
-          "x" : 294.8,
-          "y" : 717.2
+          "width" : 59.4,
+          "x" : 151.5,
+          "y" : 165.9
         }
       ],
-      "textHeight" : 584.8,
-      "textLeft" : 125.4,
-      "textTop" : 147.2,
-      "textWidth" : 245.5,
-      "width" : 595.3
+      "textHeight" : 108,
+      "textLeft" : 123.2,
+      "textTop" : 74.7,
+      "textWidth" : 116.1,
+      "width" : 362.8
+    },
+    {
+      "firstY" : 4.8,
+      "height" : 272.1,
+      "lastY" : 149.9,
+      "lineCount" : 4,
+      "lines" : [
+        {
+          "height" : 22.1,
+          "text" : "A fixed rail height",
+          "width" : 107.6,
+          "x" : 8.5,
+          "y" : 4.8
+        },
+        {
+          "height" : 18.5,
+          "text" : "Observation",
+          "width" : 59.5,
+          "x" : 28.3,
+          "y" : 87.6
+        },
+        {
+          "height" : 16.8,
+          "text" : "The folded card held the rail level.",
+          "width" : 156.5,
+          "x" : 28.3,
+          "y" : 102.4
+        },
+        {
+          "height" : 15.4,
+          "text" : "Figure: The folded edge",
+          "width" : 99.1,
+          "x" : 131.7,
+          "y" : 149.9
+        }
+      ],
+      "textHeight" : 160.4,
+      "textLeft" : 8.5,
+      "textTop" : 4.8,
+      "textWidth" : 222.3,
+      "width" : 362.8
+    },
+    {
+      "firstY" : 4.8,
+      "height" : 272.1,
+      "lastY" : 168,
+      "lineCount" : 6,
+      "lines" : [
+        {
+          "height" : 22.1,
+          "text" : "Readings",
+          "width" : 53.4,
+          "x" : 8.5,
+          "y" : 4.8
+        },
+        {
+          "height" : 16.8,
+          "text" : "Card mm",
+          "width" : 59.3,
+          "x" : 151.6,
+          "y" : 85.6
+        },
+        {
+          "height" : 16.8,
+          "text" : "Thin 1",
+          "width" : 59.3,
+          "x" : 151.6,
+          "y" : 99.2
+        },
+        {
+          "height" : 16.8,
+          "text" : "Folded 2",
+          "width" : 59.3,
+          "x" : 151.6,
+          "y" : 112.8
+        },
+        {
+          "height" : 15.4,
+          "text" : "Table: Spacer heights",
+          "width" : 89.2,
+          "x" : 136.6,
+          "y" : 132.3
+        },
+        {
+          "height" : 16.8,
+          "text" : "Model Rail Desk, Spacer register.",
+          "width" : 152.2,
+          "x" : 47.9,
+          "y" : 168
+        }
+      ],
+      "textHeight" : 180,
+      "textLeft" : 8.5,
+      "textTop" : 4.8,
+      "textWidth" : 217.3,
+      "width" : 362.8
     }
   ],
-  "textSHA256" : "bf3bf61d48dadf6e2da6e5501778de234d26a21f91c03480b7b059bb75ccbbfb"
+  "textSHA256" : "821e0d6d88b22868305889f3f6bd7ad5e16e42ab54b4f1f41d4325a34b87925e"
 }

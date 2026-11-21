@@ -644,14 +644,17 @@ extension DocumentRenderer {
             textScale: settings.textScale, typeface: settings.typeface, removesPaper: removesPaper,
             finish: settings.finish.styleSheet, code: settings.code)
         try PageLayoutLimits.checkHTML(bytes: html.utf8.count, sourceBytes: source.data.count)
-        let size = layout.logicalPageSize(options: settings.options)
-        let box = layout.kind == .handout3 ? nil : fragment.latexClass?.pageBox
+        // A slide specimen already carries its own paper and text margins, just like the printed deck.
+        let slideSize = fragment.latexClass?.beamerPageSize
+        let size = slideSize ?? layout.logicalPageSize(options: settings.options)
+        let box = slideSize != nil || layout.kind == .handout3 ? nil : fragment.latexClass?.pageBox
         let hasMarginInk = source.format == .latex && LaTeXFlowPaginator.hasMarginInk(in: fragment.body)
         return {
             let sampler = ThemeSampler(
                 html: html, format: source.format, baseURL: directory,
-                pageSize: layout.logicalPageSize(options: settings.options),
-                margins: WebPaginator.Margins(layout.logicalMargins(options: settings.options)),
+                pageSize: size,
+                margins: WebPaginator.Margins(
+                    slideSize == nil ? layout.logicalMargins(options: settings.options) : .zero),
                 textScale: settings.textScale, typeface: settings.typeface, code: settings.code, resourceAccess: access)
             sampler.configureDocumentMargins(
                 box.map { WebPaginator.Margins($0.margins(fitting: size)) }, mode: settings.options.latexMargins,

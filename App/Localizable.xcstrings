@@ -1,6 +1,271 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "The theme “%@” is not supported, so beamer's default look is used.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The theme “%@” is not supported, so beamer's default look is used."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "原稿のテーマ『%@』には対応していないため、beamer の標準の体裁で表示しています。"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Thema „%@“ wird nicht unterstützt. Daher wird das Standarddesign von beamer verwendet."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le thème « %@ » n’est pas pris en charge. Le thème par défaut de beamer est utilisé."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El tema «%@» no es compatible. Se usa el tema predeterminado de beamer."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "‘%@’ 테마를 지원하지 않아 beamer의 기본 테마로 표시합니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不支持原稿的“%@”主题，已使用 beamer 的默认样式。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不支援原稿的「%@」主題，因此使用 beamer 的預設樣式。"
+          }
+        }
+      }
+    },
+    "1 slide did not fit and continues on a following page.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 slide did not fit and continues on a following page."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 枚のスライドは収まらないため、続きのページに分けています。"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eine Folie passt nicht auf eine Seite und wird auf der nächsten fortgesetzt."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une diapositive ne tient pas sur une page et se poursuit sur la suivante."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una diapositiva no cabe en una página y continúa en la siguiente."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "슬라이드 1장이 한 페이지에 들어가지 않아 다음 페이지로 이어집니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 张幻灯片超出页面，已在后续页面继续排版。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 張投影片超出頁面，已接續排在後頁。"
+          }
+        }
+      }
+    },
+    "%lld slides did not fit and continue on a following page.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld slides did not fit and continue on a following page."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 枚のスライドは収まらないため、続きのページに分けています。"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Folien passen nicht auf eine Seite und werden auf der nächsten fortgesetzt."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld diapositives ne tiennent pas sur une page et se poursuivent sur la suivante."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld diapositivas no caben en una página y continúan en la siguiente."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "슬라이드 %lld장이 한 페이지에 들어가지 않아 다음 페이지로 이어집니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 张幻灯片超出页面，已在后续页面继续排版。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 張投影片超出頁面，已接續排在後頁。"
+          }
+        }
+      }
+    },
+    "1 slide shows all its steps at once because its overlay commands could not be read.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 slide shows all its steps at once because its overlay commands could not be read."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 枚のスライドは、段階表示を読み取れなかったため、すべての内容をまとめて表示しています。"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bei einer Folie werden alle Schritte zusammen angezeigt, weil ihre Überblendbefehle nicht gelesen werden konnten."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une diapositive affiche toutes ses étapes à la fois car ses commandes de superposition n’ont pas pu être lues."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una diapositiva muestra todos sus pasos a la vez porque no se pudieron interpretar sus órdenes de superposición."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "슬라이드 1장의 단계 표시 명령을 읽을 수 없어 모든 내용을 한꺼번에 표시합니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 张幻灯片的分步显示命令无法解析，已一次显示全部内容。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 張投影片的分段顯示指令無法讀取，已一次顯示全部內容。"
+          }
+        }
+      }
+    },
+    "%lld slides show all their steps at once because their overlay commands could not be read.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld slides show all their steps at once because their overlay commands could not be read."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 枚のスライドは、段階表示を読み取れなかったため、すべての内容をまとめて表示しています。"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bei %lld Folien werden alle Schritte zusammen angezeigt, weil ihre Überblendbefehle nicht gelesen werden konnten."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld diapositives affichent toutes leurs étapes à la fois car leurs commandes de superposition n’ont pas pu être lues."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld diapositivas muestran todos sus pasos a la vez porque no se pudieron interpretar sus órdenes de superposición."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "슬라이드 %lld장의 단계 표시 명령을 읽을 수 없어 모든 내용을 한꺼번에 표시합니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 张幻灯片的分步显示命令无法解析，已一次显示全部内容。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 張投影片的分段顯示指令無法讀取，已一次顯示全部內容。"
+          }
+        }
+      }
+    },
     "Adds line numbers and a margin for notes.": {
       "extractionState": "manual",
       "localizations": {

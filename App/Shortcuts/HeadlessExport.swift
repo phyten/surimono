@@ -31,10 +31,10 @@ struct HeadlessExport {
     private var language: String { Bundle.main.preferredLocalizations.first ?? "en" }
 
     /// The names a style answers to: its identifier, its English name, and its name in the app's language.
-    func theme(named name: String, format: DocumentFormat? = nil) -> PrintTheme? {
+    func theme(named name: String, format: DocumentFormat? = nil, classStyle: String? = nil) -> PrintTheme? {
         let wanted = name.trimmingCharacters(in: .whitespacesAndNewlines)
         return library.themes.first { theme in
-            guard theme.supports(format) else { return false }
+            guard theme.isAvailable(for: format, classStyle: classStyle) else { return false }
             // In any language the app speaks, not only the one shown now: a shortcut is written once and may run
             // on a Mac set to another language.
             return ([theme.id, theme.name] + UILanguage.supported.map { theme.displayName(language: $0) }).contains {
@@ -51,9 +51,11 @@ struct HeadlessExport {
         let layoutID = layoutID ?? UserLibrary.classLayout(for: source, renderer: renderer)?.id ?? preferences.layoutID
         let layout = PrintLayout.presets.first { $0.id == layoutID } ?? .a4Single
         let standard = library.themes.first { $0.id == "standard" }
+        let classStyle = UserLibrary.classStyle(
+            for: source ?? DocumentSource(data: Data(), format: format), renderer: renderer)
         let theme: PrintTheme?
         if let style, format.usesPrintTheme {
-            guard let named = self.theme(named: style, format: format) else {
+            guard let named = self.theme(named: style, format: format, classStyle: classStyle) else {
                 throw Failure(
                     message: String(localized: "There is no style named “\(style)”.", table: "Shortcuts"))
             }
@@ -61,8 +63,7 @@ struct HeadlessExport {
         } else {
             let id = library.defaultThemeID(
                 preferred: format.usesPrintTheme ? preferences.themeID : "standard", format: format,
-                classStyle: UserLibrary.classStyle(
-                    for: source ?? DocumentSource(data: Data(), format: format), renderer: renderer))
+                classStyle: classStyle)
             theme = library.themes.first { $0.id == id } ?? standard
         }
         let presetID = format.usesHTMLPreset ? preferences.presetID : "none"

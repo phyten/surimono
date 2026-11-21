@@ -220,6 +220,10 @@ package struct LaTeXClassProfile: Equatable, Sendable {
     }
 
     struct Page: Equatable, Sendable {
+        var slideSize: CGSize?
+        var slideFontSize = 10.95
+        var handout = false
+        var slideAlignment = "c"
         var fixedGrid: PublicationGrid?
         var layoutRule = LayoutRule.standard(.inherited)
         var paperOptions = PaperOptions.standard

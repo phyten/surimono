@@ -1,0 +1,50 @@
+{
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 4.8,
+      "height" : 255.1,
+      "lastY" : 125.7,
+      "lineCount" : 4,
+      "lines" : [
+        {
+          "height" : 22.2,
+          "text" : "Notebook",
+          "width" : 58.5,
+          "x" : 8.5,
+          "y" : 4.8
+        },
+        {
+          "height" : 16.9,
+          "text" : "Record the level.",
+          "width" : 75.9,
+          "x" : 28.3,
+          "y" : 93.7
+        },
+        {
+          "height" : 16.9,
+          "text" : "▶ Read the float.",
+          "width" : 82,
+          "x" : 36.2,
+          "y" : 108.9
+        },
+        {
+          "height" : 16.9,
+          "text" : "▶ Mark the page.",
+          "width" : 83.4,
+          "x" : 36.2,
+          "y" : 125.7
+        }
+      ],
+      "textHeight" : 137.7,
+      "textLeft" : 8.5,
+      "textTop" : 4.8,
+      "textWidth" : 111.1,
+      "width" : 453.5
+    }
+  ],
+  "textSHA256" : "4e31edcd9701f0ae99f7aa2ebaad1d620d977058a9fc065cfed3c050ee51ec85"
+}

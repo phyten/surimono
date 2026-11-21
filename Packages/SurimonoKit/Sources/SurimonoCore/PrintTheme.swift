@@ -22,6 +22,13 @@ public struct PrintTheme: Equatable, Sendable, Identifiable {
         return format.map(formats.contains) ?? false
     }
 
+    /// Slide decks have one class-specific style. General and user styles remain available in either context.
+    public func isAvailable(for format: DocumentFormat?, classStyle: String?) -> Bool {
+        guard supports(format) else { return false }
+        guard formats == [.latex] else { return true }
+        return (id == PrintThemeLibrary.slideStyleID) == (classStyle == PrintThemeLibrary.slideStyleID)
+    }
+
     /// The position among the suggested themes, or nil when the theme is not one of them.
     public let featuredRank: Int?
     /// A script the theme decorates the page with before printing, run in the app's isolated world; the document's
@@ -102,8 +109,11 @@ public enum PrintThemeLibrary {
         let themes: [Theme]
     }
 
+    public static let slideStyleID = "latex-beamer"
+
     /// Japanese prose in a Western class uses that class's measure and its mincho fallback.
     public static func defaultLaTeXStyle(for info: LaTeXDocumentClassInfo) -> String {
+        if info.beamerPageSize != nil { return slideStyleID }
         if info.mainLanguage.hasPrefix("zh") { return "latex-plain-zh" }
         if info.mainLanguage == "ko" { return "latex-plain-ko" }
         switch info.profile.defaultStyle {
@@ -138,7 +148,10 @@ public enum PrintThemeLibrary {
             let groupFormats = catalog.categories.first { $0.id == entry.category }?.formats
             // A theme may narrow its category's formats but cannot widen them.
             let formats = entry.formats.map { own in groupFormats.map(own.intersection) ?? own } ?? groupFormats
-            let css = try String(contentsOf: CoreResources.url(entry.id, extension: "css"), encoding: .utf8)
+            // Slide geometry belongs to the document sheet so it survives palette previews of general themes.
+            let css =
+                entry.id == slideStyleID
+                ? "" : try String(contentsOf: CoreResources.url(entry.id, extension: "css"), encoding: .utf8)
             let script = try entry.script.map { name in
                 if let loaded = scripts[name] { return loaded }
                 let loaded = try String(contentsOf: CoreResources.url(name, extension: "js"), encoding: .utf8)

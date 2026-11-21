@@ -12,6 +12,42 @@ struct ThemeMenuTests {
         UserLibrary(root: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
     }
 
+    @Test("スライド原稿のスタイルは帯・刷り台・パレットで同じ名前になり、文書用の候補と混ざらない")
+    func deckStyle() throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let preferences = AppPreferences(defaults: suite.defaults)
+        let names = library()
+        let deck = DocumentViewModel(
+            data: Data(#"\documentclass{beamer}\begin{document}\frame{Low tide}\end{document}"#.utf8),
+            fileURL: nil, format: .latex, preferences: preferences, library: names)
+        #expect(deck.themeID == "latex-beamer")
+        let slides = try #require(deck.theme(deck.themeID))
+        #expect(
+            UILanguage.supported.map { slides.displayName(language: $0) } == [
+                "Slides", "スライド", "幻灯片", "投影片", "슬라이드", "Diapositives", "Folien", "Diapositivas",
+            ])
+        deck.restoreClosedDocument(DocumentSettings(themeID: "latex-article"))
+        #expect(deck.themeID == "latex-beamer")
+        #expect(deck.themeMenu.sections.first?.themes.map(\.id) == ["latex-beamer"])
+        #expect(deck.searchThemes("latex-article").isEmpty)
+        deck.selectTheme("latex-report")
+        #expect(deck.themeID == "latex-beamer")
+        deck.selectTheme("standard")
+        #expect(deck.themeID == "standard")
+        deck.selectTheme("latex-beamer")
+        preferences.toggleFavoriteTheme("latex-beamer")
+        let article = DocumentViewModel(
+            data: Data(#"\documentclass{article}"#.utf8), fileURL: nil, format: .latex,
+            preferences: preferences, library: names)
+        #expect(article.themeID == "latex-article")
+        #expect(article.theme("latex-beamer") == nil)
+        #expect(article.themeMenu.sections.allSatisfy { !$0.themes.contains(slides) })
+        #expect(article.searchThemes("Slides").isEmpty)
+        let sample = ThemeSpecimen.source(language: "en", format: .latex, classStyle: deck.classStyle)
+        #expect(DocumentRenderer().latexClassInfo(for: sample).beamerPageSize != nil)
+    }
+
     @Test("最近使ったテーマは新しい順に重複なく5つまで別のインスタンスにも残る")
     func recentThemesPersist() {
         let suite = TestDefaultsSuite()

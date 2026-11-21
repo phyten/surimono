@@ -27,6 +27,61 @@ struct LaTeXBadgeTests {
         #expect(text.explanation.hasSuffix("end” is not supported, so the standard layout is used."))
     }
 
+    @Test("スライドの札は指定テーマと該当する枚数だけを説明する")
+    func beamerNotices() throws {
+        let fragment = LaTeXConverter.convert(
+            #"\documentclass{beamer}\usetheme{Madrid}\begin{document}\frame{Net}\end{document}"#)
+        var facts = DocumentFacts(fragment: fragment)
+        let recognition = try #require(facts.latexRecognition)
+        let badge = LaTeXBadgeText(recognition, language: "ja", facts: facts)
+        #expect(badge.label == "beamer")
+        #expect(badge.explanation == "原稿のテーマ『Madrid』には対応していないため、beamer の標準の体裁で表示しています。")
+        #expect(badge.slideNotes.isEmpty)
+        facts.continuedBeamerFrames = 2
+        facts.unreadableBeamerFrames = 1
+        let details = LaTeXBadgeText(recognition, language: "en", facts: facts)
+        #expect(details.explanation == "The theme “Madrid” is not supported, so beamer's default look is used.")
+        #expect(
+            details.slideNotes == [
+                "2 slides did not fit and continue on a following page.",
+                "1 slide shows all its steps at once because its overlay commands could not be read.",
+            ])
+    }
+
+    @Test("刷り台の今の一枚は読み取り中のスライドを指し、読むための設定には残らない", .timeLimit(.minutes(1)))
+    func beamerCurrentSlide() async throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let source = #"""
+            \documentclass{beamer}
+            \begin{document}\section{Gauges}\frame{North gauge}\frame{South gauge}\end{document}
+            """#
+        let model = DocumentViewModel(
+            data: Data(source.utf8), fileURL: nil, format: .latex,
+            preferences: AppPreferences(defaults: suite.defaults),
+            library: UserLibrary(root: directory))
+        defer { model.stop() }
+        model.start()
+        for _ in 0..<500 where model.result == nil { try await Task.sleep(for: .milliseconds(20)) }
+        let deck = try #require(model.slideDeck)
+        #expect(deck.count == 2)
+        #expect(model.formatBadge == "TEX · beamer")
+        #expect(!model.offersLaTeXComposition)
+        let size = try #require(model.paperUnitSize)
+        #expect(abs(size.width / size.height - 4.0 / 3.0) < 0.001)
+        #expect(model.outlineEntries.first?.title == "Gauges")
+        #expect(model.outlineEntries.first?.pageIndex == 0)
+        model.currentPageIndex = 1
+        model.setPrintsCurrentSlideOnly(true)
+        #expect(model.renderSettings(in: .print)?.slides?.onlyIndex == 1)
+        #expect(model.renderSettings(in: .view)?.slides == nil)
+        model.selectTheme("standard")
+        #expect(model.formatBadge == "TEX · beamer")
+        #expect(!model.offersLaTeXComposition)
+    }
+
     @Test("幅を縮めると組み方、認識名、形式バッジの順に畳む")
     func collapse() {
         let widths: [BandLayout.Item: BandLayout.Widths] = [

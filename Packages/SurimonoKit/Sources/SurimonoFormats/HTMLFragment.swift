@@ -6,7 +6,21 @@ public struct HTMLFragment: Equatable, Sendable {
     public var language: String?
     /// Document-level diagnostics that have no position on a printed page.
     public var readingIssues: [String]
-    public var latexClass: LaTeXDocumentClassInfo?
+    // Keeping the full profile inline would reserve its size on the worker stack for each
+    // temporary fragment, including the other formats' branches while a nested frame is read.
+    private enum DocumentClassStorage: Equatable, Sendable {
+        case none
+        indirect case latex(LaTeXDocumentClassInfo)
+    }
+
+    private var documentClass: DocumentClassStorage = .none
+    public var latexClass: LaTeXDocumentClassInfo? {
+        get {
+            guard case .latex(let info) = documentClass else { return nil }
+            return info
+        }
+        set { documentClass = newValue.map { .latex($0) } ?? .none }
+    }
 
     public init(
         body: String, title: String? = nil, language: String? = nil, readingIssues: [String] = [],

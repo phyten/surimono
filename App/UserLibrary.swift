@@ -68,7 +68,7 @@ final class UserLibrary {
         revision += 1
     }
 
-    func theme(_ id: String, for format: DocumentFormat?) -> PrintTheme? {
+    func theme(_ id: String, for format: DocumentFormat?, classStyle: String? = nil) -> PrintTheme? {
         #if DEBUG
             // A fixed Markdown specimen exercises even the format-restricted catalogue CSS.
             if format == .markdown, DebugSnapshot.argument("SurimonoCatalogueSpecimen") == "YES",
@@ -77,12 +77,12 @@ final class UserLibrary {
                 return themes.first { $0.id == id && $0.isBuiltIn }
             }
         #endif
-        return themes.first { $0.id == id && $0.supports(format) }
+        return themes.first { $0.id == id && $0.isAvailable(for: format, classStyle: classStyle) }
     }
 
     func defaultThemeID(preferred: String, format: DocumentFormat?, classStyle: String?) -> String {
         let candidate = classStyle ?? preferred
-        return theme(candidate, for: format)?.id ?? "standard"
+        return theme(candidate, for: format, classStyle: classStyle)?.id ?? "standard"
     }
 
     static func classLayout(for source: DocumentSource?, renderer: DocumentRenderer) -> PrintLayout? {

@@ -773,7 +773,7 @@ final class LaTeXReader {
 
     func dispatchBuiltin(_ name: String) {
         if handleCorrespondence(name) || handleExamCommand(name) { return }
-        if handleFileCommand(name) || handleLanguage(name) || handleFrontMatter(name) || handleBeamerCommand(name) {
+        if handleFileCommand(name) || handleLanguage(name) || handleBeamerCommand(name) || handleFrontMatter(name) {
             return
         }
         if handleControl(name) || handleCounter(name) || handleText(name) || handleReference(name) { return }
@@ -983,11 +983,23 @@ final class LaTeXReader {
         appendBlock(styledLinks(nav, block: true))
     }
 
+    private func ruleLength(_ source: String) -> String? {
+        if let size = document.classInfo.beamerPageSize,
+            let value = source.trimmingCharacters(in: .whitespacesAndNewlines)
+                .wholeMatch(of: /(-?[0-9]*\.?[0-9]*)\s*\\paper(width|height)/)
+        {
+            let factor = value.1.isEmpty ? 1 : Double(value.1)
+            guard let factor, factor.isFinite else { return nil }
+            return LaTeXPageSettings.number(factor * (value.2 == "width" ? size.width : size.height)) + "pt"
+        }
+        return LaTeXSymbols.printLength(source)
+    }
+
     private func appendRule() {
-        let raise = optional().flatMap(LaTeXSymbols.printLength)
-        let width = argument().flatMap(LaTeXSymbols.printLength)
+        let raise = optional().flatMap(ruleLength)
+        let width = argument().flatMap(ruleLength)
         let rawHeight = argument() ?? ""
-        let height = LaTeXSymbols.printLength(rawHeight)
+        let height = ruleLength(rawHeight)
         if let width, let height {
             let lift = raise.map { "; vertical-align: \($0)" } ?? ""
             // A subpixel fill can disappear when WebKit snaps its paint bounds. Paint a taller rectangle
@@ -1178,7 +1190,7 @@ final class LaTeXReader {
             skipSpacesAfterControlWord()
             if handleMacro(name) || handleCorrespondence(name) || handleExamCommand(name) || handleFileCommand(name)
                 || handleLanguage(name) || handleFrontMatter(name)
-                || (name == "setbeamertemplate" && handleBeamerCommand(name))
+                || handleBeamerCommand(name)
             {
                 continue
             }
@@ -1436,7 +1448,7 @@ final class LaTeXReader {
                 title: shortTitle))
         if headings.navigationOnlySections, name == "section" || name == "subsection" || name == "subsubsection" {
             // Navigation and explicit contents pages still need the section destination.
-            appendDestination("<span id=\"\(id)\"></span>")
+            beamerSection(name, title: title, id: id, listed: !starred && listed)
             precedingUnnumberedHeading = starred || !numbered ? id : nil
             return
         }
@@ -2131,11 +2143,7 @@ final class LaTeXReader {
             mathEnvironment(name, body: body)
             return
         }
-        if document.classInfo.profile.body.readsFrames, ["frame", "block", "alertblock", "exampleblock"].contains(base)
-        {
-            readBeamerEnvironment(base, body: body)
-            return
-        }
+        if document.classInfo.profile.body.readsFrames, readBeamerEnvironment(base, body: body) { return }
         switch base {
         case "math":
             appendInlineFormula(body, source: "\\begin{math}\(body)\\end{math}")
@@ -2279,25 +2287,31 @@ final class LaTeXReader {
     private func list(_ kind: String, options: String?, body: String, nextLine: Bool) -> String {
         var prefix = ""
         let items = items(of: body) { prefix = $0 }
+        func cover(_ content: String) -> String {
+            document.insideBeamerFrame && content.drop(while: \.isWhitespace).hasPrefix(#"\surimonocovereditem{}"#)
+                ? " data-beamer-covered" : ""
+        }
         switch kind {
         case "itemize":
             let html = items.map { label, content -> String in
                 let text = compact(blocks(content))
-                if let label { return "<li class=\"latex-custom-label\">\(labeled(inline(label), text))</li>\n" }
+                if let label {
+                    return "<li\(cover(content)) class=\"latex-custom-label\">\(labeled(inline(label), text))</li>\n"
+                }
                 // A real label stays in reading order and belongs only to the slice with its first baseline.
                 let depth = document.listStack.filter { $0 == "itemize" }.count
-                let bullet = ["•", "–", "∗", "·"][min(max(depth - 1, 0), 3)]
+                let bullet = document.insideBeamerFrame ? "▶" : ["•", "–", "∗", "·"][min(max(depth - 1, 0), 3)]
                 let face =
                     depth == 1 && document.classInfo.profile.body.usesLatinModernBullet ? " data-latex-lm-bullet" : ""
                 let mark = "<span class=\"latex-item-mark\"\(face)>\(bullet)</span>"
                 let item = text.hasPrefix("<p>") ? "<p>" + mark + text.dropFirst(3) : mark + text
-                return "<li>\(item)</li>\n"
+                return "<li\(cover(content))>\(item)</li>\n"
             }
             return "<ul>\n\(html.joined())</ul>\n"
         case "description":
             let html = items.map { label, content in
                 // A term and its definition share the first line in class styles. Leave their gap to CSS.
-                "<div><dt>\(inline(label ?? ""))</dt><dd>\(compact(blocks(content)))</dd></div>\n"
+                "<div\(cover(content))><dt>\(inline(label ?? ""))</dt><dd>\(compact(blocks(content)))</dd></div>\n"
             }
             let style = nextLine ? " latex-nextline" : ""
             return "<dl class=\"latex-description\(style)\">\n\(html.joined())</dl>\n"
@@ -2316,9 +2330,18 @@ final class LaTeXReader {
                 let id = "item-\(document.itemCount)"
                 document.describeTarget(id, kind: "item", title: "")
                 document.labelTarget = (number, id)
-                let marker =
-                    label.map { inline($0) } ?? inline(template.replacingOccurrences(of: "\u{E000}", with: number))
-                return "<li id=\"\(id)\">\(labeled(marker, compact(blocks(content))))</li>\n"
+                let marker: String
+                if let label {
+                    marker = inline(label)
+                } else if document.insideBeamerFrame && options == nil {
+                    marker =
+                        LaTeXCounters.listLevels.prefix(document.enumerateDepth)
+                        .map { String(document.counters[$0]) }.joined(separator: ".")
+                        + (document.enumerateDepth == 1 ? "." : "")
+                } else {
+                    marker = inline(template.replacingOccurrences(of: "\u{E000}", with: number))
+                }
+                return "<li id=\"\(id)\"\(cover(content))>\(labeled(marker, compact(blocks(content))))</li>\n"
             }
             return "<ol class=\"latex-enumerate\">\n\(html.joined())</ol>\n"
         }
@@ -2468,8 +2491,14 @@ final class LaTeXReader {
             head = HTML.escape(name)
         }
         if let targetID { document.describeTarget(targetID, kind: name, title: note ?? head) }
-        head += numberHTML
         let noteHTML = note.map { document.isJapanese ? "（\($0)）" : " (\($0))" } ?? ""
+        if document.insideBeamerFrame {
+            let kind = theorem.style == "example" ? "example" : "theorem"
+            let content = blocks(reader.rest)
+            beamerBlock(kind, title: head + noteHTML, content: content, anchor: anchor)
+            return
+        }
+        head += numberHTML
         head =
             document.usesAMSTheorem || document.classInfo.profile.body.proceedingsTheoremStyle
             ? head + (noteHTML.isEmpty ? "" : "<span class=\"theorem-note\">\(noteHTML)</span>") + "."
@@ -2496,6 +2525,10 @@ final class LaTeXReader {
             content = content.dropLast(4) + box + "</p>"
         } else {
             content += "\n<p class=\"qed-line\">\(box)</p>"
+        }
+        if document.insideBeamerFrame {
+            beamerBlock("proof", title: title + (title.hasSuffix(".") ? "" : "."), content: content)
+            return
         }
         appendBlock(
             "<div class=\"latex-proof\">\n" + leading("<span class=\"proof-head\">\(title).</span> ", content)
@@ -2528,7 +2561,13 @@ final class LaTeXReader {
         }
         var entries = ""
         var number = 0
-        let items = items(of: reader.rest, command: "bibitem")
+        let initialMarker = document.insideBeamerFrame ? document.beamer.bibliographyMarker : nil
+        defer { if let initialMarker { document.beamer.bibliographyMarker = initialMarker } }
+        // Beamer measures the list gutter once, even when later entries change their marker.
+        let sample = initialMarker == .text ? inline(widest ?? "") : nil
+        let items = items(of: reader.rest, command: "bibitem") { prefix in
+            if initialMarker != nil { _ = self.blocks(prefix) }
+        }
         let labels = items.map { $0.label.flatMap(LaTeXBibliography.ManualLabel.init) }
         let database = document.bibDatabase
         database.hasManualBibliography = true
@@ -2561,7 +2600,19 @@ final class LaTeXReader {
             }
             let id = "bib-\(document.bibliographyCount)-\(position + 1)"
             if !key.isEmpty { document.bibliography[key] = (label, id) }
-            var text = compact(blocks(itemReader.rest))
+            let entryMarker = document.insideBeamerFrame ? document.beamer.bibliographyMarker : nil
+            var text: String
+            if document.insideBeamerFrame && itemReader.rest.contains("\\newblock") {
+                let fields = LaTeXLexer.split(itemReader.rest, at: ["\\newblock"], protectingEnvironments: true)
+                text = fields.enumerated().map { index, field in
+                    let content = compact(blocks(field))
+                    guard index > 0 else { return content }
+                    let role = index == 1 ? "title" : index == 2 ? "location" : "note"
+                    return "<div class=\"beamer-bib-\(role)\">\(content)</div>"
+                }.joined()
+            } else {
+                text = compact(blocks(itemReader.rest))
+            }
             if document.language == "ja", document.classInfo.profile.body.usesJapanesePunctuationMetrics,
                 text.contains("』。")
             {
@@ -2576,13 +2627,31 @@ final class LaTeXReader {
                 }.joined()
             }
             let printed = document.classInfo.journalStyle?.bibliographyLabel(label) ?? "[\(label)]"
-            let marker = authorYear ? "" : "<span class=\"bib-label\">\(printed)</span>"
+            let marker: String
+            switch entryMarker {
+            case .article, .book:
+                let icon = entryMarker == .book ? "beamer-book" : "beamer-article"
+                marker = "<span class=\"beamer-bib-icon \(icon)\" aria-hidden=\"true\"></span>"
+            case .triangle: marker = "<span class=\"beamer-bib-arrow\">▶</span>"
+            case .text where sample == nil: marker = "<span class=\"beamer-bib-alt-label\">\(printed)</span>"
+            case .text: marker = ""
+            case nil: marker = authorYear ? "" : "<span class=\"bib-label\">\(printed)</span>"
+            }
+            let content = text.hasPrefix("<p>") ? "<p>" + marker + text.dropFirst(3) : marker + text
             let blockAttribute = document.opensBibliographyBlocks ? " data-latex-openbib" : ""
-            entries +=
-                "<li id=\"\(id)\"\(blockAttribute)>\(text.hasPrefix("<p>") ? "<p>" + marker + text.dropFirst(3) : marker + text)</li>\n"
+            if let sample {
+                let label = entryMarker == .text ? printed : ""
+                let gutter =
+                    "<span class=\"beamer-bib-label\"><span aria-hidden=\"true\">[\(sample)]</span><span>\(label)</span></span>"
+                entries += "<li id=\"\(id)\">\(gutter)<div>\(content)</div></li>\n"
+            } else {
+                entries += "<li id=\"\(id)\"\(blockAttribute)>\(content)</li>\n"
+            }
         }
         let list: String
-        if authorYear {
+        if let initialMarker {
+            list = "<ol class=\"latex-bibliography beamer-bibliography beamer-biblist-\(initialMarker.rawValue)\">"
+        } else if authorYear {
             list = "<ol class=\"latex-bibliography latex-author-year\">"
         } else if database.natbib, document.composesEnglishParagraphs, let widest, !widest.isEmpty,
             widest.utf8.allSatisfy({ (48...57).contains($0) })
@@ -2732,6 +2801,8 @@ final class LaTeXReader {
                 text.contains("<br>") && separator.hasSuffix(" ") ? String(separator.dropLast()) + space : separator
             contents =
                 "<span class=\"latex-caption-label\">\(label)\(separator)</span><span>\(shortHeadingBox(text))</span>"
+        } else if document.insideBeamerFrame, separator == ": " {
+            contents = "<span class=\"latex-caption-label\">\(label):</span> \(text)"
         } else if info.resolvedStyle?.captionSeparator != nil, separator == ". " {
             // The period belongs to the caption label and takes its font.
             contents = "<span class=\"latex-caption-label\">\(label).</span> \(text)"

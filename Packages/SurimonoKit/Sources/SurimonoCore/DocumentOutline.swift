@@ -244,13 +244,38 @@ public struct DocumentFacts: Equatable, Sendable {
     public var thematicBreakCount: Int
     public var offersLaTeXComposition = false
     public var latexRecognition: LaTeXRecognition?
+    public var beamerPageSize: CGSize?
+    public var unsupportedBeamerTheme: String?
+    public var unreadableBeamerFrames = 0
+    public var continuedBeamerFrames = 0
+    /// Source frame numbers survive both overlay expansion and measured page continuation.
+    public var beamerPageFrames: [Int] = []
+    private var beamerSectionFrames: [Int] = []
+    public var beamerOutline: [OutlineEntry]? {
+        guard beamerPageSize != nil else { return nil }
+        var page = 0
+        return zip(headings, beamerSectionFrames).map { heading, frame in
+            // A mode can omit the first frame of a section. Its anchor moves to the next printed frame.
+            while page < beamerPageFrames.count, beamerPageFrames[page] < frame { page += 1 }
+            return OutlineEntry(
+                level: heading.level, title: heading.text, pageIndex: page < beamerPageFrames.count ? page : nil)
+        }
+    }
     public var hasSourceContents: Bool
 
     public init(fragment: HTMLFragment) {
         offersLaTeXComposition = fragment.latexClass?.offersCompositionChoice == true
         latexRecognition = fragment.latexClass?.recognition
         title = fragment.title
-        headings = DocumentOutline.headings(inHTML: fragment.body)
+        beamerPageSize = fragment.latexClass?.beamerPageSize
+        unsupportedBeamerTheme = fragment.latexClass?.unsupportedBeamerTheme
+        unreadableBeamerFrames = fragment.latexClass?.unreadableBeamerFrames ?? 0
+        if let info = fragment.latexClass, info.beamerPageSize != nil {
+            headings = info.beamerSections.map { DocumentHeading(level: $0.level, text: $0.title, id: $0.id) }
+            beamerSectionFrames = info.beamerSections.map(\.firstFrame)
+        } else {
+            headings = DocumentOutline.headings(inHTML: fragment.body)
+        }
         statistics = DocumentStatistics(html: fragment.body)
         var counts: [PageBreakSyntax: Int] = [:]
         for syntax in PageBreakSyntax.allCases {

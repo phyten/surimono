@@ -1,6 +1,7 @@
 import AppIntents
 import AppKit
 import SurimonoCore
+import SurimonoRendering
 import UniformTypeIdentifiers
 
 /// What the Shortcuts actions work with. The app sets it at launch; tests put their own in its place.
@@ -77,8 +78,18 @@ nonisolated struct ShortcutStyleOptions: DynamicOptionsProvider {
     func results() async throws -> [String] {
         let language = Bundle.main.preferredLocalizations.first ?? "en"
         let format = (export?.file).flatMap(ShortcutFiles.format(of:))
-        return (ShortcutEnvironment.library ?? UserLibrary()).themes.filter { $0.supports(format) }
-            .map { $0.displayName(language: language) }
+        var classStyle: String?
+        if let file = export?.file, format == .latex {
+            classStyle = await ShortcutEnvironment.fileAccess.reading(file.fileURL) {
+                UserLibrary.classStyle(
+                    for: DocumentSource(data: file.data, fileURL: file.fileURL, format: .latex),
+                    renderer: DocumentRenderer())
+            }
+        }
+        return (ShortcutEnvironment.library ?? UserLibrary()).themes.filter {
+            $0.isAvailable(for: format, classStyle: classStyle)
+        }
+        .map { $0.displayName(language: language) }
     }
 }
 

@@ -11,6 +11,4 @@ Card mm
 Thin 1
 Folded 2
 Table: Spacer heights
-[1]
 Model Rail Desk, Spacer register.
-1
