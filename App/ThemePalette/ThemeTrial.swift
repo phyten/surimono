@@ -14,6 +14,7 @@ final class ThemeTrial {
     /// (`DocumentViewModel.codeTrialID(_:)`).
     private(set) var themeID: String?
     /// Its logical pages, once laid out.
+    private(set) var requestedSettings: RenderSettings?
     private(set) var document: PDFDocument?
     private(set) var diagrams: [RenderedDiagram] = []
     private(set) var changeMarks: [ChangeMark] = []
@@ -44,6 +45,7 @@ final class ThemeTrial {
         // The same theme again, loaded or still on its way, needs nothing more.
         guard themeID != id else { return }
         task?.cancel()
+        requestedSettings = settings
         themeID = id
         if let hit = recent.first(where: { $0.source == source && $0.settings == settings }) {
             document = hit.document
@@ -85,6 +87,7 @@ final class ThemeTrial {
     func end() {
         task?.cancel()
         task = nil
+        requestedSettings = nil
         themeID = nil
         document = nil
         diagrams = []

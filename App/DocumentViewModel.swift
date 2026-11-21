@@ -387,6 +387,47 @@ final class DocumentViewModel {
     @ObservationIgnored private var renderingSettings: RenderSettings?
     /// How many renders were started; a render that settles its own settings must not start another.
     @ObservationIgnored private(set) var renderStartCount = 0
+    @ObservationIgnored private var pageUpdate = PageUpdateProgress()
+    @ObservationIgnored private var pageUpdateTask: Task<Void, Never>?
+    // A reload can invalidate paper without changing even one render setting.
+    private enum ReloadedPages { case unchanged, reading, awaitingLayout, failed }
+    private var reloadedPages = ReloadedPages.unchanged
+    private(set) var pageUpdateDisplay = PageUpdateProgress.Display.hidden
+
+    var pageUpdateState: PageUpdateProgress.State {
+        guard mode == .view, result != nil, offersPaperSeries, !isCapturingWeb, error == nil else { return .inactive }
+        switch reloadedPages {
+        case .reading, .awaitingLayout: return .behind
+        case .failed: return .inactive
+        case .unchanged: break
+        }
+        if let chosenTrial, paperShowsTrial, chosenTrial.settings == renderSettings { return .current }
+        return renderedSettings == renderSettings && renderedSourceURLs == sourceURLs
+            && renderedFromSnapshot == rendersSnapshot
+            ? .current : .behind
+    }
+
+    func refreshPageUpdate() {
+        let previousDeadline = pageUpdate.nextDeadline
+        let announcement = pageUpdate.update(pageUpdateState, at: .now)
+        pageUpdateDisplay = pageUpdate.display
+        switch announcement {
+        case .started: ShortcutHints.announce(String(localized: "Updating pages"))
+        case .finished: ShortcutHints.announce(String(localized: "Pages updated"))
+        case nil: break
+        }
+        guard previousDeadline != pageUpdate.nextDeadline else { return }
+        pageUpdateTask?.cancel()
+        guard let deadline = pageUpdate.nextDeadline else {
+            pageUpdateTask = nil
+            return
+        }
+        pageUpdateTask = Task { [weak self] in
+            do { try await ContinuousClock().sleep(until: deadline) } catch { return }
+            self?.refreshPageUpdate()
+        }
+    }
+
     private(set) var isRendering = false
     private(set) var isPrinting = false
     /// The printers the tray offers; refreshed when the tray opens and before each print.
@@ -656,7 +697,8 @@ final class DocumentViewModel {
         // The pages of a trial of the same theme stay on the paper until the document's own are laid out.
         if id != themeID, themeTrial.themeID == id, let document = themeTrial.document {
             chosenTrial = (
-                id, codePaletteID, document, themeTrial.changeMarks, themeTrial.furniture, themeTrial.diagrams
+                id, codePaletteID, themeTrial.requestedSettings, document, themeTrial.changeMarks, themeTrial.furniture,
+                themeTrial.diagrams
             )
         }
         themeTrial.end()
@@ -668,7 +710,10 @@ final class DocumentViewModel {
     /// The user picked a code palette. The pages of a trial of it stay on the paper as they do for a theme.
     func selectCodePalette(_ id: String) {
         if id != codePaletteID, themeTrial.themeID == Self.codeTrialID(id), let document = themeTrial.document {
-            chosenTrial = (themeID, id, document, themeTrial.changeMarks, themeTrial.furniture, themeTrial.diagrams)
+            chosenTrial = (
+                themeID, id, themeTrial.requestedSettings, document, themeTrial.changeMarks, themeTrial.furniture,
+                themeTrial.diagrams
+            )
         }
         themeTrial.end()
         codePaletteID = id
@@ -1112,6 +1157,9 @@ final class DocumentViewModel {
     }
 
     func stop() {
+        pageUpdateTask?.cancel()
+        pageUpdate = PageUpdateProgress()
+        pageUpdateDisplay = .hidden
         cancelAdditionalExport()
         clearSharedExport()
         binderExit.cancel()
@@ -1185,6 +1233,8 @@ final class DocumentViewModel {
             reloadRequiresRefresh = false
             reloadRequiresWebRefresh = false
             if reloadOwnsProgress { isRendering = false }
+            reloadedPages = .failed
+            refreshPageUpdate()
             reloadOwnsProgress = false
             showToast(
                 Toast(
@@ -1217,7 +1267,11 @@ final class DocumentViewModel {
         renderTask?.cancel()
         if reloadsWeb { cancelCapture() }
         reloadOwnsProgress = true
-        if reloadRequiresRefresh { isRendering = true }
+        if reloadRequiresRefresh {
+            reloadedPages = .reading
+            refreshPageUpdate()
+            isRendering = true
+        }
         guard let fileURL else {
             applyReload(reloadsWeb: reloadsWeb)
             return
@@ -1228,6 +1282,10 @@ final class DocumentViewModel {
             do {
                 let bytes = try await reader(fileURL)
                 guard let self, !Task.isCancelled, reloadGeneration == generation else { return }
+                if bytes != data && preferences.reloadsChangedFiles {
+                    reloadedPages = .reading
+                    refreshPageUpdate()
+                }
                 var changes: [MarkdownMarkRequest] = []
                 if let previous = displayedChangeSource, previous.format == format, previous.data != bytes,
                     reloadRequiresRefresh || (preferences.reloadsChangedFiles && bytes != data)
@@ -1241,6 +1299,10 @@ final class DocumentViewModel {
                     reloadTask = nil
                     reloadOwnsProgress = false
                     reloadRequiresWebRefresh = false
+                    if reloadedPages == .reading {
+                        reloadedPages = .unchanged
+                        refreshPageUpdate()
+                    }
                     // If a still-running layout was cancelled at the reload boundary, finish that same content.
                     if isRendering { render() }
                     return
@@ -1255,6 +1317,8 @@ final class DocumentViewModel {
                 guard let self, !Task.isCancelled, reloadGeneration == generation else { return }
                 reloadTask = nil
                 if reloadOwnsProgress { isRendering = false }
+                reloadedPages = .failed
+                refreshPageUpdate()
                 reloadOwnsProgress = false
                 reloadRequiresRefresh = false
                 reloadRequiresWebRefresh = false
@@ -1270,6 +1334,7 @@ final class DocumentViewModel {
     }
 
     private func applyReload(reloadsWeb: Bool) {
+        reloadedPages = .awaitingLayout
         // Companion files can change the headings even when the main LaTeX source is byte-for-byte identical.
         if format == .latex {
             structureTask?.cancel()
@@ -1460,6 +1525,7 @@ final class DocumentViewModel {
     func render() { render(reusing: nil) }
 
     private func render(reusing currentPages: PreparedRender?) {
+        if reloadedPages == .failed { reloadedPages = .unchanged }
         layoutTooLarge = false
         composingSheets = false
         renderStartCount += 1
@@ -1485,6 +1551,7 @@ final class DocumentViewModel {
         error = nil
         isRendering = true
         renderingSettings = settings
+        refreshPageUpdate()
         let sourceURLs = sourceURLs
         let fromSnapshot = rendersSnapshot
         let singleSource =
@@ -1535,6 +1602,8 @@ final class DocumentViewModel {
                     renderedSettings = settings
                     renderedSourceURLs = sourceURLs
                     renderedFromSnapshot = fromSnapshot
+                    if reloadedPages == .awaitingLayout { reloadedPages = .unchanged }
+                    refreshPageUpdate()
                     unreadableImageURLs = prepared.unreadableImageURLs
                     binder?.didRender(prepared, forReading: forReading)
                     if forReading, let page = binder?.settleReadingPage() ?? selectedImagePage {
@@ -1618,6 +1687,7 @@ final class DocumentViewModel {
     }
 
     private func finishFirstRender(succeeded: Bool) {
+        if !succeeded { refreshPageUpdate() }
         if succeeded, !finishBinderRestorationIfReady() { return }
         let report = onFirstRender
         onFirstRender = nil

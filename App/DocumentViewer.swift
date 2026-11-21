@@ -123,6 +123,7 @@ private struct DocumentContentChanges: ViewModifier {
 
     func body(content: Content) -> some View {
         content
+            .onChange(of: model.pageUpdateState) { _, _ in model.refreshPageUpdate() }
             .onChange(of: model.renderSettings) { _, _ in model.renderForChangedSettings() }
             .onChange(of: model.allowsLiveJavaScript) { _, _ in model.javaScriptSettingDidChange() }
             .onChange(of: model.imageBundle?.urls) { _, _ in

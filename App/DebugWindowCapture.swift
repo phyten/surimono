@@ -97,7 +97,13 @@
                 if window.backgroundColor != background { window.backgroundColor = background }
             }
             if window.colorSpace != .sRGB { window.colorSpace = .sRGB }
+            let capturesUpdate = DebugSnapshot.argument("SurimonoUpdating") != nil
             for view in descendants(window.contentView?.superview) {
+                // Sample one still phase of the native spinner so settling can compare consecutive frames.
+                if capturesUpdate, let spinner = view as? NSProgressIndicator, spinner.style == .spinning {
+                    spinner.isDisplayedWhenStopped = true
+                    spinner.stopAnimation(nil)
+                }
                 if let effect = view as? NSVisualEffectView {
                     if effect.blendingMode != .withinWindow { effect.blendingMode = .withinWindow }
                     if effect.state != .active { effect.state = .active }
