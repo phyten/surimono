@@ -547,6 +547,7 @@ WebKit の文書組版もメインディスプレイの倍率に影響される�
 - 両端揃えのテーマでは、長いパスや URL の前の行が字間を広げて伸びる（改行できる所が少なく、行の残りが空くため。`overflow-wrap` は行に改行できる所がないときしか効かない）。`HTMLDocumentBuilder` が `LongTokenMarks` で本文の長い語に `.long-token`（`word-break: break-all`）を付けている。
 - 語の途中に字間（`letter-spacing`）や要素の隙間を入れると、PDFKit はその語を 1 文字ずつに分けて読み、検索とコピーが効かなくなる（listings の等幅の格子と amsart の小型大文字で起きた）。本物の LaTeX と幅が合わなくても、語の中には字間を入れない。`LaTeXFlowPrintingTests` が listing と amsart の見出しの検索で固定している。
 - 目次の点線を SVG の破線で描くと、WebKit の印刷では点が 2 つしか出ない。背景の繰り返しで描く。
+- Swift 6.3（CI の Xcode 26.6）は、MainActor のメソッドを参照のまま `Binding(get:set:)` の `set:` に渡すと、IR の生成で落ちる（`While emitting IR SIL function … TR`。Xcode 27 では通る）。`set: { model.select($0) }` のようにクロージャで書く。ログにはマングルされた名前しか出ないので、そこに含まれる型の名前で探す。
 - WKWebView では、折り畳まれた空白 1 つの `Range.getBoundingClientRect()` に `word-spacing` が含まれない（Chromium では含まれる）。語間を確かめるときは、隣の語の矩形の間を測るか、行の右端と計算値で確かめる。
 - WebKit は、組版の準備の段階（印刷の倍率が掛かる前）では行を整数ピクセルに置く（`line-height: 13.636px` の行が 13px になる）。自前で組んだ行の行送りは、CSS の値ではなく、同じ場で測った素の 1 行と比べる。
 - 2 段組のページを PDFKit の `page.string` で読むと、段をまたぐ題名やノンブルがあるページで左右の段が混ざる（PDF には左の段から順に書かれている。macOS 26.6 で確認）。検索と見た目には影響しない。読み順をテストで固定するときは、段の中の順だけを必須にする。
