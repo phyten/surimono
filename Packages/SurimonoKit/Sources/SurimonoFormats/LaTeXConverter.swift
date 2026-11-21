@@ -123,6 +123,7 @@ final class LaTeXDocument {
         let after: String?
     }
 
+    var styleDeclaration: String?
     var stylePackage: LaTeXStylePackageRegistry.Request?
     var passedPackageOptions: [String: [String]] = [:]
     var styleMainFontRevision = 0

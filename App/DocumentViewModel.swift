@@ -247,6 +247,7 @@ final class DocumentViewModel {
         var snapshotOutlineDrawer = false
     #endif
     var isOutlineDrawerOpen = false
+    var isLaTeXRecognitionPresented = false
     var isFiguresPresented = false
     var isPrintFinishPresented = false
     /// The section the print settings sheet scrolls to when it is set.
@@ -605,8 +606,20 @@ final class DocumentViewModel {
     static func duplexTestJobTitle(language: String) -> String {
         PrintModeText.string("Duplex Test Print", language: language)
     }
-    /// "MD", "PDF", "ZIP"…; "IMG" for a bundle of image files.
+    var latexBadge: LaTeXBadgeText? {
+        guard themeFormat == .latex, textKind == nil, theme(themeID)?.formats == [.latex],
+            let recognition = result?.facts?.latexRecognition
+        else { return nil }
+        return LaTeXBadgeText(recognition, language: language)
+    }
+
     var formatBadge: String {
+        guard let latexBadge else { return shortFormatBadge }
+        return shortFormatBadge + " · " + latexBadge.label
+    }
+
+    /// "MD", "PDF", "ZIP"…; "IMG" for a bundle of image files.
+    var shortFormatBadge: String {
         binder != nil ? String(localized: "Binder") : imageBundle == nil || format == .zipArchive ? format.badge : "IMG"
     }
 
@@ -1760,7 +1773,8 @@ final class DocumentViewModel {
     /// A popover can leave its parent window's paper as first responder while it is opening.
     var blocksSurfaceShortcuts: Bool {
         isViewOptionsPresented || isThemePalettePresented || isPrintFinishPresented
-            || isOutlinePresented || isFiguresPresented || isGoToPagePresented || isReviewingSmartRemoval
+            || isOutlinePresented || isFiguresPresented || isLaTeXRecognitionPresented || isGoToPagePresented
+            || isReviewingSmartRemoval
             || isPrintIssuesPresented || showsNoteAdjustments
     }
 
@@ -1803,6 +1817,7 @@ final class DocumentViewModel {
     func closeBandPopovers() {
         isViewOptionsPresented = false
         isOutlinePresented = false
+        isLaTeXRecognitionPresented = false
         isFiguresPresented = false
     }
 

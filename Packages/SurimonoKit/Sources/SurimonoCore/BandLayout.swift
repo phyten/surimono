@@ -89,7 +89,7 @@ public enum BandLayout {
     /// and paper is nearly all an HTML page shows on the web, so it stays until the paper tools are gone. The window toggles
     /// are small icons whose state shows at a glance, so they stay until only Print is left.
     public static let steps: [Step] = [
-        .compact(.style), .compact(.transition), .compact(.presentation), .compact(.outline),
+        .compact(.formatBadge), .compact(.style), .compact(.transition), .compact(.presentation), .compact(.outline),
         .remove(.chapter), .remove(.formatBadge), .remove(.pageIndicator), .remove(.style), .remove(.transition),
         .remove(.layout), .remove(.outline), .remove(.presentation), .remove(.thumbnails), .remove(.zoom),
         .remove(.floatOnTop), .remove(.showOnAllSpaces), .compact(.print),
@@ -97,7 +97,7 @@ public enum BandLayout {
 
     /// The bottom band gives way the same way, but the page indicator is its reason to be there, so it stays last.
     public static let bottomSteps: [Step] = [
-        .compact(.style), .compact(.transition), .compact(.presentation), .compact(.outline),
+        .compact(.formatBadge), .compact(.style), .compact(.transition), .compact(.presentation), .compact(.outline),
         .remove(.chapter), .remove(.transition), .remove(.layout), .remove(.pageTurn), .remove(.style),
         .remove(.outline),
         .remove(.presentation), .remove(.thumbnails), .remove(.zoom), .remove(.pageIndicator),
@@ -256,7 +256,10 @@ public enum BandLayout {
     }
 
     private static func physicalSteps(at position: Position) -> [Step] {
-        let compact: [Step] = [.compact(.style), .compact(.transition), .compact(.presentation), .compact(.outline)]
+        let compact: [Step] = [
+            .compact(.formatBadge), .compact(.style), .compact(.transition), .compact(.presentation),
+            .compact(.outline),
+        ]
         let removed: [Item] =
             position == .top
             ? [

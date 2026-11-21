@@ -242,9 +242,11 @@ public struct DocumentFacts: Equatable, Sendable {
     /// How often each page break syntax stands in the text.
     public var pageBreakCounts: [PageBreakSyntax: Int]
     public var thematicBreakCount: Int
+    public var latexRecognition: LaTeXRecognition?
     public var hasSourceContents: Bool
 
     public init(fragment: HTMLFragment) {
+        latexRecognition = fragment.latexClass?.recognition
         title = fragment.title
         headings = DocumentOutline.headings(inHTML: fragment.body)
         statistics = DocumentStatistics(html: fragment.body)

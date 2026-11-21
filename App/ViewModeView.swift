@@ -22,7 +22,8 @@ struct ViewModeView: View {
     private var bottomInset: CGFloat { isSplit ? ViewerWindow.bandHeight : 0 }
     private var holdsBand: Bool {
         model.isViewOptionsPresented || model.isThemePalettePresented || model.isPrintFinishPresented
-            || model.isOutlinePresented || model.isFiguresPresented || model.drop.holdsBand
+            || model.isOutlinePresented || model.isFiguresPresented || model.isLaTeXRecognitionPresented
+            || model.drop.holdsBand
     }
 
     var body: some View {
@@ -94,6 +95,9 @@ struct ViewModeView: View {
         // The first plans can come before the window does.
         .background {
             WindowReader { window in model.bandMinimumWidthDidChange(menu.minimumWidth, in: window) }
+        }
+        .onChange(of: model.latexBadge == nil) { _, hidden in
+            if hidden { model.isLaTeXRecognitionPresented = false }
         }
         .onChange(of: plans.resolved, initial: true) { _, plan in
             model.bandAnchors.plan = plan

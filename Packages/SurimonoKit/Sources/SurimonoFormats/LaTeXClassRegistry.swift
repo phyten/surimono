@@ -57,10 +57,13 @@ enum LaTeXClassRegistry {
     private static func applyFamilyPrefix(_ builder: Builder) {
         let name = builder.request.name
         if name.hasPrefix("js") || name.hasPrefix("ltjs") || name.hasPrefix("bxjs") {
+            builder.displayName = .init("jsclasses")
             builder.japanese()
         } else if name.hasPrefix("revtex") {
+            builder.displayName = .init("REVTeX")
             builder.revtex()
         } else if name.lowercased().hasPrefix("icml") {
+            builder.displayName = .init("ICML")
             builder.structure.columns = 2
         }
     }
@@ -77,6 +80,7 @@ enum LaTeXClassRegistry {
     }
 
     private static func ams(_ builder: Builder) {
+        builder.displayName = .init("AMS")
         builder.structure.contentsMeasure = .init(
             dotSeparationMu: nil, pageNumberWidth: "1.6em", rightMargin: "2.6em")
         builder.structure.hasChapters = builder.id == .amsbook
@@ -119,6 +123,7 @@ enum LaTeXClassRegistry {
     }
 
     private static func lncs(_ builder: Builder) {
+        builder.displayName = .init("LNCS")
         builder.structure.contentsMeasure = .init(dotSeparationMu: 2, pageNumberWidth: "2em", rightMargin: "3.5em")
         builder.journal(.lncs, commands: Commands.lncs)
         builder.page.publication = .lncs
@@ -132,6 +137,7 @@ enum LaTeXClassRegistry {
     }
 
     private static func acm(_ builder: Builder) {
+        builder.displayName = .init("ACM")
         builder.structure.contentsMeasure = .init(
             dotSeparationMu: nil, pageNumberWidth: "1.6em", rightMargin: "2.6em")
         builder.journal(nil, commands: Commands.acm)
@@ -147,6 +153,7 @@ enum LaTeXClassRegistry {
     }
 
     private static func elsevier(_ builder: Builder) {
+        builder.displayName = .init("Elsevier")
         builder.journal(.elsevier, commands: Commands.elsevier)
         builder.titleBlock.includesDate = false
         builder.titleBlock.usesAffiliationLabels = true
@@ -165,6 +172,7 @@ enum LaTeXClassRegistry {
     }
 
     private static func aps(_ builder: Builder) {
+        builder.displayName = .init("REVTeX")
         builder.revtex()
         if Set(builder.options).isDisjoint(with: ["aip", "aapm", "sor"]) {
             let mode = builder.options.last { $0 == "preprint" || $0 == "reprint" }
@@ -178,6 +186,7 @@ enum LaTeXClassRegistry {
     }
 
     private static func koma(_ builder: Builder) {
+        builder.displayName = .init("KOMA-Script")
         builder.structure.hasChapters = builder.id != .scrartcl
         builder.setBookSides(builder.id == .scrbook)
         if builder.id == .scrbook {
@@ -344,10 +353,12 @@ enum LaTeXClassRegistry {
     fileprivate final class Builder {
         let request: LaTeXClassRequest
         let id: LaTeXClassID
+        var displayName: LaTeXRecognition.Name?
 
         init(request: LaTeXClassRequest, id: LaTeXClassID) {
             self.request = request
             self.id = id
+            displayName = id == .unknown ? nil : .init(request.name)
         }
 
         var options: [String] { request.options }
@@ -435,7 +446,8 @@ enum LaTeXClassRegistry {
             if page.publication == .elsevierFive { structure.columns = 2 }
             if pageStyle.hidesTitlePageNumber { titleBlock.pageStyle = "empty" }
             return LaTeXClassProfile(
-                name: request.name, id: id, headings: headings, titleBlock: titleBlock, body: body,
+                name: request.name, displayName: displayName, id: id, headings: headings, titleBlock: titleBlock,
+                body: body,
                 usesGridFlow: usesGridFlow, structure: structure, page: page, typography: typography,
                 pageStyle: pageStyle, journalStyle: journalStyle, frontMatter: frontMatter,
                 classCommands: classCommands, initialBookStyle: bookStyle)
@@ -612,6 +624,7 @@ extension LaTeXClassRegistry {
     private static let quarterMillimetre = millimetre / 4
 
     private static func informationProcessingJournal(_ builder: Builder) {
+        builder.displayName = .init("IPSJ", japanese: "情報処理学会")
         let english = builder.options.contains(where: ClassOptions.englishJournals.contains)
         builder.journalArticle(title: .bilingualJournal, paper: .a4, japanese: !english)
         builder.classCommands = Commands.informationProcessing
@@ -654,6 +667,7 @@ extension LaTeXClassRegistry {
     }
 
     private static func japaneseTransactions(_ builder: Builder) {
+        builder.displayName = .init("IEICE", japanese: "電子情報通信学会")
         let technical = builder.options.contains("technicalreport")
         builder.journalArticle(title: .insetBilingual, paper: technical ? .a4 : .jisB5, japanese: true)
         let mm = Self.millimetre
@@ -703,6 +717,7 @@ extension LaTeXClassRegistry {
     }
 
     private static func englishTransactions(_ builder: Builder) {
+        builder.displayName = .init("IEICE", japanese: "電子情報通信学会")
         builder.journalArticle(title: .framedPaper, paper: .journalTrim, japanese: false)
         builder.typography.defaultMainFont = "Times New Roman"
         let mm = Self.millimetre
