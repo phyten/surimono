@@ -89,6 +89,23 @@ for (const [id, unique] of byStrip) {
         leaders.get(owner).push({x:(measure + first*pitch + scrollX)*unit-origins[id].x, y:(midY+scrollY)*unit-origin,
             pitch:pitch*unit, diameter:r.height*unit, count, folio:folioGlyph(period.parentElement, origins[id])});
     }
+    // Print a simple Japanese Gothic heading as one justified Core Text run. Capturing
+    // individually positioned browser glyphs makes PDFKit infer spaces inside the word.
+    // Rich text and explicit CJK font or colour selections retain their browser paint.
+    for (const label of strips[id].querySelectorAll('h2 > [data-flow-distributed],h3 > [data-flow-distributed]')) {
+        const text = label.textContent, css = getComputedStyle(label);
+        if (label.children.length || !/^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー]{2,4}$/u.test(text) ||
+            css.getPropertyValue('--latex-cjk-sans-font').trim() || !css.fontFamily.includes('Surimono JS Gothic') ||
+            css.fontStyle !== 'normal' || css.color !== 'rgb(0, 0, 0)' || css.visibility !== 'visible') continue;
+        const baseline = document.createElement('i');
+        baseline.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline;padding:0;margin:0;border:0';
+        label.before(baseline);
+        const r = label.getBoundingClientRect(), y = (baseline.getBoundingClientRect().bottom + scrollY)*unit-origin;
+        baseline.remove();
+        if (!(r.width > 0 && r.height > 0)) continue;
+        (origins[id].distributedHeadings ??= []).push({text, x:(r.left+scrollX)*unit-origins[id].x, y, width:r.width*unit});
+        label.style.setProperty('visibility','hidden','important');
+    }
     if (entries.length === 1) continue;
     const tree = document.createTreeWalker(strips[id], NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
         acceptNode(n) {

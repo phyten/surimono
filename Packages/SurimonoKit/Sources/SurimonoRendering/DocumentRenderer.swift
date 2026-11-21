@@ -1316,6 +1316,7 @@ public final class DocumentRenderer {
         var numbering: LaTeXPageNumbers? {
             guard let info = fragment.latexClass,
                 info.pageNumbers.needsRunningMarks || info.pageNumbers.needsExamTotals
+                    || info.pageNumbers.usesJournalFurniture
                     || info.pageNumbers.usesClassPlain
                         && (info.hasChapters || fragment.body.contains("latex-title-block"))
                     || fragment.body.contains("class=\"toc\"")
@@ -1373,7 +1374,8 @@ public final class DocumentRenderer {
         else { throw RenderingError.unsupportedFormat }
         let needsLaTeXFlow =
             source.format == .latex
-            && (fragment.latexClass?.resolvedStyle != nil || fragment.latexClass?.profile.usesGridFlow == true
+            && (fragment.latexClass?.resolvedStyle != nil || fragment.latexClass?.usesPublicationGrid == true
+                || fragment.latexClass?.profile.usesGridFlow == true
                 || LaTeXFlowPaginator.needed(in: fragment.body))
         if source.format != .markdown, !settings.markdownChanges.isEmpty {
             fragment.body = FragmentChanges.identifyingBlocks(in: fragment.body, for: settings.markdownChanges)

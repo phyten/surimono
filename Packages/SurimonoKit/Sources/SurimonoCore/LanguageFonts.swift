@@ -19,7 +19,8 @@ public enum LanguageFonts {
                 .mincho,
                 [
                     "Hiragino Mincho ProN", "YuMincho", "Yu Mincho", "BIZ UDMincho", "Toppan Bunkyu Mincho",
-                    "Toppan Bunkyu Midashi Mincho",
+                    "Toppan Bunkyu Midashi Mincho", "Surimono Title Mincho", "Surimono Author Mincho",
+                    "Surimono Abstract Mincho", "Surimono Caption Mincho", "Surimono Note Mincho",
                 ]
             ),
             (.rounded, ["Hiragino Maru Gothic ProN", "Tsukushi A Round Gothic", "Tsukushi B Round Gothic"]),

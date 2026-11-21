@@ -25,7 +25,7 @@ nonisolated enum ShortcutLayout: String, AppEnum {
     case a4Single, a4Duplex, a3BookletA4, a4BookletA5, a3TwoUp, a4Handout3, a4TwoUp, a4FourUp
     case b5Single, b5Duplex, b4BookletB5, b5BookletB6, b4TwoUp, b5Handout3, b5TwoUp, b5FourUp
     case letterSingle, letterDuplex, tabloidBookletLetter, letterBookletHalfLetter, tabloidTwoUp, letterHandout3
-    case letterTwoUp, letterFourUp
+    case letterTwoUp, letterFourUp, journalSingle
 
     static let typeDisplayRepresentation = TypeDisplayRepresentation(
         name: LocalizedStringResource("Layout", table: "Shortcuts"))
@@ -62,6 +62,7 @@ nonisolated enum ShortcutLayout: String, AppEnum {
         .tabloidTwoUp: DisplayRepresentation(title: LocalizedStringResource("Tabloid 2-up", table: "Shortcuts")),
         .letterHandout3: DisplayRepresentation(
             title: LocalizedStringResource("Letter 3-up + Notes", table: "Shortcuts")),
+        .journalSingle: DisplayRepresentation(title: "210 × 280 mm"),
         .letterTwoUp: DisplayRepresentation(title: LocalizedStringResource("Letter 2-up", table: "Shortcuts")),
         .letterFourUp: DisplayRepresentation(
             title: LocalizedStringResource("Letter 4 Pages on One Sheet", table: "Shortcuts")),

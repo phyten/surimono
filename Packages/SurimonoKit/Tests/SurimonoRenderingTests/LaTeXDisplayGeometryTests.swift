@@ -4,6 +4,33 @@ import Testing
 @testable import SurimonoRendering
 
 struct LaTeXDisplayGeometryTests {
+    @Test("文書クラスによらず細い空白で値と単位を結び、コード中は原文を保つ")
+    func unbreakableThinSpace() throws {
+        let js = try #require(JSContext())
+        js.evaluateScript(
+            #"""
+            const normal = {data:'0.01\u2009mm', parentElement:{closest:() => null}};
+            const source = {data:'0.01\u2009mm', parentElement:{closest:() => ({})}};
+            const tie = {data:'1\u00a0mm 2\u202fmm', parentElement:{closest:() => null}};
+            const template = {data:'3\u2009mm', parentElement:null};
+            const NodeFilter = {SHOW_TEXT:4};
+            const document = {
+              body:[normal,source,tie],
+              documentElement:{style:{}},
+              querySelectorAll:() => [{content:[template]}],
+              createTreeWalker(root) {let i=0; return {nextNode:() => root[i++]}}
+            };
+            const getComputedStyle = () => ({zoom:1});
+            """#)
+        let script = try #require(LaTeXGraphicPreparation.script(in: "<p>0.01\u{2009}mm</p>", layoutWidth: 500))
+        js.evaluateScript(script)
+        #expect(js.exception == nil)
+        #expect(js.evaluateScript("normal.data")?.toString() == "0.01\u{202F}mm")
+        #expect(js.evaluateScript("source.data")?.toString() == "0.01\u{2009}mm")
+        #expect(js.evaluateScript("tie.data")?.toString() == "1\u{00a0}mm 2\u{202f}mm")
+        #expect(js.evaluateScript("template.data")?.toString() == "3\u{202f}mm")
+    }
+
     @Test("解答罫は指定の高さに収まる本数を中央に配し、再測定しても増えない")
     func answerRulePitch() throws {
         let js = try #require(JSContext())

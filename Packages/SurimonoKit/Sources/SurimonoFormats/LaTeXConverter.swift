@@ -128,7 +128,7 @@ final class LaTeXDocument {
     var styleMainFontRevision = 0
     var loadsTimesPackage = false
     var readingConferenceTitle = false
-    var requestsRaggedBottom = false
+    var requestsRaggedBottom: Bool?
     var requestsFrenchSpacing: Bool?
     var finalCopy = false
     var workshopTitle = ""
@@ -137,6 +137,9 @@ final class LaTeXDocument {
     var endedDocument = false
     var typesettingInfo: LaTeXDocumentClassInfo {
         var info = classInfo
+        if info.usesPublicationGrid, let requestsRaggedBottom {
+            info.raggedColumns = requestsRaggedBottom
+        }
         let stock = pageSettings.pageBox(for: info)
         let box = landscapeBody && stock.paperWidth < stock.paperHeight ? stock.turnedForLandscape : stock
         info.resolvedPageBox = box
@@ -154,7 +157,7 @@ final class LaTeXDocument {
                 info.styleVariables += "; --latex-cv-font: var(--tex-sans-fonts)"
             }
         }
-        info.mainFontName = pageSettings.fonts.mainFontName
+        info.mainFontName = pageSettings.fonts.mainFontName ?? info.profile.typography.defaultMainFont
         if let style = info.resolvedStyle, style.runningHeader != nil {
             info.headerStrutDepth = style.centeredRunningTitle ? 3.08 : 3.6 * 72 / 72.27
         }
@@ -173,6 +176,7 @@ final class LaTeXDocument {
             (pageSettings.fonts.faceRules
             + [
                 labelMetrics.localFace(fonts: pageSettings.fonts),
+                labelMetrics.publicationFaces(for: info, index: pageSettings.fonts.index),
                 labelMetrics.headingFace(for: info, index: pageSettings.fonts.index),
                 info.profile.headings.readsElementFonts ? LaTeXBookStyle.sansFaces : nil,
             ]
@@ -188,7 +192,7 @@ final class LaTeXDocument {
     var pageSettings: LaTeXPageSettings
 
     init(fontIndex: InstalledFontIndex = .system) { pageSettings = LaTeXPageSettings(fontIndex: fontIndex) }
-    var classInfo = LaTeXDocumentClassInfo()
+    var classInfo = LaTeXDocumentClassInfo.article
     var bodyPageStyles: LaTeXPageNumbers?
     var language = "en"
     var nativeCaptionLanguage: String?
@@ -412,7 +416,16 @@ final class LaTeXDocument {
             bibDatabase.natbib && bibDatabase.sortsAndCompresses && !authorYear
             && (!bare || citation.command == "citealp")
         let separator = authorYear && (bibDatabase.natbib || !bare) ? bibDatabase.multipleCitationSeparator : ", "
-        let parts = compress ? compressedNumbers(citation.keys) : nil
+        let separateBrackets =
+            !bare && !authorYear && !bibDatabase.natbib
+            ? classInfo.profile.body.citationListSeparator : nil
+        let parts: [(key: String, separator: String)]?
+        if let separateBrackets {
+            let range = classInfo.profile.body.citationRangeSeparator.map { "]" + $0 + "[" }
+            parts = sortedNumbers(citation.keys, separator: "]" + separateBrackets + "[", range: range)
+        } else {
+            parts = compress ? sortedNumbers(citation.keys, separator: ", ", range: "–") : nil
+        }
         let count = parts?.count ?? citation.keys.count
         for position in 0..<count {
             let key = parts?[position].key ?? citation.keys[position]
@@ -462,7 +475,9 @@ final class LaTeXDocument {
     }
 
     // Keep the endpoints as keys so each printed number still links to its own bibliography entry.
-    private func compressedNumbers(_ keys: [String]) -> [(key: String, separator: String)] {
+    private func sortedNumbers(_ keys: [String], separator: String, range: String?) -> [(
+        key: String, separator: String
+    )] {
         let sorted = keys.map { key in
             (key: key, number: Int(bibliography[key]?.label ?? ""))
         }.sorted { ($0.number ?? .max) < ($1.number ?? .max) }
@@ -470,13 +485,13 @@ final class LaTeXDocument {
         var i = 0
         while i < sorted.count {
             let start = i
-            result.append((sorted[i].key, ", "))
-            while i + 1 < sorted.count, let current = sorted[i].number, current > 0, current < Int.max,
+            result.append((sorted[i].key, separator))
+            while range != nil, i + 1 < sorted.count, let current = sorted[i].number, current > 0, current < Int.max,
                 sorted[i + 1].number == current + 1
             {
                 i += 1
             }
-            if i > start { result.append((sorted[i].key, i - start >= 2 ? "–" : ", ")) }
+            if i > start { result.append((sorted[i].key, i - start >= 2 ? range ?? separator : separator)) }
             i += 1
         }
         return result

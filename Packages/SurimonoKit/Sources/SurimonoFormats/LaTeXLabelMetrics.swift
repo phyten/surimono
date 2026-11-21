@@ -13,6 +13,11 @@ struct LaTeXLabelMetrics {
             japaneseScale = nil
             return
         }
+        if let grid = info.profile.page.fixedGrid {
+            baselines = [6, 8, grid.notePitch, grid.notePitch, grid.pitch, 14, 18, 22, 25, 30]
+            japaneseScale = grid.japaneseScale
+            return
+        }
         let index = info.pointSize - 10
         switch info.profile.typography.baselineTable {
         case .scaled(let magnification, let smallBelow):
@@ -81,6 +86,21 @@ struct LaTeXLabelMetrics {
             return (fonts.japaneseMain ?? font).faceCSS(alias: japaneseAlias, japaneseBold: gothic, index: fonts.index)
         }
         return font.faceCSS(alias: japaneseAlias, index: fonts.index)
+    }
+
+    func publicationFaces(for info: LaTeXDocumentClassInfo, index: InstalledFontIndex) -> String? {
+        // The same line combines Latin point sizes and Japanese Q sizes independently at each role.
+        guard let scale = info.profile.page.fixedGrid?.japaneseScales else { return nil }
+        let faces = [
+            ("Title Mincho", scale.title), ("Author Mincho", scale.author), ("Abstract Mincho", scale.abstract),
+            ("Note Mincho", scale.note), ("Caption Mincho", scale.caption),
+        ]
+        return faces.compactMap { role, adjustment in
+            LaTeXFontSettings.Selection(
+                "HiraMinProN-W3", options: "", cjk: true, defaultScale: adjustment,
+                knownPostScriptNames: true, index: index
+            )?.faceCSS(alias: "Surimono " + role, japaneseBold: "HiraginoSans-W5", index: index)
+        }.joined(separator: "\n")
     }
 
     func headingFace(for info: LaTeXDocumentClassInfo, index: InstalledFontIndex) -> String? {

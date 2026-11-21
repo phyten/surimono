@@ -62,7 +62,7 @@ extension LanguageFontsTests {
             "Papyrus", "Copperplate", "Impact", "DIN Alternate", "DIN Condensed", "Rockwell", "Charter",
             "Iowan Old Style", "Savoye LET", "Academy Engraved LET", "Surimono Computer Modern", "Latin Modern Roman",
             "Surimono Computer Modern Typewriter", "Surimono Computer Modern Sans", "Surimono KOMA Sans", "PT Serif",
-            "Geeza Pro", "Arial Hebrew",
+            "Geeza Pro", "Arial Hebrew", "STIXGeneral",
             "Surimono Song SC Ideographs", "Surimono Song TC Ideographs", "Surimono Hei Ideographs",
             "Songti TC", "STSong", "LiSong Pro", "PingFang TC", "AppleMyungjo", "Apple SD Gothic Neo",
         ]

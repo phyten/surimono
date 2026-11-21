@@ -30,17 +30,35 @@ public struct LaTeXDocumentClassInfo: Sendable, Equatable {
     package var isJSArticle: Bool { profile.structure.usesJSArticleHeadings }
     package var name: String { profile.name }
     package var journalStyle: LaTeXJournalStyle? { profile.journalStyle }
+    package var publicationGridStyle: String? { profile.titleBlock.societyLayout?.rawValue }
+    package var usesPublicationGrid: Bool { profile.page.fixedGrid != nil }
+    package var raggedColumns: Bool
     var publication: LaTeXPublicationLayout? { profile.page.publication }
     var bookStyle: LaTeXBookStyle
     var isKOMA: Bool { profile.page.usesTypeArea }
     var usesTraditionalJapaneseNames: Bool { profile.structure.usesTraditionalJapaneseNames }
 
-    init(name: String = LaTeXClassID.article.rawValue, options: String? = nil) {
+    // Each document gets its own mutable settings; the default class resolves only once.
+    static let article = Self(
+        profile: LaTeXClassRegistry.resolve(.init(name: LaTeXClassID.article.rawValue, options: [])))
+
+    init() { self = Self.article }
+
+    init(name: String, options: String? = nil) {
         let request = LaTeXClassRequest(name: name, options: (options ?? "").split(separator: ",").map(String.init))
-        profile = LaTeXClassRegistry.resolve(request)
+        if request.isDefaultArticle {
+            self = Self.article
+        } else {
+            self.init(profile: LaTeXClassRegistry.resolve(request))
+        }
+    }
+
+    private init(profile: LaTeXClassProfile) {
+        self.profile = profile
         bookStyle = profile.initialBookStyle
         pageNumbers = LaTeXPageNumbers(profile.pageStyle)
         columns = profile.structure.columns
+        raggedColumns = profile.page.fixedGrid?.raggedColumns ?? false
         mainLanguage = profile.typography.mainLanguage
         usesNativeCJKHeadings = profile.structure.usesNativeCJKHeadings
     }
@@ -49,7 +67,8 @@ public struct LaTeXDocumentClassInfo: Sendable, Equatable {
     public static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.resolvedStyle == rhs.resolvedStyle && lhs.profile.structure.bookOpening == rhs.profile.structure.bookOpening
             && lhs.profile.headings.endDots == rhs.profile.headings.endDots
-            && lhs.name == rhs.name && lhs.isJapanese == rhs.isJapanese && lhs.usesAMSA4Layout == rhs.usesAMSA4Layout
+            && lhs.raggedColumns == rhs.raggedColumns && lhs.name == rhs.name && lhs.isJapanese == rhs.isJapanese
+            && lhs.usesAMSA4Layout == rhs.usesAMSA4Layout
             && lhs.hidesTitlePageNumber == rhs.hidesTitlePageNumber && lhs.hasChapters == rhs.hasChapters
             && lhs.styleVariables == rhs.styleVariables && lhs.localFontFaces == rhs.localFontFaces
             && lhs.pageNumbers == rhs.pageNumbers && lhs.mainFontName == rhs.mainFontName && lhs.columns == rhs.columns

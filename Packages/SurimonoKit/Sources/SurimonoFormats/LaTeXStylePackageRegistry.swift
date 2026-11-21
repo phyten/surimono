@@ -364,7 +364,7 @@ extension LaTeXDocument {
         var style = LaTeXStylePackageRegistry.resolve(
             request, profile: classInfo.profile, finalCopy: finalCopy, workshop: workshopTitle, macros: macros,
             shortTitle: frontMatter.runningTitle)
-        style.raggedBottom = requestsRaggedBottom
+        style.raggedBottom = requestsRaggedBottom ?? false
         if let requestsFrenchSpacing { style.frenchSpacing = requestsFrenchSpacing }
         classInfo.resolvedStyle = style
         classInfo.columns = style.columns

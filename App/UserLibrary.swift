@@ -85,6 +85,11 @@ final class UserLibrary {
         return theme(candidate, for: format)?.id ?? "standard"
     }
 
+    static func classLayout(for source: DocumentSource?, renderer: DocumentRenderer) -> PrintLayout? {
+        guard let source, source.format == .latex, source.children == nil else { return nil }
+        return PrintLayout.defaultLaTeXLayout(for: renderer.latexClassInfo(for: source))
+    }
+
     /// Only the main document selects its class style. Mixed binders have a common theme for all their children.
     static func classStyle(for source: DocumentSource?, renderer: DocumentRenderer) -> String? {
         guard let source, source.format == .latex, source.children == nil else { return nil }

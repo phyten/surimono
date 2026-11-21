@@ -27,10 +27,15 @@ enum LaTeXFlowPaginator {
             try {
               const japanese = document.body.hasAttribute('data-latex-js-toc') &&
                 getComputedStyle(document.body).getPropertyValue('--js-pt').trim();
+              const journal = document.body.hasAttribute('data-latex-publication-grid');
               for (const el of document.body.querySelectorAll('*:not(svg *,style,template,script)')) {
                 const style = getComputedStyle(el);
                 const outline = style.outlineStyle === 'none' ? 0 :
                   Math.max(0, parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset));
+                // A journal's plain equation number gets its baseline and strut at column width.
+                // Isolating its preliminary line box here would discard the display's glue.
+                if (journal && !outline && el.matches('.latex-equation > .eqno:not([style])') && !el.childElementCount &&
+                    el.parentElement.querySelector(':scope > .math-display > svg:only-child')) continue;
                 if (!outline && style.position !== 'absolute' && style.transform === 'none' &&
                     !(style.position === 'relative' && (style.top !== 'auto' || style.bottom !== 'auto')) &&
                     !(parseFloat(style.marginTop) < 0 || parseFloat(style.marginBottom) < 0) &&
@@ -86,6 +91,28 @@ enum LaTeXFlowPaginator {
         let y: CGFloat
         let height: CGFloat
         let hasOverhang: Bool
+        let distributedHeadings: [DistributedHeading]?
+    }
+
+    struct DistributedHeading: Decodable {
+        let text: String
+        let x, y, width: CGFloat
+
+        func draw(in context: CGContext, from origin: CGPoint, scale: CGFloat) {
+            // The class sets a five-cell box. Core Text preserves one searchable run
+            // while distributing the spare width at Japanese justification opportunities.
+            let measure = width * scale
+            let font = CTFontCreateWithName("HiraginoSans-W5" as CFString, measure / 5, nil)
+            let title = NSAttributedString(string: text, attributes: [.font: font])
+            let natural = CTLineCreateWithAttributedString(title)
+            let line = CTLineCreateJustifiedLine(natural, 1, measure) ?? natural
+            context.saveGState()
+            defer { context.restoreGState() }
+            context.setFillColor(gray: 0, alpha: 1)
+            context.textMatrix = .identity
+            context.textPosition = CGPoint(x: origin.x + x * scale, y: origin.y - y * scale)
+            CTLineDraw(line, context)
+        }
     }
 
     private struct Leader: Decodable {
@@ -227,6 +254,17 @@ enum LaTeXFlowPaginator {
                             y: pageSize.height - margins.top - (piece.y - s.start * piece.scale) / ratio)
                         for row in try JSONDecoder().decode([Leader].self, from: Data(leaders.utf8)) {
                             row.draw(in: context, from: start, scale: piece.scale / ratio, slice: printed)
+                        }
+                    }
+                    if let headings = origin.distributedHeadings {
+                        for band in page.pieces[position...last] {
+                            let scale = band.scale / ratio
+                            let start = CGPoint(
+                                x: margins.left + band.x / ratio,
+                                y: pageSize.height - margins.top - band.y / ratio + band.slice.start * scale)
+                            for heading in headings where (band.slice.start..<band.slice.end).contains(heading.y) {
+                                heading.draw(in: context, from: start, scale: scale)
+                            }
                         }
                     }
                     index += count

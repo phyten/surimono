@@ -89,6 +89,10 @@ extension LaTeXDocument {
         if language == "en" || language.hasPrefix("en-"), let label = classInfo.journalStyle?.englishLabel(name) {
             return label
         }
+        if language == classInfo.profile.typography.mainLanguage {
+            if name == "refname", let label = classInfo.profile.body.referenceName { return label }
+            if name == "figurename", let label = classInfo.profile.body.figName { return label }
+        }
         if name == "lstlistingname" { return "Listing" }
         if name == "jsParagraphMark", let mark = classInfo.profile.headings.defaultParagraphMark { return mark }
         // jsclasses do not translate amsthm. A language package or a document macro can do so.

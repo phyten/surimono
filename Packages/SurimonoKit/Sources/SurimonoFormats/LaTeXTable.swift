@@ -55,6 +55,7 @@ struct LaTeXTable {
         var isBooktabs: Bool { self == .thick || self == .mid }
 
         static let thinCSS = "0.5pt solid currentColor"
+        static let measuredCSS = "var(--latex-arrayrulewidth, calc(.4 * var(--tex-pt, .996264pt))) solid currentColor"
     }
 
     private struct Row {
@@ -75,6 +76,7 @@ struct LaTeXTable {
     let body: String
     var basicBidi = false
     var isLongtable = false
+    var usesMeasuredRules = false
     var targetWidth: String?
     var columnTypes: [Character: String] = [:]
 
@@ -102,6 +104,7 @@ struct LaTeXTable {
         let columns = Self.columns(Array(spec), budget: &budget, aliases: columnTypes, aliasBudget: &aliasBudget)
         let flexible = columns.filter { $0.paragraph == "X" }.count
         let tableWidth = flexible == 0 ? nil : targetWidth
+        let verticalRule = usesMeasuredRules ? Rule.measuredCSS : Rule.thinCSS
         let (rows, repeatFirst, repeatLast) = tableRows()
         var pendingRowspans: [Int: Int] = [:]
         var head = ""
@@ -124,6 +127,7 @@ struct LaTeXTable {
             let rowBackground = row.background.flatMap { color($0.spec, $0.model) }
             var column = 0
             var cells = ""
+            var needsRuleDepth = usesMeasuredRules && !isLongtable && !row.ruleOnly && row.ruleBelow == .thin
             for source in row.cells {
                 if let remaining = pendingRowspans[column], remaining > 0 {
                     // The cell under a \multirow is left empty in the source and taken by the span.
@@ -155,12 +159,12 @@ struct LaTeXTable {
                 if let value = cell.background.flatMap({ color($0.spec, $0.model) }) ?? rowBackground {
                     style.append("background-color: \(value)")
                 }
-                if format.ruleLeft && column == 0 { style.append("border-left: \(Rule.thinCSS)") }
+                if format.ruleLeft && column == 0 { style.append("border-left: \(verticalRule)") }
                 let last = column + cell.columns - 1
                 let lastFormat = last < columns.count ? columns[last] : Column()
                 if lastFormat.noTrailingSpace { style.append("padding-inline-end: 0") }
                 if lastFormat.ruleRight || (last + 1 < columns.count && columns[last + 1].ruleLeft) {
-                    style.append("border-right: \(Rule.thinCSS)")
+                    style.append("border-right: \(verticalRule)")
                 }
                 let above =
                     row.ruleAbove ?? row.partialRules.first { $0.columns.overlaps((column + 1)...(last + 1)) }?.rule
@@ -171,11 +175,9 @@ struct LaTeXTable {
                     guard let rule else { continue }
                     if let kind = rule.printedKind {
                         ruleClasses.append("latex-\(edge)-\(kind)")
-                    } else if isLongtable {
+                    } else if isLongtable || usesMeasuredRules {
                         ruleClasses.append("latex-\(edge)-hline")
-                        style.append(
-                            "border-\(edge): var(--latex-arrayrulewidth, calc(.4 * var(--tex-pt, .996264pt))) solid currentColor"
-                        )
+                        style.append("border-\(edge): \(Rule.measuredCSS)")
                     } else {
                         style.append("border-\(edge): \(Rule.thinCSS)")
                     }
@@ -194,6 +196,11 @@ struct LaTeXTable {
                 if japanesePunctuation, let last = contents.last, "）」』】〉》".contains(last) {
                     // A closing bracket at the end of a TeX cell has no trailing half-em glue.
                     contents = String(contents.dropLast()) + "<span class=\"latex-jfm-close\">\(last)</span>"
+                }
+                // The row shares one baseline. A spanning cell belongs to an earlier or later row.
+                if needsRuleDepth, cell.rows == 1 {
+                    contents += "<span class=\"latex-rule-depth\" aria-hidden=\"true\"></span>"
+                    needsRuleDepth = false
                 }
                 if format.paragraph == "m", cell.vertical == nil {
                     contents = "<span class=\"latex-middle-cell\"><span>\(contents)</span></span>"

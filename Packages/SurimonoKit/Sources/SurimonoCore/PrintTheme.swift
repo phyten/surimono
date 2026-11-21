@@ -133,6 +133,7 @@ public enum PrintThemeLibrary {
         let journals = try String(contentsOf: CoreResources.url("latex-journals", extension: "css"), encoding: .utf8)
         let conferences = try String(
             contentsOf: CoreResources.url("latex-conferences", extension: "css"), encoding: .utf8)
+        let societies = try String(contentsOf: CoreResources.url("latex-societies", extension: "css"), encoding: .utf8)
         let builtIns = try catalog.themes.map { entry in
             let groupFormats = catalog.categories.first { $0.id == entry.category }?.formats
             // A theme may narrow its category's formats but cannot widen them.
@@ -150,7 +151,7 @@ public enum PrintThemeLibrary {
                     english: entry.name, japanese: entry.ja, localized: entry.localizedNames),
                 css: common + "\n"
                     + (entry.category == "latex"
-                        ? tex + "\n" + books + "\n" + journals + "\n" + conferences + "\n" : "")
+                        ? tex + "\n" + books + "\n" + journals + "\n" + conferences + "\n" + societies + "\n" : "")
                     + css, isBuiltIn: true,
                 category: entry.category, formats: formats,
                 featuredRank: catalog.featured.firstIndex(of: entry.id), script: script, flow: entry.flow ?? .horizontal

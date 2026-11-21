@@ -72,6 +72,11 @@ enum PageFurnitureDrawing {
         }
         let base = style.classSize == 11 ? 10.95 : Double(style.classSize)
         let size = style.pointSize * scale * ((element.pointSize(base: style.classSize) ?? base) / base)
+        if let family = element.family, !["mono", "sans", "roman"].contains(family),
+            let font = InstalledFontIndex.systemFont(named: family, size: size)
+        {
+            return font as NSFont
+        }
         if element.family != "sans", element.family != "mono", let installed = style.fontName,
             let face = InstalledFontIndex.system.face(named: installed)
         {
@@ -122,20 +127,31 @@ enum PageFurnitureDrawing {
         func draw(_ texts: [String], above: Bool, centerY: (CGFloat) -> CGFloat) {
             let rule = (above ? lines.headRule : lines.footRule) * scale
             guard rule > 0 || texts.contains(where: { !$0.isEmpty }) else { return }
+            let journal = lines.journalPage
             let headFamily = (lines.headerFont ?? latexFooter?.headerFont)?.family
             let usesJapaneseFace = above && headFamily != "mono" && headFamily != "sans"
+            let rowLeft = left + (above ? journal?.headerLeftInset ?? 0 : journal?.footerSideInset ?? 0) * scale
+            let rowRight = right - (above ? 0 : journal?.footerSideInset ?? 0) * scale
+            let japaneseFace = above ? journal?.japaneseHeaderFace : journal?.japaneseFooterFace
+            let japaneseScale = above ? journal?.japaneseHeaderScale : journal?.japaneseFooterScale
             let row = row(
-                texts, width: right - left, scale: scale,
+                texts, width: rowRight - rowLeft, scale: scale,
                 font: latexFooter.map {
-                    elementFont(above ? (lines.headerFont ?? $0.headerFont) : nil, style: $0, scale: scale)
+                    elementFont(
+                        above ? (lines.headerFont ?? $0.headerFont) : journal?.footerFont, style: $0, scale: scale)
                 },
                 numberFont: latexFooter.flatMap { style in
                     (lines.numberFont ?? style.numberFont).map { elementFont($0, style: style, scale: scale) }
                 },
                 ranges: above ? lines.headerNumberRanges : lines.footerNumberRanges,
                 oversizedTitleFallback: above ? lines.oversizedTitleFallback : nil,
-                japaneseFamily: usesJapaneseFace ? latexFooter?.japaneseFontName : nil,
-                japaneseScale: latexFooter?.japaneseFontScale ?? 1)
+                japaneseFamily: japaneseFace ?? (usesJapaneseFace ? latexFooter?.japaneseFontName : nil),
+                japaneseScale: japaneseScale ?? latexFooter?.japaneseFontScale ?? 1,
+                copyrightFont: above
+                    ? nil
+                    : latexFooter.flatMap { style in
+                        journal?.copyrightFont.map { elementFont($0, style: style, scale: scale) }
+                    }, fitsOppositeField: journal != nil)
             let y =
                 latexFooter.map {
                     let strut = above && lines.usesFancyFields ? $0.headerStrutDepth : 0
@@ -147,16 +163,37 @@ enum PageFurnitureDrawing {
                 } ?? (centerY(row.height) - (row.ascent - row.descent) / 2)
             if rule > 0 {
                 let footGap = (latexFooter?.pointSize ?? 10) * 0.36 * scale
-                let headDepth = latexFooter?.headerRuleDepth.map { $0 * scale } ?? row.descent
+                let headDepth =
+                    (journal?.headRuleDepth ?? latexFooter?.headerRuleDepth).map { $0 * scale } ?? row.descent
                 let edge = above ? y - headDepth - rule : y + row.ascent + footGap
-                drawRule(from: left, to: right, center: edge + rule / 2, thickness: rule, context: context)
+                if journal?.interruptsRuleAtLeftText == true, above, let title = row.lines[0] {
+                    let endOfTitle = rowLeft + CTLineGetTypographicBounds(title, nil, nil, nil)
+                    drawRule(from: left, to: rowLeft, center: edge + rule / 2, thickness: rule, context: context)
+                    drawRule(from: endOfTitle, to: right, center: edge + rule / 2, thickness: rule, context: context)
+                } else {
+                    drawRule(from: left, to: right, center: edge + rule / 2, thickness: rule, context: context)
+                }
             }
             for (index, line) in row.lines.enumerated() {
                 guard let line else { continue }
                 let width = CTLineGetTypographicBounds(line, nil, nil, nil)
-                let x = index == 0 ? left : index == 1 ? center - width / 2 : right - width
-                context.textPosition = CGPoint(x: x, y: y)
+                let x = index == 0 ? rowLeft : index == 1 ? center - width / 2 : rowRight - width
+                let lowering = above ? journal?.headerLowering[index] : journal?.footerLowering
+                context.textPosition = CGPoint(x: x, y: y - (lowering ?? 0) * scale)
                 show(line, asOutlines: asOutlines, context: context)
+            }
+            if let extra = journal?.secondary, extra.header == above, let latexFooter {
+                let font = elementFont(extra.font, style: latexFooter, scale: scale)
+                let slot = extra.trailingInset == nil ? 0 : 2
+                var parts = ["", "", ""]
+                parts[slot] = extra.text
+                let extraLine = Self.row(parts, width: right - left, scale: scale, font: font)
+                if let line = extraLine.lines[slot] {
+                    let width = CTLineGetTypographicBounds(line, nil, nil, nil)
+                    let x = extra.trailingInset.map { right - $0 * scale - width } ?? left
+                    context.textPosition = CGPoint(x: x, y: y - extra.loweredMM * 72 / 25.4 * scale)
+                    show(line, asOutlines: asOutlines, context: context)
+                }
             }
         }
         draw(lines.top, above: true) { rect.maxY - max(margins.top / 2, $0 / 2 + 2) }
@@ -275,7 +312,7 @@ enum PageFurnitureDrawing {
     private static func row(
         _ texts: [String], width: CGFloat, scale: CGFloat, font: NSFont? = nil, numberFont: NSFont? = nil,
         ranges: [[NSRange]] = [], oversizedTitleFallback: String? = nil, japaneseFamily: String? = nil,
-        japaneseScale: Double = 1
+        japaneseScale: Double = 1, copyrightFont: NSFont? = nil, fitsOppositeField: Bool = false
     ) -> Row {
         let font = font ?? NSFont.systemFont(ofSize: 8 * scale)
         func line(_ text: String, slot: Int? = nil) -> CTLine {
@@ -289,6 +326,9 @@ enum PageFurnitureDrawing {
                 for range in text.ranges(of: /[\p{Han}\p{Hiragana}\p{Katakana}\u{3000}-\u{303F}\u{FF01}-\u{FF60}]+/) {
                     contents.addAttribute(.font, value: face, range: NSRange(range, in: text))
                 }
+            }
+            if let copyrightFont, let range = text.range(of: "©") {
+                contents.addAttribute(.font, value: copyrightFont, range: NSRange(range, in: text))
             }
             if let slot, let numberFont, ranges.indices.contains(slot) {
                 for range in ranges[slot] where NSMaxRange(range) <= contents.length {
@@ -327,8 +367,14 @@ enum PageFurnitureDrawing {
             ascent = max(ascent, numberFont.ascender)
             descent = max(descent, -numberFont.descender)
         }
+        // A journal header shares a row with just the folio: let its title use the folio's unused half.
+        func available(opposite: Int) -> CGFloat {
+            guard fitsOppositeField, middle == nil, bothSides else { return side }
+            return width - gap - min(width / 2, widths[opposite])
+        }
         return Row(
-            lines: [fitted(0, to: side), middle, fitted(2, to: side)], height: ascent + descent,
+            lines: [fitted(0, to: available(opposite: 2)), middle, fitted(2, to: available(opposite: 0))],
+            height: ascent + descent,
             ascent: ascent, descent: descent)
     }
 }

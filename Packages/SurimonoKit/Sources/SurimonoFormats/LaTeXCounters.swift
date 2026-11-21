@@ -193,6 +193,25 @@ extension LaTeXReader {
                 caption.replacingOccurrences(of: #"<[^>]+>"#, with: "", options: .regularExpression))
             return plain.isEmpty ? value : plain + " " + value
         }
+        let form = document.classInfo.profile.headings.counterForm
+        if form == .spacedHierarchy {
+            switch name {
+            case "section": return value + "."
+            case "paragraph": return LaTeXSymbols.format(counters[name], as: "alph") + " )"
+            case "subparagraph": return LaTeXSymbols.format(counters[name], as: "roman") + " )"
+            case "subsection", "subsubsection":
+                if let parent = counters.printedParent(of: name) {
+                    let prefix = formattedCounter(parent, forMath: forMath)
+                    return prefix + (prefix.hasSuffix(".") ? " " : ". ") + value
+                }
+            default: break
+            }
+        } else if form == .parenthesizedParagraph {
+            if name == "paragraph" { return "(" + value + ")" }
+            if name == "subparagraph" {
+                return "(" + formattedCounter("paragraph", forMath: forMath) + "." + value + ")"
+            }
+        }
         guard let parent = counters.printedParent(of: name) else { return value }
         return formattedCounter(parent, forMath: forMath) + "." + value
     }

@@ -1,0 +1,158 @@
+% !TEX program = platex
+\documentclass[submit]{ipsj}
+
+\setcounter{巻数}{67}
+\setcounter{号数}{1}
+\setcounter{page}{1}
+
+\受付{2026}{3}{4}
+\採録{2026}{8}{1}
+
+\begin{document}
+
+\title{鉄道模型用の折り紙スペーサーの高さの測定}
+
+\etitle{Measuring Folded Card Spacers for Model Rails}
+
+\affiliate{PMW}{紙模型工房\\
+Paper Model Workshop}
+
+\affiliate{SFR}{紙模型工房 縮尺治具室\\
+Scale Fixture Room, Paper Model Workshop}
+
+\author{模型 線路}{Model Rail Desk}{PMW}[desk@paper-model.example]
+\author{厚紙 作業}{Card Stock Bench}{SFR}
+
+\begin{abstract}
+折り曲げた厚紙のスペーサーは，模型の線路を台板から一定の高さに保つ．
+本稿では，3種類の厚紙から折ったスペーサーを一つの試験溝で測定し，単純な層モデルによる予測と比べた．
+2層の試行から折り目の余裕を求めると，モデルは折ったスペーサーの高さを0.1\,mm以内で予測できた．
+溝の構造，測定の手順，残る誤差の要因を述べ，目標の高さに対して厚紙を選ぶための実用的な規則を示す．
+\end{abstract}
+
+\begin{jkeyword}
+紙模型，スペーサー，厚紙，層モデル
+\end{jkeyword}
+
+\begin{eabstract}
+A folded card spacer fixes the height of a model rail above its baseboard.
+We measured spacers folded from three card stocks in one test slot and compared
+the heights with a simple layer model, which predicts them to within 0.1\,mm when
+the crease allowance is taken from a two-layer trial.
+\end{eabstract}
+
+\begin{ekeyword}
+paper models, spacers, folded card, layer model
+\end{ekeyword}
+
+\maketitle
+
+\section{はじめに}\label{sec:intro}
+鉄道の紙模型には，高さの正確な小さな部品が数多く必要である．
+線路，ホームの縁，信号機の台座はいずれもスペーサーの上に載り，
+スペーサーが1\,mmの何分の一か厚いだけで，線路の継ぎ目が持ち上がり軽い貨車が脱線する．
+多くの製作者は厚紙を切り，目的の高さになるまで折ってスペーサーを作る~\cite{desk25}．
+折るだけなら道具は要らず手早いが，折ったスペーサーの高さは厚紙の厚さの和にはならない．
+折り目ごとにわずかな余裕が加わり，その大きさは厚紙と折り目の押さえ方によって変わる．
+
+本稿は，折ったスペーサーの台上試験の報告である．目的は次のとおりである．
+\begin{itemize}
+\item 2層から6層のスペーサーの高さを一つの固定した溝で測る．
+\item 測定値を，折り目の余裕を加える層モデルと比べる．
+\item 目標の高さに対して厚紙を選ぶ簡単な規則を示す．
+\end{itemize}
+\ref{sec:method}章で溝と手順を，\ref{sec:results}章で測定結果を述べ，
+\ref{sec:conclusion}章で規則をまとめる．
+層モデルは，重ねた厚紙の報告~\cite{bench24}とゲージブロックの報告~\cite{scale23}にもとづく\footnote{部品はすべて同じ日の午後に同じ用紙から切り出したので，厚紙の含水率はどのスペーサーでも等しい．}．
+
+\section{方法}\label{sec:method}
+\subsection{試験溝}\label{sec:slot}
+溝は積層板のブロックに切り込み，厚紙で壁がへこまないよう薄い真鍮の帯で内張りした．
+高さの分かっている滑り線路をスペーサーの上に載せ，ブロックの側面の目盛りで高さを読む．
+目盛りが読み取りのあいだに動かないよう，試験中はブロックを作業台に固定した．
+
+各スペーサーは折り目の側を溝の奥に向けて差し込んだ．
+折ったばかりのスペーサーはゆっくり戻るので，線路を載せて10秒待ってから読み取った．
+スペーサーごとに，抜いて差し直しながら3回読み取った．
+
+\subsection{層モデル}\label{sec:model}
+厚さ$t$の厚紙を$n$層に折ったスペーサーの高さ$h$を
+\begin{equation}
+h = n\,t + (n-1)\,c
+\label{eq:height}
+\end{equation}
+とする．ここで$c$は一つの折り目が加える余裕である．
+余裕は2層の試行から求め，式(\ref{eq:height})より$c = h_2 - 2t$となる．
+同じモデルは文献~\cite{scale23}のゲージブロックにも使われ，4層までの折り板の高さをよく予測した．
+
+\paragraph{厚紙の厚さ}
+厚さ$t$は各厚紙の単票10枚をダイヤルゲージで測り，その平均をモデルに用いた．
+薄紙は0.20\,mm，中厚紙は0.30\,mm，厚紙は0.45\,mmで，ばらつきはいずれも0.01\,mm未満であった．
+
+\paragraph{折り目の押さえ方}
+折り目はすべて，鉄の定規に沿ってへらの平らな面で1回押さえた．
+2回押さえると余裕は小さくなるが厚紙の表面が割れたので，全スペーサーで1回とした．
+
+\section{結果}\label{sec:results}
+図~\ref{fig:slot}に4層のスペーサーを入れた溝を，
+表~\ref{tab:heights}に各スペーサーの測定値の平均と式(\ref{eq:height})による予測値を示す．
+
+\begin{figure}[t]
+\centering
+\rule{0.8\linewidth}{0.4pt}\\[2pt]
+\rule{0.6\linewidth}{18mm}\\[2pt]
+\rule{0.8\linewidth}{0.4pt}
+\caption{4層のスペーサーを滑り線路の下に入れた試験溝の側面．濃い四角がスペーサー，細い線は溝の底と線路を示す．}
+\label{fig:slot}
+\end{figure}
+
+\begin{table}[t]
+\caption{折ったスペーサーの測定値と予測値（mm）}
+\label{tab:heights}
+\centering
+\begin{tabular}{lrrr}
+\hline
+厚紙 & 層数 & 測定値 & 予測値 \\
+\hline
+薄紙 & 2 & 0.46 & 0.46 \\
+薄紙 & 4 & 0.95 & 0.98 \\
+中厚紙 & 3 & 1.02 & 1.00 \\
+中厚紙 & 6 & 2.05 & 2.05 \\
+厚紙 & 4 & 1.98 & 1.92 \\
+\hline
+\end{tabular}
+\end{table}
+
+モデルはどのスペーサーでも測定値と0.06\,mm以内で一致した．
+誤差が最も大きいのは厚紙で，層数とともに折り目の余裕が大きくなる．
+外側の層がより厚い芯のまわりで曲がり，折り目がわずかに開くためである．
+薄紙と中厚紙では誤差は層数とともに増えず，薄紙の継ぎ目に関する報告~\cite{glue22}と一致する．
+
+同じスペーサーの繰り返しの読みの差は最大0.02\,mmであった．
+溝に一晩置いたスペーサーは高さが約0.01\,mm減ったが，読みのばらつきより小さいので無視した．
+
+\section{まとめ}\label{sec:conclusion}
+折った厚紙のスペーサーは，厚紙の厚さと，厚紙ごとに一度測った折り目の余裕から設計できる．
+2\,mmまでの高さでは薄紙と中厚紙が層モデルによく従い，線路を正確な高さに置くときに適している．
+厚紙は手早く折れるが，3層を超えるときは溝で確かめるべきである．
+多くのスペーサーを一度に確かめるには，厚紙のはしご~\cite{window21}が便利である．
+
+\begin{thebibliography}{9}
+\bibitem{desk25}
+模型線路係：スペーサー用厚紙の記録，試行記録，紙模型工房 (2025).
+
+\bibitem{bench24}
+厚紙作業台，模型線路係：重ねた厚紙の折り公差，紙模型作業台会議論文集，pp.12--19 (2024).
+
+\bibitem{scale23}
+縮尺治具室：折り板で作るゲージブロック，工房リーフレット7，紙模型工房 (2023).
+
+\bibitem{glue22}
+糊壺係：薄紙の継ぎ目の乾燥時間，紙模型季報，Vol.4, No.2, pp.33--41 (2022).
+
+\bibitem{window21}
+窓枠研究係：厚紙のはしごによる溝の測定，技術メモ，紙模型工房 (2021).
+
+\end{thebibliography}
+
+\end{document}
