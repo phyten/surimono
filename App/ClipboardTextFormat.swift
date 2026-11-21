@@ -2,7 +2,7 @@ import SurimonoCore
 import SwiftUI
 
 /// How a text from the clipboard or a service came by its format, which the format menu tells the reader.
-enum TextFormatOrigin: Equatable {
+enum TextFormatOrigin: String, Codable {
     /// The detector was sure of it.
     case automatic
     /// Settings say to always open one format.

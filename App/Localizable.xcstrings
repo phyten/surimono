@@ -58019,6 +58019,162 @@
         }
       }
     },
+    "Also Keep Them After Quitting": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Also Keep Them After Quitting"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アプリを終了したあとも残す"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auch nach dem Beenden behalten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conservarlos también después de salir"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les conserver aussi après avoir quitté l’app"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "앱을 종료한 후에도 보관"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "退出后也保留"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "結束後也保留"
+          }
+        }
+      }
+    },
+    "Saved on this Mac until you reopen or clear them, for up to 7 days.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved on this Mac until you reopen or clear them, for up to 7 days."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この Mac に保存します。開き直すか消去するまで、最長 7 日間残ります。"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Dokumente bleiben bis zum erneuten Öffnen oder Löschen auf diesem Mac, höchstens 7 Tage."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se guardan en este Mac hasta que vuelvas a abrirlos o los borres, durante un máximo de 7 días."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les documents sont conservés sur ce Mac jusqu’à leur réouverture ou leur effacement, pendant 7 jours au maximum."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다시 열거나 지울 때까지 이 Mac에 최대 7일간 저장합니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文稿会保存在这台 Mac 上，直到重新打开或清除，最长保留 7 天。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文件會儲存在這部 Mac 上，直到重新開啟或清除，最長保留 7 天。"
+          }
+        }
+      }
+    },
+    "Clear Closed Clipboard Documents": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear Closed Clipboard Documents"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "閉じたクリップボードの文書を消去"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geschlossene Dokumente aus der Zwischenablage löschen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Borrar los documentos cerrados del portapapeles"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Effacer les documents fermés du presse-papiers"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "닫은 클립보드 문서 지우기"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清除已关闭的剪贴板文稿"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清除已關閉的剪貼簿文件"
+          }
+        }
+      }
+    },
     "Keep Closed Clipboard Documents Until Quit": {
       "localizations": {
         "en": {

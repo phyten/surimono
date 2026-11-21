@@ -6,7 +6,7 @@ enum DocumentMenuAction: Hashable {
     case operation(ShortcutOperationID)
     case history(ContentHash)
     case recentBinder(RecentBinder.ID)
-    case clearBinders, openSample
+    case clearClipboard, clearBinders, openSample
     case composition(LaTeXComposition)
     case typeface(Typeface)
     case setting(UUID)
@@ -22,6 +22,7 @@ enum DocumentMenuAction: Hashable {
         case .history(let id): ClipboardWindows.shared.reopenClosed(id)
         case .recentBinder(let id):
             if let current = preferences.recentBinders.entries.first(where: { $0.id == id }) { openBinder(current) }
+        case .clearClipboard: preferences.clearClosedClipboardDocuments()
         case .clearBinders: preferences.clearRecentBinders()
         case .openSample: OpenRouter.shared.openSampleDocument()
         case .composition(let value): model()?.selectComposition(value)
@@ -145,7 +146,7 @@ struct DocumentMenuDescriptor: Identifiable {
                         "Recently Closed Clipboard Documents",
                         state.history.map {
                             button(.verbatim($0.title), .history($0.id))
-                        }))
+                        } + [divider("clear"), button("Clear Closed Clipboard Documents", .clearClipboard)]))
             }
             rows.append(command("Streaming Preview", .appStreamingPreview))
             if !state.recentBinders.isEmpty {
