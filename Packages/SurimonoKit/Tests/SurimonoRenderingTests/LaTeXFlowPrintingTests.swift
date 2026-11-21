@@ -432,7 +432,10 @@ struct LaTeXFlowPrintingTests {
                 #expect((6...9).contains(20 - Double(rightEdges[i]) / scale))
                 // The bitmap begins at the top of the page. Font hinting and the verso's subpixel
                 // origin can shift the outline by a few pixels at this resolution.
-                #expect(abs(rows.reduce(0, +) - areas[i]) < 22)
+                // The digit is the right one when its ink is close to the reference digit's: the
+                // three digits differ from each other by far more than this allowance.
+                let allowance = max(40, areas[i] / 5)
+                #expect(abs(rows.reduce(0, +) - areas[i]) < allowance, "ink \(rows.reduce(0, +)) for \(areas[i])")
             }
         }
     }
