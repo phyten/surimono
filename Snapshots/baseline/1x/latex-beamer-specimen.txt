@@ -1,0 +1,51 @@
+A pocket tide gauge
+Field notes
+Mira Reed
+Harbour Workshop
+22 May
+Route
+Assembly
+Cut the scale
+A dry bench
+Mark the red notch beside the blue line.
+▶ Yard stick
+▶ Copper sleeve
+▶ Inner pin
+1. Cut
+2. File
+Tip Use a flat edge.
+Calibrate
+Reading
+Turn the brass wheel.
+Caution
+Keep the scale dry.
+Example
+Seven marks.
+Two gauges
+North gauge
+High water
+The tide turns.1
+1
+Logged at noon.
+South gauge
+Tag
+mark<2-> = {raw}
+Route
+Records
+Soundings
+Section 2
+Records
+Logbook
+Harbour Crew, Jetty log.
+Bench record
+Figure: The copper gauge
+Mark Depth
+A 7
+Table: The morning reading
+Route
+Records
+Soundings
+Float travel
+The brass float marks the mean depth. Read the offset x + 2 at
+the scale.
+y= 2x + 1

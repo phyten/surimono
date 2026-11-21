@@ -674,8 +674,12 @@ public final class DocumentRenderer {
             {
                 settings.applyLaTeXPage(latexClassInfo(for: source, composition: settings.latexComposition))
             }
+            let slideSize =
+                source.format == .latex && source.children == nil ? latexClassInfo(for: source).beamerPageSize : nil
+            if let slideSize { settings.readingTrim = slideSize }
             let pageSize = settings.logicalPageSize
-            let margins = settings.layout.logicalMargins(options: settings.options)
+            let margins =
+                slideSize == nil ? settings.layout.logicalMargins(options: settings.options) : PageMargins.zero
             guard settings.options.margins.isValid,
                 PDFDrawing.validGeometry(pageSize: pageSize, margins: WebPaginator.Margins(margins))
             else {
@@ -792,7 +796,17 @@ public final class DocumentRenderer {
             }
             let pages = try await noted(logical, source: source, settings: settings)
             try Task.checkCancellation()
-            let selection = settings.pageRange.selection(pageCount: pages.document.pageCount)
+            let selection: PageRange.Selection
+            if logical.finishing.facts?.beamerPageSize != nil, let slide = settings.slides?.onlyIndex,
+                (0..<logical.document.pageCount).contains(slide)
+            {
+                // The current slide is selected in reading order, before the tray inserts writing pages.
+                let notes = Set(pages.finishing.notePages)
+                let slides = (0..<pages.document.pageCount).filter { !notes.contains($0) }
+                selection = PageRange.Selection(pages: Array(slides.dropFirst(slide).prefix(1)), isOutOfDocument: false)
+            } else {
+                selection = settings.pageRange.selection(pageCount: pages.document.pageCount)
+            }
             let furniture = furnitureContext(source, logical: pages, settings: settings)
             let orientsEachPage = settings.usesPerPageOrientation && (source.format == .pdf || source.format == .image)
             let plan =
@@ -1258,6 +1272,30 @@ public final class DocumentRenderer {
             let fragment = page.fragment
             let directory = source.fileURL?.deletingLastPathComponent()
             let pageSize = settings.logicalPageSize
+            if let info = fragment.latexClass, let size = info.beamerPageSize {
+                let graphic = LaTeXGraphicPreparation.script(
+                    in: fragment.body, layoutWidth: info.pageBox.textWidth * WebPaginator.printPixelsPerPoint,
+                    layoutHeight: size.height * WebPaginator.printPixelsPerPoint)
+                var result = try await paginateCheckingIssues(
+                    PaginationRequest(
+                        source: sandboxSource(.html(page.html, baseURL: directory), for: source),
+                        pageSize: size, margins: .uniform(millimeters: 0), allowsJavaScript: false,
+                        preparationScript: [graphic, try Self.beamerPreparation()].compactMap { $0 }.joined(
+                            separator: "\n"),
+                        readsPageRules: false, rendersDiagrams: page.diagrams),
+                    source: source)
+                var facts = page.facts
+                guard let data = result.preparationResult?.data(using: .utf8),
+                    let slides = try? JSONDecoder().decode(BeamerPages.self, from: data),
+                    slides.frames.count == result.document.pageCount
+                else { throw WebPaginator.PaginationError.printFailed }
+                facts.continuedBeamerFrames = slides.continued
+                facts.beamerPageFrames = slides.frames
+                if page.needsFolderAccess { result.requiredFolderAccess = directory }
+                result.finishing.facts = facts
+                result.finishing.bodyHTML = fragment.body
+                return result
+            }
             let margins = settings.layout.logicalMargins(options: settings.options)
             let themeScript = separatesPaper ? Self.themedPreparation(settings.theme) : settings.theme.script ?? ""
             let paperMargins = WebPaginator.Margins(margins)
@@ -1372,6 +1410,18 @@ public final class DocumentRenderer {
             result.finishing = text.finishing
             return result
         }
+    }
+
+    struct BeamerPages: Decodable {
+        let frames: [Int]
+        let continued: Int
+    }
+
+    static func beamerPreparation() throws -> String {
+        guard let url = Bundle.module.url(forResource: "latex-beamer-pages", withExtension: "js") else {
+            throw WebPaginator.PaginationError.printFailed
+        }
+        return try String(contentsOf: url, encoding: .utf8)
     }
 
     private struct ThemedPage {

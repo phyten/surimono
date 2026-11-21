@@ -56,7 +56,12 @@ public enum LaTeXConverter {
             }
             html = document.frontMatter.resolve(in: html, document: document)
             // Notes and the table of contents may hold references too, so they are in place before references resolve.
-            html += document.footnoteSection()
+            if document.classInfo.beamerPageSize != nil {
+                html = document.replacing("BT", in: html).replacingOccurrences(
+                    of: document.placeholder("BF", 0), with: String(document.beamer.numberedFrame))
+            } else {
+                html += document.footnoteSection()
+            }
             html = document.resolvePlaceholders(in: html)
             if document.classInfo.profile.body.readsQuestions {
                 html = document.replacing("E", in: html)
@@ -69,7 +74,10 @@ public enum LaTeXConverter {
             if let css = document.initialHyperref.styleSheet(hasLocalColors: document.hasLocalLinkColors) {
                 html += "<style>\n\(css)\n</style>\n"
             }
-            let fonts = MathRenderer.fontFaces(for: html)
+            let usesAMSMarkers =
+                document.classInfo.beamerPageSize != nil
+                && (html.contains("class=\"latex-item-mark\"") || html.contains("class=\"beamer-bib-arrow\""))
+            let fonts = MathRenderer.fontFaces(for: html, includesAMSMarkers: usesAMSMarkers)
             if !fonts.isEmpty { html += "<style>\n\(fonts)\n</style>\n" }
             return HTMLFragment(
                 body: html, title: document.plainTitle, language: document.classInfo.mainLanguage,
@@ -287,6 +295,7 @@ final class LaTeXDocument {
     let counters = LaTeXCounters()
     var figureCaptions: LaTeXFigureCaptions?
     var insideSubfigure = false
+    var beamer = BeamerDocumentState()
     var insideBeamerFrame = false
     var numberedBeamerCaptions = false
     var subequationPrefix: String?
@@ -618,6 +627,13 @@ final class LaTeXDocument {
             cursor = match.range.location + match.range.length
             let index = Int(nsHTML.substring(with: match.range(at: 1))) ?? -1
             switch kind {
+            case "BT":
+                let table = contents[index] ?? beamer.contents(index)
+                if table.utf8.count <= budget {
+                    contents[index] = table
+                    output += table
+                    budget -= table.utf8.count
+                }
             case "E":
                 if index == 0 {
                     output += String(exam.questions.count)

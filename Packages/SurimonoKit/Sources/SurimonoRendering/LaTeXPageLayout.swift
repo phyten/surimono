@@ -28,6 +28,11 @@ extension RenderSettings {
     static let documentWidthCSS = "\nbody.format-latex[data-latex-size] { max-width: none; margin-inline: 0; }"
 
     mutating func applyLaTeXPage(_ info: LaTeXDocumentClassInfo) {
+        if let slide = info.beamerPageSize {
+            readingTrim = slide
+            if options.latexFurniture?.applies(to: theme) == true { options.furniture = PageFurniture() }
+            return
+        }
         if options.latexMargins?.applies(to: theme) == true && layout.kind != .handout3 {
             var box = info.pageBox
             // Fit the manuscript's margins first so changing stock cannot move the left edge of a proof.

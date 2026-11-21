@@ -20,9 +20,11 @@ struct LaTeXExportPreparationTests {
         // Capture the export worker's input to pagination, including its normal caller stack.
         let renderer = DocumentRenderer(
             isSandboxed: { false },
-            paginate: { request in
+            paginateWithResult: { request in
                 if case .html(let html, _) = request.source { preparedHTML = html }
-                return try RenderingFixtures.pdf()
+                // The slide renderer consumes the frame-to-page map measured by WebKit.
+                if name == "083-class-beamer" { return try await WebPaginator().paginate(request) }
+                return WebPaginator.Result(document: try RenderingFixtures.pdf())
             })
         _ = try await renderer.prepare(source, settings: settings)
         let html = try #require(preparedHTML)

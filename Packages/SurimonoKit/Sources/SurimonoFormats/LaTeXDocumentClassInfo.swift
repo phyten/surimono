@@ -59,6 +59,13 @@ public struct LaTeXDocumentClassInfo: Sendable, Equatable {
         let glue = resolvedStyle?.usesNewTimesGlue == true ? " data-latex-context-glue=\"newtx\"" : ""
         return " data-latex-line-breaking=\"\(family)\"" + initialLineParameters + (contexts?.attribute ?? "") + glue
     }
+    public var beamerPageSize: CGSize? { profile.page.slideSize }
+    public var beamerFontSize: Double { profile.page.slideFontSize }
+    public internal(set) var unsupportedBeamerTheme: String?
+    public internal(set) var unreadableBeamerFrames = 0
+    public internal(set) var beamerUsesSerifText = false
+    public internal(set) var beamerSections: [BeamerSection] = []
+    var beamerUsesSerifMath = false
     public var isJapanese: Bool { profile.typography.usesJapaneseStyle }
     var usesAMSA4Layout: Bool { profile.page.usesAMSA4Layout }
     var hidesTitlePageNumber: Bool { resolvedStyle?.firstPageNotice != nil || profile.pageStyle.hidesTitlePageNumber }
@@ -124,25 +131,65 @@ public struct LaTeXDocumentClassInfo: Sendable, Equatable {
 
     // Equality describes the current typesetting state. Later commands can erase differences between class options.
     public static func == (lhs: Self, rhs: Self) -> Bool {
-        (lhs.composition == .proof) == (rhs.composition == .proof) && lhs.resolvedStyle == rhs.resolvedStyle
-            && lhs.profile.structure.bookOpening == rhs.profile.structure.bookOpening
-            && lhs.declaredPaperSize == rhs.declaredPaperSize
-            && lhs.linksReferences == rhs.linksReferences && lhs.pageBackReferences == rhs.pageBackReferences
-            && lhs.initialLineParameters == rhs.initialLineParameters
-            && lhs.profile.headings.endDots == rhs.profile.headings.endDots
-            && lhs.raggedColumns == rhs.raggedColumns && lhs.name == rhs.name && lhs.isJapanese == rhs.isJapanese
-            && lhs.usesAMSA4Layout == rhs.usesAMSA4Layout
-            && lhs.hidesTitlePageNumber == rhs.hidesTitlePageNumber && lhs.hasChapters == rhs.hasChapters
-            && lhs.styleVariables == rhs.styleVariables && lhs.localFontFaces == rhs.localFontFaces
-            && lhs.pageNumbers == rhs.pageNumbers && lhs.mainFontName == rhs.mainFontName && lhs.columns == rhs.columns
-            && lhs.hasSeparateTitlePage == rhs.hasSeparateTitlePage
-            && lhs.usesJSChapterSpacing == rhs.usesJSChapterSpacing
-            && lhs.jsMagnification == rhs.jsMagnification && lhs.japaneseMainFontName == rhs.japaneseMainFontName
-            && lhs.headerStrutDepth == rhs.headerStrutDepth && lhs.pointSize == rhs.pointSize
-            && lhs.mainLanguage == rhs.mainLanguage && lhs.resolvedPageBox == rhs.resolvedPageBox
-            && lhs.usesNativeCJKHeadings == rhs.usesNativeCJKHeadings && lhs.journalStyle == rhs.journalStyle
-            && lhs.publication == rhs.publication && lhs.bookStyle == rhs.bookStyle && lhs.isKOMA == rhs.isKOMA
-            && lhs.usesTraditionalJapaneseNames == rhs.usesTraditionalJapaneseNames
+        lhs.sameSlides(as: rhs) && lhs.sameComposition(as: rhs) && lhs.samePageStyle(as: rhs)
+            && lhs.sameTypography(as: rhs) && lhs.samePublication(as: rhs)
+    }
+
+    private func sameSlides(as rhs: Self) -> Bool {
+        self.beamerPageSize == rhs.beamerPageSize
+            && self.beamerFontSize == rhs.beamerFontSize
+            && self.unsupportedBeamerTheme == rhs.unsupportedBeamerTheme
+            && self.unreadableBeamerFrames == rhs.unreadableBeamerFrames
+            && self.beamerSections == rhs.beamerSections
+            && self.beamerUsesSerifText == rhs.beamerUsesSerifText
+            && self.beamerUsesSerifMath == rhs.beamerUsesSerifMath
+            && self.profile.page.handout == rhs.profile.page.handout
+            && self.profile.page.slideAlignment == rhs.profile.page.slideAlignment
+    }
+
+    private func sameComposition(as rhs: Self) -> Bool {
+        (self.composition == .proof) == (rhs.composition == .proof)
+            && self.resolvedStyle == rhs.resolvedStyle
+            && self.profile.structure.bookOpening == rhs.profile.structure.bookOpening
+            && self.declaredPaperSize == rhs.declaredPaperSize
+            && self.linksReferences == rhs.linksReferences
+            && self.pageBackReferences == rhs.pageBackReferences
+            && self.initialLineParameters == rhs.initialLineParameters
+            && self.profile.headings.endDots == rhs.profile.headings.endDots
+    }
+
+    private func samePageStyle(as rhs: Self) -> Bool {
+        self.raggedColumns == rhs.raggedColumns
+            && self.name == rhs.name
+            && self.isJapanese == rhs.isJapanese
+            && self.usesAMSA4Layout == rhs.usesAMSA4Layout
+            && self.hidesTitlePageNumber == rhs.hidesTitlePageNumber
+            && self.hasChapters == rhs.hasChapters
+            && self.styleVariables == rhs.styleVariables
+            && self.localFontFaces == rhs.localFontFaces
+            && self.pageNumbers == rhs.pageNumbers
+            && self.mainFontName == rhs.mainFontName
+            && self.columns == rhs.columns
+    }
+
+    private func sameTypography(as rhs: Self) -> Bool {
+        self.hasSeparateTitlePage == rhs.hasSeparateTitlePage
+            && self.usesJSChapterSpacing == rhs.usesJSChapterSpacing
+            && self.jsMagnification == rhs.jsMagnification
+            && self.japaneseMainFontName == rhs.japaneseMainFontName
+            && self.headerStrutDepth == rhs.headerStrutDepth
+            && self.pointSize == rhs.pointSize
+    }
+
+    private func samePublication(as rhs: Self) -> Bool {
+        self.mainLanguage == rhs.mainLanguage
+            && self.resolvedPageBox == rhs.resolvedPageBox
+            && self.usesNativeCJKHeadings == rhs.usesNativeCJKHeadings
+            && self.journalStyle == rhs.journalStyle
+            && self.publication == rhs.publication
+            && self.bookStyle == rhs.bookStyle
+            && self.isKOMA == rhs.isKOMA
+            && self.usesTraditionalJapaneseNames == rhs.usesTraditionalJapaneseNames
     }
 }
 

@@ -281,7 +281,8 @@ extension LaTeXDocument {
     func mathHTML(_ latex: String, display: Bool, macros: String, source: String, numbers: [String?]) -> String {
         if let rendered = MathRenderer.html(
             latex, display: display, macros: macros, rowNumberHTML: numbers,
-            measureRows: classInfo.profile.body.alignsDisplayRows)
+            measureRows: classInfo.profile.body.alignsDisplayRows,
+            sansMathAlphabet: classInfo.beamerPageSize != nil && !classInfo.beamerUsesSerifMath)
         {
             return rendered
         }

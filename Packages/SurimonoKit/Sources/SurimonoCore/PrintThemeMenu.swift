@@ -31,9 +31,9 @@ public struct PrintThemeMenu: Equatable, Sendable {
     ///   - favoriteIDs: Favorite theme ids in the order they were added.
     public init(
         themes: [PrintTheme], categories: [PrintThemeCategory], recentIDs: [String], favoriteIDs: [String],
-        format: DocumentFormat? = nil
+        format: DocumentFormat? = nil, classStyle: String? = nil
     ) {
-        let themes = Self.available(themes, categories: categories, format: format)
+        let themes = Self.available(themes, categories: categories, format: format, classStyle: classStyle)
         let byID = Dictionary(themes.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         func resolve(_ ids: [String]) -> [PrintTheme] {
             var seen = Set<String>()
@@ -66,7 +66,9 @@ public struct PrintThemeMenu: Equatable, Sendable {
         favoriteIDs.contains(id) ? favoriteIDs.filter { $0 != id } : favoriteIDs + [id]
     }
 
-    private static func available(_ themes: [PrintTheme], categories: [PrintThemeCategory], format: DocumentFormat?)
+    private static func available(
+        _ themes: [PrintTheme], categories: [PrintThemeCategory], format: DocumentFormat?, classStyle: String?
+    )
         -> [PrintTheme]
     {
         let excluded = Set(
@@ -74,14 +76,16 @@ public struct PrintThemeMenu: Equatable, Sendable {
                 guard let formats = category.formats, format.map(formats.contains) != true else { return nil }
                 return category.id
             })
-        return themes.filter { $0.supports(format) && $0.category.map(excluded.contains) != true }
+        return themes.filter {
+            $0.isAvailable(for: format, classStyle: classStyle) && $0.category.map(excluded.contains) != true
+        }
     }
 
     /// The themes whose name in either language, id or category name contains `query`, ignoring case and width, in
     /// catalog order. An empty query finds nothing, so the picker shows its sections instead.
     public static func search(
         _ query: String, in themes: [PrintTheme], categories: [PrintThemeCategory], language: String,
-        format: DocumentFormat? = nil
+        format: DocumentFormat? = nil, classStyle: String? = nil
     ) -> [PrintTheme] {
         let options: String.CompareOptions = [.caseInsensitive, .widthInsensitive, .diacriticInsensitive]
         let words = query.split(whereSeparator: \.isWhitespace).map(String.init)
@@ -89,7 +93,7 @@ public struct PrintThemeMenu: Equatable, Sendable {
         let categoryNames = Dictionary(
             categories.map { ($0.id, [$0.name, $0.displayName(language: language)]) },
             uniquingKeysWith: { first, _ in first })
-        return available(themes, categories: categories, format: format).filter { theme in
+        return available(themes, categories: categories, format: format, classStyle: classStyle).filter { theme in
             let fields =
                 [theme.id, theme.name, theme.displayName(language: language)]
                 + (theme.category.flatMap { categoryNames[$0] } ?? [])

@@ -57,7 +57,10 @@ struct SnapshotCase: Codable {
                 item.input != nil || (item.kind == .ui && item.arguments.contains("-SurimonoSnapshotWelcome"))
             else { throw SnapshotError("Invalid or duplicate case: \(item.id)") }
             if let path = item.input {
-                guard path.hasPrefix("Samples/") || path.hasPrefix("Snapshots/"),
+                // Rendering tests and snapshot cases share the same authored slide decks.
+                guard
+                    path.hasPrefix("Samples/") || path.hasPrefix("Snapshots/")
+                        || path.hasPrefix("Packages/SurimonoKit/Tests/SurimonoRenderingTests/Fixtures/"),
                     !path.components(separatedBy: "/").contains("..")
                 else { throw SnapshotError("Invalid input: \(path)") }
             }

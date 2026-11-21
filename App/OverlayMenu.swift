@@ -291,6 +291,9 @@ struct BandPresentationHost: View {
                             .lineLimit(2)
                             .truncationMode(.middle)
                         Text("Line and page breaks may differ from LaTeX output.")
+                        ForEach(recognition.slideNotes, id: \.self) { note in
+                            Text(verbatim: note)
+                        }
                         if model.offersLaTeXComposition {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(verbatim: PrintModeText.string("LaTeX Layout", language: model.language))

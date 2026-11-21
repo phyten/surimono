@@ -4,7 +4,8 @@ public enum Typeface: String, Codable, CaseIterable, Sendable {
     public static func isAvailable(themeID: String, usesPrintTheme: Bool) -> Bool {
         usesPrintTheme
             && ![
-                "latex", "latex-article", "latex-report", "latex-plain-ja", "latex-plain-zh", "latex-plain-ko",
+                "latex", PrintThemeLibrary.slideStyleID, "latex-article", "latex-report", "latex-plain-ja",
+                "latex-plain-zh", "latex-plain-ko",
                 "tategaki",
             ].contains(themeID)
     }

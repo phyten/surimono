@@ -1,0 +1,70 @@
+\documentclass{beamer}
+\title{A pocket tide gauge}
+\subtitle{Field notes}
+\author{Mira Reed}
+\institute{Harbour Workshop}
+\date{22 May}
+\titlegraphic{\rule{12mm}{1mm}}
+\AtBeginSection[]{\begin{frame}{Route}\tableofcontents[currentsection,hideallsubsections]\end{frame}}
+\begin{document}
+\frame{\titlepage}
+\section{Assembly}
+\subsection{The scale}
+\begin{frame}[t,label=scale]{Cut the scale}{A dry bench}
+Mark the \alert{red notch} beside the \structure{blue line}.
+\begin{itemize}
+\item Yard stick
+\begin{itemize}\item Copper sleeve
+\begin{itemize}\item Inner pin\end{itemize}
+\end{itemize}
+\end{itemize}
+\begin{enumerate}\item Cut\item File\end{enumerate}
+\begin{description}\item[Tip] Use a flat edge.\end{description}
+\end{frame}
+\begin{frame}{Calibrate}
+\begin{block}{Reading}Turn the brass wheel.\end{block}
+\begin{alertblock}{Caution}Keep the scale dry.\end{alertblock}
+\begin{exampleblock}{Example}Seven marks.\end{exampleblock}
+\end{frame}
+\begin{frame}[b]{Two gauges}
+\begin{columns}[t]
+\begin{column}{.45\textwidth}North gauge\\High water\end{column}
+\begin{column}{.45\textwidth}South gauge\end{column}
+\end{columns}
+The tide turns.\footnote{Logged at noon.}
+\end{frame}
+\begin{frame}[plain,fragile]{Tag}
+\begin{verbatim}
+mark<2-> = {raw}
+\end{verbatim}
+\end{frame}
+\appendix
+\section{Records}
+\begin{frame}\sectionpage\end{frame}
+\begin{frame}{Logbook}
+\begin{thebibliography}{1}
+\bibitem{jetty} Harbour Crew, \emph{Jetty log}.
+\end{thebibliography}
+\end{frame}
+\begin{frame}{Bench record}
+\begin{figure}
+\rule{12mm}{2mm}
+\caption{The copper gauge}
+\end{figure}
+\begin{table}
+\begin{tabular}{lr}
+Mark & Depth\\
+A & 7
+\end{tabular}
+\caption{The morning reading}
+\end{table}
+\end{frame}
+\section{Soundings}
+\begin{frame}{Float travel}
+The \textbf{brass float} marks the \textit{mean depth}.
+Read the offset $x+2$ at the scale.
+\[
+  y=2x+1
+\]
+\end{frame}
+\end{document}

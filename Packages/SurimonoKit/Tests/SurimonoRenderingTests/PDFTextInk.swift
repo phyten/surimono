@@ -7,6 +7,11 @@ import Testing
 func printedInk(of text: String, in pdf: PDFDocument, on page: PDFPage) throws -> CGRect {
     let selection = try #require(pdf.findString(text).first { $0.pages.contains(page) })
     let rect = selection.bounds(for: page).insetBy(dx: -0.25, dy: 0)
+    return try printedInk(in: rect, on: page)
+}
+
+@MainActor
+func printedInk(in rect: CGRect, on page: PDFPage) throws -> CGRect {
     let scale: CGFloat = 10
     let width = Int(ceil(rect.width * scale))
     let height = Int(ceil(rect.height * scale))

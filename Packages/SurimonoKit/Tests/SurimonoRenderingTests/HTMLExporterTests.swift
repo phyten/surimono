@@ -22,6 +22,27 @@ struct HTMLExporterTests {
         #expect(rich.plain.contains("Western 本文"))
     }
 
+    @Test("スライドのHTMLも原稿の寸法・組み替えたページと非表示の位置を保つ", .timeLimit(.minutes(1)))
+    func beamerSlides() async throws {
+        let tex = #"""
+            \documentclass[aspectratio=169]{beamer}
+            \begin{document}\begin{frame}{Marks}
+            \only<1>{North}\only<2>{South}
+            \begin{itemize}\item<2-> Gauge reading\end{itemize}
+            \end{frame}\end{document}
+            """#
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
+        let html = try await HTMLExporter.html(
+            source: DocumentSource(data: Data(tex.utf8), format: .latex),
+            settings: RenderSettings(layout: .a4Single, theme: theme, preset: .init(id: "none", name: "")),
+            title: "Slides")
+        #expect(html.components(separatedBy: #"<section class="beamer-frame""#).count - 1 == 2)
+        #expect(html.contains("@page { size:453.54"))
+        #expect(html.contains("data-beamer-covered"))
+        #expect(html.contains("North"))
+        #expect(html.contains("South"))
+    }
+
     @Test("LaTeX を書き出した HTML の本文にも、組版時と同じ形式・文字サイズ・章の指定が残る", .timeLimit(.minutes(1)))
     func latexBodyAttributes() async throws {
         let tex = #"\documentclass[11pt]{report}\begin{document}\chapter{One}Text.\end{document}"#

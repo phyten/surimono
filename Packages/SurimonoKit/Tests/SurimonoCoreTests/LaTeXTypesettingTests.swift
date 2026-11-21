@@ -22,10 +22,10 @@ struct LaTeXTypesettingTests {
         }
     }
 
-    @Test("五つの LaTeX スタイルは追い込み見出しの短い最終行を行頭に寄せる")
+    @Test("LaTeX 専用スタイルは追い込み見出しの短い最終行を行頭に寄せる")
     func runInLastLine() throws {
         let themes = try PrintThemeLibrary.load().filter { $0.id.hasPrefix("latex-") }
-        #expect(themes.count == 5)
+        #expect(themes.count == 6)
         for theme in themes {
             #expect(theme.css.contains(".latex-runin { margin-block-start: 1.4em; text-align-last: start; }"))
         }

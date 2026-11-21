@@ -5,7 +5,25 @@ struct LaTeXBadgeText {
     let label: String
     let explanation: String
 
-    init(_ recognition: LaTeXRecognition, language: String) {
+    let slideNotes: [String]
+
+    init(_ recognition: LaTeXRecognition, language: String, facts: DocumentFacts? = nil) {
+        var notes: [String] = []
+        if let count = facts?.continuedBeamerFrames, count > 0 {
+            let key =
+                count == 1
+                ? "1 slide did not fit and continues on a following page."
+                : "%lld slides did not fit and continue on a following page."
+            notes.append(PrintModeText.format(key, language: language, count))
+        }
+        if let count = facts?.unreadableBeamerFrames, count > 0 {
+            let key =
+                count == 1
+                ? "1 slide shows all its steps at once because its overlay commands could not be read."
+                : "%lld slides show all their steps at once because their overlay commands could not be read."
+            notes.append(PrintModeText.format(key, language: language, count))
+        }
+        slideNotes = notes
         switch recognition {
         case .recognised(let name, let detail, let source):
             let title = name.text(japanese: language.hasPrefix("ja"))
@@ -22,8 +40,14 @@ struct LaTeXBadgeText {
             } else {
                 label = title
             }
-            explanation = PrintModeText.format(
-                "Shown as the document specifies (%@).", language: language, Self.quote(source))
+            if let theme = facts?.unsupportedBeamerTheme {
+                explanation = PrintModeText.format(
+                    "The theme “%@” is not supported, so beamer's default look is used.", language: language,
+                    Self.quote(theme))
+            } else {
+                explanation = PrintModeText.format(
+                    "Shown as the document specifies (%@).", language: language, Self.quote(source))
+            }
         case .substituted(let requestedClass):
             label = PrintModeText.string("standard layout", language: language)
             explanation = PrintModeText.format(

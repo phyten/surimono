@@ -54,6 +54,10 @@ public enum HTMLDocumentBuilder {
             localFaces.isEmpty
             ? ""
             : "<style>\(localFaces.replacingOccurrences(of: "</style", with: "\\3C /style", options: .caseInsensitive))</style>"
+        let sheet = styleSheet(
+            theme: theme, textScale: textScale, typeface: format.usesPrintTheme ? typeface : .style,
+            code: code, language: language.code)
+        let slideStyle = info.flatMap { beamerStyle($0, sheet: sheet) } ?? ""
         let direction = language.isRightToLeft ? " dir=\"rtl\"" : ""
         let base = baseURL.map { "<base href=\"\(HTML.escape($0.absoluteString))\">\n" } ?? ""
         let finishStyle = finish.isEmpty ? "" : "\n<style id=\"surimono-finish\">\n\(finish)\n</style>"
@@ -64,8 +68,8 @@ public enum HTMLDocumentBuilder {
             <meta charset="utf-8">\(offlinePolicy(for: format))
             <title>\(HTML.escape(fragment.title ?? ""))</title>
             \(base)<style>
-            \(styleSheet(theme: theme, textScale: textScale, typeface: format.usesPrintTheme ? typeface : .style, code: code, language: language.code))
-            </style>\(fontStyle)\(finishStyle)\(removesPaper ? "\n" + PaperBackground.removalStyle : "")
+            \(sheet)
+            </style>\(fontStyle)\(finishStyle)\(slideStyle)\(removesPaper ? "\n" + PaperBackground.removalStyle : "")
             </head>
             <body class="surimono format-\(format.rawValue)"\(latex)>
             \(LongTokenMarks.marked(CodeBlockMarkup.apply(code, to: fragment.body)))
@@ -73,6 +77,72 @@ public enum HTMLDocumentBuilder {
             </html>
             """
     }
+
+    private static func beamerStyle(_ info: LaTeXDocumentClassInfo, sheet: String) -> String? {
+        guard let size = info.beamerPageSize else { return nil }
+        let family = info.beamerUsesSerifText ? "Surimono Computer Modern" : "Surimono Computer Modern Sans"
+        let face =
+            sheet.contains("@font-face { font-family: \"\(family)\"")
+            ? "" : ThemeFonts.faces(forStyleSheet: "\"\(family)\"")
+        return """
+            <style>
+            \(face)
+            :root { --beamer-width: \(size.width * 1.25)px; --beamer-height: \(size.height * 1.25)px;
+                --beamer-font: \(info.beamerFontSize * 1.24533)px; --beamer-family: "\(family)", sans-serif; }
+            \(beamerCSS)
+            \(slideSizes(for: info.beamerFontSize))
+            </style>
+            """
+    }
+
+    private static func slideSizes(for body: Double) -> String {
+        // Beamer selects the size*.clo ladder. Large, small, footnotesize and scriptsize
+        // are discrete sizes, so a 20pt frame cannot just enlarge the default 11pt theme.
+        let sizes: (title: Double, block: Double, small: Double, note: Double, script: Double, pitch: Double)
+        switch body {
+        case 8: sizes = (10.95, 10, 7, 6, 5, 9.5)
+        case 9: sizes = (10.95, 10, 8, 7, 6, 10.95)
+        case 10: sizes = (14.4, 12, 9, 8, 7, 12)
+        case 12: sizes = (17.28, 14.4, 10.95, 10, 8, 14.5)
+        case 14.4: sizes = (20.74, 17.28, 12, 10, 8, 17)
+        case 17.28: sizes = (24.88, 20.74, 14.4, 12, 10, 22)
+        case 20.74: sizes = (29.86, 24.88, 17.28, 14.4, 12, 25)
+        default: return ""
+        }
+        // Footnote marks are superscripts; the math script size at the note's text size
+        // differs from the script size at the frame's base size (fontmath.ltx).
+        let scriptSizes: [Double: Double] = [
+            5: 5, 6: 5, 7: 5, 8: 6, 9: 6, 10: 7, 10.95: 8, 12: 8, 14.4: 10, 17.28: 12, 20.74: 14.4,
+        ]
+        return """
+            body.surimono.format-latex {
+                --beamer-title-size: calc(\(sizes.title) * var(--tex-pt)); --beamer-block-size: calc(\(sizes.block) * var(--tex-pt));
+                --beamer-small-size: calc(\(sizes.small) * var(--tex-pt)); --beamer-note-size: calc(\(sizes.note) * var(--tex-pt));
+                --beamer-script-size: calc(\(sizes.script) * var(--tex-pt)); --beamer-pitch: calc(\(sizes.pitch) * var(--tex-pt));
+                --beamer-mark-size: calc(\(scriptSizes[body] ?? sizes.script) * var(--tex-pt));
+                --beamer-note-mark-size: calc(\(scriptSizes[sizes.note] ?? sizes.script) * var(--tex-pt));
+                --latex-size-Large: var(--beamer-title-size); --latex-size-large: var(--beamer-block-size);
+                --latex-size-small: var(--beamer-small-size); --latex-size-footnotesize: var(--beamer-note-size);
+                --latex-size-scriptsize: var(--beamer-script-size); --latex-size-normalsize: var(--beamer-font);
+            }
+            """
+    }
+
+    private static let beamerCSS: String = {
+        guard let url = Bundle.module.url(forResource: "latex-beamer", withExtension: "css"),
+            var css = try? String(contentsOf: url, encoding: .utf8)
+        else { return "" }
+        // Embedded images also survive a standalone HTML export with the document's resources blocked.
+        for name in ["beamer-article", "beamer-book"] {
+            if let url = Bundle.module.url(forResource: name, withExtension: "svg"),
+                let image = try? Data(contentsOf: url)
+            {
+                css +=
+                    "\n.beamer-bib-icon.\(name)::before { background-image:url(data:image/svg+xml;base64,\(image.base64EncodedString())); }"
+            }
+        }
+        return css
+    }()
 
     // Keep LaTeX font commands available when the user switches to a general print theme.
     private static let textShapes = """

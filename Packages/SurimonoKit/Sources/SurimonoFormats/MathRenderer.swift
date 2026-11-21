@@ -21,10 +21,11 @@ public enum MathRenderer {
 
     static func html(
         _ latex: String, display: Bool, macros: String, rowNumberHTML: [String?], measureRows: Bool = false,
-        reportTruncation: Bool = true
+        reportTruncation: Bool = true, sansMathAlphabet: Bool = false
     ) -> String? {
         let source = latex.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !source.isEmpty, let nodes = try? parseLaTeX(macros + source) else { return nil }
+        guard !source.isEmpty, let parsed = try? parseLaTeX(macros + source) else { return nil }
+        let nodes = sansMathAlphabet ? parsed.map { sansLetter($0, depth: 0) } : parsed
         let box = layout(nodes, options: LayoutOptions(style: display ? .display : .text))
         let list = toDisplayList(box)
         guard !reportTruncation || !list.truncated else { return nil }
@@ -177,15 +178,19 @@ public enum MathRenderer {
 
     /// `@font-face` rules for the bundled fonts the formulas use, as data URLs, so the paper renders them without
     /// reading any file next to the document.
-    public static func fontFaces(for html: String) -> String {
-        guard html.contains("KaTeX_"), let face else { return "" }
+    public static func fontFaces(for html: String, includesAMSMarkers: Bool = false) -> String {
+        guard includesAMSMarkers || html.contains("KaTeX_"), let face else { return "" }
         let nsHTML = html as NSString
+        var fonts = face.matches(in: html, range: NSRange(location: 0, length: nsHTML.length)).map { match in
+            (
+                nsHTML.substring(with: match.range(at: 1)), nsHTML.substring(with: match.range(at: 2)),
+                nsHTML.substring(with: match.range(at: 3))
+            )
+        }
+        if includesAMSMarkers { fonts.append(("KaTeX_AMS", "normal", "normal")) }
         var seen = Set<String>()
         var rules: [String] = []
-        for match in face.matches(in: html, range: NSRange(location: 0, length: nsHTML.length)) {
-            let family = nsHTML.substring(with: match.range(at: 1))
-            let weight = nsHTML.substring(with: match.range(at: 2))
-            let style = nsHTML.substring(with: match.range(at: 3))
+        for (family, weight, style) in fonts {
             let key = "\(family) \(weight) \(style)"
             guard seen.insert(key).inserted, let data = fontData(family: family, weight: weight, style: style) else {
                 continue

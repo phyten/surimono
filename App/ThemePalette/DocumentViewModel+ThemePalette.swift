@@ -117,7 +117,7 @@ extension DocumentViewModel {
             isBusy: { [weak self] in self?.isRendering ?? false })
     }
 
-    func theme(_ id: String) -> PrintTheme? { library.theme(id, for: themeFormat) }
+    func theme(_ id: String) -> PrintTheme? { library.theme(id, for: themeFormat, classStyle: classStyle) }
 
     func isFavoriteTheme(_ id: String) -> Bool { preferences.favoriteThemeIDs.contains(id) }
 
@@ -191,7 +191,8 @@ extension DocumentViewModel {
 
     func searchThemes(_ query: String) -> [PrintTheme] {
         PrintThemeMenu.search(
-            query, in: library.themes, categories: library.themeCategories, language: language, format: themeFormat)
+            query, in: library.themes, categories: library.themeCategories, language: language, format: themeFormat,
+            classStyle: classStyle)
     }
 }
 

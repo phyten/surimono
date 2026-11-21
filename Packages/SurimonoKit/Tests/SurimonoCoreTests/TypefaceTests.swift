@@ -74,7 +74,8 @@ struct TypefaceTests {
     @Test("LaTeX の各スタイル・縦書き・テーマのない形式では書体を重ねない")
     func availability() throws {
         let excluded = [
-            "latex", "latex-article", "latex-report", "latex-plain-ja", "latex-plain-zh", "latex-plain-ko", "tategaki",
+            "latex", "latex-beamer", "latex-article", "latex-report", "latex-plain-ja", "latex-plain-zh",
+            "latex-plain-ko", "tategaki",
         ]
         for theme in try PrintThemeLibrary.load() {
             let enabled = !excluded.contains(theme.id)

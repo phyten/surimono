@@ -101,6 +101,31 @@ struct ThemeSamplerTests {
         #expect(abs(sampler.printableSize.width - 510.4) < 1)
     }
 
+    @Test("スライドのスタイル見本は原稿が指定した横長の紙に本文を描く", .timeLimit(.minutes(1)))
+    func slideSpecimen() async throws {
+        _ = NSApplication.shared
+        let slides = try #require(PrintThemeLibrary.load().first { $0.id == "latex-beamer" })
+        let source = #"""
+            \documentclass[aspectratio=169]{beamer}
+            \begin{document}\begin{frame}{Quiet harbour}
+            The tide has turned.
+            \begin{figure}\rule{10mm}{1mm}\caption{High water}\end{figure}
+            \end{frame}\end{document}
+            """#
+        let settings = RenderSettings(
+            layout: .a4Single, theme: slides, preset: HTMLCleanupPreset(id: "none", name: "None"))
+        let sample = try #require(
+            try await DocumentRenderer.prepareThemeSampler(
+                for: DocumentSource(data: Data(source.utf8), format: .latex), settings: settings, removesPaper: false))
+        defer { sample.close() }
+        let page = try await sample.firstPage(for: slides)
+        let bounds = page.bounds(for: .mediaBox)
+        #expect(abs(bounds.width - 160 * 72 / 25.4) < 1)
+        #expect(abs(bounds.height - 90 * 72 / 25.4) < 1)
+        #expect(page.string?.contains("The tide has turned.") == true)
+        #expect(page.string?.contains("High water") == true)
+    }
+
     @Test("縦書きの見本は横書きになり、次のスタイルにはその指定が残らない", .timeLimit(.minutes(1)))
     func verticalSample() async throws {
         let vertical = theme(

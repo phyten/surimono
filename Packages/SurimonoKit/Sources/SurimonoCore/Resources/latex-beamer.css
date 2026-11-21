@@ -1,0 +1,187 @@
+/* Slide distances use the same CSS pixels per printed TeX point as the LaTeX reader. */
+html:has(.beamer-frame), body.surimono.format-latex {
+    padding: 0 !important; margin: 0 !important; max-width: none !important;
+    background: white; color: black; writing-mode: horizontal-tb; text-align: left;
+}
+body.surimono.format-latex {
+    --beamer-blue: rgb(20%,20%,70%); --beamer-green: rgb(0%,50%,0%);
+    --tex-pt: 1.24533px; --tex-body-fonts: var(--beamer-family);
+    font-family: var(--beamer-family); font-size: var(--beamer-font); line-height: var(--beamer-pitch,1.24);
+}
+/* Leave one printer point for WebKit’s integral page-fragment rounding. */
+body.format-latex > .beamer-frame {
+    box-sizing: border-box; width: var(--beamer-width); height: calc(var(--beamer-height) - 1.25px);
+    padding: 0 0 calc(4 * var(--tex-pt)); margin: 0; border: 0; color: black; background: white;
+    break-inside: avoid; break-after: page; display: flex; flex-direction: column;
+    position: relative; text-align: left; hyphens: manual; text-indent: 0;
+}
+body.format-latex > .beamer-frame:last-of-type { break-after: auto; }
+body.format-latex .beamer-frame-heading {
+    flex: none; box-sizing: border-box; padding: calc(7 * var(--tex-pt)) 10.63px 0;
+    margin: 0; border: 0; background: none; text-align: left;
+}
+body.format-latex .beamer-frame :is(h1,h2,h3,h4,h5,.latex-front-title,.beamer-block-title) {
+    border: 0; padding: 0; margin: 0; font: inherit; text-align: inherit; color: var(--beamer-blue);
+    letter-spacing: normal; text-transform: none; break-before: auto; background: none;
+}
+body.format-latex .beamer-frame .beamer-frame-title,
+body.format-latex .beamer-frame .latex-front-title { font-size: var(--beamer-title-size,1.315em); line-height: 1.24; }
+body.format-latex .beamer-frame .beamer-frame-subtitle { font-size: var(--beamer-note-size,.822em); margin: 0; color: var(--beamer-blue); }
+body.format-latex > .beamer-frame[data-plain] { padding-bottom: 0; }
+.beamer-frame > .beamer-frame-body, .beamer-frame > .beamer-footnotes {
+    flex: none; box-sizing: border-box; margin-inline: 35.433px; display: flow-root;
+}
+.beamer-frame::before, .beamer-frame::after { display: block; content: ""; min-height: 0; }
+.beamer-frame > .beamer-frame-heading { order: -2; }
+.beamer-frame::before { order: -1; flex: 2 1 0; }
+.beamer-frame::after { order: 1; flex: 3 1 0; }
+body.format-latex .beamer-frame[data-align=t]::before { flex: none; height: 10px; }
+body.format-latex .beamer-frame[data-shrink]::before { flex: none; height: 0; }
+.beamer-frame[data-align=b]::after { flex: none; }
+.beamer-frame > .beamer-footnotes { order: 2; }
+body.format-latex .beamer-frame :is(p,li,dd,blockquote,figcaption) { text-indent: 0; text-align: left; }
+body.format-latex .beamer-frame p { margin: 0; }
+/* The title and subtitle share a box; author, institute and date have their own padding. */
+body.format-latex .beamer-titlepage { text-align: center; transform: translateY(calc(10 * var(--tex-pt))); }
+body.format-latex .beamer-titlepage:has(.latex-front-subtitle) { transform: translateY(calc(13.5 * var(--tex-pt))); }
+body.format-latex .beamer-titlepage > * { display: block; text-align: center; margin: 0; padding: calc(6.5 * var(--tex-pt)); }
+body.format-latex .beamer-titlepage .latex-front-title { padding: calc(8 * var(--tex-pt)); margin: 0; }
+body.format-latex .beamer-titlepage .latex-front-authors { margin-top: 1em; font: inherit; }
+body.format-latex .beamer-titlepage .beamer-institute { font-size: var(--beamer-script-size,calc(8 * var(--tex-pt))); }
+/* A titlegraphic follows the date on its own baseline without moving the text boxes above. */
+body.format-latex .beamer-titlepage .beamer-titlegraphic { position: relative; top: calc(5 * var(--tex-pt)); }
+body.format-latex .beamer-titlepage .latex-front-date { font: inherit; }
+body.format-latex .beamer-titlepage .latex-front-subtitle { color: var(--beamer-blue); padding-top: 0; padding-bottom: .35em; }
+body.format-latex .beamer-titlepage:has(.latex-front-subtitle) .latex-front-title { padding-bottom: .15em; }
+/* Each nesting level adds two base ems even as the list font becomes smaller. */
+body.format-latex .beamer-frame :is(ul,ol,dl) { margin: calc(3 * var(--tex-pt)) 0; padding-left: calc(2 * var(--beamer-font)); }
+body.format-latex .beamer-frame li { padding: 0; margin: 0; line-height: 1.29; }
+body.format-latex .beamer-frame li li { line-height: 1.24; }
+body.format-latex .beamer-frame li + li { margin-top: calc(3 * var(--tex-pt)); }
+body.format-latex .beamer-frame li > :is(ul,ol) { font-size: var(--beamer-small-size,.913em); margin-block: calc(1.5 * var(--tex-pt)); }
+body.format-latex .beamer-frame li li > :is(ul,ol) { font-size: var(--beamer-note-size,calc(9 * var(--tex-pt))); }
+body.format-latex .beamer-frame li li + li { margin-top: 0; }
+body.format-latex .beamer-frame :is(.latex-item-mark,.item-label) {
+    display: inline-block; color: var(--beamer-blue); font-family: inherit;
+    text-align: end; text-align-last: end; line-height: 0; text-indent: 0;
+    width: 2em; min-width: 0; margin-inline: calc(-2em - .5 * var(--beamer-font)) calc(.5 * var(--beamer-font));
+}
+/* A list ends its own vertical box; the next list adds its top separation independently. */
+body.format-latex .beamer-frame :is(ul,ol,dl) + :is(ul,ol,dl) { margin-top: calc(6 * var(--tex-pt)); }
+/* A positioned list container paints after its following paragraphs in WebKit's PDF. */
+body.format-latex .beamer-frame ul > li { position: static; }
+body.format-latex .beamer-frame-body > p + ul { margin-block-start: calc(2 * var(--tex-pt)); }
+body.format-latex .beamer-frame .latex-item-mark {
+    font: normal 1em/0 "KaTeX_AMS"; vertical-align: calc(1.25 * var(--tex-pt));
+}
+body.format-latex .beamer-frame li li .latex-item-mark { vertical-align: calc(1.5 * var(--tex-pt)); }
+body.format-latex .beamer-frame dl { padding-left: 0; }
+body.format-latex .beamer-frame .latex-description > div {
+    display: grid; grid-template-columns: 70.866px 1fr; gap: calc(.5 * var(--beamer-font));
+    padding: 0; text-indent: 0;
+}
+body.format-latex .beamer-frame .latex-description dt { color: var(--beamer-blue); font-weight: normal; text-align: right; }
+body.format-latex .beamer-frame .latex-description dd { margin: 0; }
+body.format-latex .beamer-frame .beamer-block { padding-block: calc(6 * var(--tex-pt)) calc(3 * var(--tex-pt)); }
+/* The centre environment opening a figure coalesces its top skip with the block's closing skip. */
+body.format-latex .beamer-frame .beamer-block:has(+ figure) { padding-bottom: calc(1.5 * var(--tex-pt)); }
+body.format-latex .beamer-frame .beamer-block-title { font-size: var(--beamer-block-size,1.096em); line-height: 1.28; }
+body.format-latex .beamer-frame .beamer-block-body { padding-top: var(--beamer-title-depth,0px); }
+body.format-latex .beamer-frame :is(.beamer-alert,.alert),
+body.format-latex .beamer-frame .beamer-block[data-kind=alertblock] > .beamer-block-title { color: red; }
+body.format-latex .beamer-frame .beamer-block:is([data-kind=exampleblock],[data-kind=example]) > .beamer-block-title {
+    color: var(--beamer-green);
+}
+body.format-latex .beamer-frame :is(.beamer-structure,.beamer-toc a,.latex-caption-label) { color: var(--beamer-blue); }
+body.format-latex .beamer-columns { display: flex; justify-content: space-between; align-items: center; }
+/* The column widths use textwidth, while the default outer glues extend into both
+   slide margins. Empty flex items preserve both measures, including with a single column. */
+.beamer-columns:not([data-text-width])::before, .beamer-columns:not([data-text-width])::after {
+    content: ""; width: 0; flex: none;
+}
+.beamer-columns:not([data-text-width])::before { margin-left: -35.433px; }
+.beamer-columns:not([data-text-width])::after { margin-right: -35.433px; }
+body.format-latex .beamer-columns[data-align=t] { align-items: flex-start; }
+body.format-latex .beamer-columns[data-align=b] { align-items: flex-end; }
+.beamer-column { min-width: 0; flex: none; }
+.beamer-column[data-align=t] { align-self: flex-start; }
+.beamer-column[data-align=c] { align-self: center; }
+.beamer-column[data-align=b] { align-self: flex-end; }
+body.format-latex .beamer-frame figure { text-align: center; margin: 1em 0 calc(1em + 4 * var(--tex-pt)); }
+/* Consecutive figure/table environments each close and open a centred block. Keep both skips
+   when CSS collapses the trailing margin of one caption against the next figure's top. */
+body.format-latex .beamer-frame figure + figure { margin-top: calc(2em + 4 * var(--tex-pt)); }
+body.format-latex .beamer-frame figure p { text-align: center; }
+body.format-latex .beamer-frame figcaption { text-align: center; font: inherit; font-size: var(--beamer-small-size,.913em); margin: .65em auto 0; }
+/* The printed baseline of a caption follows the figure's line depth and its seven-point skip.
+   A graphic sitting on the paragraph baseline supplies no descent of its own to WebKit. */
+body.format-latex .beamer-frame .beamer-block + figure:not(.latex-table) > figcaption {
+    margin-top: calc(7 * var(--tex-pt)); padding-top: .17em;
+}
+body.format-latex .beamer-frame table { font: inherit; margin: auto; }
+body.format-latex .beamer-frame .beamer-bibliography { list-style: none; color: var(--beamer-blue); margin-block: .4em 0; padding-left: 1.8em; }
+body.format-latex .beamer-toc { display: block; margin: 0; border: 0; padding: 0; }
+/* The contents ends with an extra stretchable vertical skip in the frame. */
+body.format-latex .beamer-frame:has(> .beamer-frame-body > .beamer-toc:only-child)::after { flex-grow: 4.5; }
+.beamer-toc-section { margin: .7em 0; }
+.beamer-toc-subsection { margin-left: 1.5em; font-size: .91em; }
+.beamer-toc [data-shaded] { opacity: .35; }
+body.format-latex .beamer-frame[data-squeeze] li + li { margin-block: 0; }
+.beamer-break { display: none; }
+.beamer-frame [data-beamer-covered] { visibility: hidden; }
+.beamer-sectionpage { text-align: center; padding-bottom: calc(10 * var(--tex-pt)); }
+body.format-latex .beamer-frame .beamer-sectionpage p { text-align: center; font-size: var(--beamer-title-size,1.315em); }
+body.format-latex .beamer-frame .beamer-sectionpage h2 { margin-top: 1.2em; font-size: var(--beamer-title-size,1.315em); }
+
+/* Beamer reserves only the footnote baselines at the bottom. Its short rule is raised
+   into the preceding skip, so it does not reserve a second line above the first note. */
+body.format-latex > .beamer-frame:has(> .beamer-footnotes) { padding-bottom: calc(1.4 * var(--tex-pt)); }
+body.format-latex .beamer-frame .beamer-footnotes { padding: 0; font-size: .73em; }
+body.format-latex .beamer-footnotes .footnotes {
+    position: relative; margin: 0; border: 0; padding: 0; font-size: var(--beamer-note-size,calc(.822 * var(--beamer-font)));
+}
+body.format-latex .beamer-footnotes .footnotes::before {
+    /* WebKit snaps fractional border widths to a device pixel before printing. */
+    position: absolute; bottom: calc(100% + 1px); width: 40%; margin: 0; border: 0;
+    height: 1px; background: black; transform: scaleY(.5); transform-origin: top;
+}
+body.format-latex .beamer-frame sup.footnote-ref {
+    font-size: var(--beamer-mark-size,calc(8 * var(--tex-pt))); line-height: 0; vertical-align: .5em;
+}
+body.format-latex .beamer-footnotes .footnotes li[value]::before,
+body.format-latex .beamer-footnotes .latex-symbolic-note { font-size: var(--beamer-note-mark-size,calc(6 * var(--tex-pt))); }
+body.format-latex .beamer-footnotes section.footnotes ol { padding: 0 0 0 1.85em; margin: 0; }
+body.format-latex .beamer-footnotes section.footnotes li { padding: 0; margin: 0; }
+body.format-latex .beamer-frame[data-align=b] > .beamer-footnotes { margin-top: calc(-4 * var(--tex-pt)); }
+.beamer-bibliography .beamer-bib-title { color: black; }
+.beamer-bibliography :is(.beamer-bib-location,.beamer-bib-note) { color: color-mix(in srgb,var(--beamer-blue) 65%,white); }
+/* The icon's depth is relative to the first baseline, even for a multi-line entry. */
+.beamer-bib-icon, .beamer-bib-arrow { display: inline-block; position: relative; width: 0; height: 0; }
+.beamer-bib-icon::before {
+    content: ""; position: absolute; bottom: calc(-1.45 * var(--tex-pt)); right: calc(8.45 * var(--tex-pt));
+    width: calc(8.45 * var(--tex-pt)); height: calc(11.45 * var(--tex-pt)); background-size: 100% 100%;
+}
+.beamer-bib-icon.beamer-book::before {
+    bottom: calc(-1.45 * var(--tex-pt)); right: calc(6.5 * var(--tex-pt));
+    width: calc(13.05 * var(--tex-pt)); height: calc(10.2 * var(--tex-pt));
+}
+body.format-latex .beamer-frame .beamer-biblist-triangle {
+    padding-left: calc(.5 * var(--beamer-font) + .778 * var(--beamer-script-size,calc(8 * var(--tex-pt))));
+}
+.beamer-bib-arrow {
+    font: normal var(--beamer-script-size,calc(8 * var(--tex-pt)))/0 "KaTeX_AMS";
+    right: calc(.778em + .5 * var(--beamer-font)); vertical-align: calc(1.25 * var(--tex-pt));
+}
+body.format-latex .beamer-frame .beamer-biblist-text { padding-left: 0; }
+.beamer-biblist-text > li { display: flex; column-gap: .5em; }
+.beamer-bib-alt-label { float: left; width: 0; white-space: nowrap; transform: translateX(-1.8em); }
+.beamer-bib-label { flex: none; position: relative; }
+.beamer-bib-label > :first-child { visibility: hidden; }
+.beamer-bib-label > :last-child { position: absolute; inset: 0 auto auto 0; white-space: nowrap; }
+body.format-latex .beamer-frame .latex-table + .beamer-bibliography { margin-top: 2.1em; }
+body.format-latex .beamer-frame .latex-table td { line-height: 1.29; }
+body.format-latex .beamer-frame .latex-table figcaption { margin-top: .64em; }
+/* A tabular ends on its text baseline; its depth belongs below the centred material. */
+.beamer-frame[data-align=c] > .beamer-frame-body:has(> figure.latex-table:first-child) {
+    padding-bottom: calc(6.4 * var(--tex-pt));
+}

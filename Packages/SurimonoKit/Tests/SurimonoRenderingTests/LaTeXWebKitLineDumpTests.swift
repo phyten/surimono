@@ -67,7 +67,7 @@ struct LaTeXWebKitLineDumpTests {
         if writesPDF {
             let outline = await ReadingPDFExporter.outline(
                 of: source, in: prepared.logicalDocument, proof: settings.finish.proof,
-                includesSourceContents: settings.finish.toc.showsSourceContents)
+                includesSourceContents: settings.finish.toc.showsSourceContents, facts: prepared.facts)
             let document = try ReadingPDFExporter.document(
                 from: prepared.viewDocument, entries: outline.entries,
                 title: prepared.facts?.title ?? outline.title ?? directory.lastPathComponent,

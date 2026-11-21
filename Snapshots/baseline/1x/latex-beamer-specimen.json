@@ -1,0 +1,522 @@
+{
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 12,
+  "pages" : [
+    {
+      "firstY" : 63.8,
+      "height" : 272.1,
+      "lastY" : 166.2,
+      "lineCount" : 5,
+      "lines" : [
+        {
+          "height" : 22.1,
+          "text" : "A pocket tide gauge",
+          "width" : 121.1,
+          "x" : 120.7,
+          "y" : 63.8
+        },
+        {
+          "height" : 16.8,
+          "text" : "Field notes",
+          "width" : 49.5,
+          "x" : 156.5,
+          "y" : 83.9
+        },
+        {
+          "height" : 16.8,
+          "text" : "Mira Reed",
+          "width" : 47.1,
+          "x" : 157.7,
+          "y" : 117.5
+        },
+        {
+          "height" : 12.3,
+          "text" : "Harbour Workshop",
+          "width" : 62.7,
+          "x" : 149.9,
+          "y" : 144.1
+        },
+        {
+          "height" : 16.8,
+          "text" : "22 May",
+          "width" : 34,
+          "x" : 164.2,
+          "y" : 166.2
+        }
+      ],
+      "textHeight" : 119.2,
+      "textLeft" : 120.7,
+      "textTop" : 63.8,
+      "textWidth" : 121.1,
+      "width" : 362.8
+    },
+    {
+      "firstY" : 4.8,
+      "height" : 272.1,
+      "lastY" : 96,
+      "lineCount" : 2,
+      "lines" : [
+        {
+          "height" : 22.1,
+          "text" : "Route",
+          "width" : 35.4,
+          "x" : 8.5,
+          "y" : 4.8
+        },
+        {
+          "height" : 16.8,
+          "text" : "Assembly",
+          "width" : 42.4,
+          "x" : 28.3,
+          "y" : 96
+        }
+      ],
+      "textHeight" : 108,
+      "textLeft" : 8.5,
+      "textTop" : 4.8,
+      "textWidth" : 62.2,
+      "width" : 362.8
+    },
+    {
+      "firstY" : 4.8,
+      "height" : 272.1,
+      "lastY" : 136.8,
+      "lineCount" : 9,
+      "lines" : [
+        {
+          "height" : 22.1,
+          "text" : "Cut the scale",
+          "width" : 78.7,
+          "x" : 8.5,
+          "y" : 4.8
+        },
+        {
+          "height" : 13.8,
+          "text" : "A dry bench",
+          "width" : 45.9,
+          "x" : 8.5,
+          "y" : 23.2
+        },
+        {
+          "height" : 16.8,
+          "text" : "Mark the red notch beside the blue line.",
+          "width" : 182.9,
+          "x" : 28.3,
+          "y" : 40.9
+        },
+        {
+          "height" : 17.2,
+          "text" : "▶ Yard stick",
+          "width" : 59.1,
+          "x" : 36.2,
+          "y" : 56.1
+        },
+        {
+          "height" : 15.4,
+          "text" : "▶ Copper sleeve",
+          "width" : 70.2,
+          "x" : 58.7,
+          "y" : 70.8
+        },
+        {
+          "height" : 13.8,
+          "text" : "▶ Inner pin",
+          "width" : 45.6,
+          "x" : 81.3,
+          "y" : 84.8
+        },
+        {
+          "height" : 16.8,
+          "text" : "1. Cut",
+          "width" : 30.5,
+          "x" : 36.2,
+          "y" : 100.8
+        },
+        {
+          "height" : 16.8,
+          "text" : "2. File",
+          "width" : 30.2,
+          "x" : 36.2,
+          "y" : 117.6
+        },
+        {
+          "height" : 16.8,
+          "text" : "Tip Use a flat edge.",
+          "width" : 92.6,
+          "x" : 69.3,
+          "y" : 136.8
+        }
+      ],
+      "textHeight" : 148.8,
+      "textLeft" : 8.5,
+      "textTop" : 4.8,
+      "textWidth" : 202.7,
+      "width" : 362.8
+    },
+    {
+      "firstY" : 4.8,
+      "height" : 272.1,
+      "lastY" : 172.8,
+      "lineCount" : 7,
+      "lines" : [
+        {
+          "height" : 22.1,
+          "text" : "Calibrate",
+          "width" : 53.2,
+          "x" : 8.5,
+          "y" : 4.8
+        },
+        {
+          "height" : 18.5,
+          "text" : "Reading",
+          "width" : 39.9,
+          "x" : 28.3,
+          "y" : 79.6
+        },
+        {
+          "height" : 16.8,
+          "text" : "Turn the brass wheel.",
+          "width" : 97.8,
+          "x" : 28.3,
+          "y" : 96.8
+        },
+        {
+          "height" : 18.5,
+          "text" : "Caution",
+          "width" : 38.9,
+          "x" : 28.3,
+          "y" : 118.8
+        },
+        {
+          "height" : 16.8,
+          "text" : "Keep the scale dry.",
+          "width" : 86.4,
+          "x" : 28.3,
+          "y" : 133.6
+        },
+        {
+          "height" : 18.5,
+          "text" : "Example",
+          "width" : 42.2,
+          "x" : 28.3,
+          "y" : 155.5
+        },
+        {
+          "height" : 16.8,
+          "text" : "Seven marks.",
+          "width" : 59.9,
+          "x" : 28.3,
+          "y" : 172.8
+        }
+      ],
+      "textHeight" : 184.8,
+      "textLeft" : 8.5,
+      "textTop" : 4.8,
+      "textWidth" : 117.6,
+      "width" : 362.8
+    },
+    {
+      "firstY" : 4.8,
+      "height" : 272.1,
+      "lastY" : 221.5,
+      "lineCount" : 7,
+      "lines" : [
+        {
+          "height" : 22.1,
+          "text" : "Two gauges",
+          "width" : 70.4,
+          "x" : 8.5,
+          "y" : 4.8
+        },
+        {
+          "height" : 16.8,
+          "text" : "North gauge",
+          "width" : 56.4,
+          "x" : 29.1,
+          "y" : 221.5
+        },
+        {
+          "height" : 16.8,
+          "text" : "High water",
+          "width" : 49.9,
+          "x" : 29.1,
+          "y" : 234.3
+        },
+        {
+          "height" : 17.3,
+          "text" : "The tide turns.1",
+          "width" : 72.3,
+          "x" : 28.3,
+          "y" : 246.6
+        },
+        {
+          "height" : 9.2,
+          "text" : "1",
+          "width" : 3,
+          "x" : 41,
+          "y" : 256.9
+        },
+        {
+          "height" : 13.8,
+          "text" : "Logged at noon.",
+          "width" : 61.4,
+          "x" : 44.9,
+          "y" : 256.6
+        },
+        {
+          "height" : 16.8,
+          "text" : "South gauge",
+          "width" : 56.9,
+          "x" : 195.8,
+          "y" : 221.5
+        }
+      ],
+      "textHeight" : 265.6,
+      "textLeft" : 8.5,
+      "textTop" : 4.8,
+      "textWidth" : 244.2,
+      "width" : 362.8
+    },
+    {
+      "firstY" : 4.8,
+      "height" : 272.1,
+      "lastY" : 118.3,
+      "lineCount" : 2,
+      "lines" : [
+        {
+          "height" : 22.1,
+          "text" : "Tag",
+          "width" : 22.6,
+          "x" : 8.5,
+          "y" : 4.8
+        },
+        {
+          "height" : 15.7,
+          "text" : "mark<2-> = {raw}",
+          "width" : 91.5,
+          "x" : 28.3,
+          "y" : 118.3
+        }
+      ],
+      "textHeight" : 129.2,
+      "textLeft" : 8.5,
+      "textTop" : 4.8,
+      "textWidth" : 111.4,
+      "width" : 362.8
+    },
+    {
+      "firstY" : 4.8,
+      "height" : 272.1,
+      "lastY" : 109.6,
+      "lineCount" : 3,
+      "lines" : [
+        {
+          "height" : 22.1,
+          "text" : "Route",
+          "width" : 35.4,
+          "x" : 8.5,
+          "y" : 4.8
+        },
+        {
+          "height" : 16.8,
+          "text" : "Records",
+          "width" : 35.4,
+          "x" : 28.3,
+          "y" : 89.6
+        },
+        {
+          "height" : 16.8,
+          "text" : "Soundings",
+          "width" : 46.3,
+          "x" : 28.3,
+          "y" : 109.6
+        }
+      ],
+      "textHeight" : 121.6,
+      "textLeft" : 8.5,
+      "textTop" : 4.8,
+      "textWidth" : 66.1,
+      "width" : 362.8
+    },
+    {
+      "firstY" : 79.2,
+      "height" : 272.1,
+      "lastY" : 114.3,
+      "lineCount" : 2,
+      "lines" : [
+        {
+          "height" : 22.1,
+          "text" : "Section 2",
+          "width" : 55.8,
+          "x" : 153.3,
+          "y" : 79.2
+        },
+        {
+          "height" : 22.1,
+          "text" : "Records",
+          "width" : 46.5,
+          "x" : 158,
+          "y" : 114.3
+        }
+      ],
+      "textHeight" : 57.3,
+      "textLeft" : 153.3,
+      "textTop" : 79.2,
+      "textWidth" : 55.8,
+      "width" : 362.8
+    },
+    {
+      "firstY" : 4.8,
+      "height" : 272.1,
+      "lastY" : 116.8,
+      "lineCount" : 2,
+      "lines" : [
+        {
+          "height" : 22.1,
+          "text" : "Logbook",
+          "width" : 51.6,
+          "x" : 8.5,
+          "y" : 4.8
+        },
+        {
+          "height" : 16.8,
+          "text" : "Harbour Crew, Jetty log.",
+          "width" : 113.1,
+          "x" : 47.9,
+          "y" : 116.8
+        }
+      ],
+      "textHeight" : 128.8,
+      "textLeft" : 8.5,
+      "textTop" : 4.8,
+      "textWidth" : 152.5,
+      "width" : 362.8
+    },
+    {
+      "firstY" : 4.8,
+      "height" : 272.1,
+      "lastY" : 169.9,
+      "lineCount" : 5,
+      "lines" : [
+        {
+          "height" : 22.1,
+          "text" : "Bench record",
+          "width" : 78.6,
+          "x" : 8.5,
+          "y" : 4.8
+        },
+        {
+          "height" : 15.4,
+          "text" : "Figure: The copper gauge",
+          "width" : 107.1,
+          "x" : 127.7,
+          "y" : 98.8
+        },
+        {
+          "height" : 16.8,
+          "text" : "Mark Depth",
+          "width" : 63.4,
+          "x" : 149.5,
+          "y" : 136.8
+        },
+        {
+          "height" : 16.8,
+          "text" : "A 7",
+          "width" : 63.4,
+          "x" : 149.5,
+          "y" : 150.4
+        },
+        {
+          "height" : 15.4,
+          "text" : "Table: The morning reading",
+          "width" : 115.6,
+          "x" : 123.4,
+          "y" : 169.9
+        }
+      ],
+      "textHeight" : 180.4,
+      "textLeft" : 8.5,
+      "textTop" : 4.8,
+      "textWidth" : 230.5,
+      "width" : 362.8
+    },
+    {
+      "firstY" : 4.8,
+      "height" : 272.1,
+      "lastY" : 109.6,
+      "lineCount" : 3,
+      "lines" : [
+        {
+          "height" : 22.1,
+          "text" : "Route",
+          "width" : 35.4,
+          "x" : 8.5,
+          "y" : 4.8
+        },
+        {
+          "height" : 16.8,
+          "text" : "Records",
+          "width" : 35.4,
+          "x" : 28.3,
+          "y" : 89.6
+        },
+        {
+          "height" : 16.8,
+          "text" : "Soundings",
+          "width" : 46.3,
+          "x" : 28.3,
+          "y" : 109.6
+        }
+      ],
+      "textHeight" : 121.6,
+      "textLeft" : 8.5,
+      "textTop" : 4.8,
+      "textWidth" : 66.1,
+      "width" : 362.8
+    },
+    {
+      "firstY" : 4.8,
+      "height" : 272.1,
+      "lastY" : 134.8,
+      "lineCount" : 4,
+      "lines" : [
+        {
+          "height" : 22.1,
+          "text" : "Float travel",
+          "width" : 68.9,
+          "x" : 8.5,
+          "y" : 4.8
+        },
+        {
+          "height" : 17.8,
+          "text" : "The brass float marks the mean depth. Read the offset x + 2 at",
+          "width" : 294.9,
+          "x" : 28.3,
+          "y" : 95.2
+        },
+        {
+          "height" : 16.8,
+          "text" : "the scale.",
+          "width" : 42.8,
+          "x" : 28.3,
+          "y" : 108
+        },
+        {
+          "height" : 12.6,
+          "text" : "y= 2x + 1",
+          "width" : 48.9,
+          "x" : 156.7,
+          "y" : 134.8
+        }
+      ],
+      "textHeight" : 142.5,
+      "textLeft" : 8.5,
+      "textTop" : 4.8,
+      "textWidth" : 314.7,
+      "width" : 362.8
+    }
+  ],
+  "textSHA256" : "df60b68f34c72cb2aa16c6128cb2c8f427a80aa01c0b27a3665d889466cc1587"
+}

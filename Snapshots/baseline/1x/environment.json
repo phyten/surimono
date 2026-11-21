@@ -944,6 +944,30 @@
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
+  "latex-beamer-handout" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-beamer-overflow" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-beamer-specimen" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-beamer-swap" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
   "latex-composition-proof" : {
     "fonts" : [
       "Helvetica"
@@ -1588,6 +1612,12 @@
       "Helvetica",
       "HiraMinProN-W3",
       "HiraMinProN-W6"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-latex-beamer" : {
+    "fonts" : [
+      "Helvetica"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },

@@ -83,10 +83,12 @@ final class DocumentViewModel {
     private var renderedSourceURLs: [URL] = []
     private(set) var format: DocumentFormat
     private(set) var data: Data
-    private var classStyle: String?
+    private(set) var classStyle: String?
     private(set) var classLayout: PrintLayout?
     var themeFormat: DocumentFormat? { binder == nil && imageBundle == nil ? format : nil }
-    var availableThemes: [PrintTheme] { library.themes.filter { $0.supports(themeFormat) } }
+    var availableThemes: [PrintTheme] {
+        library.themes.filter { $0.isAvailable(for: themeFormat, classStyle: classStyle) }
+    }
 
     private var defaultThemeID: String {
         library.defaultThemeID(preferred: preferences.themeID, format: themeFormat, classStyle: classStyle)
@@ -606,7 +608,7 @@ final class DocumentViewModel {
                 kind: Self.viewKind(format: format, isBundle: imageBundle != nil), pageCount: 3,
                 firstPageSize: PaperSize.a4.size), preferences: preferences.viewDefaults)
         viewOptions = guess.following(
-            library.theme(initialTheme, for: themeFormat)?.flow ?? .horizontal,
+            library.theme(initialTheme, for: themeFormat, classStyle: inferredStyle)?.flow ?? .horizontal,
             preferredScrollAxis: preferences.viewDefaults.scrollAxis)
         initialViewOptions = guess
         if format == .html, htmlBaseURL != nil { htmlPresentation = .paper }
@@ -619,7 +621,10 @@ final class DocumentViewModel {
             settings.typeface = typeface
             settings.layout = renderLayout
             settings.paperOrientation = paperOrientation
-            return (ThemeSpecimen.source(language: language, format: self.themeFormat), settings)
+            return (
+                ThemeSpecimen.source(language: language, format: self.themeFormat, classStyle: self.classStyle),
+                settings
+            )
         }
         paper.onReadingJump = { [weak self] page in self?.recordReadingJump(to: page) }
         paper.onToast = { [weak self] toast in
@@ -660,10 +665,11 @@ final class DocumentViewModel {
         PrintModeText.string("Duplex Test Print", language: language)
     }
     var latexBadge: LaTeXBadgeText? {
-        guard themeFormat == .latex, textKind == nil, theme(themeID)?.formats == [.latex],
-            let recognition = result?.facts?.latexRecognition
+        guard themeFormat == .latex, textKind == nil, let facts = result?.facts,
+            facts.beamerPageSize != nil || theme(themeID)?.formats == [.latex],
+            let recognition = facts.latexRecognition
         else { return nil }
-        return LaTeXBadgeText(recognition, language: language)
+        return LaTeXBadgeText(recognition, language: language, facts: facts)
     }
 
     var offersLaTeXComposition: Bool { latexBadge != nil && result?.facts?.offersLaTeXComposition == true }
@@ -734,7 +740,7 @@ final class DocumentViewModel {
     var themeMenu: PrintThemeMenu {
         PrintThemeMenu(
             themes: library.themes, categories: library.themeCategories, recentIDs: preferences.recentThemeIDs,
-            favoriteIDs: preferences.favoriteThemeIDs, format: themeFormat)
+            favoriteIDs: preferences.favoriteThemeIDs, format: themeFormat, classStyle: classStyle)
     }
     var layout: PrintLayout {
         (PrintLayout.presets.first { $0.id == layoutID } ?? .a4Single).bound(effectiveBookletBinding)
@@ -788,7 +794,7 @@ final class DocumentViewModel {
             textScale: usesPrintTheme ? textScale : 1, typeface: usesPrintTheme ? typeface : .style,
             paperOrientation: paperOrientation,
             opensDetails: rendersSnapshot && opensClosedDetails,
-            slides: slideDeck.map {
+            slides: (usesHTMLPresentation || (mode == .print && printsCurrentSlideOnly) ? slideDeck : nil).map {
                 SlidePrintRequest(deck: $0, printsCurrentOnly: mode == .print && printsCurrentSlideOnly)
             }, markdownChanges: mode == .view ? markdownChanges : [])
         if !settings.markdownChanges.isEmpty, let hex = preferences.changeTextHex {
@@ -1075,7 +1081,7 @@ final class DocumentViewModel {
     }
     /// "3 / 12" for a page, "2–3 / 12" for a spread; "Slide 3 of 6" for a slide deck on the web.
     var pageIndicator: String? {
-        if showsWeb {
+        if showsWeb || result?.facts?.beamerPageSize != nil {
             guard let slideDeck else { return nil }
             return Self.slideIndicator(slideDeck.currentIndex + 1, of: slideDeck.count)
         }
@@ -1089,7 +1095,7 @@ final class DocumentViewModel {
 
     /// The widest page indicator of this document, whose width the band keeps for the indicator.
     var pageIndicatorTemplate: String? {
-        if showsWeb {
+        if showsWeb || result?.facts?.beamerPageSize != nil {
             guard let slideDeck else { return nil }
             return Self.slideIndicator(slideDeck.count, of: slideDeck.count)
         }
@@ -2232,6 +2238,11 @@ final class DocumentViewModel {
             outlineEntries = PDFOutlineReader.entries(of: document)
             return
         }
+        if let facts = prepared.facts, let entries = facts.beamerOutline {
+            outlineEntries = entries
+            documentStatistics = facts.statistics
+            return
+        }
         guard source.format.isWebRendered else { return }
         structureTask = Task { [weak self] in
             guard let self else { return }
@@ -2347,7 +2358,17 @@ final class DocumentViewModel {
     // MARK: - Slides
 
     /// The deck the app treats the page as: the one measured, unless the reader said it is not one.
-    var slideDeck: SlideDeck? { usesHTMLPresentation && !ignoresSlides ? detectedSlideDeck : nil }
+    var slideDeck: SlideDeck? {
+        if format == .latex, binder == nil, textKind == nil, let facts = result?.facts, let size = facts.beamerPageSize
+        {
+            let count = facts.beamerPageFrames.count
+            guard count > 0 else { return nil }
+            return SlideDeck(
+                size: CGSize(width: size.width * 96 / 72, height: size.height * 96 / 72), count: count,
+                currentIndex: min(max(0, currentPageIndex), count - 1))
+        }
+        return usesHTMLPresentation && !ignoresSlides ? detectedSlideDeck : nil
+    }
 
     static func slideIndicator(_ slide: Int, of count: Int) -> String {
         String(format: String(localized: "Slide %lld of %lld"), slide, count)
@@ -3498,6 +3519,8 @@ final class DocumentViewModel {
         if followsClass {
             themeID = defaultThemeID
             settingsBaseline?.themeID = themeID
+        } else if theme(themeID) == nil {
+            themeID = defaultThemeID
         }
     }
 
@@ -4074,7 +4097,8 @@ final class DocumentViewModel {
                 if binder == nil, imageBundle == nil, source.format.isWebRendered {
                     let structure = await ReadingPDFExporter.outline(
                         of: source, in: prepared.logicalDocument, proof: settings.finish.proof,
-                        includesSourceContents: !finishAppliesToText || settings.finish.toc.showsSourceContents)
+                        includesSourceContents: !finishAppliesToText || settings.finish.toc.showsSourceContents,
+                        facts: prepared.facts)
                     entries = structure.entries
                     headings = structure.headings
                     htmlTitle = structure.title

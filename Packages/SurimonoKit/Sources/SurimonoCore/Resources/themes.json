@@ -16,6 +16,7 @@
   ],
   "featured": ["standard", "mincho", "modern", "github", "report", "bunko", "large", "notes", "confetti"],
   "themes": [
+    {"id": "latex-beamer", "name": "Slides", "category": "latex", "localizedNames": {"en": "Slides", "ja": "スライド", "zh-Hans": "幻灯片", "zh-Hant": "投影片", "ko": "슬라이드", "fr": "Diapositives", "de": "Folien", "es": "Diapositivas"}},
     {"id": "latex-article", "name": "article", "category": "latex", "localizedNames": {"en": "article", "ja": "article", "zh-Hans": "article", "zh-Hant": "article", "ko": "article", "fr": "article", "de": "article", "es": "article"}},
     {"id": "latex-report", "name": "report / book", "category": "latex", "localizedNames": {"en": "report / book", "ja": "report / book", "zh-Hans": "report / book", "zh-Hant": "report / book", "ko": "report / book", "fr": "report / book", "de": "report / book", "es": "report / book"}},
     {"id": "latex-plain-ja", "name": "Japanese", "category": "latex", "localizedNames": {"en": "Japanese", "ja": "和文", "zh-Hans": "日文", "zh-Hant": "日文", "ko": "일본어", "fr": "Japonais", "de": "Japanisch", "es": "Japonés"}},
