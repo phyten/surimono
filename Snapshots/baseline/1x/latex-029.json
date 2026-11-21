@@ -1,16 +1,16 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.04560092601205056,
+    "changedAreaRatio" : 0.04365588730764063,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
-    "lineCountChangedPages" : 1,
-    "maxBoxDeltaPt" : 25.6,
-    "maxLuminance" : 153.640625,
-    "maxShiftPt" : 26.9,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 23.3,
+    "maxLuminance" : 136.828125,
+    "maxShiftPt" : 25.2,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 5
+    "textEdits" : 0
   },
   "fonts" : [
     "Helvetica"
@@ -18,130 +18,137 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 150.4,
+      "firstY" : 148.1,
       "height" : 841.9,
-      "lastY" : 719.2,
-      "lineCount" : 16,
+      "lastY" : 717.2,
+      "lineCount" : 17,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.8,
           "text" : "Scale marks",
-          "width" : 84.9,
+          "width" : 85.9,
           "x" : 125.4,
-          "y" : 150.4
+          "y" : 148.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "The short scale starts at the bed of the channel. The fixture follows the bench",
           "width" : 343.8,
           "x" : 125.4,
-          "y" : 175.1
+          "y" : 173.2
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "drawing [Tra20] and the scale study [Riv19]. The hinge has its own assembly",
           "width" : 343.8,
           "x" : 125.4,
-          "y" : 187.1
+          "y" : 185.2
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "card [Hin18].",
           "width" : 56.2,
           "x" : 125.4,
-          "y" : 199.1
+          "y" : 197.2
         },
         {
-          "height" : 17.5,
+          "height" : 21.8,
           "text" : "References",
-          "width" : 77.5,
+          "width" : 77.4,
           "x" : 125.4,
-          "y" : 226.4
+          "y" : 224.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.9,
           "text" : "[Cop16] Copper Atlas Group. Atlas of Paper Channels. Fold Workshop, 2016.",
+          "width" : 342.5,
+          "x" : 125.4,
+          "y" : 251.4
+        },
+        {
+          "height" : 14.9,
+          "text" : "[Fol17] Fold Workshop. Lining the bend. In Atlas Desk, editor, Paper Water-",
           "width" : 343.8,
           "x" : 125.4,
-          "y" : 252.7
+          "y" : 271.4
         },
         {
-          "height" : 11.7,
-          "text" : "[Fol17] Fold Workshop. Lining the bend. In Atlas Desk, editor, Paper Water-",
-          "width" : 343.7,
-          "x" : 125.4,
-          "y" : 272.7
-        },
-        {
-          "height" : 11.7,
+          "height" : 14.9,
           "text" : "ways, pages 8–12. Model Quay Press, 2017.",
-          "width" : 188.6,
-          "x" : 164.3,
-          "y" : 284.7
+          "width" : 188.5,
+          "x" : 164.2,
+          "y" : 283.4
         },
         {
-          "height" : 11.7,
+          "height" : 14.9,
           "text" : "[Gau21] Gauge Desk. Gauge Card Handbook, 2021.",
-          "width" : 225.6,
+          "width" : 223.9,
           "x" : 125.4,
-          "y" : 304.7
+          "y" : 303.4
         },
         {
-          "height" : 11.7,
+          "height" : 14.9,
           "text" : "[Hin18] Hinge Study Group. A reversible flap. In Proceedings of the Model",
-          "width" : 343.7,
+          "width" : 343.8,
           "x" : 125.4,
-          "y" : 324.7
+          "y" : 323.4
         },
         {
-          "height" : 11.7,
+          "height" : 14.9,
           "text" : "Gate Forum, pages 21–24, 2018.",
-          "width" : 140.5,
-          "x" : 164.3,
-          "y" : 336.7
+          "width" : 139.7,
+          "x" : 164.2,
+          "y" : 335.4
         },
         {
-          "height" : 11.7,
+          "height" : 14.9,
           "text" : "[Riv19] River Model Circle. Calibrating the sill. Model Quay Notes, 4:11–14,",
           "width" : 343.7,
           "x" : 125.4,
-          "y" : 356.7
+          "y" : 355.4
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "September 2019.",
-          "width" : 72,
-          "x" : 164.3,
-          "y" : 368.7
+          "width" : 71.9,
+          "x" : 164.2,
+          "y" : 367.6
         },
         {
-          "height" : 11.7,
-          "text" : "[Tra20] Tray Workshop. A bench for tilted channels. Technical Report 7,",
-          "width" : 343.8,
+          "height" : 14.8,
+          "text" : "[Tra20]",
+          "width" : 30.7,
           "x" : 125.4,
-          "y" : 388.7
+          "y" : 387.6
         },
         {
-          "height" : 11.7,
-          "text" : "Model Quay Laboratory, 2020.",
-          "width" : 134.4,
-          "x" : 164.3,
-          "y" : 400.7
+          "height" : 14.8,
+          "text" : "Tray Workshop. A bench for tilted channels. Technical Report 7, Model",
+          "width" : 304.9,
+          "x" : 164.2,
+          "y" : 387.6
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
+          "text" : "Quay Laboratory, 2020.",
+          "width" : 103.4,
+          "x" : 164.2,
+          "y" : 399.6
+        },
+        {
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 580.4,
+      "textHeight" : 583.9,
       "textLeft" : 125.4,
-      "textTop" : 150.4,
+      "textTop" : 148.1,
       "textWidth" : 343.8,
       "width" : 595.3
     }
   ],
-  "textSHA256" : "2829ac35ceea7890f7681461cbfd3bac272956117501645daf5d6c496ee73f0d"
+  "textSHA256" : "f93ded5550b658cab9bd31a848324323c49cb26f4a140c70e55c9719c7e8c826"
 }

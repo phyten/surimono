@@ -94,8 +94,7 @@ struct LaTeXFrontMatterTests {
         let chapter = name == "amsbook" ? #"\chapter{Start}"# : ""
         let paper = convert(
             name, chapter + #"\section{Trial}\subsection{First}Result.\begin{figure}\caption{Fold}\end{figure}"#)
-        let title = name == "amsart" ? #"T<span class="latex-ams-small-cap">rial</span>"# : "Trial"
-        #expect(paper.body.contains(#"class="secnum">1.</span>"# + title))
+        #expect(paper.body.contains(#"class="secnum">1.</span>Trial"#))
         #expect(
             paper.latexClass?.styleVariables.contains("--latex-footnote-rule-width: calc(60 * var(--tex-pt))") == true)
         #expect(paper.body.contains(#"class="latex-runin-subsection""#))

@@ -1,16 +1,16 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.04444651143562873,
+    "changedAreaRatio" : 0.04239812317200467,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 25.6,
-    "maxLuminance" : 153.640625,
-    "maxShiftPt" : 26.9,
+    "maxBoxDeltaPt" : 23.3,
+    "maxLuminance" : 136.828125,
+    "maxShiftPt" : 25.2,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 2
+    "textEdits" : 6
   },
   "fonts" : [
     "Helvetica"
@@ -18,130 +18,130 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 150.4,
+      "firstY" : 148.1,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 16,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.8,
           "text" : "Gauge calibration",
-          "width" : 127.3,
+          "width" : 128.3,
           "x" : 125.4,
-          "y" : 150.4
+          "y" : 148.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "A second reading checks the alignment of the stop. River Model Circle [2019]",
           "width" : 343.8,
           "x" : 125.4,
-          "y" : 175.1
+          "y" : 173.2
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "describe the sill check. Related fixtures appear elsewhere [Tray Workshop, 2020,",
-          "width" : 343.7,
-          "x" : 125.4,
-          "y" : 187.1
-        },
-        {
-          "height" : 11.7,
-          "text" : "Hinge Study Group, 2018].",
-          "width" : 116.9,
-          "x" : 125.4,
-          "y" : 199.1
-        },
-        {
-          "height" : 17.5,
-          "text" : "References",
-          "width" : 77.5,
-          "x" : 125.4,
-          "y" : 226.4
-        },
-        {
-          "height" : 11.7,
-          "text" : "Copper Atlas Group. Atlas of Paper Channels. Fold Workshop, 2016.",
-          "width" : 306.3,
-          "x" : 125.4,
-          "y" : 252.7
-        },
-        {
-          "height" : 11.7,
-          "text" : "Fold Workshop. Lining the bend. In Atlas Desk, editor, Paper Waterways,",
           "width" : 343.8,
           "x" : 125.4,
-          "y" : 272.7
+          "y" : 185.2
         },
         {
-          "height" : 11.7,
-          "text" : "pages 8–12. Model Quay Press, 2017.",
-          "width" : 161.9,
+          "height" : 14.8,
+          "text" : "Hinge Study Group, 2018].",
+          "width" : 116.8,
+          "x" : 125.4,
+          "y" : 197.2
+        },
+        {
+          "height" : 21.8,
+          "text" : "References",
+          "width" : 77.4,
+          "x" : 125.4,
+          "y" : 224.1
+        },
+        {
+          "height" : 14.9,
+          "text" : "Copper Atlas Group. Atlas of Paper Channels. Fold Workshop, 2016.",
+          "width" : 303.7,
+          "x" : 125.4,
+          "y" : 251.4
+        },
+        {
+          "height" : 14.9,
+          "text" : "Fold Workshop. Lining the bend. In Atlas Desk, editor, Paper Waterways, pages",
+          "width" : 343.8,
+          "x" : 125.4,
+          "y" : 271.4
+        },
+        {
+          "height" : 14.8,
+          "text" : "8–12. Model Quay Press, 2017.",
+          "width" : 134.7,
           "x" : 135.4,
-          "y" : 284.7
+          "y" : 283.6
         },
         {
-          "height" : 11.7,
+          "height" : 14.9,
           "text" : "Gauge Desk. Gauge Card Handbook, 2021.",
-          "width" : 186.7,
+          "width" : 185.1,
           "x" : 125.4,
-          "y" : 304.7
+          "y" : 303.4
         },
         {
-          "height" : 11.7,
+          "height" : 14.9,
           "text" : "Hinge Study Group. A reversible flap. In Proceedings of the Model Gate Forum,",
-          "width" : 343.7,
+          "width" : 343.8,
           "x" : 125.4,
-          "y" : 324.7
+          "y" : 323.4
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "pages 21–24, 2018.",
-          "width" : 80.9,
+          "width" : 80.8,
           "x" : 135.4,
-          "y" : 336.7
+          "y" : 335.6
         },
         {
-          "height" : 11.7,
+          "height" : 14.9,
           "text" : "River Model Circle. Calibrating the sill. Model Quay Notes, 4:11–14, September",
           "width" : 343.8,
           "x" : 125.4,
-          "y" : 356.7
+          "y" : 355.4
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "2019.",
           "width" : 22.7,
           "x" : 135.4,
-          "y" : 368.7
+          "y" : 367.6
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Tray Workshop. A bench for tilted channels. Technical Report 7, Model Quay",
-          "width" : 343.7,
+          "width" : 343.8,
           "x" : 125.4,
-          "y" : 388.7
+          "y" : 387.6
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Laboratory, 2020.",
-          "width" : 77.4,
+          "width" : 76.8,
           "x" : 135.4,
-          "y" : 400.7
+          "y" : 399.6
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 580.4,
+      "textHeight" : 583.9,
       "textLeft" : 125.4,
-      "textTop" : 150.4,
+      "textTop" : 148.1,
       "textWidth" : 343.8,
       "width" : 595.3
     }
   ],
-  "textSHA256" : "781134f0287c3f5ec6d520459667bbad96fccc1d110a50a7b370a785b0b70f3d"
+  "textSHA256" : "a506d04320174275e30912e97b22ca102dbf82edde806d9e4630611b5b070c16"
 }

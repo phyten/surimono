@@ -69,6 +69,7 @@ enum LaTeXClassRegistry {
     }
 
     private static func standard(_ builder: Builder) {
+        builder.body.naturalTableCaptionHeight = true
         builder.structure.offersCompositionChoice = true
         builder.structure.hasChapters = builder.id != .article
         builder.setStandardTitlePage(separate: builder.structure.hasChapters)
@@ -140,6 +141,7 @@ enum LaTeXClassRegistry {
     }
 
     private static func acm(_ builder: Builder) {
+        builder.body.naturalTableCaptionHeight = true
         builder.displayName = .init("ACM")
         builder.structure.contentsMeasure = .init(
             dotSeparationMu: nil, pageNumberWidth: "1.6em", rightMargin: "2.6em")
@@ -166,7 +168,9 @@ enum LaTeXClassRegistry {
         case "1p": builder.page.publication = .elsevierOne
         case "3p": builder.page.publication = .elsevierThree
         case "5p": builder.page.publication = .elsevierFive
-        default: break
+        default:
+            // The preprint uses article's justified CM body and paragraph parameters.
+            builder.body.composesLatinParagraphs = true
         }
         if builder.page.publication?.usesA4 == true {
             builder.page.defaultPaper = .a4
@@ -270,6 +274,7 @@ enum LaTeXClassRegistry {
     }
 
     private static func scaledJapanese(_ builder: Builder) {
+        builder.body.usesLatinModernBullet = [.ltjsarticle, .ltjsreport, .ltjsbook].contains(builder.id)
         builder.structure.offersCompositionChoice = true
         builder.japanese()
         let article = [.jsarticle, .ltjsarticle, .bxjsarticle].contains(builder.id)
@@ -323,6 +328,7 @@ enum LaTeXClassRegistry {
     }
 
     private static func traditionalJapanese(_ builder: Builder) {
+        builder.body.usesLatinModernBullet = [.ltjarticle, .ltjreport, .ltjbook].contains(builder.id)
         builder.structure.offersCompositionChoice = true
         builder.japanese()
         builder.structure.usesTraditionalJapaneseNames = true

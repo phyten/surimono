@@ -1,4 +1,5 @@
 /* In article the title, abstract and first section share the first sheet. */
 .latex-title-block { break-after: auto; page-break-after: auto; }
-body { word-spacing: 0.083em; }
-.latex-title-block h1 { letter-spacing: -0.02em; }
+/* Keep the existing spacing for documents that explicitly select a different main face. */
+body:where([data-latex-local-main-font]) { word-spacing: 0.083em; }
+:where(body[data-latex-local-main-font]) .latex-title-block h1 { letter-spacing: -0.02em; }

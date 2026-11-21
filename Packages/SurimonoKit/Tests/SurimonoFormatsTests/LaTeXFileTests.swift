@@ -63,7 +63,7 @@ struct LaTeXFileTests {
             let fragment = try convert(file)
             #expect(fragment.readingIssues.isEmpty)
             #expect(fragment.body.contains("後続"))
-            #expect(fragment.body.contains("図 1"))
+            #expect(DocumentOutline.plainText(ofHTML: fragment.body).contains("図 1"))
             #expect(!fragment.body.contains("ignored"))
         }
     }

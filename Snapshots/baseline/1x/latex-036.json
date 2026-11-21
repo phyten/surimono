@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.009090627228474871,
+    "changedAreaRatio" : 0.008741305718331111,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 25.6,
-    "maxLuminance" : 135.703125,
-    "maxShiftPt" : 26.9,
+    "maxBoxDeltaPt" : 23.3,
+    "maxLuminance" : 122.6875,
+    "maxShiftPt" : 25,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -18,51 +18,51 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 150.4,
+      "firstY" : 148.1,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 5,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.8,
           "text" : "Condition flags on the bench",
-          "width" : 204.5,
+          "width" : 208.7,
           "x" : 125.4,
-          "y" : 150.4
+          "y" : 148.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "West rail: provisional; collect the strip.",
-          "width" : 171.8,
+          "width" : 170.5,
           "x" : 125.4,
-          "y" : 175.1
+          "y" : 173.2
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "West rail: checked; file the strip.",
-          "width" : 143.8,
+          "width" : 141.9,
           "x" : 140.4,
-          "y" : 187.1
+          "y" : 185.2
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Matching stencil.",
-          "width" : 75.1,
+          "width" : 74.7,
           "x" : 140.4,
-          "y" : 199.1
+          "y" : 197.2
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 580.4,
+      "textHeight" : 583.9,
       "textLeft" : 125.4,
-      "textTop" : 150.4,
-      "textWidth" : 204.5,
+      "textTop" : 148.1,
+      "textWidth" : 208.7,
       "width" : 595.3
     }
   ],

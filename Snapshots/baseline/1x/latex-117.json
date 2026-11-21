@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.1000524064171123,
+    "changedAreaRatio" : 0.10005454545454545,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
@@ -10,7 +10,7 @@
     "maxShiftPt" : 4,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 18
+    "textEdits" : 9
   },
   "fonts" : [
     "Helvetica",
@@ -25,7 +25,7 @@
       "firstY" : 81.1,
       "height" : 792,
       "lastY" : 750.9,
-      "lineCount" : 101,
+      "lineCount" : 98,
       "lines" : [
         {
           "height" : 8,
@@ -554,44 +554,23 @@
         },
         {
           "height" : 11,
-          "text" : "•",
-          "width" : 3.5,
+          "text" : "• to measure the height of spacers with two to six layers in one fixed slot;",
+          "width" : 294.6,
           "x" : 135.4,
-          "y" : 420.6
+          "y" : 420.7
         },
         {
           "height" : 11,
-          "text" : "to measure the height of spacers with two to six layers in one fixed slot;",
-          "width" : 286.1,
-          "x" : 143.9,
-          "y" : 420.6
-        },
-        {
-          "height" : 11,
-          "text" : "•",
-          "width" : 3.5,
+          "text" : "• to compare the measurements with a layer model that adds a crease allowance; and",
+          "width" : 339,
           "x" : 135.4,
           "y" : 434.8
         },
         {
           "height" : 11,
-          "text" : "to compare the measurements with a layer model that adds a crease allowance; and",
-          "width" : 330.6,
-          "x" : 143.9,
-          "y" : 434.8
-        },
-        {
-          "height" : 11,
-          "text" : "•",
-          "width" : 3.5,
+          "text" : "• to give simple rules for choosing a card stock for a target height.",
+          "width" : 265.3,
           "x" : 135.4,
-          "y" : 449
-        },
-        {
-          "height" : 11,
-          "text" : "to give simple rules for choosing a card stock for a target height.",
-          "width" : 256.8,
-          "x" : 143.9,
           "y" : 449
         },
         {
@@ -1874,5 +1853,5 @@
       "width" : 612
     }
   ],
-  "textSHA256" : "907e9179477bc1697c3b2c5d5104083327a61cddc6cf2afdc6878943d4ec3dce"
+  "textSHA256" : "8d49849706b5d60f810fc18f56a3790c45d405fb2a461091ef5b42754dd02f6a"
 }

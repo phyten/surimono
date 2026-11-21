@@ -1,78 +1,78 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.0071001147180107275,
+    "changedAreaRatio" : 0.0068572432538575225,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 25.6,
-    "maxLuminance" : 133.609375,
-    "maxShiftPt" : 27.7,
+    "maxBoxDeltaPt" : 23.3,
+    "maxLuminance" : 123.125,
+    "maxShiftPt" : 26.7,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 4
+    "textEdits" : 0
   },
   "fonts" : [
     "Helvetica",
-    "TimesNewRomanPSMT"
+    "IowanOldStyle-Roman"
   ],
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 150.4,
+      "firstY" : 148.1,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 6,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.8,
           "text" : "Labels for a sample drawer",
-          "width" : 191.4,
+          "width" : 195.1,
           "x" : 125.4,
-          "y" : 150.4
+          "y" : 148.1
         },
         {
-          "height" : 12.1,
+          "height" : 15.1,
           "text" : "Blue tray",
-          "width" : 47.6,
+          "width" : 47.2,
           "x" : 150.3,
-          "y" : 175.4
+          "y" : 173.8
         },
         {
-          "height" : 11.7,
-          "text" : "WORKING: Quartz",
-          "width" : 74,
+          "height" : 14.8,
+          "text" : "working: Quartz",
+          "width" : 80.4,
           "x" : 150.3,
-          "y" : 191.9
+          "y" : 190.8
         },
         {
-          "height" : 11.7,
-          "text" : "RESERVE: Slate",
-          "width" : 62.4,
+          "height" : 14.8,
+          "text" : "reserve: Slate",
+          "width" : 67.8,
           "x" : 150.3,
-          "y" : 207.9
+          "y" : 206.8
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Length: 12 mm",
           "width" : 66,
           "x" : 150.3,
-          "y" : 223.9
+          "y" : 222.8
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 580.4,
+      "textHeight" : 583.9,
       "textLeft" : 125.4,
-      "textTop" : 150.4,
-      "textWidth" : 191.4,
+      "textTop" : 148.1,
+      "textWidth" : 195.1,
       "width" : 595.3
     }
   ],
-  "textSHA256" : "c4007214a3fa4e9b92ee2b7d421894d4fbae82decf1289d9088794130133386d"
+  "textSHA256" : "6bf6bc5d02f496c7038196d4b9539feaaee8a44de6439ca5f2467c8c3c453e0e"
 }

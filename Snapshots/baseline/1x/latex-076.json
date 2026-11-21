@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.024395173453996985,
+    "changedAreaRatio" : 0.024438411261940674,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 25.6,
-    "maxLuminance" : 145.984375,
-    "maxShiftPt" : 29.3,
+    "maxBoxDeltaPt" : 23.3,
+    "maxLuminance" : 129.484375,
+    "maxShiftPt" : 29.9,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -18,79 +18,79 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 150.4,
+      "firstY" : 148.1,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 9,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.8,
           "text" : "Settling on two beds",
-          "width" : 145.8,
+          "width" : 148.5,
           "x" : 125.4,
-          "y" : 150.4
+          "y" : 148.1
         },
         {
           "height" : 12.6,
           "text" : "100",
           "width" : 13.5,
-          "x" : 147.3,
+          "x" : 147.6,
           "y" : 183.3
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Fine bed",
-          "width" : 37.2,
-          "x" : 307.6,
-          "y" : 181
+          "width" : 38.6,
+          "x" : 306.9,
+          "y" : 179.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Coarse bed",
-          "width" : 47.4,
-          "x" : 302.5,
-          "y" : 193.4
+          "width" : 48.8,
+          "x" : 301.8,
+          "y" : 191.5
         },
         {
-          "height" : 34,
+          "height" : 33.9,
           "text" : "Residue",
-          "width" : 11.7,
-          "x" : 126,
+          "width" : 14.8,
+          "x" : 124.4,
           "y" : 239.4
         },
         {
           "height" : 12.6,
           "text" : "10−1",
           "width" : 18.9,
-          "x" : 141.9,
+          "x" : 142.2,
           "y" : 260.7
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "0 1 2 3 4",
           "width" : 166.9,
-          "x" : 178.4,
-          "y" : 338
+          "x" : 178.7,
+          "y" : 336.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Time",
           "width" : 22.7,
-          "x" : 250.5,
-          "y" : 351.6
+          "x" : 250.8,
+          "y" : 349.7
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 580.4,
-      "textLeft" : 125.4,
-      "textTop" : 150.4,
-      "textWidth" : 224.5,
+      "textHeight" : 583.9,
+      "textLeft" : 124.4,
+      "textTop" : 148.1,
+      "textWidth" : 226.1,
       "width" : 595.3
     }
   ],

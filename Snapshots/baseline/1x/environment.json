@@ -37,8 +37,7 @@
   },
   "latex-004" : {
     "fonts" : [
-      "Helvetica",
-      "TimesNewRomanPSMT"
+      "Helvetica"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
@@ -226,7 +225,7 @@
   "latex-035" : {
     "fonts" : [
       "Helvetica",
-      "TimesNewRomanPSMT"
+      "IowanOldStyle-Roman"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
@@ -389,7 +388,6 @@
   "latex-056" : {
     "fonts" : [
       "Helvetica",
-      "HelveticaNeue-Bold",
       "HiraginoSansGB-W6",
       "PingFangSC-Regular",
       "PingFangSC-Semibold",
@@ -412,7 +410,6 @@
   "latex-058" : {
     "fonts" : [
       "Helvetica",
-      "HelveticaNeue-Bold",
       "HiraMinProN-W3",
       "HiraMinProN-W6",
       "HiraginoSansGB-W6",
@@ -434,9 +431,7 @@
       "AppleMyungjo",
       "AppleSDGothicNeo-Bold",
       "AppleSDGothicNeo-Regular",
-      "Helvetica",
-      "HelveticaNeue",
-      "HelveticaNeue-Bold"
+      "Helvetica"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
@@ -567,13 +562,15 @@
   },
   "latex-081" : {
     "fonts" : [
-      "Helvetica"
+      "Helvetica",
+      "IowanOldStyle-Roman"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
   "latex-082" : {
     "fonts" : [
-      "Helvetica"
+      "Helvetica",
+      "IowanOldStyle-Roman"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
@@ -624,8 +621,7 @@
   },
   "latex-090" : {
     "fonts" : [
-      "Helvetica",
-      "TimesNewRomanPSMT"
+      "Helvetica"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
@@ -649,8 +645,7 @@
   },
   "latex-094" : {
     "fonts" : [
-      "Helvetica",
-      "TimesNewRomanPSMT"
+      "Helvetica"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
@@ -681,7 +676,8 @@
     "fonts" : [
       "Helvetica",
       "HiraMinProN-W3",
-      "HiraginoSans-W4"
+      "HiraginoSans-W4",
+      "Times-Roman"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
@@ -787,6 +783,7 @@
       "Helvetica",
       "HiraMinProN-W3",
       "HiraginoSans-W5",
+      "Times-Roman",
       "TimesNewRomanPSMT"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
@@ -1150,8 +1147,6 @@
       "HiraKakuProN-W6",
       "HiraMinProN-W3",
       "HiraginoSans-W5",
-      "Menlo-Regular",
-      "Times-Roman",
       "TimesNewRomanPSMT"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
@@ -1584,8 +1579,7 @@
     "fonts" : [
       "Helvetica",
       "HiraMinProN-W3",
-      "HiraMinProN-W6",
-      "STIXTwoText"
+      "HiraMinProN-W6"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
@@ -2288,7 +2282,6 @@
       "Helvetica",
       "HiraKakuProN-W3",
       "HiraKakuProN-W6",
-      "HiraginoSans-W3",
       "HiraginoSans-W4"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"

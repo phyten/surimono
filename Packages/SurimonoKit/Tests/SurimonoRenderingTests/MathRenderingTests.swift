@@ -37,9 +37,9 @@ struct MathRenderingTests {
         let result = try await DocumentRenderer().render(
             DocumentSource(data: Data(markdown.utf8), format: .markdown), settings: settings)
         let pdf = String(decoding: try #require(result.logicalDocument.dataRepresentation()), as: UTF8.self)
-        #expect(pdf.contains("+KaTeX_Main-Regular"))
-        #expect(pdf.contains("+KaTeX_Main-Bold"))
-        #expect(pdf.contains("+KaTeX_Typewriter-Regular"))
+        #expect(pdf.contains("+CMUSerif-Roman"))
+        #expect(pdf.contains("+CMUSerif-Bold"))
+        #expect(pdf.contains("+CMUTypewriter-Regular"))
         #expect(pdf.contains("HiraMinProN"))
     }
 }

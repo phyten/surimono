@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.011191723767298132,
+    "changedAreaRatio" : 0.011099742659597556,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 5.7,
-    "maxLuminance" : 155.953125,
-    "maxShiftPt" : 2.5,
+    "maxBoxDeltaPt" : 10.8,
+    "maxLuminance" : 142.546875,
+    "maxShiftPt" : 4.8,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 4
@@ -18,50 +18,50 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 132.7,
+      "firstY" : 129.9,
       "height" : 841.9,
-      "lastY" : 662,
+      "lastY" : 659.7,
       "lineCount" : 5,
       "lines" : [
         {
-          "height" : 21,
+          "height" : 26.1,
           "text" : "Working measure",
-          "width" : 151.9,
+          "width" : 151.4,
           "x" : 148.8,
-          "y" : 132.7
+          "y" : 129.9
         },
         {
-          "height" : 14,
+          "height" : 17.7,
           "text" : "Set the brass rule along the straight edge of the block.",
           "width" : 297.7,
           "x" : 148.8,
-          "y" : 162.3
+          "y" : 160.8
         },
         {
-          "height" : 14,
+          "height" : 17.7,
           "text" : "Read the position of the far shoulder twice, lifting the",
           "width" : 297.7,
           "x" : 148.8,
-          "y" : 176.7
+          "y" : 175.2
         },
         {
-          "height" : 14,
+          "height" : 17.7,
           "text" : "rule between readings.",
-          "width" : 116.9,
+          "width" : 116.4,
           "x" : 148.8,
-          "y" : 191.1
+          "y" : 189.6
         },
         {
-          "height" : 14,
+          "height" : 17.7,
           "text" : "1",
           "width" : 6,
           "x" : 294.6,
-          "y" : 662
+          "y" : 659.7
         }
       ],
-      "textHeight" : 543.3,
+      "textHeight" : 547.5,
       "textLeft" : 148.8,
-      "textTop" : 132.7,
+      "textTop" : 129.9,
       "textWidth" : 297.7,
       "width" : 595.3
     }

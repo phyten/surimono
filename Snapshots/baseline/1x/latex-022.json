@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.026224233283056814,
+    "changedAreaRatio" : 0.025848164906988436,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
-    "maxBoxDeltaPt" : 25.4,
-    "maxLuminance" : 146.421875,
-    "maxShiftPt" : 31,
+    "maxBoxDeltaPt" : 23.1,
+    "maxLuminance" : 117.234375,
+    "maxShiftPt" : 27.5,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 7
@@ -18,57 +18,57 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 150.2,
+      "firstY" : 147.9,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 6,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.7,
           "text" : "Batch comparison grid",
-          "width" : 162.1,
+          "width" : 163.7,
           "x" : 125.4,
-          "y" : 150.2
+          "y" : 147.9
         },
         {
-          "height" : 19.2,
+          "height" : 20.5,
           "text" : "Batch x1 x2 x3 xˉ Maximum deviation",
           "width" : 287.2,
           "x" : 153.5,
-          "y" : 185.1
+          "y" : 183
         },
         {
-          "height" : 16.3,
+          "height" : 20.5,
           "text" : "Amber 4 5 6 5 1",
           "width" : 287.2,
           "x" : 153.5,
-          "y" : 203.4
+          "y" : 199.7
         },
         {
-          "height" : 16.3,
+          "height" : 20.5,
           "text" : "Slate 2 4 6 4 2",
           "width" : 287.2,
           "x" : 153.5,
-          "y" : 220.1
+          "y" : 216.4
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Table 1: Three readings per batch, in scale divisions",
-          "width" : 228.1,
-          "x" : 183.2,
-          "y" : 246.8
+          "width" : 227,
+          "x" : 183.8,
+          "y" : 243.3
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 580.6,
+      "textHeight" : 584.1,
       "textLeft" : 125.4,
-      "textTop" : 150.2,
+      "textTop" : 147.9,
       "textWidth" : 315.3,
       "width" : 595.3
     }

@@ -127,6 +127,13 @@ body[data-latex-journal="ams"] {
     --tex-indent: 18; --ams-note-pitch: 10; --ams-linespacing: 12;
     --latex-skip-footins: calc(7 * var(--tex-pt));
 }
+@media print {
+    /* Each mixed-font label sits on the enclosing TeX line's strut. */
+    body[data-latex-journal="ams"]:not([data-latex-local-main-font]) :is(.latex-abstract-label,.latex-caption-label,.latex-ams-address span),
+    body[data-latex-class="amsproc"]:not([data-latex-local-main-font]) :is(.theorem-head,.proof-head) {
+        line-height: 0; font-variant-numeric: lining-nums;
+    }
+}
 body[data-latex-class="amsart"] { --tex-indent: 12; }
 body[data-latex-journal="ams"][data-latex-size="11"] { --ams-note-pitch: 11; --ams-linespacing: 13; }
 body[data-latex-journal="ams"][data-latex-size="12"] { --ams-note-pitch: 12; --ams-linespacing: 14; }
@@ -142,7 +149,7 @@ body[data-latex-journal="ams"] {
         font-size: var(--latex-size-footnotesize); line-height: calc(var(--ams-note-pitch) * var(--tex-pt));
     }
     & .latex-front-abstract p:first-child { text-indent: 0; }
-    & :is(.latex-abstract-label,.latex-caption-label,.latex-ams-address span) { font-weight: normal; font-variant-caps: small-caps; }
+    & :is(.latex-abstract-label,.latex-caption-label,.latex-ams-address span) { font-weight: normal; font-variant-caps: small-caps; font-family: var(--tex-searchable-caps, inherit); }
     & [data-latex-heading="section"], & .latex-bibliography-heading:not([data-latex-chapter-opening]) {
         font-size: 1em; text-align: center; font-weight: bold;
         margin-block: calc(.7 * var(--ams-linespacing) * var(--tex-pt)) calc(.5 * var(--ams-linespacing) * var(--tex-pt));
@@ -167,12 +174,12 @@ body[data-latex-class="amsart"] {
     & .latex-front-abstract { margin-block-end: calc(34 * var(--tex-pt)); }
     & .latex-bibliography-heading + ol { margin-block-start: 0; }
     & .latex-bibliography li { margin-block: 0; }
-    /* PDFKit needs the capital and the smaller run to meet at the natural advance. */
-    & .latex-ams-small-cap { font-size: .82em; font-variant-caps: normal; text-transform: uppercase; }
+    /* Explicit local faces can lack the small capitals built into CMU. */
+    &[data-latex-local-main-font] .latex-ams-small-cap { font-size: .82em; font-variant-caps: normal; text-transform: uppercase; }
     & .latex-title-block { padding-block-start: calc(32 * var(--tex-pt)); }
     & .latex-title-block h1 { text-transform: uppercase; font-size: 1em; line-height: calc(14 * var(--tex-pt)); }
     & .latex-title-block .latex-author { text-transform: uppercase; font-size: var(--latex-size-footnotesize); margin-block-start: calc((30 - var(--ams-note-pitch)) * var(--tex-pt)); }
-    & [data-latex-heading="section"], & .latex-bibliography-heading:not([data-latex-chapter-opening]) { font-variant-caps: small-caps; font-weight: normal; }
+    & [data-latex-heading="section"], & .latex-bibliography-heading:not([data-latex-chapter-opening]) { font-variant-caps: small-caps; font-weight: normal; font-family: var(--tex-searchable-caps, inherit); }
 }
 body[data-latex-journal="ams"]:not([data-latex-class="amsbook"]) :is(.latex-ams-address,.latex-ams-curraddr,.latex-ams-urladdr,.latex-ams-email) {
     font-size: var(--latex-size-footnotesize); line-height: calc(var(--ams-note-pitch) * var(--tex-pt));
@@ -208,9 +215,10 @@ body[data-latex-class="amsproc"] {
     & [data-latex-heading="section"] > .secnum, & .latex-cite > a { font-weight: bold; }
     /* The OpenType small-cap substitution supplies alternate glyphs, preserving the source case in a single shaping run. */
     & :is(.latex-abstract-label,.latex-caption-label,.latex-ams-address span,.theorem-head,.proof-head) {
-        font-family: "Iowan Old Style", serif; font-feature-settings: "smcp"; font-style: normal; font-weight: normal;
+        font-family: var(--tex-searchable-caps, var(--tex-body-fonts)); font-feature-settings: "smcp"; font-style: normal; font-weight: normal;
         font-variant-caps: normal; font-synthesis: none;
     }
+    &[data-latex-local-main-font] :is(.latex-abstract-label,.latex-caption-label,.latex-ams-address span,.theorem-head,.proof-head) { font-family: "Iowan Old Style", serif; }
     & :is(.latex-theorem,.latex-proof) > p:first-child { text-indent: calc(var(--tex-indent) * var(--tex-pt)); }
     & :is(.latex-theorem,.latex-proof) { margin-block: calc(.5 * var(--ams-linespacing) * var(--tex-pt)); }
     /* AMS uses medskipamount around a display and smallskipamount before the closing box. */
@@ -228,7 +236,7 @@ body[data-latex-class="amsproc"] {
     /* CMR8 and CMTI8 have wider advances than the bundled ten-point design at 8pt.
        Preserve the eight-point glyph height, ten-point leading and available line measure. */
     &[data-latex-size="10"]:not([data-latex-local-main-font]) .footnotes #fn-ams-title > p {
-        --ams-note-width-scale: 1.09;
+        --ams-note-width-scale: 1.064;
         inline-size: calc(100% / var(--ams-note-width-scale));
         transform: scaleX(var(--ams-note-width-scale)); transform-origin: left;
     }

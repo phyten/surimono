@@ -1,6 +1,5 @@
 /* report/book put the title on its own page and begin each chapter on a fresh one.
    Padding rather than a collapsing margin keeps the chapter head away from the page edge. */
-body { word-spacing: 0.083em; }
 .latex-title-block { padding-block-start: min(37vh, 28em); break-after: page; page-break-after: always; }
 body[data-latex-chapters="true"] nav.toc, body[data-latex-chapters="true"] .abstract {
     break-before: page; page-break-before: always; break-after: page; page-break-after: always;
@@ -28,3 +27,5 @@ body[data-latex-chapters="true"] .latex-amsbook-verso { break-after: page; page-
 body[data-latex-chapters="true"] .latex-amsbook-verso > .abstract {
     break-before: auto; page-break-before: auto; break-after: auto; page-break-after: auto; padding-block-start: 2em;
 }
+/* Keep the existing spacing for documents that explicitly select a different main face. */
+body:where([data-latex-local-main-font]) { word-spacing: 0.083em; }

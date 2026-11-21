@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.019346003989292985,
+    "changedAreaRatio" : 0.018509906055250675,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
-    "maxBoxDeltaPt" : 24.9,
-    "maxLuminance" : 201.890625,
-    "maxShiftPt" : 33.5,
+    "maxBoxDeltaPt" : 21.5,
+    "maxLuminance" : 177.203125,
+    "maxShiftPt" : 32.4,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 9
@@ -18,181 +18,181 @@
   "pageCount" : 3,
   "pages" : [
     {
-      "firstY" : 221.6,
+      "firstY" : 217.4,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 7,
       "lines" : [
         {
-          "height" : 25.2,
+          "height" : 31.3,
           "text" : "Contents",
-          "width" : 94.2,
+          "width" : 92.8,
           "x" : 125.4,
-          "y" : 221.6
+          "y" : 217.4
         },
         {
-          "height" : 12.1,
+          "height" : 15.1,
           "text" : "1 Landing places 2",
           "width" : 343.7,
           "x" : 125.4,
-          "y" : 286.2
+          "y" : 283.7
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1.1 East bank 2",
           "width" : 328.8,
           "x" : 140.4,
-          "y" : 297.8
+          "y" : 296.7
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1.1.1 Lower ramp 2",
           "width" : 305.9,
           "x" : 163.3,
-          "y" : 309.8
+          "y" : 308.7
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1.1.1.1 Surface 2",
           "width" : 274,
           "x" : 195.2,
-          "y" : 321.8
+          "y" : 320.7
         },
         {
-          "height" : 12.1,
+          "height" : 15.1,
           "text" : "A Survey marks 3",
           "width" : 343.7,
           "x" : 125.4,
-          "y" : 343.8
+          "y" : 341.3
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 509.3,
+      "textHeight" : 514.6,
       "textLeft" : 125.4,
-      "textTop" : 221.6,
+      "textTop" : 217.4,
       "textWidth" : 343.7,
       "width" : 595.3
     },
     {
-      "firstY" : 220,
+      "firstY" : 215.8,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 9,
       "lines" : [
         {
-          "height" : 25.2,
+          "height" : 31.3,
           "text" : "Chapter 1",
-          "width" : 102.9,
+          "width" : 104.8,
           "x" : 125.4,
-          "y" : 220
+          "y" : 215.8
         },
         {
-          "height" : 30.2,
+          "height" : 37.6,
           "text" : "Landing places",
-          "width" : 182.3,
+          "width" : 184.6,
           "x" : 125.4,
-          "y" : 265.7
+          "y" : 260.8
         },
         {
-          "height" : 17.5,
+          "height" : 21.7,
           "text" : "1.1 East bank",
-          "width" : 106.7,
+          "width" : 107.7,
           "x" : 125.4,
-          "y" : 330.8
+          "y" : 328.4
         },
         {
-          "height" : 14.6,
+          "height" : 18.1,
           "text" : "1.1.1 Lower ramp",
-          "width" : 112.5,
+          "width" : 112.4,
           "x" : 125.4,
-          "y" : 355.5
+          "y" : 353.5
         },
         {
-          "height" : 12.1,
+          "height" : 15.1,
           "text" : "1.1.1.1 Surface",
-          "width" : 79.3,
+          "width" : 79.2,
           "x" : 125.4,
-          "y" : 377.4
+          "y" : 375.7
         },
         {
-          "height" : 12.2,
+          "height" : 15.1,
           "text" : "1.1.1.1.1 Tile spacing Leave a narrow gap.",
-          "width" : 210.5,
+          "width" : 209.6,
           "x" : 125.4,
-          "y" : 402.2
+          "y" : 401.3
         },
         {
-          "height" : 12.2,
+          "height" : 15.1,
           "text" : "1.1.1.1.1.1 Corner pieces Turn the last tile to face the water. See",
           "width" : 328.8,
           "x" : 140.4,
-          "y" : 428.6
+          "y" : 427.7
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Appendix A.",
-          "width" : 55.6,
+          "width" : 55.9,
           "x" : 125.4,
-          "y" : 441
+          "y" : 439.9
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "2",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 510.9,
+      "textHeight" : 516.2,
       "textLeft" : 125.4,
-      "textTop" : 220,
+      "textTop" : 215.8,
       "textWidth" : 343.7,
       "width" : 595.3
     },
     {
-      "firstY" : 219.8,
+      "firstY" : 215.6,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 4,
       "lines" : [
         {
-          "height" : 25.2,
+          "height" : 31.3,
           "text" : "Appendix A",
-          "width" : 124.7,
+          "width" : 127.2,
           "x" : 125.4,
-          "y" : 219.8
+          "y" : 215.6
         },
         {
-          "height" : 30.2,
+          "height" : 37.6,
           "text" : "Survey marks",
-          "width" : 169.3,
+          "width" : 170.7,
           "x" : 125.4,
-          "y" : 265.5
+          "y" : 260.6
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "A square identifies the ramp foot.",
-          "width" : 147.4,
+          "width" : 147.2,
           "x" : 125.4,
-          "y" : 331.3
+          "y" : 329.4
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "3",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 511,
+      "textHeight" : 516.4,
       "textLeft" : 125.4,
-      "textTop" : 219.8,
+      "textTop" : 215.6,
       "textWidth" : 174.3,
       "width" : 595.3
     }

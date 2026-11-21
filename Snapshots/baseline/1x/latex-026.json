@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.016781901425190423,
+    "changedAreaRatio" : 0.01627135460267262,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
-    "maxBoxDeltaPt" : 25.6,
-    "maxLuminance" : 140.953125,
-    "maxShiftPt" : 26.9,
+    "maxBoxDeltaPt" : 23.3,
+    "maxLuminance" : 138.1875,
+    "maxShiftPt" : 25,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 6
@@ -18,72 +18,72 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 150.4,
+      "firstY" : 148.1,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 8,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.8,
           "text" : "Reading cards for the sluice model",
-          "width" : 245.3,
+          "width" : 251,
           "x" : 125.4,
-          "y" : 150.4
+          "y" : 148.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Use the card dimensions from [2] with the fold sequence in [1].",
-          "width" : 272.6,
+          "width" : 272.3,
           "x" : 125.4,
-          "y" : 175.1
+          "y" : 173.2
         },
         {
-          "height" : 17.5,
+          "height" : 21.8,
           "text" : "References",
-          "width" : 77.5,
+          "width" : 77.4,
           "x" : 125.4,
-          "y" : 202.4
+          "y" : 200.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.9,
           "text" : "[1]",
           "width" : 10.5,
           "x" : 125.4,
-          "y" : 228.7
+          "y" : 227.4
         },
         {
-          "height" : 11.7,
+          "height" : 14.9,
           "text" : "Fold desk, Closing the return gate, model note 3 (2018).",
-          "width" : 245.2,
+          "width" : 243.9,
           "x" : 145.4,
-          "y" : 228.7
+          "y" : 227.4
         },
         {
-          "height" : 11.7,
+          "height" : 14.9,
           "text" : "[2]",
           "width" : 10.5,
           "x" : 125.4,
-          "y" : 248.7
+          "y" : 247.4
         },
         {
-          "height" : 11.7,
+          "height" : 14.9,
           "text" : "Gauge desk, Cards for narrow slots, trial circular (2020).",
-          "width" : 249,
+          "width" : 247.7,
           "x" : 145.4,
-          "y" : 248.7
+          "y" : 247.4
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 580.4,
+      "textHeight" : 583.9,
       "textLeft" : 125.4,
-      "textTop" : 150.4,
-      "textWidth" : 272.6,
+      "textTop" : 148.1,
+      "textWidth" : 272.3,
       "width" : 595.3
     }
   ],

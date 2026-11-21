@@ -29,14 +29,20 @@ public enum PageNumberDrawing {
 
 /// The header and footer of a page, in the same type as the plain page number.
 enum PageFurnitureDrawing {
-    private static let computerModern = MathRenderer.fontData(family: "KaTeX_Main", weight: "normal", style: "normal")
+    private static let elementFaces = Dictionary(
+        uniqueKeysWithValues: ComputerModernFamily.allCases.flatMap { family in
+            family.faces.compactMap { file, weight, shape in
+                ComputerModernFamily.data(for: file).map { (family.rawValue + weight + shape, $0) }
+            }
+        })
 
     private static func footerFont(_ style: PageFurniture.LaTeXFooter, scale: CGFloat) -> NSFont {
         let size = style.pointSize * scale
         if let name = style.fontName, let font = InstalledFontIndex.systemFont(named: name, size: size) as NSFont? {
             return font
         }
-        if let computerModern, let provider = CGDataProvider(data: computerModern as CFData),
+        if let computerModern = elementFaces[ComputerModernFamily.roman.rawValue + "normalnormal"],
+            let provider = CGDataProvider(data: computerModern as CFData),
             let font = CGFont(provider)
         {
             return CTFontCreateWithGraphicsFont(font, size, nil, nil) as NSFont
@@ -45,26 +51,14 @@ enum PageFurnitureDrawing {
             ?? NSFont.systemFont(ofSize: size)
     }
 
-    // Cache the bytes across page drawings because a book uses the same furniture face on every sheet.
-    private static let elementFaces: [String: Data] = {
-        var result: [String: Data] = [:]
-        for family in ["KaTeX_Main", "KaTeX_SansSerif", "KaTeX_Typewriter"] {
-            for weight in ["normal", "bold"] {
-                for shape in ["normal", "italic"] {
-                    result[family + weight + shape] = MathRenderer.fontData(
-                        family: family, weight: weight, style: shape)
-                }
-            }
-        }
-        return result
-    }()
-
     private static func elementFont(_ element: LaTeXElementFont?, style: PageFurniture.LaTeXFooter, scale: CGFloat)
         -> NSFont
     {
         guard var element else { return footerFont(style, scale: scale) }
-        if element.shape == "oblique" {
-            // CMSL slants the upright outlines and retains the roman advances.
+        if element.shape == "oblique", element.family != "mono", element.family != "sans",
+            let name = style.fontName, InstalledFontIndex.system.face(named: name) != nil
+        {
+            // Keep the existing slant for an explicitly selected installed text face.
             element.shape = "normal"
             let upright = elementFont(element, style: style, scale: scale)
             var slant = CGAffineTransform(a: 1, b: 0, c: 1 / 6, d: 1, tx: 0, ty: 0)
@@ -90,16 +84,33 @@ enum PageFurnitureDrawing {
                 }
             if let font = NSFont(name: variant ?? face.postScriptName, size: size) { return font }
         }
-        let family =
-            element.family == "mono" ? "KaTeX_Typewriter" : element.family == "sans" ? "KaTeX_SansSerif" : "KaTeX_Main"
-        let weight = element.weight ?? "normal"
-        let variant = family + weight + (element.shape ?? "normal")
-        let data =
-            elementFaces[variant] ?? elementFaces[family + weight + "normal"] ?? elementFaces[family + "normalnormal"]
+        let family: ComputerModernFamily =
+            element.family == "mono" ? .typewriter : element.family == "sans" ? .sans : .roman
+        if family == .roman, element.capitals == "small-caps",
+            let smallCaps = NSFont(
+                name: element.weight == "bold" ? "IowanOldStyle-Bold" : "IowanOldStyle-Roman", size: size)
+        {
+            // Use the same searchable small-cap glyphs as WebKit's print style.
+            let features = CTFontDescriptorCreateCopyWithFeature(
+                CTFontCopyFontDescriptor(smallCaps), kLowerCaseType as CFNumber, kLowerCaseSmallCapsSelector as CFNumber
+            )
+            return CTFontCreateCopyWithAttributes(smallCaps, size, nil, features) as NSFont
+        }
+        return bundledFont(family, weight: element.weight, shape: element.shape, size: size)
+            ?? footerFont(style, scale: scale)
+    }
+
+    private static func bundledFont(_ family: ComputerModernFamily, weight: String?, shape: String?, size: CGFloat)
+        -> NSFont?
+    {
+        let key = family.rawValue + (weight ?? "normal")
+        let shape = shape ?? "normal"
+        // Sans uses oblique for italic; the bold typewriter uses italic for oblique.
+        let data = elementFaces[key + shape] ?? elementFaces[key + (shape == "italic" ? "oblique" : "italic")]
         if let data, let provider = CGDataProvider(data: data as CFData), let face = CGFont(provider) {
             return CTFontCreateWithGraphicsFont(face, size, nil, nil) as NSFont
         }
-        return footerFont(style, scale: scale)
+        return nil
     }
 
     private struct Row {
@@ -163,8 +174,8 @@ enum PageFurnitureDrawing {
                 } ?? (centerY(row.height) - (row.ascent - row.descent) / 2)
             if rule > 0 {
                 let footGap = (latexFooter?.pointSize ?? 10) * 0.36 * scale
-                let headDepth =
-                    (journal?.headRuleDepth ?? latexFooter?.headerRuleDepth).map { $0 * scale } ?? row.descent
+                let ruleDepth = journal?.headRuleDepth ?? (lines.usesFancyFields ? latexFooter?.headerRuleDepth : nil)
+                let headDepth = ruleDepth.map { $0 * scale } ?? row.descent
                 let edge = above ? y - headDepth - rule : y + row.ascent + footGap
                 if journal?.interruptsRuleAtLeftText == true, above, let title = row.lines[0] {
                     let endOfTitle = rowLeft + CTLineGetTypographicBounds(title, nil, nil, nil)
@@ -315,9 +326,31 @@ enum PageFurnitureDrawing {
         japaneseScale: Double = 1, copyrightFont: NSFont? = nil, fitsOppositeField: Bool = false
     ) -> Row {
         let font = font ?? NSFont.systemFont(ofSize: 8 * scale)
+        // Match the print stylesheet: only substituted letters need the searchable small-cap face.
+        let features = CTFontCopyFeatureSettings(font) as? [[String: Int]]
+        let usesSmallCaps =
+            features?.contains {
+                $0[kCTFontFeatureTypeIdentifierKey as String] == kLowerCaseType
+                    && $0[kCTFontFeatureSelectorIdentifierKey as String] == kLowerCaseSmallCapsSelector
+            } == true
+        let isBold = font.fontName == "IowanOldStyle-Bold"
+        let capitals =
+            usesSmallCaps && (isBold || font.fontName == "IowanOldStyle-Roman")
+            ? bundledFont(.roman, weight: isBold ? "bold" : nil, shape: nil, size: font.pointSize) : nil
+        let letterFont =
+            capitals != nil && !isBold
+            ? CTFontCreateCopyWithAttributes(font, font.pointSize * ThemeFonts.smallCapScale, nil, nil) as NSFont : font
         func line(_ text: String, slot: Int? = nil) -> CTLine {
             let contents = NSMutableAttributedString(
-                string: text, attributes: [.font: font, .foregroundColor: NSColor.black])
+                string: text, attributes: [.font: letterFont, .foregroundColor: NSColor.black])
+            if let capitals {
+                for range in text.ranges(of: /[^\p{Ll}\p{M}]+/) {
+                    contents.addAttribute(.font, value: capitals, range: NSRange(range, in: text))
+                }
+            }
+            if font.fontName.hasPrefix("CMU") {
+                contents.addAttribute(.ligature, value: 0, range: NSRange(location: 0, length: contents.length))
+            }
             if let japaneseFamily,
                 let face = InstalledFontIndex.systemFont(named: japaneseFamily, size: font.pointSize * japaneseScale)
                     ?? InstalledFontIndex.systemFont(named: "HiraMinProN-W3", size: font.pointSize * japaneseScale)

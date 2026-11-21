@@ -91,7 +91,15 @@ const latinFontGlue = {
     cmr12: [0.3263855, 0.163193, 0.108795, 0.108795],
     cmbx12: [0.375, 0.1875, 0.125, 0.125],
     cmti12: [0.350003, 0.150002, 0.100001, 0.100001],
+    cmsl8: [0.354172, 0.177086, 0.118057, 0.118057],
+    cmsl9: [0.34259, 0.171295, 0.114197, 0.114197],
+    cmsl10: [0.333334, 0.166667, 0.111112, 0.111112],
+    cmsl12: [0.3263855, 0.163193, 0.108795, 0.108795],
+    cmbxsl10: [0.383331, 0.191666, 0.127777, 0.127777],
+    cmss17: [0.313462, 0.156731, 0.104487, 0.104487],
+    cmssbx10: [0.366669, 0.183334, 0.122223, 0.122223],
     cmbxti10: [0.414441, 0.176664, 0.117777, 0.117777],
+    cmcsc10: [0.377774, 0.174998, 0.116666, 0.116666],
     cmtt8: [0.531258, 0.0, 0.0, 0.531258],
     cmtt9: [0.524994, 0.0, 0.0, 0.524994],
     cmtt12: [0.514584, 0.0, 0.0, 0.514584],
@@ -100,24 +108,30 @@ const latinFontGlue = {
     newtx: [0.25, 0.2, 0.1, 0.111],
     ptmr7t: [0.25, 0.15, 0.0599985, 0.0599985],
 };
-function latinGlue(family, style, weight, em, rawSpace, precedingText, french, sizePt = 10, periodSpaceFactor = 3000) {
+function latinGlue(family, style, weight, em, rawSpace, precedingText, french, sizePt = 10, periodSpaceFactor = 3000, caps = 'normal') {
     const face = family.split(',')[0].replace(/["']/g, '').trim().toLowerCase();
-    // NFSS ladders in ot1cmr.fd and ot1cmtt.fd select optical designs. The
+    // NFSS ladders in ot1cmr.fd, ot1cmss.fd and ot1cmtt.fd select optical designs. The
     // nearest nominal size tolerates fractional CSS font sizes at print zoom.
     const design = sizePt < 9.5 ? Math.max(5, Math.round(sizePt)) :
         sizePt < 11.475 ? 10 : sizePt < 15.84 ? 12 : 17;
+    const bold = Number(weight) >= 600 || weight === 'bold';
     let metrics;
     if (face === 'surimono computer modern' || face === 'katex_main' || face === 'cm') {
-        const bold = Number(weight) >= 600 || weight === 'bold';
-        const italic = style === 'italic' || style === 'oblique';
+        const italic = style === 'italic';
+        const slanted = style.startsWith('oblique');
         const shape = bold ? (italic ? 'cmbxti' : 'cmbx') : (italic ? 'cmti' : 'cmr');
         const size = bold && italic ? 10 : italic ? Math.max(7, Math.min(12,design)) :
             bold ? Math.min(12,design) : design;
-        metrics = latinFontGlue[shape + size];
+        if (!bold && !italic && caps === 'small-caps') metrics = latinFontGlue.cmcsc10;
+        else if (slanted) metrics = latinFontGlue[bold ? 'cmbxsl10' : 'cmsl' + Math.max(8,Math.min(12,design))];
+        else metrics = latinFontGlue[shape + size];
+    } else if (face === 'sans' || face === 'surimono computer modern sans') {
+        // cmss and cmssi match cmr's glue at 8–12pt; cmss17 and the bold face differ.
+        metrics = bold ? latinFontGlue.cmssbx10 : design === 17 ? latinFontGlue.cmss17 : latinFontGlue['cmr' + Math.max(8,design)];
     } else if (face === 'times' || face === 'times new roman') metrics = latinFontGlue.ptmr7t;
     else if (face === 'newtx') metrics = latinFontGlue.newtx;
     else if (face === 'surimono computer modern typewriter' || face === 'typewriter')
-        metrics = latinFontGlue['cmtt' + Math.max(8,Math.min(12,design))];
+        metrics = latinFontGlue['cmtt' + (style === 'normal' ? Math.max(8,Math.min(12,design)) : 10)];
     const [space, stretch, shrink, extra] = metrics ? metrics.map(v => v * em) :
         [rawSpace, rawSpace/2, rawSpace/3, rawSpace/3];
     // Closing quotation marks and parentheses retain the preceding character's space factor.

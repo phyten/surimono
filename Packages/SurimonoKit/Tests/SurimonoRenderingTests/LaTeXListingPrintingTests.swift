@@ -30,7 +30,7 @@ struct LaTeXListingPrintingTests {
         let text = try #require(pdf.string)
         let bytes = try #require(pdf.dataRepresentation())
         let fonts = String(decoding: bytes, as: UTF8.self)
-        #expect(fonts.contains(selectsMenlo ? "+Menlo-Bold" : "+KaTeX_Typewriter-Regular"))
+        #expect(fonts.contains(selectsMenlo ? "+Menlo-Bold" : "+CMUTypewriter-Bold"))
         for word in ["def", "return"] {
             #expect(pdf.findString(word).count == 1)
             #expect(text.components(separatedBy: word).count == 2)

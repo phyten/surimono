@@ -1,12 +1,12 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.015106605070329375,
+    "changedAreaRatio" : 0.014764518029330605,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
-    "maxBoxDeltaPt" : 32,
-    "maxLuminance" : 162.484375,
+    "maxBoxDeltaPt" : 28.9,
+    "maxLuminance" : 115.609375,
     "maxShiftPt" : 103.3,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
@@ -18,24 +18,24 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 150.4,
+      "firstY" : 148.1,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 15,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.8,
           "text" : "Turning the sample grid",
-          "width" : 173.4,
+          "width" : 175.1,
           "x" : 125.4,
-          "y" : 150.4
+          "y" : 148.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "One quarter-turn maps the east vector to the north vector:",
-          "width" : 258.4,
+          "width" : 257.6,
           "x" : 125.4,
-          "y" : 175.1
+          "y" : 173.2
         },
         {
           "height" : 24.5,
@@ -66,11 +66,11 @@
           "y" : 197.5
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "The worksheet prints the determinant, a bare grid and two delimiter samples:",
-          "width" : 341,
+          "width" : 339.3,
           "x" : 125.4,
-          "y" : 230.3
+          "y" : 228.4
         },
         {
           "height" : 11.7,
@@ -122,17 +122,17 @@
           "y" : 258.2
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 580.4,
+      "textHeight" : 583.9,
       "textLeft" : 125.4,
-      "textTop" : 150.4,
-      "textWidth" : 341,
+      "textTop" : 148.1,
+      "textWidth" : 339.3,
       "width" : 595.3
     }
   ],

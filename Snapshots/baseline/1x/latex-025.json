@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.010803129424653004,
+    "changedAreaRatio" : 0.01035562583325582,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 25.4,
-    "maxLuminance" : 145.984375,
-    "maxShiftPt" : 26.8,
+    "maxBoxDeltaPt" : 23.1,
+    "maxLuminance" : 129.5,
+    "maxShiftPt" : 24.9,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -18,57 +18,57 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 150.2,
+      "firstY" : 147.9,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 6,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.7,
           "text" : "Setting the easel",
-          "width" : 117.7,
+          "width" : 119.8,
           "x" : 125.4,
-          "y" : 150.2
+          "y" : 147.9
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "The rectangle marks the clear open-",
           "width" : 158.1,
           "x" : 311,
-          "y" : 202.8
+          "y" : 200.9
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "ing. Keep the lower clips below its",
           "width" : 158.1,
           "x" : 311,
-          "y" : 214.8
+          "y" : 212.9
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "edge.",
           "width" : 22.1,
           "x" : 311,
-          "y" : 226.8
+          "y" : 224.9
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Figure 1: Mount and clearance note",
-          "width" : 156.3,
-          "x" : 219.1,
-          "y" : 263.6
+          "width" : 155.8,
+          "x" : 219.4,
+          "y" : 261.7
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 580.6,
+      "textHeight" : 584.1,
       "textLeft" : 125.4,
-      "textTop" : 150.2,
+      "textTop" : 147.9,
       "textWidth" : 343.7,
       "width" : 595.3
     }

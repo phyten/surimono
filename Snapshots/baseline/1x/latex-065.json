@@ -1,12 +1,12 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.009027652086475615,
+    "changedAreaRatio" : 0.008798391151332328,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 25.4,
-    "maxLuminance" : 145.984375,
+    "maxBoxDeltaPt" : 23.1,
+    "maxLuminance" : 129.5,
     "maxShiftPt" : 28.9,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
@@ -18,24 +18,24 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 150.2,
+      "firstY" : 147.9,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 6,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.7,
           "text" : "Survey of a corner brace",
-          "width" : 173.9,
+          "width" : 177.6,
           "x" : 125.4,
-          "y" : 150.2
+          "y" : 147.9
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "C",
           "width" : 7.2,
           "x" : 322.5,
-          "y" : 188.5
+          "y" : 186.6
         },
         {
           "height" : 9.3,
@@ -45,30 +45,30 @@
           "y" : 248.3
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "A B",
           "width" : 120.6,
           "x" : 237.3,
-          "y" : 259.1
+          "y" : 257.2
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Figure 1: The dashed circle marks clearance around the upper pin.",
           "width" : 291,
           "x" : 151.8,
-          "y" : 281.2
+          "y" : 280.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 580.6,
+      "textHeight" : 584.1,
       "textLeft" : 125.4,
-      "textTop" : 150.2,
+      "textTop" : 147.9,
       "textWidth" : 317.3,
       "width" : 595.3
     }

@@ -1,11 +1,11 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.010985024648869872,
+    "changedAreaRatio" : 0.011153484430388905,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 5.6,
+    "maxBoxDeltaPt" : 6.4,
     "maxLuminance" : 171.328125,
     "maxShiftPt" : 1.7,
     "pageDelta" : 0,
@@ -26,34 +26,34 @@
       "lineCount" : 1,
       "lines" : [
         {
-          "height" : 41.9,
+          "height" : 42.7,
           "text" : "第I 部 凍砂の記録",
-          "width" : 213.7,
+          "width" : 213.6,
           "x" : 103.4,
           "y" : 310.7
         }
       ],
-      "textHeight" : 41.9,
+      "textHeight" : 42.7,
       "textLeft" : 103.4,
       "textTop" : 310.7,
-      "textWidth" : 213.7,
+      "textWidth" : 213.6,
       "width" : 595.3
     },
     {
       "firstY" : 134.5,
       "height" : 841.9,
-      "lastY" : 750.5,
+      "lastY" : 748.6,
       "lineCount" : 6,
       "lines" : [
         {
-          "height" : 33.5,
+          "height" : 34.2,
           "text" : "第1 章 砂時計の試作品",
           "width" : 220.2,
           "x" : 78.5,
           "y" : 134.5
         },
         {
-          "height" : 23.5,
+          "height" : 23.9,
           "text" : "1.1 流れの確かめ方",
           "width" : 131.2,
           "x" : 80.2,
@@ -64,10 +64,10 @@
           "text" : "細い管を通る青い砂の量を量る。",
           "width" : 149.4,
           "x" : 88.4,
-          "y" : 244.4
+          "y" : 245.2
         },
         {
-          "height" : 20.1,
+          "height" : 20.5,
           "text" : "1.1.1 管の交換",
           "width" : 86.8,
           "x" : 80,
@@ -78,17 +78,17 @@
           "text" : "同じ砂を別の管へ移す。",
           "width" : 108.3,
           "x" : 88.4,
-          "y" : 294.8
+          "y" : 295.6
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "2",
           "width" : 5,
           "x" : 295.1,
-          "y" : 750.5
+          "y" : 748.6
         }
       ],
-      "textHeight" : 627.7,
+      "textHeight" : 628.8,
       "textLeft" : 78.5,
       "textTop" : 134.5,
       "textWidth" : 221.7,

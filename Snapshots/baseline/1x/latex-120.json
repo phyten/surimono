@@ -10,7 +10,7 @@
     "maxShiftPt" : 3.3,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 62
+    "textEdits" : 53
   },
   "fonts" : [
     "CourierNewPSMT",
@@ -25,7 +25,7 @@
       "firstY" : 103.7,
       "height" : 792,
       "lastY" : 702.1,
-      "lineCount" : 83,
+      "lineCount" : 80,
       "lines" : [
         {
           "height" : 15.9,
@@ -407,30 +407,9 @@
         },
         {
           "height" : 11,
-          "text" : "•",
-          "width" : 3.5,
+          "text" : "• to measure the height of spacers with two to six layers in",
+          "width" : 236.3,
           "x" : 58.5,
-          "y" : 552.5
-        },
-        {
-          "height" : 11,
-          "text" : "•",
-          "width" : 3.5,
-          "x" : 58.5,
-          "y" : 576.4
-        },
-        {
-          "height" : 11,
-          "text" : "•",
-          "width" : 3.5,
-          "x" : 58.5,
-          "y" : 600.3
-        },
-        {
-          "height" : 11,
-          "text" : "to measure the height of spacers with two to six layers in",
-          "width" : 227.8,
-          "x" : 67,
           "y" : 552.5
         },
         {
@@ -442,9 +421,9 @@
         },
         {
           "height" : 11,
-          "text" : "to compare the measurements with a layer model that",
-          "width" : 227.8,
-          "x" : 67,
+          "text" : "• to compare the measurements with a layer model that",
+          "width" : 236.3,
+          "x" : 58.5,
           "y" : 576.4
         },
         {
@@ -456,9 +435,9 @@
         },
         {
           "height" : 11,
-          "text" : "to give simple rules for choosing a card stock for a target",
-          "width" : 227.8,
-          "x" : 67,
+          "text" : "• to give simple rules for choosing a card stock for a target",
+          "width" : 236.3,
+          "x" : 58.5,
           "y" : 600.3
         },
         {
@@ -986,5 +965,5 @@
       "width" : 612
     }
   ],
-  "textSHA256" : "5254e0afe0051c3bc71f4b7ffafb4c60f872d96bc4655cd5c7cb0df85cc2bdd3"
+  "textSHA256" : "2ed4141a4ce5181752e4cf8a87d92d1e9086c48ca7a35dd6be27a7c7b7121b6a"
 }

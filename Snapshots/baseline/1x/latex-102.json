@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.009752064407445303,
+    "changedAreaRatio" : 0.009723126530865345,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
@@ -20,17 +20,17 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 164.6,
+      "firstY" : 164.3,
       "height" : 841.9,
-      "lastY" : 766.1,
+      "lastY" : 764.2,
       "lineCount" : 8,
       "lines" : [
         {
-          "height" : 32.1,
+          "height" : 32.4,
           "text" : "第1 章",
           "width" : 58.9,
           "x" : 71.9,
-          "y" : 164.6
+          "y" : 164.3
         },
         {
           "height" : 38.6,
@@ -40,11 +40,11 @@
           "y" : 213.5
         },
         {
-          "height" : 22.3,
+          "height" : 22.5,
           "text" : "1.1 最初の記録",
           "width" : 99,
           "x" : 73.6,
-          "y" : 297.7
+          "y" : 297.5
         },
         {
           "height" : 14.1,
@@ -61,11 +61,11 @@
           "y" : 347.9
         },
         {
-          "height" : 22.3,
+          "height" : 22.5,
           "text" : "1.2 紙帯の保管",
           "width" : 99,
           "x" : 73.6,
-          "y" : 382.3
+          "y" : 382.1
         },
         {
           "height" : 14.1,
@@ -75,16 +75,16 @@
           "y" : 414.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 295.1,
-          "y" : 766.1
+          "y" : 764.2
         }
       ],
-      "textHeight" : 613.2,
+      "textHeight" : 614.6,
       "textLeft" : 71.9,
-      "textTop" : 164.6,
+      "textTop" : 164.3,
       "textWidth" : 228.2,
       "width" : 595.3
     }

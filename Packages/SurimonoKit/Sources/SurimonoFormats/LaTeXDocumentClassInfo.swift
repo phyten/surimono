@@ -69,10 +69,12 @@ public struct LaTeXDocumentClassInfo: Sendable, Equatable {
     public internal(set) var mainFontName: String?
     public internal(set) var columns: Int
     public var hasSeparateTitlePage: Bool? { profile.structure.titlePage.isSeparate }
+    package var usesNaturalTableCaptionHeight: Bool { profile.body.naturalTableCaptionHeight && resolvedStyle == nil }
     public var usesJSChapterSpacing: Bool { profile.structure.usesJSChapterSpacing }
     package var jsMagnification: Double? { profile.typography.jsMagnification }
     package var japaneseFurnitureScale: Double { LaTeXLabelMetrics(self).japaneseScale ?? 1 }
     package var japaneseMainFontName: String?
+    package var normalStrutDepth: Double { 0.3 * LaTeXLabelMetrics(self).baselines[4] * 72 / 72.27 }
     package var headerStrutDepth: Double = 0
     // setspace indexes its compensation by @ptsize, which jsclasses holds at zero for all magnifications.
     var spacingPointSize: Int { profile.typography.spacingDesignSize ?? pointSize }

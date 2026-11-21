@@ -42,13 +42,14 @@ struct LaTeXKOMAPrintingTests {
             let string = try #require(selection.attributedString)
             return try #require(string.attribute(.font, at: 0, effectiveRange: nil) as? NSFont)
         }
-        // PDFKit and Poppler use slightly different font bounds for the same TeX baseline.
-        for (text, expectedTop): (String, CGFloat) in [
-            ("Spacer trial", 127.5), ("A bench memorandum", 153), ("Model Rail Desk", 180.2),
-            ("Paper Model Workshop", 209), ("Abstract", 257.8), ("Bench trial", 319.5),
+        // CMU includes taller accents than the subset in the reference. Compare selection centres
+        // measured by PDFKit on both PDFs, which avoids treating the whole font ascent as visible ink.
+        for (text, expectedCenter): (String, CGFloat) in [
+            ("Spacer trial", 136.71), ("A bench memorandum", 158.29), ("Model Rail Desk", 186.53),
+            ("Paper Model Workshop", 215.37), ("Abstract", 262.20), ("Bench trial", 325.86),
         ] {
-            let top = try page.bounds(for: .mediaBox).maxY - match(text).bounds(for: page).maxY
-            #expect(abs(top - expectedTop) < 6)
+            let center = try page.bounds(for: .mediaBox).maxY - match(text).bounds(for: page).midY
+            #expect(abs(center - expectedCenter) < 6)
         }
         let section = try font("Bench trial")
         // PDFKit substitutes a system font in attributedString for embedded subset faces;

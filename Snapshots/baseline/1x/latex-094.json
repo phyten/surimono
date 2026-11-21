@@ -1,137 +1,136 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.006946123874781674,
+    "changedAreaRatio" : 0.006776630597670501,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 25.4,
+    "maxBoxDeltaPt" : 24.3,
     "maxLuminance" : 135.359375,
-    "maxShiftPt" : 26.8,
+    "maxShiftPt" : 25.6,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
   },
   "fonts" : [
-    "Helvetica",
-    "TimesNewRomanPSMT"
+    "Helvetica"
   ],
   "pageCount" : 3,
   "pages" : [
     {
-      "firstY" : 150.2,
+      "firstY" : 147.9,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 6,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.7,
           "text" : "Alignment notes",
-          "width" : 118.2,
+          "width" : 118.8,
           "x" : 125.4,
-          "y" : 150.2
+          "y" : 147.9
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Gaugeguard left right",
-          "width" : 131.9,
+          "width" : 131.5,
           "x" : 125.4,
-          "y" : 174.9
+          "y" : 173.8
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "first mark",
-          "width" : 43.3,
+          "width" : 43.2,
           "x" : 125.4,
-          "y" : 189.8
+          "y" : 188.7
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "second mark",
           "width" : 54.6,
           "x" : 125.4,
-          "y" : 201.8
+          "y" : 200.7
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "The mark below the slot is faint.",
-          "width" : 143.4,
+          "width" : 143,
           "x" : 140.4,
-          "y" : 239.3
+          "y" : 238.2
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 580.6,
+      "textHeight" : 584.1,
       "textLeft" : 125.4,
-      "textTop" : 150.2,
+      "textTop" : 147.9,
       "textWidth" : 174.3,
       "width" : 595.3
     },
     {
-      "firstY" : 149.4,
+      "firstY" : 147.1,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 3,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.7,
           "text" : "Loose insert",
-          "width" : 85.9,
+          "width" : 87.4,
           "x" : 125.4,
-          "y" : 149.4
+          "y" : 147.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Put the insert behind the reading sheet.",
-          "width" : 174.6,
+          "width" : 174.7,
           "x" : 125.4,
-          "y" : 174.1
+          "y" : 172.2
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "2",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 581.4,
+      "textHeight" : 584.9,
       "textLeft" : 125.4,
-      "textTop" : 149.4,
-      "textWidth" : 174.6,
+      "textTop" : 147.1,
+      "textWidth" : 174.7,
       "width" : 595.3
     },
     {
-      "firstY" : 428.7,
+      "firstY" : 427.6,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 2,
       "lines" : [
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Figure 1: Reference edge",
-          "width" : 107.1,
-          "x" : 243.7,
-          "y" : 428.7
+          "width" : 107,
+          "x" : 243.8,
+          "y" : 427.6
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "3",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 302.1,
-      "textLeft" : 243.7,
-      "textTop" : 428.7,
-      "textWidth" : 107.1,
+      "textHeight" : 304.4,
+      "textLeft" : 243.8,
+      "textTop" : 427.6,
+      "textWidth" : 107,
       "width" : 595.3
     }
   ],

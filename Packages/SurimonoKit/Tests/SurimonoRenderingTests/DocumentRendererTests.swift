@@ -239,8 +239,8 @@ struct DocumentRendererTests {
         }
         try #require(pages.count == 3)
         #expect(pages[0] == pages[2])
-        #expect(!pages[0].contains("data:font/ttf"))
-        #expect(pages[1].components(separatedBy: "data:font/ttf;base64,").count == 6)
+        #expect(!pages[0].contains("data:font/otf"))
+        #expect(pages[1].components(separatedBy: "data:font/otf;base64,").count == 12)
     }
 
     @Test("Markdownの見出しを含む論理ページPDFを作れる", .timeLimit(.minutes(1)))

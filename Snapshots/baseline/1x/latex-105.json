@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.004178422679027274,
+    "changedAreaRatio" : 0.003771225415723602,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 7.3,
-    "maxLuminance" : 113.0625,
-    "maxShiftPt" : 6.3,
+    "maxBoxDeltaPt" : 5.8,
+    "maxLuminance" : 92.890625,
+    "maxShiftPt" : 4.7,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -18,24 +18,24 @@
   "pageCount" : 4,
   "pages" : [
     {
-      "firstY" : 73.6,
+      "firstY" : 71.5,
       "height" : 841.9,
-      "lastY" : 789.5,
+      "lastY" : 787.4,
       "lineCount" : 7,
       "lines" : [
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "Window tracing sheet.",
-          "width" : 105.9,
+          "width" : 107.6,
           "x" : 70.9,
-          "y" : 73.6
+          "y" : 71.5
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "Beside the window.",
-          "width" : 90.8,
+          "width" : 92.6,
           "x" : 70.9,
-          "y" : 655.1
+          "y" : 653
         },
         {
           "height" : 12.8,
@@ -45,93 +45,93 @@
           "y" : 668.2
         },
         {
-          "height" : 15.7,
+          "height" : 24.3,
           "text" : "1 Fold",
           "width" : 52.2,
           "x" : 70.9,
-          "y" : 714.4
+          "y" : 707.5
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "Alpha paper.",
-          "width" : 61.3,
+          "width" : 62.1,
           "x" : 70.9,
-          "y" : 742.5
+          "y" : 740.4
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "Beta paper.",
-          "width" : 54.7,
+          "width" : 55.6,
           "x" : 70.9,
-          "y" : 760
+          "y" : 757.9
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "1",
           "width" : 5.5,
           "x" : 294.9,
-          "y" : 789.5
+          "y" : 787.4
         }
       ],
-      "textHeight" : 728.8,
+      "textHeight" : 732.1,
       "textLeft" : 70.9,
-      "textTop" : 73.6,
+      "textTop" : 71.5,
       "textWidth" : 242.6,
       "width" : 595.3
     },
     {
-      "firstY" : 69.9,
+      "firstY" : 67.8,
       "height" : 841.9,
-      "lastY" : 789.5,
+      "lastY" : 787.4,
       "lineCount" : 3,
       "lines" : [
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "Gamma paper.",
-          "width" : 70.1,
+          "width" : 71,
           "x" : 70.9,
-          "y" : 69.9
+          "y" : 67.8
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "Delta paper.",
-          "width" : 58.4,
+          "width" : 59.2,
           "x" : 70.9,
-          "y" : 87.3
+          "y" : 85.2
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "2",
           "width" : 5.5,
           "x" : 294.9,
-          "y" : 789.5
+          "y" : 787.4
         }
       ],
-      "textHeight" : 732.5,
+      "textHeight" : 735.8,
       "textLeft" : 70.9,
-      "textTop" : 69.9,
+      "textTop" : 67.8,
       "textWidth" : 229.5,
       "width" : 595.3
     },
     {
-      "firstY" : 73.6,
+      "firstY" : 71.5,
       "height" : 841.9,
-      "lastY" : 789.5,
+      "lastY" : 787.4,
       "lineCount" : 4,
       "lines" : [
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "Second tracing sheet.",
-          "width" : 99.5,
+          "width" : 101.2,
           "x" : 70.9,
-          "y" : 73.6
+          "y" : 71.5
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "Beside the window.",
-          "width" : 90.8,
+          "width" : 92.6,
           "x" : 70.9,
-          "y" : 740.2
+          "y" : 738.1
         },
         {
           "height" : 12.8,
@@ -141,71 +141,71 @@
           "y" : 753.2
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "3",
           "width" : 5.5,
           "x" : 294.9,
-          "y" : 789.5
+          "y" : 787.4
         }
       ],
-      "textHeight" : 728.8,
+      "textHeight" : 732.1,
       "textLeft" : 70.9,
-      "textTop" : 73.6,
+      "textTop" : 71.5,
       "textWidth" : 242.6,
       "width" : 595.3
     },
     {
-      "firstY" : 95.9,
+      "firstY" : 89,
       "height" : 841.9,
-      "lastY" : 789.5,
+      "lastY" : 787.4,
       "lineCount" : 6,
       "lines" : [
         {
-          "height" : 15.7,
+          "height" : 24.3,
           "text" : "2 Fold again",
-          "width" : 91,
+          "width" : 92.3,
           "x" : 70.9,
-          "y" : 95.9
+          "y" : 89
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "Alpha paper.",
-          "width" : 61.3,
+          "width" : 62.1,
           "x" : 70.9,
-          "y" : 124
+          "y" : 121.9
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "Beta paper.",
-          "width" : 54.7,
+          "width" : 55.6,
           "x" : 70.9,
-          "y" : 141.5
+          "y" : 139.4
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "Gamma paper.",
-          "width" : 70.1,
+          "width" : 71,
           "x" : 70.9,
-          "y" : 158.9
+          "y" : 156.8
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "Delta paper.",
-          "width" : 58.4,
+          "width" : 59.2,
           "x" : 70.9,
-          "y" : 176.4
+          "y" : 174.3
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "4",
           "width" : 5.5,
           "x" : 294.9,
-          "y" : 789.5
+          "y" : 787.4
         }
       ],
-      "textHeight" : 706.4,
+      "textHeight" : 714.6,
       "textLeft" : 70.9,
-      "textTop" : 95.9,
+      "textTop" : 89,
       "textWidth" : 229.5,
       "width" : 595.3
     }

@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.0163499245852187,
+    "changedAreaRatio" : 0.016059326294620414,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 25.4,
-    "maxLuminance" : 130.375,
-    "maxShiftPt" : 26.8,
+    "maxBoxDeltaPt" : 23.1,
+    "maxLuminance" : 116.8125,
+    "maxShiftPt" : 24.6,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -18,37 +18,37 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 150.2,
+      "firstY" : 147.9,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 3,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.7,
           "text" : "Two impressions of one stamp",
-          "width" : 214.8,
+          "width" : 217.1,
           "x" : 125.4,
-          "y" : 150.2
+          "y" : 147.9
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Figure 1: The dot identifies the same corner after rotation.",
-          "width" : 256.9,
-          "x" : 168.8,
-          "y" : 239.6
+          "width" : 256.4,
+          "x" : 169.1,
+          "y" : 238.5
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 580.6,
+      "textHeight" : 584.1,
       "textLeft" : 125.4,
-      "textTop" : 150.2,
-      "textWidth" : 300.3,
+      "textTop" : 147.9,
+      "textWidth" : 300,
       "width" : 595.3
     }
   ],

@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.013072685744995297,
+    "changedAreaRatio" : 0.012409181574840583,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 25.8,
-    "maxLuminance" : 148.640625,
-    "maxShiftPt" : 26.4,
+    "maxBoxDeltaPt" : 23,
+    "maxLuminance" : 143.375,
+    "maxShiftPt" : 24.6,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -18,57 +18,57 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 151.6,
+      "firstY" : 148.8,
       "height" : 841.9,
-      "lastY" : 716.9,
+      "lastY" : 714.6,
       "lineCount" : 6,
       "lines" : [
         {
-          "height" : 21,
+          "height" : 26.1,
           "text" : "A narrow ledger",
-          "width" : 139.4,
+          "width" : 141.4,
           "x" : 105.4,
-          "y" : 151.6
+          "y" : 148.8
         },
         {
-          "height" : 14,
+          "height" : 17.7,
           "text" : "The morning reading follows a night of cooling. Place",
           "width" : 272.2,
           "x" : 105.4,
-          "y" : 181.2
+          "y" : 179.7
         },
         {
-          "height" : 14,
+          "height" : 17.7,
           "text" : "the second reading on the next line.",
-          "width" : 187.2,
+          "width" : 187,
           "x" : 105.4,
-          "y" : 195.6
+          "y" : 194.1
         },
         {
-          "height" : 14,
+          "height" : 17.7,
           "text" : "The afternoon reading includes the expansion of the",
           "width" : 272.2,
           "x" : 105.4,
-          "y" : 210
+          "y" : 208.5
         },
         {
-          "height" : 14,
+          "height" : 17.7,
           "text" : "rim.",
           "width" : 21.3,
           "x" : 105.4,
-          "y" : 224.4
+          "y" : 222.9
         },
         {
-          "height" : 14,
+          "height" : 17.7,
           "text" : "1",
           "width" : 6,
           "x" : 238.5,
-          "y" : 716.9
+          "y" : 714.6
         }
       ],
-      "textHeight" : 579.3,
+      "textHeight" : 583.5,
       "textLeft" : 105.4,
-      "textTop" : 151.6,
+      "textTop" : 148.8,
       "textWidth" : 272.2,
       "width" : 595.3
     }

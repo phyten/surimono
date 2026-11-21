@@ -1,16 +1,16 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.016084291900495044,
+    "changedAreaRatio" : 0.01446583780320177,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 2,
-    "maxBoxDeltaPt" : 98.4,
-    "maxLuminance" : 144.609375,
-    "maxShiftPt" : 103.2,
+    "maxBoxDeltaPt" : 98.5,
+    "maxLuminance" : 86.203125,
+    "maxShiftPt" : 103.4,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 16
+    "textEdits" : 18
   },
   "fonts" : [
     "Helvetica"
@@ -18,30 +18,30 @@
   "pageCount" : 15,
   "pages" : [
     {
-      "firstY" : 203.6,
+      "firstY" : 195.7,
       "height" : 841.9,
-      "lastY" : 256.5,
+      "lastY" : 254.6,
       "lineCount" : 2,
       "lines" : [
         {
-          "height" : 20.7,
+          "height" : 33.3,
           "text" : "The Span Gauge",
-          "width" : 155.6,
-          "x" : 190.1,
-          "y" : 203.6
+          "width" : 158.6,
+          "x" : 188.6,
+          "y" : 195.7
         },
         {
-          "height" : 16.9,
+          "height" : 21.2,
           "text" : "Paper Bridge Workshop",
-          "width" : 151.1,
-          "x" : 192.3,
-          "y" : 256.5
+          "width" : 150.3,
+          "x" : 192.7,
+          "y" : 254.6
         }
       ],
-      "textHeight" : 69.8,
-      "textLeft" : 190.1,
-      "textTop" : 203.6,
-      "textWidth" : 155.6,
+      "textHeight" : 80.1,
+      "textLeft" : 188.6,
+      "textTop" : 195.7,
+      "textWidth" : 158.6,
       "width" : 595.3
     },
     {
@@ -53,92 +53,92 @@
       "width" : 595.3
     },
     {
-      "firstY" : 135.6,
+      "firstY" : 127.7,
       "height" : 841.9,
-      "lastY" : 715.3,
+      "lastY" : 713.3,
       "lineCount" : 11,
       "lines" : [
         {
-          "height" : 20.7,
+          "height" : 33.3,
           "text" : "Contents",
           "width" : 85,
           "x" : 59.5,
-          "y" : 135.6
+          "y" : 127.7
         },
         {
-          "height" : 12,
+          "height" : 19.2,
           "text" : "I. Making the gauge 1",
           "width" : 416.7,
           "x" : 59.5,
-          "y" : 178.9
+          "y" : 174.7
         },
         {
-          "height" : 10.9,
+          "height" : 17.6,
           "text" : "1. The sliding strip 3",
           "width" : 416.7,
           "x" : 59.5,
-          "y" : 204.5
+          "y" : 199.9
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "1.1. Cutting the slot 3",
           "width" : 400.3,
           "x" : 75.9,
-          "y" : 216.4
+          "y" : 215.2
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "1.1.1. Checking the edge 3",
           "width" : 375.2,
           "x" : 101,
-          "y" : 230
+          "y" : 228.8
         },
         {
-          "height" : 10.9,
+          "height" : 17.6,
           "text" : "2. Setting the stops 5",
           "width" : 416.7,
           "x" : 59.5,
-          "y" : 255.7
+          "y" : 251.1
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "2.1. The second mark 5",
           "width" : 400.3,
           "x" : 75.9,
-          "y" : 267.6
+          "y" : 266.4
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "2.1.1. Trial positions 5",
           "width" : 375.2,
           "x" : 101,
-          "y" : 281.2
+          "y" : 280
         },
         {
-          "height" : 10.9,
+          "height" : 17.6,
           "text" : "A. Spare gauges 7",
           "width" : 416.7,
           "x" : 59.5,
-          "y" : 307.7
+          "y" : 303.1
         },
         {
-          "height" : 10.9,
+          "height" : 17.6,
           "text" : "Workshop record 9",
           "width" : 416.7,
           "x" : 59.5,
-          "y" : 332.5
+          "y" : 327.9
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "iii",
           "width" : 9.1,
-          "x" : 467.1,
-          "y" : 715.3
+          "x" : 467.2,
+          "y" : 713.3
         }
       ],
-      "textHeight" : 592.6,
+      "textHeight" : 601.7,
       "textLeft" : 59.5,
-      "textTop" : 135.6,
+      "textTop" : 127.7,
       "textWidth" : 416.7,
       "width" : 595.3
     },
@@ -151,37 +151,37 @@
       "width" : 595.3
     },
     {
-      "firstY" : 268.3,
+      "firstY" : 260.4,
       "height" : 841.9,
-      "lastY" : 715.3,
+      "lastY" : 713.3,
       "lineCount" : 3,
       "lines" : [
         {
-          "height" : 20.7,
+          "height" : 33.3,
           "text" : "Part I.",
-          "width" : 60.6,
-          "x" : 237.6,
-          "y" : 268.3
+          "width" : 60.7,
+          "x" : 237.5,
+          "y" : 260.4
         },
         {
-          "height" : 24.8,
+          "height" : 39.9,
           "text" : "Making the gauge",
-          "width" : 201.9,
-          "x" : 166.9,
-          "y" : 312.4
+          "width" : 205.9,
+          "x" : 164.9,
+          "y" : 303.6
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "1",
           "width" : 5.5,
           "x" : 470.8,
-          "y" : 715.3
+          "y" : 713.3
         }
       ],
-      "textHeight" : 459.9,
-      "textLeft" : 166.9,
-      "textTop" : 268.3,
-      "textWidth" : 309.3,
+      "textHeight" : 469,
+      "textLeft" : 164.9,
+      "textTop" : 260.4,
+      "textWidth" : 311.3,
       "width" : 595.3
     },
     {
@@ -193,244 +193,230 @@
       "width" : 595.3
     },
     {
-      "firstY" : 137.1,
+      "firstY" : 128.5,
       "height" : 841.9,
-      "lastY" : 715.3,
-      "lineCount" : 13,
+      "lastY" : 713.3,
+      "lineCount" : 11,
       "lines" : [
         {
-          "height" : 20.7,
+          "height" : 33.3,
           "text" : "1. The sliding strip",
-          "width" : 178.2,
+          "width" : 181.1,
           "x" : 59.5,
-          "y" : 137.1
+          "y" : 128.5
         },
         {
-          "height" : 14.3,
+          "height" : 23.1,
           "text" : "1.1. Cutting the slot",
-          "width" : 135.4,
+          "width" : 136.8,
           "x" : 59.5,
-          "y" : 181.1
+          "y" : 175
         },
         {
-          "height" : 15.2,
+          "height" : 18.2,
           "text" : "Mark the centre of the card before cutting the slot.1",
-          "width" : 249.6,
+          "width" : 249.3,
           "x" : 59.5,
-          "y" : 204.4
+          "y" : 202.7
         },
         {
-          "height" : 12,
+          "height" : 19.2,
           "text" : "1.1.1. Checking the edge",
-          "width" : 137.4,
+          "width" : 138.3,
           "x" : 59.5,
-          "y" : 235.7
+          "y" : 230.6
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "Use the dark strip in Figure 1.1 to check for daylight.",
-          "width" : 257.4,
+          "width" : 255.9,
           "x" : 59.5,
-          "y" : 256.4
+          "y" : 254.3
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "Figure 1.1.: The shim seen on edge",
-          "width" : 166.6,
-          "x" : 184.5,
-          "y" : 302.6
+          "width" : 166.5,
+          "x" : 184.6,
+          "y" : 300.5
         },
         {
-          "height" : 12.8,
-          "text" : "∙",
-          "width" : 5.5,
+          "height" : 16.2,
+          "text" : "• Cut across the grain.",
+          "width" : 111,
           "x" : 75.9,
-          "y" : 341.7
+          "y" : 340.4
         },
         {
-          "height" : 12.8,
-          "text" : "∙",
-          "width" : 5.5,
+          "height" : 16.2,
+          "text" : "• Keep the straight edge.",
+          "width" : 122.1,
           "x" : 75.9,
-          "y" : 364.1
+          "y" : 362.8
         },
         {
-          "height" : 12.8,
-          "text" : "Cut across the grain.",
-          "width" : 100.2,
-          "x" : 86.8,
-          "y" : 341.7
-        },
-        {
-          "height" : 12.8,
-          "text" : "Keep the straight edge.",
-          "width" : 111.6,
-          "x" : 86.8,
-          "y" : 364.1
-        },
-        {
-          "height" : 7.9,
+          "height" : 10,
           "text" : "1",
           "width" : 3.4,
           "x" : 64.1,
-          "y" : 668.9
+          "y" : 668.1
         },
         {
-          "height" : 10.5,
+          "height" : 13.3,
           "text" : "Keep the offcut as a shim.",
-          "width" : 104,
+          "width" : 103.1,
           "x" : 68.5,
-          "y" : 669.3
+          "y" : 668
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "3",
           "width" : 5.5,
           "x" : 470.8,
-          "y" : 715.3
+          "y" : 713.3
         }
       ],
-      "textHeight" : 591,
+      "textHeight" : 601,
       "textLeft" : 59.5,
-      "textTop" : 137.1,
+      "textTop" : 128.5,
       "textWidth" : 416.7,
       "width" : 595.3
     },
     {
-      "firstY" : 54,
+      "firstY" : 51.8,
       "height" : 841.9,
-      "lastY" : 715.3,
+      "lastY" : 713.3,
       "lineCount" : 4,
       "lines" : [
         {
-          "height" : 12.8,
+          "height" : 16.3,
           "text" : "1. The sliding strip",
-          "width" : 91.9,
+          "width" : 92.8,
           "x" : 119.1,
-          "y" : 54
+          "y" : 51.8
         },
         {
-          "height" : 10.9,
+          "height" : 17.6,
           "text" : "Bench note",
-          "width" : 56.9,
+          "width" : 57.3,
           "x" : 119.1,
-          "y" : 87.8
+          "y" : 83.8
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "Store the strip flat until the glue has set.",
-          "width" : 196.3,
+          "width" : 195.8,
           "x" : 119.1,
-          "y" : 101.3
+          "y" : 99.9
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "4",
           "width" : 5.5,
           "x" : 119.1,
-          "y" : 715.3
+          "y" : 713.3
         }
       ],
-      "textHeight" : 674.1,
+      "textHeight" : 677.6,
       "textLeft" : 119.1,
-      "textTop" : 54,
-      "textWidth" : 196.3,
+      "textTop" : 51.8,
+      "textWidth" : 195.8,
       "width" : 595.3
     },
     {
-      "firstY" : 136.7,
+      "firstY" : 128.6,
       "height" : 841.9,
-      "lastY" : 715.3,
+      "lastY" : 713.3,
       "lineCount" : 12,
       "lines" : [
         {
-          "height" : 20.7,
+          "height" : 33.3,
           "text" : "2. Setting the stops",
-          "width" : 187.5,
+          "width" : 190.5,
           "x" : 59.5,
-          "y" : 136.7
+          "y" : 128.6
         },
         {
-          "height" : 14.3,
+          "height" : 23.1,
           "text" : "2.1. The second mark",
-          "width" : 144.6,
+          "width" : 145.7,
           "x" : 59.5,
-          "y" : 180.6
+          "y" : 175.2
         },
         {
-          "height" : 12,
+          "height" : 19.2,
           "text" : "2.1.1. Trial positions",
-          "width" : 113.8,
+          "width" : 113.5,
           "x" : 59.5,
-          "y" : 208
+          "y" : 202.8
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "Table 2.1 records the positions. Equation 2.1 gives the gap.",
-          "width" : 284.1,
+          "width" : 282.9,
           "x" : 59.5,
-          "y" : 228.7
+          "y" : 226.5
         },
         {
-          "height" : 13.5,
+          "height" : 16.2,
           "text" : "g= b− a (2.1)",
           "width" : 230.6,
           "x" : 245.6,
-          "y" : 251.5
+          "y" : 250.1
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "Table 2.1.: Stop positions",
-          "width" : 122,
-          "x" : 206.9,
-          "y" : 306.2
+          "width" : 121.2,
+          "x" : 207.3,
+          "y" : 304
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "Stop Position (mm)",
-          "width" : 104,
-          "x" : 215.8,
-          "y" : 319.8
+          "width" : 103.7,
+          "x" : 216,
+          "y" : 316.8
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "Near 6",
-          "width" : 104,
-          "x" : 215.8,
-          "y" : 333.4
+          "width" : 103.6,
+          "x" : 216,
+          "y" : 330.4
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "Far 18",
-          "width" : 104,
-          "x" : 215.8,
-          "y" : 347
+          "width" : 103.6,
+          "x" : 216,
+          "y" : 344
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "1. Seat the first stop.",
-          "width" : 102.9,
+          "width" : 102.8,
           "x" : 72.9,
-          "y" : 386.2
+          "y" : 383.9
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "2. Slide the strip to the second mark.",
-          "width" : 179.9,
+          "width" : 179.7,
           "x" : 72.9,
-          "y" : 408.6
+          "y" : 406.3
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "5",
           "width" : 5.5,
           "x" : 470.8,
-          "y" : 715.3
+          "y" : 713.3
         }
       ],
-      "textHeight" : 591.5,
+      "textHeight" : 600.8,
       "textLeft" : 59.5,
-      "textTop" : 136.7,
+      "textTop" : 128.6,
       "textWidth" : 416.7,
       "width" : 595.3
     },
@@ -443,36 +429,36 @@
       "width" : 595.3
     },
     {
-      "firstY" : 136.6,
+      "firstY" : 127.9,
       "height" : 841.9,
-      "lastY" : 715.3,
+      "lastY" : 713.3,
       "lineCount" : 3,
       "lines" : [
         {
-          "height" : 20.7,
+          "height" : 33.3,
           "text" : "A. Spare gauges",
-          "width" : 155.6,
+          "width" : 156.5,
           "x" : 59.5,
-          "y" : 136.6
+          "y" : 127.9
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "Keep a spare strip with each bridge.",
-          "width" : 173.5,
+          "width" : 173.1,
           "x" : 59.5,
-          "y" : 179.1
+          "y" : 177.7
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "7",
           "width" : 5.5,
           "x" : 470.8,
-          "y" : 715.3
+          "y" : 713.3
         }
       ],
-      "textHeight" : 591.5,
+      "textHeight" : 601.5,
       "textLeft" : 59.5,
-      "textTop" : 136.6,
+      "textTop" : 127.9,
       "textWidth" : 416.7,
       "width" : 595.3
     },
@@ -485,36 +471,36 @@
       "width" : 595.3
     },
     {
-      "firstY" : 137.2,
+      "firstY" : 128.3,
       "height" : 841.9,
-      "lastY" : 715.3,
+      "lastY" : 713.3,
       "lineCount" : 3,
       "lines" : [
         {
-          "height" : 20.7,
+          "height" : 33.3,
           "text" : "Workshop record",
-          "width" : 159.8,
+          "width" : 159.4,
           "x" : 59.5,
-          "y" : 137.2
+          "y" : 128.3
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "The folded gauge follows the bench card [1].",
-          "width" : 211,
+          "width" : 210.5,
           "x" : 59.5,
-          "y" : 179.6
+          "y" : 177.4
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "9",
           "width" : 5.5,
           "x" : 470.8,
-          "y" : 715.3
+          "y" : 713.3
         }
       ],
-      "textHeight" : 591,
+      "textHeight" : 601.1,
       "textLeft" : 59.5,
-      "textTop" : 137.2,
+      "textTop" : 128.3,
       "textWidth" : 416.7,
       "width" : 595.3
     },
@@ -527,46 +513,46 @@
       "width" : 595.3
     },
     {
-      "firstY" : 136.9,
+      "firstY" : 128,
       "height" : 841.9,
-      "lastY" : 715.3,
+      "lastY" : 713.3,
       "lineCount" : 4,
       "lines" : [
         {
-          "height" : 20.7,
+          "height" : 33.3,
           "text" : "Bibliography",
-          "width" : 117.4,
+          "width" : 117.3,
           "x" : 59.5,
-          "y" : 136.9
+          "y" : 128
         },
         {
-          "height" : 12.8,
+          "height" : 16.3,
           "text" : "[1]",
           "width" : 11.5,
           "x" : 59.5,
-          "y" : 179.4
+          "y" : 177.6
         },
         {
-          "height" : 12.8,
+          "height" : 16.3,
           "text" : "Paper Bridge Workshop, Stop setting card.",
-          "width" : 205.2,
+          "width" : 203.5,
           "x" : 81.3,
-          "y" : 179.4
+          "y" : 177.6
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "11",
           "width" : 10.9,
           "x" : 465.3,
-          "y" : 715.3
+          "y" : 713.3
         }
       ],
-      "textHeight" : 591.2,
+      "textHeight" : 601.4,
       "textLeft" : 59.5,
-      "textTop" : 136.9,
+      "textTop" : 128,
       "textWidth" : 416.7,
       "width" : 595.3
     }
   ],
-  "textSHA256" : "f4454b719723d53ecc238558abaa8bbf4272bcc5141b354b1324cec53cd82ee2"
+  "textSHA256" : "de561f535b0a87ce2c31886935db6368c0db824fe9b0f37be472e3481413e572"
 }

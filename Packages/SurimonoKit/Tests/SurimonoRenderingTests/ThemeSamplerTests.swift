@@ -377,7 +377,7 @@ struct ThemeSamplerTests {
         let document = PDFDocument()
         document.insert(page, at: 0)
         let pdf = String(decoding: try #require(document.dataRepresentation()), as: UTF8.self)
-        #expect(pdf.contains("+KaTeX_Main-Regular"))
+        #expect(pdf.contains("+CMUSerif-Roman"))
     }
 
     @Test("飾りつきのテーマから飾りのないテーマへ替えると、飾りは残らない", .timeLimit(.minutes(1)))

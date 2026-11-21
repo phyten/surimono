@@ -45,8 +45,12 @@ function latinCompose(body, rectToCSS = 1, restorations) {
     const firstFace = css => css.fontFamily.split(',')[0].trim().replace(/^["']|["']$/g,'').toLowerCase();
     const faceFamily = css => {
         const family = firstFace(css);
+        // The PDF-safe substitute for CMU small capitals still takes cmcsc's TeX glue.
+        if (family === 'surimono searchable small caps' && css.fontVariantCaps === 'small-caps' &&
+            css.getPropertyValue('--tex-searchable-caps').trim()) return 'cm';
         if (family === 'surimono computer modern') return 'cm';
         if (family === 'times new roman' || family === 'times') return 'times';
+        if (family === 'surimono computer modern sans') return 'sans';
         if (family === 'surimono computer modern typewriter') return 'typewriter';
         return 'unknown';
     };
@@ -324,7 +328,7 @@ function latinCompose(body, rectToCSS = 1, restorations) {
                 const glueFamily = f.family === 'times' && contextGlue ? contextGlue : f.family;
                 w.glue = latinGlue(glueFamily,f.fontStyle,+f.fontWeight,f.em,w.rawSpace,
                     controlSpace ? '' : w.text,parameters.frenchspacing,f.em * fontScale,
-                    parameters.periodSpaceFactor);
+                    parameters.periodSpaceFactor,f.fontVariantCaps);
                 // A bibliography block skip follows (and adds to) an ordinary
                 // space if the source contains both. WebKit collapses their two
                 // source spaces, so paint their combined glue on one separator.
@@ -485,9 +489,10 @@ function latinCompose(body, rectToCSS = 1, restorations) {
         const tree = document.createTreeWalker(p,NodeFilter.SHOW_TEXT);
         for (let n = tree.lastChild(); n; n = tree.previousNode()) {
             const last = n.data.trimEnd().length;
-            // A closing footnote callout sits above the baseline. Use the adjacent
-            // body glyph, whose inset tracks the trimmed line's actual baseline.
-            if (!last || n.parentElement.closest('[data-latex-probe],svg,sup,sub')) continue;
+            // A trailing callout can occupy a native line on its own. Its own glyph
+            // supplies the same vertical reference before and after composing.
+            if (!last || n.parentElement.closest('[data-latex-probe],svg')) continue;
+            if (n.parentElement.closest('sup,sub') && !n.parentElement.closest('.footnote-ref')) continue;
             range.setStart(n,last-1); range.setEnd(n,last);
             return (p.getBoundingClientRect().bottom-range.getBoundingClientRect().bottom) * rectToCSS;
         }
@@ -559,7 +564,7 @@ function latinCompose(body, rectToCSS = 1, restorations) {
             if (trial.oldHeadingStyle === null) trial.heading.removeAttribute('style');
             else trial.heading.setAttribute('style',trial.oldHeadingStyle);
         }
-        if (trial.trim) {
+        if (trial.trim || trial.trimBoth) {
             if (trial.oldStyle === null) trial.p.removeAttribute('style');
             else trial.p.setAttribute('style',trial.oldStyle);
         }
@@ -797,7 +802,7 @@ function latinCompose(body, rectToCSS = 1, restorations) {
                 const first = css.textBoxTrim === 'trim-start' && initialPadding > 0 ? firstGlyph(p) : null;
                 pending.push({p,index,text,category,block,gutter,labelPosition,heading,runIn,headContent,originalHeading:heading && [...heading.childNodes],
                     oldHeadingStyle:heading?.getAttribute('style'),rows,fragment,boxDiagnostics,original:[...p.childNodes],oldStyle:p.getAttribute('style'),
-                    trim:first !== null, first, firstInset, initialPadding, finalInset});
+                    trim:first !== null, trimBoth:firstPitch !== undefined && !!css.getPropertyValue('--cm-strut-ascent'), first, firstInset, initialPadding, finalInset});
             } catch (error) {
                 if (unsupported.has(error.message)) { summary.qualifying--; noteSkip(p,error.message,category); }
                 else finish({index,p,category,block,gutter,heading,boxDiagnostics},text,String(error.message));
@@ -808,7 +813,13 @@ function latinCompose(body, rectToCSS = 1, restorations) {
         eachTrial(trial => {
             trial.installed = true;
             trial.p.dataset.flowLatin = '';
-            if (trial.trim) trial.p.style.setProperty('text-box-trim','none','important');
+            if (trial.trim || trial.trimBoth) trial.p.style.setProperty('text-box-trim','none','important');
+            if (trial.trimBoth) {
+                // The paragraph's padding prevents trim from reaching the nested block lines.
+                const first = trial.rows[0].line, last = trial.rows.at(-1).line;
+                first.style.textBoxTrim = first === last ? 'trim-both' : 'trim-start';
+                if (first !== last) last.style.textBoxTrim = 'trim-end';
+            }
             if (trial.heading) {
                 trial.heading.replaceChildren(trial.headContent);
                 trial.heading.style.wordSpacing = trial.rows[0].line.style.wordSpacing;

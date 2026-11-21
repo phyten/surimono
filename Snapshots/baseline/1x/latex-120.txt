@@ -52,14 +52,11 @@ allowance is found from a two-layer trial, for which Equa-
 tion (1) gives c = h2− 2t. The same model was used for
 the gauge block of Scale Fixture Room [4], where it pre-
 dicted the height of folded board well for up to four layers.
-•
-•
-•
-to measure the height of spacers with two to six layers in
+• to measure the height of spacers with two to six layers in
 one fixed slot;
-to compare the measurements with a layer model that
+• to compare the measurements with a layer model that
 adds a crease allowance; and
-to give simple rules for choosing a card stock for a target
+• to give simple rules for choosing a card stock for a target
 height.
 Card thickness.
 The thickness t was measured with a dial

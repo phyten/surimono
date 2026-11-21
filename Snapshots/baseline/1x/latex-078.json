@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.017457807542450833,
+    "changedAreaRatio" : 0.016427412437085957,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 27,
+    "maxBoxDeltaPt" : 25.1,
     "maxLuminance" : 138.1875,
-    "maxShiftPt" : 28.3,
+    "maxShiftPt" : 26.5,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -18,78 +18,78 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 116.4,
+      "firstY" : 114.5,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 9,
       "lines" : [
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Model workshop Crew sheet",
           "width" : 343.7,
           "x" : 125.4,
-          "y" : 116.4
+          "y" : 114.5
         },
         {
-          "height" : 17.5,
+          "height" : 21.7,
           "text" : "Reading the crew sheet",
-          "width" : 166.3,
+          "width" : 169.5,
           "x" : 125.4,
-          "y" : 150.2
+          "y" : 147.9
         },
         {
-          "height" : 14.6,
+          "height" : 18.1,
           "text" : "At the bench",
-          "width" : 78,
+          "width" : 79.1,
           "x" : 125.4,
-          "y" : 174.5
+          "y" : 172.6
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Set the stop before trimming the strips.",
           "width" : 166.9,
           "x" : 125.4,
-          "y" : 196.1
+          "y" : 194.2
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Stack the short pieces beside the rule.",
-          "width" : 165.4,
+          "width" : 165.2,
           "x" : 125.4,
-          "y" : 208.1
+          "y" : 206.2
         },
         {
-          "height" : 14.6,
+          "height" : 18.1,
           "text" : "At the rack",
-          "width" : 68.4,
+          "width" : 69.1,
           "x" : 302.3,
-          "y" : 174.4
+          "y" : 172.4
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Place one strip on each shelf. Mark its",
           "width" : 166.9,
           "x" : 302.3,
-          "y" : 195.1
+          "y" : 193.2
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "orientation before the paste dries.",
-          "width" : 147.1,
+          "width" : 147,
           "x" : 302.3,
-          "y" : 207.1
+          "y" : 205.2
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 614.4,
+      "textHeight" : 617.5,
       "textLeft" : 125.4,
-      "textTop" : 116.4,
+      "textTop" : 114.5,
       "textWidth" : 343.7,
       "width" : 595.3
     }

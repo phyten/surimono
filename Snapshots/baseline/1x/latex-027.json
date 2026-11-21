@@ -1,16 +1,16 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.04286733017083682,
+    "changedAreaRatio" : 0.041356359615126244,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
-    "lineCountChangedPages" : 1,
-    "maxBoxDeltaPt" : 25.6,
-    "maxLuminance" : 140.953125,
-    "maxShiftPt" : 26.9,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 23.3,
+    "maxLuminance" : 124.03125,
+    "maxShiftPt" : 25.2,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 18
+    "textEdits" : 0
   },
   "fonts" : [
     "Helvetica"
@@ -18,165 +18,123 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 150.4,
+      "firstY" : 148.1,
       "height" : 841.9,
-      "lastY" : 719.2,
-      "lineCount" : 21,
+      "lastY" : 717.2,
+      "lineCount" : 15,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.8,
           "text" : "Channel lining",
-          "width" : 104.3,
+          "width" : 105.3,
           "x" : 125.4,
-          "y" : 150.4
+          "y" : 148.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "At a tight bend the inner liner must slide. The fixture follows the bench draw-",
           "width" : 343.8,
           "x" : 125.4,
-          "y" : 175.1
+          "y" : 173.2
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "ing [6] and the scale study [5]. The hinge has its own assembly card [4].",
-          "width" : 313.6,
+          "width" : 312.8,
           "x" : 125.4,
-          "y" : 187.1
+          "y" : 185.2
         },
         {
-          "height" : 17.5,
+          "height" : 21.8,
           "text" : "References",
-          "width" : 77.5,
+          "width" : 77.4,
           "x" : 125.4,
-          "y" : 214.4
+          "y" : 212.1
         },
         {
-          "height" : 11.7,
-          "text" : "[1]",
-          "width" : 10.5,
+          "height" : 14.9,
+          "text" : "[1] Copper Atlas Group. Atlas of Paper Channels. Fold Workshop, 2016.",
+          "width" : 319.2,
           "x" : 125.4,
-          "y" : 240.7
+          "y" : 239.4
         },
         {
-          "height" : 11.7,
-          "text" : "[2]",
-          "width" : 10.5,
+          "height" : 14.9,
+          "text" : "[2] Fold Workshop. Lining the bend. In Atlas Desk, editor, Paper Waterways,",
+          "width" : 343.7,
           "x" : 125.4,
-          "y" : 260.7
+          "y" : 259.4
         },
         {
-          "height" : 11.7,
-          "text" : "[3]",
-          "width" : 10.5,
-          "x" : 125.4,
-          "y" : 292.7
-        },
-        {
-          "height" : 11.7,
-          "text" : "[4]",
-          "width" : 10.5,
-          "x" : 125.4,
-          "y" : 312.7
-        },
-        {
-          "height" : 11.7,
-          "text" : "[5]",
-          "width" : 10.5,
-          "x" : 125.4,
-          "y" : 344.7
-        },
-        {
-          "height" : 11.7,
-          "text" : "[6]",
-          "width" : 10.5,
-          "x" : 125.4,
-          "y" : 376.7
-        },
-        {
-          "height" : 11.7,
-          "text" : "Copper Atlas Group. Atlas of Paper Channels. Fold Workshop, 2016.",
-          "width" : 306.3,
-          "x" : 140.9,
-          "y" : 240.7
-        },
-        {
-          "height" : 11.7,
-          "text" : "Fold Workshop. Lining the bend. In Atlas Desk, editor, Paper Waterways,",
-          "width" : 328.2,
-          "x" : 140.9,
-          "y" : 260.7
-        },
-        {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "pages 8–12. Model Quay Press, 2017.",
-          "width" : 161.9,
+          "width" : 161.8,
           "x" : 140.9,
-          "y" : 272.7
+          "y" : 271.6
         },
         {
-          "height" : 11.7,
-          "text" : "Gauge Desk. Gauge Card Handbook, 2021.",
-          "width" : 186.7,
-          "x" : 140.9,
-          "y" : 292.7
+          "height" : 14.9,
+          "text" : "[3] Gauge Desk. Gauge Card Handbook, 2021.",
+          "width" : 200.6,
+          "x" : 125.4,
+          "y" : 291.4
         },
         {
-          "height" : 11.7,
-          "text" : "Hinge Study Group. A reversible flap. In Proceedings of the Model Gate",
-          "width" : 328.2,
-          "x" : 140.9,
-          "y" : 312.7
+          "height" : 14.9,
+          "text" : "[4] Hinge Study Group. A reversible flap. In Proceedings of the Model Gate",
+          "width" : 343.7,
+          "x" : 125.4,
+          "y" : 311.4
         },
         {
-          "height" : 11.7,
+          "height" : 14.9,
           "text" : "Forum, pages 21–24, 2018.",
-          "width" : 116.2,
+          "width" : 115.4,
           "x" : 140.9,
-          "y" : 324.7
+          "y" : 323.4
         },
         {
-          "height" : 11.7,
-          "text" : "River Model Circle. Calibrating the sill. Model Quay Notes, 4:11–14, Septem-",
-          "width" : 328.3,
-          "x" : 140.9,
-          "y" : 344.7
+          "height" : 14.9,
+          "text" : "[5] River Model Circle. Calibrating the sill. Model Quay Notes, 4:11–14, Septem-",
+          "width" : 343.7,
+          "x" : 125.4,
+          "y" : 343.4
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "ber 2019.",
-          "width" : 39.9,
+          "width" : 40.1,
           "x" : 140.9,
-          "y" : 356.7
+          "y" : 355.6
         },
         {
-          "height" : 11.7,
-          "text" : "Tray Workshop. A bench for tilted channels. Technical Report 7, Model",
-          "width" : 328.2,
-          "x" : 140.9,
-          "y" : 376.7
+          "height" : 14.8,
+          "text" : "[6] Tray Workshop. A bench for tilted channels. Technical Report 7, Model",
+          "width" : 343.7,
+          "x" : 125.4,
+          "y" : 375.6
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Quay Laboratory, 2020.",
-          "width" : 104.3,
+          "width" : 103.4,
           "x" : 140.9,
-          "y" : 388.7
+          "y" : 387.6
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 580.4,
+      "textHeight" : 583.9,
       "textLeft" : 125.4,
-      "textTop" : 150.4,
+      "textTop" : 148.1,
       "textWidth" : 343.8,
       "width" : 595.3
     }
   ],
-  "textSHA256" : "df73f937aeed4ba9f53aab87868b836285d311dd8f1b3c44c105b3aa76fd03ef"
+  "textSHA256" : "60991b40dcf5d1dfd00971e88196f4be2e81e0975b19ae7740fa1894774bac91"
 }

@@ -120,13 +120,18 @@ struct LaTeXConverterTests {
 
     @Test("箇条書きは記号を、番号つきは入れ子で 1. と (a) を、enumitem の指定はその書式を使う")
     func lists() {
+        let nested = body(
+            String(repeating: #"\begin{itemize}\item Text"#, count: 4) + String(repeating: #"\end{itemize}"#, count: 4))
+        for mark in ["•", "–", "∗", "·"] {
+            #expect(nested.contains(#"<span class="latex-item-mark">\#(mark)</span>"#))
+        }
         let html = body(
             "\\begin{itemize}\\item 一\\item[*] 印\\end{itemize}"
                 + "\\begin{enumerate}\\item 上\\begin{enumerate}\\item 下\\end{enumerate}\\end{enumerate}"
                 + "\\begin{enumerate}[label=(\\roman*), start=3]\\item 三\\end{enumerate}"
                 + "\\begin{enumerate}[(A)]\\item 甲\\end{enumerate}"
                 + "\\begin{description}\\item[語] 説明\\end{description}")
-        #expect(html.contains("<li>一</li>"))
+        #expect(html.contains("<li><span class=\"latex-item-mark\">•</span>一</li>"))
         #expect(html.contains("<li class=\"latex-custom-label\"><span class=\"item-label\">*</span>印</li>"))
         #expect(html.contains("<p><span class=\"item-label\">1.</span>上</p>"))
         #expect(html.contains("<span class=\"item-label\">(a)</span>下"))
@@ -325,7 +330,7 @@ struct LaTeXConverterBoundaryTests {
         let quote = body("\\begin{quote}\\verb|\\end{quote}|後\\end{quote}")
         #expect(quote.contains("<blockquote>\n<p><code>\\end{quote}</code>後</p>\n</blockquote>"))
         let list = body("\\begin{itemize}\\item \\verb|\\item|後\\end{itemize}")
-        #expect(list.contains("<li><code>\\item</code>後</li>"))
+        #expect(list.contains("<li><span class=\"latex-item-mark\">•</span><code>\\item</code>後</li>"))
         #expect(list.components(separatedBy: "<li>").count == 2)
     }
 

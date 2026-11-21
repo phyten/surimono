@@ -220,7 +220,7 @@ struct LaTeXLayoutTests {
                 \end{document}
                 """#, fontIndex: .testInventory)
         #expect(result.readingIssues.isEmpty)
-        #expect(result.body.contains("図 1"))
+        #expect(DocumentOutline.plainText(ofHTML: result.body).contains("図 1"))
         #expect(!DocumentOutline.plainText(ofHTML: result.body).contains("ignored"))
     }
 }

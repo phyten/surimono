@@ -1,4 +1,4 @@
-/* Computer Modern supplies Latin glyphs only; Japanese body text falls through to mincho. */
+/* Computer Modern supplies the Western glyphs; Japanese body text falls through to mincho. */
 body.surimono[data-latex-size]:not(:lang(zh), :lang(ko)) {
     --tex-serif: var(--latex-jfm-face, "Surimono Computer Modern"), "Hiragino Mincho ProN", "YuMincho", serif;
 }
@@ -65,10 +65,11 @@ body.format-latex:is([data-latex-class="ltjarticle"],[data-latex-class="jarticle
         margin-block: 0 calc(3 * var(--tex-baseline));
     }
     & [data-latex-heading="chapter"] > .secnum { display: inline; font-size: inherit; margin: 0 1em 0 0; }
+    &[data-latex-local-main-font] { --j-label-space: .25em; }
     /* The traditional class keeps body-size xkanjiskip inside the enlarged chapter label. */
     & [data-latex-heading="chapter"]:not([data-latex-appendix]) > .secnum,
     & .latex-toc-chapter > a .secnum {
-        word-spacing: calc(.25 * var(--latex-jfm-scale) * var(--tex-body) * var(--tex-pt) - .25em);
+        word-spacing: calc(.25 * var(--latex-jfm-scale) * var(--tex-body) * var(--tex-pt) - var(--j-label-space, .383em));
     }
     & [data-latex-heading="chapter"]:not([data-latex-appendix]) > .secnum { margin-inline-end: 1ic; }
     & .latex-toc-chapter > a { --latex-toc-number-width: 4em; }
@@ -110,10 +111,6 @@ body.format-latex:is([data-latex-class="ltjarticle"],[data-latex-class="jarticle
     & :is([data-latex-heading="section"],[data-latex-heading="subsection"]) > .secnum {
         margin-inline-end: calc(1em - .15 * var(--tex-body) * var(--tex-pt));
     }
-    /* The class's bold word space is .375em, and the figure name's nonbreaking space is .333em.
-       The bundled text faces have a .25em space. Keep each label in a single text run. */
-    & :is(.latex-contents-title,.abstract-title) { word-spacing: .125em; }
-    & figcaption:not([data-latex-caption-style]) > .latex-caption-label { word-spacing: .083em; }
     & :is(ol.latex-enumerate,ul:not(.toc ul)):not(li ol,li ul) > li {
         min-block-size: var(--tex-baseline);
         & + li { margin-block-start: calc(var(--latex-itemsep, var(--j-list-parsep)) + var(--latex-list-parsep, var(--j-list-parsep))); }

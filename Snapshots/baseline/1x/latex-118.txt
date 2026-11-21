@@ -23,12 +23,9 @@ the height they want (Model Rail Desk, 2025). Folding is quick and needs no tool
 of a folded spacer is not simply the sum of the card thicknesses: each crease adds a small allowance,
 and the allowance depends on the card and on how firmly the crease is pressed.
 This note reports a bench trial of folded spacers. Our aims were:
-•
-to measure the height of spacers with two to six layers in one fixed slot;
-•
-to compare the measurements with a layer model that adds a crease allowance; and
-•
-to give simple rules for choosing a card stock for a target height.
+• to measure the height of spacers with two to six layers in one fixed slot;
+• to compare the measurements with a layer model that adds a crease allowance; and
+• to give simple rules for choosing a card stock for a target height.
 Section 2 describes the slot and the procedure, Section 3 reports the measurements, and Section 4
 summarises the rules. Earlier notes on layered card (Card Stock Bench and Model Rail Desk, 2024)
 and on gauge blocks (Scale Fixture Room, 2023) motivated the layer model used here.1

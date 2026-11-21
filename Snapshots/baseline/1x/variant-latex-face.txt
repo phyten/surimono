@@ -8,7 +8,7 @@ Surimono サンプル
 個数
 ノート 2
 鉛筆 3
-let let let let message = "こんにちは、摺物"
+let message = "こんにちは、摺物"
 print(message)
 まずは一枚、試しに刷ってみましょう。
 Graphviz と PlantUML

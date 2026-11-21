@@ -1,29 +1,30 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.016123564732996414,
+    "changedAreaRatio" : 0.016208311371552,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 2,
-    "maxBoxDeltaPt" : 4.9,
+    "maxBoxDeltaPt" : 5.5,
     "maxLuminance" : 226.625,
-    "maxShiftPt" : 92.6,
+    "maxShiftPt" : 91.5,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 24
+    "textEdits" : 20
   },
   "fonts" : [
     "Helvetica",
     "HiraMinProN-W3",
     "HiraginoSans-W5",
+    "Times-Roman",
     "TimesNewRomanPSMT"
   ],
   "pageCount" : 2,
   "pages" : [
     {
-      "firstY" : 163.3,
+      "firstY" : 164.1,
       "height" : 841.9,
-      "lastY" : 740.5,
+      "lastY" : 738.6,
       "lineCount" : 19,
       "lines" : [
         {
@@ -31,7 +32,7 @@
           "text" : "格子窓の試し刷り",
           "width" : 132.5,
           "x" : 230.4,
-          "y" : 163.3
+          "y" : 164.1
         },
         {
           "height" : 17.6,
@@ -43,7 +44,7 @@
         {
           "height" : 14.5,
           "text" : "概 要",
-          "width" : 20.6,
+          "width" : 20.7,
           "x" : 286.3,
           "y" : 239.9
         },
@@ -57,44 +58,44 @@
         {
           "height" : 23.2,
           "text" : "目 次",
-          "width" : 33,
+          "width" : 33.1,
           "x" : 133.8,
           "y" : 292.5
         },
         {
-          "height" : 16.1,
+          "height" : 16.2,
           "text" : "1 採寸 1",
           "width" : 325.8,
           "x" : 134.1,
-          "y" : 323.9
+          "y" : 324.5
         },
         {
-          "height" : 14.6,
+          "height" : 15.6,
           "text" : "1.1 帯の向き 1",
           "width" : 310.8,
           "x" : 149,
-          "y" : 339.1
+          "y" : 340.2
         },
         {
-          "height" : 16.1,
+          "height" : 16.2,
           "text" : "2 試験結果 2",
           "width" : 325.8,
           "x" : 134.1,
-          "y" : 363.8
+          "y" : 364.3
         },
         {
-          "height" : 17.5,
+          "height" : 21.7,
           "text" : "1",
           "width" : 8.2,
           "x" : 134.1,
-          "y" : 406.1
+          "y" : 403.7
         },
         {
-          "height" : 14.6,
+          "height" : 18.1,
           "text" : "1.1",
           "width" : 17.6,
           "x" : 133.8,
-          "y" : 432.3
+          "y" : 431.2
         },
         {
           "height" : 23.2,
@@ -108,14 +109,14 @@
           "text" : "帯の向き",
           "width" : 46,
           "x" : 163.3,
-          "y" : 429
+          "y" : 429.8
         },
         {
-          "height" : 14.6,
+          "height" : 15.9,
           "text" : "白い面を上にして窓枠を置く。1",
           "width" : 138.4,
           "x" : 143.7,
-          "y" : 454.3
+          "y" : 453
         },
         {
           "height" : 16.1,
@@ -125,158 +126,158 @@
           "y" : 482.7
         },
         {
-          "height" : 15.2,
-          "text" : "桟の幅を写す。•",
-          "width" : 61.9,
-          "x" : 153.7,
-          "y" : 505.1
+          "height" : 14.6,
+          "text" : "• 桟の幅を写す。",
+          "width" : 74.3,
+          "x" : 150.2,
+          "y" : 505.5
         },
         {
-          "height" : 15.2,
-          "text" : "短辺の切り口をそろえる。•",
-          "width" : 109.9,
-          "x" : 153.7,
-          "y" : 527.5
+          "height" : 14.6,
+          "text" : "• 短辺の切り口をそろえる。",
+          "width" : 122.9,
+          "x" : 150.2,
+          "y" : 527.9
         },
         {
-          "height" : 7,
+          "height" : 8.9,
           "text" : "1",
           "width" : 3,
           "x" : 143.4,
-          "y" : 711.7
+          "y" : 709.8
         },
         {
           "height" : 11.7,
           "text" : "台紙の折り目を基準にする。",
           "width" : 99.7,
           "x" : 147.3,
-          "y" : 710
+          "y" : 710.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.2,
-          "y" : 740.5
+          "y" : 738.6
         }
       ],
-      "textHeight" : 588.8,
+      "textHeight" : 589.2,
       "textLeft" : 133.8,
-      "textTop" : 163.3,
+      "textTop" : 164.1,
       "textWidth" : 326.1,
       "width" : 595.3
     },
     {
-      "firstY" : 128.7,
+      "firstY" : 126.4,
       "height" : 841.9,
-      "lastY" : 740.5,
+      "lastY" : 738.6,
       "lineCount" : 14,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.7,
           "text" : "2",
           "width" : 8.2,
           "x" : 134.1,
-          "y" : 128.7
+          "y" : 126.4
         },
         {
           "height" : 23.2,
           "text" : "試験結果",
           "width" : 55.2,
           "x" : 156.7,
-          "y" : 124.7
+          "y" : 124.8
         },
         {
-          "height" : 14.6,
+          "height" : 15.6,
           "text" : "図 1 の桟を表 1 の順に重ねる。",
           "width" : 135,
           "x" : 143.7,
-          "y" : 152.1
+          "y" : 152.2
         },
         {
-          "height" : 14.6,
+          "height" : 15.6,
           "text" : "図 1: 窓枠の桟",
           "width" : 64,
           "x" : 264.7,
-          "y" : 203.3
+          "y" : 203.4
         },
         {
-          "height" : 14.6,
+          "height" : 15.6,
           "text" : "表 1: 帯の幅",
           "width" : 54.4,
           "x" : 269.5,
-          "y" : 241.6
+          "y" : 241.7
         },
         {
           "height" : 14.6,
           "text" : "位置 幅（ミリ）",
           "width" : 78.1,
           "x" : 260,
-          "y" : 254.4
+          "y" : 253.7
         },
         {
-          "height" : 14.6,
+          "height" : 15.6,
           "text" : "内側 3",
           "width" : 73.3,
           "x" : 260,
-          "y" : 268.8
+          "y" : 268.9
         },
         {
-          "height" : 14.6,
+          "height" : 15.6,
           "text" : "外側 5",
           "width" : 73.3,
           "x" : 260,
-          "y" : 284
+          "y" : 284.1
         },
         {
-          "height" : 14.6,
+          "height" : 15.6,
           "text" : "1. 白紙を窓に当てる。",
           "width" : 99,
           "x" : 145.9,
-          "y" : 322.3
+          "y" : 322.4
         },
         {
-          "height" : 14.6,
+          "height" : 15.6,
           "text" : "2. 影の幅を台帳に写す [1]。",
           "width" : 121.6,
           "x" : 145.9,
-          "y" : 344.7
+          "y" : 344.8
         },
         {
           "height" : 23.2,
           "text" : "参考文献",
           "width" : 55.2,
           "x" : 133.8,
-          "y" : 382.1
+          "y" : 382.2
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "[1]",
           "width" : 10.5,
           "x" : 133.8,
-          "y" : 413.1
+          "y" : 411.3
         },
         {
           "height" : 14.6,
           "text" : "紙窓模型工房『採光台帳』 。",
           "width" : 119.8,
           "x" : 149.3,
-          "y" : 410.3
+          "y" : 410.4
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "2",
           "width" : 5,
           "x" : 294.2,
-          "y" : 740.5
+          "y" : 738.6
         }
       ],
-      "textHeight" : 627.4,
+      "textHeight" : 628.5,
       "textLeft" : 133.8,
-      "textTop" : 124.7,
+      "textTop" : 124.8,
       "textWidth" : 204.3,
       "width" : 595.3
     }
   ],
-  "textSHA256" : "a9e75632e63faf3a14a79492385e08dbe14da7edf1e75e1c4384dd06183bb6d9"
+  "textSHA256" : "2d077d0dce601e7afc7adb1bb83f512dc2040dc2cf0f3dc5a11ec53c322fcd01"
 }

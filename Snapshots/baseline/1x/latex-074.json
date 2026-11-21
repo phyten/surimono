@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.011907491201608849,
+    "changedAreaRatio" : 0.011614881850175968,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 25.6,
-    "maxLuminance" : 147.4375,
-    "maxShiftPt" : 28.9,
+    "maxBoxDeltaPt" : 23.3,
+    "maxLuminance" : 129.703125,
+    "maxShiftPt" : 30.6,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -18,93 +18,93 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 150.4,
+      "firstY" : 148.1,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 11,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.8,
           "text" : "Wear on paired strips",
-          "width" : 155.4,
+          "width" : 157.1,
           "x" : 125.4,
-          "y" : 150.4
+          "y" : 148.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "2",
           "width" : 5,
-          "x" : 149.6,
-          "y" : 191.2
+          "x" : 149.9,
+          "y" : 189.3
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Readings",
           "width" : 39.5,
-          "x" : 186.1,
-          "y" : 182.6
+          "x" : 186.4,
+          "y" : 180.7
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Guide",
           "width" : 26.1,
-          "x" : 192.8,
-          "y" : 195
+          "x" : 193.1,
+          "y" : 193.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1.5",
           "width" : 12.7,
-          "x" : 141.9,
-          "y" : 230.8
+          "x" : 142.2,
+          "y" : 228.9
         },
         {
-          "height" : 23.6,
+          "height" : 21.9,
           "text" : "Wear",
-          "width" : 11.7,
-          "x" : 126,
-          "y" : 244.6
+          "width" : 14.8,
+          "x" : 124.4,
+          "y" : 245.8
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
-          "x" : 149.6,
-          "y" : 270.4
+          "x" : 149.9,
+          "y" : 268.5
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "0.5",
           "width" : 12.7,
-          "x" : 141.9,
-          "y" : 309.9
+          "x" : 142.2,
+          "y" : 308
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1 1.5 2 2.5 3 3.5 4",
           "width" : 166.9,
-          "x" : 171.8,
-          "y" : 338
+          "x" : 172.1,
+          "y" : 336.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Pass",
-          "width" : 19.6,
-          "x" : 245.4,
-          "y" : 351.6
+          "width" : 19.1,
+          "x" : 245.9,
+          "y" : 349.7
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 580.4,
-      "textLeft" : 125.4,
-      "textTop" : 150.4,
-      "textWidth" : 213.2,
+      "textHeight" : 583.9,
+      "textLeft" : 124.4,
+      "textTop" : 148.1,
+      "textWidth" : 214.6,
       "width" : 595.3
     }
   ],

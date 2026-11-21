@@ -1,106 +1,105 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.014253971206812804,
+    "changedAreaRatio" : 0.013815769075744892,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
-    "maxBoxDeltaPt" : 25.6,
-    "maxLuminance" : 128.65625,
-    "maxShiftPt" : 27.7,
+    "maxBoxDeltaPt" : 23.3,
+    "maxLuminance" : 117.234375,
+    "maxShiftPt" : 26.6,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 10
   },
   "fonts" : [
-    "Helvetica",
-    "TimesNewRomanPSMT"
+    "Helvetica"
   ],
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 150.4,
+      "firstY" : 148.1,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 10,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.8,
           "text" : "Packing the field tray",
-          "width" : 154.6,
+          "width" : 156.4,
           "x" : 125.4,
-          "y" : 150.4
+          "y" : 148.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1. Assemble the tray.",
-          "width" : 94.8,
+          "width" : 93.3,
           "x" : 137.6,
-          "y" : 175.9
+          "y" : 174.8
         },
         {
-          "height" : 11.7,
-          "text" : "Lay a cork strip along each edge.•",
-          "width" : 146.9,
-          "x" : 167.3,
-          "y" : 195.9
+          "height" : 14.8,
+          "text" : "• Lay a cork strip along each edge.",
+          "width" : 154,
+          "x" : 162.3,
+          "y" : 194.8
         },
         {
-          "height" : 11.7,
-          "text" : "Fit two dividers.•",
-          "width" : 75,
-          "x" : 167.3,
-          "y" : 211.9
-        },
-        {
-          "height" : 11.7,
-          "text" : "2. Check the marks against the key.",
-          "width" : 159,
-          "x" : 137.6,
-          "y" : 231.9
-        },
-        {
-          "height" : 12.2,
-          "text" : "Open circle",
-          "width" : 56.9,
-          "x" : 125.4,
-          "y" : 253
-        },
-        {
-          "height" : 12.2,
-          "text" : "A dry sample well.",
+          "height" : 14.8,
+          "text" : "• Fit two dividers.",
           "width" : 82,
-          "x" : 192.3,
-          "y" : 253
+          "x" : 162.3,
+          "y" : 210.8
         },
         {
-          "height" : 12.2,
+          "height" : 14.8,
+          "text" : "2. Check the marks against the key.",
+          "width" : 157.5,
+          "x" : 137.6,
+          "y" : 230.8
+        },
+        {
+          "height" : 15.1,
+          "text" : "Open circle",
+          "width" : 57.2,
+          "x" : 125.4,
+          "y" : 252.2
+        },
+        {
+          "height" : 15.1,
+          "text" : "A dry sample well.",
+          "width" : 81.6,
+          "x" : 192.6,
+          "y" : 252.2
+        },
+        {
+          "height" : 15.1,
           "text" : "Solid dot",
           "width" : 45.2,
           "x" : 125.4,
-          "y" : 273
+          "y" : 272.2
         },
         {
-          "height" : 12.2,
+          "height" : 15.1,
           "text" : "A well reserved for a second reading.",
-          "width" : 161,
-          "x" : 180.6,
-          "y" : 273
+          "width" : 160.3,
+          "x" : 180.5,
+          "y" : 272.2
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 580.4,
+      "textHeight" : 583.9,
       "textLeft" : 125.4,
-      "textTop" : 150.4,
-      "textWidth" : 216.1,
+      "textTop" : 148.1,
+      "textWidth" : 215.4,
       "width" : 595.3
     }
   ],
-  "textSHA256" : "91773a72f6207a61baca54a7bf260a868877f05fafa7e3a7e49b339a08e5a8d8"
+  "textSHA256" : "3d4d91f955d949f9b84905542f351b74bc866b6fd5004822e3792d1c83826a21"
 }

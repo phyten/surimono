@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.00987956487956488,
+    "changedAreaRatio" : 0.009642579642579642,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 364,
-    "maxLuminance" : 152.875,
-    "maxShiftPt" : 364.1,
+    "maxBoxDeltaPt" : 366.3,
+    "maxLuminance" : 141,
+    "maxShiftPt" : 366.4,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -18,37 +18,37 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 125.5,
+      "firstY" : 123.2,
       "height" : 595.3,
-      "lastY" : 490,
+      "lastY" : 488.1,
       "lineCount" : 3,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.7,
           "text" : "Panoramic clearance strip",
-          "width" : 185.8,
+          "width" : 187.4,
           "x" : 143.6,
-          "y" : 125.5
+          "y" : 123.2
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Align the following edge with the shelf lip. The end marks identify the usable span.",
-          "width" : 366,
+          "width" : 365.1,
           "x" : 143.6,
-          "y" : 150.2
+          "y" : 148.3
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 415.1,
-          "y" : 490
+          "y" : 488.1
         }
       ],
-      "textHeight" : 376.2,
+      "textHeight" : 379.7,
       "textLeft" : 143.6,
-      "textTop" : 125.5,
-      "textWidth" : 366,
+      "textTop" : 123.2,
+      "textWidth" : 365.1,
       "width" : 841.9
     }
   ],

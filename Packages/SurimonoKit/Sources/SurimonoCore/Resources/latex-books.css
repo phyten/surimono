@@ -1,8 +1,5 @@
 /* typearea supplies the page rectangle. The chapter's own skip is measured in body baselines
    even when the author selects a smaller chapter font. */
-body[data-latex-class^="scr"] {
-    --tex-sans-fonts: var(--latex-cjk-sans-font, var(--latex-sans-font, "Surimono KOMA Sans")), var(--latex-sans-font, "Surimono KOMA Sans"), var(--tex-sans);
-}
 body[data-latex-class^="scr"] [data-latex-koma-heading] {
     font-family: var(--koma-family, var(--latex-koma-disposition-family, var(--tex-sans-fonts)));
     font-weight: var(--koma-weight, var(--latex-koma-disposition-weight, bold));

@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.014342851827736954,
+    "changedAreaRatio" : 0.01400386527351461,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 25.6,
-    "maxLuminance" : 130.484375,
-    "maxShiftPt" : 29.2,
+    "maxBoxDeltaPt" : 23.3,
+    "maxLuminance" : 116.8125,
+    "maxShiftPt" : 28.6,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -18,72 +18,72 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 150.4,
+      "firstY" : 148.1,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 8,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.8,
           "text" : "Core sample inventory",
-          "width" : 162.3,
+          "width" : 163,
           "x" : 125.4,
-          "y" : 150.4
+          "y" : 148.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Location Depth Description",
-          "width" : 142.9,
-          "x" : 137.3,
-          "y" : 175.9
+          "width" : 142.4,
+          "x" : 136.8,
+          "y" : 174.8
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Bay Slot mm Surface",
-          "width" : 131.4,
+          "width" : 130.4,
           "x" : 130.9,
-          "y" : 188.7
+          "y" : 187.6
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "East A 12 Fine ridges along the cut",
-          "width" : 218.6,
+          "width" : 217.6,
           "x" : 130.9,
-          "y" : 201.5
+          "y" : 200.4
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "face.",
           "width" : 19.6,
-          "x" : 230.4,
-          "y" : 213.5
+          "x" : 229.5,
+          "y" : 212.4
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "West B 9 Pale band above",
-          "width" : 171.9,
+          "width" : 170.3,
           "x" : 130.9,
-          "y" : 225.5
+          "y" : 224.4
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "dark seam",
           "width" : 44.6,
-          "x" : 230.4,
-          "y" : 237.5
+          "x" : 229.5,
+          "y" : 236.4
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 580.4,
+      "textHeight" : 583.9,
       "textLeft" : 125.4,
-      "textTop" : 150.4,
-      "textWidth" : 224.1,
+      "textTop" : 148.1,
+      "textWidth" : 223.1,
       "width" : 595.3
     }
   ],

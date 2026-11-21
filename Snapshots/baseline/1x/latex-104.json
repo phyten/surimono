@@ -1,16 +1,16 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.01242158352194628,
+    "changedAreaRatio" : 0.012313066484771443,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
     "maxBoxDeltaPt" : 6.2,
-    "maxLuminance" : 71.9375,
+    "maxLuminance" : 75.6875,
     "maxShiftPt" : 5.2,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 8
+    "textEdits" : 0
   },
   "fonts" : [
     "Helvetica",
@@ -69,24 +69,24 @@
       "width" : 595.3
     },
     {
-      "firstY" : 89.2,
+      "firstY" : 89,
       "height" : 841.9,
-      "lastY" : 789.5,
+      "lastY" : 787.4,
       "lineCount" : 18,
       "lines" : [
         {
-          "height" : 24.4,
+          "height" : 24.6,
           "text" : "1 測定の準備",
           "width" : 96.2,
           "x" : 72.7,
-          "y" : 89.2
+          "y" : 89
         },
         {
-          "height" : 20.4,
+          "height" : 20.5,
           "text" : "1.1 紙を折る",
           "width" : 78.2,
           "x" : 72.4,
-          "y" : 119.5
+          "y" : 119.3
         },
         {
           "height" : 17,
@@ -132,45 +132,45 @@
         },
         {
           "height" : 15.4,
-          "text" : "二枚の紙•",
-          "width" : 37.6,
-          "x" : 90.8,
+          "text" : "• 二枚の紙",
+          "width" : 49.6,
+          "x" : 88.9,
           "y" : 305.8
         },
         {
-          "height" : 15.4,
-          "text" : "薄い紙–",
-          "width" : 25.6,
-          "x" : 116.7,
+          "height" : 16.6,
+          "text" : "– 薄い紙",
+          "width" : 41.2,
+          "x" : 111.2,
           "y" : 323.2
         },
         {
-          "height" : 15.4,
-          "text" : "厚い紙–",
-          "width" : 25.6,
-          "x" : 116.7,
+          "height" : 16.6,
+          "text" : "– 厚い紙",
+          "width" : 41.2,
+          "x" : 111.2,
           "y" : 340.7
         },
         {
           "height" : 15.4,
-          "text" : "三枚の紙•",
-          "width" : 37.6,
-          "x" : 90.8,
+          "text" : "• 三枚の紙",
+          "width" : 49.6,
+          "x" : 88.9,
           "y" : 361.1
         },
         {
-          "height" : 9.1,
+          "height" : 14.2,
           "text" : "1 white = 2",
           "width" : 61.5,
           "x" : 55.7,
-          "y" : 414.7
+          "y" : 411.1
         },
         {
-          "height" : 9.1,
+          "height" : 14.2,
           "text" : "2 blue = 3",
           "width" : 56.4,
           "x" : 55.7,
-          "y" : 428.8
+          "y" : 425.3
         },
         {
           "height" : 15.4,
@@ -187,26 +187,26 @@
           "y" : 192.4
         },
         {
-          "height" : 13.9,
+          "height" : 15,
           "text" : "Listing 1 紙の枚数",
-          "width" : 82.4,
-          "x" : 256.4,
+          "width" : 83.2,
+          "x" : 256,
           "y" : 389.5
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "1",
           "width" : 5.5,
           "x" : 294.9,
-          "y" : 789.5
+          "y" : 787.4
         }
       ],
-      "textHeight" : 713.2,
+      "textHeight" : 714.6,
       "textLeft" : 55.7,
-      "textTop" : 89.2,
-      "textWidth" : 283.1,
+      "textTop" : 89,
+      "textWidth" : 283.5,
       "width" : 595.3
     }
   ],
-  "textSHA256" : "4809ee32762d2dddbfd5930766ab274e3e96fe80771d41e39b9e9b42f1547e44"
+  "textSHA256" : "5dbca959498e7acfced1d76d5f91d49dfd47800dedb0ff58ed2246dcbd5555b6"
 }

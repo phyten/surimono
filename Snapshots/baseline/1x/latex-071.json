@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.011091000502765208,
+    "changedAreaRatio" : 0.010831573655103066,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
-    "maxBoxDeltaPt" : 25.4,
-    "maxLuminance" : 140.3125,
-    "maxShiftPt" : 30,
+    "maxBoxDeltaPt" : 23.1,
+    "maxLuminance" : 122.140625,
+    "maxShiftPt" : 28.7,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 8
@@ -18,51 +18,51 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 150.2,
+      "firstY" : 147.9,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 5,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.7,
           "text" : "Neighbouring rack cells",
-          "width" : 168.1,
+          "width" : 169.7,
           "x" : 125.4,
-          "y" : 150.2
+          "y" : 147.9
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "A1 A2 A3",
           "width" : 132.3,
           "x" : 231.2,
-          "y" : 194.7
+          "y" : 192.8
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "B1 B2 B3",
           "width" : 131.9,
           "x" : 231.4,
-          "y" : 222.7
+          "y" : 220.8
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Figure 1: Move down one row while keeping the column fixed.",
-          "width" : 272,
-          "x" : 161.3,
-          "y" : 251.6
+          "width" : 270.3,
+          "x" : 162.1,
+          "y" : 250.5
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 580.6,
+      "textHeight" : 584.1,
       "textLeft" : 125.4,
-      "textTop" : 150.2,
-      "textWidth" : 307.8,
+      "textTop" : 147.9,
+      "textWidth" : 307,
       "width" : 595.3
     }
   ],

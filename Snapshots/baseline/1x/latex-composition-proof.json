@@ -5,134 +5,134 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 189.7,
+      "firstY" : 187.2,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 17,
       "lines" : [
         {
-          "height" : 20.2,
+          "height" : 25.5,
           "text" : "A survey of the lantern court",
-          "width" : 208.5,
-          "x" : 136.5,
-          "y" : 189.7
+          "width" : 220,
+          "x" : 130.6,
+          "y" : 187.2
         },
         {
-          "height" : 14,
+          "height" : 17.7,
           "text" : "Notes from the winter trial",
-          "width" : 132,
-          "x" : 174.8,
-          "y" : 217.6
+          "width" : 141.1,
+          "x" : 170,
+          "y" : 216.1
         },
         {
-          "height" : 17,
+          "height" : 20.3,
           "text" : "Survey desk* Model workshop",
-          "width" : 177.2,
-          "x" : 152,
-          "y" : 245
+          "width" : 177,
+          "x" : 152.1,
+          "y" : 243.1
         },
         {
-          "height" : 10.9,
+          "height" : 13.6,
           "text" : "Abstract",
-          "width" : 39.5,
+          "width" : 39.4,
           "x" : 220.9,
-          "y" : 277.5
+          "y" : 276
         },
         {
-          "height" : 10.5,
+          "height" : 13.3,
           "text" : "Three paper screens were placed along a",
           "width" : 163.1,
           "x" : 165.8,
-          "y" : 292.3
+          "y" : 290.6
         },
         {
-          "height" : 10.5,
+          "height" : 13.3,
           "text" : "model courtyard. We recorded the first posi-",
           "width" : 176.6,
           "x" : 152.3,
-          "y" : 302.7
+          "y" : 301
         },
         {
-          "height" : 10.5,
+          "height" : 13.3,
           "text" : "tion at which the rear lantern disappeared.",
-          "width" : 169.5,
+          "width" : 169.1,
           "x" : 152.3,
-          "y" : 313.1
+          "y" : 311.4
         },
         {
-          "height" : 17.5,
+          "height" : 21.7,
           "text" : "1 Arrangement",
-          "width" : 118.5,
+          "width" : 118,
           "x" : 125.4,
-          "y" : 338.8
+          "y" : 336.4
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "A narrow screen stood beside each gate. The observer",
           "width" : 230.3,
           "x" : 125.4,
-          "y" : 366.6
+          "y" : 364.7
         },
         {
-          "height" : 14.2,
+          "height" : 16.9,
           "text" : "moved one tile at a time.1",
-          "width" : 114,
+          "width" : 113.3,
           "x" : 125.4,
-          "y" : 381.7
+          "y" : 380.1
         },
         {
-          "height" : 17.5,
+          "height" : 21.7,
           "text" : "2 Result",
           "width" : 69.2,
           "x" : 125.4,
-          "y" : 413.2
+          "y" : 411.6
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "The middle gate concealed the lantern first. Its screen",
           "width" : 230.3,
           "x" : 125.4,
-          "y" : 441
+          "y" : 439.9
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "crossed the sight line at tile four.",
-          "width" : 144.4,
+          "width" : 143.9,
           "x" : 125.4,
-          "y" : 458.6
+          "y" : 457.5
         },
         {
-          "height" : 9.4,
+          "height" : 11.8,
           "text" : "Drawings use a common scale.*",
-          "width" : 104.7,
+          "width" : 104.4,
           "x" : 139.8,
-          "y" : 678.2
+          "y" : 677.5
         },
         {
-          "height" : 7,
+          "height" : 8.9,
           "text" : "1",
           "width" : 3,
           "x" : 136.8,
-          "y" : 686.7
+          "y" : 685.5
         },
         {
-          "height" : 9.4,
+          "height" : 11.8,
           "text" : "A tile measures one model unit.",
-          "width" : 111.8,
+          "width" : 111.9,
           "x" : 139.8,
-          "y" : 687.6
+          "y" : 686.9
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 238.1,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 541.2,
+      "textHeight" : 544.8,
       "textLeft" : 125.4,
-      "textTop" : 189.7,
+      "textTop" : 187.2,
       "textWidth" : 230.3,
       "width" : 595.3
     }

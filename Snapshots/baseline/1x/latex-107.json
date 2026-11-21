@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.022422720367097634,
+    "changedAreaRatio" : 0.021101913000341053,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
     "maxBoxDeltaPt" : 450.6,
     "maxLuminance" : 118.1875,
-    "maxShiftPt" : 6.3,
+    "maxShiftPt" : 3.7,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 22
@@ -23,114 +23,114 @@
     {
       "firstY" : 71,
       "height" : 841.9,
-      "lastY" : 789.5,
+      "lastY" : 787.4,
       "lineCount" : 3,
       "lines" : [
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "Start 行間を記す。",
-          "width" : 86.2,
+          "width" : 87.1,
           "x" : 70.9,
           "y" : 71
         },
         {
-          "height" : 17.9,
+          "height" : 18,
           "text" : "■折り目 Runline 白い紙を重ねる。",
-          "width" : 173.1,
+          "width" : 173.9,
           "x" : 70.9,
           "y" : 648.5
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "1",
           "width" : 5.5,
           "x" : 294.9,
-          "y" : 789.5
+          "y" : 787.4
         }
       ],
-      "textHeight" : 731.3,
+      "textHeight" : 732.6,
       "textLeft" : 70.9,
       "textTop" : 71,
       "textWidth" : 229.5,
       "width" : 595.3
     },
     {
-      "firstY" : 95.9,
+      "firstY" : 89,
       "height" : 841.9,
-      "lastY" : 789.5,
+      "lastY" : 787.4,
       "lineCount" : 6,
       "lines" : [
         {
-          "height" : 15.7,
+          "height" : 24.3,
           "text" : "1 Folded",
           "width" : 67.3,
           "x" : 70.9,
-          "y" : 95.9
+          "y" : 89
         },
         {
-          "height" : 13.1,
+          "height" : 20.2,
           "text" : "1.1 Edges",
           "width" : 61.8,
           "x" : 70.9,
-          "y" : 125.1
+          "y" : 119.3
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "First 端を揃える。",
-          "width" : 85.9,
+          "width" : 86.8,
           "x" : 81,
           "y" : 148.7
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "Second 裏を見る。",
-          "width" : 86.5,
+          "width" : 87.4,
           "x" : 70.9,
           "y" : 166.2
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "Third 元に戻す。",
-          "width" : 79.2,
+          "width" : 80,
           "x" : 70.9,
           "y" : 183.6
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "2",
           "width" : 5.5,
           "x" : 294.9,
-          "y" : 789.5
+          "y" : 787.4
         }
       ],
-      "textHeight" : 706.4,
+      "textHeight" : 714.6,
       "textLeft" : 70.9,
-      "textTop" : 95.9,
+      "textTop" : 89,
       "textWidth" : 229.5,
       "width" : 595.3
     },
     {
       "firstY" : 71,
       "height" : 841.9,
-      "lastY" : 789.5,
+      "lastY" : 787.4,
       "lineCount" : 2,
       "lines" : [
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "Priorpage 紙。",
-          "width" : 69.2,
+          "width" : 70,
           "x" : 70.9,
           "y" : 71
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "3",
           "width" : 5.5,
           "x" : 294.9,
-          "y" : 789.5
+          "y" : 787.4
         }
       ],
-      "textHeight" : 731.3,
+      "textHeight" : 732.6,
       "textLeft" : 70.9,
       "textTop" : 71,
       "textWidth" : 229.5,
@@ -139,41 +139,41 @@
     {
       "firstY" : 107.7,
       "height" : 841.9,
-      "lastY" : 789.5,
+      "lastY" : 787.4,
       "lineCount" : 25,
       "lines" : [
         {
-          "height" : 13.9,
+          "height" : 15,
           "text" : "図 1 Topmark",
           "width" : 65.1,
           "x" : 265.1,
           "y" : 107.7
         },
         {
-          "height" : 15.7,
+          "height" : 24.3,
           "text" : "2 Floatmark",
           "width" : 90.4,
           "x" : 70.9,
-          "y" : 173
+          "y" : 166.1
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "Floatend 紙の位置を記す。",
-          "width" : 124.4,
+          "width" : 125.3,
           "x" : 70.9,
           "y" : 198.6
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "Secondleaf 紙。",
-          "width" : 72.9,
+          "width" : 73.8,
           "x" : 70.9,
           "y" : 216.1
         },
         {
-          "height" : 17,
+          "height" : 17.1,
           "text" : "短 Shortbody 折り目。",
-          "width" : 122.8,
+          "width" : 123.6,
           "x" : 70.9,
           "y" : 241.5
         },
@@ -185,16 +185,16 @@
           "y" : 258.9
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "Longbody 裏の印。",
-          "width" : 90.2,
+          "width" : 91.1,
           "x" : 101.1,
           "y" : 276.8
         },
         {
-          "height" : 17,
+          "height" : 17.1,
           "text" : "赤 Redbody 表の印。",
-          "width" : 115.4,
+          "width" : 116.2,
           "x" : 84.5,
           "y" : 302.6
         },
@@ -206,18 +206,18 @@
           "y" : 320.1
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "Widebody 裏の印。",
-          "width" : 91.6,
+          "width" : 92.4,
           "x" : 114.5,
           "y" : 338
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "Gridstart",
-          "width" : 44.5,
+          "width" : 44.4,
           "x" : 70.9,
-          "y" : 367
+          "y" : 365
         },
         {
           "height" : 15.4,
@@ -290,35 +290,35 @@
           "y" : 434.3
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "紙A 紙B 紙C 紙D 紙E 紙F 紙G 紙H 紙I 紙J 紙K 紙L 紙M 紙N 紙O 紙P 紙Q 紙R 紙S 紙",
           "width" : 453.5,
           "x" : 70.9,
           "y" : 451.7
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "T 紙U 紙V 紙W 紙X 紙Y 紙Z 紙。",
           "width" : 174.6,
           "x" : 70.9,
           "y" : 469.2
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "Gridend",
-          "width" : 38.9,
+          "width" : 38.8,
           "x" : 70.9,
-          "y" : 489.2
+          "y" : 487.1
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "4",
           "width" : 5.5,
           "x" : 294.9,
-          "y" : 789.5
+          "y" : 787.4
         }
       ],
-      "textHeight" : 694.7,
+      "textHeight" : 695.9,
       "textLeft" : 70.9,
       "textTop" : 107.7,
       "textWidth" : 458.6,
@@ -331,128 +331,128 @@
       "lineCount" : 30,
       "lines" : [
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "Mathstart 紙。",
-          "width" : 71.2,
+          "width" : 72,
           "x" : 70.9,
           "y" : 71
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "Mathmid 紙。",
-          "width" : 66.9,
+          "width" : 67.7,
           "x" : 70.9,
           "y" : 134.3
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "Mathend 紙。",
-          "width" : 65.6,
+          "width" : 66.5,
           "x" : 70.9,
           "y" : 254.3
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "Proof. Proofstart x の幅を測る。",
-          "width" : 153.3,
+          "width" : 155.9,
           "x" : 70.9,
           "y" : 277.7
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "Proofend 記録する。",
-          "width" : 96.1,
+          "width" : 96.9,
           "x" : 70.9,
           "y" : 332.5
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "Mixedbefore 紙。",
-          "width" : 81.4,
+          "width" : 82.3,
           "x" : 70.9,
           "y" : 355.9
         },
         {
           "height" : 22.2,
           "text" : "Mixedline 小さな窓大きな窓。",
-          "width" : 153.9,
+          "width" : 154.7,
           "x" : 70.9,
           "y" : 368.1
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "Mixedafter 紙。",
-          "width" : 74.8,
+          "width" : 75.6,
           "x" : 70.9,
           "y" : 391.1
         },
         {
-          "height" : 13.9,
+          "height" : 15,
           "text" : "Newpara 別の段落。",
-          "width" : 85.8,
+          "width" : 86.6,
           "x" : 79.9,
           "y" : 409.4
         },
         {
-          "height" : 17.9,
+          "height" : 18,
           "text" : "■札 Runend 端を読む。",
-          "width" : 122.6,
+          "width" : 123.5,
           "x" : 70.9,
           "y" : 433.3
         },
         {
-          "height" : 15.7,
+          "height" : 24.3,
           "text" : "3 Afterrun",
           "width" : 78.5,
           "x" : 70.9,
-          "y" : 475.6
+          "y" : 468.7
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "InsideNote 縁を記す。",
-          "width" : 102.8,
+          "width" : 103.7,
           "x" : 101.1,
           "y" : 501.2
         },
         {
-          "height" : 13.1,
+          "height" : 20.2,
           "text" : "3.1 Afternote",
           "width" : 81.4,
           "x" : 70.9,
-          "y" : 548.5
+          "y" : 542.7
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "Boxline",
           "width" : 35.9,
           "x" : 70.9,
           "y" : 572.1
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "白い札",
           "width" : 30.3,
-          "x" : 112.2,
+          "x" : 113.1,
           "y" : 572.1
         },
         {
-          "height" : 15.7,
+          "height" : 24.3,
           "text" : "4 Afterbox",
           "width" : 80.1,
           "x" : 70.9,
-          "y" : 613
+          "y" : 606.1
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "Versestart 窓。",
-          "width" : 71.9,
+          "width" : 72.7,
           "x" : 70.9,
           "y" : 638.6
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "Versemid 青い印。",
-          "width" : 87.7,
+          "width" : 88.6,
           "x" : 101.1,
           "y" : 664.8
         },
@@ -464,9 +464,9 @@
           "y" : 682.3
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "Verseend 紙。",
-          "width" : 66.3,
+          "width" : 67.2,
           "x" : 70.9,
           "y" : 708.4
         },
@@ -527,11 +527,11 @@
           "y" : 309.9
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "5",
           "width" : 5.5,
           "x" : 294.9,
-          "y" : 789.5
+          "y" : 787.4
         },
         {
           "height" : 16.6,
@@ -541,7 +541,7 @@
           "y" : 336.5
         }
       ],
-      "textHeight" : 731.3,
+      "textHeight" : 732.6,
       "textLeft" : 70.9,
       "textTop" : 71,
       "textWidth" : 453.5,
@@ -550,404 +550,404 @@
     {
       "firstY" : 71,
       "height" : 841.9,
-      "lastY" : 789.5,
+      "lastY" : 787.4,
       "lineCount" : 27,
       "lines" : [
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "Lstart 行。",
-          "width" : 52.2,
+          "width" : 53.1,
           "x" : 70.9,
           "y" : 71
         },
         {
-          "height" : 9.1,
+          "height" : 14.2,
           "text" : "1 a",
           "width" : 20.3,
           "x" : 55.7,
-          "y" : 117.1
+          "y" : 113.6
         },
         {
-          "height" : 9.1,
+          "height" : 14.2,
           "text" : "2 b",
           "width" : 20.3,
           "x" : 55.7,
-          "y" : 131.3
+          "y" : 127.8
         },
         {
-          "height" : 9.1,
+          "height" : 14.2,
           "text" : "3 c",
           "width" : 20.3,
           "x" : 55.7,
-          "y" : 145.5
+          "y" : 141.9
         },
         {
-          "height" : 9.1,
+          "height" : 14.2,
           "text" : "4 d",
           "width" : 20.3,
           "x" : 55.7,
-          "y" : 159.7
+          "y" : 156.1
         },
         {
-          "height" : 9.1,
+          "height" : 14.2,
           "text" : "5 e",
           "width" : 20.3,
           "x" : 55.7,
-          "y" : 173.8
+          "y" : 170.3
         },
         {
-          "height" : 9.1,
+          "height" : 14.2,
           "text" : "6 f",
           "width" : 20.3,
           "x" : 55.7,
-          "y" : 188
+          "y" : 184.5
         },
         {
-          "height" : 9.1,
+          "height" : 14.2,
           "text" : "7 g",
           "width" : 20.3,
           "x" : 55.7,
-          "y" : 202.2
+          "y" : 198.6
         },
         {
-          "height" : 9.1,
+          "height" : 14.2,
           "text" : "8 h",
           "width" : 20.3,
           "x" : 55.7,
-          "y" : 216.4
+          "y" : 212.8
         },
         {
-          "height" : 9.1,
+          "height" : 14.2,
           "text" : "9 i",
           "width" : 20.3,
           "x" : 55.7,
-          "y" : 230.5
+          "y" : 227
         },
         {
-          "height" : 9.1,
+          "height" : 14.2,
           "text" : "10 j",
           "width" : 25.4,
           "x" : 50.6,
-          "y" : 244.7
+          "y" : 241.2
         },
         {
-          "height" : 9.1,
+          "height" : 14.2,
           "text" : "11 k",
           "width" : 25.4,
           "x" : 50.6,
-          "y" : 258.9
+          "y" : 255.3
         },
         {
-          "height" : 9.1,
+          "height" : 14.2,
           "text" : "12 l",
           "width" : 25.4,
           "x" : 50.6,
-          "y" : 273.1
+          "y" : 269.5
         },
         {
-          "height" : 9.1,
+          "height" : 14.2,
           "text" : "13 m",
           "width" : 25.4,
           "x" : 50.6,
-          "y" : 287.2
+          "y" : 283.7
         },
         {
-          "height" : 9.1,
+          "height" : 14.2,
           "text" : "14 n",
           "width" : 25.4,
           "x" : 50.6,
-          "y" : 301.4
+          "y" : 297.9
         },
         {
-          "height" : 9.1,
+          "height" : 14.2,
           "text" : "15 o",
           "width" : 25.4,
           "x" : 50.6,
-          "y" : 315.6
+          "y" : 312
         },
         {
-          "height" : 9.1,
+          "height" : 14.2,
           "text" : "16 p",
           "width" : 25.4,
           "x" : 50.6,
-          "y" : 329.8
+          "y" : 326.2
         },
         {
-          "height" : 9.1,
+          "height" : 14.2,
           "text" : "17 q",
           "width" : 25.4,
           "x" : 50.6,
-          "y" : 343.9
+          "y" : 340.4
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "Lend 紙。",
-          "width" : 46.7,
+          "width" : 47.6,
           "x" : 70.9,
           "y" : 366
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "LTend 紙。",
-          "width" : 54.6,
+          "width" : 55.5,
           "x" : 70.9,
           "y" : 505.4
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "Ruleend 紙。",
-          "width" : 61.8,
+          "width" : 62.7,
           "x" : 70.9,
           "y" : 552.2
         },
         {
-          "height" : 11.5,
+          "height" : 14.5,
           "text" : "Listing 1 Listcap",
-          "width" : 77.4,
-          "x" : 259,
-          "y" : 97.7
+          "width" : 78.1,
+          "x" : 258.6,
+          "y" : 95.8
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "表 1: Longcap",
-          "width" : 64.2,
-          "x" : 265.5,
+          "width" : 65.1,
+          "x" : 265.1,
           "y" : 391.4
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "RowA 北",
           "width" : 52.7,
           "x" : 271.3,
           "y" : 428.1
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "RowB 南",
           "width" : 52.7,
           "x" : 271.3,
           "y" : 451.8
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "RowC 西",
           "width" : 52.7,
           "x" : 271.3,
           "y" : 469.2
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "6",
           "width" : 5.5,
           "x" : 294.9,
-          "y" : 789.5
+          "y" : 787.4
         }
       ],
-      "textHeight" : 731.3,
+      "textHeight" : 732.6,
       "textLeft" : 50.6,
       "textTop" : 71,
-      "textWidth" : 285.7,
+      "textWidth" : 286.1,
       "width" : 595.3
     },
     {
       "firstY" : 71,
       "height" : 841.9,
-      "lastY" : 789.5,
+      "lastY" : 787.4,
       "lineCount" : 9,
       "lines" : [
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "Tabstart 窓。",
-          "width" : 64.8,
+          "width" : 65.7,
           "x" : 70.9,
           "y" : 71
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "Tabend 紙。",
-          "width" : 59.3,
+          "width" : 60.1,
           "x" : 70.9,
           "y" : 180.9
         },
         {
-          "height" : 15.7,
+          "height" : 24.3,
           "text" : "5 Fighead",
           "width" : 74.9,
           "x" : 70.9,
-          "y" : 221.9
+          "y" : 215
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "Figend 紙。",
-          "width" : 55.5,
+          "width" : 56.4,
           "x" : 70.9,
           "y" : 333.8
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "TabA 北",
-          "width" : 50.8,
+          "width" : 50.7,
           "x" : 272.3,
           "y" : 103.1
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "TabB 南",
-          "width" : 50.8,
+          "width" : 50.7,
           "x" : 272.3,
           "y" : 120.5
         },
         {
-          "height" : 13.9,
+          "height" : 15,
           "text" : "表 2 Tabcap",
           "width" : 57.7,
           "x" : 268.8,
           "y" : 144.3
         },
         {
-          "height" : 13.9,
+          "height" : 15,
           "text" : "図 2 Figcap",
           "width" : 54.3,
           "x" : 270.5,
           "y" : 297
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "7",
           "width" : 5.5,
           "x" : 294.9,
-          "y" : 789.5
+          "y" : 787.4
         }
       ],
-      "textHeight" : 731.3,
+      "textHeight" : 732.6,
       "textLeft" : 70.9,
       "textTop" : 71,
       "textWidth" : 255.6,
       "width" : 595.3
     },
     {
-      "firstY" : 95.9,
+      "firstY" : 89,
       "height" : 841.9,
-      "lastY" : 789.5,
+      "lastY" : 787.4,
       "lineCount" : 16,
       "lines" : [
         {
-          "height" : 15.7,
+          "height" : 24.3,
           "text" : "6 Leafverse",
           "width" : 84,
           "x" : 70.9,
-          "y" : 95.9
+          "y" : 89
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "Verseopen 紙。",
-          "width" : 71.8,
+          "width" : 72.6,
           "x" : 101.1,
           "y" : 121.5
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "Verseclose 縁。",
-          "width" : 71.8,
+          "width" : 72.7,
           "x" : 101.1,
           "y" : 138.9
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "Beforeplain 紙。",
-          "width" : 77,
+          "width" : 77.9,
           "x" : 70.9,
           "y" : 165.1
         },
         {
-          "height" : 9.1,
+          "height" : 14.2,
           "text" : "1 width = 1",
           "width" : 61.5,
           "x" : 55.7,
-          "y" : 211
+          "y" : 207.4
         },
         {
-          "height" : 9.1,
+          "height" : 14.2,
           "text" : "2 count = 4",
           "width" : 61.5,
           "x" : 55.7,
-          "y" : 225.2
+          "y" : 221.6
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "Afterplain 紙。",
-          "width" : 71.4,
+          "width" : 72.3,
           "x" : 70.9,
           "y" : 243
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "Afterlong 紙。",
-          "width" : 67.8,
+          "width" : 68.6,
           "x" : 70.9,
           "y" : 351.2
         },
         {
-          "height" : 15.7,
+          "height" : 24.3,
           "text" : "7 Figures",
           "width" : 70.6,
           "x" : 70.9,
-          "y" : 392.1
+          "y" : 385.2
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "Afterfig 紙。",
-          "width" : 59.6,
+          "width" : 60.5,
           "x" : 70.9,
           "y" : 499.8
         },
         {
-          "height" : 11.5,
+          "height" : 14.5,
           "text" : "Listing 2 Plaincap",
-          "width" : 83.3,
-          "x" : 256,
-          "y" : 191.8
+          "width" : 84.1,
+          "x" : 255.6,
+          "y" : 189.9
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "表 3: Plainlong",
-          "width" : 69.1,
-          "x" : 263.1,
+          "width" : 69.9,
+          "x" : 262.7,
           "y" : 269.3
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "PlainA 北",
-          "width" : 56.4,
+          "width" : 56.3,
           "x" : 269.5,
           "y" : 301.6
         },
         {
-          "height" : 15.4,
+          "height" : 16.6,
           "text" : "PlainB 南",
-          "width" : 56.4,
+          "width" : 56.3,
           "x" : 269.5,
           "y" : 319
         },
         {
-          "height" : 13.9,
+          "height" : 15,
           "text" : "図 3 Herefig",
           "width" : 56.1,
           "x" : 269.6,
           "y" : 466.2
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "8",
           "width" : 5.5,
           "x" : 294.9,
-          "y" : 789.5
+          "y" : 787.4
         }
       ],
-      "textHeight" : 706.4,
+      "textHeight" : 714.6,
       "textLeft" : 55.7,
-      "textTop" : 95.9,
-      "textWidth" : 283.6,
+      "textTop" : 89,
+      "textWidth" : 283.9,
       "width" : 595.3
     }
   ],

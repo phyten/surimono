@@ -27,7 +27,7 @@ struct LaTeXPageDetailStyleTests {
     @Test("LaTeX のコードは指定した等幅書体を優先し、既定のタイプライターの太字・斜体を合成しない")
     func listingFont() throws {
         let css = try #require(PrintThemeLibrary.load().first { $0.id == "latex-plain-ja" }).css
-        let selector = try #require(css.range(of: "\ncode, pre {", options: .backwards))
+        let selector = try #require(css.range(of: "\ncode, pre, .latex-url {", options: .backwards))
         let rule = css[selector.upperBound...].prefix { $0 != "}" }
         #expect(rule.contains(#"var(--latex-mono-font, "Surimono Computer Modern Typewriter")"#))
         #expect(rule.contains("font-synthesis: none;"))

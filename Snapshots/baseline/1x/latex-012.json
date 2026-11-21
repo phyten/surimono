@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.019239553943302432,
+    "changedAreaRatio" : 0.018559513843673457,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
-    "maxBoxDeltaPt" : 25.4,
-    "maxLuminance" : 155.28125,
-    "maxShiftPt" : 47.7,
+    "maxBoxDeltaPt" : 23.1,
+    "maxLuminance" : 142.5625,
+    "maxShiftPt" : 45,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 3
@@ -18,100 +18,100 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 150.2,
+      "firstY" : 147.9,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 12,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.7,
           "text" : "Plates from the casting bench",
-          "width" : 211.6,
+          "width" : 215.9,
           "x" : 125.4,
-          "y" : 150.2
+          "y" : 147.9
         },
         {
-          "height" : 10.9,
+          "height" : 13.6,
           "text" : "Bench summary",
           "width" : 72.9,
-          "x" : 260.9,
-          "y" : 180.9
+          "x" : 260.8,
+          "y" : 179.5
         },
         {
-          "height" : 10.5,
+          "height" : 13.3,
           "text" : "A bevel leaves a wider impression on the soft face.",
-          "width" : 198.9,
+          "width" : 198.3,
           "x" : 165.8,
-          "y" : 195.8
+          "y" : 194
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Plate B-1: Edge impression",
-          "width" : 118.7,
-          "x" : 237.9,
-          "y" : 254
+          "width" : 118.6,
+          "x" : 238,
+          "y" : 252.9
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Face Depth",
           "width" : 59.4,
           "x" : 267.6,
-          "y" : 289.9
+          "y" : 287.2
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Soft 3",
           "width" : 59.4,
           "x" : 267.6,
-          "y" : 301.9
+          "y" : 299.2
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Firm 1",
           "width" : 59.4,
           "x" : 267.6,
-          "y" : 313.9
+          "y" : 311.2
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Schedule 1: Press readings",
-          "width" : 114.9,
-          "x" : 239.8,
-          "y" : 335.5
+          "width" : 114.5,
+          "x" : 240,
+          "y" : 332.8
         },
         {
-          "height" : 17.5,
+          "height" : 21.7,
           "text" : "Workshop records",
-          "width" : 130.7,
+          "width" : 130.3,
           "x" : 125.4,
-          "y" : 374.8
+          "y" : 370.9
         },
         {
-          "height" : 11.7,
+          "height" : 14.9,
           "text" : "[1]",
           "width" : 10.5,
           "x" : 125.4,
-          "y" : 401.9
+          "y" : 398.2
         },
         {
-          "height" : 11.7,
+          "height" : 14.9,
           "text" : "Casting desk, Press journal, trial edition.",
-          "width" : 180.4,
+          "width" : 179.6,
           "x" : 145.3,
-          "y" : 401.9
+          "y" : 398.2
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 580.6,
+      "textHeight" : 584.1,
       "textLeft" : 125.4,
-      "textTop" : 150.2,
-      "textWidth" : 239.3,
+      "textTop" : 147.9,
+      "textWidth" : 238.6,
       "width" : 595.3
     }
   ],

@@ -14,7 +14,7 @@ class Element:
     def prose(self):
         if self.tag in {"ul", "ol", "dl", "style", "script", "template"}:
             return ""
-        if {"item-label", "bib-label", "latex-symbolic-note"} & set(self.classes):
+        if {"item-label", "latex-item-mark", "bib-label", "latex-symbolic-note"} & set(self.classes):
             return ""
         return "".join(c if isinstance(c, str) else c.prose() for c in self.children)
 

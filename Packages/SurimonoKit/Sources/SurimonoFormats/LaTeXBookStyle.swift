@@ -60,7 +60,8 @@ package struct LaTeXElementFont: Codable, Equatable, Sendable {
             "mono": "var(--latex-mono-font, \"Surimono Computer Modern Typewriter\"), monospace",
         ]
         let values = [
-            "family": family.flatMap { families[$0] }, "weight": weight, "style": shape, "variant": capitals,
+            "family": family.flatMap { families[$0] }, "weight": weight,
+            "style": shape == "oblique" ? "oblique 9.46deg" : shape, "variant": capitals,
             "size": pointSize(base: size).map { "calc(\(LaTeXPageSettings.number($0)) * var(--tex-pt))" },
         ]
         return Dictionary(
@@ -69,17 +70,6 @@ package struct LaTeXElementFont: Codable, Equatable, Sendable {
 }
 
 struct LaTeXBookStyle: Equatable, Sendable {
-    // Use the bundled Computer Modern sans faces only in KOMA documents. Their widths set the
-    // gap between the chapter numeral and title and the number of words that fit on a heading line.
-    static let sansFaces = [("normal", "normal"), ("bold", "normal"), ("normal", "italic")].compactMap {
-        weight, style -> String? in
-        guard let data = MathRenderer.fontData(family: "KaTeX_SansSerif", weight: weight, style: style) else {
-            return nil
-        }
-        return
-            "@font-face{font-family:'Surimono KOMA Sans';font-weight:\(weight);font-style:\(style);src:url(data:font/ttf;base64,\(data.base64EncodedString())) format('truetype')}"
-    }.joined(separator: "\n")
-
     var division: String?
     var binding = 0.0
     var includeHead = false

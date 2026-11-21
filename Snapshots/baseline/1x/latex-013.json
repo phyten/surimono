@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.01726557736231255,
+    "changedAreaRatio" : 0.016511125580049402,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 24.5,
-    "maxLuminance" : 195.671875,
-    "maxShiftPt" : 30,
+    "maxBoxDeltaPt" : 22,
+    "maxLuminance" : 177.6875,
+    "maxShiftPt" : 26.9,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -18,85 +18,85 @@
   "pageCount" : 2,
   "pages" : [
     {
-      "firstY" : 221.6,
+      "firstY" : 217.4,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 3,
       "lines" : [
         {
-          "height" : 25.2,
+          "height" : 31.3,
           "text" : "Route index",
-          "width" : 125.4,
+          "width" : 127.3,
           "x" : 125.4,
-          "y" : 221.6
+          "y" : 217.4
         },
         {
-          "height" : 12.1,
+          "height" : 15.1,
           "text" : "1 Channel inspection 2",
           "width" : 343.7,
           "x" : 125.4,
-          "y" : 286.2
+          "y" : 283.7
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 509.3,
+      "textHeight" : 514.6,
       "textLeft" : 125.4,
-      "textTop" : 221.6,
+      "textTop" : 217.4,
       "textWidth" : 343.7,
       "width" : 595.3
     },
     {
-      "firstY" : 219.6,
+      "firstY" : 215.4,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 5,
       "lines" : [
         {
-          "height" : 25.2,
+          "height" : 31.3,
           "text" : "Circuit 1",
-          "width" : 91,
+          "width" : 92.9,
           "x" : 125.4,
-          "y" : 219.6
+          "y" : 215.4
         },
         {
-          "height" : 30.2,
+          "height" : 37.6,
           "text" : "Channel inspection",
-          "width" : 235.6,
+          "width" : 238.7,
           "x" : 125.4,
-          "y" : 266
+          "y" : 261.2
         },
         {
-          "height" : 12.2,
+          "height" : 15.1,
           "text" : "Station 1.1: North inlet. The slot cleared at the first turn.",
-          "width" : 268,
+          "width" : 271.6,
           "x" : 125.4,
-          "y" : 332.1
+          "y" : 329.7
         },
         {
-          "height" : 12.2,
+          "height" : 15.1,
           "text" : "Station 1.2: South inlet. The handle stopped earlier than at station 1.1.",
-          "width" : 326.5,
+          "width" : 328.8,
           "x" : 140.4,
-          "y" : 344.9
+          "y" : 341.7
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "2",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 511.3,
+      "textHeight" : 516.6,
       "textLeft" : 125.4,
-      "textTop" : 219.6,
-      "textWidth" : 341.4,
+      "textTop" : 215.4,
+      "textWidth" : 343.7,
       "width" : 595.3
     }
   ],

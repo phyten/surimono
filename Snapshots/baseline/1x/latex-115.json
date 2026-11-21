@@ -10,7 +10,7 @@
     "maxShiftPt" : 3,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 35
+    "textEdits" : 28
   },
   "fonts" : [
     "Helvetica",
@@ -24,7 +24,7 @@
       "firstY" : 67.8,
       "height" : 792,
       "lastY" : 731.1,
-      "lineCount" : 140,
+      "lineCount" : 137,
       "lines" : [
         {
           "height" : 11,
@@ -756,16 +756,9 @@
         },
         {
           "height" : 11,
-          "text" : "•",
-          "width" : 3.5,
+          "text" : "• to measure the height of spacers with two to six layers",
+          "width" : 222.5,
           "x" : 66.9,
-          "y" : 527.6
-        },
-        {
-          "height" : 11,
-          "text" : "to measure the height of spacers with two to six layers",
-          "width" : 214.1,
-          "x" : 75.4,
           "y" : 527.6
         },
         {
@@ -819,16 +812,9 @@
         },
         {
           "height" : 11,
-          "text" : "•",
-          "width" : 3.5,
+          "text" : "• to compare the measurements with a layer model that",
+          "width" : 222.5,
           "x" : 66.9,
-          "y" : 558.5
-        },
-        {
-          "height" : 11,
-          "text" : "to compare the measurements with a layer model that",
-          "width" : 214.1,
-          "x" : 75.4,
           "y" : 558.5
         },
         {
@@ -840,16 +826,9 @@
         },
         {
           "height" : 11,
-          "text" : "•",
-          "width" : 3.5,
+          "text" : "• to give simple rules for choosing a card stock for a",
+          "width" : 222.5,
           "x" : 66.9,
-          "y" : 589.4
-        },
-        {
-          "height" : 11,
-          "text" : "to give simple rules for choosing a card stock for a",
-          "width" : 214.1,
-          "x" : 75.4,
           "y" : 589.4
         },
         {
@@ -1790,5 +1769,5 @@
       "width" : 612
     }
   ],
-  "textSHA256" : "70c91581a656ca2bbd2862929cfe6125de7edbef2c4978f86cca1ae0dc5118e2"
+  "textSHA256" : "f4bd041cbb54955072938b31ac0b430262fb73c7df00670a19b9810cc9f08b44"
 }

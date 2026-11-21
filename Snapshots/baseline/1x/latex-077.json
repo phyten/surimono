@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.026268476621417798,
+    "changedAreaRatio" : 0.026171945701357467,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 25.6,
-    "maxLuminance" : 144.0472412109375,
-    "maxShiftPt" : 27.1,
+    "maxBoxDeltaPt" : 23.3,
+    "maxLuminance" : 127,
+    "maxShiftPt" : 26.1,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -18,71 +18,71 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 150.4,
+      "firstY" : 148.1,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 717.2,
       "lineCount" : 8,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 21.8,
           "text" : "Marking the sample envelope",
-          "width" : 209.7,
+          "width" : 212.4,
           "x" : 125.4,
-          "y" : 150.4
+          "y" : 148.1
         },
         {
-          "height" : 12.1,
+          "height" : 15.1,
           "text" : "Dry stock",
-          "width" : 48.7,
+          "width" : 49.2,
           "x" : 127.4,
-          "y" : 176.2
+          "y" : 174.6
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Keep this strip inside the enve-",
           "width" : 140.4,
           "x" : 127.4,
-          "y" : 188.7
+          "y" : 187.6
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "lope.",
-          "width" : 20.5,
+          "width" : 20.7,
           "x" : 127.4,
-          "y" : 200.7
+          "y" : 199.6
         },
         {
-          "height" : 12.1,
+          "height" : 15.1,
           "text" : "Trial stock",
-          "width" : 53.8,
+          "width" : 53.3,
           "x" : 327.6,
-          "y" : 176.2
+          "y" : 174.6
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Return this strip after the fold",
           "width" : 138.8,
           "x" : 327.6,
-          "y" : 188.7
+          "y" : 187.6
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "test.",
           "width" : 18.9,
           "x" : 327.6,
-          "y" : 200.7
+          "y" : 199.6
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 717.2
         }
       ],
-      "textHeight" : 580.4,
+      "textHeight" : 583.9,
       "textLeft" : 125.4,
-      "textTop" : 150.4,
+      "textTop" : 148.1,
       "textWidth" : 340.9,
       "width" : 595.3
     }

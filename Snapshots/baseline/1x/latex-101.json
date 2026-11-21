@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.011077005756570448,
+    "changedAreaRatio" : 0.01105426885354334,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 8.6,
+    "maxBoxDeltaPt" : 8.8,
     "maxLuminance" : 114.890625,
-    "maxShiftPt" : 6,
+    "maxShiftPt" : 6.2,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 2
@@ -21,17 +21,17 @@
   "pageCount" : 2,
   "pages" : [
     {
-      "firstY" : 89.2,
+      "firstY" : 89,
       "height" : 841.9,
-      "lastY" : 789.5,
+      "lastY" : 787.4,
       "lineCount" : 9,
       "lines" : [
         {
-          "height" : 24.4,
+          "height" : 24.6,
           "text" : "1 風見輪の刻み",
           "width" : 110.7,
           "x" : 72.7,
-          "y" : 89.2
+          "y" : 89
         },
         {
           "height" : 15.4,
@@ -48,11 +48,11 @@
           "y" : 138.9
         },
         {
-          "height" : 20.4,
+          "height" : 20.5,
           "text" : "1.1 二枚の比較",
           "width" : 90.3,
           "x" : 72.4,
-          "y" : 171.9
+          "y" : 171.7
         },
         {
           "height" : 15.4,
@@ -83,38 +83,38 @@
           "y" : 247.1
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "1",
           "width" : 5.5,
           "x" : 294.9,
-          "y" : 789.5
+          "y" : 787.4
         }
       ],
-      "textHeight" : 713.2,
+      "textHeight" : 714.6,
       "textLeft" : 70.9,
-      "textTop" : 89.2,
+      "textTop" : 89,
       "textWidth" : 310.5,
       "width" : 595.3
     },
     {
       "firstY" : 90.7,
       "height" : 841.9,
-      "lastY" : 789.5,
+      "lastY" : 787.4,
       "lineCount" : 9,
       "lines" : [
         {
-          "height" : 13.9,
+          "height" : 15,
           "text" : "図 1 印を写すための帯",
           "width" : 98.2,
           "x" : 248.6,
           "y" : 90.7
         },
         {
-          "height" : 24.4,
+          "height" : 24.6,
           "text" : "2 裏面の印",
           "width" : 81.7,
           "x" : 72.7,
-          "y" : 151.1
+          "y" : 150.9
         },
         {
           "height" : 20.4,
@@ -159,14 +159,14 @@
           "y" : 245.5
         },
         {
-          "height" : 12.8,
+          "height" : 16.2,
           "text" : "2",
           "width" : 5.5,
           "x" : 294.9,
-          "y" : 789.5
+          "y" : 787.4
         }
       ],
-      "textHeight" : 711.7,
+      "textHeight" : 712.9,
       "textLeft" : 70.9,
       "textTop" : 90.7,
       "textWidth" : 345.8,

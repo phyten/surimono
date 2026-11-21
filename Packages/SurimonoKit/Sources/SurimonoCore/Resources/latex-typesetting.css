@@ -17,7 +17,7 @@ body {
     --tex-serif: "Times New Roman", "Hiragino Mincho ProN", "YuMincho", "Geeza Pro", "Arial Hebrew", serif;
     --tex-sans: "Helvetica Neue", "Hiragino Kaku Gothic ProN", sans-serif;
     --tex-body-fonts: var(--latex-cjk-main-font, var(--latex-main-font, "Surimono Computer Modern")), var(--latex-main-font, "Surimono Computer Modern"), "Surimono Computer Modern", var(--tex-serif);
-    --tex-sans-fonts: var(--latex-cjk-sans-font, var(--latex-sans-font, "Helvetica Neue")), var(--latex-sans-font, "Helvetica Neue"), var(--tex-sans);
+    --tex-sans-fonts: var(--latex-cjk-sans-font, var(--latex-sans-font, "Surimono Computer Modern Sans")), var(--latex-sans-font, "Surimono Computer Modern Sans"), var(--tex-sans);
     font-family: var(--tex-body-fonts);
     font-size: calc(var(--tex-body) * var(--tex-pt));
     line-height: calc(var(--tex-baseline) * var(--latex-stretch, 1));
@@ -26,6 +26,16 @@ body {
     margin: 0 auto; color: #000; background: transparent;
     text-align: justify; hyphens: auto; -webkit-hyphens: auto;
     -webkit-hyphenate-limit-before: 2; -webkit-hyphenate-limit-after: 3;
+}
+/* Quartz maps CMU's Latin .sc glyph names into the private-use area in PDF text.
+   The system's searchable small capitals already serve the proceedings class. Keep the
+   CMU smcp feature for screen HTML; change only the explicit roman small-cap runs on paper. */
+@media print {
+    body:not([data-latex-local-main-font], [data-latex-style]) { --tex-searchable-caps: "Surimono Searchable Small Caps", var(--tex-body-fonts); }
+    :is(code, pre, .latex-sf, em, i) { --tex-searchable-caps: initial; }
+    .latex-sc { font-family: var(--tex-searchable-caps, inherit); font-variant-numeric: lining-nums; }
+    /* The surrounding roman strut sets the line pitch for an inline change of capitals. */
+    body:not([data-latex-local-main-font], [data-latex-style]) span.latex-sc { line-height: 0; }
 }
 body[data-latex-size="11"] {
     --tex-body: 10.95; --tex-baseline: 17px; --tex-width: 360; --tex-indent: 17;
@@ -37,6 +47,20 @@ body[data-latex-size="12"] {
     --tex-body: 12; --tex-baseline: 18px; --tex-width: 390; --tex-indent: 17.6;
     --tex-partop-sep: 3; --tex-item-sep: 7.5; --tex-top-sep: 10;
     --tex-small: 10.95; --tex-footnote: 10; --tex-large: 14.4; --tex-Large: 17.28; --tex-LARGE: 20.74;
+}
+/* WebKit rounds inline baselines to layout pixels. Anchor plain CM paragraphs
+   by their cap and baseline, retaining the previous roman strut's half-leading
+   plus half its ascent-minus-descent (.903 minus .272 em). */
+@supports (text-box-trim: trim-both) {
+    :where(body:lang(en):not([data-latex-style],[data-latex-local-main-font],[data-latex-publication-grid],[data-latex-js-toc],[data-latex-journal="ieee"])) {
+        & > :where(p:not(:has(br,.latex-vspace,.tikz-block,.latex-graphic-box,img), .latex-vspace + p)),
+        & :where([data-flow-strip] > p:not(:has(br,.latex-vspace,.tikz-block,.latex-graphic-box,img), .latex-vspace + p)),
+        & :where(.latex-epigraph p, .latex-epigraph footer) {
+            --cm-strut-ascent: round(nearest, .5lh + .3155em, 1px);
+            text-box-trim: trim-both; text-box-edge: cap alphabetic;
+            padding-block: calc(var(--cm-strut-ascent) - round(nearest, 1cap, 1px)) calc(1lh - var(--cm-strut-ascent));
+        }
+    }
 }
 p { margin-block: var(--latex-parskip, 0) 0; text-indent: var(--latex-parindent, var(--latex-class-indent, calc(var(--tex-indent) * var(--tex-pt)))); }
 :is(h1, h2, h3, h4, h5, h6) + p, p.latex-noindent, li p, dd p, th p, td p, figcaption p,
@@ -100,15 +124,19 @@ ul, ol, dl { padding-inline-start: var(--latex-list-margin, 2.5em); margin-block
 li + li { margin-block-start: var(--latex-itemsep, calc(var(--tex-item-sep) * var(--tex-pt))); }
 li ul, li ol { margin-block: var(--latex-list-topsep, 0.35em); padding-inline-start: var(--latex-list-margin, 2.2em); }
 li > p { margin-block: 0; }
-/* WebKit's printed ::marker ignores content. Hang a real box in the list gutter;
-   explicit item labels and the table of contents already supply their own markers. */
+/* TeX puts the label in a zero-advance box on the first baseline. Painting a
+   positioned pseudo-element after the item can put the bullet at the end of its PDF text. */
 ul:not(.toc ul) > li:not(.latex-custom-label) { list-style: none; position: relative; }
-ul:not(.toc ul) > li:not(.latex-custom-label)::before {
-    content: "•"; position: absolute; inset-inline-end: calc(100% + 0.5em); text-indent: 0;
+body:not([data-latex-publication-grid]) .latex-item-mark {
+    display: inline-block; width: 1em; text-indent: 0; line-height: 0; text-align: end; text-align-last: end;
+    margin-inline: calc(-1em - var(--latex-list-labelsep, .5em)) var(--latex-list-labelsep, .5em);
+    font-family: var(--latex-main-font, "Surimono Computer Modern"), serif;
 }
-ul ul:not(.toc ul) > li:not(.latex-custom-label)::before { content: "–"; }
-ul ul ul:not(.toc ul) > li:not(.latex-custom-label)::before { content: "∗"; }
-ul ul ul ul:not(.toc ul) > li:not(.latex-custom-label)::before { content: "·"; }
+/* LuaTeX-ja's Latin Modern Roman has a smaller text bullet than CMU. Times
+   reproduces its ink diameter at the surrounding class size. */
+body:not([data-latex-publication-grid]) .latex-item-mark[data-latex-lm-bullet] {
+    font-family: var(--latex-main-font, Times), serif;
+}
 .item-label { min-width: 1.9em; margin-inline-start: -2.4em; margin-inline-end: 0.5em; }
 .latex-description { padding-inline-start: var(--latex-list-margin, 0); }
 .latex-description > div { padding-inline-start: 2.5em; text-indent: -2.5em; }
@@ -119,13 +147,15 @@ ul ul ul ul:not(.toc ul) > li:not(.latex-custom-label)::before { content: "·"; 
 blockquote { margin: 0.75em 2.5em; padding: 0; border: none; }
 blockquote:not([class]) > p { text-indent: 0; }
 a { color: inherit; text-decoration: none; }
-/* cmtt has only an upright regular face. Synthesizing a heavier strike repeats its glyphs
-   in the PDF text layer; an installed document font can still supply its own bold or italic. */
-code, pre {
+/* Use the actual mono faces and avoid synthetic strikes that duplicate PDF characters.
+   The default url.sty font is the surrounding size in typewriter. */
+code, pre, .latex-url {
     font-family: var(--latex-cjk-mono-font, var(--latex-mono-font, "Surimono Computer Modern Typewriter")), var(--latex-mono-font, "Surimono Computer Modern Typewriter"), "Surimono Computer Modern Typewriter", Menlo, "Hiragino Kaku Gothic ProN", monospace;
     font-synthesis: none;
 }
 code, pre, pre code { font-size: 1em; }
+/* The surrounding strut supplies leading. A mono face can otherwise deepen even a line of plain URL text. */
+.latex-url { font-size: 1em; line-height: 1; }
 .latex-verbatim pre { font-size: 1em; line-height: inherit; margin: 0.7em 0; padding: 0; border: none; background: none; }
 figure.latex-listing { margin-inline: 0; }
 /* listings numbers are sized from the document class, independently of the code's basicstyle. */
@@ -158,6 +188,13 @@ table[data-latex-tabularx] > :is(thead,tbody) > tr > [data-latex-column="X"] { w
 table.latex-tabular :is(th, td) {
     box-sizing: content-box;
     height: calc((var(--latex-array-baseline, 12) * var(--tex-pt) * var(--latex-stretch, 1) + var(--latex-extrarowheight, 0px)) * var(--latex-arraystretch, 1) + var(--latex-row-skip, 0px));
+}
+/* Use the TeX array strut for single-line l/c/r cells. Tall formula ink can still enlarge a row. */
+table.latex-tabular :is(td,th):has(> .latex-array-strut) { line-height: 0; }
+.latex-array-strut {
+    --strut: calc(var(--latex-array-baseline, 12) * var(--tex-pt) * var(--latex-stretch, 1) * var(--latex-arraystretch, 1));
+    display: inline-block; width: 0; height: calc(var(--strut) + var(--latex-extrarowheight, 0px) * var(--latex-arraystretch, 1));
+    vertical-align: calc(-.3 * var(--strut));
 }
 table.latex-tabular th { font-weight: normal; }
 table.latex-tabular .latex-above-rule > :is(th, td) { padding-block-end: 0.4ex; }
@@ -210,6 +247,18 @@ figure.latex-table {
     --latex-caption-table-gap: max(var(--tex-pt), var(--latex-table-caption-skip, var(--latex-abovecaptionskip)));
 }
 figure.latex-table figcaption { margin-block: var(--latex-caption-table-gap) var(--latex-belowcaptionskip); }
+/* A caption below an array starts with the class skip, lineskip and a natural-height hbox. */
+@supports (text-box-trim: trim-start) {
+    /* WebKit snaps the native row and caption baselines to layout pixels. Keep
+       the full lineskip at their boundary; a transformed table retains its fractional depth. */
+    body[data-latex-natural-table-captions] figure.latex-table > table:has(.latex-array-strut) + figcaption {
+        --latex-array-caption-lineskip: round(up, var(--tex-pt), 1px);
+    }
+    body[data-latex-natural-table-captions] figure.latex-table > :is(table,.latex-graphic-box):has(.latex-array-strut) + figcaption:not([data-latex-caption-style]) {
+        text-box-trim: trim-start; text-box-edge: cap alphabetic;
+        padding-block-start: var(--latex-array-caption-lineskip, var(--tex-pt));
+    }
+}
 figure.latex-table figcaption:has(~ :is(table, div, p, figure, img, svg, pre)) {
     margin-block: var(--latex-belowcaptionskip) var(--latex-caption-table-gap);
 }
@@ -247,6 +296,12 @@ ol.latex-bibliography[data-latex-bib-sample] {
 }
 ol.latex-numbered[data-latex-bib-sample] .bib-label {
     width: var(--bib-labelwidth); inset-inline-end: calc(100% + var(--bib-labelsep));
+}
+/* An absolutely positioned number can be extracted as a separate column of labels.
+   On CM pages keep it in the first text run, with the same zero advance and hanging width. */
+body[data-latex-line-breaking="cm"] ol.latex-numbered[data-latex-bib-sample] .bib-label {
+    position: static; display: inline-block; line-height: 0; vertical-align: baseline;
+    margin-inline: calc(0px - var(--bib-labelwidth) - var(--bib-labelsep)) var(--bib-labelsep);
 }
 /* Manually typeset labels share the first text baseline, including when the
    conference style trims the top of its first entry. Their net advance is zero. */
@@ -829,6 +884,8 @@ body[data-latex-js-chapters][data-latex-title-layout="separate"] .latex-title-bl
 
 body[data-latex-js-chapters][data-latex-js-toc] nav.toc .latex-toc-chapter > a { --latex-toc-number-width: calc(4.683 * var(--latex-zw)); }
 .latex-xkanjiskip { display: inline-block; width: .25em; }
+/* Paint the original space in the fixed-width caption glue so PDFKit can copy it. */
+.latex-caption-label > .latex-xkanjiskip { white-space: pre; }
 /* A real space interrupts WebKit’s implicit ideograph-to-digit spacing at an anchor boundary. */
 .latex-xkanjiskip:empty { display: inline; }
 .latex-xkanjiskip:empty::before { content: "\2005"; font-family: serif; white-space: pre; }
@@ -1135,15 +1192,6 @@ body:is([data-latex-class="book"],[data-latex-class="report"])[data-latex-chapte
     & h2 > .latex-chapter-title { display: block; font-size: var(--latex-size-Huge); line-height: 1.2; }
 }
 
-/* Latin Modern's text bullet is centered in a 778-unit advance. Times supplies the
-   same round ink at text size when the Latin Modern face is unavailable. */
-body[data-latex-js-toc] ul:not(.toc ul,li ul) > li:not(.latex-custom-label)::before {
-    content: "•"; font-family: var(--latex-main-font, "Latin Modern Roman"), Times, serif; width: .778em; text-align: center;
-    inset-inline-end: calc(100% + var(--latex-list-labelsep, .5 * var(--latex-zw, 1em)));
-}
-body[data-latex-class="scrbook"] ul:not(.toc ul,li ul) > li:not(.latex-custom-label)::before {
-    content: "∙"; font-family: var(--latex-main-font, "Surimono Computer Modern"), serif;
-}
 body:is([data-latex-class="ltjsbook"],[data-latex-class="scrbook"],[data-latex-class="ltjarticle"],[data-latex-class="amsproc"]) .footnotes > ol > li:last-child {
     margin-block-end: 0;
 }

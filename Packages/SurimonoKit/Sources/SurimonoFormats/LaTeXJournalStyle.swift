@@ -9,6 +9,13 @@ package enum LaTeXJournalStyle: String, Sendable {
     // cmcsc10's small letters have wider advances than synthesized browser small caps.
     // Preserve the source case for contents, selection and accessibility.
     static func smallCaps(_ html: String, in document: LaTeXDocument) -> String {
+        // CMU supplies real small capitals for the default AMS text face in a single run.
+        if document.classInfo.profile.headings.smallCapsSections,
+            document.classInfo.mainFontName == nil
+                || document.classInfo.mainFontName == ComputerModernFamily.roman.rawValue
+        {
+            return html
+        }
         guard html.utf8.count <= 32768 else { return html }
         var svgDepth = 0
         return HTMLScanner.tokens(html).map { token in

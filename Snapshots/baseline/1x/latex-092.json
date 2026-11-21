@@ -5,79 +5,79 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 71,
+      "firstY" : 69.1,
       "height" : 841.9,
-      "lastY" : 295.8,
+      "lastY" : 294.7,
       "lineCount" : 9,
       "lines" : [
         {
-          "height" : 16.9,
+          "height" : 21.2,
           "text" : "Model rail practical",
-          "width" : 122.5,
-          "x" : 252.2,
-          "y" : 71
+          "width" : 123.5,
+          "x" : 251.7,
+          "y" : 69.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1. (2 points) The strip is one millimetre thick. What height does a single fold produce?",
-          "width" : 381.6,
+          "width" : 381.2,
           "x" : 77.2,
-          "y" : 95
+          "y" : 93.9
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "2. (3 points) Explain how to check for a tilted rail.",
-          "width" : 223.5,
+          "width" : 222.4,
           "x" : 77.2,
-          "y" : 163.8
+          "y" : 162.7
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Question:",
-          "width" : 41.6,
+          "width" : 41.5,
           "x" : 78.8,
-          "y" : 258.2
+          "y" : 257.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1 2",
           "width" : 37.7,
-          "x" : 140.6,
-          "y" : 258.2
+          "x" : 140.5,
+          "y" : 257.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Total",
-          "width" : 23.8,
-          "x" : 198.5,
-          "y" : 258.2
+          "width" : 23,
+          "x" : 198.4,
+          "y" : 257.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Points:",
-          "width" : 30.6,
+          "width" : 30,
           "x" : 78.8,
-          "y" : 277.4
+          "y" : 276.3
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "2 3 5",
-          "width" : 72.3,
-          "x" : 140.6,
-          "y" : 277.4
+          "width" : 71.9,
+          "x" : 140.5,
+          "y" : 276.3
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Score:",
           "width" : 26,
           "x" : 78.8,
-          "y" : 295.8
+          "y" : 294.7
         }
       ],
-      "textHeight" : 236.5,
+      "textHeight" : 240.4,
       "textLeft" : 77.2,
-      "textTop" : 71,
-      "textWidth" : 381.6,
+      "textTop" : 69.1,
+      "textWidth" : 381.2,
       "width" : 595.3
     }
   ],

@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.021263138312715098,
+    "changedAreaRatio" : 0.02045287776847632,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 23.9,
-    "maxLuminance" : 181.65625,
-    "maxShiftPt" : 28.7,
+    "maxBoxDeltaPt" : 21.3,
+    "maxLuminance" : 172.734375,
+    "maxShiftPt" : 27,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -18,105 +18,105 @@
   "pageCount" : 2,
   "pages" : [
     {
-      "firstY" : 320.5,
+      "firstY" : 316.3,
       "height" : 841.9,
-      "lastY" : 713.3,
+      "lastY" : 711.4,
       "lineCount" : 3,
       "lines" : [
         {
-          "height" : 25.2,
+          "height" : 31.3,
           "text" : "Part I",
-          "width" : 61.8,
-          "x" : 241.1,
-          "y" : 320.5
+          "width" : 63.1,
+          "x" : 240.5,
+          "y" : 316.3
         },
         {
-          "height" : 30.2,
+          "height" : 37.6,
           "text" : "The upper valley",
-          "width" : 207.9,
-          "x" : 168.1,
-          "y" : 366.9
+          "width" : 212.7,
+          "x" : 165.7,
+          "y" : 362.1
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "1",
           "width" : 5,
           "x" : 269.6,
-          "y" : 713.3
+          "y" : 711.4
         }
       ],
-      "textHeight" : 404.6,
-      "textLeft" : 168.1,
-      "textTop" : 320.5,
-      "textWidth" : 207.9,
+      "textHeight" : 409.9,
+      "textLeft" : 165.7,
+      "textTop" : 316.3,
+      "textWidth" : 212.7,
       "width" : 595.3
     },
     {
-      "firstY" : 218.1,
+      "firstY" : 213.9,
       "height" : 841.9,
-      "lastY" : 713.3,
+      "lastY" : 711.4,
       "lineCount" : 8,
       "lines" : [
         {
-          "height" : 25.2,
+          "height" : 31.3,
           "text" : "Chapter 1",
-          "width" : 102.9,
+          "width" : 104.8,
           "x" : 151.4,
-          "y" : 218.1
+          "y" : 213.9
         },
         {
-          "height" : 30.2,
+          "height" : 37.6,
           "text" : "The spillway",
-          "width" : 156.1,
+          "width" : 156.8,
           "x" : 151.4,
-          "y" : 264.6
+          "y" : 259.7
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "Fold the sheet along the blue channel. A cut through the ridge reveals the two",
           "width" : 343.7,
           "x" : 151.4,
-          "y" : 330.4
+          "y" : 328.5
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "beds beneath the gravel.",
-          "width" : 106.6,
+          "width" : 106.5,
           "x" : 151.4,
-          "y" : 342.4
+          "y" : 340.5
         },
         {
-          "height" : 17.5,
+          "height" : 21.7,
           "text" : "1.1 Reading the section",
-          "width" : 176.3,
+          "width" : 178.4,
           "x" : 151.4,
-          "y" : 369.7
+          "y" : 367.4
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "The wider bed continues past the bend. The narrow bed ends below the western",
           "width" : 343.7,
           "x" : 151.4,
-          "y" : 395.2
+          "y" : 393.3
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "ledge.",
           "width" : 24.9,
           "x" : 151.4,
-          "y" : 407.2
+          "y" : 405.3
         },
         {
-          "height" : 11.7,
+          "height" : 14.8,
           "text" : "2",
           "width" : 5,
           "x" : 320.7,
-          "y" : 713.3
+          "y" : 711.4
         }
       ],
-      "textHeight" : 506.9,
+      "textHeight" : 512.3,
       "textLeft" : 151.4,
-      "textTop" : 218.1,
+      "textTop" : 213.9,
       "textWidth" : 343.7,
       "width" : 595.3
     }

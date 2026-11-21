@@ -221,7 +221,6 @@ final class LaTeXDocument {
                 labelMetrics.localFace(fonts: pageSettings.fonts),
                 labelMetrics.publicationFaces(for: info, index: pageSettings.fonts.index),
                 labelMetrics.headingFace(for: info, index: pageSettings.fonts.index),
-                info.profile.headings.readsElementFonts ? LaTeXBookStyle.sansFaces : nil,
             ]
             .compactMap { $0 }).joined(
                 separator: "\n")

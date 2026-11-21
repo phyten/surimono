@@ -10,7 +10,7 @@
     "maxShiftPt" : 319,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 238
+    "textEdits" : 235
   },
   "fonts" : [
     "Helvetica",
@@ -25,7 +25,7 @@
       "firstY" : 224.7,
       "height" : 841.9,
       "lastY" : 726.4,
-      "lineCount" : 156,
+      "lineCount" : 153,
       "lines" : [
         {
           "height" : 8,
@@ -680,16 +680,9 @@
         },
         {
           "height" : 12.1,
-          "text" : "•",
-          "width" : 3.8,
+          "text" : "• to measure the height of spacers with two to",
+          "width" : 205.7,
           "x" : 83.4,
-          "y" : 615.6
-        },
-        {
-          "height" : 12.1,
-          "text" : "to measure the height of spacers with two to",
-          "width" : 196.4,
-          "x" : 92.7,
           "y" : 615.6
         },
         {
@@ -701,16 +694,9 @@
         },
         {
           "height" : 12.1,
-          "text" : "•",
-          "width" : 3.8,
+          "text" : "• to compare the measurements with a layer",
+          "width" : 205.7,
           "x" : 83.4,
-          "y" : 651.4
-        },
-        {
-          "height" : 12.1,
-          "text" : "to compare the measurements with a layer",
-          "width" : 196.4,
-          "x" : 92.7,
           "y" : 651.4
         },
         {
@@ -764,16 +750,9 @@
         },
         {
           "height" : 12.1,
-          "text" : "•",
-          "width" : 3.8,
+          "text" : "• to give simple rules for choosing a card stock",
+          "width" : 205.7,
           "x" : 83.4,
-          "y" : 687.2
-        },
-        {
-          "height" : 12.1,
-          "text" : "to give simple rules for choosing a card stock",
-          "width" : 196.4,
-          "x" : 92.7,
           "y" : 687.2
         },
         {
@@ -1966,5 +1945,5 @@
       "width" : 595.3
     }
   ],
-  "textSHA256" : "af4290931244cdb6d872d1db80f4887d367388d73820a23c0803cf3ff1b4982a"
+  "textSHA256" : "9707a533370a55d6f0f08124eb7db17a9757d556cf584e810795e4037300399c"
 }

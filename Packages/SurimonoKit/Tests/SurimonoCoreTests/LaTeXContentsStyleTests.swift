@@ -33,8 +33,8 @@ struct LaTeXContentsStyleTests {
         #expect(
             theme.css.contains(
                 "var(--latex-itemsep, var(--j-list-parsep)) + var(--latex-list-parsep, var(--j-list-parsep))"))
-        #expect(theme.css.contains(".latex-caption-label { word-spacing: .083em; }"))
-        #expect(theme.css.contains(".latex-contents-title,.abstract-title) { word-spacing: .125em; }"))
+        #expect(!theme.css.contains(".latex-caption-label { word-spacing: .083em; }"))
+        #expect(!theme.css.contains(".latex-contents-title,.abstract-title) { word-spacing: .125em; }"))
         #expect(theme.css.contains("calc(.12em * var(--latex-jfm-scale) + var(--tex-pt))"))
     }
 
