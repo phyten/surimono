@@ -1,12 +1,12 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.1037412540435515,
+    "changedAreaRatio" : 0.10335989417005137,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 2,
     "maxBoxDeltaPt" : 403.4,
-    "maxLuminance" : 51.96875,
+    "maxLuminance" : 44.03125,
     "maxShiftPt" : 319,
     "pageDelta" : 0,
     "repaginatedLines" : 0,

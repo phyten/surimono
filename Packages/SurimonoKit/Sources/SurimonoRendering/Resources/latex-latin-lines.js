@@ -4,6 +4,9 @@ const latinEnglishHyphens = latinHyphenator(globalThis.surimonoEnglishPatterns);
 // All cached values are numbers, strings or plans. Never retain a flow clone, a DOM
 // Range or a computed style across the paginator's reference-filling passes.
 function latinCompose(body, rectToCSS = 1, restorations) {
+    const rigidMath = globalThis.surimonoNextRigidMath;
+    delete globalThis.surimonoNextRigidMath;
+    const proofs = globalThis.surimonoMathProofs = [];
     const start = performance.now(), deadline = start + 4000;
     const summary = {qualifying:0, composed:0, fallbacks:0, paragraphs:[], milliseconds:0};
     const family = body.dataset.latexLineBreaking;
@@ -170,11 +173,85 @@ function latinCompose(body, rectToCSS = 1, restorations) {
         if (diagnostics) summary.skipped.push({reason, category, text:p.textContent.trim().slice(0,160),
             parent:p.parentElement.tagName.toLowerCase(), parentClass:p.parentElement.className});
     }
+    // MathRenderer records boundaries in paint order and em units. The final
+    // field encodes TeX's medium (4 +2 -4 mu) or thick (5 +5 mu) skip.
+    function mathCapacity(atom) {
+        const math = atom.matches('.math-inline') ? atom : atom.firstElementChild;
+        const svg = math?.querySelector(':scope.math-inline > svg:only-child[data-math-glue]');
+        if (!svg) return null;
+        const [header,...fields] = svg.dataset.mathGlue.split(';');
+        const [count,em] = header.split(',').map(Number);
+        const glyphs = [...svg.children];
+        if (!ctx || glyphs.length !== count || !(em > 0 && Number.isFinite(em)) || !fields.length ||
+            glyphs.some(g => !g.matches('text,rect') || g.hasAttribute('transform') || g.children.length)) return null;
+        const width = svg.getBoundingClientRect().width * rectToCSS, view = svg.viewBox.baseVal;
+        if (!(width > 0 && view.width > 0)) return null;
+        const unit = width / view.width, cuts = [];
+        let stretch = 0, shrink = 0, previous = 0;
+        for (const field of fields) {
+            const [index,x,mu] = field.split(',').map(Number);
+            if (!Number.isInteger(index) || index <= previous || index >= glyphs.length ||
+                !Number.isFinite(x) || (mu !== 4 && mu !== 5)) return null;
+            previous = index;
+            const plus = (mu === 4 ? 2 : 5) * em/18, minus = (mu === 4 ? 4 : 0) * em/18;
+            cuts.push({index,x:x*em,end:(x+mu/18)*em,plus,minus});
+            stretch += plus * unit;
+            shrink += minus * unit;
+        }
+        // A solid fraction or accent rule can move with its atom, provided
+        // none of it spans an adjustable boundary. Backgrounds are never tagged.
+        for (const glyph of glyphs) {
+            if (glyph.localName !== 'rect') continue;
+            const x = glyph.x.baseVal.value, right = x + glyph.width.baseVal.value;
+            if (cuts.some(c => x < c.end-.00001 && right > c.x+.00001)) return null;
+        }
+        return {original:svg,width,viewWidth:view.width,unit,cuts,stretch,shrink};
+    }
+    function setMathWidth(formula, ratio) {
+        const {svg,math} = formula, box = svg.viewBox.baseVal;
+        if (ratio < -1 && math.shrink) throw Error('math glue below floor');
+        const delta = ratio * (ratio > 0 ? math.stretch : math.shrink);
+        formula.expected = math.width + delta;
+        if (!delta) return;
+        let shift = 0, next = 0;
+        const glyphs = svg.children;
+        let right = -Infinity, previousRight = -Infinity;
+        for (let i = 0; i < glyphs.length; i++) {
+            const cut = math.cuts[next];
+            if (cut?.index === i) {
+                shift += ratio * (ratio > 0 ? cut.plus : cut.minus);
+                previousRight = right;
+                next++;
+            }
+            const glyph = glyphs[i], rule = glyph.localName === 'rect';
+            const x = (rule ? glyph.x.baseVal.value : glyph.x.baseVal.getItem(0).value) + shift;
+            if (ratio < 0) {
+                // Compare actual ink across the moving boundaries. Existing
+                // overlaps within a base and its scripts belong to that atom.
+                let left = x, end;
+                if (rule) end = x + glyph.width.baseVal.value;
+                else {
+                    const css = getComputedStyle(glyph);
+                    ctx.font = css.fontStyle + ' ' + css.fontWeight + ' 1000px ' + css.fontFamily;
+                    const ink = ctx.measureText(glyph.textContent), scale = Number(glyph.getAttribute('font-size'))/1000;
+                    left -= ink.actualBoundingBoxLeft * scale;
+                    end = x + ink.actualBoundingBoxRight * scale;
+                }
+                if (left < previousRight - 0.00001) throw Error('math ink overlap');
+                right = Math.max(right,end);
+            }
+            if (shift) glyph.setAttribute('x',x);
+        }
+        // Change both lengths by the same proportion. The glyphs keep their
+        // original scale, baseline, height and relative order in the PDF stream.
+        svg.setAttribute('viewBox',[box.x,box.y,math.viewWidth + delta/math.unit,box.height].join(' '));
+        svg.style.width = formula.expected + 'px';
+    }
     // A piece points into one original text node or owns one indivisible inline object.
     // An object has a sentinel in the planner, even for textless SVGs and destinations.
     // Neither that sentinel nor the lexical copy of its punctuation enters the DOM.
     let remainingWords = 65536, remainingNodes = 131072, remainingLines = 12000;
-    function tokenize(p, parameters, followsGlue = false, gutter = null, contextGlue = null) {
+    function tokenize(p, parameters, followsGlue, gutter, contextGlue, allowMath) {
         const words = [], leading = [];
         const fontScale = parameters.fontSizePt ? parameters.fontSizePt / faceFor(p.closest('.footnotes') || p).em : texPointsPerPixel;
         let word, pending = [], count = 0;
@@ -273,7 +350,12 @@ function latinCompose(body, rectToCSS = 1, restorations) {
             const suffix = node.matches('.latex-nowrap') && node.childNodes.length === 2 &&
                 node.firstChild.matches?.('.math-inline') && node.lastChild.nodeType === Node.TEXT_NODE
                 ? node.lastChild.data : '';
-            add({owners,face,atom:node,width},'\ufffc' + suffix);
+            const math = allowMath && node.matches('.math-inline,[data-math-punctuation]') ? mathCapacity(node) : null;
+            add({owners,face,atom:node,width,math},'\ufffc' + suffix);
+            if (math) {
+                word.mathStretch = (word.mathStretch || 0) + math.stretch;
+                word.mathShrink = (word.mathShrink || 0) + math.shrink;
+            }
         }
         for (const child of p.childNodes) if (child !== gutter) visit(child,[]);
         if (word) word.after = pending;
@@ -360,7 +442,7 @@ function latinCompose(body, rectToCSS = 1, restorations) {
             }
             if (part.hyphen) line.dataset.flowHyphen = '';
             fragment.append(line);
-            const row = {line,part,gaps:[],pitch};
+            const row = {line,part,gaps:[],formulas:[],pitch};
             let chain = [], copies = [line];
             function owner(owners) {
                 let i = 0;
@@ -412,6 +494,7 @@ function latinCompose(body, rectToCSS = 1, restorations) {
                     if (run.atom) {
                         const clone = run.atom.cloneNode(true);
                         clone.dataset.latinFixed = '';
+                        if (run.math) row.formulas.push({svg:clone.querySelector('svg'),math:run.math});
                         target.append(clone);
                     } else {
                         if (run.text.includes('\u202f')) {
@@ -613,7 +696,9 @@ function latinCompose(body, rectToCSS = 1, restorations) {
         }
     }
     try {
+        let ordinal = 0;
         for (const p of body.querySelectorAll(paragraphSelector)) {
+            const mathIndex = ordinal++, allowMath = !rigidMath?.has(mathIndex);
             const category = contextOf(p);
             if (!category) continue;
             const definition = category === 'description' ? p.closest('dd') : null;
@@ -635,8 +720,8 @@ function latinCompose(body, rectToCSS = 1, restorations) {
                 const parameters = Object.assign(family === 'times' ? {tolerance:9999,emergencystretch:'3em'} : {},
                     settings ? JSON.parse(settings) : {}, contextParameters[category]);
                 const contextGlue = category === 'body' ? null : body.dataset.latexContextGlue;
-                const prose = tokenize(p,parameters,!!heading,gutter,contextGlue);
-                const head = heading ? tokenize(heading,parameters,false,null,contextGlue) : null;
+                const prose = tokenize(p,parameters,!!heading,gutter,contextGlue,allowMath);
+                const head = heading ? tokenize(heading,parameters,false,null,contextGlue,allowMath) : null;
                 const words = head ? [...head.words,...prose.words] : prose.words;
                 const css = getComputedStyle(p), blockStyle = getComputedStyle(block), rect = block.getBoundingClientRect();
                 const inset = ['paddingLeft','paddingRight','borderLeftWidth','borderRightWidth']
@@ -693,7 +778,7 @@ function latinCompose(body, rectToCSS = 1, restorations) {
                 const fonts = [...new Set(words.flatMap(w => w.runs.map(r => r.face.key)))];
                 const fontIDs = new Map(fonts.map((key,i) => [key,i]));
                 const key = JSON.stringify([category,width,planIndent,head?.words.length ?? 0,parameters,fonts,words.map(w =>
-                    [w.text,!!w.noBreakAfter,...w.glue,...w.runs.map(r => [r.at,fontIDs.get(r.face.key),r.width ?? null,r.urlPenalty ?? null,
+                    [w.text,!!w.noBreakAfter,...w.glue,...w.runs.map(r => [r.at,fontIDs.get(r.face.key),r.width ?? null,r.urlPenalty ?? null,r.math?.stretch,r.math?.shrink,
                         r.owners.some(el => el.matches('.long-token') || el.matches('a') && /^\w+:\/\//.test(el.textContent))])])]);
                 let plan = cache.plans.get(key);
                 if (plan === undefined) {
@@ -722,11 +807,12 @@ function latinCompose(body, rectToCSS = 1, restorations) {
                     summary.qualifying--; noteSkip(p,'single-line caption',category); continue;
                 }
                 if (diagnostics && globalThis.surimonoLatinBoxDiagnostics) {
-                    boxDiagnostics = {width,indent:planIndent,parameters,nativeLines:originalLines,pass:plan?.pass ?? null,
+                    boxDiagnostics = {width,...(allowMath ? {} : {rigidMathForSearch:true}),indent:planIndent,parameters,nativeLines:originalLines,pass:plan?.pass ?? null,
                         originalHeight:rect.height*rectToCSS, textBoxTrim:css.textBoxTrim,
                         ratios:plan?.lines.map(l=>l.ratio) ?? [],words:words.map(w => ({
                             text:w.runs.map(r=>r.atom ? r.atom.textContent : r.text).join(''),width:w.width,
-                            glue:w.glue,noBreakAfter:!!w.noBreakAfter}))};
+                            glue:w.glue,noBreakAfter:!!w.noBreakAfter,
+                            ...(w.mathStretch ? {mathStretch:w.mathStretch,mathShrink:w.mathShrink} : {})}))};
                 }
                 // text-box-trim removes leading at the native paragraph boundary.
                 // With end trim only, the original text block supplies that last
@@ -800,7 +886,7 @@ function latinCompose(body, rectToCSS = 1, restorations) {
                 if (performance.now() > paragraphDeadline) throw Error('composition budget');
                 const initialPadding = parseFloat(css.paddingBlockStart);
                 const first = css.textBoxTrim === 'trim-start' && initialPadding > 0 ? firstGlyph(p) : null;
-                pending.push({p,index,text,category,block,gutter,labelPosition,heading,runIn,headContent,originalHeading:heading && [...heading.childNodes],
+                pending.push({p,index,mathIndex,text,category,block,gutter,labelPosition,heading,runIn,headContent,originalHeading:heading && [...heading.childNodes],
                     oldHeadingStyle:heading?.getAttribute('style'),rows,fragment,boxDiagnostics,original:[...p.childNodes],oldStyle:p.getAttribute('style'),
                     trim:first !== null, trimBoth:firstPitch !== undefined && !!css.getPropertyValue('--cm-strut-ascent'), first, firstInset, initialPadding, finalInset});
             } catch (error) {
@@ -840,7 +926,8 @@ function latinCompose(body, rectToCSS = 1, restorations) {
                 const last = row === trial.rows.at(-1);
                 row.delta = last && width <= measure ? 0 : measure-width;
                 row.axis = row.delta < 0 ? 2 : 1;
-                const capacity = row.gaps.reduce((sum,g) => sum + g.glue[row.axis],0);
+                const capacity = row.gaps.reduce((sum,g) => sum + g.glue[row.axis],0) +
+                    row.formulas.reduce((sum,f) => sum + (row.axis === 1 ? f.math.stretch : f.math.shrink),0);
                 if ((Math.abs(row.delta) > .03 && !capacity) || row.delta < -capacity - .00001) {
                     trial.reason = 'DOM glue capacity'; break;
                 }
@@ -850,6 +937,7 @@ function latinCompose(body, rectToCSS = 1, restorations) {
         eachTrial(trial => {
             if (trial.trim) trial.p.style.setProperty('padding-block-start',trial.padding+'px','important');
             for (const row of trial.rows) {
+                for (const formula of row.formulas) setMathWidth(formula,row.ratio);
                 if (!row.delta || !row.baseGlue) continue;
                 row.line.style.wordSpacing = row.base + row.ratio * row.baseGlue[row.axis] + 'px';
                 if (row.runIn) trial.heading.style.wordSpacing = row.line.style.wordSpacing;
@@ -898,6 +986,9 @@ function latinCompose(body, rectToCSS = 1, restorations) {
             for (const row of trial.rows) {
                 const {width,measure,height} = geometry(row);
                 const last = row === trial.rows.at(-1);
+                if (row.formulas.some(f => Math.abs(f.svg.getBoundingClientRect().width * rectToCSS - f.expected) > .02)) {
+                    trial.reason = 'math width'; break;
+                }
                 if (Math.abs(height-row.pitch) > .06 || !Number.isFinite(row.pitch)) {
                     if (trial.boxDiagnostics) trial.boxDiagnostics.pitch = {height,expected:row.pitch,
                         row:trial.rows.indexOf(row),text:row.line.textContent,rows:trial.rows.length};
@@ -931,7 +1022,14 @@ function latinCompose(body, rectToCSS = 1, restorations) {
         for (const trial of pending) {
             if (trial.reason) {
                 if (trial.installed) rollback(trial);
-            } else if (restorations) restorations.push(() => rollback(trial));
+            } else {
+                if (restorations) restorations.push(() => rollback(trial));
+                if (globalThis.surimonoCheckMathSearch && !rigidMath) {
+                    for (const row of trial.rows) for (const f of row.formulas) {
+                        if (f.expected !== f.math.width) proofs.push({index:trial.mathIndex,old:f.math.original,svg:f.svg});
+                    }
+                }
+            }
             finish(trial,trial.text,trial.reason || null,trial.reason ? [] : trial.lines);
         }
         probe.remove();

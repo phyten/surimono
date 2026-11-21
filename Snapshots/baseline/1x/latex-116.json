@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.10136042780748664,
+    "changedAreaRatio" : 0.09861818181818181,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 2,
@@ -10,7 +10,7 @@
     "maxShiftPt" : 3,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 55
+    "textEdits" : 47
   },
   "fonts" : [
     "Helvetica",
@@ -392,6 +392,20 @@
         },
         {
           "height" : 11,
+          "text" : "• to compare the measurements with a layer model that",
+          "width" : 222.5,
+          "x" : 66.9,
+          "y" : 550.9
+        },
+        {
+          "height" : 11,
+          "text" : "adds a crease allowance; and",
+          "width" : 115.1,
+          "x" : 75.4,
+          "y" : 562.8
+        },
+        {
+          "height" : 11,
           "text" : "where c is the crease allowance added by each fold. The",
           "width" : 234,
           "x" : 307.4,
@@ -406,45 +420,31 @@
         },
         {
           "height" : 12.3,
-          "text" : "tion (1) gives c = h2− 2t. The same model was used for",
+          "text" : "tion (1) gives c = h2− 2t. The same model was used",
           "width" : 234,
           "x" : 307.4,
           "y" : 517.7
         },
         {
           "height" : 11,
-          "text" : "the gauge block of Scale Fixture Room (2023), where it",
+          "text" : "for the gauge block of Scale Fixture Room (2023), where",
           "width" : 234,
           "x" : 307.4,
           "y" : 529.7
         },
         {
           "height" : 11,
-          "text" : "predicted the height of folded board well for up to four lay-",
+          "text" : "it predicted the height of folded board well for up to four",
           "width" : 234,
           "x" : 307.4,
           "y" : 541.6
         },
         {
           "height" : 11,
-          "text" : "ers.",
-          "width" : 14.1,
+          "text" : "layers.",
+          "width" : 26.3,
           "x" : 307.4,
           "y" : 553.6
-        },
-        {
-          "height" : 11,
-          "text" : "• to compare the measurements with a layer model that",
-          "width" : 222.5,
-          "x" : 66.9,
-          "y" : 550.9
-        },
-        {
-          "height" : 11,
-          "text" : "adds a crease allowance; and",
-          "width" : 115.1,
-          "x" : 75.4,
-          "y" : 562.8
         },
         {
           "height" : 11,
@@ -1013,5 +1013,5 @@
       "width" : 612
     }
   ],
-  "textSHA256" : "c545485845c53beda277f66a6365d43ebe2e5fcbc609b1c5d788fbca59c2f825"
+  "textSHA256" : "391da8748c0145e87060d776862e78a6871a101a69c8e5185b1fdb2ba1b798ba"
 }

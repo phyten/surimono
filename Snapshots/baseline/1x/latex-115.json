@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.10208877005347594,
+    "changedAreaRatio" : 0.09863422459893048,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 2,
@@ -10,7 +10,7 @@
     "maxShiftPt" : 3,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 28
+    "textEdits" : 20
   },
   "fonts" : [
     "Helvetica",
@@ -784,29 +784,29 @@
         },
         {
           "height" : 12.3,
-          "text" : "tion (1) gives c = h2− 2t. The same model was used for",
+          "text" : "tion (1) gives c = h2− 2t. The same model was used",
           "width" : 234,
           "x" : 307.4,
           "y" : 518.6
         },
         {
           "height" : 11,
-          "text" : "the gauge block of Scale Fixture Room (2023), where it",
+          "text" : "for the gauge block of Scale Fixture Room (2023), where",
           "width" : 234,
           "x" : 307.4,
           "y" : 530.5
         },
         {
           "height" : 11,
-          "text" : "predicted the height of folded board well for up to four lay-",
+          "text" : "it predicted the height of folded board well for up to four",
           "width" : 234,
           "x" : 307.4,
           "y" : 542.5
         },
         {
           "height" : 11,
-          "text" : "ers.",
-          "width" : 14.1,
+          "text" : "layers.",
+          "width" : 26.3,
           "x" : 307.4,
           "y" : 554.4
         },
@@ -1769,5 +1769,5 @@
       "width" : 612
     }
   ],
-  "textSHA256" : "f4bd041cbb54955072938b31ac0b430262fb73c7df00670a19b9810cc9f08b44"
+  "textSHA256" : "c162ba4ebad2c4f3ccec23951afab50013d44c93be8820ef2d1aadd394cff569"
 }

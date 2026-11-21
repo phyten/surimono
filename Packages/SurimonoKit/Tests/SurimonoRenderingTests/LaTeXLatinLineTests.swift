@@ -75,6 +75,23 @@ struct LaTeXLatinLineTests {
         #expect(js.evaluateScript("sample('aa bb cc dd',5,{},2)")?.isNull == true)
     }
 
+    @Test("行末の数式は語間がなくても伸縮し、最小幅より狭ければ式を割らずに戻す")
+    func indivisibleFormula() throws {
+        let js = try context()
+        js.evaluateScript(
+            """
+            function formulaPlan(measure) {
+                const formula = {text:'x+y',width:12,mathStretch:2,mathShrink:2,
+                    breaks:()=>[],glue:[3,1,1]};
+                const word = {text:'end',width:8,breaks:()=>[],glue:[0,0,0]};
+                return latinBreakPlan([formula,word],measure,0);
+            }
+            """)
+        #expect(js.evaluateScript("formulaPlan(13).lines[0].ratio")?.toDouble() == 0.5)
+        #expect(js.evaluateScript("formulaPlan(10).lines[0].ratio")?.toDouble() == -1)
+        #expect(js.evaluateScript("formulaPlan(9.99)")?.isNull == true)
+    }
+
     @Test("実 TeX の語幅とグルーで学会原稿の分綴と全行末を再現する", arguments: ["115", "121", "123"])
     func conferenceBreaks(corpus: String) throws {
         let js = try context()

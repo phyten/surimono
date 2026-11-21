@@ -1751,7 +1751,10 @@ final class LaTeXReader {
             return
         }
         let marks = String(characters[start..<index])
-        appendHTML("<span class=\"latex-nowrap\">\(html)\(marks)</span>", last: marks.last)
+        // This wrapper binds punctuation to the line. An explicit mbox using
+        // the same nowrap style must keep all of its internal material rigid.
+        let joined = html.contains(" data-math-glue=\"") ? " data-math-punctuation" : ""
+        appendHTML("<span class=\"latex-nowrap\"\(joined)>\(html)\(marks)</span>", last: marks.last)
     }
 
     private var singleDisplayAttribute: String {

@@ -52,12 +52,97 @@ public enum MathRenderer {
             " width=\"\(em(width / fontSize))\" height=\"\(em(height / fontSize))\""
             + " style=\"vertical-align: -\(em(list.depth)); overflow: visible\""
             + " role=\"img\" aria-label=\"\(HTML.escape(source))\""
+            + (display ? "" : inlineGlue(nodes: nodes, box: box, list: list))
         // Only the root element's size: the rules of fractions and radicals are rects with sizes of their own.
         guard let root = size.firstMatch(in: svg, range: NSRange(location: 0, length: nsSVG.length)) else { return nil }
         var html = nsSVG.replacingCharacters(in: root.range, with: attributes)
         // Formulas take the theme's text color unless they set a color of their own.
         html = html.replacingOccurrences(of: "\"rgba(0,0,0,1)\"", with: "\"currentColor\"")
         return "<span class=\"math math-\(display ? "display" : "inline")\"\(metrics)>\(html)\(labels)</span>"
+    }
+
+    /// The root hbox has one child per parsed atom, with automatic kerns inserted
+    /// between them. Explicit kerns have their own parse nodes. Never descend into
+    /// an atom to discover glue: a group or a script is already a finished box.
+    private static func inlineGlue(nodes: [ParseNode], box: LayoutBox, list: DisplayList) -> String {
+        guard nodes.count > 1, nodes.count <= 256, !list.truncated, list.width == box.width,
+            case .hbox(let children) = box.content, children.count > nodes.count,
+            list.items.count <= 512,
+            list.items.allSatisfy({
+                switch $0 {
+                case .glyphPath, .line(_, _, _, _, _, dashed: false): true
+                default: false
+                }
+            })
+        else { return "" }
+        var index = 0
+        var depth = 0
+        var x = 0.0
+        var cuts: [(child: Int, position: Double, mu: Int)] = []
+        var previousMu: Int?
+        for node in nodes {
+            guard index < children.count else { return "" }
+            var explicit = false
+            var opens = false
+            var closes = false
+            var atom = node
+            while case .supSub(let base?, _, _) = atom.kind { atom = base }
+            var operatorMu: Int?
+            switch atom.kind {
+            case .kern, .spacing: explicit = true
+            case .atom(let family, _):
+                operatorMu = family == .rel ? 5 : family == .bin ? 4 : nil
+                opens = family == .open
+                closes = family == .close
+            case .mclass(let name, _, _), .delimSizing(_, let name, _):
+                operatorMu = name == "mrel" ? 5 : name == "mbin" ? 4 : nil
+                opens = name == "mopen"
+                closes = name == "mclose"
+            case .tag, .enclose, .color, .cr: return ""
+            default: break
+            }
+            if !explicit, case .kern = children[index].content {
+                let width = children[index].width
+                let mu = width * 18
+                // The pinned engine also uses 4mu between two operators. Only
+                // spacing beside a binary or relation atom is TeX operator glue.
+                if depth == 0,
+                    let kind = [previousMu, operatorMu].compactMap({ $0 }).first(where: {
+                        abs(mu - Double($0)) < 0.000001
+                    })
+                {
+                    cuts.append((index, x, kind))
+                }
+                index += 1
+                x += width
+                guard index < children.count else { return "" }
+            }
+            // An ambiguous alignment (e.g. an unsupported node itself returning
+            // a bare kern) must not turn an explicit math skip into adjustable glue.
+            if !explicit, case .kern = children[index].content { return "" }
+            if !explicit { previousMu = operatorMu }
+            if opens { depth += 1 }
+            if closes { depth = max(0, depth - 1) }
+            x += children[index].width
+            index += 1
+        }
+        guard index == children.count, !cuts.isEmpty else { return "" }
+        // Each accepted paint item produces one SVG child. Indexing in paint
+        // order keeps rules and scripts with their atom even when ink overhangs.
+        var items = 0
+        var cut = 0
+        var fields = ["\(list.items.count),\(fontSize)"]
+        for (index, child) in children.enumerated() {
+            if cut < cuts.count, cuts[cut].child == index {
+                let position = String(format: "%.6f", cuts[cut].position)
+                fields.append("\(items),\(position),\(cuts[cut].mu)")
+                cut += 1
+            }
+            if case .kern = child.content { continue }
+            items += toDisplayList(child).items.count
+        }
+        guard items == list.items.count else { return "" }
+        return " data-math-glue=\"\(fields.joined(separator: ";"))\""
     }
 
     /// A numbered alignment stays a single grid so columns align across rows. SwaTex's measured
