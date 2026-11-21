@@ -150,6 +150,7 @@ enum LaTeXClassRegistry {
         let format = builder.options.map { $0.hasPrefix("format=") ? String($0.dropFirst(7)) : $0 }.last(
             where: ClassOptions.acmFormats.contains)
         if format == nil || format == "manuscript" || format == "sigconf" {
+            builder.page.setsOutputPaper = true
             builder.page.publication = format == "sigconf" ? .sigconf : .manuscript
             builder.structure.columns = format == "sigconf" ? 2 : 1
             builder.page.twoSidedBox = true
@@ -173,6 +174,7 @@ enum LaTeXClassRegistry {
             builder.body.composesLatinParagraphs = true
         }
         if builder.page.publication?.usesA4 == true {
+            builder.page.setsOutputPaper = true
             builder.page.defaultPaper = .a4
             builder.page.forcedPaper = .a4
         }

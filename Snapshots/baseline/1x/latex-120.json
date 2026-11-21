@@ -10,7 +10,7 @@
     "maxShiftPt" : 3.3,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 53
+    "textEdits" : 43
   },
   "fonts" : [
     "CourierNewPSMT",
@@ -616,8 +616,8 @@
         },
         {
           "height" : 9.9,
-          "text" : "Paper Model Quarterly, 4(2):33–41.",
-          "width" : 131.2,
+          "text" : "Paper Model Quarterly, 4(2):33–41. 2",
+          "width" : 138,
           "x" : 332.7,
           "y" : 84.9
         },
@@ -630,8 +630,8 @@
         },
         {
           "height" : 9.9,
-          "text" : "Paper Model Workshop.",
-          "width" : 87.2,
+          "text" : "Paper Model Workshop. 1",
+          "width" : 93.9,
           "x" : 332.7,
           "y" : 107.8
         },
@@ -651,8 +651,8 @@
         },
         {
           "height" : 9.9,
-          "text" : "board. Workshop Leaflet 7, Paper Model Workshop.",
-          "width" : 188.5,
+          "text" : "board. Workshop Leaflet 7, Paper Model Workshop. 1",
+          "width" : 195.3,
           "x" : 332.7,
           "y" : 130.7
         },
@@ -672,8 +672,8 @@
         },
         {
           "height" : 9.9,
-          "text" : "der. Technical memo, Paper Model Workshop.",
-          "width" : 167.5,
+          "text" : "der. Technical memo, Paper Model Workshop. 2",
+          "width" : 174.2,
           "x" : 332.7,
           "y" : 153.6
         },
@@ -952,8 +952,8 @@
         },
         {
           "height" : 9.9,
-          "text" : "on Paper Models, pages 12–19.",
-          "width" : 113.6,
+          "text" : "on Paper Models, pages 12–19. 1",
+          "width" : 120.3,
           "x" : 73.9,
           "y" : 703
         }
@@ -965,5 +965,5 @@
       "width" : 612
     }
   ],
-  "textSHA256" : "2ed4141a4ce5181752e4cf8a87d92d1e9086c48ca7a35dd6be27a7c7b7121b6a"
+  "textSHA256" : "46f76c8b35d8f27a34344efb32f81b2531e3585aa28a0913e1a1ddb414f784b4"
 }

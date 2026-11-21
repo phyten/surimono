@@ -80,6 +80,9 @@ public struct LaTeXDocumentClassInfo: Sendable, Equatable {
     var spacingPointSize: Int { profile.typography.spacingDesignSize ?? pointSize }
     public var pointSize: Int { resolvedStyle?.pointSize ?? profile.typography.pointSize }
     public internal(set) var mainLanguage: String
+    package var declaredPaperSize: CGSize?
+    package var linksReferences = false
+    package var pageBackReferences = false
     var resolvedPageBox: LaTeXPageBox?
     public var pageBox: LaTeXPageBox { resolvedPageBox ?? LaTeXPageSettings().pageBox(for: self) }
     public internal(set) var usesNativeCJKHeadings: Bool
@@ -123,6 +126,8 @@ public struct LaTeXDocumentClassInfo: Sendable, Equatable {
     public static func == (lhs: Self, rhs: Self) -> Bool {
         (lhs.composition == .proof) == (rhs.composition == .proof) && lhs.resolvedStyle == rhs.resolvedStyle
             && lhs.profile.structure.bookOpening == rhs.profile.structure.bookOpening
+            && lhs.declaredPaperSize == rhs.declaredPaperSize
+            && lhs.linksReferences == rhs.linksReferences && lhs.pageBackReferences == rhs.pageBackReferences
             && lhs.initialLineParameters == rhs.initialLineParameters
             && lhs.profile.headings.endDots == rhs.profile.headings.endDots
             && lhs.raggedColumns == rhs.raggedColumns && lhs.name == rhs.name && lhs.isJapanese == rhs.isJapanese

@@ -93,9 +93,8 @@ body.format-latex[data-latex-style="neurips"][data-latex-style-mode] {
 }
 body.format-latex[data-latex-style="iclr"][data-latex-style-mode] {
     --tex-footnote: 9;
-    /* Map the complete line to the virtual face's measure. Word shaping, selection,
-       justification and the vertical size of both capital heights are preserved. */
     & :is(.latex-title-block h1,h2,h3,h4,.abstract-title):has(.latex-ams-small-cap) {
+        /* Scale the shaped heading as a unit so extractors keep mixed-size capitals in one word. */
         width: calc(100% / var(--latex-small-caps-width, 1)); box-sizing: border-box;
         transform: scaleX(var(--latex-small-caps-width, 1)); transform-origin: left center;
     }

@@ -3,6 +3,20 @@ import Foundation
 /// The document's intended measure is independent of the stock and printable area chosen in Surimono.
 struct LaTeXPageSettings {
     private var stock: (width: Double, height: Double)?
+    private var classSelectedStock = false
+    private var pdfPageWidth: Double?
+    private var pdfPageHeight: Double?
+
+    func declaredPaperSize(for info: LaTeXDocumentClassInfo, box: LaTeXPageBox) -> CGSize? {
+        guard
+            classSelectedStock || stock != nil || paperWidth != nil || paperHeight != nil
+                || pdfPageWidth != nil || pdfPageHeight != nil || info.profile.page.setsOutputPaper
+                || info.resolvedStyle != nil || info.usesPublicationGrid
+        else { return nil }
+        // PDF media registers select the output sheet independently of the manuscript's text block.
+        return CGSize(width: pdfPageWidth ?? box.paperWidth, height: pdfPageHeight ?? box.paperHeight)
+    }
+
     private var classStock: (width: Double, height: Double)?
     private var paperWidth: Double?
     private var paperHeight: Double?
@@ -121,6 +135,10 @@ struct LaTeXPageSettings {
                 let quad = info.pointSize == 12 ? 11.74988 : info.pointSize == 11 ? 10.95 : 10
                 classSkips["parindent"] = "calc(\(Self.number(quad)) * var(--tex-pt))"
             }
+            if info.columns == 2 || info.composition == .twoColumn {
+                let skip = info.pointSize == 12 ? 10.8 : info.pointSize == 11 ? 10.0 : 9.0
+                classSkips["skip-footins"] = "calc(\(Self.number(skip)) * var(--tex-pt))"
+            }
             // size10/11/12.clo give listii the outer parsep as topsep and listiii the inner parsep.
             let outer = Double(info.pointSize - 10) / 2 + 4
             let inner = info.pointSize == 12 ? 2.5 : 2
@@ -178,7 +196,6 @@ struct LaTeXPageSettings {
             if fonts.mainFontName == "Times New Roman" {
                 classSkips["word-shrink"] = "0.06em"
                 if style.displayFace == .smallCaps {
-                    // The OT1 Times small-cap virtual face has wider advances than scaled Roman capitals.
                     classSkips["small-caps-width"] = "1.078"
                 }
             }
@@ -245,6 +262,7 @@ struct LaTeXPageSettings {
         case .keyed: readOptions(raw, geometry: false, keyedPaper: true)
         case .japanese: readOptions(raw, geometry: false, japaneseStock: true)
         }
+        classSelectedStock = stock != nil
         // The production classes set their own stock with geometry after processing class options.
         if let forced = info.profile.page.forcedPaper { stock = forced.millimetres }
         classStock = stock
@@ -348,7 +366,20 @@ struct LaTeXPageSettings {
         case "footskip": if let first { geometryFootSkip = first }
         case "paperwidth", "paperheight", "columnsep": readLength(key, value)
         case "paper", "papername":
-            if let size = Self.paperSizes[value] { stock = size }
+            if let size = Self.paperSizes[value] {
+                stock = size
+                paperWidth = nil
+                paperHeight = nil
+            }
+        case "papersize":
+            if let first = pair.first, let width = Self.millimetres(first),
+                let height = Self.millimetres(pair.last ?? first),
+                width > 0, height > 0
+            {
+                stock = (width, height)
+                paperWidth = nil
+                paperHeight = nil
+            }
         default: break
         }
     }
@@ -404,6 +435,10 @@ struct LaTeXPageSettings {
             if let length = Self.texPoints(value), length > 0 { assigned[name] = length }
         case "oddsidemargin", "topmargin", "headheight", "headsep", "footskip":
             if let length = Self.texPoints(value) { assigned[name] = length }
+        case "pdfpagewidth":
+            if let length = Self.millimetres(value), length > 0 { pdfPageWidth = length * 72 / 25.4 }
+        case "pdfpageheight":
+            if let length = Self.millimetres(value), length > 0 { pdfPageHeight = length * 72 / 25.4 }
         case "paperwidth":
             if let length = Self.millimetres(value), length > 0 { paperWidth = length }
         case "paperheight":
@@ -444,11 +479,11 @@ struct LaTeXPageSettings {
         }
     }
 
-    mutating func readPackage(_ name: String, options: String, info: LaTeXDocumentClassInfo) {
+    mutating func readPackage(_ name: String, options: String, passed: [String] = [], info: LaTeXDocumentClassInfo) {
         switch name {
         case "caption": captions.configure(options, kind: "")
         case "luatexja-preset": fonts.applyJapanesePreset(options, scale: LaTeXLabelMetrics(info).japaneseScale)
-        case "geometry": readOptions(options, geometry: true)
+        case "geometry": readOptions((passed + [options]).joined(separator: ","), geometry: true)
         case "fullpage":
             let margin = options.contains("cm") ? 15.0 : 25.4
             readOptions("margin=\(margin)mm", geometry: true)
@@ -574,6 +609,13 @@ extension LaTeXReader {
                 document.recordUnknown(name)
             } else {
                 var natural = value
+                if ["pdfpagewidth", "pdfpageheight"].contains(name),
+                    [#"\paperwidth"#, #"\paperheight"#].contains(value)
+                {
+                    let box = document.pageSettings.pageBox(for: document.classInfo)
+                    natural =
+                        LaTeXPageSettings.number(value == #"\paperwidth"# ? box.paperWidth : box.paperHeight) + "bp"
+                }
                 if name == "parskip", let scale = document.classInfo.jsMagnification,
                     let match = value.wholeMatch(
                         of: /\s*([+-]?[\d.]+)?\s*(em|ex|\\baselineskip)(?:\s+(?:plus|minus).*)?\s*/),
@@ -610,6 +652,10 @@ extension LaTeXReader {
             if register.hasPrefix("\\") {
                 assignLength(String(register.dropFirst()), value)
             }
+        case "pdfpagewidth", "pdfpageheight":
+            skipAssignmentSign()
+            let register = assignment(#"\\paper(?:width|height)(?![a-zA-Z])"#)
+            assignLength(name, register.isEmpty ? glueAssignment() : register)
         case "linefillheight" where document.classInfo.profile.body.readsQuestions,
             "dottedlinefillheight" where document.classInfo.profile.body.readsQuestions,
             "linefillthickness" where document.classInfo.profile.body.readsQuestions,

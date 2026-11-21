@@ -4048,7 +4048,13 @@ final class DocumentViewModel {
             var entries = outlineEntries
             var headings = readStructure?.headings ?? current.facts?.headings ?? []
             var htmlTitle = format == .html ? readStructure?.title : nil
-            if mode == .view {
+            var readingSettings = settings
+            if format == .latex, binder == nil, imageBundle == nil {
+                let source = withFolderAccess(DocumentSource(data: data, fileURL: fileURL, format: format))
+                readingSettings = settings.forReadingLaTeX(
+                    renderer.latexClassInfo(for: source, composition: settings.latexComposition))
+            }
+            if mode == .view && readingSettings == settings {
                 prepared = current
             } else {
                 // Tray-only notes, ranges and slide selections must never enter a reading copy. Preparing with
@@ -4064,7 +4070,7 @@ final class DocumentViewModel {
                             ? DocumentSource.liveSnapshot(liveSnapshot?.html ?? "", of: fileURL)
                             : DocumentSource(data: data, fileURL: fileURL, format: format, htmlBaseURL: htmlBaseURL))
                 }
-                prepared = try await DocumentRenderer().prepare(source, settings: settings)
+                prepared = try await DocumentRenderer().prepare(source, settings: readingSettings)
                 if binder == nil, imageBundle == nil, source.format.isWebRendered {
                     let structure = await ReadingPDFExporter.outline(
                         of: source, in: prepared.logicalDocument, proof: settings.finish.proof,

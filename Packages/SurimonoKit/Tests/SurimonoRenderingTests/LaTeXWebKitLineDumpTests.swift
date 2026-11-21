@@ -60,8 +60,9 @@ struct LaTeXWebKitLineDumpTests {
         // their own trim in the same way as a newly opened document in the app.
         let layout = PrintLayout.defaultLaTeXLayout(for: info) ?? .a4Single
         let settings = RenderSettings(layout: layout, theme: theme, preset: .init(id: "none", name: ""))
+        let readingSettings = settings.forReadingLaTeX(info)
         let started = ContinuousClock.now
-        let prepared = try await renderer.prepare(source, settings: settings)
+        let prepared = try await renderer.prepare(source, settings: readingSettings)
         var savedPageText: [String]?
         if writesPDF {
             let outline = await ReadingPDFExporter.outline(
@@ -88,7 +89,7 @@ struct LaTeXWebKitLineDumpTests {
         report["engine"] = "WebKit"
         report["route"] = final?["route"] ?? route ?? "vertical"
         report["hasLatinDiagnostics"] = final != nil
-        report["layout"] = layout.id
+        report["layout"] = readingSettings.layout.id
         report["style"] = style
         report["pageCount"] = prepared.viewDocument.pageCount
         report["pdfKitPageText"] = savedPageText

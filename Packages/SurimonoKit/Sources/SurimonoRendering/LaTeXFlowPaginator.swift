@@ -142,8 +142,62 @@ enum LaTeXFlowPaginator {
         let x: CGFloat
         let y: CGFloat
         let height: CGFloat
+        let linkMarks: [LinkMark]?
         let hasOverhang: Bool
         let distributedHeadings: [DistributedHeading]?
+    }
+
+    private struct LinkMark: Decodable {
+        let id, href: String?
+        let pageTop: Bool?
+        let x, y, width, height, start: CGFloat
+    }
+
+    private static func restoreLinks(
+        in pdf: PDFDocument, pages: [LaTeXFlowLayout.Page], origins: [Origin], textOrigin: CGPoint
+    ) {
+        var targets: [String: PDFDestination] = [:]
+        var links: [(page: PDFPage, rect: CGRect, href: String, pageTop: Bool)] = []
+        let grouped = origins.map { Dictionary(grouping: $0.linkMarks ?? [], by: \.start) }
+        for (index, layout) in pages.enumerated() {
+            guard let page = pdf.page(at: index) else { continue }
+            for piece in layout.pieces {
+                let ratio = WebPaginator.printPixelsPerPoint
+                let scale = piece.scale / ratio
+                for mark in grouped[piece.slice.strip][piece.slice.start] ?? [] {
+                    let top = textOrigin.y - piece.y / ratio - (mark.y - piece.slice.start) * scale
+                    let left = textOrigin.x + piece.x / ratio + mark.x * scale
+                    if let id = mark.id, targets[id] == nil {
+                        targets[id] = PDFDestination(page: page, at: CGPoint(x: left, y: top))
+                    }
+                    if let href = mark.href {
+                        let rect = CGRect(
+                            x: left, y: top - mark.height * scale, width: mark.width * scale,
+                            height: mark.height * scale)
+                        links.append((page, rect, href, mark.pageTop == true))
+                    }
+                }
+            }
+        }
+        let border = PDFBorder()
+        border.lineWidth = 0
+        for link in links {
+            let annotation = PDFAnnotation(bounds: link.rect, forType: .link, withProperties: nil)
+            if link.href.hasPrefix("#") {
+                guard let destination = targets[String(link.href.dropFirst())] else { continue }
+                if link.pageTop, let targetPage = destination.page {
+                    annotation.action = PDFActionGoTo(destination: PDFDestination(page: targetPage, at: textOrigin))
+                } else {
+                    annotation.action = PDFActionGoTo(destination: destination)
+                }
+            } else if let url = URL(string: link.href) {
+                annotation.action = PDFActionURL(url: url)
+            } else {
+                continue
+            }
+            annotation.border = border
+            link.page.addAnnotation(annotation)
+        }
     }
 
     struct DistributedHeading: Decodable {
@@ -358,6 +412,11 @@ enum LaTeXFlowPaginator {
             }
         }
         _ = try await run("surimonoRestoreFlow()")
+        if !sample && origins.contains(where: { $0.linkMarks?.isEmpty == false }) {
+            restoreLinks(
+                in: pdf, pages: pages, origins: origins,
+                textOrigin: CGPoint(x: margins.left, y: pageSize.height - margins.top))
+        }
         return Pass(document: pdf, pageCount: pages.count, locations: locations)
     }
 

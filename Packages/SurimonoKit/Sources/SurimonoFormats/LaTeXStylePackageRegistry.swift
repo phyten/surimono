@@ -348,10 +348,12 @@ extension LaTeXDocument {
         let ink: String?
         switch request.family {
         case .cvpr:
+            pageSettings.captions.anchorsAtFloat = true
             breaksURLsAfterHyphens = true
             bibDatabase.applyConferenceDefaults(authorYear: false, compress: true)
             ink = nil
         case .icml, .acl:
+            pageSettings.captions.anchorsAtFloat = true
             bibDatabase.applyConferenceDefaults(authorYear: true)
             bibDatabase.parentheticalCite = true
             bibDatabase.linksTextualAuthors = true
@@ -369,6 +371,7 @@ extension LaTeXDocument {
             pageSettings.fonts.readPackage("courier")
         }
         if let ink {
+            classInfo.linksReferences = true
             if hyperref.colored == nil { hyperref.colored = true }
             if !explicitPreambleInks.contains("linkcolor") { hyperref.link = ink }
             if !explicitPreambleInks.contains("citecolor") { hyperref.cite = ink }

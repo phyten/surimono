@@ -348,9 +348,14 @@ public struct PrintLayout: Codable, Hashable, Sendable, Identifiable {
     public static func defaultLaTeXLayout(for info: LaTeXDocumentClassInfo) -> PrintLayout? {
         guard info.usesPublicationGrid else { return nil }
         let box = info.pageBox
+        return readingLaTeXLayout(for: CGSize(width: box.paperWidth, height: box.paperHeight))
+    }
+
+    /// The document's declared trim belongs to the reading copy, independently of the printer stock.
+    package static func readingLaTeXLayout(for size: CGSize) -> PrintLayout? {
         return [.a4Single, .b5Single, .journalSingle, .letterSingle].first {
-            abs(min(box.paperWidth, box.paperHeight) - $0.sheet.size.width) < 0.1
-                && abs(max(box.paperWidth, box.paperHeight) - $0.sheet.size.height) < 0.1
+            abs(min(size.width, size.height) - $0.sheet.size.width) < 0.1
+                && abs(max(size.width, size.height) - $0.sheet.size.height) < 0.1
         }
     }
 

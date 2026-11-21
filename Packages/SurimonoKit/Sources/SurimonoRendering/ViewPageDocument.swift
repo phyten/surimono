@@ -34,6 +34,9 @@ public enum ViewPageDocument {
             return nil
         }
         let result = PDFDocument()
+        // A copied link resolves page references against whichever document owns it.
+        // Read its destination on the source before attaching the copy to a different PDF.
+        var internalLinks: [(PDFAnnotation, PDFDestination, Bool)] = []
         for (viewIndex, logicalIndex) in plan.logicalIndices.enumerated() {
             let scale = plan.scale(at: viewIndex)
             let transform = CGAffineTransform(scaleX: scale, y: scale)
@@ -52,6 +55,11 @@ public enum ViewPageDocument {
                 for annotation in page.annotations { page.removeAnnotation(annotation) }
                 for annotation in original.annotations {
                     guard let copy = annotationCopy(annotation, scale: scale) else { return nil }
+                    if let action = annotation.action as? PDFActionGoTo {
+                        internalLinks.append((copy, action.destination, true))
+                    } else if let target = annotation.destination {
+                        internalLinks.append((copy, target, false))
+                    }
                     page.addAnnotation(copy)
                 }
                 page.setBounds(box.applying(transform), for: .cropBox)
@@ -81,14 +89,12 @@ public enum ViewPageDocument {
             copy.zoom = scaled(destination.zoom, by: 1 / scale)
             return copy
         }
-        for index in 0..<result.pageCount {
-            guard let page = result.page(at: index) else { continue }
-            for annotation in page.annotations {
-                if let action = annotation.action as? PDFActionGoTo, let target = moved(action.destination) {
-                    annotation.action = PDFActionGoTo(destination: target)
-                } else if let target = moved(annotation.destination) {
-                    annotation.destination = target
-                }
+        for (annotation, original, usesAction) in internalLinks {
+            guard let target = moved(original) else { continue }
+            if usesAction {
+                annotation.action = PDFActionGoTo(destination: target)
+            } else {
+                annotation.destination = target
             }
         }
         return result

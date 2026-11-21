@@ -154,6 +154,11 @@ struct LaTeXConferencePrintingTests {
             #expect(pdf.findString("•").count == 3)
         }
         if name.contains("-aaai") {
+            let number = try bounds("(1)", on: first)
+            let equation =
+                first.selection(for: CGRect(x: number.minX - 155, y: number.minY, width: 150, height: number.height))?
+                .string ?? ""
+            for glyph in ["=", "+", "(", "−", "1", ")", ","] { #expect(equation.contains(glyph)) }
             let abstractEnd = try bounds("given rail height.", on: first)
             let introduction = try bounds("Introduction", on: first)
             // PDFKit reports glyph selection centres. The two reference gaps

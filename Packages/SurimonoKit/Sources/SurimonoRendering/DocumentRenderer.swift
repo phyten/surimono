@@ -128,6 +128,27 @@ public struct RenderSettings: Equatable, Sendable {
     public var theme: PrintTheme
     public var typeface: Typeface
     public var textScale: Double
+    var readingTrim: CGSize?
+    var logicalPageSize: CGSize { readingTrim ?? layout.logicalPageSize(options: options) }
+
+    public func forReadingLaTeX(_ info: LaTeXDocumentClassInfo) -> Self {
+        guard let size = info.declaredPaperSize else { return self }
+        var reading = self
+        reading.layout = (PrintLayout.readingLaTeXLayout(for: size) ?? .a4Single).oriented(size.width > size.height)
+        reading.readingTrim = nil
+        if abs(reading.layout.logicalPageSize.width - size.width) >= 0.1
+            || abs(reading.layout.logicalPageSize.height - size.height) >= 0.1
+        {
+            reading.readingTrim = size
+        }
+        if paperOrientation != .auto || theme.formats != [.latex]
+            || (size.width > size.height) != (info.pageBox.paperWidth > info.pageBox.paperHeight)
+        {
+            reading.paperOrientation = size.width > size.height ? .landscape : .portrait
+        }
+        return reading
+    }
+
     public var latexComposition = LaTeXComposition.document
     /// The colors and blocks of the document's code; the print theme's own by default.
     public var code = CodeStyle()
@@ -160,7 +181,8 @@ public struct RenderSettings: Equatable, Sendable {
     func textWidthPoints(in layout: PrintLayout) -> Double {
         let margins = layout.logicalMargins(options: options)
         // The graphics reader receives PDF points; PrintOptions stores millimetres.
-        return layout.logicalPageSize(options: options).width - (margins.left + margins.right) * 72 / 25.4
+        return (readingTrim ?? layout.logicalPageSize(options: options)).width - (margins.left + margins.right) * 72
+            / 25.4
     }
 
     var usesPerPageOrientation: Bool {
@@ -652,7 +674,7 @@ public final class DocumentRenderer {
             {
                 settings.applyLaTeXPage(latexClassInfo(for: source, composition: settings.latexComposition))
             }
-            let pageSize = settings.layout.logicalPageSize(options: settings.options)
+            let pageSize = settings.logicalPageSize
             let margins = settings.layout.logicalMargins(options: settings.options)
             guard settings.options.margins.isValid,
                 PDFDrawing.validGeometry(pageSize: pageSize, margins: WebPaginator.Margins(margins))
@@ -867,7 +889,7 @@ public final class DocumentRenderer {
     /// quick enough to follow the sheet's sliders; the pages laid out by WebKit come from the cache as they are.
     private func noted(_ logical: Logical, source: DocumentSource, settings: RenderSettings) async throws -> Logical {
         guard let notes = settings.activeNotes else { return logical }
-        let pageSize = settings.layout.logicalPageSize(options: settings.options)
+        let pageSize = settings.logicalPageSize
         let isPlainPDF = source.format == .pdf
         // A text is already on its sides: it moves before its paper goes under it, which must not move with it.
         let moves =
@@ -1018,7 +1040,7 @@ public final class DocumentRenderer {
                 if offset > output.document.pageCount {
                     let blank = PDFPage()
                     blank.setBounds(
-                        CGRect(origin: .zero, size: settings.layout.logicalPageSize(options: settings.options)),
+                        CGRect(origin: .zero, size: settings.logicalPageSize),
                         for: .mediaBox)
                     output.blankPages.insert(output.document.pageCount)
                     output.document.insert(blank, at: output.document.pageCount)
@@ -1197,7 +1219,7 @@ public final class DocumentRenderer {
                 (settings.opensDetails ? HTMLSnapshotScript.openDetailsJavaScript + "\n" : "")
                 + HTMLCleanupScript.javaScript(for: settings.preset)
             if let slides = settings.slides {
-                let pageSize = settings.layout.logicalPageSize(options: settings.options)
+                let pageSize = settings.logicalPageSize
                 let margins = WebPaginator.Margins(settings.layout.logicalMargins(options: settings.options))
                 // The paginating web view lays out one CSS pixel to a point.
                 let printable = CGSize(
@@ -1213,7 +1235,7 @@ public final class DocumentRenderer {
             let page = try await paginateCheckingIssues(
                 PaginationRequest(
                     source: sandboxSource(input, for: source),
-                    pageSize: settings.layout.logicalPageSize(options: settings.options),
+                    pageSize: settings.logicalPageSize,
                     margins: WebPaginator.Margins(settings.layout.logicalMargins(options: settings.options)),
                     allowsJavaScript: source.allowsJavaScript(settings), preparationScript: preparation,
                     readsPageRules: true), source: source)
@@ -1235,7 +1257,7 @@ public final class DocumentRenderer {
                 input: input)
             let fragment = page.fragment
             let directory = source.fileURL?.deletingLastPathComponent()
-            let pageSize = settings.layout.logicalPageSize(options: settings.options)
+            let pageSize = settings.logicalPageSize
             let margins = settings.layout.logicalMargins(options: settings.options)
             let themeScript = separatesPaper ? Self.themedPreparation(settings.theme) : settings.theme.script ?? ""
             let paperMargins = WebPaginator.Margins(margins)
@@ -1356,7 +1378,7 @@ public final class DocumentRenderer {
         var numbering: LaTeXPageNumbers? {
             guard let info = fragment.latexClass,
                 info.pageNumbers.needsRunningMarks || info.pageNumbers.needsExamTotals
-                    || info.pageNumbers.usesJournalFurniture
+                    || info.pageBackReferences || info.pageNumbers.usesJournalFurniture
                     || info.pageNumbers.usesClassPlain
                         && (info.hasChapters || fragment.body.contains("latex-title-block"))
                     || fragment.body.contains("class=\"toc\"")
@@ -1610,7 +1632,7 @@ public final class DocumentRenderer {
         return try await paginate(
             PaginationRequest(
                 source: sandboxSource(.html(html, baseURL: directory), for: source),
-                pageSize: settings.layout.logicalPageSize(options: settings.options),
+                pageSize: settings.logicalPageSize,
                 margins: WebPaginator.Margins(settings.layout.logicalMargins(options: settings.options)),
                 allowsJavaScript: false, preparationScript: script?.isEmpty == false ? script : nil,
                 readsPageRules: false, drawsBackground: !separatesPaper, flow: flow)
@@ -1635,7 +1657,7 @@ public final class DocumentRenderer {
             case .blank:
                 let blank = PDFPage()
                 blank.setBounds(
-                    CGRect(origin: .zero, size: settings.layout.logicalPageSize(options: settings.options)),
+                    CGRect(origin: .zero, size: settings.logicalPageSize),
                     for: .mediaBox)
                 body.insert(blank, at: index)
             }
@@ -1763,7 +1785,7 @@ public final class DocumentRenderer {
         settings: RenderSettings, preparation: String?
     ) async throws -> WebPaginator.Result? {
         do {
-            let pageSize = settings.layout.logicalPageSize(options: settings.options)
+            let pageSize = settings.logicalPageSize
             let margins = WebPaginator.Margins(settings.layout.logicalMargins(options: settings.options))
             let directory = source.fileURL?.deletingLastPathComponent()
             func request(_ body: String, collectsDiagrams: Bool = false) async throws -> PaginationRequest {

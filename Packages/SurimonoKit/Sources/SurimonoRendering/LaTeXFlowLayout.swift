@@ -65,6 +65,7 @@ struct LaTeXFlowLayout {
         var rule: CGFloat
         var balance: Bool
         var pageNotes: Bool
+        var titleNoteWidth: CGFloat?
         var items: [Item]
     }
 
@@ -218,7 +219,7 @@ struct LaTeXFlowLayout {
             }
         }
 
-        fileprivate mutating func finish(height: CGFloat, full: Lane, ruleWidth: CGFloat, ruleThickness: CGFloat) {
+        fileprivate mutating func finish(height: CGFloat, full: Lane, ruleWidth: CGFloat?, ruleThickness: CGFloat) {
             // Reserve footers during layout, then splice them into the capture stream at their
             // column ends. Work backwards so earlier offsets remain valid. Page-wide notes read last.
             let bodyCount = pieces.count
@@ -248,7 +249,7 @@ struct LaTeXFlowLayout {
                     rules.append(
                         CGRect(
                             x: lane.x, y: y + (first.noteRuleOffset ?? -min(3, skip / 2)),
-                            width: min(ruleWidth, lane.width), height: ruleThickness))
+                            width: min(ruleWidth ?? 0.4 * lane.width, lane.width), height: ruleThickness))
                 }
                 for slice in notes {
                     blocks.append(Piece(slice: slice, x: lane.x, y: y, scale: 1))
@@ -398,6 +399,7 @@ struct LaTeXFlowLayout {
             var segment = source
             try layout.checkBudget()
             guard segment.rule.isFinite, segment.gap.isFinite,
+                segment.titleNoteWidth.map({ $0.isFinite && $0 > 0 && $0 <= width }) ?? true,
                 segment.items.allSatisfy({
                     $0.gap.isFinite && ($0.leadingBeforeHere ?? 0).isFinite && ($0.extraAfter ?? 0).isFinite
                         && ($0.leadingAfterHere ?? 0).isFinite && ($0.leadingAfterHere ?? 0) >= 0
@@ -562,7 +564,7 @@ struct LaTeXFlowLayout {
     private mutating func endPage(flush: Bool = false) {
         if flush, let glue = input.glueStretch { page.flush(height: height, full: full, glue: glue) }
         page.finish(
-            height: height, full: full, ruleWidth: input.noteRuleWidth ?? 180,
+            height: height, full: full, ruleWidth: input.noteRuleWidth,
             ruleThickness: input.noteRuleThickness ?? 0.5)
         if pages.isEmpty, let notice = input.firstNotice {
             page.pieces.append(Piece(slice: notice, x: 0, y: height + textFloatSep, scale: 1))
@@ -948,7 +950,8 @@ struct LaTeXFlowLayout {
             let end = naturalEnd - shrink - take
             guard
                 try reserve(
-                    item, in: lane, footLane: segment.pageNotes ? full : lane,
+                    item, in: lane,
+                    footLane: segment.titleNoteWidth.map { Lane(x: 0, width: $0) } ?? (segment.pageNotes ? full : lane),
                     end: end + footHeight - depth - bodyDepth, limit: limit)
             else {
                 if item.heading == true && end <= min(limit, height - page.reserved(lane, full: full)) {

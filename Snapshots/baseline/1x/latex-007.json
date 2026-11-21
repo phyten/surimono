@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.007492207139265963,
-    "dimensionsChanged" : true,
+    "changedAreaRatio" : 0.0038941176470588235,
+    "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 19.4,
-    "maxLuminance" : 132.59375,
-    "maxShiftPt" : 22.1,
+    "maxBoxDeltaPt" : 9,
+    "maxLuminance" : 106.671875,
+    "maxShiftPt" : 5,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -18,72 +18,72 @@
   "pageCount" : 2,
   "pages" : [
     {
-      "firstY" : 82.8,
-      "height" : 841.9,
-      "lastY" : 759.1,
+      "firstY" : 60.2,
+      "height" : 792,
+      "lastY" : 736.3,
       "lineCount" : 3,
       "lines" : [
         {
           "height" : 21.7,
           "text" : "Binding allowance",
           "width" : 130.6,
-          "x" : 80.2,
-          "y" : 82.8
+          "x" : 90.7,
+          "y" : 60.2
         },
         {
           "height" : 16.2,
           "text" : "Punch the sample card on its long edge. The blank strip accommodates a linen hinge.",
           "width" : 411.3,
-          "x" : 80.2,
-          "y" : 108.4
+          "x" : 90.7,
+          "y" : 85.9
         },
         {
           "height" : 16.2,
           "text" : "1",
           "width" : 5.5,
-          "x" : 311.2,
-          "y" : 759.1
+          "x" : 321.7,
+          "y" : 736.3
         }
       ],
-      "textHeight" : 692.5,
-      "textLeft" : 80.2,
-      "textTop" : 82.8,
+      "textHeight" : 692.2,
+      "textLeft" : 90.7,
+      "textTop" : 60.2,
       "textWidth" : 411.3,
-      "width" : 595.3
+      "width" : 612
     },
     {
-      "firstY" : 82,
-      "height" : 841.9,
-      "lastY" : 759.1,
+      "firstY" : 59.4,
+      "height" : 792,
+      "lastY" : 736.3,
       "lineCount" : 3,
       "lines" : [
         {
           "height" : 21.7,
           "text" : "Reverse of the card",
           "width" : 140.8,
-          "x" : 47.6,
-          "y" : 82
+          "x" : 53.9,
+          "y" : 59.4
         },
         {
           "height" : 16.2,
           "text" : "Align the grain arrow with the fold.",
           "width" : 171.1,
-          "x" : 47.6,
-          "y" : 107.7
+          "x" : 53.9,
+          "y" : 85.1
         },
         {
           "height" : 16.2,
           "text" : "2",
           "width" : 5.5,
-          "x" : 278.6,
-          "y" : 759.1
+          "x" : 284.8,
+          "y" : 736.3
         }
       ],
-      "textHeight" : 693.3,
-      "textLeft" : 47.6,
-      "textTop" : 82,
+      "textHeight" : 693,
+      "textLeft" : 53.9,
+      "textTop" : 59.4,
       "textWidth" : 236.4,
-      "width" : 595.3
+      "width" : 612
     }
   ],
   "textSHA256" : "97f128e8119709491383d85c72c58f760bba32503046010896eb681cfab699c0"

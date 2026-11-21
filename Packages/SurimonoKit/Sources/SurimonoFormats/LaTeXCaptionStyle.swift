@@ -2,13 +2,16 @@ import Foundation
 
 /// caption applies the type-specific declarations after the common declarations at each float.
 struct LaTeXCaptionStyle {
+    var anchorsAtFloat = false
     private var groups: [String: [String: String]] = [:]
 
     mutating func configure(_ options: String, kind: String) {
         guard ["", "figure", "table", "lstlisting"].contains(kind) else { return }
         if groups[kind] == nil { groups[kind] = [:] }
         for (key, value) in LaTeXPageSettings.options(options)
-        where ["font", "labelfont", "labelsep", "skip", "justification", "format", "singlelinecheck"].contains(key) {
+        where ["font", "labelfont", "labelsep", "skip", "justification", "format", "singlelinecheck", "hypcap"]
+            .contains(key)
+        {
             groups[kind, default: [:]][key] = value
         }
     }
@@ -16,7 +19,12 @@ struct LaTeXCaptionStyle {
     func resolve(_ kind: String, info: LaTeXDocumentClassInfo) -> (attributes: String, separator: String?, hangs: Bool)
     {
         let options = (groups[""] ?? [:]).merging(groups[kind] ?? [:]) { _, local in local }
-        guard groups[""] != nil || groups[kind] != nil else { return ("", nil, false) }
+        let configured = groups[""] != nil || groups[kind] != nil
+        // caption's hypcap anchor precedes the float even when its caption follows the drawing.
+        let anchor =
+            (configured || anchorsAtFloat) && info.linksReferences
+                && !["false", "0", "off"].contains(options["hypcap"] ?? "true") ? " data-latex-float-anchor" : ""
+        guard configured else { return (anchor, nil, false) }
         var css: [String: String] = [:]
         for (key, prefix) in [("font", "caption"), ("labelfont", "label")] {
             for token in (options[key] ?? "").split(separator: ",") {
@@ -60,7 +68,7 @@ struct LaTeXCaptionStyle {
             css["label-colon-space"] = ".5253em"
         }
         let attributes =
-            " data-latex-caption-style"
+            " data-latex-caption-style" + anchor
             + (css.isEmpty ? "" : " style=\"\(HTML.escape(LaTeXPageSettings.cssVariables(css)))\"")
         return (
             attributes, options["labelsep"].flatMap { separators[$0] } ?? info.profile.body.styledCaptionSeparator,

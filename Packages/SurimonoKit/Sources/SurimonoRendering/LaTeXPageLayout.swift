@@ -32,7 +32,7 @@ extension RenderSettings {
             var box = info.pageBox
             // Fit the manuscript's margins first so changing stock cannot move the left edge of a proof.
             if info.composition == .proof { box.right -= LaTeXComposition.notesMarginMM * 72 / 25.4 }
-            options.margins = box.margins(fitting: layout.logicalPageSize(options: options))
+            options.margins = box.margins(fitting: logicalPageSize)
             let spare = box.left + box.right
             if let evenLeft = box.evenLeft, spare > 0 {
                 let fitted = WebPaginator.Margins(options.margins)

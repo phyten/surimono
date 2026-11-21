@@ -435,6 +435,7 @@ public final class WebPaginator: NSObject {
                     if !targets.isEmpty {
                         var previous: [String: String] = [:]
                         var previousScores: [LaTeXPageReferences.ExamScore] = []
+                        var previousLocations: [Int: Int] = [:]
                         // Filling a reference can rewrap a line. Measure at most twice, always delivering a clean final PDF.
                         for _ in 0..<2 {
                             let locations: [Int: Int]
@@ -467,11 +468,17 @@ public final class WebPaginator: NSObject {
                                 locations: locations, pageCount: count, restartsAfterTitle: restartsAfterTitle,
                                 blankPages: blankPages)
                             texPages = map.pages
-                            if map.references == previous && map.examScores == previousScores { break }
+                            if map.references == previous && map.examScores == previousScores
+                                && locations == previousLocations
+                            {
+                                break
+                            }
+                            previousLocations = locations
                             previousScores = map.examScores
                             previous = map.references
                             let layout = try await runPreparationScript(
-                                try LaTeXPageReferences.fill(previous, examScores: previousScores), in: webView,
+                                try LaTeXPageReferences.fill(
+                                    previous, physicalPages: locations, examScores: previousScores), in: webView,
                                 timeout: min(timeout, remaining()))
                             guard layout != nil else { throw PaginationError.printFailed }
                             if layout == "stable" && !capturesLaTeXFlow { break }

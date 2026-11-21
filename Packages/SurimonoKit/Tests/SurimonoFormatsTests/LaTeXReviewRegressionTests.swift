@@ -5,6 +5,48 @@ import Testing
 struct LaTeXReviewRegressionTests {
     private func body(_ source: String) -> String { LaTeXConverter.convert(source).body }
 
+    @Test(
+        "用紙を指定しない原稿は読むPDFにも選択中の用紙を使う",
+        arguments: [
+            #"\documentclass{article}\usepackage{graphicx}"#, #"\documentclass{book}\usepackage{hyperref}"#,
+            #"\documentclass{report}\usepackage{tikz,pgfplots,lscape}"#,
+            #"\documentclass{article}\usepackage[margin=23mm]{geometry}"#,
+            #"\documentclass[conference]{IEEEtran}"#, #"\documentclass{memoir}"#,
+            #"\documentclass[preprint]{elsarticle}"#,
+        ])
+    func inheritedPaper(_ preamble: String) throws {
+        let info = try #require(LaTeXConverter.convert(preamble + #"\begin{document}Ink.\end{document}"#).latexClass)
+        #expect(info.declaredPaperSize == nil)
+    }
+
+    @Test(
+        "読むPDFの用紙はクラス・geometry・レジスター・学会書式による指定を区別する",
+        arguments: [
+            (#"\documentclass[letterpaper]{article}"#, 612.0, 792.0),
+            (#"\documentclass[a5paper]{book}"#, 419.528, 595.276),
+            (#"\documentclass{article}\usepackage[b5paper]{geometry}"#, 498.898, 708.661),
+            (#"\documentclass{article}\usepackage{geometry}\geometry{papersize={500bp,700bp}}"#, 500, 700),
+            (#"\documentclass{article}\usepackage[paperwidth=518bp,paperheight=678bp]{geometry}"#, 518, 678),
+            (#"\documentclass{article}\paperwidth=510bp\setlength{\paperheight}{720bp}"#, 510, 720),
+            (#"\documentclass[a4paper]{article}\pdfpagewidth=700bp\pdfpageheight=500bp"#, 700, 500),
+            (
+                #"\documentclass{article}\PassOptionsToPackage{a5paper}{geometry}\usepackage{geometry}"#, 419.528,
+                595.276
+            ),
+            (
+                #"\documentclass[a4paper]{article}\pdfpagewidth=\paperheight\pdfpageheight=\paperwidth"#, 841.890,
+                595.276
+            ),
+            (#"\documentclass{article}\usepackage{neurips_2026}"#, 612, 792),
+            (#"\documentclass{article}\usepackage{acl}"#, 595.276, 841.890),
+        ])
+    func declaredPaper(_ example: (String, Double, Double)) throws {
+        let size = try #require(
+            LaTeXConverter.convert(example.0 + #"\begin{document}Ink.\end{document}"#).latexClass?.declaredPaperSize)
+        #expect(abs(size.width - example.1) < 0.01)
+        #expect(abs(size.height - example.2) < 0.01)
+    }
+
     @Test("見出しの題の中のラベルはその見出しの番号とリンク先を指す")
     func labelsInsideHeadings() {
         let html = body(
@@ -91,7 +133,14 @@ struct LaTeXReviewRegressionTests {
     func percentInListURLs(command: String, percent: String) {
         let link = "\\\(command){https://example.com/a\(percent)b}" + (command == "href" ? "{リンク}" : "")
         let html = body("\\begin{itemize}\\item \(link)\n\\item 次\\end{itemize}後")
-        #expect(html.contains("https://example.com/a%20b"))
+        if command == "nolinkurl" {
+            #expect(!html.contains("href="))
+            #expect(
+                html.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression).contains(
+                    "https://example.com/a%20b"))
+        } else {
+            #expect(html.contains("https://example.com/a%20b"))
+        }
         #expect(
             html.contains(
                 "</li>\n<li><span class=\"latex-item-mark\">•</span>次</li>\n</ul>\n<p class=\"latex-noindent\">後</p>"))

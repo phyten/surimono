@@ -102,25 +102,25 @@
           "y" : 437.7
         },
         {
+          "height" : 11.8,
+          "text" : "Drawings use a common scale.*",
+          "width" : 104.4,
+          "x" : 78,
+          "y" : 679.9
+        },
+        {
           "height" : 8.9,
           "text" : "1",
           "width" : 3,
           "x" : 75,
-          "y" : 666.3
+          "y" : 688
         },
         {
           "height" : 11.8,
           "text" : "A tile measures one model unit.",
           "width" : 111.9,
           "x" : 78,
-          "y" : 667.7
-        },
-        {
-          "height" : 11.8,
-          "text" : "Drawings use a common scale.*",
-          "width" : 104.4,
-          "x" : 78,
-          "y" : 687.1
+          "y" : 689.4
         },
         {
           "height" : 14.8,
@@ -137,5 +137,5 @@
       "width" : 595.3
     }
   ],
-  "textSHA256" : "c73387d0535bb0bee4ac2ffb86267f6a10ee5db206c29d0a750fc64199e59da5"
+  "textSHA256" : "c2dfc951f9ae224a8c1eed35edd3156355877a6086e440355f4ebc1b5e03e794"
 }
