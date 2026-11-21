@@ -1,16 +1,16 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.09384760073998284,
+    "changedAreaRatio" : 0.09360472927582963,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
-    "lineCountChangedPages" : 1,
+    "lineCountChangedPages" : 0,
     "maxBoxDeltaPt" : 25.6,
     "maxLuminance" : 161.875,
     "maxShiftPt" : 26.9,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 45
+    "textEdits" : 38
   },
   "fonts" : [
     "Helvetica"
@@ -21,7 +21,7 @@
       "firstY" : 150.4,
       "height" : 841.9,
       "lastY" : 719.2,
-      "lineCount" : 25,
+      "lineCount" : 24,
       "lines" : [
         {
           "height" : 17.5,
@@ -32,164 +32,157 @@
         },
         {
           "height" : 11.7,
-          "text" : "At the inlet, the team repeated the check. The reader carried the rule from",
-          "width" : 343.7,
+          "text" : "At the inlet, the team repeated the check. The reader carried the rule from the",
+          "width" : 343.8,
           "x" : 125.4,
           "y" : 175.1
         },
         {
           "height" : 11.7,
-          "text" : "the outer shelf to the slot at the centre of the board. At the first station the",
-          "width" : 343.7,
+          "text" : "outer shelf to the slot at the centre of the board. At the first station the front",
+          "width" : 343.8,
           "x" : 125.4,
           "y" : 187.1
         },
         {
           "height" : 11.7,
-          "text" : "front edge rested against a shallow stop. A pencil line showed how far the",
+          "text" : "edge rested against a shallow stop. A pencil line showed how far the tongue",
           "width" : 343.7,
           "x" : 125.4,
           "y" : 199.1
         },
         {
           "height" : 11.7,
-          "text" : "tongue could move before the spring began to bend. Turning the strip over",
+          "text" : "could move before the spring began to bend. Turning the strip over exposed a",
           "width" : 343.7,
           "x" : 125.4,
           "y" : 211.1
         },
         {
           "height" : 11.7,
-          "text" : "exposed a second line that had been hidden by the lip. The clerk entered both",
+          "text" : "second line that had been hidden by the lip. The clerk entered both marks in the",
           "width" : 343.7,
           "x" : 125.4,
           "y" : 223.1
         },
         {
           "height" : 11.7,
-          "text" : "marks in the same box and drew a short bar between them. A narrow gap",
+          "text" : "same box and drew a short bar between them. A narrow gap beneath the board",
           "width" : 343.7,
           "x" : 125.4,
           "y" : 235.1
         },
         {
           "height" : 11.7,
-          "text" : "beneath the board let the strip settle after each reading. When the gauge re-",
-          "width" : 343.7,
+          "text" : "let the strip settle after each reading. When the gauge returned to the shelf the",
+          "width" : 343.8,
           "x" : 125.4,
           "y" : 247.1
         },
         {
           "height" : 11.7,
-          "text" : "turned to the shelf the lower mark remained visible. The last entry records",
-          "width" : 343.7,
+          "text" : "lower mark remained visible. The last entry records the position of the stop",
+          "width" : 343.8,
           "x" : 125.4,
           "y" : 259.1
         },
         {
           "height" : 11.7,
-          "text" : "the position of the stop after the board was lifted. At the first bend the nar-",
+          "text" : "after the board was lifted. At the first bend the narrow foot of the rule touched",
           "width" : 343.7,
           "x" : 125.4,
           "y" : 271.1
         },
         {
           "height" : 11.7,
-          "text" : "row foot of the rule touched the curved wall, so the team took the reading",
+          "text" : "the curved wall, so the team took the reading from the opposite bank. This",
           "width" : 343.7,
           "x" : 125.4,
           "y" : 283.1
         },
         {
           "height" : 11.7,
-          "text" : "from the opposite bank. This moved the observer without moving the gauge.",
+          "text" : "moved the observer without moving the gauge. A second slip carried a sketch",
           "width" : 343.7,
           "x" : 125.4,
           "y" : 295.1
         },
         {
           "height" : 11.7,
-          "text" : "A second slip carried a sketch of the foot beside the curve. At the middle gate",
+          "text" : "of the foot beside the curve. At the middle gate there was no room for the full",
           "width" : 343.7,
           "x" : 125.4,
           "y" : 307.1
         },
         {
           "height" : 11.7,
-          "text" : "there was no room for the full rule. The shorter rule had the same divisions",
-          "width" : 343.7,
+          "text" : "rule. The shorter rule had the same divisions but started at its cut end. The",
+          "width" : 343.8,
           "x" : 125.4,
           "y" : 319.1
         },
         {
           "height" : 11.7,
-          "text" : "but started at its cut end. The clerk copied the offset from the sketch before",
-          "width" : 343.7,
+          "text" : "clerk copied the offset from the sketch before entering the next value. Beyond",
+          "width" : 343.8,
           "x" : 125.4,
           "y" : 331.1
         },
         {
           "height" : 11.7,
-          "text" : "entering the next value. Beyond the gate the shelf widened. Here both rules",
-          "width" : 343.7,
+          "text" : "the gate the shelf widened. Here both rules could lie flat, and the difference",
+          "width" : 343.8,
           "x" : 125.4,
           "y" : 343.1
         },
         {
           "height" : 11.7,
-          "text" : "could lie flat, and the difference between their readings matched the offset on",
-          "width" : 343.7,
+          "text" : "between their readings matched the offset on the slip. On the return journey",
+          "width" : 343.8,
           "x" : 125.4,
           "y" : 355.1
         },
         {
           "height" : 11.7,
-          "text" : "the slip. On the return journey the team left the gauge in place and changed",
+          "text" : "the team left the gauge in place and changed only the direction from which the",
           "width" : 343.7,
           "x" : 125.4,
           "y" : 367.1
         },
         {
           "height" : 11.7,
-          "text" : "only the direction from which the marks were read. The two entries agreed at",
+          "text" : "marks were read. The two entries agreed at the straight stations. At the bend",
           "width" : 343.7,
           "x" : 125.4,
           "y" : 379.1
         },
         {
           "height" : 11.7,
-          "text" : "the straight stations. At the bend they differed by half a division, the width",
+          "text" : "they differed by half a division, the width of the pencil line itself. The final",
           "width" : 343.7,
           "x" : 125.4,
           "y" : 391.1
         },
         {
           "height" : 11.7,
-          "text" : "of the pencil line itself. The final drawing therefore shows a band around the",
+          "text" : "drawing therefore shows a band around the curve and a single stroke along the",
           "width" : 343.7,
           "x" : 125.4,
           "y" : 403.1
         },
         {
           "height" : 11.7,
-          "text" : "curve and a single stroke along the straight reach. A note inside the cover",
+          "text" : "straight reach. A note inside the cover identifies the short rule so the next crew",
           "width" : 343.7,
           "x" : 125.4,
           "y" : 415.1
         },
         {
           "height" : 11.7,
-          "text" : "identifies the short rule so the next crew can repeat the check with the same",
-          "width" : 343.7,
+          "text" : "can repeat the check with the same pair of tools.",
+          "width" : 213.2,
           "x" : 125.4,
           "y" : 427.1
-        },
-        {
-          "height" : 11.7,
-          "text" : "pair of tools.",
-          "width" : 55.2,
-          "x" : 125.4,
-          "y" : 439.1
         },
         {
           "height" : 11.7,
@@ -202,9 +195,9 @@
       "textHeight" : 580.4,
       "textLeft" : 125.4,
       "textTop" : 150.4,
-      "textWidth" : 343.7,
+      "textWidth" : 343.8,
       "width" : 595.3
     }
   ],
-  "textSHA256" : "8b321b0d51672bccd84522ae4b4da4f87b321f72b27799554a38cef25b2de62d"
+  "textSHA256" : "b0d52e15d00d6740a809668a81890c720945f5dae0b488d52638be45893aa486"
 }

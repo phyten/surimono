@@ -176,6 +176,8 @@ package struct LaTeXClassProfile: Equatable, Sendable {
         var equationNumberOnLeft = false
         // Both APS modes use a bibliography rule, only preprint sizes figure rules naturally; kept apart until each consumer is checked against real LaTeX.
         var naturalRuleHeight = false
+        var composesLatinParagraphs = false
+        var usesSloppyLineBreaking = false
         var usesSizeFileGlue = false
         var usesListingDesignSize = false
         // Unstyled captions consult the body language; kept apart until each consumer is checked against real LaTeX.

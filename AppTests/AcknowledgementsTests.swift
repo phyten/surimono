@@ -14,7 +14,7 @@ struct AcknowledgementsTests {
             "djot-LICENSE.txt", "textile-LICENSE.txt", "asciidoctor-LICENSE.txt", "SwaTex-LICENSE.txt",
             "SwaTex-THIRD-PARTY-NOTICES.md", "KaTeX-Fonts-OFL.txt",
             "viz-LICENSE.txt", "viz-THIRD-PARTY-NOTICES.txt", "plantuml-LICENSE.txt",
-            "mermaid-LICENSE.txt", "gemoji-LICENSE.txt", "Sparkle-LICENSE.txt",
+            "mermaid-LICENSE.txt", "gemoji-LICENSE.txt", "hyphen-LICENSE.txt", "Sparkle-LICENSE.txt",
         ])
     func bundled(name: String) throws {
         let url = try #require(Bundle.main.url(forResource: name, withExtension: nil))

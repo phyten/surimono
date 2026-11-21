@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.007697335344394168,
+    "changedAreaRatio" : 0.007710407239819005,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
@@ -33,7 +33,7 @@
         {
           "height" : 11.7,
           "text" : "Leave the outer band free for pencil corrections. Circle a broken stroke and enter its row number",
-          "width" : 436.2,
+          "width" : 436.3,
           "x" : 56.4,
           "y" : 134.7
         },
@@ -55,7 +55,7 @@
       "textHeight" : 654.4,
       "textLeft" : 56.4,
       "textTop" : 110.1,
-      "textWidth" : 436.2,
+      "textWidth" : 436.3,
       "width" : 595.3
     }
   ],

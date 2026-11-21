@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.04299341663307806,
+    "changedAreaRatio" : 0.04299031614630164,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
@@ -10,7 +10,7 @@
     "maxShiftPt" : 26.9,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 24
+    "textEdits" : 20
   },
   "fonts" : [
     "Helvetica"
@@ -32,15 +32,15 @@
         },
         {
           "height" : 11.7,
-          "text" : "Fit the hinge before adjusting the sill. The fixture follows the bench draw-",
-          "width" : 343.7,
+          "text" : "Fit the hinge before adjusting the sill. The fixture follows the bench drawing [1]",
+          "width" : 343.8,
           "x" : 125.4,
           "y" : 175.1
         },
         {
           "height" : 11.7,
-          "text" : "ing [1] and the scale study [2]. The hinge has its own assembly card [3].",
-          "width" : 312.5,
+          "text" : "and the scale study [2]. The hinge has its own assembly card [3].",
+          "width" : 283.2,
           "x" : 125.4,
           "y" : 187.1
         },
@@ -174,9 +174,9 @@
       "textHeight" : 580.4,
       "textLeft" : 125.4,
       "textTop" : 150.4,
-      "textWidth" : 343.7,
+      "textWidth" : 343.8,
       "width" : 595.3
     }
   ],
-  "textSHA256" : "36b04afa7581558f68617213779b6c667ffc6869f0c93e938b827adc283e7b1b"
+  "textSHA256" : "62f7b5f7efb22792e413ed689d3048a99cd5a4c9c96d8abe2f8a78482188ee5d"
 }

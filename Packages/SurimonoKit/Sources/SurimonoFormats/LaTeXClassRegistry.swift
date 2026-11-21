@@ -71,6 +71,7 @@ enum LaTeXClassRegistry {
         builder.setBookSides(builder.id == .book)
         builder.headings.wrapsChapterTitle = builder.structure.hasChapters
         builder.page.layoutRule = .standard(builder.id == .book ? .bookOffsets : .doubleColumn)
+        builder.body.composesLatinParagraphs = true
         builder.body.usesSizeFileGlue = true
         builder.body.usesListingDesignSize = true
     }
@@ -427,6 +428,8 @@ enum LaTeXClassRegistry {
             if let columns = options.last(where: { $0 == "onecolumn" || $0 == "twocolumn" }) {
                 structure.columns = columns == "twocolumn" ? 2 : 1
             }
+            // The standard class files call \sloppy when starting their two-column body.
+            body.usesSloppyLineBreaking = body.composesLatinParagraphs && structure.columns == 2
             // These production grids override even an explicit column count.
             if page.publication == .elsevierOne { structure.columns = 1 }
             if page.publication == .elsevierFive { structure.columns = 2 }

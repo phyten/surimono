@@ -1,16 +1,16 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.12459719509296292,
+    "changedAreaRatio" : 0.11125476699841876,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 2,
     "maxBoxDeltaPt" : 403.4,
-    "maxLuminance" : 115.421875,
+    "maxLuminance" : 108.25,
     "maxShiftPt" : 319,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 303
+    "textEdits" : 272
   },
   "fonts" : [
     "Helvetica",
@@ -25,7 +25,7 @@
       "firstY" : 224.7,
       "height" : 841.9,
       "lastY" : 726.4,
-      "lineCount" : 154,
+      "lineCount" : 155,
       "lines" : [
         {
           "height" : 8,
@@ -415,107 +415,9 @@
         {
           "height" : 13.1,
           "text" : "2023) motivated the layer model used here.1",
-          "width" : 191.4,
+          "width" : 193.3,
           "x" : 306.1,
           "y" : 233.7
-        },
-        {
-          "height" : 12.1,
-          "text" : "Paper models of railways need many small parts",
-          "width" : 218.3,
-          "x" : 70.9,
-          "y" : 418
-        },
-        {
-          "height" : 12.1,
-          "text" : "of exact height. Rails, platform edges and signal",
-          "width" : 218.3,
-          "x" : 70.9,
-          "y" : 431.5
-        },
-        {
-          "height" : 12.1,
-          "text" : "bases all sit on spacers, and a spacer that is too",
-          "width" : 218.3,
-          "x" : 70.9,
-          "y" : 445
-        },
-        {
-          "height" : 12.1,
-          "text" : "thick by a fraction of a millimetre lifts a rail joint",
-          "width" : 218.3,
-          "x" : 70.9,
-          "y" : 458.5
-        },
-        {
-          "height" : 12.1,
-          "text" : "enough to derail a light wagon. Most builders cut",
-          "width" : 218.3,
-          "x" : 70.9,
-          "y" : 472.1
-        },
-        {
-          "height" : 12.1,
-          "text" : "spacers from card and fold them until they reach",
-          "width" : 218.3,
-          "x" : 70.9,
-          "y" : 485.6
-        },
-        {
-          "height" : 12.1,
-          "text" : "the height they want (Model Rail Desk, 2025).",
-          "width" : 218.3,
-          "x" : 70.9,
-          "y" : 499.1
-        },
-        {
-          "height" : 12.1,
-          "text" : "Folding is quick and needs no tools, but the",
-          "width" : 218.3,
-          "x" : 70.9,
-          "y" : 512.6
-        },
-        {
-          "height" : 12.1,
-          "text" : "height of a folded spacer is not simply the sum of",
-          "width" : 218.3,
-          "x" : 70.9,
-          "y" : 526.2
-        },
-        {
-          "height" : 12.1,
-          "text" : "the card thicknesses: each crease adds a small",
-          "width" : 218.3,
-          "x" : 70.9,
-          "y" : 539.7
-        },
-        {
-          "height" : 12.1,
-          "text" : "allowance, and the allowance depends on the card",
-          "width" : 218.3,
-          "x" : 70.9,
-          "y" : 553.2
-        },
-        {
-          "height" : 12.1,
-          "text" : "and on how firmly the crease is pressed.",
-          "width" : 175.1,
-          "x" : 70.9,
-          "y" : 566.7
-        },
-        {
-          "height" : 12.1,
-          "text" : "This note reports a bench trial of folded spac-",
-          "width" : 207.4,
-          "x" : 81.8,
-          "y" : 580.3
-        },
-        {
-          "height" : 12.1,
-          "text" : "ers. Our aims were:",
-          "width" : 86.1,
-          "x" : 70.9,
-          "y" : 593.8
         },
         {
           "height" : 13.2,
@@ -589,10 +491,108 @@
         },
         {
           "height" : 12.1,
+          "text" : "Paper models of railways need many small parts",
+          "width" : 218.3,
+          "x" : 70.9,
+          "y" : 418
+        },
+        {
+          "height" : 12.1,
+          "text" : "of exact height. Rails, platform edges and signal",
+          "width" : 218.3,
+          "x" : 70.9,
+          "y" : 431.5
+        },
+        {
+          "height" : 12.1,
+          "text" : "bases all sit on spacers, and a spacer that is too",
+          "width" : 218.3,
+          "x" : 70.9,
+          "y" : 445
+        },
+        {
+          "height" : 12.1,
+          "text" : "thick by a fraction of a millimetre lifts a rail joint",
+          "width" : 218.3,
+          "x" : 70.9,
+          "y" : 458.5
+        },
+        {
+          "height" : 12.1,
+          "text" : "enough to derail a light wagon. Most builders cut",
+          "width" : 218.3,
+          "x" : 70.9,
+          "y" : 472.1
+        },
+        {
+          "height" : 12.1,
+          "text" : "spacers from card and fold them until they reach",
+          "width" : 218.3,
+          "x" : 70.9,
+          "y" : 485.6
+        },
+        {
+          "height" : 12.1,
+          "text" : "the height they want (Model Rail Desk, 2025).",
+          "width" : 218.3,
+          "x" : 70.9,
+          "y" : 499.1
+        },
+        {
+          "height" : 12.1,
+          "text" : "Folding is quick and needs no tools, but the height",
+          "width" : 218.3,
+          "x" : 70.9,
+          "y" : 512.6
+        },
+        {
+          "height" : 12.1,
+          "text" : "of a folded spacer is not simply the sum of the card",
+          "width" : 218.3,
+          "x" : 70.9,
+          "y" : 526.2
+        },
+        {
+          "height" : 12.1,
+          "text" : "thicknesses: each crease adds a small allowance,",
+          "width" : 218.3,
+          "x" : 70.9,
+          "y" : 539.7
+        },
+        {
+          "height" : 12.1,
+          "text" : "and the allowance depends on the card and on how",
+          "width" : 218.3,
+          "x" : 70.9,
+          "y" : 553.2
+        },
+        {
+          "height" : 12.1,
+          "text" : "firmly the crease is pressed.",
+          "width" : 121.5,
+          "x" : 70.9,
+          "y" : 566.7
+        },
+        {
+          "height" : 12.1,
+          "text" : "This note reports a bench trial of folded spacers.",
+          "width" : 207.4,
+          "x" : 81.8,
+          "y" : 580.3
+        },
+        {
+          "height" : 12.1,
+          "text" : "Our aims were:",
+          "width" : 67.3,
+          "x" : 70.9,
+          "y" : 593.8
+        },
+        {
+          "height" : 12.1,
           "text" : "Each spacer was inserted with its folded edge",
           "width" : 207.4,
           "x" : 317.1,
-          "y" : 407.4
+          "y" : 407.5
         },
         {
           "height" : 12.1,
@@ -610,29 +610,29 @@
         },
         {
           "height" : 12.1,
-          "text" : "was taken, because a freshly folded spacer",
+          "text" : "was taken, because a freshly folded spacer springs",
           "width" : 218.3,
           "x" : 306.1,
           "y" : 448
         },
         {
           "height" : 12.1,
-          "text" : "springs back slowly. Three readings were taken",
+          "text" : "back slowly. Three readings were taken for each",
           "width" : 218.3,
           "x" : 306.1,
-          "y" : 461.5
+          "y" : 461.6
         },
         {
           "height" : 12.1,
-          "text" : "for each spacer, removing and reinserting it be-",
+          "text" : "spacer, removing and reinserting it between read-",
           "width" : 218.3,
           "x" : 306.1,
           "y" : 475.1
         },
         {
           "height" : 12.1,
-          "text" : "tween readings.",
-          "width" : 68.5,
+          "text" : "ings.",
+          "width" : 20.9,
           "x" : 306.1,
           "y" : 488.6
         },
@@ -645,15 +645,15 @@
         },
         {
           "height" : 12.1,
-          "text" : "We model the height h of a spacer with n layers",
+          "text" : "We model the height h of a spacer with n layers of",
           "width" : 218.3,
           "x" : 306.1,
           "y" : 529.8
         },
         {
           "height" : 12.1,
-          "text" : "of card of thickness t as",
-          "width" : 104.2,
+          "text" : "card of thickness t as",
+          "width" : 92.4,
           "x" : 306.1,
           "y" : 543.4
         },
@@ -751,7 +751,7 @@
         {
           "height" : 12.1,
           "text" : "height of folded board well for up to four layers.",
-          "width" : 210,
+          "width" : 211.5,
           "x" : 306.1,
           "y" : 660.5
         },
@@ -827,9 +827,16 @@
         },
         {
           "height" : 12.1,
-          "text" : "summarises the rules. Earlier notes on layered",
-          "width" : 218.3,
+          "text" : "summarises the rules.",
+          "width" : 98.4,
           "x" : 70.9,
+          "y" : 749.6
+        },
+        {
+          "height" : 12.1,
+          "text" : "Earlier notes on layered",
+          "width" : 110.2,
+          "x" : 179,
           "y" : 749.6
         },
         {
@@ -1455,6 +1462,20 @@
           "y" : 301.5
         },
         {
+          "height" : 12.1,
+          "text" : "0.30 mm and the thick stock 0.45 mm, with a",
+          "width" : 218.3,
+          "x" : 70.9,
+          "y" : 337.5
+        },
+        {
+          "height" : 12.1,
+          "text" : "spread of less than 0.01 mm in every case.",
+          "width" : 183.9,
+          "x" : 70.9,
+          "y" : 351
+        },
+        {
           "height" : 13.2,
           "text" : "References",
           "width" : 55.5,
@@ -1554,20 +1575,6 @@
         },
         {
           "height" : 12.1,
-          "text" : "0.30 mm and the thick stock 0.45 mm, with a",
-          "width" : 218.3,
-          "x" : 70.9,
-          "y" : 337.5
-        },
-        {
-          "height" : 12.1,
-          "text" : "spread of less than 0.01 mm in every case.",
-          "width" : 184.2,
-          "x" : 70.9,
-          "y" : 351
-        },
-        {
-          "height" : 12.1,
           "text" : "Pressing the crease.",
           "width" : 93,
           "x" : 70.9,
@@ -1617,92 +1624,92 @@
         },
         {
           "height" : 12.1,
-          "text" : "Figure 1 shows the slot with a four-layer spacer",
+          "text" : "Figure 1 shows the slot with a four-layer spacer in",
           "width" : 218.3,
           "x" : 70.9,
           "y" : 473.1
         },
         {
           "height" : 12.1,
-          "text" : "in place, and Table 1 lists the mean measured",
+          "text" : "place, and Table 1 lists the mean measured height",
           "width" : 218.3,
           "x" : 70.9,
           "y" : 486.7
         },
         {
           "height" : 12.1,
-          "text" : "height of each spacer together with the height",
+          "text" : "of each spacer together with the height predicted",
           "width" : 218.3,
           "x" : 70.9,
           "y" : 500.2
         },
         {
           "height" : 12.1,
-          "text" : "predicted by Equation (1).",
-          "width" : 114.5,
+          "text" : "by Equation (1).",
+          "width" : 71.2,
           "x" : 70.9,
           "y" : 513.7
         },
         {
           "height" : 12.1,
           "text" : "The model agrees with the measurements to",
-          "width" : 207.3,
+          "width" : 207.4,
           "x" : 81.8,
           "y" : 527.2
         },
         {
           "height" : 12.1,
-          "text" : "within 0.06 mm for every spacer. The largest er-",
-          "width" : 218,
+          "text" : "within 0.06 mm for every spacer. The largest error",
+          "width" : 218.3,
           "x" : 70.9,
           "y" : 540.8
         },
         {
           "height" : 12.1,
-          "text" : "ror is for the thick stock, where the crease al-",
+          "text" : "is for the thick stock, where the crease allowance",
           "width" : 218.3,
           "x" : 70.9,
           "y" : 554.3
         },
         {
           "height" : 12.1,
-          "text" : "lowance grows with the number of layers: the",
+          "text" : "grows with the number of layers: the outer layers",
           "width" : 218.3,
           "x" : 70.9,
           "y" : 567.8
         },
         {
           "height" : 12.1,
-          "text" : "outer layers must bend around a thicker core, and",
+          "text" : "must bend around a thicker core, and the crease",
           "width" : 218.3,
           "x" : 70.9,
           "y" : 581.3
         },
         {
           "height" : 12.1,
-          "text" : "the crease opens slightly. For the thin and",
+          "text" : "opens slightly. For the thin and medium stocks",
           "width" : 218.3,
           "x" : 70.9,
           "y" : 594.9
         },
         {
           "height" : 12.1,
-          "text" : "medium stocks the error does not grow with the",
+          "text" : "the error does not grow with the number of lay-",
           "width" : 218.3,
           "x" : 70.9,
           "y" : 608.4
         },
         {
           "height" : 12.1,
-          "text" : "number of layers, which agrees with the note of",
+          "text" : "ers, which agrees with the note of Glue Pot Corner",
           "width" : 218.3,
           "x" : 70.9,
           "y" : 621.9
         },
         {
           "height" : 12.1,
-          "text" : "Glue Pot Corner (2022) on thin paper joints.",
-          "width" : 193.3,
+          "text" : "(2022) on thin paper joints.",
+          "width" : 119.1,
           "x" : 70.9,
           "y" : 635.4
         },
@@ -1722,22 +1729,22 @@
         },
         {
           "height" : 12.1,
-          "text" : "slot overnight lost about 0.01 mm of height,",
+          "text" : "slot overnight lost about 0.01 mm of height, which",
           "width" : 218.3,
           "x" : 70.9,
           "y" : 676.3
         },
         {
           "height" : 12.1,
-          "text" : "which is smaller than the spread between read-",
+          "text" : "is smaller than the spread between readings and",
           "width" : 218.3,
           "x" : 70.9,
           "y" : 689.8
         },
         {
           "height" : 12.1,
-          "text" : "ings and was ignored.",
-          "width" : 95.1,
+          "text" : "was ignored.",
+          "width" : 55.7,
           "x" : 70.9,
           "y" : 703.3
         },
@@ -1931,5 +1938,5 @@
       "width" : 595.3
     }
   ],
-  "textSHA256" : "e26743aab19bf20401a239aeb9c5983a7a33e7f7a476028d926acb5a571741d2"
+  "textSHA256" : "38fbabce1f33edbdd7e8e29057b40b857bf85dc5807b1447f60b02c5a567f771"
 }

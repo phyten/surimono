@@ -1,6 +1,6 @@
 Flap assembly
-Fit the hinge before adjusting the sill. The fixture follows the bench draw-
-ing [1] and the scale study [2]. The hinge has its own assembly card [3].
+Fit the hinge before adjusting the sill. The fixture follows the bench drawing [1]
+and the scale study [2]. The hinge has its own assembly card [3].
 References
 [1]
 [2]

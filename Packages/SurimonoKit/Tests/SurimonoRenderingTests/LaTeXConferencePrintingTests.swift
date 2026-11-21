@@ -7,6 +7,38 @@ import Testing
 
 @MainActor
 struct LaTeXConferencePrintingTests {
+    @Test("二段組の組版済み段落を保存し直しても左段の全文が右段より先に読める", .timeLimit(.minutes(1)))
+    func composedColumnOrder() async throws {
+        let left = "The narrow rail holds the first sheet in place. We mark its edge and repeat the trial."
+        let right = "A brass stop holds the second sheet in place. We trace its edge and check the result."
+        let source = #"""
+            \documentclass[twocolumn]{article}\sloppy\begin{document}
+            \noindent \#(left)\par\columnbreak\noindent \#(right)\end{document}
+            """#
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
+        let fragment = LaTeXConverter.convert(source)
+        let html = HTMLDocumentBuilder.build(fragment: fragment, format: .latex, theme: theme)
+        let paginator = WebPaginator()
+        paginator.collectsLatinLineDiagnostics = true
+        let result = try await paginator.paginateWithResult(
+            .html(html, baseURL: nil), pageSize: PaperSize.a4.size, margins: .uniform(millimeters: 23),
+            allowsJavaScript: false, composesLaTeXParagraphs: true, latexFlow: true, timeout: .seconds(15))
+        let json = try #require(paginator.latinLineDiagnostics)
+        let diagnostic = try #require(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+        try #require(diagnostic["composed"] as? Int == 2)
+
+        let data = try #require(result.document.dataRepresentation())
+        let pdf = try #require(PDFDocument(data: data))
+        try #require(pdf.pageCount == 1)
+        let page = try #require(pdf.page(at: 0))
+        let leftStart = try #require(pdf.findString("The narrow rail").first).bounds(for: page)
+        let rightStart = try #require(pdf.findString("A brass stop").first).bounds(for: page)
+        #expect(leftStart.maxX < rightStart.minX)
+        #expect(abs(leftStart.minY - rightStart.minY) < 1)
+        let text = try #require(page.string)
+        #expect(text.filter(\.isLetter) == (left + right).filter(\.isLetter))
+    }
+
     @Test(
         "学会原稿の査読番号は余白に独立して刷り、完成版でも本文を単語で検索できる", .timeLimit(.minutes(1)),
         arguments: [
@@ -117,6 +149,10 @@ struct LaTeXConferencePrintingTests {
         }
         #expect(try bounds("Measuring", on: first).width > 10)
         #expect(try bounds("baseboard", on: first).width > 10)
+        if name.contains("-cvpr") {
+            // A clipped glyph can be invisible on the page and still duplicate a searchable list marker.
+            #expect(pdf.findString("•").count == 3)
+        }
         if name.contains("-aaai") {
             let abstractEnd = try bounds("given rail height.", on: first)
             let introduction = try bounds("Introduction", on: first)
@@ -124,6 +160,26 @@ struct LaTeXConferencePrintingTests {
             // differ because the submission notice reserves two more lines.
             let referenceGap: CGFloat = name.hasSuffix("-final") ? 31.97 : 27.97
             #expect(abs(abstractEnd.midY - introduction.midY - referenceGap) < 1.2)
+        }
+        if name == "121-style-acl" {
+            let reading = try ReadingPDFExporter.document(
+                from: result.viewDocument, entries: [], title: "", furniture: result.viewFurniture)
+            let page = try #require(reading.page(at: 0))
+            let text = try #require(page.string)
+            let anchors = [
+                "Paper models of railways", "This note reports", "Section 2 describes the slot",
+                "motivated the layer model", "The slot was cut into", "Each spacer was inserted",
+            ]
+            let offsets = try anchors.map { phrase in
+                try #require(text.range(of: phrase)).lowerBound.utf16Offset(in: text)
+            }
+            #expect(offsets.prefix(3).elementsEqual(offsets.prefix(3).sorted()))
+            #expect(offsets.suffix(3).elementsEqual(offsets.suffix(3).sorted()))
+            // PDFKit can group the two columns into horizontal bands across a spanning title
+            // or folio, even when the PDF paints each entire column in source order.
+            withKnownIssue("中央の題名とノンブルを含むACLのページでPDFKitが左右の段を混在させる", isIntermittent: true) {
+                #expect(offsets == offsets.sorted())
+            }
         }
         if name == "120-style-cvpr-final" || name == "122-style-acl-final" {
             let expected: [CGFloat] = acl ? [198.05, 397.23] : [182.18, 387.03]

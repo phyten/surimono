@@ -10,6 +10,17 @@ struct LaTeXPageSettingsTests {
             fontIndex: .testInventory)
     }
 
+    @Test("二段組の標準クラスは本文書体の一全角を字下げに使い、文書の指定を優先する")
+    func columnIndent() throws {
+        for (size, indent) in [(10, "10"), (11, "10.95"), (12, "11.74988")] {
+            let options = "\(size)pt,twocolumn"
+            let initial = try #require(document("", options: options).latexClass)
+            #expect(initial.styleVariables.contains("--latex-parindent: calc(\(indent) * var(--tex-pt))"))
+            let changed = try #require(document(#"\setlength{\parindent}{0pt}"#, options: options).latexClass)
+            #expect(changed.styleVariables.contains("--latex-parindent: calc(0 * var(--tex-pt, 0.996264pt))"))
+        }
+    }
+
     @Test(
         "用紙寸法と左右余白・本文幅から組版幅を求める",
         arguments: [
@@ -145,7 +156,11 @@ struct LaTeXPageSettingsTests {
                 \begin{tabular}{lY}First & Second\\\end{tabular}
                 """#)
         #expect(result.readingIssues.isEmpty)
-        #expect(result.body.contains("<p>Preserved.</p>"))
+        let paragraph = try #require(
+            result.body.firstMatch(of: /<p data-latex-line-parameters="([^"]+)">Preserved\.<\/p>/))
+        #expect(paragraph.1.contains("&quot;hyphenpenalty&quot;:175"))
+        #expect(paragraph.1.contains("&quot;tolerance&quot;:9999"))
+        #expect(paragraph.1.contains("&quot;emergencystretch&quot;:&quot;3em&quot;"))
         #expect(result.body.contains("--latex-list-margin: 3em"))
         #expect(result.body.contains("--latex-itemsep: 0pt"))
         #expect(result.body.contains("text-align: end; font-weight: bold"))

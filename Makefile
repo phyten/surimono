@@ -19,7 +19,7 @@ RELEASE_APP = $(DERIVED_DATA)/Build/Products/Release/Surimono.app
 APP_STORE_DERIVED_DATA ?= build/DerivedData-AppStore
 APP_STORE_APP = $(APP_STORE_DERIVED_DATA)/Build/Products/Release/Surimono.app
 
-.PHONY: help build run test test-kit test-formats test-core latex-dump test-rendering test-app bench bench-compare lint format package build-appstore check-appstore clean
+.PHONY: help build run test test-kit test-formats test-core latex-dump latex-line-dump latex-line-dump-webkit test-rendering test-app bench bench-compare lint format package build-appstore check-appstore clean
 
 help:
 	@echo "build      Build the app (Debug by default)"
@@ -77,6 +77,22 @@ test-core:
 latex-dump:
 	@test -n "$(DIR)" || { echo "Usage: make latex-dump DIR=<directory>" >&2; exit 2; }
 	SURIMONO_LATEX_DUMP="$(abspath $(DIR))" $(SWIFT_TEST) --filter LaTeXCorpusDumpTests
+
+# Keep the opt-in measurement harness out of normal rendering and the ordinary test run.
+latex-line-dump:
+	@test -n "$(DIR)" || { echo "Usage: make latex-line-dump DIR=<directory> CHROMIUM=<headless executable>" >&2; exit 2; }
+	@set -e; inputs=$$(mktemp -d); trap 'rm -rf "$$inputs"' EXIT; \
+	SURIMONO_LATEX_LINE_INPUTS="$$inputs" $(SWIFT_TEST) --filter LaTeXLatinCorpusInputs; \
+	SURIMONO_LATEX_LINE_DUMP="$(abspath $(DIR))" node Benchmarks/dump-latex-lines.mjs "$$inputs"; \
+	SURIMONO_LATEX_LINE_DUMP="$(abspath $(DIR))/timing" node Benchmarks/dump-latex-lines.mjs "$$inputs/timing"; \
+	SURIMONO_LATEX_TIMING_MEASUREMENTS="$(abspath $(DIR))/timing" $(SWIFT_TEST) --filter LaTeXLatinCorpusInputs/measuredPageCounts
+
+# The native export includes the actual page-reference passes and final document line plan.
+# PDF=1 also exports each reading PDF. BOXES=1 adds the measured word boxes for diagnosis.
+latex-line-dump-webkit:
+	@test -n "$(DIR)" || { echo "Usage: make latex-line-dump-webkit DIR=<directory> [PDF=1] [BOXES=1]" >&2; exit 2; }
+	SURIMONO_LATEX_WEBKIT_LINE_DUMP="$(abspath $(DIR))" SURIMONO_LATEX_WEBKIT_PDFS="$(PDF)" \
+	SURIMONO_LATEX_WEBKIT_BOXES="$(BOXES)" $(SWIFT_TEST) --filter LaTeXWebKitLineDumpTests --no-parallel
 
 test-rendering:
 	$(SWIFT_TEST) --filter SurimonoRenderingTests --no-parallel

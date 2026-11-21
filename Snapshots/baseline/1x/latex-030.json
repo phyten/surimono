@@ -1,16 +1,16 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.04400934280015296,
+    "changedAreaRatio" : 0.04388325633791172,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
     "maxBoxDeltaPt" : 25.6,
-    "maxLuminance" : 153.640625,
-    "maxShiftPt" : 37.8,
+    "maxLuminance" : 140.953125,
+    "maxShiftPt" : 26.9,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 25
+    "textEdits" : 20
   },
   "fonts" : [
     "Helvetica"
@@ -21,7 +21,7 @@
       "firstY" : 150.4,
       "height" : 841.9,
       "lastY" : 719.2,
-      "lineCount" : 22,
+      "lineCount" : 21,
       "lines" : [
         {
           "height" : 17.5,
@@ -32,143 +32,136 @@
         },
         {
           "height" : 11.7,
-          "text" : "A packing strip lifts the outer rail by one division. The fixture follows the",
+          "text" : "A packing strip lifts the outer rail by one division. The fixture follows the bench",
           "width" : 343.7,
           "x" : 125.4,
           "y" : 175.1
         },
         {
           "height" : 11.7,
-          "text" : "bench drawing [6] and the scale study [5]. The hinge has its own assembly",
-          "width" : 343.7,
+          "text" : "drawing [6] and the scale study [5]. The hinge has its own assembly card [4].",
+          "width" : 335.2,
           "x" : 125.4,
           "y" : 187.1
-        },
-        {
-          "height" : 11.7,
-          "text" : "card [4].",
-          "width" : 35.5,
-          "x" : 125.4,
-          "y" : 199.1
         },
         {
           "height" : 17.5,
           "text" : "References",
           "width" : 77.5,
           "x" : 125.4,
-          "y" : 226.4
+          "y" : 214.4
         },
         {
           "height" : 11.7,
           "text" : "[1]",
           "width" : 10.5,
           "x" : 125.5,
-          "y" : 252.7
+          "y" : 240.7
         },
         {
           "height" : 11.7,
           "text" : "[2]",
           "width" : 10.5,
           "x" : 125.5,
-          "y" : 272.7
+          "y" : 260.7
         },
         {
           "height" : 11.7,
           "text" : "[3]",
           "width" : 10.5,
           "x" : 125.5,
-          "y" : 304.7
+          "y" : 292.7
         },
         {
           "height" : 11.7,
           "text" : "[4]",
           "width" : 10.5,
           "x" : 125.5,
-          "y" : 324.7
+          "y" : 312.7
         },
         {
           "height" : 11.7,
           "text" : "[5]",
           "width" : 10.5,
           "x" : 125.5,
-          "y" : 356.7
+          "y" : 344.7
         },
         {
           "height" : 11.7,
           "text" : "[6]",
           "width" : 10.5,
           "x" : 125.5,
-          "y" : 388.7
+          "y" : 376.7
         },
         {
           "height" : 11.7,
           "text" : "Copper Atlas Group. Atlas of Paper Channels. Fold Workshop, 2016.",
           "width" : 303.5,
           "x" : 141,
-          "y" : 252.7
+          "y" : 240.7
         },
         {
           "height" : 11.7,
           "text" : "Fold Workshop. Lining the bend. In Atlas Desk, editor, Paper Waterways,",
           "width" : 328.2,
           "x" : 141,
-          "y" : 272.7
+          "y" : 260.7
         },
         {
           "height" : 11.7,
           "text" : "pages 8–12. Model Quay Press, 2017.",
           "width" : 162,
           "x" : 141,
-          "y" : 284.7
+          "y" : 272.7
         },
         {
           "height" : 11.7,
           "text" : "Gauge Desk. Gauge Card Handbook, 2021.",
           "width" : 185.2,
           "x" : 141,
-          "y" : 304.7
+          "y" : 292.7
         },
         {
           "height" : 11.7,
           "text" : "Hinge Study Group. A reversible flap. In Proceedings of the Model Gate",
           "width" : 328.2,
           "x" : 141,
-          "y" : 324.7
+          "y" : 312.7
         },
         {
           "height" : 11.7,
           "text" : "Forum, pages 21–24, 2018.",
           "width" : 116.3,
           "x" : 141,
-          "y" : 336.7
+          "y" : 324.7
         },
         {
           "height" : 11.7,
           "text" : "River Model Circle. Calibrating the sill. Model Quay Notes, 4:11–14, Sep-",
           "width" : 328.2,
           "x" : 141,
-          "y" : 356.7
+          "y" : 344.7
         },
         {
           "height" : 11.7,
           "text" : "tember 2019.",
           "width" : 56.5,
           "x" : 141,
-          "y" : 368.7
+          "y" : 356.7
         },
         {
           "height" : 11.7,
           "text" : "Tray Workshop. A bench for tilted channels. Technical Report 7, Model",
           "width" : 328.2,
           "x" : 141,
-          "y" : 388.7
+          "y" : 376.7
         },
         {
           "height" : 11.7,
           "text" : "Quay Laboratory, 2020.",
           "width" : 104.3,
           "x" : 141,
-          "y" : 400.7
+          "y" : 388.7
         },
         {
           "height" : 11.7,
@@ -185,5 +178,5 @@
       "width" : 595.3
     }
   ],
-  "textSHA256" : "27a7fd6737d26a3e2e7cc5473c0a2bb0df710d536497f448a24d2de279c874a4"
+  "textSHA256" : "9a70e0472bedcdfc68ee613da8b928b22a2ff418055e13f701d987a24d178d5f"
 }

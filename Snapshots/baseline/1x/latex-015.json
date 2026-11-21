@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.01377546274765138,
+    "changedAreaRatio" : 0.013787864694757077,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
@@ -61,7 +61,7 @@
         {
           "height" : 11.7,
           "text" : "Equation (1.1) places the mark halfway between the gauges.",
-          "width" : 263.8,
+          "width" : 263.7,
           "x" : 125.4,
           "y" : 260.7
         },

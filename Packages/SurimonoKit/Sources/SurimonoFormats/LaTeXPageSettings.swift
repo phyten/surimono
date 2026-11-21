@@ -115,6 +115,12 @@ struct LaTeXPageSettings {
         var classSkips = info.publication?.floatStyleVariables(size: info.pointSize) ?? [:]
         if let grid = info.profile.page.fixedGrid { classSkips.merge(grid.variables) { _, value in value } }
         if info.profile.body.usesSizeFileGlue {
+            // At class load, size10/11/12.clo assign a single font quad to parindent in
+            // two columns. cmr12's quad is 11.74988 TeX points at design size.
+            if info.profile.structure.columns == 2, info.resolvedStyle == nil {
+                let quad = info.pointSize == 12 ? 11.74988 : info.pointSize == 11 ? 10.95 : 10
+                classSkips["parindent"] = "calc(\(Self.number(quad)) * var(--tex-pt))"
+            }
             // size10/11/12.clo give listii the outer parsep as topsep and listiii the inner parsep.
             let outer = Double(info.pointSize - 10) / 2 + 4
             let inner = info.pointSize == 12 ? 2.5 : 2
@@ -519,8 +525,35 @@ extension LaTeXReader {
         return assignment(#"[ \t]*=?[ \t]*"# + dimension + #"(?:[ \t]+(?:plus|minus)[ \t]*"# + dimension + ")*")
     }
 
+    private func skipAssignmentSign() {
+        skipSpaces()
+        if peek() == "=" {
+            index += 1
+            skipSpaces()
+        }
+    }
+
+    // Preserve font-relative literals. Existing numeric-register readers consume macros,
+    // comments and dimexpr operands without printing the assignment as document text.
+    private func emergencyLength() -> String? {
+        skipAssignmentSign()
+        let literal = assignment(#"[+-]?(?:\d+(?:\.\d*)?|\.\d+)\s*(?:pt|pc|bp|mm|cm|in|em|ex|sp|dd|cc)"#)
+        if !literal.isEmpty { return literal }
+        return dimensionOperand().map { "\($0)sp" }
+    }
+
+    // Nested argument and environment readers consume declarations without changing
+    // document defaults. Group-local paragraph parameters are outside this reader's scope.
+    var updatesLineParameters: Bool { inPreamble || isBlock && document.depth <= 1 }
+
     func readPageSetting(_ name: String) -> Bool {
         func assignLength(_ name: String, _ value: String) {
+            if name == "emergencystretch" {
+                if updatesLineParameters, let length = LaTeXSymbols.printLength(value) {
+                    document.lineParameters.emergencystretch = length
+                }
+                return
+            }
             if document.classInfo.profile.body.readsQuestions, let length = LaTeXSymbols.printLength(value) {
                 switch name {
                 case "linefillheight":
@@ -584,11 +617,39 @@ extension LaTeXReader {
             "columnsep", "columnseprule", "parindent", "parskip", "itemsep", "topsep", "textwidth", "oddsidemargin",
             "evensidemargin", "arrayrulewidth", "tabcolsep", "LTpre", "LTpost", "LTleft", "LTright",
             "topmargin", "textheight",
-            "headheight", "headsep", "footskip", "paperwidth", "paperheight", "XeTeXlinebreakskip", "emergencystretch":
+            "headheight", "headsep", "footskip", "paperwidth", "paperheight", "XeTeXlinebreakskip":
             assignLength(name, glueAssignment())
         case "vskip" where document.classInfo.resolvedStyle != nil:
             verticalSpace(glueAssignment())
-        case "hyphenpenalty", "widowpenalty", "clubpenalty":
+        case "emergencystretch":
+            if let value = emergencyLength() { assignLength(name, value) }
+        case "sloppy", "fussy":
+            if updatesLineParameters { document.lineParameters.setSloppy(name == "sloppy") }
+        case "hyphenation":
+            let exceptions = (argument() ?? "").split(whereSeparator: \.isWhitespace)
+                .filter { $0.allSatisfy { $0 == "-" || $0.isASCII && $0.isLetter } }
+            if updatesLineParameters, !exceptions.isEmpty {
+                let additions = exceptions.joined(separator: " ")
+                document.lineParameters.hyphenation =
+                    document.lineParameters.hyphenation.map { $0 + " " + additions } ?? additions
+            }
+        case "pretolerance", "tolerance", "hyphenpenalty", "exhyphenpenalty", "linepenalty", "adjdemerits",
+            "doublehyphendemerits", "finalhyphendemerits":
+            skipAssignmentSign()
+            let operand = integerOperand()
+            if updatesLineParameters, let value = operand, Int32(exactly: value) != nil {
+                switch name {
+                case "pretolerance": document.lineParameters.pretolerance = value
+                case "tolerance": document.lineParameters.tolerance = value
+                case "hyphenpenalty": document.lineParameters.hyphenpenalty = value
+                case "exhyphenpenalty": document.lineParameters.exhyphenpenalty = value
+                case "linepenalty": document.lineParameters.linepenalty = value
+                case "adjdemerits": document.lineParameters.adjdemerits = value
+                case "doublehyphendemerits": document.lineParameters.doublehyphendemerits = value
+                default: document.lineParameters.finalhyphendemerits = value
+                }
+            }
+        case "widowpenalty", "clubpenalty":
             _ = assignment(#"[ \t]*=?[ \t]*[+-]?\d+"#)
         case "XeTeXlinebreaklocale":
             let raw = assignment(#"[ \t]*=?[ \t]*"[^"\n]*""#)
@@ -622,7 +683,7 @@ extension LaTeXReader {
             document.pageSettings.lineSpacing(name, pointSize: document.classInfo.spacingPointSize)
         case "raggedbottom", "flushbottom":
             if inPreamble { document.requestsRaggedBottom = name == "raggedbottom" }
-        case "sloppy", "makeatletter", "makeatother": break
+        case "makeatletter", "makeatother": break
         default: return false
         }
         return true

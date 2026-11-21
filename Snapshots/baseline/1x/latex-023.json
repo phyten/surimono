@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.06395374560080443,
+    "changedAreaRatio" : 0.06388637506284565,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
@@ -10,7 +10,7 @@
     "maxShiftPt" : 28.9,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 4
+    "textEdits" : 0
   },
   "fonts" : [
     "Helvetica"
@@ -32,15 +32,15 @@
         },
         {
           "height" : 11.7,
-          "text" : "The overview follows the crest from left to right. The detail isolates the cen-",
+          "text" : "The overview follows the crest from left to right. The detail isolates the central",
           "width" : 343.7,
           "x" : 125.4,
           "y" : 174.9
         },
         {
           "height" : 11.7,
-          "text" : "tral notch.",
-          "width" : 46,
+          "text" : "notch.",
+          "width" : 27.1,
           "x" : 125.4,
           "y" : 186.9
         },
@@ -66,5 +66,5 @@
       "width" : 595.3
     }
   ],
-  "textSHA256" : "e5d72cdb509b9c9fbba377b1d28d8b4cbaae3f27d64728c07595adbb13858ae6"
+  "textSHA256" : "2b33d8aabd510fa23619ea92c723b67b3d76a91434c280bec6345621c17c16e8"
 }

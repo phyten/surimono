@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.019355305449622256,
+    "changedAreaRatio" : 0.019346003989292985,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
@@ -123,7 +123,7 @@
         {
           "height" : 12.2,
           "text" : "1.1.1.1.1 Tile spacing Leave a narrow gap.",
-          "width" : 210,
+          "width" : 210.5,
           "x" : 125.4,
           "y" : 402.2
         },

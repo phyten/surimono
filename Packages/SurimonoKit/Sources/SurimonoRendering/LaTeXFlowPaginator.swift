@@ -86,6 +86,58 @@ enum LaTeXFlowPaginator {
         try script("tikz-label-layout") + "\n" + script("latex-japanese-lines")
     }
 
+    // The pattern licence requires the resource to remain byte-for-byte identical to Plain TeX.
+    // Encode it as data. Executing TeX source is unnecessary for Liang's pattern trie.
+    private static let latinSource = Result {
+        guard let url = Bundle.module.url(forResource: "hyphen", withExtension: "tex") else {
+            throw WebPaginator.PaginationError.printFailed
+        }
+        let patterns = try String(contentsOf: url, encoding: .utf8)
+        let literal = String(decoding: try JSONEncoder().encode(patterns), as: UTF8.self)
+        return try "globalThis.surimonoEnglishPatterns = " + literal + ";\n"
+            + script("latex-latin-plan") + "\n" + script("latex-latin-lines")
+    }
+
+    static func latinLineScript() throws -> String { try latinSource.get() }
+
+    static func installLatinLines(
+        in view: WKWebView, diagnostics: Bool = false, boxes: Bool = false, until deadline: ContinuousClock.Instant
+    )
+        async throws
+    {
+        _ = try await view.evaluateForPrinting(
+            latinLineScript()
+                + "\nglobalThis.surimonoComposeLatin = latinCompose; globalThis.surimonoLatinDiagnostics = diagnostics;"
+                + "\nglobalThis.surimonoLatinBoxDiagnostics = boxes;",
+            arguments: ["diagnostics": diagnostics, "boxes": boxes], until: deadline)
+    }
+
+    // Native page references keep handles to the prepared DOM and can change a word's width
+    // between print passes. Restore those exact nodes after each successful print.
+    static func prepareNativeLines(in view: WKWebView, width: CGFloat, until deadline: ContinuousClock.Instant)
+        async throws
+    {
+        let media = view.mediaType
+        view.mediaType = "print"
+        defer { view.mediaType = media }
+        _ = try await view.evaluateForPrinting(
+            """
+            const root = document.documentElement, saved = root.style.cssText;
+            const zoom = parseFloat(getComputedStyle(root).zoom) || 1;
+            const undo = [];
+            globalThis.surimonoRestoreLatin = () => {
+              for (const restore of undo.reverse()) restore();
+              delete globalThis.surimonoRestoreLatin;
+            };
+            try {
+              root.style.width = width / zoom + 'px';
+              root.getBoundingClientRect();
+              await document.fonts.ready;
+              globalThis.surimonoLatinLast = surimonoComposeLatin(document.body, 1 / zoom, undo);
+            } finally { root.style.cssText = saved; }
+            """, arguments: ["width": width], until: deadline)
+    }
+
     private struct Origin: Decodable {
         let x: CGFloat
         let y: CGFloat

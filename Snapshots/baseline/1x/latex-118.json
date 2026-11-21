@@ -1,16 +1,16 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.10053582887700535,
+    "changedAreaRatio" : 0.08848021390374332,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
-    "maxBoxDeltaPt" : 5.4,
-    "maxLuminance" : 104.3125,
+    "maxBoxDeltaPt" : 3.7,
+    "maxLuminance" : 80.78125,
     "maxShiftPt" : 4,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 66
+    "textEdits" : 30
   },
   "fonts" : [
     "CourierNewPSMT",
@@ -183,15 +183,15 @@
         },
         {
           "height" : 11,
-          "text" : "of a folded spacer is not simply the sum of the card thicknesses: each crease adds a small",
+          "text" : "of a folded spacer is not simply the sum of the card thicknesses: each crease adds a small allowance,",
           "width" : 396,
           "x" : 108,
           "y" : 401.4
         },
         {
           "height" : 11,
-          "text" : "allowance, and the allowance depends on the card and on how firmly the crease is pressed.",
-          "width" : 361.6,
+          "text" : "and the allowance depends on the card and on how firmly the crease is pressed.",
+          "width" : 316.2,
           "x" : 108,
           "y" : 412.4
         },
@@ -253,15 +253,15 @@
         },
         {
           "height" : 11,
-          "text" : "summarises the rules. Earlier notes on layered card (Card Stock Bench and Model Rail Desk,",
+          "text" : "summarises the rules. Earlier notes on layered card (Card Stock Bench and Model Rail Desk, 2024)",
           "width" : 396,
           "x" : 108,
           "y" : 522
         },
         {
           "height" : 12,
-          "text" : "2024) and on gauge blocks (Scale Fixture Room, 2023) motivated the layer model used here.1",
-          "width" : 374.2,
+          "text" : "and on gauge blocks (Scale Fixture Room, 2023) motivated the layer model used here.1",
+          "width" : 348.5,
           "x" : 108,
           "y" : 532
         },
@@ -324,7 +324,7 @@
         {
           "height" : 11,
           "text" : "slowly. Three readings were taken for each spacer, removing and reinserting it between readings.",
-          "width" : 381,
+          "width" : 386.8,
           "x" : 108,
           "y" : 685.2
         },
@@ -512,7 +512,7 @@
         {
           "height" : 11,
           "text" : "0.30 mm and the thick stock 0.45 mm, with a spread of less than 0.01 mm in every case.",
-          "width" : 350.2,
+          "width" : 349.2,
           "x" : 108,
           "y" : 418.9
         },
@@ -553,71 +553,71 @@
         },
         {
           "height" : 11,
-          "text" : "Figure 1 shows the slot with a four-layer spacer in place, and Table 1 lists the mean measured",
+          "text" : "Figure 1 shows the slot with a four-layer spacer in place, and Table 1 lists the mean measured height",
           "width" : 396,
           "x" : 108,
           "y" : 515.3
         },
         {
           "height" : 11,
-          "text" : "height of each spacer together with the height predicted by Equation (1).",
-          "width" : 288.8,
+          "text" : "of each spacer together with the height predicted by Equation (1).",
+          "width" : 261.4,
           "x" : 108,
           "y" : 526.2
         },
         {
           "height" : 11,
-          "text" : "The model agrees with the measurements to within 0.06 mm for every spacer. The largest error is",
+          "text" : "The model agrees with the measurements to within 0.06 mm for every spacer. The largest error is for",
           "width" : 396,
           "x" : 108,
           "y" : 543.2
         },
         {
           "height" : 11,
-          "text" : "for the thick stock, where the crease allowance grows with the number of layers: the outer layers",
+          "text" : "the thick stock, where the crease allowance grows with the number of layers: the outer layers must",
           "width" : 396,
           "x" : 108,
           "y" : 554.1
         },
         {
           "height" : 11,
-          "text" : "must bend around a thicker core, and the crease opens slightly. For the thin and medium stocks the",
+          "text" : "bend around a thicker core, and the crease opens slightly. For the thin and medium stocks the error",
           "width" : 396,
           "x" : 108,
           "y" : 565.1
         },
         {
           "height" : 11,
-          "text" : "error does not grow with the number of layers, which agrees with the note of Glue Pot Corner",
+          "text" : "does not grow with the number of layers, which agrees with the note of Glue Pot Corner (2022) on",
           "width" : 396,
           "x" : 108,
           "y" : 576
         },
         {
           "height" : 11,
-          "text" : "(2022) on thin paper joints.",
-          "width" : 108.7,
+          "text" : "thin paper joints.",
+          "width" : 67.2,
           "x" : 108,
           "y" : 587
         },
         {
           "height" : 11,
-          "text" : "Repeated readings of the same spacer differed by at most 0.02 mm. Spacers that were left in the",
+          "text" : "Repeated readings of the same spacer differed by at most 0.02 mm. Spacers that were left in the slot",
           "width" : 396,
           "x" : 108,
           "y" : 603.9
         },
         {
           "height" : 11,
-          "text" : "slot overnight lost about 0.01 mm of height, which is smaller than the spread between readings and",
+          "text" : "overnight lost about 0.01 mm of height, which is smaller than the spread between readings and was",
           "width" : 396,
           "x" : 108,
           "y" : 614.9
         },
         {
           "height" : 11,
-          "text" : "was ignored.",
-          "width" : 50.9,
+          "text" : "ignored.",
+          "width" : 32.9,
           "x" : 108,
           "y" : 625.8
         },
@@ -630,36 +630,36 @@
         },
         {
           "height" : 11,
-          "text" : "A folded card spacer can be designed from the card thickness and a crease allowance measured",
+          "text" : "A folded card spacer can be designed from the card thickness and a crease allowance measured once",
           "width" : 396,
           "x" : 108,
           "y" : 677.2
         },
         {
           "height" : 11,
-          "text" : "once for each stock. For heights up to 2 mm the thin and medium stocks follow the layer model",
+          "text" : "for each stock. For heights up to 2 mm the thin and medium stocks follow the layer model closely,",
           "width" : 396,
           "x" : 108,
           "y" : 688.1
         },
         {
           "height" : 11,
-          "text" : "closely, and they are the better choice when a rail must sit at an exact height. The thick stock is",
+          "text" : "and they are the better choice when a rail must sit at an exact height. The thick stock is quicker to",
           "width" : 396,
           "x" : 108,
           "y" : 699.1
         },
         {
           "height" : 11,
-          "text" : "quicker to fold but should be checked in the slot when more than three layers are used. A card",
+          "text" : "fold but should be checked in the slot when more than three layers are used. A card ladder (Window",
           "width" : 396,
           "x" : 108,
           "y" : 710
         },
         {
           "height" : 11,
-          "text" : "ladder (Window Frame Study, 2021) gives a convenient way to check many spacers at once.",
-          "width" : 367.4,
+          "text" : "Frame Study, 2021) gives a convenient way to check many spacers at once.",
+          "width" : 300.3,
           "x" : 108,
           "y" : 721
         },
@@ -768,5 +768,5 @@
       "width" : 612
     }
   ],
-  "textSHA256" : "69e30731fdab5190035b2250808cd20ca618963c7a57beb608cc0780134cf031"
+  "textSHA256" : "8077acf20cd95120d0b849da858fba283c48dbe2933cc3a47cbcb734cbf0f1c7"
 }

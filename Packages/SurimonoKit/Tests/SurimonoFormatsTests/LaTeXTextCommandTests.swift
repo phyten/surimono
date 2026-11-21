@@ -27,7 +27,7 @@ struct LaTeXTextCommandTests {
         let result = LaTeXConverter.convert(
             #"\settowidth{\test}{nil}\allowdisplaybreaks[4]\phantomsection\frenchspacing\phantom{invisible}X"#
         )
-        #expect(result.body == "<p>X</p>\n")
+        #expect(result.body == "<p data-latex-line-parameters=\"{&quot;frenchspacing&quot;:true}\">X</p>\n")
         #expect(result.readingIssues.isEmpty)
     }
 

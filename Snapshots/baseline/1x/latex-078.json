@@ -1,16 +1,16 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.017491912896991493,
+    "changedAreaRatio" : 0.017457807542450833,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
-    "lineCountChangedPages" : 1,
+    "lineCountChangedPages" : 0,
     "maxBoxDeltaPt" : 27,
     "maxLuminance" : 138.1875,
     "maxShiftPt" : 28.3,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 9
+    "textEdits" : 0
   },
   "fonts" : [
     "Helvetica"
@@ -21,7 +21,7 @@
       "firstY" : 116.4,
       "height" : 841.9,
       "lastY" : 719.2,
-      "lineCount" : 10,
+      "lineCount" : 9,
       "lines" : [
         {
           "height" : 11.7,
@@ -46,24 +46,17 @@
         },
         {
           "height" : 11.7,
-          "text" : "Set the stop before trimming the",
+          "text" : "Set the stop before trimming the strips.",
           "width" : 166.9,
           "x" : 125.4,
           "y" : 196.1
         },
         {
           "height" : 11.7,
-          "text" : "strips. Stack the short pieces beside",
-          "width" : 166.9,
+          "text" : "Stack the short pieces beside the rule.",
+          "width" : 165.4,
           "x" : 125.4,
           "y" : 208.1
-        },
-        {
-          "height" : 11.7,
-          "text" : "the rule.",
-          "width" : 36.6,
-          "x" : 125.4,
-          "y" : 220.1
         },
         {
           "height" : 14.6,
@@ -74,15 +67,15 @@
         },
         {
           "height" : 11.7,
-          "text" : "Place one strip on each shelf. Mark",
+          "text" : "Place one strip on each shelf. Mark its",
           "width" : 166.9,
           "x" : 302.3,
           "y" : 195.1
         },
         {
           "height" : 11.7,
-          "text" : "its orientation before the paste dries.",
-          "width" : 161,
+          "text" : "orientation before the paste dries.",
+          "width" : 147.1,
           "x" : 302.3,
           "y" : 207.1
         },
@@ -101,5 +94,5 @@
       "width" : 595.3
     }
   ],
-  "textSHA256" : "df99e512ccc4425919d253dd5c2ea16b91d5eaf8720f16d17b8d8443d745d72f"
+  "textSHA256" : "7b44db16c58da083741cbf0c3e73a855390a4d288c69ca208e84f503c8c5859b"
 }

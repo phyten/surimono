@@ -546,24 +546,47 @@ struct LaTeXFlowPrintingTests {
         #expect(paginator.openSessionCount == 0)
     }
 
-    @Test("十二ページの二段論文と百ページの脚注付き本文を計時する", .timeLimit(.minutes(1)), arguments: [12, 100])
-    func timing(count: Int) async throws {
+    nonisolated static func timingSource(pages count: Int) -> String {
         let columns = count == 12 ? "[twocolumn]" : ""
         let line = String(repeating: "A paragraph for measuring the column width and the selectable text. ", count: 8)
         let pages = (1...count).map { i in
             "Section \(i). \(line)\\footnote{Note \(i).}\\par " + (count == 12 ? "\\columnbreak " : "") + line
         }
-        let source =
-            "\\documentclass\(columns){article}\\begin{document}" + pages.joined(separator: "\\clearpage ")
+        return "\\documentclass\(columns){article}\\begin{document}" + pages.joined(separator: "\\clearpage ")
             + "\\end{document}"
-        let fragment = LaTeXConverter.convert(source)
+    }
+
+    @Test("十二ページの二段論文と百ページの脚注付き本文を計時する", .timeLimit(.minutes(1)), arguments: [12, 100])
+    func timing(count: Int) async throws {
+        let fragment = LaTeXConverter.convert(Self.timingSource(pages: count))
         let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
         let html = HTMLDocumentBuilder.build(fragment: fragment, format: .latex, theme: theme)
+        let directory = ProcessInfo.processInfo.environment["SURIMONO_LATEX_TIMING_DIR"].flatMap {
+            $0.isEmpty ? nil : $0
+        }
+        let paginator = WebPaginator()
+        paginator.collectsLatinLineDiagnostics = directory != nil
         let start = ContinuousClock.now
-        let result = try await WebPaginator().paginateWithResult(
+        let result = try await paginator.paginateWithResult(
             .html(html, baseURL: nil), pageSize: PaperSize.a4.size,
             margins: .uniform(millimeters: 20), allowsJavaScript: false, latexFlow: true)
         let elapsed = start.duration(to: .now)
+        if let directory {
+            let json = try #require(paginator.latinLineDiagnostics)
+            let data = try #require(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+            let milliseconds = try #require(data["milliseconds"] as? Double)
+            let components = elapsed.components
+            let seconds = Double(components.seconds) + Double(components.attoseconds) / 1e18
+            let folder = URL(fileURLWithPath: directory, isDirectory: true)
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            let timing: [String: Any] = [
+                "requestedPages": count, "pages": result.document.pageCount, "compositionMilliseconds": milliseconds,
+                "elapsedSeconds": seconds, "composed": try #require(data["composed"] as? Int),
+                "fallbacks": try #require(data["fallbacks"] as? Int),
+            ]
+            try JSONSerialization.data(withJSONObject: timing, options: [.prettyPrinted, .sortedKeys])
+                .write(to: folder.appendingPathComponent("timing-\(count).json"), options: .atomic)
+        }
         #expect(result.issues.isEmpty)
         #expect(result.document.pageCount == count)
         // Wall-clock budgets with room for a shared CI runner, which took 4.8 s where a desk Mac takes 1.5 s.

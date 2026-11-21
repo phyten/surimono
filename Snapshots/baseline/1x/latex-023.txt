@@ -1,5 +1,5 @@
 The ridge profile
-The overview follows the crest from left to right. The detail isolates the cen-
-tral notch.
+The overview follows the crest from left to right. The detail isolates the central
+notch.
 Figure 1: Full ridge and cropped detail
 1

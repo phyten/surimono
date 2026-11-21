@@ -42,6 +42,7 @@ make test-formats               # SurimonoFormats のテストだけ
 make test-core                  # SurimonoCore のテストだけ
 make test-rendering             # SurimonoRendering のテストだけ（直列）
 make latex-dump DIR=<dir>       # LaTeX のコーパス全件の読み取り結果（HTML・寸法・ページスタイル・body の属性）を書き出す
+make latex-line-dump-webkit DIR=<dir>  # 欧文の段落の行分けを実物の WebKit でコーパス全件について書き出す（PDF=1 で PDF、BOXES=1 で語の幅と糊も）。Chromium 版は latex-line-dump
 make bench                      # 任意の描画計測（既定 5 回。JSON の保存先を表示）
 make bench-compare BASE=old.json NEW=new.json # 中央値の差を比較（合否なし）
 make test-app                   # アプリのテスト（xcodebuild test）
@@ -153,6 +154,10 @@ WebKit の文書組版もメインディスプレイの倍率に影響される�
   - 入れ子になった断片（箇条書きの項目など）は、既定のクラスを登録表から引き直さずに使い回す。登録表の関数はクラスごとに小さく分ける（1 つの関数が大きいと、Debug ビルドでスタックの枠が膨らみ、入れ子の文書で変換のスレッドのスタックを使い切って落ちる。コーパス全件を 512 KB のスタックで変換するテストで固定している）。
   - 本のクラス（ltjsbook・scrbook・ltjbook など）は、`\frontmatter`／`\mainmatter`／`\backmatter` でノンブルをローマ数字から算用数字へ切り替え、部と章を右ページから起こす。挿んだ白ページには柱もノンブルも出さない。両面の版面は右ページと左ページで左端が違い、従来の和文クラスは左右を別々に丸める。
   - 見た目を変えない整理は、変更の前後で `make latex-dump` の出力を `diff -r` で比べ、差がないことを確かめる（書体の索引を固定しているので、同じ Mac なら毎回同じ結果になる）。
+  - 欧文の本文の段落は、TeX と同じ考え方（Knuth–Plass の total-fit）で自前で行に分ける（`latex-latin-plan.js` が計画、`latex-latin-lines.js` が測定と反映。SurimonoRendering）。対象は英語の両端揃えの `p` で、article・report・book（Computer Modern）と会議の 6 スタイル（Times）。リスト・脚注・文献・キャプション・要旨とほかの言語は WebKit の行分けのまま。語の幅は実際に描く書体で測り、語間の自然幅・伸び・縮みは TeX の TFM の値（cmr10・cmr12・Times など。表は `latex-latin-plan.js`）を使う。罰点は TeX の既定で、`\sloppy`・`\tolerance`・`\emergencystretch`・`\hyphenpenalty`・`\hyphenation`・`\frenchspacing` などを読む（`LaTeXLineParameters`）。ハイフンの位置は、同梱した Plain TeX の `hyphen.tex`（無改変でだけ配れる。ライセンス文は `App/Acknowledgements/`）の Liang のパターンで決める。
+    - 行は `span.latex-line`（ブロック、`nowrap`）にして行ごとに `word-spacing` を指定する。元の文字は置き換えず、行末のハイフンだけ疑似要素で描く。段落見出し（run-in の `\paragraph`）の語と `~` は行と一緒に伸び縮みし、著者・年の引用は途中で改行できる。数式・`\mbox`・コード・脚注の印・番号の引用は固い箱。
+    - 収まる計画がない、元の行数より長くなる、挿入後の行送り・右端・本文が合わない段落は、段落ごとに元のノードへ戻す。印刷のたびに適用し、終わったら戻す（フローは作業用の写しに適用する）。
+    - 本物との照合は `Benchmarks/compare-latex-lines.py`（ダンプ・変更前の PDF・本物の PDF を渡す）。書体の字幅が本物と違うので、すべての段落は一致しない。
   - 保存した設定がない LaTeX 文書では、欧文の article 系は「article」、report・book 系は「report / book」、和文クラスは「和文」、中国語・韓国語の文書はそれぞれの専用スタイルを使う。日本語の本文を持つ欧文クラスは article / report の寸法に和文書体を合わせる。前置きを分割した場合も本文と同じフォルダー許可でクラス宣言を読む。開いたり許可を与えたりしただけでは設定を保存しない。5 種ともクラスの 10pt・11pt・12pt に従い、twocolumn は二段で組む（「横組み LaTeX のページ割り」）。欧文の本文幅は級数順に 345・360・390 TeX pt、jsarticle・ltjsarticle の行長は全角の整数倍（A4・10pt は 49zw、451.42 PDF pt）。行送りは WebKit の印刷時に端数が切り捨てられるため、欧文は 15・17・18 CSS px、和文は 21・23・25 CSS px に丸める。和文スタイルでは見出し直後も一字下げ、表題は明朝、強調した和文はゴシックで組む。空行を挟まないリストや数式後の段落は字下げせず、表題の `\thanks` は記号、本文の脚注は番号で刷る。report・book の式と図表には章番号を付け、本文脚注の番号も章ごとに振り直す。専用スタイルでは、表題の謝辞と章ごとに番号を振り直す脚注もページ下へ置く。共通スタイルのベータ版の脚注配置では、これらを文末に残す。
   - 読むもの: 前置きの `\documentclass`・`\title`／`\author`／`\date`・`\newcommand`／`\def`・`\DeclareMathOperator`・`\definecolor`・`\graphicspath`、`\maketitle`、abstract、`\tableofcontents`、番号つきの節（章のある文書クラス、`\appendix`、和文の文書クラスは「第1章」）、`\label`／`\ref`／`\eqref`、書体とサイズ、itemize／enumerate（enumitem の `label=`・`start=`）／description、quote・center など、verbatim・lstlisting・minted（色付けは `SyntaxHighlighter`）、`\verb`、数式（`$`・`\(`・`\[`・equation・align などは SwaTex。星なしの環境に式番号）、`\footnote`、hyperref の `\href`／`\url`、xcolor、figure／table の `\caption`（図と表は別の番号）、graphicx の `\includegraphics`（拡張子がなければ文書の隣と `\graphicspath` を探す）、tabular（列の揃え・縦線・`\hline`・booktabs・`\multicolumn`・`\multirow`）、amsthm の `\newtheorem`（節ごと・共有・番号なし、`\theoremstyle`。和文の文書は plain でも斜体にしない）と proof、thebibliography と .bib による引用、siunitx の `\num`・`\qty`（`\SI`）・`\unit`（`\si`）・`\ang`（数式の中でも使える）。
   - 読むものには babel・polyglossia の主言語と局所言語、文書が変更した図表・章・付録・証明などの名称、図表目次の短い題と追加の目次項目も含む。英語クラスの既定名は英語。文書の言語を HTML に渡し、アラビア語・ヘブライ語には右から左の向きを付ける。fontspec・xeCJK・luatexja の本文／サンセリフ／等幅の指定、太字・斜体・倍率にはインストール済みの書体を使う。欧文の代替はキリル・ギリシャ文字に Times New Roman、アラビア文字に Geeza Pro、ヘブライ文字に Arial Hebrew。中国語は宋体と黒体、韓国語は明朝とゴシックを使う。
@@ -539,6 +544,9 @@ WebKit の文書組版もメインディスプレイの倍率に影響される�
 - 両端揃えのテーマでは、長いパスや URL の前の行が字間を広げて伸びる（改行できる所が少なく、行の残りが空くため。`overflow-wrap` は行に改行できる所がないときしか効かない）。`HTMLDocumentBuilder` が `LongTokenMarks` で本文の長い語に `.long-token`（`word-break: break-all`）を付けている。
 - 語の途中に字間（`letter-spacing`）や要素の隙間を入れると、PDFKit はその語を 1 文字ずつに分けて読み、検索とコピーが効かなくなる（listings の等幅の格子と amsart の小型大文字で起きた）。本物の LaTeX と幅が合わなくても、語の中には字間を入れない。`LaTeXFlowPrintingTests` が listing と amsart の見出しの検索で固定している。
 - 目次の点線を SVG の破線で描くと、WebKit の印刷では点が 2 つしか出ない。背景の繰り返しで描く。
+- WKWebView では、折り畳まれた空白 1 つの `Range.getBoundingClientRect()` に `word-spacing` が含まれない（Chromium では含まれる）。語間を確かめるときは、隣の語の矩形の間を測るか、行の右端と計算値で確かめる。
+- WebKit は、組版の準備の段階（印刷の倍率が掛かる前）では行を整数ピクセルに置く（`line-height: 13.636px` の行が 13px になる）。自前で組んだ行の行送りは、CSS の値ではなく、同じ場で測った素の 1 行と比べる。
+- 2 段組のページを PDFKit の `page.string` で読むと、段をまたぐ題名やノンブルがあるページで左右の段が混ざる（PDF には左の段から順に書かれている。macOS 26.6 で確認）。検索と見た目には影響しない。読み順をテストで固定するときは、段の中の順だけを必須にする。
 - 冊子印刷は短辺綴じが前提。プリンターによって裏面が上下逆になるため、「裏面を 180° 回転」をプリンター名・綴じ方ごとに覚えて補正する。刷り台の「両面のテスト印刷…」は回転なしで紙 1 枚を出し、裏の矢印への回答から補正を保存する（実機確認と、送信を差し替えた自動テストは区別する）。
 - 全操作スペースの窓には `.canJoinAllSpaces` と `.fullScreenAuxiliary` を組み合わせ、解除時に `.fullScreenPrimary` に戻す。フルスクリーン中の切り替えは退出後に反映する。
 - HTML の根要素か body が縦書きだと WebKit の印刷ビューが落ちるため、組版前に両方の `writing-mode` をインラインの `horizontal-tb !important` にして再確認する。

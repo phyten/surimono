@@ -97,8 +97,10 @@ struct LaTeXBibliographyTests {
             html.contains(
                 ##"(see <a href="#bib-db-1">Alpha and Co. 2010</a>; <a href="#bib-db-2">Zulu et al. 2011</a>, p. 2)"##
             ))
-        #expect(html.contains(##"<span class="latex-cite"><a href="#bib-db-1">Alpha and Co.</a></span>"##))
-        #expect(html.contains(##"<span class="latex-cite"><a href="#bib-db-2">2011</a></span>"##))
+        #expect(
+            html.contains(
+                ##"<span class="latex-cite" data-latex-cite-text><a href="#bib-db-1">Alpha and Co.</a></span>"##))
+        #expect(html.contains(##"<span class="latex-cite" data-latex-cite-text><a href="#bib-db-2">2011</a></span>"##))
         #expect(html.contains(##"(<a href="#bib-db-1">Alpha and Co. 2010</a>)"##))
         #expect(!html.contains(#"class="bib-label""#))
     }
@@ -109,8 +111,8 @@ struct LaTeXBibliographyTests {
             "@proceedings{p,title={Collected},year=2021} @inproceedings{k,author={Doe, J},crossref={p},title={Chapter}}"
         let body = #"\begin{document}\citet{k}\citep{k}\bibliographystyle{plainnat}\bibliography{refs}\end{document}"#
         let authorYear = try fragment(#"\usepackage{natbib}"# + body, files: ["refs.bib": database]).body
-        #expect(authorYear.contains("Doe, 2021"))
-        #expect(authorYear.contains(##"Doe [<a href="#bib-db-1">2021</a>]"##))
+        #expect(authorYear.contains("Doe,<span data-latex-control-space> </span>2021"))
+        #expect(authorYear.contains(##"Doe<span data-latex-control-space> </span>[<a href="#bib-db-1">2021</a>]"##))
         #expect(!authorYear.contains(#"class="bib-label""#))
         #expect(authorYear.contains("<em>Collected</em>"))
         let numeric = try fragment(#"\usepackage[numbers]{natbib}"# + body, files: ["refs.bib": database]).body
@@ -123,11 +125,19 @@ struct LaTeXBibliographyTests {
         let agsm = try fragment(
             #"\usepackage{natbib}\begin{document}\citep{m}\bibliographystyle{agsm}\bibliography{refs}\end{document}"#,
             files: files)
-        #expect(agsm.body.contains(##"(<a href="#bib-db-1">Moss 2024</a>)"##))
+        #expect(agsm.body.contains(##"(<a href="#bib-db-1">Moss<span data-latex-control-space> </span>2024</a>)"##))
         let round = try fragment(
             #"\usepackage[round]{natbib}\begin{document}\citep{m}\bibliographystyle{plainnat}\bibliography{refs}\end{document}"#,
             files: files)
-        #expect(round.body.contains(##"(<a href="#bib-db-1">Moss, 2024</a>)"##))
+        #expect(round.body.contains(##"(<a href="#bib-db-1">Moss,<span data-latex-control-space> </span>2024</a>)"##))
+    }
+
+    @Test("natbib は著者と年の間だけを制御空白にし、著者名の内部のコンマは保つ")
+    func authorYearControlSpace() throws {
+        let result = try fragment(
+            #"\usepackage{natbib}\begin{document}\citep{k}\bibliographystyle{plainnat}\bibliography{refs}\end{document}"#,
+            files: ["refs.bib": "@book{k,author={{Desk, Ltd.}},year=2025,title={Guide}}"])
+        #expect(result.body.contains("Desk, Ltd.,<span data-latex-control-space> </span>2025"))
     }
 
     @Test("文献表を再掲しても引用の飛び先を一つにし、後からの natbib 設定を反映する")
@@ -135,7 +145,7 @@ struct LaTeXBibliographyTests {
         let result = try fragment(
             #"\usepackage[numbers]{natbib}\setcitestyle{authoryear}\addbibresource{refs.bib}\begin{document}\citep{k}\printbibliography\printbibliography\end{document}"#,
             files: ["refs.bib": "@article{k,author={Best, Beth},title={Example},year=2020}"])
-        #expect(result.body.contains(##"(<a href="#bib-db-1">Best, 2020</a>)"##))
+        #expect(result.body.contains(##"(<a href="#bib-db-1">Best,<span data-latex-control-space> </span>2020</a>)"##))
         #expect(result.body.components(separatedBy: #"<li id="bib-db-1">"#).count == 2)
         #expect(result.body.components(separatedBy: "Beth Best. Example").count == 3)
     }

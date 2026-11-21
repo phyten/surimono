@@ -45,7 +45,7 @@ let package = Package(
             name: "SurimonoCoreTests", dependencies: ["SurimonoCore", "LaTeXCorpusSupport"],
             resources: [.copy("Fixtures")]),
         .testTarget(
-            name: "SurimonoRenderingTests", dependencies: ["SurimonoRendering"],
+            name: "SurimonoRenderingTests", dependencies: ["SurimonoRendering", "LaTeXCorpusSupport"],
             resources: [.copy("Fixtures")]),
     ],
     swiftLanguageModes: [.v6]

@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.009112330635909837,
+    "changedAreaRatio" : 0.009090627228474871,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
@@ -33,14 +33,14 @@
         {
           "height" : 11.7,
           "text" : "West rail: provisional; collect the strip.",
-          "width" : 170.8,
+          "width" : 171.8,
           "x" : 125.4,
           "y" : 175.1
         },
         {
           "height" : 11.7,
           "text" : "West rail: checked; file the strip.",
-          "width" : 142.7,
+          "width" : 143.8,
           "x" : 140.4,
           "y" : 187.1
         },

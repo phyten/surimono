@@ -22,8 +22,25 @@ struct LaTeXStylePackageAttributeTests {
             let html = HTMLDocumentBuilder.build(fragment: LaTeXConverter.convert(source), format: .latex, theme: theme)
             let body = try #require(html.components(separatedBy: "<body ").last)
             #expect(body.contains(#"data-latex-class="article""#))
+            #expect(body.contains(#"data-latex-line-breaking="times""#))
+            #expect(body.contains("&quot;tolerance&quot;:9999"))
             #expect(body.contains("data-latex-style=\"\(family)\""))
             #expect(body.contains("data-latex-style-mode=\"\(mode)\""))
+        }
+    }
+
+    @Test("標準三クラスの欧文を指定し、二段のクラスだけ組版の許容値を広げる")
+    func standardLineBreaking() throws {
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
+        for (declaration, enabled, sloppy) in [
+            ("{article}", true, false), ("[twocolumn]{report}", true, true), ("{book}", true, false),
+            ("{amsart}", false, false), ("{jsarticle}", false, false),
+        ] {
+            let source = "\\documentclass\(declaration)" + #"\begin{document}Body.\end{document}"#
+            let html = HTMLDocumentBuilder.build(fragment: LaTeXConverter.convert(source), format: .latex, theme: theme)
+            let tag = try #require(html.components(separatedBy: "<body ").last?.split(separator: ">").first)
+            #expect(tag.contains(#"data-latex-line-breaking="cm""#) == enabled)
+            #expect(tag.contains("&quot;tolerance&quot;:9999") == sloppy)
         }
     }
 

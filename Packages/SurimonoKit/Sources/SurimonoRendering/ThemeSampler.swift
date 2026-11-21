@@ -171,6 +171,9 @@ public final class ThemeSampler {
                     protrudes || theme.formats == [.latex] && (hasLaTeXMarginInk || LaTeXFlowPaginator.needed(in: html))
             }
             if sampleUsesFlow {
+                if html.contains(" data-latex-line-breaking=\"") {
+                    try await LaTeXFlowPaginator.installLatinLines(in: session.webView, until: .now + timeout)
+                }
                 if let place {
                     _ = try await session.webView.evaluateForPrinting(
                         Self.placeElements + "elements[kind][index]?.setAttribute('data-flow-sample-place','')",

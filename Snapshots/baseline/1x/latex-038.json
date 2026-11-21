@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.006007709877117374,
+    "changedAreaRatio" : 0.006015977841854504,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
@@ -33,7 +33,7 @@
         {
           "height" : 11.7,
           "text" : "Two blue slips arrived with the brass gauge. The final reading is in Section 2.",
-          "width" : 339.7,
+          "width" : 340.8,
           "x" : 125.4,
           "y" : 175.1
         },
@@ -48,7 +48,7 @@
       "textHeight" : 580.4,
       "textLeft" : 125.4,
       "textTop" : 150.4,
-      "textWidth" : 339.7,
+      "textWidth" : 340.8,
       "width" : 595.3
     },
     {
@@ -67,7 +67,7 @@
         {
           "height" : 11.7,
           "text" : "The gauge fitted the middle slot. Both slips carry its mark.",
-          "width" : 258.9,
+          "width" : 260,
           "x" : 125.4,
           "y" : 175.9
         },
@@ -82,7 +82,7 @@
       "textHeight" : 579.6,
       "textLeft" : 125.4,
       "textTop" : 151.2,
-      "textWidth" : 258.9,
+      "textWidth" : 260,
       "width" : 595.3
     }
   ],

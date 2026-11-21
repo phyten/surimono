@@ -83,11 +83,15 @@ struct LaTeXSocietyGridTests {
         }
     }
 
-    @Test("欧文のクラスでも入れ子の書体指定の端にある細い空白を落とさない")
-    func spaceInFontArgument() {
-        let source = #"\documentclass{article}\begin{document}\textit{1\,}mm and 2~mm.\end{document}"#
+    @Test("英語の各地域で入れ子の書体指定の端にある細い空白を落とさない", arguments: ["english", "british", "american"])
+    func spaceInFontArgument(language: String) {
+        let source = #"""
+            \documentclass{article}\usepackage[\#(language)]{babel}
+            \begin{document}\textit{1\,}mm and 2~mm.\end{document}
+            """#
         let html = LaTeXConverter.convert(source).body
-        #expect(html.contains("<em>1\u{2009}</em>mm"), "\(html)")
+        #expect(html.contains("<em>1<span data-latex-thin-space>\u{2009}</span></em>mm"), "\(html)")
+        #expect(DocumentOutline.plainText(ofHTML: html).contains("1\u{2009}mm and 2\u{00A0}mm."))
         #expect(html.contains("2&nbsp;mm"))
     }
 

@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.16671550802139037,
+    "changedAreaRatio" : 0.16409411764705883,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 2,
@@ -10,7 +10,7 @@
     "maxShiftPt" : 9.1,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 165
+    "textEdits" : 159
   },
   "fonts" : [
     "Helvetica",
@@ -125,90 +125,6 @@
           "y" : 340.5
         },
         {
-          "height" : 11,
-          "text" : "Paper models of railways need many small parts of exact",
-          "width" : 238.5,
-          "x" : 54,
-          "y" : 356.4
-        },
-        {
-          "height" : 11,
-          "text" : "height. Rails, platform edges and signal bases all sit on",
-          "width" : 238.5,
-          "x" : 54,
-          "y" : 367.4
-        },
-        {
-          "height" : 11,
-          "text" : "spacers, and a spacer that is too thick by a fraction of a mil-",
-          "width" : 238.5,
-          "x" : 54,
-          "y" : 378.3
-        },
-        {
-          "height" : 11,
-          "text" : "limetre lifts a rail joint enough to derail a light wagon. Most",
-          "width" : 238.5,
-          "x" : 54,
-          "y" : 389.3
-        },
-        {
-          "height" : 11,
-          "text" : "builders cut spacers from card and fold them until they",
-          "width" : 238.5,
-          "x" : 54,
-          "y" : 400.2
-        },
-        {
-          "height" : 11,
-          "text" : "reach the height they want (Model Rail Desk 2025). Folding",
-          "width" : 238.5,
-          "x" : 54,
-          "y" : 411.2
-        },
-        {
-          "height" : 11,
-          "text" : "is quick and needs no tools, but the height of a folded spacer",
-          "width" : 238.5,
-          "x" : 54,
-          "y" : 422.1
-        },
-        {
-          "height" : 11,
-          "text" : "is not simply the sum of the card thicknesses: each crease",
-          "width" : 238.5,
-          "x" : 54,
-          "y" : 433.1
-        },
-        {
-          "height" : 11,
-          "text" : "adds a small allowance, and the allowance depends on the",
-          "width" : 238.5,
-          "x" : 54,
-          "y" : 444
-        },
-        {
-          "height" : 11,
-          "text" : "card and on how firmly the crease is pressed.",
-          "width" : 177.5,
-          "x" : 54,
-          "y" : 455
-        },
-        {
-          "height" : 11,
-          "text" : "This note reports a bench trial of folded spacers. Our",
-          "width" : 228.5,
-          "x" : 64,
-          "y" : 465.9
-        },
-        {
-          "height" : 11,
-          "text" : "aims were:",
-          "width" : 43.4,
-          "x" : 54,
-          "y" : 476.9
-        },
-        {
           "height" : 12.1,
           "text" : "The test slot",
           "width" : 56.4,
@@ -238,66 +154,150 @@
         },
         {
           "height" : 11,
-          "text" : "spacer, and the height is read from a scale on the side of the",
+          "text" : "spacer, and the height is read from a scale on the side of",
           "width" : 238.5,
           "x" : 319.5,
           "y" : 278.3
         },
         {
           "height" : 11,
-          "text" : "block. The block was clamped to the bench throughout the",
+          "text" : "the block. The block was clamped to the bench throughout",
           "width" : 238.5,
           "x" : 319.5,
           "y" : 289.3
         },
         {
           "height" : 11,
-          "text" : "trial so that the scale did not move between readings.",
-          "width" : 211.4,
+          "text" : "the trial so that the scale did not move between readings.",
+          "width" : 226,
           "x" : 319.5,
           "y" : 300.2
         },
         {
           "height" : 11,
-          "text" : "Each spacer was inserted with its folded edge towards the",
+          "text" : "Each spacer was inserted with its folded edge towards",
           "width" : 228.5,
           "x" : 329.5,
           "y" : 311.2
         },
         {
           "height" : 11,
-          "text" : "back of the slot. The rail was lowered onto it and left for ten",
+          "text" : "the back of the slot. The rail was lowered onto it and left",
           "width" : 238.5,
           "x" : 319.5,
           "y" : 322.1
         },
         {
           "height" : 11,
-          "text" : "seconds before the reading was taken, because a freshly",
+          "text" : "for ten seconds before the reading was taken, because a",
           "width" : 238.5,
           "x" : 319.5,
           "y" : 333.1
         },
         {
           "height" : 11,
-          "text" : "folded spacer springs back slowly. Three readings were",
+          "text" : "freshly folded spacer springs back slowly. Three readings",
           "width" : 238.5,
           "x" : 319.5,
           "y" : 344
         },
         {
           "height" : 11,
-          "text" : "taken for each spacer, removing and reinserting it between",
+          "text" : "were taken for each spacer, removing and reinserting it be-",
           "width" : 238.5,
           "x" : 319.5,
           "y" : 355
         },
         {
           "height" : 11,
-          "text" : "readings.",
-          "width" : 36.2,
+          "text" : "tween readings.",
+          "width" : 62.5,
           "x" : 319.5,
           "y" : 365.9
+        },
+        {
+          "height" : 11,
+          "text" : "Paper models of railways need many small parts of exact",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 356.4
+        },
+        {
+          "height" : 11,
+          "text" : "height. Rails, platform edges and signal bases all sit on spac-",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 367.4
+        },
+        {
+          "height" : 11,
+          "text" : "ers, and a spacer that is too thick by a fraction of a millimetre",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 378.3
+        },
+        {
+          "height" : 11,
+          "text" : "lifts a rail joint enough to derail a light wagon. Most builders",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 389.3
+        },
+        {
+          "height" : 11,
+          "text" : "cut spacers from card and fold them until they reach the",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 400.2
+        },
+        {
+          "height" : 11,
+          "text" : "height they want (Model Rail Desk 2025). Folding is quick",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 411.2
+        },
+        {
+          "height" : 11,
+          "text" : "and needs no tools, but the height of a folded spacer is not",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 422.1
+        },
+        {
+          "height" : 11,
+          "text" : "simply the sum of the card thicknesses: each crease adds a",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 433.1
+        },
+        {
+          "height" : 11,
+          "text" : "small allowance, and the allowance depends on the card and",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 444
+        },
+        {
+          "height" : 11,
+          "text" : "on how firmly the crease is pressed.",
+          "width" : 143,
+          "x" : 54,
+          "y" : 455
+        },
+        {
+          "height" : 11,
+          "text" : "This note reports a bench trial of folded spacers. Our aims",
+          "width" : 228.5,
+          "x" : 64,
+          "y" : 465.9
+        },
+        {
+          "height" : 11,
+          "text" : "were:",
+          "width" : 22.1,
+          "x" : 54,
+          "y" : 476.9
         },
         {
           "height" : 12.1,
@@ -358,7 +358,7 @@
         {
           "height" : 11,
           "text" : "dicted the height of folded board well for up to four layers.",
-          "width" : 231.9,
+          "width" : 234.6,
           "x" : 319.5,
           "y" : 480.1
         },
@@ -414,42 +414,42 @@
         {
           "height" : 11.1,
           "text" : "Card thickness.",
-          "width" : 68.6,
+          "width" : 66.1,
           "x" : 319.5,
           "y" : 497.2
         },
         {
           "height" : 11.1,
-          "text" : "The thickness t was measured with a",
-          "width" : 159.9,
-          "x" : 398.1,
+          "text" : "The thickness t was measured with a dial",
+          "width" : 162.4,
+          "x" : 395.6,
           "y" : 497.2
         },
         {
           "height" : 11,
-          "text" : "dial gauge on ten single sheets of each stock, and the mean",
+          "text" : "gauge on ten single sheets of each stock, and the mean was",
           "width" : 238.5,
           "x" : 319.5,
           "y" : 508.7
         },
         {
           "height" : 11,
-          "text" : "was used in the model. The thin stock measured 0.20 mm,",
+          "text" : "used in the model. The thin stock measured 0.20 mm, the",
           "width" : 238.5,
           "x" : 319.5,
           "y" : 519.6
         },
         {
           "height" : 11,
-          "text" : "the medium stock 0.30 mm and the thick stock 0.45 mm,",
+          "text" : "medium stock 0.30 mm and the thick stock 0.45 mm, with a",
           "width" : 238.5,
           "x" : 319.5,
           "y" : 530.6
         },
         {
           "height" : 11,
-          "text" : "with a spread of less than 0.01 mm in every case.",
-          "width" : 195.4,
+          "text" : "spread of less than 0.01 mm in every case.",
+          "width" : 167.9,
           "x" : 319.5,
           "y" : 541.5
         },
@@ -497,15 +497,15 @@
         },
         {
           "height" : 11,
-          "text" : "gauge blocks (Scale Fixture Room 2023) motivated the",
+          "text" : "gauge blocks (Scale Fixture Room 2023) motivated the layer",
           "width" : 238.5,
           "x" : 54,
           "y" : 610.9
         },
         {
           "height" : 12,
-          "text" : "layer model used here.1",
-          "width" : 92.2,
+          "text" : "model used here.1",
+          "width" : 71.3,
           "x" : 54,
           "y" : 620.9
         },
@@ -533,21 +533,21 @@
         {
           "height" : 11,
           "text" : "made the crease allowance smaller but also cracked the sur-",
-          "width" : 238.3,
+          "width" : 238.5,
           "x" : 319.5,
           "y" : 581
         },
         {
           "height" : 11,
-          "text" : "face of the thick stock, so a single pass was used for all",
+          "text" : "face of the thick stock, so a single pass was used for all spac-",
           "width" : 238.5,
           "x" : 319.5,
           "y" : 592
         },
         {
           "height" : 11,
-          "text" : "spacers.",
-          "width" : 31.8,
+          "text" : "ers.",
+          "width" : 14.1,
           "x" : 319.5,
           "y" : 602.9
         },
@@ -763,7 +763,7 @@
         {
           "height" : 11,
           "text" : "with the note of Glue Pot Corner (2022) on thin paper joints.",
-          "width" : 236.4,
+          "width" : 238.5,
           "x" : 54,
           "y" : 339
         },
@@ -804,57 +804,57 @@
         },
         {
           "height" : 11,
-          "text" : "A folded card spacer can be designed from the card thickness",
+          "text" : "A folded card spacer can be designed from the card thick-",
           "width" : 238.5,
           "x" : 54,
           "y" : 418.9
         },
         {
           "height" : 11,
-          "text" : "and a crease allowance measured once for each stock. For",
+          "text" : "ness and a crease allowance measured once for each stock.",
           "width" : 238.5,
           "x" : 54,
           "y" : 429.8
         },
         {
           "height" : 11,
-          "text" : "heights up to 2 mm the thin and medium stocks follow the",
+          "text" : "For heights up to 2 mm the thin and medium stocks follow",
           "width" : 238.5,
           "x" : 54,
           "y" : 440.8
         },
         {
           "height" : 11,
-          "text" : "layer model closely, and they are the better choice when a rail",
+          "text" : "the layer model closely, and they are the better choice when",
           "width" : 238.5,
           "x" : 54,
           "y" : 451.7
         },
         {
           "height" : 11,
-          "text" : "must sit at an exact height. The thick stock is quicker to fold",
+          "text" : "a rail must sit at an exact height. The thick stock is quicker to",
           "width" : 238.5,
           "x" : 54,
           "y" : 462.7
         },
         {
           "height" : 11,
-          "text" : "but should be checked in the slot when more than three layers",
+          "text" : "fold but should be checked in the slot when more than three",
           "width" : 238.5,
           "x" : 54,
           "y" : 473.6
         },
         {
           "height" : 11,
-          "text" : "are used. A card ladder (Window Frame Study 2021) gives a",
+          "text" : "layers are used. A card ladder (Window Frame Study 2021)",
           "width" : 238.5,
           "x" : 54,
           "y" : 484.6
         },
         {
           "height" : 11,
-          "text" : "convenient way to check many spacers at once.",
-          "width" : 183.4,
+          "text" : "gives a convenient way to check many spacers at once.",
+          "width" : 219.1,
           "x" : 54,
           "y" : 495.5
         },
@@ -950,5 +950,5 @@
       "width" : 612
     }
   ],
-  "textSHA256" : "35754b742f55b9ec3b1bfd7934163c393c6a9e63eb02fdde68c4a448b323e765"
+  "textSHA256" : "3ed482a77741a6bbae022dbeaf746412ef672cf1d307840ef57cbf324e259ec3"
 }

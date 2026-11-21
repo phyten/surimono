@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.013251480482435742,
+    "changedAreaRatio" : 0.013072685744995297,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
@@ -10,7 +10,7 @@
     "maxShiftPt" : 26.4,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 8
+    "textEdits" : 0
   },
   "fonts" : [
     "Helvetica"
@@ -32,29 +32,29 @@
         },
         {
           "height" : 14,
-          "text" : "The morning reading follows a night of cooling.",
-          "width" : 272.1,
+          "text" : "The morning reading follows a night of cooling. Place",
+          "width" : 272.2,
           "x" : 105.4,
           "y" : 181.2
         },
         {
           "height" : 14,
-          "text" : "Place the second reading on the next line.",
-          "width" : 219.8,
+          "text" : "the second reading on the next line.",
+          "width" : 187.2,
           "x" : 105.4,
           "y" : 195.6
         },
         {
           "height" : 14,
-          "text" : "The afternoon reading includes the expansion of",
-          "width" : 272.1,
+          "text" : "The afternoon reading includes the expansion of the",
+          "width" : 272.2,
           "x" : 105.4,
           "y" : 210
         },
         {
           "height" : 14,
-          "text" : "the rim.",
-          "width" : 41.9,
+          "text" : "rim.",
+          "width" : 21.3,
           "x" : 105.4,
           "y" : 224.4
         },
@@ -69,9 +69,9 @@
       "textHeight" : 579.3,
       "textLeft" : 105.4,
       "textTop" : 151.6,
-      "textWidth" : 272.1,
+      "textWidth" : 272.2,
       "width" : 595.3
     }
   ],
-  "textSHA256" : "5ece68e089f1b93f034d47f6b773cc1a78deded0d063fd5acaee71d564655571"
+  "textSHA256" : "751e5ae2af8e8aefb1361baa6695d99682f12121ae74dda2b7e896fc072f6c18"
 }

@@ -1,16 +1,16 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.02128277472896578,
+    "changedAreaRatio" : 0.021263138312715098,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
     "maxBoxDeltaPt" : 23.9,
     "maxLuminance" : 181.65625,
-    "maxShiftPt" : 26.3,
+    "maxShiftPt" : 28.7,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 8
+    "textEdits" : 0
   },
   "fonts" : [
     "Helvetica"
@@ -73,15 +73,15 @@
         },
         {
           "height" : 11.7,
-          "text" : "Fold the sheet along the blue channel. A cut through the ridge reveals the",
+          "text" : "Fold the sheet along the blue channel. A cut through the ridge reveals the two",
           "width" : 343.7,
           "x" : 151.4,
           "y" : 330.4
         },
         {
           "height" : 11.7,
-          "text" : "two beds beneath the gravel.",
-          "width" : 126,
+          "text" : "beds beneath the gravel.",
+          "width" : 106.6,
           "x" : 151.4,
           "y" : 342.4
         },
@@ -94,15 +94,15 @@
         },
         {
           "height" : 11.7,
-          "text" : "The wider bed continues past the bend. The narrow bed ends below the west-",
+          "text" : "The wider bed continues past the bend. The narrow bed ends below the western",
           "width" : 343.7,
           "x" : 151.4,
           "y" : 395.2
         },
         {
           "height" : 11.7,
-          "text" : "ern ledge.",
-          "width" : 42.1,
+          "text" : "ledge.",
+          "width" : 24.9,
           "x" : 151.4,
           "y" : 407.2
         },
@@ -121,5 +121,5 @@
       "width" : 595.3
     }
   ],
-  "textSHA256" : "82f3829be8fe04bfebb1b9c21cfb56336bd623fad96d572e508805b1d9c3f275"
+  "textSHA256" : "f905ffef48287ab3c4e21bed40c308510e28d65b4dca6d8f28cad6a1d71c63fe"
 }
