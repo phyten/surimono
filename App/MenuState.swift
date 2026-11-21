@@ -62,6 +62,7 @@ struct MenuSnapshot: Equatable {
         let effectiveKeys: [ShortcutOperationID: [ShortcutCombination]]
         let builtInSets: [SettingEntry]
         let savedSets: [SettingEntry]
+        let composition: LaTeXComposition?
         let typeface: Typeface?
         let selectingText: Bool
         let history: [Entry]
@@ -113,6 +114,7 @@ struct MenuSnapshot: Equatable {
                         id: $0.id,
                         title: BinderModel.title(firstName: $0.firstName, count: $0.files.count, language: language))
                 } ?? []
+            composition = model?.offersLaTeXComposition == true ? model?.latexComposition : nil
             typeface = model?.offersTypeface == true ? model?.typeface : nil
             selectingText = model?.isSelectingText == true
             region = ShortcutDispatcher.region(for: model)

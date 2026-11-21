@@ -44,6 +44,7 @@ package struct LaTeXClassProfile: Equatable, Sendable {
     }
 
     struct Structure: Equatable, Sendable {
+        var offersCompositionChoice = false
         var hasChapters = false
         var bookOpening: OpeningSide?
         var backMatterOpensRight = false

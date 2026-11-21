@@ -947,6 +947,18 @@
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
+  "latex-composition-proof" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-composition-two-column" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
   "sample-booklet-demo-md" : {
     "fonts" : [
       "HiraKakuProN-W3",

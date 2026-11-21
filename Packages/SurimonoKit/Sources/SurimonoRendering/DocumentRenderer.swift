@@ -128,6 +128,7 @@ public struct RenderSettings: Equatable, Sendable {
     public var theme: PrintTheme
     public var typeface: Typeface
     public var textScale: Double
+    public var latexComposition = LaTeXComposition.document
     /// The colors and blocks of the document's code; the print theme's own by default.
     public var code = CodeStyle()
     public var preset: HTMLCleanupPreset
@@ -410,7 +411,8 @@ public final class DocumentRenderer {
     private var logicalSerial = 0
     private var sourcePageSizes: (source: DocumentSource, sizes: [CGSize])?
     /// The orientation the `@page` rules of an HTML source ask for, known once the source has been laid out.
-    var cachedLaTeXInfo: (source: DocumentSource, info: LaTeXDocumentClassInfo)?
+    private var composedFragment: (source: DocumentSource, choice: LaTeXComposition, width: Double, input: ThemedInput)?
+    var cachedLaTeXInfo: (source: DocumentSource, composition: LaTeXComposition, info: LaTeXDocumentClassInfo)?
     private var sourcePageRule: (source: DocumentSource, orientation: PaperOrientation?)?
 
     /// The logical pages of a cache entry. The document is handed out as is, so that a view showing it keeps it.
@@ -467,6 +469,7 @@ public final class DocumentRenderer {
         let code: CodeStyle?
         let preset: HTMLCleanupPreset?
         let margins: PageMargins
+        let latexComposition: LaTeXComposition
         let usesDocumentWidth: Bool
         let allowsJavaScript: Bool
         let smartRemoval: SmartRemovalRequest?
@@ -511,6 +514,7 @@ public final class DocumentRenderer {
         sourcePageSizes = nil
         sourcePageRule = nil
         cachedLaTeXInfo = nil
+        composedFragment = nil
     }
 
     /// Prepares the logical pages and composes the printed sheets.
@@ -598,6 +602,9 @@ public final class DocumentRenderer {
         let currentGeneration = generation
         do {
             var settings = settings
+            if source.children != nil || source.format != .latex || settings.theme.formats != [.latex] {
+                settings.latexComposition = .document
+            }
             if source.children != nil { settings.notes = NotePages() }
             var landscape: Bool
             if source.children != nil {
@@ -616,11 +623,34 @@ public final class DocumentRenderer {
                 landscape = settings.paperOrientation == .landscape
             }
             settings.layout = settings.layout.oriented(landscape)
+            var input: ThemedInput?
+            if settings.latexComposition != .document {
+                // Resolve body column switches before fitting margins, and reuse that conversion for pagination.
+                var candidate = settings
+                candidate.applyLaTeXPage(latexClassInfo(for: source, composition: settings.latexComposition))
+                let width = candidate.textWidthPoints(in: candidate.layout)
+                if let cached = composedFragment, cached.source == source, cached.choice == settings.latexComposition,
+                    cached.width == width
+                {
+                    input = cached.input
+                } else {
+                    let read = try await Self.readThemedInput(
+                        source, settings: candidate, access: resourceAccess(for: source))
+                    try Task.checkCancellation()
+                    if generation == currentGeneration {
+                        composedFragment = (source, settings.latexComposition, width, read)
+                    }
+                    input = read
+                }
+                settings.latexComposition = input?.fragment.latexClass?.composition ?? .document
+                if settings.latexComposition == .document { input = nil }
+            }
             if source.format == .latex, source.children == nil,
-                settings.options.latexMargins?.applies(to: settings.theme) == true
+                settings.latexComposition != .document
+                    || settings.options.latexMargins?.applies(to: settings.theme) == true
                     || settings.options.latexFurniture?.applies(to: settings.theme) == true
             {
-                settings.applyLaTeXPage(latexClassInfo(for: source))
+                settings.applyLaTeXPage(latexClassInfo(for: source, composition: settings.latexComposition))
             }
             let pageSize = settings.layout.logicalPageSize(options: settings.options)
             let margins = settings.layout.logicalMargins(options: settings.options)
@@ -641,6 +671,7 @@ public final class DocumentRenderer {
                 code: source.children != nil || source.format.usesPrintTheme ? settings.code : nil,
                 preset: source.children != nil || source.format.usesHTMLPreset ? settings.preset : nil,
                 margins: isPlainPDF ? .zero : margins,
+                latexComposition: settings.latexComposition,
                 usesDocumentWidth: source.format == .latex
                     && (settings.theme.formats == [.latex]
                         || settings.options.latexMargins?.applies(to: settings.theme) == true),
@@ -696,7 +727,7 @@ public final class DocumentRenderer {
                 } else {
                     var outputSettings = settings
                     outputSettings.markdownChanges = []
-                    let result = try await logicalDocument(source, settings: outputSettings)
+                    let result = try await logicalDocument(source, settings: outputSettings, input: input)
                     if source.format == .html, generation == currentGeneration {
                         sourcePageRule = (source, PageRule.orientation(of: result.pageRules))
                     }
@@ -1125,7 +1156,8 @@ public final class DocumentRenderer {
         return layout.logicalPageSize(options: settings.options)
     }
 
-    private func logicalDocument(_ source: DocumentSource, settings: RenderSettings) async throws -> WebPaginator.Result
+    private func logicalDocument(_ source: DocumentSource, settings: RenderSettings, input: ThemedInput? = nil)
+        async throws -> WebPaginator.Result
     {
         switch source.format {
         case .zipArchive:
@@ -1199,7 +1231,8 @@ public final class DocumentRenderer {
             let flow = settings.theme.supports(source.format) ? settings.theme.flow : .horizontal
             let separatesPaper = WebPaginator.drawsClearPages && flow == .horizontal
             let page = try await Self.themedPage(
-                source: source, settings: settings, access: resourceAccess(for: source), separatesPaper: separatesPaper)
+                source: source, settings: settings, access: resourceAccess(for: source), separatesPaper: separatesPaper,
+                input: input)
             let fragment = page.fragment
             let directory = source.fileURL?.deletingLastPathComponent()
             let pageSize = settings.layout.logicalPageSize(options: settings.options)
@@ -1347,15 +1380,20 @@ public final class DocumentRenderer {
         let needsFolderAccess: Bool
     }
 
-    @concurrent private static func themedPage(
-        source: DocumentSource, settings: RenderSettings, access: LocalResourceAccess?, separatesPaper: Bool
-    ) async throws -> ThemedPage {
+    private struct ThemedInput: Sendable {
+        let fragment: HTMLFragment
+        let needsFolderAccess: Bool
+    }
+
+    @concurrent private static func readThemedInput(
+        _ source: DocumentSource, settings: RenderSettings, access: LocalResourceAccess?
+    ) async throws -> ThemedInput {
         try Task.checkCancellation()
         var needsFolderAccess = false
         guard
-            var fragment = try Self.themedFragment(
+            let fragment = try Self.themedFragment(
                 source, pageBreakLine: settings.finish.breaks.customLine, proof: settings.finish.proof,
-                textWidthPoints: settings.textWidthPoints(in: settings.layout),
+                composition: settings.latexComposition, textWidthPoints: settings.textWidthPoints(in: settings.layout),
                 mapsMarkdownSource: !settings.markdownChanges.isEmpty, access: access,
                 onDenied: { needsFolderAccess = true },
                 imageExists: { url in
@@ -1379,9 +1417,24 @@ public final class DocumentRenderer {
                     }
                 })
         else { throw RenderingError.unsupportedFormat }
+        return ThemedInput(fragment: fragment, needsFolderAccess: needsFolderAccess)
+    }
+
+    @concurrent private static func themedPage(
+        source: DocumentSource, settings: RenderSettings, access: LocalResourceAccess?, separatesPaper: Bool,
+        input: ThemedInput?
+    ) async throws -> ThemedPage {
+        let read: ThemedInput
+        if let input {
+            read = input
+        } else {
+            read = try await readThemedInput(source, settings: settings, access: access)
+        }
+        var fragment = read.fragment
         let needsLaTeXFlow =
             source.format == .latex
-            && (fragment.latexClass?.resolvedStyle != nil || fragment.latexClass?.usesPublicationGrid == true
+            && (fragment.latexClass?.composition == .proof || fragment.latexClass?.resolvedStyle != nil
+                || fragment.latexClass?.usesPublicationGrid == true
                 || fragment.latexClass?.profile.usesGridFlow == true
                 || LaTeXFlowPaginator.needed(in: fragment.body))
         if source.format != .markdown, !settings.markdownChanges.isEmpty {
@@ -1408,7 +1461,7 @@ public final class DocumentRenderer {
         return ThemedPage(
             fragment: fragment, needsLaTeXFlow: needsLaTeXFlow, paper: paper, html: html,
             facts: DocumentFacts(fragment: fragment),
-            mermaid: mermaid, diagrams: diagrams, needsFolderAccess: needsFolderAccess)
+            mermaid: mermaid, diagrams: diagrams, needsFolderAccess: read.needsFolderAccess)
     }
 
     @concurrent static func builtHTML(
@@ -1634,7 +1687,7 @@ public final class DocumentRenderer {
         if let footer = settings.latexFooter {
             context.latexFooter = footer
             let destinations = logical.finishing.pagePlan?.bodyPageIndices ?? Array(0..<logical.document.pageCount)
-            var initial = latexClassInfo(for: source).pageNumbers
+            var initial = latexClassInfo(for: source, composition: settings.latexComposition).pageNumbers
             let measured = logical.finishing.latexPages
             for (bodyIndex, page) in destinations.enumerated() {
                 let number =
@@ -1887,7 +1940,8 @@ public final class DocumentRenderer {
     /// The HTML of a format that prints with a theme, or nil for the formats that print as they are.
     nonisolated static func themedFragment(
         _ source: DocumentSource, pageBreakLine: String = "", proof: ProofMarks = .shown,
-        textWidthPoints: Double? = nil, mapsMarkdownSource: Bool = false, access: LocalResourceAccess? = nil,
+        composition: LaTeXComposition = .document, textWidthPoints: Double? = nil, mapsMarkdownSource: Bool = false,
+        access: LocalResourceAccess? = nil,
         onDenied: @escaping () -> Void = {},
         imageExists: @escaping (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
     ) throws -> HTMLFragment? {
@@ -1920,7 +1974,8 @@ public final class DocumentRenderer {
             try NotebookConverter.convert(try decodedText(source.data), pageBreakLine: pageBreakLine, proof: proof)
         case .latex:
             try latexFragment(
-                source, textWidthPoints: textWidthPoints, access: access, onDenied: onDenied, imageExists: imageExists)
+                source, composition: composition, textWidthPoints: textWidthPoints, access: access, onDenied: onDenied,
+                imageExists: imageExists)
         case .org: OrgConverter.convert(try decodedText(source.data))
         case .plainText:
             try plainFragment(source)

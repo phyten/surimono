@@ -29,6 +29,21 @@ struct DocumentSettingsTests {
         #expect(decoded == settings)
     }
 
+    @Test("古い記録と未知の組み方は文書指定で開き、変更した組み方だけを書き戻す")
+    func latexCompositionRecords() throws {
+        for json in [#"{"zoom":1.5}"#, #"{"zoom":1.5,"latexComposition":"future"}"#] {
+            let settings = try JSONDecoder().decode(DocumentSettings.self, from: Data(json.utf8))
+            #expect(settings.zoom == 1.5 && settings.latexComposition == nil)
+            let data = try JSONEncoder().encode(settings)
+            #expect(!String(decoding: data, as: UTF8.self).contains("latexComposition"))
+        }
+        for choice in [LaTeXComposition.proof, .twoColumn] {
+            let settings = DocumentSettings(latexComposition: choice)
+            let data = try JSONEncoder().encode(settings)
+            #expect(try JSONDecoder().decode(DocumentSettings.self, from: data).latexComposition == choice)
+        }
+    }
+
     @Test("ページの範囲を JSON に書いて読み戻せる")
     func pageRangeRoundTrip() throws {
         let settings = DocumentSettings(layoutID: "a3BookletA4", pageRange: PageRange([5...12, 20...20]))

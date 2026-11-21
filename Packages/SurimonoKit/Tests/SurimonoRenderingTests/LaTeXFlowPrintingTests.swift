@@ -357,12 +357,95 @@ struct LaTeXFlowPrintingTests {
         for (gap, expected) in zip(gaps, [after, after, before]) { #expect(abs(gap - expected) < 1.2) }
     }
 
-    @Test("二段の幅・段頭の図・段下の注と選択できる本文の順序を実際の PDF で確かめる", .timeLimit(.minutes(1)))
-    func columns() async throws {
+    @Test("校正の各ページに行ごとの番号を一から振り、行送りと右余白を広げても本文を検索できる", .timeLimit(.minutes(1)))
+    func proofPages() async throws {
+        let lines = #"\noindent First proof line\\Second proof line\par\begin{flushright}Right edge\end{flushright}"#
+        let tex =
+            #"\documentclass[a4paper,twoside]{article}\usepackage[left=25mm,right=35mm]{geometry}\begin{document}\#(lines)\clearpage\#(lines)\end{document}"#
+        let source = DocumentSource(data: Data(tex.utf8), format: .latex)
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
+        var settings = RenderSettings(layout: .a4Single, theme: theme, preset: .init(id: "none", name: ""))
+        let renderer = DocumentRenderer()
+        let normal = try await renderer.prepare(source, settings: settings).logicalDocument
+        settings.latexComposition = .proof
+        let proof = try await renderer.prepare(source, settings: settings).logicalDocument
+        try #require(normal.pageCount == 2 && proof.pageCount == 2)
+
+        func rect(_ phrase: String, in pdf: PDFDocument, page: PDFPage) throws -> CGRect {
+            try #require(pdf.findString(phrase).first { $0.pages.first == page }).bounds(for: page)
+        }
+        func inkArea(for digit: Int) throws -> Int {
+            let context = try #require(
+                CGContext(
+                    data: nil, width: 48, height: 48, bitsPerComponent: 8, bytesPerRow: 48,
+                    space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue))
+            context.setFillColor(gray: 1, alpha: 1)
+            context.fill(CGRect(x: 0, y: 0, width: 48, height: 48))
+            context.scaleBy(x: 4, y: 4)
+            context.textPosition = CGPoint(x: 2, y: 2)
+            let type = try #require(NSFont(name: "Helvetica", size: 7 * 72 / 72.27))
+            let string = NSAttributedString(
+                string: String(digit), attributes: [.font: type, .foregroundColor: NSColor.black])
+            CTLineDraw(CTLineCreateWithAttributedString(string), context)
+            let bytes = try #require(context.data).assumingMemoryBound(to: UInt8.self)
+            return (0..<(48 * 48)).filter { bytes[$0] < 100 }.count
+        }
+        let areas = try [1, 2, 3].map(inkArea)
+        for index in 0..<2 {
+            let original = try #require(normal.page(at: index))
+            let page = try #require(proof.page(at: index))
+            let first = try rect("First proof line", in: proof, page: page)
+            let second = try rect("Second proof line", in: proof, page: page)
+            let before = try rect("First proof line", in: normal, page: original)
+            let pitch = before.midY - (try rect("Second proof line", in: normal, page: original)).midY
+            #expect(abs(first.midY - second.midY - 1.5 * pitch) < 2)
+            #expect(abs(first.minX - before.minX) < 2)
+            let end = try rect("Right edge", in: proof, page: page)
+            let oldEnd = try rect("Right edge", in: normal, page: original)
+            #expect(abs(oldEnd.maxX - end.maxX - 40 * 72 / 25.4) < 2)
+            #expect(page.string?.contains("First proof line") == true)
+            #expect(page.string?.contains(where: { $0.isNumber }) == false)
+
+            // Stop three points before the first word so a serif protruding into the margin is not counted.
+            let scale = 4.0
+            let width = 68
+            let height = Int(page.bounds(for: .mediaBox).height * scale)
+            let ctx = try grayCrop(
+                page, origin: CGPoint(x: first.minX - 20, y: 0), width: width, height: height, scale: scale)
+            let pixels = try #require(ctx.data).assumingMemoryBound(to: UInt8.self)
+            var labels: [[Int]] = []
+            var rightEdges: [Int] = []
+            var previous = -2
+            for y in 0..<height {
+                let ink = (0..<width).filter { pixels[y * width + $0] < 100 }
+                guard let rightmost = ink.last else { continue }
+                if y != previous + 1 {
+                    labels.append([])
+                    rightEdges.append(rightmost)
+                }
+                rightEdges[labels.count - 1] = max(rightEdges[labels.count - 1], rightmost)
+                labels[labels.count - 1].append(ink.count)
+                previous = y
+            }
+            try #require(labels.count == 3)
+            for (i, rows) in labels.enumerated() {
+                #expect((6...9).contains(20 - Double(rightEdges[i]) / scale))
+                // The bitmap begins at the top of the page. Font hinting and the verso's subpixel
+                // origin can shift the outline by a few pixels at this resolution.
+                // The digit is the right one when its ink is close to the reference digit's: the
+                // three digits differ from each other by far more than this allowance.
+                let allowance = max(40, areas[i] / 5)
+                #expect(abs(rows.reduce(0, +) - areas[i]) < allowance, "ink \(rows.reduce(0, +)) for \(areas[i])")
+            }
+        }
+    }
+
+    @Test("原稿指定と選んだ二段組で、段間・段頭の図・脚注・本文の順序がそろう", .timeLimit(.minutes(1)), arguments: [false, true])
+    func columns(chosen: Bool) async throws {
         let source = DocumentSource(
             data: Data(
                 #"""
-                \documentclass[a4paper,twocolumn]{article}
+                \documentclass[a4paper\#(chosen ? "" : ",twocolumn")]{article}
                 \usepackage[margin=20mm]{geometry}\setlength{\columnsep}{10pt}
                 \begin{document}
                 \noindent LEFTSTART\footnote{NOTEBOTTOM}\par
@@ -371,7 +454,8 @@ struct LaTeXFlowPrintingTests {
                 \clearpage\noindent LASTPAGE\end{document}
                 """#.utf8), format: .latex)
         let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
-        let settings = RenderSettings(layout: .a4Single, theme: theme, preset: .init(id: "none", name: ""))
+        var settings = RenderSettings(layout: .a4Single, theme: theme, preset: .init(id: "none", name: ""))
+        settings.latexComposition = chosen ? .twoColumn : .document
         let rendered = try await DocumentRenderer().prepare(source, settings: settings)
         let pdf = rendered.logicalDocument
         #expect(pdf.pageCount == 2)

@@ -9,6 +9,7 @@ globalThis.surimonoRestoreFlow = () => {
 };
 const nodes = [...body.childNodes];
 const columnNotice = body.querySelector('template[data-latex-column-notice]');
+const proofLines = body.dataset.latexReview === 'proofPageLines';
 const conferencePage = body.hasAttribute('data-latex-style');
 const publicationGrid = body.hasAttribute('data-latex-publication-grid');
 const measuredGrid = conferencePage || publicationGrid;
@@ -1089,7 +1090,7 @@ const fontSample = document.createElement('span'), fontMark = baselineProbe();
 const fontGlyph = document.createTextNode('M'), glyphRange = document.createRange();
 fontSample.style.cssText = 'position:absolute;white-space:nowrap;line-height:normal';
 fontSample.append(fontGlyph, fontMark);
-if (measuredGrid) body.append(fontSample);
+if (measuredGrid || proofLines) body.append(fontSample);
 glyphRange.selectNodeContents(fontGlyph);
 function baselineOffset(el) {
     if (elementOffsets.has(el)) return elementOffsets.get(el);
@@ -1346,15 +1347,16 @@ for (const a of body.querySelectorAll('[data-latex-page-target],[data-latex-prob
 const review = body.dataset.latexReview;
 let reviewLines;
 const columnLines = ['blueColumnLines','grayColumnLines'].includes(review);
-if (review === 'textLines' || columnLines) {
+if (review === 'textLines' || columnLines || proofLines) {
     reviewLines = strips.map(box => {
         const ys = [], origin = origins[+box.dataset.flowStrip].y;
         const tree = document.createTreeWalker(box, NodeFilter.SHOW_TEXT);
         for (let n = tree.nextNode(); n; n = tree.nextNode()) {
             const el = n.parentElement;
-            if (!n.data.trim() || !el.closest('p,li,h1,h2,h3,h4,h5,h6,.latex-runin') ||
-                el.closest('header,.latex-title-block,.latex-column-notice,.math-block,figure,table,.footnotes,sup,sub,svg,style,template') ||
-                review !== 'grayColumnLines' && el.closest('.abstract-title')) continue;
+            if (!n.data.trim() || el.closest('sup,sub,svg,style,template')) continue;
+            if (!proofLines && (!el.closest('p,li,h1,h2,h3,h4,h5,h6,.latex-runin') ||
+                el.closest('header,.latex-title-block,.latex-column-notice,.math-block,figure,table,.footnotes') ||
+                review !== 'grayColumnLines' && el.closest('.abstract-title'))) continue;
             const offset = baselineOffset(el);
             range.selectNodeContents(n);
             for (const r of range.getClientRects()) {

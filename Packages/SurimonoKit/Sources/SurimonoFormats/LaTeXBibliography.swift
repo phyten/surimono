@@ -445,6 +445,7 @@ extension LaTeXReader {
             $0.trimmingCharacters(in: .whitespacesAndNewlines)
         }
         if packages.contains(where: LaTeXStylePackageRegistry.usesLegacyColumns) {
+            document.hasAuthoredColumns = true
             document.classInfo.columns = 2
         }
         readLanguagePackages(packages, options: options)

@@ -7,6 +7,7 @@ enum DocumentMenuAction: Hashable {
     case history(ContentHash)
     case recentBinder(RecentBinder.ID)
     case clearClipboard, clearBinders, openSample
+    case composition(LaTeXComposition)
     case typeface(Typeface)
     case setting(UUID)
     case replaceSetting(UUID)
@@ -24,6 +25,7 @@ enum DocumentMenuAction: Hashable {
         case .clearClipboard: preferences.clearClosedClipboardDocuments()
         case .clearBinders: preferences.clearRecentBinders()
         case .openSample: OpenRouter.shared.openSampleDocument()
+        case .composition(let value): model()?.selectComposition(value)
         case .typeface(let value):
             if let current = model(), current.offersTypeface { current.setTypeface(value) }
         case .setting(let id):
@@ -205,6 +207,14 @@ struct DocumentMenuDescriptor: Identifiable {
             command("Increase Text Size", .textIncrease), command("Decrease Text Size", .textDecrease),
             command("Original Text Size", .textReset),
         ]
+        if let selected = state.composition {
+            rows.append(
+                menu(
+                    "LaTeX Layout",
+                    LaTeXComposition.allCases.map {
+                        button(.key($0.titleKey), .composition($0), checked: selected == $0)
+                    }))
+        }
         if let selected = state.typeface {
             rows.append(
                 Self(

@@ -135,6 +135,44 @@ struct DocumentSettingsFlowTests {
         #expect(!markdown.availableThemes.contains { $0.id == original.themeID })
     }
 
+    @Test("組み方は変更時だけ保存し、同一内容と同一場所から復元してリセットできる", .timeLimit(.minutes(1)))
+    func latexComposition() async throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        let bytes = Data(#"\documentclass{article}\begin{document}Body.\end{document}"#.utf8)
+        let changed = bytes + Data("\n% edited".utf8)
+        let file = try fixture.file(bytes, named: "main.tex")
+        let page = pdf("Body.", pages: 1)
+        func model(_ data: Data, url: URL) -> DocumentViewModel {
+            DocumentViewModel(
+                data: data, fileURL: url, format: .latex, preferences: fixture.preferences,
+                library: fixture.library,
+                renderer: DocumentRenderer(paginate: { _ in try #require(PDFDocument(data: page)) }),
+                settingsStore: fixture.store)
+        }
+        let original = model(bytes, url: file)
+        try await open(original)
+        original.rememberedSettingsDidChange()
+        original.flushPendingSettings()
+        #expect(fixture.store.keys().isEmpty)
+        original.selectComposition(.proof)
+        original.rememberedSettingsDidChange()
+        original.flushPendingSettings()
+        original.stop()
+        let copy = model(bytes, url: try fixture.file(bytes, named: "copy.tex"))
+        try await open(copy)
+        #expect(copy.latexComposition == .proof)
+        copy.stop()
+        try changed.write(to: file)
+        let revised = model(changed, url: file)
+        defer { revised.stop() }
+        try await open(revised)
+        #expect(revised.latexComposition == .proof)
+        revised.resetDocumentSettings()
+        #expect(revised.latexComposition == .document)
+        #expect(revised.rememberedSettings.latexComposition == nil)
+    }
+
     @Test("学会誌の判型で開き、用紙を選び直すとその選択を復元する", .timeLimit(.minutes(1)))
     func societyStock() async throws {
         let fixture = try environment()

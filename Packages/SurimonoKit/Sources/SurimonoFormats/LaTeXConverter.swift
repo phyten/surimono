@@ -11,7 +11,8 @@ public enum LaTeXConverter {
 
     /// Companion files are supplied by the caller so parsing never implicitly opens a path from the document.
     public static func convert(
-        _ text: String, fontIndex: InstalledFontIndex = .system, directory: URL? = nil,
+        _ text: String, composition: LaTeXComposition = .document, fontIndex: InstalledFontIndex = .system,
+        directory: URL? = nil,
         documentURL: URL? = nil, textWidthPoints: Double? = nil, imageExists: @escaping (URL) -> Bool = { _ in false },
         canProbePictureFallback: @escaping (URL) -> Bool = { _ in true },
         imageSizeInPoints: @escaping (URL) -> CGSize? = { _ in nil },
@@ -20,8 +21,9 @@ public enum LaTeXConverter {
         fileIdentity: @escaping (URL) -> URL = { $0.standardizedFileURL }
     ) -> HTMLFragment {
         let source = TextDecoding.normalizeNewlines(text)
-        func makeReader() -> LaTeXReader {
+        func makeReader(_ choice: LaTeXComposition) -> LaTeXReader {
             let document = LaTeXDocument(fontIndex: fontIndex)
+            document.requestedComposition = choice
             document.directory = directory ?? documentURL?.deletingLastPathComponent()
             document.mainURL = documentURL
             document.textWidthPoints = textWidthPoints
@@ -33,44 +35,51 @@ public enum LaTeXConverter {
             document.imageSizeInPoints = imageSizeInPoints
             return LaTeXReader(source, document: document, isBlock: true)
         }
-        var reader = makeReader()
-        // Definitions, comments, code and untaken branches may quote a document boundary. Only a command
-        // actually reached by the reader starts or ends the body. A fragment can quote both boundaries.
-        if source.range(of: #"\\begin\s*\{document\}"#, options: .regularExpression) != nil {
-            reader.readPreamble()
-            if !reader.document.startedDocument { reader = makeReader() }
+        func read(_ choice: LaTeXComposition) -> HTMLFragment {
+            var reader = makeReader(choice)
+            // Definitions, comments, code and untaken branches may quote a document boundary. Only a command
+            // actually reached by the reader starts or ends the body. A fragment can quote both boundaries.
+            if source.range(of: #"\\begin\s*\{document\}"#, options: .regularExpression) != nil {
+                reader.readPreamble()
+                if !reader.document.startedDocument { reader = makeReader(choice) }
+            }
+            let document = reader.document
+            document.initialHyperref = document.hyperref
+            let prefix = document.classInfo.columns > 1 ? document.columnMarker(document.classInfo.columns) : ""
+            var html = prefix + document.preambleFileNotes + reader.read()
+            document.endedDocument = false
+            if document.titleHTML == nil, let title = document.frontMatter.title {
+                // Without \maketitle the title still names the window and the exported PDF.
+                let plain = title.replacingOccurrences(
+                    of: #"\\thanks\s*\{[^}]*\}"#, with: "", options: .regularExpression)
+                document.titleHTML = LaTeXReader(plain, document: document, isBlock: false).read()
+            }
+            html = document.frontMatter.resolve(in: html, document: document)
+            // Notes and the table of contents may hold references too, so they are in place before references resolve.
+            html += document.footnoteSection()
+            html = document.resolvePlaceholders(in: html)
+            if document.classInfo.profile.body.readsQuestions {
+                html = document.replacing("E", in: html)
+                document.classInfo.pageNumbers.examTotals = [
+                    "numquestions": String(document.exam.questions.count),
+                    "numpoints": LaTeXExam.number(document.exam.total),
+                ]
+            }
+            if document.pictureIndex > 0 { html += "<style>\n\(LaTeXReader.pictureCSS)\n</style>\n" }
+            if let css = document.initialHyperref.styleSheet(hasLocalColors: document.hasLocalLinkColors) {
+                html += "<style>\n\(css)\n</style>\n"
+            }
+            let fonts = MathRenderer.fontFaces(for: html)
+            if !fonts.isEmpty { html += "<style>\n\(fonts)\n</style>\n" }
+            return HTMLFragment(
+                body: html, title: document.plainTitle, language: document.classInfo.mainLanguage,
+                readingIssues: document.readingIssues,
+                latexClass: document.typesettingInfo)
         }
-        let document = reader.document
-        document.initialHyperref = document.hyperref
-        let prefix = document.classInfo.columns > 1 ? document.columnMarker(document.classInfo.columns) : ""
-        var html = prefix + document.preambleFileNotes + reader.read()
-        document.endedDocument = false
-        if document.titleHTML == nil, let title = document.frontMatter.title {
-            // Without \maketitle the title still names the window and the exported PDF.
-            let plain = title.replacingOccurrences(of: #"\\thanks\s*\{[^}]*\}"#, with: "", options: .regularExpression)
-            document.titleHTML = LaTeXReader(plain, document: document, isBlock: false).read()
-        }
-        html = document.frontMatter.resolve(in: html, document: document)
-        // Notes and the table of contents may hold references too, so they are in place before references resolve.
-        html += document.footnoteSection()
-        html = document.resolvePlaceholders(in: html)
-        if document.classInfo.profile.body.readsQuestions {
-            html = document.replacing("E", in: html)
-            document.classInfo.pageNumbers.examTotals = [
-                "numquestions": String(document.exam.questions.count),
-                "numpoints": LaTeXExam.number(document.exam.total),
-            ]
-        }
-        if document.pictureIndex > 0 { html += "<style>\n\(LaTeXReader.pictureCSS)\n</style>\n" }
-        if let css = document.initialHyperref.styleSheet(hasLocalColors: document.hasLocalLinkColors) {
-            html += "<style>\n\(css)\n</style>\n"
-        }
-        let fonts = MathRenderer.fontFaces(for: html)
-        if !fonts.isEmpty { html += "<style>\n\(fonts)\n</style>\n" }
-        return HTMLFragment(
-            body: html, title: document.plainTitle, language: document.classInfo.mainLanguage,
-            readingIssues: document.readingIssues,
-            latexClass: document.typesettingInfo)
+        let fragment = read(composition)
+        // A saved choice can outlive a change of class, conference package or body (including an input file).
+        if composition != .document, fragment.latexClass?.offersCompositionChoice != true { return read(.document) }
+        return fragment
     }
 
 }
@@ -123,6 +132,9 @@ final class LaTeXDocument {
         let after: String?
     }
 
+    var requestedComposition = LaTeXComposition.document
+    var classOffersComposition = false
+    var hasAuthoredColumns = false
     var styleDeclaration: String?
     var stylePackage: LaTeXStylePackageRegistry.Request?
     var passedPackageOptions: [String: [String]] = [:]
@@ -147,11 +159,19 @@ final class LaTeXDocument {
             info.raggedColumns = requestsRaggedBottom
         }
         let stock = pageSettings.pageBox(for: info)
-        let box = landscapeBody && stock.paperWidth < stock.paperHeight ? stock.turnedForLandscape : stock
+        var box = landscapeBody && stock.paperWidth < stock.paperHeight ? stock.turnedForLandscape : stock
+        info.offersCompositionChoice = classOffersComposition && !hasAuthoredColumns && stylePackage == nil
+        info.composition = info.offersCompositionChoice ? requestedComposition : .document
+        var spacing = pageSettings
+        if info.composition == .proof {
+            box.right += LaTeXComposition.notesMarginMM * 72 / 25.4
+            spacing.readPackage("setspace", options: "", info: info)
+            spacing.setStretch("1.5")
+        }
         info.resolvedPageBox = box
         let labelMetrics = LaTeXLabelMetrics(info)
         info.styleVariables =
-            pageSettings.styleVariables(for: box, info: info) + "; " + labelMetrics.variables
+            spacing.styleVariables(for: box, info: info) + "; " + labelMetrics.variables
             + "; --latex-array-baseline: " + LaTeXPageSettings.number(labelMetrics.baselines[4])
         if let scale = info.jsMagnification {
             info.styleVariables += "; --latex-js-scale: " + LaTeXPageSettings.number(scale)

@@ -45,7 +45,7 @@ struct SnapshotCase: Codable {
         var seen = Set<String>()
         // Only presentation choices belong in the manifest. Output destinations and launch actions are owned by the runner.
         let allowed = Set([
-            "-theme", "-SurimonoLayout", "-SurimonoTypeface", "-SurimonoCatalogueSpecimen",
+            "-theme", "-SurimonoLayout", "-SurimonoTypeface", "-SurimonoComposition", "-SurimonoCatalogueSpecimen",
             "-SurimonoMenu", "-SurimonoPopover", "-SurimonoMode", "-SurimonoFold", "-SurimonoSnapshotWelcome",
             "-SurimonoIncreaseContrast", "-SurimonoCorners", "-SurimonoSettings", "-SurimonoSettingsSize",
             "-SurimonoAppearance", "-SurimonoPaperSeries", "-SurimonoViewLayout", "-SurimonoTraySize",

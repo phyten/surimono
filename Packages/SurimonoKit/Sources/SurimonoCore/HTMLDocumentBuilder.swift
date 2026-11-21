@@ -18,6 +18,7 @@ public enum HTMLDocumentBuilder {
                 let title = info.hasSeparateTitlePage.map { $0 ? "separate" : "inline" }
                 let localMain = info.mainFontName.map { $0 != "Surimono Computer Modern" } == true
                 return attributes + " data-latex-class=\"\(HTML.escape(info.name))\""
+                    + (info.composition == .proof ? " data-latex-review=\"proofPageLines\"" : "")
                     + info.latinLineAttributes
                     + (info.resolvedStyle.map { style in
                         " data-latex-style=\"\(style.family.rawValue)\" data-latex-style-mode=\"\(style.mode.rawValue)\""

@@ -32,6 +32,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
     /// Null keeps the reading-direction default; an absent key belongs to a legacy left-bound record.
     public var bookletBinding: BookletBinding?
     public var paperOrientation: PaperOrientation?
+    public var latexComposition: LaTeXComposition?
     public var themeID: String?
     /// An axis of its own: it stays when the theme changes. `CodePalette.matchesStyleID` follows the theme.
     public var codePaletteID: String?
@@ -69,7 +70,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         binderOrder: [String]? = nil, binderStartsOnFront: Bool? = nil, printFinish: PrintFinish? = nil,
         codePaletteID: String? = nil, codeBlock: CodeBlockOptions? = nil, bandVisibility: BandVisibility? = nil,
         notes: NotePages? = nil, bookletBinding: BookletBinding? = nil,
-        pageRange: PageRange? = nil, bookmarks: Bookmarks? = nil
+        pageRange: PageRange? = nil, bookmarks: Bookmarks? = nil, latexComposition: LaTeXComposition? = nil
     ) {
         self.view = view
         self.zoom = zoom
@@ -77,6 +78,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         self.layoutID = layoutID
         self.bookletBinding = bookletBinding
         self.paperOrientation = paperOrientation
+        self.latexComposition = latexComposition
         self.themeID = themeID
         self.codePaletteID = codePaletteID
         self.codeBlock = codeBlock
@@ -101,7 +103,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         case view, zoom, windowSize, paperOrientation, layoutID, themeID, textScale, typeface, presetID, smartRemoval,
             printOptions, printFinish, imageOrder
         case htmlPresentation, ignoresSlides, binderOrder, binderStartsOnFront, codePaletteID, codeBlock
-        case bandVisibility, paperSeries, notes, bookletBinding, pageRange, bookmarks
+        case latexComposition, bandVisibility, paperSeries, notes, bookletBinding, pageRange, bookmarks
     }
 
     // Rotation belongs to the printer. Keep the old field readable without carrying it into document records.
@@ -128,6 +130,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         try values.encodeIfPresent(layoutID, forKey: .layoutID)
         try values.encode(bookletBinding, forKey: .bookletBinding)
         try values.encodeIfPresent(paperOrientation, forKey: .paperOrientation)
+        try values.encodeIfPresent(latexComposition, forKey: .latexComposition)
         try values.encodeIfPresent(themeID, forKey: .themeID)
         try values.encodeIfPresent(codePaletteID, forKey: .codePaletteID)
         try values.encodeIfPresent(codeBlock, forKey: .codeBlock)
@@ -163,6 +166,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
             (try? values.decodeNil(forKey: .bookletBinding)) == true
             ? nil : field(BookletBinding.self, .bookletBinding) ?? .left
         paperOrientation = field(PaperOrientation.self, .paperOrientation)
+        latexComposition = field(LaTeXComposition.self, .latexComposition)
         themeID = field(String.self, .themeID)
         codePaletteID = field(String.self, .codePaletteID)
         codeBlock = field(CodeBlockOptions.self, .codeBlock)

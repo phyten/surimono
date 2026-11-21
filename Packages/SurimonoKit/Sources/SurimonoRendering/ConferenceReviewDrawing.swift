@@ -52,6 +52,27 @@ struct ConferenceReviewDrawing: Sendable {
                     String(format: "%03d", pageIndex * count + i), font, x: x, y: first + CGFloat(i) * 12 * pt,
                     alignment: 0)
             }
+        case .proofPageLines:
+            // Outlined figures are visible on paper without entering PDFKit's body text or search index.
+            let font = CTFontCreateWithName("Helvetica" as CFString, 7 * pt, nil)
+            context.setFillColor(gray: 0, alpha: 1)
+            for (index, y) in proofBaselines(in: pieces).enumerated() {
+                let number = index + 1
+                let digits = Array(String(number).utf16)
+                var glyphs = [CGGlyph](repeating: 0, count: digits.count)
+                CTFontGetGlyphsForCharacters(font, digits, &glyphs, digits.count)
+                var advances = [CGSize](repeating: .zero, count: digits.count)
+                let width = CTFontGetAdvancesForGlyphs(font, .horizontal, glyphs, &advances, glyphs.count)
+                var x = textOrigin.x - 2.5 * 72 / 25.4 - width
+                for (glyph, advance) in zip(glyphs, advances) {
+                    var transform = CGAffineTransform(translationX: x, y: textOrigin.y - y)
+                    if let path = CTFontCreatePathForGlyph(font, glyph, &transform) {
+                        context.addPath(path)
+                        context.fillPath()
+                    }
+                    x += advance.width
+                }
+            }
         case .textLines, .blueColumnLines, .grayColumnLines:
             let columns = style != .textLines
             let blue = style == .blueColumnLines
@@ -80,6 +101,16 @@ struct ConferenceReviewDrawing: Sendable {
                     fixedDigits: columns)
                 next += 1
             }
+        }
+    }
+
+    @MainActor
+    func proofBaselines(in pieces: [LaTeXFlowLayout.Piece]) -> [CGFloat] {
+        var positions: [CGFloat] = []
+        forEachBaseline(in: pieces) { _, _, y in positions.append(y) }
+        return positions.sorted().reduce(into: []) { rows, y in
+            if let previous = rows.last, y - previous <= 0.8 { return }
+            rows.append(y)
         }
     }
 

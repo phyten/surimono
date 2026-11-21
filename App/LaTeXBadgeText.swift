@@ -1,4 +1,5 @@
 import SurimonoCore
+import SwiftUI
 
 struct LaTeXBadgeText {
     let label: String
@@ -34,5 +35,47 @@ struct LaTeXBadgeText {
     private static func quote(_ source: String) -> String {
         guard source.count > 60 else { return source }
         return source.prefix(30) + "…" + source.suffix(29)
+    }
+}
+
+extension LaTeXComposition {
+    var titleKey: String {
+        switch self {
+        case .document: "As Written"
+        case .twoColumn: "Two Columns"
+        case .proof: "Proof"
+        }
+    }
+
+    var detailKey: String {
+        switch self {
+        case .document: "Typeset as the document specifies."
+        case .twoColumn: "Sets the text in two columns."
+        case .proof: "Adds line numbers and a margin for notes."
+        }
+    }
+
+    var suffixKey: String? {
+        switch self {
+        case .document: nil
+        case .twoColumn: "two columns"
+        case .proof: "proof"
+        }
+    }
+}
+
+struct LaTeXCompositionPicker: View {
+    let model: DocumentViewModel
+
+    var body: some View {
+        // A closure, not the method reference: Swift 6.3 (Xcode 26.6) crashes in IR generation
+        // on the thunk it makes for a main-actor method passed as the setter.
+        Picker(selection: Binding(get: { model.latexComposition }, set: { model.selectComposition($0) })) {
+            ForEach(LaTeXComposition.allCases, id: \.self) { choice in
+                Text(verbatim: PrintModeText.string(choice.titleKey, language: model.language)).tag(choice)
+            }
+        } label: {
+            Text(verbatim: PrintModeText.string("LaTeX Layout", language: model.language))
+        }
     }
 }

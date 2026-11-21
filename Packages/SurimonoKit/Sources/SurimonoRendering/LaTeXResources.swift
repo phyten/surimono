@@ -7,14 +7,15 @@ extension DocumentRenderer {
     /// Every themed entry point (including exports and outline extraction) uses the same policy. Outside the
     /// sandbox, opening a document admits companion text under its directory, never arbitrary files on the Mac.
     nonisolated static func latexFragment(
-        _ source: DocumentSource, textWidthPoints: Double?, access: LocalResourceAccess?,
+        _ source: DocumentSource, composition: LaTeXComposition, textWidthPoints: Double?, access: LocalResourceAccess?,
         onDenied: @escaping () -> Void,
         imageExists: @escaping (URL) -> Bool
     ) throws -> HTMLFragment {
         let resources = CompanionTextResources(source, access: access, onDenied: onDenied)
         var measuredImages: [URL: CGSize] = [:]
         return LaTeXConverter.convert(
-            try decodedText(source.data), documentURL: resources.file, textWidthPoints: textWidthPoints,
+            try decodedText(source.data), composition: composition, documentURL: resources.file,
+            textWidthPoints: textWidthPoints,
             imageExists: { resources.permits($0) && imageExists($0) },
             canProbePictureFallback: { access?.permits($0) != false },
             imageSizeInPoints: { url in
@@ -72,13 +73,17 @@ extension DocumentRenderer {
 
     /// Find the default style without laying out pages or converting the body. Includes in the preamble
     /// must see exactly the same files as the subsequent conversion, including after a folder grant.
-    public func latexClassInfo(for source: DocumentSource) -> LaTeXDocumentClassInfo {
-        if let cachedLaTeXInfo, cachedLaTeXInfo.source == source { return cachedLaTeXInfo.info }
+    public func latexClassInfo(for source: DocumentSource, composition: LaTeXComposition = .document)
+        -> LaTeXDocumentClassInfo
+    {
+        if let cachedLaTeXInfo, cachedLaTeXInfo.source == source, cachedLaTeXInfo.composition == composition {
+            return cachedLaTeXInfo.info
+        }
         let resources = CompanionTextResources(source, access: resourceAccess(for: source), onDenied: {})
         let info = LaTeXConverter.documentClassInfo(
-            TextDecoding.decode(source.data).text, documentURL: resources.file,
+            TextDecoding.decode(source.data).text, composition: composition, documentURL: resources.file,
             readFile: resources.read, fileIdentity: resources.identity)
-        cachedLaTeXInfo = (source, info)
+        cachedLaTeXInfo = (source, composition, info)
         return info
     }
 }

@@ -29,7 +29,9 @@ extension RenderSettings {
 
     mutating func applyLaTeXPage(_ info: LaTeXDocumentClassInfo) {
         if options.latexMargins?.applies(to: theme) == true && layout.kind != .handout3 {
-            let box = info.pageBox
+            var box = info.pageBox
+            // Fit the manuscript's margins first so changing stock cannot move the left edge of a proof.
+            if info.composition == .proof { box.right -= LaTeXComposition.notesMarginMM * 72 / 25.4 }
             options.margins = box.margins(fitting: layout.logicalPageSize(options: options))
             let spare = box.left + box.right
             if let evenLeft = box.evenLeft, spare > 0 {
@@ -42,6 +44,11 @@ extension RenderSettings {
             }
             options.mirrorsDocumentPages = info.pageBox.mirrorsSides
             options.mirrorsMargins = info.pageBox.mirrorsSides
+        }
+        if info.composition == .proof {
+            options.proofNotesMargin = LaTeXComposition.notesMarginMM
+            // Mirroring swaps the normal margins only. Keep the notes on the right of a verso too.
+            options.versoOffset -= LaTeXComposition.notesMarginMM * 72 / 25.4
         }
         if options.latexFurniture?.applies(to: theme) == true {
             options.furniture = .pageNumber

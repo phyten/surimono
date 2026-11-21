@@ -69,6 +69,7 @@ enum LaTeXClassRegistry {
     }
 
     private static func standard(_ builder: Builder) {
+        builder.structure.offersCompositionChoice = true
         builder.structure.hasChapters = builder.id != .article
         builder.setStandardTitlePage(separate: builder.structure.hasChapters)
         builder.setBookSides(builder.id == .book)
@@ -186,6 +187,7 @@ enum LaTeXClassRegistry {
     }
 
     private static func koma(_ builder: Builder) {
+        builder.structure.offersCompositionChoice = true
         builder.displayName = .init("KOMA-Script")
         builder.structure.hasChapters = builder.id != .scrartcl
         builder.setBookSides(builder.id == .scrbook)
@@ -224,6 +226,7 @@ enum LaTeXClassRegistry {
     }
 
     private static func memoir(_ builder: Builder) {
+        builder.structure.offersCompositionChoice = true
         builder.structure.hasChapters = true
         builder.setBookSides(true)
         builder.classCommands = Commands.memoir
@@ -265,6 +268,7 @@ enum LaTeXClassRegistry {
     }
 
     private static func scaledJapanese(_ builder: Builder) {
+        builder.structure.offersCompositionChoice = true
         builder.japanese()
         let article = [.jsarticle, .ltjsarticle, .bxjsarticle].contains(builder.id)
         builder.structure.hasChapters = !article
@@ -304,6 +308,7 @@ enum LaTeXClassRegistry {
     }
 
     private static func japaneseLayout(_ builder: Builder) {
+        builder.structure.offersCompositionChoice = true
         builder.structure.contentsMeasure = .init(dotSeparationMu: 2, pageNumberWidth: "2ic")
         builder.japanese()
         builder.keyedSize = true
@@ -316,6 +321,7 @@ enum LaTeXClassRegistry {
     }
 
     private static func traditionalJapanese(_ builder: Builder) {
+        builder.structure.offersCompositionChoice = true
         builder.japanese()
         builder.structure.usesTraditionalJapaneseNames = true
         builder.typography.baselineTable = .traditional
@@ -338,12 +344,14 @@ enum LaTeXClassRegistry {
     }
 
     private static func chinese(_ builder: Builder) {
+        builder.structure.offersCompositionChoice = true
         builder.structure.hasChapters = builder.id != .ctexart
         builder.structure.usesNativeCJKHeadings = true
         builder.typography.mainLanguage = builder.options.contains("traditional") ? "zh-Hant" : "zh-Hans"
     }
 
     private static func korean(_ builder: Builder) {
+        builder.structure.offersCompositionChoice = true
         builder.structure.usesNativeCJKHeadings = true
         builder.typography.mainLanguage = "ko"
     }

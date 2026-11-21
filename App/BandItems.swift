@@ -82,7 +82,7 @@ struct BandItemView: View {
                 Button {
                     model.isLaTeXRecognitionPresented.toggle()
                 } label: {
-                    FormatBadge(text: form == .full ? model.formatBadge : model.shortFormatBadge)
+                    FormatBadge(text: model.formatBadge(in: form))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(Text(verbatim: recognition.explanation))
@@ -372,6 +372,11 @@ struct BandMeasurements: View {
             measure(.more) { BandMoreButton { EmptyView() } }
             ForEach(items, id: \.self) { item in
                 measure(.item(item, .full)) { BandItemView(model: model, item: item, form: .full) }
+                if item == .formatBadge, model.offersLaTeXComposition, model.latexComposition != .document {
+                    measure(.item(item, .withoutSuffix)) {
+                        BandItemView(model: model, item: item, form: .withoutSuffix)
+                    }
+                }
                 if item.hasCompactForm(for: model) {
                     measure(.item(item, .compact)) { BandItemView(model: model, item: item, form: .compact) }
                 }
