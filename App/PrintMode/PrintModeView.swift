@@ -281,7 +281,7 @@ struct PrintTopBar: View {
 
     private var badge: some View {
         PrintTag(
-            text: model.formatBadge, font: .system(size: 10, weight: .semibold, design: .monospaced),
+            text: model.shortFormatBadge, font: .system(size: 10, weight: .semibold, design: .monospaced),
             color: PrintPalette.ink2, border: PrintPalette.line3
         )
         .frame(minWidth: 28)

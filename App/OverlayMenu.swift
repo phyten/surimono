@@ -157,7 +157,7 @@ struct BandPlans {
         for item in applicable {
             widths[item] = BandLayout.Widths(
                 full: measured[.item(item, .full)] ?? 0,
-                compact: item.hasCompactForm ? measured[.item(item, .compact)] ?? 0 : nil)
+                compact: item.hasCompactForm(for: model) ? measured[.item(item, .compact)] ?? 0 : nil)
         }
         let lights = OverlayBand.lights(model: model, menu: menu)
         // Separator cost includes the line and its following gap; the plan adds the preceding gap only when drawn.
@@ -277,6 +277,24 @@ struct BandPresentationHost: View {
         // One popover to a view: two on the same view would compete for its presentation.
         ZStack {
             let outline = placement(.outline)
+            let badge = placement(.formatBadge)
+            Color.clear.popover(
+                isPresented: $model.isLaTeXRecognitionPresented, attachmentAnchor: anchor(badge),
+                arrowEdge: badge.arrowEdge
+            ) {
+                if let recognition = model.latexBadge {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(verbatim: recognition.explanation)
+                            .lineLimit(2)
+                            .truncationMode(.middle)
+                        Text("Line and page breaks may differ from LaTeX output.")
+                    }
+                    .font(.callout)
+                    .frame(width: 440, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding()
+                }
+            }
             let figures = placement(.pageIndicator)
             let more = placement(.viewOptions)
             Color.clear.popover(

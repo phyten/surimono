@@ -2,7 +2,7 @@ import Foundation
 
 package struct LaTeXResolvedStyle: Equatable, Sendable {
     package enum Family: String, Sendable { case neurips, iclr, icml, cvpr, acl, aaai }
-    package enum Mode: String, Sendable { case submission, final, preprint, rebuttal, draft }
+    package typealias Mode = LaTeXRecognition.Mode
     package enum Review: String, Codable, Sendable {
         case textLines, ruler, leftRuler, blueColumnLines, grayColumnLines
     }
@@ -11,6 +11,11 @@ package struct LaTeXResolvedStyle: Equatable, Sendable {
     let classProfile: LaTeXClassProfile
     let requestedName: String
     package let family: Family
+    var displayName: String {
+        let name = family == .neurips ? "NeurIPS" : family.rawValue.uppercased()
+        return name + " " + (displayYear ?? (year.isEmpty ? String(definitionYear) : year))
+    }
+    var displayYear: String?
     let year: String
     let definitionYear: Int
     let options: [String]
@@ -254,6 +259,7 @@ enum LaTeXStylePackageRegistry {
             r, profile, mode: mode, definitionYear: 2027, options: ["review", "rebuttal", "pagenumbers"],
             width: 495, height: 639, top: 72, gap: 22.5, baseline: 12, anonymous: anonymous,
             noteSize: 8, notePitch: 9.5, review: mode == .final ? nil : .blueColumnLines)
+        style.displayYear = year
         style.showsPageNumbers = r.options.contains("review") || r.options.contains("pagenumbers")
         style.paragraphIndent = 12
         style.outerParsep = 0
@@ -370,6 +376,7 @@ extension LaTeXDocument {
         if let requestsFrenchSpacing { style.frenchSpacing = requestsFrenchSpacing }
         if style.frenchSpacing { lineParameters.frenchspacing = true }
         classInfo.resolvedStyle = style
+        classInfo.styleDeclaration = styleDeclaration
         classInfo.columns = style.columns
         if style.loadsNatbib { bibDatabase.natbib = true }
         if style.usesTimesRoman && pageSettings.fonts.mainFontRevision == styleMainFontRevision {

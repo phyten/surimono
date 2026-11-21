@@ -267,6 +267,8 @@
   {"id": "theme-zukan", "kind": "document", "input": "Snapshots/specimen.md", "arguments": ["-theme", "zukan"], "tags": ["theme", "kids"]},
   {"id": "theme-zuroku", "kind": "document", "input": "Snapshots/specimen.md", "arguments": ["-theme", "zuroku"], "tags": ["theme", "reading"]},
   {"id": "ui-compact-dark", "kind": "ui", "input": "Samples/booklet-demo.md", "arguments": ["-SurimonoMenu", "compact", "-SurimonoAppearance", "dark"], "tags": ["compact", "dark"]},
+  {"id": "ui-latex-badge-light", "kind": "ui", "input": "Snapshots/corpus/latex/113-style-neurips/main.tex", "arguments": ["-SurimonoMenu", "full", "-SurimonoAppearance", "light"], "tags": ["latex", "band", "light"]},
+  {"id": "ui-latex-badge-dark", "kind": "ui", "input": "Snapshots/fixtures/latex-unknown.tex", "arguments": ["-SurimonoMenu", "full", "-SurimonoAppearance", "dark"], "tags": ["latex", "band", "dark"]},
   {"id": "ui-compact-light", "kind": "ui", "input": "Samples/booklet-demo.md", "arguments": ["-SurimonoMenu", "compact", "-SurimonoAppearance", "light"], "tags": ["compact", "light"]},
   {"id": "ui-compare-dark", "kind": "ui", "input": "Samples/booklet-demo.md", "arguments": ["-SurimonoMode", "compare", "-SurimonoAppearance", "dark"], "tags": ["compare", "dark"]},
   {"id": "ui-compare-light", "kind": "ui", "input": "Samples/booklet-demo.md", "arguments": ["-SurimonoMode", "compare", "-SurimonoAppearance", "light"], "tags": ["compare", "light"]},

@@ -8,6 +8,11 @@ enum BandSlot: Hashable {
 }
 
 extension BandLayout.Item {
+    func hasCompactForm(for model: DocumentViewModel) -> Bool {
+        if self == .formatBadge { return model.latexBadge != nil }
+        return hasCompactForm
+    }
+
     var hasCompactForm: Bool {
         switch self {
         case .presentation, .style, .outline, .transition, .print,
@@ -73,6 +78,14 @@ struct BandItemView: View {
             // A text whose format was a guess can open again as another; a file's format is the file's.
             if model.textKind != nil {
                 TextFormatBadgeMenu(model: model)
+            } else if let recognition = model.latexBadge {
+                Button {
+                    model.isLaTeXRecognitionPresented.toggle()
+                } label: {
+                    FormatBadge(text: form == .full ? model.formatBadge : model.shortFormatBadge)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text(verbatim: recognition.explanation))
             } else {
                 FormatBadge(text: model.formatBadge)
             }
@@ -359,7 +372,7 @@ struct BandMeasurements: View {
             measure(.more) { BandMoreButton { EmptyView() } }
             ForEach(items, id: \.self) { item in
                 measure(.item(item, .full)) { BandItemView(model: model, item: item, form: .full) }
-                if item.hasCompactForm {
+                if item.hasCompactForm(for: model) {
                     measure(.item(item, .compact)) { BandItemView(model: model, item: item, form: .compact) }
                 }
             }

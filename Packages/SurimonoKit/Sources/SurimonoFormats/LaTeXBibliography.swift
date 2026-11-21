@@ -437,7 +437,8 @@ extension LaTeXReader {
         }
     }
 
-    func readPackage() {
+    func readPackage(command: String) {
+        let start = index
         let packageOptions = optional() ?? ""
         let options = Self.packageOptions(packageOptions)
         let packages = (argument() ?? "").split(separator: ",").map {
@@ -455,6 +456,7 @@ extension LaTeXReader {
             if package == "times" { document.loadsTimesPackage = true }
             if let request = LaTeXStylePackageRegistry.match(package, options: passed + options) {
                 document.stylePackage = request
+                document.styleDeclaration = declaration(command, argumentsFrom: start)
                 document.styleMainFontRevision = document.pageSettings.fonts.mainFontRevision
                 document.applyPackageDefaults(request)
                 if request.loadsNatbib {

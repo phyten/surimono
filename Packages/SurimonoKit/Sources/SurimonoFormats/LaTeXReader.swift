@@ -832,7 +832,7 @@ final class LaTeXReader {
         case "bibliography", "printbibliography", "addbibresource", "bibliographystyle", "setcitestyle", "nocite":
             externalBibliography(name)
         case "hypersetup": readHyperrefOptions(argument() ?? "")
-        case "usepackage", "RequirePackage": readPackage()
+        case "usepackage", "RequirePackage": readPackage(command: name)
         case "qed", "qedsymbol": appendText("□")
         case "qedhere": break
         case "vfil" where document.classInfo.resolvedStyle != nil: verticalSpace("0pt plus 1fil")
@@ -1208,7 +1208,7 @@ final class LaTeXReader {
             case "lstset", "lstdefinestyle": configureListings(name)
             case "graphicspath": document.graphicsPaths = graphicsPaths(argument() ?? "")
             case "hypersetup": readHyperrefOptions(argument() ?? "")
-            case "usepackage", "RequirePackage": readPackage()
+            case "usepackage", "RequirePackage": readPackage(command: name)
             case "addbibresource", "bibliographystyle", "setcitestyle", "nocite": externalBibliography(name)
             default: generic(name)
             }
@@ -1240,10 +1240,20 @@ final class LaTeXReader {
         return false
     }
 
+    func declaration(_ command: String, argumentsFrom start: Int) -> String {
+        // Dispatch has already consumed whitespace after the control word.
+        var first = start
+        while first > 0, characters[first - 1].isWhitespace { first -= 1 }
+        let text = "\\" + command + String(characters[first..<index])
+        return text.split(whereSeparator: \.isNewline).joined(separator: " ")
+    }
+
     private func readDocumentClass() {
+        let start = index
         let options = optional()
         let name = argument()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? LaTeXClassID.article.rawValue
         document.classInfo = LaTeXDocumentClassInfo(name: name, options: options)
+        document.classInfo.classDeclaration = declaration("documentclass", argumentsFrom: start)
         if document.classInfo.profile.body.usesSloppyLineBreaking { document.lineParameters.setSloppy(true) }
         document.classInfo.journalStyle?.defineCounters(in: document)
         if let depth = document.classInfo.profile.headings.numberingDepth { document.counters["secnumdepth"] = depth }

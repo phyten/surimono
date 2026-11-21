@@ -281,6 +281,7 @@ package struct LaTeXClassProfile: Equatable, Sendable {
     }
 
     let name: String
+    let displayName: LaTeXRecognition.Name?
     let id: LaTeXClassID
     let headings: Headings
     let titleBlock: TitleBlock

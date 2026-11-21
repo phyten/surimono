@@ -128,12 +128,31 @@ struct BandLayoutTests {
     func stepsFollowTheSpecification() {
         #expect(
             BandLayout.steps == [
-                .compact(.style), .compact(.transition), .compact(.presentation), .compact(.outline),
+                .compact(.formatBadge), .compact(.style), .compact(.transition), .compact(.presentation),
+                .compact(.outline),
                 .remove(.chapter), .remove(.formatBadge), .remove(.pageIndicator), .remove(.style),
                 .remove(.transition),
                 .remove(.layout), .remove(.outline), .remove(.presentation), .remove(.thumbnails), .remove(.zoom),
                 .remove(.floatOnTop), .remove(.showOnAllSpaces), .compact(.print),
             ])
+    }
+
+    @Test("形式の印は認識名、形式名の順で帯から外れる")
+    func recognitionGivesWayFirst() {
+        func form(_ width: CGFloat) -> BandLayout.Form? {
+            BandLayout.resolve(
+                arrangement: .init(topLeft: [.formatBadge], topRight: [.print]), mode: .top,
+                availableItems: [.formatBadge, .print],
+                measurements: .init(
+                    items: [.formatBadge: .init(full: 140, compact: 28), .print: .init(full: 40)], name: 0),
+                metrics: .init(topFixed: 0, bottomFixed: 0, separator: 0, titleGap: 0, toolGap: 0, outerGap: 0),
+                availableWidth: width + 40
+            ).top.forms[.formatBadge]
+        }
+        #expect(form(140) == .full)
+        #expect(form(139) == .compact)
+        #expect(form(28) == .compact)
+        #expect(form(27) == nil)
     }
 
     @Test("最前面に固定は、ほかの道具がすべて外れるまで帯に残る")
@@ -151,7 +170,8 @@ struct BandLayoutTests {
     func bottomStepsFollowTheSpecification() {
         #expect(
             BandLayout.bottomSteps == [
-                .compact(.style), .compact(.transition), .compact(.presentation), .compact(.outline),
+                .compact(.formatBadge), .compact(.style), .compact(.transition), .compact(.presentation),
+                .compact(.outline),
                 .remove(.chapter), .remove(.transition), .remove(.layout), .remove(.pageTurn), .remove(.style),
                 .remove(.outline),
                 .remove(.presentation), .remove(.thumbnails), .remove(.zoom), .remove(.pageIndicator),

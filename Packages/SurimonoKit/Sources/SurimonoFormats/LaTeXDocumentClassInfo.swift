@@ -1,10 +1,43 @@
 import Foundation
 
+public enum LaTeXRecognition: Equatable, Sendable {
+    public enum Mode: String, Sendable { case submission, final, preprint, rebuttal, draft }
+
+    public struct Name: Equatable, Sendable {
+        private let standard: String
+        private let japanese: String?
+
+        init(_ standard: String, japanese: String? = nil) {
+            self.standard = standard
+            self.japanese = japanese
+        }
+
+        public func text(japanese: Bool) -> String {
+            japanese ? self.japanese ?? standard : standard
+        }
+    }
+
+    case recognised(name: Name, detail: Mode?, source: String)
+    case substituted(requestedClass: String)
+}
+
 /// Class options that change the printed text block or the choice of a built-in style.
 /// The app still chooses the output stock. The document's stock determines its intended margins.
 public struct LaTeXDocumentClassInfo: Sendable, Equatable {
     package let profile: LaTeXClassProfile
     package var resolvedStyle: LaTeXResolvedStyle?
+    var classDeclaration: String?
+    var styleDeclaration: String?
+
+    public var recognition: LaTeXRecognition? {
+        if let style = resolvedStyle, let source = styleDeclaration {
+            return .recognised(name: .init(style.displayName), detail: style.mode, source: source)
+        }
+        guard let source = classDeclaration else { return nil }
+        guard let name = profile.displayName else { return .substituted(requestedClass: profile.name) }
+        return .recognised(name: name, detail: nil, source: source)
+    }
+
     var initialLineParameters = ""
     package var latinLineAttributes: String {
         guard profile.body.composesLatinParagraphs else { return "" }

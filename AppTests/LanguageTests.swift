@@ -105,6 +105,27 @@ struct LanguageTests {
         }
     }
 
+    @Test("LaTeX の認識名と説明の文言が八言語にある")
+    func latexBadgeCoverage() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let catalog = try JSONDecoder().decode(
+            Catalog.self, from: Data(contentsOf: root.appending(path: "App/Localizable.xcstrings")))
+        for key in [
+            "%@ (submission)",
+            "%@ (final)",
+            "%@ (preprint)",
+            "%@ (rebuttal)",
+            "%@ (draft)",
+            "standard layout",
+            "Shown as the document specifies (%@).",
+            "The class “%@” is not supported, so the standard layout is used.",
+            "Line and page breaks may differ from LaTeX output.",
+        ] {
+            let entry = try #require(catalog.strings[key])
+            #expect(Set(entry.localizations.keys) == ["ja", "en", "zh-Hans", "zh-Hant", "fr", "de", "es", "ko"])
+        }
+    }
+
     @Test("設定の検索に載せる項目名と区分名はすべて文言カタログの8言語にある")
     func settingsSearchLabels() throws {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
