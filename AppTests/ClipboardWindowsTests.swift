@@ -362,9 +362,13 @@ struct ClipboardWindowsTests {
             #expect(rows.filter { $0.id == id }.count == 1)
         }
         let children = try #require(rows.first { $0.id == history }).children
-        #expect(children.map(\.id) == [.action(.history(.of(second))), .action(.history(.of(first)))])
-        #expect(children.map(\.title) == entries.map { .verbatim($0.title) })
-        try #require(entries.count == 2 && children.count == 2)
+        #expect(
+            children.map(\.id) == [
+                .action(.history(.of(second))), .action(.history(.of(first))), .divider("clear"),
+                .action(.clearClipboard),
+            ])
+        #expect(children.prefix(2).map(\.title) == entries.map { .verbatim($0.title) })
+        try #require(entries.count == 2 && children.count == 4)
         #expect(entries[0].title.contains("Second sample"))
         #expect(entries[1].title.contains("Menu sample"))
         guard case .action(let older) = children[1].id, case .action(let newer) = children[0].id else {

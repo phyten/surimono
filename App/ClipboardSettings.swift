@@ -17,6 +17,11 @@ struct ClipboardSettings: View {
         Section {
             Toggle("Keep Closed Clipboard Documents Until Quit", isOn: $preferences.keepsClosedClipboardDocuments)
                 .settingSearchRow("Keep Closed Clipboard Documents Until Quit")
+            VStack(alignment: .leading, spacing: 4) {
+                Toggle("Also Keep Them After Quitting", isOn: $preferences.keepsClipboardAfterQuitting)
+                    .disabled(!preferences.keepsClosedClipboardDocuments)
+                SettingsFootnote("Saved on this Mac until you reopen or clear them, for up to 7 days.")
+            }.settingSearchRow("Also Keep Them After Quitting")
             Picker("Choosing the Format", selection: $preferences.clipboardFormat.mode) {
                 Text("Ask When Unsure").tag(Mode.askWhenUnsure)
                 Text("Open as Text When Unsure").tag(Mode.plainTextWhenUnsure)

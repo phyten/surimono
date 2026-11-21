@@ -156,13 +156,16 @@ final class ClipboardWindows {
         textOrigin: TextFormatOrigin? = nil, baseURL: URL? = nil
     ) -> MemoryDocumentWindowController {
         let hash = ContentHash.of(data)
+        let entry = preferences?.closedClipboardDocuments.entries.first { $0.menuItem.id == hash }
         let controller =
             controllers[hash]
             ?? makeController(
                 data, format: format, title: title, hash: hash, textOrigin: textOrigin, baseURL: baseURL,
-                restoring: preferences?.closedClipboardDocuments.entries.first {
-                    $0.menuItem.id == hash && $0.format == format
-                })
+                restoring: entry?.format == format ? entry : nil)
+        // Pasting the same bytes again also ends their on-disk retention.
+        if entry != nil, let preferences, preferences.keepsClipboardAfterQuitting {
+            preferences.closedClipboardDocuments.remove(hash)
+        }
         show(controller, printing: printing)
         return controller
     }
@@ -229,7 +232,8 @@ final class ClipboardWindows {
             // A window opened again as another kind has already taken this one's place.
             guard let self, let model, controllers[hash]?.model === model else { return }
             if let preferences, preferences.keepsClosedClipboardDocuments, let data = model.memoryContent {
-                preferences.closedClipboardDocuments.remember(.init(model: model, hash: hash, data: data, date: Date()))
+                preferences.closedClipboardDocuments.remember(
+                    .init(model: model, hash: hash, data: data, date: preferences.clipboardNow()))
             }
             controllers.removeValue(forKey: hash)
         }

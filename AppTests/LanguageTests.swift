@@ -212,6 +212,23 @@ struct LanguageTests {
         }
     }
 
+    @Test("閉じたクリップボード文書の保存設定・説明・消去には8言語の翻訳がある")
+    func clipboardRetentionCoverage() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let catalog = try JSONDecoder().decode(
+            Catalog.self, from: Data(contentsOf: root.appending(path: "App/Localizable.xcstrings")))
+        for key in [
+            "Also Keep Them After Quitting", "Saved on this Mac until you reopen or clear them, for up to 7 days.",
+            "Clear Closed Clipboard Documents",
+        ] {
+            let entry = try #require(catalog.strings[key])
+            for language in ["en", "ja", "de", "es", "fr", "ko", "zh-Hans", "zh-Hant"] {
+                let unit = try #require(entry.localizations[language]?.stringUnit)
+                #expect(unit.state == "translated" && !unit.value.isEmpty)
+            }
+        }
+    }
+
     @Test("ツールバーの配置画面の文言と読み上げには8言語の翻訳がある")
     func arrangementEditorCoverage() throws {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()

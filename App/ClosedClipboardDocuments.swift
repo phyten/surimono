@@ -4,7 +4,7 @@ import SurimonoCore
 struct ClosedClipboardDocuments {
     static let didChange = Notification.Name("SurimonoClosedClipboardDocumentsDidChange")
 
-    struct MenuItem: Identifiable, Equatable {
+    struct MenuItem: Identifiable, Equatable, Codable {
         let id: ContentHash
         let title: String
 
@@ -17,7 +17,9 @@ struct ClosedClipboardDocuments {
         }
     }
 
-    struct Entry {
+    struct Entry: Codable {
+        let revision: UUID
+        let closedAt: Date
         let menuItem: MenuItem
         let data: Data
         let format: DocumentFormat
@@ -33,6 +35,8 @@ struct ClosedClipboardDocuments {
         let settingSet: UUID?
 
         init(model: DocumentViewModel, hash: ContentHash, data: Data, date: Date) {
+            revision = UUID()
+            closedAt = date
             title = model.displayName
             let time = DateFormatter.localizedString(from: date, dateStyle: .none, timeStyle: .short)
             let formatName = ClipboardTextKind(model.format).map(ClipboardFormatText.name) ?? model.formatBadge
@@ -83,6 +87,12 @@ struct ClosedClipboardDocuments {
         while entries.count > 10 || entries.reduce(0, { $0 + $1.data.count }) > byteLimit {
             entries.removeLast()
         }
+    }
+
+    static let lifetime: TimeInterval = 7 * 24 * 60 * 60
+
+    mutating func removeExpired(at now: Date) {
+        entries.removeAll { $0.closedAt.addingTimeInterval(Self.lifetime) <= now }
     }
 
     mutating func remove(_ id: ContentHash) {

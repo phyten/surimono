@@ -28,7 +28,9 @@ enum ShortcutPreferencesError: Error {
 /// App-wide defaults. Settings a user changes in a document window are remembered per document instead.
 @Observable
 final class AppPreferences {
-    static let shared = AppPreferences()
+    static let shared = AppPreferences(
+        clipboardDirectory: ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil
+            ? UserLibrary.defaultRoot.appendingPathComponent("ClosedClipboard", isDirectory: true) : nil)
 
     private(set) var keyboardShortcuts: ShortcutConfiguration
     private(set) var keyboardShortcutsLoadState: ShortcutPreferencesLoadState
@@ -383,8 +385,15 @@ final class AppPreferences {
         }
     }
 
+    private let clipboardStore: ClosedClipboardStore?
+    let clipboardNow: () -> Date
+    @ObservationIgnored private var clipboardExpiry: Task<Void, Never>?
+
     var closedClipboardDocuments = ClosedClipboardDocuments() {
         didSet {
+            if keepsClosedClipboardDocuments && keepsClipboardAfterQuitting {
+                mirrorClipboardHistory()
+            }
             // A close may hand focus to another window before its clipboard history has been recorded.
             NotificationCenter.default.post(name: ClosedClipboardDocuments.didChange, object: self)
         }
@@ -392,7 +401,47 @@ final class AppPreferences {
     var keepsClosedClipboardDocuments: Bool {
         didSet {
             defaults.set(keepsClosedClipboardDocuments, forKey: "keepsClosedClipboardDocuments")
-            if !keepsClosedClipboardDocuments { closedClipboardDocuments = ClosedClipboardDocuments() }
+            if !keepsClosedClipboardDocuments {
+                keepsClipboardAfterQuitting = false
+                closedClipboardDocuments = ClosedClipboardDocuments()
+            }
+        }
+    }
+
+    var keepsClipboardAfterQuitting: Bool {
+        didSet {
+            defaults.set(keepsClipboardAfterQuitting, forKey: "keepsClipboardAfterQuitting")
+            if keepsClosedClipboardDocuments && keepsClipboardAfterQuitting {
+                expireClipboardHistory()
+            } else {
+                clipboardExpiry?.cancel()
+                clipboardStore?.clear()
+            }
+        }
+    }
+
+    func clearClosedClipboardDocuments() {
+        guard !closedClipboardDocuments.entries.isEmpty else { return }
+        clipboardStore?.clear()
+        closedClipboardDocuments = ClosedClipboardDocuments()
+    }
+
+    private func expireClipboardHistory() {
+        closedClipboardDocuments.removeExpired(at: clipboardNow())
+    }
+
+    private func mirrorClipboardHistory() {
+        clipboardExpiry?.cancel()
+        guard let clipboardStore else { return }
+        let entries = closedClipboardDocuments.entries
+        clipboardStore.mirror(entries)
+        if let oldest = entries.map(\.closedAt).min() {
+            let delay = max(
+                0, oldest.addingTimeInterval(ClosedClipboardDocuments.lifetime).timeIntervalSince(clipboardNow()))
+            clipboardExpiry = Task { [weak self] in
+                do { try await Task.sleep(for: .seconds(delay)) } catch { return }
+                self?.expireClipboardHistory()
+            }
         }
     }
 
@@ -413,8 +462,11 @@ final class AppPreferences {
     init(
         defaults: UserDefaults = .standard, domainName: String? = Bundle.main.bundleIdentifier,
         locale: Locale? = nil, defaultPaperSize: CGSize? = nil,
-        shortcutEnvironment: ShortcutValidationContext = .unavailable
+        shortcutEnvironment: ShortcutValidationContext = .unavailable,
+        clipboardDirectory: URL? = nil, clipboardNow: @escaping () -> Date = { Date() }
     ) {
+        clipboardStore = clipboardDirectory.map { ClosedClipboardStore(directory: $0) }
+        self.clipboardNow = clipboardNow
         // Only the app's own preferences follow the Mac: its region and the paper its print system starts with. A
         // store made for a test or a preview starts on A4 wherever it runs (CI machines are set to the United
         // States, and tests written for A4 failed there), unless it is told a locale.
@@ -585,11 +637,21 @@ final class AppPreferences {
             defaults.data(forKey: "recentBinders").flatMap {
                 try? JSONDecoder().decode(RecentBinders.self, from: $0)
             } ?? RecentBinders()
-        keepsClosedClipboardDocuments = defaults.object(forKey: "keepsClosedClipboardDocuments") as? Bool ?? true
+        let keepsHistory = defaults.object(forKey: "keepsClosedClipboardDocuments") as? Bool ?? true
+        keepsClosedClipboardDocuments = keepsHistory
+        keepsClipboardAfterQuitting = defaults.bool(forKey: "keepsClipboardAfterQuitting") && keepsHistory
         clipboardFormat =
             defaults.data(forKey: "clipboardFormat").flatMap {
                 try? JSONDecoder().decode(ClipboardFormatSettings.self, from: $0)
             } ?? .standard
+        if let clipboardStore {
+            if keepsClipboardAfterQuitting {
+                closedClipboardDocuments = clipboardStore.load(now: clipboardNow())
+                mirrorClipboardHistory()
+            } else {
+                clipboardStore.clear()
+            }
+        }
     }
 
     /// A choice for this run only. It takes part in the first assignment because any later one would be saved.

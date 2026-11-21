@@ -145,6 +145,7 @@ enum SettingsCatalogue {
             .init(.html, "Open Presets Folder"),
             .init(.html, "Reload", anchor: "Open Presets Folder"),
             .init(.clipboard, "Keep Closed Clipboard Documents Until Quit"),
+            .init(.clipboard, "Also Keep Them After Quitting"),
             .init(.clipboard, "Choosing the Format"),
             .init(.clipboard, "Format to Open"),
             .init(.clipboard, "How Readily to Format"),
