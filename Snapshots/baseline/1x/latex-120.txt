@@ -80,15 +80,15 @@ face of the thick stock, so a single pass was used for all
 spacers.
 [2] Glue Pot Corner. 2022.
 Drying times for thin paper joints.
-Paper Model Quarterly, 4(2):33–41.
+Paper Model Quarterly, 4(2):33–41. 2
 [3] Model Rail Desk. 2025. Spacer Card Register. Trial note,
-Paper Model Workshop.
+Paper Model Workshop. 1
 [4] Scale Fixture Room. 2023.
 A gauge block made of folded
-board. Workshop Leaflet 7, Paper Model Workshop.
+board. Workshop Leaflet 7, Paper Model Workshop. 1
 [5]
 Window Frame Study. 2021. Measuring slots with a card lad-
-der. Technical memo, Paper Model Workshop.
+der. Technical memo, Paper Model Workshop. 2
 Figure 1. Side view of the test slot with a four-layer spacer under
 the sliding rail. The dark block is the spacer; the thin lines mark
 the slot floor and the rail.
@@ -128,4 +128,4 @@ References
 [1]
 Card Stock Bench and Model Rail Desk. 2024. Folding toler-
 ances of layered card. In Proceedings of the Bench Meeting
-on Paper Models, pages 12–19.
+on Paper Models, pages 12–19. 1

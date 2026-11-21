@@ -43,7 +43,8 @@ were:
 Layer model
 We model the height h of a spacer with n layers of card of
 thickness t as
-h n t n c (1)
+h= n t + (n− 1) c,
+(1)
 where c is the crease allowance added by each fold. The
 allowance is found from a two-layer trial, for which Equa-
 tion (1) gives c = h2− 2t. The same model was used for

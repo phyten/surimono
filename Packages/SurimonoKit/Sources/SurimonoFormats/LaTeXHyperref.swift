@@ -37,6 +37,7 @@ extension LaTeXReader {
     func readHyperrefOptions(_ options: String) {
         for (key, value) in LaTeXPageSettings.options(options) {
             switch key {
+            case "pagebackref": document.classInfo.pageBackReferences = value != "false"
             case "colorlinks": document.hyperref.colored = value != "false"
             case "hidelinks": document.hyperref.colored = false
             case "linkcolor", "urlcolor", "citecolor", "allcolors":

@@ -868,8 +868,8 @@ final class LaTeXReader {
             let url = unescapedURL(argument(comments: false) ?? "")
             let hyphens =
                 document.breaksURLsAfterHyphens && document.composesEnglishParagraphs ? " data-latex-url-hyphens" : ""
-            appendHTML(
-                styledLinks("<a class=\"latex-url\" href=\"\(HTML.escape(url))\"\(hyphens)>\(breakableURL(url))</a>"))
+            let href = name == "url" ? " href=\"\(HTML.escape(url))\"" : ""
+            appendHTML(styledLinks("<a class=\"latex-url\"\(href)\(hyphens)>\(breakableURL(url))</a>"))
         case "path":
             appendHTML("<code>\(HTML.escape(unescapedURL(argument(comments: false) ?? "")))</code>")
         case "verb":

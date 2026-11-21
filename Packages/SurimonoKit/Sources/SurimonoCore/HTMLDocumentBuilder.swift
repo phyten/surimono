@@ -19,6 +19,8 @@ public enum HTMLDocumentBuilder {
                 let localMain = info.mainFontName.map { $0 != "Surimono Computer Modern" } == true
                 return attributes + " data-latex-class=\"\(HTML.escape(info.name))\""
                     + (info.composition == .proof ? " data-latex-review=\"proofPageLines\"" : "")
+                    + (info.linksReferences ? " data-latex-hyperref" : "")
+                    + (info.pageBackReferences ? " data-latex-page-backrefs" : "")
                     + info.latinLineAttributes
                     + (info.resolvedStyle.map { style in
                         " data-latex-style=\"\(style.family.rawValue)\" data-latex-style-mode=\"\(style.mode.rawValue)\""

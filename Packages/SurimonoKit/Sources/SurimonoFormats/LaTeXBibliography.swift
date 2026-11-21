@@ -498,9 +498,13 @@ extension LaTeXReader {
                     document.bibDatabase.applyNatbibOptions(document.passedPackageOptions["natbib"] ?? [])
                 }
             }
-            document.pageSettings.readPackage(package, options: packageOptions, info: document.classInfo)
+            document.pageSettings.readPackage(
+                package, options: packageOptions, passed: passed, info: document.classInfo)
         }
-        if packages.contains("hyperref") { readHyperrefOptions(packageOptions) }
+        if packages.contains("hyperref") {
+            document.classInfo.linksReferences = true
+            readHyperrefOptions(((document.passedPackageOptions["hyperref"] ?? []) + options).joined(separator: ","))
+        }
         if packages.contains("natbib") {
             document.bibDatabase.natbib = true
             document.bibDatabase.applyNatbibOptions((document.passedPackageOptions["natbib"] ?? []) + options)

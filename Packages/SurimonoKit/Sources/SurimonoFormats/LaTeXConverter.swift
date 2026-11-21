@@ -185,6 +185,7 @@ final class LaTeXDocument {
             spacing.readPackage("setspace", options: "", info: info)
             spacing.setStretch("1.5")
         }
+        info.declaredPaperSize = pageSettings.declaredPaperSize(for: info, box: box)
         info.resolvedPageBox = box
         let labelMetrics = LaTeXLabelMetrics(info)
         info.styleVariables =
@@ -487,6 +488,14 @@ final class LaTeXDocument {
                         ? add(text)
                         : add("<a href=\"#\(HTML.escape(entry.id))\">") && add(text) && add("</a>")
                 }
+                // Natbib creates separate author and year destinations around the separator.
+                // Keep the control space outside the clickable text so it retains its glue.
+                func addNameAndYear(_ name: String, _ year: String) -> Bool {
+                    if classInfo.linksReferences && bibDatabase.natbib {
+                        return addLinked(name) && add(nameYear) && addLinked(year)
+                    }
+                    return addLinked(name + nameYear + year)
+                }
                 if let label = bibDatabase.citationLabels[key], authorOnly || yearOnly || textual {
                     let author = citation.full ? bibDatabase.fullAuthors[key] ?? label.author : label.author
                     if authorOnly {
@@ -494,7 +503,9 @@ final class LaTeXDocument {
                     } else if yearOnly {
                         guard addLinked(label.year) else { return nil }
                     } else {
-                        let linked = bibDatabase.linksTextualAuthors && authorYear
+                        let linked =
+                            (bibDatabase.linksTextualAuthors || classInfo.linksReferences && bibDatabase.natbib)
+                            && authorYear
                         guard linked ? addLinked(author) : add(author), add(normalSpace + delimiters.0) else {
                             return nil
                         }
@@ -510,12 +521,12 @@ final class LaTeXDocument {
                 } else if citation.full, authorYear, let long = bibDatabase.fullAuthors[key],
                     let label = bibDatabase.citationLabels[key]
                 {
-                    guard addLinked(long + nameYear + label.year) else { return nil }
+                    guard addNameAndYear(long, label.year) else { return nil }
                 } else if breakable && bibDatabase.natbib && authorYear, let label = bibDatabase.citationLabels[key],
                     !label.author.isEmpty,
                     !label.year.isEmpty
                 {
-                    guard addLinked(label.author + nameYear + label.year) else { return nil }
+                    guard addNameAndYear(label.author, label.year) else { return nil }
                 } else if !addLinked(entry.label) {
                     return nil
                 }

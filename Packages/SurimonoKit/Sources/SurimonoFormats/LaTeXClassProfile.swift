@@ -224,6 +224,8 @@ package struct LaTeXClassProfile: Equatable, Sendable {
         var layoutRule = LayoutRule.standard(.inherited)
         var paperOptions = PaperOptions.standard
         var defaultPaper = Paper.letter
+        // A publication format can prescribe a trim even without a paper option in the manuscript.
+        var setsOutputPaper = false
         var forcedPaper: Paper?
         // Differs from pageStyle.twoSidedFields today; kept apart until each consumer is checked against real LaTeX.
         var twoSidedBox = false

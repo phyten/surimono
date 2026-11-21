@@ -53,6 +53,12 @@ for (const dots of document.querySelectorAll('nav.toc .latex-page-entry > .latex
     field.append(period);
     periods.set(dots, period);
 }
+// Quartz copies the page marks from each capture but drops its annotations. Measure the
+// original anchor fragments while all columns are still visible in strip coordinates.
+const links = document.body.hasAttribute('data-latex-hyperref');
+const destinations = new Set();
+if (links) for (const strip of strips) for (const a of strip.querySelectorAll('a[href^="#"]'))
+    destinations.add(a.getAttribute('href').slice(1));
 for (const [id, unique] of byStrip) {
     const entries = [...unique.values()];
     const origin = origins[id].y;
@@ -66,6 +72,40 @@ for (const [id, unique] of byStrip) {
         }
         return entries[lo].index;
     };
+    if (links) {
+        const marks = [];
+        const record = (rect, ownerY, data) => marks.push({...data, start:pieces[at(ownerY)].start,
+            x:(rect.left+scrollX)*unit-origins[id].x, y:(rect.top+scrollY)*unit-origin,
+            width:rect.width*unit, height:rect.height*unit});
+        for (const el of strips[id].querySelectorAll('[id],a[href]')) {
+            if (destinations.has(el.id)) {
+                const float = el.hasAttribute('data-latex-float-anchor') && el.closest('figure');
+                let r = (float || el).getBoundingClientRect(), ownerY = r.top+.01;
+                if (float) {
+                    // The output routine discards a top float's leading inset. caption.sty
+                    // anchors half a baseline above the part actually placed in this column.
+                    const sliceTop = (origin + pieces[at(ownerY)].start) / unit - scrollY;
+                    r = new DOMRect(r.x, Math.max(r.top, sliceTop) - .5 * surimonoFlow.baseline / unit, 0, 0);
+                } else if (el.matches('.latex-bibliography > li')) {
+                    // The leading margin can be discarded at a column break. The first glyph
+                    // is owned by the new column, even if the block edge was in the old one.
+                    const text = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+                    for (let n = text.nextNode(); n; n = text.nextNode()) {
+                        if (!n.data.trim()) continue;
+                        range.selectNodeContents(n);
+                        const first = [...range.getClientRects()].find(r => r.width && r.height);
+                        if (first) { r = first; ownerY = (r.top+r.bottom)/2; break; }
+                    }
+                }
+                record(r, ownerY, {id:el.id});
+            }
+            const href = el.getAttribute('href');
+            if (el.localName !== 'a' || !href || !/^(?:#|https?:|mailto:)/i.test(href)) continue;
+            for (const r of el.getClientRects()) if (r.height && r.width)
+                record(r, (r.top+r.bottom)/2, {href, pageTop:el.hasAttribute('data-latex-backref')});
+        }
+        origins[id].linkMarks = marks;
+    }
     // Quartz fills these circles on the destination page. A fine-grid WebKit capture
     // quantizes tiny repeated backgrounds and can drop almost every dash of an SVG.
     for (const dots of strips[id].querySelectorAll('.latex-leader-dots')) {
@@ -116,7 +156,9 @@ for (const [id, unique] of byStrip) {
             const r = n.getBoundingClientRect();
             // A verified line is indivisible. The cut can sit inside its outer leading;
             // keep its link pieces, source space and generated hyphen with the same owner.
-            if (r.height && n.matches('[data-flow-latin] > .latex-line')) {
+            // An SVG owns its complete drawing even when font bounds cross a cut.
+            // An HTML span inserted inside SVG text has no glyphs in WebKit.
+            if (r.height && n.matches('[data-flow-latin] > .latex-line,svg')) {
                 memberships[at((r.top + r.bottom) / 2)].push(n);
                 return NodeFilter.FILTER_REJECT;
             }

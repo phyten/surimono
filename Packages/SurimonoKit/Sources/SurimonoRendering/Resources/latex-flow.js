@@ -82,7 +82,8 @@ function length(name, fallback) {
     return probe.getBoundingClientRect().width * unit;
 }
 const noteSkip = length('skip-footins', 12), textFloatSep = length('textfloatsep', 25);
-const requestedNoteRuleWidth = length('footnote-rule-width', 180);
+const requestedNoteRuleWidth = getComputedStyle(body).getPropertyValue('--latex-footnote-rule-width').trim() ?
+    length('footnote-rule-width', 0) : undefined;
 const noteRuleThickness = publicationGrid ? length('footnote-rule-thickness', .5) : undefined;
 const ruleToFirstBaseline = publicationGrid ? length('footnote-rule-to-baseline', 0) : 0;
 const noteStrutDepth = measuredGrid ? .3 * length('note-pitch', 0) : undefined;
@@ -180,6 +181,11 @@ function content(node, parents) {
         if (node.hasAttribute('data-latex-wide') || (segment.columns > 1 && node.matches('.latex-title-block:not([data-latex-in-column]),.latex-titlepage'))) {
             const previous = segment;
             begin(defaults);
+            // A spanning title contributes its insertions to the first text column.
+            if (previous.columns === 2 && !previous.pageNotes && node.querySelector('.footnote-ref a') &&
+                (node.matches('.latex-title-block') || node.querySelector('.latex-title-block'))) {
+                segment.titleNoteWidth = (width - previous.gap) / 2;
+            }
             append(node, parents);
             begin(previous);
             return;
@@ -259,6 +265,7 @@ function append(node, parents) {
 }
 begin(defaults);
 for (const node of nodes) command(node, []);
+const hasColumnTitleNotes = segments.some(seg => seg.titleNoteWidth);
 // Use the first reference's measure, even when numbers repeat in a later chapter.
 const notes = {};
 for (const seg of segments) {
@@ -271,7 +278,7 @@ for (const seg of segments) {
             seenNotes.add(id);
             a.dataset.flowNote = id;
             if (item.box) item.notes.push(id);
-            const box = strip(seg.pageNotes || item.wide ? width : (width - (seg.columns - 1) * seg.gap) / seg.columns);
+            const box = strip(seg.titleNoteWidth ?? (seg.pageNotes || item.wide ? width : (width - (seg.columns - 1) * seg.gap) / seg.columns));
             const section = document.createElement('section'), ol = document.createElement('ol');
             section.className = 'footnotes';
             section.append(ol); ol.append(li); box.append(section);
@@ -1332,7 +1339,7 @@ for (const seg of segments) {
         return [item];
     });
 }
-globalThis.surimonoFlow = {strips, origins, unit};
+globalThis.surimonoFlow = {strips, origins, unit, baseline};
 const probes = [];
 for (const a of body.querySelectorAll('[data-latex-page-target],[data-latex-probe],[data-flow-sample-place]')) {
     const box = a.closest('[data-flow-strip]');
@@ -1402,7 +1409,19 @@ if (review === 'textLines' || columnLines || proofLines) {
 // capture and measure their depth without inserting anything into the note.
 function noteSlice(box) {
     const part = whole(box);
-    if (!measuredGrid) return part;
+    if (!measuredGrid) {
+        if (hasColumnTitleNotes && box.querySelector('section.footnotes')) {
+            const last = box.querySelector('li > p:last-child') || box.querySelector('li');
+            const text = last?.querySelector(':scope > .latex-line:last-child') || last;
+            if (text) {
+                const marker = baselineProbe();
+                text.append(marker);
+                part.noteDepth = Math.max(0, (box.getBoundingClientRect().bottom - marker.getBoundingClientRect().bottom) * unit);
+                marker.remove();
+            }
+        }
+        return part;
+    }
     const walker = document.createTreeWalker(box, NodeFilter.SHOW_TEXT);
     if (ruleToFirstBaseline > 0) {
         let first = walker.nextNode();
@@ -1456,7 +1475,8 @@ const insertions = {
 const glueShrink = measuredGrid ? Object.fromEntries(Object.entries(insertions).map(([k,v]) => [k,v[1]])) : undefined;
 const glueStretch = flushBottom ? Object.fromEntries(Object.entries(insertions).map(([k,v]) => [k,v[0]])) : undefined;
 // Journal notes are ruled across the actual column, including after a stock change.
-const noteRuleWidth = publicationGrid ? (firstColumns ? (width - firstColumns.gap) / 2 : width) : requestedNoteRuleWidth;
+const noteRuleWidth = publicationGrid ? (firstColumns ? (width - firstColumns.gap) / 2 : width) :
+    requestedNoteRuleWidth ?? (hasColumnTitleNotes ? undefined : 180);
 return JSON.stringify({segments,notes,glueShrink,glueStretch,floatFractions,noteSkip,noteStrutDepth,noteRuleWidth,noteRuleThickness,textFloatSep,floatSep,inTextSep,probes,review,reviewLines,
     // The journal grids set both club and widow penalties to zero, including in two-column prose.
     allowsSingleLineFragments:publicationGrid || undefined,

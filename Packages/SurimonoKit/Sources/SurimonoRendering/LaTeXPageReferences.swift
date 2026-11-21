@@ -109,6 +109,28 @@ enum LaTeXPageReferences {
           if (!refs.has(target)) refs.set(target, []);
           refs.get(target).push(field);
         }
+        const citations = new Map(), backRefs = new Map();
+        if (document.body.hasAttribute('data-latex-page-backrefs')) {
+          let serial = 0;
+          for (const a of document.querySelectorAll('.latex-cite a[href^="#"]')) {
+            const entry = document.getElementById(a.getAttribute('href').slice(1));
+            if (!entry || entry.contains(a)) continue;
+            if (!a.id) {
+              let id;
+              do { id = 'surimono-citation-' + (++serial); } while (document.getElementById(id));
+              a.id = id;
+            }
+            if (!backRefs.has(entry)) {
+              const field = document.createElement('span');
+              (entry.querySelector(':scope > p:last-child') || entry).append(field);
+              backRefs.set(entry, {field, occurrences:[]});
+            }
+            const occurrence = {id:a.id};
+            backRefs.get(entry).occurrences.push(occurrence);
+            citations.set(a, occurrence);
+            if (!refs.has(a)) refs.set(a, []);
+          }
+        }
         const targets = [];
         const fields = [];
         // A page declaration between forced breaks has no height. Attach its probe to the next
@@ -172,6 +194,7 @@ enum LaTeXPageReferences {
           if (!refs.has(el) && !action && !classPlain) continue;
           if (el.matches('span[data-latex-page-action]')) el.style.position = 'absolute';
           const index = targets.length;
+          if (citations.has(el)) citations.get(el).index = index;
           fields.push(refs.get(el) || []);
           targets.push({action, value, referenced: refs.has(el), classPlain});
           if (!\(nativePrint) && !el.matches('span:empty')) {
@@ -193,7 +216,7 @@ enum LaTeXPageReferences {
           }
           attach(el, anchor);
         }
-        globalThis.surimonoTeXPages = {fields};
+        globalThis.surimonoTeXPages = {fields, backRefs};
         return JSON.stringify({targets, missing});
         """
     }
@@ -287,12 +310,15 @@ enum LaTeXPageReferences {
     }
 
     /// Labels contain only digits, alphabetic characters or roman numerals produced by the counter.
-    static func fill(_ values: [String: String], examScores: [ExamScore] = []) throws -> String {
+    static func fill(_ values: [String: String], physicalPages: [Int: Int] = [:], examScores: [ExamScore] = []) throws
+        -> String
+    {
         let scores = String(decoding: try JSONEncoder().encode(examScores), as: UTF8.self)
+        let pages = String(decoding: try JSONEncoder().encode(physicalPages), as: UTF8.self)
         let labels = String(decoding: try JSONEncoder().encode(values), as: UTF8.self)
         return """
             const labels = \(labels);
-            const scores = \(scores);
+            const scores = \(scores), pages = \(pages);
             // Question and part labels own their points on their physical page, even when a question spans pages.
             for (const table of document.querySelectorAll('table[data-exam-pages]')) {
               if (!scores.length) continue;
@@ -313,6 +339,24 @@ enum LaTeXPageReferences {
               }
               table.tBodies[0].replaceWith(body);
             }
+            let changedBackRefs = false;
+            for (const {field, occurrences} of surimonoTeXPages.backRefs.values()) {
+              const links = new Map();
+              for (const {id,index} of occurrences) {
+                const page = pages[index];
+                if (labels[index] && page != null && !links.has(page)) links.set(page, {label:labels[index], id});
+              }
+              const elements = [];
+              for (const page of [...links.keys()].sort((a,b) => a-b)) {
+                const {label,id} = links.get(page);
+                const a = document.createElement('a');
+                a.href = '#' + id; a.textContent = label; a.dataset.latexBackref = '';
+                elements.push(elements.length ? ', ' : ' ', a);
+              }
+              const before = field.textContent;
+              field.replaceChildren(...elements);
+              changedBackRefs ||= before !== field.textContent;
+            }
             const updates = surimonoTeXPages.fields.flatMap((fields, index) =>
               fields.map(field => ({field, label: labels[index] ?? '?'})));
             const metric = field => {
@@ -323,7 +367,7 @@ enum LaTeXPageReferences {
             const before = updates.map(({field}) => metric(field));
             for (const {field, label} of updates) field.textContent = label;
             // Inline references can wrap differently on paper. TOC columns reserve space for two digits.
-            return !scores.length && updates.every(({field}, i) => field.classList.contains('latex-page-label') &&
+            return !changedBackRefs && !scores.length && updates.every(({field}, i) => field.classList.contains('latex-page-label') &&
               metric(field) === before[i]) ? 'stable' : 'remeasure';
             """
     }
