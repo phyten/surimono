@@ -4,7 +4,7 @@ package struct LaTeXResolvedStyle: Equatable, Sendable {
     package enum Family: String, Sendable { case neurips, iclr, icml, cvpr, acl, aaai }
     package typealias Mode = LaTeXRecognition.Mode
     package enum Review: String, Codable, Sendable {
-        case textLines, ruler, leftRuler, blueColumnLines, grayColumnLines
+        case proofPageLines, textLines, ruler, leftRuler, blueColumnLines, grayColumnLines
     }
     enum DisplayFace: Sendable { case bold, smallCaps }
 

@@ -878,6 +878,7 @@ final class LaTeXReader {
             _ = optional()
             appendHTML("<br>")
         case "twocolumn", "onecolumn":
+            if name == "twocolumn" { document.hasAuthoredColumns = true }
             appendBlock(document.columnMarker(name == "twocolumn" ? 2 : 1))
             if name == "twocolumn", let title = optional() {
                 if document.classInfo.resolvedStyle?.usesAffiliationList == true {
@@ -1250,9 +1251,16 @@ final class LaTeXReader {
 
     private func readDocumentClass() {
         let start = index
-        let options = optional()
+        var options = optional()
         let name = argument()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? LaTeXClassID.article.rawValue
         document.classInfo = LaTeXDocumentClassInfo(name: name, options: options)
+        document.classOffersComposition =
+            document.classInfo.profile.structure.offersCompositionChoice
+            && document.classInfo.columns == 1 && !Self.packageOptions(options ?? "").contains("twocolumn")
+        if document.classOffersComposition && document.requestedComposition == .twoColumn {
+            options = [options, "twocolumn"].compactMap { $0 }.joined(separator: ",")
+            document.classInfo = LaTeXDocumentClassInfo(name: name, options: options)
+        }
         document.classInfo.classDeclaration = declaration("documentclass", argumentsFrom: start)
         if document.classInfo.profile.body.usesSloppyLineBreaking { document.lineParameters.setSloppy(true) }
         document.classInfo.journalStyle?.defineCounters(in: document)
@@ -2174,7 +2182,9 @@ final class LaTeXReader {
             document.insideSubfigure = previous
         case "strip":
             appendBlock("<div data-latex-wide>\(blocks(body))</div>\n")
-        case "multicols": appendColumns(name, body: body)
+        case "multicols":
+            document.hasAuthoredColumns = true
+            appendColumns(name, body: body)
         case "tcolorbox", "mdframed", "framed", "shaded":
             let reader = LaTeXReader(body, document: document, isBlock: false)
             let options = reader.optional()

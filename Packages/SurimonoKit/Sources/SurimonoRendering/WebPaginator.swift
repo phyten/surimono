@@ -153,6 +153,11 @@ public final class WebPaginator: NSObject {
         ).document
     }
 
+    public struct HTMLComposition: Sendable {
+        var versoShift: CGFloat
+        var rightBound: Bool
+    }
+
     /// Returns the preparation script's string result together with the PDF made from that same DOM.
     /// - Parameters:
     ///   - readsPageRules: Whether to read the document's `@page` rules into the result.
@@ -163,7 +168,7 @@ public final class WebPaginator: NSObject {
         printsBackgrounds: Bool = true, preparationScript: String? = nil, readsPageRules: Bool = false,
         drawsBackground: Bool = true, rendersMermaid: Bool = false, rendersDiagrams: Bool = false,
         collectsDiagrams: Bool = false, exportHTMLTitle: String? = nil, richText: Bool = false,
-        richTextTypeface: Typeface = .style,
+        richTextTypeface: Typeface = .style, htmlComposition: HTMLComposition? = nil,
         latexPageNumbers: LaTeXPageNumbers? = nil, restartsAfterTitle: Bool = false,
         composesLaTeXParagraphs: Bool = false, latexFlow: Bool = false, latexMarginInk: Bool = false,
         checksVerticalLaTeXInk: Bool = false,
@@ -172,12 +177,14 @@ public final class WebPaginator: NSObject {
         let bytes: Int
         var nativeLaTeXBreaks = false
         var composesLatin = false
+        var requiresProofLines = false
         latinLineRoute = nil
         latinLinePasses.removeAll()
         latinLineDiagnostics = nil
         switch source {
         case .html(let html, _), .snapshot(let html, _), .sandboxed(.some(let html), _):
             bytes = html.utf8.count
+            requiresProofLines = latexFlow && html.contains(" data-latex-review=\"proofPageLines\"")
             composesLatin =
                 (composesLaTeXParagraphs || latexFlow) && flow == .horizontal && !allowsJavaScript
                 && html.contains(" data-latex-line-breaking=\"")
@@ -261,6 +268,15 @@ public final class WebPaginator: NSObject {
         try Task.checkCancellation()
         if let exportHTMLTitle {
             let adjusted = try await Self.useHorizontalRootForOutput(in: session.webView, timeout: timeout)
+            if let htmlComposition {
+                if composesLatin {
+                    try await LaTeXFlowPaginator.installLatinLines(in: session.webView, until: .now + timeout)
+                }
+                _ = try await LaTeXFlowPaginator.paginate(
+                    in: session.webView, pageSize: pageSize, margins: margins, timeout: printTimeout,
+                    htmlComposition: htmlComposition)
+                try await Self.waitForResources(in: session.webView, timeout: timeout)
+            }
             if richText { try await RichTextGraphics.replace(in: session.webView) }
             let imageURLs =
                 try await session.webView.callAsyncJavaScript(
@@ -291,7 +307,7 @@ public final class WebPaginator: NSObject {
                     arguments: [
                         "title": exportHTMLTitle, "embeddedImages": images, "richText": richText,
                         "systemFonts": richText ? RichTextExport.systemFonts + bundledFonts : [],
-                        "copiesTypeface": copiesTypeface,
+                        "copiesTypeface": copiesTypeface, "composedHTML": htmlComposition != nil,
                         "pasteCSS": RichTextExport.styleSheet + (copiesTypeface ? "\n" + ThemeFonts.textFaces : ""),
                     ],
                     in: nil,
@@ -526,7 +542,7 @@ public final class WebPaginator: NSObject {
 
         func retrySingleColumn(after error: any Error, usedFlow: Bool) async throws -> Result {
             try Task.checkCancellation()
-            if error is CancellationError { throw error }
+            if error is CancellationError || requiresProofLines || htmlComposition != nil { throw error }
             let lostReferences = error is LaTeXPageReferences.MeasurementFailed
             guard usedFlow || lostReferences else { throw error }
             // Discard this DOM even after a timeout: a late WebKit callback may still hold its measurement tree.

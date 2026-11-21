@@ -252,7 +252,9 @@ public struct PrintLayout: Codable, Hashable, Sendable, Identifiable {
 
     // Handout margins surround the sheet, not each of its already inset logical pages.
     public func logicalMargins(options: PrintOptions) -> PageMargins {
-        kind == .handout3 ? .zero : options.margins
+        var margins = kind == .handout3 ? PageMargins.zero : options.margins
+        margins.right += options.proofNotesMargin
+        return margins
     }
 
     /// Whether the sheets are turned like the pages of a book, which is what gives a page a left or right hand.
@@ -443,6 +445,7 @@ public struct PrintOptions: Codable, Equatable, Sendable {
     public var mirrorsMargins: Bool
     /// Resolved for a render only. A two-sided source alternates text boxes even when sent to a simplex printer.
     package var mirrorsDocumentPages = false
+    package var proofNotesMargin = 0.0
     package var versoOffset = 0.0
     public var latexMargins: LaTeXPageMode?
     public var latexFurniture: LaTeXPageMode?

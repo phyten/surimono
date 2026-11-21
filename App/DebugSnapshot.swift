@@ -355,6 +355,9 @@
         }
 
         static func configure(_ model: DocumentViewModel) {
+            if let choice = argument("SurimonoComposition").flatMap(LaTeXComposition.init(rawValue:)) {
+                model.snapshotComposition = choice
+            }
             // snapshot-capability: reading-typeface. Export finishes before the post-layout window overrides.
             if argument("SurimonoExport") == "reading",
                 let face = argument("SurimonoTypeface").flatMap(Typeface.init(rawValue:))

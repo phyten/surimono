@@ -157,7 +157,10 @@ struct BandPlans {
         for item in applicable {
             widths[item] = BandLayout.Widths(
                 full: measured[.item(item, .full)] ?? 0,
-                compact: item.hasCompactForm(for: model) ? measured[.item(item, .compact)] ?? 0 : nil)
+                compact: item.hasCompactForm(for: model) ? measured[.item(item, .compact)] ?? 0 : nil,
+                withoutSuffix: item == .formatBadge && model.offersLaTeXComposition
+                    && model.latexComposition != .document
+                    ? measured[.item(item, .withoutSuffix)] : nil)
         }
         let lights = OverlayBand.lights(model: model, menu: menu)
         // Separator cost includes the line and its following gap; the plan adds the preceding gap only when drawn.
@@ -288,6 +291,19 @@ struct BandPresentationHost: View {
                             .lineLimit(2)
                             .truncationMode(.middle)
                         Text("Line and page breaks may differ from LaTeX output.")
+                        if model.offersLaTeXComposition {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(verbatim: PrintModeText.string("LaTeX Layout", language: model.language))
+                                    .font(.caption)
+                                LaTeXCompositionPicker(model: model)
+                                    .pickerStyle(.segmented)
+                                    .labelsHidden()
+                                Text(
+                                    verbatim: PrintModeText.string(
+                                        model.latexComposition.detailKey, language: model.language))
+                            }
+                            .padding(.top, 6)
+                        }
                     }
                     .font(.callout)
                     .frame(width: 440, alignment: .leading)

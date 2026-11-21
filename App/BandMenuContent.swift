@@ -7,7 +7,7 @@ struct BandMenuContent {
         case outline, thumbnails, previousPage, nextPage, documentInfo
         case presentation, layout, transition, zoom
         case readingDirection, scrollDirection, cover, selectText
-        case textFormat, style, paperOrientation, paperSeries, margins, ignoreSlides
+        case textFormat, composition, style, paperOrientation, paperSeries, margins, ignoreSlides
         case floatOnTop, showOnAllSpaces, alwaysShowToolbar, viewOptions
         case printSettings, beforePrinting, print, saveAsFile
         case keysAndGestures
@@ -21,7 +21,7 @@ struct BandMenuContent {
             case .navigation: [.outline, .thumbnails, .previousPage, .nextPage, .documentInfo]
             case .display: [.presentation, .layout, .transition, .zoom]
             case .reading: [.readingDirection, .scrollDirection, .cover, .selectText]
-            case .paper: [.textFormat, .style, .paperOrientation, .paperSeries, .margins, .ignoreSlides]
+            case .paper: [.textFormat, .style, .composition, .paperOrientation, .paperSeries, .margins, .ignoreSlides]
             case .window: [.floatOnTop, .showOnAllSpaces, .alwaysShowToolbar, .viewOptions]
             case .output: [.printSettings, .beforePrinting, .print, .saveAsFile]
             case .help: [.keysAndGestures]
@@ -117,6 +117,7 @@ struct BandMenuContent {
         case .layout: return parts.contains(.layout)
         case .transition: return parts.contains(.transition)
         case .zoom: return parts.contains(.zoom)
+        case .composition: return model.offersLaTeXComposition
         case .textFormat: return model.textKind != nil
         case .style: return parts.contains(.style)
         case .readingDirection: return parts.contains(.readingDirection)
@@ -175,6 +176,7 @@ struct BandMenuContent {
         case .selectText:
             title = String(localized: "Select Text")
             checked = model.isSelectingText
+        case .composition: title = PrintModeText.string("LaTeX Layout", language: model.language)
         case .textFormat:
             title = String(localized: "Format")
             value = ClipboardFormatText.value(kind: model.textKind ?? .plainText, origin: model.textFormatOrigin)
@@ -221,7 +223,8 @@ struct BandMenuContent {
         guard isApplicable(id), entry(id).isEnabled, entry(id).isChecked != checked else { return }
         switch id {
         case .outline, .previousPage, .nextPage, .documentInfo, .presentation, .layout, .transition, .zoom,
-            .readingDirection, .scrollDirection, .textFormat, .style, .paperOrientation, .paperSeries, .margins,
+            .readingDirection, .scrollDirection, .textFormat, .composition, .style, .paperOrientation, .paperSeries,
+            .margins,
             .viewOptions, .printSettings, .beforePrinting, .print, .saveAsFile, .keysAndGestures:
             return
         case .thumbnails: model.isDrawerOpen = checked
@@ -260,7 +263,7 @@ struct BandMenuContent {
         case .saveAsFile: model.saveAsFile()
         case .keysAndGestures: KeyGuideWindow.shared.show()
         case .presentation, .layout, .transition, .readingDirection, .scrollDirection,
-            .textFormat, .style, .paperOrientation, .paperSeries, .margins:
+            .textFormat, .composition, .style, .paperOrientation, .paperSeries, .margins:
             break
         }
     }
@@ -336,6 +339,8 @@ private struct BandMenuItem: View {
             BandDisplayMenuChoice(model: model, entry: entry)
         case .readingDirection, .scrollDirection, .paperOrientation, .paperSeries:
             BandReadingMenuChoice(model: model, entry: entry)
+        case .composition:
+            Menu(entry.title) { LaTeXCompositionPicker(model: model).pickerStyle(.inline).labelsHidden() }
         case .margins: MarginMenu(model: model, unit: .current)
         case .textFormat:
             Menu {

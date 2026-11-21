@@ -19,22 +19,46 @@ public enum HTMLExporter {
     private static func prepared(
         source: DocumentSource, settings: RenderSettings, title: String, richText: Bool
     ) async throws -> (html: String, figures: [RichTextFigure]) {
-        guard
-            let fragment = try await Task.detached(
-                priority: .utility,
-                operation: {
-                    try DocumentRenderer.themedFragment(
-                        source, pageBreakLine: settings.finish.breaks.customLine,
-                        proof: settings.finish.proof, textWidthPoints: settings.textWidthPoints(in: settings.layout))
-                }
-            ).value
-        else { throw DocumentRenderer.RenderingError.unsupportedFormat }
+        let renderer = DocumentRenderer()
+        var candidate = settings
+        if source.format == .latex, settings.theme.formats == [.latex], settings.latexComposition != .document {
+            let info = renderer.latexClassInfo(for: source, composition: settings.latexComposition)
+            let landscape =
+                settings.paperOrientation == .auto
+                ? info.pageBox.paperWidth > info.pageBox.paperHeight : settings.paperOrientation == .landscape
+            candidate.layout = settings.layout.oriented(settings.layout.kind != .booklet && landscape)
+            candidate.applyLaTeXPage(info)
+        } else {
+            candidate.latexComposition = .document
+        }
+        func convert(_ input: RenderSettings) async throws -> HTMLFragment {
+            guard
+                let fragment = try await Task.detached(
+                    priority: .utility,
+                    operation: {
+                        try DocumentRenderer.themedFragment(
+                            source, pageBreakLine: input.finish.breaks.customLine, proof: input.finish.proof,
+                            composition: input.latexComposition,
+                            textWidthPoints: input.textWidthPoints(in: input.layout))
+                    }
+                ).value
+            else { throw DocumentRenderer.RenderingError.unsupportedFormat }
+            return fragment
+        }
+        var fragment = try await convert(candidate)
+        if candidate.latexComposition != .document && fragment.latexClass?.composition == .document {
+            // An included body may have its own columns. Restore the same widths as the ordinary export.
+            candidate = settings
+            candidate.latexComposition = .document
+            fragment = try await convert(candidate)
+        }
+        let settings = candidate
         let body = HTMLFragment(
             body: settings.finish.links.apply(to: fragment.body, language: settings.pageLanguage),
             title: fragment.title, language: fragment.language, latexClass: fragment.latexClass)
         let directory = source.fileURL?.deletingLastPathComponent()
         let html = try await DocumentRenderer.builtHTML(body, source: source, settings: settings, separatesPaper: false)
-        let input = DocumentRenderer().exportSource(
+        let input = renderer.exportSource(
             .html(html, baseURL: directory ?? FileManager.default.temporaryDirectory),
             for: source)
         let size = settings.layout.logicalPageSize(options: settings.options)
@@ -52,13 +76,17 @@ public enum HTMLExporter {
                     ? (size.height - margins.top - margins.bottom) * WebPaginator.printPixelsPerPoint : nil)
             : nil
         let preparation = [graphic, code, settings.theme.script].compactMap { $0 }.joined(separator: "\n")
+        let composedHTML = !richText && (fragment.latexClass?.composition ?? .document) != .document
+        let shift = settings.mirrorsLaidOutPages ? settings.layout.versoContentShift(options: settings.options) : 0
         let result = try await WebPaginator().paginateWithResult(
             input, pageSize: size, margins: margins,
             allowsJavaScript: false, preparationScript: preparation, rendersMermaid: true, rendersDiagrams: true,
             exportHTMLTitle: title, richText: richText,
             richTextTypeface: Typeface.isAvailable(
                 themeID: settings.theme.id, usesPrintTheme: source.format.usesPrintTheme)
-                ? settings.typeface : .style)
+                ? settings.typeface : .style,
+            htmlComposition: composedHTML ? .init(versoShift: shift, rightBound: settings.layout.isRightBound) : nil,
+            composesLaTeXParagraphs: composedHTML)
         guard let exported = result.exportedHTML else { throw WebPaginator.PaginationError.emptyDocument }
         return (exported, result.richTextFigures)
     }
@@ -104,6 +132,8 @@ public enum HTMLExporter {
         const latexBody = copy.querySelector('body.format-latex');
         for (const el of [copy, ...copy.querySelectorAll('*')]) {
           for (const attr of Array.from(el.attributes)) {
+            if (composedHTML && /^data-latex-(size|class|chapters|title-layout|js-toc|js-chapters|js-twocolumn|heading|float|column|placement|caption-style|caption-hang|tabularx|rule-line|breakable|undotted|text-size)$/.test(attr.name) &&
+                /^[a-zA-Z0-9 *._-]{0,50}$/.test(attr.value)) continue;
             if (el === latexBody && ((attr.name === 'data-latex-size' && /^(10|11|12)$/.test(attr.value)) ||
                 (attr.name === 'data-latex-chapters' && /^(true|false)$/.test(attr.value)))) continue;
             if (/^on/i.test(attr.name) || /^(javascript|vbscript):/i.test(attr.value.trim()) || (attr.name.startsWith('data-') && !['data-deco','data-no','data-code-label','data-syntax','data-callout'].includes(attr.name)) ||

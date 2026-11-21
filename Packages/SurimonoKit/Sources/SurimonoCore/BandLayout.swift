@@ -63,7 +63,7 @@ public enum BandLayout {
     }
 
     public enum Form: Equatable, Sendable {
-        case full
+        case full, withoutSuffix
         /// The icon without its label.
         case compact
     }
@@ -71,10 +71,12 @@ public enum BandLayout {
     /// The measured widths of one item, each including the spacing the item adds to the band.
     public struct Widths: Equatable, Sendable {
         public var full: CGFloat
+        public var withoutSuffix: CGFloat?
         public var compact: CGFloat?
 
-        public init(full: CGFloat, compact: CGFloat? = nil) {
+        public init(full: CGFloat, compact: CGFloat? = nil, withoutSuffix: CGFloat? = nil) {
             self.full = full
+            self.withoutSuffix = withoutSuffix
             self.compact = compact
         }
     }
@@ -142,7 +144,11 @@ public enum BandLayout {
         // Catalog order also makes floating-point addition deterministic across dictionary hash seeds.
         Item.allCases.reduce(0) { total, item in
             guard let form = forms[item], let width = widths[item] else { return total }
-            return total + (form == .compact ? width.compact ?? width.full : width.full)
+            switch form {
+            case .full: return total + width.full
+            case .withoutSuffix: return total + (width.withoutSuffix ?? width.full)
+            case .compact: return total + (width.compact ?? width.full)
+            }
         }
     }
 
@@ -161,7 +167,11 @@ public enum BandLayout {
         for step in steps where required() > available {
             switch step {
             case .compact(let item):
-                if forms[item] == .full, widths[item]?.compact != nil { forms[item] = .compact }
+                if forms[item] == .full, widths[item]?.withoutSuffix != nil {
+                    forms[item] = .withoutSuffix
+                    if required() <= available { continue }
+                }
+                if forms[item] != nil, widths[item]?.compact != nil { forms[item] = .compact }
             case .remove(let item):
                 if forms.removeValue(forKey: item) != nil { removed.insert(item) }
             }

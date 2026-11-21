@@ -205,7 +205,8 @@ enum LaTeXFlowPaginator {
 
     static func paginate(
         in view: WKWebView, pageSize: CGSize, margins: WebPaginator.Margins, timeout: Duration,
-        referencesOnly: Bool = false, sample: Bool = false, scriptTimeout: Duration? = nil, evaluator: Evaluator? = nil
+        referencesOnly: Bool = false, htmlComposition: WebPaginator.HTMLComposition? = nil, sample: Bool = false,
+        scriptTimeout: Duration? = nil, evaluator: Evaluator? = nil
     ) async throws -> Pass {
         guard PDFDrawing.validGeometry(pageSize: pageSize, margins: margins) else {
             throw WebPaginator.PaginationError.printFailed
@@ -238,6 +239,26 @@ enum LaTeXFlowPaginator {
             throw WebPaginator.PaginationError.printFailed
         }
         let (pages, locations, review) = try await plan(json, width: width, height: height, until: deadline)
+        if let htmlComposition {
+            let rows: [[String: Any]] = try pages.map { page in
+                [
+                    "pieces": try JSONSerialization.jsonObject(with: JSONEncoder().encode(page.pieces)),
+                    "rules": page.rules.map { [$0.minX, $0.minY, $0.width, $0.height] },
+                    "lines": review?.proofBaselines(in: page.pieces).map { $0 * ratio } ?? [],
+                ]
+            }
+            let result = try await run(
+                script("latex-flow-html"),
+                [
+                    "versoShift": htmlComposition.versoShift * ratio, "rightBound": htmlComposition.rightBound,
+                    "pages": rows, "ratio": ratio, "mm": 72 / 25.4 * ratio,
+                    "left": margins.left * ratio, "topMargin": margins.top * ratio,
+                    "paperWidth": pageSize.width * ratio, "paperHeight": pageSize.height * ratio,
+                    "pageWidthPT": pageSize.width, "pageHeightPT": pageSize.height,
+                ])
+            guard result as? Bool == true else { throw WebPaginator.PaginationError.printFailed }
+            return Pass(pageCount: pages.count, locations: locations)
+        }
         if referencesOnly {
             _ = try await run("surimonoRestoreFlow()")
             return Pass(

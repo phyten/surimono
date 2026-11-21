@@ -1,5 +1,11 @@
 import Foundation
 
+public enum LaTeXComposition: String, CaseIterable, Codable, Sendable {
+    case document, twoColumn, proof
+
+    package static let notesMarginMM = 40.0
+}
+
 public enum LaTeXRecognition: Equatable, Sendable {
     public enum Mode: String, Sendable { case submission, final, preprint, rebuttal, draft }
 
@@ -26,6 +32,8 @@ public enum LaTeXRecognition: Equatable, Sendable {
 public struct LaTeXDocumentClassInfo: Sendable, Equatable {
     package let profile: LaTeXClassProfile
     package var resolvedStyle: LaTeXResolvedStyle?
+    public internal(set) var offersCompositionChoice = false
+    public internal(set) var composition = LaTeXComposition.document
     var classDeclaration: String?
     var styleDeclaration: String?
 
@@ -104,7 +112,8 @@ public struct LaTeXDocumentClassInfo: Sendable, Equatable {
 
     // Equality describes the current typesetting state. Later commands can erase differences between class options.
     public static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.resolvedStyle == rhs.resolvedStyle && lhs.profile.structure.bookOpening == rhs.profile.structure.bookOpening
+        (lhs.composition == .proof) == (rhs.composition == .proof) && lhs.resolvedStyle == rhs.resolvedStyle
+            && lhs.profile.structure.bookOpening == rhs.profile.structure.bookOpening
             && lhs.initialLineParameters == rhs.initialLineParameters
             && lhs.profile.headings.endDots == rhs.profile.headings.endDots
             && lhs.raggedColumns == rhs.raggedColumns && lhs.name == rhs.name && lhs.isJapanese == rhs.isJapanese
@@ -127,11 +136,13 @@ extension LaTeXConverter {
     /// Read the preamble, including language options following the class declaration. Reuse the reader's handling of comments, definitions,
     /// and untaken branches so a quoted example of a Japanese class cannot select that style for an article.
     public static func documentClassInfo(
-        _ text: String, fontIndex: InstalledFontIndex = .system, documentURL: URL? = nil,
+        _ text: String, composition: LaTeXComposition = .document, fontIndex: InstalledFontIndex = .system,
+        documentURL: URL? = nil,
         readFile: @escaping (URL) -> Data? = { _ in nil },
         fileIdentity: @escaping (URL) -> URL = { $0.standardizedFileURL }
     ) -> LaTeXDocumentClassInfo {
         let document = LaTeXDocument(fontIndex: fontIndex)
+        document.requestedComposition = composition
         if documentURL != nil || text.contains("\\") {
             document.mainURL = documentURL
             document.directory = documentURL?.deletingLastPathComponent()

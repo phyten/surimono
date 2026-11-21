@@ -38,6 +38,22 @@ struct HTMLExporterTests {
         #expect(!html.contains("max-width:52rem"))
     }
 
+    @Test(
+        "組み方を選んだHTMLも紙面を分け、校正の行番号は各紙面で一から振る", .timeLimit(.minutes(1)), arguments: [LaTeXComposition.twoColumn, .proof])
+    func compositionPages(choice: LaTeXComposition) async throws {
+        let tex = #"\documentclass{article}\begin{document}Alpha.\clearpage Bravo.\end{document}"#
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
+        var settings = RenderSettings(layout: .a4Single, theme: theme, preset: .init(id: "none", name: ""))
+        settings.latexComposition = choice
+        let html = try await HTMLExporter.html(
+            source: DocumentSource(data: Data(tex.utf8), format: .latex), settings: settings, title: "Example")
+        #expect(html.components(separatedBy: #"class="latex-export-page""#).count - 1 == 2)
+        #expect(html.components(separatedBy: "Alpha.").count == 2)
+        #expect(html.components(separatedBy: "Bravo.").count == 2)
+        #expect(html.components(separatedBy: #"data-no="1""#).count - 1 == (choice == .proof ? 2 : 0))
+        #expect(!html.contains("<script"))
+    }
+
     @Test("HTMLはローカル画像と図と数式を埋め込みスクリプトとパスを残さない", .timeLimit(.minutes(1)))
     func preparedDocument() async throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

@@ -128,6 +128,18 @@ final class DocumentViewModel {
     var codePaletteID: String
     var codeBlock = CodeBlockOptions()
     private(set) var typeface: Typeface
+    private var savedComposition = LaTeXComposition.document {
+        didSet { if oldValue != savedComposition { renderer.clearCache() } }
+    }
+    #if DEBUG
+        var snapshotComposition: LaTeXComposition?
+    #endif
+    var latexComposition: LaTeXComposition {
+        #if DEBUG
+            if let snapshotComposition { return snapshotComposition }
+        #endif
+        return savedComposition
+    }
     private(set) var textScale: Double
     var presetID: String
     var printOptions: PrintOptions
@@ -613,9 +625,22 @@ final class DocumentViewModel {
         return LaTeXBadgeText(recognition, language: language)
     }
 
-    var formatBadge: String {
-        guard let latexBadge else { return shortFormatBadge }
-        return shortFormatBadge + " · " + latexBadge.label
+    var offersLaTeXComposition: Bool { latexBadge != nil && result?.facts?.offersLaTeXComposition == true }
+
+    func selectComposition(_ choice: LaTeXComposition) {
+        guard offersLaTeXComposition else { return }
+        savedComposition = choice
+    }
+
+    var formatBadge: String { formatBadge(in: .full) }
+
+    func formatBadge(in form: BandLayout.Form) -> String {
+        guard form != .compact, let latexBadge else { return shortFormatBadge }
+        var text = shortFormatBadge + " · " + latexBadge.label
+        if form == .full, offersLaTeXComposition, let key = latexComposition.suffixKey {
+            text += " · " + PrintModeText.string(key, language: language)
+        }
+        return text
     }
 
     /// "MD", "PDF", "ZIP"…; "IMG" for a bundle of image files.
@@ -723,6 +748,9 @@ final class DocumentViewModel {
             }, markdownChanges: mode == .view ? markdownChanges : [])
         if !settings.markdownChanges.isEmpty, let hex = preferences.changeTextHex {
             settings.changeTextHex = hex
+        }
+        if format == .latex, binder == nil, textKind == nil, theme.formats == [.latex] {
+            settings.latexComposition = latexComposition
         }
         settings.binderStartsOnFront = binder != nil && binderStartsOnFront && settings.layout.hasFacingPages
         if finishAppliesToText { settings.finish = printFinish }
@@ -2509,7 +2537,8 @@ final class DocumentViewModel {
             codeBlock: usesPrintTheme && codeBlock != CodeBlockOptions() ? codeBlock : nil,
             bandVisibility: bandVisibility == defaultBandVisibility ? nil : bandVisibility,
             notes: offersNotes && notes != NotePages() ? notes : nil, bookletBinding: bookletBinding,
-            pageRange: pageRange.isAll ? nil : pageRange, bookmarks: bookmarks.isEmpty ? nil : bookmarks)
+            pageRange: pageRange.isAll ? nil : pageRange, bookmarks: bookmarks.isEmpty ? nil : bookmarks,
+            latexComposition: format == .latex && savedComposition != .document ? savedComposition : nil)
     }
 
     var currentPrintSettingSet: PrintSettingSet {
@@ -2823,6 +2852,7 @@ final class DocumentViewModel {
         binderStartsOnFront = saved.binderStartsOnFront ?? false
         bandVisibility = saved.bandVisibility ?? defaultBandVisibility
         if let order = saved.binderOrder { binder?.applyOrder(order) }
+        savedComposition = saved.latexComposition ?? .document
         setTypeface(saved.typeface ?? .style)
         if let scale = saved.textScale { setTextScale(scale) }
         if let view = saved.view {
@@ -3038,6 +3068,7 @@ final class DocumentViewModel {
         defaultPaperOrientation = preferences.defaultPaperOrientation
         defaultBandVisibility = preferences.defaultBandVisibility
         bandVisibility = defaultBandVisibility
+        savedComposition = .document
         typeface = usesPrintTheme ? defaultTypeface : .style
         textScale = usesPrintTheme ? defaultTextScale : 1
         paperOrientation = defaultPaperOrientation

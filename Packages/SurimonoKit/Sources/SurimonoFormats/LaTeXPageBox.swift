@@ -5,7 +5,7 @@ public struct LaTeXPageBox: Equatable, Sendable {
     public let paperWidth: Double
     public let paperHeight: Double
     public let left: Double
-    public let right: Double
+    public package(set) var right: Double
     public let top: Double
     public let bottom: Double
     public let headSep: Double
