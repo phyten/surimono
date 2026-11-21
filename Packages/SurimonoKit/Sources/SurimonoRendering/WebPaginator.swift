@@ -79,6 +79,13 @@ public final class WebPaginator: NSObject {
     /// Upper bound for the print step, which normally finishes in well under a second.
     var printTimeout: Duration?
     var flowEvaluator: LaTeXFlowPaginator.Evaluator?
+    // Test clients opt into paragraph text only when comparing the corpus or checking PDF output.
+    var collectsLatinLineDiagnostics = false
+    var collectsLatinBoxDiagnostics = false
+    private(set) var latinLineRoute: String?
+    private(set) var latinLinePasses: [String] = []
+    private(set) var latinLineDiagnostics: String?
+
     /// Sessions whose web view and temporary files have not been released yet (observed by tests).
     private(set) var openSessionCount = 0
     /// Number of print operations started (observed by tests).
@@ -158,14 +165,22 @@ public final class WebPaginator: NSObject {
         collectsDiagrams: Bool = false, exportHTMLTitle: String? = nil, richText: Bool = false,
         richTextTypeface: Typeface = .style,
         latexPageNumbers: LaTeXPageNumbers? = nil, restartsAfterTitle: Bool = false,
-        latexFlow: Bool = false, latexMarginInk: Bool = false, checksVerticalLaTeXInk: Bool = false,
+        composesLaTeXParagraphs: Bool = false, latexFlow: Bool = false, latexMarginInk: Bool = false,
+        checksVerticalLaTeXInk: Bool = false,
         flow: PrintFlow = .horizontal, timeout: Duration? = nil
     ) async throws -> Result {
         let bytes: Int
         var nativeLaTeXBreaks = false
+        var composesLatin = false
+        latinLineRoute = nil
+        latinLinePasses.removeAll()
+        latinLineDiagnostics = nil
         switch source {
         case .html(let html, _), .snapshot(let html, _), .sandboxed(.some(let html), _):
             bytes = html.utf8.count
+            composesLatin =
+                (composesLaTeXParagraphs || latexFlow) && flow == .horizontal && !allowsJavaScript
+                && html.contains(" data-latex-line-breaking=\"")
             nativeLaTeXBreaks = !latexFlow && html.contains("class=\"latex-pagebreak\"")
         case .file(let url, _): bytes = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
         case .sandboxed(nil, let access):
@@ -313,15 +328,45 @@ public final class WebPaginator: NSObject {
             mayDrawBelowPaper = true
         }
         didCheckPageRules?(mayDrawBelowPaper)
+        if composesLatin {
+            try await LaTeXFlowPaginator.installLatinLines(
+                in: session.webView, diagnostics: collectsLatinLineDiagnostics, boxes: collectsLatinBoxDiagnostics,
+                until: .now + timeout)
+        }
         var capturesLaTeXFlow = latexFlow
         // Page references, their reflow, and the final capture share one print budget.
         let layoutDeadline = ContinuousClock.now + printTimeout
         func remaining() -> Duration { ContinuousClock.now.duration(to: layoutDeadline) }
+        func recordLines(final: Bool) async throws {
+            guard collectsLatinLineDiagnostics else { return }
+            let route = capturesLaTeXFlow ? "flow" : "native"
+            latinLineRoute = route
+            guard composesLatin else { return }
+            let script = """
+                const report = globalThis.surimonoLatinLast;
+                if (!report) return null;
+                return JSON.stringify({...report, route:'\(route)', final:\(final)});
+                """
+            guard let record = try await runPreparationScript(script, in: session.webView, timeout: timeout) else {
+                throw PaginationError.printFailed
+            }
+            latinLinePasses.append(record)
+            if final { latinLineDiagnostics = record }
+        }
         func pageDataForPass() async throws -> Data {
             guard capturesLaTeXFlow else {
-                return try await session.printToPDF(
+                if composesLatin {
+                    let width = (pageSize.width - margins.left - margins.right) * Self.printPixelsPerPoint
+                    try await LaTeXFlowPaginator.prepareNativeLines(
+                        in: session.webView, width: width, until: layoutDeadline)
+                }
+                let data = try await session.printToPDF(
                     checkingBelowPaper: mayDrawBelowPaper, latexMarginInk: latexMarginInk,
                     deadline: latexPageNumbers == nil ? nil : layoutDeadline)
+                if composesLatin {
+                    _ = try await session.webView.evaluateForPrinting("surimonoRestoreLatin()", until: layoutDeadline)
+                }
+                return data
             }
             let pass = try await LaTeXFlowPaginator.paginate(
                 in: session.webView, pageSize: pageSize, margins: margins, timeout: remaining(),
@@ -398,6 +443,7 @@ public final class WebPaginator: NSObject {
                                     in: measured, token: token, count: targets.count)
                                 count = measured.pageCount
                             }
+                            try await recordLines(final: false)
                             incompleteReferences =
                                 installation.missing != 0 || targets.indices.contains { locations[$0] == nil }
                             let map = LaTeXPageReferences.map(
@@ -428,6 +474,7 @@ public final class WebPaginator: NSObject {
                 }
             }
             let pageData = try await pageDataForPass()
+            try await recordLines(final: true)
             guard let document = PDFDocument(data: pageData) else { throw PaginationError.emptyDocument }
             if session.localHandler != nil { LocalResourceSchemeHandler.restoreFileLinks(in: document) }
             var result = Result(
@@ -494,7 +541,8 @@ public final class WebPaginator: NSObject {
                 readsPageRules: readsPageRules, drawsBackground: drawsBackground, rendersMermaid: rendersMermaid,
                 rendersDiagrams: rendersDiagrams, collectsDiagrams: collectsDiagrams,
                 latexPageNumbers: lostReferences ? nil : latexPageNumbers,
-                restartsAfterTitle: restartsAfterTitle, latexMarginInk: latexMarginInk, timeout: timeout)
+                restartsAfterTitle: restartsAfterTitle, composesLaTeXParagraphs: composesLatin,
+                latexMarginInk: latexMarginInk, timeout: timeout)
             if lostReferences { fallback.issues.append(.unresolvedLaTeXPages) }
             if usedFlow {
                 fallback.issues.append(

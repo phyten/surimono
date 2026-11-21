@@ -18,8 +18,8 @@ Paper models of railways need many small parts of exact height. Rails, platform 
 bases all sit on spacers, and a spacer that is too thick by a fraction of a millimetre lifts a rail joint
 enough to derail a light wagon. Most builders cut spacers from card and fold them until they reach
 the height they want (Model Rail Desk, 2025). Folding is quick and needs no tools, but the height
-of a folded spacer is not simply the sum of the card thicknesses: each crease adds a small
-allowance, and the allowance depends on the card and on how firmly the crease is pressed.
+of a folded spacer is not simply the sum of the card thicknesses: each crease adds a small allowance,
+and the allowance depends on the card and on how firmly the crease is pressed.
 This note reports a bench trial of folded spacers. Our aims were:
 •
 to measure the height of spacers with two to six layers in one fixed slot;
@@ -28,8 +28,8 @@ to compare the measurements with a layer model that adds a crease allowance; and
 •
 to give simple rules for choosing a card stock for a target height.
 Section 2 describes the slot and the procedure, Section 3 reports the measurements, and Section 4
-summarises the rules. Earlier notes on layered card (Card Stock Bench and Model Rail Desk,
-2024) and on gauge blocks (Scale Fixture Room, 2023) motivated the layer model used here.1
+summarises the rules. Earlier notes on layered card (Card Stock Bench and Model Rail Desk, 2024)
+and on gauge blocks (Scale Fixture Room, 2023) motivated the layer model used here.1
 2 Method
 2.1 The test slot
 The slot was cut into a block of laminated board and lined with a strip of thin brass so that the card
@@ -68,22 +68,22 @@ Every crease was pressed once with the flat of a bone folder along a steel
 rule. Pressing twice made the crease allowance smaller but also cracked the surface of the thick
 stock, so a single pass was used for all spacers.
 3 Results
-Figure 1 shows the slot with a four-layer spacer in place, and Table 1 lists the mean measured
-height of each spacer together with the height predicted by Equation (1).
-The model agrees with the measurements to within 0.06 mm for every spacer. The largest error is
-for the thick stock, where the crease allowance grows with the number of layers: the outer layers
-must bend around a thicker core, and the crease opens slightly. For the thin and medium stocks the
-error does not grow with the number of layers, which agrees with the note of Glue Pot Corner
-(2022) on thin paper joints.
-Repeated readings of the same spacer differed by at most 0.02 mm. Spacers that were left in the
-slot overnight lost about 0.01 mm of height, which is smaller than the spread between readings and
-was ignored.
+Figure 1 shows the slot with a four-layer spacer in place, and Table 1 lists the mean measured height
+of each spacer together with the height predicted by Equation (1).
+The model agrees with the measurements to within 0.06 mm for every spacer. The largest error is for
+the thick stock, where the crease allowance grows with the number of layers: the outer layers must
+bend around a thicker core, and the crease opens slightly. For the thin and medium stocks the error
+does not grow with the number of layers, which agrees with the note of Glue Pot Corner (2022) on
+thin paper joints.
+Repeated readings of the same spacer differed by at most 0.02 mm. Spacers that were left in the slot
+overnight lost about 0.01 mm of height, which is smaller than the spread between readings and was
+ignored.
 4 Conclusion
-A folded card spacer can be designed from the card thickness and a crease allowance measured
-once for each stock. For heights up to 2 mm the thin and medium stocks follow the layer model
-closely, and they are the better choice when a rail must sit at an exact height. The thick stock is
-quicker to fold but should be checked in the slot when more than three layers are used. A card
-ladder (Window Frame Study, 2021) gives a convenient way to check many spacers at once.
+A folded card spacer can be designed from the card thickness and a crease allowance measured once
+for each stock. For heights up to 2 mm the thin and medium stocks follow the layer model closely,
+and they are the better choice when a rail must sit at an exact height. The thick stock is quicker to
+fold but should be checked in the slot when more than three layers are used. A card ladder (Window
+Frame Study, 2021) gives a convenient way to check many spacers at once.
 2
 References
 Card Stock Bench and Model Rail Desk. 2024. Folding tolerances of layered card. In Proceedings of the

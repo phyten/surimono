@@ -209,10 +209,27 @@ public struct PaginationRequest: Sendable {
     public var latexPageNumbers: LaTeXPageNumbers?
     public var restartsAfterTitle = false
     public var collectsDiagrams = false
+    public var composesLaTeXParagraphs = false
     public var latexFlow = false
     public var latexMarginInk = false
     public var checksVerticalLaTeXInk = false
     public var flow = PrintFlow.horizontal
+}
+
+extension WebPaginator {
+    func paginate(_ request: PaginationRequest) async throws -> Result {
+        try await paginateWithResult(
+            request.source, pageSize: request.pageSize, margins: request.margins,
+            allowsJavaScript: request.allowsJavaScript, preparationScript: request.preparationScript,
+            readsPageRules: request.readsPageRules, drawsBackground: request.drawsBackground,
+            rendersMermaid: request.rendersMermaid, rendersDiagrams: request.rendersDiagrams,
+            collectsDiagrams: request.collectsDiagrams, latexPageNumbers: request.latexPageNumbers,
+            restartsAfterTitle: request.restartsAfterTitle,
+            composesLaTeXParagraphs: request.composesLaTeXParagraphs,
+            latexFlow: request.latexFlow,
+            latexMarginInk: request.latexMarginInk, checksVerticalLaTeXInk: request.checksVerticalLaTeXInk,
+            flow: request.flow)
+    }
 }
 
 /// What the renderer adds to the pages of a text and what it reads from the text on the way.
@@ -473,17 +490,7 @@ public final class DocumentRenderer {
         if let paginate {
             self.paginate = { request in WebPaginator.Result(document: try await paginate(request)) }
         } else {
-            self.paginate = { request in
-                try await WebPaginator().paginateWithResult(
-                    request.source, pageSize: request.pageSize, margins: request.margins,
-                    allowsJavaScript: request.allowsJavaScript, preparationScript: request.preparationScript,
-                    readsPageRules: request.readsPageRules, drawsBackground: request.drawsBackground,
-                    rendersMermaid: request.rendersMermaid, rendersDiagrams: request.rendersDiagrams,
-                    collectsDiagrams: request.collectsDiagrams, latexPageNumbers: request.latexPageNumbers,
-                    restartsAfterTitle: request.restartsAfterTitle, latexFlow: request.latexFlow,
-                    latexMarginInk: request.latexMarginInk, checksVerticalLaTeXInk: request.checksVerticalLaTeXInk,
-                    flow: request.flow)
-            }
+            self.paginate = { request in try await WebPaginator().paginate(request) }
         }
     }
 
@@ -1772,7 +1779,8 @@ public final class DocumentRenderer {
             readsPageRules: request.readsPageRules, drawsBackground: request.drawsBackground,
             rendersMermaid: request.rendersMermaid, rendersDiagrams: request.rendersDiagrams,
             latexPageNumbers: request.latexPageNumbers, restartsAfterTitle: request.restartsAfterTitle,
-            collectsDiagrams: request.collectsDiagrams, latexFlow: request.latexFlow,
+            collectsDiagrams: request.collectsDiagrams, composesLaTeXParagraphs: source.format == .latex,
+            latexFlow: request.latexFlow,
             latexMarginInk: request.latexMarginInk, checksVerticalLaTeXInk: request.checksVerticalLaTeXInk,
             flow: request.flow)
         let output = try await paginate(wrapped)

@@ -329,6 +329,8 @@ enum LaTeXStylePackageRegistry {
 extension LaTeXDocument {
     // Apply package defaults at the load site. Later natbib, color, and counter declarations win.
     func applyPackageDefaults(_ request: LaTeXStylePackageRegistry.Request) {
+        // Conference kits select sloppy at load time (CVPR inherits it from the two-column class).
+        lineParameters.setSloppy(true)
         let ink: String?
         switch request.family {
         case .cvpr:
@@ -366,6 +368,7 @@ extension LaTeXDocument {
             shortTitle: frontMatter.runningTitle)
         style.raggedBottom = requestsRaggedBottom ?? false
         if let requestsFrenchSpacing { style.frenchSpacing = requestsFrenchSpacing }
+        if style.frenchSpacing { lineParameters.frenchspacing = true }
         classInfo.resolvedStyle = style
         classInfo.columns = style.columns
         if style.loadsNatbib { bibDatabase.natbib = true }

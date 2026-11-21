@@ -269,7 +269,7 @@ struct LaTeXStylePackageTests {
     func textualAuthorLinks() {
         for name in ["icml2026", "acl"] {
             let html = paper("\\usepackage{\(name)}", body: #"\citet[see][p. 3]{a}"# + items).body
-            #expect(html.contains(#">Model Rail Desk</a> (see <a href="#))
+            #expect(html.contains(#">Model Rail Desk</a><span data-latex-control-space> </span>(see <a href="#))
             #expect(html.contains(#">2025</a>, p. 3)"#))
         }
     }
@@ -277,9 +277,12 @@ struct LaTeXStylePackageTests {
     @Test("数値と単位を改行しない空白で結び、明示したハイフン対は普通のダッシュにする")
     func nonbreakingSpaces() {
         for name in ["icml2026", "cvpr", "acl", "aaai2027"] {
-            let source = #"0.06\,mm A\thinspace B C\;D E\:F G~H I\nobreakspace J pages 12--19. \textbf{1\,}mm"#
+            let source =
+                #"0.06\,mm A\thinspace B C\;D E\:F G~H I\nobreakspace J pages 12--19. \textbf{1\,}mm"#
+                + #" 1 mm $x\,y$ \verb|\,|"#
             let html = paper("\\usepackage{\(name)}", body: source).body
             let text = DocumentOutline.plainText(ofHTML: html)
+            #expect(html.components(separatedBy: "data-latex-thin-space").count - 1 == 3)
             #expect(
                 text.contains(
                     "0.06\u{202F}mm A\u{202F}B C\u{00A0}D E\u{00A0}F G\u{00A0}H I\u{00A0}J pages 12–19. 1\u{202F}mm"))

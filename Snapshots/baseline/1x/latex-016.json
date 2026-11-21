@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.0111183455802561,
+    "changedAreaRatio" : 0.011095608677228991,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
@@ -33,7 +33,7 @@
         {
           "height" : 11.7,
           "text" : "Let u be the handle travel. The gate height is",
-          "width" : 199.9,
+          "width" : 201,
           "x" : 125.4,
           "y" : 175.1
         },

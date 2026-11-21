@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.009857031857031857,
+    "changedAreaRatio" : 0.00987956487956488,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
@@ -33,7 +33,7 @@
         {
           "height" : 11.7,
           "text" : "Align the following edge with the shelf lip. The end marks identify the usable span.",
-          "width" : 365,
+          "width" : 366,
           "x" : 143.6,
           "y" : 150.2
         },
@@ -48,7 +48,7 @@
       "textHeight" : 376.2,
       "textLeft" : 143.6,
       "textTop" : 125.5,
-      "textWidth" : 365,
+      "textWidth" : 366,
       "width" : 841.9
     }
   ],

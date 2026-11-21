@@ -1,6 +1,6 @@
 Channel lining
-At a tight bend the inner liner must slide. The fixture follows the bench
-drawing [6] and the scale study [5]. The hinge has its own assembly card [4].
+At a tight bend the inner liner must slide. The fixture follows the bench draw-
+ing [6] and the scale study [5]. The hinge has its own assembly card [4].
 References
 [1]
 [2]

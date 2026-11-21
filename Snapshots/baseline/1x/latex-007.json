@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.0077596782302664655,
+    "changedAreaRatio" : 0.007772750125691302,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
@@ -33,7 +33,7 @@
         {
           "height" : 12.8,
           "text" : "Punch the sample card on its long edge. The blank strip accommodates a linen hinge.",
-          "width" : 410.4,
+          "width" : 411.6,
           "x" : 80.2,
           "y" : 109.7
         },
@@ -48,7 +48,7 @@
       "textHeight" : 688.9,
       "textLeft" : 80.2,
       "textTop" : 85.1,
-      "textWidth" : 410.4,
+      "textWidth" : 411.6,
       "width" : 595.3
     },
     {

@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.04291900495044389,
+    "changedAreaRatio" : 0.042950009818208124,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
@@ -10,7 +10,7 @@
     "maxShiftPt" : 26.9,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 24
+    "textEdits" : 20
   },
   "fonts" : [
     "Helvetica"
@@ -32,15 +32,15 @@
         },
         {
           "height" : 11.7,
-          "text" : "At a tight bend the inner liner must slide. The fixture follows the bench",
-          "width" : 343.7,
+          "text" : "At a tight bend the inner liner must slide. The fixture follows the bench draw-",
+          "width" : 343.8,
           "x" : 125.4,
           "y" : 175.1
         },
         {
           "height" : 11.7,
-          "text" : "drawing [6] and the scale study [5]. The hinge has its own assembly card [4].",
-          "width" : 334.2,
+          "text" : "ing [6] and the scale study [5]. The hinge has its own assembly card [4].",
+          "width" : 313.6,
           "x" : 125.4,
           "y" : 187.1
         },
@@ -174,9 +174,9 @@
       "textHeight" : 580.4,
       "textLeft" : 125.4,
       "textTop" : 150.4,
-      "textWidth" : 343.7,
+      "textWidth" : 343.8,
       "width" : 595.3
     }
   ],
-  "textSHA256" : "97466eee5fceb0597661a59d3fe76721c81e1d75a1237b08fce1b7ad9ff36f80"
+  "textSHA256" : "9d4c8df8f0d3dff90ef941879e689a4c60a5bc309e0d622644f99e00165fc03b"
 }

@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.016011947209045155,
+    "changedAreaRatio" : 0.016031583625295838,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
@@ -33,7 +33,7 @@
         {
           "height" : 11.7,
           "text" : "A stack gains one tile per row. Subtract two consecutive squares and sum:",
-          "width" : 325.4,
+          "width" : 326.4,
           "x" : 125.4,
           "y" : 175.1
         },
@@ -152,7 +152,7 @@
         {
           "height" : 11.7,
           "text" : "For four rows the tray therefore holds ten tiles.",
-          "width" : 207,
+          "width" : 206.9,
           "x" : 125.4,
           "y" : 335.9
         },

@@ -229,7 +229,10 @@ extension LaTeXReader {
         case "og": appendText("«\u{00A0}")
         case "fg": closeFrenchQuote()
         case "frenchspacing", "nonfrenchspacing":
-            if inPreamble { document.requestsFrenchSpacing = name == "frenchspacing" }
+            if updatesLineParameters {
+                document.lineParameters.frenchspacing = name == "frenchspacing"
+                if inPreamble { document.requestsFrenchSpacing = name == "frenchspacing" }
+            }
         case "setlocalecaption":
             _ = star()
             let language = argument() ?? ""

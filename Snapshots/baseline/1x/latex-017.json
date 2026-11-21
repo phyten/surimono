@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.015120040513027212,
+    "changedAreaRatio" : 0.015106605070329375,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
@@ -33,7 +33,7 @@
         {
           "height" : 11.7,
           "text" : "One quarter-turn maps the east vector to the north vector:",
-          "width" : 258.5,
+          "width" : 258.4,
           "x" : 125.4,
           "y" : 175.1
         },
@@ -68,7 +68,7 @@
         {
           "height" : 11.7,
           "text" : "The worksheet prints the determinant, a bare grid and two delimiter samples:",
-          "width" : 341.1,
+          "width" : 341,
           "x" : 125.4,
           "y" : 230.3
         },
@@ -132,7 +132,7 @@
       "textHeight" : 580.4,
       "textLeft" : 125.4,
       "textTop" : 150.4,
-      "textWidth" : 341.1,
+      "textWidth" : 341,
       "width" : 595.3
     }
   ],

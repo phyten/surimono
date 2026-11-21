@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.03005198482828471,
+    "changedAreaRatio" : 0.028720842505606713,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
@@ -10,7 +10,7 @@
     "maxShiftPt" : 27.6,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 12
+    "textEdits" : 9
   },
   "fonts" : [
     "Helvetica"
@@ -21,7 +21,7 @@
       "firstY" : 189.7,
       "height" : 841.9,
       "lastY" : 719.2,
-      "lineCount" : 16,
+      "lineCount" : 15,
       "lines" : [
         {
           "height" : 20.2,
@@ -73,39 +73,32 @@
           "y" : 328.4
         },
         {
-          "height" : 11.7,
-          "text" : "A narrow screen stood beside each gate. The observer moved one tile at a",
+          "height" : 14.2,
+          "text" : "A narrow screen stood beside each gate. The observer moved one tile at a time.1",
           "width" : 343.7,
           "x" : 125.4,
-          "y" : 353
-        },
-        {
-          "height" : 14.2,
-          "text" : "time.1",
-          "width" : 26.3,
-          "x" : 125.4,
-          "y" : 362.5
+          "y" : 350.5
         },
         {
           "height" : 17.5,
           "text" : "2 Result",
           "width" : 69.2,
           "x" : 125.4,
-          "y" : 391.6
+          "y" : 379.6
         },
         {
           "height" : 11.7,
           "text" : "The middle gate concealed the lantern first. Its screen crossed the sight line at",
           "width" : 343.7,
           "x" : 125.4,
-          "y" : 416.2
+          "y" : 404.2
         },
         {
           "height" : 11.7,
           "text" : "tile four.",
           "width" : 37.4,
           "x" : 125.4,
-          "y" : 428.2
+          "y" : 416.2
         },
         {
           "height" : 9.4,
@@ -143,5 +136,5 @@
       "width" : 595.3
     }
   ],
-  "textSHA256" : "99bda2c798ab7b55aabfb3f361ad1653d663ea2bf1b04e574eb4ec84d650eaba"
+  "textSHA256" : "64114261f51fe3e2c1b047aa3b204f2b09ae3c7200d266f76bc6a92d5eb6100b"
 }

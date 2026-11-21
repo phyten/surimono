@@ -335,12 +335,15 @@ if (fineGrid) {
 }
 if (seenNotes.size !== noteBodies.size) throw Error('Unpaired LaTeX footnote');
 await Promise.all([document.fonts.ready, ...[...body.querySelectorAll('img')].map(img => img.decode().catch(() => {}))]);
+if (body.dataset.latexLineBreaking && globalThis.surimonoComposeLatin) {
+    globalThis.surimonoLatinLast = surimonoComposeLatin(body, unit / zoom);
+}
 // The Times TFM gives a sentence-ending space an extra .06em (fontdimen7).
 // Wrap a complete final word WITH its existing space. No new character or
 // word-internal boundary is introduced, so selection retains the source text.
 if (conferencePage && !body.hasAttribute('data-latex-french-spacing')) {
     for (const p of body.querySelectorAll('p,li:not(:has(p))')) {
-        if (p.closest('header,figure,table,.footnotes,.latex-column-notice,.latex-bibliography') ||
+        if (p.hasAttribute('data-flow-latin') || p.closest('header,figure,table,.footnotes,.latex-column-notice,.latex-bibliography') ||
             getComputedStyle(p).textAlign !== 'justify') continue;
         const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
         const edits = [];
@@ -405,7 +408,7 @@ if (measuredGrid && getComputedStyle(body).getPropertyValue('--latex-word-shrink
         (!p.closest('header,figure,table,li,.footnotes,.latex-runin') ||
             preferWholeWords && p.matches(listText) && !p.closest('header,figure,table') ||
             firstColumns && (p.matches('.latex-runin,.latex-bibliography > li') || p.closest('section.footnotes'))) &&
-        !p.matches('.abstract-title') &&
+        !p.matches('.abstract-title,[data-flow-latin],.latex-runin:has(> p[data-flow-latin])') &&
         ['normal','0px'].includes(getComputedStyle(p).wordSpacing) && getComputedStyle(p).textAlign === 'justify');
     // Bound optional dictionary-break measurements across all trials. Large papers
     // still receive the ordinary height-based shrink pass after this allowance.
@@ -455,6 +458,7 @@ if (measuredGrid && getComputedStyle(body).getPropertyValue('--latex-word-shrink
     }
     for (const {p,fraction} of pending) adjust(p,fraction);
 }
+globalThis.surimonoLatinLast?.refreshFallbacks?.();
 // Preserve the math baseline through ink expansion: the original dimensions
 // are in em, whereas the preparation pass stores the baseline in viewBox units.
 function displayBaseline(svg) {
@@ -752,7 +756,7 @@ if (getComputedStyle(body).getPropertyValue('--conference-display-skip').trim())
         if (!before?.matches('p') || !svg) continue;
         if (svg.parentElement.hasAttribute('data-latex-first-baseline')) continue;
         const mark = baselineProbe();
-        before.append(mark);
+        paragraphEdge(before, true).append(mark);
         const beforeBaseline = mark.getBoundingClientRect();
         const lineEnd = beforeBaseline.right - before.getBoundingClientRect().left;
         const formulaStart = svg.getBoundingClientRect().left - block.getBoundingClientRect().left;
@@ -776,7 +780,7 @@ if (body.hasAttribute('data-latex-style')) {
     for (const math of body.querySelectorAll('.math-block:has(+ p) > .math-display:has(> svg:only-child)')) {
         const block = math.parentElement, p = block.nextElementSibling;
         const mark = baselineProbe(), next = baselineProbe();
-        math.append(mark); p.prepend(next);
+        math.append(mark); paragraphEdge(p, false).prepend(next);
         const distance = (next.getBoundingClientRect().top - mark.getBoundingClientRect().top) * unit / zoom;
         mark.remove(); next.remove();
         const margin = parseFloat(getComputedStyle(block).marginBottom);
@@ -799,7 +803,7 @@ function measureJapaneseDisplays() {
     function baseline(p, atEnd) {
         const mark = document.createElement('i');
         mark.style.cssText = 'display:inline-block;width:0;height:0;padding:0;margin:0;border:0;vertical-align:baseline';
-        if (atEnd) p.append(mark); else p.prepend(mark);
+        if (atEnd) paragraphEdge(p, true).append(mark); else paragraphEdge(p, false).prepend(mark);
         markers.push(mark);
         return mark;
     }
@@ -1008,6 +1012,10 @@ function tableItems(box, table) {
     }
     return items;
 }
+// A probe beside a block line would create a spurious extra line.
+function paragraphEdge(p, end) {
+    return p.hasAttribute('data-flow-latin') ? (end ? p.lastElementChild : p.firstElementChild) : p;
+}
 function baselineProbe() {
     const marker = document.createElement('i');
     marker.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline;padding:0;margin:0;border:0';
@@ -1141,9 +1149,10 @@ function lines(box, endsPage) {
                 const end = Math.min(n.length, offset + 32768);
                 range.setStart(n, offset); range.setEnd(n, end);
                 const rects = range.getClientRects();
-                const broken = firstColumns && flushBottom && rects.length > 1 && getComputedStyle(el).hyphens === 'auto'
+                const imposed = el.closest('p[data-flow-latin] > .latex-line');
+                const broken = !imposed && firstColumns && flushBottom && rects.length > 1 && getComputedStyle(el).hyphens === 'auto'
                     ? hyphenatedLines(n, offset, end) : null;
-                for (const r of rects) add(r, el, note ? [note.dataset.flowNote] : [], true, broken?.has(r.top));
+                for (const r of rects) add(r, el, note ? [note.dataset.flowNote] : [], true, imposed ? imposed.hasAttribute('data-flow-hyphen') : broken?.has(r.top));
             }
         } else if (n.matches(atomic + ',' + heading) || (!n.firstChild && getComputedStyle(n).position !== 'absolute')) {
             add(n.getBoundingClientRect(), n, [...n.querySelectorAll('[data-flow-note]')].map(a => a.dataset.flowNote));
@@ -1212,13 +1221,15 @@ function trailingLeading(box, last) {
     if (!last || !p?.matches('p')) return 0;
     // References and inter-script glue split a single line into several text nodes.
     // Superscripts, images and arbitrary inline styles can have independent baselines.
-    if ([...p.querySelectorAll('*')].some(el => !el.matches('br,a.latex-number-ref,.latex-xkanjiskip'))) return 0;
+    const tail = paragraphEdge(p, true);
+    if ([...tail.querySelectorAll('*')].some(el =>
+        !el.matches('br,a.latex-number-ref,.latex-xkanjiskip,[data-latex-thin-space],[data-latin-glue],.latex-line-end,.latex-line-space-end'))) return 0;
     const css = getComputedStyle(p);
     if (css.writingMode !== 'horizontal-tb' || css.direction !== 'ltr' || css.textTransform !== 'none') return 0;
     inkContext ??= document.createElement('canvas').getContext('2d');
     if (!inkContext) return 0;
     inkContext.font = css.fontStyle+' '+css.fontWeight+' '+css.fontSize+' '+css.fontFamily;
-    const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+    const walker = document.createTreeWalker(tail, NodeFilter.SHOW_TEXT);
     let finalY, depth = 0;
     for (let text = walker.lastChild(); text; text = walker.previousSibling()) {
         const end = text.data.trimEnd().length;
@@ -1241,7 +1252,7 @@ function trailingLeading(box, last) {
     if (!Number.isFinite(depth)) return 0;
     const baseline = document.createElement('i');
     baseline.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline;margin:0;padding:0;border:0';
-    p.append(baseline);
+    tail.append(baseline);
     const y = (baseline.getBoundingClientRect().bottom+scrollY)*unit - origins[last.strip].y;
     baseline.remove();
     return Math.max(0, Math.min(inTextSep, last.end-y-Math.max(0,depth)));

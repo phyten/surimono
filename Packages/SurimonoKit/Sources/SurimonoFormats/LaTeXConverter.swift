@@ -130,6 +130,11 @@ final class LaTeXDocument {
     var readingConferenceTitle = false
     var requestsRaggedBottom: Bool?
     var requestsFrenchSpacing: Bool?
+    var lineParameters = LaTeXLineParameters() {
+        didSet { lineParameterAttribute = lineParameters.attribute }
+    }
+    private(set) var lineParameterAttribute = ""
+
     var finalCopy = false
     var workshopTitle = ""
     var preamblePageActions: [(String, String)] = []
@@ -405,7 +410,14 @@ final class LaTeXDocument {
         let square = (!hasDatabaseLabel && !bibDatabase.natbib) || bibDatabase.usesSquareBrackets
         let delimiters = square ? ("[", "]") : ("(", ")")
         let close = bare ? "" : delimiters.1
-        var html = "<span class=\"latex-cite\">" + (bare ? "" : delimiters.0)
+        // Numeric references stay with their word. Author names and notes can span several lines.
+        let breakable = classInfo.profile.body.composesLatinParagraphs && (authorYear || authorOnly || textual)
+        let attribute = breakable ? " data-latex-cite-text" : ""
+        // natbib.sty's \NAT@aysep\NAT@spacechar ends in a control space even after a comma or “et al.”.
+        let normalSpace = breakable && bibDatabase.natbib ? "<span data-latex-control-space> </span>" : " "
+        let separatorText = bibDatabase.authorYearSeparator
+        let nameYear = separatorText.hasSuffix(" ") ? String(separatorText.dropLast()) + normalSpace : separatorText
+        var html = "<span class=\"latex-cite\"\(attribute)>" + (bare ? "" : delimiters.0)
         func add(_ piece: String) -> Bool {
             guard let filled = filled(piece, below: index, limit: limit - html.utf8.count) else { return false }
             html += filled
@@ -445,7 +457,9 @@ final class LaTeXDocument {
                         guard addLinked(label.year) else { return nil }
                     } else {
                         let linked = bibDatabase.linksTextualAuthors && authorYear
-                        guard linked ? addLinked(author) : add(author), add(" " + delimiters.0) else { return nil }
+                        guard linked ? addLinked(author) : add(author), add(normalSpace + delimiters.0) else {
+                            return nil
+                        }
                         if position == 0, let before = citation.before, !before.isEmpty, !add(before + " ") {
                             return nil
                         }
@@ -458,7 +472,12 @@ final class LaTeXDocument {
                 } else if citation.full, authorYear, let long = bibDatabase.fullAuthors[key],
                     let label = bibDatabase.citationLabels[key]
                 {
-                    guard addLinked(long + bibDatabase.authorYearSeparator + label.year) else { return nil }
+                    guard addLinked(long + nameYear + label.year) else { return nil }
+                } else if breakable && bibDatabase.natbib && authorYear, let label = bibDatabase.citationLabels[key],
+                    !label.author.isEmpty,
+                    !label.year.isEmpty
+                {
+                    guard addLinked(label.author + nameYear + label.year) else { return nil }
                 } else if !addLinked(entry.label) {
                     return nil
                 }

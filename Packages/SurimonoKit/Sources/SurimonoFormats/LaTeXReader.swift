@@ -435,6 +435,14 @@ final class LaTeXReader {
         let text = paragraph.trimmingCharacters(in: Self.paragraphWhitespace)
         if !text.isEmpty {
             var attribute = noParagraphIndent ? " class=\"latex-noindent\"" : ""
+            // Nested block readers may compact a plain paragraph into a list item or a note.
+            // Only a paragraph in the main flow needs a per-paragraph override.
+            if document.depth == 1, !centered, !closesRunInParagraph, floatKind == nil,
+                document.classInfo.profile.body.composesLatinParagraphs,
+                document.lineParameterAttribute != document.classInfo.initialLineParameters
+            {
+                attribute += document.lineParameterAttribute
+            }
             // A solitary rule starts the float at its natural height, even when shorter than a text line.
             if floatKind == "figure",
                 document.classInfo.profile.body.naturalRuleHeight || document.classInfo.resolvedStyle != nil,
@@ -698,6 +706,21 @@ final class LaTeXReader {
         appendBlock("<div class=\"latex-vspace\"\(mark) style=\"\(glue)\"></div>\n")
     }
 
+    private func thinSpace() {
+        // Keep the original text character for native layout and extraction. A composed line
+        // uses the explicit TeX kern even when the font gives that character a different width.
+        let conference = document.classInfo.resolvedStyle != nil
+        let english = document.language == "en" || document.language.hasPrefix("en-")
+        if !typewriter && english && document.classInfo.profile.body.composesLatinParagraphs {
+            let text = conference ? "&#8239;" : "\u{2009}"
+            appendHTML("<span data-latex-thin-space>\(text)</span>", last: conference ? "x" : "\u{2009}")
+        } else if conference {
+            appendHTML("&#8239;")
+        } else {
+            appendText("\u{2009}")
+        }
+    }
+
     func controlSymbol(_ symbol: Character) {
         switch symbol {
         case "\\":
@@ -708,9 +731,7 @@ final class LaTeXReader {
                 // A block inside the paragraph separates the two line boxes without a second parskip.
                 appendHTML("<span class=\"latex-vspace\" style=\"display: block; \(glue)\"></span>")
             }
-        case "," where document.classInfo.resolvedStyle != nil:
-            // An entity survives the whitespace trimming at the edges of nested font groups.
-            appendHTML("&#8239;")
+        case ",": thinSpace()
         case ":" where document.classInfo.resolvedStyle != nil, ";" where document.classInfo.resolvedStyle != nil:
             appendHTML("&nbsp;")
         case "(": inlineMath(closing: "\\)")
@@ -816,7 +837,7 @@ final class LaTeXReader {
         case "qedhere": break
         case "vfil" where document.classInfo.resolvedStyle != nil: verticalSpace("0pt plus 1fil")
         case "vfill": verticalSpace("\\fill")
-        case "thinspace" where document.classInfo.resolvedStyle != nil: appendHTML("&#8239;")
+        case "thinspace": thinSpace()
         case "nobreakspace": appendHTML("&nbsp;")
         case "centering": centered = true
         case "num":
@@ -1165,6 +1186,7 @@ final class LaTeXReader {
                     readFrontEnvironment(environment, body: environmentBody(environment))
                 } else if environment == "document" {
                     document.resolveStylePackage()
+                    document.classInfo.initialLineParameters = document.lineParameterAttribute
                     document.startedDocument = true
                     document.landscapeBody = onlyLandscapeBody()
                     flush()
@@ -1222,6 +1244,7 @@ final class LaTeXReader {
         let options = optional()
         let name = argument()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? LaTeXClassID.article.rawValue
         document.classInfo = LaTeXDocumentClassInfo(name: name, options: options)
+        if document.classInfo.profile.body.usesSloppyLineBreaking { document.lineParameters.setSloppy(true) }
         document.classInfo.journalStyle?.defineCounters(in: document)
         if let depth = document.classInfo.profile.headings.numberingDepth { document.counters["secnumdepth"] = depth }
         document.pageSettings.readClassOptions(options ?? "", info: document.classInfo)
@@ -1981,7 +2004,8 @@ final class LaTeXReader {
         switch name {
         case "document" where !document.inputChain.isEmpty && !document.startedDocument:
             // A thin main file may input the entire document, including the body boundary.
-            if !document.startedDocument { document.resolveStylePackage() }
+            document.resolveStylePackage()
+            document.classInfo.initialLineParameters = document.lineParameterAttribute
             document.startedDocument = true
         case "verbatim", "verbatim*", "Verbatim", "alltt":
             if name == "Verbatim" { _ = optionalOnLine() }

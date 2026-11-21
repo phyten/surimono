@@ -1,16 +1,16 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.12189946524064171,
+    "changedAreaRatio" : 0.10798288770053475,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
-    "maxBoxDeltaPt" : 4.7,
-    "maxLuminance" : 108.390625,
+    "maxBoxDeltaPt" : 3.1,
+    "maxLuminance" : 86.90625,
     "maxShiftPt" : 3,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 105
+    "textEdits" : 69
   },
   "fonts" : [
     "Helvetica",
@@ -154,14 +154,14 @@
         },
         {
           "height" : 11,
-          "text" : "spacers, and a spacer that is too thick by a fraction of a mil-",
+          "text" : "spacers, and a spacer that is too thick by a fraction of a",
           "width" : 234,
           "x" : 55.4,
           "y" : 384.7
         },
         {
           "height" : 11,
-          "text" : "limetre lifts a rail joint enough to derail a light wagon.",
+          "text" : "millimetre lifts a rail joint enough to derail a light wagon.",
           "width" : 234,
           "x" : 55.4,
           "y" : 396.7
@@ -204,7 +204,7 @@
         {
           "height" : 11,
           "text" : "pends on the card and on how firmly the crease is pressed.",
-          "width" : 229.1,
+          "width" : 232.4,
           "x" : 55.4,
           "y" : 468.4
         },
@@ -231,15 +231,15 @@
         },
         {
           "height" : 11,
-          "text" : "Model Rail Desk, 2024) and on gauge blocks (Scale Fix-",
+          "text" : "Model Rail Desk, 2024) and on gauge blocks (Scale Fixture",
           "width" : 234,
           "x" : 307.4,
           "y" : 186.4
         },
         {
           "height" : 12,
-          "text" : "ture Room, 2023) motivated the layer model used here.1",
-          "width" : 222.5,
+          "text" : "Room, 2023) motivated the layer model used here.1",
+          "width" : 205.7,
           "x" : 307.4,
           "y" : 197.4
         },
@@ -280,22 +280,22 @@
         },
         {
           "height" : 11,
-          "text" : "spacer, and the height is read from a scale on the side of",
+          "text" : "spacer, and the height is read from a scale on the side of the",
           "width" : 234,
           "x" : 307.4,
           "y" : 300.8
         },
         {
           "height" : 11,
-          "text" : "the block. The block was clamped to the bench throughout",
+          "text" : "block. The block was clamped to the bench throughout the",
           "width" : 234,
           "x" : 307.4,
           "y" : 312.7
         },
         {
           "height" : 11,
-          "text" : "the trial so that the scale did not move between readings.",
-          "width" : 224.5,
+          "text" : "trial so that the scale did not move between readings.",
+          "width" : 211.4,
           "x" : 307.4,
           "y" : 324.7
         },
@@ -315,29 +315,29 @@
         },
         {
           "height" : 11,
-          "text" : "ten seconds before the reading was taken, because a",
+          "text" : "ten seconds before the reading was taken, because a freshly",
           "width" : 234,
           "x" : 307.4,
           "y" : 366.5
         },
         {
           "height" : 11,
-          "text" : "freshly folded spacer springs back slowly. Three readings",
+          "text" : "folded spacer springs back slowly. Three readings were",
           "width" : 234,
           "x" : 307.4,
           "y" : 378.4
         },
         {
           "height" : 11,
-          "text" : "were taken for each spacer, removing and reinserting it",
+          "text" : "taken for each spacer, removing and reinserting it between",
           "width" : 234,
           "x" : 307.4,
           "y" : 390.4
         },
         {
           "height" : 11,
-          "text" : "between readings.",
-          "width" : 71.9,
+          "text" : "readings.",
+          "width" : 36.2,
           "x" : 307.4,
           "y" : 402.3
         },
@@ -406,20 +406,6 @@
         },
         {
           "height" : 11,
-          "text" : "to compare the measurements with a layer model that",
-          "width" : 214.1,
-          "x" : 75.4,
-          "y" : 550.9
-        },
-        {
-          "height" : 11,
-          "text" : "adds a crease allowance; and",
-          "width" : 115.1,
-          "x" : 75.4,
-          "y" : 562.8
-        },
-        {
-          "height" : 11,
           "text" : "where c is the crease allowance added by each fold. The",
           "width" : 234,
           "x" : 307.4,
@@ -448,17 +434,31 @@
         },
         {
           "height" : 11,
-          "text" : "predicted the height of folded board well for up to four",
+          "text" : "predicted the height of folded board well for up to four lay-",
           "width" : 234,
           "x" : 307.4,
           "y" : 541.6
         },
         {
           "height" : 11,
-          "text" : "layers.",
-          "width" : 26.3,
+          "text" : "ers.",
+          "width" : 14.1,
           "x" : 307.4,
           "y" : 553.6
+        },
+        {
+          "height" : 11,
+          "text" : "to compare the measurements with a layer model that",
+          "width" : 214.1,
+          "x" : 75.4,
+          "y" : 550.9
+        },
+        {
+          "height" : 11,
+          "text" : "adds a crease allowance; and",
+          "width" : 115.1,
+          "x" : 75.4,
+          "y" : 562.8
         },
         {
           "height" : 11,
@@ -533,7 +533,7 @@
         {
           "height" : 11,
           "text" : "with a spread of less than 0.01 mm in every case.",
-          "width" : 190,
+          "width" : 195,
           "x" : 307.4,
           "y" : 628.3
         },
@@ -812,7 +812,7 @@
         {
           "height" : 11,
           "text" : "made the crease allowance smaller but also cracked the sur-",
-          "width" : 233.8,
+          "width" : 234,
           "x" : 55.4,
           "y" : 311.9
         },
@@ -881,36 +881,36 @@
         },
         {
           "height" : 11,
-          "text" : "of layers: the outer layers must bend around a thicker",
+          "text" : "of layers: the outer layers must bend around a thicker core,",
           "width" : 234,
           "x" : 55.4,
           "y" : 461.1
         },
         {
           "height" : 11,
-          "text" : "core, and the crease opens slightly. For the thin and",
+          "text" : "and the crease opens slightly. For the thin and medium",
           "width" : 234,
           "x" : 55.4,
           "y" : 473
         },
         {
           "height" : 11,
-          "text" : "medium stocks the error does not grow with the number",
+          "text" : "stocks the error does not grow with the number of layers,",
           "width" : 234,
           "x" : 55.4,
           "y" : 485
         },
         {
           "height" : 11,
-          "text" : "of layers, which agrees with the note of Glue Pot Corner",
+          "text" : "which agrees with the note of Glue Pot Corner (2022) on",
           "width" : 234,
           "x" : 55.4,
           "y" : 496.9
         },
         {
           "height" : 11,
-          "text" : "(2022) on thin paper joints.",
-          "width" : 108.7,
+          "text" : "thin paper joints.",
+          "width" : 67.2,
           "x" : 55.4,
           "y" : 508.9
         },
@@ -958,57 +958,57 @@
         },
         {
           "height" : 11,
-          "text" : "ness and a crease allowance measured once for each",
+          "text" : "ness and a crease allowance measured once for each stock.",
           "width" : 234,
           "x" : 55.4,
           "y" : 622.6
         },
         {
           "height" : 11,
-          "text" : "stock. For heights up to 2 mm the thin and medium stocks",
+          "text" : "For heights up to 2 mm the thin and medium stocks fol-",
           "width" : 234,
           "x" : 55.4,
           "y" : 634.5
         },
         {
           "height" : 11,
-          "text" : "follow the layer model closely, and they are the better",
+          "text" : "low the layer model closely, and they are the better choice",
           "width" : 234,
           "x" : 55.4,
           "y" : 646.5
         },
         {
           "height" : 11,
-          "text" : "choice when a rail must sit at an exact height. The thick",
+          "text" : "when a rail must sit at an exact height. The thick stock",
           "width" : 234,
           "x" : 55.4,
           "y" : 658.4
         },
         {
           "height" : 11,
-          "text" : "stock is quicker to fold but should be checked in the slot",
+          "text" : "is quicker to fold but should be checked in the slot when",
           "width" : 234,
           "x" : 55.4,
           "y" : 670.4
         },
         {
           "height" : 11,
-          "text" : "when more than three layers are used. A card ladder (Win-",
+          "text" : "more than three layers are used. A card ladder (Window",
           "width" : 234,
           "x" : 55.4,
           "y" : 682.3
         },
         {
           "height" : 11,
-          "text" : "dow Frame Study, 2021) gives a convenient way to check",
+          "text" : "Frame Study, 2021) gives a convenient way to check many",
           "width" : 234,
           "x" : 55.4,
           "y" : 694.3
         },
         {
           "height" : 11,
-          "text" : "many spacers at once.",
-          "width" : 87.4,
+          "text" : "spacers at once.",
+          "width" : 62.8,
           "x" : 55.4,
           "y" : 706.2
         },
@@ -1027,5 +1027,5 @@
       "width" : 612
     }
   ],
-  "textSHA256" : "184d77fad91c4e9e6fd4108998cc9f31b73c3bb140df6043ebc1a88f4d4c0c99"
+  "textSHA256" : "9f262e7f7c9131cd0419d5673ef1368b87b9ef30fe4777076255cf2ef86d5397"
 }

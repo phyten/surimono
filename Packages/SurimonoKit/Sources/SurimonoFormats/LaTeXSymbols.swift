@@ -41,7 +41,7 @@ package enum LaTeXSymbols {
     /// Control symbols (a backslash and one non-letter).
     static let controlSymbols: [Character: String] = [
         "#": "#", "$": "$", "%": "%", "&": "&", "_": "_", "{": "{", "}": "}", " ": " ", ",": "\u{2009}",
-        ";": "\u{2005}", ":": "\u{2005}", "!": "", "-": "", "@": "", "/": "", "\n": " ", "\t": " ", "|": "‖",
+        ";": "\u{2005}", ":": "\u{2005}", "!": "", "-": "\u{00AD}", "@": "", "/": "", "\n": " ", "\t": " ", "|": "‖",
     ]
 
     /// Combining marks for the accent commands: `\'e` is é.

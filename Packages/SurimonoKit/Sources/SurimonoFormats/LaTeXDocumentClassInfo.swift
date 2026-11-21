@@ -5,6 +5,12 @@ import Foundation
 public struct LaTeXDocumentClassInfo: Sendable, Equatable {
     package let profile: LaTeXClassProfile
     package var resolvedStyle: LaTeXResolvedStyle?
+    var initialLineParameters = ""
+    package var latinLineAttributes: String {
+        guard profile.body.composesLatinParagraphs else { return "" }
+        let family = resolvedStyle == nil ? "cm" : "times"
+        return " data-latex-line-breaking=\"\(family)\"" + initialLineParameters
+    }
     public var isJapanese: Bool { profile.typography.usesJapaneseStyle }
     var usesAMSA4Layout: Bool { profile.page.usesAMSA4Layout }
     var hidesTitlePageNumber: Bool { resolvedStyle?.firstPageNotice != nil || profile.pageStyle.hidesTitlePageNumber }
@@ -66,6 +72,7 @@ public struct LaTeXDocumentClassInfo: Sendable, Equatable {
     // Equality describes the current typesetting state. Later commands can erase differences between class options.
     public static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.resolvedStyle == rhs.resolvedStyle && lhs.profile.structure.bookOpening == rhs.profile.structure.bookOpening
+            && lhs.initialLineParameters == rhs.initialLineParameters
             && lhs.profile.headings.endDots == rhs.profile.headings.endDots
             && lhs.raggedColumns == rhs.raggedColumns && lhs.name == rhs.name && lhs.isJapanese == rhs.isJapanese
             && lhs.usesAMSA4Layout == rhs.usesAMSA4Layout

@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.006939922901228826,
+    "changedAreaRatio" : 0.006946123874781674,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
@@ -55,7 +55,7 @@
         {
           "height" : 11.7,
           "text" : "The mark below the slot is faint.",
-          "width" : 143.5,
+          "width" : 143.4,
           "x" : 140.4,
           "y" : 239.3
         },
@@ -89,7 +89,7 @@
         {
           "height" : 11.7,
           "text" : "Put the insert behind the reading sheet.",
-          "width" : 174.7,
+          "width" : 174.6,
           "x" : 125.4,
           "y" : 174.1
         },
@@ -104,7 +104,7 @@
       "textHeight" : 581.4,
       "textLeft" : 125.4,
       "textTop" : 149.4,
-      "textWidth" : 174.7,
+      "textWidth" : 174.6,
       "width" : 595.3
     },
     {
