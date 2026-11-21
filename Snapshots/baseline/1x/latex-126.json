@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.12564153450091234,
+    "changedAreaRatio" : 0.12493591545801842,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 2,
@@ -10,7 +10,7 @@
     "maxShiftPt" : 5.9,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 109
+    "textEdits" : 101
   },
   "fonts" : [
     "Helvetica",
@@ -281,14 +281,14 @@
         },
         {
           "height" : 13,
-          "text" : "各スペーサーは折り目の側を溝の奥に向けて差し",
+          "text" : "各スペーサーは折り目の側を溝の奥に向けて差し込",
           "width" : 195.3,
           "x" : 277.1,
           "y" : 416.3
         },
         {
           "height" : 13,
-          "text" : "込んだ．折ったばかりのスペーサーはゆっくり戻るの",
+          "text" : "んだ．折ったばかりのスペーサーはゆっくり戻るの",
           "width" : 203.8,
           "x" : 268.6,
           "y" : 429.7
@@ -868,15 +868,15 @@
         },
         {
           "height" : 13,
-          "text" : "0.01 mm 減ったが，読みのばらつきより小さいので",
+          "text" : "0.01 mm 減ったが，読みのばらつきより小さいので無",
           "width" : 203.6,
           "x" : 43.2,
           "y" : 511.7
         },
         {
           "height" : 13,
-          "text" : "無視した．",
-          "width" : 42.5,
+          "text" : "視した．",
+          "width" : 34,
           "x" : 43.2,
           "y" : 525.1
         },
@@ -1013,5 +1013,5 @@
       "width" : 515.9
     }
   ],
-  "textSHA256" : "d6abe1d9d98a59b797d6bff033cfc2255e77c78f1a3d065986c3d85858ff0c47"
+  "textSHA256" : "ce157647b240d358b5eca992c9d1b6d314c48a7a5853f84ff7cbc6bc0755e7ef"
 }

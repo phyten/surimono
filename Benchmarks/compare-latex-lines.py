@@ -498,7 +498,21 @@ def main():
     parser.add_argument("--reader", type=Path, help="include native and skipped contexts from make latex-dump")
     parser.add_argument("--json", type=Path, help="write per-paragraph counts, break positions, physical word gaps in points, and exclusions")
     parser.add_argument("--tsv", type=Path, help="write a paragraph table with line ends and word-gap changes in percent")
+    parser.add_argument("--japanese", action="store_true", help="compare Japanese body lines by character offsets")
+    parser.add_argument("--before-boxes", type=Path, help="Japanese BOXES=1 dump for the old PDFs (default: their parent directory)")
     args = parser.parse_args()
+    if args.japanese:
+        if not args.reader or not args.after_pdfs or args.tsv:
+            parser.error("--japanese requires --reader and --after-pdfs and writes JSON")
+        from latex_japanese_comparison import compare_japanese
+        rows = compare_japanese(args.reader, args.reference_pdfs, args.old_pdfs, args.after_pdfs,
+                                PrintedParagraphs, normalized, args.dump, args.before_boxes or args.old_pdfs.parent)
+        value = json.dumps(rows, indent=2, ensure_ascii=False)
+        if args.json:
+            args.json.write_text(value + "\n")
+        else:
+            print(value)
+        return
     if args.tsv and not args.after_pdfs:
         parser.error("--tsv requires --after-pdfs for physical word gaps")
     try:

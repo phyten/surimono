@@ -88,7 +88,7 @@ struct LaTeXWebKitLineDumpTests {
         report["document"] = directory.lastPathComponent
         report["engine"] = "WebKit"
         report["route"] = final?["route"] ?? route ?? "vertical"
-        report["hasLatinDiagnostics"] = final != nil
+        report["hasLatinDiagnostics"] = final?["hasLatinDiagnostics"] ?? (final != nil)
         report["layout"] = readingSettings.layout.id
         report["style"] = style
         report["pageCount"] = prepared.viewDocument.pageCount

@@ -122,6 +122,8 @@ struct LaTeXSocietyTitleTests {
         #expect(journal.footerFont?.family == "Helvetica")
         #expect(journal.copyrightFont?.family == "Times New Roman")
         let ipsj = LaTeXDocumentClassInfo(name: "ipsj", options: "submit")
+        #expect(ipsj.profile.page.fixedGrid?.fixedWesternSkip == .init(width: 2.40553, stretch: 1, shrink: 1))
+        #expect(info.profile.page.fixedGrid?.fixedWesternSkip == nil)
         #expect(ipsj.pageNumbers.journalPage?.japaneseHeaderFace == "HiraginoSans-W5")
         #expect(ipsj.pageNumbers.journalPage?.copyrightFont?.family == "Times New Roman")
     }

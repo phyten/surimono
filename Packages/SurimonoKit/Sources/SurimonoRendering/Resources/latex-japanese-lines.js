@@ -19,8 +19,14 @@ function planJapaneseProse(source, width, indent, em, zw, measure) {
     return japaneseBreakPlan(tokens, width, indent, em, zw);
 }
 
-function japaneseBreakPlan(tokens, width, indent, em, zw, grid = false) {
+function japaneseBreakPlan(tokens, width, indent, em, zw, grid = false, pt = 1, fixedWesternSkip = null) {
     if (!tokens.length) return null;
+    // TeX reads a decimal multiplier as a 16.16 fraction, then truncates the product to sp.
+    // Even .1zw versus exactly one tenth changes fitness at the 99/100 badness boundary.
+    const scaledZW = Math.round(zw * 65536 / pt);
+    const partZW = fraction => Math.floor(scaledZW * Math.round(fraction * 65536) / 65536) * pt / 65536;
+    const kanjiSkip = grid ? [0, partZW(.1), partZW(.05)] : null;
+    const westernSkip = fixedWesternSkip || [.25 * em, .15 * em, .06 * em];
     function glue(left, right) {
         const a = left.kind, b = right.kind;
         if (grid) {
@@ -35,17 +41,17 @@ function japaneseBreakPlan(tokens, width, indent, em, zw, grid = false) {
             if (a === 'close' && b !== 'close' || b === 'open' && a !== 'open')
                 return [.5 * zw, 0, '。．'.includes(left.text) ? 0 : .5 * zw];
             if (a === 'space' || b === 'space' || a === 'latin' && b === 'latin') return [0,0,0];
-            if (a === 'open' || b === 'close' || a === 'kanji' && b === 'kanji') return [0,.1 * zw,.05 * zw];
+            if (a === 'open' || b === 'close' || a === 'kanji' && b === 'kanji') return kanjiSkip;
         }
         if (a === 'space' || b === 'space') return [0, 0, 0];
         if (a === 'close' && b !== 'close' || b === 'open' && a !== 'open') return [.5 * zw, .1 * zw, .5 * zw];
         if (a === 'open' || b === 'close') return [0, 0, .01 * zw];
-        if (a === 'latin' || b === 'latin') return [.25 * em, .15 * em, .06 * em];
+        if (a === 'latin' || b === 'latin') return westernSkip;
         return [0, .1 * zw, .01 * zw];
     }
     const gaps = tokens.map((t,i) => i ? glue(tokens[i-1],t) : [0,0,0]);
     if (grid) {
-        const lines = japaneseParagraphBreaks(tokens, gaps, width, indent);
+        const lines = japaneseParagraphBreaks(tokens, gaps, width, indent, pt);
         return lines && {tokens, gaps, lines, zw};
     }
     const lines = [];
@@ -72,7 +78,7 @@ function japaneseBreakPlan(tokens, width, indent, em, zw, grid = false) {
 
 // A greedy break often leaves a two-character final line. TeX chooses the
 // paragraph as a whole, penalizing the cubic badness of stretched/shrunk lines.
-function japaneseParagraphBreaks(tokens, gaps, width, indent) {
+function japaneseParagraphBreaks(tokens, gaps, width, indent, pt) {
     const states = [[null,null,{cost:0, fitness:2},null]];
     const lastLetter = tokens.findLastIndex(t => t.kind !== 'close');
     let trials = 0;
@@ -91,8 +97,9 @@ function japaneseParagraphBreaks(tokens, gaps, width, indent) {
             if (-spare > shrink + .001) break;
             if (next?.kind === 'space' || next?.kind === 'mark' || !canWrap(t,next,t.kind === 'space')) continue;
             const ratio = !next && spare >= 0 ? 0 : spare / Math.max(.001,spare < 0 ? shrink : stretch);
-            const badness = Math.round(100 * Math.abs(ratio) ** 3);
-            if (badness > 10000) continue;
+            const badness = !next && spare >= 0 ? 0 : texBadness(spare, spare < 0 ? shrink : stretch, 65536 / pt);
+            // A saturated finite-glue line is outside both journal classes' tolerance.
+            if (badness === 10000) continue;
             const fitness = badness <= 12 ? 2 : ratio < 0 ? 3 : badness > 99 ? 0 : 1;
             const widow = end === lastLetter && next?.kind === 'kanji' ? 500 : 0;
             const demerits = (10 + badness) ** 2 + widow ** 2;
@@ -100,7 +107,8 @@ function japaneseParagraphBreaks(tokens, gaps, width, indent) {
             for (const previous of states[start]) {
                 if (!previous) continue;
                 const cost = previous.cost + demerits + (Math.abs(fitness - previous.fitness) > 1 ? 10000 : 0);
-                if (!states[end][fitness] || cost < states[end][fitness].cost)
+                // TeX visits active predecessors in source order and retains the later equal demerit.
+                if (!states[end][fitness] || cost <= states[end][fitness].cost)
                     states[end][fitness] = {start,end,ratio,cost,fitness,previous};
             }
         }
@@ -194,6 +202,12 @@ function japaneseGridParagraphs(body, bodyZW, bibliographyZW, unitsPerPixel) {
     const context = document.createElement('canvas').getContext('2d');
     if (!context || !(bodyZW > 0)) return;
     const range = document.createRange();
+    const diagnostics = globalThis.surimonoCollectJapaneseBoxes ? (globalThis.surimonoJapaneseBoxes = []) : null;
+    const style = getComputedStyle(body);
+    const pt = parseFloat(style.getPropertyValue('--tex-pt'));
+    if (!(pt > 0)) return;
+    const fixed = style.getPropertyValue('--latex-xkanjiskip-pt').trim();
+    const westernSkip = fixed ? fixed.split(/\s+/).map(value => Number(value) * pt) : null;
     let remaining = 250000;
     for (const p of body.querySelectorAll('[data-flow-strip] > p:lang(ja), [data-flow-strip] > :is(ul,ol.latex-enumerate,ol.latex-bibliography) > li:lang(ja)')) {
         if (!japaneseLetter.test(p.textContent) || p.textContent.length > 8192 ||
@@ -226,8 +240,15 @@ function japaneseGridParagraphs(body, bodyZW, bibliographyZW, unitsPerPixel) {
         }
         if (unsupported || labels.some(label => !label.matches('.latex-item-mark,.bib-label'))) continue;
         const indent = parseFloat(css.textIndent);
-        const plan = japaneseBreakPlan(parts, width, indent, em, zw, true);
+        const plan = japaneseBreakPlan(parts, width, indent, em, zw, true, pt, westernSkip);
         if (!plan) continue;
+        if (diagnostics) {
+            diagnostics.push({text: p.textContent, width, indent, em, zw,
+                cssPerTeXPoint: pt,
+                ends: plan.lines.map(line => line.end),
+                tokens: parts.map((t,i) => [t.text, t.kind, t.advance, ...plan.gaps[i],
+                    t.node?.className || null])});
+        }
         const content = document.createDocumentFragment();
         const inlineLabel = labels.length > 0 && getComputedStyle(labels[0]).position !== 'absolute';
         if (!inlineLabel) content.append(...labels);
@@ -281,9 +302,9 @@ function japaneseGridParagraphs(body, bodyZW, bibliographyZW, unitsPerPixel) {
                     const word = document.createElement('span');
                     word.style.cssText = 'display:inline-block;white-space:nowrap;text-align-last:auto;line-height:0';
                     if (i > start && parts[i - 1].kind === 'kanji' && t.kind === 'latin')
-                        word.style.marginInlineStart = (.25 - squeeze * .06) * em + 'px';
+                        word.style.marginInlineStart = (plan.gaps[i][0] - squeeze * plan.gaps[i][2]) + 'px';
                     if (i + 1 < end && next.kind === 'kanji' && t.kind === 'latin')
-                        word.style.marginInlineEnd = (.25 - squeeze * .06) * em + 'px';
+                        word.style.marginInlineEnd = (plan.gaps[i+1][0] - squeeze * plan.gaps[i+1][2]) + 'px';
                     word.append(t.node || t.text);
                     line.append(word);
                 } else {

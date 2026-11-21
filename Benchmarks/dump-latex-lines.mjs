@@ -12,10 +12,10 @@ const inputs = process.argv[2];
 const root = fileURLToPath(new URL('../', import.meta.url));
 const resources = path.join(root, 'Packages/SurimonoKit/Sources/SurimonoRendering/Resources');
 const resource = name => readFile(path.join(resources, name), 'utf8');
-const planner = await resource('latex-latin-plan.js');
+const planner = (await Promise.all(['latex-badness.js', 'latex-latin-plan.js'].map(resource))).join('\n');
 const composer = await resource('latex-latin-lines.js');
 const patterns = await resource('hyphen.tex');
-const flow = (await Promise.all(['tikz-label-layout.js', 'latex-japanese-lines.js', 'latex-flow.js'].map(resource))).join('\n');
+const flow = (await Promise.all(['latex-badness.js', 'tikz-label-layout.js', 'latex-japanese-lines.js', 'latex-flow.js'].map(resource))).join('\n');
 const profile = await mkdtemp(path.join(tmpdir(), 'surimono-line-chromium-'));
 const chrome = process.env.CHROMIUM || 'chrome-headless-shell';
 const flags = ['--headless', '--disable-gpu', '--disable-background-networking', '--remote-debugging-pipe',

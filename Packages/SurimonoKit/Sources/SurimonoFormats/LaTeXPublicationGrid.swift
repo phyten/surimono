@@ -14,6 +14,11 @@ struct PublicationGrid: Equatable, Sendable {
     let characterWidth: Double?
     var raggedColumns = false
     var charactersPerColumn: Int? = nil
+    // Some classes retain the format's fixed xkanjiskip when they change the body size.
+    struct FixedSkip: Equatable, Sendable {
+        let width, stretch, shrink: Double
+    }
+    var fixedWesternSkip: FixedSkip? = nil
     struct JapaneseScales: Equatable, Sendable {
         var title, author, abstract, note, caption: Double
     }
@@ -63,6 +68,10 @@ struct PublicationGrid: Equatable, Sendable {
             ("textfloatsep", textFloatSkip, floatStretch, floatShrink),
         ] {
             result["glue-" + key] = [natural, plus, minus].map(LaTeXPageSettings.number).joined(separator: " ")
+        }
+        if let skip = fixedWesternSkip {
+            result["xkanjiskip-pt"] = [skip.width, skip.stretch, skip.shrink].map(LaTeXPageSettings.number).joined(
+                separator: " ")
         }
         return result
     }
