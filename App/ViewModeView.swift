@@ -161,6 +161,19 @@ private struct PaperArea: View {
     @Bindable var model: DocumentViewModel
     let menu: OverlayMenuState
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var updateDisplay: PageUpdateProgress.Display {
+        #if DEBUG
+            if let value = DebugSnapshot.argument("SurimonoUpdating"),
+                let forced = PageUpdateProgress.Display(rawValue: value)
+            {
+                return model.pageUpdateState == .inactive ? .hidden : forced
+            }
+        #endif
+        return model.pageUpdateDisplay
+    }
+
     var body: some View {
         ZStack {
             if model.showsWeb, let fileURL = model.fileURL {
@@ -198,14 +211,24 @@ private struct PaperArea: View {
             }
         }
         .overlay(alignment: .bottom) {
-            if let name = model.trialThemeName {
-                ThemeTrialBadge(name: name, isReady: model.themeTrial.document != nil)
-                    .padding(.bottom, 18)
+            ZStack {
+                if model.trialThemeName != nil || updateDisplay != .hidden {
+                    Group {
+                        if let name = model.trialThemeName {
+                            ThemeTrialBadge(name: name, isReady: model.themeTrial.document != nil)
+                        } else {
+                            PageUpdateBadge(showsText: updateDisplay == .text)
+                        }
+                    }
                     .transition(.opacity)
-                    .allowsHitTesting(false)
+                }
             }
+            .padding(.bottom, 18)
+            .allowsHitTesting(false)
+            .animation(
+                reduceMotion ? nil : .easeOut(duration: 0.12),
+                value: model.trialThemeName != nil || updateDisplay != .hidden)
         }
-        .animation(.easeOut(duration: 0.15), value: model.trialThemeName)
         .overlay(alignment: .topTrailing) {
             if model.find.isPresented, !model.showsWeb {
                 FindBar(model: model).padding(10).transition(.opacity)
@@ -362,6 +385,26 @@ struct ToastActionButtonStyle: ButtonStyle {
                     DisplayAccessibility.shared.options.fill(
                         .white, opacity: configuration.isPressed ? 0.28 : 0.2, over: PrintPalette.toast))
             }
+    }
+}
+
+private struct PageUpdateBadge: View {
+    let showsText: Bool
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ProgressView().controlSize(.small)
+                .tint(DisplayAccessibility.shared.options.increasedContrast ? PrintPalette.ink : nil)
+                .accessibilityLabel(Text("Updating pages"))
+            if showsText {
+                Text("Updating pages…").font(.system(size: 13, weight: .semibold)).accessibilityHidden(true)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .foregroundStyle(DisplayAccessibility.shared.options.increasedContrast ? PrintPalette.ink : PrintPalette.ink2)
+        .paperOverlayBackground(.toast)
+        .shadow(color: .black.opacity(0.25), radius: 8, y: 3)
     }
 }
 

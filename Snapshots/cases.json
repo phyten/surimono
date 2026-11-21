@@ -286,6 +286,8 @@
   {"id": "ui-fold-dark", "kind": "ui", "input": "Samples/booklet-demo.md", "arguments": ["-SurimonoMode", "print", "-SurimonoLayout", "a4BookletA5", "-SurimonoFold", "YES", "-SurimonoAppearance", "dark"], "tags": ["fold", "dark"]},
   {"id": "ui-fold-light", "kind": "ui", "input": "Samples/booklet-demo.md", "arguments": ["-SurimonoMode", "print", "-SurimonoLayout", "a4BookletA5", "-SurimonoFold", "YES", "-SurimonoAppearance", "light"], "tags": ["fold", "light"]},
   {"id": "ui-full-dark", "kind": "ui", "input": "Samples/booklet-demo.md", "arguments": ["-SurimonoMenu", "full", "-SurimonoAppearance", "dark"], "tags": ["full", "dark"]},
+  {"id": "ui-updating-light", "kind": "ui", "input": "Samples/booklet-demo.md", "arguments": ["-SurimonoUpdating", "spinner", "-SurimonoAppearance", "light"], "tags": ["updating", "light"]},
+  {"id": "ui-updating-dark", "kind": "ui", "input": "Samples/booklet-demo.md", "arguments": ["-SurimonoUpdating", "text", "-SurimonoAppearance", "dark"], "tags": ["updating", "dark"]},
   {"id": "ui-full-light", "kind": "ui", "input": "Samples/booklet-demo.md", "arguments": ["-SurimonoMenu", "full", "-SurimonoAppearance", "light"], "tags": ["full", "light"]},
   {"id": "ui-pinned-dark", "kind": "ui", "input": "Samples/booklet-demo.md", "arguments": ["-SurimonoMenu", "pinned", "-SurimonoAppearance", "dark"], "tags": ["pinned", "dark"]},
   {"id": "ui-pinned-light", "kind": "ui", "input": "Samples/booklet-demo.md", "arguments": ["-SurimonoMenu", "pinned", "-SurimonoAppearance", "light"], "tags": ["pinned", "light"]},

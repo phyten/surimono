@@ -4,7 +4,8 @@ import SurimonoRendering
 
 extension DocumentViewModel {
     typealias ChosenTrial = (
-        themeID: String, codePaletteID: String, document: PDFDocument, changeMarks: [ChangeMark],
+        themeID: String, codePaletteID: String, settings: RenderSettings?, document: PDFDocument,
+        changeMarks: [ChangeMark],
         furniture: [Int: FurniturePlacement], diagrams: [RenderedDiagram]
     )
 
