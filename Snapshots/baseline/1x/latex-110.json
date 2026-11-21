@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.026090596223607106,
+    "changedAreaRatio" : 0.02606062485143501,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 2,
@@ -102,11 +102,11 @@
           "y" : 431.3
         },
         {
-          "height" : 11.7,
+          "height" : 11.5,
           "text" : "(b + t)− (a + t) = b− a.",
           "width" : 106.5,
           "x" : 253,
-          "y" : 449.4
+          "y" : 449.5
         },
         {
           "height" : 11.9,

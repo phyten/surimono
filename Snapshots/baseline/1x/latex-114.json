@@ -411,18 +411,18 @@
           "y" : 313.5
         },
         {
-          "height" : 11.7,
+          "height" : 11.6,
           "text" : "h= n t + (n− 1) c,",
           "width" : 82.1,
           "x" : 265,
-          "y" : 329.1
+          "y" : 329.2
         },
         {
-          "height" : 11.7,
+          "height" : 11.6,
           "text" : "(1)",
           "width" : 11.6,
           "x" : 492.4,
-          "y" : 329.1
+          "y" : 329.2
         },
         {
           "height" : 11,
@@ -432,11 +432,11 @@
           "y" : 344.7
         },
         {
-          "height" : 12.4,
+          "height" : 12.3,
           "text" : "for which Equation (1) gives c = h2− 2t. The same model was used for the gauge block of Scale",
           "width" : 396,
           "x" : 108,
-          "y" : 355.8
+          "y" : 355.9
         },
         {
           "height" : 11,

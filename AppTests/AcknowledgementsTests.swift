@@ -12,7 +12,7 @@ struct AcknowledgementsTests {
             "swift-markdown-LICENSE.txt", "swift-markdown-NOTICE.txt", "swift-cmark-COPYING.txt",
             "mammoth-LICENSE.txt", "mammoth-THIRD-PARTY-NOTICES.txt",
             "djot-LICENSE.txt", "textile-LICENSE.txt", "asciidoctor-LICENSE.txt", "SwaTex-LICENSE.txt",
-            "SwaTex-THIRD-PARTY-NOTICES.md", "KaTeX-Fonts-OFL.txt", "CMU-Fonts-OFL.txt",
+            "SwaTex-THIRD-PARTY-NOTICES.md", "KaTeX-Fonts-OFL.txt", "CMU-Fonts-OFL.txt", "AMSFonts-OFL.txt",
             "viz-LICENSE.txt", "viz-THIRD-PARTY-NOTICES.txt", "plantuml-LICENSE.txt",
             "mermaid-LICENSE.txt", "gemoji-LICENSE.txt", "hyphen-LICENSE.txt", "Sparkle-LICENSE.txt",
         ])

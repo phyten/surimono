@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.12567047590696853,
+    "changedAreaRatio" : 0.12564153450091234,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 2,

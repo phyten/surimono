@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.024438411261940674,
+    "changedAreaRatio" : 0.024434389140271493,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
@@ -31,11 +31,11 @@
           "y" : 148.1
         },
         {
-          "height" : 12.6,
+          "height" : 12.5,
           "text" : "100",
           "width" : 13.5,
           "x" : 147.6,
-          "y" : 183.3
+          "y" : 183.4
         },
         {
           "height" : 14.8,
@@ -59,11 +59,11 @@
           "y" : 239.4
         },
         {
-          "height" : 12.6,
+          "height" : 12.5,
           "text" : "10−1",
           "width" : 18.9,
           "x" : 142.2,
-          "y" : 260.7
+          "y" : 260.8
         },
         {
           "height" : 14.8,

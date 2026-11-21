@@ -1,12 +1,12 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.10105726599076055,
+    "changedAreaRatio" : 0.1009032751475315,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
     "maxBoxDeltaPt" : 371.7,
-    "maxLuminance" : 59.265625,
+    "maxLuminance" : 51.96875,
     "maxShiftPt" : 3.3,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
@@ -434,18 +434,18 @@
           "y" : 543.4
         },
         {
-          "height" : 12.8,
+          "height" : 12.7,
           "text" : "h= n t + (n− 1) c,",
           "width" : 89.9,
           "x" : 370.3,
-          "y" : 567.9
+          "y" : 568
         },
         {
-          "height" : 12.8,
+          "height" : 12.7,
           "text" : "(1)",
           "width" : 12.7,
           "x" : 511.7,
-          "y" : 567.9
+          "y" : 568
         },
         {
           "height" : 12.1,
@@ -490,11 +490,11 @@
           "y" : 606.4
         },
         {
-          "height" : 13.6,
+          "height" : 13.4,
           "text" : "trial, for which Equation (1) gives c = h2− 2t.",
           "width" : 218.3,
           "x" : 306.1,
-          "y" : 619.8
+          "y" : 619.9
         },
         {
           "height" : 12.1,

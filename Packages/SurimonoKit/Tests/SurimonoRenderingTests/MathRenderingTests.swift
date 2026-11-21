@@ -6,8 +6,8 @@ import Testing
 
 @MainActor
 struct MathRenderingTests {
-    @Test("Markdown の数式は KaTeX の書体で紙に刷られ、ほかの文と同じページに入る", .timeLimit(.minutes(1)))
-    func mathPrintsWithKaTeXFonts() async throws {
+    @Test("Markdown の数式は 同梱の数式書体で紙に刷られ、ほかの文と同じページに入る", .timeLimit(.minutes(1)))
+    func mathPrintsWithBundledFonts() async throws {
         _ = NSApplication.shared
         let theme = try #require(PrintThemeLibrary.load().first { $0.id == "standard" })
         let settings = RenderSettings(
@@ -20,11 +20,11 @@ struct MathRenderingTests {
         let text = page.string ?? ""
         #expect(text.contains("本文の"))
         #expect(text.contains("後の文"))
-        // The formulas' glyphs are text in the embedded KaTeX fonts, not outlines or a fallback font. PDFKit does not
+        // The formulas' glyphs are text in the embedded math fonts, not outlines or a fallback font. PDFKit does not
         // report embedded subset fonts by name, so the PDF's font dictionaries are read instead.
         let pdf = String(decoding: try #require(result.logicalDocument.dataRepresentation()), as: UTF8.self)
-        #expect(pdf.contains("+KaTeX_Math-Italic"))
-        #expect(pdf.contains("+KaTeX_Main-Regular"))
+        #expect(pdf.contains("+SurimonoMathLetters-Italic"))
+        #expect(pdf.contains("+SurimonoMathMain-Regular"))
     }
 
     @Test("LaTeX 風のテーマは、欧文と等幅を同梱の Computer Modern で、和文を明朝で刷る", .timeLimit(.minutes(1)))

@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.010874440620510753,
+    "changedAreaRatio" : 0.010762823096559493,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
@@ -38,11 +38,11 @@
           "y" : 173.2
         },
         {
-          "height" : 11.7,
+          "height" : 11.5,
           "text" : "h(u) =",
           "width" : 29.7,
           "x" : 246.4,
-          "y" : 220.3
+          "y" : 220.5
         },
         {
           "height" : 29.9,
@@ -66,25 +66,25 @@
           "y" : 222
         },
         {
-          "height" : 11.7,
+          "height" : 11.5,
           "text" : "0 u < 0,",
           "width" : 42.4,
           "x" : 287.8,
-          "y" : 206.4
+          "y" : 206.5
         },
         {
-          "height" : 11.7,
+          "height" : 11.5,
           "text" : "u 0 ≤ u ≤ 3,",
           "width" : 60.7,
           "x" : 287.8,
-          "y" : 220.7
+          "y" : 220.9
         },
         {
-          "height" : 11.7,
+          "height" : 11.5,
           "text" : "3 u > 3.",
           "width" : 42.4,
           "x" : 287.8,
-          "y" : 235.1
+          "y" : 235.2
         },
         {
           "height" : 14.8,
@@ -94,25 +94,25 @@
           "y" : 258.8
         },
         {
-          "height" : 11.7,
+          "height" : 11.5,
           "text" : "h(−1) = h(0),",
           "width" : 60.7,
           "x" : 267.2,
-          "y" : 282.5
+          "y" : 282.6
         },
         {
-          "height" : 11.7,
+          "height" : 11.5,
           "text" : "h(3) = h(4).",
           "width" : 53,
           "x" : 271.1,
-          "y" : 297.4
+          "y" : 297.6
         },
         {
-          "height" : 11.7,
+          "height" : 11.5,
           "text" : "h(2)− h(1) = 1.",
           "width" : 70.1,
           "x" : 262.4,
-          "y" : 324.1
+          "y" : 324.2
         },
         {
           "height" : 14.8,

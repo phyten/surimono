@@ -243,7 +243,7 @@ function embeddedFaces() {
   if (pageFaces) return pageFaces;
   pageFaces = new Map();
   const face =
-    /@font-face \{ font-family: "(KaTeX_[A-Za-z0-9]+|Surimono Computer Modern(?: Typewriter)?)"; font-weight: (normal|bold); font-style: (normal|italic); (?:unicode-range: ([U+0-9A-F, -]+); )?src: url\("(data:font\/ttf;base64,[A-Za-z0-9+/=]+)"\) format\("truetype"\); \}/g;
+    /@font-face \{ font-family: "(KaTeX_[A-Za-z0-9]+|Surimono Computer Modern(?: Typewriter)?)"; font-weight: (normal|bold); font-style: (normal|italic); (?:unicode-range: ([U+0-9A-F, -]+); )?src: url\("(data:font\/(?:otf|ttf);base64,[A-Za-z0-9+/=]+)"\) format\("(?:opentype|truetype)"\); \}/g;
   for (const el of document.querySelectorAll('style')) {
     const css = el.textContent;
     if (css.length > 5000000 || !css.includes('@font-face')) continue;

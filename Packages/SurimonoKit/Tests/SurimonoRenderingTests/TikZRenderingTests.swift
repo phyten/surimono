@@ -66,7 +66,7 @@ struct TikZRenderingTests {
         #expect(result.diagrams.count == 1)
         let diagram = try #require(result.diagrams.first)
         #expect(diagram.svg.contains("KaTeX_"))
-        #expect(diagram.svg.contains("data:font/ttf;base64,"))
+        #expect(diagram.svg.contains("data:font/otf;base64,"))
         #expect(!diagram.svg.contains("foreignObject"))
         #expect(result.viewDocument.string?.contains("Figure (TikZ)") == true)
         #expect(result.viewDocument.string?.contains("NeverPaint") == false)

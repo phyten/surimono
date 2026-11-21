@@ -219,24 +219,24 @@
       "width" : 595.3
     },
     {
-      "firstY" : 113.8,
+      "firstY" : 113.9,
       "height" : 841.9,
       "lastY" : 764.2,
       "lineCount" : 26,
       "lines" : [
         {
-          "height" : 11.7,
+          "height" : 11.5,
           "text" : "a = b + c",
           "width" : 39.3,
           "x" : 277,
-          "y" : 113.8
+          "y" : 113.9
         },
         {
-          "height" : 11.7,
+          "height" : 11.5,
           "text" : "d= e + f",
           "width" : 40.2,
           "x" : 277.1,
-          "y" : 128.7
+          "y" : 128.9
         },
         {
           "height" : 18.7,
@@ -407,9 +407,9 @@
           "y" : 764.2
         }
       ],
-      "textHeight" : 665.2,
+      "textHeight" : 665,
       "textLeft" : 71.9,
-      "textTop" : 113.8,
+      "textTop" : 113.9,
       "textWidth" : 451.4,
       "width" : 595.3
     },

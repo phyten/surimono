@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.013383767918229829,
+    "changedAreaRatio" : 0.013320724687109209,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
@@ -45,18 +45,18 @@
           "y" : 197.2
         },
         {
-          "height" : 11.7,
+          "height" : 11.5,
           "text" : "mean(S) = (2 + 6)/2 = 4,",
           "width" : 111.8,
           "x" : 223.3,
-          "y" : 220.9
+          "y" : 221
         },
         {
-          "height" : 11.7,
+          "height" : 11.5,
           "text" : "d(S) = max(S)− min(S) = 4.",
           "width" : 130.1,
           "x" : 241.3,
-          "y" : 235.8
+          "y" : 236
         },
         {
           "height" : 14.8,
