@@ -310,7 +310,7 @@ enum WelcomeAction: CaseIterable {
 
 struct WelcomeFormatsLine: View {
     var body: some View {
-        Text("Markdown, PDF, Word, LaTeX, images, and more")
+        Text("Markdown, PDF, Word, LaTeX, Org, images, and more")
             .font(.system(size: 12))
             .foregroundStyle(.secondary)
             .lineLimit(1)

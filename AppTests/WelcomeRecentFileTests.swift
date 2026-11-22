@@ -23,14 +23,14 @@ struct WelcomeRecentFileTests {
     @Test("ドロップ欄の対応形式は八言語すべてで最小幅の窓に一行で収まる")
     func formatsFit() throws {
         let labels = [
-            "en": "Markdown, PDF, Word, LaTeX, images, and more",
-            "ja": "Markdown・PDF・Word・LaTeX・画像ほか",
-            "de": "Markdown, PDF, Word, LaTeX, Bilder u. a.",
-            "es": "Markdown, PDF, Word, LaTeX, imágenes y más",
-            "fr": "Markdown, PDF, Word, LaTeX, images, etc.",
-            "ko": "Markdown, PDF, Word, LaTeX, 이미지 등",
-            "zh-Hans": "Markdown、PDF、Word、LaTeX、图像等",
-            "zh-Hant": "Markdown、PDF、Word、LaTeX、影像等",
+            "en": "Markdown, PDF, Word, LaTeX, Org, images, and more",
+            "ja": "Markdown・PDF・Word・LaTeX・Org・画像ほか",
+            "de": "Markdown, PDF, Word, LaTeX, Org, Bilder u. a.",
+            "es": "Markdown, PDF, Word, LaTeX, Org, imágenes y más",
+            "fr": "Markdown, PDF, Word, LaTeX, Org, images, etc.",
+            "ko": "Markdown, PDF, Word, LaTeX, Org, 이미지 등",
+            "zh-Hans": "Markdown、PDF、Word、LaTeX、Org、图像等",
+            "zh-Hant": "Markdown、PDF、Word、LaTeX、Org、影像等",
         ]
         #expect(Set(labels.keys) == Set(UILanguage.supported))
         var measurements: [String] = []
@@ -38,7 +38,7 @@ struct WelcomeRecentFileTests {
             let path = try #require(Bundle.main.path(forResource: language, ofType: "lproj"))
             let strings = try #require(Bundle(path: path))
             let value = strings.localizedString(
-                forKey: "Markdown, PDF, Word, LaTeX, images, and more", value: "", table: nil)
+                forKey: "Markdown, PDF, Word, LaTeX, Org, images, and more", value: "", table: nil)
             #expect(value == labels[language])
             let locale = Locale(identifier: language)
             let view = WelcomeFormatsLine().environment(\.locale, locale)
