@@ -17,7 +17,7 @@ struct DocxNumbering {
 
     init(document: XMLDocument?, numbering: Data?, styles: XMLDocument?) {
         guard let numbering, let document,
-            let definitions = try? XMLDocument(data: numbering, options: [.nodeLoadExternalEntitiesNever]),
+            let definitions = DocxConverter.xmlDocument(numbering),
             let root = definitions.rootElement()
         else { return }
 

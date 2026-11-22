@@ -2,9 +2,18 @@ import Foundation
 
 public enum RSTConverter {
     /// The root directory is the source file's directory. The caller may further restrict file access.
+    /// The callbacks run on the converter's own thread while the caller waits for it (`StackSpace.onLargeStack`):
+    /// they must not need the caller's thread or actor, and do not see its task-local values.
     public static func convert(
-        _ source: String, directory: URL? = nil, permitsFile: @escaping (URL) -> Bool = { _ in true }
+        _ source: String, directory: URL? = nil, permitsFile: @escaping @Sendable (URL) -> Bool = { _ in true }
     ) -> HTMLFragment {
+        // On a stack of known size, so a document reads the same on every thread.
+        StackSpace.onLargeStack { convertInPlace(source, directory: directory, permitsFile: permitsFile) }
+    }
+
+    private static func convertInPlace(_ source: String, directory: URL?, permitsFile: @escaping (URL) -> Bool)
+        -> HTMLFragment
+    {
         let document = RSTDocument(directory: directory, permitsFile: permitsFile)
         var normalized = TextDecoding.normalizeNewlines(source)
         if normalized.first == "\u{feff}" { normalized.removeFirst() }

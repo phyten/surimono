@@ -1238,7 +1238,7 @@ public final class DocumentRenderer {
                 let access =
                     resourceAccess(for: source)
                     ?? LocalResourceAccess(documentURL: url, folders: [url.deletingLastPathComponent()])
-                input = .sandboxed(try Self.decodedText(source.data), access: access)
+                input = .sandboxed(try Self.decodedText(source.data), access: access, followsOtherDocuments: true)
             } else if let url = source.fileURL {
                 input = .file(url, readAccessURL: url.deletingLastPathComponent())
             } else {
@@ -1386,6 +1386,8 @@ public final class DocumentRenderer {
             for (offset, detail) in fragment.readingIssues.enumerated() {
                 let kind: PrintIssue.Kind =
                     switch source.format {
+                    case _ where detail == StackSpace.limitIssue: .nestingLimit
+                    case _ where detail == StackSpace.omissionIssue: .nestingOmission
                     case .rst: .rst
                     case .markdown: .bibliography
                     default: .latex
@@ -1484,16 +1486,17 @@ public final class DocumentRenderer {
         _ source: DocumentSource, settings: RenderSettings, access: LocalResourceAccess?
     ) async throws -> ThemedInput {
         try Task.checkCancellation()
-        var needsFolderAccess = false
+        // Set by the readers' file callbacks, which run on the conversion thread while this one waits.
+        let needsFolderAccess = LockedFlag()
         guard
             let fragment = try Self.themedFragment(
                 source, pageBreakLine: settings.finish.breaks.customLine, proof: settings.finish.proof,
                 composition: settings.latexComposition, textWidthPoints: settings.textWidthPoints(in: settings.layout),
                 mapsMarkdownSource: !settings.markdownChanges.isEmpty, access: access,
-                onDenied: { needsFolderAccess = true },
+                onDenied: { needsFolderAccess.set() },
                 imageExists: { url in
                     if let access, !access.permits(url) {
-                        needsFolderAccess = true
+                        needsFolderAccess.set()
                         return false
                     }
                     guard access != nil else { return FileManager.default.fileExists(atPath: url.path) }
@@ -1506,13 +1509,13 @@ public final class DocumentRenderer {
                             || ![CocoaError.fileNoSuchFile.rawValue, CocoaError.fileReadNoSuchFile.rawValue]
                                 .contains(failure.code)
                         {
-                            needsFolderAccess = true
+                            needsFolderAccess.set()
                         }
                         return false
                     }
                 })
         else { throw RenderingError.unsupportedFormat }
-        return ThemedInput(fragment: fragment, needsFolderAccess: needsFolderAccess)
+        return ThemedInput(fragment: fragment, needsFolderAccess: needsFolderAccess.isSet)
     }
 
     @concurrent private static func themedPage(
@@ -1984,7 +1987,8 @@ public final class DocumentRenderer {
         case .html(let html, let base):
             return .sandboxed(base.map { WebPaginator.injectingBase($0, into: html) } ?? html, access: access)
         case .file:
-            return .sandboxed(nil, access: access)
+            // The opened HTML file itself, which may go on to another document as it does outside the sandbox.
+            return .sandboxed(nil, access: access, followsOtherDocuments: true)
         case .snapshot(let html, let directory):
             return .sandboxed(WebPaginator.injectingBase(directory, into: html), access: access)
         case .sandboxed:
@@ -2039,8 +2043,8 @@ public final class DocumentRenderer {
         _ source: DocumentSource, pageBreakLine: String = "", proof: ProofMarks = .shown,
         composition: LaTeXComposition = .document, textWidthPoints: Double? = nil, mapsMarkdownSource: Bool = false,
         access: LocalResourceAccess? = nil,
-        onDenied: @escaping () -> Void = {},
-        imageExists: @escaping (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
+        onDenied: @escaping @Sendable () -> Void = {},
+        imageExists: @escaping @Sendable (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
     ) throws -> HTMLFragment? {
         let access =
             access

@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import RobustnessSupport
 import Testing
 
 @testable import SurimonoFormats
@@ -84,7 +85,7 @@ struct LaTeXPictureTests {
 
     @Test("描ける図は外部化ファイルの許可を要求せず、未対応の図だけ代替画像を探す")
     func optionalFallbackLookup() {
-        var probed: [String] = []
+        let probed = Locked<[String]>([])
         let source = #"""
             \begin{tikzpicture}\draw (0,0)--(1,0);\end{tikzpicture}
             \begin{tikzpicture}\matrix {A};\end{tikzpicture}
@@ -92,10 +93,10 @@ struct LaTeXPictureTests {
         let fragment = LaTeXConverter.convert(
             source, documentURL: URL(fileURLWithPath: "/fixture/main.tex"),
             imageExists: {
-                probed.append($0.lastPathComponent)
+                probed.value.append($0.lastPathComponent)
                 return $0.lastPathComponent == "main-figure1.pdf"
             }, canProbePictureFallback: { _ in false })
-        #expect(probed == ["main-figure1.pdf"])
+        #expect(probed.value == ["main-figure1.pdf"])
         #expect(fragment.body.contains("<img"))
         #expect(fragment.readingIssues.contains { $0.contains("2") && $0.contains(#"\matrix"#) })
     }

@@ -196,11 +196,24 @@ public struct LaTeXDocumentClassInfo: Sendable, Equatable {
 extension LaTeXConverter {
     /// Read the preamble, including language options following the class declaration. Reuse the reader's handling of comments, definitions,
     /// and untaken branches so a quoted example of a Japanese class cannot select that style for an article.
+    /// The callbacks run on the converter's own thread while the caller waits for it (`StackSpace.onLargeStack`):
+    /// they must not need the caller's thread or actor, and do not see its task-local values.
     public static func documentClassInfo(
         _ text: String, composition: LaTeXComposition = .document, fontIndex: InstalledFontIndex = .system,
         documentURL: URL? = nil,
-        readFile: @escaping (URL) -> Data? = { _ in nil },
-        fileIdentity: @escaping (URL) -> URL = { $0.standardizedFileURL }
+        readFile: @escaping @Sendable (URL) -> Data? = { _ in nil },
+        fileIdentity: @escaping @Sendable (URL) -> URL = { $0.standardizedFileURL }
+    ) -> LaTeXDocumentClassInfo {
+        StackSpace.onLargeStack {
+            documentClassInfoInPlace(
+                text, composition: composition, fontIndex: fontIndex, documentURL: documentURL, readFile: readFile,
+                fileIdentity: fileIdentity)
+        }
+    }
+
+    private static func documentClassInfoInPlace(
+        _ text: String, composition: LaTeXComposition, fontIndex: InstalledFontIndex, documentURL: URL?,
+        readFile: @escaping (URL) -> Data?, fileIdentity: @escaping (URL) -> URL
     ) -> LaTeXDocumentClassInfo {
         let document = LaTeXDocument(fontIndex: fontIndex)
         document.requestedComposition = composition

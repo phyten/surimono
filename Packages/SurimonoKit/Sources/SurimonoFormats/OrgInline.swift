@@ -32,7 +32,10 @@ enum OrgInline {
     static func render(_ text: String, context: OrgContext = OrgContext(), depth: Int = 0, cookies: Cookies = .none)
         -> String
     {
-        guard depth < 32 else { return HTML.escape(text) }
+        guard depth < 32, StackSpace.hasRoom else {
+            StackSpace.noteLimitReached()
+            return HTML.escape(text)
+        }
         // Index tokens once, so a run of unmatched openers never rescans the remaining suffix.
         let pattern = timestampPattern + #"|\[(?:[0-9]*/[0-9]*|[0-9]*%)\]"#
         let nsText = text as NSString

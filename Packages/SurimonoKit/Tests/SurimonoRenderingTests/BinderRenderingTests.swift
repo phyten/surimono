@@ -150,7 +150,7 @@ struct BinderRenderingTests {
         _ = try await renderer.prepare(.binder([child]), settings: settings)
         #expect(requests.map(\.allowsJavaScript) == [true, false])
         for request in requests {
-            guard case .sandboxed(let loaded, let access) = request.source else {
+            guard case .sandboxed(let loaded, let access, _) = request.source else {
                 Issue.record("HTMLをファイルから再取得している")
                 return
             }

@@ -59,7 +59,7 @@ extension LaTeXReader {
             guard document.hasExtendedMathDefinitions, !document.stopsExpanding, visiting.insert(name).inserted
             else { return false }
             defer { visiting.remove(name) }
-            guard visiting.count < LaTeXDocument.maximumDepth,
+            guard visiting.count < LaTeXDocument.maximumDepth, StackSpace.hasRoom,
                 macro.body.utf8.count <= 50_000_000 - document.expansionWork
             else {
                 document.stopsExpanding = true

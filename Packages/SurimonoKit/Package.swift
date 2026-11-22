@@ -23,9 +23,15 @@ let package = Package(
             name: "SurimonoFormats",
             dependencies: [
                 .product(name: "Markdown", package: "swift-markdown"), .product(name: "SwaTex", package: "SwaTex"),
+                // MarkdownNesting measures a document's depth with cmark before swift-markdown converts it.
+                .product(name: "cmark-gfm", package: "swift-cmark"),
+                .product(name: "cmark-gfm-extensions", package: "swift-cmark"),
+                // StackSpace measures the stack from a real frame address, which Swift cannot take.
+                "SurimonoStackFrame",
             ],
             resources: [.process("Resources")]
         ),
+        .target(name: "SurimonoStackFrame"),
         .target(
             name: "SurimonoCore",
             dependencies: [
@@ -38,14 +44,17 @@ let package = Package(
         .target(
             name: "SurimonoRendering", dependencies: ["SurimonoCore"], resources: [.process("Resources")]),
         .target(name: "LaTeXCorpusSupport", dependencies: ["SurimonoFormats"], path: "Tests/LaTeXCorpusSupport"),
+        // Seeded inputs, hostile documents and the small-stack runner shared by the robustness tests.
+        .target(name: "RobustnessSupport", dependencies: ["SurimonoFormats"], path: "Tests/RobustnessSupport"),
         .testTarget(
-            name: "SurimonoFormatsTests", dependencies: ["SurimonoFormats", "LaTeXCorpusSupport"],
+            name: "SurimonoFormatsTests", dependencies: ["SurimonoFormats", "LaTeXCorpusSupport", "RobustnessSupport"],
             resources: [.copy("Fixtures")]),
         .testTarget(
-            name: "SurimonoCoreTests", dependencies: ["SurimonoCore", "LaTeXCorpusSupport"],
+            name: "SurimonoCoreTests", dependencies: ["SurimonoCore", "LaTeXCorpusSupport", "RobustnessSupport"],
             resources: [.copy("Fixtures")]),
         .testTarget(
-            name: "SurimonoRenderingTests", dependencies: ["SurimonoRendering", "LaTeXCorpusSupport"],
+            name: "SurimonoRenderingTests",
+            dependencies: ["SurimonoRendering", "LaTeXCorpusSupport", "RobustnessSupport"],
             resources: [.copy("Fixtures")]),
     ],
     swiftLanguageModes: [.v6]

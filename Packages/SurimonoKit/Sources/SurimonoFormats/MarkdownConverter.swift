@@ -4,9 +4,11 @@ import Markdown
 
 public enum MarkdownConverter {
     /// - Parameter pageBreakLine: A line of the reader's own that stands for a page break, besides the usual ones.
+    /// The callbacks run on the converter's own thread while the caller waits for it (`StackSpace.onLargeStack`):
+    /// they must not need the caller's thread or actor, and do not see its task-local values.
     public static func convert(
         _ text: String, pageBreakLine: String = "", proof: ProofMarks = .shown,
-        directory: URL? = nil, readFile: @escaping (URL) -> Data? = { _ in nil }
+        directory: URL? = nil, readFile: @escaping @Sendable (URL) -> Data? = { _ in nil }
     ) -> HTMLFragment {
         convertDocument(
             text, mapsSource: false, pageBreakLine: pageBreakLine, proof: proof, directory: directory,
@@ -14,9 +16,11 @@ public enum MarkdownConverter {
         ).fragment
     }
 
+    /// The callbacks run on the converter's own thread while the caller waits for it (`StackSpace.onLargeStack`):
+    /// they must not need the caller's thread or actor, and do not see its task-local values.
     public static func convertWithSourceMap(
         _ text: String, pageBreakLine: String = "", proof: ProofMarks = .shown,
-        directory: URL? = nil, readFile: @escaping (URL) -> Data? = { _ in nil }
+        directory: URL? = nil, readFile: @escaping @Sendable (URL) -> Data? = { _ in nil }
     ) -> MarkdownMappedDocument {
         convertDocument(
             text, mapsSource: true, pageBreakLine: pageBreakLine, proof: proof, directory: directory, readFile: readFile
@@ -27,11 +31,50 @@ public enum MarkdownConverter {
         convertDocument(text, mapsSource: false, pageBreakLine: pageBreakLine, proof: proof, notebookTOC: toc).fragment
     }
 
+    /// Converts on a stack that holds the nesting limit, so a document reads the same on every thread.
     private static func convertDocument(
         _ text: String, mapsSource: Bool, pageBreakLine: String, proof: ProofMarks, notebookTOC: String? = nil,
-        directory: URL? = nil, readFile: @escaping (URL) -> Data? = { _ in nil }
+        directory: URL? = nil, readFile: @escaping @Sendable (URL) -> Data? = { _ in nil }
     ) -> MarkdownMappedDocument {
-        let original = TextDecoding.normalizeNewlines(text).components(separatedBy: "\n")
+        StackSpace.onLargeStack(
+            {
+                convertDocumentOnLargeStack(
+                    text, mapsSource: mapsSource, pageBreakLine: pageBreakLine, proof: proof, notebookTOC: notebookTOC,
+                    directory: directory, readFile: readFile)
+            },
+            withoutThread: {
+                // swift-markdown's recursion has no guard of its own: without a stack known to hold the nesting
+                // limit, the document is shown as its text, with the nesting notice.
+                StackSpace.noteLimitReached()
+                let body = "<pre class=\"markdown-unread\">" + HTML.escape(text) + "</pre>\n"
+                return MarkdownMappedDocument(
+                    fragment: HTMLFragment(body: body, readingIssues: [MarkdownNesting.issue]), blocks: [])
+            })
+    }
+
+    private static func convertDocumentOnLargeStack(
+        _ text: String, mapsSource: Bool, pageBreakLine: String, proof: ProofMarks, notebookTOC: String?,
+        directory: URL?, readFile: @escaping @Sendable (URL) -> Data?
+    ) -> MarkdownMappedDocument {
+        let (document, reachedLimit) = StackSpace.collectingLimit {
+            convertDocumentInPlace(
+                text, mapsSource: mapsSource, pageBreakLine: pageBreakLine, proof: proof, notebookTOC: notebookTOC,
+                directory: directory, readFile: readFile)
+        }
+        guard reachedLimit, !document.fragment.readingIssues.contains(MarkdownNesting.issue) else { return document }
+        var fragment = document.fragment
+        fragment.readingIssues.append(MarkdownNesting.issue)
+        return MarkdownMappedDocument(fragment: fragment, blocks: document.blocks)
+    }
+
+    private static func convertDocumentInPlace(
+        _ text: String, mapsSource: Bool, pageBreakLine: String, proof: ProofMarks, notebookTOC: String?,
+        directory: URL?, readFile: @escaping (URL) -> Data?
+    ) -> MarkdownMappedDocument {
+        // CommonMark reads NUL as U+FFFD, and cmark widens it so before measuring columns; the rewriting before cmark
+        // must see the same text, or its columns point past the end of the line.
+        let original = TextDecoding.normalizeNewlines(text).replacingOccurrences(of: "\0", with: "\u{FFFD}")
+            .components(separatedBy: "\n")
         var source = mapsSource ? MarkdownSourceLines(original) : .unmapped(original)
         var lines = original
         let mapping = mapsSource ? BlockMapping(original: original) : nil
@@ -41,7 +84,8 @@ public enum MarkdownConverter {
             lines.removeFirst(end + 1)
             source = MarkdownSourceLines(lines, origins: Array(source.origins.dropFirst(end + 1)))
         }
-        source.lines = MarkdownPageBreaks.marking(source.lines, customLine: pageBreakLine)
+        let nesting = MarkdownNesting.flattened(source.lines)
+        source.lines = MarkdownPageBreaks.marking(nesting.lines, customLine: pageBreakLine)
         let extracted = MarkdownExtensions.extractFootnotes(source)
         let footnotes = MarkdownExtensions.Footnotes(
             definitions: extracted.definitions.mapValues { $0.lines.joined(separator: "\n") })
@@ -60,6 +104,7 @@ public enum MarkdownConverter {
                 footnotes, formulas: formulas, definitions: extracted.definitions, mapping: mapping, proof: proof)
         if let citations { html = citations.finish(html) }
         var issues = citations?.issues ?? []
+        if nesting.changed { issues.append(MarkdownNesting.issue) }
         if metadata.hasCSL && notebookTOC == nil {
             issues.append("CSL styles are not supported; numeric citations are used.")
         }
@@ -174,7 +219,8 @@ public enum MarkdownConverter {
         let source = MarkdownCallouts.preprocess(
             MarkdownExtensions.rewriteInline(lines, footnotes: footnotes, formulas: formulas, proof: proof),
             referencesMarker: formulas.citations?.referencesMarker)
-        let document = Document(parsing: source.lines.joined(separator: "\n"), options: [.disableSmartOpts])
+        let document = MarkdownNesting.document(
+            parsing: source.lines.joined(separator: "\n"), options: [.disableSmartOpts])
         let context = Context(
             source: source,
             anchors: anchorsHeadings ? MarkdownExtensions.headingAnchors(in: document, formulas: formulas) : [],
@@ -523,24 +569,55 @@ public enum MarkdownConverter {
     }
 
     /// Compiled once: every text run of a document goes through it, and compiling it for each run took most of the
-    /// time of converting a long Markdown document.
-    private static let autolinkPattern: NSRegularExpression? = {
+    /// time of converting a long Markdown document. An address starts only where its run of local-part characters
+    /// starts: tried from inside the run as well, 20,000 underscores without an `@` took seconds, and a later start
+    /// in the same run reaches the same `@` or none. `autolinkMatches` restores the one start that rule would lose.
+    private static let autolinkPattern = autolinkExpression(localPartStart: #"(?<![A-Za-z0-9._+\-])"#)
+    /// The expression without that rule, tried only where a search resumes after a match.
+    private static let resumedAutolinkPattern = autolinkExpression(localPartStart: "")
+
+    private static func autolinkExpression(localPartStart: String) -> NSRegularExpression? {
         let domain = #"(?:[\p{L}\p{N}_-]+\.)*[\p{L}\p{N}-]+\.[\p{L}\p{N}-]+"#
         let web = #"(?<![^\s*_~(])(?:https?://|www\.)"# + domain + #"[^\s<]*"#
-        let email = #"(?:mailto:|xmpp:)?[A-Za-z0-9._+\-]+@[A-Za-z0-9_\-]+(?:\.[A-Za-z0-9_\-]+)+"#
+        let email =
+            #"(?:mailto:|xmpp:)?"# + localPartStart + #"[A-Za-z0-9._+\-]+@[A-Za-z0-9_\-]+(?:\.[A-Za-z0-9_\-]+)+"#
         return try? NSRegularExpression(pattern: "(?<web>\(web))|\(email)", options: [.caseInsensitive])
-    }()
+    }
+
+    /// The matches the expression without the local-part rule finds, left to right. A search resumes at the end of
+    /// the previous match, and there an address may start right after a local-part character (`a@a.com+b@b.com`
+    /// links both addresses), so the expression without the rule is tried there once, anchored. Which characters
+    /// count as local-part ones is the expression's own (case-insensitive ICU, so `ſ` and the Kelvin sign are
+    /// among them), not a judgment made here.
+    static func autolinkMatches(_ text: String) -> [NSTextCheckingResult] {
+        guard let regex = autolinkPattern, let resumed = resumedAutolinkPattern else { return [] }
+        let length = (text as NSString).length
+        var matches: [NSTextCheckingResult] = []
+        var start = 0
+        while start < length {
+            let range = NSRange(location: start, length: length - start)
+            var match: NSTextCheckingResult?
+            if start > 0 {
+                match = resumed.firstMatch(in: text, options: [.anchored, .withTransparentBounds], range: range)
+            }
+            if match == nil { match = regex.firstMatch(in: text, options: [.withTransparentBounds], range: range) }
+            guard let match, match.range.length > 0 else { break }
+            matches.append(match)
+            start = match.range.location + match.range.length
+        }
+        return matches
+    }
 
     private static func renderAutolinks(_ text: String, citations: MarkdownCitations?) -> String {
         func prose(_ text: String) -> String {
             citations?.prose(text) ?? HTML.escape(MarkdownExtensions.emojified(text))
         }
-        guard let regex = autolinkPattern else {
+        guard autolinkPattern != nil else {
             return prose(text)
         }
         var output = ""
         var cursor = text.startIndex
-        for match in regex.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
+        for match in autolinkMatches(text) {
             guard let range = Range(match.range, in: text) else { continue }
             var label = String(text[range])
             let isWeb = match.range(withName: "web").location != NSNotFound
@@ -650,7 +727,7 @@ enum MarkdownPageBreaks {
             }
             for child in node.children { visit(child) }
         }
-        visit(Document(parsing: lines.joined(separator: "\n"), options: [.disableSmartOpts]))
+        visit(MarkdownNesting.document(parsing: lines.joined(separator: "\n"), options: [.disableSmartOpts]))
         return (ownLines, coveredLines)
     }
 

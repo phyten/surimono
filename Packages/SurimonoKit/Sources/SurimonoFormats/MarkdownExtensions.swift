@@ -148,7 +148,7 @@ enum MarkdownExtensions {
             }
             for child in node.children { visit(child) }
         }
-        visit(Document(parsing: lines.joined(separator: "\n"), options: [.disableSmartOpts]))
+        visit(MarkdownNesting.document(parsing: lines.joined(separator: "\n"), options: [.disableSmartOpts]))
         for index in referenceDefinitionLines(lines, skipping: result.lines) { result.lines[index] = true }
         return result
     }
@@ -317,6 +317,22 @@ enum MarkdownExtensions {
         // How far an unclosed formula was searched, by closing mark and container; a later opening of the same kind
         // before that line would find no end either.
         var searched: [String: Int] = [:]
+        // By paragraph end and container nesting, the last search of the paragraph that did not join. Searching it
+        // again from each later line took quadratic time: 8,000 lines with a brace each took over ten seconds.
+        var scanned: [Int: [[Container]: ParagraphScan]] = [:]
+        // The first protected line at or after each line, found once: checking every line of the rest of the
+        // paragraph again from each line with a brace was quadratic when one code span ended a long paragraph.
+        var nextProtected = [Int](repeating: lines.count, count: lines.count + 1)
+        for line in stride(from: lines.count - 1, through: 0, by: -1) {
+            nextProtected[line] =
+                protection.lines[line] || protection.spans[line] != nil ? line : nextProtected[line + 1]
+        }
+        // By paragraph end and container nesting, the line that could not join: it is read in that nesting alone, so
+        // an attempt from an earlier line with the same nesting stops there too.
+        var unjoinable: [Int: [[Container]: Int]] = [:]
+        // Tests compare the memos with a search from every line, as origin/master made.
+        let remembers = Thread.current.threadDictionary[searchesEveryLineKey] == nil
+        let count = Thread.current.threadDictionary[countsScannedLinesKey] as? LineCount
         while index < lines.count {
             let line = lines[index]
             if protection.lines[index] || line.drop(while: { $0 == " " }).hasPrefix(":::") {
@@ -324,17 +340,28 @@ enum MarkdownExtensions {
                 index += 1
                 continue
             }
-            if let end = protection.paragraphEnds[index], end > index + 1, line.contains("{"),
-                let joined = multilineProof(lines, start: index, end: end, protection: protection)
-            {
-                let rewritten = rewriteInline(joined.text, footnotes, formulas, proof)
-                let pieces = rewritten.components(separatedBy: "\n")
-                let origins = source.origins[index..<end].reduce(into: Set<Int>()) { $0.formUnion($1) }
-                for (offset, piece) in pieces.enumerated() {
-                    output.append((offset == 0 ? joined.firstPrefix : joined.continuation) + piece, from: origins)
+            if let end = protection.paragraphEnds[index], end > index + 1, line.contains("{") {
+                if !remembers {
+                    unjoinable = [:]
+                    scanned = [:]
                 }
-                index = end
-                continue
+                switch multilineProof(
+                    lines, start: index, end: end, nextProtected: nextProtected,
+                    unjoinable: &unjoinable[end, default: [:]], scanned: &scanned[end, default: [:]],
+                    counting: count)
+                {
+                case .joined(let joined):
+                    let rewritten = rewriteInline(joined.text, footnotes, formulas, proof)
+                    let pieces = rewritten.components(separatedBy: "\n")
+                    let origins = source.origins[index..<end].reduce(into: Set<Int>()) { $0.formUnion($1) }
+                    for (offset, piece) in pieces.enumerated() {
+                        output.append((offset == 0 ? joined.firstPrefix : joined.continuation) + piece, from: origins)
+                    }
+                    index = end
+                    continue
+                case .notJoinable:
+                    break
+                }
             }
             if protection.spans[index] == nil {
                 switch displayBlock(lines, at: index, protection: protection, searched: &searched) {
@@ -355,53 +382,225 @@ enum MarkdownExtensions {
                 continue
             }
             let bytes = Array(line.utf8)
-            func text(_ range: Range<Int>) -> String { String(decoding: bytes[range], as: UTF8.self) }
+            // The spans are cmark's byte columns. They were past the end of a line whose NUL characters cmark had
+            // widened to U+FFFD, and the out-of-range slice ended the app; clamped, a stray column cannot.
+            func text(_ range: Range<Int>) -> String {
+                let lower = min(range.lowerBound, bytes.count)
+                return String(decoding: bytes[lower..<min(max(range.upperBound, lower), bytes.count)], as: UTF8.self)
+            }
             var rewritten = ""
             var cursor = 0
             for span in spans.sorted(by: { $0.lowerBound < $1.lowerBound }) where span.lowerBound >= cursor {
                 rewritten += rewriteInline(text(cursor..<span.lowerBound), footnotes, formulas, proof) + text(span)
                 cursor = span.upperBound
             }
+            // A span can end past the line (a code span that goes on to the next line), and the rest is then empty.
             output.append(
-                rewritten + rewriteInline(text(cursor..<bytes.count), footnotes, formulas, proof),
+                rewritten + rewriteInline(text(min(cursor, bytes.count)..<bytes.count), footnotes, formulas, proof),
                 from: source.origins[index - 1])
         }
         return output
     }
 
+    private static let searchesEveryLineKey = "app.surimono.searchesEveryParagraphLine"
+
+    /// Runs `body` with the paragraph memos off on this thread, so that each line with a brace searches the rest of
+    /// its paragraph again (tests compare the two).
+    static func searchingEveryLine<Value>(_ body: () -> Value) -> Value {
+        let dictionary = Thread.current.threadDictionary
+        dictionary[searchesEveryLineKey] = true
+        defer { dictionary[searchesEveryLineKey] = nil }
+        return body()
+    }
+
+    private static let countsScannedLinesKey = "app.surimono.countsScannedParagraphLines"
+
+    private final class LineCount {
+        var value = 0
+    }
+
+    /// Runs `body` and returns how many paragraph lines the joining searches on this thread put together or went
+    /// through, so that tests can bound the work without timing it.
+    static func countingScannedLines(_ body: () -> Void) -> Int {
+        let dictionary = Thread.current.threadDictionary
+        let count = LineCount()
+        dictionary[countsScannedLinesKey] = count
+        defer { dictionary[countsScannedLinesKey] = nil }
+        body()
+        return count.value
+    }
+
+    private struct JoinedParagraph {
+        let text: String
+        let firstPrefix: String
+        let continuation: String
+    }
+
+    private enum JoinAttempt {
+        case joined(JoinedParagraph)
+        /// No revision mark crosses a line, or the lines cannot be joined at all.
+        case notJoinable
+    }
+
+    /// The searches of a paragraph that did not join, from `start` and from later lines of it, over one joined text.
+    ///
+    /// Searched again from a later line that no match of the latest search continued onto, with the same nesting
+    /// and the same text for that line, the joined text is the end of this one, the search goes as it did from that
+    /// line on, and so it does not join either. From a line that a match continued onto, the search reads the same
+    /// text from that line's offset; the expression sees the line break before it, which no look-behind of it rules
+    /// out and after which no mark closes, as at the start of a text of its own. Each step depends only on where the expression matched, so
+    /// once the search matches where an earlier one did, it goes on as that one did, which did not join. Searching
+    /// the whole rest again from each such line took quadratic time on a paragraph of links whose titles start on
+    /// the next line.
+    private final class ParagraphScan {
+        /// Where the expression matched, the match made there when it is not empty, and where it matched next.
+        struct Step {
+            let match: NSRange?
+            var next: Int?
+        }
+
+        let start: Int
+        let parts: [String]
+        let text: String
+        private let nsText: NSString
+        private let lineStarts: [Int]
+        private var scanner: InlineScanner
+        /// The steps of every search so far, by where the expression matched. A step's next one is the same in every
+        /// search that comes to it.
+        private var steps: [Int: Step] = [:]
+        /// The next step of the latest search not yet walked by `continues(onto:)`, and the last match walked.
+        private var walked: Int?
+        private var lastWalked: NSRange?
+
+        init(start: Int, parts: [String]) {
+            self.start = start
+            self.parts = parts
+            text = parts.joined(separator: "\n")
+            nsText = text as NSString
+            var offsets: [Int] = []
+            var offset = 0
+            for part in parts {
+                offsets.append(offset)
+                offset += (part as NSString).length + 1
+            }
+            lineStarts = offsets
+            scanner = InlineScanner(nsText)
+        }
+
+        func offset(ofLine line: Int) -> Int { lineStarts[line - start] }
+
+        func text(fromLine line: Int) -> String { nsText.substring(from: offset(ofLine: line)) }
+
+        private func line(of position: Int) -> Int {
+            var low = 0
+            var high = lineStarts.count
+            while low + 1 < high {
+                let middle = (low + high) / 2
+                if lineStarts[middle] <= position { low = middle } else { high = middle }
+            }
+            return low
+        }
+
+        /// Searches from `line`, which becomes the latest search, and tells whether a revision mark crosses a line.
+        func search(from line: Int, counting count: LineCount?) -> Bool {
+            let length = nsText.length
+            var cursor = offset(ofLine: line)
+            var previous: Int?
+            var head: Int?
+            func link(to position: Int) {
+                if let previous { steps[previous]?.next = position } else { head = position }
+            }
+            defer {
+                walked = head
+                lastWalked = nil
+            }
+            while cursor < length {
+                guard let step = nextInline(in: nsText, from: cursor, scanner: &scanner) else {
+                    count?.value += self.line(of: length - 1) - self.line(of: cursor) + 1
+                    break
+                }
+                count?.value += self.line(of: max(step.cursor, cursor + 1) - 1) - self.line(of: cursor) + 1
+                if steps[step.position] != nil {
+                    link(to: step.position)
+                    break
+                }
+                if let match = step.match {
+                    let crosses = [
+                        "criticAdd", "criticDelete", "criticOld", "criticNew", "criticMark", "criticComment",
+                    ]
+                    .contains { match.groups[$0].map { nsText.substring(with: $0).contains("\n") } == true }
+                    if crosses { return true }
+                }
+                steps[step.position] = Step(match: step.match.flatMap { $0.range.length > 0 ? $0.range : nil })
+                link(to: step.position)
+                previous = step.position
+                cursor = step.cursor
+            }
+            return false
+        }
+
+        /// Whether a match of the latest search continued onto `line`. Asked for later and later lines, so each
+        /// step is walked once per search.
+        func continues(onto line: Int) -> Bool {
+            let lineStart = offset(ofLine: line)
+            while let position = walked, position < lineStart, let step = steps[position] {
+                if let match = step.match { lastWalked = match }
+                walked = step.next
+            }
+            guard let match = lastWalked else { return false }
+            return match.location + match.length - 1 >= lineStart
+        }
+    }
+
     /// Only join soft lines of one AST paragraph. Container markers are structural, not revision text.
-    private static func multilineProof(_ lines: [String], start: Int, end: Int, protection: Protection)
-        -> (text: String, firstPrefix: String, continuation: String)?
-    {
-        guard (start..<end).allSatisfy({ !protection.lines[$0] && protection.spans[$0] == nil }),
-            let regex = inlinePattern
-        else { return nil }
+    private static func multilineProof(
+        _ lines: [String], start: Int, end: Int, nextProtected: [Int], unjoinable: inout [[Container]: Int],
+        scanned: inout [[Container]: ParagraphScan], counting count: LineCount?
+    ) -> JoinAttempt {
+        guard nextProtected[start] >= end else { return .notJoinable }
         let first = lines[start]
         let prefixEnd =
             containerPrefix?.firstMatch(in: first, range: NSRange(first.startIndex..., in: first))
             .flatMap { Range($0.range, in: first)?.upperBound } ?? first.startIndex
         let prefix = String(first[..<prefixEnd])
         let nesting = containers(of: prefix)
-        var parts = [String(first[prefixEnd...])]
+        if let line = unjoinable[nesting], line > start { return .notJoinable }
+        let own = String(first[prefixEnd...])
+        if let earlier = scanned[nesting], start > earlier.start, start - earlier.start < earlier.parts.count,
+            earlier.parts[start - earlier.start] == own
+        {
+            guard earlier.continues(onto: start) else { return .notJoinable }
+            guard earlier.search(from: start, counting: count) else { return .notJoinable }
+            // The first search of the paragraph already read the lines after this one in this nesting.
+            let body = content(of: lines[start + 1], in: nesting) ?? ""
+            return .joined(
+                JoinedParagraph(
+                    text: earlier.text(fromLine: start), firstPrefix: prefix,
+                    continuation: String(lines[start + 1].dropLast(body.count))))
+        }
+        var parts = [own]
         var continuation = ""
         for index in (start + 1)..<end {
-            guard let body = content(of: lines[index], in: nesting) else { return nil }
+            guard let body = content(of: lines[index], in: nesting) else {
+                unjoinable[nesting] = index
+                return .notJoinable
+            }
             let trimmed = body.trimmingCharacters(in: .whitespaces)
             // Display math still goes through its dedicated block reader.
-            guard !trimmed.hasPrefix("$$"), !trimmed.hasPrefix("\\[") else { return nil }
+            guard !trimmed.hasPrefix("$$"), !trimmed.hasPrefix("\\[") else {
+                unjoinable[nesting] = index
+                return .notJoinable
+            }
             if index == start + 1 { continuation = String(lines[index].dropLast(body.count)) }
             parts.append(String(body))
         }
-        let text = parts.joined(separator: "\n")
-        let nsText = text as NSString
-        let crossesLine = regex.matches(in: text, range: NSRange(location: 0, length: nsText.length)).contains {
-            match in
-            ["criticAdd", "criticDelete", "criticOld", "criticNew", "criticMark", "criticComment"].contains {
-                let range = match.range(withName: $0)
-                return range.location != NSNotFound && nsText.substring(with: range).contains("\n")
-            }
+        count?.value += parts.count
+        let scan = ParagraphScan(start: start, parts: parts)
+        if scan.search(from: start, counting: count) {
+            return .joined(JoinedParagraph(text: scan.text, firstPrefix: prefix, continuation: continuation))
         }
-        return crossesLine ? (text, prefix, continuation) : nil
+        scanned[nesting] = scan
+        return .notJoinable
     }
 
     private struct DisplayBlock {
@@ -475,7 +674,7 @@ enum MarkdownExtensions {
     }
 
     /// A block quote, or a list item (or plain indentation) whose content starts `width` columns in.
-    private enum Container {
+    private enum Container: Hashable {
         case quote
         case list(width: Int)
     }
@@ -576,34 +775,156 @@ enum MarkdownExtensions {
         // touch its formula on both sides and not be followed by a digit, so prices such as $5 and $10 stay text.
         // Inside, a backslash and the next character go together (`\$` is LaTeX's dollar sign). A `$` escaped in the
         // text is consumed by the escape below before it could open a formula, so the opening is not checked for one.
+        //
+        // The constructs whose contents run to a distant closer (`\(…\)`, `\[…\]`, `==…==` and the CriticMarkup
+        // marks) are matched only by their opening here; `InlineScanner` finds the closer from positions indexed once
+        // per text. Matched by the expression, each opening without a closer searched the rest of its line or
+        // paragraph: 11,000 `\(` on one line took seconds.
         let math = [
             #"\$\$(?<displayMath>[^$\n]+?)\$\$"#,
-            #"\\\[(?<displayMath2>.+?)\\\]"#,
-            #"\\\((?<inlineMath2>.+?)\\\)"#,
+            #"(?<displayMath2Open>\\\[)"#,
+            #"(?<inlineMath2Open>\\\()"#,
             #"(?<!\$)\$(?<inlineMath>(?=[^\s$])(?:\\.|[^$\\\n])*?(?<=[^\s]))\$(?![0-9$])"#,
         ].joined(separator: "|")
         let verbatim = [
             #"\\[\x21-\x2F\x3A-\x40\x5B-\x60\x7B-\x7E]"#,  // a backslash escape
-            #"(?<!`)(?<ticks>`+)(?:.*?[^`])?\k<ticks>(?!`)"#,  // a code span on one line
+            #"(?<codeOpen>(?<!`)`+)"#,  // a code span's opening; `InlineScanner.codeSpanEnd` finds its end
             #"<[A-Za-z/!?][^<>\n]*>"#,  // a tag or an autolink
             #"\]\((?:[^()\s]|\([^()\s]*\))*(?:\s+(?:"[^"]*"|'[^']*'))?\)"#,  // a link destination
             #"(?:https?://|www\.)[^\s<]+"#,  // a bare URL
         ].joined(separator: "|")
         let syntax = [
-            #"\{\+\+(?<criticAdd>(?s:.*?))\+\+\}"#,
-            #"\{--(?<criticDelete>(?s:.*?))--\}"#,
-            #"\{~~(?<criticOld>(?s:.*?))~>(?<criticNew>(?s:.*?))~~\}"#,
-            #"\{==(?<criticMark>(?s:.*?))==\}"#,
-            #"\{>>(?<criticComment>(?s:.*?))<<\}"#,
+            #"(?<criticAddOpen>\{\+\+)"#,
+            #"(?<criticDeleteOpen>\{--)"#,
+            #"(?<criticSubstituteOpen>\{~~)"#,
+            #"(?<criticMarkOpen>\{==)"#,
+            #"(?<criticCommentOpen>\{>>)"#,
             #"(?<criticUnclosed>\{(?:\+\+|--|~~|==|>>))"#,
             #"\[\^(?<footnote>[^\]\s]+)\]"#,
             #"\{(?<rubyBase>[^{}|\n]+)\|(?<rubyText>[^{}\n]+)\}"#,
-            #"(?<![=\\])==(?=[^\s=])(?<mark>.+?)(?<=[^\s\\])==(?!=)"#,
+            #"(?<markOpen>(?<![=\\])==(?=[^\s=]))"#,
             #"(?<![\\^])\^(?=[^\s^])(?<sup>[^\s^]+?)\^(?!\^)"#,
             #"(?<![~\\])~(?=[^\s~])(?<sub>[^\s~]+?)~(?!~)"#,
         ].joined(separator: "|")
         return try? NSRegularExpression(pattern: "\(math)|(?<verbatim>\(verbatim))|\(syntax)")
     }()
+
+    /// One match of the inline syntax: its range and those of its named groups, in UTF-16 offsets.
+    struct InlineMatch {
+        var range: NSRange
+        var groups: [String: NSRange]
+    }
+
+    private static let groupNames = [
+        "displayMath", "displayMath2Open", "inlineMath2Open", "inlineMath", "verbatim", "criticAddOpen",
+        "criticDeleteOpen", "criticSubstituteOpen", "criticMarkOpen", "criticCommentOpen", "criticUnclosed", "footnote",
+        "rubyBase", "rubyText", "markOpen", "sup", "sub", "codeOpen",
+    ]
+
+    /// The matches of the inline syntax in `text`, left to right, as the full expression with lazy contents matched
+    /// them. Each closer is found by a binary search in positions indexed once per text, so a text of n characters
+    /// takes O(n log n) time.
+    static func inlineMatches(_ text: NSString) -> [InlineMatch] {
+        var scanner = InlineScanner(text)
+        var matches: [InlineMatch] = []
+        var cursor = 0
+        while cursor < text.length, let step = nextInline(in: text, from: cursor, scanner: &scanner) {
+            if let match = step.match { matches.append(match) }
+            cursor = step.cursor
+        }
+        return matches
+    }
+
+    /// One step of `inlineMatches`: where the expression matched next, the match made there (none for an opening
+    /// that the expression would have passed over), and where the search goes on.
+    private struct InlineStep {
+        let position: Int
+        let match: InlineMatch?
+        let cursor: Int
+    }
+
+    /// The next step from `cursor`. With transparent bounds the expression sees the text before `cursor`, so a step
+    /// depends on where the expression matched and not on where the search started.
+    private static func nextInline(in text: NSString, from cursor: Int, scanner: inout InlineScanner) -> InlineStep? {
+        guard let regex = inlinePattern else { return nil }
+        let length = text.length
+        let options: NSRegularExpression.MatchingOptions = [.withTransparentBounds, .withoutAnchoringBounds]
+        guard
+            let match = regex.firstMatch(
+                in: text as String, options: options, range: NSRange(location: cursor, length: length - cursor))
+        else { return nil }
+        var groups: [String: NSRange] = [:]
+        for name in groupNames {
+            let range = match.range(withName: name)
+            if range.location != NSNotFound { groups[name] = range }
+        }
+        let start = match.range.location
+        if groups["displayMath2Open"] != nil || groups["inlineMath2Open"] != nil {
+            let display = groups["displayMath2Open"] != nil
+            if let close = scanner.lineCloser(display ? "\\]" : "\\)", from: start + 3, lineFrom: start + 2) {
+                let found = InlineMatch(
+                    range: NSRange(location: start, length: close + 2 - start),
+                    groups: [
+                        display ? "displayMath2" : "inlineMath2": NSRange(
+                            location: start + 2, length: close - start - 2)
+                    ])
+                return InlineStep(position: start, match: found, cursor: close + 2)
+            }
+            // Without a closer the expression went on to the backslash escape.
+            let escape = InlineMatch(range: NSRange(location: start, length: 2), groups: ["verbatim": match.range])
+            return InlineStep(position: start, match: escape, cursor: start + 2)
+        }
+        if let kind = ["criticAdd", "criticDelete", "criticMark", "criticComment"].first(where: {
+            groups[$0 + "Open"] != nil
+        }) {
+            let closer = ["criticAdd": "++}", "criticDelete": "--}", "criticMark": "==}", "criticComment": "<<}"]
+            if let name = closer[kind], let close = scanner.closer(name, from: start + 3) {
+                let found = InlineMatch(
+                    range: NSRange(location: start, length: close + 3 - start),
+                    groups: [kind: NSRange(location: start + 3, length: close - start - 3)])
+                return InlineStep(position: start, match: found, cursor: close + 3)
+            }
+            let unclosed = InlineMatch(range: match.range, groups: ["criticUnclosed": match.range])
+            return InlineStep(position: start, match: unclosed, cursor: start + 3)
+        }
+        if groups["criticSubstituteOpen"] != nil {
+            if let arrow = scanner.closer("~>", from: start + 3), let close = scanner.closer("~~}", from: arrow + 2) {
+                let found = InlineMatch(
+                    range: NSRange(location: start, length: close + 3 - start),
+                    groups: [
+                        "criticOld": NSRange(location: start + 3, length: arrow - start - 3),
+                        "criticNew": NSRange(location: arrow + 2, length: close - arrow - 2),
+                    ])
+                return InlineStep(position: start, match: found, cursor: close + 3)
+            }
+            let unclosed = InlineMatch(range: match.range, groups: ["criticUnclosed": match.range])
+            return InlineStep(position: start, match: unclosed, cursor: start + 3)
+        }
+        if let opening = groups["codeOpen"] {
+            // `(?<!`)(?<ticks>`+)(?:.*?[^`])?\k<ticks>(?!`)`, whose backtracking over each shorter opening took
+            // seconds on one run of 17,000 backticks.
+            if let end = scanner.codeSpanEnd(at: start, length: opening.length) {
+                let range = NSRange(location: start, length: end - start)
+                return InlineStep(
+                    position: start, match: InlineMatch(range: range, groups: ["verbatim": range]), cursor: end)
+            }
+            // No other alternative starts with a backtick, and none of this run's later backticks opens one.
+            return InlineStep(position: start, match: nil, cursor: start + opening.length)
+        }
+        if groups["markOpen"] != nil {
+            if let close = scanner.markCloser(from: start + 3, lineFrom: start + 2) {
+                let found = InlineMatch(
+                    range: NSRange(location: start, length: close + 2 - start),
+                    groups: ["mark": NSRange(location: start + 2, length: close - start - 2)])
+                return InlineStep(position: start, match: found, cursor: close + 2)
+            }
+            // No other alternative starts with `=`: the expression moved on to the next character.
+            return InlineStep(position: start, match: nil, cursor: start + 1)
+        }
+        return InlineStep(
+            position: start, match: InlineMatch(range: match.range, groups: groups),
+            cursor: max(match.range.location + match.range.length, start + 1))
+    }
 
     /// A tag alone on the first line of a paragraph would open an HTML block, and the Markdown inside would print as
     /// written. White space with a line break at an edge of the marked text therefore goes outside the element, up
@@ -628,17 +949,16 @@ enum MarkdownExtensions {
     private static func rewriteInline(_ text: String, _ footnotes: Footnotes, _ formulas: Formulas, _ proof: ProofMarks)
         -> String
     {
-        guard let regex = inlinePattern, text.contains(where: { "[{=^~$\\".contains($0) }) else { return text }
+        guard text.contains(where: { "[{=^~$\\".contains($0) }) else { return text }
         let nsText = text as NSString
         var output = ""
         var cursor = 0
-        for match in regex.matches(in: text, range: NSRange(location: 0, length: nsText.length)) {
+        for match in inlineMatches(nsText) {
             output += nsText.substring(with: NSRange(location: cursor, length: match.range.location - cursor))
             cursor = match.range.location + match.range.length
             let whole = nsText.substring(with: match.range)
             func capture(_ name: String) -> String? {
-                let range = match.range(withName: name)
-                return range.location == NSNotFound ? nil : nsText.substring(with: range)
+                match.groups[name].map { nsText.substring(with: $0) }
             }
             if let latex = capture("displayMath") ?? capture("displayMath2") {
                 output += formulas.token(latex, display: true, source: whole)
@@ -881,5 +1201,179 @@ enum MarkdownExtensions {
             }
         }
         return lines
+    }
+}
+
+/// Where the closers of the long inline constructs are, indexed in one pass over the text so that each opening finds
+/// its closer by binary search instead of searching the rest of the text.
+private struct InlineScanner {
+    private let text: NSString
+    private var positions: [String: [Int]]?
+    private var terminators: [Int] = []
+    private var markClosers: [Int] = []
+    private var codeSpanEnds: [Int: Int?]?
+
+    init(_ text: NSString) { self.text = text }
+
+    /// The line terminators of ICU's `.`, which the contents of `\(…\)`, `\[…\]` and `==…==` do not cross.
+    private static func isTerminator(_ unit: unichar) -> Bool {
+        (0x0A...0x0D).contains(unit) || unit == 0x85 || unit == 0x2028 || unit == 0x2029
+    }
+
+    private static func isWhitespace(_ unit: unichar) -> Bool {
+        guard let scalar = Unicode.Scalar(unit) else { return false }
+        return scalar.properties.isWhitespace
+    }
+
+    private mutating func index() -> [String: [Int]] {
+        if let positions { return positions }
+        let tokens = ["\\)", "\\]", "++}", "--}", "==}", "<<}", "~>", "~~}"]
+        var found: [String: [Int]] = Dictionary(uniqueKeysWithValues: tokens.map { ($0, []) })
+        let length = text.length
+        var units = [unichar](repeating: 0, count: length)
+        text.getCharacters(&units, range: NSRange(location: 0, length: length))
+        func at(_ offset: Int) -> unichar { offset < length ? units[offset] : 0 }
+        for offset in 0..<length {
+            let unit = units[offset]
+            if Self.isTerminator(unit) { terminators.append(offset) }
+            switch unit {
+            case 0x5C:  // \
+                if at(offset + 1) == 0x29 { found["\\)", default: []].append(offset) }
+                if at(offset + 1) == 0x5D { found["\\]", default: []].append(offset) }
+            case 0x2B where at(offset + 1) == 0x2B && at(offset + 2) == 0x7D: found["++}", default: []].append(offset)
+            case 0x2D where at(offset + 1) == 0x2D && at(offset + 2) == 0x7D: found["--}", default: []].append(offset)
+            case 0x3C where at(offset + 1) == 0x3C && at(offset + 2) == 0x7D: found["<<}", default: []].append(offset)
+            case 0x7E:  // ~
+                if at(offset + 1) == 0x3E { found["~>", default: []].append(offset) }
+                if at(offset + 1) == 0x7E && at(offset + 2) == 0x7D { found["~~}", default: []].append(offset) }
+            case 0x3D where at(offset + 1) == 0x3D:  // ==
+                if at(offset + 2) == 0x7D { found["==}", default: []].append(offset) }
+                // `(?<=[^\s\\])==(?!=)`: the closing `==` of a mark.
+                if offset > 0, !Self.isWhitespace(units[offset - 1]), units[offset - 1] != 0x5C,
+                    at(offset + 2) != 0x3D
+                {
+                    markClosers.append(offset)
+                }
+            default: break
+            }
+        }
+        positions = found
+        return found
+    }
+
+    private static func first(in sorted: [Int], from offset: Int) -> Int? {
+        var low = 0
+        var high = sorted.count
+        while low < high {
+            let middle = (low + high) / 2
+            if sorted[middle] < offset { low = middle + 1 } else { high = middle }
+        }
+        return low < sorted.count ? sorted[low] : nil
+    }
+
+    /// Where a code span opened by the backtick run of `length` at `start` ends, as
+    /// `(?<!`)(?<ticks>`+)(?:.*?[^`])?\k<ticks>(?!`)` ends it: the longest opening (at most `length`) that has a
+    /// closing run of exactly its length, after content that does not cross a line terminator except as its last
+    /// character, and for that opening the earliest closing; an opening of half an even run closes inside the run
+    /// itself, after the content-bearing closings of the same length.
+    mutating func codeSpanEnd(at start: Int, length: Int) -> Int? {
+        if codeSpanEnds == nil { codeSpanEnds = Self.codeSpanEnds(in: text) }
+        guard let answer = codeSpanEnds?[start] else { return nil }
+        return answer
+    }
+
+    /// For each backtick run's start, where the code span it opens ends, or nil when it opens none. One pass from
+    /// the end of each line: the runs that may close one (later on its line, or the first on the next line when it
+    /// starts right after the line's terminator) are kept as the earliest run of each length.
+    private static func codeSpanEnds(in text: NSString) -> [Int: Int?] {
+        let length = text.length
+        var units = [unichar](repeating: 0, count: length)
+        text.getCharacters(&units, range: NSRange(location: 0, length: length))
+        var runs: [(start: Int, length: Int, line: Int)] = []
+        var terminatorAfterLine: [Int] = []
+        var line = 0
+        var offset = 0
+        while offset < length {
+            if units[offset] == 0x60 {
+                var end = offset
+                while end < length, units[end] == 0x60 { end += 1 }
+                runs.append((offset, end - offset, line))
+                offset = end
+                continue
+            }
+            if isTerminator(units[offset]) {
+                terminatorAfterLine.append(offset)
+                line += 1
+            }
+            offset += 1
+        }
+        var answers: [Int: Int?] = [:]
+        var earliest: [Int: Int] = [:]
+        var lengths: [Int] = []
+        var currentLine = -1
+        func insert(_ index: Int) {
+            let run = runs[index]
+            if earliest[run.length] == nil {
+                var low = 0
+                var high = lengths.count
+                while low < high {
+                    let middle = (low + high) / 2
+                    if lengths[middle] < run.length { low = middle + 1 } else { high = middle }
+                }
+                lengths.insert(run.length, at: low)
+            }
+            earliest[run.length] = index
+        }
+        for index in stride(from: runs.count - 1, through: 0, by: -1) {
+            let run = runs[index]
+            if run.line != currentLine {
+                currentLine = run.line
+                earliest = [:]
+                lengths = []
+                // The first run of the next line closes this line's spans when it starts right after the terminator.
+                if run.line < terminatorAfterLine.count, index + 1 < runs.count {
+                    let next = runs[index + 1]
+                    if next.line == run.line + 1, next.start == terminatorAfterLine[run.line] + 1 { insert(index + 1) }
+                }
+            }
+            // The longest closing length the opening can shorten to.
+            var low = 0
+            var high = lengths.count
+            while low < high {
+                let middle = (low + high) / 2
+                if lengths[middle] <= run.length { low = middle + 1 } else { high = middle }
+            }
+            let closing = low > 0 ? lengths[low - 1] : nil
+            let inside = run.length % 2 == 0 ? run.length / 2 : nil
+            if let closing, let close = earliest[closing], closing >= inside ?? 0 {
+                answers[run.start] = .some(runs[close].start + closing)
+            } else if inside != nil {
+                answers[run.start] = .some(run.start + run.length)
+            } else {
+                answers[run.start] = .some(nil)
+            }
+            insert(index)
+        }
+        return answers
+    }
+
+    /// The first `token` at or after `offset`.
+    mutating func closer(_ token: String, from offset: Int) -> Int? {
+        Self.first(in: index()[token] ?? [], from: offset)
+    }
+
+    /// The first `token` at or after `offset` with no line terminator between `lineFrom` and it.
+    mutating func lineCloser(_ token: String, from offset: Int, lineFrom: Int) -> Int? {
+        guard let close = closer(token, from: offset) else { return nil }
+        if let end = Self.first(in: terminators, from: lineFrom), end < close { return nil }
+        return close
+    }
+
+    /// The first closing `==` of a mark at or after `offset`, on the line that starts at `lineFrom`.
+    mutating func markCloser(from offset: Int, lineFrom: Int) -> Int? {
+        _ = index()
+        guard let close = Self.first(in: markClosers, from: offset) else { return nil }
+        if let end = Self.first(in: terminators, from: lineFrom), end < close { return nil }
+        return close
     }
 }

@@ -1,4 +1,5 @@
 import Foundation
+import RobustnessSupport
 import Testing
 
 @testable import SurimonoFormats
@@ -130,15 +131,15 @@ struct MarkdownCitationTests {
 
     @Test("読めない文献と未対応のスタイルを組版前の問題にまとめる")
     func fileIssues() {
-        var attempts: [URL] = []
+        let attempts = Locked<[URL]>([])
         let fragment = MarkdownConverter.convert(
             "---\nbibliography:\n  - sources/paper.bib\n  - sources/paper.bib\ncsl: modern.csl\n---\n[@none]",
             directory: directory
         ) {
-            attempts.append($0)
+            attempts.value.append($0)
             return nil
         }
-        #expect(Set(attempts) == [directory.appending(path: "sources/paper.bib")])
+        #expect(Set(attempts.value) == [directory.appending(path: "sources/paper.bib")])
         #expect(
             fragment.readingIssues == [
                 "sources/paper.bib could not be read", "CSL styles are not supported; numeric citations are used.",

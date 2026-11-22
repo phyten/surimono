@@ -2,7 +2,7 @@ import Foundation
 
 extension RSTDocument {
     func blocks(_ lines: [String], classes: [String] = []) -> String {
-        guard depth < 48 else {
+        guard depth < 48, StackSpace.hasRoom else {
             issueCount += 1
             return "<pre>\(HTML.escape(lines.joined(separator: "\n")))</pre>"
         }

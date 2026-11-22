@@ -1,4 +1,5 @@
 import Foundation
+import RobustnessSupport
 import Testing
 
 @testable import SurimonoFormats
@@ -237,7 +238,8 @@ extension SyntaxHighlighterTests {
             SyntaxHighlighter.highlight(line + "\n", language: "diff") == "<span class=\"hl-\(kind)\">\(line)</span>\n")
     }
 
-    @Test("病的な区切り文字や空白でも走査が進む", .timeLimit(.minutes(1)))
+    // A sanitizer slows the scan several times over; under AddressSanitizer this took 70 seconds.
+    @Test("病的な区切り文字や空白でも走査が進む", .timeLimit(.minutes(Sanitizer.isActive ? 10 : 1)))
     func adversarial() {
         for language in ["swift", "rust", "python", "makefile", "html"] {
             for code in [

@@ -1,4 +1,5 @@
 import Foundation
+import RobustnessSupport
 import Testing
 
 @testable import SurimonoCore
@@ -33,7 +34,8 @@ struct ShortcutValidationIndexTests {
         let issues = validator.issues(in: .init())
         let conflicts = validator.conflicts(in: .init())
         let elapsed = start.duration(to: clock.now)
-        #expect(elapsed < .seconds(2))
+        // Only the time is skipped under a sanitizer, which slows the code several times over.
+        if !Sanitizer.isActive { #expect(elapsed < .seconds(2)) }
         #expect(
             issues == [
                 .init(

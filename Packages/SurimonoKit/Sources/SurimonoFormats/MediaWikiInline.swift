@@ -11,6 +11,11 @@ extension WikiReader {
     private static let languages = Set(Locale.LanguageCode.isoLanguageCodes.map(\.identifier))
 
     func inline(_ sourceText: String) -> String {
+        // Templates, links and references nest through here; when the stack runs short the rest stays as text.
+        guard StackSpace.hasRoom else {
+            reachedNestingLimit = true
+            return HTML.escape(sourceText)
+        }
         if sourceText.contains("\n") {
             return sourceText.components(separatedBy: "\n").map(inline).joined(separator: " ")
         }

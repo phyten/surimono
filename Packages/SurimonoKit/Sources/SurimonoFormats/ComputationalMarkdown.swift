@@ -15,7 +15,8 @@ public enum ComputationalMarkdown {
         return HTMLFragment(
             body: fallback + metadata.header + document.contents + document.resolve(fragment.body),
             title: metadata.values["title"]
-                ?? fragment.title.map { HTML.unescape(document.resolve($0, plainText: true)) }, language: language)
+                ?? fragment.title.map { HTML.unescape(document.resolve($0, plainText: true)) }, language: language,
+            readingIssues: fragment.readingIssues)
     }
 
     private static func proseLanguage(_ lines: [String], metadata: ComputationalMetadata) -> String {

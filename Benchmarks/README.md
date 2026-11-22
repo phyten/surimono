@@ -75,3 +75,23 @@ Samples は `#filePath` からルートをたどって読み、コピーも変�
 5. メモリは別の記録で Allocations / VM Tracker を使う。必要に応じて WebKit の子プロセスも対象にし、切り替えを繰り返した後の残存量を確認する。Instruments を付けた時間は通常の基準値とは分けて扱う。
 
 区間には文書の形式とページ数だけを記録し、中身・パス・ファイル名は書きません。`prepare` と `composeSheet` はキャッシュヒット時の呼び出しも含み、失敗・キャンセルでも区間を閉じます。`prepare` の終了ページ数 0 は完了前の失敗を表します。`themeSample` はキャッシュヒットを除いた実際の描画区間です。
+
+## 壊れた文書での耐久（`make robustness`）
+
+読み取りが、壊れた・切れた・名前と中身の違う・極端に大きい文書でも落ちず、止まらず、メモリを使い切らないことを確かめる任意の長い試験です。合否は落ちた・止まった入力があるかどうかだけで、速さは測りません。
+
+```sh
+make robustness                                  # 全形式を順に 600 秒
+make robustness SECONDS=1800 FORMAT=latex SEED=7 # 1 形式・種を指定
+make robustness FORMAT=docx SEED=7 START=1234 COUNT=1   # 1 件だけ作り直して読む
+make robustness FORMAT=markdown REPLAY=build/robustness/failures/markdown/<hash>.md  # 読めないファイルなら 2 で終わる
+make robustness SHORT=1                          # 数 MB の手書きの文書を除く（変異に時間を回す）
+make robustness FIXED=1 SECONDS=3600             # 手書きの文書と再現用の入力だけを各形式 1 回
+make robustness SANITIZE=address SHORT=1         # AddressSanitizer で（test-kit-asan と同じ build/sanitize/address）
+make robustness-rendering                        # 極端な HTML を実物の WebKit で組む（遅い）
+```
+
+- 読むのは子のテストプロセス（`ReaderFuzzChild`、`swift test --skip-build`）で、アプリと同じ入口（`DocumentRenderer.themedFragment`、PDF・画像・ZIP は `DocumentRenderer.prepare`）を 512 KiB のスタックのスレッドで呼ぶ。読む前に入力を実行ごとの作業フォルダー（`build/robustness/work-*/current/self.<拡張子>`。終わると消し、1 秒を超えた入力の一覧だけ `slow-<日時>.jsonl` に残す）に書くので、子が落ちると親（`Benchmarks/robustness.py`）がその入力を `build/robustness/failures/<形式>/<SHA-256 の先頭>.<拡張子>` に、経緯を同じ名前の `.report.json` に残し、続きから新しい子を始める。
+- 1 件の上限は 100 KB あたり 5 秒（最短 5 秒）と、プロセスの最大常駐メモリ 4 GB。子の見張りのスレッドが超えた入力を記録してプロセスを終える（スレッドは外から止められないため）。
+- 入力の番号は、手書きの極端な文書（`HostileInputs`）、`Fixtures/Robustness/<形式>/` の再現用の入力、種の文書（`Samples/`・テストの fixture・LaTeX のコーパス）を決まった乱数で変えたもの（`InputMutator`。ビットの反転、挿入・削除、塊の複製、切り詰め、2 つの文書の継ぎ合わせ、各形式の区切り記号の複製・削除・挿入）の順。形式・種・番号で 1 件が決まる。
+- 結果は `build/robustness/summary-<日時>.json`。`make test-kit` には、極端な文書を 5 分の 1 の長さにした分と、種から変えた 24 件ずつ（`ReaderRobustnessTests`）だけが入る。

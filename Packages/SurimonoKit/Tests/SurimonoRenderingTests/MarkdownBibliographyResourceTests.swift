@@ -25,7 +25,7 @@ struct MarkdownBibliographyResourceTests {
         let renderer = DocumentRenderer(
             isSandboxed: { true },
             paginateWithResult: { request in
-                if case .sandboxed(let body, _) = request.source { html = body ?? "" }
+                if case .sandboxed(let body, _, _) = request.source { html = body ?? "" }
                 return WebPaginator.Result(document: try RenderingFixtures.pdf(count: 1))
             })
         let denied = try await renderer.prepare(source, settings: settings)

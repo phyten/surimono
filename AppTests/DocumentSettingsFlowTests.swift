@@ -684,7 +684,7 @@ struct DocumentSettingsFlowTests {
         try pdfData.write(to: pdfURL)
         var inputs: [String] = []
         let renderer = DocumentRenderer(paginate: { request in
-            guard case .sandboxed(let html?, _) = request.source else {
+            guard case .sandboxed(let html?, _, _) = request.source else {
                 Issue.record("合本のHTMLは読み込み済み本文で組版する")
                 return PDFDocument(data: pdfData)!
             }

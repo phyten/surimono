@@ -91,8 +91,8 @@ final class LaTeXReader {
         document.depth += 1
         defer { document.depth -= 1 }
         // Nested environments and arguments create readers. Beyond the shared nesting
-        // limit their text still prints, including the unexpanded braces.
-        guard document.depth <= LaTeXDocument.maximumDepth else {
+        // limit, or when the thread's stack runs short first, their text still prints, including the unexpanded braces.
+        guard document.depth <= LaTeXDocument.maximumDepth, StackSpace.hasRoom else {
             document.stopsExpanding = true
             let text = HTML.escape(String(characters))
             return isBlock ? "<p>\(text)</p>\n" : text

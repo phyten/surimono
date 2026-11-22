@@ -1,10 +1,19 @@
 import Foundation
 
 public enum MediaWikiConverter {
+    /// The callbacks run on the converter's own thread while the caller waits for it (`StackSpace.onLargeStack`):
+    /// they must not need the caller's thread or actor, and do not see its task-local values.
     public static func convert(
         _ source: String, directory: URL? = nil,
-        imageExists: @escaping (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
+        imageExists: @escaping @Sendable (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
     ) -> HTMLFragment {
+        // On a stack of known size, so a document reads the same on every thread.
+        StackSpace.onLargeStack { convertInPlace(source, directory: directory, imageExists: imageExists) }
+    }
+
+    private static func convertInPlace(_ source: String, directory: URL?, imageExists: @escaping (URL) -> Bool)
+        -> HTMLFragment
+    {
         guard source.utf8.count <= 5_000_000 else {
             let message = String(localized: "MediaWiki exceeds 5 MB. Showing the original text.")
             return HTMLFragment(body: "<p>\(HTML.escape(message))</p>" + PlainTextConverter.convert(source).body)
@@ -64,6 +73,8 @@ final class WikiReader {
     var explicitTOC = false
     var forceTOC = false
     var depth = 0
+    /// Whether some text stayed unread because it nested deeper than the stack allows.
+    var reachedNestingLimit = false
 
     init(directory: URL?, imageExists: @escaping (URL) -> Bool) {
         self.directory = directory
@@ -116,7 +127,9 @@ final class WikiReader {
             title = title?.replacingOccurrences(of: escapedMarker, with: "\u{E000}")
         }
         let fonts = MathRenderer.fontFaces(for: result)
-        return HTMLFragment(body: result + (fonts.isEmpty ? "" : "<style>\(fonts)</style>"), title: title)
+        return HTMLFragment(
+            body: result + (fonts.isEmpty ? "" : "<style>\(fonts)</style>"), title: title,
+            readingIssues: reachedNestingLimit ? [StackSpace.limitIssue] : [])
     }
 
     func heading(_ level: Int, _ source: String) -> String {

@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import RobustnessSupport
 import SurimonoCore
 import Testing
 
@@ -47,11 +48,11 @@ extension RSTRenderingTests {
         try Data("Shared gauge notes.".utf8).write(to: folder.appending(path: "log.inc"))
         let url = folder.appending(path: "watch.rst")
         let source = DocumentSource(data: Data(".. include:: log.inc".utf8), fileURL: url, format: .rst)
-        var denied = false
+        let denied = Locked(false)
         let blocked = try #require(
             try DocumentRenderer.themedFragment(
-                source, access: LocalResourceAccess(documentURL: url), onDenied: { denied = true }))
-        #expect(denied)
+                source, access: LocalResourceAccess(documentURL: url), onDenied: { denied.value = true }))
+        #expect(denied.value)
         #expect(!blocked.body.contains("Shared gauge notes."))
         let accepted = try #require(
             try DocumentRenderer.themedFragment(

@@ -131,6 +131,13 @@ public struct MarkdownIncludes: Equatable, Sendable {
 
     /// The local link targets of a document that holds nothing but headings, rules and lists of links.
     private static func tableOfContents(_ text: String) -> [String]? {
+        // A list of links is shallow; a deeply nested text would exhaust the stack in swift-markdown's conversion.
+        guard MarkdownNesting.isShallow(text) else { return nil }
+        // Without a stack known to hold the nesting limit, the text is not taken for a table of contents.
+        return StackSpace.onLargeStack({ linksOfContents(text) }, withoutThread: { nil })
+    }
+
+    private static func linksOfContents(_ text: String) -> [String]? {
         var links: [String] = []
         var hasList = false
         for block in Document(parsing: text).children {

@@ -1,4 +1,5 @@
 import Foundation
+import RobustnessSupport
 import SurimonoCore
 import Testing
 
@@ -24,7 +25,7 @@ struct LaTeXResourceTests {
         let renderer = DocumentRenderer(
             isSandboxed: { true },
             paginateWithResult: { request in
-                if case .sandboxed(let html, _) = request.source { body = html ?? "" }
+                if case .sandboxed(let html, _, _) = request.source { body = html ?? "" }
                 return WebPaginator.Result(document: try RenderingFixtures.pdf(count: 1))
             })
         let settings = RenderSettings(
@@ -72,12 +73,12 @@ struct LaTeXResourceTests {
         let text = Data(#"\input{link}\input{../outside}"#.utf8)
         try text.write(to: main)
         let source = DocumentSource(data: text, fileURL: main, format: .latex)
-        var denied = false
+        let denied = Locked(false)
         let fragment = try #require(
             try DocumentRenderer.themedFragment(
                 source, access: LocalResourceAccess(documentURL: main, folders: [folder]),
-                onDenied: { denied = true }))
-        #expect(denied)
+                onDenied: { denied.value = true }))
+        #expect(denied.value)
         #expect(!fragment.body.contains("OutsideContent"))
         #expect(fragment.readingIssues.count == 2)
     }

@@ -6,7 +6,10 @@ struct ComputationalFence {
     let info: String
 
     init?(_ line: String) {
-        guard let match = line.wholeMatch(of: /^ {0,3}(`{3,}|~{3,})(.*)$/) else { return nil }
+        // Swift regular expressions cost microseconds a line; most lines cannot open a fence at all.
+        guard let first = line.utf8.first(where: { $0 != 32 }), first == 96 || first == 126,
+            let match = line.wholeMatch(of: /^ {0,3}(`{3,}|~{3,})(.*)$/)
+        else { return nil }
         marker = match.1
         info = match.2.trimmingCharacters(in: .whitespaces)
     }

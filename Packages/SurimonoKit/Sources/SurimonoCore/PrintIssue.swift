@@ -3,6 +3,10 @@ import Foundation
 public struct PrintIssue: Codable, Sendable, Equatable, Identifiable {
     public enum Kind: String, Codable, Sendable {
         case image, overflow, math, latex, rst, bibliography, mermaid, mermaidTimeout, verticalWriting
+        /// A reader printed part of the document as its text, because it nested deeper than can be read.
+        case nestingLimit
+        /// A reader left out part of the document (a Word part, a notebook's JSON), because it nested too deeply.
+        case nestingOmission
     }
     public enum ImageFailure: String, Codable, Sendable { case missing, folderAccess, other }
     public enum Element: String, Codable, Sendable { case table, image, figure, code, math }

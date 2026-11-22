@@ -17,11 +17,75 @@ public enum NotebookError: Error, Equatable, LocalizedError, Sendable {
 
 /// Reads saved cells and outputs only; no kernel, code execution or external process is involved.
 public enum NotebookConverter {
+    /// Cell metadata from extensions nests a few levels more than nbformat's own; 100 is far beyond either. Measured
+    /// in a debug build, Foundation reads 100 levels with about 150 KB of stack.
+    static let maximumNesting = 100
+
+    /// The JSON value of `text`, read by Foundation after every array or object nested deeper than
+    /// `maximumNesting` has been replaced by `null`, and whether any was. Foundation's reader recurses once per level,
+    /// and ten thousand nested objects ran out of the 512 KiB stack the app reads on. A notebook's own structure is a
+    /// few levels deep, so what is cut is extension data the notebook does not print. Both opening a notebook and
+    /// recognizing one on the clipboard read through here.
+    package static func jsonObject(_ text: String) throws -> (value: Any, pruned: Bool) {
+        let (data, pruned) = prunedNesting(Array(text.utf8))
+        return (try JSONSerialization.jsonObject(with: data), pruned)
+    }
+
+    /// One pass outside strings: an array or object that opens below the limit is skipped to its end and replaced by
+    /// `null`. An unterminated one is skipped to the end of the text, which then no longer parses.
+    private static func prunedNesting(_ bytes: [UInt8]) -> (Data, Bool) {
+        var depth = 0
+        var inString = false
+        var escaped = false
+        var output: [UInt8] = []
+        var skipFrom: Int?
+        var copiedTo = 0
+        for (offset, byte) in bytes.enumerated() {
+            if inString {
+                if escaped {
+                    escaped = false
+                } else if byte == 92 {
+                    escaped = true
+                } else if byte == 34 {
+                    inString = false
+                }
+            } else if byte == 34 {
+                inString = true
+            } else if byte == 91 || byte == 123 {
+                depth += 1
+                if depth == maximumNesting + 1, skipFrom == nil {
+                    output += bytes[copiedTo..<offset]
+                    skipFrom = offset
+                }
+            } else if byte == 93 || byte == 125 {
+                if depth == maximumNesting + 1, skipFrom != nil {
+                    output += Array("null".utf8)
+                    copiedTo = offset + 1
+                    skipFrom = nil
+                }
+                depth -= 1
+            }
+        }
+        guard skipFrom != nil || copiedTo > 0 else { return (Data(bytes), false) }
+        if skipFrom == nil { output += bytes[copiedTo...] }
+        return (Data(output), true)
+    }
+
     public static func convert(_ text: String, pageBreakLine: String = "", proof: ProofMarks = .shown) throws
         -> HTMLFragment
     {
+        // One conversion thread for the whole notebook; its Markdown cells then run on it in place.
+        try StackSpace.onLargeStack { () throws -> HTMLFragment in
+            try convertInPlace(text, pageBreakLine: pageBreakLine, proof: proof)
+        }
+    }
+
+    private static func convertInPlace(_ text: String, pageBreakLine: String, proof: ProofMarks) throws
+        -> HTMLFragment
+    {
         let object: Any
-        do { object = try JSONSerialization.jsonObject(with: Data(text.utf8)) } catch {
+        let pruned: Bool
+        do { (object, pruned) = try jsonObject(text) } catch {
             throw NotebookError.invalidJSON
         }
         guard let root = object as? [String: Any], let version = version(root) else {
@@ -96,7 +160,8 @@ public enum NotebookConverter {
         body = body.replacingOccurrences(of: context.tocMarker, with: MarkdownExtensions.tableOfContents(headings))
         let fonts = MathRenderer.fontFaces(for: body)
         if !fonts.isEmpty { body += "<style>\n\(fonts)\n</style>\n" }
-        return HTMLFragment(body: body, title: title, language: language)
+        return HTMLFragment(body: body, title: title, language: language).notingLimit(context.reachedLimit)
+            .notingOmission(pruned)
     }
 
     package static func version(_ root: [String: Any]) -> Int? {
@@ -121,6 +186,8 @@ struct NotebookContext: Sendable {
     var firstAnchor: [String: String] = [:]
     var anchorIDs = Set<String>()
     var linkTargets: [String: String] = [:]
+    /// Whether a Markdown cell or output was printed in part as text because it nested too deeply.
+    var reachedLimit = false
 
     func resolvingLinks(in html: String) -> String {
         var result = ""
@@ -149,6 +216,7 @@ struct NotebookContext: Sendable {
         cellIndex += 1
         let fragment = MarkdownConverter.notebookCell(
             source, pageBreakLine: pageBreakLine, proof: proof, toc: tocMarker)
+        if fragment.readingIssues.contains(StackSpace.limitIssue) { reachedLimit = true }
         let prefix = "nb-\(cellIndex)-"
         var body = ""
         // Namespace all anchors, including footnotes, so independent Markdown documents cannot collide.

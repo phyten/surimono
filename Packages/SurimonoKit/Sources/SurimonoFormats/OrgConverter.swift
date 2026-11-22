@@ -1,7 +1,15 @@
 import Foundation
 
 public enum OrgConverter {
+    /// On a stack of known size, so a document reads the same on every thread.
     public static func convert(_ text: String) -> HTMLFragment {
+        StackSpace.onLargeStack {
+            let (fragment, reachedLimit) = StackSpace.collectingLimit { convertInPlace(text) }
+            return fragment.notingLimit(reachedLimit)
+        }
+    }
+
+    private static func convertInPlace(_ text: String) -> HTMLFragment {
         var parser = OrgParser(lines: TextDecoding.normalizeNewlines(text).components(separatedBy: "\n"))
         // Discover forward declarations before rendering headings or numbering any references.
         parser.context.discovering = true
@@ -35,6 +43,7 @@ struct OrgParser {
     private let regionEnds: [Int: Int]
     var index = 0
     let context: OrgContext
+    private var openList: (indent: Int, tag: String)?
     /// For each environment name, the lines last searched without finding a closing line; an opener among them
     /// need not search again.
     private var unclosedEnvironments: [String: Range<Int>] = [:]
@@ -58,11 +67,43 @@ struct OrgParser {
         regionEnds = ends
     }
 
-    mutating func render(isListItem: Bool = false) -> String {
-        // Lists and quote/center blocks share the bound so alternating them cannot bypass it.
-        guard depth < 32 else { return "<p>\(HTML.escape(lines.joined(separator: "\n")))</p>\n" }
+    private struct Child {
+        let lines: [String]
+        var isListItem = false
+        // Discovery renders note definitions for their side effects only.
+        var closing: String?
+    }
 
+    mutating func render() -> String {
+        var parents: [(parser: OrgParser, isListItem: Bool, savedOutput: String?, closing: String?)] = []
+        var isListItem = false
         var output = ""
+        while true {
+            if let child = renderSegment(isListItem: isListItem, into: &output) {
+                parents.append((self, isListItem, child.closing == nil ? output : nil, child.closing))
+                self = OrgParser(lines: child.lines, depth: depth + 1, context: context)
+                isListItem = child.isListItem
+                if child.closing == nil { output = "" }
+            } else if let parent = parents.popLast() {
+                self = parent.parser
+                isListItem = parent.isListItem
+                if let saved = parent.savedOutput { output = saved }
+                if let closing = parent.closing { output += closing }
+            } else {
+                return output
+            }
+        }
+    }
+
+    // Yield only at block boundaries, after flushing the paragraph. The parent's next unread line and
+    // pending list survive on the heap; a nested block inherits the same discovery and numbering context.
+    private mutating func renderSegment(isListItem: Bool, into output: inout String) -> Child? {
+        guard depth < 32 else {
+            StackSpace.noteLimitReached()
+            output += "<p>\(HTML.escape(lines.joined(separator: "\n")))</p>\n"
+            return nil
+        }
+
         var paragraph: [String] = []
         var caption: String?
         func flush() {
@@ -87,7 +128,17 @@ struct OrgParser {
                 paragraph = []
             }
         }
-        while index < lines.count {
+        while index < lines.count || openList != nil {
+            if let list = openList {
+                if index < lines.count, let item = listItem(lines[index]), item.indent == list.indent,
+                    item.tag == list.tag
+                {
+                    return listChild(item, into: &output)
+                }
+                output += "</\(list.tag)>\n"
+                openList = nil
+                continue
+            }
             let line = lines[index]
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if trimmed.isEmpty {
@@ -107,19 +158,25 @@ struct OrgParser {
                 }
                 if context.discovering {
                     context.definitions[note[0]] = definition.joined(separator: "\n")
-                    var nested = OrgParser(lines: definition, depth: depth + 1, context: context)
-                    _ = nested.render()
+                    return Child(lines: definition, closing: nil)
                 }
                 caption = nil
             } else if let region = delimitedRegion(at: index) {
                 if let end = endOfRegion(region, after: index) {
                     flush()
                     caption = nil
-                    if case .block(let kind, let arguments) = region {
-                        output += renderBlock(
-                            kind: kind, arguments: arguments, content: Array(lines[(index + 1)..<end]))
-                    }
+                    let start = index + 1
                     index = end + 1
+                    if case .block(let kind, let arguments) = region {
+                        let content = Array(lines[start..<end])
+                        if region.isLiteral {
+                            output += literalBlock(kind: kind, arguments: arguments, content: content)
+                        } else {
+                            let wrapper = blockWrapper(kind)
+                            output += wrapper.opening
+                            return Child(lines: content, closing: wrapper.closing)
+                        }
+                    }
                 } else {
                     switch region {
                     case .block:
@@ -197,17 +254,21 @@ struct OrgParser {
             } else if let item = listItem(line) {
                 flush()
                 caption = nil
-                output += renderList(indent: item.indent) + "\n"
+                let tag = item.tag
+                let start = tag == "ol" ? " start=\"\(item.number ?? "1")\"" : ""
+                output += "<\(tag)\(start)>"
+                openList = (item.indent, tag)
+                return listChild(item, into: &output)
             } else {
                 paragraph.append(line)
                 index += 1
             }
         }
         flush()
-        return output
+        return nil
     }
 
-    private func renderBlock(kind: String, arguments: String, content: [String]) -> String {
+    private func literalBlock(kind: String, arguments: String, content: [String]) -> String {
         let text = content.joined(separator: "\n")
         switch kind {
         case "SRC":
@@ -224,13 +285,15 @@ struct OrgParser {
         // A bare `pre`, as `CodeBlockMarkup` expects of a code block: the code options then reach it too.
         case "EXAMPLE": return "<pre>\(HTML.escape(text))</pre>\n"
         case "VERSE": return "<div class=\"org-verse\">\(inline(text))</div>\n"
-        case "QUOTE", "CENTER":
-            var nested = OrgParser(lines: content, depth: depth + 1, context: context)
-            let body = nested.render()
-            return kind == "QUOTE" ? "<blockquote>\(body)</blockquote>\n" : "<div class=\"org-center\">\(body)</div>\n"
+        default: return ""
+        }
+    }
+
+    private func blockWrapper(_ kind: String) -> (opening: String, closing: String) {
+        switch kind {
+        case "QUOTE": return ("<blockquote>", "</blockquote>\n")
+        case "CENTER": return ("<div class=\"org-center\">", "</div>\n")
         default:
-            var nested = OrgParser(lines: content, depth: depth + 1, context: context)
-            let body = nested.render()
             let name = String(
                 kind.lowercased().utf8.filter {
                     (97...122).contains($0) || (48...57).contains($0) || $0 == 95 || $0 == 45
@@ -239,9 +302,9 @@ struct OrgParser {
             if callout.canonicalName != nil {
                 let title =
                     name == "message" ? "" : callout.title(HTML.escape(callout.defaultTitle)) + "\n"
-                return callout.opening + "\n" + title + body + "</div>\n"
+                return (callout.opening + "\n" + title, "</div>\n")
             }
-            return "<div class=\"org-block org-block-\(HTML.escape(name))\">\(body)</div>\n"
+            return ("<div class=\"org-block org-block-\(HTML.escape(name))\">", "</div>\n")
         }
     }
 
@@ -343,27 +406,19 @@ struct OrgParser {
         return ListItem(indent: indent, number: number, content: match[2])
     }
 
-    private mutating func renderList(indent: Int) -> String {
-        guard index < lines.count, let first = listItem(lines[index]) else { return "" }
-        let tag = first.tag
-        let start = tag == "ol" ? " start=\"\(first.number ?? "1")\"" : ""
-        var output = "<\(tag)\(start)>"
-        while index < lines.count, let item = listItem(lines[index]), item.indent == indent, item.tag == tag {
-            let definition = item.definition
-            let term = definition.map { inline($0[0]) }
-            let firstLine = definition?[1] ?? item.content
-            index += 1
-            let content = [firstLine] + collectListItemContinuation(indent: indent)
-            var nested = OrgParser(lines: content, depth: depth + 1, context: context)
-            let body = nested.render(isListItem: definition == nil)
-            if let term {
-                output += "<dt>\(term)</dt><dd>\(body)</dd>"
-            } else {
-                let task = orgCaptures(#"^\[([ Xx-])\]\s*([\s\S]*)$"#, firstLine) != nil
-                output += "<li\(task ? " class=\"task-list-item\"" : "")>\(body)</li>"
-            }
+    private mutating func listChild(_ item: ListItem, into output: inout String) -> Child {
+        let definition = item.definition
+        let term = definition.map { inline($0[0]) }
+        let firstLine = definition?[1] ?? item.content
+        index += 1
+        let content = [firstLine] + collectListItemContinuation(indent: item.indent)
+        if let term {
+            output += "<dt>\(term)</dt><dd>"
+            return Child(lines: content, closing: "</dd>")
         }
-        return output + "</\(tag)>"
+        let task = orgCaptures(#"^\[([ Xx-])\]\s*([\s\S]*)$"#, firstLine) != nil
+        output += task ? "<li class=\"task-list-item\">" : "<li>"
+        return Child(lines: content, isListItem: true, closing: "</li>")
     }
 
     private enum DelimitedRegion {

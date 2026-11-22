@@ -235,7 +235,8 @@ enum MarkdownCallouts {
         init(lines sourceLines: [String]) {
             lines = Array(repeating: LineContext(), count: sourceLines.count)
             lastContentLine = sourceLines.lastIndex { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
-            let document = Document(parsing: sourceLines.joined(separator: "\n"), options: [.disableSmartOpts])
+            let document = MarkdownNesting.document(
+                parsing: sourceLines.joined(separator: "\n"), options: [.disableSmartOpts])
             var cursor = 0
             for block in document.children {
                 cursor = visit(block, sourceLines: sourceLines, bounds: cursor..<lines.count)

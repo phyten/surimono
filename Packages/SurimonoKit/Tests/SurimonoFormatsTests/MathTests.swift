@@ -1,3 +1,4 @@
+import RobustnessSupport
 import SurimonoFormats
 import Testing
 
@@ -191,7 +192,8 @@ struct MarkdownMathBoundaryTests {
         let plain = duration("aa")
         let unclosed = duration("$$a")
         // Searching from every opening to the end again would take thousands of times as many line visits.
-        #expect(unclosed < plain * 2 + .milliseconds(500), "\(unclosed) vs \(plain)")
+        // Only the time is skipped under a sanitizer, which slows the code several times over.
+        if !Sanitizer.isActive { #expect(unclosed < plain * 2 + .milliseconds(500), "\(unclosed) vs \(plain)") }
         // A search stops at a blank line, so a closed formula after it is still found.
         #expect(MarkdownConverter.convert("$$a\n\n$$\nx\n$$").body.contains("<div class=\"math-block\">"))
     }

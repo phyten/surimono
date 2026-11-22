@@ -2511,6 +2511,58 @@
         }
       }
     },
+    "This document took too long to read. Showing the original text.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This document took too long to read. Showing the original text."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "読み込みに時間がかかりすぎたため、原文を表示しています。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文档读取时间过长，当前显示原文。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文件讀取時間過長，目前顯示原文。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "문서를 읽는 데 시간이 너무 오래 걸려 원문을 표시합니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La lecture du document a pris trop de temps. Le texte original est affiché."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Einlesen des Dokuments hat zu lange gedauert. Der Originaltext wird angezeigt."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La lectura del documento tardó demasiado. Se muestra el texto original."
+          }
+        }
+      }
+    },
     "Textile exceeds 5 MB. Showing the original text.": {
       "localizations": {
         "en": {
@@ -30803,6 +30855,112 @@
           "stringUnit": {
             "state": "translated",
             "value": "Desplazamiento vertical"
+          }
+        }
+      }
+    },
+    "Part of the document is nested too deeply and will not be printed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "入れ子が深すぎる部分は、省いて印刷します。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Part of the document is nested too deeply and will not be printed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Teil des Dokuments ist zu tief verschachtelt und wird nicht gedruckt."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una parte del documento tiene demasiados niveles de anidamiento y no se imprimirá."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une partie du document comporte trop de niveaux d’imbrication et ne sera pas imprimée."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "문서의 일부가 너무 깊게 중첩되어 인쇄에서 제외됩니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文档的部分内容嵌套过深，打印时将跳过这部分。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文件的部分內容巢狀層級過深，列印時將略過這部分。"
+          }
+        }
+      }
+    },
+    "Part of the document is nested too deeply. The original text of that part will be printed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "入れ子が深すぎる部分は、原文のまま印刷します。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Part of the document is nested too deeply. The original text of that part will be printed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Teil des Dokuments ist zu tief verschachtelt. Für diesen Teil wird der Originaltext gedruckt."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una parte del documento tiene demasiados niveles de anidamiento. Se imprimirá el texto original de esa parte."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une partie du document comporte trop de niveaux d’imbrication. Le texte original de cette partie sera imprimé."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "문서의 일부가 너무 깊게 중첩되어 읽을 수 없습니다. 해당 부분은 원문 그대로 인쇄됩니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文档的部分内容嵌套过深，无法读取，将打印这部分的原文。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文件的部分內容因巢狀層級過深而無法讀取，將列印這部分的原文。"
           }
         }
       }

@@ -9,7 +9,10 @@ extension WikiReader {
     }
 
     func blocks(_ source: String) -> String {
-        guard depth < 32 else { return HTML.escape(source) }
+        guard depth < 32, StackSpace.hasRoom else {
+            reachedNestingLimit = true
+            return HTML.escape(source)
+        }
         depth += 1
         defer { depth -= 1 }
         let lines = source.components(separatedBy: "\n")
