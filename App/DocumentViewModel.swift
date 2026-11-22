@@ -2612,7 +2612,7 @@ final class DocumentViewModel {
 
     // MARK: - Remembered settings
 
-    private static let logger = Logger(subsystem: "io.github.phyten.Surimono", category: "DocumentSettings")
+    private static let logger = Logger(subsystem: "app.surimono.Surimono", category: "DocumentSettings")
 
     /// What is remembered for this document by its content. The window size is added when saving, because a resize is
     /// only a change once it ends.

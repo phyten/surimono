@@ -17,7 +17,7 @@ Thanks for your interest in Surimono! This is a small project maintained in spar
 
 Run `make build` to build the app, `make lint` to check formatting, and `make test` to run package and hosted app tests (one after the other; `make test-kit` and `make test-app` run one of them). See the README for toolchain requirements and other commands.
 
-Debug builds (`make build`, `make run`, and the host app of the hosted tests) are a separate app named **Surimono Dev**, with the bundle ID `io.github.phyten.Surimono.debug` and a dark icon with a yellow DEV band. They keep their own preferences and store styles, presets, and per-document settings in `~/Library/Application Support/Surimono Dev/`, so you can run them next to an installed Surimono without touching its data. They never check for updates. The menu bar still shows "Surimono".
+Debug builds (`make build`, `make run`, and the host app of the hosted tests) are a separate app named **Surimono Dev**, with the bundle ID `app.surimono.Surimono.debug` and a dark icon with a yellow DEV band. They keep their own preferences and store styles, presets, and per-document settings in `~/Library/Application Support/Surimono Dev/`, so you can run them next to an installed Surimono without touching its data. They never check for updates. The menu bar still shows "Surimono".
 
 ## Commit messages
 

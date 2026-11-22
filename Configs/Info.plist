@@ -7,13 +7,19 @@
         <string>en</string><string>ja</string><string>zh-Hans</string><string>zh-Hant</string>
         <string>ko</string><string>fr</string><string>de</string><string>es</string>
     </array>
-	<!-- Only the system's TLS is used, for documents that refer to web resources; App Store Connect asks for this. -->
+	<!-- Only system TLS is used, for documents that refer to web resources; App Store Connect asks for this. -->
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+<!-- Keep the shared template readable by plist tools before Xcode preprocesses it.
+#ifndef SURIMONO_APP_STORE
+-->
 	<key>SUFeedURL</key>
 	<string>$(SURIMONO_UPDATE_FEED_URL)</string>
 	<key>SUPublicEDKey</key>
 	<string>J2DmT6aAkfRg6szOm5nH4hjIqVaCdeIso9phuWHieiA=</string>
+<!--
+#endif
+-->
 	<key>NSServices</key>
 	<array>
 		<dict>
@@ -45,7 +51,7 @@
 				<string>net.djot.djot</string>
 				<string>org.textile-lang.textile</string>
 				<string>org.mediawiki.wikitext</string>
-				<string>io.github.phyten.surimono.restructuredtext</string>
+				<string>app.surimono.restructuredtext</string>
 				<string>org.asciidoc.asciidoc</string>
 				<string>org.jupyter.ipynb</string>
 				<string>org.graphviz.dot</string>
@@ -57,7 +63,7 @@
 				<string>public.xml</string>
 				<string>com.apple.log</string>
 				<string>public.ndjson</string>
-				<string>io.github.phyten.surimono.jsonl</string>
+				<string>app.surimono.jsonl</string>
 				<string>public.toml</string>
 				<string>org.toml-lang.toml</string>
 				<string>public.html</string>
@@ -97,7 +103,7 @@
 				<string>net.djot.djot</string>
 				<string>org.textile-lang.textile</string>
 				<string>org.mediawiki.wikitext</string>
-				<string>io.github.phyten.surimono.restructuredtext</string>
+				<string>app.surimono.restructuredtext</string>
 				<string>org.asciidoc.asciidoc</string>
 				<string>org.jupyter.ipynb</string>
 				<string>org.graphviz.dot</string>
@@ -109,7 +115,7 @@
 				<string>public.xml</string>
 				<string>com.apple.log</string>
 				<string>public.ndjson</string>
-				<string>io.github.phyten.surimono.jsonl</string>
+				<string>app.surimono.jsonl</string>
 				<string>public.toml</string>
 				<string>org.toml-lang.toml</string>
 				<string>public.html</string>
@@ -141,7 +147,7 @@
 				<string>net.djot.djot</string>
 				<string>org.textile-lang.textile</string>
 				<string>org.mediawiki.wikitext</string>
-				<string>io.github.phyten.surimono.restructuredtext</string>
+				<string>app.surimono.restructuredtext</string>
 				<string>org.asciidoc.asciidoc</string>
 				<string>org.jupyter.ipynb</string>
 				<string>org.graphviz.dot</string>
@@ -153,7 +159,7 @@
 				<string>public.xml</string>
 				<string>com.apple.log</string>
 				<string>public.ndjson</string>
-				<string>io.github.phyten.surimono.jsonl</string>
+				<string>app.surimono.jsonl</string>
 				<string>public.toml</string>
 				<string>org.toml-lang.toml</string>
 				<string>public.html</string>
@@ -176,7 +182,7 @@
             </dict>
         </dict>
         <dict>
-            <key>UTTypeIdentifier</key><string>io.github.phyten.surimono.jsonl</string>
+            <key>UTTypeIdentifier</key><string>app.surimono.jsonl</string>
             <key>UTTypeDescription</key><string>JSON Lines</string>
             <key>UTTypeConformsTo</key><array><string>public.plain-text</string></array>
             <key>UTTypeTagSpecification</key><dict>
@@ -232,7 +238,7 @@
             </dict>
         </dict>
         <dict>
-            <key>UTTypeIdentifier</key><string>io.github.phyten.surimono.restructuredtext</string>
+            <key>UTTypeIdentifier</key><string>app.surimono.restructuredtext</string>
             <key>UTTypeDescription</key><string>reStructuredText</string>
             <key>UTTypeConformsTo</key><array><string>public.plain-text</string></array>
             <key>UTTypeTagSpecification</key><dict>

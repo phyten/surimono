@@ -105,7 +105,7 @@ enum DiagramScript {
                     let times = try? JSONSerialization.jsonObject(with: data) as? [[Double]]
                 {
                     for time in times where time.count == 2 {
-                        Logger(subsystem: "io.github.phyten.Surimono", category: "Diagrams")
+                        Logger(subsystem: "app.surimono.Surimono", category: "Diagrams")
                             .debug("\(time[0]) 1 \(time[1])")
                     }
                 }
@@ -121,7 +121,7 @@ enum DiagramScript {
             let elapsed = start.duration(to: .now).components
             let milliseconds = Double(elapsed.seconds) * 1000 + Double(elapsed.attoseconds) / 1e15
             // Numeric fields: engine (0 Viz, 1 PlantUML), phase (0 load, 1 render), elapsed milliseconds.
-            Logger(subsystem: "io.github.phyten.Surimono", category: "Diagrams")
+            Logger(subsystem: "app.surimono.Surimono", category: "Diagrams")
                 .debug("\(engine) \(phase) \(milliseconds)")
         #endif
     }

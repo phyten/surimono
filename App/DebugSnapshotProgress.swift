@@ -38,7 +38,7 @@
 
         static func failed(_ error: Error) {
             let message = error.localizedDescription
-            Logger(subsystem: "io.github.phyten.Surimono.debug", category: "Snapshot").error(
+            Logger(subsystem: "app.surimono.Surimono.debug", category: "Snapshot").error(
                 "\(message, privacy: .public)")
             if let timeout = error as? SnapshotDeadline, file != nil {
                 // Keep the process alive for the runner to sample before termination.

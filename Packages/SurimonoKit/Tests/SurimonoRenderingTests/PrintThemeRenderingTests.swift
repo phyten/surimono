@@ -265,7 +265,7 @@ struct PrintThemeRenderingTests {
         let metrics =
             "Text scale: pages \(normal.logicalDocument.pageCount) -> \(large.logicalDocument.pageCount), "
             + "character height \(normalHeight) -> \(largeHeight), paper \(largePage.bounds(for: .mediaBox))"
-        Logger(subsystem: "io.github.phyten.Surimono", category: "TextScaleTests").notice(
+        Logger(subsystem: "app.surimono.Surimono", category: "TextScaleTests").notice(
             "\(metrics, privacy: .public)")
     }
 

@@ -71,7 +71,7 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
             "public.plain-text": .plainText, "public.text": .plainText, "public.utf8-plain-text": .plainText,
             "public.json": .plainText, "public.yaml": .plainText, "public.xml": .plainText,
             "public.ndjson": .plainText, "com.apple.log": .plainText, "org.toml-lang.toml": .plainText,
-            "io.github.phyten.surimono.jsonl": .plainText,
+            "app.surimono.jsonl": .plainText,
             "public.xhtml": .html, "public.html": .html, "com.adobe.pdf": .pdf, "public.image": .image,
             "public.png": .image, "public.jpeg": .image, "public.comma-separated-values-text": .csv,
             "public.tab-separated-values-text": .csv,
@@ -81,7 +81,7 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
             "org.openxmlformats.wordprocessingml.document": .docx,
             "net.djot.djot": .djot,
             "org.textile-lang.textile": .textile,
-            "io.github.phyten.surimono.restructuredtext": .rst,
+            "app.surimono.restructuredtext": .rst,
             "org.mediawiki.wikitext": .mediawiki,
             "org.asciidoc.asciidoc": .asciidoc,
         ]
@@ -163,8 +163,10 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
 }
 
 extension UTType {
-    public static let surimonoJSONLines = UTType(
-        importedAs: "io.github.phyten.surimono.jsonl", conformingTo: .plainText)
+    // With competing imports for the same extension, importedAs: can return another app’s type.
+    // Prefer our declared identifier; a standalone package client may have no registered declaration yet.
+    public static let surimonoJSONLines =
+        UTType("app.surimono.jsonl") ?? UTType(importedAs: "app.surimono.jsonl", conformingTo: .plainText)
     public static let surimonoTOML = UTType(importedAs: "org.toml-lang.toml", conformingTo: .plainText)
     public static let surimonoGraphviz = UTType(importedAs: "org.graphviz.dot", conformingTo: .plainText)
     public static let surimonoPlantUML = UTType(importedAs: "net.sourceforge.plantuml", conformingTo: .plainText)
@@ -172,8 +174,9 @@ extension UTType {
     public static let surimonoRMarkdown = UTType(importedAs: "org.rstudio.rmarkdown", conformingTo: .plainText)
     public static let surimonoDjot = UTType(importedAs: "net.djot.djot", conformingTo: .plainText)
     public static let surimonoTextile = UTType(importedAs: "org.textile-lang.textile", conformingTo: .plainText)
-    public static let surimonoRST = UTType(
-        importedAs: "io.github.phyten.surimono.restructuredtext", conformingTo: .plainText)
+    public static let surimonoRST =
+        UTType("app.surimono.restructuredtext")
+        ?? UTType(importedAs: "app.surimono.restructuredtext", conformingTo: .plainText)
     public static let surimonoMediaWiki = UTType(importedAs: "org.mediawiki.wikitext", conformingTo: .plainText)
     public static let surimonoAsciiDoc = UTType(importedAs: "org.asciidoc.asciidoc", conformingTo: .plainText)
     public static let surimonoNotebook = UTType(importedAs: "org.jupyter.ipynb", conformingTo: .json)

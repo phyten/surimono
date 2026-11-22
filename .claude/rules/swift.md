@@ -17,7 +17,7 @@ AGENTS.md の「コーディング規約」の補足。Swift ファイルを編�
 
 - 失敗しうる処理は意味のあるエラー型で `throws` する。UI ではユーザーに分かる文言に変換する。
 - 強制アンラップ（`!`）と `try!` はテスト以外で使わない。
-- ログは `print` ではなく `os.Logger`（subsystem: `io.github.phyten.Surimono`）を使う。文書の中身や個人情報をログに出さない。
+- ログは `print` ではなく `os.Logger`（subsystem: `app.surimono.Surimono`）を使う。文書の中身や個人情報をログに出さない。
 - コードコメントとドキュメントコメントは英語で書く（テスト名は日本語）。
 
 ## ファイル

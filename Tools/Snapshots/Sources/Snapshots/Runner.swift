@@ -2,7 +2,7 @@ import AppKit
 import Darwin
 import ImageIO
 
-let debugDomain = "io.github.phyten.Surimono.debug"
+let debugDomain = "app.surimono.Surimono.debug"
 struct LayoutScreen: Codable {
     let displayID: UInt32
     let backingScale: Double

@@ -162,7 +162,7 @@ struct VerticalPaginatorTests {
         let elapsed = ContinuousClock.now - start
         let document = prepared.logicalDocument
         let metrics = "3000 lines, \(document.pageCount) logical pages, \(elapsed)"
-        Logger(subsystem: "io.github.phyten.Surimono", category: "VerticalPaginatorTests")
+        Logger(subsystem: "app.surimono.Surimono", category: "VerticalPaginatorTests")
             .notice("\(metrics, privacy: .public)")
         #expect(elapsed < .seconds(8), "\(metrics)")
         try #require((90...150).contains(document.pageCount), "\(metrics)")

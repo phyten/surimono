@@ -71,7 +71,7 @@ Samples は `#filePath` からルートをたどって読み、コピーも変�
 1. `make build` で作った Surimono Dev を起動し、調べたい文書を開く。あるいはテスト実行プロセスを対象にする場合、`make bench` を開始してそのプロセスへ接続する。
 2. Xcode の Open Developer Tool → Instruments から Time Profiler を開き、対象プロセスを選ぶ。Points of Interest / os_signpost の instrument を追加する。
 3. 記録を開始し、文書を開く・スタイルを切り替える・印刷画面へ入る・見本パレットを表示する。
-4. subsystem `io.github.phyten.Surimono`、category `Rendering` で絞り、`prepare`（組版）、`composeSheet`（面付け）、`themeSample`（見本 1 枚）の区間を選択してスタックを確認する。
+4. subsystem `app.surimono.Surimono`、category `Rendering` で絞り、`prepare`（組版）、`composeSheet`（面付け）、`themeSample`（見本 1 枚）の区間を選択してスタックを確認する。
 5. メモリは別の記録で Allocations / VM Tracker を使う。必要に応じて WebKit の子プロセスも対象にし、切り替えを繰り返した後の残存量を確認する。Instruments を付けた時間は通常の基準値とは分けて扱う。
 
 区間には文書の形式とページ数だけを記録し、中身・パス・ファイル名は書きません。`prepare` と `composeSheet` はキャッシュヒット時の呼び出しも含み、失敗・キャンセルでも区間を閉じます。`prepare` の終了ページ数 0 は完了前の失敗を表します。`themeSample` はキャッシュヒットを除いた実際の描画区間です。
