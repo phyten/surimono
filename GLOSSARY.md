@@ -40,3 +40,4 @@
 | 取り除く要素の決まり | `Preset` | Preset | プリセット | Voreinstellung | Preajuste | Préréglage | 프리셋 | 预设 | 預設 |
 | 書き込み用のページ | `Notes` | Notes | ノート | Notizen | Notas | Notes | 노트 | 笔记 | 筆記 |
 | 選んで残したスタイル | `Favorites` | Favorites | お気に入り | Favoriten | Favoritos | Favoris | 즐겨찾기 | 个人收藏 | 喜好項目 |
+| スタイルの区分への移動 | `Jump to Category` | Jump to Category | カテゴリーへ移動 | Zur Kategorie springen | Ir a la categoría | Aller à la catégorie | 카테고리로 이동 | 跳转到类别 | 跳至類別 |

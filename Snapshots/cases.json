@@ -298,6 +298,7 @@
   {"id": "ui-updating-light", "kind": "ui", "input": "Samples/booklet-demo.md", "arguments": ["-SurimonoUpdating", "spinner", "-SurimonoAppearance", "light"], "tags": ["updating", "light"]},
   {"id": "ui-updating-dark", "kind": "ui", "input": "Samples/booklet-demo.md", "arguments": ["-SurimonoUpdating", "text", "-SurimonoAppearance", "dark"], "tags": ["updating", "dark"]},
   {"id": "ui-full-light", "kind": "ui", "input": "Samples/booklet-demo.md", "arguments": ["-SurimonoMenu", "full", "-SurimonoAppearance", "light"], "tags": ["full", "light"]},
+  {"id": "ui-palette-jump-light", "kind": "ui", "input": "Snapshots/specimen.md", "arguments": ["-SurimonoPopover", "style", "-SurimonoPaletteJump", "YES", "-SurimonoAppearance", "light"], "tags": ["palette", "light"]},
   {"id": "ui-pinned-dark", "kind": "ui", "input": "Samples/booklet-demo.md", "arguments": ["-SurimonoMenu", "pinned", "-SurimonoAppearance", "dark"], "tags": ["pinned", "dark"]},
   {"id": "ui-pinned-light", "kind": "ui", "input": "Samples/booklet-demo.md", "arguments": ["-SurimonoMenu", "pinned", "-SurimonoAppearance", "light"], "tags": ["pinned", "light"]},
   {"id": "ui-settings-clipboard-dark", "kind": "ui", "input": "Samples/booklet-demo.md", "arguments": ["-SurimonoSettings", "clipboard", "-SurimonoSettingsSize", "820x540", "-SurimonoAppearance", "dark"], "tags": ["settings-clipboard", "dark"]},

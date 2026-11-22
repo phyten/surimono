@@ -1,6 +1,6 @@
 # Getting Started with Surimono
 
-Surimono is a Mac app for opening Markdown, PDF, image, Org, text, CSV, HTML and LaTeX files and printing them as they are. A document opens already laid out on paper, and pressing ⌘P twice prints it.
+Surimono opens documents on your Mac and lays them out for printing. It reads Markdown, PDF, Word (.docx), images and image ZIPs, text, CSV/TSV, HTML, Org, LaTeX, AsciiDoc, Quarto, R Markdown, reStructuredText, MediaWiki, Djot, Textile, Jupyter Notebook, Graphviz and PlantUML. A document opens already laid out on paper, and pressing ⌘P twice prints it.
 
 This guide is an ordinary Markdown document too: print it as a small booklet and fold it.
 

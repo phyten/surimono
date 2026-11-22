@@ -4,6 +4,7 @@
     import PDFKit
     import OSLog
     import SurimonoCore
+    import SwiftUI
 
     /// Launch arguments for screenshots in development builds. They never apply to Release builds.
     enum DebugSnapshot {
@@ -829,6 +830,11 @@
                             for: .milliseconds(model.viewOptions.transition == .pageCurl ? 2200 : 1300))
                     }
                 }
+                if flag("SurimonoPaletteJump"), let marker = paletteJumpMarker, let window = marker.window {
+                    openMenu(
+                        in: window, at: marker.convert(NSPoint(x: marker.bounds.midX, y: marker.bounds.midY), to: nil))
+                    try? await Task.sleep(for: .milliseconds(1200))
+                }
                 if flag("SurimonoMoreMenu"), let window = model.window {
                     // As if "…" were clicked, to see what it holds; the menu closes again after the capture.
                     openMoreMenu(of: model, in: window)
@@ -1031,6 +1037,19 @@
             NSApp.terminate(nil)
         }
 
+        private static weak var paletteJumpMarker: NSView?
+
+        /// The palette lives in its own popover window, outside the document's band anchors.
+        struct PaletteJumpMarker: NSViewRepresentable {
+            func makeNSView(context: Context) -> NSView {
+                let view = NSView()
+                paletteJumpMarker = view
+                return view
+            }
+
+            func updateNSView(_ view: NSView, context: Context) {}
+        }
+
         private static weak var trackedMenu: NSMenu?
         private static var menuObserver: NSObjectProtocol?
 
@@ -1041,7 +1060,12 @@
         ) {
             guard let frame = model.bandAnchors.frames[anchor], let content = window.contentView else { return }
             let local = NSPoint(x: frame.midX, y: content.isFlipped ? frame.midY : content.bounds.height - frame.midY)
-            var view = content.hitTest(content.convert(local, to: content.superview))
+            openMenu(in: window, at: content.convert(local, to: nil))
+        }
+
+        private static func openMenu(in window: NSWindow, at point: NSPoint) {
+            guard let content = window.contentView else { return }
+            var view = content.hitTest(content.superview?.convert(point, from: nil) ?? point)
             while let candidate = view, !(candidate is NSControl) { view = candidate.superview }
             menuObserver = NotificationCenter.default.addObserver(
                 forName: NSMenu.didBeginTrackingNotification, object: nil, queue: .main
@@ -1052,7 +1076,6 @@
             }
             let control = view as? NSControl
             // A menu drawn as a plain button is no AppKit control; a click in the window opens it as a pointer would.
-            let point = content.convert(local, to: nil)
             let timer = Timer(timeInterval: 0.05, repeats: false) { _ in
                 MainActor.assumeIsolated {
                     if let control { return control.performClick(nil) }
