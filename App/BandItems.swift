@@ -47,7 +47,7 @@ extension BandLayout.Item {
             case .style: paper && (model.usesPrintTheme || model.usesHTMLPreset)
             // Whether the band shows them is the arrangement's business; these say only what the document allows.
             case .chapter: paper && model.hasOutline && model.chapterEntries.contains { $0.pageIndex != nil }
-            case .outline: model.hasContents
+            case .outline: model.hasContents && model.imageBundle == nil
             case .pageTurn: paper && model.pageCount > 1
             case .zoom: paper ? model.zoom > 1.001 : abs(model.webZoom - 1) > 0.001
             case .thumbnails: model.imageBundle != nil || model.binder != nil
@@ -105,7 +105,7 @@ struct BandItemView: View {
             }
             .help(ShortcutHints.help(String(localized: "Fit to Window"), [.viewZoomFit]))
         case .thumbnails:
-            Toggle(isOn: $model.isDrawerOpen) {
+            Toggle(isOn: Binding(get: { model.isDrawerOpen }, set: model.setSideListOpen)) {
                 if let binder = model.binder {
                     Text("Documents \(binder.items.count)")
                 } else if let bundle = model.imageBundle {
@@ -228,28 +228,28 @@ struct PageIndicatorText: View {
     }
 }
 
-/// The page indicator opens the document's figures; a slide deck on the web has only the slide to tell.
+/// The sheet belongs to the reading surface so measuring a second button cannot present it twice.
 struct PageIndicatorButton: View {
     @Bindable var model: DocumentViewModel
 
     var body: some View {
-        if model.showsWeb {
+        if !model.canGoToPage {
             PageIndicatorText(model: model)
         } else {
             Button {
-                model.isFiguresPresented.toggle()
+                model.presentGoToPage()
             } label: {
                 PageIndicatorText(model: model)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 4)
                     .background {
-                        CornerRole.control.shape.fill(model.isFiguresPresented ? PrintPalette.hover : .clear)
+                        CornerRole.control.shape.fill(model.isGoToPagePresented ? PrintPalette.hover : .clear)
                     }
-                    .selectionRule(model.isFiguresPresented)
+                    .selectionRule(model.isGoToPagePresented)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .help(ShortcutHints.help(String(localized: "Document Info"), [.viewDocumentInfo]))
+            .help(ShortcutHints.help(String(localized: "Go to Page…"), [.documentGoToPage]))
         }
     }
 }

@@ -706,7 +706,12 @@
                     case "stats": model.isFiguresPresented = true
                     default:
                         model.snapshotOutlineDrawer = true
-                        model.isOutlineDrawerOpen = true
+                        if argument("SurimonoContentsTab") == "pages" { model.snapshotContentsTab = .pages }
+                        if model.imageBundle != nil {
+                            model.isDrawerOpen = true
+                        } else {
+                            model.isOutlineDrawerOpen = true
+                        }
                     }
                     if let query = argument("SurimonoOutlineFilter") {
                         model.outlineFilter.setQuery(query, entries: model.outlineEntries)
@@ -930,6 +935,12 @@
                         }
                         if folded && !model.showsFold { return "Waiting for the folded book" }
                         if !model.isUpToDate { return "Waiting for the current document render" }
+                        if model.snapshotContentsTab == .pages,
+                            model.snapshotThumbnailRequests.isEmpty
+                                || model.snapshotThumbnailRequests.values.contains(false)
+                        {
+                            return "Waiting for the visible page thumbnails"
+                        }
                         if ViewerWindow.isResizingProgrammatically(window) { return "Waiting for window resize" }
                         if model.mode == .print
                             && (!model.hasCurrentPrintPreview || (!model.showsFold && model.trayZoomer?.context == nil))

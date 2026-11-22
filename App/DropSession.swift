@@ -20,6 +20,9 @@ final class DropSession {
     private(set) var insertion: Int?
     /// Where the line between the rows goes, for `insertion`.
     private(set) var insertionY: CGFloat?
+    /// Two columns have a gap on either side of each thumbnail, including the last visible one.
+    @ObservationIgnored var usesPageGrid = false
+    private(set) var gridInsertionLine: CGRect?
     var size: CGSize = .zero
     /// The rows of the open list in order, in the window's coordinates.
     @ObservationIgnored var rowFrames: [URL: CGRect] = [:]
@@ -66,15 +69,30 @@ final class DropSession {
         zone = nil
         insertion = nil
         insertionY = nil
+        gridInsertionLine = nil
     }
 
     private func placeInsertion(at point: CGPoint) {
+        gridInsertionLine = nil
         guard case .join = plan?.choice, let listFrame, listFrame.contains(point) else {
             insertion = nil
             insertionY = nil
             return
         }
         let frames = rows.map { rowFrames[$0] }
+        if usesPageGrid {
+            let candidates = frames.enumerated().compactMap { index, rect in rect.map { (index, $0) } }
+            if let (index, frame) = candidates.min(by: {
+                hypot($0.1.midX - point.x, $0.1.midY - point.y) < hypot($1.1.midX - point.x, $1.1.midY - point.y)
+            }) {
+                let after = point.y > frame.maxY || (point.y >= frame.minY && point.x >= frame.midX)
+                insertion = min(index + (after ? 1 : 0), rows.count)
+                insertionY = nil
+                gridInsertionLine = CGRect(
+                    x: after ? frame.maxX : frame.minX, y: frame.minY, width: 2, height: frame.height)
+                return
+            }
+        }
         let gap = Self.insertion(at: point.y, rows: frames)
         insertion = gap.index
         insertionY = gap.y

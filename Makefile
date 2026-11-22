@@ -146,6 +146,17 @@ robustness-rendering:
 bench:
 	SURIMONO_BENCH=1 swift test --package-path Packages/SurimonoKit --disable-sandbox --filter RenderingBenchmarks --no-parallel
 
+.PHONY: bench-pages bench-pages-rendering bench-pages-window
+bench-pages: bench-pages-rendering bench-pages-window
+
+bench-pages-rendering:
+	@set -e; for input in booklet pdf-300 deck images-20; do \
+		SURIMONO_BENCH_PAGES=1 SURIMONO_BENCH_PAGE_INPUT=$$input $(SWIFT_TEST) --disable-sandbox --filter PageThumbnailBenchmarks --no-parallel; \
+	done
+
+bench-pages-window:
+	TEST_RUNNER_SURIMONO_BENCH_PAGES=1 $(filter-out -quiet,$(XCODEBUILD)) -configuration "$(CONFIGURATION)" -only-testing:SurimonoTests/PageDrawerWindowBenchmarks test
+
 bench-compare:
 	python3 Benchmarks/compare.py "$(BASE)" "$(NEW)" --threshold "$(BENCH_THRESHOLD)"
 

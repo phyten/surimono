@@ -19,6 +19,13 @@ make bench-compare BASE=Benchmarks/baseline.json NEW=build/bench/local.json BENC
 
 結果は `build/bench/<UTC日時>-<8桁SHA>.json` に保存し、最後に絶対パスを表示します。`SURIMONO_BENCH_OUT` の相対パスはリポジトリルート基準です。処理に失敗した場合は不完全な結果を基準値として保存しません。
 
+## ページ一覧
+
+ログイン中の Mac で `make bench-pages` を実行する。対象は booklet-demo、コーパスの beamer 083、自動生成した300ページのPDF、画像20枚の束。ビルドの時間は計測に含めない。
+
+- `make bench-pages-rendering` は長辺160ptを1×と2×で描く。各文書でキャッシュを20回作り直し、最初の縮図と先頭20ページまでの各縮図について中央値と95パーセンタイル（ms）を出す。全ページを2×で一巡したあとの画像バイト数とプロセスのメモリ増分も出す。保存済みの論理PDFで入力を固定する場合は `SURIMONO_BENCH_READING_PDFS` に `sample-booklet-demo-md.pdf` と `latex-083.pdf` のあるフォルダーを渡す。
+- `make bench-pages-window` は新しい文書窓で引き出しを開いてから最初の画像がビューに現れるまでを20回測る。開閉状態を交互に復元し、窓の作成から論理ページの表示準備完了までの中央値を比べる。スクロール中の最長フレームは表示リンクのメインスレッドへの到着間隔、スタイル変更は新しい組版の世代の画像が現れるまでの時間。短いデッキがすべて見える場合はスクロール距離がゼロになる。
+
 ## 測る場面
 
 | JSON の場面 ID | 内容と計測範囲 |

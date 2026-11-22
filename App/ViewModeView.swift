@@ -31,13 +31,18 @@ struct ViewModeView: View {
         ZStack(alignment: .top) {
             HStack(spacing: 0) {
                 if model.showsOutlineDrawer {
-                    OutlineDrawer(model: model).transition(.move(edge: .leading))
+                    OutlineDrawer(model: model, availableWidth: menu.bandWidth - model.sideInset)
+                        .transition(.move(edge: .leading))
                 }
                 if model.showsSideList {
                     if model.binder != nil {
                         BinderDrawer(model: model)
                     } else if model.imageBundle != nil {
-                        ImageBundleDrawer(model: model)
+                        if model.pageCount > 1 {
+                            OutlineDrawer(model: model)
+                        } else {
+                            ImageBundleDrawer(model: model)
+                        }
                     }
                 }
                 // A page turn moves the pages past the paper's edge, where the panel beside it must stay in front.

@@ -33,6 +33,7 @@
 | 開いているもの | `Document` | Document | 文書 | Dokument | Documento | Document | 문서 | 文档 | 文件 |
 | フォルダ | `Choose Folder…` | Folder | フォルダ | Ordner | carpeta | dossier | 폴더 | 文件夹 | 檔案夾 |
 | 見出しの一覧 | `Contents` | Contents | 目次 | Inhalt | Índice | Sommaire | 목차 | 目录 | 目錄 |
+| ページの一覧 | `Pages Tab` | Pages | ページ | Seiten | Páginas | Pages | 페이지 | 页 | 頁 |
 | 覚えた場所 | `Bookmarks` | Bookmarks | しおり | Lesezeichen | Marcadores | Signets | 책갈피 | 书签 | 書籤 |
 | 窓の上下の操作の帯 | `Toolbar` | Toolbar | ツールバー | Symbolleiste | Barra de herramientas | Barre d’outils | 도구 막대 | 工具栏 | 工具列 |
 | 別の形式で保存すること | `Export` | Export | 書き出す | Exportieren | Exportar | Exporter | 내보내기 | 导出 | 輸出 |

@@ -7,14 +7,19 @@ enum SidePanelMetrics {
 
 struct SidePanel<Actions: View, Content: View>: View {
     let title: LocalizedStringKey
+    let width: CGFloat
+    let showsTitle: Bool
     let subtitle: String
     let actions: Actions
     let content: Content
 
     init(
-        _ title: LocalizedStringKey, subtitle: String = "",
+        _ title: LocalizedStringKey, subtitle: String = "", width: CGFloat = SidePanelMetrics.width,
+        showsTitle: Bool = true,
         @ViewBuilder actions: () -> Actions, @ViewBuilder content: () -> Content
     ) {
+        self.width = width
+        self.showsTitle = showsTitle
         self.title = title
         self.subtitle = subtitle
         self.actions = actions()
@@ -24,15 +29,17 @@ struct SidePanel<Actions: View, Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
-                Text(title).font(.system(size: 13, weight: .bold)).fixedSize()
-                Text(verbatim: subtitle).font(.system(size: 11)).foregroundStyle(PrintPalette.ink2).lineLimit(1)
-                Spacer(minLength: 0)
+                if showsTitle {
+                    Text(title).font(.system(size: 13, weight: .bold)).fixedSize()
+                    Text(verbatim: subtitle).font(.system(size: 11)).foregroundStyle(PrintPalette.ink2).lineLimit(1)
+                    Spacer(minLength: 0)
+                }
                 HStack(spacing: 2) { actions }
             }
             content
         }
         .padding(12)
-        .frame(width: SidePanelMetrics.width)
+        .frame(width: width)
         .frame(maxHeight: .infinity, alignment: .top)
         .foregroundStyle(PrintPalette.ink)
         .background(PrintPalette.raised)

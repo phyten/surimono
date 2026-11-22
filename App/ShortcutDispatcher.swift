@@ -352,7 +352,7 @@ final class ShortcutDispatcher {
         case .settingSetSave:
             if let model { SettingSetDialogs.save(model) }
         case .listToggle:
-            if let model, model.binder != nil || model.imageBundle != nil { model.isDrawerOpen.toggle() }
+            if let model, model.binder != nil || model.imageBundle != nil { model.setSideListOpen(!model.isDrawerOpen) }
         case .listMoveUp:
             model?.imageBundle?.moveSelection(by: -1)
             model?.binder?.moveSelection(by: -1)

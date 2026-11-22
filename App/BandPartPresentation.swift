@@ -42,11 +42,11 @@ extension BandLayout.Item {
     var editorDescription: String {
         switch self {
         case .formatBadge: String(localized: "Shows the document’s file type.")
-        case .pageIndicator: String(localized: "Shows your page position; on paper, opens Document Info.")
+        case .pageIndicator: String(localized: "Go to a page by its number")
         case .presentation: String(localized: "Switches an HTML document between web and paper views.")
         case .style: String(localized: "Chooses a print style or an HTML cleanup preset.")
         case .chapter: String(localized: "Shows the chapter you are reading; opens Contents.")
-        case .outline: String(localized: "Opens the document’s headings or PDF bookmarks.")
+        case .outline: String(localized: "Opens the document’s contents and pages.")
         case .layout: String(localized: "Switches between a single page and a spread.")
         case .transition: String(localized: "Chooses scrolling or a page-turn effect.")
         case .zoom: String(localized: "Shows the zoom while zoomed in; click to fit the window.")
@@ -82,7 +82,7 @@ extension BandLayout.Item {
         case .presentation: String(localized: "Appears only for HTML documents.")
         case .style: String(localized: "Appears for documents that use a print style or an HTML preset.")
         case .chapter: String(localized: "Appears for documents with chapters.")
-        case .outline: String(localized: "Appears for documents with headings or bookmarks.")
+        case .outline: String(localized: "Appears for documents with multiple pages, headings, or bookmarks.")
         case .layout, .transition: String(localized: "Appears on paper, not on a live web page.")
         case .zoom: String(localized: "Appears only while zoomed in.")
         case .thumbnails: String(localized: "Appears for image bundles and binders.")

@@ -226,7 +226,10 @@ final class DocumentViewModel {
     var showsOnAllSpaces: Bool
     var isDrawerOpen = false
     var showsSideList: Bool { isDrawerOpen && (binder != nil || imageBundle != nil) }
-    var sideInset: CGFloat { mode == .view && showsSideList ? SidePanelMetrics.width : 0 }
+    var sideInset: CGFloat {
+        guard mode == .view, showsSideList else { return 0 }
+        return imageBundle == nil ? SidePanelMetrics.width : contentsWidth
+    }
     /// The row of the tray to bring into view, for the sheets on it now.
     var requestedTrayRow: Int?
     /// What a row of the list asked the tray to show, until the sheets that hold it are ready.
@@ -265,8 +268,52 @@ final class DocumentViewModel {
     var outlineFilter = OutlineFilterState()
     #if DEBUG
         var snapshotOutlineDrawer = false
+        var snapshotContentsTab: DocumentSettings.ContentsPanel.Tab?
+        @ObservationIgnored var snapshotThumbnailRequests: [UUID: Bool] = [:]
     #endif
     var isOutlineDrawerOpen = false
+    var contentsPanel = DocumentSettings.ContentsPanel()
+    var contentsTab: DocumentSettings.ContentsPanel.Tab {
+        guard pageCount > 1 else { return .contents }
+        #if DEBUG
+            if let snapshotContentsTab { return snapshotContentsTab }
+        #endif
+        // With no headings and no bookmarks the contents tab would be an empty list.
+        guard showsContentsTabs else { return .pages }
+        return contentsPanel.tab ?? (hasOutline ? .contents : .pages)
+    }
+    var showsContentsTabs: Bool { pageCount > 1 && (hasOutline || !bookmarkPages.isEmpty) }
+    var contentsWidth: CGFloat { min(400, max(176, contentsPanel.width ?? SidePanelMetrics.width)) }
+    func selectContentsTab(_ tab: DocumentSettings.ContentsPanel.Tab) {
+        contentsPanel.tab = tab
+        outlineFilter.setQuery("", entries: outlineEntries)
+    }
+
+    func setContentsOpen(_ open: Bool) {
+        if imageBundle != nil { isDrawerOpen = open } else { isOutlineDrawerOpen = open }
+        contentsPanel.isOpen = open
+    }
+
+    func setSideListOpen(_ open: Bool) {
+        if imageBundle != nil && mode == .view {
+            isOutlinePresented = false
+            setContentsOpen(open)
+        } else {
+            isDrawerOpen = open
+        }
+    }
+
+    #if DEBUG
+        // The window benchmark timestamps a visible tile after SwiftUI has installed its image.
+        @ObservationIgnored var thumbnailDidAppear: ((Int) -> Void)?
+    #endif
+    @ObservationIgnored private var thumbnailCache: PageThumbnails?
+    func thumbnails(for generation: Int) -> PageThumbnails? {
+        guard let result, generation == result.id, !isRendering else { return nil }
+        if thumbnailCache == nil { thumbnailCache = PageThumbnails(result) }
+        return thumbnailCache
+    }
+
     var isLaTeXRecognitionPresented = false
     var isFiguresPresented = false
     var isPrintFinishPresented = false
@@ -638,7 +685,11 @@ final class DocumentViewModel {
         paper.onReadingJump = { [weak self] page in self?.recordReadingJump(to: page) }
         paper.onToast = { [weak self] toast in self?.showToast(toast) }
         web.onFolderAccessRequired = { [weak self] _ in self?.requestFolderAccess() }
-        drop.onSpring = { [weak self] in self?.isDrawerOpen = true }
+        drop.onSpring = { [weak self] in
+            guard let self else { return }
+            if mode == .view, imageBundle != nil, pageCount > 1 { selectContentsTab(.pages) }
+            setSideListOpen(true)
+        }
         #if DEBUG
             DebugSnapshot.configure(self)
         #endif
@@ -1170,6 +1221,7 @@ final class DocumentViewModel {
     }
 
     func stop() {
+        thumbnailCache = nil
         pageUpdateTask?.cancel()
         pageUpdate = PageUpdateProgress()
         pageUpdateDisplay = .hidden
@@ -1503,6 +1555,7 @@ final class DocumentViewModel {
             trayRequest = url
             resolveTrayRequest()
         } else if mode == .view, let index = readableImageIndex(of: url) {
+            recordReadingJump(to: index)
             currentPageIndex = index
             paper.goToPage(index: index)
         }
@@ -1539,6 +1592,7 @@ final class DocumentViewModel {
 
     private func render(reusing currentPages: PreparedRender?) {
         if reloadedPages == .failed { reloadedPages = .unchanged }
+        thumbnailCache = nil
         layoutTooLarge = false
         composingSheets = false
         renderStartCount += 1
@@ -2156,7 +2210,7 @@ final class DocumentViewModel {
     /// The live page has no pages to go to.
     var hasOutline: Bool { !outlineEntries.isEmpty && !showsWeb }
     var showsOutlineDrawer: Bool {
-        isOutlineDrawerOpen && hasContents && usesOutlineDrawer
+        imageBundle == nil && isOutlineDrawerOpen && hasContents && usesOutlineDrawer
     }
     var usesOutlineDrawer: Bool {
         #if DEBUG
@@ -2175,13 +2229,15 @@ final class DocumentViewModel {
             .map { outlineEntries[$0].title } ?? ""
     }
 
-    var isOutlineShown: Bool { isOutlinePresented || showsOutlineDrawer }
+    var isOutlineShown: Bool { isOutlinePresented || showsOutlineDrawer || (imageBundle != nil && showsSideList) }
 
     private static let outlineDrawerMinimumWindowWidth: CGFloat = 560
 
     func toggleOutline() {
         guard mode == .view, hasContents else { return }
-        if !usesOutlineDrawer {
+        if showsOutlineDrawer || (imageBundle != nil && showsSideList) {
+            setContentsOpen(false)
+        } else if !usesOutlineDrawer {
             isOutlinePresented.toggle()
         } else {
             // The drawer takes its width from the paper, which a narrow window does not have to spare.
@@ -2189,7 +2245,7 @@ final class DocumentViewModel {
                 isOutlineDrawerOpen = false
                 isOutlinePresented.toggle()
             } else {
-                isOutlineDrawerOpen.toggle()
+                setContentsOpen(true)
             }
         }
     }
@@ -2636,7 +2692,8 @@ final class DocumentViewModel {
             bandVisibility: bandVisibility == defaultBandVisibility ? nil : bandVisibility,
             notes: offersNotes && notes != NotePages() ? notes : nil, bookletBinding: bookletBinding,
             pageRange: pageRange.isAll ? nil : pageRange, bookmarks: bookmarks.isEmpty ? nil : bookmarks,
-            latexComposition: format == .latex && savedComposition != .document ? savedComposition : nil)
+            latexComposition: format == .latex && savedComposition != .document ? savedComposition : nil,
+            contentsPanel: contentsPanel == .init() ? nil : contentsPanel)
     }
 
     var currentPrintSettingSet: PrintSettingSet {
@@ -2946,7 +3003,17 @@ final class DocumentViewModel {
         apply(settings)
     }
 
+    private func restoreContentsPanel(_ panel: DocumentSettings.ContentsPanel?) {
+        contentsPanel = panel ?? .init()
+        if imageBundle != nil {
+            isDrawerOpen = contentsPanel.isOpen ?? false
+        } else {
+            isOutlineDrawerOpen = contentsPanel.isOpen ?? false
+        }
+    }
+
     private func apply(_ saved: DocumentSettings) {
+        restoreContentsPanel(saved.contentsPanel)
         binderStartsOnFront = saved.binderStartsOnFront ?? false
         bandVisibility = saved.bandVisibility ?? defaultBandVisibility
         if let order = saved.binderOrder { binder?.applyOrder(order) }
@@ -3188,6 +3255,7 @@ final class DocumentViewModel {
         zoom = 1
         setIgnoresSlides(false)
         setHTMLPresentation(.web)
+        restoreContentsPanel(nil)
         imageBundle?.sortByName()
         binder?.resetOrder()
         binderStartsOnFront = false
