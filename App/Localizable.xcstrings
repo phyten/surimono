@@ -2199,6 +2199,58 @@
         }
       }
     },
+    "reStructuredText": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "reStructuredText"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "reStructuredText"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "reStructuredText"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "reStructuredText"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "reStructuredText"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "reStructuredText"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "reStructuredText"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "reStructuredText"
+          }
+        }
+      }
+    },
     "Textile": {
       "localizations": {
         "en": {
@@ -43891,6 +43943,58 @@
           "stringUnit": {
             "state": "translated",
             "value": "請檢查來源文件中的指令拼字與定義。"
+          }
+        }
+      }
+    },
+    "Unrecognized RST constructs: %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht erkannte RST-Konstrukte: %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unrecognized RST constructs: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Construcciones RST no reconocidas: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Constructions RST non reconnues : %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "読み取れなかった RST の記法：%@ 件"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "인식하지 못한 RST 구문: %@개"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未识别的 RST 结构：%@ 处"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未辨識的 RST 結構：%@ 處"
           }
         }
       }

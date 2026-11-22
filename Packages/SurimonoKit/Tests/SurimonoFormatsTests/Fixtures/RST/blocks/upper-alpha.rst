@@ -1,0 +1,2 @@
+(B) Blue
+(C) Copper

@@ -1261,6 +1261,7 @@ public final class DocumentRenderer {
             mirrored.issues = page.issues
             return mirrored
         case .markdown, .org, .plainText, .csv, .latex, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .mediawiki,
+            .rst,
             .docx,
             .notebook,
             .graphviz, .plantuml:
@@ -1366,7 +1367,12 @@ public final class DocumentRenderer {
                 printedPictures[issue.detail, default: 0] += 1
             }
             for (offset, detail) in fragment.readingIssues.enumerated() {
-                let kind: PrintIssue.Kind = source.format == .markdown ? .bibliography : .latex
+                let kind: PrintIssue.Kind =
+                    switch source.format {
+                    case .rst: .rst
+                    case .markdown: .bibliography
+                    default: .latex
+                    }
                 if kind == .latex, let count = printedPictures[detail], count > 0 {
                     printedPictures[detail] = count - 1
                     continue
@@ -2034,6 +2040,15 @@ public final class DocumentRenderer {
         case .docx: try DocxConverter.convert(source.data)
         case .djot:
             try DjotConverter.convert(try decodedText(source.data))
+        case .rst:
+            RSTConverter.convert(try decodedText(source.data), directory: source.fileURL?.deletingLastPathComponent()) {
+                url in
+                guard access?.permits(url) != false else {
+                    onDenied()
+                    return false
+                }
+                return true
+            }
         case .mediawiki:
             MediaWikiConverter.convert(
                 try decodedText(source.data), directory: source.fileURL?.deletingLastPathComponent(),

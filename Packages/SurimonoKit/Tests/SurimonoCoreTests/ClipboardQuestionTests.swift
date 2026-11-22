@@ -12,7 +12,7 @@ struct ClipboardQuestionTests {
     func choosableKinds() {
         #expect(
             ClipboardTextKind.choosable == [
-                .markdown, .org, .html, .latex, .csv, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .mediawiki,
+                .markdown, .org, .html, .latex, .csv, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .mediawiki, .rst,
                 .notebook,
                 .graphviz, .plantuml,
                 .plainText,
@@ -42,7 +42,8 @@ struct ClipboardQuestionTests {
         #expect(asked.options.map(\.kind) == [.markdown, .org, .plainText])
         #expect(
             asked.others.map(\.kind) == [
-                .html, .latex, .csv, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .mediawiki, .notebook, .graphviz,
+                .html, .latex, .csv, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .mediawiki, .rst, .notebook,
+                .graphviz,
                 .plantuml,
             ])
     }
@@ -63,7 +64,7 @@ struct ClipboardQuestionTests {
         #expect(asked.options.first?.evidence == [.headings(1)])
         #expect(
             asked.others.map(\.kind) == [
-                .org, .html, .latex, .csv, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .mediawiki, .notebook,
+                .org, .html, .latex, .csv, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .mediawiki, .rst, .notebook,
                 .graphviz,
                 .plantuml,
             ])
@@ -79,7 +80,7 @@ struct ClipboardQuestionTests {
         #expect(asked.options.map(\.kind) == [.plainText])
         #expect(
             asked.others.map(\.kind) == [
-                .markdown, .org, .html, .latex, .csv, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .mediawiki,
+                .markdown, .org, .html, .latex, .csv, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .mediawiki, .rst,
                 .notebook,
                 .graphviz, .plantuml,
             ])

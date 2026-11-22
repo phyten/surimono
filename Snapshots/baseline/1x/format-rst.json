@@ -1,0 +1,100 @@
+{
+  "fonts" : [
+    "HiraKakuProN-W3",
+    "HiraKakuProN-W6"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 39.1,
+      "height" : 841.9,
+      "lastY" : 306.3,
+      "lineCount" : 11,
+      "lines" : [
+        {
+          "height" : 34.9,
+          "text" : "Shore log",
+          "width" : 104,
+          "x" : 42.5,
+          "y" : 39.1
+        },
+        {
+          "height" : 27.1,
+          "text" : "The watch",
+          "width" : 87.4,
+          "x" : 42.5,
+          "y" : 86.5
+        },
+        {
+          "height" : 19.4,
+          "text" : "Tip",
+          "width" : 18.9,
+          "x" : 75,
+          "y" : 122.7
+        },
+        {
+          "height" : 18.4,
+          "text" : "Read the gauge before moving the float.",
+          "width" : 225.7,
+          "x" : 52,
+          "y" : 149.3
+        },
+        {
+          "height" : 18.4,
+          "text" : "Brass ring",
+          "width" : 56.6,
+          "x" : 74.6,
+          "y" : 186.2
+        },
+        {
+          "height" : 18.4,
+          "text" : "Folded chart",
+          "width" : 70.2,
+          "x" : 74.6,
+          "y" : 208.6
+        },
+        {
+          "height" : 27.1,
+          "text" : "Tide table",
+          "width" : 83.8,
+          "x" : 42.5,
+          "y" : 244.3
+        },
+        {
+          "height" : 19.4,
+          "text" : "Hour",
+          "width" : 29.8,
+          "x" : 48.9,
+          "y" : 280.5
+        },
+        {
+          "height" : 19.4,
+          "text" : "Depth",
+          "width" : 36.5,
+          "x" : 91.5,
+          "y" : 280.5
+        },
+        {
+          "height" : 18.4,
+          "text" : "Dawn",
+          "width" : 30.5,
+          "x" : 48.9,
+          "y" : 306.3
+        },
+        {
+          "height" : 18.4,
+          "text" : "2 m",
+          "width" : 21.5,
+          "x" : 91.5,
+          "y" : 306.3
+        }
+      ],
+      "textHeight" : 285.6,
+      "textLeft" : 42.5,
+      "textTop" : 39.1,
+      "textWidth" : 235.3,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "47c4261950ecb0bc981ac56ef964e0d592a21e4b14ee44722b26f63ffd7816a8"
+}

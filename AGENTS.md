@@ -4,7 +4,7 @@
 
 ## プロダクト
 
-- **Surimono（摺物）**: Markdown / PDF / 画像 / Org / テキスト / HTML / LaTeX / AsciiDoc / Quarto / R Markdown / Word / MediaWiki / Djot / Textile / Jupyter Notebook / Graphviz / PlantUML を「雑に開いて、雑に見て、さっと刷る」macOS アプリ。主役は印刷。
+- **Surimono（摺物）**: Markdown / PDF / 画像 / Org / テキスト / HTML / LaTeX / AsciiDoc / Quarto / R Markdown / Word / reStructuredText / MediaWiki / Djot / Textile / Jupyter Notebook / Graphviz / PlantUML を「雑に開いて、雑に見て、さっと刷る」macOS アプリ。主役は印刷。
 - 主な機能: 出てくる用紙をそのまま並べる印刷モード（刷り台。画面の語は「印刷画面」）、印刷テーマ（画面の語は「スタイル」。CSS。共通の 108 種、和の趣の縦書き試作 1 種、LaTeX 専用の 6 種の計 13 カテゴリー・115 種。固定の見本（実文書にも切り替え可）を並べたパレットで、最近使った・お気に入り・定番・カテゴリーから選べ、表示モードでは乗せると紙で試せる（刷り台では見本だけを拡大）。4 つまで並べ、同じ見出しやコードからそろえて比べる見比べ台もある）の切替とユーザー CSS・文字の大きさ、スタイルとは別の軸のコードの配色（12 の候補と枠・行番号などのオプション）、HTML のノイズ除去プリセット（ユーザー追加可）とスマート削除（ベータ）、印刷レイアウト（A判・B判（JIS）・Letter系の片面・両面、左とじ / 右とじの中綴じ冊子 A3→A4 / A4→A5 / B4→B5 / B5→B6 / Tabloid→Letter / Letter→Half Letter、2ページ配置・4ページ配置・3ページ＋メモ）、紙の仕上げ（上下左右の余白、ヘッダー・フッター、改ページ、紙の目次、書き込むためのノートページ）、刷り台で選んだプリンターへのダイアログなしの印刷（システムの印刷画面も選べる）、PDF 書き出し、紙の外に帯を置く表示モード（上だけ / 上と下に分けるメニュー、常に表示 / ポインタを乗せたときだけ（紙の端に重ねて出す）、設定の「ツールバーの配置」で部品と区切り線を並べ替えて配置セットとして保存・切り替え、目次、文書の数字、用紙の系列、単ページ / 見開き、拡大縮小、最前面に固定）、内容のハッシュとファイルの場所による設定の復元、複数の画像や ZIP の中の画像をまとめた「画像の束」（並び替え・印刷・PDF 書き出し）。外観は設定の「一般」の「外観」で選ぶ（ライト（既定）・ダーク・システムに合わせる。紙はどの外観でも白い）。
 - 守ること:
   - **開いたファイルを絶対に変更しない**（ビューア。保存・上書き・隣へのファイル生成もしない）
@@ -41,6 +41,7 @@ make test-kit                   # SurimonoKit のテスト（swift test。Format
 make test-formats               # SurimonoFormats のテストだけ
 make test-core                  # SurimonoCore のテストだけ
 make test-rendering             # SurimonoRendering のテストだけ（直列）
+make rst-compare                # 自作の reStructuredText 原稿を rst2html5 で変換し、Swift の読み取り結果と構造を照合する
 make latex-dump DIR=<dir>       # LaTeX のコーパス全件の読み取り結果（HTML・寸法・ページスタイル・body の属性）を書き出す
 make latex-line-dump-webkit DIR=<dir>  # 欧文の段落の行分けを実物の WebKit でコーパス全件について書き出す（PDF=1 で PDF、BOXES=1 で語の幅と糊も）。Chromium 版は latex-line-dump
 make bench                      # 任意の描画計測（既定 5 回。JSON の保存先を表示）
@@ -95,7 +96,7 @@ WebKit の文書組版もメインディスプレイの倍率に影響される�
 
 ```text
 ファイル → DocumentFormat 判定
-  ├ Markdown / Org / テキスト / CSV / LaTeX / AsciiDoc / Quarto / R Markdown / Word / MediaWiki / Djot / Textile / Notebook / Graphviz / PlantUML → HTML 断片（SurimonoFormats）→ 印刷テーマ CSS を付けて HTML 文書化（テーマは `common.css` の後に重ね、その後にコードの配色と枠、欧文の書体、文字の大きさを順に重ねる。WebKit の印刷では CSS の段組みが効かないので、段組みのテーマは作れない）
+  ├ Markdown / Org / テキスト / CSV / LaTeX / AsciiDoc / Quarto / R Markdown / Word / reStructuredText / MediaWiki / Djot / Textile / Notebook / Graphviz / PlantUML → HTML 断片（SurimonoFormats）→ 印刷テーマ CSS を付けて HTML 文書化（テーマは `common.css` の後に重ね、その後にコードの配色と枠、欧文の書体、文字の大きさを順に重ねる。WebKit の印刷では CSS の段組みが効かないので、段組みのテーマは作れない）
   ├ HTML → そのまま。ノイズ除去プリセット（CSS / JS）を注入
   ├ PDF  → PDFDocument
   └ 画像 → PDF ページ（ImagePageRenderer）
@@ -140,6 +141,7 @@ WebKit の文書組版もメインディスプレイの倍率に影響される�
   - 数式 `$…$`・`$$…$$`（複数行も）・`\(…\)`・`\[…\]`・```` ```math ```` は、SwaTex（純 Swift の KaTeX 互換の組版）で SVG にする（`MathRenderer`）。式は cmark の前に取り出し、インラインは私用領域の文字の目印、行をまたぐものは HTML ブロックにするので、強調やエスケープが LaTeX に触れない。インラインの `$` は式に接していて後ろに数字が来ないときだけ（`$5 と $10` は文字のまま）。字形は同梱の Surimono Math の `<text>` で、使った書体だけを本文の最後の `<style>` に data URL の `@font-face` で埋め込む（文書の隣のファイルを読まずに刷れる。テーマの「Web フォントを使わない」とは別で、アプリが同梱する数式用の書体）。大きさは em（文字の 1.1 倍）、色は `currentColor` でテーマに従う。読めない式は原文を `.math-error` で残す。
 - AsciiDoc（`.adoc`・`.asciidoc`）は SurimonoFormats の JavaScriptCore で同梱の Asciidoctor.js を使う。目次と統計もバックグラウンドで同期変換できるよう、文書間で共有する JSContext をロックする。表題・節・表・脚注・囲み・コード・図・LaTeX 数式を印刷スタイルに合わせる。secure モードで外部 include は読み込まず、AsciiMath は原文を残す。5 MB を超える原文はテキストで表示する。
 - Quarto（`.qmd`）と R Markdown（`.Rmd`・`.rmarkdown`）は `ComputationalMarkdown` で YAML の書誌情報、チャンクの表示指定、囲み、図表と相互参照を読み、Markdown と同じ経路で組版する。コードは一切実行せず、結果が入る場所に枠付きの注記を出す。Mermaid と Graphviz は同梱の描画器を使う。`_freeze/`・`*_files/`・`*_cache/` の保存結果、引用・参考文献、Quarto プロジェクト（`_quarto.yml`）、拡張、Lua フィルター、OJS の実行結果、include 先は読まない。
+- reStructuredText（`.rst`・`.rest`）は Swift で段落・節・表・脚注・参照・ディレクティブを読み、通常の印刷スタイルで組む。相対参照する原稿・CSV・画像は許可された文書フォルダ内から読む。Docutils は開発用の構造比較（`make rst-compare`）にのみ使う。紙では目次・脚注・引用の参照先へのリンクと ID を残し、見出しや注からの戻りリンクは付けない。言語指定のあるコードだけを色付けし、リテラルと doctest は等幅の通常ウェイトで組む。
 - MediaWiki（`.mediawiki`・`.wiki`・`.wikitext`）は Swift で見出し・リンク・リスト・表・脚注・数式と文書の隣の画像を読み、印刷スタイルで組む。他のページやサイト CSS は取得しない。テンプレートは展開せず、独立したものは名前と名前付き引数を枠に出す。
 - Word（`.docx`）は mammoth.js で見出し・段落・強調・リスト・表・画像・脚注・リンクを読み、Surimono のテーマで組む。元の配置・書体・色・位置揃え・ヘッダー・フッター・コメント・変更履歴の削除部分・OMML 数式は刷らない。暗号化した文書と旧形式の .doc は対象外。
 - Djot（`.dj`・`.djot`）は同梱の @djot/djot で見出し・属性・定義リスト・タスク・表・脚注・スマート句読点を読み、数式・囲み・図・絵文字を印刷用に整える。生の断片は HTML だけを読む。Markdown と似ているためクリップボードでは手動選択。
@@ -186,7 +188,7 @@ WebKit の文書組版もメインディスプレイの倍率に影響される�
   - 決め方: 文書の宣言（Markdown の front matter の `lang`・`language`、Org の `#+LANGUAGE`）が最優先。なければ、コード・数式・図を除いた本文の文字を文字種ごとに数える。かな・漢字・ハングルが文字の 8% 以上なら東アジアの文書（英語の用語が多い日本語のメモを日本語のままにするため、低くしてある）で、ハングルが多ければ `ko`、かながあれば `ja`。かなのない漢字は、中国語の機能語（这・们・没 など）が 2 つ以上あるときだけ中国語（簡体・繁体は `NLLanguageRecognizer`）にし、なければ既定値（UI の言語が日本語か中国語ならそれ、ほかは `ja`）。漢字だけの名簿や章題を中国語と決めつけない。ほかは一番多い文字種で決め、ラテン文字・キリル文字などの中の言語は `NLLanguageRecognizer` に聞く。文字がなければ既定値（`pageLanguage`、UI の言語）。
   - 書体（`LanguageFonts`）: 簡体字・繁体字・韓国語・キリル文字・ギリシャ文字の文書では、スタイルシートの書体の並びの、最初の日本語の書体の直前に、その書体の種類（ゴシック・明朝・丸ゴシック・教科書体・等幅）に合う書体を 1 つ入れる（PingFang / Songti、Apple SD Gothic Neo / AppleMyungjo、Helvetica Neue / Times New Roman）。日本語の書体は、漢字を日本の字形で、キリル文字を全角で描くため。日本語とそのほかの言語では 1 バイトも変えない。テーマが使う日本語の書体はすべて分類しておく（`LanguageFontsTests` が全テーマで確かめる）。
   - 言語ごとの組み方は `common.css` の終わりにある: 韓国語は語の途中で折らない（`word-break: keep-all`）、右から左の文書とデーヴァナーガリー・タイ文字では字間を外す、右から左の文書でもコードは左から右。両端揃えのテーマはハイフネーションを入れるが、日本語・中国語・韓国語の文書では入れない（WebKit は `lang="ja"` でも英単語を分ける）。見出し・表・コードにも入れない。
-- JavaScript: Markdown / Org / テキスト / CSV / LaTeX / AsciiDoc / Quarto / R Markdown / Word / MediaWiki / Djot / Textile / Notebook から作る HTML では、文書の JavaScript は常に無効。HTML 文書は設定（既定は許可）とプリセットの両方が許すときだけ有効。組み込みテーマの飾りと Mermaid の描画スクリプトは例外で、組版の準備としてアプリの隔離された世界（`world(name: "surimono")`）で走り、文書のスクリプトとは混ざらない。
+- JavaScript: Markdown / Org / テキスト / CSV / LaTeX / AsciiDoc / Quarto / R Markdown / Word / reStructuredText / MediaWiki / Djot / Textile / Notebook から作る HTML では、文書の JavaScript は常に無効。HTML 文書は設定（既定は許可）とプリセットの両方が許すときだけ有効。組み込みテーマの飾りと Mermaid の描画スクリプトは例外で、組版の準備としてアプリの隔離された世界（`world(name: "surimono")`）で走り、文書のスクリプトとは混ざらない。
 - 書体（`Typeface`）は「スタイルのまま」が既定。「LaTeX の書体」では、言語に合わせた各書体リストの先頭に本文用またはコード用の Computer Modern を加え、使う書体を埋め込む。パレットの見本、試し、見比べ台、出力でも同じ書体を使う。LaTeX の専用 5 種・`latex`・`tategaki`・テーマのない形式では選択部品を隠す。文書ごとに覚え、設定セットでは文字の大きさと一緒に保存する。
 - 文字の大きさ（`TextScale`、SurimonoCore）は 80〜200% の 1% 刻み（`percent / 100` でいつも同じ数にし、保存した 113% が変更に見えないようにする）。パレット・設定の既定は数の欄と 1% の矢印（`TextSizeField`）。⌥⌘+ / ⌥⌘−・メニュー・パレットのボタンは 8 段階（`TextScale.steps`）を進み、段階の間の値からは次の段階へ。メニューは今の値が段階でなければ足して印を付ける（`TextScale.choices(including:)`）。フロントマターの `text-size` も 1% 刻みにして収める。
 - **縦書き（試作）** は和の趣の `tategaki`（Markdown・Org・プレーンテキスト）。目録の `flow: vertical` で、横書きの根の中に、本文領域の高さを行長にした縦組みの帯を作る。隔離世界で文字範囲と分割しない箱の横位置を測り、右端から行間で区切る。割り付けたページの文字だけを表示して各範囲を `WKWebView.createPDF` で取り、Quartz で論理ページの余白の内側に置いて通常の仕上げと面付けに渡す。本文は明朝、1〜2 桁は縦中横、3 桁以上は 1 字ずつ正立させる。表・画像・コードはそれぞれ独立した行の上端に横組みで置き、収まる大きさまで縮める。脚注は文末。メモリを抑えるため、横組みの箱・数字・ページ境界に追加する要素の合計と、測る矩形はそれぞれ 25 万個まで。PDFKit のページ全文の抽出は短いページで列順が逆になる場合があり、読む順は右から列を選択して検証する。CSS の印刷用改ページと図の位置索引は対象外。読む向きと冊子は右とじが既定で、文書で選んだ向きを優先する。
@@ -213,7 +215,7 @@ WebKit の文書組版もメインディスプレイの倍率に影響される�
 
   例: n = 8 → 用紙1 表[8|1] 裏[2|7]、用紙2 表[6|3] 裏[4|5]。右とじ n = 8 → 用紙1 表[1|8] 裏[7|2]、用紙2 表[3|6] 裏[5|4]。この式はテストで固定している。変更するときはテストと `.agents/skills/project-surimono-print-layout` を先に更新する。
 - 外での保存: `FileWatcher` がパスのメタデータを 250 ms ごとに裏で見て（エディタは保存でファイルを差し替えることが多いので、開いたファイルではなくパスを見る）、変わったら `DocumentViewModel` が裏で読み直す。「ファイルが変わったら読み直す」を切ると手動でだけ読み直す。内容が同じなら組み直さない。手で押した再読み込みはいつも読み直す。イベントの見張り（vnode）と比べ、速さと負荷の差は誤差で、ネットワークやクラウドの場所では届かないことがあるのでポーリングのままにしている。
-- 変更の印は最後に表示できた版と読み直した版を比べる。Markdown は原文の行とブロックの対応（`MarkdownChanges`）を使う。Org・LaTeX・テキスト・CSV・AsciiDoc・Djot・Textile・MediaWiki・Quarto／R Markdown・Notebook・Word は HTML 断片の段落・見出し・リスト項目・表の行・定義と説明の組などを比べ、プレーンテキストは連続する変更行をまとめる（`FragmentChanges`）。一致する前後を除いて LCS を取り、各断片が 8 MB・1 万ブロック・入れ子 128 段のいずれかを超えた場合や、差分の表が 100 万セルを超えた場合は印を省く。削除だけなら次のブロックの上端に細い帯を置き、文末なら最後のブロックの下に置く。初回と同じ内容の手動読み直しでは印を出さない。
+- 変更の印は最後に表示できた版と読み直した版を比べる。Markdown は原文の行とブロックの対応（`MarkdownChanges`）を使う。Org・LaTeX・テキスト・CSV・AsciiDoc・Djot・Textile・reStructuredText・MediaWiki・Quarto／R Markdown・Notebook・Word は HTML 断片の段落・見出し・リスト項目・表の行・定義と説明の組などを比べ、プレーンテキストは連続する変更行をまとめる（`FragmentChanges`）。一致する前後を除いて LCS を取り、各断片が 8 MB・1 万ブロック・入れ子 128 段のいずれかを超えた場合や、差分の表が 100 万セルを超えた場合は印を省く。削除だけなら次のブロックの上端に細い帯を置き、文末なら最後のブロックの下に置く。初回と同じ内容の手動読み直しでは印を出さない。
   - 別の組版に見えないリンク（`surimono-mark:`）を置き、WebKit のリンク注釈からブロックの矩形を得る。`ViewPageDocument` が表示用の写しにだけ背景色を重ねる（既定は薄い黄色）。文字色を選んだ場合は別の組版から変更した文字の形を取り、ページ数と変更箇所の矩形が合う所だけ、字形の周囲を 0.5pt 広げて背景色で下塗りし、指定色の字形を重ねる。背景色は試し置きの紙も表示時に反映する。印刷・書き出し・コピーには元の色を使う。
   - 変更へ移動するときは、新しい PDF と表示倍率が揃ってから、そのページで最初の印を一度だけ画面内へ送る。拡大中は印を縦中央に置き、画面より長ければ上に 12pt 空ける。等倍では、固定した上の帯との余白が足りない分だけ位置を補う。いずれもスクロールできる範囲に収める。
 - 依存の向き: App → SurimonoRendering → SurimonoCore → SurimonoFormats。Core・Formats から AppKit / WebKit / PDFKit を import しない。

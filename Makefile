@@ -19,7 +19,7 @@ RELEASE_APP = $(DERIVED_DATA)/Build/Products/Release/Surimono.app
 APP_STORE_DERIVED_DATA ?= build/DerivedData-AppStore
 APP_STORE_APP = $(APP_STORE_DERIVED_DATA)/Build/Products/Release/Surimono.app
 
-.PHONY: help build run test test-kit test-formats test-core latex-dump latex-line-dump latex-line-dump-webkit test-rendering test-app bench bench-compare lint format package build-appstore check-appstore clean
+.PHONY: help build run test test-kit test-formats test-core rst-compare latex-dump latex-line-dump latex-line-dump-webkit test-rendering test-app bench bench-compare lint format package build-appstore check-appstore clean
 
 help:
 	@echo "build      Build the app (Debug by default)"
@@ -28,6 +28,7 @@ help:
 	@echo "test-kit   Run SurimonoKit tests (Formats, Core, then Rendering)"
 	@echo "test-formats Run the SurimonoFormats tests"
 	@echo "test-core  Run the SurimonoCore tests"
+	@echo "rst-compare Compare the Swift RST reader with rst2html5 on the fixture corpus"
 	@echo "test-rendering  Run the SurimonoRendering tests, one at a time"
 	@echo "test-app   Run hosted app tests"
 	@echo "snapshots  Render local snapshots; snapshots-report compares and snapshots-approve accepts reviewed cases"
@@ -73,6 +74,9 @@ test-formats:
 
 test-core:
 	$(SWIFT_TEST) --filter SurimonoCoreTests
+
+rst-compare:
+	SURIMONO_RST_LIVE=1 SURIMONO_RST_FIXTURES="$(abspath Packages/SurimonoKit/Tests/SurimonoFormatsTests/Fixtures/RST)" $(SWIFT_TEST) --filter 'RSTOracleTests|RSTClipboardTests'
 
 latex-dump:
 	@test -n "$(DIR)" || { echo "Usage: make latex-dump DIR=<directory>" >&2; exit 2; }

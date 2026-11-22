@@ -1,0 +1,19 @@
+Shore log
+=========
+
+The watch
+---------
+
+.. tip:: Read the gauge before moving the float.
+
+* Brass ring
+* Folded chart
+
+Tide table
+----------
+
++--------+-------+
+| Hour   | Depth |
++========+=======+
+| Dawn   | 2 m   |
++--------+-------+

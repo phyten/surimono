@@ -1,4 +1,5 @@
 [
+  {"id": "format-rst", "kind": "document", "input": "Snapshots/fixtures/shore-log.rest", "arguments": [], "tags": ["format", "rst"]},
   {"id": "format-image", "kind": "document", "input": "Snapshots/corpus/latex/023-ridge-profile/profile.png", "arguments": [], "tags": ["format", "image"]},
   {"id": "format-pdf", "kind": "document", "input": "Snapshots/reference/latex/001.pdf", "arguments": [], "tags": ["format", "pdf"]},
   {"id": "format-zip", "kind": "document", "input": "Snapshots/fixtures/plates.zip", "arguments": [], "tags": ["format", "zip"]},
@@ -151,6 +152,7 @@
   {"id": "sample-sample-ipynb", "kind": "document", "input": "Samples/sample.ipynb", "arguments": [], "tags": ["sample", "ipynb"]},
   {"id": "sample-sample-json", "kind": "document", "input": "Samples/sample.json", "arguments": [], "tags": ["sample", "json"]},
   {"id": "sample-sample-md", "kind": "document", "input": "Samples/sample.md", "arguments": [], "tags": ["sample", "md"]},
+  {"id": "sample-sample-rst", "kind": "document", "input": "Samples/sample.rst", "arguments": [], "tags": ["sample", "rst"]},
   {"id": "sample-sample-mediawiki", "kind": "document", "input": "Samples/sample.mediawiki", "arguments": [], "tags": ["sample", "mediawiki"]},
   {"id": "sample-sample-org", "kind": "document", "input": "Samples/sample.org", "arguments": [], "tags": ["sample", "org"]},
   {"id": "sample-sample-puml", "kind": "document", "input": "Samples/sample.puml", "arguments": [], "tags": ["sample", "puml"]},
