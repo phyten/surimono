@@ -286,7 +286,10 @@ struct LanguageTests {
             Catalog.self, from: Data(contentsOf: root.appending(path: "App/Localizable.xcstrings")))
         let discontinued = [
             "ja": ["刷り台", "フォルダー", "綴じ方", "割当", "他のアプリ", "印刷設定", "いまの", "見比べ台"],
-            "de": ["Sammlung", "Sammeldokument", "Bildsammlung", "Bilderbündel", "Druckansicht"],
+            "de": [
+                "Sammlung", "Sammeldokument", "Bildsammlung", "Bilderbündel", "Druckansicht", "Druckbogen",
+                "Druckbögen",
+            ],
             "es": ["recopilación", "recopilaciones", "conjunto de imágenes", "conjuntos de imágenes"],
             "zh-Hans": ["文稿", "打印画面", "打印屏幕", "图片组", "图像组"],
             "zh-Hant": ["開啟", "匯出", "圖片", "影像組", "資料夾"],
@@ -330,6 +333,14 @@ struct LanguageTests {
             ("zh-Hant", "Open the print screen", "打開列印畫面"),
             ("zh-Hant", "Export Shortcuts…", "輸出快捷鍵…"),
             ("zh-Hant", "In binders and image bundles", "在合訂本與影像集中"),
+            ("de", "PDF of Sheets…", "Blätter als PDF …"),
+            ("de", "Export the sheets as a PDF", "Blätter wie angeordnet als PDF exportieren"),
+            ("zh-Hans", "Paper: %@", "纸张：%@"),
+            ("zh-Hant", "Paper: %@", "紙張：%@"),
+            ("zh-Hans", "Paper %1$@ · %2$@ · %3$@", "纸张 %1$@ · %2$@ · %3$@"),
+            ("zh-Hant", "Paper %1$@ · %2$@ · %3$@", "紙張 %1$@ · %2$@ · %3$@"),
+            ("ko", "Window", "윈도우"),
+            ("ko", "Shows this window on every desktop.", "모든 데스크탑에 이 창을 표시합니다."),
         ]
         for (language, key, value) in expected {
             #expect(catalog.strings[key]?.localizations[language]?.stringUnit?.value == value, "\(key) [\(language)]")
@@ -378,6 +389,23 @@ struct LanguageTests {
             let position = match.output.1.map(String.init) ?? String(index + 1)
             return "\(position):\(match.output.2)"
         }.sorted()
+    }
+
+    @Test("韓国語のウインドウは 창 と書き、윈도우 は macOS のメニューの名前に合わせる 3 つだけ")
+    func koreanWindow() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let catalog = try JSONDecoder().decode(
+            Catalog.self, from: Data(contentsOf: root.appending(path: "App/Localizable.xcstrings")))
+        // macOS adds its own 윈도우 items to the Window menu, so the menu's own names match them.
+        let systemNames: Set<String> = ["Window", "Close Window", "Cycle Windows"]
+        for (key, entry) in catalog.strings where !systemNames.contains(key) {
+            for unit in entry.localizations["ko"]?.units ?? [] {
+                #expect(!unit.value.contains("윈도우"), "\(key): \(unit.value)")
+            }
+        }
+        for key in systemNames {
+            #expect(catalog.strings[key]?.localizations["ko"]?.stringUnit?.value.contains("윈도우") == true, "\(key)")
+        }
     }
 
     private struct Catalog: Decodable {

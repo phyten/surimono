@@ -8,6 +8,12 @@
 - 「確かめるキー」は `App/Localizable.xcstrings` のキー。その訳に各言語の語が入っていることを `AppTests/GlossaryTests.swift` が確かめるので、表と訳がずれるとテストが落ちる。
 - 使わなくなった語（Sammlung、Recopilación、フォルダー など）は `AppTests/LanguageTests.swift` の `consistentTerms` が見張る。語を 1 つに揃えたら、外した語をそこへ足す。
 
+言語ごとの決まり（2026-11-22 に、その言語に通じたレビューで決めた）:
+
+- 韓国語の「ウインドウ」は 창。メニューバーの「ウインドウ」メニューの名前と「ウインドウを閉じる」「ウインドウを順に切り替える」だけは、macOS が同じメニューに足す項目に合わせて 윈도우 にする。
+- ドイツ語の「用紙」は Blatt／Blätter。Druckbogen と Bogen は使わない（組版ソフトでは見開きの意味に取られる）。
+- 中国語の「用紙」は 纸张／紙張。用纸／用紙 は使わない。数えるときは助数詞の 张／張 だけにする（下一张）。
+
 | 概念 | 確かめるキー | en | ja | de | es | fr | ko | zh-Hans | zh-Hant |
 |---|---|---|---|---|---|---|---|---|---|
 | 複数の文書をまとめたもの | `Binder` | Binder | 合本 | Sammelband | Compilación | Recueil | 합본 | 合订本 | 合訂本 |
@@ -19,6 +25,9 @@
 | 保存した設定の組 | `Setting Sets` | Setting Sets | 設定セット | Einstellungssätze | Conjuntos de ajustes | Jeux de réglages | 설정 세트 | 设置集 | 設定集 |
 | 折ってとじる刷り方 | `Booklet Binding` | Booklet | 冊子 | Broschüre | folleto | livret | 소책자 | 小册子 | 小冊子 |
 | とじる辺 | `Short-edge binding` | binding | とじ | Bindung | Encuadernación | Reliure | 제본 | 装订 | 裝訂 |
+| 開いている窓 | `Fit to Window` | Window | ウインドウ | Fenster | ventana | fenêtre | 창 | 窗口 | 視窗 |
+| 刷る紙の種類 | `Paper: %@` | Paper | 用紙 | Papier | Papel | Papier | 용지 | 纸张 | 紙張 |
+| 刷り出す 1 枚 | `Next Sheet` | Sheet | 用紙 | Blatt | Hoja | Feuille | 용지 | 张 | 張 |
 | 左右に並べた 2 ページ | `Spread` | Spread | 見開き | Doppelseite | Doble página | Double page | 두 페이지 | 双页 | 跨頁 |
 | スライドの文書 | `Show as Slides` | Slides | スライド | Folien | diapositivas | diapositives | 슬라이드 | 幻灯片 | 投影片 |
 | 開いているもの | `Document` | Document | 文書 | Dokument | Documento | Document | 문서 | 文档 | 文件 |
