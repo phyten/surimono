@@ -196,20 +196,41 @@ private struct WelcomeView: View {
     private var dropZone: some View {
         VStack(spacing: 12) {
             Image(systemName: "printer").font(.system(size: 36)).foregroundStyle(PrintPalette.ink3)
-            Text("Drop files to view and print")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(PrintPalette.ink)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-            // The two ways in look alike: neither is a lesser link beside the other.
-            HStack(spacing: 10) {
-                Button("Open…") { OpenRouter.shared.showOpenPanel() }
-                    .cornerButton(preferences.corners)
-
-                Button("Open from Clipboard") { ClipboardWindows.shared.open() }
-                    .cornerButton(preferences.corners)
+                .accessibilityHidden(true)
+            VStack(spacing: 4) {
+                Text("Drop files to view and print")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(PrintPalette.ink)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                WelcomeFormatsLine()
+            }
+            .accessibilityElement(children: .combine)
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                ForEach(WelcomeAction.allCases, id: \.self) { action in
+                    if action.isPrimary {
+                        Button {
+                            action.perform()
+                        } label: {
+                            Text(action.title).frame(minWidth: 68)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(PrintPalette.aiControl)
+                    } else {
+                        Button {
+                            action.perform()
+                        } label: {
+                            Text(action.title)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
             }
             .controlSize(.large)
+            .buttonBorderShape(
+                preferences.corners.usesSystemControls
+                    ? .automatic
+                    : .roundedRectangle(radius: preferences.corners.radius(for: .control, shortestSide: 32)))
             // A third way in for someone who has nothing to open yet. A line of its own keeps the two buttons from
             // crowding at the window's fixed width, and indigo is the color of the print screen's text buttons.
             Button {
@@ -264,6 +285,37 @@ private struct WelcomeView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+enum WelcomeAction: CaseIterable {
+    case open, clipboard
+
+    var isPrimary: Bool { self == .open }
+
+    var title: LocalizedStringResource {
+        switch self {
+        case .open: "Open…"
+        case .clipboard: "Open from Clipboard"
+        }
+    }
+
+    func perform() {
+        switch self {
+        case .open: OpenRouter.shared.showOpenPanel()
+        case .clipboard: ClipboardWindows.shared.open()
+        }
+    }
+}
+
+struct WelcomeFormatsLine: View {
+    var body: some View {
+        Text("Markdown, PDF, Word, LaTeX, images, and more")
+            .font(.system(size: 12))
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .textSelection(.disabled)
     }
 }
 

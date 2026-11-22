@@ -4,6 +4,7 @@ import SwiftUI
 // Both modes share the choices and sample cache; only the viewing mode may replace the paper on hover.
 struct ThemePalette: View {
     @Bindable var model: DocumentViewModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var query = ""
     /// The reader's choice to show or hide the code colors; until then a document with code shows them.
     @State private var showsCodeColumn: Bool?
@@ -52,30 +53,41 @@ struct ThemePalette: View {
     }
 
     private var styles: some View {
-        VStack(spacing: 0) {
-            header
-                .padding(.horizontal, 16)
-                .padding(.top, 14)
-                .padding(.bottom, 10)
-            Rectangle().fill(PrintPalette.line).frame(height: DisplayAccessibility.hairline)
-            ScrollView {
-                content
+        let width = hasSideColumn ? Self.widthBesideCode : Self.width
+        let groups = Self.browsingSections(for: query, model: model)
+        let showsJump = !isPrinting && groups?.isEmpty == false && width - 32 >= 200 + 8 + 28
+        return ScrollViewReader { proxy in
+            VStack(spacing: 0) {
+                header(jumpTargets: showsJump ? groups : nil, proxy: proxy)
                     .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
+                    .padding(.top, 14)
+                    .padding(.bottom, 10)
+                Rectangle().fill(PrintPalette.line).frame(height: DisplayAccessibility.hairline)
+                GeometryReader { viewport in
+                    ScrollView {
+                        content(groups: groups, lastSectionHeight: showsJump ? max(0, viewport.size.height - 12) : 0)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    // Leaving the samples puts the paper back; moving between them keeps the last trial meanwhile.
+                    .onHover { inside in if !inside { model.endThemeTrial() } }
+                }
+                Rectangle().fill(PrintPalette.line).frame(height: DisplayAccessibility.hairline)
+                footer
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            // Leaving the samples puts the paper back; moving between them keeps the last trial meanwhile.
-            .onHover { inside in if !inside { model.endThemeTrial() } }
-            Rectangle().fill(PrintPalette.line).frame(height: DisplayAccessibility.hairline)
-            footer
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(width: hasSideColumn ? Self.widthBesideCode : Self.width)
+        .frame(width: width)
     }
 
-    private var header: some View {
+    static func browsingSections(for query: String, model: DocumentViewModel) -> [PrintThemeMenu.Section]? {
+        query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? model.themeMenu.sections : nil
+    }
+
+    private func header(jumpTargets: [PrintThemeMenu.Section]?, proxy: ScrollViewProxy) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
                 Text("Style").font(.system(size: 14, weight: .semibold)).fixedSize()
@@ -99,40 +111,74 @@ struct ThemePalette: View {
                 }
             }
             HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass").foregroundStyle(PrintPalette.ink2)
-                TextField("Search by name or category", text: $query)
-                    .textFieldStyle(.plain)
-                if !query.isEmpty {
-                    Button {
-                        query = ""
+                searchField
+                if let jumpTargets {
+                    Menu {
+                        ForEach(jumpTargets, id: \.id) { group in
+                            Button {
+                                withAnimation(reduceMotion ? nil : .default) {
+                                    proxy.scrollTo(group.id, anchor: .top)
+                                }
+                            } label: {
+                                Text(verbatim: groupTitle(group))
+                            }
+                        }
                     } label: {
-                        Image(systemName: "xmark.circle.fill").foregroundStyle(PrintPalette.ink2)
+                        Label("Jump to Category", systemImage: "list.bullet").labelStyle(.iconOnly)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(Text("Clear Search"))
+                    .menuStyle(.borderlessButton)
+                    .menuIndicator(.hidden)
+                    .frame(width: 28, height: 28)
+                    .accessibilityLabel(Text("Jump to Category"))
+                    #if DEBUG
+                        .background {
+                            if DebugSnapshot.flag("SurimonoPaletteJump") { DebugSnapshot.PaletteJumpMarker() }
+                        }
+                    #endif
                 }
             }
-            .font(.system(size: 12.5))
-            .padding(.horizontal, 9)
-            .frame(height: 28)
-            .background(CornerRole.largeControl.shape.fill(Color(nsColor: .textBackgroundColor)))
-            .overlay(CornerRole.largeControl.shape.strokeBorder(PrintPalette.line2))
         }
     }
 
-    @ViewBuilder private var content: some View {
-        if !query.trimmingCharacters(in: .whitespaces).isEmpty {
-            let matches = model.searchThemes(query)
-            section(
-                String(format: String(localized: "Matching “%@”"), query.trimmingCharacters(in: .whitespaces)),
-                count: matches.count, themes: matches,
-                empty: String(localized: "No matching styles"))
-        } else {
+    private var searchField: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass").foregroundStyle(PrintPalette.ink2)
+            TextField("Search by name or category", text: $query)
+                .textFieldStyle(.plain)
+            if !query.isEmpty {
+                Button {
+                    query = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(PrintPalette.ink2)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("Clear Search"))
+            }
+        }
+        .font(.system(size: 12.5))
+        .padding(.horizontal, 9)
+        .frame(height: 28)
+        .background(CornerRole.largeControl.shape.fill(Color(nsColor: .textBackgroundColor)))
+        .overlay(CornerRole.largeControl.shape.strokeBorder(PrintPalette.line2))
+    }
+
+    @ViewBuilder private func content(groups: [PrintThemeMenu.Section]?, lastSectionHeight: CGFloat) -> some View {
+        if let groups {
             LazyVStack(alignment: .leading, spacing: 18) {
-                ForEach(model.themeMenu.sections, id: \.id) { group in
+                ForEach(groups, id: \.id) { group in
                     section(groupTitle(group), themes: group.themes)
+                        // Leave room below a short final section so its header can also reach the top.
+                        .frame(minHeight: group.id == groups.last?.id ? lastSectionHeight : 0, alignment: .topLeading)
+                        .id(group.id)
                 }
             }
+        } else {
+            let matches = model.searchThemes(query)
+            section(
+                String(
+                    format: String(localized: "Matching “%@”"), query.trimmingCharacters(in: .whitespacesAndNewlines)),
+                count: matches.count, themes: matches,
+                empty: String(localized: "No matching styles"))
         }
     }
 

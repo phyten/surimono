@@ -1,6 +1,6 @@
 # Surimono の使い方
 
-Surimono は、Markdown・PDF・画像・Org・テキスト・CSV・HTML・LaTeX のファイルを開いて、そのまま紙に刷るための Mac アプリです。開くと紙の姿で表示され、⌘P を 2 回押せば印刷が始まります。
+Surimono は、Mac で文書を開いてそのまま刷れるアプリです。Markdown、PDF、Word（.docx）、画像と画像の ZIP、テキスト、CSV／TSV、HTML、Org、LaTeX、AsciiDoc、Quarto、R Markdown、reStructuredText、MediaWiki、Djot、Textile、Jupyter Notebook、Graphviz、PlantUML を開けます。開くと紙の姿で表示され、⌘P を 2 回押せば印刷が始まります。
 
 この案内も、ふつうの Markdown の文書です。読み終えたら、この文書を小さな冊子に刷って、折ってみてください。
 

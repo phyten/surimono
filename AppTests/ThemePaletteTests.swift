@@ -34,6 +34,24 @@ struct ThemePaletteTests {
         }
     }
 
+    @Test("移動先には表示中の区分だけが紙面と同じ順に並び、検索中はなくなる")
+    func jumpTargets() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let model = model(suite)
+        let categoryIDs = [
+            "everyday", "japanese", "business", "academic", "tech", "reading", "notes", "printing",
+            "retro", "pop", "seasons", "kids",
+        ].map { "category:" + $0 }
+        #expect(ThemePalette.browsingSections(for: "", model: model)?.map(\.id) == ["featured"] + categoryIDs)
+        model.preferences.recordThemeChoice("mincho")
+        model.toggleFavoriteTheme("modern")
+        let groups = ThemePalette.browsingSections(for: " ", model: model)
+        #expect(groups?.map(\.id) == ["recent", "favorites", "featured"] + categoryIDs)
+        #expect(groups == model.themeMenu.sections)
+        #expect(ThemePalette.browsingSections(for: "明朝", model: model) == nil)
+    }
+
     @Test("試しのキャッシュから追い出し紙を作り直してもリンク注釈の元を残す", .timeLimit(.minutes(1)))
     func evictedTrialCanBeShownAgain() async throws {
         let previous = WebPaginator.clearBackground
