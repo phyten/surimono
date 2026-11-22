@@ -23,6 +23,16 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         }
     }
 
+    public struct ContentsPanel: Codable, Equatable, Sendable {
+        public enum Tab: String, Codable, Sendable { case contents, pages }
+        public var isOpen: Bool?
+        public var width: Double?
+        public var tab: Tab?
+
+        public init() {}
+    }
+
+    public var contentsPanel: ContentsPanel?
     public var view: ViewOptions?
     /// Magnification relative to fitting the current page or spread into the window.
     public var zoom: Double?
@@ -70,8 +80,10 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         binderOrder: [String]? = nil, binderStartsOnFront: Bool? = nil, printFinish: PrintFinish? = nil,
         codePaletteID: String? = nil, codeBlock: CodeBlockOptions? = nil, bandVisibility: BandVisibility? = nil,
         notes: NotePages? = nil, bookletBinding: BookletBinding? = nil,
-        pageRange: PageRange? = nil, bookmarks: Bookmarks? = nil, latexComposition: LaTeXComposition? = nil
+        pageRange: PageRange? = nil, bookmarks: Bookmarks? = nil, latexComposition: LaTeXComposition? = nil,
+        contentsPanel: ContentsPanel? = nil
     ) {
+        self.contentsPanel = contentsPanel
         self.view = view
         self.zoom = zoom
         self.windowSize = windowSize
@@ -100,6 +112,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
+        case contentsPanel
         case view, zoom, windowSize, paperOrientation, layoutID, themeID, textScale, typeface, presetID, smartRemoval,
             printOptions, printFinish, imageOrder
         case htmlPresentation, ignoresSlides, binderOrder, binderStartsOnFront, codePaletteID, codeBlock
@@ -124,6 +137,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
 
     public func encode(to encoder: any Encoder) throws {
         var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encodeIfPresent(contentsPanel, forKey: .contentsPanel)
         try values.encodeIfPresent(view, forKey: .view)
         try values.encodeIfPresent(zoom, forKey: .zoom)
         try values.encodeIfPresent(windowSize, forKey: .windowSize)
@@ -158,6 +172,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         func field<Value: Decodable>(_ type: Value.Type, _ key: CodingKeys) -> Value? {
             try? values.decodeIfPresent(type, forKey: key)
         }
+        contentsPanel = field(ContentsPanel.self, .contentsPanel)
         view = field(ViewOptions.self, .view)
         zoom = field(Double.self, .zoom)
         windowSize = field(CGSize.self, .windowSize)

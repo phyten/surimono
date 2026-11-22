@@ -49,6 +49,7 @@ struct SnapshotCase: Codable {
             "-SurimonoMenu", "-SurimonoPopover", "-SurimonoMode", "-SurimonoFold", "-SurimonoSnapshotWelcome",
             "-SurimonoIncreaseContrast", "-SurimonoCorners", "-SurimonoSettings", "-SurimonoSettingsSize",
             "-SurimonoUpdating", "-SurimonoAppearance", "-SurimonoPaperSeries", "-SurimonoViewLayout",
+            "-SurimonoOutlineDrawer", "-SurimonoContentsTab",
             "-SurimonoTraySize", "-SurimonoTraySheet", "-SurimonoFolderNotice", "-SurimonoPaletteJump",
         ])
         for item in cases {

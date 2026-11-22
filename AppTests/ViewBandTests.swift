@@ -877,11 +877,11 @@ struct ViewBandTests {
         #expect(model.currentOutlineEntry == 1)
     }
 
-    @Test("見出しのない文書には目次を出さない")
-    func noHeadingsNoOutline() async throws {
+    @Test("見出しのない一ページの文書には目次を出さない")
+    func singlePageWithoutHeadings() async throws {
         let environment = Environment()
         defer { environment.cleanUp() }
-        let model = environment.model(Data("本文だけ".utf8), format: .markdown)
+        let model = environment.model(Data("本文だけ".utf8), format: .markdown, pages: TestFixtures.pdf("Single", pages: 1))
         defer { model.stop() }
         try await open(model)
         try await waitUntil { model.documentStatistics != nil }

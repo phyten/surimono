@@ -165,7 +165,7 @@ struct BandMenuContentTests {
         try verifyArrangements(
             pdf,
             expected: [
-                [.previousPage, .nextPage, .documentInfo], [.layout, .transition],
+                [.outline, .previousPage, .nextPage, .documentInfo], [.layout, .transition],
                 [.readingDirection, .scrollDirection, .selectText], [.paperOrientation],
                 [.floatOnTop, .showOnAllSpaces, .alwaysShowToolbar, .viewOptions], [.printSettings, .print],
                 [.keysAndGestures],

@@ -227,7 +227,7 @@ struct BandMenuContent {
             .margins,
             .viewOptions, .printSettings, .beforePrinting, .print, .saveAsFile, .keysAndGestures:
             return
-        case .thumbnails: model.isDrawerOpen = checked
+        case .thumbnails: model.setSideListOpen(checked)
         case .cover: model.viewOption(\.showsCoverAlone).wrappedValue = checked
         case .selectText: model.isSelectingText = checked
         case .ignoreSlides: model.setIgnoresSlides(!checked)
@@ -242,7 +242,7 @@ struct BandMenuContent {
         guard isApplicable(id), entry(id).isEnabled else { return }
         switch id {
         case .outline: model.toggleOutline()
-        case .thumbnails: model.isDrawerOpen.toggle()
+        case .thumbnails: model.setSideListOpen(!model.isDrawerOpen)
         case .previousPage: model.paper.turnPage(forward: false)
         case .nextPage: model.paper.turnPage(forward: true)
         case .documentInfo: model.isFiguresPresented = true

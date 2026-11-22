@@ -6,7 +6,9 @@ import Testing
 
 @MainActor
 enum RenderingFixtures {
-    static func pdf(count: Int = 1, size: CGSize = CGSize(width: 612, height: 792)) throws -> PDFDocument {
+    static func pdf(
+        count: Int = 1, size: CGSize = CGSize(width: 612, height: 792), textPrefix: String = "PAGE-"
+    ) throws -> PDFDocument {
         let data = NSMutableData()
         var box = CGRect(origin: .zero, size: size)
         let consumer = try #require(CGDataConsumer(data: data))
@@ -16,7 +18,7 @@ enum RenderingFixtures {
             context.setFillColor(CGColor(gray: 0, alpha: 1))
             context.fill(CGRect(x: 0, y: 0, width: 12, height: 12))
             let text = NSAttributedString(
-                string: "PAGE-\(index + 1)", attributes: [.font: NSFont.systemFont(ofSize: 20)])
+                string: "\(textPrefix)\(index + 1)", attributes: [.font: NSFont.systemFont(ofSize: 20)])
             context.textPosition = CGPoint(x: 30, y: size.height - 50)
             CTLineDraw(CTLineCreateWithAttributedString(text), context)
             context.endPDFPage()

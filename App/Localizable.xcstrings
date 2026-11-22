@@ -8937,55 +8937,55 @@
         }
       }
     },
-    "Appears for documents with headings or bookmarks.": {
+    "Appears for documents with multiple pages, headings, or bookmarks.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Appears for documents with headings or bookmarks."
+            "value": "Appears for documents with multiple pages, headings, or bookmarks."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "見出しやしおりのある文書で出ます。"
+            "value": "複数ページの文書や、見出しやしおりのある文書で出ます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "用于有标题或书签的文档。"
+            "value": "用于多页文档，以及有标题或书签的文档。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "用於有標題或書籤的文件。"
+            "value": "適用於多頁文件，以及有標題或書籤的文件。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "제목이나 책갈피가 있는 문서에서 나타납니다."
+            "value": "페이지가 여러 개이거나 제목 또는 책갈피가 있는 문서에서 나타납니다."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apparaît pour les documents avec titres ou signets."
+            "value": "Apparaît pour les documents de plusieurs pages ou contenant des titres ou des signets."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Erscheint bei Dokumenten mit Überschriften oder Lesezeichen."
+            "value": "Erscheint bei Dokumenten mit mehreren Seiten, Überschriften oder Lesezeichen."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aparece en documentos con encabezados o marcadores."
+            "value": "Aparece en documentos con varias páginas, encabezados o marcadores."
           }
         }
       }
@@ -11585,55 +11585,55 @@
         }
       }
     },
-    "Opens the document’s headings or PDF bookmarks.": {
+    "Opens the document’s contents and pages.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Opens the document’s headings or PDF bookmarks."
+            "value": "Opens the document’s contents and pages."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "文書の見出しや PDF のしおりを開きます。"
+            "value": "文書の目次とページを開きます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "打开文档的标题或 PDF 书签。"
+            "value": "打开文档的目录和页面。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "打開文件的標題或 PDF 書籤。"
+            "value": "打開文件的目錄與頁面。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "문서의 제목이나 PDF 책갈피를 엽니다."
+            "value": "문서의 목차와 페이지를 엽니다."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ouvre les titres du document ou les signets du PDF."
+            "value": "Ouvre le sommaire et les pages du document."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Öffnet die Überschriften des Dokuments oder die PDF-Lesezeichen."
+            "value": "Öffnet den Inhalt und die Seiten des Dokuments."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abre los encabezados del documento o los marcadores del PDF."
+            "value": "Abre el índice y las páginas del documento."
           }
         }
       }
@@ -34014,6 +34014,112 @@
           "stringUnit": {
             "state": "translated",
             "value": "Página **%lld**"
+          }
+        }
+      }
+    },
+    "Pages Tab": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pages"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ページ"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seiten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Páginas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pages"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "페이지"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "页"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "頁"
+          }
+        }
+      }
+    },
+    "Page %1$lld, %2$@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Page %1$lld, %2$@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ページ %1$lld、%2$@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seite %1$lld, %2$@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Página %1$lld, %2$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Page %1$lld, %2$@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld쪽, %2$@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "第 %1$lld 页，%2$@"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "第 %1$lld 頁，%2$@"
           }
         }
       }

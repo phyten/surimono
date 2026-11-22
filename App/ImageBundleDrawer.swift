@@ -12,18 +12,27 @@ struct ImageBundleDrawer: View {
                     PanelIconButton("plus", label: "Add Documents…") { model.chooseDocumentsToAdd() }
                 }
                 if model.mode == .view {
-                    PanelIconButton("xmark", label: "Close") { model.isDrawerOpen = false }
+                    PanelIconButton("xmark", label: "Close") { model.setSideListOpen(false) }
                 }
             } content: {
                 ImageBundleList(model: model, bundle: bundle)
-                if bundle.archiveURL == nil, model.drop.isActive { PanelDropHint() }
-                PanelFileIssues(
-                    names: bundle.excludedSummary,
-                    summary: String(
-                        format: String(localized: "%lld non-image files excluded"), bundle.excludedPaths.count))
-                if !bundle.isSortedByName { PanelSortButton { bundle.sortByName() } }
+                BundlePageActions(model: model, bundle: bundle)
             }
         }
+    }
+}
+
+struct BundlePageActions: View {
+    let model: DocumentViewModel
+    let bundle: ImageBundleModel
+
+    var body: some View {
+        if bundle.archiveURL == nil, model.drop.isActive { PanelDropHint() }
+        PanelFileIssues(
+            names: bundle.excludedSummary,
+            summary: String(
+                format: String(localized: "%lld non-image files excluded"), bundle.excludedPaths.count))
+        if !bundle.isSortedByName { PanelSortButton { bundle.sortByName() } }
     }
 }
 

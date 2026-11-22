@@ -1,4 +1,8 @@
 [
+  {"id": "ui-pages-drawer-light", "kind": "ui", "input": "Samples/booklet-demo.md", "arguments": ["-SurimonoOutlineDrawer", "YES", "-SurimonoContentsTab", "pages", "-SurimonoMenu", "full", "-SurimonoAppearance", "light"], "tags": ["pages", "drawer", "light"]},
+  {"id": "ui-pages-drawer-dark", "kind": "ui", "input": "Samples/booklet-demo.md", "arguments": ["-SurimonoOutlineDrawer", "YES", "-SurimonoContentsTab", "pages", "-SurimonoMenu", "full", "-SurimonoAppearance", "dark"], "tags": ["pages", "drawer", "dark"]},
+  {"id": "ui-pages-drawer-deck-light", "kind": "ui", "input": "Snapshots/corpus/latex/083-class-beamer/main.tex", "arguments": ["-SurimonoOutlineDrawer", "YES", "-SurimonoContentsTab", "pages", "-SurimonoMenu", "full", "-SurimonoAppearance", "light"], "tags": ["pages", "drawer", "light"]},
+  {"id": "ui-pages-drawer-images-light", "kind": "ui", "input": "Snapshots/fixtures/plates.zip", "arguments": ["-SurimonoOutlineDrawer", "YES", "-SurimonoContentsTab", "pages", "-SurimonoMenu", "full", "-SurimonoAppearance", "light"], "tags": ["pages", "drawer", "light"]},
   {"id": "format-rst", "kind": "document", "input": "Snapshots/fixtures/shore-log.rest", "arguments": [], "tags": ["format", "rst"]},
   {"id": "format-image", "kind": "document", "input": "Snapshots/corpus/latex/023-ridge-profile/profile.png", "arguments": [], "tags": ["format", "image"]},
   {"id": "format-pdf", "kind": "document", "input": "Snapshots/reference/latex/001.pdf", "arguments": [], "tags": ["format", "pdf"]},

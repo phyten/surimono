@@ -175,6 +175,19 @@ private struct BookmarkRow: View {
     }
 }
 
+private struct ContentsTabPicker: View {
+    let model: DocumentViewModel
+
+    var body: some View {
+        Picker("Contents", selection: Binding(get: { model.contentsTab }, set: { model.selectContentsTab($0) })) {
+            Text("Contents").tag(DocumentSettings.ContentsPanel.Tab.contents)
+            Text("Pages Tab").tag(DocumentSettings.ContentsPanel.Tab.pages)
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+    }
+}
+
 struct OutlinePopover: View {
     @Bindable var model: DocumentViewModel
 
@@ -188,17 +201,28 @@ struct OutlinePopover: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                Text("Contents").font(.system(size: 13, weight: .bold)).foregroundStyle(PrintPalette.ink)
+                if model.showsContentsTabs {
+                    ContentsTabPicker(model: model)
+                } else {
+                    Text(model.contentsTab == .pages ? "Pages Tab" : "Contents")
+                        .font(.system(size: 13, weight: .bold)).foregroundStyle(PrintPalette.ink)
+                }
                 Spacer(minLength: 0)
                 PopoverCloseButton()
             }
-            if OutlineFilterState.showsField(count: model.outlineEntries.count) {
-                OutlineSearchField(model: model, autofocus: true).frame(height: 28)
+            if model.contentsTab == .pages {
+                ContentsPages(model: model, popover: true).frame(height: Self.maximumListHeight)
+                if let bundle = model.imageBundle { BundlePageActions(model: model, bundle: bundle) }
+            } else {
+                if OutlineFilterState.showsField(count: model.outlineEntries.count) {
+                    OutlineSearchField(model: model, autofocus: true).frame(height: 28)
+                }
+                OutlineList(model: model)
+                    .frame(
+                        height: min(
+                            CGFloat(model.outlineEntries.count) * Self.rowHeight + bookmarkHeight,
+                            Self.maximumListHeight))
             }
-            OutlineList(model: model)
-                .frame(
-                    height: min(
-                        CGFloat(model.outlineEntries.count) * Self.rowHeight + bookmarkHeight, Self.maximumListHeight))
         }
         .padding(12)
         .frame(width: 286)
@@ -209,16 +233,59 @@ struct OutlinePopover: View {
 /// The table of contents kept open beside the paper; the paper makes room for it.
 struct OutlineDrawer: View {
     @Bindable var model: DocumentViewModel
+    var availableWidth: CGFloat = .infinity
+
+    private var width: CGFloat {
+        // A temporary squeeze of the window must not overwrite the width the reader chose.
+        guard availableWidth > 0 else { return model.contentsWidth }
+        return min(model.contentsWidth, max(176, availableWidth - 200))
+    }
 
     var body: some View {
-        SidePanel("Contents") {
-            PanelIconButton("xmark", label: "Close") { model.isOutlineDrawerOpen = false }
-        } content: {
-            if OutlineFilterState.showsField(count: model.outlineEntries.count) {
-                OutlineSearchField(model: model, autofocus: false).frame(height: 28)
+        SidePanel(
+            model.contentsTab == .pages ? "Pages Tab" : "Contents", width: width,
+            showsTitle: !model.showsContentsTabs
+        ) {
+            if model.showsContentsTabs { ContentsTabPicker(model: model) }
+            Spacer(minLength: 0)
+            if let bundle = model.imageBundle, bundle.archiveURL == nil, model.contentsTab == .pages {
+                PanelIconButton("plus", label: "Add Documents…") { model.chooseDocumentsToAdd() }
             }
-            OutlineList(model: model)
+            PanelIconButton("xmark", label: "Close") { model.setContentsOpen(false) }
+        } content: {
+            if model.contentsTab == .pages {
+                ContentsPages(model: model, popover: false)
+                if let bundle = model.imageBundle { BundlePageActions(model: model, bundle: bundle) }
+            } else {
+                if OutlineFilterState.showsField(count: model.outlineEntries.count) {
+                    OutlineSearchField(model: model, autofocus: false).frame(height: 28)
+                }
+                OutlineList(model: model)
+            }
         }
+        .overlay(alignment: .trailing) {
+            if model.pageCount > 1 { ContentsDivider(model: model, displayedWidth: width) }
+        }
+    }
+}
+
+private struct ContentsDivider: View {
+    let model: DocumentViewModel
+    let displayedWidth: CGFloat
+    @State private var initialWidth: CGFloat?
+
+    var body: some View {
+        Color.clear.frame(width: 6).contentShape(Rectangle())
+            .onHover { if $0 { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() } }
+            .gesture(
+                DragGesture(minimumDistance: 2, coordinateSpace: .global)
+                    .onChanged { drag in
+                        let start = initialWidth ?? displayedWidth
+                        initialWidth = start
+                        let room = (model.window?.frame.width ?? 680) - 240
+                        model.contentsPanel.width = max(176, min(400, room, start + drag.translation.width)).rounded()
+                    }
+                    .onEnded { _ in initialWidth = nil })
     }
 }
 

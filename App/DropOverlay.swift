@@ -166,7 +166,10 @@ struct DropOverlay: View {
     }
 
     @ViewBuilder private var insertionLine: some View {
-        if let y = session.insertionY, let list = session.listFrame {
+        if let line = session.gridInsertionLine {
+            Rectangle().fill(PrintPalette.ai).frame(width: line.width, height: line.height)
+                .offset(x: line.minX, y: line.minY)
+        } else if let y = session.insertionY, let list = session.listFrame {
             CornerRole.rule.shape
                 .fill(PrintPalette.ai)
                 .frame(width: list.width - 8, height: 2)

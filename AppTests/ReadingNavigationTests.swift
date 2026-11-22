@@ -158,7 +158,8 @@ struct ReadingNavigationTests {
         let model = fixture.model()
         defer { model.stop() }
         try await start(model)
-        #expect(!model.hasOutline && !model.hasContents)
+        #expect(!model.hasOutline && model.hasContents)
+        #expect(model.contentsTab == .pages)
         for page in [0, 4, 5, 10] { model.toggleBookmark(page: page, visiblePages: [page]) }
         #expect(model.hasContents && !model.hasOutline)
         model.toggleOutline()
@@ -176,6 +177,60 @@ struct ReadingNavigationTests {
         model.currentPageIndex = 4
         model.toggleBookmark()
         #expect(model.bookmarkPages == [0, 10])
+    }
+
+    @Test("引き出しの開閉・幅・タブだけを変えても文書ごとに復元できる", .timeLimit(.minutes(1)))
+    func remembersPanel() async throws {
+        let fixture = Fixture()
+        let model = fixture.model()
+        defer { model.stop() }
+        try await start(model)
+        #expect(model.rememberedSettings.contentsPanel == nil)
+        model.selectContentsTab(.pages)
+        model.setContentsOpen(true)
+        model.contentsPanel.width = 312
+        model.rememberedSettingsDidChange()
+        model.flushPendingSettings()
+        let restored = fixture.model()
+        defer { restored.stop() }
+        try await start(restored)
+        #expect(restored.contentsTab == .pages)
+        #expect(restored.contentsWidth == 312)
+        #expect(restored.isOutlineDrawerOpen)
+        restored.setContentsOpen(false)
+        #expect(restored.rememberedSettings.contentsPanel?.isOpen == false)
+    }
+
+    @Test("組み直しが始まれば古い世代は使えず、新しい紙には別のキャッシュを使う", .timeLimit(.minutes(1)))
+    func thumbnailGeneration() async throws {
+        let fixture = Fixture()
+        let model = fixture.model()
+        defer { model.stop() }
+        try await start(model)
+        let old = try #require(model.result?.id)
+        let cache = try #require(model.thumbnails(for: old))
+        model.render()
+        #expect(model.thumbnails(for: old) == nil)
+        for _ in 0..<500 where model.isRendering { try await Task.sleep(for: .milliseconds(10)) }
+        let generation = try #require(model.result?.id)
+        #expect(generation != old)
+        #expect(model.thumbnails(for: old) == nil)
+        #expect(model.thumbnails(for: generation) !== cache)
+    }
+
+    @Test("同じページに始まる章は最後の見出しを使い、最初の章より前も一度ずつ並べる")
+    func chapterSections() {
+        let sections = PageSection.sections(
+            count: 5,
+            chapters: [
+                OutlineEntry(level: 2, title: "One", pageIndex: 1),
+                OutlineEntry(level: 2, title: "Two", pageIndex: 1),
+                OutlineEntry(level: 2, title: "Three", pageIndex: 4),
+            ])
+        #expect(sections.map(\.pages) == [0..<1, 1..<4, 4..<5])
+        #expect(sections.map(\.title) == [nil, "Two", "Three"])
+        #expect(PageSection.verticalNeighbor(of: 0, down: true, columns: 2, sections: sections) == 1)
+        #expect(PageSection.verticalNeighbor(of: 4, down: false, columns: 2, sections: sections) == 3)
     }
 
     @Test("追加した既定キーは他の既定と固定キーに重ならない")

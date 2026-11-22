@@ -49,7 +49,7 @@ struct RenderingBenchmarks {
         sources.append(("pdf-50", DocumentSource(data: try #require(pdf.dataRepresentation()), format: .pdf)))
         let images = try (0..<20).map { index in
             DocumentSource.Image(
-                data: try image(index: index),
+                data: try Self.image(index: index),
                 fileURL: root.appendingPathComponent("build/bench/image-\(index).tiff"))
         }
         sources.append(("images-20", .images(images)))
@@ -165,7 +165,7 @@ struct RenderingBenchmarks {
         #expect(captured.peakBytes >= captured.afterBytes)
     }
 
-    private func image(index: Int) throws -> Data {
+    fileprivate static func image(index: Int) throws -> Data {
         let context = try #require(
             CGContext(
                 data: nil, width: 1024, height: 768, bitsPerComponent: 8, bytesPerRow: 0,
@@ -178,6 +178,81 @@ struct RenderingBenchmarks {
         CGImageDestinationAddImage(destination, try #require(context.makeImage()), nil)
         try #require(CGImageDestinationFinalize(destination))
         return data as Data
+    }
+}
+
+@Suite(.enabled(if: ProcessInfo.processInfo.environment["SURIMONO_BENCH_PAGES"] == "1"), .serialized)
+@MainActor
+struct PageThumbnailBenchmarks {
+    @Test("四種類の論理ページから未キャッシュの縮図を描く時間とメモリを測る")
+    func raster() async throws {
+        let root = BenchmarkRecorder.root
+        let settings = RenderSettings(
+            layout: .a4Single, theme: try #require(PrintThemeLibrary.load().first { $0.id == "standard" }),
+            preset: HTMLCleanupPreset(id: "none", name: "None"))
+        let environment = ProcessInfo.processInfo.environment
+        let captures = environment["SURIMONO_BENCH_READING_PDFS"].map { URL(fileURLWithPath: $0) }
+        func source(path: String, format: DocumentFormat, capture: String) throws -> DocumentSource {
+            let url = captures?.appendingPathComponent(capture + ".pdf") ?? root.appendingPathComponent(path)
+            return DocumentSource(
+                data: try Data(contentsOf: url), fileURL: url, format: captures == nil ? format : .pdf)
+        }
+        let name = try #require(environment["SURIMONO_BENCH_PAGE_INPUT"])
+        let input: DocumentSource
+        switch name {
+        case "booklet":
+            input = try source(path: "Samples/booklet-demo.md", format: .markdown, capture: "sample-booklet-demo-md")
+        case "deck":
+            input = try source(
+                path: "Snapshots/corpus/latex/083-class-beamer/main.tex", format: .latex, capture: "latex-083")
+        case "pdf-300":
+            let document = try RenderingFixtures.pdf(count: 300, textPrefix: "Index of workshop drawings. Sheet ")
+            input = DocumentSource(data: try #require(document.dataRepresentation()), format: .pdf)
+        case "images-20":
+            input = .images(
+                try (0..<20).map { i in
+                    DocumentSource.Image(
+                        data: try RenderingBenchmarks.image(index: i),
+                        fileURL: root.appendingPathComponent("build/bench/image-\(i).tiff"))
+                })
+        default:
+            Issue.record("Unknown page benchmark input: \(name)")
+            return
+        }
+        let render = try await DocumentRenderer().prepare(input, settings: settings)
+        let count = render.viewDocument.pageCount
+        do {
+            let cache = PageThumbnails(render)
+            let memory = try await BenchmarkRecorder.capture {
+                for index in 0..<count { _ = try #require(await cache.image(page: index, pixels: 320)) }
+                return count
+            }
+            let delta = Int64(memory.afterBytes) - Int64(memory.beforeBytes)
+            let peak = memory.peakBytes - memory.beforeBytes
+            print("PAGES memory \(name) footprintDelta=\(delta) peakDelta=\(peak) bitmapBytes=\(await cache.byteCount)")
+        }
+        for pixels in [160, 320] {
+            var first: [Double] = []
+            var times: [Double] = []
+            for _ in 0..<20 {
+                let start = ProcessInfo.processInfo.systemUptime
+                let cache = PageThumbnails(render)
+                for index in 0..<min(count, 20) {
+                    let before = ProcessInfo.processInfo.systemUptime
+                    let bitmap = await cache.image(page: index, pixels: pixels)
+                    try #require(bitmap != nil)
+                    let end = ProcessInfo.processInfo.systemUptime
+                    if index == 0 { first.append(1000 * (end - start)) }
+                    times.append(1000 * (end - before))
+                }
+            }
+            func percentile(_ values: [Double], _ fraction: Double) -> Double {
+                values.sorted()[Int(ceil(Double(values.count) * fraction)) - 1]
+            }
+            print(
+                "PAGES \(name) count=\(count) px=\(pixels) first50=\(percentile(first, 0.5)) first95=\(percentile(first, 0.95)) tile50=\(percentile(times, 0.5)) tile95=\(percentile(times, 0.95))"
+            )
+        }
     }
 }
 
