@@ -4,6 +4,29 @@ import Testing
 
 @MainActor
 struct SettingsSearchTests {
+    @Test("一般の検索結果は画面と同じ順で、見出しで検索すると配下の各行を強調する")
+    func generalGroups() {
+        let documents = [
+            "When a Binder Is Down to One Document", "Reload When the File Changes", "After a File Is Saved",
+            "Changed Places", "Changed Text",
+        ]
+        let window = ["Corners", "Float on Top", "Show on All Spaces"]
+        let updates = [
+            "Check for Updates Automatically", "When an Update Is Found",
+            "Updates are unavailable in development builds.",
+        ]
+        let names = ["After a Document Opens": "文書を開いたあと", "Window": "ウインドウ", "Updates": "アップデート"]
+        let groups = [("文書を開いたあと", documents), ("ウインドウ", window), ("アップデート", updates)]
+        for (query, expected) in groups {
+            let hits = SettingsCatalogue.search(query, in: SettingsCatalogue.rows, localize: { names[$0] ?? $0 })
+            #expect(hits.bestSection(keeping: .view) == .general)
+            #expect(hits.rows.filter { $0.section == .general }.map(\.anchor) == expected)
+        }
+        let all = SettingsCatalogue.search("General", in: SettingsCatalogue.rows, localize: { $0 })
+        let first = ["Language", "Appearance", "Show in Menu Bar"]
+        #expect(all.rows.filter { $0.section == .general }.map(\.anchor) == first + documents + window + updates)
+    }
+
     @Test("印刷とprintは区分名に一致し、余白は部品名より印刷の設定行を優先する", arguments: ["印刷", "print", "余白"])
     func printing(query: String) {
         let names = ["Printing": "印刷", "Margins": "余白", "Text Margins": "本文の余白", "Print…": "印刷…"]

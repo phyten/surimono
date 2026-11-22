@@ -474,6 +474,21 @@ struct PrintModeTests {
         #expect(model.mode == .view)
     }
 
+    @Test("用紙の PDF ボタンは各言語で文字が入るときだけ名前を出す", arguments: UILanguage.supported)
+    func sheetPDFButtonFits(language: String) {
+        let fixture = Fixture()
+        let button = PrintPressBar(model: fixture.model()).pdfButton.environment(\.locale, Locale(identifier: language))
+        let ideal = NSHostingView(rootView: button.fixedSize()).fittingSize
+        let controller = NSHostingController(rootView: button)
+        func width(_ proposed: CGFloat) -> CGFloat {
+            controller.sizeThatFits(in: CGSize(width: proposed, height: ideal.height)).width
+        }
+        let compact = width(0)
+        #expect(compact >= 35 && compact < ideal.width)
+        #expect(width(ideal.width - 2) == compact)
+        #expect(width(ideal.width + 2) >= ideal.width)
+    }
+
     @Test("印刷の帯は幅0で大きさを聞かれても低いままで、刷り台の窓を縦に縮められる")
     func pressBarStaysLowAtZeroWidth() {
         let fixture = Fixture()

@@ -6672,55 +6672,55 @@
         }
       }
     },
-    "Export the imposed sheets as a PDF": {
+    "Export the sheets as a PDF": {
       "extractionState": "manual",
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "面付けした PDF を書き出す"
+            "value": "用紙に並べたまま PDF に書き出す"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Export the imposed sheets as a PDF"
+            "value": "Export the sheets as a PDF"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "将拼版后的纸张导出为 PDF"
+            "value": "按纸张上的排布导出为 PDF"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "將拼版後的紙張輸出為 PDF"
+            "value": "依紙張上的配置輸出為 PDF"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "배치된 용지를 PDF로 내보내기"
+            "value": "용지에 배치된 그대로 PDF로 내보내기"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Exporter les feuilles imposées en PDF"
+            "value": "Exporter les feuilles en PDF avec leur disposition actuelle"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Angeordnete Druckbögen als PDF exportieren"
+            "value": "Druckbögen wie angeordnet als PDF exportieren"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Exportar las hojas compuestas como PDF"
+            "value": "Exportar las hojas a PDF con su disposición actual"
           }
         }
       }
@@ -6807,7 +6807,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@에서 바로 프린트"
+            "value": "%@에서 바로 인쇄"
           }
         },
         "fr": {
@@ -6860,7 +6860,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "설정된 프린터가 없어 시스템 프린트 대화상자가 열립니다"
+            "value": "설정된 프린터가 없어 시스템 인쇄 대화상자가 열립니다"
           }
         },
         "fr": {
@@ -7017,7 +7017,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@. ‘프린트’는 시스템 프린트 대화상자를 엽니다"
+            "value": "%@. ‘인쇄’는 시스템 인쇄 대화상자를 엽니다"
           }
         },
         "fr": {
@@ -11409,7 +11409,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "프린트 화면을 엽니다. 이 부품은 뺄 수 없습니다."
+            "value": "인쇄 화면을 엽니다. 이 부품은 뺄 수 없습니다."
           }
         },
         "fr": {
@@ -11727,7 +11727,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "‘프린트’는 옮길 수 있지만 뺄 수는 없습니다."
+            "value": "‘인쇄’는 옮길 수 있지만 뺄 수는 없습니다."
           }
         },
         "fr": {
@@ -24353,106 +24353,106 @@
         }
       }
     },
-    "Allow Access to Folder…": {
+    "Choose Folder…": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zugriff auf Ordner erlauben …"
+            "value": "Ordner auswählen …"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Allow Access to Folder…"
+            "value": "Choose Folder…"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Permitir acceso a la carpeta…"
+            "value": "Elegir carpeta…"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Autoriser l’accès au dossier…"
+            "value": "Choisir un dossier…"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "フォルダへのアクセスを許可…"
+            "value": "フォルダを選ぶ…"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "폴더 접근 허용…"
+            "value": "폴더 선택…"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "允许访问文件夹…"
+            "value": "选择文件夹…"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "允許取用檔案夾…"
+            "value": "選擇檔案夾…"
           }
         }
       }
     },
-    "Allow folder access to display images and other resources": {
+    "Showing images needs permission to read the folder": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Erlauben Sie den Ordnerzugriff, um Bilder und andere Ressourcen anzuzeigen"
+            "value": "Zum Anzeigen von Bildern ist Lesezugriff auf den Ordner erforderlich"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Allow folder access to display images and other resources"
+            "value": "Showing images needs permission to read the folder"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Permite el acceso a la carpeta para mostrar imágenes y otros recursos"
+            "value": "Para mostrar imágenes se necesita permiso de lectura de la carpeta"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Autorisez l’accès au dossier pour afficher les images et autres ressources"
+            "value": "L’affichage des images nécessite l’autorisation de lire le dossier"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "画像などを表示するには、フォルダへのアクセスを許可してください"
+            "value": "画像を表示するには、フォルダを読む許可が必要です"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "이미지 등의 리소스를 표시하려면 폴더 접근을 허용하세요"
+            "value": "이미지를 표시하려면 폴더를 읽을 권한이 필요합니다"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "请允许访问文件夹以显示图像等资源"
+            "value": "显示图像需要读取文件夹的权限"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "請允許取用檔案夾以顯示影像等資源"
+            "value": "顯示影像需要讀取檔案夾的權限"
           }
         }
       }
@@ -24902,7 +24902,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "프린트 시"
+            "value": "인쇄 시"
           }
         },
         "fr": {
@@ -25110,7 +25110,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "프린트 레이아웃"
+            "value": "인쇄 레이아웃"
           }
         },
         "fr": {
@@ -26456,7 +26456,7 @@
         }
       }
     },
-    "PDF of the Sheets…": {
+    "PDF of Sheets…": {
       "extractionState": "manual",
       "localizations": {
         "ja": {
@@ -26468,7 +26468,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "PDF of the Sheets…"
+            "value": "PDF of Sheets…"
           }
         },
         "zh-Hans": {
@@ -26645,7 +26645,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "프린트…"
+            "value": "인쇄…"
           }
         },
         "fr": {
@@ -27175,7 +27175,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "프린트"
+            "value": "인쇄"
           }
         },
         "fr": {
@@ -27568,7 +27568,7 @@
         }
       }
     },
-    "Drop a file to preview and print": {
+    "Drop files to view and print": {
       "extractionState": "manual",
       "localizations": {
         "ja": {
@@ -27580,7 +27580,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Drop a file to preview and print"
+            "value": "Drop files to view and print"
           }
         },
         "zh-Hans": {
@@ -27598,25 +27598,25 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "파일을 드롭하여 미리 보고 프린트하세요"
+            "value": "파일을 드롭하여 미리 보고 인쇄하세요"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Déposez un fichier pour l’aperçu et l’impression"
+            "value": "Déposez des fichiers pour l’aperçu et l’impression"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Datei für Vorschau und Druck ablegen"
+            "value": "Dateien für Vorschau und Druck ablegen"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Arrastra un archivo para previsualizarlo e imprimirlo"
+            "value": "Arrastra archivos para previsualizarlos e imprimirlos"
           }
         }
       }
@@ -27863,7 +27863,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "프린트 스타일을 로드할 수 없습니다. 설정에서 다시 로드하세요."
+            "value": "인쇄 스타일을 로드할 수 없습니다. 설정에서 다시 로드하세요."
           }
         },
         "fr": {
@@ -27916,7 +27916,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "프린트 작업을 생성할 수 없습니다."
+            "value": "인쇄 작업을 생성할 수 없습니다."
           }
         },
         "fr": {
@@ -28022,7 +28022,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "프린트 작업이 취소되었거나 전송할 수 없습니다."
+            "value": "인쇄 작업이 취소되었거나 전송할 수 없습니다."
           }
         },
         "fr": {
@@ -28532,7 +28532,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "암호화된 PDF는 프린트할 수 없습니다. 잠금 해제된 사본을 여세요."
+            "value": "암호화된 PDF는 인쇄할 수 없습니다. 잠금 해제된 사본을 여세요."
           }
         },
         "fr": {
@@ -29944,7 +29944,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "프린트"
+            "value": "인쇄"
           }
         },
         "fr": {
@@ -32829,7 +32829,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "프린트 스타일 없이 원본대로 프린트"
+            "value": "인쇄 스타일 없이 원본대로 인쇄"
           }
         },
         "fr": {
@@ -34178,59 +34178,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Disponible para diseños a doble cara (A4 doble cara y folletos)."
-          }
-        }
-      }
-    },
-    "Export PDF": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PDF に書き出す"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Export PDF"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "导出 PDF"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "輸出 PDF"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PDF 내보내기"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Exporter le PDF"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PDF exportieren"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Exportar PDF"
           }
         }
       }
@@ -35690,7 +35637,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "시스템 대화상자로 프린트…"
+            "value": "시스템 인쇄 대화상자에서 인쇄…"
           }
         },
         "fr": {
@@ -37702,7 +37649,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "웹 페이지의 현재 상태 프린트"
+            "value": "웹 페이지의 현재 상태 인쇄"
           }
         },
         "fr": {
@@ -37755,7 +37702,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "원본 페이지 프린트"
+            "value": "원본 페이지 인쇄"
           }
         },
         "fr": {
@@ -37808,7 +37755,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "변경 사항 없이 파일을 처음 열었을 때의 상태로 프린트"
+            "value": "변경 사항 없이 파일을 처음 열었을 때의 상태로 인쇄"
           }
         },
         "fr": {
@@ -37861,7 +37808,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "파일을 열었을 때의 상태 프린트"
+            "value": "파일을 열었을 때의 상태 인쇄"
           }
         },
         "fr": {
@@ -37914,7 +37861,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "현재 상태로 프린트"
+            "value": "현재 상태로 인쇄"
           }
         },
         "fr": {
@@ -37967,7 +37914,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "웹 페이지를 현재 상태로 프린트"
+            "value": "웹 페이지를 현재 상태로 인쇄"
           }
         },
         "fr": {
@@ -38173,7 +38120,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "펼쳐서 프린트"
+            "value": "펼쳐서 인쇄"
           }
         },
         "fr": {
@@ -38301,7 +38248,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "접힌 상세 정보 %lld개를 펼쳐 프린트"
+            "value": "접힌 상세 정보 %lld개를 펼쳐 인쇄"
           }
         },
         "fr": {
@@ -38744,7 +38691,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "프린트할 슬라이드"
+            "value": "인쇄할 슬라이드"
           }
         },
         "fr": {
@@ -41073,7 +41020,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ (프리프린트)"
+            "value" : "%@ (출판 전 원고)"
           }
         },
         "fr" : {
@@ -44572,58 +44519,6 @@
         }
       }
     },
-    "Folder access is not allowed: allow access to the folder containing the document and its images.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Folder access is not allowed: allow access to the folder containing the document and its images."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "フォルダへのアクセスが許可されていません。文書と画像が入っているフォルダへのアクセスを許可してください。"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ordnerzugriff nicht erlaubt: Erlauben Sie den Zugriff auf den Ordner mit dem Dokument und seinen Bildern."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Acceso a la carpeta no permitido: permite el acceso a la carpeta que contiene el documento y sus imágenes."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Accès au dossier non autorisé : autorisez l’accès au dossier contenant le document et ses images."
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "폴더 접근이 허용되지 않았습니다. 문서와 이미지가 들어 있는 폴더에 대한 접근을 허용하세요."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "未获准访问文件夹：请允许访问包含文档及其图片的文件夹。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "未獲准存取檔案夾：請允許存取包含文件及其影像的檔案夾。"
-          }
-        }
-      }
-    },
     "Binder": {
       "extractionState": "manual",
       "localizations": {
@@ -45930,7 +45825,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "인쇄 대화상자에서 제본 방식이 변경되었습니다. 제본 방식을 바꾸지 않고 양면 테스트를 다시 실행하세요."
+            "value": "시스템 인쇄 대화상자에서 제본 방식이 변경되었습니다. 제본 방식을 바꾸지 않고 양면 테스트를 다시 실행하세요."
           }
         },
         "zh-Hans": {
@@ -46359,58 +46254,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "兩頁"
-          }
-        }
-      }
-    },
-    "When Opening a Window": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "When Opening a Window"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Beim Öffnen eines Fensters"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Al abrir una ventana"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "À l’ouverture d’une fenêtre"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ウインドウを開くとき"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "창을 열 때"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "打开窗口时"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "打開視窗時"
           }
         }
       }
@@ -65511,7 +65354,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "이 프린터는 %@ 용지에 프린트할 수 없습니다"
+            "value": "이 프린터는 %@ 용지에 인쇄할 수 없습니다"
           }
         },
         "fr": {
@@ -65564,7 +65407,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "이 프린터는 양면 프린트를 할 수 없습니다"
+            "value": "이 프린터는 양면 인쇄를 지원하지 않습니다"
           }
         },
         "fr": {
@@ -65617,7 +65460,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@. ‘프린트’는 시스템 프린트 대화상자를 엽니다."
+            "value": "%@. ‘인쇄’는 시스템 인쇄 대화상자를 엽니다."
           }
         },
         "fr": {

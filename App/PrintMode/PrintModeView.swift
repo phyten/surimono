@@ -52,31 +52,34 @@ struct PrintModeView: View {
     }
 
     private var stage: some View {
-        ZStack {
-            PrintPalette.stage
-            if model.showsTrayPreview, let tray = model.printTray, let document = model.printResult?.sheetDocument {
-                PrintTrayView(
-                    model: model, tray: tray, document: document, memory: trayMemory)
-            } else if model.error == nil {
-                VStack(spacing: 10) {
-                    if model.isRendering { ProgressView().controlSize(.small) }
-                    Text(model.isRendering ? "Preparing pages…" : "No preview is available.")
-                        .font(.system(size: 12.5))
-                        .foregroundStyle(PrintPalette.ink2)
+        VStack(spacing: 0) {
+            errorBanner
+            ZStack {
+                if model.showsTrayPreview, let tray = model.printTray, let document = model.printResult?.sheetDocument {
+                    PrintTrayView(
+                        model: model, tray: tray, document: document, memory: trayMemory)
+                } else if model.error == nil {
+                    VStack(spacing: 10) {
+                        if model.isRendering { ProgressView().controlSize(.small) }
+                        Text(model.isRendering ? "Preparing pages…" : "No preview is available.")
+                            .font(.system(size: 12.5))
+                            .foregroundStyle(PrintPalette.ink2)
+                    }
+                }
+                if model.showsFold, model.canShowFold {
+                    PrintFoldView(model: model) { model.showsFold = false }
+                        .transition(.opacity)
+                }
+                if model.isPrintFinishPresented {
+                    // At the side rather than over the middle: the changes show on the sheets while it is open.
+                    PrintFinishSheet(model: model)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .padding(14)
                 }
             }
-            if model.showsFold, model.canShowFold {
-                PrintFoldView(model: model) { model.showsFold = false }
-                    .transition(.opacity)
-            }
-            if model.isPrintFinishPresented {
-                // At the side rather than over the middle: the changes show on the sheets while it is open.
-                PrintFinishSheet(model: model)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                    .padding(14)
-            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .overlay(alignment: .top) { errorBanner }
+        .background(PrintPalette.stage)
         .overlay(alignment: .bottom) { toast }
         .animation(.easeOut(duration: 0.2), value: model.showsFold)
         // The tray takes whatever height it is given, so the window's smallest height keeps room for its navigator.

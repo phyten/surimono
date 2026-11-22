@@ -35,7 +35,7 @@ struct ShortcutMenuBaselineTests {
     static let documentKeys: [(String, String, NSEvent.ModifierFlags)] = [
         ("Open from Clipboard", "n", .command),
         ("Print…", "p", .command), ("Print with System Dialog…", "p", [.option, .command]),
-        ("PDF of the Sheets…", "e", [.shift, .command]),
+        ("PDF of Sheets…", "e", [.shift, .command]),
         ("Find…", "f", .command), ("Find Next", "g", .command),
         ("Find Previous", "g", [.shift, .command]),
         ("Show as Paper", "p", [.control, .command]),
@@ -105,7 +105,7 @@ struct ShortcutMenuBaselineTests {
         let exports = try #require(file.items.first { $0.title == localized("Export") }?.submenu)
         #expect(
             exports.items.filter { !$0.isSeparatorItem }.map(\.title) == [
-                localized("PDF for Reading…"), localized("PDF of the Sheets…"), localized("Images (PNG)…"),
+                localized("PDF for Reading…"), localized("PDF of Sheets…"), localized("Images (PNG)…"),
                 localized("HTML…"), localized("Share PDF…"),
             ])
         // The system's own Share item hands over the opened file; a second item of that name would be ambiguous.

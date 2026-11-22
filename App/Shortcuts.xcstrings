@@ -137,7 +137,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Surimono의 프린트 레이아웃과 스타일로 파일을 용지에 배치하고 PDF를 반환합니다. 파일 자체는 변경하지 않습니다."
+            "value": "Surimono의 인쇄 레이아웃과 스타일로 파일을 용지에 배치하고 PDF를 반환합니다. 파일 자체는 변경하지 않습니다."
           }
         },
         "fr": {
@@ -190,7 +190,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Surimono의 프린트 모드에서 열기"
+            "value": "Surimono의 인쇄 화면에서 열기"
           }
         },
         "fr": {
@@ -243,7 +243,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Surimono의 프린트 모드에서 파일을 열고 프린트할 용지를 배치합니다. ‘프린트’를 누르기 전에는 프린터로 아무것도 보내지 않습니다."
+            "value": "Surimono의 인쇄 화면에서 파일을 열고 인쇄할 용지를 배치합니다. ‘인쇄’를 누르기 전에는 프린터로 아무것도 보내지 않습니다."
           }
         },
         "fr": {
@@ -614,7 +614,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "${files}을(를) 프린트 모드에서 열기"
+            "value": "${files}을(를) 인쇄 화면에서 열기"
           }
         },
         "fr": {
@@ -720,7 +720,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "프린트 모드에서 열기"
+            "value": "인쇄 화면에서 열기"
           }
         },
         "fr": {

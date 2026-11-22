@@ -47,6 +47,41 @@ struct PrintIssueTests {
         }
     }
 
+    @Test("フォルダを選ぶ通知は時間切れにならず、閉じたあとも印刷前の確認から選べる", .timeLimit(.minutes(1)))
+    func folderAccessNotice() async throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let file = directory.appendingPathComponent("notes.md")
+        let issue = PrintIssue(id: "image", kind: .image, detail: "figure.png", imageFailure: .folderAccess)
+        let renderer = DocumentRenderer(paginateWithResult: { _ in
+            var result = WebPaginator.Result(document: try #require(PDFDocument(data: TestFixtures.pdf("Image"))))
+            result.issues = [issue]
+            return result
+        })
+        let model = DocumentViewModel(
+            data: Data("Image".utf8), fileURL: file, format: .markdown,
+            preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: directory),
+            renderer: renderer)
+        defer { model.stop() }
+        model.render()
+        try await waitUntil { model.isUpToDate }
+        let notice = Toast.folderAccess
+        model.showToast(notice, dismissAfter: .zero)
+        try await Task.sleep(for: .milliseconds(30))
+        #expect(model.toast == notice && notice.showsDismissButton)
+        model.showToast(Toast(systemImage: "checkmark", title: "Done"), dismissAfter: .milliseconds(1))
+        try await waitUntil { model.toast == notice }
+        model.dismissToast(closingFolderNotice: true)
+        #expect(model.toast == nil)
+        model.reviewPrintIssues()
+        #expect(model.isPrintIssuesPresented)
+        #expect(model.printIssues.first?.imageFailure == .folderAccess)
+        #expect(model.fileNeedingFolderAccess == file)
+        #expect(PrintIssueText.advice(issue, language: "ja") == "画像を表示するには、フォルダを読む許可が必要です")
+    }
+
     @Test("縦書きの注記は組版をやり直しても一覧に残り、通知は開いたときの一度だけ", .timeLimit(.minutes(1)))
     func verticalWritingNote() async throws {
         let suite = TestDefaultsSuite()

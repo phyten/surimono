@@ -49,7 +49,7 @@ struct SnapshotCase: Codable {
             "-SurimonoMenu", "-SurimonoPopover", "-SurimonoMode", "-SurimonoFold", "-SurimonoSnapshotWelcome",
             "-SurimonoIncreaseContrast", "-SurimonoCorners", "-SurimonoSettings", "-SurimonoSettingsSize",
             "-SurimonoUpdating", "-SurimonoAppearance", "-SurimonoPaperSeries", "-SurimonoViewLayout",
-            "-SurimonoTraySize",
+            "-SurimonoTraySize", "-SurimonoTraySheet", "-SurimonoFolderNotice",
         ])
         for item in cases {
             guard validID(item.id), seen.insert(item.id).inserted, item.arguments.count.isMultiple(of: 2),

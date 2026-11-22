@@ -21,7 +21,7 @@ enum ShortcutText {
         case .appSettings: "Settings…"
         case .documentPrint: "Print…"
         case .documentPrintSystem: "Print with System Dialog…"
-        case .documentExportPDF: "PDF of the Sheets…"
+        case .documentExportPDF: "PDF of Sheets…"
         case .documentExportReadingPDF: "PDF for Reading…"
         case .documentExportPNG: "Images (PNG)…"
         case .documentExportHTML: "HTML…"

@@ -336,6 +336,24 @@ struct LanguageTests {
         }
     }
 
+    @Test("韓国語では印刷を 인쇄、機器を 프린터 と呼ぶ")
+    func koreanPrintTerminology() throws {
+        let app = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appending(path: "App")
+        for table in ["Localizable", "ServicesMenu", "Shortcuts", "AppShortcuts"] {
+            let catalog = try JSONDecoder().decode(
+                Catalog.self, from: Data(contentsOf: app.appending(path: "\(table).xcstrings")))
+            for (key, entry) in catalog.strings {
+                let korean = try #require(entry.localizations["ko"], "\(table): \(key)")
+                let values = korean.units.map(\.value) + (korean.stringSet?.values ?? [])
+                #expect(!values.isEmpty, "\(table): \(key)")
+                for value in values {
+                    #expect(!value.contains("프린트"), "\(table): \(key) — \(value)")
+                }
+            }
+        }
+    }
+
     @Test("フランス語のコロンと疑問符・感嘆符・セミコロンは直前の語と同じ行に収まる")
     func frenchPunctuationSpacing() throws {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
@@ -371,7 +389,9 @@ struct LanguageTests {
         let state: String
         let value: String
     }
+    private struct PhraseSet: Decodable { let values: [String] }
     private struct Translation: Decodable {
+        let stringSet: PhraseSet?
         let stringUnit: Unit?
         let variations: [String: [String: Translation]]?
         let substitutions: [String: Substitution]?
