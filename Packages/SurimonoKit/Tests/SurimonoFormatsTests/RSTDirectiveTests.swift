@@ -1,4 +1,5 @@
 import Foundation
+import RobustnessSupport
 import Testing
 
 @testable import SurimonoFormats
@@ -159,18 +160,19 @@ struct RSTDirectiveTests {
         let inside = folder.appendingPathComponent("log.inc")
         try Data("Outer reading.".utf8).write(to: outside)
         try Data("Inner reading.".utf8).write(to: inside)
-        var changed = false
+        let changed = Locked(false)
         let result = RSTConverter.convert(".. include:: log.inc", directory: folder) { _ in
-            if !changed {
+            if !changed.value {
                 do {
+                    let files = FileManager.default
                     try files.removeItem(at: inside)
                     try files.createSymbolicLink(at: inside, withDestinationURL: outside)
-                    changed = true
+                    changed.value = true
                 } catch { Issue.record("テスト用リンクを作れなかった") }
             }
             return true
         }
-        #expect(changed)
+        #expect(changed.value)
         #expect(!result.body.contains("Outer reading."))
         #expect(!result.readingIssues.isEmpty)
     }

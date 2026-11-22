@@ -1,3 +1,4 @@
+import RobustnessSupport
 import SurimonoFormats
 import Testing
 
@@ -29,7 +30,8 @@ struct InstalledFontIndexTests {
         #expect(InstalledFontIndex.system.face(named: face.postScriptName)?.postScriptName == face.postScriptName)
         let start = ContinuousClock.now
         #expect(InstalledFontIndex.system.face(named: "Surimono Missing Font 56D9025C") == nil)
-        #expect(start.duration(to: .now) < .seconds(1))
+        // Only the time is skipped under a sanitizer, which slows the code several times over.
+        if !Sanitizer.isActive { #expect(start.duration(to: .now) < .seconds(1)) }
     }
 
     @Test("未導入の和文書体を八つ指定した文書を十回変換しても二秒以内に収まる")
@@ -40,6 +42,6 @@ struct InstalledFontIndexTests {
         for _ in 0..<10 {
             #expect(LaTeXConverter.convert(source).body.contains("紙片。"))
         }
-        #expect(start.duration(to: .now) < .seconds(2))
+        if !Sanitizer.isActive { #expect(start.duration(to: .now) < .seconds(2)) }
     }
 }

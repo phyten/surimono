@@ -19,7 +19,7 @@ extension BeamerOverlay {
         init(_ source: String) { input = Array(source) }
 
         func sequence(environment: String? = nil, group: Bool = false, depth: Int = 0) -> [Part] {
-            guard depth <= LaTeXDocument.maximumDepth else {
+            guard depth <= LaTeXDocument.maximumDepth, StackSpace.hasRoom else {
                 unreadable = true
                 let suffix = String(input[index...])
                 index = input.count

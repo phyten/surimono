@@ -91,7 +91,7 @@ extension LaTeXReader {
             if let macro = document.macros[name], !document.stopsExpanding {
                 // Expand only tokens that supply a number, including in math. Never dispatch an assignment here.
                 if let primitive = macro.primitive {
-                    guard depth + document.depth < LaTeXDocument.maximumDepth else { return nil }
+                    guard depth + document.depth < LaTeXDocument.maximumDepth, StackSpace.hasRoom else { return nil }
                     return numericCommand(primitive, dimension: dimension, depth: depth + 1)
                 }
                 guard let body = replacement(macro) else { return nil }
@@ -106,7 +106,7 @@ extension LaTeXReader {
     }
 
     private func numericAtom(dimension: Bool, depth: Int) -> Int? {
-        guard document.depth + depth < LaTeXDocument.maximumDepth else {
+        guard document.depth + depth < LaTeXDocument.maximumDepth, StackSpace.hasRoom else {
             document.stopsExpanding = true
             return nil
         }

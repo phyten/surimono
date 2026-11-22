@@ -1,4 +1,5 @@
 import Foundation
+import RobustnessSupport
 import Testing
 
 @testable import SurimonoCore
@@ -96,7 +97,8 @@ struct ClipboardFormatWorkTests {
             // The step bound above is what keeps the scan linear; the clock only catches a gross stall. Debug builds on
             // shared CI runners took 0.77 s and then 1.13 s for the same long CJK note that a local debug run finishes in
             // a tenth of that, so the clock allows for them. The release test below holds the real latency bar.
-            #expect(seconds < 3, Comment(rawValue: "\(name): \(seconds)s"))
+            // Only the time is skipped under a sanitizer, which slows the code several times over.
+            if !Sanitizer.isActive { #expect(seconds < 3, Comment(rawValue: "\(name): \(seconds)s")) }
         }
         print(
             "WORK inputs=\(Self.inputs.count) worstMultiple=\(worstRatio) worstSeconds=\(worstTime) slowest=\(slowest)")

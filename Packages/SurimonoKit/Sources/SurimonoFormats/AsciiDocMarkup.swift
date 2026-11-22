@@ -2,7 +2,17 @@ import Foundation
 @preconcurrency import libxml2
 
 enum AsciiDocMarkup {
+    /// On a stack of known size, so a document reads the same on every thread.
     static func fragment(_ parts: ScriptDocument) throws -> HTMLFragment {
+        try StackSpace.onLargeStack { () throws -> HTMLFragment in
+            let (fragment, reachedLimit) = try StackSpace.collectingLimit { () throws -> HTMLFragment in
+                try fragmentInPlace(parts)
+            }
+            return fragment.notingLimit(reachedLimit)
+        }
+    }
+
+    private static func fragmentInPlace(_ parts: ScriptDocument) throws -> HTMLFragment {
         try MarkupHTML.withBody(parts.html) { body in
             let title = body.child("h1")
             var html = ""
@@ -30,6 +40,11 @@ enum AsciiDocMarkup {
         if node.ptr.pointee.type == XML_CDATA_SECTION_NODE { return node.text }
         if node.ptr.pointee.type == XML_TEXT_NODE { return HTML.escape(node.text) }
         guard node.ptr.pointee.type == XML_ELEMENT_NODE, node.name != "script" else { return "" }
+        // libxml2 nests elements up to 256 deep, more than a 512 KiB stack holds here in a debug build.
+        guard StackSpace.hasRoom else {
+            StackSpace.noteLimitReached()
+            return "<p>\(HTML.escape(node.text))</p>"
+        }
         if node.name == "div" {
             if node.has("listingblock") || node.has("literalblock"), let pre = node.member("content")?.child("pre") {
                 return figure(node, content: listing(pre))

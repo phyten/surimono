@@ -12,19 +12,29 @@ extension LaTeXReader {
 
     func listingSettings(_ options: String?, minted: Bool = false) -> [String: String] {
         var settings = minted ? [:] : document.listingDefaults
-        if let options { applyListingOptions(options, to: &settings, depth: 0) }
+        if let options { applyListingOptions(options, to: &settings) }
         return settings
     }
 
-    /// listings applies keys from left to right, so a named style can override an earlier language and
-    /// a later key can override the style. Nested styles share the macro budget, including cycles.
-    private func applyListingOptions(_ options: String, to settings: inout [String: String], depth: Int) {
+    private func listingOptions(_ options: String) -> ArraySlice<Substring> {
         var braces = 0
-        for option in options.split(whereSeparator: { character in
+        return options.split { character in
             if character == "{" { braces += 1 }
             if character == "}" { braces = max(0, braces - 1) }
             return character == "," && braces == 0
-        }) {
+        }[...]
+    }
+
+    /// A named style temporarily interrupts its caller's keys. Keep those cursors on the heap
+    /// so the existing expansion budget is independent of the conversion thread's stack size.
+    private func applyListingOptions(_ options: String, to settings: inout [String: String]) {
+        var pending = [listingOptions(options)]
+        while !pending.isEmpty {
+            let depth = pending.count - 1
+            guard let option = pending[depth].popFirst() else {
+                pending.removeLast()
+                continue
+            }
             let pair = option.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
             guard let key = pair.first?.trimmingCharacters(in: .whitespacesAndNewlines) else { continue }
             var value = pair.count > 1 ? pair[1].trimmingCharacters(in: .whitespacesAndNewlines) : "true"
@@ -34,10 +44,11 @@ extension LaTeXReader {
                 guard let style = document.listingStyles[value] else { continue }
                 guard depth + document.depth < LaTeXDocument.maximumDepth else {
                     document.stopsExpanding = true
-                    return
+                    pending.removeLast()
+                    continue
                 }
                 if document.reserveExpansion(characters: style.utf8.count) {
-                    applyListingOptions(style, to: &settings, depth: depth + 1)
+                    pending.append(listingOptions(style))
                 }
             case "language", "numbers", "linenos", "firstnumber", "caption", "label", "basicstyle", "frame",
                 "keywordstyle", "commentstyle", "stringstyle", "numberstyle", "breaklines", "backgroundcolor",

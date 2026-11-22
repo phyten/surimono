@@ -24,7 +24,7 @@ package enum LaTeXCorpus {
             let source = folder.appendingPathComponent("main.tex")
             // Fixed file URLs keep embedded image links independent of the checkout location.
             let directory = URL(fileURLWithPath: "/corpus/" + folder.lastPathComponent, isDirectory: true)
-            func companion(_ url: URL) -> URL? {
+            @Sendable func companion(_ url: URL) -> URL? {
                 let prefix = directory.path + "/"
                 let path = url.standardizedFileURL.path
                 guard path.hasPrefix(prefix) else { return nil }
@@ -33,7 +33,7 @@ package enum LaTeXCorpus {
             let fragment = LaTeXConverter.convert(
                 try String(contentsOf: source, encoding: .utf8), fontIndex: InstalledFontIndex(faces: [:]),
                 documentURL: directory.appendingPathComponent("main.tex"),
-                imageExists: { url in companion(url).map { manager.fileExists(atPath: $0.path) } ?? false },
+                imageExists: { url in companion(url).map { FileManager.default.fileExists(atPath: $0.path) } ?? false },
                 readFile: { url in companion(url).flatMap { try? Data(contentsOf: $0) } })
             try visit(folder.lastPathComponent, fragment)
         }

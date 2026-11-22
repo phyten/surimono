@@ -45,7 +45,7 @@ struct SandboxResourceTests {
             isSandboxed: { sandboxed },
             paginateWithResult: { request in
                 if sandboxed {
-                    guard case .sandboxed(_, let access) = request.source else {
+                    guard case .sandboxed(_, let access, _) = request.source else {
                         Issue.record("専用schemeで読み込む")
                         return WebPaginator.Result(document: try RenderingFixtures.pdf(count: 1))
                     }
@@ -75,7 +75,7 @@ struct SandboxResourceTests {
         let renderer = DocumentRenderer(
             isSandboxed: { true },
             paginateWithResult: { request in
-                guard case .sandboxed(let html, _) = request.source else {
+                guard case .sandboxed(let html, _, _) = request.source else {
                     Issue.record("専用schemeで読み込む")
                     return WebPaginator.Result(document: try RenderingFixtures.pdf(count: 1))
                 }
@@ -155,7 +155,7 @@ struct SandboxResourceTests {
         let renderer = DocumentRenderer(
             isSandboxed: { true },
             paginateWithResult: { request in
-                guard case .sandboxed(let html, _) = request.source else {
+                guard case .sandboxed(let html, _, _) = request.source else {
                     Issue.record("専用schemeで読み込む")
                     return WebPaginator.Result(document: try RenderingFixtures.pdf(count: 1))
                 }

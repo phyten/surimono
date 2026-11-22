@@ -87,7 +87,7 @@ extension LaTeXReader {
         case "csname":
             let key = readCSName()
             guard !key.isEmpty, document.reserveExpansion() else { return true }
-            guard document.depth < LaTeXDocument.maximumDepth else {
+            guard document.depth < LaTeXDocument.maximumDepth, StackSpace.hasRoom else {
                 document.stopsExpanding = true
                 return true
             }
@@ -455,7 +455,7 @@ extension LaTeXReader {
         let separate = next?.isASCII == true && next?.isLetter == true && Self.endsInControlWord(body[...])
         let expansion = separate ? body + " " : body
         let size = expansion.count
-        guard macroFrameEnds.count + document.depth < LaTeXDocument.maximumDepth,
+        guard macroFrameEnds.count + document.depth < LaTeXDocument.maximumDepth, StackSpace.hasRoom,
             remaining + size <= 50_000_000 - document.expansionWork
         else {
             document.stopsExpanding = true

@@ -1,4 +1,5 @@
 import Foundation
+import RobustnessSupport
 import Testing
 
 @testable import SurimonoFormats
@@ -119,15 +120,15 @@ struct LaTeXStylePackageTests {
 
     @Test("原稿が既知のパッケージを読み込んでも隣のスタイルファイルを要求しない")
     func noCompanionRead() {
-        var reads: [URL] = []
+        let reads = Locked<[URL]>([])
         let fragment = LaTeXConverter.convert(
             #"\documentclass[a4paper]{article}\usepackage{neurips_2026}\begin{document}Text.\end{document}"#,
             documentURL: URL(fileURLWithPath: "/corpus/main.tex"),
             readFile: {
-                reads.append($0)
+                reads.value.append($0)
                 return nil
             })
-        #expect(reads.isEmpty)
+        #expect(reads.value.isEmpty)
         #expect(abs((fragment.latexClass?.pageBox.paperWidth ?? 0) - 612) < 0.001)
     }
 

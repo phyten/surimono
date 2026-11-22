@@ -4,7 +4,8 @@ import WebKit
 
 @MainActor
 protocol GraphicSnapshotting {
-    func png(in view: WKWebView, viewport: CGRect, document: CGRect) async throws -> Data
+    func png(in view: WKWebView, viewport: CGRect, document: CGRect, until deadline: ContinuousClock.Instant)
+        async throws -> Data
 }
 
 @MainActor
@@ -15,14 +16,27 @@ struct WebGraphicSnapshot: GraphicSnapshotting {
         min(2, 4000 / max(size.width, size.height))
     }
 
-    func png(in view: WKWebView, viewport: CGRect, document: CGRect) async throws -> Data {
+    /// Both the snapshot and the PDF fallback wait at most until `deadline`, and end at once when the page's process
+    /// has ended or the task is cancelled; only WebKit's own failure to snapshot falls back to the PDF.
+    func png(in view: WKWebView, viewport: CGRect, document: CGRect, until deadline: ContinuousClock.Instant)
+        async throws -> Data
+    {
         let scale = requestedScale ?? Self.scale(for: document.size)
         if view.bounds.contains(viewport) {
             let config = WKSnapshotConfiguration()
             config.rect = viewport
             config.snapshotWidth = NSNumber(value: viewport.width * scale)
-            if let snapshot = try? await view.takeSnapshot(configuration: config),
-                let image = snapshot.cgImage(forProposedRect: nil, context: nil, hints: nil),
+            let snapshot: NSImage?
+            do {
+                snapshot = try await view.snapshotForPrinting(configuration: config, until: deadline)
+            } catch let error as WebPaginator.PaginationError where error != .emptyDocument {
+                throw error
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                snapshot = nil
+            }
+            if let snapshot, let image = snapshot.cgImage(forProposedRect: nil, context: nil, hints: nil),
                 let png = bitmap(size: document.size, scale: scale, draw: { $0.draw(image, in: $1) })
             {
                 return png
@@ -32,7 +46,7 @@ struct WebGraphicSnapshot: GraphicSnapshotting {
         try Task.checkCancellation()
         let config = WKPDFConfiguration()
         config.rect = document
-        let bytes = try await view.pdf(configuration: config)
+        let bytes = try await view.pdfForPrinting(configuration: config, until: deadline)
         guard let page = PDFDocument(data: bytes)?.page(at: 0) else { throw WebPaginator.PaginationError.emptyDocument }
         let pdfSize = page.bounds(for: .cropBox).size
         guard pdfSize.width > 0, pdfSize.height > 0 else { throw WebPaginator.PaginationError.emptyDocument }
@@ -106,10 +120,12 @@ enum RichTextGraphics {
         return selected.length;
         """
 
-    static func replace(in view: WKWebView, snapshot: any GraphicSnapshotting = WebGraphicSnapshot()) async throws {
+    static func replace(
+        in view: WKWebView, snapshot: any GraphicSnapshotting = WebGraphicSnapshot(),
+        until deadline: ContinuousClock.Instant
+    ) async throws {
         func run(_ script: String, _ args: [String: Any]) async throws -> Any? {
-            try await view.callAsyncJavaScript(
-                script, arguments: args, in: nil, contentWorld: WebPaginator.preparationWorld)
+            try await view.evaluateForPrinting(script, arguments: args, until: deadline)
         }
         guard let count = try await run(selection, ["limit": limit]) as? Int else {
             throw WebPaginator.PaginationError.emptyDocument
@@ -129,7 +145,7 @@ enum RichTextGraphics {
             else { throw WebPaginator.PaginationError.emptyDocument }
             let png = try await snapshot.png(
                 in: view, viewport: CGRect(x: r[0], y: r[1], width: r[2], height: r[3]),
-                document: CGRect(x: r[4], y: r[5], width: r[2], height: r[3]))
+                document: CGRect(x: r[4], y: r[5], width: r[2], height: r[3]), until: deadline)
             _ = try await run(
                 """
                 const {svg,alt} = surimonoGraphics[index];

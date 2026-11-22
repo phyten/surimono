@@ -1,4 +1,5 @@
 import Foundation
+import RobustnessSupport
 import Testing
 
 @testable import SurimonoFormats
@@ -235,6 +236,7 @@ struct MediaWikiTests {
             #expect(body.components(separatedBy: "</tr>").count == 5001)
         }
         print("MediaWiki pathological", source.utf8.count, duration)
-        #expect(duration < .seconds(15))
+        // Only the time is skipped under a sanitizer, which slows the code several times over.
+        if !Sanitizer.isActive { #expect(duration < .seconds(15)) }
     }
 }

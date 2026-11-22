@@ -152,7 +152,9 @@ extension LaTeXReader {
     /// The current counter as \the<name> prints it. For a heading, \thesection includes the configured levels above it.
     func formattedCounter(_ name: String, forMath: Bool = false) -> String {
         let counters = document.counters
-        guard counters.formatting.count < LaTeXDocument.maximumDepth, counters.formatting.insert(name).inserted else {
+        guard counters.formatting.count < LaTeXDocument.maximumDepth, StackSpace.hasRoom,
+            counters.formatting.insert(name).inserted
+        else {
             document.stopsExpanding = true
             return String(counters[name])
         }

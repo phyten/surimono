@@ -8,27 +8,28 @@ extension DocumentRenderer {
     /// sandbox, opening a document admits companion text under its directory, never arbitrary files on the Mac.
     nonisolated static func latexFragment(
         _ source: DocumentSource, composition: LaTeXComposition, textWidthPoints: Double?, access: LocalResourceAccess?,
-        onDenied: @escaping () -> Void,
-        imageExists: @escaping (URL) -> Bool
+        onDenied: @escaping @Sendable () -> Void,
+        imageExists: @escaping @Sendable (URL) -> Bool
     ) throws -> HTMLFragment {
         let resources = CompanionTextResources(source, access: access, onDenied: onDenied)
-        var measuredImages: [URL: CGSize] = [:]
+        // The callbacks run on the converter's own thread, while this one waits for it.
+        let measuredImages = SharedValue<[URL: CGSize]>([:])
         return LaTeXConverter.convert(
             try decodedText(source.data), composition: composition, documentURL: resources.file,
             textWidthPoints: textWidthPoints,
             imageExists: { resources.permits($0) && imageExists($0) },
             canProbePictureFallback: { access?.permits($0) != false },
             imageSizeInPoints: { url in
-                if let cached = measuredImages[url] { return cached }
+                if let cached = measuredImages.value[url] { return cached }
                 let result = resources.read(url).flatMap(Self.imageSizeInPoints) ?? .zero
-                measuredImages[url] = result
+                measuredImages.value[url] = result
                 return result
-            }, readFile: resources.read,
+            }, readFile: { resources.read($0) },
             modificationDate: { url in
                 guard resources.permits(url) else { return nil }
                 return try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
             },
-            fileIdentity: resources.identity)
+            fileIdentity: { resources.identity($0) })
     }
 
     /// graphicx trims in big points before scaling to the requested output width.
@@ -51,14 +52,17 @@ extension DocumentRenderer {
 
     nonisolated static func markdownFragment(
         _ source: DocumentSource, pageBreakLine: String, proof: ProofMarks, mapsSource: Bool,
-        access: LocalResourceAccess?, onDenied: @escaping () -> Void
+        access: LocalResourceAccess?, onDenied: @escaping @Sendable () -> Void
     ) throws -> HTMLFragment {
         let text = try decodedText(source.data)
         let directory = source.fileURL.flatMap { $0.isFileURL ? $0.deletingLastPathComponent() : nil }
-        // Ordinary Markdown never needs to resolve a resource root on disk.
-        lazy var resources = CompanionTextResources(source, access: access, onDenied: {})
-        func readBibliography(_ url: URL) -> Data? {
-            let data = resources.read(url)
+        // Ordinary Markdown never needs to resolve a resource root on disk, so the roots are found on first use, on
+        // the converter's own thread.
+        let resources = SharedValue<CompanionTextResources?>(nil)
+        let readBibliography: @Sendable (URL) -> Data? = { url in
+            let found = resources.value ?? CompanionTextResources(source, access: access, onDenied: {})
+            resources.value = found
+            let data = found.read(url)
             if data == nil, access != nil { onDenied() }
             return data
         }
@@ -82,19 +86,19 @@ extension DocumentRenderer {
         let resources = CompanionTextResources(source, access: resourceAccess(for: source), onDenied: {})
         let info = LaTeXConverter.documentClassInfo(
             TextDecoding.decode(source.data).text, composition: composition, documentURL: resources.file,
-            readFile: resources.read, fileIdentity: resources.identity)
+            readFile: { resources.read($0) }, fileIdentity: { resources.identity($0) })
         cachedLaTeXInfo = (source, composition, info)
         return info
     }
 }
 
-private struct CompanionTextResources {
+private struct CompanionTextResources: Sendable {
     let file: URL?
     let access: LocalResourceAccess?
-    let onDenied: () -> Void
+    let onDenied: @Sendable () -> Void
     let roots: [String]
 
-    init(_ source: DocumentSource, access: LocalResourceAccess?, onDenied: @escaping () -> Void) {
+    init(_ source: DocumentSource, access: LocalResourceAccess?, onDenied: @escaping @Sendable () -> Void) {
         self.access = access
         self.onDenied = onDenied
         let file = source.fileURL.flatMap { $0.isFileURL ? $0 : nil }
@@ -133,4 +137,25 @@ private struct CompanionTextResources {
             return nil
         }
     }
+}
+
+/// A value that converter callbacks change on the converter's own thread while the caller waits.
+final class SharedValue<Value>: @unchecked Sendable {
+    // Every access goes through `lock`.
+    private let lock = NSLock()
+    private var stored: Value
+
+    init(_ value: Value) { stored = value }
+
+    var value: Value {
+        get { lock.withLock { stored } }
+        set { lock.withLock { stored = newValue } }
+    }
+}
+
+/// A flag that converter callbacks set on the converter's own thread.
+final class LockedFlag: Sendable {
+    private let flag = SharedValue(false)
+    func set() { flag.value = true }
+    var isSet: Bool { flag.value }
 }

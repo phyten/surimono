@@ -15,10 +15,15 @@ final class WebKitReply<Value> {
         signal.continuation.finish()
     }
 
+    /// `ended` tells a reply that can no longer come: the page's process has ended. Waiting out the deadline then
+    /// held a document for a minute or more before it showed its error.
     static func wait(
-        until deadline: ContinuousClock.Instant, start: (@escaping Completion) -> Void
+        until deadline: ContinuousClock.Instant, ended: @escaping @MainActor () -> String? = { nil },
+        start: (@escaping Completion) -> Void
     ) async throws -> Value {
         try Task.checkCancellation()
+        // A process that has already ended answers nothing; one that ends before its reply is taken voids it.
+        if let message = ended() { throw WebPaginator.PaginationError.loadFailed(message) }
         guard ContinuousClock.now < deadline else { throw WebPaginator.PaginationError.timedOut }
         let reply = WebKitReply()
         let timer = Task {
@@ -26,23 +31,63 @@ final class WebKitReply<Value> {
             reply.finish(.failure(WebPaginator.PaginationError.timedOut))
         }
         defer { timer.cancel() }
+        let watcher = Task {
+            while !Task.isCancelled {
+                if let message = ended() {
+                    reply.finish(.failure(WebPaginator.PaginationError.loadFailed(message)))
+                    return
+                }
+                try await Task.sleep(for: .milliseconds(50))
+            }
+        }
+        defer { watcher.cancel() }
         start { [weak reply] result in
             reply?.finish(ContinuousClock.now < deadline ? result : .failure(WebPaginator.PaginationError.timedOut))
         }
         // Cancellation ends this iteration even when WebKit has lost its callback.
         for await _ in reply.signal.stream {}
         try Task.checkCancellation()
+        if let message = ended() { throw WebPaginator.PaginationError.loadFailed(message) }
         guard let result = reply.result else { throw WebPaginator.PaginationError.printFailed }
         return try result.get()
     }
 }
 
 extension WKWebView {
+    /// Why the page's web content process ended, once it has; the paginator's navigation delegate records it.
+    @MainActor
+    func contentProcessEnded() -> String? {
+        (navigationDelegate as? NavigationTracker)?.terminationError
+    }
+
     @MainActor
     func pdfForPrinting(configuration: WKPDFConfiguration, until deadline: ContinuousClock.Instant) async throws -> Data
     {
-        try await WebKitReply<Data>.wait(until: deadline) { reply in
+        try await WebKitReply<Data>.wait(until: deadline, ended: contentProcessEnded) { reply in
             createPDF(configuration: configuration, completionHandler: reply)
+        }
+    }
+
+    /// A snapshot of `configuration.rect`, or the error that kept it from coming: the process ended, the deadline
+    /// passed, the task was cancelled, or WebKit gave none (`emptyDocument`).
+    @MainActor
+    func snapshotForPrinting(configuration: WKSnapshotConfiguration, until deadline: ContinuousClock.Instant)
+        async throws -> NSImage
+    {
+        try await WebKitReply<NSImage>.wait(until: deadline, ended: contentProcessEnded) { reply in
+            takeSnapshot(with: configuration) { image, error in
+                if let image {
+                    reply(.success(image))
+                } else if let error = error as NSError?, error.domain == WKError.errorDomain,
+                    error.code == WKError.Code.webContentProcessTerminated.rawValue
+                {
+                    // The callback can report the ended process before the navigation delegate hears of it;
+                    // a caller must not take this for an ordinary failed snapshot and go on to the PDF.
+                    reply(.failure(WebPaginator.PaginationError.loadFailed(error.localizedDescription)))
+                } else {
+                    reply(.failure(error ?? WebPaginator.PaginationError.emptyDocument))
+                }
+            }
         }
     }
 
@@ -51,7 +96,7 @@ extension WKWebView {
         _ script: String, arguments: [String: Any] = [:], world: WKContentWorld = WebPaginator.preparationWorld,
         until deadline: ContinuousClock.Instant
     ) async throws -> Any {
-        try await WebKitReply<Any>.wait(until: deadline) { completion in
+        try await WebKitReply<Any>.wait(until: deadline, ended: contentProcessEnded) { completion in
             callAsyncJavaScript(script, arguments: arguments, in: nil, in: world, completionHandler: completion)
         }
     }

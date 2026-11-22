@@ -99,8 +99,11 @@ struct MermaidRenderingTests {
         let blocks = [math, long, "flowchart LR\n    A --> B"].map {
             "<div class=\"mermaid-block\"><pre class=\"mermaid-source\">\($0)</pre></div>"
         }
+        // Wrapped as the app's common.css wraps it: WebKit's print process ended on the unbroken 50,000-character
+        // line, which printed a blank page before the paginator noticed that the process had ended.
+        let style = "<style>.mermaid-source { white-space: pre-wrap; overflow-wrap: anywhere; }</style>"
         let result = try await WebPaginator().paginateWithResult(
-            .html(blocks.joined(), baseURL: nil), pageSize: CGSize(width: 595, height: 842),
+            .html(style + blocks.joined(), baseURL: nil), pageSize: CGSize(width: 595, height: 842),
             margins: .uniform(millimeters: 15), allowsJavaScript: false,
             preparationScript: """
                 return JSON.stringify({

@@ -9,6 +9,15 @@ BUILD_NUMBER ?= 1
 FILE ?=
 BENCH_THRESHOLD ?= 20
 SWIFT_TEST_FLAGS ?=
+SECONDS ?= 600
+SEED ?= 1
+FORMAT ?=
+START ?= 0
+COUNT ?=
+REPLAY ?=
+SANITIZE ?=
+SHORT ?=
+FIXED ?=
 
 XCODEBUILD = xcodebuild -quiet -project Surimono.xcodeproj -scheme Surimono -derivedDataPath "$(DERIVED_DATA)" -destination 'platform=macOS'
 SWIFT_TEST = swift test --package-path Packages/SurimonoKit
@@ -26,6 +35,10 @@ help:
 	@echo "run        Build and launch; optionally FILE=Samples/sample.md"
 	@echo "test       Run package and hosted app tests"
 	@echo "test-kit   Run SurimonoKit tests (Formats, Core, then Rendering)"
+	@echo "test-kit-asan / test-kit-tsan  Run Kit tests with AddressSanitizer / ThreadSanitizer"
+	@echo "robustness Feed damaged documents to every reader: SECONDS=600 [FORMAT=latex] [SEED=1] [START=0 COUNT=1] [REPLAY=<file>]"
+	@echo "           SHORT=1 leaves out the long hand-written cases, FIXED=1 runs only them and the regressions"
+	@echo "robustness-rendering  Typeset unusual pages in the hidden WebView (few, slow)"
 	@echo "test-formats Run the SurimonoFormats tests"
 	@echo "test-core  Run the SurimonoCore tests"
 	@echo "rst-compare Compare the Swift RST reader with rst2html5 on the fixture corpus"
@@ -100,6 +113,35 @@ latex-line-dump-webkit:
 
 test-rendering:
 	$(SWIFT_TEST) --filter SurimonoRenderingTests --no-parallel
+
+# Sanitized builds go to their own scratch paths, so they neither replace nor invalidate the ordinary debug build.
+# Each target runs all three test targets even when one fails, and fails at the end if any did. The tests run one
+# at a time: run side by side under AddressSanitizer, the Core tests took 224 to 401 seconds and several one-minute
+# limits ran out (a test that needs 2.5 seconds alone took 94); one at a time they took 146 seconds.
+.PHONY: test-kit-asan test-kit-tsan robustness robustness-rendering
+test-kit-asan test-kit-tsan: SANITIZER = $(if $(filter test-kit-asan,$@),address,thread)
+test-kit-asan test-kit-tsan:
+	@status=0; \
+	$(SWIFT_TEST) --sanitize=$(SANITIZER) --scratch-path build/sanitize/$(SANITIZER) --filter SurimonoFormatsTests \
+		--no-parallel || status=1; \
+	$(SWIFT_TEST) --sanitize=$(SANITIZER) --scratch-path build/sanitize/$(SANITIZER) --filter SurimonoCoreTests \
+		--no-parallel || status=1; \
+	$(SWIFT_TEST) --sanitize=$(SANITIZER) --scratch-path build/sanitize/$(SANITIZER) --filter SurimonoRenderingTests \
+		--no-parallel || status=1; \
+	exit $$status
+
+# Long and local. The readers run in child test processes, so the driver can name the input that ended one.
+# SANITIZE=address reads under AddressSanitizer, from the same build as test-kit-asan.
+ROBUSTNESS_BUILD = $(if $(strip $(SANITIZE)),--sanitize=$(SANITIZE) --scratch-path build/sanitize/$(SANITIZE))
+robustness:
+	swift build --package-path Packages/SurimonoKit --build-tests $(ROBUSTNESS_BUILD)
+	python3 Benchmarks/robustness.py --seconds "$(SECONDS)" --seed "$(SEED)" --start "$(START)" \
+		$(if $(strip $(FORMAT)),--format "$(FORMAT)") $(if $(strip $(COUNT)),--count "$(COUNT)") \
+		$(if $(strip $(REPLAY)),--replay "$(REPLAY)") $(if $(strip $(SHORT)),--short) \
+		$(if $(strip $(FIXED)),--fixed-only) -- $(SWIFT_TEST) $(ROBUSTNESS_BUILD)
+
+robustness-rendering:
+	SURIMONO_ROBUSTNESS_WEB=1 $(SWIFT_TEST) --filter RenderingRobustnessTests --no-parallel
 
 bench:
 	SURIMONO_BENCH=1 swift test --package-path Packages/SurimonoKit --disable-sandbox --filter RenderingBenchmarks --no-parallel

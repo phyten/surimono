@@ -88,7 +88,9 @@ struct PrintIssuesPopover: View {
                 Button("Make Text Smaller") { model.decreaseTextSize() }
                     .disabled(TextScale.smaller(than: model.textScale) == model.textScale)
             }
-        case .math, .latex, .rst, .bibliography, .mermaid, .mermaidTimeout, .verticalWriting: EmptyView()
+        case .math, .latex, .rst, .bibliography, .mermaid, .mermaidTimeout, .verticalWriting, .nestingLimit,
+            .nestingOmission:
+            EmptyView()
         }
     }
 }
@@ -106,6 +108,13 @@ enum PrintIssueText {
         case .verticalWriting:
             return PrintModeText.string(
                 "Vertical writing is not supported yet. Showing it horizontally.", language: language)
+        case .nestingLimit:
+            return PrintModeText.string(
+                "Part of the document is nested too deeply. The original text of that part will be printed.",
+                language: language)
+        case .nestingOmission:
+            return PrintModeText.string(
+                "Part of the document is nested too deeply and will not be printed.", language: language)
         case .image: key = "Could Not Load Image: %@"
         case .math: key = "Could Not Render Formula: %@"
         case .mermaidTimeout:
@@ -154,7 +163,7 @@ enum PrintIssueText {
                 key = "Showing images needs permission to read the folder"
             case .other, nil: key = "Check that the image is readable and in a supported format."
             }
-        case .rst, .verticalWriting, .bibliography, .mermaidTimeout: return ""
+        case .rst, .verticalWriting, .bibliography, .mermaidTimeout, .nestingLimit, .nestingOmission: return ""
         case .overflow: key = "Try landscape paper or smaller text, or adjust this element in the source document."
         case .math: key = "Check the formula's syntax and use supported commands in the source document."
         case .mermaid: key = "Check the Mermaid syntax and simplify the diagram in the source document."

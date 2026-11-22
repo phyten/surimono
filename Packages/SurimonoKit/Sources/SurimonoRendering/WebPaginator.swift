@@ -8,9 +8,22 @@ import WebKit
 /// Lays out HTML in an off-screen WKWebView and prints it into a paginated PDF.
 @MainActor
 public final class WebPaginator: NSObject {
+    /// Whether the paper may go on to another document: only a document opened from a file, never generated HTML,
+    /// a live page's copy or a page from memory.
+    static func followsOtherDocuments(_ source: Source) -> Bool {
+        switch source {
+        case .file: true
+        case .sandboxed(_, _, let follows): follows
+        case .html, .snapshot: false
+        }
+    }
+
     public enum Source: Sendable {
         case html(String, baseURL: URL?)
-        case sandboxed(String?, access: LocalResourceAccess)
+        /// A page read through the sandbox's resource handler. `followsOtherDocuments` is decided from the original
+        /// document before it became this source: an opened HTML file may go on to another document within its
+        /// access, as it always could; HTML generated from Markdown and the other formats never does.
+        case sandboxed(String?, access: LocalResourceAccess, followsOtherDocuments: Bool = false)
         case file(URL, readAccessURL: URL)
         /// A copy of a live page, which may read the files under its document's directory and no others.
         case snapshot(String, directory: URL)
@@ -93,6 +106,10 @@ public final class WebPaginator: NSObject {
     /// Test hooks that make the order of events around printing deterministic.
     var didStartWaitingForResources: (@MainActor () -> Void)?
     var didFinishPrinting: (@MainActor () -> Void)?
+    /// Receives the web view of a session as it starts to print (a test ends that page's process there).
+    var didStartPrinting: (@MainActor (WKWebView) -> Void)?
+    /// Receives the web view of a session as it starts to serialize an HTML export (a test ends its process there).
+    var didStartExporting: (@MainActor (WKWebView) -> Void)?
     /// Receives whether the document may draw below the paper (observed by tests).
     var didCheckPageRules: (@MainActor (Bool) -> Void)?
 
@@ -146,19 +163,22 @@ public final class WebPaginator: NSObject {
         let source = Source.html(html, baseURL: nil)
         let session = PaginationSession(
             source: source, pageSize: size, margins: .uniform(millimeters: 0), allowsJavaScript: false,
-            printsBackgrounds: true, printTimeout: .seconds(15), onPrintStart: {}, onPrintFinish: {}, onClose: {})
+            printsBackgrounds: true, printTimeout: .seconds(15), onPrintStart: { _ in }, onPrintFinish: {}, onClose: {})
         defer { session.requestClose() }
         try session.load(source)
-        try await waitUntil(timeout: .seconds(15)) { session.navigationState != .loading }
+        try await waitUntil(timeout: .seconds(15)) {
+            session.navigationState != .loading || session.terminationError != nil
+        }
+        if let message = session.terminationError { throw PaginationError.loadFailed(message) }
         guard session.navigationState == .finished,
-            try await session.webView.callAsyncJavaScript(
+            try await session.webView.evaluateForPrinting(
                 "const image = document.images[0]; await image.decode(); return image.naturalWidth > 0;",
-                arguments: [:], in: nil, contentWorld: preparationWorld) as? Bool == true
+                until: .now + .seconds(15)) as? Bool == true
         else { throw PaginationError.emptyDocument }
         try Task.checkCancellation()
         let bounds = CGRect(origin: .zero, size: size)
         return try await WebGraphicSnapshot(requestedScale: scale).png(
-            in: session.webView, viewport: bounds, document: bounds)
+            in: session.webView, viewport: bounds, document: bounds, until: .now + .seconds(15))
     }
 
     public func paginate(
@@ -201,7 +221,7 @@ public final class WebPaginator: NSObject {
         latinLinePasses.removeAll()
         latinLineDiagnostics = nil
         switch source {
-        case .html(let html, _), .snapshot(let html, _), .sandboxed(.some(let html), _):
+        case .html(let html, _), .snapshot(let html, _), .sandboxed(.some(let html), _, _):
             bytes = html.utf8.count
             requiresProofLines = latexFlow && html.contains(" data-latex-review=\"proofPageLines\"")
             composesLatin =
@@ -209,7 +229,7 @@ public final class WebPaginator: NSObject {
                 && html.contains(" data-latex-line-breaking=\"")
             nativeLaTeXBreaks = !latexFlow && html.contains("class=\"latex-pagebreak\"")
         case .file(let url, _): bytes = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
-        case .sandboxed(nil, let access):
+        case .sandboxed(nil, let access, _):
             bytes = (try? access.documentURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
         }
         let timeout = timeout ?? PageLayoutLimits.timeout(bytes: bytes, baseSeconds: 15)
@@ -218,7 +238,10 @@ public final class WebPaginator: NSObject {
         let session = PaginationSession(
             source: source, pageSize: pageSize, margins: margins, allowsJavaScript: allowsJavaScript,
             printsBackgrounds: printsBackgrounds, drawsBackground: drawsBackground, printTimeout: printTimeout,
-            onPrintStart: { [weak self] in self?.printStartCount += 1 },
+            onPrintStart: { [weak self] webView in
+                self?.printStartCount += 1
+                self?.didStartPrinting?(webView)
+            },
             onPrintFinish: { [weak self] in self?.didFinishPrinting?() },
             onClose: { [weak self] in self?.openSessionCount -= 1 })
         // Closing is deferred to the print completion while the print thread still uses the session.
@@ -296,11 +319,11 @@ public final class WebPaginator: NSObject {
                     htmlComposition: htmlComposition)
                 try await Self.waitForResources(in: session.webView, timeout: timeout)
             }
-            if richText { try await RichTextGraphics.replace(in: session.webView) }
+            if richText { try await RichTextGraphics.replace(in: session.webView, until: .now + printTimeout) }
+            didStartExporting?(session.webView)
             let imageURLs =
-                try await session.webView.callAsyncJavaScript(
-                    HTMLExporter.imageResourceScript,
-                    arguments: [:], in: nil, contentWorld: Self.preparationWorld) as? [String] ?? []
+                try await session.webView.evaluateForPrinting(
+                    HTMLExporter.imageResourceScript, until: .now + printTimeout) as? [String] ?? []
             var images: [String: String] = [:]
             for address in Set(imageURLs) {
                 guard let url = URL(string: address) else { continue }
@@ -321,7 +344,7 @@ public final class WebPaginator: NSObject {
             let copiesTypeface = richText && richTextTypeface == .latex
             let bundledFonts = copiesTypeface ? ThemeFonts.textFamilies : []
             let serialized =
-                try await session.webView.callAsyncJavaScript(
+                try await session.webView.evaluateForPrinting(
                     HTMLExporter.serializationScript,
                     arguments: [
                         "title": exportHTMLTitle, "embeddedImages": images, "richText": richText,
@@ -329,8 +352,8 @@ public final class WebPaginator: NSObject {
                         "copiesTypeface": copiesTypeface, "composedHTML": htmlComposition != nil,
                         "pasteCSS": RichTextExport.styleSheet + (copiesTypeface ? "\n" + ThemeFonts.textFaces : ""),
                     ],
-                    in: nil,
-                    contentWorld: Self.preparationWorld)
+                    // Given the print's time: the export takes the place of the print.
+                    until: .now + printTimeout)
             var result = Result(document: PDFDocument())
             if adjusted { result.issues = [Self.verticalWritingIssue] }
             if richText, let fields = serialized as? [String: Any], let html = fields["html"] as? String,
@@ -891,7 +914,7 @@ private final class PaginationSession {
     private let margins: WebPaginator.Margins
     private let allowsJavaScript: Bool
     private let printTimeout: Duration
-    private let onPrintStart: () -> Void
+    private let onPrintStart: (WKWebView) -> Void
     private let onPrintFinish: () -> Void
     private let onClose: () -> Void
     let localHandler: LocalResourceSchemeHandler?
@@ -902,6 +925,8 @@ private final class PaginationSession {
     private var isClosed = false
 
     var navigationState: NavigationTracker.State { navigationTracker.state }
+    /// Why the page's process ended, once it has.
+    var terminationError: String? { navigationTracker.terminationError }
     var hasCommitted: Bool { navigationTracker.hasCommitted }
 
     /// Gives up on the resources still loading; the document counts as loaded with what has arrived.
@@ -913,7 +938,7 @@ private final class PaginationSession {
     init(
         source: WebPaginator.Source, pageSize: CGSize, margins: WebPaginator.Margins, allowsJavaScript: Bool,
         printsBackgrounds: Bool,
-        drawsBackground: Bool = true, printTimeout: Duration, onPrintStart: @escaping () -> Void,
+        drawsBackground: Bool = true, printTimeout: Duration, onPrintStart: @escaping (WKWebView) -> Void,
         onPrintFinish: @escaping () -> Void, onClose: @escaping () -> Void
     ) {
         self.pageSize = pageSize
@@ -923,7 +948,7 @@ private final class PaginationSession {
         self.onPrintStart = onPrintStart
         self.onPrintFinish = onPrintFinish
         self.onClose = onClose
-        if case .sandboxed(let html, let access) = source {
+        if case .sandboxed(let html, let access, _) = source {
             localHandler = LocalResourceSchemeHandler(access: access, html: html)
         } else {
             localHandler = nil
@@ -949,12 +974,14 @@ private final class PaginationSession {
         window = NSWindow(contentRect: frame, styleMask: [.borderless], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.contentView = webView
+        navigationTracker.keepsFirstDocument = true
+        navigationTracker.followsOtherDocuments = WebPaginator.followsOtherDocuments(source)
         webView.navigationDelegate = navigationTracker
     }
 
     func load(_ source: WebPaginator.Source) throws {
         switch source {
-        case .sandboxed(_, let access):
+        case .sandboxed(_, let access, _):
             webView.load(URLRequest(url: LocalResourceSchemeHandler.url(for: access.documentURL)))
         case .html(let html, let baseURL?) where baseURL.isFileURL && !allowsJavaScript:
             // loadHTMLString does not grant file read access, so images next to the document would not load.
@@ -980,7 +1007,9 @@ private final class PaginationSession {
     func loadForPrinting(_ source: WebPaginator.Source, timeout: Duration) async throws -> Bool {
         try load(source)
         do {
-            try await WebPaginator.waitUntil(timeout: timeout) { navigationState != .loading }
+            try await WebPaginator.waitUntil(timeout: timeout) {
+                navigationState != .loading || navigationTracker.terminationError != nil
+            }
         } catch WebPaginator.PaginationError.timedOut {
             // A never-loading resource may hold up a complete, printable document.
             guard hasCommitted else { throw WebPaginator.PaginationError.timedOut }
@@ -991,6 +1020,7 @@ private final class PaginationSession {
             stopLoadingResources()
             return true
         }
+        if let message = navigationTracker.terminationError { throw WebPaginator.PaginationError.loadFailed(message) }
         if case .failed(let message) = navigationState { throw WebPaginator.PaginationError.loadFailed(message) }
         return false
     }
@@ -1064,7 +1094,7 @@ private final class PaginationSession {
                     to: url, options: .atomic)
             }
         #endif
-        onPrintStart()
+        onPrintStart(webView)
         operation.runModal(
             for: window, delegate: completion,
             didRun: #selector(PrintCompletion.printOperationDidRun(_:success:contextInfo:)), contextInfo: nil)
@@ -1073,6 +1103,10 @@ private final class PaginationSession {
             // Cancellation takes precedence over the deadline.
             try Task.checkCancellation()
             if ContinuousClock.now >= deadline { throw WebPaginator.PaginationError.timedOut }
+            // A print of a page whose process has ended waits out the whole deadline (a minute or more) without this.
+            if let message = navigationTracker.terminationError {
+                throw WebPaginator.PaginationError.loadFailed(message)
+            }
             // Task.sleep returns immediately once cancelled, which would spin the main thread and starve the
             // completion callback, so pause on the main queue instead.
             await withCheckedContinuation { continuation in
@@ -1081,6 +1115,10 @@ private final class PaginationSession {
         }
         // The task may have been cancelled while the last pause was in flight.
         try Task.checkCancellation()
+        // The process may have ended between the last check and the print's end; its pages would lack their text.
+        if let message = navigationTracker.terminationError {
+            throw WebPaginator.PaginationError.loadFailed(message)
+        }
         guard completion.result == true else { throw WebPaginator.PaginationError.printFailed }
         if latexMarginInk {
             _ = try await webView.evaluateForPrinting(
@@ -1194,6 +1232,9 @@ final class NavigationTracker: NSObject, WKNavigationDelegate {
     }
 
     private(set) var state = State.loading
+    /// Why the web content process ended, set once when it does: nothing the session waits for can arrive any more,
+    /// and a later navigation callback that sets `state` must not make the session look healthy again.
+    private(set) var terminationError: String?
     /// The main document has started to arrive; before that the web view still shows its initial empty page.
     private(set) var hasCommitted = false
     private var isStopped = false
@@ -1204,21 +1245,73 @@ final class NavigationTracker: NSObject, WKNavigationDelegate {
     /// private key, onto the paper. Only this page itself is loaded as a document; no frame loads a local file.
     var generatedPageURL: URL?
     var isDownloadedPage = false
+    /// Set for the paginator: the paper is the document as first loaded. A `<meta http-equiv="refresh">` in a page
+    /// laid out from memory navigated it to a blank page, which then printed without its text and without an error.
+    var keepsFirstDocument = false
+    /// Set for a document opened from a file: it may go on to another document within its read access (an
+    /// `index.html` that refreshes to `chapter.html`), as it always could. Reloading itself is still refused.
+    var followsOtherDocuments = false
     private var allowedDownloadedPage = false
 
     func webView(
         _ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
         decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void
     ) {
-        if isDownloadedPage, navigationAction.targetFrame?.isMainFrame != false {
+        if isDownloadedPage || keepsFirstDocument, navigationAction.targetFrame?.isMainFrame != false,
+            !staysInDocument(navigationAction, current: webView.url)
+        {
             // The paper is the fetched response, even if a script or meta refresh tries to navigate elsewhere.
-            guard navigationAction.targetFrame != nil, !allowedDownloadedPage else {
+            guard navigationAction.targetFrame != nil else {
                 decisionHandler(.cancel)
                 return
+            }
+            if allowedDownloadedPage {
+                let leaves =
+                    followsOtherDocuments && !isDownloadedPage && navigationAction.navigationType != .reload
+                    && !Self.isSameDocument(navigationAction.request.url, webView.url)
+                guard leaves else {
+                    decisionHandler(.cancel)
+                    return
+                }
             }
             allowedDownloadedPage = true
         }
         decisionHandler(Self.allows(navigationAction, generatedPageURL: generatedPageURL) ? .allow : .cancel)
+    }
+
+    /// A jump to an anchor of the committed document: a GET that is not a form submission or reload, to the same
+    /// page with another fragment. The paginator let it through before it kept the first document. A refresh to an
+    /// anchor is reported as a reload and, in a page laid out from memory, loaded a blank page; a form posted to an
+    /// anchor loads a new document.
+    private func staysInDocument(_ action: WKNavigationAction, current: URL?) -> Bool {
+        guard keepsFirstDocument, !isDownloadedPage, hasCommitted, action.targetFrame != nil else { return false }
+        guard ![.reload, .formSubmitted, .formResubmitted].contains(action.navigationType),
+            (action.request.httpMethod ?? "GET").uppercased() == "GET"
+        else { return false }
+        return Self.differsOnlyByFragment(action.request.url, from: current)
+    }
+
+    /// The URL without its fragment. A page laid out from memory is `about:blank`, whose fragment WebKit reports
+    /// escaped (`about:blank%23b`).
+    private static func page(_ url: URL) -> (page: String, fragment: Bool) {
+        let string = url.absoluteString
+        if let hash = string.firstIndex(of: "#") { return (String(string[..<hash]), true) }
+        if url.scheme == "about", let escaped = string.range(of: "%23") {
+            return (String(string[..<escaped.lowerBound]), true)
+        }
+        return (string, false)
+    }
+
+    /// Whether the two URLs name the same document, whatever their fragments.
+    static func isSameDocument(_ url: URL?, _ current: URL?) -> Bool {
+        guard let url, let current else { return url == current }
+        return page(url).page == page(current).page
+    }
+
+    /// Whether `url` is `current` with another fragment: a navigation that does not load a document.
+    static func differsOnlyByFragment(_ url: URL?, from current: URL?) -> Bool {
+        guard let url, let current, url.absoluteString != current.absoluteString else { return false }
+        return page(url).fragment && isSameDocument(url, current)
     }
 
     private static func allows(_ action: WKNavigationAction, generatedPageURL: URL?) -> Bool {
@@ -1237,9 +1330,12 @@ final class NavigationTracker: NSObject, WKNavigationDelegate {
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
-        state = .failed(
-            NSError(domain: WKError.errorDomain, code: WKError.Code.webContentProcessTerminated.rawValue)
-                .localizedDescription)
+        let message =
+            terminationError
+            ?? NSError(domain: WKError.errorDomain, code: WKError.Code.webContentProcessTerminated.rawValue)
+            .localizedDescription
+        terminationError = message
+        state = .failed(message)
     }
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {

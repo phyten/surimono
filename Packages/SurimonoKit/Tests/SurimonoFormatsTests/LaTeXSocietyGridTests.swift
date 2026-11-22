@@ -1,4 +1,5 @@
 import Foundation
+import RobustnessSupport
 import Testing
 
 @testable import SurimonoFormats
@@ -111,18 +112,18 @@ struct LaTeXSocietyGridTests {
     @Test("学会クラス名・パッケージ・文献スタイルを解決するために周辺ファイルを開かない")
     func companionFiles() {
         for name in ["ipsj", "ieicej", "ieice"] {
-            var requests: [URL] = []
+            let requests = Locked<[URL]>([])
             let tex =
                 "\\documentclass{\(name)}" + #"\usepackage{newtxtext}\bibliographystyle{local}"#
                 + #"\begin{document}Body.\end{document}"#
             let result = LaTeXConverter.convert(
                 tex, documentURL: URL(fileURLWithPath: "/sample/main.tex"),
                 readFile: {
-                    requests.append($0)
+                    requests.value.append($0)
                     return nil
                 })
             #expect(result.body.contains("Body."))
-            #expect(requests.isEmpty)
+            #expect(requests.value.isEmpty)
         }
     }
 

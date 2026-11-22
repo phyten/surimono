@@ -14,6 +14,8 @@ private final class PrintMarkupWriter {
     private var references: [String: Int] = [:]
 
     private var vectorLabels: [String: [String]]
+    /// Whether some elements were kept as text because they nested deeper than the stack allows.
+    private(set) var reachedNestingLimit = false
     private var numbering: DocxNumbering?
 
     init(format: DocumentFormat, numbering: DocxNumbering?, vectorLabels: [String: [String]]) {
@@ -50,7 +52,7 @@ private final class PrintMarkupWriter {
         var occupied: Set<String> = []
         var suffixes: [String: Int] = [:]
         func visit(_ node: MarkupElement) {
-            guard node.ptr.pointee.type == XML_ELEMENT_NODE, node.name != "script" else { return }
+            guard node.ptr.pointee.type == XML_ELEMENT_NODE, node.name != "script", StackSpace.hasRoom else { return }
             let explicit = node.attribute("id")
             if let explicit { occupied.insert(explicit) }
             if ["h1", "h2", "h3", "h4", "h5", "h6"].contains(node.name) {
@@ -151,6 +153,12 @@ private final class PrintMarkupWriter {
     func render(_ node: MarkupElement) -> String {
         if node.ptr.pointee.type == XML_TEXT_NODE || node.ptr.pointee.type == XML_CDATA_SECTION_NODE {
             return HTML.escape(node.text)
+        }
+        // libxml2 nests elements up to 256 deep, more than a 512 KiB stack holds in a debug build; below that the
+        // element's text is kept without its markup.
+        guard StackSpace.hasRoom else {
+            reachedNestingLimit = true
+            return "<p>\(HTML.escape(node.text))</p>"
         }
         guard node.ptr.pointee.type == XML_ELEMENT_NODE, node.name != "script" else { return "" }
         if format == .docx, let html = wordElement(node) { return html }
@@ -277,9 +285,20 @@ private final class PrintMarkupWriter {
 }
 
 enum PrintMarkup {
+    /// On a stack of known size, so a document reads the same on every thread.
     static func fragment(
         _ html: String, format: DocumentFormat, metadataTitle: String? = nil, numbering: DocxNumbering? = nil,
         vectorLabels: [String: [String]] = [:]
+    ) throws -> HTMLFragment {
+        try StackSpace.onLargeStack { () throws -> HTMLFragment in
+            try fragmentInPlace(
+                html, format: format, metadataTitle: metadataTitle, numbering: numbering, vectorLabels: vectorLabels)
+        }
+    }
+
+    private static func fragmentInPlace(
+        _ html: String, format: DocumentFormat, metadataTitle: String?, numbering: DocxNumbering?,
+        vectorLabels: [String: [String]]
     ) throws -> HTMLFragment {
         try MarkupHTML.withBody(html) { body in
             let writer = PrintMarkupWriter(format: format, numbering: numbering, vectorLabels: vectorLabels)
@@ -288,7 +307,9 @@ enum PrintMarkup {
             html += writer.notes()
             let fonts = MathRenderer.fontFaces(for: html)
             if !fonts.isEmpty { html += "<style>\(fonts)</style>" }
-            return HTMLFragment(body: html, title: writer.wordTitle ?? metadataTitle ?? writer.title)
+            return HTMLFragment(
+                body: html, title: writer.wordTitle ?? metadataTitle ?? writer.title,
+                readingIssues: writer.reachedNestingLimit ? [StackSpace.limitIssue] : [])
         }
     }
 }

@@ -321,6 +321,32 @@ struct PrintIssueTests {
         #expect(PrintIssueText.title(issue, language: "ja") == #"読み取れなかった LaTeX コマンド：\memo"#)
     }
 
+    @Test("入れ子が深すぎて省く部分は、選択言語で知らせ、操作の案内を出さない")
+    func nestingOmission() {
+        let issue = PrintIssue(id: "0", kind: .nestingOmission, detail: "Nesting limit reached; part left out")
+        for language in ["en", "ja", "de", "es", "fr", "ko", "zh-Hans", "zh-Hant"] {
+            if language != "en" {
+                #expect(PrintIssueText.title(issue, language: language) != PrintIssueText.title(issue, language: "en"))
+            }
+            #expect(PrintIssueText.advice(issue, language: language).isEmpty)
+        }
+        #expect(PrintIssueText.title(issue, language: "ja") == "入れ子が深すぎる部分は、省いて印刷します。")
+        #expect(issue.group == .content)
+    }
+
+    @Test("入れ子が深すぎて文字のまま刷る部分は、選択言語で知らせ、操作の案内を出さない")
+    func nestingLimit() {
+        let issue = PrintIssue(id: "0", kind: .nestingLimit, detail: "Nesting limit reached")
+        for language in ["en", "ja", "de", "es", "fr", "ko", "zh-Hans", "zh-Hant"] {
+            if language != "en" {
+                #expect(PrintIssueText.title(issue, language: language) != PrintIssueText.title(issue, language: "en"))
+            }
+            #expect(PrintIssueText.advice(issue, language: language).isEmpty)
+        }
+        #expect(PrintIssueText.title(issue, language: "ja") == "入れ子が深すぎる部分は、原文のまま印刷します。")
+        #expect(issue.group == .content)
+    }
+
     @Test("ページ番号を特定できなかったときは印刷前の確認に選択言語で知らせる")
     func unresolvedLaTeXPages() {
         let issue = PrintIssue.unresolvedLaTeXPages

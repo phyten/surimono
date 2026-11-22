@@ -32,8 +32,10 @@ package struct HTMLScanner {
         func flushText(upTo end: Int) {
             if textStart < end { tokens.append(.text(string(textStart..<end))) }
         }
+        var tagEnds = TagEnds(bytes)
         while index < bytes.count {
-            guard bytes[index] == UInt8(ascii: "<"), let end = markupEnd(in: bytes, at: index) else {
+            guard bytes[index] == UInt8(ascii: "<"), let end = markupEnd(in: bytes, at: index, tagEnds: &tagEnds)
+            else {
                 index += 1
                 continue
             }
@@ -57,8 +59,84 @@ package struct HTMLScanner {
         return tokens
     }
 
+    /// Where a tag that starts scanning at an offset ends. Scanning forward from every `<` is quadratic when the
+    /// tags never end (`<a <a <a …`, 30 KB took seconds). A scan is a walk whose next step depends only on the offset
+    /// and whether it is inside a `"` or `'` quote, so two walks that reach the same offset in the same state end
+    /// alike. After the first walk that runs off the end, every offset and state a failed walk passed is marked, and
+    /// a later walk that reaches a mark stops there: each offset is passed at most three times by failed walks, and
+    /// a walk that ends moves the reader past everything it passed. The marks take a byte per byte after that first
+    /// tag; ordinary pages, whose tags end, never make them.
+    struct TagEnds {
+        let bytes: [UInt8]
+        let lastGreater: Int
+        /// From `base` on, a bit per quote state (none, `"`, `'`) in which a walk at that offset finds no end.
+        private var failed: [UInt8] = []
+        private var base = 0
+
+        init(_ bytes: [UInt8]) {
+            self.bytes = bytes
+            lastGreater = bytes.lastIndex(of: UInt8(ascii: ">")) ?? -1
+        }
+
+        /// The offset after the `>` that ends a tag whose name starts at `start`, or nil when none does.
+        mutating func end(from start: Int) -> Int? {
+            guard start <= lastGreater else { return nil }
+            // Until a tag runs off the end there are no marks: a plain forward scan, as fast as it ever was.
+            if failed.isEmpty, let end = Self.scan(bytes, from: start) { return end }
+            if !failed.isEmpty, let end = walk(from: start, marking: false) { return end }
+            if failed.isEmpty {
+                base = start
+                failed = [UInt8](repeating: 0, count: bytes.count - start)
+            }
+            // The same walk again, marking what it passes; it stops where the first one did.
+            _ = walk(from: start, marking: true)
+            return nil
+        }
+
+        private static func scan(_ bytes: [UInt8], from start: Int) -> Int? {
+            bytes.withUnsafeBufferPointer { buffer in
+                var quote: UInt8 = 0
+                var index = start
+                while index < buffer.count {
+                    let byte = buffer[index]
+                    if quote != 0 {
+                        if byte == quote { quote = 0 }
+                    } else if byte == UInt8(ascii: "\"") || byte == UInt8(ascii: "'") {
+                        quote = byte
+                    } else if byte == UInt8(ascii: ">") {
+                        return index + 1
+                    }
+                    index += 1
+                }
+                return nil
+            }
+        }
+
+        private mutating func walk(from start: Int, marking: Bool) -> Int? {
+            var quote: UInt8 = 0
+            var index = start
+            while index < bytes.count {
+                if !failed.isEmpty, index >= base {
+                    let bit: UInt8 = quote == 0 ? 1 : quote == UInt8(ascii: "\"") ? 2 : 4
+                    if failed[index - base] & bit != 0 { return nil }
+                    if marking { failed[index - base] |= bit }
+                }
+                let byte = bytes[index]
+                if quote != 0 {
+                    if byte == quote { quote = 0 }
+                } else if byte == UInt8(ascii: "\"") || byte == UInt8(ascii: "'") {
+                    quote = byte
+                } else if byte == UInt8(ascii: ">") {
+                    return index + 1
+                }
+                index += 1
+            }
+            return nil
+        }
+    }
+
     /// The offset after the markup that starts at `start`, or nil when the `<` there is an ordinary character.
-    private static func markupEnd(in bytes: [UInt8], at start: Int) -> Int? {
+    private static func markupEnd(in bytes: [UInt8], at start: Int, tagEnds: inout TagEnds) -> Int? {
         let next = start + 1
         guard next < bytes.count else { return nil }
         if matches("<!--", in: bytes, at: start) {
@@ -69,20 +147,7 @@ package struct HTMLScanner {
         }
         let nameStart = bytes[next] == UInt8(ascii: "/") ? next + 1 : next
         guard nameStart < bytes.count, isLetter(bytes[nameStart]) else { return nil }
-        var quote: UInt8?
-        var index = nameStart
-        while index < bytes.count {
-            let byte = bytes[index]
-            if let open = quote {
-                if byte == open { quote = nil }
-            } else if byte == UInt8(ascii: "\"") || byte == UInt8(ascii: "'") {
-                quote = byte
-            } else if byte == UInt8(ascii: ">") {
-                return index + 1
-            }
-            index += 1
-        }
-        return nil
+        return tagEnds.end(from: nameStart)
     }
 
     private static func tag(_ source: String) -> Tag? {

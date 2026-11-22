@@ -127,7 +127,9 @@ extension LaTeXReader {
     }
 
     func expandedPicture(_ text: String) throws -> String {
-        guard document.depth < LaTeXDocument.maximumDepth else { throw TikZError("expansion depth") }
+        guard document.depth < LaTeXDocument.maximumDepth, StackSpace.hasRoom else {
+            throw TikZError("expansion depth")
+        }
         document.depth += 1
         defer { document.depth -= 1 }
         let reader = LaTeXReader(text, document: document, isBlock: false)
@@ -233,7 +235,7 @@ extension LaTeXReader {
                 } else if name == "pgfmathsetmacro" {
                     guard let target = argument(),
                         target.range(of: #"^\\[a-zA-Z]+$"#, options: .regularExpression) != nil,
-                        let expr = argument(), document.depth < LaTeXDocument.maximumDepth
+                        let expr = argument(), document.depth < LaTeXDocument.maximumDepth, StackSpace.hasRoom
                     else {
                         expansion.failure = token
                         return

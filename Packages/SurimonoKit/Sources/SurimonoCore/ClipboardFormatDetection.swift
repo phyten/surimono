@@ -159,7 +159,7 @@ public enum ClipboardFormatDetector {
     ) -> ClipboardFormatDetection {
         var decisive = DiagramConverter.clipboardKind(text).flatMap(ClipboardTextKind.init)
         if decisive == nil, text.drop(while: { $0.isWhitespace }).first == "{",
-            let root = try? JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any],
+            let root = (try? NotebookConverter.jsonObject(text))?.value as? [String: Any],
             root["cells"] is [Any], NotebookConverter.version(root) != nil
         {
             decisive = .notebook

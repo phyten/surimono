@@ -10,15 +10,35 @@ public enum LaTeXConverter {
     package static let japaneseUnreadCommandPrefix = "読み取れなかったコマンド："
 
     /// Companion files are supplied by the caller so parsing never implicitly opens a path from the document.
+    /// Reads on a stack of known size (`StackSpace.onLargeStack`), so a document reads the same on every thread.
+    /// The callbacks run on the converter's own thread while the caller waits for it (`StackSpace.onLargeStack`):
+    /// they must not need the caller's thread or actor, and do not see its task-local values.
     public static func convert(
         _ text: String, composition: LaTeXComposition = .document, fontIndex: InstalledFontIndex = .system,
         directory: URL? = nil,
-        documentURL: URL? = nil, textWidthPoints: Double? = nil, imageExists: @escaping (URL) -> Bool = { _ in false },
-        canProbePictureFallback: @escaping (URL) -> Bool = { _ in true },
-        imageSizeInPoints: @escaping (URL) -> CGSize? = { _ in nil },
-        readFile: @escaping (URL) -> Data? = { _ in nil },
-        modificationDate: @escaping (URL) -> Date? = { _ in nil },
-        fileIdentity: @escaping (URL) -> URL = { $0.standardizedFileURL }
+        documentURL: URL? = nil, textWidthPoints: Double? = nil,
+        imageExists: @escaping @Sendable (URL) -> Bool = { _ in false },
+        canProbePictureFallback: @escaping @Sendable (URL) -> Bool = { _ in true },
+        imageSizeInPoints: @escaping @Sendable (URL) -> CGSize? = { _ in nil },
+        readFile: @escaping @Sendable (URL) -> Data? = { _ in nil },
+        modificationDate: @escaping @Sendable (URL) -> Date? = { _ in nil },
+        fileIdentity: @escaping @Sendable (URL) -> URL = { $0.standardizedFileURL }
+    ) -> HTMLFragment {
+        StackSpace.onLargeStack {
+            convertInPlace(
+                text, composition: composition, fontIndex: fontIndex, directory: directory, documentURL: documentURL,
+                textWidthPoints: textWidthPoints, imageExists: imageExists,
+                canProbePictureFallback: canProbePictureFallback, imageSizeInPoints: imageSizeInPoints,
+                readFile: readFile, modificationDate: modificationDate, fileIdentity: fileIdentity)
+        }
+    }
+
+    private static func convertInPlace(
+        _ text: String, composition: LaTeXComposition, fontIndex: InstalledFontIndex, directory: URL?,
+        documentURL: URL?, textWidthPoints: Double?, imageExists: @escaping (URL) -> Bool,
+        canProbePictureFallback: @escaping (URL) -> Bool, imageSizeInPoints: @escaping (URL) -> CGSize?,
+        readFile: @escaping (URL) -> Data?, modificationDate: @escaping (URL) -> Date?,
+        fileIdentity: @escaping (URL) -> URL
     ) -> HTMLFragment {
         let source = TextDecoding.normalizeNewlines(text)
         func makeReader(_ choice: LaTeXComposition) -> LaTeXReader {

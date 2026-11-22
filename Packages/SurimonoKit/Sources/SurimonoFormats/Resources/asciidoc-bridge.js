@@ -15,6 +15,42 @@ Extensions.register(function () {
     }
 });
 
+// Asciidoctor builds an array as large as a table's span, row span, repeat count or column count: one cell spanning
+// 9,999,999 columns took over 3 GB. The numbers it parsed itself are capped, so cell text that only looks like a
+// specifier, custom separators and every table format keep Asciidoctor's own reading. (Tests set
+// `surimonoUncappedTables` to compare the capped reading with the bundled parser's.)
+const maximumTableSpan = 1000;
+const parseCellspec = Parser.parseCellspec;
+Parser.parseCellspec = function (...args) {
+    const result = parseCellspec.apply(this, args);
+    if (globalThis.surimonoUncappedTables) return result;
+    const spec = result[0];
+    if (spec) {
+        for (const key of ['colspan', 'rowspan', 'repeatcol']) {
+            if (spec[key] > maximumTableSpan) spec[key] = maximumTableSpan;
+        }
+    }
+    return result;
+};
+const parseColspecs = Parser.parseColspecs;
+Parser.parseColspecs = function (records, ...rest) {
+    if (typeof records !== 'string' || globalThis.surimonoUncappedTables) {
+        return parseColspecs.call(this, records, ...rest);
+    }
+    // The parser's own first steps: spaces removed once, then a plain number (`String(parseInt(...))`, so `01001`
+    // is a width, not a count) is a column count.
+    const compact = records.replace(/ /g, '');
+    if (compact === String(parseInt(compact, 10))) {
+        const count = parseInt(compact, 10) > maximumTableSpan ? String(maximumTableSpan) : compact;
+        return parseColspecs.call(this, count, ...rest);
+    }
+    // Otherwise only each column spec's repeat count (`ColumnSpecRx`'s leading `(\d+)\*`) is capped.
+    const separator = compact.includes(',') ? ',' : ';';
+    const capped = compact.split(separator).map(record => record.replace(/^(\d+)\*/, (spec, digits) =>
+        parseInt(digits, 10) > maximumTableSpan ? maximumTableSpan + '*' : spec)).join(separator);
+    return parseColspecs.call(this, capped, ...rest);
+};
+
 const quoted = Html5Converter.prototype.convert_inline_quoted;
 Html5Converter.prototype.convert_inline_quoted = function (node) {
     if (node.type === 'latexmath' || node.type === 'asciimath') {

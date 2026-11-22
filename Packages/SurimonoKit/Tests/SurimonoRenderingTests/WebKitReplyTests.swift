@@ -43,4 +43,22 @@ struct WebKitReplyTests {
         await #expect(throws: CancellationError.self) { try await task.value }
         #expect(start.duration(to: .now) < .seconds(1))
     }
+
+    @Test("プロセスが終わったあとの応答の待ちは、始める前と結果を採る前に終了のエラーになる")
+    func endedProcess() async throws {
+        await #expect(throws: WebPaginator.PaginationError.loadFailed("ended")) {
+            try await WebKitReply<Int>.wait(
+                until: .now + .seconds(30), ended: { "ended" }, start: { reply in reply(.success(1)) })
+        }
+        var ended: String?
+        await #expect(throws: WebPaginator.PaginationError.loadFailed("ended late")) {
+            try await WebKitReply<Int>.wait(
+                until: .now + .seconds(30), ended: { ended },
+                start: { reply in
+                    // The process ends between the reply and its being taken.
+                    ended = "ended late"
+                    reply(.success(1))
+                })
+        }
+    }
 }

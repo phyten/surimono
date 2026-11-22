@@ -73,7 +73,7 @@ extension LaTeXReader {
     /// source's character array, so they must be restored with its cursor.
     func readExpansionBody(_ source: String) {
         guard !source.isEmpty, !document.stopsExpanding else { return }
-        guard document.depth < LaTeXDocument.maximumDepth else {
+        guard document.depth < LaTeXDocument.maximumDepth, StackSpace.hasRoom else {
             document.stopsExpanding = true
             return
         }
@@ -299,7 +299,7 @@ extension LaTeXReader {
 
     /// ifthen evaluates and/or left to right. Parentheses are the package tokens \( and \), not math here.
     private func logicalExpression(depth: Int) -> Bool {
-        guard document.depth + depth < LaTeXDocument.maximumDepth else {
+        guard document.depth + depth < LaTeXDocument.maximumDepth, StackSpace.hasRoom else {
             document.stopsExpanding = true
             return false
         }

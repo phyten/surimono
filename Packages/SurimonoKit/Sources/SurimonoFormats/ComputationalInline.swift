@@ -47,28 +47,21 @@ extension ComputationalBody {
     }
 
     mutating func inline(_ source: String) -> String {
-        // Consume literal spans, math, tags and link destinations before looking for prose extensions.
-        let pattern =
-            #/
-            (`+)(.*?)\1(?!`)                  # inline code, including literal examples
-            | \$\$.*?\$\$ | \$[^$]+\$         # math
-            | <[^>]+> | \]\([^)]+\)           # raw tag or link destination
-            | \{\{<\s*(.*?)\s*>\}\}           # shortcode
-            | \^\[([^\]]+)\]                  # anonymous footnote
-            | \[([^\]]*)\]\{([.\#][^}]+)\}    # attributed span
-            | \\@ref\(([\w:.-]+)\)            # bookdown
-            | \[(\-?)@([\w:.-]+)\]            # bracketed cross-reference
-            | @([\w:-]+(?:\.[\w:-]+)*)        # bare reference
-            /#
+        // Every alternative starts with one of these characters; a line without any is returned as it is.
+        guard source.utf8.contains(where: { [96, 36, 60, 93, 123, 94, 91, 92, 64].contains($0) }) else { return source }
+        // Literal spans, math, tags and link destinations are consumed before the prose extensions are looked for.
+        let scanner = ComputationalInlineScanner(source)
+        let characters = scanner.characters
+        func text(_ range: Range<Int>) -> String { String(characters[range]) }
         var html = ""
-        var start = source.startIndex
-        for match in source.matches(of: pattern) {
-            html += source[start..<match.range.lowerBound]
-            let original = String(source[match.range])
-            if let code = match.2, let expr = code.wholeMatch(of: /^(?:r|\{[\w.+-]+\})\s+(.+)$/) {
+        var start = 0
+        for match in scanner.matches() {
+            html += text(start..<match.range.lowerBound)
+            let original = text(match.range)
+            if let code = match.code, let expr = text(code).wholeMatch(of: /^(?:r|\{[\w.+-]+\})\s+(.+)$/) {
                 html += deferInsertion(
                     .literal("<code class=\"inline-expression\">\(HTML.escape(String(expr.1)))</code>"))
-            } else if let shortcode = match.3 {
+            } else if let shortcode = match.shortcode.map(text) {
                 let args = shortcode.split(maxSplits: 1, whereSeparator: \.isWhitespace)
                 let value = args.count > 1 ? String(args[1]) : ""
                 switch args.first {
@@ -79,25 +72,27 @@ extension ComputationalBody {
                 case "meta": html += deferInsertion(.literal(HTML.escape(metadata.values[value] ?? "")))
                 default: html += deferInsertion(.literal("<code>\(HTML.escape(original))</code>"))
                 }
-            } else if let footnote = match.4 {
+            } else if let footnote = match.footnote {
                 let id = "\(token)note\(notes.count)"
-                let definition = inline(String(footnote))
+                let definition = inline(text(footnote))
                 notes.append("[^\(id)]: \(definition)")
                 html += "[^\(id)]"
-            } else if let text = match.5, let attrs = match.6 {
-                html += "<span\(ComputationalAttributes(String(attrs)).html)>\(inline(String(text)))</span>"
-            } else if match.10 != nil, let prior = source[..<match.range.lowerBound].last,
+            } else if let spanText = match.spanText, let attrs = match.spanAttributes {
+                html += "<span\(ComputationalAttributes(text(attrs)).html)>\(inline(text(spanText)))</span>"
+            } else if match.bareReference != nil, match.range.lowerBound > 0,
+                case let prior = characters[match.range.lowerBound - 1],
                 prior.isLetter || prior.isNumber || prior == "_" || prior == "\\"
             {
                 html += original
-            } else if let ref = match.7 ?? match.9 ?? match.10 {
-                html += deferInsertion(.reference(id: String(ref), numberOnly: match.8 == "-", original: original))
+            } else if let ref = match.bookdown ?? match.crossReference ?? match.bareReference {
+                let numberOnly = match.crossReferenceMinus.map { !$0.isEmpty } ?? false
+                html += deferInsertion(.reference(id: text(ref), numberOnly: numberOnly, original: original))
             } else {
                 html += original
             }
             start = match.range.upperBound
         }
-        return html + source[start...]
+        return html + text(start..<characters.count)
     }
 
     func resolve(_ html: String, plainText: Bool = false) -> String {

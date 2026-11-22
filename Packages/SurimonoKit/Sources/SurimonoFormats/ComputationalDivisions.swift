@@ -47,7 +47,8 @@ struct ComputationalDivision {
 
 extension ComputationalBody {
     mutating func division(_ line: String, lines: [String], index: inout Int) -> Bool {
-        guard let match = line.wholeMatch(of: /^ {0,3}(:{3,})\s*(.*?)\s*$/) else { return false }
+        guard line.utf8.first(where: { $0 != 32 }) == 58, let match = line.wholeMatch(of: /^ {0,3}(:{3,})\s*(.*?)\s*$/)
+        else { return false }
         let width = match.1.count
         if match.2.isEmpty {
             guard let current = divisions.last, current.width <= width else { return false }
@@ -121,7 +122,7 @@ extension ComputationalBody {
     mutating func prose(_ line: String) {
         if line.trimmingCharacters(in: .whitespaces) == #"\newpage"# {
             block("<div class=\"page-break\"></div>")
-        } else if let match = line.wholeMatch(of: /^(#{1,6})\s+(.*?)(?:\s+\{([^{}]+)\})?\s*$/) {
+        } else if line.hasPrefix("#"), let match = line.wholeMatch(of: /^(#{1,6})\s+(.*?)(?:\s+\{([^{}]+)\})?\s*$/) {
             let level = match.1.count
             let attrs = ComputationalAttributes(match.3.map(String.init) ?? "")
             var title = String(match.2)
@@ -145,16 +146,18 @@ extension ComputationalBody {
             }
             if !attrs.classes.contains("unlisted") { headings.append((level, id, title)) }
             output.append("\(match.1) \(inline(title)) {#\(id)}")
-        } else if let match = line.wholeMatch(of: /^\s*(!\[([^\]]*)\]\(.+\))\s*\{#(fig-[\w:.-]+)\}\s*$/) {
+        } else if line.contains("{#fig-"),
+            let match = line.wholeMatch(of: /^\s*(!\[([^\]]*)\]\(.+\))\s*\{#(fig-[\w:.-]+)\}\s*$/)
+        {
             let target = register(String(match.3), kind: "fig")
             block("<figure\(target.attribute)>")
             output.append(String(match.1))
             block("<figcaption>\(target.text) \(HTML.escape(String(match.2)))</figcaption></figure>")
-        } else if let match = line.wholeMatch(of: /^:\s+(.+?)\s+\{#(tbl-[\w:.-]+)\}\s*$/) {
+        } else if line.hasPrefix(":"), let match = line.wholeMatch(of: /^:\s+(.+?)\s+\{#(tbl-[\w:.-]+)\}\s*$/) {
             let target = register(String(match.2), kind: "tbl")
             block(
                 "<div\(target.attribute) class=\"table-caption\">\(target.text) \(HTML.escape(String(match.1)))</div>")
-        } else if let match = line.wholeMatch(of: /^(.*\$\$)\s*\{#(eq-[\w:.-]+)\}\s*$/) {
+        } else if line.contains("{#eq-"), let match = line.wholeMatch(of: /^(.*\$\$)\s*\{#(eq-[\w:.-]+)\}\s*$/) {
             let target = register(String(match.2), kind: "eq")
             output.append(String(match.1))
             block("<div\(target.attribute) class=\"equation-number\">(\(target.number))</div>")
