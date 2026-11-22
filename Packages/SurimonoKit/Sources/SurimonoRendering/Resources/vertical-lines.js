@@ -186,4 +186,5 @@ globalThis.surimonoIndexSlices = cuts => {
         for (const el of previous) el.classList.remove('surimono-off-page');
     };
 };
+globalThis.surimonoFormulaIndex?.native();
 return JSON.stringify(bands);

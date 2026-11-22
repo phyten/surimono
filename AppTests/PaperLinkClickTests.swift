@@ -111,7 +111,7 @@ struct PaperLinkClickTests {
         let diagram = RenderedDiagram(
             number: 1, pageIndex: 0, rect: CGRect(x: 250, y: 400, width: 100, height: 50), svg: "<svg/>")
         view.diagrams = [diagram]
-        let titles = PaperDiagramAction.allCases.map(\.title)
+        let titles = PaperDiagramAction.actions(for: diagram).map { $0.title(for: diagram) }
         let outside = view.menu(for: event(.rightMouseDown, view, window, at: Self.offLink))
         #expect(outside?.items.contains { titles.contains($0.title) } != true)
         let inside = try #require(view.menu(for: event(.rightMouseDown, view, window, at: Self.onLink)))
@@ -121,10 +121,34 @@ struct PaperLinkClickTests {
             #expect(action == .copyPNG)
             chosen = selected
         }
-        let copy = try #require(inside.items.first { $0.title == PaperDiagramAction.copyPNG.title })
+        let copy = try #require(inside.items.first { $0.title == PaperDiagramAction.copyPNG.title(for: diagram) })
         let action = try #require(copy.action)
         #expect(NSApp.sendAction(action, to: copy.target, from: copy))
         #expect(chosen == diagram)
+        withExtendedLifetime(window) {}
+    }
+
+    @Test("数式のメニューはリンクの項目を保ち、通常の紙面には追加しない")
+    func formulaMenu() throws {
+        let (view, window, _) = try paper()
+        let link = NSMenu()
+        link.addItem(withTitle: "Link", action: nil, keyEquivalent: "")
+        #expect(view.graphicMenu(link, hit: nil) === link)
+        let formula = RenderedDiagram(number: 1, pageIndex: 0, rect: .zero, svg: "<svg/>", formulaSource: "a+b")
+        let menu = try #require(view.graphicMenu(link, hit: formula))
+        #expect(
+            menu.items.map(\.title) == [
+                "Link", "", String(localized: "Save Formula as SVG…"), String(localized: "Save Formula as PNG…"),
+                String(localized: "Copy Formula as PNG"), String(localized: "Copy LaTeX Source"),
+            ])
+        var source: String?
+        view.onDiagram = { value, action in
+            #expect(action == .copySource)
+            source = value.formulaSource
+        }
+        let item = try #require(menu.items.last)
+        #expect(NSApp.sendAction(try #require(item.action), to: item.target, from: item))
+        #expect(source == "a+b")
         withExtendedLifetime(window) {}
     }
 

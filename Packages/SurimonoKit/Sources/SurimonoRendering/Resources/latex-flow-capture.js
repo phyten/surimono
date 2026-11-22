@@ -72,12 +72,13 @@ for (const [id, unique] of byStrip) {
         }
         return entries[lo].index;
     };
-    if (links) {
+    if (links || globalThis.surimonoFormulaIndex) {
         const marks = [];
         const record = (rect, ownerY, data) => marks.push({...data, start:pieces[at(ownerY)].start,
             x:(rect.left+scrollX)*unit-origins[id].x, y:(rect.top+scrollY)*unit-origin,
             width:rect.width*unit, height:rect.height*unit});
-        for (const el of strips[id].querySelectorAll('[id],a[href]')) {
+        globalThis.surimonoFormulaIndex?.entries(strips[id], (_,r,href) => record(r,(r.top+r.bottom)/2,{href}));
+        if (links) for (const el of strips[id].querySelectorAll('[id],a[href]')) {
             if (destinations.has(el.id)) {
                 const float = el.hasAttribute('data-latex-float-anchor') && el.closest('figure');
                 let r = (float || el).getBoundingClientRect(), ownerY = r.top+.01;

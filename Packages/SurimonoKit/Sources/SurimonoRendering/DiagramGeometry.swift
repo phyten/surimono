@@ -19,6 +19,8 @@ enum DiagramGeometry {
     struct Source: Decodable {
         let svg: String
         let heightToWidth: CGFloat
+        var widthFraction: CGFloat?
+        var formulaSource: String?
     }
 
     @MainActor
@@ -42,15 +44,18 @@ enum DiagramGeometry {
                     let rect = link.bounds.intersection(page.bounds(for: .cropBox))
                     if !rect.isEmpty, !rect.isNull {
                         let source = sources[index]
-                        let width = link.bounds.width
+                        let width = link.bounds.width * (source.widthFraction ?? 1)
                         // WebKit splits a tall link at page breaks. Its printed width still gives the scale of the
                         // complete SVG, whose DOM rectangle supplied the aspect ratio before pagination.
                         let height = width * source.heightToWidth
                         let size = CGSize(
-                            width: width, height: abs(height - link.bounds.height) <= 1 ? link.bounds.height : height)
+                            width: width,
+                            height: source.formulaSource == nil && abs(height - link.bounds.height) <= 1
+                                ? link.bounds.height : height)
                         diagrams.append(
                             RenderedDiagram(
-                                number: index + 1, pageIndex: pageIndex, rect: rect, svg: source.svg, pointSize: size))
+                                number: index + 1, pageIndex: pageIndex, rect: rect, svg: source.svg, pointSize: size,
+                                formulaSource: source.formulaSource))
                     }
                 }
             }
@@ -58,8 +63,40 @@ enum DiagramGeometry {
         }
     }
 
+    static let placeAnchors = """
+        function placePaperAnchors(probes) {
+          if (!probes.length) return;
+          const style = document.createElement('style');
+          style.textContent = '.surimono-diagram-anchor::before,.surimono-diagram-anchor::after{content:none!important}';
+          document.head.append(style);
+          // Probe every host before reading positions. Interleaving writes and reads forces a layout per formula.
+          for (const p of probes) p.position = getComputedStyle(p.host).position;
+          for (const p of probes) {
+            if (p.position === 'static') p.host.style.setProperty('position','relative','important');
+            const anchor = document.createElement('a');
+            anchor.className = 'surimono-diagram-anchor';
+            anchor.href = p.href;
+            const rules = {all:'initial',position:'absolute',display:'block',left:'0',top:'0',width:'1px',height:'1px',
+              margin:'0',padding:'0',border:'0',background:'transparent','line-height':'0','font-size':'0','pointer-events':'none'};
+            for (const [key,value] of Object.entries(rules)) anchor.style.setProperty(key,value,'important');
+            p.host.append(anchor);
+            p.anchor = anchor;
+          }
+          for (const p of probes) p.origin = p.anchor.getBoundingClientRect();
+          // A one-pixel probe includes all ancestor zoom factors, including zoom from a custom theme.
+          for (const {anchor,origin,box} of probes) {
+            if (!origin.width || !origin.height) continue;
+            for (const [key,value] of Object.entries({left:(box.left-origin.left)/origin.width,
+              top:(box.top-origin.top)/origin.height,width:box.width/origin.width,height:box.height/origin.height})) {
+              anchor.style.setProperty(key,value+'px','important');
+            }
+          }
+        }
+        """
+
     static func anchors(printWidth: CGFloat, token: String) -> String {
         """
+        \(placeAnchors)
         const rendered = globalThis.surimonoRenderedDiagrams;
         if (!rendered) return '[]';
         const diagrams = [...document.querySelectorAll('.mermaid-block > svg,.graphviz-block > svg,.plantuml-block > svg,.tikz-block > svg')]
@@ -70,9 +107,7 @@ enum DiagramGeometry {
         const zoom = parseFloat(getComputedStyle(root).zoom) || 1;
         root.style.width = (\(printWidth) / zoom) + 'px';
         const sources = [];
-        const style = document.createElement('style');
-        style.textContent = '.surimono-diagram-anchor::before,.surimono-diagram-anchor::after{content:none!important}';
-        document.head.append(style);
+        const probes = [];
         for (const svg of diagrams) {
           const css = getComputedStyle(svg);
           const box = svg.getBoundingClientRect();
@@ -91,24 +126,9 @@ enum DiagramGeometry {
           clone.style.color = css.color;
           const index = sources.length;
           sources.push({svg: new XMLSerializer().serializeToString(clone), heightToWidth: box.height / box.width});
-          const host = svg.parentElement;
-          if (getComputedStyle(host).position === 'static') host.style.setProperty('position','relative','important');
-          const anchor = document.createElement('a');
-          anchor.className = 'surimono-diagram-anchor';
-          anchor.href = 'surimono-diagram:\(token)/' + index;
-          const rules = {all:'initial', position:'absolute',display:'block',left:'0',top:'0',
-            width:'1px',height:'1px',margin:'0',padding:'0',border:'0',background:'transparent',
-            'line-height':'0','font-size':'0','pointer-events':'none'};
-          for (const [key, value] of Object.entries(rules)) anchor.style.setProperty(key,value,'important');
-          host.append(anchor);
-          const origin = anchor.getBoundingClientRect();
-          if (!origin.width || !origin.height) continue;
-          // A one-pixel probe includes all ancestor zoom factors, including zoom from a custom theme.
-          for (const [key, value] of Object.entries({left:(box.left-origin.left)/origin.width,
-            top:(box.top-origin.top)/origin.height,width:box.width/origin.width,height:box.height/origin.height})) {
-            anchor.style.setProperty(key,value+'px','important');
-          }
+          probes.push({host:svg.parentElement,box,href:'surimono-diagram:\(token)/'+index});
         }
+        placePaperAnchors(probes);
         root.style.cssText = prior;
         return JSON.stringify(sources);
         """

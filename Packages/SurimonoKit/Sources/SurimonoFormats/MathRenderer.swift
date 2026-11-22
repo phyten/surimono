@@ -21,12 +21,13 @@ public enum MathRenderer {
 
     static func html(
         _ latex: String, display: Bool, macros: String, rowNumberHTML: [String?], measureRows: Bool = false,
-        reportTruncation: Bool = true, sansMathAlphabet: Bool = false
+        reportTruncation: Bool = true, sansMathAlphabet: Bool = false, originalSource: String? = nil
     ) -> String? {
         let source = latex.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !source.isEmpty, let parsed = try? parseLaTeX(macros + source) else { return nil }
         let nodes = sansMathAlphabet ? parsed.map { sansLetter($0, depth: 0) } : parsed
-        let box = layout(nodes, options: LayoutOptions(style: display ? .display : .text))
+        let options = LayoutOptions(style: display ? .display : .text)
+        let box = layout(nodes, options: options)
         let list = toDisplayList(box)
         guard !reportTruncation || !list.truncated else { return nil }
         let rows = rowNumberHTML.isEmpty ? [] : rowBaselines(in: box)
@@ -39,7 +40,8 @@ public enum MathRenderer {
         if measureRows, let first = rows.first, let last = rows.last {
             metrics = " data-latex-first-baseline=\"\(first)\" data-latex-last-baseline=\"\(last)\""
         }
-        let svg = SVGRenderer(options: SVGOptions(fontSize: fontSize, padding: 0)).render(list)
+        let renderer = SVGRenderer(options: SVGOptions(fontSize: fontSize, padding: 0))
+        let svg = renderer.render(list)
         let nsSVG = svg as NSString
         guard let viewBox, let size,
             let bounds = viewBox.firstMatch(in: svg, range: NSRange(location: 0, length: nsSVG.length)),
@@ -49,10 +51,17 @@ public enum MathRenderer {
         func em(_ value: Double) -> String { String(format: "%.4fem", value * scale) }
         // In em the formula follows the text size of the theme; it sits on the baseline by its depth, and glyphs that
         // reach past the layout box (a fraction's descenders) are not clipped.
+        // cmark still parses the enclosing block. Literal newlines in an attribute can
+        // end a list item; keep the original UTF-8 bytes outside Markdown's grammar.
+        let original = originalSource ?? latex
+        let savedSource =
+            original == source ? "" : " data-formula-source=\"\(Data(original.utf8).base64EncodedString())\""
         let attributes =
             " width=\"\(em(width / fontSize))\" height=\"\(em(height / fontSize))\""
             + " style=\"vertical-align: -\(em(list.depth)); overflow: visible\""
             + " role=\"img\" aria-label=\"\(HTML.escape(source))\""
+            + savedSource
+            + tagAttribute(nodes: nodes, options: options, renderer: renderer, svg: svg)
             + (display ? "" : inlineGlue(nodes: nodes, box: box, list: list))
         // Only the root element's size: the rules of fractions and radicals are rects with sizes of their own.
         guard let root = size.firstMatch(in: svg, range: NSRange(location: 0, length: nsSVG.length)) else { return nil }
@@ -60,6 +69,49 @@ public enum MathRenderer {
         // Formulas take the theme's text color unless they set a color of their own.
         html = html.replacingOccurrences(of: "\"rgba(0,0,0,1)\"", with: "\"currentColor\"")
         return "<span class=\"math math-\(display ? "display" : "inline")\"\(metrics)>\(html)\(labels)</span>"
+    }
+
+    /// Some formats leave tags inside SwaTex's SVG. A phantom keeps the tag column's
+    /// exact dimensions, giving us the same paint sequence with just those marks omitted.
+    private static func tagAttribute(nodes: [ParseNode], options: LayoutOptions, renderer: SVGRenderer, svg: String)
+        -> String
+    {
+        func mask(_ node: ParseNode) -> ParseNode {
+            var node = node
+            switch node.kind {
+            case .tag(let body, let tag):
+                node.kind = .tag(body: body, tag: [ParseNode(.phantom(body: tag), mode: node.mode)])
+            case .array(var array) where array.tags != nil:
+                array.tags = array.tags?.map { tag in
+                    guard case .explicit(let content) = tag else { return tag }
+                    return .explicit([ParseNode(.phantom(body: content), mode: node.mode)])
+                }
+                node.kind = .array(array)
+            default: break
+            }
+            return node
+        }
+        guard
+            nodes.contains(where: { node in
+                switch node.kind {
+                case .tag: true
+                case .array(let info): info.tags != nil
+                default: false
+                }
+            })
+        else { return "" }
+        let masked = nodes.map(mask)
+        let clean = renderer.render(toDisplayList(layout(masked, options: options)))
+        // The renderer emits a flat sequence of self-closing shapes and text elements.
+        // Include each item's closing tag when comparing, including the glyph's text.
+        let shapes = clean.components(separatedBy: "><").dropFirst().dropLast()
+        var next = shapes.startIndex
+        var tags = [String]()
+        for (index, shape) in svg.components(separatedBy: "><").dropFirst().dropLast().enumerated() {
+            if next < shapes.endIndex, shape == shapes[next] { next += 1 } else { tags.append(String(index)) }
+        }
+        guard next == shapes.endIndex, !tags.isEmpty else { return "" }
+        return " data-formula-tags=\"\(tags.joined(separator: ","))\""
     }
 
     /// The root hbox has one child per parsed atom, with automatic kerns inserted
@@ -164,6 +216,19 @@ public enum MathRenderer {
             y += depth
             return baseline
         }
+    }
+
+    /// Only strip math-mode delimiters. Numbered or structured environments must paste intact.
+    static func withoutDelimiters(_ source: String) -> String {
+        for (open, close) in [
+            ("$$", "$$"), ("\\[", "\\]"), ("\\(", "\\)"), ("$", "$"),
+            ("\\begin{math}", "\\end{math}"), ("\\begin{displaymath}", "\\end{displaymath}"),
+        ] {
+            if source.hasPrefix(open), source.hasSuffix(close), source.count >= open.count + close.count {
+                return String(source.dropFirst(open.count).dropLast(close.count))
+            }
+        }
+        return source
     }
 
     /// The formula's source as written, marked so a reader sees that it could not be read.

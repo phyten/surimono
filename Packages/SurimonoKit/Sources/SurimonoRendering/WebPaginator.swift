@@ -113,13 +113,31 @@ public final class WebPaginator: NSObject {
     public static var clearBackground: (@MainActor (WKWebView) -> Void)?
     public static var drawsClearPages: Bool { clearBackground != nil }
 
+    /// Keep one small SVG per hit. Embed the binary font programs only for the formula being exported.
+    public static func exportSVG(_ graphic: RenderedDiagram) -> String {
+        guard graphic.formulaSource != nil, let end = graphic.svg.range(of: "</title>") else { return graphic.svg }
+        let css = MathRenderer.fontFaces(for: String(graphic.svg[end.upperBound...]))
+        var svg = graphic.svg
+        svg.insert(contentsOf: "<style>\(css)</style>", at: end.upperBound)
+        if let root = svg.range(of: "<svg ") {
+            svg.insert(
+                contentsOf: "width=\"\(graphic.pointSize.width)pt\" height=\"\(graphic.pointSize.height)pt\" ",
+                at: root.upperBound)
+        }
+        return svg
+    }
+
     /// Load the SVG as an image so its text is rasterized at export scale on a plain white background.
     public static func diagramPNG(_ diagram: RenderedDiagram) async throws -> Data {
         let size = diagram.pointSize
+        var scale: CGFloat = 3
+        if diagram.formulaSource != nil, size.height > 0 {
+            scale = max(3, min(96 / size.height, 12000 / max(size.width, size.height)))
+        }
         guard size.width.isFinite, size.height.isFinite, size.width > 0, size.height > 0,
-            (size.width * 3).rounded(.up) * (size.height * 3).rounded(.up) <= 12_000 * 12_000
+            (size.width * scale).rounded(.up) * (size.height * scale).rounded(.up) <= 12_000 * 12_000
         else { throw PaginationError.emptyDocument }
-        let image = Data(diagram.svg.utf8).base64EncodedString()
+        let image = Data(exportSVG(diagram).utf8).base64EncodedString()
         let html = """
             <!doctype html><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; font-src data:; style-src 'unsafe-inline'">
             <style>*{margin:0}body{background:white}img{display:block;width:\(size.width)px;height:\(size.height)px}</style>
@@ -139,7 +157,7 @@ public final class WebPaginator: NSObject {
         else { throw PaginationError.emptyDocument }
         try Task.checkCancellation()
         let bounds = CGRect(origin: .zero, size: size)
-        return try await WebGraphicSnapshot(requestedScale: 3).png(
+        return try await WebGraphicSnapshot(requestedScale: scale).png(
             in: session.webView, viewport: bounds, document: bounds)
     }
 
@@ -167,7 +185,8 @@ public final class WebPaginator: NSObject {
         _ source: Source, pageSize: CGSize, margins: Margins, allowsJavaScript: Bool,
         printsBackgrounds: Bool = true, preparationScript: String? = nil, readsPageRules: Bool = false,
         drawsBackground: Bool = true, rendersMermaid: Bool = false, rendersDiagrams: Bool = false,
-        collectsDiagrams: Bool = false, exportHTMLTitle: String? = nil, richText: Bool = false,
+        collectsDiagrams: Bool = false, indexesFormulas: Bool = false, exportHTMLTitle: String? = nil,
+        richText: Bool = false,
         richTextTypeface: Typeface = .style, htmlComposition: HTMLComposition? = nil,
         latexPageNumbers: LaTeXPageNumbers? = nil, restartsAfterTitle: Bool = false,
         composesLaTeXParagraphs: Bool = false, latexFlow: Bool = false, latexMarginInk: Bool = false,
@@ -326,13 +345,34 @@ public final class WebPaginator: NSObject {
             }
             return result
         }
+        let indexToken = UUID().uuidString
+        func installFormulaIndex() async throws {
+            guard let url = Bundle.module.url(forResource: "formula-index", withExtension: "js") else {
+                throw PaginationError.loadFailed("formula-index")
+            }
+            let script = try String(contentsOf: url, encoding: .utf8)
+            _ = try await session.webView.evaluateForPrinting(
+                DiagramGeometry.placeAnchors + "\n" + LaTeXGraphicPreparation.glyphInk + "\n" + script,
+                arguments: ["token": indexToken], until: .now + timeout)
+        }
+        func formulaPass(_ document: PDFDocument) async throws -> DiagramGeometry.Pass {
+            guard
+                let json = try await runPreparationScript(
+                    "return JSON.stringify(surimonoFormulaIndex.sources)", in: session.webView, timeout: timeout)
+            else { throw PaginationError.printFailed }
+            let sources = try JSONDecoder().decode([DiagramGeometry.Source].self, from: Data(json.utf8))
+            return .init(document: document, sources: sources, token: indexToken)
+        }
         if flow == .vertical {
+            if indexesFormulas { try await installFormulaIndex() }
             let document = try await VerticalPaginator.pages(
                 in: session.webView, pageSize: pageSize, margins: margins, timeout: printTimeout)
             if session.localHandler != nil { LocalResourceSchemeHandler.restoreFileLinks(in: document) }
-            return Result(
+            var result = Result(
                 document: document, preparationResult: preparationResult, pageRules: pageRules,
                 requiredFolderAccess: session.localHandler?.requiredFolderAccess)
+            if indexesFormulas { result.diagramPass = try await formulaPass(document) }
+            return result
         }
         // Only a document with `@page` rules can set margins of its own and so draw below the paper; an unknown
         // answer counts as yes.
@@ -376,12 +416,28 @@ public final class WebPaginator: NSObject {
             latinLinePasses.append(record)
             if final { latinLineDiagnostics = record }
         }
-        func pageDataForPass() async throws -> Data {
+        func pageDataForPass(indexFormulas: Bool = false) async throws -> Data {
             guard capturesLaTeXFlow else {
                 if composesLatin {
                     let width = (pageSize.width - margins.left - margins.right) * Self.printPixelsPerPoint
                     try await LaTeXFlowPaginator.prepareNativeLines(
                         in: session.webView, width: width, until: layoutDeadline)
+                }
+                if indexFormulas {
+                    let width = (pageSize.width - margins.left - margins.right) * Self.printPixelsPerPoint
+                    let media = session.webView.mediaType
+                    session.webView.mediaType = "print"
+                    defer { session.webView.mediaType = media }
+                    _ = try await session.webView.evaluateForPrinting(
+                        """
+                        const root = document.documentElement;
+                        const prior = root.style.cssText;
+                        try {
+                            root.style.width = width / (parseFloat(getComputedStyle(root).zoom) || 1) + 'px';
+                            await document.fonts.ready;
+                            surimonoFormulaIndex.native();
+                        } finally { root.style.cssText = prior; }
+                        """, arguments: ["width": width], until: layoutDeadline)
                 }
                 let data = try await session.printToPDF(
                     checkingBelowPaper: mayDrawBelowPaper, latexMarginInk: latexMarginInk,
@@ -503,7 +559,8 @@ public final class WebPaginator: NSObject {
                     throw LaTeXPageReferences.MeasurementFailed()
                 }
             }
-            let pageData = try await pageDataForPass()
+            if indexesFormulas { try await installFormulaIndex() }
+            let pageData = try await pageDataForPass(indexFormulas: indexesFormulas)
             try await recordLines(final: true)
             guard let document = PDFDocument(data: pageData) else { throw PaginationError.emptyDocument }
             if session.localHandler != nil { LocalResourceSchemeHandler.restoreFileLinks(in: document) }
@@ -523,7 +580,9 @@ public final class WebPaginator: NSObject {
             result.drawingBytes = pageData
             if adjusted { result.issues = [Self.verticalWritingIssue] }
             if incompleteReferences { result.issues.append(.unresolvedLaTeXPages) }
-            if collectsDiagrams {
+            if indexesFormulas {
+                result.diagramPass = try await formulaPass(document)
+            } else if collectsDiagrams {
                 // Keep the finished PDF untouched even if measurement fails or a theme styles the extra anchors.
                 do {
                     let token = UUID().uuidString
@@ -569,7 +628,7 @@ public final class WebPaginator: NSObject {
                 allowsJavaScript: allowsJavaScript, printsBackgrounds: printsBackgrounds,
                 preparationScript: cleanPreparation,
                 readsPageRules: readsPageRules, drawsBackground: drawsBackground, rendersMermaid: rendersMermaid,
-                rendersDiagrams: rendersDiagrams, collectsDiagrams: collectsDiagrams,
+                rendersDiagrams: rendersDiagrams, collectsDiagrams: collectsDiagrams, indexesFormulas: indexesFormulas,
                 latexPageNumbers: lostReferences ? nil : latexPageNumbers,
                 restartsAfterTitle: restartsAfterTitle, composesLaTeXParagraphs: composesLatin,
                 latexMarginInk: latexMarginInk, timeout: timeout)

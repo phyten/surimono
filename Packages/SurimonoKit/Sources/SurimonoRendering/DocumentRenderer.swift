@@ -164,6 +164,7 @@ public struct RenderSettings: Equatable, Sendable {
     /// HTML that is a slide deck: print its slides one to a page, landscape in Auto.
     public var slides: SlidePrintRequest?
     public var binderStartsOnFront = false
+    var indexesFormulas = false
     public var markdownChanges: [MarkdownMarkRequest]
     public var changeBackgroundHex = ChangeMark.defaultBackgroundHex
     public var changeTextHex: String?
@@ -232,6 +233,7 @@ public struct PaginationRequest: Sendable {
     public var latexPageNumbers: LaTeXPageNumbers?
     public var restartsAfterTitle = false
     public var collectsDiagrams = false
+    var indexesFormulas = false
     public var composesLaTeXParagraphs = false
     public var latexFlow = false
     public var latexMarginInk = false
@@ -246,7 +248,8 @@ extension WebPaginator {
             allowsJavaScript: request.allowsJavaScript, preparationScript: request.preparationScript,
             readsPageRules: request.readsPageRules, drawsBackground: request.drawsBackground,
             rendersMermaid: request.rendersMermaid, rendersDiagrams: request.rendersDiagrams,
-            collectsDiagrams: request.collectsDiagrams, latexPageNumbers: request.latexPageNumbers,
+            collectsDiagrams: request.collectsDiagrams, indexesFormulas: request.indexesFormulas,
+            latexPageNumbers: request.latexPageNumbers,
             restartsAfterTitle: request.restartsAfterTitle,
             composesLaTeXParagraphs: request.composesLaTeXParagraphs,
             latexFlow: request.latexFlow,
@@ -292,6 +295,7 @@ public struct PreparedRender {
     public let issues: [PrintIssue]
     public let changeMarks: [ChangeMark]
     public var diagrams: [RenderedDiagram] = []
+    public var formulaIndex: PaperFormulaIndex?
     public var unreadableDocumentURLs: [URL] = []
     public var binderDocuments: [URL: PDFDocument] = [:]
     public var binderPageStarts: [URL: Int] = [:]
@@ -453,6 +457,8 @@ public final class DocumentRenderer {
         var changeMarks: [ChangeMark] = []
         var diagrams: [RenderedDiagram] = []
         var markRequests: [MarkdownMarkRequest] = []
+        var hasFormulas = false
+        var formulaIndex: PaperFormulaIndex?
         var hasInkStencil = false
         var finishing = FinishedPages()
         /// Immutable drawing bytes when the pages already have a serialized representation.
@@ -623,6 +629,7 @@ public final class DocumentRenderer {
         generation += 1
         let currentGeneration = generation
         do {
+            let requestedSettings = settings
             var settings = settings
             if source.children != nil || source.format != .latex || settings.theme.formats != [.latex] {
                 settings.latexComposition = .document
@@ -779,6 +786,8 @@ public final class DocumentRenderer {
                 logical.requiredFolderAccess = requiredFolderAccess
                 logical.issues = issues
                 logical.diagrams = diagrams
+                logical.hasFormulas =
+                    binderOutput?.hasFormulas ?? (finishing.bodyHTML?.contains("class=\"math math-") == true)
                 logical.unreadableDocuments = binderOutput?.unreadable ?? []
                 logical.binderDocuments = binderOutput?.documents ?? [:]
                 logical.binderPageStarts = binderOutput?.pageStarts ?? [:]
@@ -812,13 +821,17 @@ public final class DocumentRenderer {
             let plan =
                 selection.pages.map { Imposition.plan(pages: $0, layout: settings.layout) }
                 ?? Imposition.plan(pageCount: pages.document.pageCount, layout: settings.layout)
+            if logical.hasFormulas, !settings.indexesFormulas, pages.formulaIndex == nil {
+                pages.formulaIndex = PaperFormulaIndex(
+                    source: source, settings: requestedSettings, pageCount: pages.viewDocument.pageCount)
+            }
             return PreparedRender(
                 id: currentGeneration, resolvedOrientation: landscape ? .landscape : .portrait, layout: settings.layout,
                 logicalDocument: pages.document, viewDocument: pages.viewDocument, plan: plan,
                 summary: PrintSummary(plan: plan),
                 requiredFolderAccess: pages.requiredFolderAccess, unreadableImageURLs: pages.unreadable,
                 smartRemovalCandidates: pages.candidates, issues: pages.issues,
-                changeMarks: marks, diagrams: pages.diagrams,
+                changeMarks: marks, diagrams: pages.diagrams, formulaIndex: pages.formulaIndex,
                 unreadableDocumentURLs: pages.unreadableDocuments, binderDocuments: pages.binderDocuments,
                 binderPageStarts: pages.binderPageStarts,
                 facts: pages.finishing.facts, addedContentsPages: pages.finishing.contentsPageCount,
@@ -1000,6 +1013,7 @@ public final class DocumentRenderer {
 
     private struct BinderOutput {
         let document = PDFDocument()
+        var hasFormulas = false
         var documents: [URL: PDFDocument] = [:]
         var pageStarts: [URL: Int] = [:]
         var pageSizes: [CGSize] = []
@@ -1059,6 +1073,7 @@ public final class DocumentRenderer {
                     output.blankPages.insert(output.document.pageCount)
                     output.document.insert(blank, at: output.document.pageCount)
                 }
+                if prepared.formulaIndex != nil { output.hasFormulas = true }
                 output.pageSizes += Self.pageSizes(of: document)
                 for page in pages { output.document.insert(page, at: output.document.pageCount) }
                 if let url = child.fileURL {
@@ -1283,7 +1298,8 @@ public final class DocumentRenderer {
                         pageSize: size, margins: .uniform(millimeters: 0), allowsJavaScript: false,
                         preparationScript: [graphic, try Self.beamerPreparation()].compactMap { $0 }.joined(
                             separator: "\n"),
-                        readsPageRules: false, rendersDiagrams: page.diagrams),
+                        readsPageRules: false, rendersDiagrams: page.diagrams, indexesFormulas: settings.indexesFormulas
+                    ),
                     source: source)
                 var facts = page.facts
                 guard let data = result.preparationResult?.data(using: .utf8),
@@ -1353,6 +1369,7 @@ public final class DocumentRenderer {
                         rendersMermaid: page.mermaid, rendersDiagrams: page.diagrams,
                         latexPageNumbers: page.numbering, restartsAfterTitle: page.restartsAfterTitle,
                         collectsDiagrams: page.collectsDiagrams && settings.markdownChanges.isEmpty,
+                        indexesFormulas: settings.indexesFormulas,
                         latexFlow: latexFlow,
                         latexMarginInk: source.format == .latex && settings.theme.formats == [.latex]
                             && (checksVerticalLaTeXInk || LaTeXFlowPaginator.hasMarginInk(in: fragment.body)),
@@ -1855,7 +1872,8 @@ public final class DocumentRenderer {
                     readsPageRules: false, drawsBackground: !WebPaginator.drawsClearPages,
                     rendersMermaid: page.mermaid, rendersDiagrams: page.diagrams,
                     latexPageNumbers: page.numbering, restartsAfterTitle: page.restartsAfterTitle,
-                    collectsDiagrams: collectsDiagrams && page.collectsDiagrams && settings.markdownChanges.isEmpty)
+                    collectsDiagrams: collectsDiagrams && page.collectsDiagrams && settings.markdownChanges.isEmpty,
+                    indexesFormulas: collectsDiagrams && settings.indexesFormulas)
             }
             try Task.checkCancellation()
             let measured = try await paginateCheckingIssues(
@@ -1910,7 +1928,8 @@ public final class DocumentRenderer {
             readsPageRules: request.readsPageRules, drawsBackground: request.drawsBackground,
             rendersMermaid: request.rendersMermaid, rendersDiagrams: request.rendersDiagrams,
             latexPageNumbers: request.latexPageNumbers, restartsAfterTitle: request.restartsAfterTitle,
-            collectsDiagrams: request.collectsDiagrams, composesLaTeXParagraphs: source.format == .latex,
+            collectsDiagrams: request.collectsDiagrams, indexesFormulas: request.indexesFormulas,
+            composesLaTeXParagraphs: source.format == .latex,
             latexFlow: request.latexFlow,
             latexMarginInk: request.latexMarginInk, checksVerticalLaTeXInk: request.checksVerticalLaTeXInk,
             flow: request.flow)

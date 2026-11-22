@@ -6,11 +6,15 @@ public struct RenderedDiagram: Equatable, Sendable {
     public var number: Int
     public var pageIndex: Int
     public var rect: CGRect
+    public let formulaSource: String?
     public let svg: String
     /// A tall diagram can have several page rectangles, but every one exports the whole diagram.
     public let pointSize: CGSize
 
-    public init(number: Int, pageIndex: Int, rect: CGRect, svg: String, pointSize: CGSize? = nil) {
+    public init(
+        number: Int, pageIndex: Int, rect: CGRect, svg: String, pointSize: CGSize? = nil, formulaSource: String? = nil
+    ) {
+        self.formulaSource = formulaSource
         self.number = number
         self.pageIndex = pageIndex
         self.rect = rect
@@ -25,6 +29,6 @@ public struct RenderedDiagram: Equatable, Sendable {
     public func suggestedName(documentName: String) -> String {
         let filename = (documentName as NSString).lastPathComponent
         let stem = (filename as NSString).deletingPathExtension.trimmingCharacters(in: .whitespacesAndNewlines)
-        return "\(stem.isEmpty ? "Surimono" : stem)-diagram-\(number)"
+        return "\(stem.isEmpty ? "Surimono" : stem)-\(formulaSource == nil ? "diagram" : "formula")-\(number)"
     }
 }

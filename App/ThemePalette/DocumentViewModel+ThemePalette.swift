@@ -6,7 +6,7 @@ extension DocumentViewModel {
     typealias ChosenTrial = (
         themeID: String, codePaletteID: String, settings: RenderSettings?, document: PDFDocument,
         changeMarks: [ChangeMark],
-        furniture: [Int: FurniturePlacement], diagrams: [RenderedDiagram]
+        furniture: [Int: FurniturePlacement], diagrams: [RenderedDiagram], formulaIndex: PaperFormulaIndex?
     )
 
     /// The pages the paper shows: a theme being tried, a trial just chosen, or the document's own pages.
@@ -14,6 +14,12 @@ extension DocumentViewModel {
         if themeTrial.themeID != nil, let document = themeTrial.document { return document }
         if let chosenTrial, isCurrentLook(chosenTrial) { return chosenTrial.document }
         return result?.viewDocument
+    }
+
+    var paperFormulaIndex: PaperFormulaIndex? {
+        if themeTrial.themeID != nil, themeTrial.document != nil { return themeTrial.formulaIndex }
+        if let chosenTrial, isCurrentLook(chosenTrial) { return chosenTrial.formulaIndex }
+        return result?.formulaIndex
     }
 
     var paperDiagrams: [RenderedDiagram] {

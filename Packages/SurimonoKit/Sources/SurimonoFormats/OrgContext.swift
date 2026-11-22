@@ -20,7 +20,9 @@ final class OrgContext {
     /// A formula as HTML, or its source marked as unreadable. The discovery pass draws nothing.
     func formula(_ latex: String, display: Bool, source: String) -> String {
         guard !discovering else { return "" }
-        return MathRenderer.html(latex, display: display, macros: mathDefinitions)
+        return MathRenderer.html(
+            latex, display: display, macros: mathDefinitions, rowNumberHTML: [], reportTruncation: false,
+            originalSource: MathRenderer.withoutDelimiters(source))
             ?? MathRenderer.fallback(source, display: display)
     }
 
