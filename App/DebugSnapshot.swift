@@ -355,6 +355,7 @@
         }
 
         static func configure(_ model: DocumentViewModel) {
+            if flag("SurimonoFolderNotice") { model.showToast(.folderAccess) }
             if let choice = argument("SurimonoComposition").flatMap(LaTeXComposition.init(rawValue:)) {
                 model.snapshotComposition = choice
             }
@@ -928,6 +929,21 @@
                             && (!model.hasCurrentPrintPreview || (!model.showsFold && model.trayZoomer?.context == nil))
                         {
                             return "Waiting for imposed sheets and tray layout"
+                        }
+                        if model.mode == .print, let sheet = argument("SurimonoTraySheet").flatMap(Int.init) {
+                            guard
+                                let row = model.printTray?.rows.firstIndex(where: { row in
+                                    row.sheets.contains { $0.number == sheet }
+                                }), let zoomer = model.trayZoomer, let context = zoomer.context
+                            else {
+                                return "Waiting for sheet \(sheet)"
+                            }
+                            let geometry = TrayGeometry(context: context, zoom: zoomer.zoom)
+                            let target = geometry.offset(showingRow: row, topInset: zoomer.scroll.topInset, x: 0)
+                            if abs(zoomer.scroll.offset.y - target.y) > 1 {
+                                zoomer.show(row: row, animated: false)
+                                return "Scrolling to sheet \(sheet)"
+                            }
                         }
                         if model.mode == .compare {
                             guard let comparison = model.themeComparison else { return "Waiting for comparison" }

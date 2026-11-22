@@ -8,7 +8,7 @@
     {"id": "tech", "name": "Technical", "localizedNames": {"en": "Technical", "ja": "技術・コード", "zh-Hans": "技术", "zh-Hant": "技術", "ko": "기술", "fr": "Technique", "de": "Technisch", "es": "Técnico"}},
     {"id": "reading", "name": "Reading", "localizedNames": {"en": "Reading", "ja": "読みもの", "zh-Hans": "阅读", "zh-Hant": "閱讀", "ko": "읽기", "fr": "Lecture", "de": "Lesen", "es": "Lectura"}},
     {"id": "notes", "name": "Notes & Planners", "localizedNames": {"en": "Notes & Planners", "ja": "ノート・手帳", "zh-Hans": "笔记与计划", "zh-Hant": "筆記與計畫", "ko": "노트 및 플래너", "fr": "Notes et agendas", "de": "Notizen und Planer", "es": "Notas y agendas"}},
-    {"id": "printing", "name": "Print-Friendly", "localizedNames": {"en": "Print-Friendly", "ja": "印刷向け", "zh-Hans": "适合打印", "zh-Hant": "適合列印", "ko": "프린트 최적화", "fr": "Pour l’impression", "de": "Druckfreundlich", "es": "Para imprimir"}},
+    {"id": "printing", "name": "Print-Friendly", "localizedNames": {"en": "Print-Friendly", "ja": "印刷向け", "zh-Hans": "适合打印", "zh-Hant": "適合列印", "ko": "인쇄 최적화", "fr": "Pour l’impression", "de": "Druckfreundlich", "es": "Para imprimir"}},
     {"id": "retro", "name": "Retro", "localizedNames": {"en": "Retro", "ja": "レトロ", "zh-Hans": "复古", "zh-Hant": "復古", "ko": "레트로", "fr": "Rétro", "de": "Retro", "es": "Retro"}},
     {"id": "pop", "name": "Pop & Funky", "localizedNames": {"en": "Pop & Funky", "ja": "ポップ・ファンキー", "zh-Hans": "流行与趣味", "zh-Hant": "流行與趣味", "ko": "팝과 펑키", "fr": "Pop et fantaisie", "de": "Pop und Funky", "es": "Pop y fantasía"}},
     {"id": "seasons", "name": "Seasons & Events", "localizedNames": {"en": "Seasons & Events", "ja": "季節・行事", "zh-Hans": "季节与节日", "zh-Hant": "季節與節日", "ko": "계절과 행사", "fr": "Saisons et fêtes", "de": "Jahreszeiten und Feste", "es": "Estaciones y fiestas"}},

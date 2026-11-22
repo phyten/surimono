@@ -318,7 +318,7 @@ struct ToastOverlay: View {
                     Group {
                         switch toast.action {
                         case .allowFolderAccess?:
-                            Button("Allow Access to Folder…") { model.allowFolderAccess() }
+                            Button("Choose Folder…") { model.allowFolderAccess() }
                                 .controlSize(.small)
                         case .retryWebCapture?:
                             Button("Try Again") { model.retryWebCapture() }
@@ -338,9 +338,9 @@ struct ToastOverlay: View {
                             EmptyView()
                         }
                     }
-                    .buttonStyle(ToastActionButtonStyle())
+                    .buttonStyle(ToastActionButtonStyle(showsBackground: toast.action != .allowFolderAccess))
                     if toast.showsDismissButton {
-                        PanelIconButton("xmark", label: "Dismiss") { model.dismissToast() }
+                        PanelIconButton("xmark", label: "Dismiss") { model.dismissToast(closingFolderNotice: true) }
                     }
                 }
                 .foregroundStyle(PrintPalette.toastInk)
@@ -373,6 +373,8 @@ struct NoticePlate: View {
 
 /// Toast actions stay legible regardless of the surrounding view's accent color or appearance.
 struct ToastActionButtonStyle: ButtonStyle {
+    var showsBackground = true
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 11, weight: .medium))
@@ -380,11 +382,16 @@ struct ToastActionButtonStyle: ButtonStyle {
             .fixedSize()
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
+            .underline(!showsBackground)
+            .contentShape(Rectangle())
             .background {
-                AppCornerShape.capsule.fill(
-                    DisplayAccessibility.shared.options.fill(
-                        .white, opacity: configuration.isPressed ? 0.28 : 0.2, over: PrintPalette.toast))
+                if showsBackground {
+                    AppCornerShape.capsule.fill(
+                        DisplayAccessibility.shared.options.fill(
+                            .white, opacity: configuration.isPressed ? 0.28 : 0.2, over: PrintPalette.toast))
+                }
             }
+            .opacity(!showsBackground && configuration.isPressed ? 0.75 : 1)
     }
 }
 

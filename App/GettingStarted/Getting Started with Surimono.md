@@ -87,7 +87,7 @@ The strip at the bottom of the print screen adds:
 - Contents Page: a printed table of contents
 - Notes: pages left for writing on
 
-Margins and finer settings are in All Print Settings…. Export PDF (⇧⌘E) on the print screen saves the laid-out sheets as a PDF.
+Margins and finer settings are in All Print Settings…. PDF of Sheets… (⇧⌘E) on the print screen saves the laid-out sheets as a PDF.
 
 ## When something goes wrong
 
@@ -103,7 +103,7 @@ If the stack comes out in reverse,[^order] open All Print Settings… and, under
 
 ### Images next to the document do not show
 
-If images next to the document are missing and the notice offers Allow Access to Folder…, click it and choose the document's folder or a folder above it. Surimono remembers the folder.
+If images next to the document are missing and the notice offers Choose Folder…, click it and choose the document's folder or a folder above it. Surimono remembers the folder.
 
 ## Open your own document
 

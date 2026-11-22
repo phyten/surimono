@@ -43,21 +43,22 @@ struct TrayGeometryTests {
             width: 1000, height: 700, headerHeight: 80, headingHeight: 18)
     }
 
-    @Test("行の上端は、上の余白・説明・その間を足した位置から、行の高さと行の間を重ねた位置になる")
+    @Test("固定した見出しの下だけをスクロールし、用紙は上の余白から順に並ぶ")
     func rowTops() {
         let geometry = TrayGeometry(context: context(), zoom: 1)
-        // 22 + 80 + 30 = 132; each row is 18 + 10 + 488 = 516 high, with 34 between rows and 40 below the last.
-        #expect(geometry.rowTops.map { $0.rounded() } == [132, 682, 1232])
-        #expect(geometry.contentSize.height.rounded() == 1788)
+        // The stage reserves 22 + 80 for the heading. Rows are 516 high, with 34 between them and 40 below.
+        #expect(geometry.viewportSize.height == 598)
+        #expect(geometry.rowTops.map { $0.rounded() } == [30, 580, 1130])
+        #expect(geometry.contentSize.height.rounded() == 1686)
     }
 
     @Test("A4片面の刷り台を2倍にしても、ポインタの下の点は同じ場所に残る")
     func zoomKeepsTheSpot() {
         let old = TrayGeometry(context: context(), zoom: 1)
         let new = TrayGeometry(context: context(), zoom: 2)
-        // At 350 of a tray scrolled down 400, the spot is 40 into the second sheet's paper, which becomes 80.
+        // At 248 of a tray scrolled down 400, the spot is 40 into the second sheet's paper, which becomes 80.
         let offset = new.offset(
-            keeping: CGPoint(x: 500, y: 350), scrolledTo: CGPoint(x: 0, y: 400), in: old, topInset: 0)
+            keeping: CGPoint(x: 500, y: 248), scrolledTo: CGPoint(x: 0, y: 400), in: old, topInset: 0)
         #expect(abs(offset.x) < 0.01)
         #expect(abs(offset.y - 928) < 0.01)
     }
@@ -68,7 +69,7 @@ struct TrayGeometryTests {
         let new = TrayGeometry(context: context(), zoom: 2)
         // The same spot as above, counted from a scroll view that reaches 52 up under the bar.
         let offset = new.offset(
-            keeping: CGPoint(x: 500, y: 402), scrolledTo: CGPoint(x: 0, y: 348), in: old, topInset: 52)
+            keeping: CGPoint(x: 500, y: 300), scrolledTo: CGPoint(x: 0, y: 348), in: old, topInset: 52)
         #expect(abs(offset.y - 876) < 0.01)
     }
 
@@ -80,7 +81,7 @@ struct TrayGeometryTests {
         #expect(new.scrollsSideways)
         // The spot is the middle of the 345-wide sheet; at 3 times, the sheet starts at 44 and is 1035 wide.
         let offset = new.offset(
-            keeping: CGPoint(x: 500, y: 350), scrolledTo: CGPoint(x: 0, y: 400), in: old, topInset: 0)
+            keeping: CGPoint(x: 500, y: 248), scrolledTo: CGPoint(x: 0, y: 400), in: old, topInset: 0)
         #expect(abs(offset.x - 61.58) < 0.05)
         #expect(abs(offset.y - 1456) < 0.05)
     }
@@ -89,9 +90,9 @@ struct TrayGeometryTests {
     func headingStays() {
         let old = TrayGeometry(context: context(), zoom: 1)
         let new = TrayGeometry(context: context(), zoom: 2)
-        // 690 is 8 below the second row's top (682), in its heading: the first sheet's paper grows by 488 above it.
+        // 588 is 8 below the second row's top (580), in its heading: the first sheet's paper grows by 488 above it.
         let offset = new.offset(
-            keeping: CGPoint(x: 500, y: 350), scrolledTo: CGPoint(x: 0, y: 340), in: old, topInset: 0)
+            keeping: CGPoint(x: 500, y: 248), scrolledTo: CGPoint(x: 0, y: 340), in: old, topInset: 0)
         #expect(abs(offset.y - 828) < 0.01)
     }
 
@@ -126,54 +127,45 @@ struct TrayGeometryTests {
 
     @Test("用紙の下の札の上で拡大しても、札はポインタの下に残る")
     func captionStays() {
-        // An A3 booklet sheet 277.2 high from 160; its captions start 9 below it. 452.2 is 15 below the paper.
+        // The 277.2-high sheet starts at 58. Its captions start 9 below it, and 350.2 is 15 below the paper.
         let context = TrayGeometry.Context(
             layout: .a3BookletA4, mixedOrientations: false,
             rows: [.init(sheets: 1, sides: 2, paper: PrintLayout.a3BookletA4.sheetSize)], showsCaptions: true,
             width: 1000, height: 500, headerHeight: 80, headingHeight: 18)
         let old = TrayGeometry(context: context, zoom: 1)
         let new = TrayGeometry(context: context, zoom: 2)
-        // At twice the size the paper ends at 160 + 554.4, and the spot stays 15 below it.
+        // At twice the size the paper ends at 58 + 554.4, and the spot stays 15 below it.
         let offset = new.offset(
-            keeping: CGPoint(x: 500, y: 450), scrolledTo: CGPoint(x: 0, y: 2.2), in: old, topInset: 0)
+            keeping: CGPoint(x: 500, y: 348), scrolledTo: CGPoint(x: 0, y: 2.2), in: old, topInset: 0)
         #expect(abs(offset.y - 279.4) < 0.05)
     }
 
-    @Test("上の説明の上で拡大しても、説明は動かない")
-    func instructionsStay() {
-        let old = TrayGeometry(context: context(), zoom: 1)
-        let new = TrayGeometry(context: context(), zoom: 2)
-        let offset = new.offset(keeping: CGPoint(x: 500, y: 100), scrolledTo: .zero, in: old, topInset: 0)
-        #expect(offset == .zero)
-    }
-
-    @Test("横にはみ出す上の説明の上で拡大しても、説明は横にも動かない")
-    func instructionsStaySideways() {
-        // A3 booklet sheets in a window 1000 wide: at twice the size the row is 1596 wide and scrolls sideways, while
-        // the instructions keep their 812 from 44.
-        let context = TrayGeometry.Context(
-            layout: .a3BookletA4, mixedOrientations: false,
-            rows: [.init(sheets: 1, sides: 2, paper: PrintLayout.a3BookletA4.sheetSize)], showsCaptions: true,
-            width: 1000, height: 2000, headerHeight: 80, headingHeight: 18)
-        let old = TrayGeometry(context: context, zoom: 2)
-        let new = TrayGeometry(context: context, zoom: 2.5)
-        let offset = new.offset(keeping: CGPoint(x: 200, y: 100), scrolledTo: .zero, in: old, topInset: 0)
-        #expect(offset == .zero)
-    }
-
-    @Test("縮小して上の説明だけが窓に収まらないときも、横にスクロールする幅として数える")
-    func instructionsWiderThanTheWindow() {
-        // 400 wide, as with the side list open: the booklet's row fits at 468, wider than the window, and keeps that
-        // width for the instructions when the sheets are zoomed out to a row of 248.
+    @Test("用紙を拡大・縮小しても、固定した見出しは窓に収まる幅を保つ")
+    func pinnedHeaderFitsNarrowStage() {
         let context = TrayGeometry.Context(
             layout: .a3BookletA4, mixedOrientations: false,
             rows: [.init(sheets: 1, sides: 2, paper: PrintLayout.a3BookletA4.sheetSize)], showsCaptions: true,
             width: 400, height: 2000, headerHeight: 80, headingHeight: 18)
-        let geometry = TrayGeometry(context: context, zoom: 0.5)
-        #expect(geometry.scrollsSideways)
-        #expect(abs(geometry.contentSize.width - 556) < 0.01)
-        #expect(abs((geometry.sides(ofRow: 0).first?.start ?? 0) - 154) < 0.01)
-        #expect(abs(geometry.clamped(CGPoint(x: 1000, y: 0), topInset: 0).x - 156) < 0.01)
+        let small = TrayGeometry(context: context, zoom: 0.5)
+        let large = TrayGeometry(context: context, zoom: 2)
+        #expect(small.headerWidth == 312)
+        #expect(large.headerWidth == small.headerWidth)
+        #expect(!small.scrollsSideways)
+        #expect(large.scrollsSideways)
+        #expect(small.viewportSize.height == large.viewportSize.height)
+    }
+
+    @Test("スライドやウェブページの印刷項目は固定見出しの下で用紙と一緒にスクロールする")
+    func sourceControlsScrollWithSheets() {
+        var context = context()
+        let ordinary = TrayGeometry(context: context, zoom: 1)
+        context.sourceNotesHeight = 58
+        let web = TrayGeometry(context: context, zoom: 1)
+        #expect(web.viewportSize == ordinary.viewportSize)
+        #expect(web.rowTops[0] == ordinary.rowTops[0] + 58)
+        let offset = web.offset(showingRow: 1, topInset: 0, x: 0)
+        #expect(offset.y == web.rowTops[1])
+        #expect(web.rowIndex(atTop: offset.y) == 1)
     }
 
     @Test("常に表示のスクロールバーは、刷り台が窓より高いときだけ幅を取り、用紙はその残りの真ん中に並ぶ")
@@ -204,16 +196,16 @@ struct TrayGeometryTests {
             width: 1000, height: 780, scroller: 17, headerHeight: 80, headingHeight: 18)
         let geometry = TrayGeometry(context: context, zoom: 2)
         #expect(abs(geometry.viewportSize.width - 983) < 0.01)
-        #expect(abs(geometry.viewportSize.height - 763) < 0.01)
+        #expect(abs(geometry.viewportSize.height - 661) < 0.01)
     }
 
     @Test("縮小して下の端を越えるときは、下の端に止まる")
     func zoomOutStopsAtTheEnd() {
         let old = TrayGeometry(context: context(), zoom: 1)
         let new = TrayGeometry(context: context(), zoom: 0.5)
-        // Scrolled to the end; at half the size the tray is 1056 high, so it scrolls no further than 356.
+        // At half the size the scroll content is 954 high. Its last 598 points show at offset 356.
         let offset = new.offset(
-            keeping: CGPoint(x: 500, y: 650), scrolledTo: CGPoint(x: 0, y: 1088), in: old, topInset: 0)
+            keeping: CGPoint(x: 500, y: 548), scrolledTo: CGPoint(x: 0, y: 1088), in: old, topInset: 0)
         #expect(abs(offset.y - 356) < 0.01)
     }
 
@@ -221,16 +213,16 @@ struct TrayGeometryTests {
     func currentRow() {
         let geometry = TrayGeometry(context: context(), zoom: 1)
         #expect(geometry.rowIndex(atTop: 0) == 0)
-        // The first row ends at 648.
-        #expect(geometry.rowIndex(atTop: 640) == 0)
-        #expect(geometry.rowIndex(atTop: 650) == 1)
+        // The first row ends at 546.
+        #expect(geometry.rowIndex(atTop: 538) == 0)
+        #expect(geometry.rowIndex(atTop: 548) == 1)
         #expect(geometry.rowIndex(atTop: 5000) == 2)
     }
 
-    @Test("用紙を送ると、その用紙が見える範囲の上端に来て、1枚目は上の説明から見せる")
+    @Test("用紙を送ると固定した見出しの下にその用紙が来て、1枚目へ戻すと上の余白も見える")
     func showRow() {
         let geometry = TrayGeometry(context: context(), zoom: 1)
-        #expect(geometry.offset(showingRow: 1, topInset: 52, x: 0) == CGPoint(x: 0, y: 630))
+        #expect(geometry.offset(showingRow: 1, topInset: 52, x: 0) == CGPoint(x: 0, y: 528))
         #expect(geometry.offset(showingRow: 0, topInset: 52, x: 0) == CGPoint(x: 0, y: -52))
     }
 }
@@ -277,10 +269,10 @@ struct TrayZoomerTests {
         let zoomer = zoomer()
         zoomer.scroll = TrayScrollState(offset: CGPoint(x: 0, y: 400), topInset: 0)
         zoomer.zoomIn()
-        // The middle of the 700-high view is 750 down the tray, 40 into the second sheet's paper (from 710).
-        // At 1.25 times the papers are 610 high, so the second starts at 132 + 638 + 34 + 28 = 832 and the spot at 882.
-        #expect(abs(zoomer.scroll.offset.y - 532) < 0.01)
-        #expect(zoomer.position.point.map { abs($0.y - 532) < 0.01 } == true)
+        // The viewport centre is 299 down. At offset 400 that is 91 into the second sheet (from 608).
+        // At 1.25 times, the second sheet starts at 730, and the same spot is at 843.75.
+        #expect(abs(zoomer.scroll.offset.y - 544.75) < 0.01)
+        #expect(zoomer.position.point.map { abs($0.y - 544.75) < 0.01 } == true)
     }
 
     @Test("用紙を作り直すあいだ刷り台が外れても、次の刷り台が倍率と見ていた用紙を引き継ぐ", .timeLimit(.minutes(1)))
@@ -422,11 +414,11 @@ struct TrayZoomerTests {
     @Test("窓の幅を変えても、見ていた用紙が見える範囲の上端に残る")
     func resizeKeepsTheSheet() {
         let zoomer = zoomer()
-        // The second sheet's row starts at 682.
-        zoomer.scroll = TrayScrollState(offset: CGPoint(x: 0, y: 682), topInset: 0)
-        // 560 wide, the sheets fit the width at 396 high, so the second row starts at 132 + 424 + 34.
+        // The second sheet's row starts at 580.
+        zoomer.scroll = TrayScrollState(offset: CGPoint(x: 0, y: 580), topInset: 0)
+        // 560 wide, the sheets fit the width at 396 high, so the second row starts at 30 + 424 + 34.
         zoomer.context?.width = 560
-        #expect(abs(zoomer.scroll.offset.y - 590) < 0.01)
+        #expect(abs(zoomer.scroll.offset.y - 488) < 0.01)
     }
 
     @Test("窓を広げて拡大の上限が下がると、倍率も上限まで下がり、次の縮小で小さくなる")

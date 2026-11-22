@@ -75,8 +75,8 @@ struct PrintIssuesPopover: View {
         case .image:
             if issue.imageFailure == .missing, model.fileURL != nil {
                 Button("Show in Finder") { model.revealPrintIssueFolder() }
-            } else if issue.imageFailure == .folderAccess, model.fileURL != nil {
-                Button("Allow Access to Folder…") { model.allowFolderAccess() }
+            } else if issue.imageFailure == .folderAccess, model.fileNeedingFolderAccess != nil {
+                Button("Choose Folder…") { model.allowFolderAccess() }
             }
         case .overflow:
             Button("Use Landscape") { model.useLandscapeForPrintIssue() }
@@ -149,7 +149,7 @@ enum PrintIssueText {
             switch issue.imageFailure {
             case .missing: key = "Image file not found: check its name and location in the source document."
             case .folderAccess:
-                key = "Folder access is not allowed: allow access to the folder containing the document and its images."
+                key = "Showing images needs permission to read the folder"
             case .other, nil: key = "Check that the image is readable and in a supported format."
             }
         case .verticalWriting, .bibliography, .mermaidTimeout: return ""

@@ -13,6 +13,7 @@ struct PrintTrayView: View {
     let memory: TrayMemory
     @State private var zoomer = TrayZoomer()
     @State private var headerHeight: CGFloat = 80
+    @State private var sourceNotesHeight: CGFloat = 1
     @State private var headingHeight: CGFloat = 18
     @State private var currentRow = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -21,18 +22,28 @@ struct PrintTrayView: View {
         GeometryReader { proxy in
             let context = TrayGeometry.Context(
                 tray: tray, showsCaptions: showsCaptions, width: proxy.size.width, height: proxy.size.height,
-                scroller: Self.scrollerWidth, headerHeight: headerHeight, headingHeight: headingHeight)
+                scroller: Self.scrollerWidth, headerHeight: headerHeight, headingHeight: headingHeight,
+                sourceNotesHeight: sourceNotesHeight)
             let geometry = TrayGeometry(context: context, zoom: zoomer.zoom)
-            ZStack(alignment: .bottomTrailing) {
-                scrollView(geometry)
-                TrayNavigator(
-                    current: min(currentRow, max(tray.rows.count - 1, 0)), rows: tray.rows,
-                    sheetCount: tray.sheets.count, zoomPercent: geometry.metrics.zoomPercent,
-                    canZoomIn: zoomer.canZoomIn, canZoomOut: zoomer.canZoomOut, go: go(to:), zoomIn: zoomer.zoomIn,
-                    zoomOut: zoomer.zoomOut, resetZoom: zoomer.zoomToFit
-                )
-                .padding(.trailing, 14)
-                .padding(.bottom, 16)
+            VStack(spacing: 0) {
+                header
+                    .frame(width: geometry.headerWidth, alignment: .leading)
+                    .onGeometryChange(for: CGFloat.self, of: \.size.height) { headerHeight = $0 }
+                    .frame(width: geometry.viewportSize.width)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, TrayGeometry.topPadding)
+                    .background(PrintPalette.stage)
+                ZStack(alignment: .bottomTrailing) {
+                    scrollView(geometry)
+                    TrayNavigator(
+                        current: min(currentRow, max(tray.rows.count - 1, 0)), rows: tray.rows,
+                        sheetCount: tray.sheets.count, zoomPercent: geometry.metrics.zoomPercent,
+                        canZoomIn: zoomer.canZoomIn, canZoomOut: zoomer.canZoomOut, go: go(to:), zoomIn: zoomer.zoomIn,
+                        zoomOut: zoomer.zoomOut, resetZoom: zoomer.zoomToFit
+                    )
+                    .padding(.trailing, 14)
+                    .padding(.bottom, 16)
+                }
             }
             .onChange(of: context, initial: true) { _, context in
                 if let kept = memory.kept {
@@ -82,12 +93,15 @@ struct PrintTrayView: View {
 
     private func sheets(_ geometry: TrayGeometry) -> some View {
         VStack(alignment: .leading, spacing: TrayGeometry.headerSpacing) {
-            header.frame(width: geometry.headerWidth, alignment: .leading)
-                .onGeometryChange(for: CGFloat.self, of: \.size.height) { headerHeight = $0 }
+            VStack(alignment: .leading, spacing: 0) {
+                PrintSourceNotes(model: model)
+                Rectangle().fill(PrintPalette.line).frame(height: 1)
+            }
+            .frame(width: geometry.headerWidth, alignment: .leading)
+            .onGeometryChange(for: CGFloat.self, of: \.size.height) { sourceNotesHeight = $0 }
             rows(geometry.metrics)
                 .frame(width: geometry.blockWidth)
         }
-        .padding(.top, TrayGeometry.topPadding)
         .padding(.horizontal, TrayMetrics.padding)
         .padding(.bottom, TrayGeometry.bottomPadding)
         // At least as wide as the scroll view shows, so that narrower sheets stay in the middle of it; any wider and
@@ -128,38 +142,34 @@ struct PrintTrayView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .center, spacing: 16) {
-                Text(instructions)
-                    .font(.system(size: 13))
-                    .lineSpacing(3)
-                    .foregroundStyle(PrintPalette.ink2)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                if tray.isBooklet {
-                    Button {
-                        model.showFold()
-                    } label: {
-                        Label("See It Folded", systemImage: "book")
-                            .font(.system(size: 12.5, weight: .semibold))
-                            .foregroundStyle(PrintPalette.ai)
-                            .padding(.leading, 11)
-                            .padding(.trailing, 13)
-                            .frame(height: 30)
-                            .overlay(CornerRole.control.shape.strokeBorder(PrintPalette.ai, lineWidth: 1))
-                            .contentShape(CornerRole.control.shape)
-                    }
-                    .buttonStyle(.plain)
-                    .fixedSize()
-                    // Not on sheets kept on the tray while newer ones are composed.
-                    .disabled(!model.canShowFold)
-                    .help("Fold the sheets into a booklet and turn its pages")
+        HStack(alignment: .center, spacing: 16) {
+            Text(instructions)
+                .font(.system(size: 13))
+                .lineSpacing(3)
+                .foregroundStyle(PrintPalette.ink2)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if tray.isBooklet {
+                Button {
+                    model.showFold()
+                } label: {
+                    Label("See It Folded", systemImage: "book")
+                        .font(.system(size: 12.5, weight: .semibold))
+                        .foregroundStyle(PrintPalette.ai)
+                        .padding(.leading, 11)
+                        .padding(.trailing, 13)
+                        .frame(height: 30)
+                        .overlay(CornerRole.control.shape.strokeBorder(PrintPalette.ai, lineWidth: 1))
+                        .contentShape(CornerRole.control.shape)
                 }
+                .buttonStyle(.plain)
+                .fixedSize()
+                // Not on sheets kept on the tray while newer ones are composed.
+                .disabled(!model.canShowFold)
+                .help("Fold the sheets into a booklet and turn its pages")
             }
-            .padding(.bottom, 14)
-            PrintSourceNotes(model: model)
-            Rectangle().fill(PrintPalette.line).frame(height: 1)
         }
+        .padding(.bottom, 14)
     }
 
     /// The Markdown emphasis of the instructions is drawn in the darker ink, as in the design. Its two lines stay two.

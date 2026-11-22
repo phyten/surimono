@@ -7,6 +7,7 @@ struct SettingsView: View {
     @Bindable var library: UserLibrary
     let arrangementEditor: BandArrangementEditorSession
     @State private var initialTextWell = InitialTextWell()
+    @State private var titleBarHeight: CGFloat = 0
     @State private var query = ""
     @State private var searchSelection = SettingsSearchSelection()
     @State private var pendingSearchPick: SettingsSection?
@@ -160,6 +161,7 @@ struct SettingsView: View {
             query = ""
         }
         .frame(minWidth: 820, idealWidth: 860, minHeight: 540)
+        .onGeometryChange(for: CGFloat.self, of: \.safeAreaInsets.top) { titleBarHeight = $0 }
         .background {
             WindowReader { window in
                 let editor = arrangementEditor
@@ -240,50 +242,8 @@ struct SettingsView: View {
                         ForEach(AppAppearance.allCases) { Text($0.title).tag($0) }
                     }
                     .settingSearchRow("Appearance")
-                    Picker("Corners", selection: $preferences.corners) {
-                        Text("Square").tag(CornerPreset.square)
-                        Text("Standard").tag(CornerPreset.standard)
-                        Text("Round").tag(CornerPreset.round)
-                    }
-                    .settingSearchRow("Corners")
                     Toggle("Show in Menu Bar", isOn: $preferences.showsMenuBarItem)
                         .settingSearchRow("Show in Menu Bar")
-                }
-                if updater.isAvailable {
-                    Section {
-                        Toggle(
-                            "Check for Updates Automatically",
-                            isOn: Binding(
-                                get: { updater.checksAutomatically }, set: { updater.setChecksAutomatically($0) })
-                        )
-                        .settingSearchRow("Check for Updates Automatically")
-                        UpdateHandlingPicker(
-                            installsAutomatically: Binding(
-                                get: { updater.installsAutomatically },
-                                set: { updater.setInstallsAutomatically($0) })
-                        )
-                        .settingSearchRow("When an Update Is Found")
-                    } footer: {
-                        VStack(alignment: .leading, spacing: 2) {
-                            SettingsFootnote("Nothing about your documents is sent to GitHub.")
-                            SettingsFootnote(UpdateHandlingPicker.note)
-                        }
-                    }
-                } else {
-                    #if !APP_STORE
-                        // Where the release build has its update settings, so both builds show updates in one place.
-                        // The App Store build updates through the App Store and says nothing here.
-                        Section("Updates") {
-                            Text("Updates are unavailable in development builds.").foregroundStyle(PrintPalette.ink2)
-                                .settingSearchRow("Updates are unavailable in development builds.")
-                        }
-                    #endif
-                }
-                Section("When Opening a Window") {
-                    Toggle("Float on Top", isOn: $preferences.defaultAlwaysOnTop)
-                        .settingSearchRow("Float on Top")
-                    Toggle("Show on All Spaces", isOn: $preferences.defaultShowsOnAllSpaces)
-                        .settingSearchRow("Show on All Spaces")
                 }
                 Section {
                     Picker("When a Binder Is Down to One Document", selection: $preferences.singleDocumentBinderPolicy)
@@ -318,6 +278,50 @@ struct SettingsView: View {
                     Text("After a Document Opens")
                 } footer: {
                     SettingsFootnote("Changes are highlighted on screen only.")
+                }
+                Section("Window") {
+                    Picker("Corners", selection: $preferences.corners) {
+                        Text("Square").tag(CornerPreset.square)
+                        Text("Standard").tag(CornerPreset.standard)
+                        Text("Round").tag(CornerPreset.round)
+                    }
+                    .settingSearchRow("Corners")
+                    Toggle("Float on Top", isOn: $preferences.defaultAlwaysOnTop)
+                        .settingSearchRow("Float on Top")
+                    Toggle("Show on All Spaces", isOn: $preferences.defaultShowsOnAllSpaces)
+                        .settingSearchRow("Show on All Spaces")
+                }
+                if updater.isAvailable {
+                    Section {
+                        Toggle(
+                            "Check for Updates Automatically",
+                            isOn: Binding(
+                                get: { updater.checksAutomatically }, set: { updater.setChecksAutomatically($0) })
+                        )
+                        .settingSearchRow("Check for Updates Automatically")
+                        UpdateHandlingPicker(
+                            installsAutomatically: Binding(
+                                get: { updater.installsAutomatically },
+                                set: { updater.setInstallsAutomatically($0) })
+                        )
+                        .settingSearchRow("When an Update Is Found")
+                    } header: {
+                        Text("Updates")
+                    } footer: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            SettingsFootnote("Nothing about your documents is sent to GitHub.")
+                            SettingsFootnote(UpdateHandlingPicker.note)
+                        }
+                    }
+                } else {
+                    #if !APP_STORE
+                        // Where the release build has its update settings, so both builds show updates in one place.
+                        // The App Store build updates through the App Store and says nothing here.
+                        Section("Updates") {
+                            Text("Updates are unavailable in development builds.").foregroundStyle(PrintPalette.ink2)
+                                .settingSearchRow("Updates are unavailable in development builds.")
+                        }
+                    #endif
                 }
             case .view:
                 Section {
@@ -535,8 +539,8 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        // The grouped form leaves a wide band of nothing under the title bar; the first group starts closer to it.
-        .contentMargins(.top, -28, for: .scrollContent)
+        // The split view can extend General under the window toolbar, obscuring the language and appearance controls.
+        .contentMargins(.top, preferences.settingsSection == .general ? titleBarHeight : -28, for: .scrollContent)
     }
 
     private var defaultsNote: some View { SettingsFootnote("Defaults apply to newly opened documents.") }

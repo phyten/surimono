@@ -109,7 +109,7 @@
           "stringSet": {
             "state": "translated",
             "values": [
-              "${applicationName}의 프린트 모드에서 열기"
+              "${applicationName}의 인쇄 화면에서 열기"
             ]
           }
         },

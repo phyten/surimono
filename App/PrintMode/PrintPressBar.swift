@@ -140,14 +140,14 @@ struct PrintPressBar: View {
     }
 
     /// The PDF button keeps its icon and drops its label when the bar gives it no room for both.
-    private var pdfButton: some View {
+    var pdfButton: some View {
         Button {
             model.exportPDF()
         } label: {
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 7) {
                     pdfIcon
-                    Text("Export PDF").lineLimit(1).fixedSize()
+                    Text("PDF of Sheets…").lineLimit(1).fixedSize()
                     Spacer(minLength: 0)
                 }
                 .padding(.horizontal, 9)
@@ -156,8 +156,8 @@ struct PrintPressBar: View {
         }
         .buttonStyle(PrintBorderedButtonStyle())
         .disabled(!model.canOutput)
-        .help(ShortcutHints.help(String(localized: "Export the imposed sheets as a PDF"), [.documentExportPDF]))
-        .accessibilityLabel(Text("Export PDF"))
+        .help(ShortcutHints.help(String(localized: "Export the sheets as a PDF"), [.documentExportPDF]))
+        .accessibilityLabel(Text("PDF of Sheets…"))
     }
 
     private var pdfIcon: some View {

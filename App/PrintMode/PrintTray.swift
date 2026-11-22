@@ -271,7 +271,7 @@ struct TrayGeometry: Equatable {
         var mixedOrientations: Bool
         var rows: [Row]
         var showsCaptions: Bool
-        /// The scroll view's size, scroll bars included.
+        /// The stage's size, including the pinned heading and any legacy scroll bars.
         var width: CGFloat
         var height: CGFloat
         /// How thick a legacy scroll bar is, or 0 where scroll bars lie over the content.
@@ -279,10 +279,13 @@ struct TrayGeometry: Equatable {
         /// The measured heights of the instructions above the sheets and of a sheet's heading.
         var headerHeight: CGFloat
         var headingHeight: CGFloat
+        /// Web and slide controls scroll with the sheets, below the pinned summary.
+        var sourceNotesHeight: CGFloat
 
         init(
             layout: PrintLayout, mixedOrientations: Bool, rows: [Row], showsCaptions: Bool, width: CGFloat,
-            height: CGFloat, scroller: CGFloat = 0, headerHeight: CGFloat, headingHeight: CGFloat
+            height: CGFloat, scroller: CGFloat = 0, headerHeight: CGFloat, headingHeight: CGFloat,
+            sourceNotesHeight: CGFloat = 0
         ) {
             self.layout = layout
             self.mixedOrientations = mixedOrientations
@@ -293,11 +296,12 @@ struct TrayGeometry: Equatable {
             self.scroller = scroller
             self.headerHeight = headerHeight
             self.headingHeight = headingHeight
+            self.sourceNotesHeight = sourceNotesHeight
         }
 
         init(
             tray: PrintTray, showsCaptions: Bool, width: CGFloat, height: CGFloat, scroller: CGFloat,
-            headerHeight: CGFloat, headingHeight: CGFloat
+            headerHeight: CGFloat, headingHeight: CGFloat, sourceNotesHeight: CGFloat = 0
         ) {
             let layout = tray.layout
             self.init(
@@ -310,7 +314,7 @@ struct TrayGeometry: Equatable {
                     return Row(sheets: row.sheets.count, sides: sheet?.sides.count ?? 1, paper: paper)
                 },
                 showsCaptions: showsCaptions, width: width, height: height, scroller: scroller,
-                headerHeight: headerHeight, headingHeight: headingHeight)
+                headerHeight: headerHeight, headingHeight: headingHeight, sourceNotesHeight: sourceNotesHeight)
         }
     }
 
@@ -335,8 +339,8 @@ struct TrayGeometry: Equatable {
 
     init(context: Context, zoom: CGFloat) {
         let layout = context.mixedOrientations ? context.layout.oriented(true) : context.layout
-        let viewportHeight =
-            context.height - Self.topPadding - context.headerHeight - Self.headerSpacing - Self.bottomClearance
+        let scrollHeight = max(0, context.height - Self.topPadding - context.headerHeight)
+        let viewportHeight = scrollHeight - context.sourceNotesHeight - Self.headerSpacing - Self.bottomClearance
         // The sheets are sized as if a legacy scroll bar always took its width, so that one coming and going does
         // not resize them.
         func measure(_ zoom: CGFloat) -> TrayMetrics {
@@ -349,7 +353,7 @@ struct TrayGeometry: Equatable {
         rows = context.rows
         scale = metrics.scale
         let captions = context.showsCaptions ? Self.captionSpacing + Self.captionHeight : 0
-        var top = Self.topPadding + context.headerHeight + Self.headerSpacing
+        var top = context.sourceNotesHeight + Self.headerSpacing
         var tops: [CGFloat] = []
         var heights: [CGFloat] = []
         var papers: [TraySegment] = []
@@ -365,15 +369,14 @@ struct TrayGeometry: Equatable {
         rowHeights = heights
         self.papers = papers
         let contentHeight = (heights.isEmpty ? top : top - Self.rowSpacing) + Self.bottomPadding
-        headerWidth = measure(1).rowWidth
+        headerWidth = min(measure(1).rowWidth, max(0, context.width - context.scroller - 2 * TrayMetrics.padding))
         blockWidth = max(metrics.rowWidth, headerWidth)
         // A legacy scroll bar takes its room from what the tray shows only while it is there: down the side when the
         // tray is taller than what shows, across the bottom when it is wider. Either can bring the other.
         let contentWidth = blockWidth + 2 * TrayMetrics.padding
-        var tall = contentHeight > context.height
-        // Zoomed out, the instructions keep their width and may be the ones that do not fit.
+        var tall = contentHeight > scrollHeight
         var wide = contentWidth > context.width - (tall ? context.scroller : 0)
-        if !tall, wide, contentHeight > context.height - context.scroller {
+        if !tall, wide, contentHeight > scrollHeight - context.scroller {
             tall = true
         }
         if !wide, tall, contentWidth > context.width - context.scroller {
@@ -384,7 +387,7 @@ struct TrayGeometry: Equatable {
         blockLeft = wide ? TrayMetrics.padding : (visibleWidth - blockWidth) / 2
         rowsLeft = blockLeft + (blockWidth - metrics.rowWidth) / 2
         contentSize = CGSize(width: wide ? contentWidth : visibleWidth, height: contentHeight)
-        viewportSize = CGSize(width: visibleWidth, height: context.height - (wide ? context.scroller : 0))
+        viewportSize = CGSize(width: visibleWidth, height: max(0, scrollHeight - (wide ? context.scroller : 0)))
     }
 
     /// The sides of `row`, across the tray: sheets side by side, each with its sides side by side.
@@ -406,7 +409,7 @@ struct TrayGeometry: Equatable {
     func offset(keeping spot: CGPoint, scrolledTo offset: CGPoint, in old: TrayGeometry, topInset: CGFloat) -> CGPoint {
         let point = CGPoint(x: offset.x + spot.x, y: offset.y + spot.y)
         let y = TrayMark(point.y, along: old.papers)
-        // The instructions above the rows keep their size; a spot on them keeps its distance from their left edge.
+        // The source controls above the sheets retain their width as the sheets zoom.
         let x =
             point.y < (old.rowTops.first ?? .infinity)
             ? blockLeft + point.x - old.blockLeft
@@ -422,7 +425,7 @@ struct TrayGeometry: Equatable {
             y: min(max(offset.y, -topInset), max(contentSize.height - viewportSize.height, 0) - topInset))
     }
 
-    /// The scroll position that shows `row` at the top of the visible area; the first row shows the instructions too.
+    /// The scroll position that shows `row` at the top of the visible area; the first row also shows any source controls.
     func offset(showingRow row: Int, topInset: CGFloat, x: CGFloat) -> CGPoint {
         let y = row > 0 && rowTops.indices.contains(row) ? rowTops[row] - topInset : -topInset
         return clamped(CGPoint(x: x, y: y), topInset: topInset)

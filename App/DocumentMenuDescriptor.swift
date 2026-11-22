@@ -167,7 +167,7 @@ struct DocumentMenuDescriptor: Identifiable {
                     "Export",
                     [
                         command("PDF for Reading…", .documentExportReadingPDF),
-                        command("PDF of the Sheets…", .documentExportPDF),
+                        command("PDF of Sheets…", .documentExportPDF),
                         command("Images (PNG)…", .documentExportPNG), command("HTML…", .documentExportHTML),
                         divider("share"), command("Share PDF…", .documentShare),
                     ]),

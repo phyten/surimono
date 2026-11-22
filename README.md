@@ -22,7 +22,7 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 
 ## Features
 
-- Export a **PDF for Reading** in page order, with heading bookmarks, existing links and title metadata, or a **PDF of the Sheets** with the print layout.
+- Export a **PDF for Reading** in page order, with heading bookmarks, existing links and title metadata, or choose **PDF of Sheets** to keep the print layout.
 - Export reading pages as PNG (72 / 144 / 300 dpi), save themed text as a single HTML file, copy HTML or rich text (including tables, lists, figures and math), or share a reading PDF through macOS.
 - Customize local and global keys in **Settings › Keyboard Shortcuts**. Keys and Gestures and button hints follow your assignments. Export your overrides as JSON, review and merge an import, or restore all defaults with confirmation. Fixed keys for cancellation, editing and keyboard access stay available.
 - Print Markdown CriticMarkup with revision marks, accepted changes, or the original text.

@@ -52,12 +52,16 @@ struct SettingsSearchRow {
     let label: String
     let anchor: String
     let words: [String]
+    let heading: String?
 
-    init(_ section: SettingsSection, _ label: String, anchor: String? = nil, words: [String] = []) {
+    init(
+        _ section: SettingsSection, _ label: String, anchor: String? = nil, words: [String] = [], heading: String? = nil
+    ) {
         self.section = section
         self.label = label
         self.anchor = anchor ?? label
         self.words = words
+        self.heading = heading
     }
 }
 
@@ -79,7 +83,10 @@ struct SettingsSearchResults {
 
     fileprivate struct Rank: Comparable {
         enum Source: Int { case section, setting, command }
-        enum Match: Int { case exact, prefix, substring, keyword }
+        enum Match: Int, Comparable {
+            case exact, prefix, substring, keyword
+            static func < (lhs: Self, rhs: Self) -> Bool { lhs.rawValue < rhs.rawValue }
+        }
         let source: Source
         let match: Match
 
@@ -102,18 +109,18 @@ enum SettingsCatalogue {
         var rows: [SettingsSearchRow] = [
             .init(.general, "Language"),
             .init(.general, "Appearance"),
-            .init(.general, "Corners"),
             .init(.general, "Show in Menu Bar"),
-            .init(.general, "Check for Updates Automatically"),
-            .init(.general, "When an Update Is Found", words: ["install"]),
-            .init(.general, "Updates are unavailable in development builds."),
-            .init(.general, "Float on Top"),
-            .init(.general, "Show on All Spaces"),
-            .init(.general, "When a Binder Is Down to One Document"),
-            .init(.general, "Reload When the File Changes"),
-            .init(.general, "After a File Is Saved"),
-            .init(.general, "Changed Places", words: ["highlight", "background"]),
-            .init(.general, "Changed Text"),
+            .init(.general, "When a Binder Is Down to One Document", heading: "After a Document Opens"),
+            .init(.general, "Reload When the File Changes", heading: "After a Document Opens"),
+            .init(.general, "After a File Is Saved", heading: "After a Document Opens"),
+            .init(.general, "Changed Places", words: ["highlight", "background"], heading: "After a Document Opens"),
+            .init(.general, "Changed Text", heading: "After a Document Opens"),
+            .init(.general, "Corners", heading: "Window"),
+            .init(.general, "Float on Top", heading: "Window"),
+            .init(.general, "Show on All Spaces", heading: "Window"),
+            .init(.general, "Check for Updates Automatically", heading: "Updates"),
+            .init(.general, "When an Update Is Found", words: ["install"], heading: "Updates"),
+            .init(.general, "Updates are unavailable in development builds.", heading: "Updates"),
             .init(.view, "Scroll Sensitivity"),
             .init(.view, "View Type", words: ["spread", "single page"]),
             .init(.view, "Page Turning"),
@@ -229,7 +236,9 @@ enum SettingsCatalogue {
             } else {
                 let isCommand = row.section == .keyboardShortcuts || row.section == .toolbarArrangement
                 let quality: Rank.Match
-                if let label = match(row.label) {
+                if let heading = row.heading.flatMap({ match($0) }) {
+                    quality = min(heading, match(row.label) ?? heading)
+                } else if let label = match(row.label) {
                     quality = label
                 } else if row.words.contains(where: { match($0) != nil }) {
                     quality = .keyword

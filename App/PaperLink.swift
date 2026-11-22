@@ -31,11 +31,7 @@ struct PaperLinkHandler {
         let sandboxed = isSandboxed()
         let url = sandboxed ? (LocalResourceSchemeHandler.fileURL(for: url) ?? url) : url
         if sandboxed, url.isFileURL, !FileManager.default.isReadableFile(atPath: url.path) {
-            onToast(
-                Toast(
-                    systemImage: "folder",
-                    title: String(localized: "Allow folder access to display images and other resources"),
-                    action: .allowFolderAccess))
+            onToast(.folderAccess)
             return
         }
         let exists = url.isFileURL && FileManager.default.fileExists(atPath: url.path)

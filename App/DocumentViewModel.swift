@@ -60,6 +60,12 @@ struct Toast: Equatable, Identifiable {
     var detail: String?
     var action: Action?
     var showsDismissButton = true
+
+    static var folderAccess: Toast {
+        Toast(
+            systemImage: "folder", title: String(localized: "Showing images needs permission to read the folder"),
+            action: .allowFolderAccess)
+    }
 }
 
 @Observable
@@ -351,7 +357,10 @@ final class DocumentViewModel {
     @ObservationIgnored var duplexTestSubmit:
         ((PDFDocument, PrintLayout, PrintRequest, @escaping (DuplexTestResult?) -> Void) -> Void)?
     private var duplexTestTask: Task<Void, Never>?
-    var toast: Toast?
+    private var otherToast: Toast?
+    private var folderAccessNotice: Toast?
+    private var closedFolderAccessNotice = false
+    var toast: Toast? { otherToast ?? folderAccessNotice }
     /// What the document can be bound from; nil unless it names at least two documents that can be read.
     private(set) var includePlan: MarkdownIncludes.Plan?
     @ObservationIgnored private var includeTask: Task<Void, Never>?
@@ -627,9 +636,7 @@ final class DocumentViewModel {
             )
         }
         paper.onReadingJump = { [weak self] page in self?.recordReadingJump(to: page) }
-        paper.onToast = { [weak self] toast in
-            self?.showToast(toast, dismissAfter: toast.action == .allowFolderAccess ? nil : .seconds(5))
-        }
+        paper.onToast = { [weak self] toast in self?.showToast(toast) }
         web.onFolderAccessRequired = { [weak self] _ in self?.requestFolderAccess() }
         drop.onSpring = { [weak self] in self?.isDrawerOpen = true }
         #if DEBUG
@@ -3525,20 +3532,16 @@ final class DocumentViewModel {
     }
 
     func requestFolderAccess() {
-        guard SandboxEnvironment.isSandboxed, fileURL != nil || binder != nil, toast?.action != .allowFolderAccess
+        guard SandboxEnvironment.isSandboxed, fileURL != nil || binder != nil, !closedFolderAccessNotice,
+            folderAccessNotice == nil
         else { return }
-        showToast(
-            Toast(
-                systemImage: "folder",
-                title: String(localized: "Allow folder access to display images and other resources"),
-                action: .allowFolderAccess),
-            dismissAfter: nil)
+        showToast(.folderAccess)
     }
 
+    var fileNeedingFolderAccess: URL? { fileURL ?? binder?.fileRequiringAccess(result?.requiredFolderAccess) }
+
     func allowFolderAccess() {
-        guard SandboxEnvironment.isSandboxed,
-            let fileURL = fileURL ?? binder?.fileRequiringAccess(result?.requiredFolderAccess), let window
-        else { return }
+        guard SandboxEnvironment.isSandboxed, let fileURL = fileNeedingFolderAccess, let window else { return }
         let folder = fileURL.deletingLastPathComponent()
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
@@ -3563,16 +3566,17 @@ final class DocumentViewModel {
                 guard let lease = FolderAccess.shared.acquire(for: fileURL) else {
                     throw CocoaError(.fileReadNoPermission)
                 }
+                folderAccessNotice = nil
+                closedFolderAccessNotice = false
+                dismissToast()
                 if let binder {
                     lease.close()
                     binder.clearCache()
-                    dismissToast()
                     renderer.clearCache()
                     render()
                     return
                 }
                 useDocumentFolder(lease)
-                dismissToast()
                 renderer.clearCache()
                 themeSamples.invalidate()
                 themeTrial.end()
@@ -3606,7 +3610,13 @@ final class DocumentViewModel {
 
     func showToast(_ toast: Toast, dismissAfter delay: Duration? = .seconds(5)) {
         toastTask?.cancel()
-        self.toast = toast
+        if toast.action == .allowFolderAccess {
+            otherToast = nil
+            folderAccessNotice = toast
+            return
+        }
+        // A short-lived message may cover the folder action, but must leave it available afterwards.
+        otherToast = toast
         guard let delay else { return }
         let id = toast.id
         toastTask = Task { [weak self] in
@@ -3615,9 +3625,13 @@ final class DocumentViewModel {
         }
     }
 
-    func dismissToast() {
+    func dismissToast(closingFolderNotice: Bool = false) {
         toastTask?.cancel()
-        toast = nil
+        if closingFolderNotice, otherToast == nil, folderAccessNotice != nil {
+            folderAccessNotice = nil
+            closedFolderAccessNotice = true
+        }
+        otherToast = nil
         showVerticalWritingNoteIfNeeded()
     }
 

@@ -196,7 +196,7 @@ private struct WelcomeView: View {
     private var dropZone: some View {
         VStack(spacing: 12) {
             Image(systemName: "printer").font(.system(size: 36)).foregroundStyle(PrintPalette.ink3)
-            Text("Drop a file to preview and print")
+            Text("Drop files to view and print")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(PrintPalette.ink)
                 .multilineTextAlignment(.center)

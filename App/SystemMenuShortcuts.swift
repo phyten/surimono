@@ -25,7 +25,7 @@ final class SystemMenuShortcuts {
             .init(.clipboardOpenPrintScreen, 1, ["Open Clipboard on the Print Screen"]),
             .init(.documentPrint, 1, ["Print…", "Print"]),
             .init(.documentPrintSystem, 1, ["Print with System Dialog…"]),
-            .init(.documentExportPDF, 1, ["PDF of the Sheets…"], parents: ["Export"]),
+            .init(.documentExportPDF, 1, ["PDF of Sheets…"], parents: ["Export"]),
             .init(.documentExportReadingPDF, 1, ["PDF for Reading…"], parents: ["Export"]),
             .init(.documentExportPNG, 1, ["Images (PNG)…"], parents: ["Export"]),
             .init(.documentExportHTML, 1, ["HTML…"], parents: ["Export"]),
