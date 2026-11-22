@@ -279,6 +279,81 @@ struct LanguageTests {
         #expect(catalog.strings["Horizontal Scroll"]?.localizations["ja"]?.stringUnit?.value == "横スクロール")
     }
 
+    @Test("画面・合本・画像の束などの用語をそれぞれの言語で統一する")
+    func consistentTerms() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let catalog = try JSONDecoder().decode(
+            Catalog.self, from: Data(contentsOf: root.appending(path: "App/Localizable.xcstrings")))
+        let discontinued = [
+            "ja": ["刷り台", "フォルダー", "綴じ方", "割当", "他のアプリ", "印刷設定", "いまの", "見比べ台"],
+            "de": ["Sammlung", "Sammeldokument", "Bildsammlung", "Bilderbündel", "Druckansicht"],
+            "es": ["recopilación", "recopilaciones", "conjunto de imágenes", "conjuntos de imágenes"],
+            "zh-Hans": ["文稿", "打印画面", "打印屏幕", "图片组", "图像组"],
+            "zh-Hant": ["開啟", "匯出", "圖片", "影像組", "資料夾"],
+        ]
+        for (key, entry) in catalog.strings {
+            for (language, terms) in discontinued {
+                for unit in entry.localizations[language]?.units ?? [] {
+                    for term in terms where unit.value.localizedCaseInsensitiveContains(term) {
+                        Issue.record("\(key) [\(language)] \(term) — \(unit.value)")
+                    }
+                }
+            }
+        }
+
+        let expected: [(String, String, String)] = [
+            ("ja", "Show Update…", "アップデートを表示…"),
+            ("ja", "Update Available", "アップデートがあります"),
+            ("ja", "When an Update Is Found", "アップデートが見つかったとき"),
+            ("ja", "Updating pages…", "ページを更新中…"),
+            ("ja", "Unassigned", "未割り当て"),
+            ("ja", "Open Styles Folder", "自分のスタイルのフォルダを開く"),
+            ("ja", "Left Drawer", "左の引き出し"),
+            (
+                "ja",
+                "The binding changed in the print dialog. Run the duplex test again without changing the binding.",
+                "システムの印刷画面でとじ方が変わりました。とじ方を変えずに、もう一度両面のテスト印刷をしてください。"
+            ),
+            ("de", "In binders and image bundles", "In Sammelbänden und Bilderstapeln"),
+            ("de", "Open the print screen", "Druckbildschirm öffnen"),
+            ("es", "In binders and image bundles", "En compilaciones y lotes de imágenes"),
+            (
+                "es", "Updates are unavailable in this build.",
+                "Las actualizaciones no están disponibles en esta versión."
+            ),
+            ("es", "Toolbar Layout", "Estructura de la barra de herramientas"),
+            ("es", "Always Show Toolbar", "Mostrar siempre la barra"),
+            ("es", "Toolbar Arrangement", "Disposición de la barra"),
+            ("zh-Hans", "Open Sample Document", "打开示例文档"),
+            ("zh-Hans", "Open the print screen", "打开打印界面"),
+            ("zh-Hans", "In binders and image bundles", "在合订本和图像集中"),
+            ("zh-Hant", "Open the print screen", "打開列印畫面"),
+            ("zh-Hant", "Export Shortcuts…", "輸出快捷鍵…"),
+            ("zh-Hant", "In binders and image bundles", "在合訂本與影像集中"),
+        ]
+        for (language, key, value) in expected {
+            #expect(catalog.strings[key]?.localizations[language]?.stringUnit?.value == value, "\(key) [\(language)]")
+        }
+    }
+
+    @Test("フランス語のコロンと疑問符・感嘆符・セミコロンは直前の語と同じ行に収まる")
+    func frenchPunctuationSpacing() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let catalog = try JSONDecoder().decode(
+            Catalog.self, from: Data(contentsOf: root.appending(path: "App/Localizable.xcstrings")))
+        let spacing: [Character: Character] = [":": "\u{00A0}", "?": "\u{202F}", "!": "\u{202F}", ";": "\u{202F}"]
+        for (key, entry) in catalog.strings {
+            for unit in entry.localizations["fr"]?.units ?? [] {
+                for index in unit.value.indices {
+                    guard let space = spacing[unit.value[index]] else { continue }
+                    #expect(
+                        index != unit.value.startIndex && unit.value[unit.value.index(before: index)] == space,
+                        "\(key) — \(unit.value)")
+                }
+            }
+        }
+    }
+
     private func specifiers(_ text: String) -> [String] {
         let pattern = #/%(?:(\d+)\$)?(lld|ld|@)/#
         return text.matches(of: pattern).enumerated().map { index, match in

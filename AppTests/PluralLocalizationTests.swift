@@ -47,8 +47,12 @@ struct PluralLocalizationTests {
         #expect(PrintModeText.format(key, language: "en", 1, "A") == "Fronts sent: 1 sheet. (Printer: A)")
         #expect(PrintModeText.format(key, language: "en", 3, "A") == "Fronts sent: 3 sheets. (Printer: A)")
         #expect(PrintModeText.format(key, language: "ja", 3, "A") == "表を 3 枚送りました。（プリンター：A）")
-        #expect(PrintModeText.format(key, language: "fr", 1, "A") == "Rectos envoyés : 1 feuille. (Imprimante : A)")
-        #expect(PrintModeText.format(key, language: "fr", 3, "A") == "Rectos envoyés : 3 feuilles. (Imprimante : A)")
+        #expect(
+            PrintModeText.format(key, language: "fr", 1, "A")
+                == "Rectos envoyés\u{00A0}: 1 feuille. (Imprimante\u{00A0}: A)")
+        #expect(
+            PrintModeText.format(key, language: "fr", 3, "A")
+                == "Rectos envoyés\u{00A0}: 3 feuilles. (Imprimante\u{00A0}: A)")
     }
 
     private func summary(pages: Int, layout: PrintLayout, language: String) -> String {
