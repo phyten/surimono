@@ -179,7 +179,7 @@ private struct ContentsTabPicker: View {
     let model: DocumentViewModel
 
     var body: some View {
-        Picker("Contents", selection: Binding(get: { model.contentsTab }, set: model.selectContentsTab)) {
+        Picker("Contents", selection: Binding(get: { model.contentsTab }, set: { model.selectContentsTab($0) })) {
             Text("Contents").tag(DocumentSettings.ContentsPanel.Tab.contents)
             Text("Pages Tab").tag(DocumentSettings.ContentsPanel.Tab.pages)
         }

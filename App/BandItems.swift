@@ -105,7 +105,7 @@ struct BandItemView: View {
             }
             .help(ShortcutHints.help(String(localized: "Fit to Window"), [.viewZoomFit]))
         case .thumbnails:
-            Toggle(isOn: Binding(get: { model.isDrawerOpen }, set: model.setSideListOpen)) {
+            Toggle(isOn: Binding(get: { model.isDrawerOpen }, set: { model.setSideListOpen($0) })) {
                 if let binder = model.binder {
                     Text("Documents \(binder.items.count)")
                 } else if let bundle = model.imageBundle {
