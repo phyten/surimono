@@ -6766,7 +6766,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Druckbögen wie angeordnet als PDF exportieren"
+            "value": "Blätter wie angeordnet als PDF exportieren"
           }
         },
         "es": {
@@ -10508,7 +10508,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "모든 데스크탑에 이 윈도우를 표시합니다."
+            "value": "모든 데스크탑에 이 창을 표시합니다."
           }
         },
         "fr": {
@@ -15753,7 +15753,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "문서 윈도우에서"
+            "value": "문서 창에서"
           }
         },
         "fr": {
@@ -15806,7 +15806,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "모든 Surimono 윈도우에서"
+            "value": "모든 Surimono 창에서"
           }
         },
         "fr": {
@@ -16071,7 +16071,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "문서를 추가할 수 있는 윈도우에서"
+            "value": "문서를 추가할 수 있는 창에서"
           }
         },
         "fr": {
@@ -16442,7 +16442,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "모든 윈도우에서 취소할 수 있도록 고정됩니다."
+            "value": "모든 창에서 취소할 수 있도록 고정됩니다."
           }
         },
         "fr": {
@@ -16866,7 +16866,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOS 윈도우 및 앱 제어에서 관리합니다."
+            "value": "macOS 창 및 앱 제어에서 관리합니다."
           }
         },
         "fr": {
@@ -17979,7 +17979,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "고정된 편집 또는 윈도우 작업용으로 예약되어 있습니다."
+            "value": "고정된 편집 또는 창 작업용으로 예약되어 있습니다."
           }
         },
         "fr": {
@@ -26550,7 +26550,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "PDF der Druckbögen …"
+            "value": "Blätter als PDF …"
           }
         },
         "es": {
@@ -57887,13 +57887,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "用纸：%@ 双面"
+            "value": "纸张：%@ 双面"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "用紙：%@ 雙面"
+            "value": "紙張：%@ 雙面"
           }
         },
         "ko": {
@@ -60281,13 +60281,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "用纸：%@"
+            "value": "纸张：%@"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "用紙：%@"
+            "value": "紙張：%@"
           }
         },
         "ko": {
@@ -63938,7 +63938,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Anzeigegröße. Die Druckgröße ändert sich nicht. Klicken, um die Bögen ans Fenster anzupassen."
+            "value": "Anzeigegröße. Die Druckgröße ändert sich nicht. Klicken, um die Blätter ans Fenster anzupassen."
           }
         },
         "es": {
@@ -66859,13 +66859,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "用纸 %1$@ · %2$@ · %3$@"
+            "value": "纸张 %1$@ · %2$@ · %3$@"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "用紙 %1$@ · %2$@ · %3$@"
+            "value": "紙張 %1$@ · %2$@ · %3$@"
           }
         },
         "ko": {
