@@ -269,7 +269,7 @@ struct ConverterTests {
         #expect(
             DocumentFormat.allCases.filter(\.usesPrintTheme) == [
                 .markdown, .org, .plainText, .csv, .latex, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .mediawiki,
-                .docx,
+                .rst, .docx,
                 .notebook,
                 .graphviz, .plantuml,
             ])

@@ -65,7 +65,7 @@ public enum ClipboardContent: Equatable, Sendable {
         let aliases: [String: DocumentFormat] = [
             "multimarkdown": .markdown, "gfm": .markdown, "commonmark": .markdown, "org-mode": .org, "orgmode": .org,
             "plain": .plainText, "plaintext": .plainText, "quarto": .quarto, "r markdown": .rMarkdown,
-            "graphviz": .graphviz,
+            "graphviz": .graphviz, "restructuredtext": .rst,
         ]
         guard let format = aliases[name] ?? DocumentFormat(fileExtension: name), format.isWebRendered,
             format != .docx
@@ -86,6 +86,7 @@ public enum ClipboardContent: Equatable, Sendable {
         case .docx: "docx"
         case .textile: "textile"
         case .mediawiki: "mediawiki"
+        case .rst: "rst"
         case .asciidoc: "adoc"
         case .notebook: "ipynb"
         case .graphviz: "dot"

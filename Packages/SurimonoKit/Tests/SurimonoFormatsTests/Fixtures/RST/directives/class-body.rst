@@ -1,0 +1,3 @@
+.. class:: shore
+
+   Sheltered water.

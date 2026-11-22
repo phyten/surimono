@@ -86,6 +86,7 @@ struct ClipboardContentTests {
             ("\u{FEFF} <!-- FORMAT:Org -->\n\n* 見出し", .org, "* 見出し"),
             ("<!--\nsource: Emacs\nformat: latex\n-->\n\\section{a}", .latex, "\\section{a}"),
             ("<!--format: asciidoc-->\n= 題", .asciidoc, "= 題"),
+            ("<!--format: reStructuredText-->\nMill\n===", .rst, "Mill\n==="),
             ("<!--format: mediawiki-->\n== 題 ==", .mediawiki, "== 題 =="),
             ("<!--format: text-->\n# そのまま", .plainText, "# そのまま"),
             ("<!--format: qmd-->\n# 題", .quarto, "# 題"),

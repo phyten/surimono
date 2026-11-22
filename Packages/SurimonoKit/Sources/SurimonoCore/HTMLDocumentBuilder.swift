@@ -69,7 +69,7 @@ public enum HTMLDocumentBuilder {
             <title>\(HTML.escape(fragment.title ?? ""))</title>
             \(base)<style>
             \(sheet)
-            </style>\(fontStyle)\(finishStyle)\(slideStyle)\(removesPaper ? "\n" + PaperBackground.removalStyle : "")
+            </style>\(fontStyle)\(format == .rst ? rstStyle : "")\(finishStyle)\(slideStyle)\(removesPaper ? "\n" + PaperBackground.removalStyle : "")
             </head>
             <body class="surimono format-\(format.rawValue)"\(latex)>
             \(LongTokenMarks.marked(CodeBlockMarkup.apply(code, to: fragment.body)))
@@ -77,6 +77,20 @@ public enum HTMLDocumentBuilder {
             </html>
             """
     }
+
+    private static let rstStyle = """
+        <style>
+        .format-rst :is(td, th) > p { margin: 0; }
+        .format-rst table > caption { white-space: nowrap; text-align: start; }
+        .format-rst dd > p:first-child { margin-block-start: 0; }
+        .format-rst dd > p:last-child { margin-block-end: 0; }
+        .format-rst :is(pre.literal-block, pre.doctest-block, code.rst-plain-code) { font-weight: normal; font-style: normal; }
+        .format-rst dt > .rst-classifier::before { content: " : "; }
+        .format-rst .rst-line-block > .rst-line-block { margin-inline-start: 1.5em; }
+        .format-rst .rubric, .format-rst .topic-title, .format-rst .sidebar-title { font-weight: bold; }
+        .format-rst :is([role="doc-footnote"], [role="doc-biblioentry"]) > .label + p { display: inline; margin-inline-start: .35em; }
+        </style>
+        """
 
     private static func beamerStyle(_ info: LaTeXDocumentClassInfo, sheet: String) -> String? {
         guard let size = info.beamerPageSize else { return nil }
@@ -161,9 +175,12 @@ public enum HTMLDocumentBuilder {
     /// The document and its separate paper page both load theme CSS. Permit local resources and the bundled
     /// diagram engine's WebAssembly, while the renderer keeps document JavaScript disabled.
     static func offlinePolicy(for format: DocumentFormat) -> String {
-        guard format == .mediawiki || format == .docx || format == .quarto || format == .rMarkdown else { return "" }
+        guard format == .rst || format == .mediawiki || format == .docx || format == .quarto || format == .rMarkdown
+        else { return "" }
+        // The sandbox serves checked relative images through its local URL scheme.
+        let images = format == .rst ? "file: data: blob: surimono-local:" : "file: data: blob:"
         let policy =
-            "default-src 'none'; img-src file: data: blob:; font-src file: data:; "
+            "default-src 'none'; img-src \(images); font-src file: data:; "
             + "style-src 'unsafe-inline' file: data:; script-src 'wasm-unsafe-eval'; form-action 'none'"
         return "<meta http-equiv=\"Content-Security-Policy\" content=\"\(policy)\">"
     }

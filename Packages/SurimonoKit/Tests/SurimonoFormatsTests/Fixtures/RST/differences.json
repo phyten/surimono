@@ -1,0 +1,70 @@
+{
+  "blocks/bom.rst": {
+    "reason": "The shared file decoder removes the UTF-8 byte order mark before parsing.",
+    "sha256": "aa72cd1665475cdd01df7cdf493f1cdb382ef588f777a45c27f5bf23d38a81b4"
+  },
+  "blocks/initial-and-surname.rst": {
+    "reason": "A lone initial and surname is prose. Docutils reads the standalone line as an upper-alpha list; another item or indented body disambiguates a real list.",
+    "sha256": "7f0030e76f723b857c09ede8cc014da4b04984ba366e0faf142e80ecbadb155f"
+  },
+  "blocks/mismatched-overline.rst": {
+    "reason": "Show the malformed decoration and count the occurrence in print checks.",
+    "sha256": "26f885896f2506bbfb92fec287676ea39dddcfe10af66e00a32f0fbba1419967"
+  },
+  "directives/sphinx-changed.rst": {
+    "reason": "Display the version and the change description.",
+    "sha256": "6c8472a4afc2d3bc99ab1e3c2e57f3df95a3aa00b62b36487e8b616813534ea0"
+  },
+  "directives/sphinx-code.rst": {
+    "reason": "Apply caption, line numbering and line emphasis to the listing.",
+    "sha256": "e5cbef438ca6761ea51d65d3bf35326374a3020bf45be3e8fea68ba1374aaee7"
+  },
+  "directives/sphinx-deprecated.rst": {
+    "reason": "Retain the deprecation version and description.",
+    "sha256": "70b3edffe7b68987560d64cd60757eabaa421e918ca238063e39c428edebb87a"
+  },
+  "directives/sphinx-glossary.rst": {
+    "reason": "Render the glossary as definitions.",
+    "sha256": "93e5f1ff37109041ad86295fb72ff8f048191dd7d7b0f572104890491ee8196a"
+  },
+  "directives/sphinx-index.rst": {
+    "reason": "Omit the index instruction and keep the following paragraph.",
+    "sha256": "83ae2af7b9170c6483fa54a4391dbaa21d0076c4c2e6a4e849834f845dfcbef7"
+  },
+  "directives/sphinx-only.rst": {
+    "reason": "Keep the conditional content visible.",
+    "sha256": "b3d9dead9a89f0e022664dbf03221962bc503b45dbac08a765739e19491f167f"
+  },
+  "directives/sphinx-seealso.rst": {
+    "reason": "Render the related material in an informative callout.",
+    "sha256": "a094ccce18dc5e8b557f9bc3f95262a71678fc3f86e1052909cc51f2fbdb2f43"
+  },
+  "directives/sphinx-tree.rst": {
+    "reason": "Render sibling document titles in a list without navigation.",
+    "sha256": "a04c618a3cab437c9ab6754c6c5981067b5035316dba755152ffeb475d93c687"
+  },
+  "directives/sphinx-version.rst": {
+    "reason": "Display the version in which the feature appeared.",
+    "sha256": "9e7ac116840c47ffab4e29a130fcbdf0404b5f36952655fd6dfd82e6601f6066"
+  },
+  "directives/unknown.rst": {
+    "reason": "Show the name and source in a neutral callout, including nested options or commands.",
+    "sha256": "fe0b37433c89be58289246e6514015d8108e2f0529ebec8c38c468f52d9f9cdd"
+  },
+  "inline/bad-link.rst": {
+    "reason": "Leave unresolved references legible and count them without diagnostic hyperlinks or an error section.",
+    "sha256": "21818f8a1c8c6f017aa136bfc032f97a18baa1b70957b7d0fcf353b5b2846f57"
+  },
+  "inline/numbered-substitution.rst": {
+    "reason": "A substitution containing an identifying footnote is invalid. Retain the definition and the references as source instead of inserting diagnostic links.",
+    "sha256": "2b2ba040d2d6fd8f669bb4f5133bf654bff98d6ad7740ae1d57613555cb104ef"
+  },
+  "inline/sphinx-roles.rst": {
+    "reason": "Display the Sphinx label, key and shortened function name without cross-file resolution.",
+    "sha256": "7283cdd00448f05dc0556db28755b9ae82b5d349a93594f9ca6a4e7cd40055e9"
+  },
+  "inline/unknown-role.rst": {
+    "reason": "Show the original role text and count the unrecognized role.",
+    "sha256": "75e0135f31f32e20eeda580a0f6616836a442550d37fc3f5a749a4877bfaee59"
+  }
+}

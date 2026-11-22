@@ -45,6 +45,7 @@
 				<string>net.djot.djot</string>
 				<string>org.textile-lang.textile</string>
 				<string>org.mediawiki.wikitext</string>
+				<string>io.github.phyten.surimono.restructuredtext</string>
 				<string>org.asciidoc.asciidoc</string>
 				<string>org.jupyter.ipynb</string>
 				<string>org.graphviz.dot</string>
@@ -96,6 +97,7 @@
 				<string>net.djot.djot</string>
 				<string>org.textile-lang.textile</string>
 				<string>org.mediawiki.wikitext</string>
+				<string>io.github.phyten.surimono.restructuredtext</string>
 				<string>org.asciidoc.asciidoc</string>
 				<string>org.jupyter.ipynb</string>
 				<string>org.graphviz.dot</string>
@@ -139,6 +141,7 @@
 				<string>net.djot.djot</string>
 				<string>org.textile-lang.textile</string>
 				<string>org.mediawiki.wikitext</string>
+				<string>io.github.phyten.surimono.restructuredtext</string>
 				<string>org.asciidoc.asciidoc</string>
 				<string>org.jupyter.ipynb</string>
 				<string>org.graphviz.dot</string>
@@ -226,6 +229,14 @@
             <key>UTTypeConformsTo</key><array><string>public.plain-text</string></array>
             <key>UTTypeTagSpecification</key><dict>
                 <key>public.filename-extension</key><array><string>textile</string></array>
+            </dict>
+        </dict>
+        <dict>
+            <key>UTTypeIdentifier</key><string>io.github.phyten.surimono.restructuredtext</string>
+            <key>UTTypeDescription</key><string>reStructuredText</string>
+            <key>UTTypeConformsTo</key><array><string>public.plain-text</string></array>
+            <key>UTTypeTagSpecification</key><dict>
+                <key>public.filename-extension</key><array><string>rst</string><string>rest</string></array>
             </dict>
         </dict>
         <dict>

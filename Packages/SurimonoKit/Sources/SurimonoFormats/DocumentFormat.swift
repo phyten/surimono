@@ -16,6 +16,7 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
     case djot
     case textile
     case mediawiki
+    case rst
     case docx
     case notebook
     case graphviz
@@ -36,6 +37,7 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
         case "dj", "djot": self = .djot
         case "docx": self = .docx
         case "textile": self = .textile
+        case "rst", "rest": self = .rst
         case "mediawiki", "wiki", "wikitext": self = .mediawiki
         case "adoc", "asciidoc": self = .asciidoc
         case "ipynb": self = .notebook
@@ -50,6 +52,7 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
     public var usesPrintTheme: Bool {
         [
             .markdown, .org, .plainText, .csv, .latex, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .mediawiki,
+            .rst,
             .docx,
             .notebook,
             .graphviz, .plantuml,
@@ -78,6 +81,7 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
             "org.openxmlformats.wordprocessingml.document": .docx,
             "net.djot.djot": .djot,
             "org.textile-lang.textile": .textile,
+            "io.github.phyten.surimono.restructuredtext": .rst,
             "org.mediawiki.wikitext": .mediawiki,
             "org.asciidoc.asciidoc": .asciidoc,
         ]
@@ -101,6 +105,8 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
             self = .djot
         } else if contentType.conforms(to: .surimonoMediaWiki) {
             self = .mediawiki
+        } else if contentType.conforms(to: .surimonoRST) {
+            self = .rst
         } else if contentType.conforms(to: .surimonoTextile) {
             self = .textile
         } else if contentType.conforms(to: .surimonoAsciiDoc) {
@@ -145,6 +151,7 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
         case .rMarkdown: "R Markdown"
         case .djot: "Djot"
         case .textile: "Textile"
+        case .rst: "reStructuredText"
         case .mediawiki: "MediaWiki"
         case .docx: "Word"
         case .asciidoc: "AsciiDoc"
@@ -165,6 +172,8 @@ extension UTType {
     public static let surimonoRMarkdown = UTType(importedAs: "org.rstudio.rmarkdown", conformingTo: .plainText)
     public static let surimonoDjot = UTType(importedAs: "net.djot.djot", conformingTo: .plainText)
     public static let surimonoTextile = UTType(importedAs: "org.textile-lang.textile", conformingTo: .plainText)
+    public static let surimonoRST = UTType(
+        importedAs: "io.github.phyten.surimono.restructuredtext", conformingTo: .plainText)
     public static let surimonoMediaWiki = UTType(importedAs: "org.mediawiki.wikitext", conformingTo: .plainText)
     public static let surimonoAsciiDoc = UTType(importedAs: "org.asciidoc.asciidoc", conformingTo: .plainText)
     public static let surimonoNotebook = UTType(importedAs: "org.jupyter.ipynb", conformingTo: .json)

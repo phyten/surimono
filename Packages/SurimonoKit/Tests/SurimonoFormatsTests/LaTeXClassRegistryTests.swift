@@ -538,6 +538,8 @@ struct LaTeXClassRegistryTests {
             // These are HTML element names used to identify block boundaries.
             "FragmentChanges.swift": [#""header", "article", "main""#],
             "ClipboardMarkupScanners.swift": [#""section", "article", "aside""#],
+            // Raw RST admits the HTML article element alongside the other static sectioning elements.
+            "RSTDirectiveHTML.swift": [#""address", "article", "aside""#],
             // The bundled cleanup preset is named for the content it keeps.
             "HTMLCleanupPreset.swift": [#""clean", "article", "print""#],
             // CSS accepts letter as a paper size.

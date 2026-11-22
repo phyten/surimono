@@ -1,0 +1,3 @@
+-q, --quiet  Dim the lamp.
+--beam=WIDTH  Set the beam.
+-o FILE  Save the chart.

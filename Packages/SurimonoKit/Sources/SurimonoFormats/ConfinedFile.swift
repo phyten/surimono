@@ -10,9 +10,21 @@ public enum ConfinedFile {
         _ url: URL, within root: String, maximumSize: Int = defaultMaximumSize,
         afterValidation: (() throws -> Void)? = nil
     ) throws -> Data {
+        try readPermitted(
+            url, within: root, maximumSize: maximumSize, permitsOpenedFile: { _ in true },
+            afterValidation: afterValidation)
+    }
+
+    static func readPermitted(
+        _ url: URL, within root: String, maximumSize: Int, permitsOpenedFile: (URL) -> Bool,
+        afterValidation: (() throws -> Void)? = nil
+    ) throws -> Data {
         let descriptor = try open(url)
         defer { Darwin.close(descriptor) }
-        guard try openedPath(descriptor).hasPrefix(root.hasSuffix("/") ? root : root + "/") else {
+        let opened = try openedPath(descriptor)
+        guard opened.hasPrefix(root.hasSuffix("/") ? root : root + "/"),
+            permitsOpenedFile(URL(fileURLWithPath: opened))
+        else {
             throw CocoaError(.fileReadNoPermission)
         }
         var info = stat()

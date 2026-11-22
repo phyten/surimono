@@ -11,6 +11,13 @@
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
+  "format-rst" : {
+    "fonts" : [
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
   "format-zip" : {
     "fonts" : [
 
@@ -1151,6 +1158,14 @@
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
   "sample-sample-rmd" : {
+    "fonts" : [
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "sample-sample-rst" : {
     "fonts" : [
       "HiraKakuProN-W3",
       "HiraKakuProN-W6",

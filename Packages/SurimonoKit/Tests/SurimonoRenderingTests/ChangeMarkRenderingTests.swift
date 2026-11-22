@@ -149,7 +149,7 @@ struct ChangeMarkRenderingTests {
     @Test(
         "テーマ対応形式の再読み込みは実際の変換結果から変更したブロックを見つける",
         arguments: [
-            DocumentFormat.org, .latex, .plainText, .csv, .asciidoc, .djot, .textile, .mediawiki, .quarto,
+            DocumentFormat.org, .latex, .plainText, .csv, .asciidoc, .djot, .textile, .mediawiki, .rst, .quarto,
             .rMarkdown, .notebook, .docx,
         ])
     func convertedChanges(format: DocumentFormat) async throws {

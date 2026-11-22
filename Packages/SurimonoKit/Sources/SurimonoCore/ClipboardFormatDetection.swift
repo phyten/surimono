@@ -1,7 +1,8 @@
 import Foundation
 
 public enum ClipboardTextKind: String, CaseIterable, Codable, Sendable {
-    case markdown, org, html, latex, csv, asciidoc, quarto, rMarkdown, djot, textile, mediawiki, notebook, graphviz,
+    case markdown, org, html, latex, csv, asciidoc, quarto, rMarkdown, djot, textile, mediawiki, rst, notebook,
+        graphviz,
         plantuml, url,
         plainText
 }
@@ -176,6 +177,7 @@ public enum ClipboardFormatDetector {
             }
         }
         if decisive == nil { decisive = ComputationalMarkdown.clipboardKind(text).flatMap(ClipboardTextKind.init) }
+        if decisive == nil, looksLikeRST(text) { decisive = .rst }
         if decisive == nil, MediaWikiConverter.detects(text) { decisive = .mediawiki }
         // Djot and Markdown share their ordinary syntax. Only an explicit choice selects Djot.
         if decisive == nil, looksLikeTextile(text) { decisive = .textile }
@@ -207,6 +209,7 @@ public enum ClipboardFormatDetector {
             ClipboardScanners.url(window, hints: hints, work: &work),
             ClipboardCandidate(kind: .quarto), ClipboardCandidate(kind: .rMarkdown),
             ClipboardCandidate(kind: .djot), ClipboardCandidate(kind: .textile), ClipboardCandidate(kind: .mediawiki),
+            ClipboardCandidate(kind: .rst),
             ClipboardCandidate(kind: .asciidoc),
             ClipboardCandidate(kind: .notebook),
             ClipboardCandidate(kind: .graphviz), ClipboardCandidate(kind: .plantuml),
@@ -294,5 +297,48 @@ public enum ClipboardFormatDetector {
             tableDelimiter: candidates.first(where: { $0.kind == .csv })?.delimiter,
             analysedUnits: window.units, analysedLines: window.lines.count, isTruncated: window.truncated,
             scannerSteps: work.steps)
+    }
+}
+
+extension ClipboardFormatDetector {
+    private static func looksLikeRST(_ text: String) -> Bool {
+        let prefix = String(decoding: text.utf8.prefix(8192), as: UTF8.self)
+        // Setext titles and inline emphasis also occur in Markdown. Require explicit markup outside examples.
+        guard !prefix.contains("```"), !prefix.contains("~~~") else { return false }
+        var explicit = 0
+        var leadingDirective = false
+        var hasDirectiveBody = false
+        var heading = false
+        var namedReference = false
+        var previous = Substring()
+        for line in prefix.split(whereSeparator: \.isNewline) {
+            if line.hasPrefix(".. ") {
+                let body = line.dropFirst(3)
+                if let colon = body.firstIndex(of: ":"), colon != body.startIndex {
+                    let name = body[..<colon]
+                    if previous.isEmpty, body[colon...].hasPrefix("::"), name.first?.isLetter == true,
+                        name.allSatisfy({ $0.isLetter || $0 == "-" })
+                    {
+                        leadingDirective = true
+                    }
+                    if name.first == "_"
+                        || (body[colon...].hasPrefix("::") && name.allSatisfy { $0.isLetter || $0 == "-" })
+                    {
+                        explicit += 1
+                    }
+                }
+            } else if leadingDirective, line.first?.isWhitespace == true {
+                hasDirectiveBody = true
+            } else if let mark = line.first, "=-~^".contains(mark), line.count >= 3,
+                !previous.isEmpty, previous.first?.isWhitespace == false, line.allSatisfy({ $0 == mark })
+            {
+                heading = true
+            } else if line.first?.isWhitespace == false {
+                namedReference =
+                    namedReference || line.range(of: #"[\w`]_(?:[ .,;!?)]|$)"#, options: .regularExpression) != nil
+            }
+            previous = line
+        }
+        return hasDirectiveBody || explicit >= 2 || (explicit == 1 && (heading || namedReference))
     }
 }

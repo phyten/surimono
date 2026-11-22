@@ -4,7 +4,8 @@ extension ClipboardTextKind {
     /// The kinds a reader can choose, in the order every list of them follows. Opening a URL is not built yet, so it
     /// is never offered.
     public static let choosable: [ClipboardTextKind] = [
-        .markdown, .org, .html, .latex, .csv, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .mediawiki, .notebook,
+        .markdown, .org, .html, .latex, .csv, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .mediawiki, .rst,
+        .notebook,
         .graphviz,
         .plantuml, .plainText,
     ]
@@ -21,6 +22,7 @@ extension ClipboardTextKind {
         case .djot: .djot
         case .textile: .textile
         case .mediawiki: .mediawiki
+        case .rst: .rst
         case .asciidoc: .asciidoc
         case .notebook: .notebook
         case .graphviz: .graphviz

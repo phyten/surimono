@@ -88,7 +88,7 @@ struct PrintIssuesPopover: View {
                 Button("Make Text Smaller") { model.decreaseTextSize() }
                     .disabled(TextScale.smaller(than: model.textScale) == model.textScale)
             }
-        case .math, .latex, .bibliography, .mermaid, .mermaidTimeout, .verticalWriting: EmptyView()
+        case .math, .latex, .rst, .bibliography, .mermaid, .mermaidTimeout, .verticalWriting: EmptyView()
         }
     }
 }
@@ -112,6 +112,8 @@ enum PrintIssueText {
             return PrintModeText.format(
                 "%lld diagrams were not drawn in time.", language: language, Int64(issue.detail) ?? 0)
         case .mermaid: key = "Could Not Render Diagram: %@"
+        case .rst:
+            return PrintModeText.format("Unrecognized RST constructs: %@", language: language, issue.detail)
         case .bibliography:
             if issue.detail.hasSuffix(" could not be read") {
                 let file = String(issue.detail.dropLast(" could not be read".count))
@@ -152,7 +154,7 @@ enum PrintIssueText {
                 key = "Showing images needs permission to read the folder"
             case .other, nil: key = "Check that the image is readable and in a supported format."
             }
-        case .verticalWriting, .bibliography, .mermaidTimeout: return ""
+        case .rst, .verticalWriting, .bibliography, .mermaidTimeout: return ""
         case .overflow: key = "Try landscape paper or smaller text, or adjust this element in the source document."
         case .math: key = "Check the formula's syntax and use supported commands in the source document."
         case .mermaid: key = "Check the Mermaid syntax and simplify the diagram in the source document."

@@ -1,0 +1,3 @@
+.. sourcecode:: text
+
+   α → β

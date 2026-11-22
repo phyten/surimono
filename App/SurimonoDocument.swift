@@ -7,7 +7,7 @@ struct SurimonoDocument: FileDocument {
     nonisolated static var readableContentTypes: [UTType] {
         [
             .surimonoMarkdown, .surimonoOrg, .surimonoAsciiDoc, .surimonoQuarto, .surimonoRMarkdown, .surimonoDjot,
-            .surimonoTextile, .surimonoMediaWiki, .surimonoLaTeX,
+            .surimonoTextile, .surimonoMediaWiki, .surimonoRST, .surimonoLaTeX,
             .surimonoNotebook, .surimonoGraphviz,
             .surimonoPlantUML,
             .plainText, .json, .yaml, .xml, .surimonoJSONLines, .surimonoTOML, .html, .pdf, .image,
@@ -52,6 +52,7 @@ struct SurimonoDocument: FileDocument {
             case .djot: .surimonoDjot
             case .textile: .surimonoTextile
             case .mediawiki: .surimonoMediaWiki
+            case .rst: .surimonoRST
             case .asciidoc: .surimonoAsciiDoc
             case .notebook: .surimonoNotebook
             case .plainText where DocumentFormat(contentType: contentType) == nil: .plainText

@@ -134,6 +134,19 @@ public enum CSVConverter {
     package static func convert(_ text: String, delimiter: Character, checkRow: (Int) throws -> Void) rethrows
         -> HTMLFragment
     {
+        let rows = try records(text, delimiter: delimiter, checkRow: checkRow)
+        func render(_ fields: [String], tag: String) -> String {
+            "<tr>" + fields.map { "<\(tag)>\(HTML.escape($0))</\(tag)>" }.joined() + "</tr>"
+        }
+        let head = rows.first.map { render($0, tag: "th") } ?? ""
+        let body = rows.dropFirst().map { render($0, tag: "td") }.joined()
+        return HTMLFragment(body: "<table class=\"surimono-csv\"><thead>\(head)</thead><tbody>\(body)</tbody></table>")
+    }
+
+    static func records(
+        _ text: String, delimiter: Character, quote: Character = "\"", skipInitialSpace: Bool = false,
+        checkRow: (Int) throws -> Void
+    ) rethrows -> [[String]] {
         let characters = TextDecoding.normalizeNewlines(text)
         var rows: [[String]] = []
         var row: [String] = []
@@ -143,9 +156,10 @@ public enum CSVConverter {
         while index < characters.endIndex {
             let character = characters[index]
             characters.formIndex(after: &index)
-            if character == "\"" {
-                if quoted && index < characters.endIndex && characters[index] == "\"" {
-                    field.append("\"")
+            if skipInitialSpace, character == " ", field.isEmpty, !quoted { continue }
+            if character == quote {
+                if quoted && index < characters.endIndex && characters[index] == quote {
+                    field.append(quote)
                     characters.formIndex(after: &index)
                 } else if quoted || field.isEmpty {
                     quoted.toggle()
@@ -170,11 +184,6 @@ public enum CSVConverter {
             try checkRow(rows.count + 1)
             rows.append(row)
         }
-        func render(_ fields: [String], tag: String) -> String {
-            "<tr>" + fields.map { "<\(tag)>\(HTML.escape($0))</\(tag)>" }.joined() + "</tr>"
-        }
-        let head = rows.first.map { render($0, tag: "th") } ?? ""
-        let body = rows.dropFirst().map { render($0, tag: "td") }.joined()
-        return HTMLFragment(body: "<table class=\"surimono-csv\"><thead>\(head)</thead><tbody>\(body)</tbody></table>")
+        return rows
     }
 }
