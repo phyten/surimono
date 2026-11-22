@@ -61,7 +61,11 @@ enum MarkdownExtensions {
 
         /// A display formula on lines of its own, as an HTML block.
         fileprivate func block(_ latex: String, source: String) -> String {
-            let formula = MathRenderer.html(latex, display: true) ?? MathRenderer.fallback(source, display: true)
+            let formula =
+                MathRenderer.html(
+                    latex, display: true, macros: "", rowNumberHTML: [], reportTruncation: false,
+                    originalSource: MathRenderer.withoutDelimiters(source))
+                ?? MathRenderer.fallback(source, display: true)
             return "<div class=\"math-block\">\(formula)</div>"
         }
 
@@ -443,7 +447,7 @@ enum MarkdownExtensions {
         let key = closer + containers.map { if case .list(let width) = $0 { "l\(width)" } else { "q" } }.joined()
         guard index >= searched[key, default: 0] else { return .none }
         var latex = [rest]
-        var source = [opening]
+        var source = [String(line[prefixEnd...].drop(while: { $0.isWhitespace }))]
         var cursor = index + 1
         func unclosed() -> DisplaySearch {
             searched[key] = cursor
@@ -455,14 +459,15 @@ enum MarkdownExtensions {
             }
             let text = inside.trimmingCharacters(in: .whitespaces)
             if text.isEmpty { return unclosed() }
-            source.append(text)
             if text.hasSuffix(closer) {
+                source.append(String(inside.prefix { $0.isWhitespace }) + text)
                 latex.append(String(text.dropLast(closer.count)))
                 return .block(
                     DisplayBlock(
                         prefix: prefix, latex: latex.joined(separator: "\n"), source: source.joined(separator: "\n"),
                         blankLine: blankLine, end: cursor + 1))
             }
+            source.append(String(inside))
             latex.append(text)
             cursor += 1
         }

@@ -8,6 +8,25 @@ import Testing
 
 @MainActor
 struct AdditionalExportTests {
+    @Test("数式のコピーは展開前の原文だけをテキストとして渡す")
+    func formulaSource() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let model = DocumentViewModel(
+            data: Data(), fileURL: nil, format: .markdown,
+            preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: root))
+        defer { model.stop() }
+        let board = NSPasteboard(name: .init("SurimonoTests.formula.\(UUID())"))
+        defer { board.releaseGlobally() }
+        let source = #"\begin{align}\葉 &= 2\end{align}"#
+        let formula = RenderedDiagram(number: 1, pageIndex: 0, rect: .zero, svg: "<svg/>", formulaSource: source)
+        model.exportDiagram(formula, action: .copySource, pasteboard: board)
+        #expect(board.pasteboardItems?.map(\.types) == [[.string]])
+        #expect(board.string(forType: .string) == source)
+    }
+
     @Test("PNGの出力先は新規の連番フォルダで既存ファイルを上書きしない")
     func folders() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

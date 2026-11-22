@@ -121,10 +121,23 @@ enum LaTeXGraphicPreparation {
         }
         """
 
+    static let glyphInk = """
+        function glyphInk(context, glyph, userSize) {
+            const css = getComputedStyle(glyph);
+            context.font = css.fontStyle + ' ' + css.fontWeight + ' 1000px ' + css.fontFamily;
+            const ink = context.measureText(glyph.textContent);
+            const scale = (userSize ?? parseFloat(css.fontSize)) / 1000;
+            const gx = glyph.x.baseVal.getItem(0).value, gy = glyph.y.baseVal.getItem(0).value;
+            return [gx - scale * ink.actualBoundingBoxLeft, gy - scale * ink.actualBoundingBoxAscent,
+                    gx + scale * ink.actualBoundingBoxRight, gy + scale * ink.actualBoundingBoxDescent];
+        }
+        """
+
     /// SwaTex reports TeX advance, ascent and depth. SVG text runs use the actual embedded
     /// fonts' metrics, which can extend past all three. Include those runs in the page flow
     /// before clipping the SVG so pagination cannot paint its overflow on the preceding sheet.
     static let measureDisplays = #"""
+        \#(glyphInk)
         // getBBox() on SVG text measures the font cell. Canvas ink metrics use
         // the loaded outline, including delimiters extending below that cell.
         const context = document.createElement('canvas').getContext('2d');
@@ -133,15 +146,9 @@ enum LaTeXGraphicPreparation {
           let left = x, top = y, right = x + w, bottom = y + h;
           if (!context) return;
           for (const glyph of svg.querySelectorAll('text')) {
-            const css = getComputedStyle(glyph);
-            context.font = css.fontStyle + ' ' + css.fontWeight + ' 1000px ' + css.fontFamily;
-            const ink = context.measureText(glyph.textContent);
-            const scale = parseFloat(css.fontSize) / 1000;
-            const gx = glyph.x.baseVal.getItem(0).value, gy = glyph.y.baseVal.getItem(0).value;
-            left = Math.min(left, gx - scale * ink.actualBoundingBoxLeft);
-            right = Math.max(right, gx + scale * ink.actualBoundingBoxRight);
-            top = Math.min(top, gy - scale * ink.actualBoundingBoxAscent);
-            bottom = Math.max(bottom, gy + scale * ink.actualBoundingBoxDescent);
+            const [l,t,r,b] = glyphInk(context,glyph);
+            left = Math.min(left,l); top = Math.min(top,t);
+            right = Math.max(right,r); bottom = Math.max(bottom,b);
           }
           // Quartz rounds the printed clipping edge. Leave a clear border around
           // the ink but keep the TeX baseline and WebKit's measured layout box.

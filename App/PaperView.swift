@@ -57,6 +57,7 @@ struct PaperView: NSViewRepresentable {
     var showsPageNumbers = false
     var changeMarks: [ChangeMark] = []
     var displayOptions = DisplayAccessibility.shared.options
+    var formulaIndex: PaperFormulaIndex?
     var diagrams: [RenderedDiagram] = []
     var onDiagram: (RenderedDiagram, PaperDiagramAction) -> Void = { _, _ in }
     /// The header and footer the sheets draw on a logical page, by its index.
@@ -104,6 +105,7 @@ struct PaperView: NSViewRepresentable {
         view.onKey = onKey
         view.onShortcut = onShortcut
         view.allowsShortcutHandling = allowsShortcutHandling
+        view.formulaIndex = formulaIndex
         view.diagrams = diagrams
         view.onDiagram = onDiagram
         view.narrowsLoneCover = narrowsLoneCover
@@ -252,24 +254,49 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
         }
     }
 
+    var formulaIndex: PaperFormulaIndex?
     var diagrams: [RenderedDiagram] = []
     var onDiagram: ((RenderedDiagram, PaperDiagramAction) -> Void)?
 
+    private var pendingMenu: Task<Void, Never>?
+
     override func menu(for event: NSEvent) -> NSMenu? {
+        pendingMenu?.cancel()
         let existing = super.menu(for: event)
         let location = convert(event.locationInWindow, from: nil)
-        guard !diagrams.isEmpty, let document, let plan = pagePlan,
+        guard formulaIndex != nil || !diagrams.isEmpty, let document, let plan = pagePlan,
             let page = page(for: location, nearest: false)
         else { return existing }
         let slot = document.index(for: page)
         guard let index = plan.logicalIndex(at: slot) else { return existing }
         let scale = plan.scale(at: slot)
         let point = convert(location, to: page).applying(CGAffineTransform(scaleX: 1 / scale, y: 1 / scale))
-        guard let diagram = RenderedDiagram.hitTest(point, pageIndex: index, in: diagrams) else { return existing }
+        let hit = RenderedDiagram.hitTest(point, pageIndex: index, in: diagrams)
+        if let hit { return graphicMenu(existing, hit: hit) }
+        guard let formulaIndex else { return existing }
+        if let entries = formulaIndex.entries {
+            return graphicMenu(existing, hit: RenderedDiagram.hitTest(point, pageIndex: index, in: entries))
+        }
+        // PDFKit requests a menu synchronously. Present the original event's menu once
+        // the first index is ready, provided the same paper and window are still showing.
+        pendingMenu = Task { [weak self, weak document] in
+            let entries = (try? await formulaIndex.resolve()) ?? []
+            guard !Task.isCancelled, let self, let document, self.document === document,
+                self.formulaIndex === formulaIndex, let window, window.isVisible, window === event.window,
+                let menu = graphicMenu(existing, hit: RenderedDiagram.hitTest(point, pageIndex: index, in: entries))
+            else { return }
+            NSMenu.popUpContextMenu(menu, with: event, for: self)
+        }
+        return nil
+    }
+
+    func graphicMenu(_ existing: NSMenu?, hit diagram: RenderedDiagram?) -> NSMenu? {
+        guard let diagram else { return existing }
         let menu = existing?.copy() as? NSMenu ?? NSMenu()
         if !menu.items.isEmpty { menu.addItem(.separator()) }
-        for action in PaperDiagramAction.allCases {
-            let item = NSMenuItem(title: action.title, action: #selector(chooseDiagramAction(_:)), keyEquivalent: "")
+        for action in PaperDiagramAction.actions(for: diagram) {
+            let item = NSMenuItem(
+                title: action.title(for: diagram), action: #selector(chooseDiagramAction(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = (diagram, action)
             menu.addItem(item)
@@ -1078,6 +1105,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
     }
 
     override func scrollWheel(with event: NSEvent) {
+        pendingMenu?.cancel()
         if !handleWheelEvent(event) { super.scrollWheel(with: event) }
     }
 
@@ -1130,6 +1158,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
     }
 
     override func keyDown(with event: NSEvent) {
+        pendingMenu?.cancel()
         if dispatchKey(event) { return }
         guard !shortcutController.hotKeys.isRecording, window?.attachedSheet == nil, NSApp.modalWindow == nil,
             allowsShortcutHandling(), ShortcutSurfaceKeys.owner(of: window?.firstResponder) === self
@@ -1178,6 +1207,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
     private var isTrackingSelectionLink = false
 
     override func mouseDown(with event: NSEvent) {
+        pendingMenu?.cancel()
         window?.makeFirstResponder(self)
         dragSelectsText = selectsText(for: event)
         if dragSelectsText {

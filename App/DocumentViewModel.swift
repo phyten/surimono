@@ -711,7 +711,7 @@ final class DocumentViewModel {
         if id != themeID, themeTrial.themeID == id, let document = themeTrial.document {
             chosenTrial = (
                 id, codePaletteID, themeTrial.requestedSettings, document, themeTrial.changeMarks, themeTrial.furniture,
-                themeTrial.diagrams
+                themeTrial.diagrams, themeTrial.formulaIndex
             )
         }
         themeTrial.end()
@@ -725,7 +725,7 @@ final class DocumentViewModel {
         if id != codePaletteID, themeTrial.themeID == Self.codeTrialID(id), let document = themeTrial.document {
             chosenTrial = (
                 themeID, id, themeTrial.requestedSettings, document, themeTrial.changeMarks, themeTrial.furniture,
-                themeTrial.diagrams
+                themeTrial.diagrams, themeTrial.formulaIndex
             )
         }
         themeTrial.end()

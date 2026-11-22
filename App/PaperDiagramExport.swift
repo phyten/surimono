@@ -4,19 +4,35 @@ import SurimonoRendering
 import UniformTypeIdentifiers
 
 enum PaperDiagramAction: CaseIterable {
-    case saveSVG, savePNG, copyPNG
+    case saveSVG, savePNG, copyPNG, copySource
 
-    var title: String {
-        switch self {
-        case .saveSVG: String(localized: "Save Diagram as SVG…")
-        case .savePNG: String(localized: "Save Diagram as PNG…")
-        case .copyPNG: String(localized: "Copy Diagram as PNG")
+    static func actions(for graphic: RenderedDiagram) -> [Self] {
+        graphic.formulaSource == nil ? [.saveSVG, .savePNG, .copyPNG] : allCases
+    }
+
+    func title(for graphic: RenderedDiagram) -> String {
+        switch (self, graphic.formulaSource != nil) {
+        case (.saveSVG, true): String(localized: "Save Formula as SVG…")
+        case (.savePNG, true): String(localized: "Save Formula as PNG…")
+        case (.copyPNG, true): String(localized: "Copy Formula as PNG")
+        case (.copySource, _): String(localized: "Copy LaTeX Source")
+        case (.saveSVG, false): String(localized: "Save Diagram as SVG…")
+        case (.savePNG, false): String(localized: "Save Diagram as PNG…")
+        case (.copyPNG, false): String(localized: "Copy Diagram as PNG")
         }
     }
 }
 
 extension DocumentViewModel {
-    func exportDiagram(_ diagram: RenderedDiagram, action: PaperDiagramAction) {
+    func exportDiagram(_ diagram: RenderedDiagram, action: PaperDiagramAction, pasteboard: NSPasteboard? = nil) {
+        if action == .copySource, let source = diagram.formulaSource {
+            let board = pasteboard ?? .general
+            board.clearContents()
+            if board.setString(source, forType: .string) {
+                showToast(Toast(systemImage: "checkmark", title: String(localized: "Copied")))
+            }
+            return
+        }
         guard let window, beginDiagramExport() else { return }
         let sources = protectedSourceURLs
         let name = diagram.suggestedName(documentName: readingExportName)
@@ -43,7 +59,7 @@ extension DocumentViewModel {
                 try Task.checkCancellation()
                 let bytes: Data
                 if action == .saveSVG {
-                    bytes = Data(diagram.svg.utf8)
+                    bytes = Data(WebPaginator.exportSVG(diagram).utf8)
                 } else {
                     bytes = try await WebPaginator.diagramPNG(diagram)
                 }
@@ -56,7 +72,7 @@ extension DocumentViewModel {
                     }
                     try bytes.write(to: destination, options: .atomic)
                 } else {
-                    let board = NSPasteboard.general
+                    let board = pasteboard ?? .general
                     board.clearContents()
                     guard board.setData(bytes, forType: .png) else { throw CocoaError(.fileWriteUnknown) }
                     showToast(Toast(systemImage: "checkmark", title: String(localized: "Copied")))

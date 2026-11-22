@@ -282,7 +282,8 @@ extension LaTeXDocument {
         if let rendered = MathRenderer.html(
             latex, display: display, macros: macros, rowNumberHTML: numbers,
             measureRows: classInfo.profile.body.alignsDisplayRows,
-            sansMathAlphabet: classInfo.beamerPageSize != nil && !classInfo.beamerUsesSerifMath)
+            sansMathAlphabet: classInfo.beamerPageSize != nil && !classInfo.beamerUsesSerifMath,
+            originalSource: MathRenderer.withoutDelimiters(source))
         {
             return rendered
         }

@@ -16,6 +16,7 @@ final class ThemeTrial {
     /// Its logical pages, once laid out.
     private(set) var requestedSettings: RenderSettings?
     private(set) var document: PDFDocument?
+    private(set) var formulaIndex: PaperFormulaIndex?
     private(set) var diagrams: [RenderedDiagram] = []
     private(set) var changeMarks: [ChangeMark] = []
     /// The header and footer of its pages, as the sheets would draw them.
@@ -26,7 +27,7 @@ final class ThemeTrial {
     @ObservationIgnored private var recent:
         [(
             source: DocumentSource, settings: RenderSettings, document: PDFDocument, marks: [ChangeMark],
-            furniture: [Int: FurniturePlacement], diagrams: [RenderedDiagram]
+            furniture: [Int: FurniturePlacement], diagrams: [RenderedDiagram], formulaIndex: PaperFormulaIndex?
         )] = []
     static let cacheLimit = 6
     static let delay: Duration = .milliseconds(200)
@@ -49,12 +50,14 @@ final class ThemeTrial {
         themeID = id
         if let hit = recent.first(where: { $0.source == source && $0.settings == settings }) {
             document = hit.document
+            formulaIndex = hit.formulaIndex
             diagrams = hit.diagrams
             changeMarks = hit.marks
             furniture = hit.furniture
             return
         }
         document = nil
+        formulaIndex = nil
         diagrams = []
         changeMarks = []
         furniture = [:]
@@ -67,6 +70,7 @@ final class ThemeTrial {
                 try Task.checkCancellation()
                 guard themeID == id else { return }
                 document = prepared.logicalDocument
+                formulaIndex = prepared.formulaIndex
                 diagrams = prepared.diagrams
                 changeMarks = prepared.changeMarks
                 furniture = prepared.viewFurniture
@@ -74,7 +78,7 @@ final class ThemeTrial {
                 recent.insert(
                     (
                         source, settings, prepared.logicalDocument, prepared.changeMarks, prepared.viewFurniture,
-                        prepared.diagrams
+                        prepared.diagrams, prepared.formulaIndex
                     ), at: 0)
                 if recent.count > Self.cacheLimit { recent.removeLast(recent.count - Self.cacheLimit) }
             } catch {
@@ -90,6 +94,7 @@ final class ThemeTrial {
         requestedSettings = nil
         themeID = nil
         document = nil
+        formulaIndex = nil
         diagrams = []
         changeMarks = []
         furniture = [:]

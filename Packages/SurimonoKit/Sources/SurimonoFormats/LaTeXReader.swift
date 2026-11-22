@@ -1702,13 +1702,15 @@ final class LaTeXReader {
     }
 
     /// The math source up to the closing delimiter; comments are dropped and escapes kept.
-    private func mathSource(closing: String) -> String {
+    private func mathSource(closing: String) -> (latex: String, original: String) {
+        let start = index
         let closer = Array(closing)
         var text = ""
         while index < characters.count {
             if index + closer.count <= characters.count, Array(characters[index..<(index + closer.count)]) == closer {
+                let original = String(characters[start..<index])
                 index += closer.count
-                return text
+                return (text, original)
             }
             let character = characters[index]
             if character == "\\", index + 1 < characters.count {
@@ -1723,7 +1725,7 @@ final class LaTeXReader {
             text.append(character)
             index += 1
         }
-        return text
+        return (text, String(characters[start..<index]))
     }
 
     func formula(_ latex: String, display: Bool, source: String, expanded: Bool = false, numbers: [String?] = [])
@@ -1748,8 +1750,8 @@ final class LaTeXReader {
 
     private func inlineMath(closing: String) {
         let opening = closing == "$" ? "$" : "\\("
-        let latex = mathSource(closing: closing)
-        appendInlineFormula(latex, source: opening + latex + closing)
+        let (latex, original) = mathSource(closing: closing)
+        appendInlineFormula(latex, source: opening + original + closing)
     }
 
     func appendInlineFormula(_ latex: String, source: String) {
@@ -1775,9 +1777,9 @@ final class LaTeXReader {
 
     private func displayMath(closing: String) {
         let opening = closing == "$$" ? "$$" : "\\["
-        let latex = mathSource(closing: closing)
+        let (latex, original) = mathSource(closing: closing)
         appendBlock(
-            "<div class=\"math-block\"\(singleDisplayAttribute)>\(formula(latex, display: true, source: opening + latex + closing))</div>\n",
+            "<div class=\"math-block\"\(singleDisplayAttribute)>\(formula(latex, display: true, source: opening + original + closing))</div>\n",
             continuesParagraph: true)
     }
 
@@ -1958,7 +1960,11 @@ final class LaTeXReader {
                 content += "<div class=\"latex-multline-row\" style=\"\(style)\">\(expression)\(number)</div>"
             }
             let anchor = id.isEmpty ? "" : " id=\"\(id)\""
-            appendBlock("<div class=\"math-block latex-equation latex-multline\"\(anchor)>\(content)</div>\n")
+            // Each row has its own SVG so it can align to the measure. On export the rows belong to one formula.
+            let original = Data(source.utf8).base64EncodedString()
+            appendBlock(
+                "<div class=\"math-block latex-equation latex-multline\"\(anchor) data-formula-group=\"\(original)\">\(content)</div>\n"
+            )
             return
         }
         let content = render(clean) + "<span class=\"eqno\">\(printed)</span>"
