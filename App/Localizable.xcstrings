@@ -25925,55 +25925,55 @@
         }
       }
     },
-    "Markdown, PDF, Word, LaTeX, images, and more": {
+    "Markdown, PDF, Word, LaTeX, Org, images, and more": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Markdown, PDF, Word, LaTeX, images, and more"
+            "value": "Markdown, PDF, Word, LaTeX, Org, images, and more"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Markdown・PDF・Word・LaTeX・画像ほか"
+            "value": "Markdown・PDF・Word・LaTeX・Org・画像ほか"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Markdown, PDF, Word, LaTeX, Bilder u. a."
+            "value": "Markdown, PDF, Word, LaTeX, Org, Bilder u. a."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Markdown, PDF, Word, LaTeX, imágenes y más"
+            "value": "Markdown, PDF, Word, LaTeX, Org, imágenes y más"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Markdown, PDF, Word, LaTeX, images, etc."
+            "value": "Markdown, PDF, Word, LaTeX, Org, images, etc."
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Markdown, PDF, Word, LaTeX, 이미지 등"
+            "value": "Markdown, PDF, Word, LaTeX, Org, 이미지 등"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Markdown、PDF、Word、LaTeX、图像等"
+            "value": "Markdown、PDF、Word、LaTeX、Org、图像等"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "Markdown、PDF、Word、LaTeX、影像等"
+            "value": "Markdown、PDF、Word、LaTeX、Org、影像等"
           }
         }
       }
