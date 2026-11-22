@@ -1,0 +1,33 @@
+# 用語集 / Glossary
+
+画面に出す言葉の対訳表。同じものに 2 つの語を使わないために、ここで 1 つに決める。
+
+- 文言を足す・直すときは、この表の語を使う。活用や複数形は変えてよい（ドイツ語の Sammelbände、スペイン語の compilaciones など）。
+- 新しい概念（新しい画面・機能・形式に固有の名前）を足すときは、8 言語の語を決めて、先にこの表へ 1 行足す。
+- 語を変えるときは、この表と `App/Localizable.xcstrings` の該当する訳を同じ変更で直す。
+- 「確かめるキー」は `App/Localizable.xcstrings` のキー。その訳に各言語の語が入っていることを `AppTests/GlossaryTests.swift` が確かめるので、表と訳がずれるとテストが落ちる。
+- 使わなくなった語（Sammlung、Recopilación、フォルダー など）は `AppTests/LanguageTests.swift` の `consistentTerms` が見張る。語を 1 つに揃えたら、外した語をそこへ足す。
+
+| 概念 | 確かめるキー | en | ja | de | es | fr | ko | zh-Hans | zh-Hant |
+|---|---|---|---|---|---|---|---|---|---|
+| 複数の文書をまとめたもの | `Binder` | Binder | 合本 | Sammelband | Compilación | Recueil | 합본 | 合订本 | 合訂本 |
+| 複数の画像をまとめたもの | `Opens as an image bundle in another window` | image bundle | 画像の束 | Bilderstapel | lote de imágenes | lot d’images | 이미지 묶음 | 图像集 | 影像集 |
+| 用紙を並べて刷る画面 | `Open the print screen` | print screen | 印刷画面 | Druckbildschirm | pantalla de impresión | écran d’impression | 인쇄 화면 | 打印界面 | 列印畫面 |
+| 刷ること | `Print` | Print | 印刷 | Drucken | Imprimir | Imprimer | 인쇄 | 打印 | 列印 |
+| 刷る機械 | `Printer` | Printer | プリンター | Drucker | Impresora | Imprimante | 프린터 | 打印机 | 印表機 |
+| 紙面の見た目 | `Style` | Style | スタイル | Stil | Estilo | Style | 스타일 | 样式 | 樣式 |
+| 保存した設定の組 | `Setting Sets` | Setting Sets | 設定セット | Einstellungssätze | Conjuntos de ajustes | Jeux de réglages | 설정 세트 | 设置集 | 設定集 |
+| 折ってとじる刷り方 | `Booklet Binding` | Booklet | 冊子 | Broschüre | folleto | livret | 소책자 | 小册子 | 小冊子 |
+| とじる辺 | `Short-edge binding` | binding | とじ | Bindung | Encuadernación | Reliure | 제본 | 装订 | 裝訂 |
+| 左右に並べた 2 ページ | `Spread` | Spread | 見開き | Doppelseite | Doble página | Double page | 두 페이지 | 双页 | 跨頁 |
+| スライドの文書 | `Show as Slides` | Slides | スライド | Folien | diapositivas | diapositives | 슬라이드 | 幻灯片 | 投影片 |
+| 開いているもの | `Document` | Document | 文書 | Dokument | Documento | Document | 문서 | 文档 | 文件 |
+| フォルダ | `Choose Folder…` | Folder | フォルダ | Ordner | carpeta | dossier | 폴더 | 文件夹 | 檔案夾 |
+| 見出しの一覧 | `Contents` | Contents | 目次 | Inhalt | Índice | Sommaire | 목차 | 目录 | 目錄 |
+| 覚えた場所 | `Bookmarks` | Bookmarks | しおり | Lesezeichen | Marcadores | Signets | 책갈피 | 书签 | 書籤 |
+| 窓の上下の操作の帯 | `Toolbar` | Toolbar | ツールバー | Symbolleiste | Barra de herramientas | Barre d’outils | 도구 막대 | 工具栏 | 工具列 |
+| 別の形式で保存すること | `Export` | Export | 書き出す | Exportieren | Exportar | Exporter | 내보내기 | 导出 | 輸出 |
+| アプリを新しくすること | `Updates` | Updates | アップデート | Updates | Actualizaciones | Mises à jour | 업데이트 | 更新 | 更新 |
+| 取り除く要素の決まり | `Preset` | Preset | プリセット | Voreinstellung | Preajuste | Préréglage | 프리셋 | 预设 | 預設 |
+| 書き込み用のページ | `Notes` | Notes | ノート | Notizen | Notas | Notes | 노트 | 笔记 | 筆記 |
+| 選んで残したスタイル | `Favorites` | Favorites | お気に入り | Favoriten | Favoritos | Favoris | 즐겨찾기 | 个人收藏 | 喜好項目 |
