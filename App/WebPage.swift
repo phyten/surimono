@@ -20,7 +20,7 @@ final class WebPageController: NSObject {
     /// Opens a link outside the app; replaced in tests.
     var openExternally: (URL) -> Void = { NSWorkspace.shared.open($0) }
 
-    private static let logger = Logger(subsystem: "io.github.phyten.Surimono", category: "WebPage")
+    private static let logger = Logger(subsystem: "app.surimono.Surimono", category: "WebPage")
     static let zoomSteps: [Double] = [0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3]
 
     /// The reader's zoom, relative to fitting one slide into the window for a slide deck, and to 100 % otherwise.

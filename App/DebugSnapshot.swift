@@ -17,7 +17,7 @@
         private static var appliedOverrides = false
         private static weak var settingsWindow: NSWindow?
         private static var quitsArrangementEditor = false
-        private static let logger = Logger(subsystem: "io.github.phyten.Surimono", category: "Snapshot")
+        private static let logger = Logger(subsystem: "app.surimono.Surimono", category: "Snapshot")
 
         static func argument(_ name: String) -> String? {
             let arguments = ProcessInfo.processInfo.arguments

@@ -4,7 +4,7 @@ import OSLog
 enum MenuTrace {
     static let enabled = UserDefaults.standard.bool(forKey: "SurimonoMenuTrace")
     static let noHider = UserDefaults.standard.bool(forKey: "SurimonoMenuNoHider")
-    private static let logger = Logger(subsystem: "io.github.phyten.Surimono", category: "menu")
+    private static let logger = Logger(subsystem: "app.surimono.Surimono", category: "menu")
     private static let file = MenuTraceFile()
     private static let fixedTitles = Set(
         (SystemMenuShortcuts.entries.flatMap { $0.parents + $0.titles }
@@ -176,7 +176,7 @@ final class MenuTraceInventory {
 
 /// Disk I/O is ordered off the event thread; tracing a stuck tracking loop must not need a main-queue turn.
 private final class MenuTraceFile: Sendable {
-    private let queue = DispatchQueue(label: "io.github.phyten.Surimono.menu-trace")
+    private let queue = DispatchQueue(label: "app.surimono.Surimono.menu-trace")
     private let url: URL
     private let limit = 1_000_000
 
@@ -187,7 +187,7 @@ private final class MenuTraceFile: Sendable {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             try Data().write(to: url, options: .atomic)
         } catch {
-            Logger(subsystem: "io.github.phyten.Surimono", category: "menu").debug(
+            Logger(subsystem: "app.surimono.Surimono", category: "menu").debug(
                 "Could not initialize menu trace file")
         }
     }
@@ -203,7 +203,7 @@ private final class MenuTraceFile: Sendable {
                 }
                 try handle.write(contentsOf: bytes)
             } catch {
-                Logger(subsystem: "io.github.phyten.Surimono", category: "menu").debug("Could not append menu trace")
+                Logger(subsystem: "app.surimono.Surimono", category: "menu").debug("Could not append menu trace")
             }
         }
     }

@@ -12,7 +12,7 @@ struct ShortcutArchiveTests {
         try ShortcutArchive.decode(
             Data(
                 """
-                {"format":"io.github.phyten.surimono.keyboard-shortcuts","version":\(version),"bindings":\(entries)}
+                {"format":"app.surimono.keyboard-shortcuts","version":\(version),"bindings":\(entries)}
                 """.utf8))
     }
 
@@ -29,7 +29,7 @@ struct ShortcutArchiveTests {
             try JSONSerialization.jsonObject(
                 with: Data(
                     """
-                    {"format":"io.github.phyten.surimono.keyboard-shortcuts","version":1,"bindings":[
+                    {"format":"app.surimono.keyboard-shortcuts","version":1,"bindings":[
                       {"operation":"document.reload","keys":[{"key":{"kind":"character","value":"x"},"modifiers":["control","command"]}]},
                       {"operation":"global.clipboard.open","keys":[{"key":{"kind":"macVirtualKey","code":38},"modifiers":["control","option","command"]}]},
                       {"operation":"style.choose","keys":[]}

@@ -15,7 +15,7 @@ final class ClosedClipboardStore {
 
     private let directory: URL
     private let files = FileManager.default
-    private let logger = Logger(subsystem: "io.github.phyten.Surimono", category: "ClosedClipboard")
+    private let logger = Logger(subsystem: "app.surimono.Surimono", category: "ClosedClipboard")
     private var saved: [ContentHash: UUID] = [:]
     private var sequence: UInt64 = 0
 

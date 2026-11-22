@@ -23,7 +23,7 @@ final class ScriptConverterHost: @unchecked Sendable {
         self.bridge = bridge
         self.commonJS = commonJS
         #if DEBUG
-            logger = Logger(subsystem: "io.github.phyten.Surimono", category: category)
+            logger = Logger(subsystem: "app.surimono.Surimono", category: category)
         #endif
     }
     private let lock = NSLock()

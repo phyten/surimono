@@ -8,7 +8,31 @@ import Testing
 struct DevelopmentBuildTests {
     @Test("開発版は公開版と別のバンドル ID を使い、設定を共有しない")
     func bundleIdentifier() {
-        #expect(Bundle.main.bundleIdentifier == "io.github.phyten.Surimono.debug")
+        #expect(Bundle.main.bundleIdentifier == "app.surimono.Surimono.debug")
+    }
+
+    @Test("配布するプライバシー宣言には利用する API と理由だけが入り、追跡もデータ収集もしない")
+    func privacyManifest() throws {
+        let url = try #require(Bundle.main.url(forResource: "PrivacyInfo", withExtension: "xcprivacy"))
+        let plist = try PropertyListSerialization.propertyList(from: Data(contentsOf: url), format: nil)
+        let manifest = try #require(plist as? [String: Any])
+        #expect(manifest["NSPrivacyTracking"] as? Bool == false)
+        #expect((manifest["NSPrivacyTrackingDomains"] as? [Any])?.isEmpty == true)
+        #expect((manifest["NSPrivacyCollectedDataTypes"] as? [Any])?.isEmpty == true)
+
+        let entries = try #require(manifest["NSPrivacyAccessedAPITypes"] as? [[String: Any]])
+        var declared: [String: [String]] = [:]
+        for entry in entries {
+            let category = try #require(entry["NSPrivacyAccessedAPIType"] as? String)
+            let reasons = try #require(entry["NSPrivacyAccessedAPITypeReasons"] as? [String])
+            #expect(declared.updateValue(reasons.sorted(), forKey: category) == nil)
+        }
+        #expect(
+            declared == [
+                "NSPrivacyAccessedAPICategoryFileTimestamp": ["3B52.1", "C617.1"],
+                "NSPrivacyAccessedAPICategorySystemBootTime": ["35F9.1"],
+                "NSPrivacyAccessedAPICategoryUserDefaults": ["CA92.1"],
+            ])
     }
 
     @Test("開発版は Surimono Dev と表示される")

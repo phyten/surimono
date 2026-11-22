@@ -2,7 +2,7 @@ import Foundation
 
 /// Portable overrides only: no migration records, machine reservations or external menu equivalents.
 public struct ShortcutArchive: Equatable, Sendable {
-    public static let format = "io.github.phyten.surimono.keyboard-shortcuts"
+    public static let format = "app.surimono.keyboard-shortcuts"
     public let bindings: [String: [ShortcutCombination]]
 
     public init(configuration: ShortcutConfiguration) {

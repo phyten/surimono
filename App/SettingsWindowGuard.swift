@@ -21,7 +21,7 @@ final class SettingsWindowGuard: NSObject, NSWindowDelegate {
     private var retryDelay: Duration = .seconds(1)
     /// The guard turned the close button off and turns it back on.
     private var lockedCloseButton = false
-    private static let logger = Logger(subsystem: "io.github.phyten.Surimono", category: "Settings")
+    private static let logger = Logger(subsystem: "app.surimono.Surimono", category: "Settings")
 
     // Safe: only the variable's address is used, as the associated object's key; its value is never read or written.
     nonisolated(unsafe) private static var key: UInt8 = 0

@@ -141,9 +141,10 @@ build-appstore:
 # The App Store build must be sandboxed and must not carry or load Sparkle: the App Store updates the app.
 check-appstore: build-appstore
 	codesign -d --entitlements - --xml "$(APP_STORE_APP)" 2>/dev/null | grep -q '<key>com.apple.security.app-sandbox</key><true/>'
-	test ! -e "$(APP_STORE_APP)/Contents/Frameworks/Sparkle.framework"
+	frameworks="$$(find "$(APP_STORE_APP)" -name Sparkle.framework -print)" && test -z "$$frameworks"
 	libraries="$$(otool -L "$(APP_STORE_APP)/Contents/MacOS/Surimono")" && ! printf '%s\n' "$$libraries" | grep -q Sparkle
-	! /usr/libexec/PlistBuddy -c 'Print :SUFeedURL' "$(APP_STORE_APP)/Contents/Info.plist" 2>/dev/null | grep -q .
+	info="$$(plutil -convert json -o - "$(APP_STORE_APP)/Contents/Info.plist")" && printf '%s\n' "$$info" | jq -e 'type == "object" and all(.. | objects | keys[]; startswith("SU") | not)' >/dev/null
+	plutil -lint "$(APP_STORE_APP)/Contents/Resources/PrivacyInfo.xcprivacy"
 	private_api="$$(strings "$(APP_STORE_APP)/Contents/MacOS/Surimono")" && ! printf '%s\n' "$$private_api" | grep -q '_setDrawsBackground'
 	@echo "AppStore build: sandboxed, no Sparkle, no private background API"
 

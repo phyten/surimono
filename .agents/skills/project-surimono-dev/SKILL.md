@@ -16,7 +16,7 @@ Surimono の開発ループ（ビルド → 起動 → テスト → 目視確�
    - `make test` は `test-kit` のあとに `test-app` を順に走らせる（同時に走らせると、待ち時間に頼るホスト付きテストが落ちる）。一方だけなら `make test-kit` / `make test-app`、Kit の片方だけなら `make test-core` / `make test-rendering`。
    - Rendering のテストは並列にしない（`--no-parallel`）。WebKit と静的な状態（`WebPaginator.clearBackground` など）を共有していて、手元で並列に走らせると毎回 20 件ほど落ちる。
 2. 起動して確認する: `make run FILE=Samples/sample.md`
-   - Debug ビルドは公開版と別のアプリ「Surimono Dev」（バンドル ID `io.github.phyten.Surimono.debug`、保存先 `~/Library/Application Support/Surimono Dev/`）として動き、入れてある公開版と同時に起動できる。メニューバーの名前だけは Surimono のまま。
+   - Debug ビルドは公開版と別のアプリ「Surimono Dev」（バンドル ID `app.surimono.Surimono.debug`、保存先 `~/Library/Application Support/Surimono Dev/`）として動き、入れてある公開版と同時に起動できる。メニューバーの名前だけは Surimono のまま。
    - サンプルは `Samples/` にある（sample.md / sample.org / sample.txt / sample-sjis.txt（Shift_JIS）/ sample.html（ノイズ入り）/ sample.csv / sample.ipynb（保存済みの出力つきのノート）/ sample.dot（Graphviz）/ sample.puml（PlantUML。図が 2 つ） / sample.adoc（AsciiDoc） / sample.dj（Djot）/ sample.textile（Textile） / sample.qmd（Quarto）/ sample.Rmd（R Markdown） / sample.docx（Word） / sample.mediawiki（MediaWiki）/ booklet-demo.md（標準テーマの A4 で 38 ページ。冊子の確認用）/ callouts.md（すべての種類の囲み））。PDF・画像・画像の ZIP は手元の任意のファイルでよい（ZIP は `ditto -c -k --keepParent <フォルダ> <名前>.zip` で作れる）。
 3. UI を変えたら目視で確認する。見ずに完了としない。
    - **開発用スナップショット（推奨。画面収録の許可が不要）**: DEBUG ビルドは起動引数を受け取り、最初の文書ウィンドウの描画が終わると、そのウィンドウと近くのポップオーバーなどの子ウィンドウを ScreenCaptureKit で PNG に保存する。
@@ -65,9 +65,9 @@ Surimono の開発ループ（ビルド → 起動 → テスト → 目視確�
      - 前回のウィンドウの復元が混ざらないよう、確認用の起動には `-ApplePersistenceIgnoreState YES` も付けるとよい（`pkill` などで落とすと次の起動で文書が復元される）。
    - **PR に貼る注釈付きスクリーンショット**: 撮ったスナップショットに `swift .agents/skills/project-surimono-dev/scripts/annotate-screenshot.swift <入力.png> <出力.png> "x,y,w,h:ラベル" …` で赤い枠と番号付きのラベルを付ける（macOS 標準の CoreGraphics と AppKit だけで動く）。置き場と書き方は AGENTS.md の「Git / PR」。
    - **開き方の確認（ウィンドウの数と題名）**: `swift .agents/skills/project-surimono-dev/scripts/list-windows.swift` が開発版の画面上のウィンドウを前面から順に、レイヤー・位置・大きさ・題名つきで出す（題名は画面収録の許可がないと空になる。レイヤー 8 はアラートなどのモーダル。数えるのは名前が Surimono Dev の全プロセスの画面上のウィンドウで、公開版と最小化したものは含まない。一覧を取れなければ終了コード 1）。Finder や Dock からの開き方は `open -a "$APP" <ファイル…>` で再現し、AGENTS.md の「ウィンドウとファイルの開き方」の規則どおりの数と題名になるかを見る。
-   - 操作まで確かめたい場合: Claude Code なら computer-use の `request_access`（開発版のバンドル ID `io.github.phyten.Surimono.debug`）→ `app_screenshot`（ユーザーが許可しなければ使わない）。それ以外は `screencapture -x -o -l "$(swift .agents/skills/project-surimono-dev/scripts/window-id.swift)" /tmp/surimono.png`（実行するターミナルに画面収録の許可が必要）。
+   - 操作まで確かめたい場合: Claude Code なら computer-use の `request_access`（開発版のバンドル ID `app.surimono.Surimono.debug`）→ `app_screenshot`（ユーザーが許可しなければ使わない）。それ以外は `screencapture -x -o -l "$(swift .agents/skills/project-surimono-dev/scripts/window-id.swift)" /tmp/surimono.png`（実行するターミナルに画面収録の許可が必要）。
    - ライト / ダークの両方と、空・読み込み中・エラー・長い文書の状態を見る。表示モードはメニューの出し入れ（上端と下端の帯の場所で全体を表示 / 離れて 1 秒で非表示 / 常に出す）と、単ページ・見開きを見る。選択肢は単ページ → 見開きで、⌥⌘1・⌥⌘2、Tab・矢印キー・VoiceOver の順も見た目にそろうことを確かめる。冊子は書き出した PDF か印刷パネルのプレビューで面付け（1 枚目の表が [最終ページ | 1]）も確かめる。
-4. 終わったら起動したアプリを終了する: `osascript -e 'quit app id "io.github.phyten.Surimono.debug"'`（名前で指定すると、入れてある公開版を終了してしまう）。
+4. 終わったら起動したアプリを終了する: `osascript -e 'quit app id "app.surimono.Surimono.debug"'`（名前で指定すると、入れてある公開版を終了してしまう）。
 
 ## つまずきやすい点
 
