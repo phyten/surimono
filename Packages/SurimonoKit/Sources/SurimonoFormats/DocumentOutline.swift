@@ -60,9 +60,10 @@ public enum DocumentOutline {
         return headings
     }
 
-    /// The entries of the text's own table of contents, which repeat its headings wherever it stands on the pages.
+    /// Link labels in print order, with an empty string between separate tables of contents.
     public static func sourceContentsEntries(inHTML html: String) -> [String] {
         var entries: [String] = []
+        var startsTable = false
         var depth = 0
         var link: String?
         for token in HTMLScanner.tokens(html) {
@@ -72,12 +73,20 @@ public enum DocumentOutline {
             case .tag(let tag):
                 if tag.name == "nav" {
                     let isContents = tag.attribute("class")?.split(separator: " ").contains("toc") == true
-                    if tag.isClosing, depth > 0 { depth -= 1 } else if depth > 0 || isContents { depth += 1 }
+                    if tag.isClosing {
+                        if depth > 0 { depth -= 1 }
+                    } else if depth > 0 || isContents {
+                        if depth == 0 { startsTable = true }
+                        depth += 1
+                    }
                 } else if depth > 0, tag.name == "a" {
                     if tag.isClosing, let text = link {
-                        entries.append(
-                            HTMLScanner.decodingEntities(text).trimmingCharacters(in: .whitespacesAndNewlines))
                         link = nil
+                        let label = HTMLScanner.decodingEntities(text).trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !label.isEmpty else { continue }
+                        if startsTable && !entries.isEmpty { entries.append("") }
+                        startsTable = false
+                        entries.append(label)
                     } else if !tag.isClosing {
                         link = ""
                     }

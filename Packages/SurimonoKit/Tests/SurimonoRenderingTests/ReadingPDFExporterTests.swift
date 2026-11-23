@@ -24,6 +24,26 @@ struct ReadingPDFExporterTests {
         return "catalog=\(raw) bookmarks=\(entries) p1links=\(links)"
     }
 
+    @Test(
+        "コードと表の後の目次を四つの印刷設定で本文のページに照合する", .timeLimit(.minutes(1)),
+        arguments: ["standard", "confetti", "academic", "line-numbers"])
+    func printedMarkdownContents(_ variant: String) async throws {
+        let file = try #require(
+            Bundle.module.url(forResource: "toc-probe", withExtension: "md", subdirectory: "Fixtures"))
+        let source = DocumentSource(data: try Data(contentsOf: file), fileURL: file, format: .markdown)
+        let themes = try PrintThemeLibrary.load()
+        let theme = try #require(themes.first { $0.id == (variant == "line-numbers" ? "standard" : variant) })
+        var settings = RenderSettings(
+            layout: .a4Single, theme: theme, preset: HTMLCleanupPreset(id: "none", name: "None"))
+        if variant == "line-numbers" { settings.code.block.lineNumbers = .all }
+        let prepared = try await DocumentRenderer().prepare(source, settings: settings)
+        let outline = await ReadingPDFExporter.outline(
+            of: source, in: prepared.logicalDocument, proof: .shown, includesSourceContents: true)
+        let sections = outline.entries.filter { $0.level == 2 }
+        #expect(sections.map(\.title) == ["第一節 用紙", "第二節 余白", "第三節 綴じ"])
+        #expect(sections.map(\.pageIndex) == [1, 2, 3])
+    }
+
     @Test("読むPDFは論理ページ順と見出しと外部リンクと題名を保存する", .timeLimit(.minutes(1)))
     func markdown() async throws {
         let source = DocumentSource(
@@ -84,6 +104,72 @@ struct ReadingPDFExporterTests {
         #expect(reread.page(at: 0)?.annotations.contains { $0.url?.absoluteString == "https://example.com/" } == true)
         #expect(reread.documentAttributes?[PDFDocumentAttribute.titleAttribute] as? String == "First")
         #expect(reread.documentAttributes?[PDFDocumentAttribute.creatorAttribute] as? String == "Surimono")
+    }
+
+    @Test("先頭の目次と見出しの下の目次がある Org の文書でも、しおりとリンクは見出しのページへ行く", .timeLimit(.minutes(1)))
+    func orgWithSeveralContents() async throws {
+        let source = DocumentSource(
+            data: Data(
+                """
+                #+OPTIONS: toc:t
+                * Alpha
+                text
+                * Beta
+                #+TOC: headlines local
+                ** Gamma
+                text
+                """.utf8),
+            fileURL: URL(fileURLWithPath: "/reading-export-fixture/source.org"), format: .org)
+        // The nested entry comes last so PDFKit can read by indentation or by height in the same order.
+        let css = "body { font-size: 12pt; } h1, h2 { break-before: page; }"
+        let settings = RenderSettings(
+            layout: .a4BookletA5, theme: PrintTheme(id: "test", name: "Test", css: css),
+            preset: HTMLCleanupPreset(id: "none", name: "None"))
+        let prepared = try await DocumentRenderer().prepare(source, settings: settings)
+        let outline = await ReadingPDFExporter.outline(
+            of: source, in: prepared.logicalDocument, proof: .shown, includesSourceContents: true)
+        #expect(outline.entries.map(\.title) == ["Alpha", "Beta", "Gamma"])
+        #expect(outline.entries.map(\.pageIndex) == [1, 2, 3])
+        let output = try ReadingPDFExporter.document(
+            from: prepared.logicalDocument, entries: outline.entries, title: "Org", headings: outline.headings,
+            sourceURL: source.fileURL)
+        let bytes = try #require(output.dataRepresentation())
+        let reread = try #require(PDFDocument(data: bytes))
+        func targets(onPage index: Int) -> [Int] {
+            let annotations: [PDFAnnotation] = reread.page(at: index)?.annotations ?? []
+            let pages: [Int] = annotations.compactMap { annotation in
+                let destination = annotation.destination ?? (annotation.action as? PDFActionGoTo)?.destination
+                return destination?.page.map { reread.index(for: $0) }
+            }
+            return pages.sorted()
+        }
+        #expect(targets(onPage: 0) == [1, 2, 3])
+        #expect(targets(onPage: 2) == [3])
+        let first = try #require(reread.outlineRoot?.child(at: 0))
+        #expect(reread.index(for: try #require(first.destination?.page)) == 1)
+        let second = try #require(reread.outlineRoot?.child(at: 1))
+        #expect(reread.index(for: try #require(second.destination?.page)) == 2)
+        #expect(reread.index(for: try #require(second.child(at: 0)?.destination?.page)) == 3)
+    }
+
+    @Test("本文で目次の項目が別順に現れても、書き出した PDF のしおりは本文のページを指す")
+    func trailingOrgContents() async throws {
+        let source = DocumentSource(
+            data: Data("#+LANGUAGE: ja\n* A\nC\n* B\n* C\n本文\n#+TOC: headlines".utf8), format: .org)
+        let logical = try RenderingFixtures.pdf(pages: [["A", "C", "B"], ["C", "本文"], ["目次", "A", "B", "C"]])
+        let outline = await ReadingPDFExporter.outline(
+            of: source, in: logical, proof: .shown, includesSourceContents: true)
+        #expect(outline.entries.map(\.pageIndex) == [0, 0, 1])
+        let output = try ReadingPDFExporter.document(from: logical, entries: outline.entries, title: "Org")
+        let data = try #require(output.dataRepresentation())
+        let reread = try #require(PDFDocument(data: data))
+        let root = try #require(reread.outlineRoot)
+        var pages: [Int] = []
+        for index in 0..<root.numberOfChildren {
+            let page = try #require(root.child(at: index)?.destination?.page)
+            pages.append(reread.index(for: page))
+        }
+        #expect(pages == [0, 0, 1])
     }
 
     @Test("生成した階層しおりと外部リンクは保存して読み直しても残る")

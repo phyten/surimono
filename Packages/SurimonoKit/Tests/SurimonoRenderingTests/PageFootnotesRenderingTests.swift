@@ -20,6 +20,21 @@ struct PageFootnotesRenderingTests {
         return RenderSettings(layout: .a4Single, theme: theme, preset: HTMLCleanupPreset(id: "none", name: "None"))
     }
 
+    @Test("見出しと ID が衝突した二番の注を参照と同じ紙面に置く", .timeLimit(.minutes(1)))
+    func placedShiftedOrgFootnote() async throws {
+        let org =
+            "* A\n:PROPERTIES:\n:CUSTOM_ID: fn-2\n:END:\nFirst[fn:a], second[fn:b].\n\n* Last\nEnd.\n\n[fn:a] NOTEONE\n\n[fn:b] NOTETWO"
+        var options = try settings()
+        options.theme = PrintTheme(
+            id: "org-notes", name: "Org", css: options.theme.css + " h1 + p + h1 { break-before: page; }")
+        options.finish.footnotes = .pageBottom
+        let source = DocumentSource(data: Data(org.utf8), format: .org)
+        let pdf = try await DocumentRenderer().prepare(source, settings: options).logicalDocument
+        #expect(pdf.pageCount == 2)
+        #expect(pdf.page(at: 0)?.string?.contains("NOTETWO") == true)
+        #expect(pdf.page(at: 1)?.string?.contains("NOTETWO") == false)
+    }
+
     @Test("実際の組版で脚注が最初の参照と同じページに入り測定用ページは残らない", .timeLimit(.minutes(1)))
     func realPagination() async throws {
         let noteParagraphs = [7, 14, 21, 28, 35]

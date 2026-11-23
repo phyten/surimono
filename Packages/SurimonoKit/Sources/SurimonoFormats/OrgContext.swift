@@ -10,12 +10,33 @@ final class OrgContext {
     var definitions: [String: String] = [:]
     var anonymous = 0
     var order: [String] = []
-    var numbers: [String: Int] = [:]
-    var noteDepths: [String: Int] = [:]
-    var references: [String: Int] = [:]
+    struct Note {
+        let number: Int
+        let id: String
+        let depth: Int
+        var references = 0
+    }
+    var notes: [String: Note] = [:]
+    var propertiesByHeading: [Int: [String: String]] = [:]
     /// Definitions from `#+LATEX_HEADER:` lines, given to every formula.
     var mathDefinitions = ""
     var equationCount = 0
+    /// What the document's `#+OPTIONS:` lines set, gathered by the discovery pass.
+    var options = OrgExportOptions()
+    /// The options over the defaults; the discovery pass reads with the defaults alone.
+    var reading: OrgReadingDefaults
+    var outline = OrgOutline()
+    /// Whether a `#+TOC: headlines` line asks for a table of contents somewhere in the text.
+    var hasContentsKeyword = false
+    /// Marks where a table of contents goes until every heading is known. Random, so no document can write it.
+    let contentsToken = UUID().uuidString
+
+    init(defaults: OrgReadingDefaults = .surimono) {
+        reading = defaults
+    }
+
+    /// Headings need anchors only when a table of contents links to them.
+    var anchorsHeadings: Bool { reading.tableOfContents.limit > 0 || hasContentsKeyword }
 
     /// A formula as HTML, or its source marked as unreadable. The discovery pass draws nothing.
     func formula(_ latex: String, display: Bool, source: String) -> String {
@@ -28,6 +49,8 @@ final class OrgContext {
 
     func directive(_ key: String, value: String) {
         if ["TITLE", "SUBTITLE", "AUTHOR", "DATE", "LANGUAGE"].contains(key) { metadata[key] = value }
+        if key == "OPTIONS" { options.read(value) }
+        if key == "TOC", OrgOutline.keyword(value) != nil { hasContentsKeyword = true }
         if key == "LATEX_HEADER" || key == "LATEX_HEADER_EXTRA",
             let definition = OrgMath.definition(value, after: mathDefinitions)
         {
@@ -47,16 +70,18 @@ final class OrgContext {
 
     func reference(_ label: String, depth: Int) -> String? {
         guard !discovering, definitions[label] != nil else { return nil }
-        if numbers[label] == nil {
+        var note: Note
+        if let existing = notes[label] {
+            note = existing
+        } else {
             order.append(label)
-            numbers[label] = order.count
-            noteDepths[label] = depth
+            note = Note(number: order.count, id: outline.allocateID("fn-\(order.count)"), depth: depth)
         }
-        let number = numbers[label] ?? 1
-        references[label, default: 0] += 1
-        let count = references[label] ?? 1
-        let anchor = count == 1 ? "fnref-\(number)" : "fnref-\(number)-\(count)"
-        return "<sup class=\"footnote-ref\"><a href=\"#fn-\(number)\" id=\"\(anchor)\">\(number)</a></sup>"
+        note.references += 1
+        notes[label] = note
+        let base = "fnref-\(note.number)"
+        let anchor = outline.allocateID(note.references == 1 ? base : "\(base)-\(note.references)")
+        return "<sup class=\"footnote-ref\"><a href=\"#\(note.id)\" id=\"\(anchor)\">\(note.number)</a></sup>"
     }
 }
 

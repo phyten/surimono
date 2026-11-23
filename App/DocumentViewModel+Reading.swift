@@ -57,10 +57,7 @@ extension DocumentViewModel {
         // The model also owns the position while SwiftUI is replacing the paper after a reflow.
         currentPageIndex = visibleStart(of: page)
         selectedReadingPage = page
-        if let bundle = imageBundle {
-            let readable = bundle.urls.filter { !unreadableImageURLs.contains($0) }
-            if readable.indices.contains(page) { bundle.selection = readable[page] }
-        }
+        if readingImageURLs.indices.contains(page) { imageBundle?.selection = readingImageURLs[page] }
         paper.goToPage(index: page)
     }
 
