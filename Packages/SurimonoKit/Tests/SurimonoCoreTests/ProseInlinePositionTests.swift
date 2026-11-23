@@ -73,6 +73,50 @@ struct ProseInlinePositionTests {
         #expect(report.findings.isEmpty)
     }
 
+    @Test("数式に続くメールのドメインは本文に残し、数式の原文範囲を広げない")
+    func domainAfterFormula() throws {
+        let paragraph = try #require(ProseTesting.report("Use $x$@example.com today.").paragraphs.first)
+        #expect(paragraph.text == "Use \u{FFFC}@example.com today.")
+        #expect(paragraph.sourceRange(of: 4..<5) == 4..<7)
+        #expect(paragraph.sourceRange(of: 5..<17) == 7..<19)
+    }
+
+    @Test("数式のすぐ後ろと空白の後ろのメールアドレスはそれぞれ一つのリンクになる")
+    func emailAfterFormula() throws {
+        for (input, expected, visible, original) in [
+            ("Use $x$a@example.com today.", "Use \u{FFFC}\u{FFFC} today.", 5..<6, 7..<20),
+            ("Use $x$ a@example.com today.", "Use \u{FFFC} \u{FFFC} today.", 6..<7, 8..<21),
+        ] {
+            let paragraph = try #require(ProseTesting.report(input).paragraphs.first)
+            #expect(paragraph.text == expected)
+            #expect(paragraph.sourceRange(of: 4..<5) == 4..<7)
+            #expect(paragraph.sourceRange(of: visible) == original)
+        }
+    }
+
+    @Test("文字参照の復号で桁がずれても数式とメールアドレスが別々の原文範囲を指す")
+    func decodedEmailAfterFormula() throws {
+        let paragraph = try #require(ProseTesting.report("Use &amp; $😀$a&#64;example.com today.").paragraphs.first)
+        #expect(paragraph.text == "Use & \u{FFFC}\u{FFFC} today.")
+        #expect(paragraph.sourceRange(of: 4..<5) == 4..<9)
+        #expect(paragraph.sourceRange(of: 6..<7) == 10..<14)
+        #expect(paragraph.sourceRange(of: 7..<8) == 14..<31)
+    }
+
+    @Test("数式直後の URL は変換器と同じ境界で判定し、空白の後ろの URL だけをリンクにする")
+    func urlAfterFormula() throws {
+        for (input, expected, visible, original, linked) in [
+            ("Use $x$https://example.com today.", "Use \u{FFFC}https://example.com today.", 5..<24, 7..<26, false),
+            ("Use $x$ https://example.com today.", "Use \u{FFFC} \u{FFFC} today.", 6..<7, 8..<27, true),
+        ] {
+            #expect(MarkdownConverter.convert(input).body.contains("href=\"https://example.com\"") == linked)
+            let paragraph = try #require(ProseTesting.report(input).paragraphs.first)
+            #expect(paragraph.text == expected)
+            #expect(paragraph.sourceRange(of: 4..<5) == 4..<7)
+            #expect(paragraph.sourceRange(of: visible) == original)
+        }
+    }
+
     @Test("複数行のコードの中のドル記号を保護して、その後に現れる数式の桁を保つ")
     func formulaAfterMultilineCode() throws {
         let p = try #require(ProseTesting.report("Read `$a$\n$b$` then $é$ after.").paragraphs.first)

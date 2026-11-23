@@ -479,6 +479,8 @@ private struct InlineWalk {
     private let marksBase: Int
     private var stretches: [Range<Int>] = []
     private var stretchShown: [Bool] = []
+    /// Formulas get their marks before any autolinks are discovered.
+    private var formulaMarkCount: Int32 = 0
 
     /// An element whose contents are not prose is open: its name, where it began, and whether it shows anything.
     private var hidden: (name: String, start: Int, isShown: Bool)?
@@ -626,6 +628,7 @@ private struct InlineWalk {
             }
             for formula in input.formulas { show(formula) }
         }
+        formulaMarkCount = Int32(stretches.count)
     }
 
     private mutating func ensureMarks() {
@@ -741,13 +744,41 @@ private struct InlineWalk {
         segments.cursor = max(segments.cursor, range.upperBound)
     }
 
+    /// The parser's column-preserving formula mask can supply the local part of a spurious email address.
+    /// For link detection, use `<`, excluded from both email addresses and URL paths. Like the
+    /// converter's closing formula token it does not introduce a bare URL. Keeping one unit per visible
+    /// unit lets the same decoded-to-source mapping locate the links on either side.
+    private func autolinkText(_ literal: [UInt16], source range: Range<Int>) -> String? {
+        var search = literal
+        if formulaMarkCount > 0 {
+            let formulaMarks = 1...formulaMarkCount
+            var visible = 0
+            let complete = ProseTextDecoding.scan(parserUnits, range: range, literal: literal) { source, decoded in
+                let count = decoded?.count ?? source.count
+                for index in 0..<count {
+                    let offset = source.lowerBound + (decoded == nil ? index : 0) - marksBase
+                    if marks.indices.contains(offset), formulaMarks.contains(marks[offset]) {
+                        search[visible + index] = 0x3C
+                    }
+                }
+                visible += count
+            }
+            if !complete { return nil }
+        }
+        return String(decoding: search, as: UTF16.self)
+    }
+
     /// Links are recognized on cmark's text. Only nodes with both a link and a changed spelling need the
     /// decoder to translate the link boundaries before the normal marks are applied.
     private mutating func markAutolinks(in string: String, literal: [UInt16], source range: Range<Int>) {
         guard string.contains("@") || string.contains("://") || string.localizedCaseInsensitiveContains("www.") else {
             return
         }
-        let links = MarkdownConverter.autolinks(in: String(decoding: literal, as: UTF16.self))
+        guard let text = autolinkText(literal, source: range) else {
+            cancelled = true
+            return
+        }
+        let links = MarkdownConverter.autolinks(in: text)
         guard !links.isEmpty else { return }
         let units = parserUnits
         if units[range].elementsEqual(literal) {
