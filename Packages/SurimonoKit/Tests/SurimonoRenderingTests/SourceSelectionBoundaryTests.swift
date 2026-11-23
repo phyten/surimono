@@ -9,7 +9,22 @@ struct SourceSelectionBoundaryTests {
     // Specify exactly what PDFKit extracted, independently of the installed fonts and WebKit's pagination.
     private final class Page: PDFPage {
         var extracted = ""
+        /// PDFKit leaves the line break at the end of a selection out of its text.
+        var dropsTrailingBreak = false
         override var string: String? { extracted }
+        override func selection(for range: NSRange) -> PDFSelection? {
+            guard dropsTrailingBreak else { return super.selection(for: range) }
+            var text = (extracted as NSString).substring(with: range)
+            if text.hasSuffix("\n") { text.removeLast() }
+            let part = Text(document: PDFDocument())
+            part.text = text
+            return part
+        }
+    }
+
+    private final class Text: PDFSelection {
+        var text = ""
+        override var string: String? { text }
     }
 
     private final class Selection: PDFSelection {
@@ -21,12 +36,15 @@ struct SourceSelectionBoundaryTests {
         }
     }
 
-    private func copy(_ source: String, pages: [String], selecting: [Int: Range<Int>]) -> String? {
+    private func copy(
+        _ source: String, pages: [String], selecting: [Int: Range<Int>], dropsTrailingBreak: Bool = false
+    ) -> String? {
         let pdf = PDFDocument()
         let selection = Selection(document: pdf)
         for (i, text) in pages.enumerated() {
             let page = Page()
             page.extracted = text
+            page.dropsTrailingBreak = dropsTrailingBreak
             pdf.insert(page, at: i)
             if let range = selecting[i] { selection.spans.append((page, NSRange(range))) }
         }
@@ -59,6 +77,15 @@ struct SourceSelectionBoundaryTests {
         #expect(copy(text, pages: [text], selecting: [0: 2..<5]) == nil)
         #expect(copy(text, pages: [text], selecting: [0: 0..<2]) == nil)
         #expect(copy(text, pages: [text], selecting: [0: 3..<5]) == "\tB")
+    }
+
+    @Test("ページの末尾の改行まで選んで次のページへ続く選択は、境の空白を作り替えずにふつうのコピーに任せる")
+    func selectionThroughUndecidedEdge() {
+        // The source has "\n\n\t" between the pages; joining the two pieces with one break would invent text.
+        let source = "abc\n\n\tDEF!"
+        let pages = ["abc\n", "DEF!"]
+        #expect(copy(source, pages: pages, selecting: [0: 1..<4, 1: 0..<2], dropsTrailingBreak: true) == nil)
+        #expect(copy(source, pages: pages, selecting: [0: 1..<4, 1: 0..<2]) == nil)
     }
 
     @Test("空行の所属が分からなくても、その手前の文字と次のページ内の折り返しは原文に戻す")

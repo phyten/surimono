@@ -207,7 +207,7 @@ public enum SourcePaperText {
             }
             if let last = end.edge {
                 if i < glyphs.count, !record(i..<glyphs.count, source: cursor..<last) { return nil }
-            } else if let stop = groups.last?.upperBound, stop == glyphs.count || stop > inkEnd {
+            } else if let stop = groups.last?.upperBound, endsAtEdge || stop > inkEnd {
                 return nil
             }
             var pieces: [Piece] = []
