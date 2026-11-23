@@ -5,6 +5,26 @@ import Testing
 @testable import SurimonoCore
 
 struct ShortcutValidationIndexTests {
+    @Test("一括の競合は全操作の個別判定と所有者の順序まで一致する")
+    func bulkConflicts() {
+        let logical = ShortcutCombination(key: .character("r"), modifiers: .command)
+        let alias = ShortcutCombination(key: .character("z"), modifiers: .command)
+        let physical = ShortcutCombination(key: .macVirtualKey(15), modifiers: .command)
+        let validator = ShortcutValidator(
+            environment: .init(projection: [
+                .init(logical: logical, physical: physical), .init(logical: alias, physical: physical),
+            ]))
+        let configuration = ShortcutConfiguration(overrides: [
+            .documentFind: [logical, alias], .globalClipboardOpen: [physical], .appOpenURL: [],
+        ])
+        let individual = ShortcutOperationID.allCases.flatMap {
+            validator.conflicts(for: $0, keys: configuration.keys(for: $0), in: configuration)
+        }
+        #expect(individual.contains { $0.operation == .documentReload })
+        #expect(!individual.contains { $0.operation == .appOpenURL })
+        #expect(validator.conflicts(in: configuration) == individual)
+    }
+
     @Test("全キーと16修飾と二つの綴りと60予約でも既定の検証を2秒以内に終える")
     func fullProjection() throws {
         let codes = (UInt16(0)..<128).filter { ShortcutKey.macVirtualKey($0).isSupported }

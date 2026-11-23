@@ -41,7 +41,7 @@ extension KeyCombo {
     }
 }
 
-struct ShortcutKeyboardLayout {
+struct ShortcutKeyboardLayout: Equatable {
     let projection: [ShortcutProjection]
     let names: [UInt16: String]
     let available: Bool
@@ -89,6 +89,9 @@ struct ShortcutKeyboardLayout {
         return Self(projection: projection, names: names, available: true)
     }
 
+    // TIS returns the current data on every refresh. Equal layout bytes and keyboard type produce the same table.
+    private static var cachedLayout: (data: Data, keyboardType: UInt32, layout: Self)?
+
     static func current() -> Self {
         guard let source = TISCopyCurrentKeyboardLayoutInputSource()?.takeRetainedValue() else {
             return Self(projection: [], names: [:], available: false)
@@ -99,17 +102,24 @@ struct ShortcutKeyboardLayout {
         let data = Unmanaged<CFData>.fromOpaque(property).takeUnretainedValue()
         guard let bytes = CFDataGetBytePtr(data) else { return Self(projection: [], names: [:], available: false) }
         let layout = UnsafeRawPointer(bytes).assumingMemoryBound(to: UCKeyboardLayout.self)
-        return project { code, flags in
+        let keyboardType = UInt32(LMGetKbdType())
+        let layoutData = data as Data
+        if let cachedLayout, cachedLayout.keyboardType == keyboardType, cachedLayout.data == layoutData {
+            return cachedLayout.layout
+        }
+        let result = project { code, flags in
             var deadKey: UInt32 = 0
             var count = 0
             var characters = [UniChar](repeating: 0, count: 8)
             let status = UCKeyTranslate(
                 layout, code, UInt16(kUCKeyActionDisplay), (flags.carbon >> 8) & 0xFF,
-                UInt32(LMGetKbdType()), OptionBits(kUCKeyTranslateNoDeadKeysMask),
+                keyboardType, OptionBits(kUCKeyTranslateNoDeadKeysMask),
                 &deadKey, characters.count, &count, &characters)
             guard status == noErr, count > 0 else { return nil }
             return String(utf16CodeUnits: characters, count: count)
         }
+        cachedLayout = (layoutData, keyboardType, result)
+        return result
     }
 
     func display(_ combination: ShortcutCombination) -> String {
@@ -145,12 +155,13 @@ struct ShortcutKeyboardLayout {
 }
 
 extension ShortcutModifiers {
+    private static let spokenNames: [(Self, String)] = [
+        (.control, String(localized: "Control")), (.option, String(localized: "Option")),
+        (.shift, String(localized: "Shift")), (.command, String(localized: "Command")),
+    ]
+
     var spoken: String {
-        [
-            (Self.control, String(localized: "Control")), (.option, String(localized: "Option")),
-            (.shift, String(localized: "Shift")), (.command, String(localized: "Command")),
-        ]
-        .filter { contains($0.0) }.map(\.1).joined(separator: " ")
+        Self.spokenNames.filter { contains($0.0) }.map(\.1).joined(separator: " ")
     }
 }
 

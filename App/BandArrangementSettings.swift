@@ -56,7 +56,8 @@ struct BandArrangementSettings: View {
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 14)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            // Wrap the miniature against the scroll viewport, including when a control has a wider ideal size.
+            .containerRelativeFrame(.horizontal, alignment: .leading)
         }
         .coordinateSpace(name: "band-editor")
         .onGeometryChange(for: CGFloat.self) {
@@ -64,7 +65,6 @@ struct BandArrangementSettings: View {
         } action: {
             width = $0
         }
-        .onAppear { session.didAppear() }
         // A change saved elsewhere: followed while nothing is unsaved, told as a conflict otherwise.
         .onChange(of: session.store) { session.refresh() }
         // Everywhere but the zones and the palette: a separator dropped here is taken away.
@@ -623,7 +623,8 @@ private struct EntryChip: View {
     }
 
     var body: some View {
-        content
+        let name = entry.item?.editorName ?? String(localized: "Separator")
+        content(name: name)
             .frame(minHeight: MiniatureMetrics.chipHeight)
             .padding(.horizontal, entry == .separator ? 1 : (entry == .part(.print) && !showsName ? 1 : 4))
             .background {
@@ -666,7 +667,7 @@ private struct EntryChip: View {
             .onDrag {
                 BandEditorDrop.provider(session.beginDrag(.entry(location, entry)))
             }
-            .help(help)
+            .help(help(name: name))
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text(verbatim: name))
             .accessibilityValue(Text(verbatim: positionText))
@@ -679,7 +680,7 @@ private struct EntryChip: View {
     /// The miniature's parts on the band need no chip of their own around a separator or the vermilion Print.
     private var plain: Bool { !showsName && (entry == .separator || entry == .part(.print)) }
 
-    @ViewBuilder private var content: some View {
+    @ViewBuilder private func content(name: String) -> some View {
         switch entry {
         case .separator:
             SeparatorMark(isIdle: isIdle)
@@ -687,7 +688,7 @@ private struct EntryChip: View {
             HStack(spacing: 6) {
                 BandPartGlyph(item: item, besideName: showsName)
                 if showsName {
-                    Text(verbatim: item.editorName).font(.system(size: 12)).foregroundStyle(PrintPalette.ink)
+                    Text(verbatim: name).font(.system(size: 12)).foregroundStyle(PrintPalette.ink)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -695,17 +696,13 @@ private struct EntryChip: View {
         }
     }
 
-    private var name: String {
-        entry.item?.editorName ?? String(localized: "Separator")
-    }
-
-    private var help: String {
+    private func help(name: String) -> String {
         guard let item = entry.item else {
             return isIdle
                 ? String(localized: "Separator: appears on the toolbar only between two parts.")
                 : String(localized: "Separator")
         }
-        return choice(item.editorName, item.editorDescription)
+        return choice(name, item.editorDescription)
     }
 
     private var positionText: String {
@@ -1102,23 +1099,34 @@ struct FlowLayout: Layout {
     var lineSpacing: CGFloat = 4
     var constrainsChips = false
 
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        arrange(width: proposal.width ?? .infinity, subviews: subviews).size
+    // Measurement and placement normally use the same width. Intrinsic sizes also survive width-only changes.
+    struct Cache {
+        let ideals: [CGSize]
+        var width: CGFloat?
+        var result: (frames: [CGRect], size: CGSize) = ([], .zero)
     }
 
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let result = arrange(width: bounds.width, subviews: subviews)
+    func makeCache(subviews: Subviews) -> Cache {
+        Cache(ideals: subviews.map { $0.sizeThatFits(.unspecified) })
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache) -> CGSize {
+        arrange(width: proposal.width ?? .infinity, subviews: subviews, cache: &cache).size
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache) {
+        let result = arrange(width: bounds.width, subviews: subviews, cache: &cache)
         for (subview, frame) in zip(subviews, result.frames) {
             subview.place(
                 at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY), proposal: .init(frame.size))
         }
     }
 
-    private func arrange(width: CGFloat, subviews: Subviews) -> (frames: [CGRect], size: CGSize) {
-        let sizes = subviews.map {
-            let ideal = $0.sizeThatFits(.unspecified)
+    private func arrange(width: CGFloat, subviews: Subviews, cache: inout Cache) -> (frames: [CGRect], size: CGSize) {
+        if cache.width == width { return cache.result }
+        let sizes = zip(subviews, cache.ideals).map { subview, ideal in
             return constrainsChips && ideal.width > width
-                ? $0.sizeThatFits(ProposedViewSize(width: width, height: nil)) : ideal
+                ? subview.sizeThatFits(ProposedViewSize(width: width, height: nil)) : ideal
         }
         var lines: [[Int]] = [[]]
         var x: CGFloat = 0
@@ -1147,7 +1155,9 @@ struct FlowLayout: Layout {
             widest = max(widest, x - spacing)
             y += height + lineSpacing
         }
-        return (frames, CGSize(width: max(widest, 0), height: max(y - lineSpacing, 0)))
+        cache.width = width
+        cache.result = (frames, CGSize(width: max(widest, 0), height: max(y - lineSpacing, 0)))
+        return cache.result
     }
 }
 

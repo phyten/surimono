@@ -97,31 +97,38 @@ struct SettingsView: View {
             #if DEBUG
                 .modifier(SnapshotSettingsSurface(sidebar: true))
             #endif
+            // Without the sidebar toggle the split view lets a narrow window squeeze the column below its minimum.
+            .frame(minWidth: 230)
             .navigationSplitViewColumnWidth(min: 230, ideal: 250, max: 300)
             // Settings always shows its sections. Without the toggle the window has no toolbar row, so every
             // section starts right under the title bar with the system's own inset.
             .toolbar(removing: .sidebarToggle)
         } detail: {
-            Group {
-                if preferences.settingsSection == .toolbarArrangement {
+            let section = preferences.settingsSection
+            let hits = SettingsSearchHits(query: query, anchors: matches.filter { $0.section == section }.map(\.anchor))
+            let shown = visible.isEmpty ? nil : section
+            SettingsDetail(section: shown, hits: hits) { selected in
+                switch selected {
+                case .toolbarArrangement:
                     BandArrangementSettings(session: arrangementEditor)
-                } else if preferences.settingsSection == .keyboardShortcuts {
+                case .keyboardShortcuts:
                     ShortcutSettingsView(controller: .shared)
-                } else {
-                    ScrollViewReader { proxy in form.modifier(SettingsSearchReveal(proxy: proxy)) }
+                default:
+                    ScrollViewReader { proxy in form(selected).modifier(SettingsSearchReveal(proxy: proxy)) }
                 }
             }
-            .environment(
-                \.settingsSearchHits,
-                SettingsSearchHits(
-                    query: query, anchors: matches.filter { $0.section == preferences.settingsSection }.map(\.anchor))
-            )
+            // The split column allocates the viewport independently of the visited editor's ideal size.
+            .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
+            .onChange(of: shown, initial: true) {
+                switch shown {
+                case .toolbarArrangement: arrangementEditor.didAppear()
+                case .keyboardShortcuts: ShortcutController.shared.refresh()
+                default: break
+                }
+            }
             #if DEBUG
                 .modifier(SnapshotSettingsSurface(sidebar: false))
             #endif
-            .opacity(visible.isEmpty ? 0 : 1)
-            .disabled(visible.isEmpty)
-            .accessibilityHidden(visible.isEmpty)
             .overlay(alignment: .topLeading) {
                 if visible.isEmpty {
                     Text("No settings found").foregroundStyle(PrintPalette.ink2).padding(20)
@@ -232,9 +239,9 @@ struct SettingsView: View {
         return SettingsCatalogue.search(query, in: rows)
     }
 
-    private var form: some View {
+    private func form(_ section: SettingsSection) -> some View {
         Form {
-            switch preferences.settingsSection {
+            switch section {
             case .general:
                 Section {
                     LanguagePicker(preferences: preferences)
