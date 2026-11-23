@@ -668,6 +668,31 @@ struct LaTeXFlowLayoutTests {
         #expect(page.pieces.map(\.x) == [0, 0, 55, 55])
     }
 
+    @Test("学会誌の改段は浮動体の空きを自然長で予約し、行が決まってから図と本文の間隔を伸縮する")
+    func journalFloatSkips() throws {
+        for height: CGFloat in [19.75, 20.25] {
+            for bodyShrink: CGFloat in [0, 8] {
+                var row = spaced(2, 22, gap: 10, plus: 0)
+                row.shrinkBefore = bodyShrink
+                let rows = [item(0, height, placement: "t"), item(1, 30), row, item(3, 14), item(4, 20)]
+                let input = Flow.Measurement(
+                    comparesColumnBreakBadness: true, glueShrink: .init(textFloat: 8),
+                    glueStretch: .init(textFloat: 20), segments: [segment(rows, columns: 2)],
+                    notes: [:], noteSkip: 0, textFloatSep: 10, floatSep: 0, inTextSep: 0)
+                let page = try #require(Flow.pages(input, width: 100, height: 100).first)
+                let first = try #require(page.pieces.first { $0.slice.strip == 1 })
+                let last = try #require(page.pieces.first { $0.slice.strip == 3 })
+                if bodyShrink == 0 {
+                    #expect(last.x == 55)
+                    #expect(first.y > height + 10)
+                } else {
+                    #expect(last.x == 0)
+                    #expect(first.y < height + 10)
+                }
+            }
+        }
+    }
+
     @Test("段末で収まる見出しを本文と一緒に送ったときだけ直後の図を次段の頭に置く")
     func floatAfterCarriedHeading() throws {
         var heading = item(1, 15)

@@ -7,6 +7,16 @@ struct LaTeXBeamerTests {
             .body
     }
 
+    @Test("子リストの字級で直前の段落が閉じる場合を、明示した段落末と区別する")
+    func nestedListParagraph() {
+        for ending in ["", "\\par", "\n\n"] {
+            let html = document(
+                "\\begin{frame}\\begin{itemize}\\item Outer\(ending)\\begin{itemize}\\item Inner"
+                    + "\\end{itemize}\\end{itemize}\\end{frame}")
+            #expect(html.contains(" data-beamer-closes-paragraph") == ending.isEmpty)
+        }
+    }
+
     @Test(
         "フレーム内の表題命令で題名・著者・所属・日付を読む順に一度ずつ刷る",
         arguments: [#"\frame[plain]{\titlepage}"#, #"\begin{frame}\maketitle\end{frame}"#])

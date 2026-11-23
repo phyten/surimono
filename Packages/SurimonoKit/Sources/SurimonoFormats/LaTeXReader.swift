@@ -2247,7 +2247,14 @@ final class LaTeXReader {
         var html = list(base, options: options, body: reader.rest, nextLine: nextLine)
         let attribute =
             settings.isEmpty ? "" : " style=\"\(HTML.escape(LaTeXPageSettings.cssVariables(settings)))\""
-        let attributes = attribute + document.contextLineParameterAttribute
+        // Opening a Beamer sublist changes the size before it ends an open paragraph.
+        // A blank line or explicit paragraph break has already fixed that paragraph's pitch.
+        let closesParagraph =
+            document.insideBeamerFrame && document.listStack.count > 1 && base != "description"
+            && isBlock && !paragraph.isEmpty
+        let attributes =
+            attribute + document.contextLineParameterAttribute
+            + (closesParagraph ? " data-beamer-closes-paragraph" : "")
         if !attributes.isEmpty, let end = html.firstIndex(of: ">") { html.insert(contentsOf: attributes, at: end) }
         appendBlock(html)
     }

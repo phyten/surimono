@@ -139,15 +139,19 @@ public enum HTMLDocumentBuilder {
     private static func slideSizes(for body: Double) -> String {
         // Beamer selects the size*.clo ladder. Large, small, footnotesize and scriptsize
         // are discrete sizes, so a 20pt frame cannot just enlarge the default 11pt theme.
-        let sizes: (title: Double, block: Double, small: Double, note: Double, script: Double, pitch: Double)
+        let sizes:
+            (
+                title: Double, block: Double, small: Double, note: Double, script: Double, pitch: Double,
+                smallPitch: Double, notePitch: Double
+            )
         switch body {
-        case 8: sizes = (10.95, 10, 7, 6, 5, 9.5)
-        case 9: sizes = (10.95, 10, 8, 7, 6, 10.95)
-        case 10: sizes = (14.4, 12, 9, 8, 7, 12)
-        case 12: sizes = (17.28, 14.4, 10.95, 10, 8, 14.5)
-        case 14.4: sizes = (20.74, 17.28, 12, 10, 8, 17)
-        case 17.28: sizes = (24.88, 20.74, 14.4, 12, 10, 22)
-        case 20.74: sizes = (29.86, 24.88, 17.28, 14.4, 12, 25)
+        case 8: sizes = (10.95, 10, 7, 6, 5, 9.5, 8, 7)
+        case 9: sizes = (10.95, 10, 8, 7, 6, 10.95, 9, 8)
+        case 10: sizes = (14.4, 12, 9, 8, 7, 12, 11, 9.5)
+        case 12: sizes = (17.28, 14.4, 10.95, 10, 8, 14.5, 13.6, 12)
+        case 14.4: sizes = (20.74, 17.28, 12, 10, 8, 17, 14, 12)
+        case 17.28: sizes = (24.88, 20.74, 14.4, 12, 10, 22, 17, 14)
+        case 20.74: sizes = (29.86, 24.88, 17.28, 14.4, 12, 25, 22, 17)
         default: return ""
         }
         // Footnote marks are superscripts; the math script size at the note's text size
@@ -160,6 +164,7 @@ public enum HTMLDocumentBuilder {
                 --beamer-title-size: calc(\(sizes.title) * var(--tex-pt)); --beamer-block-size: calc(\(sizes.block) * var(--tex-pt));
                 --beamer-small-size: calc(\(sizes.small) * var(--tex-pt)); --beamer-note-size: calc(\(sizes.note) * var(--tex-pt));
                 --beamer-script-size: calc(\(sizes.script) * var(--tex-pt)); --beamer-pitch: calc(\(sizes.pitch) * var(--tex-pt));
+                --beamer-small-pitch: calc(\(sizes.smallPitch) * var(--tex-pt)); --beamer-note-pitch: calc(\(sizes.notePitch) * var(--tex-pt));
                 --beamer-mark-size: calc(\(scriptSizes[body] ?? sizes.script) * var(--tex-pt));
                 --beamer-note-mark-size: calc(\(scriptSizes[sizes.note] ?? sizes.script) * var(--tex-pt));
                 --latex-size-Large: var(--beamer-title-size); --latex-size-large: var(--beamer-block-size);

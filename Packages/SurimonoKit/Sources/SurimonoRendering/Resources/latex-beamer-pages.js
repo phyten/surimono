@@ -37,6 +37,61 @@ function blockTitleDepth(title) {
 }
 for (const title of document.querySelectorAll('.beamer-block-title'))
     title.parentElement.style.setProperty('--beamer-title-depth', blockTitleDepth(title) + 'px');
+// Opening a nested list changes the font before TeX ends the current paragraph.
+// At the boundary, measure from the parent's last baseline to the child's first:
+// the child's paragraph pitch (at its closing size) plus the new list's topsep.
+function alignNestedListBaselines(content) {
+    const nested = 'li > :is(ul,ol)';
+    if (!content.querySelector(nested)) return;
+    const measured = [];
+    function marker() {
+        const span = document.createElement('span');
+        span.style.cssText = 'display:inline-block;position:relative;width:0;height:0;line-height:0;vertical-align:baseline';
+        return span;
+    }
+    // Tall boxes and local font-size changes can trigger TeX's minimum lineskip.
+    // Only ordinary paragraph text and its inline emphasis use this baseline distance.
+    function plain(el) {
+        return el.textContent.trim() && !el.hasAttribute('style') && !el.querySelector(':not(span,a,em,strong,i,b),[style]');
+    }
+    for (const list of content.querySelectorAll('p + :is(ul,ol)')) {
+        const parentItem = list.parentElement.closest('li');
+        if (list.hasAttribute('style') || (parentItem ? !list.matches(nested) : !list.querySelector(nested))) continue;
+        const previous = list.previousElementSibling, item = list.firstElementChild;
+        if (!item?.matches('li')) continue;
+        const first = item.firstElementChild?.matches('p') ? item.firstElementChild : item;
+        if (!plain(previous) || !plain(first)) continue;
+        const level = parentItem ? (parentItem.parentElement.closest('li') ? 2 : 1) : 0;
+        const closesAt = level + (first !== item && first.nextElementSibling?.hasAttribute('data-beamer-closes-paragraph') ? 1 : 0);
+        const pitch = ['var(--beamer-pitch, calc(13.6 * var(--tex-pt)))',
+            'var(--beamer-small-pitch, calc(12 * var(--tex-pt)))',
+            'var(--beamer-note-pitch, calc(11 * var(--tex-pt)))'][Math.min(closesAt, 2)];
+        const from = marker(), to = marker(), ruler = document.createElement('span');
+        ruler.style.cssText = 'position:absolute;display:block;height:0;width:calc('
+            + pitch + ' + ' + (parentItem ? 2 : 3) + ' * var(--tex-pt))';
+        from.append(ruler);
+        measured.push({list, previous, first, from, to, ruler});
+    }
+    for (const {previous, first, from, to} of measured) {
+        previous.append(from);
+        first.prepend(to);
+    }
+    // Read every distance before writing margins: moving an outer list carries both
+    // ends of an inner measurement together. The ruler shares the print view's zoom.
+    for (const entry of measured) {
+        const {list, from, to, ruler} = entry;
+        const span = ruler.getBoundingClientRect().width;
+        const pitch = parseFloat(getComputedStyle(ruler).width);
+        if (span > 0 && pitch > 0) {
+            const gap = to.getBoundingClientRect().bottom - from.getBoundingClientRect().bottom;
+            entry.margin = parseFloat(getComputedStyle(list).marginTop) + pitch * (1 - gap / span);
+        }
+    }
+    for (const {list, from, to, margin} of measured) {
+        from.remove(); to.remove();
+        if (Number.isFinite(margin)) list.style.marginBlockStart = margin + 'px';
+    }
+}
 function roman(value) {
     let result = '';
     for (const [n, letters] of [[1000,'M'],[900,'CM'],[500,'D'],[400,'CD'],[100,'C'],[90,'XC'],[50,'L'],
@@ -112,6 +167,7 @@ for (const frame of frames) {
     const ordinal = Number(frame.dataset.frame);
     const content = frame.querySelector(':scope > .beamer-frame-body');
     if (!content) continue;
+    alignNestedListBaselines(content);
     let heading = frame.querySelector(':scope > .beamer-frame-heading');
     let notes = frame.querySelector(':scope > .beamer-footnotes');
     const frameHeight = frame.getBoundingClientRect().height;
