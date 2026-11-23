@@ -105,41 +105,69 @@ public enum FragmentChanges {
     }
 
     /// The lines of plain text as they stand in the HTML, and the text of each to compare.
+    /// The lines of plain text as they stand in the HTML, and the text of each to compare.
     private struct PlainLines {
-        var html: [String]
-        var text: [String]
-        /// A line break after the last line, which the lines of colored text do not carry.
-        var tail = ""
+        var html: [String] = []
+        var text: [String] = []
     }
 
-    private static func plainLines(_ html: String) -> PlainLines? {
-        guard html.hasPrefix(plainOpen), html.hasSuffix("</pre>") else { return nil }
+    private enum PlainText {
+        /// Not the one block of plain text; the blocks of the HTML are compared.
+        case other
+        /// More lines than are compared. Nothing is marked: the whole text is never one change.
+        case tooLong
+        case lines(PlainLines)
+    }
+
+    /// One reading for text with and without colors: a line break ends a line wherever it stands, also inside a
+    /// span, so the last line is empty when the text ends with a line break and joining the lines gives the text
+    /// back. A span that runs over several lines is closed and opened again on each, so a line inside a long comment
+    /// can be marked alone. The text is compared without the spans, because an edit elsewhere (opening a comment)
+    /// recolors lines it did not change.
+    private static func plainText(_ html: String) -> PlainText {
+        guard html.hasPrefix(plainOpen), html.hasSuffix("</pre>") else { return .other }
         let body = html.dropFirst(plainOpen.count).dropLast(6)
-        guard body.contains("<") else {
-            let lines = TextDecoding.normalizeNewlines(String(body)).split(
-                separator: "\n", maxSplits: blockLimit, omittingEmptySubsequences: false
-            ).map(String.init)
-            return PlainLines(html: lines, text: lines)
-        }
-        // Colored source text: each line closes and reopens the spans that run through it, so a line inside a long
-        // comment can be marked alone. The text is compared without the spans, because an edit elsewhere (opening a
-        // comment) recolors lines it did not change.
-        guard let lines = SyntaxHighlighter.lines(of: body), lines.count <= blockLimit else { return nil }
-        let text = lines.map { line -> String in
-            var result = ""
-            var inTag = false
-            for character in line {
-                if character == "<" {
-                    inTag = true
-                } else if character == ">" {
-                    inTag = false
-                } else if !inTag {
-                    result.append(character)
+        var lines = PlainLines()
+        var current = ""
+        var text = ""
+        var open: [Substring] = []
+        var index = body.startIndex
+        while index < body.endIndex {
+            let character = body[index]
+            if character == "<" {
+                guard let end = body[index...].firstIndex(of: ">") else { return .other }
+                let tag = body[index...end]
+                if tag == "</span>" {
+                    guard let last = open.popLast() else { return .other }
+                    // A span that ended where the line began holds nothing on this line.
+                    if current.hasSuffix(last) { current.removeLast(last.count) } else { current += tag }
+                } else if tag.hasPrefix("<span class=\"hl-") {
+                    open.append(tag)
+                    current += tag
+                } else {
+                    return .other
                 }
+                index = body.index(after: end)
+                continue
             }
-            return result
+            if character == "\n" || character == "\r\n" || character == "\r" {
+                // Stop at the limit instead of reading on through a text that will not be compared.
+                guard lines.text.count < blockLimit else { return .tooLong }
+                lines.html.append(text.isEmpty ? "" : current + String(repeating: "</span>", count: open.count))
+                lines.text.append(text)
+                current = open.joined()
+                text = ""
+            } else {
+                current.append(character)
+                text.append(character)
+            }
+            index = body.index(after: index)
         }
-        return PlainLines(html: lines, text: text, tail: body.last?.isNewline == true ? "\n" : "")
+        guard open.isEmpty else { return .other }
+        guard lines.text.count < blockLimit else { return .tooLong }
+        lines.html.append(text.isEmpty ? "" : current)
+        lines.text.append(text)
+        return .lines(lines)
     }
 
     private static func keys(_ html: String) -> [String]? {
@@ -169,9 +197,12 @@ public enum FragmentChanges {
 
     public static func marks(from old: String, to new: String) -> [MarkdownMarkRequest] {
         guard old.utf8.count <= byteLimit, new.utf8.count <= byteLimit, old != new else { return [] }
-        if let before = plainLines(old), let after = plainLines(new) {
+        switch (plainText(old), plainText(new)) {
+        case (.lines(let before), .lines(let after)):
             if after.text.count == 1, after.text[0].isEmpty { return [] }
             return changes(before.text, after.text, groupsLines: true)
+        case (.tooLong, _), (_, .tooLong): return []
+        default: break
         }
         guard let before = keys(old), let after = keys(new) else { return [] }
         return changes(before, after, groupsLines: false)
@@ -242,7 +273,9 @@ public enum FragmentChanges {
     /// Only the disposable layout needs IDs; leave the normal HTML byte-for-byte as the converter produced it.
     public static func identifyingBlocks(in html: String, for requests: [MarkdownMarkRequest]) -> String {
         guard !requests.isEmpty, html.utf8.count <= byteLimit else { return html }
-        if let plain = plainLines(html) {
+        let plain = plainText(html)
+        if case .tooLong = plain { return html }
+        if case .lines(let plain) = plain {
             var lines = plain.html
             // Each line keeps its original newline. Measuring an inline span follows even a wrapped line onto paper.
             for request in requests {
@@ -256,7 +289,7 @@ public enum FragmentChanges {
                     lines[index] = "<span data-surimono-block=\"lines-\(first)-\(last)\">" + lines[index] + "</span>"
                 }
             }
-            return plainOpen + lines.joined(separator: "\n") + plain.tail + "</pre>"
+            return plainOpen + lines.joined(separator: "\n") + "</pre>"
         }
         let wanted = Set(requests.map(\.blockID))
         let tokens = HTMLScanner.tokens(html)
