@@ -585,9 +585,13 @@ struct SmallStackTests {
         let workerDone = AsyncStream<Void>.makeStream()
         let work = AsyncStream<Void>.makeStream()
 
-        let outcome = try await SmallStack.withDeadline(limit: .milliseconds(100)) {
+        let waiting = Locked(false)
+        let outcome = try await SmallStack.withDeadline(limit: .milliseconds(500)) {
             defer { workerDone.continuation.finish() }
             await withTaskCancellationHandler {
+                // The handler is registered by now. A deadline that fired before this would cancel a task with no
+                // handler to block on, and the test would pass whatever the order of the deadline's two steps.
+                waiting.value = true
                 for await _ in work.stream {}
             } onCancel: {
                 // Bound the wait so a regression fails without leaving a thread behind.
@@ -597,6 +601,7 @@ struct SmallStackTests {
                 handlerDone.continuation.finish()
             }
         }
+        try #require(waiting.value, "期限より前に取り消しハンドラーを登録できなかった")
         for await _ in handlerEntered.stream {}
         gate.signal()
         for await _ in handlerDone.stream {}
