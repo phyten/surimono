@@ -20,6 +20,8 @@ public struct CodeBlockOptions: Codable, Equatable, Sendable {
         case none, corner, band
     }
 
+    public static let sourcePage = Self(frame: .none, lineNumbers: .all)
+
     public var frame: Frame
     public var lineNumbers: LineNumbers
     public var longLines: LongLines
@@ -54,13 +56,18 @@ public struct CodeBlockOptions: Codable, Equatable, Sendable {
 public struct CodeStyle: Equatable, Sendable {
     /// nil matches the print theme.
     public var palette: CodePalette?
-    public var block: CodeBlockOptions
+    private var chosenBlock: CodeBlockOptions?
+    public var block: CodeBlockOptions {
+        get { chosenBlock ?? CodeBlockOptions() }
+        set { chosenBlock = newValue }
+    }
+    package var sourceBlock: CodeBlockOptions { chosenBlock ?? .sourcePage }
     /// The mark on a cut line; `%d` stands for the characters left out.
     public var cutFormat: String
 
-    public init(palette: CodePalette? = nil, block: CodeBlockOptions = CodeBlockOptions(), cutFormat: String = "+%d") {
+    public init(palette: CodePalette? = nil, block: CodeBlockOptions? = nil, cutFormat: String = "+%d") {
         self.palette = palette
-        self.block = block
+        self.chosenBlock = block
         self.cutFormat = cutFormat
     }
 
@@ -138,7 +145,7 @@ public struct CodeStyle: Equatable, Sendable {
         switch block.longLines {
         case .wrap: break
         case .shrink:
-            rules.append("\(Self.block) code { font-size: calc(1em * var(--code-shrink, 1)); }")
+            rules.append("\(Self.block):not(.surimono-source) code { font-size: calc(1em * var(--code-shrink, 1)); }")
         case .cut:
             // The ellipsis stands in if the mark cannot be measured; the mark then takes its place.
             rules.append(".code-src { white-space: pre; overflow: hidden; text-overflow: ellipsis; }")
@@ -181,7 +188,9 @@ public enum CodeBlockMarkup {
     /// Marks what counts as a code block for the style sheet and `CodeFitScript`.
     static let blockClass = "code-block"
 
-    public static func containsCode(_ html: String) -> Bool { nextBlock(in: html[...]) != nil }
+    public static func containsCode(_ html: String) -> Bool {
+        html.hasPrefix(PlainTextConverter.sourceOpen) || nextBlock(in: html[...]) != nil
+    }
 
     /// The next code block's opening tag and the source map's attribute it carries, if any.
     private static func nextBlock(in html: Substring) -> (tag: Range<Substring.Index>, attribute: Substring)? {
@@ -203,7 +212,18 @@ public enum CodeBlockMarkup {
         return nil
     }
 
-    public static func apply(_ style: CodeStyle, to html: String) -> String {
+    public static func apply(_ style: CodeStyle, to html: String, language: SourceLanguage? = nil) -> String {
+        apply(style, to: html, language: language, checkSourceBytes: { _ in })
+    }
+
+    package static func apply(
+        _ style: CodeStyle, to html: String, language: SourceLanguage? = nil,
+        checkSourceBytes: (Int) throws -> Void
+    ) rethrows -> String {
+        if let language, html.hasPrefix(PlainTextConverter.sourceOpen), html.hasSuffix("</pre>") {
+            return try SourcePageMarkup.apply(
+                style.sourceBlock, html: html, language: language, checkBytes: checkSourceBytes)
+        }
         guard !style.isDefault else { return html }
         let options = style.block
         let splitsLines = options.lineNumbers != .none || options.longLines == .cut
@@ -309,7 +329,18 @@ public enum CodeFitScript {
     // The floor keeps code legible; a line still too long then wraps, as it does in the default. Font sizes round, so
     // the scale leaves a little room.
     private static let shrink = """
-          for (const code of document.querySelectorAll('pre.$BLOCK > code')) {
+          for (const block of document.querySelectorAll('pre.source-shrink')) {
+            block.style.removeProperty('--source-size');
+            const room = block.clientWidth;
+            // Measure all rows with one layout, including the gutter and user-selected frame.
+            block.classList.add('source-measuring');
+            const needed = block.scrollWidth;
+            block.classList.remove('source-measuring');
+            if (needed > room && room > 0) {
+              block.style.setProperty('--source-size', (12 * room / needed * 0.98) + 'px');
+            }
+          }
+          for (const code of document.querySelectorAll('pre.$BLOCK:not(.surimono-source) > code')) {
             // A listings breaklines declaration keeps the source at the requested size.
             if (code.closest('body.format-latex .latex-wrap-code')) { continue; }
             const block = code.parentElement;
@@ -329,10 +360,10 @@ public enum CodeFitScript {
 
     private static let cut = """
           const format = $FORMAT;
-          for (const line of document.querySelectorAll('.code-line')) {
+          for (const line of document.querySelectorAll('.code-line, .source-cut .source-line')) {
             line.classList.remove('code-is-cut');
             for (const mark of line.querySelectorAll('.code-cut')) { mark.remove(); }
-            const source = line.querySelector('.code-src');
+            const source = line.querySelector('.code-src, .source-ink');
             if (line.closest('body.format-latex .latex-wrap-code')) { continue; }
             if (!source || source.scrollWidth <= source.clientWidth + 1) { continue; }
             const nodes = [];
@@ -368,6 +399,27 @@ public enum CodeFitScript {
                 if (rightEdge(middle) > limit + 0.5) { high = middle; } else { low = middle + 1; }
               }
               mark.textContent = format.replace('%d', String(total - low));
+            }
+            if (line.closest('.surimono-source')) {
+              // Keep the measured cut count in print and standalone HTML without adding it to the source text.
+              const style = getComputedStyle(mark);
+              const canvas = document.createElement('canvas');
+              const ctx = canvas.getContext('2d');
+              if (!ctx) { mark.remove(); line.classList.remove('code-is-cut'); continue; }
+              const font = style.fontWeight + ' ' + style.fontSize + ' ' + style.fontFamily;
+              ctx.font = font;
+              const label = mark.textContent;
+              const width = Math.ceil(ctx.measureText(label).width);
+              const height = Math.ceil(parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.4);
+              canvas.width = width * 3; canvas.height = height * 3;
+              ctx.scale(3, 3); ctx.font = font; ctx.fillStyle = style.color;
+              ctx.textBaseline = 'middle'; ctx.fillText(label, 0, height / 2);
+              mark.textContent = '';
+              mark.style.width = width + 'px';
+              mark.style.backgroundImage = 'url(' + canvas.toDataURL() + ')';
+              mark.style.backgroundSize = width + 'px ' + height + 'px';
+              mark.style.backgroundPosition = 'center';
+              mark.style.backgroundRepeat = 'no-repeat';
             }
           }
         """

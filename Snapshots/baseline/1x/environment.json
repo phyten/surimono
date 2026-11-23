@@ -1150,8 +1150,10 @@
   },
   "sample-sample-py" : {
     "fonts" : [
-      "HiraKakuProN-W3",
-      "HiraKakuProN-W6"
+      "HiraginoSans-W3",
+      "Menlo-Bold",
+      "Menlo-Italic",
+      "Menlo-Regular"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
@@ -1166,8 +1168,10 @@
   },
   "sample-sample-rb" : {
     "fonts" : [
-      "HiraKakuProN-W3",
-      "HiraKakuProN-W6"
+      "HiraginoSans-W3",
+      "Menlo-Bold",
+      "Menlo-Italic",
+      "Menlo-Regular"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
@@ -1195,8 +1199,10 @@
   },
   "sample-sample-swift" : {
     "fonts" : [
-      "HiraKakuProN-W3",
-      "HiraKakuProN-W6"
+      "HiraginoSans-W3",
+      "Menlo-Bold",
+      "Menlo-Italic",
+      "Menlo-Regular"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
@@ -1224,14 +1230,25 @@
   },
   "sample-sample-ts" : {
     "fonts" : [
-      "HiraKakuProN-W3",
-      "HiraKakuProN-W6"
+      "HiraginoSans-W3",
+      "Menlo-Bold",
+      "Menlo-Italic",
+      "Menlo-Regular"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
   "sample-sample-txt" : {
     "fonts" : [
       "HiraKakuProN-W3"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "sample-source-lines" : {
+    "fonts" : [
+      "HiraginoSans-W3",
+      "Menlo-Bold",
+      "Menlo-Italic",
+      "Menlo-Regular"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },

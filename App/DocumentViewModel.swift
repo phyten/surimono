@@ -145,7 +145,12 @@ final class DocumentViewModel {
     /// An axis of its own: choosing another style leaves it as it is. A palette the user picks goes through
     /// `selectCodePalette(_:)`.
     var codePaletteID: String
-    var codeBlock = CodeBlockOptions()
+    private var chosenCodeBlock: CodeBlockOptions?
+    private var defaultCodeBlock: CodeBlockOptions { sourceLanguage == nil ? CodeBlockOptions() : .sourcePage }
+    var codeBlock: CodeBlockOptions {
+        get { chosenCodeBlock ?? defaultCodeBlock }
+        set { chosenCodeBlock = newValue == defaultCodeBlock ? nil : newValue }
+    }
     private(set) var typeface: Typeface
     private var savedComposition = LaTeXComposition.document {
         didSet { if oldValue != savedComposition { renderer.clearCache() } }
@@ -916,7 +921,7 @@ final class DocumentViewModel {
         settings.pageLanguage = language
         if usesPrintTheme {
             settings.code = CodeStyle(
-                palette: library.codePalette(codePaletteID), block: codeBlock,
+                palette: library.codePalette(codePaletteID), block: chosenCodeBlock,
                 cutFormat: String(localized: "+%d characters"))
         }
         return settings
@@ -1842,7 +1847,7 @@ final class DocumentViewModel {
             setTypeface(source.typeface)
             setTextScale(source.textScale)
             codePaletteID = source.codePaletteID
-            codeBlock = source.codeBlock
+            chosenCodeBlock = source.chosenCodeBlock
         }
         if source.usesHTMLPreset { presetID = source.presetID }
         bookletBinding = source.bookletBinding
@@ -2760,7 +2765,7 @@ final class DocumentViewModel {
             binderStartsOnFront: binder != nil ? binderStartsOnFront : nil,
             printFinish: finishAppliesToText ? printFinish : nil,
             codePaletteID: usesPrintTheme ? codePaletteID : nil,
-            codeBlock: usesPrintTheme && codeBlock != CodeBlockOptions() ? codeBlock : nil,
+            codeBlock: usesPrintTheme && codeBlock != defaultCodeBlock ? codeBlock : nil,
             bandVisibility: bandVisibility == defaultBandVisibility ? nil : bandVisibility,
             notes: offersNotes && notes != NotePages() ? notes : nil, bookletBinding: bookletBinding,
             pageRange: pageRange.isAll ? nil : pageRange, bookmarks: bookmarks.isEmpty ? nil : bookmarks,
@@ -3103,7 +3108,7 @@ final class DocumentViewModel {
         if let id = saved.layoutID, PrintLayout.presets.contains(where: { $0.id == id }) { layoutID = id }
         if let id = saved.themeID, theme(id) != nil { themeID = id }
         if let id = saved.codePaletteID.flatMap({ Self.knownCodePaletteID($0, library) }) { codePaletteID = id }
-        if let block = saved.codeBlock { codeBlock = block }
+        chosenCodeBlock = saved.codeBlock
         if let id = saved.presetID, library.presets.contains(where: { $0.id == id }) { presetID = id }
         if var options = saved.printOptions {
             if themeFormat != .latex {
@@ -3313,7 +3318,7 @@ final class DocumentViewModel {
         bookletBinding = nil
         themeID = defaultThemeID
         codePaletteID = Self.defaultCodePaletteID(preferences, library)
-        codeBlock = CodeBlockOptions()
+        chosenCodeBlock = nil
         presetID = Self.defaultPresetID(preferences, library)
         printOptions = preferences.printOptions.defaults(for: themeFormat)
         printFinish = preferences.printFinish

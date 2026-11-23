@@ -46,6 +46,7 @@ help:
 	@echo "test-app   Run hosted app tests"
 	@echo "snapshots  Render local snapshots; snapshots-report compares and snapshots-approve accepts reviewed cases"
 	@echo "bench      Record rendering benchmarks (SURIMONO_BENCH_RUNS / SURIMONO_BENCH_OUT)"
+	@echo "bench-source  Measure source conversion, first/all pages and memory (bench-source-conversion skips WebKit)"
 	@echo "bench-prose  Time the writing check on generated Japanese, English and mixed texts (SURIMONO_BENCH_RUNS)"
 	@echo "bench-compare  Compare medians: BASE=<json> NEW=<json> [BENCH_THRESHOLD=20]"
 	@echo "lint       Check Swift formatting"
@@ -146,6 +147,14 @@ robustness-rendering:
 
 bench:
 	SURIMONO_BENCH=1 swift test --package-path Packages/SurimonoKit --disable-sandbox --filter RenderingBenchmarks --no-parallel
+
+# A fresh test process per input keeps earlier WebKit sessions out of the footprint.
+.PHONY: bench-source bench-source-conversion
+bench-source bench-source-conversion:
+	@set -e; for input in 1000 10000 50000 over-highlight; do \
+		SURIMONO_BENCH_SOURCE=$$input SURIMONO_BENCH_SOURCE_RENDER=$(if $(filter bench-source,$@),1,0) \
+		$(SWIFT_TEST) --disable-sandbox --filter SourceTypesettingBenchmarks --no-parallel; \
+	done
 
 .PHONY: bench-pages bench-pages-rendering bench-pages-window
 bench-pages: bench-pages-rendering bench-pages-window

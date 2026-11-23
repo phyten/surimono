@@ -155,6 +155,27 @@ struct OrgThemeStyleTests {
         }
     }
 
+    @Test("全スタイルでソースの紙には枠を描かず、書体は各スタイルのコードの指定に従う")
+    func sourcePageIsNotAThemeBox() throws {
+        let shared = try rules(String(contentsOf: CoreResources.url("source-page", extension: "css"), encoding: .utf8))
+        for selector in ["pre.surimono-source", "pre.surimono-source > code"] {
+            let rule = try #require(shared.first { $0.selectors == [selector] })
+            #expect(rule.value(of: "border") == "0")
+            #expect(rule.value(of: "box-shadow") == "none")
+            #expect(rule.value(of: "background") == "none")
+            #expect(rule.value(of: "font-family") == nil && rule.value(of: "font") == nil)
+        }
+        for (id, css) in try themeSheets() {
+            for rule in rules(css) {
+                #expect(!rule.selectors.contains { $0.contains("surimono-source") }, "\(id)")
+                if rule.selectors.contains("code") || rule.selectors.contains("pre") {
+                    if let family = rule.value(of: "font-family") { #expect(family.contains("monospace"), "\(id)") }
+                    #expect(!rule.body.contains("!important"), "\(id)")
+                }
+            }
+        }
+    }
+
     @Test("利用者の CSS はクラスだけの指定でテキストの書体を変えられる")
     func usersCanRestylePlainText() throws {
         // The plain-text rule must not outrank `.surimono-plain` alone, which a user's style sheet uses after it.

@@ -108,7 +108,7 @@ enum RichTextGraphics {
             if (!svg.naturalWidth || !(/^data:image[/]svg[+]xml/i.test(src) || /[.]svgz?([?#]|$)/i.test(src))) continue;
           }
           const r = svg.getBoundingClientRect();
-          if (svg.matches('.callout-icon') || (svg.closest('[aria-hidden="true"]') && Math.max(r.width,r.height)<=32)) {
+          if (svg.matches('.callout-icon, pre.surimono-source .source-no, pre.surimono-source .source-digits') || (svg.closest('[aria-hidden="true"]') && Math.max(r.width,r.height)<=32)) {
             svg.remove(); continue;
           }
           if (selected.length >= limit || !r.width || !r.height) {

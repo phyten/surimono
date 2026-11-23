@@ -1,0 +1,135 @@
+import PDFKit
+import SurimonoCore
+import Testing
+
+@testable import SurimonoRendering
+
+@MainActor
+struct SourceSelectionBoundaryTests {
+    // Specify exactly what PDFKit extracted, independently of the installed fonts and WebKit's pagination.
+    private final class Page: PDFPage {
+        var extracted = ""
+        /// PDFKit leaves the line break at the end of a selection out of its text.
+        var dropsTrailingBreak = false
+        override var string: String? { extracted }
+        override func selection(for range: NSRange) -> PDFSelection? {
+            guard dropsTrailingBreak else { return super.selection(for: range) }
+            var text = (extracted as NSString).substring(with: range)
+            if text.hasSuffix("\n") { text.removeLast() }
+            let part = Text(document: PDFDocument())
+            part.text = text
+            return part
+        }
+    }
+
+    private final class Text: PDFSelection {
+        var text = ""
+        override var string: String? { text }
+    }
+
+    private final class Selection: PDFSelection {
+        var spans: [(page: PDFPage, range: NSRange)] = []
+        override var pages: [PDFPage] { spans.map { $0.page } }
+        override func numberOfTextRanges(on page: PDFPage) -> Int { 1 }
+        override func range(at index: Int, on page: PDFPage) -> NSRange {
+            spans.first { $0.page === page }!.range
+        }
+    }
+
+    private func copy(
+        _ source: String, pages: [String], selecting: [Int: Range<Int>], dropsTrailingBreak: Bool = false
+    ) -> String? {
+        let pdf = PDFDocument()
+        let selection = Selection(document: pdf)
+        for (i, text) in pages.enumerated() {
+            let page = Page()
+            page.extracted = text
+            page.dropsTrailingBreak = dropsTrailingBreak
+            pdf.insert(page, at: i)
+            if let range = selecting[i] { selection.spans.append((page, NSRange(range))) }
+        }
+        SourcePaperText.attach(source, to: pdf, options: .sourcePage, language: nil)
+        return SourcePaperText.selected(selection, in: pdf, logicalIndex: { pdf.index(for: $0) })
+    }
+
+    @Test("空行がページをまたいで所属を決められないときは先頭ページの原文を返さない")
+    func blankPages() {
+        let text = "A\n" + String(repeating: "\n", count: 200) + "B\n"
+        for first in ["A", "A\n"] {
+            let result = copy(text, pages: [first, "", "", "B"], selecting: [0: 0..<first.utf16.count])
+            #expect(result == nil)
+        }
+        // An omitted trailing space can also wrap onto the following sheet.
+        #expect(copy("A   \nB", pages: ["A", "B"], selecting: [0: 0..<1]) == nil)
+    }
+
+    @Test("改行と字下げが異なる形で抽出された場合は空白の途中を推測せず、タブ直後の文字は復元する")
+    func whitespaceEndpoints() {
+        let text = "A\r\n\tB"
+        let pages = ["A\n B"]
+        let indent = copy(text, pages: pages, selecting: [0: 2..<4])
+        #expect(indent == nil)
+        #expect(copy(text, pages: pages, selecting: [0: 3..<4]) == "B")
+        #expect(copy(text, pages: pages, selecting: [0: 0..<4]) == text)
+        #expect(copy("A\tB", pages: ["A   B"], selecting: [0: 2..<5]) == nil)
+        #expect(copy("A\tB", pages: ["A   B"], selecting: [0: 0..<2]) == nil)
+        #expect(copy("A\tB", pages: ["A   B"], selecting: [0: 4..<5]) == "B")
+        #expect(copy(text, pages: [text], selecting: [0: 2..<5]) == nil)
+        #expect(copy(text, pages: [text], selecting: [0: 0..<2]) == nil)
+        #expect(copy(text, pages: [text], selecting: [0: 3..<5]) == "\tB")
+    }
+
+    @Test("ページの末尾の改行まで選んで次のページへ続く選択は、境の空白を作り替えずにふつうのコピーに任せる")
+    func selectionThroughUndecidedEdge() {
+        // The source has "\n\n\t" between the pages; joining the two pieces with one break would invent text.
+        let source = "abc\n\n\tDEF!"
+        let pages = ["abc\n", "DEF!"]
+        #expect(copy(source, pages: pages, selecting: [0: 1..<4, 1: 0..<2], dropsTrailingBreak: true) == nil)
+        #expect(copy(source, pages: pages, selecting: [0: 1..<4, 1: 0..<2]) == nil)
+    }
+
+    @Test("空行の所属が分からなくても、その手前の文字と次のページ内の折り返しは原文に戻す")
+    func interiorSelections() {
+        let source = "abc\n\nSTARTEND\r\n\tNEXT\r\n"
+        let pages = ["abc", "START\nEND\nNEXT"]
+        #expect(copy(source, pages: pages, selecting: [0: 1..<2]) == "b")
+        #expect(copy(source, pages: pages, selecting: [1: 0..<9]) == "STARTEND")
+        #expect(copy(source, pages: pages, selecting: [1: 6..<11]) == "END\r\n\tN")
+        // Once the next boundary is known, selections can cross it with the original break and indent.
+        #expect(copy(source, pages: ["abc", "START\nEND", "NEXT"], selecting: [1: 6..<9, 2: 0..<2]) == "END\r\n\tNE")
+    }
+
+    @Test("手前の二つの改ページに空行があっても三枚目の本文は順に照合できる")
+    func twoUncertainBreaks() {
+        let source = "same END\n\nsame END\r\n\r\nsame\tEND!"
+        let pages = ["same END", "same END", "same END!"]
+        #expect(copy(source, pages: pages, selecting: [2: 0..<8]) == "same\tEND")
+        #expect(copy(source, pages: ["same END", "", "same END", "same END!"], selecting: [3: 0..<8]) == "same\tEND")
+        #expect(copy(source, pages: ["same END", "other", "same END!"], selecting: [2: 0..<8]) == nil)
+    }
+
+    @Test("境界までの選択と境界の空白を含む選択だけは所属を推測しない")
+    func uncertainEndpoints() {
+        let source = "abc\n\n\tDEF!"
+        #expect(copy(source, pages: ["abc", "DEF!"], selecting: [0: 1..<3]) == nil)
+        #expect(copy(source, pages: ["abc  ", " DEF!"], selecting: [0: 1..<4]) == nil)
+        #expect(copy(source, pages: ["abc", " DEF!"], selecting: [1: 0..<3]) == nil)
+        #expect(copy(source, pages: ["abc", " DEF!"], selecting: [1: 1..<3]) == "DE")
+        #expect(copy(source, pages: ["abc", "DEF!"], selecting: [1: 0..<4]) == nil)
+    }
+
+    @Test("隣のページでも一部ずつを選んだときは区切り、端まで続く選択だけをつなぐ")
+    func adjacentSelections() {
+        let pages = ["abc", "def"]
+        #expect(copy("abc\ndef", pages: pages, selecting: [0: 0..<1, 1: 2..<3]) == "a\nf")
+        #expect(copy("abcdef", pages: pages, selecting: [0: 1..<3, 1: 0..<2]) == "bcde")
+        #expect(copy("abc\r\n\tdef", pages: pages, selecting: [0: 1..<3, 1: 0..<2]) == "bc\r\n\tde")
+        #expect(copy("abc\r\n\tdef", pages: pages, selecting: [0: 2..<3, 1: 2..<3]) == "c\nf")
+        #expect(copy("abc\r\n\tdef", pages: pages, selecting: [0: 0..<1, 1: 0..<1]) == "a\nd")
+    }
+
+    @Test("選ばなかったページの前後は別々の選択として区切る")
+    func skippedPage() {
+        #expect(copy("abcdefghi", pages: ["abc", "def", "ghi"], selecting: [0: 2..<3, 2: 0..<1]) == "c\ng")
+    }
+}

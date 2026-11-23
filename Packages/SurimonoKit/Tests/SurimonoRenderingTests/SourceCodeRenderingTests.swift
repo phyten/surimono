@@ -5,6 +5,7 @@ import Testing
 
 @testable import SurimonoRendering
 
+@Suite(.timeLimit(.minutes(1)))
 struct SourceCodeRenderingTests {
     private func source(_ name: String?, _ data: Data) -> DocumentSource {
         DocumentSource(
@@ -21,7 +22,7 @@ struct SourceCodeRenderingTests {
         let html = try #require(DocumentRenderer.structureHTML(of: source("Makefile", Data(text.utf8))))
         #expect(
             html == """
-                <pre class="surimono-plain"><span class="hl-comment"># Build</span>
+                <pre class="surimono-source"><span class="hl-comment"># Build</span>
                 <span class="hl-section">OUT </span>:= build
                 <span class="hl-section">all</span>: <span class="hl-variable">$(OUT)</span>
                 \tmkdir -p <span class="hl-variable">$(OUT)</span>
@@ -42,7 +43,7 @@ struct SourceCodeRenderingTests {
     func utf16MATLAB() throws {
         let file = source("solve.m", utf16("% 連立方程式を解く\nx = A \\ b;\n"))
         let html = try #require(DocumentRenderer.structureHTML(of: file))
-        #expect(html.hasPrefix("<pre class=\"surimono-plain\"><span class=\"hl-comment\">% 連立方程式を解く</span>\n"))
+        #expect(html.hasPrefix("<pre class=\"surimono-source\"><span class=\"hl-comment\">% 連立方程式を解く</span>\n"))
         #expect(DocumentRenderer.sourceLanguage(of: file)?.id == "matlab")
     }
 
@@ -50,7 +51,7 @@ struct SourceCodeRenderingTests {
     func utf16ObjectiveC() throws {
         let file = source("View.m", utf16("#import <Foundation/Foundation.h>\n% 5;\n"))
         let html = try #require(DocumentRenderer.structureHTML(of: file))
-        #expect(html.hasPrefix("<pre class=\"surimono-plain\"><span class=\"hl-meta\">#import"))
+        #expect(html.hasPrefix("<pre class=\"surimono-source\"><span class=\"hl-meta\">#import"))
         #expect(!html.contains("hl-comment"))
         #expect(DocumentRenderer.sourceLanguage(of: file)?.id == "objectivec")
     }
@@ -125,6 +126,28 @@ struct SourceCodeRenderingTests {
         // The same document again is the one case that reuses the pages.
         _ = try await renderer.prepare(unnamed, settings: settings)
         #expect(layouts == 3)
+    }
+
+    @Test("合本は同じ内容でも子の名前と shebang で行番号の既定を決め、明示した設定を優先する")
+    @MainActor
+    func binderPageKinds() async throws {
+        let bytes = Data("#!/bin/sh\necho paper\n".utf8)
+        let child = DocumentSource(data: bytes, format: .plainText)
+        let binder = DocumentSource.binder([child.named("script"), child.named("script.log")])
+        var numbered: [Bool] = []
+        let renderer = DocumentRenderer(paginate: { request in
+            if case .html(let html, _) = request.source { numbered.append(html.contains("class=\"source-no\"")) }
+            return try RenderingFixtures.pdf()
+        })
+        var settings = RenderSettings(
+            layout: .a4Single, theme: PrintTheme(id: "test", name: "Test", css: ""),
+            preset: HTMLCleanupPreset(id: "none", name: "None"))
+        _ = try await renderer.prepare(binder, settings: settings)
+        #expect(numbered == [true, false])
+        numbered.removeAll()
+        settings.code = CodeStyle(block: CodeBlockOptions())
+        _ = try await renderer.prepare(binder, settings: settings)
+        #expect(numbered == [false, false])
     }
 
     @Test("文章と名前のないテキストは、紙も言語の名前も色なしのまま")

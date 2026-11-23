@@ -8,6 +8,8 @@ public struct HTMLFragment: Equatable, Sendable {
     public var readingIssues: [String]
     /// The language plain text was told to be when it was converted, for what names it beside the paper.
     public var sourceLanguage: SourceLanguage?
+    /// The decoded input associated with these exact pages, including whitespace invisible in a PDF.
+    public var sourceText: String?
     // Keeping the full profile inline would reserve its size on the worker stack for each
     // temporary fragment, including the other formats' branches while a nested frame is read.
     private enum DocumentClassStorage: Equatable, Sendable {
@@ -57,13 +59,17 @@ package enum HTML {
 }
 
 public enum PlainTextConverter {
+    package static let sourceOpen = "<pre class=\"surimono-source\">"
+
     /// The text as one preformatted block. A file name that tells a programming or configuration language (or, for
     /// a name that tells nothing, a shebang line) colors it; text with no name is never colored.
     public static func convert(_ text: String, fileName: String?) -> HTMLFragment {
         let language = fileName.flatMap { SourceLanguage.detect(fileName: $0, text: { text }) }
         // Code too long to color is shown whole without colors rather than cut.
         let colored = language.flatMap { SyntaxHighlighter.highlight(text, language: $0.id) }
-        var fragment = HTMLFragment(body: "<pre class=\"surimono-plain\">\(colored ?? HTML.escape(text))</pre>")
+        let opening = language == nil ? "<pre class=\"surimono-plain\">" : sourceOpen
+        var fragment = HTMLFragment(body: "\(opening)\(colored ?? HTML.escape(text))</pre>")
+        if language != nil { fragment.sourceText = text }
         fragment.sourceLanguage = language
         return fragment
     }
