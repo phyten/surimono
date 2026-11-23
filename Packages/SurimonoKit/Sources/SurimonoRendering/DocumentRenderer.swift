@@ -5,6 +5,9 @@ import SurimonoCore
 public struct DocumentSource: Equatable, Sendable {
     public let data: Data
     public let fileURL: URL?
+    /// The file name of a document that is only in memory, such as a file Shortcuts handed over: what its file's
+    /// name would tell (a source file's language) is told from this.
+    public private(set) var name: String?
     public private(set) var htmlBaseURL: URL?
     public let format: DocumentFormat
     public let images: [Image]?
@@ -97,6 +100,13 @@ public struct DocumentSource: Equatable, Sendable {
         children = nil
         contentHash = .imageSet(images.map(\.contentHash))
         isLiveSnapshot = false
+    }
+
+    /// The same document under the file name it came with. A document with a file keeps its file's name.
+    public func named(_ name: String?) -> DocumentSource {
+        var source = self
+        source.name = fileURL == nil ? name : nil
+        return source
     }
 
     public init(data: Data, fileURL: URL? = nil, format: DocumentFormat, htmlBaseURL: URL? = nil) {
@@ -2106,7 +2116,8 @@ public final class DocumentRenderer {
         guard source.data.count <= PageLayoutLimits.plainTextBytes else {
             throw RenderingError.tooLarge(bytes: source.data.count)
         }
-        return PlainTextConverter.convert(try decodedText(source.data), fileName: source.fileURL?.lastPathComponent)
+        return PlainTextConverter.convert(
+            try decodedText(source.data), fileName: source.fileURL?.lastPathComponent ?? source.name)
     }
 
     /// A file's extension names its delimiter. A table from memory, such as one copied from a spreadsheet, has no

@@ -81,6 +81,19 @@ struct SourceCodeRenderingTests {
         #expect(DocumentRenderer.sourceLanguage(of: long) == nil)
     }
 
+    @Test("ファイルのないメモリの文書は、渡されたファイル名の言語で色が付く")
+    func namedMemoryDocument() throws {
+        let data = Data("const pages: number = 2;\n".utf8)
+        let memory = DocumentSource(data: data, format: .plainText).named("main.ts")
+        let html = try #require(DocumentRenderer.structureHTML(of: memory))
+        #expect(html.contains("<span class=\"hl-keyword\">const</span>"))
+        #expect(DocumentRenderer.sourceLanguage(of: memory)?.id == "typescript")
+        // A document with a file keeps its file's name whatever it is handed.
+        let file = source("notes.txt", data).named("main.ts")
+        #expect(file.name == nil)
+        #expect(DocumentRenderer.sourceLanguage(of: file) == nil)
+    }
+
     @Test("文章と名前のないテキストは、紙も言語の名前も色なしのまま")
     func plain() throws {
         let data = Data("#!/bin/sh\necho 1\n".utf8)
