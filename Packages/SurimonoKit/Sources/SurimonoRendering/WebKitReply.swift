@@ -96,7 +96,18 @@ extension WKWebView {
         _ script: String, arguments: [String: Any] = [:], world: WKContentWorld = WebPaginator.preparationWorld,
         until deadline: ContinuousClock.Instant
     ) async throws -> Any {
-        try await WebKitReply<Any>.wait(until: deadline, ended: contentProcessEnded) { completion in
+        try await evaluate(script, arguments: arguments, world: world, until: deadline, ended: contentProcessEnded)
+    }
+
+    /// `callAsyncJavaScript` that gives up: it throws `PaginationError.timedOut` at the deadline and
+    /// `PaginationError.loadFailed` with the message of `ended` once that returns one. A page the app shows itself
+    /// has a navigation delegate of its own, so it tells here when its process has ended.
+    @MainActor
+    public func evaluate(
+        _ script: String, arguments: [String: Any] = [:], world: WKContentWorld,
+        until deadline: ContinuousClock.Instant, ended: @escaping @MainActor () -> String?
+    ) async throws -> Any {
+        try await WebKitReply<Any>.wait(until: deadline, ended: ended) { completion in
             callAsyncJavaScript(script, arguments: arguments, in: nil, in: world, completionHandler: completion)
         }
     }
