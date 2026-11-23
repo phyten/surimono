@@ -2095,13 +2095,11 @@ public final class DocumentRenderer {
         }
     }
 
-    /// The language a plain text file is colored as, for what names it beside the paper. It reads the same decoded
-    /// text through the same detection as the page, so a file in UTF-16 gets one answer in both places.
+    /// The language the conversion tells a plain text file to be. It converts the whole text, so it is for tests and
+    /// for work off the main actor; a window takes the answer from the facts of the pages it laid out.
     public nonisolated static func sourceLanguage(of source: DocumentSource) -> SourceLanguage? {
-        guard source.format == .plainText, let name = source.fileURL?.lastPathComponent,
-            source.data.count <= PageLayoutLimits.plainTextBytes
-        else { return nil }
-        return SourceLanguage.detect(fileName: name, text: { TextDecoding.decode(source.data).text })
+        guard source.format == .plainText else { return nil }
+        return (try? themedFragment(source, proof: .shown))??.sourceLanguage
     }
 
     private nonisolated static func plainFragment(_ source: DocumentSource) throws -> HTMLFragment {

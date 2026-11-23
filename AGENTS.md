@@ -118,10 +118,10 @@ WebKit の文書組版もメインディスプレイの倍率に影響される�
 - JSON・JSON Lines（.jsonl / .ndjson）・YAML・TOML・XML はテキストとして開き、既存の構文色付け器の範囲（UTF-16 で 20 万単位まで）で色を付ける。.log は無色。Notebook と HTML は従来の変換経路を使う。
 - ソースコードと設定ファイルは、形式を `.plainText` のままにして、`SourceLanguage`（SurimonoFormats）が見分けた言語で `PlainTextConverter` が `pre.surimono-plain` の中を色付けする。従来から開けるテキスト文書について言語を見分けるだけで、開ける形式は追加しない（文書の種類の登録は別の変更）。
   - 見る順: 固定名の完全一致（`Makefile`・`Dockerfile`・`Gemfile`・`.env`・`setup.cfg` など）→ `.example`・`.bak` などの末尾を外してやり直す → 拡張子 → 固定名から派生した名前（`Dockerfile.dev`・`.env.local`）→ 先頭の `#!`。拡張子が `.txt`・`.log` や、自分の読み方がある形式（`.md`・`.html`・`.tex` など。「テキストとして開く」で開いたときも）なら、派生名にも `#!` にも進まず色を付けない（`Dockerfile.txt`・`.env.md`）。ファイル名のないテキスト（クリップボード）にも付けない。
-  - `#!` は `env` の `-S`（引用も）と、値を取る `-u`・`-C`・`-P`、`NAME=value` を読み飛ばす。最初の行は 256 文字までで、そこで切れたかもしれないコマンド名では決めない。
+  - `#!` は `env` の `-S`（引用した語は 1 語のまま。空白を含むパスも読む）と、値を取る `-u`・`-C`・`-P`、`NAME=value` を読み飛ばす。最初の行は 256 文字までで、そこで切れたかもしれないコマンド名では決めない。
   - 割り切り: `.h` は C（C++ や Objective-C のヘッダーも同じ拡張子）、`.r` は R（macOS では Rez）、大文字の `.C`・`.H` は C++、`.m` は Objective-C で書き出しが `%`・`function`・`classdef` なら MATLAB。`.cfg`・`.conf` は構文がまちまちなので拡張子では色を付けない。
-  - 紙と帯の形式のバッジ（言語の名前。「Swift」「YAML」）は、どちらも `DocumentRenderer.sourceLanguage(of:)` と同じ、デコード済みの本文からの判定を使う。バイト列から別に判定しない（UTF-16 で食い違う）。
-  - 色付けの上限（UTF-16 で 20 万）を超えたら、切らずに色なしで全部出す。保存し直したときの変更の印は、色付きでも行ごと（`FragmentChanges` が本文の行で比べ、色の span ごと行を囲む）。
+  - 帯の形式のバッジは言語の名前（「Swift」「YAML」）。本文を変換した `PlainTextConverter` が `HTMLFragment.sourceLanguage` に判定を載せ、`DocumentFacts.sourceLanguage` 経由で組版の結果と一緒にモデルへ届く（`DocumentViewModel.detectedSourceLanguage`。観測できるプロパティ）。バッジのために本文をデコードしない（最大 30 MB をメインアクターで読むことになる）。最初の組版までは名前だけで決まる表示（shebang だけのスクリプトは「TXT」、`.m` は「Objective-C」）、読み直しのあいだは前の表示のまま。届いた結果は、いま持っている内容を読んだ組版のものだけ採る。
+  - 色付けの上限（UTF-16 で 20 万）を超えたら、切らずに色なしで全部出す。保存し直したときの変更の印は、色付きでも行ごと（`FragmentChanges` が色の有無によらず同じ読み方で行に分け、本文の行で比べ、色の span ごと行を囲む。末尾の改行は保つ）。1 万行を超えたら印を付けない（文書全体を 1 つの変更にもしない）。
   - 言語を足すときは `SyntaxLanguage` の定義と `SourceLanguage` の表の両方に足す（`SourceLanguageTests`）。行番号と行へ移動はまだない。
 - Markdown と Org のコードは SurimonoFormats の `SyntaxHighlighter` で色付けする（JavaScript は使わない）。Markdown の `:::` と `> [!note]` は囲み（`callout-*`）にする。
 - Org（`OrgConverter`・`OrgInline`・`OrgContext`、SurimonoFormats）は、紙で読むための形にして出す。原文の記号（`[fn:1]`・`SCHEDULED: <…>`・`#+begin_note`）を紙に残さない。
