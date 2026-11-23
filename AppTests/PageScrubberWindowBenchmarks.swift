@@ -69,9 +69,19 @@
                     try await wait { model.isUpToDate && window.isVisible }
                     model.isBandAlwaysVisible = true
                     window.setContentSize(CGSize(width: 1180, height: 620))
-                    try await wait { model.scrubber.frame.width >= 120 }
                     let content = try #require(window.contentView)
-                    let frame = model.scrubber.frame
+                    // The frame from before the resize is still wide enough, and the band settles in more than one
+                    // layout pass; events aimed with an earlier frame land on a neighbouring page.
+                    var frame = CGRect.zero
+                    var settled = ContinuousClock.now
+                    try await wait {
+                        let next = model.scrubber.frame
+                        if next != frame {
+                            frame = next
+                            settled = .now
+                        }
+                        return frame.width >= 120 && content.bounds.contains(frame) && settled + .milliseconds(300) < .now
+                    }
                     let y = content.isFlipped ? frame.midY : content.bounds.height - frame.midY
                     let middle = CGPoint(x: frame.midX, y: y)
                     let target = try #require(
