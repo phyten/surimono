@@ -56,7 +56,7 @@ enum ProseWordTables {
         /// Other abbreviations, without the final stop. Their stop ends a sentence only when a word that often
         /// starts one follows ("in the U.S. She left").
         static let abbreviations: Set<String> = [
-            "vs", "etc", "e.g", "i.e", "cf", "fig", "no", "vol", "inc", "ltd", "co", "approx", "ca", "al", "eq",
+            "vs", "cf", "fig", "no", "vol", "inc", "ltd", "co", "approx", "ca", "al", "eq",
             "sec", "ch", "pp",
         ]
 

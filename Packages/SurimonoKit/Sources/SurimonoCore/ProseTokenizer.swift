@@ -48,6 +48,9 @@ protocol ProseTokenizer: Sendable {
 /// The system's tokenizer (`NLTokenizer`) and, for English sentences, its tagger (`NLTagger`). Both work on the
 /// device, and no assets are requested: a word the system cannot tag is left untagged.
 struct SystemProseTokenizer: ProseTokenizer {
+    typealias EnglishTags = [Int: (wordClass: ProseWordClass?, lemma: String?)]
+    var englishTags: @Sendable (String, [Range<Int>]) -> EnglishTags = systemEnglishTags
+
     func tokens(in text: String, english: [Range<Int>]) -> [ProseToken] {
         let whole = text.startIndex..<text.endIndex
         let tokenizer = NLTokenizer(unit: .word)
@@ -60,9 +63,19 @@ struct SystemProseTokenizer: ProseTokenizer {
             return tokens.count % 512 != 0 || !Task.isCancelled
         }
         guard !english.isEmpty, !tokens.isEmpty else { return tokens }
+        let tags = englishTags(text, english)
+        for index in tokens.indices {
+            guard let tag = tags[tokens[index].range.lowerBound] else { continue }
+            tokens[index].wordClass = tag.wordClass
+            tokens[index].lemma = tag.lemma
+        }
+        return tokens
+    }
+
+    private static func systemEnglishTags(_ text: String, _ english: [Range<Int>]) -> EnglishTags {
         let tagger = NLTagger(tagSchemes: [.lexicalClass, .lemma])
         tagger.string = text
-        var tags: [Int: (wordClass: ProseWordClass?, lemma: String?)] = [:]
+        var tags: EnglishTags = [:]
         var seen = 0
         let units = Array(text.utf16)
         // English sentences that follow one another are tagged in one go: the tagger reads a sentence better with
@@ -93,12 +106,7 @@ struct SystemProseTokenizer: ProseTokenizer {
                 return seen % 512 != 0 || !Task.isCancelled
             }
         }
-        for index in tokens.indices {
-            guard let tag = tags[tokens[index].range.lowerBound] else { continue }
-            tokens[index].wordClass = tag.wordClass
-            tokens[index].lemma = tag.lemma
-        }
-        return tokens
+        return tags
     }
 }
 

@@ -1,6 +1,7 @@
 import Foundation
 import Markdown
 import cmark_gfm
+import cmark_gfm_extensions
 
 /// One paragraph of a document's running text, as a reader sees it on the paper, with the way back to the source.
 ///
@@ -259,15 +260,19 @@ private struct MarkdownProseReader {
     struct Line {
         var text: String
         var source: Int?
+        var formulas: [Range<Int>] = []
+        var continuation: (offset: Int, spaces: Int)?
     }
 
     let source: SourceText
     var paragraphs: [ProseParagraph] = []
+    private var parserUnits: [UInt16]
     private var footnotes: Set<String> = []
     private var cancelled = false
 
     init(source: SourceText) {
         self.source = source
+        parserUnits = source.units
     }
 
     /// False when the task was cancelled.
@@ -291,28 +296,79 @@ private struct MarkdownProseReader {
     }
 
     private mutating func read(_ part: MarkdownSourceLines, notes: MarkdownExtensions.Footnotes) {
-        let lines = MarkdownCallouts.preprocess(
-            MarkdownExtensions.rewriteInline(
-                part, footnotes: notes,
-                formulas: MarkdownExtensions.Formulas(), blocksOnly: true))
-        var parsed: [Line] = []
-        parsed.reserveCapacity(lines.lines.count)
-        for (index, text) in lines.lines.enumerated() {
-            var offset: Int?
-            if lines.origins[index].count == 1, let number = lines.origins[index].first, number >= 1,
-                number <= source.lines.count, source.lines[number - 1].hasSuffix(text)
-            {
-                offset = source.ranges[number - 1].upperBound - text.utf16.count
-            }
-            parsed.append(Line(text: text, source: offset))
+        var formulas: [Int: (spelling: String, ranges: [NSRange])] = [:]
+        var rewritten = MarkdownExtensions.rewriteInline(
+            part, footnotes: notes, formulas: MarkdownExtensions.Formulas()
+        ) {
+            line, range in
+            guard part.origins[line].count == 1, let number = part.origins[line].first else { return }
+            formulas[number, default: (part.lines[line], [])].ranges.append(range)
         }
-        read(parsed)
+        var masked: [Int: Line] = [:]
+        if !formulas.isEmpty {
+            for index in rewritten.lines.indices {
+                let text = rewritten.lines[index]
+                let origins = rewritten.origins[index]
+                guard origins.count == 1, let number = origins.first, let matches = formulas[number],
+                    matches.spelling == text, let offset = sourceOffset(of: text, line: number)
+                else { continue }
+                let ranges = matches.ranges.map { (offset + $0.location)..<(offset + NSMaxRange($0)) }
+                // Only ASCII can introduce CommonMark syntax. Keep UTF-8 columns and UTF-16 offsets so the
+                // tree of the protected text still points into the original, even after a non-ASCII formula.
+                for range in ranges {
+                    for i in range where parserUnits[i] < 128 { parserUnits[i] = 0x78 }
+                }
+                let protected = String(
+                    decoding: parserUnits[offset..<source.ranges[number - 1].upperBound], as: UTF16.self
+                )
+                .replacingOccurrences(of: "\0", with: "\u{FFFD}")
+                rewritten.lines[index] = protected
+                masked[number] = Line(text: protected, source: offset, formulas: ranges)
+            }
+        }
+        // The callout pass also parses Markdown, so it receives the protected lines.
+        let lines = MarkdownCallouts.preprocess(rewritten)
+        let positioned = zip(lines.lines, lines.origins).map { text, origins in
+            guard origins.count == 1, let number = origins.first else { return Line(text: text, source: nil) }
+            if let line = masked[number], line.text == text { return line }
+            return Line(text: text, source: sourceOffset(of: text, line: number))
+        }
+        read(positioned)
+    }
+
+    private func sourceOffset(of text: String, line: Int) -> Int? {
+        guard source.lines.indices.contains(line - 1), source.lines[line - 1].hasSuffix(text) else { return nil }
+        return source.ranges[line - 1].upperBound - text.utf16.count
     }
 
     private mutating func read(_ lines: [Line]) {
         let texts = lines.map(\.text)
         let document = MarkdownNesting.document(parsing: texts.joined(separator: "\n"), options: [.disableSmartOpts])
-        visit(document, lines: lines, texts: texts)
+        var positioned = lines
+        if document.children.contains(where: { $0 is OrderedList || $0 is UnorderedList }) {
+            // A lazy continuation keeps the indentation left after the last matched list item. Reading cmark's
+            // byte offset after each block line also covers nested containers and partially consumed tabs.
+            cmark_gfm_core_extensions_ensure_registered()
+            if let parser = cmark_parser_new(CMARK_OPT_SOURCEPOS | CMARK_OPT_TABLE_SPANS) {
+                defer { cmark_parser_free(parser) }
+                for name in ["table", "strikethrough", "tasklist"] {
+                    cmark_parser_attach_syntax_extension(parser, cmark_find_syntax_extension(name))
+                }
+                for index in texts.indices {
+                    if index.isMultiple(of: 512), StackSpace.isCancelled {
+                        cancelled = true
+                        return
+                    }
+                    let line = texts[index] + "\n"
+                    cmark_parser_feed(parser, line, line.utf8.count)
+                    let virtualSpaces =
+                        cmark_parser_has_partially_consumed_tab(parser) == 0
+                        ? 0 : 4 - Int(cmark_parser_get_column(parser)) % 4
+                    positioned[index].continuation = (Int(cmark_parser_get_offset(parser)), virtualSpaces)
+                }
+            }
+        }
+        visit(document, lines: positioned, texts: texts)
     }
 
     private mutating func visit(_ container: any Markup, lines: [Line], texts: [String]) {
@@ -382,7 +438,7 @@ private struct MarkdownProseReader {
         guard first >= 1, first <= last, lines[(first - 1)..<last].allSatisfy({ $0.source != nil }) else { return }
         var walk = InlineWalk(
             lines: lines, first: first, last: last, firstColumn: range.lowerBound.column, footnotes: footnotes,
-            segments: ProseSegments(source: source))
+            parserUnits: parserUnits, segments: ProseSegments(source: source))
         walk.run(paragraph, plan: plan, into: &paragraphs)
         cancelled = walk.cancelled
     }
@@ -398,6 +454,7 @@ private struct InlineWalk {
     let lines: [MarkdownProseReader.Line]
     let last: Int
     let footnotes: Set<String>
+    let parserUnits: [UInt16]
     var segments: ProseSegments
     private(set) var cancelled = false
 
@@ -427,8 +484,8 @@ private struct InlineWalk {
     private var hidden: (name: String, start: Int, isShown: Bool)?
     private var linkDepth = 0
     private var skipsMarker = false
+    private var closingEmphasis: (end: Int, consumed: Int)?
 
-    private static let mathGroups = ["displayMath", "inlineMath", "displayMath2", "inlineMath2"]
     private static let innerGroups = [
         "criticAdd", "criticDelete", "criticMark", "criticOld", "criticNew", "mark", "sup", "sub", "rubyBase",
     ]
@@ -441,12 +498,13 @@ private struct InlineWalk {
 
     init(
         lines: [MarkdownProseReader.Line], first: Int, last: Int, firstColumn: Int, footnotes: Set<String>,
-        segments: ProseSegments
+        parserUnits: [UInt16], segments: ProseSegments
     ) {
         self.lines = lines
         self.last = last
         self.footnotes = footnotes
         self.segments = segments
+        self.parserUnits = parserUnits
         anchorLine = first
         anchorNumber = first
         lastLine = first
@@ -457,7 +515,14 @@ private struct InlineWalk {
         var total = 0
         for line in first...last {
             let bytes = lines[line - 1].text.utf8
-            let start = line == first ? min(blockOffset, bytes.count) : bytes.prefix { $0 == 0x20 || $0 == 0x09 }.count
+            let start: Int
+            if line == first {
+                start = min(blockOffset, bytes.count)
+            } else if let prefix = lines[line - 1].continuation {
+                start = prefix.offset - prefix.spaces
+            } else {
+                start = bytes.prefix { $0 == 0x20 || $0 == 0x09 }.count
+            }
             starts.append(start)
             offsets.append(total)
             total += bytes.count - start + 1
@@ -517,7 +582,9 @@ private struct InlineWalk {
         guard first.first == 0x5B || first.starts(with: [0x5E, 0x5B]) else { return }
         var bytes: [UInt8] = []
         for line in firstLine...last {
-            bytes.append(contentsOf: text(line).utf8.dropFirst(start(of: line)))
+            let spaces = line == firstLine ? 0 : lines[line - 1].continuation?.spaces ?? 0
+            bytes.append(contentsOf: repeatElement(0x20, count: spaces))
+            bytes.append(contentsOf: text(line).utf8.dropFirst(start(of: line) + spaces))
             bytes.append(0x0A)
         }
         guard let size = Int32(exactly: bytes.count) else { return }
@@ -551,14 +618,13 @@ private struct InlineWalk {
     // MARK: Marks
 
     private mutating func prepareMarks() {
-        guard let lastSource = lines[last - 1].source else { return }
         for line in anchorLine...last {
-            let text = text(line)
-            guard text.contains(where: { "[{=^~$\\".contains($0) }), let base = lines[line - 1].source else { continue }
-            if marks.isEmpty {
-                marks = [Int32](repeating: 0, count: lastSource + lines[last - 1].text.utf16.count - marksBase)
+            let input = lines[line - 1]
+            if let base = input.source, input.text.contains(where: { "[{=^~".contains($0) }) {
+                ensureMarks()
+                mark(input.text as NSString, base: base, depth: 0)
             }
-            mark(text as NSString, base: base, depth: 0)
+            for formula in input.formulas { show(formula) }
         }
     }
 
@@ -581,17 +647,17 @@ private struct InlineWalk {
     }
 
     /// Marks what the converter's own inline scanner finds on a line, which it rewrites before cmark sees the text:
-    /// formulas, footnote marks, rubies, highlights and edits. Code spans, tags and link targets are cmark's.
+    /// footnote marks, rubies, highlights and edits. Code spans, tags and link targets are cmark's.
     private mutating func mark(_ text: NSString, base: Int, depth: Int) {
         for match in MarkdownExtensions.inlineMatches(text) {
-            if Self.mathGroups.contains(where: { match.groups[$0] != nil }) {
-                show((match.range.location + base)..<(match.range.location + match.range.length + base))
-            } else if match.groups["verbatim"] != nil || match.groups["criticUnclosed"] != nil {
+            if match.groups["verbatim"] != nil || match.groups["criticUnclosed"] != nil {
                 continue
             } else if let label = match.groups["footnote"] {
                 // A mark without a definition is printed as written.
                 if footnotes.contains(text.substring(with: label).lowercased()) { set(-1, match.range, base: base) }
-            } else {
+            } else if match.groups["criticComment"] != nil
+                || Self.innerGroups.contains(where: { match.groups[$0] != nil })
+            {
                 set(-1, match.range, base: base)
                 for name in Self.innerGroups {
                     guard let inner = match.groups[name] else { continue }
@@ -631,7 +697,7 @@ private struct InlineWalk {
 
     /// Read cmark's visible text with its source spelling, so escapes, references and links retain their positions.
     private mutating func take(_ range: Range<Int>, as string: String) {
-        let units = segments.source.units
+        let units = parserUnits
         var range = range
         var literal = Array(string.utf16)
         if skipsMarker {
@@ -683,7 +749,7 @@ private struct InlineWalk {
         }
         let links = MarkdownConverter.autolinks(in: String(decoding: literal, as: UTF16.self))
         guard !links.isEmpty else { return }
-        let units = segments.source.units
+        let units = parserUnits
         if units[range].elementsEqual(literal) {
             for link in links {
                 show((range.lowerBound + link.range.location)..<(range.lowerBound + NSMaxRange(link.range)))
@@ -783,6 +849,10 @@ private struct InlineWalk {
 
     private mutating func walk(_ node: any Markup) {
         guard !cancelled else { return }
+        if node is SoftBreak || node is LineBreak {
+            lineBreak(isTaken: true)
+            return
+        }
         guard let range = node.range else {
             for child in node.children { walk(child) }
             return
@@ -791,9 +861,17 @@ private struct InlineWalk {
         func upper(_ walk: inout InlineWalk) -> Int { max(lower, walk.position(range.upperBound)) }
         switch node {
         case let text as Text:
-            take(lower..<upper(&self), as: text.string)
-        case is SoftBreak, is LineBreak:
-            lineBreak(isTaken: true)
+            let end = upper(&self)
+            // cmark leaves the whole delimiter run in the neighbour's range. Closers consume its prefix;
+            // openers consume its suffix, which the visible literal already excludes.
+            let start: Int
+            if let closer = closingEmphasis, lower < closer.end {
+                start = min(lower + closer.consumed, closer.end, end)
+            } else {
+                start = lower
+            }
+            take(start..<end, as: text.string)
+            closingEmphasis = nil
         case is InlineCode, is Image:
             let end = upper(&self)
             placeholder(lower..<end)
@@ -816,7 +894,16 @@ private struct InlineWalk {
             }
         default:
             for child in node.children { walk(child) }
-            segments.cursor = max(segments.cursor, upper(&self))
+            let end = upper(&self)
+            if node is Strong || node is Emphasis {
+                let width = node is Strong ? 2 : 1
+                if let closer = closingEmphasis, closer.end == end {
+                    closingEmphasis = (end, closer.consumed + width)
+                } else {
+                    closingEmphasis = (end, width)
+                }
+            }
+            segments.cursor = max(segments.cursor, end)
         }
     }
 
@@ -832,11 +919,12 @@ enum ProseTextDecoding {
         var at = range.lowerBound
         var read = 0
         var copied = at
+        var matchedEnd = at
         func flush(to end: Int) {
             if copied < end { emit(copied..<end, nil) }
         }
         var nextCheck = at + 2048
-        while at < range.upperBound {
+        while at < range.upperBound, read < literal.count {
             if at >= nextCheck {
                 if StackSpace.isCancelled { return false }
                 nextCheck = at + 2048
@@ -850,19 +938,33 @@ enum ProseTextDecoding {
                 read += decoded.count
                 at = end
                 copied = at
-            } else if unit == 0x5C, at + 1 < range.upperBound, read < literal.count, literal[read] == units[at + 1],
+            } else if unit == 0x5C, at + 1 < range.upperBound, literal[read] == units[at + 1],
                 isPunctuation(units[at + 1])
             {
                 flush(to: at)
                 copied = at + 1
                 at += 2
                 read += 1
-            } else {
+            } else if unit == literal[read] {
                 at += 1
                 read += 1
+            } else if unit == 0, literal[read] == 0xFFFD {
+                flush(to: at)
+                emit(at..<(at + 1), [0xFFFD])
+                at += 1
+                read += 1
+                copied = at
+            } else {
+                // Delimiters and trailing spaces consumed by cmark can still be inside the text node's range.
+                flush(to: at)
+                at += 1
+                copied = at
+                continue
             }
+            matchedEnd = at
         }
-        flush(to: range.upperBound)
+        flush(to: at)
+        if read < literal.count { emit(matchedEnd..<range.upperBound, Array(literal[read...])) }
         return true
     }
 

@@ -658,15 +658,53 @@ struct ProseSystemTests {
         #expect(ProseWordClass(tag: .determiner) == .other)
     }
 
-    @Test("システムが返す英語の見出し語には本文があり、英語の文の外にはタグを付けない")
-    func englishTags() {
-        let text = "The parsers were parsing files."
-        let tokens = SystemProseTokenizer().tokens(in: text, english: [0..<text.utf16.count])
-        #expect(!tokens.isEmpty)
-        #expect(tokens.compactMap(\.lemma).allSatisfy { !$0.isEmpty })
-        // Outside the English sentences nothing is tagged.
+    @Test("英語範囲をタグ取得に渡し、返った品詞と見出し語を該当する語だけに付ける")
+    func injectedEnglishTags() {
+        let tokenizer = SystemProseTokenizer(englishTags: { text, ranges in
+            #expect(text == "Skip. The parsers were parsing files.")
+            #expect(ranges == [6..<37])
+            return [10: (.noun, "parser"), 23: (.verb, "parse")]
+        })
+        let tokens = tokenizer.tokens(in: "Skip. The parsers were parsing files.", english: [6..<37])
         #expect(
-            SystemProseTokenizer().tokens(in: text, english: []).allSatisfy { $0.wordClass == nil && $0.lemma == nil })
+            tokens.filter { $0.wordClass != nil || $0.lemma != nil } == [
+                ProseToken(range: 10..<17, lemma: "parser", wordClass: .noun),
+                ProseToken(range: 23..<30, lemma: "parse", wordClass: .verb),
+            ])
+    }
+
+    @Test("英語に指定していない本文には品詞と見出し語を付けない")
+    func outsideEnglish() {
+        let tokens = SystemProseTokenizer().tokens(in: "The parsers were parsing files.", english: [])
+        #expect(!tokens.isEmpty)
+        #expect(tokens.allSatisfy { $0.wordClass == nil && $0.lemma == nil })
+    }
+
+    @Test(
+        "システムの英語品詞を取得して見本の本文から反復を検出する",
+        .enabled(
+            if: NLTagger.availableTagSchemes(for: .word, language: .english).contains(.lexicalClass),
+            "この環境では英語の品詞を取得できない"))
+    func englishTags() async throws {
+        let tokens = SystemProseTokenizer().tokens(in: "The parsers were parsing files.", english: [0..<31])
+        #expect(tokens.contains { $0.wordClass != nil })
+        let text = try ProseTesting.fixture("english")
+        guard case .analysed(let report) = try await ProseCheck.analysis(of: text, format: .markdown) else {
+            Issue.record("The English fixture was not analysed")
+            return
+        }
+        let repetition = try #require(report.findings.first { $0.kind == .repetition(word: "crease") })
+        #expect(repetition.occurrences.map(\.sourceRange) == [267..<273, 303..<309, 329..<335])
+    }
+
+    @Test(
+        "システムの英語辞書から少なくとも一語の見出し語を取得する",
+        .enabled(
+            if: NLTagger.availableTagSchemes(for: .word, language: .english).contains(.lemma),
+            "この環境では英語の見出し語を取得できない"))
+    func englishLemmas() {
+        let tokens = SystemProseTokenizer().tokens(in: "The parsers were parsing files.", english: [0..<31])
+        #expect(tokens.contains { $0.lemma?.isEmpty == false })
     }
 
     @Test("認識器は文ごとに答えを 1 つずつ返す")

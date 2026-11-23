@@ -62,11 +62,11 @@ enum ProseScript {
 /// - Inside a bracket or quotation that is closed later in the paragraph it does not. When the run is followed by
 ///   that closing mark, it does if the paragraph ends there or another quotation opens (`「行く。」「待って。」`),
 ///   and it does not when the sentence goes on (`「行く。」と言った。`).
-/// - A full-width mark ends a sentence; `!` and `?` do before white space or a Japanese character, unless they
-///   close a quotation that a lower-case word follows (`"Stop!" he cried.`).
+/// - A full-width mark ends a sentence, except for a decimal point between digits. `!` and `?` do before white
+///   space or a Japanese character, unless they close a quotation that a lower-case word follows (`"Stop!" he cried.`).
 /// - An ellipsis does before white space when a capital, a Japanese character or an opening bracket follows.
 /// - A single full stop does before white space or a Japanese character, unless a lower-case letter follows, or the
-///   word before it is a title (`Dr.`), or it is another abbreviation, an initial or dotted letters (`etc.`, `J.`,
+///   word before it is a title or introduces an example (`Dr.`, `e.g.`), or it is an abbreviation or initial (`J.`,
 ///   `U.S.`) that is not followed by a word that usually starts a sentence.
 enum ProseSentences {
     /// The sentences of a paragraph, each without the white space around it, as ranges of UTF-16 units.
@@ -110,10 +110,15 @@ enum ProseSentences {
             if lineBreaksEnd, unit == 0x0A || unit == 0x0D {
                 var before = index
                 while before > start, index - before < 64, ProseScript.isWhitespace(units[before - 1]) { before -= 1 }
-                let last: UInt16 = before > start ? units[before - 1] : 0x2E
                 let end = unit == 0x0D && index + 1 < count && units[index + 1] == 0x0A ? index + 2 : index + 1
-                if !(ProseScript.isWordUnit(last) || last == 0x2C || last == 0x2D) { close(end) }
+                if !continuesAcrossBreak(units[start..<before]) { close(end) }
                 index = end
+                continue
+            }
+            if unit == 0xFF0E, index > 0, index + 1 < count,
+                isDecimalDigit(units[index - 1]), isDecimalDigit(units[index + 1])
+            {
+                index += 1
                 continue
             }
             guard Self.isEndMark(unit) else {
@@ -178,6 +183,20 @@ enum ProseSentences {
         return ranges
     }
 
+    /// A decomposed accent belongs to the same letter as its precomposed spelling. Walk back by scalar so the
+    /// original UTF-16 offsets still locate both spellings, including marks outside the BMP.
+    private static func continuesAcrossBreak(_ preceding: ArraySlice<UInt16>) -> Bool {
+        var units = preceding.reversed().makeIterator()
+        var parser = UTF16.ReverseParser()
+        while case .valid(let encoded) = parser.parseScalar(from: &units) {
+            let value = UTF16.decode(encoded).value
+            if ProseScript.isCombiningMark(value) { continue }
+            guard let unit = UInt16(exactly: value) else { return false }
+            return ProseScript.isWordUnit(unit) || unit == 0x2C || unit == 0x2D
+        }
+        return false
+    }
+
     /// Whether the full stop at `stop` belongs to an abbreviation that the next word does not end.
     private static func abbreviates(_ units: [UInt16], stop: Int, next: Int, from start: Int) -> Bool {
         var wordStart = stop
@@ -190,17 +209,23 @@ enum ProseSentences {
         guard wordStart < stop else { return false }
         let word = String(decoding: units[wordStart..<stop], as: UTF16.self)
         let lowered = word.lowercased()
-        if ProseWordTables.English.titles.contains(lowered) { return true }
+        if ProseWordTables.English.titles.contains(lowered) || lowered == "e.g" || lowered == "i.e" { return true }
+        // An enumeration can end a sentence. A following capital begins the next one.
+        if lowered == "etc" { return !(0x41...0x5A).contains(units[next]) }
         let isInitial = word.utf16.count == 1 && (0x41...0x5A).contains(units[wordStart])
         guard isInitial || word.contains(".") || ProseWordTables.English.abbreviations.contains(lowered) else {
             return false
         }
         var wordEnd = next
-        while wordEnd < units.count, wordEnd - next < 12, ProseScript.of(UInt32(units[wordEnd])) == .latin {
+        while wordEnd < units.count, wordEnd - next < 12, ProseScript.isWordUnit(units[wordEnd]) {
             wordEnd += 1
         }
         let following = String(decoding: units[next..<wordEnd], as: UTF16.self)
         return !ProseWordTables.English.sentenceStarters.contains(following)
+    }
+
+    private static func isDecimalDigit(_ unit: UInt16) -> Bool {
+        (0x30...0x39).contains(unit) || (0xFF10...0xFF19).contains(unit)
     }
 
     private static func isEndMark(_ unit: UInt16) -> Bool {
