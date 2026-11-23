@@ -154,6 +154,17 @@ bench-pages-rendering:
 		SURIMONO_BENCH_PAGES=1 SURIMONO_BENCH_PAGE_INPUT=$$input $(SWIFT_TEST) --disable-sandbox --filter PageThumbnailBenchmarks --no-parallel; \
 	done
 
+.PHONY: bench-scrubber bench-scrubber-rendering bench-scrubber-window
+bench-scrubber: bench-scrubber-rendering bench-scrubber-window
+
+bench-scrubber-rendering:
+	@set -e; for input in booklet pdf-300 pdf-2000 deck; do \
+		SURIMONO_BENCH_SCRUB=1 SURIMONO_BENCH_PAGES=1 SURIMONO_BENCH_PAGE_INPUT=$$input $(SWIFT_TEST) --disable-sandbox --filter PageThumbnailBenchmarks --no-parallel; \
+	done
+
+bench-scrubber-window:
+	TEST_RUNNER_SURIMONO_BENCH_SCRUB=1 $(filter-out -quiet,$(XCODEBUILD)) -configuration Debug -only-testing:SurimonoTests/PageScrubberWindowBenchmarks test
+
 bench-pages-window:
 	TEST_RUNNER_SURIMONO_BENCH_PAGES=1 $(filter-out -quiet,$(XCODEBUILD)) -configuration "$(CONFIGURATION)" -only-testing:SurimonoTests/PageDrawerWindowBenchmarks test
 

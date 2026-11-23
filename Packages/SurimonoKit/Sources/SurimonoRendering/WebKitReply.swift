@@ -63,7 +63,9 @@ extension WKWebView {
     @MainActor
     func pdfForPrinting(configuration: WKPDFConfiguration, until deadline: ContinuousClock.Instant) async throws -> Data
     {
-        try await WebKitReply<Data>.wait(until: deadline, ended: contentProcessEnded) { reply in
+        // A closure rather than the method itself: Swift 6.3 stops on a MainActor method passed as an argument.
+        let ended: @MainActor () -> String? = { self.contentProcessEnded() }
+        return try await WebKitReply<Data>.wait(until: deadline, ended: ended) { reply in
             createPDF(configuration: configuration, completionHandler: reply)
         }
     }
@@ -74,7 +76,8 @@ extension WKWebView {
     func snapshotForPrinting(configuration: WKSnapshotConfiguration, until deadline: ContinuousClock.Instant)
         async throws -> NSImage
     {
-        try await WebKitReply<NSImage>.wait(until: deadline, ended: contentProcessEnded) { reply in
+        let ended: @MainActor () -> String? = { self.contentProcessEnded() }
+        return try await WebKitReply<NSImage>.wait(until: deadline, ended: ended) { reply in
             takeSnapshot(with: configuration) { image, error in
                 if let image {
                     reply(.success(image))
@@ -96,8 +99,24 @@ extension WKWebView {
         _ script: String, arguments: [String: Any] = [:], world: WKContentWorld = WebPaginator.preparationWorld,
         until deadline: ContinuousClock.Instant
     ) async throws -> Any {
-        try await WebKitReply<Any>.wait(until: deadline, ended: contentProcessEnded) { completion in
+        let ended: @MainActor () -> String? = { self.contentProcessEnded() }
+        return try await WebKitReply<Any>.wait(until: deadline, ended: ended) { completion in
             callAsyncJavaScript(script, arguments: arguments, in: nil, in: world, completionHandler: completion)
         }
+    }
+}
+
+extension WebPaginator {
+    public typealias Reply = @MainActor @Sendable (Swift.Result<Any, any Error>) -> Void
+
+    /// Waits for one reply of a page the app shows itself, as the paginator waits for its own pages: it throws
+    /// `PaginationError.timedOut` at the deadline and `PaginationError.loadFailed` with the message of `ended` once
+    /// that returns one, and a reply that comes later is dropped. Such a page has a navigation delegate of its own,
+    /// so the caller tells here when the page's process has ended.
+    public static func reply(
+        until deadline: ContinuousClock.Instant, ended: @escaping @MainActor () -> String?,
+        start: (@escaping Reply) -> Void
+    ) async throws -> Any {
+        try await WebKitReply<Any>.wait(until: deadline, ended: ended, start: start)
     }
 }

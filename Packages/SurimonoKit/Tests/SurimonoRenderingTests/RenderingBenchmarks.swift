@@ -205,8 +205,9 @@ struct PageThumbnailBenchmarks {
         case "deck":
             input = try source(
                 path: "Snapshots/corpus/latex/083-class-beamer/main.tex", format: .latex, capture: "latex-083")
-        case "pdf-300":
-            let document = try RenderingFixtures.pdf(count: 300, textPrefix: "Index of workshop drawings. Sheet ")
+        case "pdf-300", "pdf-2000":
+            let document = try RenderingFixtures.pdf(
+                count: name == "pdf-300" ? 300 : 2000, textPrefix: "Index of workshop drawings. Sheet ")
             input = DocumentSource(data: try #require(document.dataRepresentation()), format: .pdf)
         case "images-20":
             input = .images(
@@ -221,6 +222,12 @@ struct PageThumbnailBenchmarks {
         }
         let render = try await DocumentRenderer().prepare(input, settings: settings)
         let count = render.viewDocument.pageCount
+        #if DEBUG
+            if environment["SURIMONO_BENCH_SCRUB"] == "1" {
+                try await sweep(render, name: name)
+                return
+            }
+        #endif
         do {
             let cache = PageThumbnails(render)
             let memory = try await BenchmarkRecorder.capture {
@@ -254,6 +261,65 @@ struct PageThumbnailBenchmarks {
             )
         }
     }
+    #if DEBUG
+        /// Measures the request path independently of the hosted window. Captured reading PDFs can substitute
+        /// for WebKit in headless environments; the window benchmark measures the installed SwiftUI image.
+        private func sweep(_ render: PreparedRender, name: String) async throws {
+            let count = render.viewDocument.pageCount
+            try #require(count > 1)
+            let track = PageTrack(count: count, rightToLeft: false)
+            let pixels = 448
+            let clock = ProcessInfo.processInfo
+            var cold: [Double] = []
+            var warm: [Double] = []
+            let cache = PageThumbnails(render)
+            var longest = 0.0
+            var positions = 0
+            let memory = try await BenchmarkRecorder.capture {
+                var pending: Task<CGImage?, Never>?
+                var previousPage: Int?
+                let start = clock.systemUptime
+                var last = start
+                while true {
+                    let now = clock.systemUptime
+                    longest = max(longest, (now - last) * 1000)
+                    last = now
+                    let fraction = min(1, now - start)
+                    let page = try #require(track.page(at: fraction))
+                    if page != previousPage {
+                        pending?.cancel()
+                        pending = Task { await cache.scrubImage(page: page, pixels: pixels) }
+                        previousPage = page
+                        positions += 1
+                    }
+                    if fraction >= 1 { break }
+                    try await Task.sleep(for: .milliseconds(4))
+                }
+                try #require(await pending?.value != nil)
+                return positions
+            }
+            for sample in 0..<24 {
+                let cache = PageThumbnails(render)
+                let page = try #require(track.page(at: CGFloat(sample) / 23))
+                let start = clock.systemUptime
+                let first = await cache.scrubImage(page: page, pixels: pixels)
+                let shown = clock.systemUptime
+                let hit = await cache.scrubImage(page: page, pixels: pixels)
+                let end = clock.systemUptime
+                try #require(first != nil && hit === first)
+                cold.append((shown - start) * 1000)
+                warm.append((end - shown) * 1000)
+            }
+            func p(_ values: [Double], _ fraction: Double) -> Double {
+                values.sorted()[Int(ceil(Double(values.count) * fraction)) - 1]
+            }
+            let delta = Int64(memory.afterBytes) - Int64(memory.beforeBytes)
+            print(
+                "SCRUB renderer \(name) pages=\(count) px=\(pixels) cold50=\(p(cold, 0.5)) cold95=\(p(cold, 0.95)) warm50=\(p(warm, 0.5)) warm95=\(p(warm, 0.95)) maxMainGapMS=\(longest) requests=\(positions) started=\(await cache.rendersStarted) finished=\(await cache.rendersFinished) footprintDelta=\(delta) peakDelta=\(memory.peakBytes - memory.beforeBytes) bitmapBytes=\(await cache.byteCount)"
+            )
+        }
+    #endif
+
 }
 
 private struct BenchmarkCheckpoint: Codable {

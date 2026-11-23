@@ -30871,43 +30871,43 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Part of the document is nested too deeply and will not be printed."
+            "value": "Part of the document is nested too deeply and will be left out when printing."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ein Teil des Dokuments ist zu tief verschachtelt und wird nicht gedruckt."
+            "value": "Ein Teil des Dokuments ist zu tief verschachtelt und wird beim Drucken weggelassen."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Una parte del documento tiene demasiados niveles de anidamiento y no se imprimirá."
+            "value": "Una parte del documento tiene demasiados niveles de anidamiento y se omitirá al imprimir."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Une partie du document comporte trop de niveaux d’imbrication et ne sera pas imprimée."
+            "value": "Une partie du document comporte trop de niveaux d’imbrication et sera omise à l’impression."
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "문서의 일부가 너무 깊게 중첩되어 인쇄에서 제외됩니다."
+            "value": "너무 깊게 중첩된 부분은 제외하고 인쇄합니다."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "文档的部分内容嵌套过深，打印时将跳过这部分。"
+            "value": "文档的部分内容嵌套过深，打印时将省略这部分内容。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "文件的部分內容巢狀層級過深，列印時將略過這部分。"
+            "value": "文件的部分內容巢狀層級過深，列印時將略過這部分內容。"
           }
         }
       }
