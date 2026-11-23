@@ -171,7 +171,7 @@ struct ClipboardWindowsTests {
             preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: directory),
             title: "Clipboard 0:13")
         defer { model.stop() }
-        model.readReloadData = { _ in
+        model.readReloadData = { _, _ in
             Issue.record("ファイルを読まない")
             return Data()
         }

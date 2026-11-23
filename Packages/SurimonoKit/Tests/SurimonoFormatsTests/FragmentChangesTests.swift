@@ -1,7 +1,24 @@
 import SurimonoFormats
 import Testing
 
+@Suite(.timeLimit(.minutes(1)))
 struct FragmentChangesTests {
+    @Test("色付きの8万 UTF-16 単位の1行にも時間内に変更印を付ける")
+    func longColoredLine() {
+        let token = #"<span class="hl-keyword">let</span> a = <span class="hl-number">1</span>;"#
+        let line = String(repeating: token, count: 8_000)
+        let start = #"<pre class="surimono-plain">"#
+        let html = start + line + "</pre>"
+        let clock = ContinuousClock()
+        let elapsed = clock.measure {
+            let change = marks(start + "old</pre>", html)
+            #expect(change == [.init(blockID: "lines-0-0")])
+            let marked = FragmentChanges.identifyingBlocks(in: html, for: change)
+            #expect(marked == start + #"<span data-surimono-block="lines-0-0">"# + line + "</span></pre>")
+        }
+        #expect(elapsed < .seconds(8))
+    }
+
     private func marks(_ old: String, _ new: String) -> [MarkdownMarkRequest] {
         FragmentChanges.marks(from: old, to: new)
     }

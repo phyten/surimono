@@ -774,7 +774,7 @@ struct ViewBandTests {
                 data: Data(), fileURL: nil, format: .pdf, preferences: environment.preferences,
                 library: environment.library,
                 binder: BinderModel(
-                    urls: names.map { environment.directory.appendingPathComponent($0) }, read: { _ in Data() }))
+                    urls: names.map { environment.directory.appendingPathComponent($0) }, read: { _, _ in Data() }))
             model.isolateBandTestOutput()
             return model
         }

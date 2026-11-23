@@ -247,7 +247,7 @@ struct ServiceProviderTests {
     private func binder(_ urls: [URL], suite: TestDefaultsSuite, library: URL) -> DocumentViewModel {
         DocumentViewModel(
             data: Data(), fileURL: nil, format: .pdf, preferences: AppPreferences(defaults: suite.defaults),
-            library: UserLibrary(root: library), binder: BinderModel(urls: urls, read: { _ in Data() }))
+            library: UserLibrary(root: library), binder: BinderModel(urls: urls, read: { _, _ in Data() }))
     }
 
     @Test("単独の文書を刷るとき、同じファイルを含む合本の窓は要求を受け取らない")

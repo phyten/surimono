@@ -273,22 +273,22 @@ struct SourceFileOpeningTests {
     @Test("読み直しと合本の読み取りは、動画を読み込まずに断り、テキストはそのまま読む")
     func gatedRead() async throws {
         try await withFile("clip.ts", video) { url in
-            #expect(throws: SourceFileError.notText) { try SourceFileOpening.read(url) }
+            #expect(throws: SourceFileError.notText) { try SourceFileOpening.read(url, format: .plainText) }
         }
         let binary = try binaryPropertyList()
         try await withFile("Info.plist", binary) { url in
-            #expect(throws: SourceFileError.notText) { try SourceFileOpening.read(url) }
+            #expect(throws: SourceFileError.notText) { try SourceFileOpening.read(url, format: .plainText) }
         }
         try await withFile("Dockerfile", video) { url in
-            #expect(throws: SourceFileError.notText) { try SourceFileOpening.read(url) }
+            #expect(throws: SourceFileError.notText) { try SourceFileOpening.read(url, format: .plainText) }
         }
         try await withFile("main.ts", Data("let a = 1\n".utf8)) { url in
-            let read = try SourceFileOpening.read(url)
+            let read = try SourceFileOpening.read(url, format: .plainText)
             #expect(read == Data("let a = 1\n".utf8))
         }
         // A format of its own is read as it always was, whatever is inside.
         try await withFile("notes.md", video) { url in
-            let read = try SourceFileOpening.read(url)
+            let read = try SourceFileOpening.read(url, format: .markdown)
             #expect(read == video)
         }
     }
@@ -323,7 +323,7 @@ struct SourceFileOpeningTests {
             defer { model.stop() }
             try await wait("組版が終わる") { model.result != nil && !model.isRendering }
             let pages = try #require(model.result?.logicalDocument)
-            model.readReloadData = { _ in binary }
+            model.readReloadData = { _, _ in binary }
             model.reload()
             try await wait("読み直しの失敗を知らせる") { model.toast?.detail == SourceFileError.notText.localizedDescription }
             #expect(model.data == xml)
@@ -376,7 +376,6 @@ struct SourceFileOpeningTests {
             // gate is asked about plain text only.
             #expect(TextFileGate.refuses(fileName: "illustration", data: second))
             #expect(!SourceFileOpening.refuses(second, at: url, format: .image))
-            #expect(SourceFileOpening.refuses(second, at: url, format: .plainText))
             let suite = TestDefaultsSuite()
             defer { suite.remove() }
             let directory = url.deletingLastPathComponent()
@@ -387,7 +386,7 @@ struct SourceFileOpeningTests {
             model.start()
             defer { model.stop() }
             try await wait("組版が終わる") { model.result != nil && !model.isRendering }
-            model.readReloadData = { _ in second }
+            try second.write(to: url, options: .atomic)
             model.reload()
             try await wait("読み直した画像を採る") { model.data == second }
             #expect(model.toast?.detail != SourceFileError.notText.localizedDescription)
@@ -398,6 +397,14 @@ struct SourceFileOpeningTests {
     func binderImageChild() async throws {
         func url(_ name: String) -> URL { URL(fileURLWithPath: "/fixtures/" + name) }
         let image = try png(side: 4)
+        try await withFile("illustration", image) { file in
+            let binder = BinderModel(urls: [])
+            defer { binder.stop() }
+            binder.putBack(.init(url: file, format: .image), at: 0)
+            let source = try await binder.source()
+            #expect(source.children?.first?.data == image)
+            #expect(binder.unreadableURLs.isEmpty)
+        }
         #expect(!SourceFileOpening.refuses(image, at: url("illustration"), format: .image))
         #expect(!SourceFileOpening.refuses(video, at: url("notes.md"), format: .markdown))
         #expect(SourceFileOpening.refuses(video, at: url("Dockerfile"), format: .plainText))
@@ -412,8 +419,8 @@ struct SourceFileOpeningTests {
         let binary = try binaryPropertyList()
         let model = BinderModel(
             urls: [url("a.md"), url("b.ts"), url("c.ts"), url("d.plist")],
-            read: {
-                switch $0.lastPathComponent {
+            read: { url, _ in
+                switch url.lastPathComponent {
                 case "c.ts": video
                 case "d.plist": binary
                 case "b.ts": Data("let b = 1\n".utf8)

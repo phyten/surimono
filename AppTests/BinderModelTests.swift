@@ -30,7 +30,7 @@ struct BinderModelTests {
     @Test("並べ替えは文書内のページを保ち外した文書は同じ行の先頭へ移る")
     func readingSpot() async throws {
         let data = TestFixtures.pdf("binder", pages: 2)
-        let model = BinderModel(urls: [url("1.pdf"), url("2.pdf"), url("3.pdf")], read: { _ in data })
+        let model = BinderModel(urls: [url("1.pdf"), url("2.pdf"), url("3.pdf")], read: { _, _ in data })
         defer { model.stop() }
         let renderer = DocumentRenderer()
         let settings = RenderSettings(
@@ -65,7 +65,8 @@ struct BinderModelTests {
 
     @Test("合本の鍵は順序に依らず内容で並び順を復元する")
     func restore() async throws {
-        let model = BinderModel(urls: [url("1.md"), url("2.pdf")], read: { Data($0.lastPathComponent.utf8) })
+        let model = BinderModel(
+            urls: [url("1.md"), url("2.pdf")], read: { url, _ in Data(url.lastPathComponent.utf8) })
         _ = try await model.source()
         let hash = model.setHash
         let order = try #require(model.orderDigests)
@@ -81,8 +82,8 @@ struct BinderModelTests {
     func unreadable() async throws {
         let model = BinderModel(
             urls: [url("a.md"), url("b.pdf")],
-            read: {
-                if $0.pathExtension == "pdf" { throw CocoaError(.fileReadCorruptFile) }
+            read: { url, _ in
+                if url.pathExtension == "pdf" { throw CocoaError(.fileReadCorruptFile) }
                 return Data("# A".utf8)
             })
         let source = try await model.source()
