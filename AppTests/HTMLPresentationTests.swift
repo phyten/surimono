@@ -642,6 +642,55 @@ struct WebCaptureTests {
         #expect(model.mode == .print)
     }
 
+    @Test("写し直しを待つ間にページが印刷を頼んだら、その写しに合流して刷り台を 1 回だけ開く")
+    func requestDuringRetryJoinsTheCopy() async throws {
+        let fixture = try await fixture()
+        defer { fixture.close() }
+        let model = fixture.model
+        model.windowActiveOverride = true
+        model.pageDidRequestPrint()
+        try await waitUntil { fixture.snapshots.requestCount == 1 }
+        fixture.snapshots.resolve(.failed)
+        try await waitUntil { !model.isCapturingWeb }
+        #expect(model.mode == .view && model.webCaptureFailed)
+        model.retryWebCapture()
+        try await waitUntil { fixture.snapshots.requestCount == 2 }
+        // The copy in flight is the retry's, which opens no tray by itself.
+        for _ in 0..<3 { model.pageDidRequestPrint() }
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(fixture.snapshots.requestCount == 2)
+        #expect(model.mode == .view)
+        fixture.snapshots.resolve(.captured(HTMLSnapshot(html: "<p>Retry</p>")))
+        try await waitUntil { model.mode == .print }
+        #expect(fixture.snapshots.requestCount == 2)
+    }
+
+    @Test("プロセスが終わったページは、失敗の通知の「もう一度試す」で一度だけ読み込み直す")
+    func retryReloadsAnEndedPage() async throws {
+        let fixture = try await fixture()
+        defer { fixture.close() }
+        let model = fixture.model
+        model.web.startNavigation = { _, _, _ in NSObject() }
+        model.web.show(fixture.directory.appendingPathComponent("page.html"), allowsJavaScript: false)
+        defer { model.web.close() }
+        model.web.webViewWebContentProcessDidTerminate(try #require(model.web.webView))
+        model.setHTMLPresentation(.paper)
+        try await waitUntil { fixture.snapshots.requestCount == 1 }
+        fixture.snapshots.resolve(.failed)
+        try await waitUntil { !model.isCapturingWeb }
+        // Asking for output copies again without loading the page.
+        model.exportPDF()
+        try await waitUntil { fixture.snapshots.requestCount == 2 }
+        fixture.snapshots.resolve(.failed)
+        try await waitUntil { !model.isCapturingWeb }
+        #expect(model.web.state == .ended && model.web.loadCount == 1)
+        model.retryWebCapture()
+        #expect(model.web.state == .reloading && model.web.loadCount == 2)
+        try await waitUntil { fixture.snapshots.requestCount == 3 }
+        fixture.snapshots.resolve(.failed)
+        try await waitUntil { !model.isCapturingWeb }
+    }
+
     @Test("刷り台を閉じている途中に文書が印刷を頼んでも、刷り台へ戻さない")
     func requestRightAfterReturning() async throws {
         let fixture = try await fixture()
