@@ -1,3 +1,4 @@
+import RobustnessSupport
 import Testing
 
 @testable import SurimonoCore
@@ -15,6 +16,69 @@ struct DocumentOutlineTests {
     func numberedContentsLabels() {
         let html = "<nav class=\"toc\"><a>A2</a><a>B1</a></nav>"
         #expect(locations(["A2", "B1"], ["1. A2\n2. B1", "A2\ntext", "B1\ntext"], html) == [1, 2])
+    }
+
+    @Test("本文の後の番号付き目次は手で番号を付けた見出しと区別する")
+    func handNumberedHeadingBeforeContents() {
+        let titles = ["Overview", "1. Overview", "Conclusion"]
+        let pages = ["Overview\n1. Overview\n2. 1. Overview\n3. Conclusion", "1. Overview\nbody", "Conclusion\nbody"]
+        let headings = titles.map { DocumentHeading(level: 1, text: $0) }
+        #expect(MasterOutlineReference.pages(of: headings, inPageTexts: pages, contentsEntries: titles) == [0, 1, 2])
+        #expect(locations(titles, pages) == [0, 1, 2])
+    }
+
+    @Test("数字だけが残る行から始まる折り返し目次も master と同じ範囲を除く")
+    func numberedEmptyFirstLine() {
+        let titles = ["11119", "1111Title", "B"]
+        let entries = ["1111Title", "B"]
+        let pages = ["11119. !\n1111Title\nB", "11119\nbody", "1111Title\nbody", "B\nbody"]
+        let headings = titles.map { DocumentHeading(level: 1, text: $0) }
+        #expect(MasterOutlineReference.pages(of: headings, inPageTexts: pages, contentsEntries: entries) == [1, 2, 3])
+        #expect(DocumentOutline.pages(of: headings, inPageTexts: pages, contentsEntries: entries) == [1, 2, 3])
+    }
+
+    @Test("番号付き・重複・折り返しを含む目次六千例の照合が master と一致する")
+    func comparesOrderedRunsWithMaster() {
+        var random = SeededGenerator(seed: 0x266_06)
+        let labels = ["A", "1. A", "B", "2. B", "Overview", "1. Overview", "Overview Field", "結論"]
+        func pick(_ count: Int) -> Int { Int(random.next() % UInt64(count)) }
+        func printLabel(_ label: String) -> String {
+            let number = ["", "1. ", "2. ", "１．"][pick(4)]
+            let text = pick(2) == 0 ? label.replacingOccurrences(of: "Overview Field", with: "Overview\nField") : label
+            return number + text
+        }
+        for example in 0..<6_000 {
+            let titles = (0..<(1 + pick(8))).map { _ in labels[pick(labels.count)] }
+            var blocks = titles.map { printLabel($0) + "\n本文" }
+            var entries: [String] = []
+            var afterTable = 0
+            let tableCount = example % 3 == 2 ? 2 + pick(2) : 1
+            for _ in 0..<tableCount {
+                let labelsInTable = pick(3) == 0 ? (0..<(1 + pick(6))).map { _ in labels[pick(labels.count)] } : titles
+                if !entries.isEmpty { entries.append("") }
+                entries += labelsInTable
+                // A prefix can stand immediately before a whole table, or the table can be missing on paper.
+                var printed = labelsInTable.prefix(pick(labelsInTable.count + 1)).map { printLabel($0) }
+                var table = labelsInTable.map { printLabel($0) }
+                if pick(4) == 0 { table[pick(table.count)] = "別の行" }
+                printed += table
+                let start = afterTable + pick(blocks.count - afterTable + 1)
+                blocks.insert(contentsOf: printed, at: start)
+                afterTable = start + printed.count
+            }
+            var pages = [""]
+            for block in blocks {
+                if !pages[pages.count - 1].isEmpty && pick(3) == 0 { pages.append("") }
+                pages[pages.count - 1] += block + "\n"
+            }
+            let headings = titles.map { DocumentHeading(level: 1, text: $0) }
+            let expected = MasterOutlineReference.pages(of: headings, inPageTexts: pages, contentsEntries: entries)
+            let actual = DocumentOutline.pages(of: headings, inPageTexts: pages, contentsEntries: entries)
+            if expected != actual {
+                Issue.record("例 \(example) 見出し \(titles) 目次 \(entries) 紙面 \(pages) 期待 \(expected) 実際 \(actual)")
+                return
+            }
+        }
     }
 
     @Test("目次標題の下に同じ文字があっても別の語を項目にしない")
@@ -47,6 +111,20 @@ struct DocumentOutlineTests {
     @Test("目次の先頭と途中が同じ項目でも、重なった並びの途中から全項目が続けば除く")
     func overlappingContentsPrefix() {
         #expect(locations(["A", "A", "B"], ["A", "A\nA\nB", "A\n本文", "B"]) == [0, 2, 3])
+    }
+
+    @Test("長い目次の開始候補が重なっても、番号を含む項目の別表記を残して照合する")
+    func manyOverlappingStarts() {
+        let count = 3_200
+        let headings = ["A", "B"].map { DocumentHeading(level: 1, text: $0) }
+        let entries = (0..<count).map { $0.isMultiple(of: 2) ? "A" : "1. A" } + ["B"]
+        let lines = Array(repeating: "1. A", count: count).joined(separator: "\n")
+        let elapsed = ContinuousClock().measure {
+            let pages = DocumentOutline.pages(
+                of: headings, inPageTexts: [lines, lines + "\nB", "B"], contentsEntries: entries)
+            #expect(pages == [0, 2])
+        }
+        #expect(elapsed < .seconds(1))
     }
 
     @Test("目次の途中で短い行に折り返した項目も元の順で読み飛ばす")
@@ -89,9 +167,10 @@ struct DocumentOutlineTests {
             html +=
                 "<pre>let x = \(i)\nlet y = \(i)</pre><nav class=\"toc\">Contents<a>\(label)</a></nav>"
                 + "<p>Body\(i)</p><h1>\(label)</h1><p>text</p>"
-            pages[i / 3] += "1\nlet x = \(i)\n2\nlet y = \(i)\nContents\n\(label)\nBody\(i)\n\(label)\ntext\n"
+            pages[i / 3] += "1\nlet x = \(i)\n2\nlet y = \(i)\nContents\n\(label)\nBody\(i)\n"
+            pages[(i + 1) / 3] += "\(label)\ntext\n"
         }
-        #expect(locations(labels, pages, html) == labels.indices.map { $0 / 3 })
+        #expect(locations(labels, pages, html) == labels.indices.map { ($0 + 1) / 3 })
     }
 
     private func locations(_ entries: [String], _ pages: [String], _ html: String = "") -> [Int?] {

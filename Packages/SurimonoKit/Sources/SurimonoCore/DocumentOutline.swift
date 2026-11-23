@@ -24,16 +24,22 @@ extension DocumentOutline {
         guard !headings.isEmpty else { return [] }
         var labels = Labels()
         let titles = headings.map { labels.insert(normalized($0.text)) }
-        let tables = contentsEntries.split(separator: "").map { table in
-            var entries: [Int] = []
-            for entry in table {
-                let text = normalized(entry)
-                if !text.isEmpty { entries.append(labels.insert(text, following: !entries.isEmpty)) }
-            }
-            return entries
+        let tables = contentsEntries.split(separator: "").map { $0.map(normalized).filter { !$0.isEmpty } }
+        for table in tables {
+            for entry in table { _ = labels.insert(entry) }
         }
         let index = LineIndex(pages: pages, labels: labels)
-        let excluded = index.contentsLines(tables)
+        var excluded: Set<Int> = []
+        if !tables.isEmpty {
+            let contents = ContentsIndex(lines: index.lines, labels: labels)
+            var cursor = 0
+            for table in tables where !table.isEmpty {
+                // An unsuccessful search has reached EOF; later tables share the same forward cursor.
+                guard let run = contents.firstRun(of: table, from: cursor) else { break }
+                excluded.formUnion(run)
+                cursor = run.upperBound
+            }
+        }
         var matches = index.headingMatches(excluding: excluded)
         var cursor = 0
         return titles.map { id in
@@ -50,11 +56,10 @@ extension DocumentOutline {
         struct Prefix {
             var next: [Character: Int] = [:]
             var complete = false
-            var allowsShortWrap = false
         }
         var prefixes = [Prefix()]
 
-        mutating func insert(_ text: String, following: Bool = false) -> Int {
+        mutating func insert(_ text: String) -> Int {
             var node = 0
             for character in text {
                 if let next = prefixes[node].next[character] {
@@ -65,7 +70,6 @@ extension DocumentOutline {
                     prefixes.append(Prefix())
                     node = next
                 }
-                if following { prefixes[node].allowsShortWrap = true }
             }
             prefixes[node].complete = node != 0
             return node
@@ -85,22 +89,20 @@ extension DocumentOutline {
         struct Line {
             let page: Int
             var ends: [Int: Int] = [:]
-            var shortWraps: [Int: Int] = [:]
+            let forms: [String]
         }
         var lines: [Line] = []
 
-        private typealias Spelling = (node: Int, short: Bool)
-
         init(pages: [String], labels: Labels) {
             for (page, text) in pages.enumerated() {
-                var previous: [Spelling] = []
-                var continued: [Spelling] = []
+                var previous: [Int] = []
+                var continued: [Int] = []
                 var start = 0
                 for raw in text.components(separatedBy: .newlines) {
                     let forms = Self.forms(of: raw)
                     guard !forms[0].isEmpty else { continue }
                     let line = lines.count
-                    lines.append(Line(page: page))
+                    lines.append(Line(page: page, forms: forms))
                     // Check the adjacent pair even while a longer spelling is open. A failed wrap can end
                     // on the first line of the next real heading.
                     continued = extend(continued, from: start, by: forms[0], labels: labels)
@@ -114,76 +116,23 @@ extension DocumentOutline {
                         guard let node = labels.advance(0, by: form) else { continue }
                         let prefix = labels.prefixes[node]
                         if prefix.complete { lines[line].ends[node] = line + 1 }
-                        // The preceding items fix the start of an interior entry, even with a short first line.
-                        let short = form.count < 4
-                        if !prefix.next.isEmpty && (!short || prefix.allowsShortWrap) {
-                            previous.append((node, short))
-                        }
+                        if !prefix.next.isEmpty && form.count >= 4 { previous.append(node) }
                     }
                 }
             }
         }
 
-        private mutating func extend(_ spellings: [Spelling], from start: Int, by text: String, labels: Labels)
-            -> [Spelling]
+        private mutating func extend(_ spellings: [Int], from start: Int, by text: String, labels: Labels)
+            -> [Int]
         {
-            var longer: [Spelling] = []
+            var longer: [Int] = []
             for spelling in spellings {
-                guard let node = labels.advance(spelling.node, by: text) else { continue }
+                guard let node = labels.advance(spelling, by: text) else { continue }
                 let prefix = labels.prefixes[node]
-                if prefix.complete {
-                    if spelling.short {
-                        lines[start].shortWraps[node] = lines.count
-                    } else {
-                        lines[start].ends[node] = lines.count
-                    }
-                }
-                if !prefix.next.isEmpty { longer.append((node, spelling.short)) }
+                if prefix.complete { lines[start].ends[node] = lines.count }
+                if !prefix.next.isEmpty { longer.append(node) }
             }
             return longer
-        }
-
-        /// Each table is the first complete run after the preceding one. Keeping the length of the matching
-        /// suffix lets a partial run such as A A A still lead into A A B without rewinding the PDF cursor.
-        func contentsLines(_ tables: [[Int]]) -> Set<Int> {
-            var excluded: Set<Int> = []
-            var line = 0
-            for entries in tables {
-                guard !entries.isEmpty else { continue }
-                let fallback = Self.prefixLengths(entries)
-                var starts: [Int] = []
-                var matched = 0
-                while line < lines.count {
-                    let id = entries[matched]
-                    let end = lines[line].ends[id] ?? (matched > 0 ? lines[line].shortWraps[id] : nil)
-                    if let end {
-                        starts.append(line)
-                        line = end
-                        matched += 1
-                        if matched == entries.count {
-                            excluded.formUnion(starts[starts.count - matched]..<end)
-                            break
-                        }
-                    } else if matched > 0 {
-                        matched = fallback[matched - 1]
-                    } else {
-                        line += 1
-                    }
-                }
-                if line == lines.count { break }
-            }
-            return excluded
-        }
-
-        private static func prefixLengths(_ entries: [Int]) -> [Int] {
-            var lengths = Array(repeating: 0, count: entries.count)
-            var matched = 0
-            for index in entries.indices.dropFirst() {
-                while matched > 0 && entries[matched] != entries[index] { matched = lengths[matched - 1] }
-                if entries[matched] == entries[index] { matched += 1 }
-                lengths[index] = matched
-            }
-            return lengths
         }
 
         /// Index body matches only. A wrapped heading cannot continue through the start of a table.
@@ -211,6 +160,158 @@ extension DocumentOutline {
             let endsNumber = rest.first?.isWhitespace == true || number.last.map { !$0.isNumber } == true
             guard !number.isEmpty, !rest.isEmpty, endsNumber else { return [normalized(line)] }
             return [normalized(line), normalized(String(rest))]
+        }
+    }
+
+    private struct ContentsIndex {
+        let lines: [LineIndex.Line]
+        let labels: Labels
+        private var whole: [String: IndexSet] = [:]
+        private var wrapped: [String: IndexSet] = [:]
+        private var prefixStarts: [Int: IndexSet] = [:]
+
+        init(lines: [LineIndex.Line], labels: Labels) {
+            self.lines = lines
+            self.labels = labels
+            for (position, line) in lines.enumerated() {
+                for form in line.forms {
+                    whole[form, default: IndexSet()].insert(position)
+                    if form.count >= 4 { wrapped[String(form.prefix(4)), default: IndexSet()].insert(position) }
+                }
+            }
+            for (form, starts) in whole {
+                if let node = labels.advance(0, by: form) { prefixStarts[node] = starts }
+            }
+        }
+
+        /// Try master's first whole line or four-character wrap prefix after the previous table.
+        func firstRun(of entries: [String], from cursor: Int) -> Range<Int>? {
+            guard let first = entries.first else { return nil }
+            let exact = whole[first] ?? IndexSet()
+            let prefix = first.count > 4 ? wrapped[String(first.prefix(4))] ?? IndexSet() : IndexSet()
+            func nextStart(from position: Int) -> Int? {
+                [exact, prefix].compactMap { $0.integerGreaterThanOrEqualTo(position) }.min()
+            }
+            var candidate = nextStart(from: cursor)
+            while let start = candidate, lines.count - start >= entries.count {
+                let run = orderedRun(entries, from: start)
+                if run.matched == entries.count { return start..<run.end }
+                candidate = nextStart(from: start + 1)
+                if let next = candidate, next < run.end {
+                    return overlappingRun(entries, from: next, failedAt: run.matched, exact: exact, prefix: prefix)
+                }
+            }
+            return nil
+        }
+
+        /// A numbered line can continue one run and start another. Keep all starts that can reach the
+        /// next entry boundary, including both spellings. IndexSet shifts whole ranges of equal-width matches.
+        private func overlappingRun(
+            _ entries: [String], from lower: Int, failedAt pivot: Int,
+            exact: IndexSet, prefix: IndexSet
+        ) -> Range<Int>? {
+            var upper = min(lines.count, lower + entries.count)
+            while upper - lower >= entries.count {
+                let window = lower..<upper
+                var cache: [String: [Int: IndexSet]] = [:]
+                func spans(of entry: String) -> [Int: IndexSet] {
+                    if let known = cache[entry] { return known }
+                    let spans = lineSpans(of: entry, in: window)
+                    cache[entry] = spans
+                    return spans
+                }
+
+                // The item that broke the first run must actually occur. Use its possible ends before
+                // testing a long common suffix; e.g. ABABX followed by several hundred AB pairs.
+                // Each preceding and following entry needs at least one physical line of its own.
+                let lastPivot = upper - (entries.count - pivot)
+                var suffix = IndexSet(integersIn: (lower + pivot)...lastPivot)
+                for entry in entries[pivot...] {
+                    var ends = IndexSet()
+                    for (width, positions) in spans(of: entry) {
+                        var next = suffix.intersection(positions)
+                        next.shift(startingAt: 0, by: width)
+                        ends.formUnion(next)
+                    }
+                    suffix = ends
+                    if suffix.isEmpty { break }
+                }
+                for entry in entries.reversed() {
+                    if suffix.isEmpty { break }
+                    var starts = IndexSet()
+                    for (width, positions) in spans(of: entry) {
+                        var earlier = suffix
+                        earlier.remove(integersIn: 0..<width)
+                        earlier.shift(startingAt: width, by: -width)
+                        starts.formUnion(earlier.intersection(positions))
+                    }
+                    suffix = starts
+                }
+                let start = [exact, prefix].compactMap { suffix.intersection($0).first }.min()
+                if let start {
+                    // The sets establish which start is first; replay it once to get its final line.
+                    let run = orderedRun(entries, from: start)
+                    if run.matched == entries.count { return start..<run.end }
+                }
+                // Earlier starts of the same entry finish no later: even its number-stripped spelling
+                // starts before the next physical line. Thus the first window with a whole run is sufficient.
+                if upper == lines.count { break }
+                upper += min(upper - lower, lines.count - upper)
+            }
+            return nil
+        }
+
+        /// Master's comparisons in order. Only the final boundary is needed to exclude a complete run.
+        private func orderedRun(_ entries: [String], from start: Int) -> (end: Int, matched: Int) {
+            var line = start
+            var matched = 0
+            for entry in entries {
+                guard line < lines.count else { break }
+                if lines[line].forms.contains(entry) {
+                    line += 1
+                } else if let end = endOfWrappedHeading(entry, from: line) {
+                    line = end
+                } else {
+                    break
+                }
+                matched += 1
+            }
+            return (line, matched)
+        }
+
+        /// A printed prefix can wrap across several lines. Record the same end that the ordered check
+        /// would take at that start, including its preference for a whole-line spelling.
+        private func lineSpans(of entry: String, in window: Range<Int>) -> [Int: IndexSet] {
+            let exact = whole[entry] ?? IndexSet()
+            var spans = [1: exact.intersection(IndexSet(integersIn: window))]
+            var node = 0
+            for character in entry {
+                if let positions = prefixStarts[node] {
+                    for start in positions[positions.indexRange(in: window)] where !exact.contains(start) {
+                        if let end = endOfWrappedHeading(entry, from: start), end <= window.upperBound {
+                            spans[end - start, default: IndexSet()].insert(start)
+                        }
+                    }
+                }
+                guard let next = labels.prefixes[node].next[character] else { break }
+                node = next
+            }
+            return spans
+        }
+
+        /// The index after the last line of a heading that wraps from `start`. It stays on one page.
+        private func endOfWrappedHeading(_ target: String, from start: Int) -> Int? {
+            for form in lines[start].forms where target.hasPrefix(form) {
+                var joined = form
+                var index = start + 1
+                while index < lines.count, lines[index].page == lines[start].page {
+                    joined += lines[index].forms[0]
+                    index += 1
+                    if joined == target { return index }
+                    guard target.hasPrefix(joined) else { break }
+                }
+            }
+            return nil
         }
     }
 
