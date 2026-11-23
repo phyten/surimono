@@ -748,9 +748,17 @@ final class DocumentViewModel {
         return text
     }
 
-    /// "MD", "PDF", "ZIP"…; "IMG" for a bundle of image files.
+    /// "MD", "PDF", "ZIP"…; "IMG" for a bundle of image files; the language of a source file ("Swift", "YAML").
     var shortFormatBadge: String {
-        binder != nil ? String(localized: "Binder") : imageBundle == nil || format == .zipArchive ? format.badge : "IMG"
+        if binder != nil { return String(localized: "Binder") }
+        guard imageBundle == nil || format == .zipArchive else { return "IMG" }
+        return sourceLanguage?.displayName ?? format.badge
+    }
+
+    /// The language a plain text file is colored as, told as the renderer tells it.
+    var sourceLanguage: SourceLanguage? {
+        guard format == .plainText, binder == nil, let fileURL else { return nil }
+        return SourceLanguage.detect(fileName: fileURL.lastPathComponent, firstLine: SourceLanguage.firstLine(of: data))
     }
 
     var language: String { Bundle.main.preferredLocalizations.first ?? "en" }
