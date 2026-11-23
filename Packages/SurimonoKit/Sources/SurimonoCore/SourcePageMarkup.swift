@@ -40,7 +40,7 @@ enum SourcePageMarkup {
         let numbered = options.lineNumbers != .none
         let digits = numbered ? String(count).count : 0
         var result = "<pre class=\"surimono-source code-block source-\(options.longLines.rawValue)\""
-        result += " style=\"--source-digits:\(digits);--source-gap:\(numbered ? "1ch" : "0px")\""
+        result += " style=\"--source-digits:\(digits);--source-gap:\(numbered ? "2ch" : "0px")\""
         if options.languageLabel != .none {
             result += " data-code-label=\"\(HTML.escape(language.displayName))\""
         }

@@ -5,6 +5,8 @@ pre.surimono-source {
     color: inherit; font-size: max(var(--source-size, 12px), var(--source-min-size, 10px)); line-height: 1.4;
     font-variant-ligatures: none; letter-spacing: normal; word-spacing: normal; text-align: left;
     direction: ltr; white-space: normal; break-inside: auto; page-break-inside: auto;
+    /* Japanese faces have no italic of their own; a slanted comment in Japanese is hard to read on paper. */
+    font-synthesis-style: none;
     --source-gutter: calc(var(--source-digits) * 0.45em + var(--source-gap));
 }
 pre.surimono-source > code {
@@ -27,6 +29,6 @@ pre.surimono-source > code {
 .surimono-source .source-digits { position: absolute; width: 0; height: 0; }
 .surimono-source .source-no {
     position: absolute; top: 0.325em; right: calc(100% + var(--source-gap)); height: 0.75em; width: auto;
-    fill: none; stroke: var(--code-no, #696969); stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round;
+    fill: none; stroke: var(--code-no, #5f5f5b); stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round;
     pointer-events: none; user-select: none; -webkit-print-color-adjust: exact; print-color-adjust: exact;
 }
