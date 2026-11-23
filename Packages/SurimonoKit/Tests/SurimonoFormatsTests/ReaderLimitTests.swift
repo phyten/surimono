@@ -292,6 +292,36 @@ struct ReaderLimitTests {
         #expect(written.body.components(separatedBy: "<td").count - 1 == 1_000)
     }
 
+    @Test("AsciiDoc の列指定がいくつあっても、同梱パーサーが展開する列は合計千まで", arguments: [("600*", 2), ("999*", 10_000)])
+    func asciiDocTotalColumns(_ spec: String, _ specCount: Int) throws {
+        let host = ScriptConverterHost(
+            "asciidoctor-4.2.1", bridge: "asciidoc-bridge", category: "Test", commonJS: false,
+            testing: .init(
+                beforeBridge: """
+                    let columnsBuilt = 0;
+                    const original = Parser.parseColspecs;
+                    Parser.parseColspecs = function (records) {
+                        // Stop a regressed bridge before it can expand the entire long fixture.
+                        if (records.length > 100) throw new Error('unbounded parser call');
+                        const columns = original.call(this, records);
+                        columnsBuilt += columns.length;
+                        return columns;
+                    };
+                    """,
+                script: """
+                    const readParts = documentParts;
+                    documentParts = async source => ({ ...await readParts(source), revision: String(columnsBuilt) });
+                    """))
+        let specs = Array(repeating: spec, count: specCount).joined(separator: ",")
+        let source = "[cols=\"\(specs)\"]\n|===\n" + String(repeating: "|x ", count: 1_000) + "\n|==="
+        let fragment = try host.fragment(source, notice: "") { document in
+            #expect(document.revision == "1000")
+            return try AsciiDocMarkup.fragment(document)
+        }
+        #expect(fragment.body.matches(of: /<col\b/).count == 1_000)
+        #expect(fragment.readingIssues.isEmpty)
+    }
+
     @Test("AsciiDoc の千以下の列の指定は、上限を付けない同梱のパーサーと同じ表になる")
     func asciiDocColumnSpecsMatchTheParser() throws {
         let capped = ScriptConverterHost(
@@ -328,10 +358,18 @@ struct ReaderLimitTests {
             if try read(capped) != read(bundled) { differences.append(source) }
         }
         #expect(differences.isEmpty, "\(differences.prefix(3))")
-        // Over the limit: a repeat with a space before its `*` is capped like one without.
-        func body(_ cols: String, _ host: ScriptConverterHost) throws -> String {
-            try host.fragment("[cols=\"\(cols)\"]\n|===\n|a\n|===", notice: "") { HTMLFragment(body: $0.html) }.body
+        func body(_ cols: String, _ host: ScriptConverterHost, cells: Int = 1) throws -> String {
+            let source = "[cols=\"\(cols)\"]\n|===\n" + String(repeating: "|a ", count: cells) + "\n|==="
+            return try host.fragment(source, notice: "") { HTMLFragment(body: $0.html) }.body
         }
+        for separator in [",", ";"] {
+            let exactly = ["", "00994*>.>2e", "003*^~", "12", "bad!", ""].joined(separator: separator)
+            let reference = try body(exactly, bundled, cells: 1_000)
+            let referenceColumns = reference.matches(of: /<col\b/).count
+            #expect(referenceColumns == 1_000)
+            #expect(try body(exactly, capped, cells: 1_000) == reference)
+        }
+        // A space before the repeat mark does not bypass the limit.
         #expect(try body("1001 *", capped) == body("1000*", bundled))
         #expect(try body("01001", capped) == body("01001", bundled))
     }
@@ -533,6 +571,41 @@ struct ReaderLimitTests {
         let fragment = try await onSmallStack { OrgConverter.convert("Line " + notes + " end.\n") }
         #expect(fragment.body.contains("end."))
         #expect(fragment.readingIssues == [StackSpace.limitIssue])
+    }
+}
+
+@Suite(.timeLimit(.minutes(1)))
+struct SmallStackTests {
+    @Test("取り消しハンドラーが待っていても、その解放前に期限切れが届く")
+    func deadlineWithBlockedCancellation() async throws {
+        let gate = DispatchSemaphore(value: 0)
+        let releasedByCaller = Locked(false)
+        let handlerEntered = AsyncStream<Void>.makeStream()
+        let handlerDone = AsyncStream<Void>.makeStream()
+        let workerDone = AsyncStream<Void>.makeStream()
+        let work = AsyncStream<Void>.makeStream()
+
+        let outcome = try await SmallStack.withDeadline(limit: .milliseconds(100)) {
+            defer { workerDone.continuation.finish() }
+            await withTaskCancellationHandler {
+                for await _ in work.stream {}
+            } onCancel: {
+                // Bound the wait so a regression fails without leaving a thread behind.
+                handlerEntered.continuation.finish()
+                releasedByCaller.value = gate.wait(timeout: .now() + 3) == .success
+                work.continuation.finish()
+                handlerDone.continuation.finish()
+            }
+        }
+        for await _ in handlerEntered.stream {}
+        gate.signal()
+        for await _ in handlerDone.stream {}
+        for await _ in workerDone.stream {}
+        guard case .timedOut = outcome else {
+            Issue.record("期限切れが届かなかった")
+            return
+        }
+        #expect(releasedByCaller.value)
     }
 }
 
