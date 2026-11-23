@@ -7,7 +7,7 @@ import UniformTypeIdentifiers
 
 @Observable
 final class ImageBundleModel {
-    struct Item: Identifiable, Hashable, Sendable {
+    nonisolated struct Item: Identifiable, Hashable, Sendable {
         /// The image file, or for an entry of a ZIP archive the archive's URL with the entry path appended. It only
         /// identifies the image; nothing is ever written there.
         let url: URL
@@ -100,6 +100,12 @@ final class ImageBundleModel {
 
     func move(fromOffsets offsets: IndexSet, toOffset destination: Int) {
         items.move(fromOffsets: offsets, toOffset: destination)
+    }
+
+    func move(_ source: URL, to gap: PageGridGap<Item>) {
+        guard let image = items.first(where: { $0.url == source }) else { return }
+        let moved = gap.moving(image, in: items)
+        if moved != items { items = moved }
     }
 
     /// Adds the images that are not in the bundle yet, by name among themselves, and returns them. A ZIP's images keep

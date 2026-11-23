@@ -1,6 +1,9 @@
 import CoreGraphics
 
 public struct PageTileSize: Sendable {
+    public static let currentLineWidth: CGFloat = 3
+    public static let framePadding: CGFloat = currentLineWidth + 2
+
     public let paper: CGSize
     public let paperAreaHeight: CGFloat
 
@@ -19,9 +22,11 @@ public struct PageTileSize: Sendable {
     }
 
     public init(width: CGFloat, aspect: CGFloat, rowMateAspect: CGFloat?) {
-        let height = min(208, width / aspect)
+        let width = max(0, width - 2 * Self.framePadding)
+        let limit = 208 - 2 * Self.framePadding
+        let height = min(limit, width / aspect)
         paper = CGSize(width: min(width, height * aspect), height: height)
         // Only the taller image in this row reserves space. Two landscapes still make a short row.
-        paperAreaHeight = max(height, rowMateAspect.map { min(208, width / $0) } ?? height)
+        paperAreaHeight = 2 * Self.framePadding + max(height, rowMateAspect.map { min(limit, width / $0) } ?? height)
     }
 }

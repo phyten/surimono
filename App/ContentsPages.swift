@@ -46,6 +46,7 @@ struct ContentsPages: View {
     @FocusState private var focused: Bool
     @State private var selection: Int?
     @Environment(\.displayScale) private var scale
+    @Environment(\.layoutDirection) private var interfaceDirection
 
     var body: some View {
         GeometryReader { geometry in
@@ -59,54 +60,90 @@ struct ContentsPages: View {
     private func grid(columns: Int, width: CGFloat) -> some View {
         let generation = model.thumbnailGeneration
         let marks = Set(model.bookmarkPages)
-        let sections = PageSection.sections(count: model.pageCount, chapters: model.chapterEntries)
+        let spreads = model.viewOptions.layout == .spread
+        let rtl = model.viewOptions.direction == .rightToLeft
+        let rows =
+            spreads
+            ? SpreadLayout.drawerRows(
+                pageCount: model.pageCount,
+                showsCoverAlone: model.viewOptions.showsCoverAlone, direction: model.viewOptions.direction,
+                columns: columns) : []
+        let sections = spreads ? [] : PageSection.sections(count: model.pageCount, chapters: model.chapterEntries)
         let items = model.imageBundle?.items.filter { !model.unreadableImageURLs.contains($0.url) }
+        let rightToLeft = spreads ? rtl : interfaceDirection == .rightToLeft
+        let horizontalStep = columns == 2 && rightToLeft ? -1 : 1
+        let dropGrid = items.map {
+            DropSession.PageGrid(readable: $0.map(\.url), columns: columns, rightToLeft: rightToLeft)
+        }
         let current = model.currentPageIndex
         let visiblePages = model.visibleReadingPages
         // Bundle tiles own their half of the gutter so a drop directly on the insertion line still lands.
         let spacing: CGFloat = items == nil ? 10 : 0
         let selected = selection ?? current
+        @ViewBuilder func cell(_ page: Int, chapter: String?, mate: Int?) -> some View {
+            let item = items.flatMap { $0.indices.contains(page) ? $0[page] : nil }
+            let tile = PageTile(
+                model: model, page: page, generation: generation, width: width,
+                scale: scale, chapter: chapter, marked: marks.contains(page), current: visiblePages.contains(page),
+                selected: focused && selected == page, rowMate: mate
+            ) {
+                selection = page
+                focused = true
+                jump(page, item: item)
+            }
+            if let item, let items, let bundle = model.imageBundle, let type = bundle.pageDragType {
+                tile.modifier(
+                    BundlePageDrag(
+                        model: model, bundle: bundle, type: type, item: item,
+                        readable: items, page: page, columns: columns,
+                        rightToLeft: rightToLeft)
+                )
+                .id(item.url)
+            } else {
+                tile
+            }
+        }
         return ScrollViewReader { proxy in
             ScrollView {
                 LazyVGrid(
                     columns: Array(repeating: GridItem(.flexible(), spacing: spacing), count: columns), spacing: spacing
                 ) {
-                    ForEach(sections) { section in
-                        Section {
-                            ForEach(section.pages, id: \.self) { page in
-                                let item = items.flatMap { $0.indices.contains(page) ? $0[page] : nil }
-                                let tile = PageTile(
-                                    model: model, page: page, generation: generation, width: width,
-                                    scale: scale, chapter: section.title, marked: marks.contains(page),
-                                    current: visiblePages.contains(page), selected: focused && selected == page,
-                                    rowMate: items == nil
-                                        ? nil : PageTileSize.rowMate(of: page, in: section.pages, columns: columns)
-                                ) {
-                                    selection = page
-                                    focused = true
-                                    jump(page, item: item)
-                                }
-                                if let item, let bundle = model.imageBundle, let type = bundle.pageDragType {
-                                    tile.modifier(
-                                        BundlePageDrag(
-                                            model: model, bundle: bundle, type: type, item: item, columns: columns)
-                                    ).id(page)
+                    if spreads {
+                        ForEach(rows.indices, id: \.self) { index in
+                            let row = rows[index]
+                            // SwiftUI lays columns out from leading to trailing in the interface language.
+                            ForEach(row.indices, id: \.self) { i in
+                                let column = interfaceDirection == .rightToLeft ? row.count - 1 - i : i
+                                if let page = row[column] {
+                                    cell(page, chapter: nil, mate: row.count == 2 ? row[1 - column] : nil).id(page)
                                 } else {
-                                    tile.id(page)
+                                    Color.clear.frame(height: 1).allowsHitTesting(false).accessibilityHidden(true)
                                 }
                             }
-                        } header: {
-                            if let title = section.title {
-                                Text(verbatim: title).font(.caption).foregroundStyle(PrintPalette.ink2)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .accessibilityAddTraits(.isHeader)
+                        }
+                    } else {
+                        ForEach(sections) { section in
+                            Section {
+                                ForEach(section.pages, id: \.self) { page in
+                                    cell(
+                                        page, chapter: section.title,
+                                        mate: items == nil
+                                            ? nil : PageTileSize.rowMate(of: page, in: section.pages, columns: columns)
+                                    ).id(page)
+                                }
+                            } header: {
+                                if let title = section.title {
+                                    Text(verbatim: title).font(.caption).foregroundStyle(PrintPalette.ink2)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .accessibilityAddTraits(.isHeader)
+                                }
                             }
                         }
                     }
                 }
                 .padding(4)
             }
-            .focusable()
+            .focusable(interactions: .edit)
             .focused($focused)
             .accessibilityLabel("Pages Tab")
             .onKeyPress(keys: [.upArrow, .downArrow, .leftArrow, .rightArrow, .space, .return]) { press in
@@ -116,10 +153,13 @@ struct ContentsPages: View {
                 let next: Int
                 switch press.key {
                 case .upArrow, .downArrow:
-                    next = PageSection.verticalNeighbor(
-                        of: selected, down: press.key == .downArrow, columns: columns, sections: sections)
-                case .leftArrow: next = selected - 1
-                case .rightArrow: next = selected + 1
+                    next =
+                        spreads
+                        ? SpreadLayout.verticalNeighbor(of: selected, down: press.key == .downArrow, in: rows)
+                        : PageSection.verticalNeighbor(
+                            of: selected, down: press.key == .downArrow, columns: columns, sections: sections)
+                case .leftArrow: next = selected - horizontalStep
+                case .rightArrow: next = selected + horizontalStep
                 default:
                     let item = items.flatMap { $0.indices.contains(selected) ? $0[selected] : nil }
                     jump(selected, item: item)
@@ -147,13 +187,11 @@ struct ContentsPages: View {
             } action: {
                 if model.imageBundle != nil { model.drop.listFrame = $0 }
             }
-            .onChange(of: columns, initial: true) { _, value in
-                if model.imageBundle != nil { model.drop.usesPageGrid = value == 2 }
-            }
+            .onChange(of: dropGrid, initial: true) { _, grid in model.drop.pageGrid = grid }
             .onDisappear {
                 if model.imageBundle != nil {
                     model.drop.listFrame = nil
-                    model.drop.usesPageGrid = false
+                    model.drop.pageGrid = nil
                 }
             }
         }
@@ -174,8 +212,10 @@ private struct BundlePageDrag: ViewModifier {
     let bundle: ImageBundleModel
     let type: UTType
     let item: ImageBundleModel.Item
+    let readable: [ImageBundleModel.Item]
+    let page: Int
     let columns: Int
-    @Environment(\.layoutDirection) private var direction
+    let rightToLeft: Bool
     @State private var size: CGSize = .zero
     @State private var insertion: PageGridInsertion?
 
@@ -206,8 +246,8 @@ private struct BundlePageDrag: ViewModifier {
             .onDrop(
                 of: [type],
                 delegate: BundlePageDrop(
-                    bundle: bundle, type: type, target: item.url, size: size, columns: columns,
-                    rightToLeft: direction == .rightToLeft, insertion: $insertion)
+                    bundle: bundle, type: type, readable: readable, page: page, size: size, columns: columns,
+                    rightToLeft: rightToLeft, insertion: $insertion)
             )
             .onGeometryChange(for: CGRect.self) {
                 $0.frame(in: .global)
@@ -225,7 +265,8 @@ private struct BundlePageDrag: ViewModifier {
 private struct BundlePageDrop: DropDelegate {
     let bundle: ImageBundleModel
     let type: UTType
-    let target: URL
+    let readable: [ImageBundleModel.Item]
+    let page: Int
     let size: CGSize
     let columns: Int
     let rightToLeft: Bool
@@ -248,15 +289,11 @@ private struct BundlePageDrop: DropDelegate {
     func performDrop(info: DropInfo) -> Bool {
         insertion = nil
         guard let provider = info.itemProviders(for: [type]).first else { return false }
-        let after = placement(info).after
+        let gap = PageGridGap(readable: readable, page: page, after: placement(info).after)
         provider.loadDataRepresentation(forTypeIdentifier: type.identifier) { data, _ in
             guard let data, let source = URL(dataRepresentation: data, relativeTo: nil) else { return }
             Task { @MainActor in
-                // Resolve identities at delivery: an unreadable image still occupies its slot in the bundle.
-                guard let from = bundle.items.firstIndex(where: { $0.url == source }),
-                    let to = bundle.items.firstIndex(where: { $0.url == target })
-                else { return }
-                bundle.move(fromOffsets: IndexSet(integer: from), toOffset: to + (after ? 1 : 0))
+                bundle.move(source, to: gap)
             }
         }
         return true
@@ -318,18 +355,32 @@ private struct PageTile: View {
                         }
                     }
                     .frame(width: tile.paper.width, height: tile.paper.height)
-                    .overlay {
-                        Rectangle().strokeBorder(
-                            current ? PrintPalette.ai : PrintPalette.line, lineWidth: current ? 3 : 1)
-                    }
                     .overlay(alignment: .topTrailing) {
                         if marked { Image(systemName: "bookmark.fill").foregroundStyle(PrintPalette.ai).padding(3) }
                     }
-                    .frame(height: tile.paperAreaHeight)
+                    .overlay { if !current { Rectangle().strokeBorder(PrintPalette.line, lineWidth: 1) } }
+                    .padding(PageTileSize.framePadding)
+                    .background(current ? Color.white : Color.clear)
+                    .overlay {
+                        if current {
+                            Rectangle().strokeBorder(PrintPalette.ai, lineWidth: PageTileSize.currentLineWidth)
+                                #if DEBUG
+                                    .preference(key: PageCurrentFramePreference.self, value: [page])
+                                #endif
+                        }
+                    }
+                    .padding(2)
+                    .overlay {
+                        if selected {
+                            Rectangle().strokeBorder(PrintPalette.ai, style: StrokeStyle(dash: [2, 2]))
+                                #if DEBUG
+                                    .preference(key: PageFocusRingPreference.self, value: [page])
+                                #endif
+                        }
+                    }
+                    .frame(height: tile.paperAreaHeight + 4)
                 Text(verbatim: String(page + 1)).monospacedDigit().font(.caption)
             }
-            .padding(2)
-            .overlay { if selected { Rectangle().strokeBorder(PrintPalette.ai, style: StrokeStyle(dash: [2, 2])) } }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -341,6 +392,7 @@ private struct PageTile: View {
                 } ?? String(format: String(localized: "Page %lld"), page + 1))
         )
         .accessibilityValue(marked ? Text("Bookmarked") : Text(verbatim: ""))
+        .accessibilityIdentifier("reading-page-\(page)")
         .accessibilityAddTraits(current ? .isSelected : [])
         #if DEBUG
             .onDisappear { model.snapshotThumbnailRequests.removeValue(forKey: captureID) }
@@ -363,3 +415,22 @@ private struct PageTile: View {
         }
     }
 }
+
+#if DEBUG
+    /// Report rings that the hosted drawer actually drew, including duplicate rings on different pages.
+    struct PageFocusRingPreference: PreferenceKey {
+        static let defaultValue: Set<Int> = []
+        static func reduce(value: inout Set<Int>, nextValue: () -> Set<Int>) {
+            value.formUnion(nextValue())
+        }
+    }
+
+    /// Report the pages the hosted drawer actually framed as current. Hosted tests cannot rely on the
+    /// accessibility tree, which SwiftUI builds only for an assistive client.
+    struct PageCurrentFramePreference: PreferenceKey {
+        static let defaultValue: Set<Int> = []
+        static func reduce(value: inout Set<Int>, nextValue: () -> Set<Int>) {
+            value.formUnion(nextValue())
+        }
+    }
+#endif

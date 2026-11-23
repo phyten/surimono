@@ -3,6 +3,46 @@ import SurimonoCore
 import Testing
 
 struct PageGridTests {
+    @Test("読めない画像をまたぐすき間では両側から同じ順番に移る", arguments: [1, 2])
+    func hiddenGap(columns: Int) {
+        let full = ["A", "X", "B", "C"]
+        let visible = ["A", "B", "C"]
+        for (page, position) in [(0, 99), (1, 1)] {
+            let marker = PageGridInsertion(
+                point: CGPoint(x: position, y: position), tile: CGSize(width: 100, height: 100),
+                columns: columns, rightToLeft: false)
+            let gap = PageGridGap(readable: visible, page: page, after: marker.after)
+            #expect(gap.moving("C", in: full) == ["A", "X", "C", "B"])
+        }
+    }
+
+    @Test("先頭は最初の可読画像の直前、末尾は読めない末尾画像の後に移す")
+    func ends() {
+        let full = ["H", "A", "B", "C", "T"]
+        let visible = ["A", "B", "C"]
+        #expect(
+            PageGridGap(readable: visible, page: 0, after: false).moving("C", in: full) == ["H", "C", "A", "B", "T"])
+        #expect(
+            PageGridGap(readable: visible, page: 2, after: true).moving("A", in: full) == ["H", "B", "C", "T", "A"])
+    }
+
+    @Test("自身の両隣に落としても不可視の画像との順序を変えない")
+    func adjacent() {
+        let full = ["H", "A", "X", "B", "Y", "C", "T"]
+        let visible = ["A", "B", "C"]
+        for (page, after) in [(0, true), (1, false), (1, true), (2, false)] {
+            #expect(PageGridGap(readable: visible, page: page, after: after).moving("B", in: full) == full)
+        }
+        #expect(PageGridGap(readable: visible, page: 2, after: true).moving("C", in: full) == full)
+    }
+
+    @Test("外枠の内側と縮図の間には2ptあり、枠を含めても列幅に収まる")
+    func inset() {
+        let tile = PageTileSize(width: 100, aspect: 1, rowMateAspect: nil)
+        #expect(tile.paper == CGSize(width: 90, height: 90))
+        #expect(PageTileSize.framePadding - PageTileSize.currentLineWidth == 2)
+    }
+
     private let tile = CGSize(width: 100, height: 140)
 
     @Test("1列ではタイルの上半分と下半分で前後を選び、境界に横線を置く")
@@ -41,9 +81,9 @@ struct PageGridTests {
     func paperSlots() {
         let portrait = PageTileSize(width: 160, aspect: 0.5, rowMateAspect: 2)
         let landscape = PageTileSize(width: 160, aspect: 2, rowMateAspect: 0.5)
-        #expect(portrait.paper == CGSize(width: 104, height: 208))
-        #expect(landscape.paper == CGSize(width: 160, height: 80))
+        #expect(portrait.paper == CGSize(width: 99, height: 198))
+        #expect(landscape.paper == CGSize(width: 150, height: 75))
         #expect(portrait.paperAreaHeight == 208 && landscape.paperAreaHeight == 208)
-        #expect(PageTileSize(width: 160, aspect: 2, rowMateAspect: nil).paperAreaHeight == 80)
+        #expect(PageTileSize(width: 160, aspect: 2, rowMateAspect: nil).paperAreaHeight == 85)
     }
 }

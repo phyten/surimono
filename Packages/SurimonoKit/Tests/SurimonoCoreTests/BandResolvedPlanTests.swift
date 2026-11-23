@@ -3,6 +3,28 @@ import SurimonoCore
 import Testing
 
 struct BandResolvedPlanTests {
+    @Test("画像の束の標準の入口は上下配置でも上だけでも目次の位置に来る", arguments: MenuArrangement.allCases)
+    func bundlePlacement(mode: MenuArrangement) {
+        let original = BandArrangement.standard(for: mode)
+        let placed = original.forImageBundle(in: mode)
+        let zone: BandZoneID = mode == .split ? .bottomLeft : .topRight
+        #expect(placed[zone].firstIndex(of: .part(.thumbnails)) == original[zone].firstIndex(of: .part(.outline)))
+        let plan = BandLayout.resolve(
+            arrangement: placed, mode: mode, availableItems: [.thumbnails, .layout],
+            measurements: BandMeasurementsValue(
+                items: [.thumbnails: .init(full: 70, compact: 30), .layout: .init(full: 80)], name: 80),
+            metrics: .init(topFixed: 120, bottomFixed: 20, separator: 9), availableWidth: 800)
+        let row = mode == .split ? plan.bottom : plan.top
+        #expect(row?.geometry.usesStandardSpacing == true)
+    }
+
+    @Test("カスタムの並びで一覧を置いた場所は画像の束でも保つ")
+    func customDrawer() throws {
+        let standard = BandArrangement.standard(for: .split)
+        let custom = try standard.moving(.thumbnails, to: .zone(.topRight), before: .print, for: .split)
+        #expect(custom.forImageBundle(in: .split) == custom)
+    }
+
     @Test("印刷の後ろの部品が幅で消えてもその他のドックは印刷の反対側へ移らない")
     func moreDockDoesNotMoveOnCollapse() {
         let layout = BandArrangement(topRight: [.print, .style])

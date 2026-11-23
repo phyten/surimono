@@ -3,6 +3,18 @@ import SurimonoCore
 import Testing
 
 struct PageTrackTests {
+    @Test("線の右方向は左開きで次のページ、右開きで前のページにあたる")
+    func arrowStep() {
+        #expect(PageTrack(count: 8, rightToLeft: false).stepToRight == 1)
+        #expect(PageTrack(count: 8, rightToLeft: true).stepToRight == -1)
+    }
+
+    @Test("ホバーの5ptの点は線と同じ中心に重なる")
+    func hoverDot() {
+        let mark = PageTrack.hoverMark(fraction: 0.3, size: CGSize(width: 200, height: 38))
+        #expect(mark == CGRect(x: 57.5, y: 16.5, width: 5, height: 5))
+    }
+
     @Test("二千ページも全幅で等間隔に対応し、両端を越えたら止まる")
     func linear() {
         let track = PageTrack(count: 2000, rightToLeft: false)

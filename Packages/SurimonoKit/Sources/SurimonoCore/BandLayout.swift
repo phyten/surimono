@@ -226,7 +226,10 @@ public enum BandLayout {
         // Reordering, crossing zones or editing separators uses adjacency gaps instead of the legacy stacks.
         func follows(_ entries: [BandEntry], order: [BandEntry]) -> Bool {
             let parts = Set(entries.compactMap(\.item))
-            return order.filter { $0.item.map(parts.contains) ?? true } == entries
+            let expected = order.filter { $0.item.map(parts.contains) ?? true }
+            if expected == entries { return true }
+            return availableItems.contains(.thumbnails) && !availableItems.contains(.outline)
+                && expected.withBundleEntryAtContents == entries
         }
         let standardSpacing =
             follows(leading, order: standardLeading)
