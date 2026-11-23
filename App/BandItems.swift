@@ -364,6 +364,8 @@ struct TransitionMenu: View {
         .buttonStyle(.plain)
         .menuIndicator(.hidden)
         .fixedSize()
+        .accessibilityLabel(Text("Page Turn"))
+        .accessibilityValue(Text(model.viewOptions.transition.title))
         .help("Page Turn")
     }
 }

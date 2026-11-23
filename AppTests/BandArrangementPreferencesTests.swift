@@ -6,6 +6,22 @@ import Testing
 
 @MainActor
 struct BandArrangementPreferencesTests {
+    @Test("部品の表示は初めは名前付きで、変更した表示は次の起動にも残る")
+    func bandNamesRoundTrip() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        func load() -> AppPreferences { AppPreferences(defaults: suite.defaults, domainName: suite.name) }
+        let preferences = load()
+        #expect(preferences.bandNames == .shown)
+        #expect(suite.defaults.object(forKey: "bandNames") == nil)
+        preferences.bandNames = .hidden
+        #expect(load().bandNames == .hidden)
+        preferences.bandNames = .shown
+        #expect(load().bandNames == .shown)
+        // Saving a display choice must not create or migrate the arrangement store.
+        #expect(suite.defaults.data(forKey: "bandArrangementStore") == nil)
+    }
+
     @Test("保存のない環境は標準が有効で初期化時には何も保存しない")
     func noStoredValue() {
         let suite = TestDefaultsSuite()
