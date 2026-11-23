@@ -344,11 +344,15 @@ WebKit の文書組版もメインディスプレイの倍率に影響される�
 
 ## 文章の点検（土台だけ。画面はまだない）
 
-- 本文の取り出しは `ProseSource`（SurimonoFormats）: Markdown とプレーンテキストの段落を、印を除いた本文と、原文の UTF-16 の範囲へ戻す対応（`ProseParagraph.sourceRange(of:)`）つきで返す。ブロックは cmark の木（段落とリストの中の段落だけ）、インラインで読まない所は変換と同じ走査（`MarkdownExtensions.inlineMatches`）で決める。front matter・見出し・コード・HTML ブロック・表・引用・`:::` の行は読まず、インラインのコード・数式・URL は U+FFFC 1 つに置き換える。
-- 点検は `ProseCheck`（SurimonoCore）: 総合点は出さず、数字（文の数、長さの中央値、長い文の数、日本語の文の字種）と指摘（長い文・続いた同じ語・近い繰り返し）を返す。言語は本文から決め（日本語・英語・混在）、ほかの言語・本文なし・読まない形式は `ProseAnalysis.notAnalysed` で、指摘なしとは別の答えにする。
-- しきい値は `ProseLimits`（どれも暫定値）、語の表は `ProseWordTables`、語の区切りは `ProseTokenizer`（本番は `NLTokenizer`、英語の見出し語と品詞は `NLTagger`）。規則のテストは決めた語で、システムの区切りのテストは少数だけ。文の区切りは自前（`ProseSentences`）。
+- 入口は `ProseCheck.analysis(of:format:)`（SurimonoCore、async）だけ。総合点は出さず、数字（文の数、長さの中央値、長い文の数、日本語の文の字種）と指摘（長い文・続いた同じ語・近い繰り返し）を返す。本文なし・読まない形式・言語を決められない・日英以外の言語は `ProseAnalysis.notAnalysed` で、指摘なしとは別の答えにする。
+- 本文の取り出しは `ProseSource`（SurimonoFormats、package）。Markdown は変換と同じ行の処理（front matter・深い入れ子・改ページ・脚注の定義・数式ブロック `rewriteInline(blocksOnly:)`・`:::` の囲み）を通してから変換と同じパーサーで読み、cmark の木から「紙に見える本文」を組む。読むのは文書・リスト・脚注の段落と、定義リストの語と説明。見出し・コード・HTML ブロック・表・引用は読まない。インラインのコード・数式・URL・画像は U+FFFC 1 つ、リンク先・タグ・定義のある脚注の印・ルビの読みは入れない。裸の URL は `MarkdownConverter.autolinks(in:)` を変換と共用する。
+- 位置は原文の UTF-16（`ProseParagraph.sourceRange(of:)`）。cmark のインラインの行と桁は、バックスラッシュの改行のあとで行が進まず、参照の定義から始まる段落では定義の行から数え、表が直に続く段落には付かない。`InlineWalk.position` などが直し、`ProseSourceTests` が原文と突き合わせて固定している。
+- 言語は文ごとに決める（かながあれば日本語。英字の文と、かなのない漢字の文は `NLLanguageRecognizer`。段落の英字の文は先にまとめて聞き、英語と確かなら文ごとには聞かない）。決められない短い文は、同じ段落の前後の決まった文、なければ文書で多い方に合わせる。日本語・英語が「対象外」の理由になることはない。
+- 重複と繰り返しは、採用した文の中だけで、その文の言語の規則で調べる（英語の文は語数の窓と `NLTagger` の品詞・見出し語、日本語の文は字数の窓）。対象外の文はまたがない。長さと距離は同じ数え方（日本語は見た目の字、英語は英数字の続き）。
+- 主題の語: 読んだ段落の 2 割以上（最低 4 段落）に出る語の繰り返しは出さない。すべての段落で繰り返される語も主題として出さない（仕様）。
+- しきい値は `ProseLimits`（どれも暫定値、internal）、語の表は `ProseWordTables`、語の区切りは `ProseTokenizer`、言語の認識は `ProseLanguageRecognizer`。規則のテストは決めた語と決めた答えで行い、システムのテストは順序・範囲・原文への往復だけを見る。文の区切りは自前（`ProseSentences`、線形）。
 - NaturalLanguage は端末の中だけで動く。`requestAssets` は呼ばない。外部のプログラムも呼ばない。
-- 時間は `make bench-prose` で測る。
+- 時間は `make bench-prose` で測る。通常のテストに時間の期待値は置かない。
 
 ## 印刷モード（刷り台）
 
