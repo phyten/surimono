@@ -21,96 +21,282 @@ extension DocumentOutline {
     public static func pages(
         of headings: [DocumentHeading], inPageTexts pages: [String], contentsEntries: [String] = []
     ) -> [Int?] {
-        var index = LineIndex(pages: pages)
-        index.exclude(contentsEntries.map(normalized))
+        guard !headings.isEmpty else { return [] }
+        var labels = Labels()
+        let titles = headings.map { labels.insert(normalized($0.text)) }
+        let tables = contentsEntries.split(separator: "").map { $0.map(normalized).filter { !$0.isEmpty } }
+        for table in tables {
+            for entry in table { _ = labels.insert(entry) }
+        }
+        let index = LineIndex(pages: pages, labels: labels)
+        var excluded: Set<Int> = []
+        if !tables.isEmpty {
+            let contents = ContentsIndex(lines: index.lines, labels: labels)
+            var cursor = 0
+            for table in tables where !table.isEmpty {
+                // An unsuccessful search has reached EOF; later tables share the same forward cursor.
+                guard let run = contents.firstRun(of: table, from: cursor) else { break }
+                excluded.formUnion(run)
+                cursor = run.upperBound
+            }
+        }
+        var matches = index.headingMatches(excluding: excluded)
         var cursor = 0
-        return headings.map { heading in
-            let target = normalized(heading.text)
-            guard !target.isEmpty, let match = index.firstMatch(of: target, from: cursor) else { return nil }
-            cursor = match.end
-            return match.page
+        return titles.map { id in
+            while let first = matches[id]?.last, first.lowerBound < cursor { matches[id]?.removeLast() }
+            guard let match = matches[id]?.popLast() else { return nil }
+            cursor = match.upperBound
+            return index.lines[match.lowerBound].page
+        }
+    }
+
+    /// Each complete spelling has one integer ID, including labels shared by several tables. A prefix also
+    /// tells whether another printed line could complete a wrapped label.
+    private struct Labels {
+        struct Prefix {
+            var next: [Character: Int] = [:]
+            var complete = false
+        }
+        var prefixes = [Prefix()]
+
+        mutating func insert(_ text: String) -> Int {
+            var node = 0
+            for character in text {
+                if let next = prefixes[node].next[character] {
+                    node = next
+                } else {
+                    let next = prefixes.count
+                    prefixes[node].next[character] = next
+                    prefixes.append(Prefix())
+                    node = next
+                }
+            }
+            prefixes[node].complete = node != 0
+            return node
+        }
+
+        func advance(_ node: Int, by text: String) -> Int? {
+            var node = node
+            for character in text {
+                guard let next = prefixes[node].next[character] else { return nil }
+                node = next
+            }
+            return node
         }
     }
 
     private struct LineIndex {
-        /// A heading wraps only when it is long, so a wrapped one shares at least this much with its first line.
-        private static let wrappedPrefixLength = 4
+        struct Line {
+            let page: Int
+            var ends: [Int: Int] = [:]
+            let forms: [String]
+        }
+        var lines: [Line] = []
 
-        private var lines: [(page: Int, forms: [String])] = []
-        private var whole: [String: [Int]] = [:]
-        private var wrapped: [String: [Int]] = [:]
-        private var excluded: Set<Int> = []
-
-        init(pages: [String]) {
+        init(pages: [String], labels: Labels) {
             for (page, text) in pages.enumerated() {
-                for line in text.components(separatedBy: .newlines) {
-                    let forms = Self.forms(of: line)
-                    guard let first = forms.first, !first.isEmpty else { continue }
-                    for form in forms {
-                        whole[form, default: []].append(lines.count)
-                        if form.count >= Self.wrappedPrefixLength {
-                            wrapped[String(form.prefix(Self.wrappedPrefixLength)), default: []].append(lines.count)
-                        }
+                var previous: [Int] = []
+                var continued: [Int] = []
+                var start = 0
+                for raw in text.components(separatedBy: .newlines) {
+                    let forms = Self.forms(of: raw)
+                    guard !forms[0].isEmpty else { continue }
+                    let line = lines.count
+                    lines.append(Line(page: page, forms: forms))
+                    // Check the adjacent pair even while a longer spelling is open. A failed wrap can end
+                    // on the first line of the next real heading.
+                    continued = extend(continued, from: start, by: forms[0], labels: labels)
+                    let pair = extend(previous, from: line - 1, by: forms[0], labels: labels)
+                    if continued.isEmpty {
+                        start = line - 1
+                        continued = pair
                     }
-                    lines.append((page, forms))
+                    previous.removeAll(keepingCapacity: true)
+                    for form in forms where !form.isEmpty {
+                        guard let node = labels.advance(0, by: form) else { continue }
+                        let prefix = labels.prefixes[node]
+                        if prefix.complete { lines[line].ends[node] = line + 1 }
+                        if !prefix.next.isEmpty && form.count >= 4 { previous.append(node) }
+                    }
                 }
             }
         }
 
-        /// The text's own table of contents repeats the headings line after line, wherever it stands; a heading
-        /// with text under it never does, so the first unbroken run of the entries is the table.
-        mutating func exclude(_ entries: [String]) {
-            let entries = entries.filter { !$0.isEmpty }
-            guard let first = entries.first else { return }
-            var starts = whole[first] ?? []
-            if first.count > Self.wrappedPrefixLength {
-                starts += wrapped[String(first.prefix(Self.wrappedPrefixLength))] ?? []
+        private mutating func extend(_ spellings: [Int], from start: Int, by text: String, labels: Labels)
+            -> [Int]
+        {
+            var longer: [Int] = []
+            for spelling in spellings {
+                guard let node = labels.advance(spelling, by: text) else { continue }
+                let prefix = labels.prefixes[node]
+                if prefix.complete { lines[start].ends[node] = lines.count }
+                if !prefix.next.isEmpty { longer.append(node) }
             }
-            for start in Set(starts).sorted() {
-                var line = start
-                var covered: [Int] = []
-                var matched = 0
-                for entry in entries {
-                    guard line < lines.count else { break }
-                    if lines[line].forms.contains(entry) {
-                        covered.append(line)
-                        line += 1
-                    } else if let end = endOfWrappedHeading(entry, from: line) {
-                        covered += Array(line..<end)
-                        line = end
-                    } else {
-                        break
+            return longer
+        }
+
+        /// Index body matches only. A wrapped heading cannot continue through the start of a table.
+        func headingMatches(excluding excluded: Set<Int>) -> [Int: [Range<Int>]] {
+            var matches: [Int: [Range<Int>]] = [:]
+            var nextExcluded = lines.count
+            for line in lines.indices.reversed() {
+                if excluded.contains(line) {
+                    nextExcluded = line
+                } else {
+                    for (id, end) in lines[line].ends where end <= nextExcluded {
+                        matches[id, default: []].append(line..<end)
                     }
-                    matched += 1
                 }
-                // A wrapped entry takes several lines, so only the entries themselves can tell the table is whole.
-                if matched == entries.count {
-                    excluded.formUnion(covered)
-                    return
+            }
+            return matches
+        }
+
+        /// The line as it stands, and without a number when it has one: a theme can number a heading with a counter,
+        /// which puts text in front of it on the page only.
+        private static func forms(of line: String) -> [String] {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            let number = trimmed.prefix { $0.isNumber || ".．、:：-)）(（".contains($0) }
+            let rest = trimmed.dropFirst(number.count)
+            let endsNumber = rest.first?.isWhitespace == true || number.last.map { !$0.isNumber } == true
+            guard !number.isEmpty, !rest.isEmpty, endsNumber else { return [normalized(line)] }
+            return [normalized(line), normalized(String(rest))]
+        }
+    }
+
+    private struct ContentsIndex {
+        let lines: [LineIndex.Line]
+        let labels: Labels
+        private var whole: [String: IndexSet] = [:]
+        private var wrapped: [String: IndexSet] = [:]
+        private var prefixStarts: [Int: IndexSet] = [:]
+
+        init(lines: [LineIndex.Line], labels: Labels) {
+            self.lines = lines
+            self.labels = labels
+            for (position, line) in lines.enumerated() {
+                for form in line.forms {
+                    whole[form, default: IndexSet()].insert(position)
+                    if form.count >= 4 { wrapped[String(form.prefix(4)), default: IndexSet()].insert(position) }
                 }
+            }
+            for (form, starts) in whole {
+                if let node = labels.advance(0, by: form) { prefixStarts[node] = starts }
             }
         }
 
-        func firstMatch(of target: String, from cursor: Int) -> (page: Int, end: Int)? {
-            var best: (page: Int, end: Int, start: Int)?
-            let exact = whole[target] ?? []
-            var start = Self.firstPosition(in: exact, atLeast: cursor)
-            while start < exact.count, excluded.contains(exact[start]) { start += 1 }
-            if start < exact.count {
-                best = (lines[exact[start]].page, exact[start] + 1, exact[start])
+        /// Try master's first whole line or four-character wrap prefix after the previous table.
+        func firstRun(of entries: [String], from cursor: Int) -> Range<Int>? {
+            guard let first = entries.first else { return nil }
+            let exact = whole[first] ?? IndexSet()
+            let prefix = first.count > 4 ? wrapped[String(first.prefix(4))] ?? IndexSet() : IndexSet()
+            func nextStart(from position: Int) -> Int? {
+                [exact, prefix].compactMap { $0.integerGreaterThanOrEqualTo(position) }.min()
             }
-            guard target.count > Self.wrappedPrefixLength else { return best.map { ($0.page, $0.end) } }
-            let candidates = wrapped[String(target.prefix(Self.wrappedPrefixLength))] ?? []
-            var position = Self.firstPosition(in: candidates, atLeast: cursor)
-            while position < candidates.count, candidates[position] < best?.start ?? .max {
-                let start = candidates[position]
-                if !excluded.contains(start), let end = endOfWrappedHeading(target, from: start) {
-                    best = (lines[start].page, end, start)
+            var candidate = nextStart(from: cursor)
+            while let start = candidate, lines.count - start >= entries.count {
+                let run = orderedRun(entries, from: start)
+                if run.matched == entries.count { return start..<run.end }
+                candidate = nextStart(from: start + 1)
+                if let next = candidate, next < run.end {
+                    return overlappingRun(entries, from: next, failedAt: run.matched, exact: exact, prefix: prefix)
+                }
+            }
+            return nil
+        }
+
+        /// A numbered line can continue one run and start another. Keep all starts that can reach the
+        /// next entry boundary, including both spellings. IndexSet shifts whole ranges of equal-width matches.
+        private func overlappingRun(
+            _ entries: [String], from lower: Int, failedAt pivot: Int,
+            exact: IndexSet, prefix: IndexSet
+        ) -> Range<Int>? {
+            var upper = min(lines.count, lower + entries.count)
+            while upper - lower >= entries.count {
+                let window = lower..<upper
+                var cache: [String: [Int: IndexSet]] = [:]
+                func spans(of entry: String) -> [Int: IndexSet] {
+                    if let known = cache[entry] { return known }
+                    let spans = lineSpans(of: entry, in: window)
+                    cache[entry] = spans
+                    return spans
+                }
+
+                // The item that broke the first run must actually occur. Use its possible ends before
+                // testing a long common suffix; e.g. ABABX followed by several hundred AB pairs.
+                // Each preceding and following entry needs at least one physical line of its own.
+                let lastPivot = upper - (entries.count - pivot)
+                var suffix = IndexSet(integersIn: (lower + pivot)...lastPivot)
+                for entry in entries[pivot...] {
+                    var ends = IndexSet()
+                    for (width, positions) in spans(of: entry) {
+                        var next = suffix.intersection(positions)
+                        next.shift(startingAt: 0, by: width)
+                        ends.formUnion(next)
+                    }
+                    suffix = ends
+                    if suffix.isEmpty { break }
+                }
+                for entry in entries.reversed() {
+                    if suffix.isEmpty { break }
+                    var starts = IndexSet()
+                    for (width, positions) in spans(of: entry) {
+                        var earlier = suffix
+                        earlier.remove(integersIn: 0..<width)
+                        earlier.shift(startingAt: width, by: -width)
+                        starts.formUnion(earlier.intersection(positions))
+                    }
+                    suffix = starts
+                }
+                let start = [exact, prefix].compactMap { suffix.intersection($0).first }.min()
+                if let start {
+                    // The sets establish which start is first; replay it once to get its final line.
+                    let run = orderedRun(entries, from: start)
+                    if run.matched == entries.count { return start..<run.end }
+                }
+                // Earlier starts of the same entry finish no later: even its number-stripped spelling
+                // starts before the next physical line. Thus the first window with a whole run is sufficient.
+                if upper == lines.count { break }
+                upper += min(upper - lower, lines.count - upper)
+            }
+            return nil
+        }
+
+        /// Master's comparisons in order. Only the final boundary is needed to exclude a complete run.
+        private func orderedRun(_ entries: [String], from start: Int) -> (end: Int, matched: Int) {
+            var line = start
+            var matched = 0
+            for entry in entries {
+                guard line < lines.count else { break }
+                if lines[line].forms.contains(entry) {
+                    line += 1
+                } else if let end = endOfWrappedHeading(entry, from: line) {
+                    line = end
+                } else {
                     break
                 }
-                position += 1
+                matched += 1
             }
-            return best.map { ($0.page, $0.end) }
+            return (line, matched)
+        }
+
+        /// A printed prefix can wrap across several lines. Record the same end that the ordered check
+        /// would take at that start, including its preference for a whole-line spelling.
+        private func lineSpans(of entry: String, in window: Range<Int>) -> [Int: IndexSet] {
+            let exact = whole[entry] ?? IndexSet()
+            var spans = [1: exact.intersection(IndexSet(integersIn: window))]
+            var node = 0
+            for character in entry {
+                if let positions = prefixStarts[node] {
+                    for start in positions[positions.indexRange(in: window)] where !exact.contains(start) {
+                        if let end = endOfWrappedHeading(entry, from: start), end <= window.upperBound {
+                            spans[end - start, default: IndexSet()].insert(start)
+                        }
+                    }
+                }
+                guard let next = labels.prefixes[node].next[character] else { break }
+                node = next
+            }
+            return spans
         }
 
         /// The index after the last line of a heading that wraps from `start`. It stays on one page.
@@ -126,32 +312,6 @@ extension DocumentOutline {
                 }
             }
             return nil
-        }
-
-        /// The line as it stands, and without a number when it has one: a theme can number a heading with a counter,
-        /// which puts text in front of it on the page only.
-        private static func forms(of line: String) -> [String] {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            let number = trimmed.prefix { $0.isNumber || ".．、:：-)）(（".contains($0) }
-            let rest = trimmed.dropFirst(number.count)
-            let endsNumber = rest.first?.isWhitespace == true || number.last.map { !$0.isNumber } == true
-            guard !number.isEmpty, !rest.isEmpty, endsNumber else { return [normalized(line)] }
-            return [normalized(line), normalized(String(rest))]
-        }
-
-        private static func first(in sorted: [Int], atLeast value: Int) -> Int? {
-            let position = firstPosition(in: sorted, atLeast: value)
-            return position < sorted.count ? sorted[position] : nil
-        }
-
-        private static func firstPosition(in sorted: [Int], atLeast value: Int) -> Int {
-            var low = 0
-            var high = sorted.count
-            while low < high {
-                let middle = (low + high) / 2
-                if sorted[middle] < value { low = middle + 1 } else { high = middle }
-            }
-            return low
         }
     }
 

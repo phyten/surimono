@@ -89,7 +89,7 @@ struct PrintIssuesPopover: View {
                     .disabled(TextScale.smaller(than: model.textScale) == model.textScale)
             }
         case .math, .latex, .rst, .bibliography, .mermaid, .mermaidTimeout, .verticalWriting, .nestingLimit,
-            .nestingOmission:
+            .nestingOmission, .contentsLimit:
             EmptyView()
         }
     }
@@ -111,6 +111,10 @@ enum PrintIssueText {
         case .nestingLimit:
             return PrintModeText.string(
                 "Part of the document is nested too deeply. The original text of that part will be printed.",
+                language: language)
+        case .contentsLimit:
+            return PrintModeText.string(
+                "The table of contents is too large, so part or all of it will be left out when printing.",
                 language: language)
         case .nestingOmission:
             return PrintModeText.string(
@@ -163,7 +167,8 @@ enum PrintIssueText {
                 key = "Showing images needs permission to read the folder"
             case .other, nil: key = "Check that the image is readable and in a supported format."
             }
-        case .rst, .verticalWriting, .bibliography, .mermaidTimeout, .nestingLimit, .nestingOmission: return ""
+        case .rst, .verticalWriting, .bibliography, .mermaidTimeout, .nestingLimit, .nestingOmission, .contentsLimit:
+            return ""
         case .overflow: key = "Try landscape paper or smaller text, or adjust this element in the source document."
         case .math: key = "Check the formula's syntax and use supported commands in the source document."
         case .mermaid: key = "Check the Mermaid syntax and simplify the diagram in the source document."

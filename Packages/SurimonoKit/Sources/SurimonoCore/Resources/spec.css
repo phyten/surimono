@@ -12,8 +12,8 @@ body:not(.format-latex) h2::before, body:not(.format-latex) h3::before {
     position: absolute; inset-inline-start: -3.2em; width: 2.7em; text-align: end; font-family: "SFMono-Regular", Menlo, monospace;
     font-size: 0.9em; font-weight: 400; color: #7a3e00;
 }
-body:not(.format-latex) h2::before { content: counter(sec); }
-body:not(.format-latex) h3::before { content: counter(sec) "." counter(sub); }
+body:not(.format-latex):not(.own-heading-numbers) h2::before { content: counter(sec); }
+body:not(.format-latex):not(.own-heading-numbers) h3::before { content: counter(sec) "." counter(sub); }
 p, ul, ol, table, pre { margin: 0.55em 0; }
 pre { font-size: 8.5pt; line-height: 1.5; padding: 0.5em 0.8em; border: 0.5pt solid #b7bfca; }
 table { width: 100%; font-family: "SFMono-Regular", Menlo, "Hiragino Sans", monospace; font-size: 0.86em; }
