@@ -7,10 +7,11 @@ enum VerticalPaginator {
         .flatMap { try? String(contentsOf: $0, encoding: .utf8) }
 
     /// The optional sample position is an x coordinate in the prepared strip, measured after the theme took effect.
-    /// Only that page needs a PDF capture in the palette.
+    /// Only that page needs a PDF capture in the palette. It receives the deadline of the whole call, so that looking
+    /// the position up spends what is left of the budget instead of starting one of its own.
     static func pages(
         in webView: WKWebView, pageSize: CGSize, margins: WebPaginator.Margins, timeout: Duration,
-        samplePosition: (@MainActor () async throws -> CGFloat?)? = nil
+        samplePosition: (@MainActor (ContinuousClock.Instant) async throws -> CGFloat?)? = nil
     ) async throws -> PDFDocument {
         try Task.checkCancellation()
         guard PDFDrawing.validGeometry(pageSize: pageSize, margins: margins), let measurement else {
@@ -31,7 +32,7 @@ enum VerticalPaginator {
                 try Task.checkCancellation()
                 var indices = slices.indices
                 if let samplePosition, !indices.isEmpty {
-                    let position = try await samplePosition()
+                    let position = try await samplePosition(deadline)
                     let index = position.flatMap { x in slices.firstIndex { $0.end >= -x } } ?? indices.startIndex
                     indices = index..<(index + 1)
                 }
@@ -119,17 +120,12 @@ enum FlowPageCapture {
     @discardableResult
     static func draw(
         _ rect: CGRect, from webView: WKWebView, into target: CGRect, in context: CGContext, transparent: Bool = false,
-        deadline: ContinuousClock.Instant? = nil
+        deadline: ContinuousClock.Instant
     ) async throws -> PrintedSlice {
         let config = WKPDFConfiguration()
         config.rect = rect
         config.allowTransparentBackground = transparent
-        let data: Data
-        if let deadline {
-            data = try await webView.pdfForPrinting(configuration: config, until: deadline)
-        } else {
-            data = try await webView.pdf(configuration: config)
-        }
+        let data = try await webView.pdfForPrinting(configuration: config, until: deadline)
         try Task.checkCancellation()
         return try draw(data, into: target, in: context)
     }
