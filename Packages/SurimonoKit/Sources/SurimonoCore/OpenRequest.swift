@@ -65,7 +65,7 @@ public enum OpenRequest: Equatable, Sendable {
     }
 
     static func fileFormat(
-        _ url: URL, within root: String?,
+        _ url: URL, within root: String?, keepsUndecided: Bool = true,
         inspect: (URL, String?) -> TextFileGate.FileVerdict = { TextFileGate.inspect($0, within: $1) }
     ) -> FileFormat {
         guard url.isFileURL,
@@ -83,7 +83,9 @@ public enum OpenRequest: Equatable, Sendable {
         case .decided(.notConcerned), .missing: return FileFormat(format: named())
         // Before a sandboxed app is given the file there is nothing to read. It stays a candidate, and is decided
         // at the drop or when the folder is allowed.
-        case .undecided: return FileFormat(format: named() ?? .plainText, isUndecided: true)
+        case .undecided:
+            // Once the files have been given, one that still cannot be read is no candidate any more.
+            return FileFormat(format: keepsUndecided ? named() ?? .plainText : nil, isUndecided: true)
         }
     }
 }
@@ -93,16 +95,20 @@ public enum OpenRequest: Equatable, Sendable {
 package final class FileFormats {
     private var known: [URL: OpenRequest.FileFormat] = [:]
     private let inspect: (URL, String?) -> TextFileGate.FileVerdict
+    private let keepsUndecided: Bool
 
+    /// `keepsUndecided` is false for a request that is carried out: what cannot be read by then is left out.
     package init(
+        keepsUndecided: Bool = true,
         inspect: @escaping (URL, String?) -> TextFileGate.FileVerdict = { TextFileGate.inspect($0, within: $1) }
     ) {
+        self.keepsUndecided = keepsUndecided
         self.inspect = inspect
     }
 
     private func format(_ url: URL) -> OpenRequest.FileFormat {
         if let format = known[url] { return format }
-        let format = OpenRequest.fileFormat(url, within: nil, inspect: inspect)
+        let format = OpenRequest.fileFormat(url, within: nil, keepsUndecided: keepsUndecided, inspect: inspect)
         known[url] = format
         return format
     }

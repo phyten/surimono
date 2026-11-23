@@ -48,6 +48,8 @@ public struct DropPlan: Equatable, Sendable {
     /// Files that could not be read yet, as before a sandboxed app is given what is dragged over it. They count as
     /// what they would be if they are text, and `decided()` finds out at the drop.
     public let undecided: [URL]
+    /// Files that could still not be read when the plan was decided at the drop. They are among `leftOut`.
+    public let unreadable: [URL]
     private let urls: [URL]
     private let receiver: Receiver
 
@@ -57,7 +59,7 @@ public struct DropPlan: Equatable, Sendable {
 
     /// The plan made again once the files can be read, when anything in it was not decided.
     public func decided() -> DropPlan {
-        undecided.isEmpty ? self : DropPlan(urls: urls, receiver: receiver)
+        undecided.isEmpty ? self : DropPlan(urls: urls, receiver: receiver, formats: FileFormats(keepsUndecided: false))
     }
 
     package init(urls: [URL], receiver: Receiver, formats: FileFormats) {
@@ -69,7 +71,10 @@ public struct DropPlan: Equatable, Sendable {
         others = files.filter { !own.contains($0) }
         alreadyIn = files.filter(own.contains)
         // One decision per file for the whole plan: a decision can read the file, and a drag asks again and again.
-        undecided = OpenRequest.sorted(others.filter(formats.isUndecided))
+        let waiting = OpenRequest.sorted(others.filter(formats.isUndecided))
+        let candidates = waiting.filter { formats.binderFormat($0) != nil }
+        undecided = candidates
+        unreadable = waiting.filter { !candidates.contains($0) }
         let joinable = receiver.canHoldFiles ? others.filter { formats.binderFormat($0) != nil } : []
         adding = OpenRequest.sorted(joinable)
         leftOut = receiver.canHoldFiles ? OpenRequest.sorted(others.filter { formats.binderFormat($0) == nil }) : []

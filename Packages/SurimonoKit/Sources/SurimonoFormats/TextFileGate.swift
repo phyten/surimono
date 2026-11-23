@@ -108,36 +108,43 @@ public enum TextFileGate {
     /// The verdict for a file, reading at most `headLength` bytes of it. With `root`, a file that opens outside
     /// that folder (through a link) is refused. A file of no kind the gate looks at is not opened at all.
     public static func inspect(_ url: URL, within root: String? = nil) -> FileVerdict {
-        guard url.isFileURL else { return .decided(.notConcerned) }
+        inspection(of: url, within: root).verdict
+    }
+
+    /// The verdict together with the size of the file that was looked at, for what must turn a text over a limit
+    /// away before anything loads it. The size is nil when the file was not opened.
+    public static func inspection(of url: URL, within root: String? = nil) -> (verdict: FileVerdict, size: Int?) {
+        guard url.isFileURL else { return (.decided(.notConcerned), nil) }
         let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType
-        guard concerns(fileName: url.lastPathComponent, type: type) else { return .decided(.notConcerned) }
+        guard concerns(fileName: url.lastPathComponent, type: type) else { return (.decided(.notConcerned), nil) }
         let descriptor: Int32
         do {
             descriptor = try ConfinedFile.open(url)
         } catch let error as POSIXError {
             switch error.code {
-            case .ENOENT, .ENOTDIR: return .missing
-            case .EACCES, .EPERM: return .undecided
-            default: return .refused
+            case .ENOENT, .ENOTDIR: return (.missing, nil)
+            case .EACCES, .EPERM: return (.undecided, nil)
+            default: return (.refused, nil)
             }
         } catch {
-            return .refused
+            return (.refused, nil)
         }
         defer { Darwin.close(descriptor) }
-        guard let opened = try? check(descriptor, within: root),
-            let head = try? readHead(descriptor)
-        else { return .refused }
-        return .decided(
-            verdict(
-                fileName: url.lastPathComponent, type: type, head: head, isWhole: opened.size <= head.count))
+        guard
+            let opened = try? inspect(
+                descriptor: descriptor, fileName: url.lastPathComponent, type: type, within: root)
+        else { return (.refused, nil) }
+        return (.decided(opened.verdict), opened.size)
     }
 
-    /// The verdict for the file a descriptor is open on, for callers that read the rest through the same descriptor
-    /// and for the test that no more than the beginning is read.
-    package static func inspect(descriptor: Int32, fileName: String, type: UTType? = nil) throws -> Verdict {
-        let opened = try check(descriptor, within: nil)
+    /// The verdict for the file a descriptor is open on, with its size and the bytes that were read for it. Every
+    /// reading of a file comes through here, so the test that no more than the beginning is read holds for all.
+    package static func inspect(
+        descriptor: Int32, fileName: String, type: UTType? = nil, within root: String? = nil
+    ) throws -> (verdict: Verdict, size: Int, head: Data) {
+        let size = try check(descriptor, within: root)
         let head = try readHead(descriptor)
-        return verdict(fileName: fileName, type: type, head: head, isWhole: opened.size <= head.count)
+        return (verdict(fileName: fileName, type: type, head: head, isWhole: size <= head.count), size, head)
     }
 
     /// The whole of a file of a kind the gate looks at, read through one descriptor: what is checked (a regular
@@ -148,33 +155,27 @@ public enum TextFileGate {
         let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType
         let descriptor = try ConfinedFile.open(url)
         defer { Darwin.close(descriptor) }
-        let opened = try check(descriptor, within: root)
+        let opened = try inspect(descriptor: descriptor, fileName: url.lastPathComponent, type: type, within: root)
         guard opened.size <= maximumSize else { throw CocoaError(.fileReadTooLarge) }
-        let head = try readHead(descriptor)
-        let name = url.lastPathComponent
-        guard verdict(fileName: name, type: type, head: head, isWhole: opened.size <= head.count) != .binary else {
-            throw Refusal()
-        }
+        guard opened.verdict != .binary else { throw Refusal() }
         // The file can grow after it was measured; the limit holds while reading too.
         let rest = try ConfinedFile.readBytes(
-            descriptor, size: max(0, opened.size - head.count), maximumSize: maximumSize - head.count)
-        return head + rest
+            descriptor, size: max(0, opened.size - opened.head.count), maximumSize: maximumSize - opened.head.count)
+        return opened.head + rest
     }
 
     // The descriptor, not the path, is what is checked and read: the path could name something else by now.
-    private static func check(_ descriptor: Int32, within root: String?) throws -> (size: Int, path: String?) {
-        var path: String?
+    private static func check(_ descriptor: Int32, within root: String?) throws -> Int {
         if let root {
             let opened = try ConfinedFile.openedPath(descriptor)
             guard opened.hasPrefix(root.hasSuffix("/") ? root : root + "/") else {
                 throw CocoaError(.fileReadNoPermission)
             }
-            path = opened
         }
         var info = stat()
         guard Darwin.fstat(descriptor, &info) == 0 else { throw ConfinedFile.posixError() }
         guard (info.st_mode & S_IFMT) == S_IFREG, info.st_size >= 0 else { throw CocoaError(.fileReadNoPermission) }
-        return (Int(info.st_size), path)
+        return Int(info.st_size)
     }
 
     // An error is an error: bytes that could not be read are not an empty text.
@@ -256,8 +257,15 @@ public enum TextFileGate {
             var tail = 0
             while tail < 3, tail < content.count, content[content.count - 1 - tail] & 0xC0 == 0x80 { tail += 1 }
             if tail < content.count {
+                // Only bytes that can begin a character are held back: 0xFF, or 0xC0, never become one however
+                // the file goes on.
                 let lead = content[content.count - 1 - tail]
-                let length = lead >= 0xF0 ? 4 : lead >= 0xE0 ? 3 : lead >= 0xC0 ? 2 : 1
+                let length =
+                    (0xF0...0xF4).contains(lead)
+                    ? 4
+                    : (0xE0...0xEF).contains(lead)
+                        ? 3
+                        : (0xC2...0xDF).contains(lead) ? 2 : 1
                 if length > tail + 1 { content.removeLast(tail + 1) }
             }
         }
@@ -266,12 +274,21 @@ public enum TextFileGate {
 
     // A transport stream is packets of 188 bytes (192 with a timestamp in front, 204 with error correction behind),
     // and may begin anywhere, even after other bytes. A packet starts with 0x47, has its error bit clear and says
-    // whether it carries a payload, an adaptation field or both ("neither" is not allowed). Five such packets in a
+    // whether it carries a payload, an adaptation field or both ("neither" is not allowed); an adaptation field
+    // has a length that fits the packet. Five such packets in a
     // row anywhere in the sample make a stream. So does a file that is nothing but whole packets, however few.
     static func hasPacketStructure(_ bytes: [UInt8], isWhole: Bool) -> Bool {
         func isPacket(at index: Int) -> Bool {
-            index + 3 < bytes.count && bytes[index] == 0x47 && bytes[index + 1] & 0x80 == 0
-                && bytes[index + 3] & 0x30 != 0
+            guard index + 3 < bytes.count, bytes[index] == 0x47, bytes[index + 1] & 0x80 == 0 else { return false }
+            // The adaptation field says how long it is, and has to fit the packet: all of what follows the header
+            // when there is no payload, and less when there is. Source text that begins like a header does not
+            // go on like one.
+            switch bytes[index + 3] & 0x30 {
+            case 0x10: return true
+            case 0x20: return index + 4 >= bytes.count || bytes[index + 4] == 183
+            case 0x30: return index + 4 >= bytes.count || bytes[index + 4] <= 182
+            default: return false
+            }
         }
         for (size, lead) in [(188, 0), (192, 4), (204, 0)] {
             for phase in 0..<min(size, bytes.count) {

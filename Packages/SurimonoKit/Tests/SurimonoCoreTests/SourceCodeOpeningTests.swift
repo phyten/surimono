@@ -14,9 +14,17 @@ struct SourceCodeOpeningTests {
         return data
     }
 
-    /// A stream with no zero byte and no control byte: only its packets tell that it is not text.
+    /// One packet with no zero byte and no control byte: a header that announces an adaptation field of 32 bytes
+    /// and a payload, then bytes that are no text in UTF-8.
+    private var densePacket: Data {
+        Data([0x47, 0x41, 0x21, 0x30, 0x20]) + Data(repeating: 0xFF, count: 183)
+    }
+
+    /// A stream of such packets: only its packets tell that it is not text.
     private func dense(packets: Int = 30) -> Data {
-        stream(packets: packets, payload: 0xFF, header: [0x47, 0x41, 0x21, 0x30])
+        var data = Data()
+        for _ in 0..<packets { data += densePacket }
+        return data
     }
 
     private func binaryPropertyList() throws -> Data {
@@ -135,12 +143,10 @@ struct SourceCodeOpeningTests {
         #expect(verdict("clip.ts", Data(repeating: 0x41, count: 700) + dense()) == .binary)
         // 192-byte packets with a timestamp in front, and 204-byte packets with error correction behind.
         var m2ts = Data()
-        for _ in 0..<25 {
-            m2ts += Data([0x21, 0x22, 0x23, 0x24, 0x47, 0x41, 0x21, 0x30]) + Data(repeating: 0xFF, count: 184)
-        }
+        for _ in 0..<25 { m2ts += Data([0x21, 0x22, 0x23, 0x24]) + densePacket }
         #expect(verdict("clip.ts", m2ts) == .binary)
         var long = Data()
-        for _ in 0..<25 { long += Data([0x47, 0x41, 0x21, 0x30]) + Data(repeating: 0xFF, count: 200) }
+        for _ in 0..<25 { long += densePacket + Data(repeating: 0xFF, count: 16) }
         #expect(verdict("clip.ts", long) == .binary)
     }
 
@@ -156,6 +162,23 @@ struct SourceCodeOpeningTests {
         #expect(verdict("clip.ts", Data([0x00])) == .binary)
         // Bytes that only begin like a packet, in an encoding of high bytes: text as far as anyone can tell.
         #expect(isText(verdict("a.ts", Data([0x47, 0x41, 0x21, 0x30, 0x82, 0xA0, 0x0A]))))
+    }
+
+    @Test("ちょうど 188 バイトの Shift_JIS のソースは、ヘッダーに見える書き出しでもテキストと決める")
+    func shiftJISSourceOfOnePacket() throws {
+        // `Get(` passes for a header that announces an adaptation field and no payload. A real one would give
+        // 183 as the field's length next; the source goes on with a quotation mark.
+        var source = try #require("Get(\"あ\");".data(using: .shiftJIS))
+        source += Data(repeating: 0x20, count: 188 - source.count)
+        #expect(source.count == 188)
+        #expect(String(data: source, encoding: .utf8) == nil)
+        #expect(language(verdict("get.ts", source)) == "typescript")
+        // The same beginning with the field's real length is a packet.
+        let packet = Data([0x47, 0x65, 0x74, 0x28, 183]) + Data(repeating: 0xFF, count: 183)
+        #expect(verdict("clip.ts", packet) == .binary)
+        // With a payload the field must leave room for it.
+        let noRoom = Data([0x47, 0x41, 0x21, 0x30, 183]) + Data(repeating: 0xFF, count: 183)
+        #expect(isText(verdict("a.ts", noRoom)))
     }
 
     // MARK: Encodings
@@ -202,6 +225,15 @@ struct SourceCodeOpeningTests {
         #expect(head(utf8, whole: true) == .binary)
         // The whole file, read as bytes in memory, is known to be whole.
         #expect(TextFileGate.verdict(fileName: "a.ts", data: utf16) == .binary)
+        // A byte that no character begins with is not "cut": 0xFF at the end of the sample stays an error.
+        for bad: UInt8 in [0xFF, 0xF8, 0xC0, 0xC1, 0xF5] {
+            let broken = Data([0xEF, 0xBB, 0xBF]) + Data(repeating: 0x41, count: 4092) + Data([bad])
+            #expect(broken.count == 4096)
+            #expect(head(broken, whole: false) == .binary, "\(bad)")
+        }
+        // The first two bytes of a four-byte character are held back.
+        let emoji = Data([0xEF, 0xBB, 0xBF]) + Data(repeating: 0x41, count: 4091) + Data([0xF0, 0x9F])
+        #expect(isText(head(emoji, whole: false)))
     }
 
     @Test("BOM のない UTF-16 は断る。組版も UTF-16 として読まず、文字ごとにヌル文字が入るため")
@@ -331,13 +363,20 @@ struct SourceCodeOpeningTests {
         try withFiles(["clip.ts": stream(packets: 11_000), "main.ts": Data("let a = 1\n".utf8)]) { directory in
             let descriptor = try ConfinedFile.open(directory.appendingPathComponent("clip.ts"))
             defer { Darwin.close(descriptor) }
-            #expect(try TextFileGate.inspect(descriptor: descriptor, fileName: "clip.ts") == .binary)
+            let inspected = try TextFileGate.inspect(descriptor: descriptor, fileName: "clip.ts")
+            #expect(inspected.verdict == .binary)
+            #expect(inspected.size == 188 * 11_000)
+            #expect(inspected.head.count == 4096)
             #expect(lseek(descriptor, 0, SEEK_CUR) == 4096)
             let short = try ConfinedFile.open(directory.appendingPathComponent("main.ts"))
             defer { Darwin.close(short) }
-            #expect(language(try TextFileGate.inspect(descriptor: short, fileName: "main.ts")) == "typescript")
+            #expect(language(try TextFileGate.inspect(descriptor: short, fileName: "main.ts").verdict) == "typescript")
             #expect(lseek(short, 0, SEEK_CUR) == 10)
-            #expect(TextFileGate.inspect(directory.appendingPathComponent("clip.ts")) == .decided(.binary))
+            // The way by URL goes through the same function, and tells the size it found.
+            let byURL = TextFileGate.inspection(of: directory.appendingPathComponent("clip.ts"))
+            #expect(byURL.verdict == .decided(.binary))
+            #expect(byURL.size == 188 * 11_000)
+            #expect(TextFileGate.inspection(of: directory.appendingPathComponent("gone.ts")).size == nil)
         }
     }
 
@@ -416,6 +455,31 @@ struct SourceCodeOpeningTests {
             #expect(before.choice == .joinOrOpen(.newBinder))
             #expect(chmod(secret.path, 0o600) == 0)
             #expect(before.decided().choice == .refuse(.unsupported))
+        }
+    }
+
+    @Test("ドロップのあとも読めない候補は、合本に加えず、読めなかったものとして残す")
+    func stillUnreadableAtTheDrop() throws {
+        let files = [
+            "locked.ts": Data("let a = 1\n".utf8), "main.ts": Data("let b = 1\n".utf8), "own.md": Data("#".utf8),
+        ]
+        try withFiles(files) { directory in
+            func file(_ name: String) -> URL { directory.appendingPathComponent(name) }
+            #expect(chmod(file("locked.ts").path, 0o000) == 0)
+            defer { chmod(file("locked.ts").path, 0o600) }
+            let before = DropPlan(urls: [file("locked.ts"), file("main.ts")], receiver: .document(file("own.md")))
+            #expect(before.adding == [file("locked.ts"), file("main.ts")])
+            #expect(before.undecided == [file("locked.ts")])
+            #expect(before.unreadable.isEmpty)
+            // The drop gave no access to it after all.
+            let after = before.decided()
+            #expect(after.adding == [file("main.ts")])
+            #expect(after.leftOut == [file("locked.ts")])
+            #expect(after.unreadable == [file("locked.ts")])
+            #expect(after.undecided.isEmpty)
+            let alone = DropPlan(urls: [file("locked.ts")], receiver: .document(file("own.md"))).decided()
+            #expect(alone.choice == .refuse(.unsupported))
+            #expect(alone.unreadable == [file("locked.ts")])
         }
     }
 

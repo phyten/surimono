@@ -5,8 +5,9 @@ import SurimonoCore
 public struct DocumentSource: Equatable, Sendable {
     public let data: Data
     public let fileURL: URL?
-    /// The file name of a document that is only in memory, such as a file Shortcuts handed over: what its file's
-    /// name would tell (a source file's language) is told from this.
+    /// The file name a document came with when that is not the name of `fileURL`: a file Shortcuts handed over in
+    /// memory, or under a temporary URL with a name of its own. What a file's name tells (a source file's
+    /// language) is told from this first. Two documents of the same bytes under different names are different.
     public private(set) var name: String?
     public private(set) var htmlBaseURL: URL?
     public let format: DocumentFormat
@@ -79,7 +80,7 @@ public struct DocumentSource: Equatable, Sendable {
         } else {
             sameContent = lhs.data == rhs.data
         }
-        return sameContent && lhs.fileURL == rhs.fileURL && lhs.format == rhs.format
+        return sameContent && lhs.fileURL == rhs.fileURL && lhs.name == rhs.name && lhs.format == rhs.format
             && lhs.images == rhs.images && lhs.children == rhs.children
             && lhs.allowedResourceFolders == rhs.allowedResourceFolders && lhs.isLiveSnapshot == rhs.isLiveSnapshot
             && lhs.usesLoadedHTML == rhs.usesLoadedHTML && lhs.htmlBaseURL == rhs.htmlBaseURL
@@ -102,10 +103,10 @@ public struct DocumentSource: Equatable, Sendable {
         isLiveSnapshot = false
     }
 
-    /// The same document under the file name it came with. A document with a file keeps its file's name.
+    /// The same document under the file name it came with.
     public func named(_ name: String?) -> DocumentSource {
         var source = self
-        source.name = fileURL == nil ? name : nil
+        source.name = name
         return source
     }
 
@@ -2117,7 +2118,7 @@ public final class DocumentRenderer {
             throw RenderingError.tooLarge(bytes: source.data.count)
         }
         return PlainTextConverter.convert(
-            try decodedText(source.data), fileName: source.fileURL?.lastPathComponent ?? source.name)
+            try decodedText(source.data), fileName: source.name ?? source.fileURL?.lastPathComponent)
     }
 
     /// A file's extension names its delimiter. A table from memory, such as one copied from a spreadsheet, has no
