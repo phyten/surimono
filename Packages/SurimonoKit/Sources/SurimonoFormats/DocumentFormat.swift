@@ -45,9 +45,22 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
         case "puml", "plantuml", "pu", "iuml", "wsd": self = .plantuml
         case "png", "jpg", "jpeg", "gif", "tif", "tiff", "heic", "heif", "webp", "bmp", "svg", "ico", "icns":
             self = .image
-        default: return nil
+        default:
+            guard Self.sourceCodeExtensions.contains(fileExtension.lowercased()) else { return nil }
+            self = .plainText
         }
     }
+
+    /// Source code and configuration files open as plain text, and `SourceLanguage` tells their language. `.ts` is
+    /// also what macOS calls an MPEG transport stream; `BinaryLookalike` tells the two apart by content. `.mts` is
+    /// left to the cameras that record AVCHD video under it.
+    public static let sourceCodeExtensions: Set<String> = [
+        "swift", "js", "jsx", "mjs", "cjs", "ts", "tsx", "cts", "py", "pyw", "pyi", "rb", "rake", "gemspec", "ru",
+        "go", "rs", "java", "kt", "kts", "c", "h", "cpp", "cc", "cxx", "c++", "hpp", "hh", "hxx", "h++", "cs", "m",
+        "mm", "php", "sh", "bash", "zsh", "ksh", "jsonc", "json5", "geojson", "ini", "properties", "vue", "svelte",
+        "plist", "xsl", "xslt", "xsd", "rss", "atom", "entitlements", "storyboard", "xib", "css", "scss", "less",
+        "sql", "dockerfile", "mk", "mak", "diff", "patch", "lua", "r", "jl", "sty", "cls", "hs",
+    ]
 
     public var usesPrintTheme: Bool {
         [
@@ -71,7 +84,8 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
             "public.plain-text": .plainText, "public.text": .plainText, "public.utf8-plain-text": .plainText,
             "public.json": .plainText, "public.yaml": .plainText, "public.xml": .plainText,
             "public.ndjson": .plainText, "com.apple.log": .plainText, "org.toml-lang.toml": .plainText,
-            "app.surimono.jsonl": .plainText,
+            "app.surimono.jsonl": .plainText, "app.surimono.source-code": .plainText,
+            "com.apple.property-list": .plainText, "public.mpeg-2-transport-stream": .plainText,
             "public.xhtml": .html, "public.html": .html, "com.adobe.pdf": .pdf, "public.image": .image,
             "public.png": .image, "public.jpeg": .image, "public.comma-separated-values-text": .csv,
             "public.tab-separated-values-text": .csv,
@@ -167,6 +181,11 @@ extension UTType {
     // Prefer our declared identifier; a standalone package client may have no registered declaration yet.
     public static let surimonoJSONLines =
         UTType("app.surimono.jsonl") ?? UTType(importedAs: "app.surimono.jsonl", conformingTo: .plainText)
+    /// The source and configuration extensions that macOS has no type for (`.go`, `.rs`, `.kt`…). Imported, so the
+    /// type another app declares for one of them takes its place.
+    public static let surimonoSourceCode =
+        UTType("app.surimono.source-code")
+        ?? UTType(importedAs: "app.surimono.source-code", conformingTo: .sourceCode)
     public static let surimonoTOML = UTType(importedAs: "org.toml-lang.toml", conformingTo: .plainText)
     public static let surimonoGraphviz = UTType(importedAs: "org.graphviz.dot", conformingTo: .plainText)
     public static let surimonoPlantUML = UTType(importedAs: "net.sourceforge.plantuml", conformingTo: .plainText)

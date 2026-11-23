@@ -13,6 +13,9 @@ public struct SourceLanguage: Equatable, Sendable {
         interpreters.values
     ).union(["matlab"])
 
+    /// Every extension that tells a language, for what registers the files that can be opened.
+    public static let fileExtensions: Set<String> = Set(extensions.keys).union(["m"])
+
     /// A shebang longer than this is not read to its end.
     private static let firstLineLimit = 256
 

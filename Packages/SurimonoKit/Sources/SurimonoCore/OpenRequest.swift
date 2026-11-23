@@ -54,7 +54,14 @@ public enum OpenRequest: Equatable, Sendable {
         guard url.isFileURL,
             (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) != true
         else { return nil }
-        return DocumentFormat(fileExtension: url.pathExtension)
-            ?? UTType(filenameExtension: url.pathExtension).flatMap { DocumentFormat(contentType: $0) }
+        // A `.ts` that is a video, not TypeScript, is not a document.
+        if BinaryLookalike.isBinary(at: url) { return nil }
+        if let format = DocumentFormat(fileExtension: url.pathExtension)
+            ?? UTType(filenameExtension: url.pathExtension).flatMap({ DocumentFormat(contentType: $0) })
+        {
+            return format
+        }
+        // "Dockerfile" and ".env" have no extension to go by, only their name.
+        return SourceLanguage.detect(fileName: url.lastPathComponent) == nil ? nil : .plainText
     }
 }
