@@ -1,6 +1,7 @@
 import Foundation
-import SurimonoCore
 import Testing
+
+@testable import SurimonoCore
 
 /// Opt-in timing of the writing check (`make bench-prose`). It records and judges nothing in an ordinary test run.
 @Suite(.enabled(if: ProcessInfo.processInfo.environment["SURIMONO_BENCH_PROSE"] == "1"), .serialized)
@@ -76,19 +77,23 @@ struct ProseCheckBenchmarks {
         var generator = Generator()
         var text = ""
         var section = 0
-        while text.count < characters {
+        // Only the section just written is counted: counting the whole text each time made the generator quadratic.
+        var written = 0
+        while written < characters {
             section += 1
-            text += "## 第\(section)節 \(subjects[generator.next(subjects.count)])について\n\n"
+            var part = "## 第\(section)節 \(subjects[generator.next(subjects.count)])について\n\n"
             for _ in 0..<4 {
                 for _ in 0..<(2 + generator.next(4)) {
-                    text +=
+                    part +=
                         subjects[generator.next(subjects.count)] + middles[generator.next(middles.count)]
                         + subjects[generator.next(subjects.count)] + "の" + objects[generator.next(objects.count)]
                         + "を" + endings[generator.next(endings.count)]
                 }
-                text += "\n\n"
+                part += "\n\n"
             }
-            if section % 5 == 0 { text += "```text\nlayout = booklet\n```\n\n" }
+            if section % 5 == 0 { part += "```text\nlayout = booklet\n```\n\n" }
+            written += part.count
+            text += part
         }
         return text
     }

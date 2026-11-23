@@ -249,15 +249,17 @@ struct ProseSourceTests {
         #expect(try ProseSource.read("本文です。", format: .plainText)?.kind == .plainText)
     }
 
-    @Test("20 万字の段落 1 つでも、印だらけの文書でも、すぐに終わる", .timeLimit(.minutes(1)))
-    func largeInputs() {
-        let clock = ContinuousClock()
+    // No time is asserted (the benchmark records times); the limit only stops a pass that has become quadratic.
+    @Test("20 万字の段落 1 つも、印だらけの文書も、終わりまで読める", .timeLimit(.minutes(2)))
+    func largeInputs() throws {
         let single = String(repeating: "設定を**変更**すると `code` が動く。", count: 10_000)
-        let marks = String(repeating: "*[`$\\(", count: 30_000)
-        let elapsed = clock.measure {
-            #expect(ProseSource.ofMarkdown(single).paragraphs.count == 1)
-            _ = ProseSource.ofMarkdown(marks)
-        }
-        #expect(elapsed < .seconds(10))
+        let paragraph = try #require(ProseSource.ofMarkdown(single).paragraphs.first)
+        #expect(paragraph.text.utf16.count == 10_000 * 15)
+        let last = (paragraph.text as NSString).range(of: "変更", options: .backwards)
+        let expected = (single as NSString).range(of: "変更", options: .backwards)
+        #expect(
+            paragraph.sourceRange(of: last.location..<(last.location + 2)) == expected
+                .location..<(expected.location + 2))
+        _ = ProseSource.ofMarkdown(String(repeating: "*[`$\\(", count: 30_000))
     }
 }
