@@ -1,5 +1,6 @@
 import AppKit
 import SurimonoCore
+import SurimonoRendering
 
 @MainActor
 final class OpenRouter {
@@ -39,21 +40,46 @@ final class OpenRouter {
             ClipboardWindows.shared.open(
                 data, format: format, title: title ?? String(localized: "Selected Text"), printing: printing)
         },
+        openMemoryFile: { data, format, fileName, printing in
+            ClipboardWindows.shared.open(data, format: format, title: fileName, printing: printing, fileName: fileName)
+        },
         openIncludes: { BinderWindows.shared.open($0) },
         openWindows: { DocumentWindows.shared.openModels }, isActive: { NSApp.isActive },
         openText: { text, hints, title, printing in
             ClipboardWindows.shared.open(
                 text: text, hints: hints, title: title ?? String(localized: "Selected Text"), source: .selection,
                 window: NSApp.keyWindow, printing: printing)
+        },
+        openAsText: { url, completion in
+            do {
+                try SourceFileOpening.open(url)
+                completion(true)
+            } catch {
+                NSApp.presentError(error)
+                completion(false)
+            }
+        },
+        refuse: { error in
+            // The words the window itself uses for the same refusal.
+            NSApp.presentError(
+                NSError(
+                    domain: NSCocoaErrorDomain, code: NSFileReadUnknownError,
+                    userInfo: [NSLocalizedDescriptionKey: DocumentViewModel.message(for: error)]))
         })
 
+    /// Replaceable so that tests can stand in for a file without writing it.
+    var route: (URL) -> SourceFileOpening.Route = SourceFileOpening.route(for:)
+
     private let openDocument: (URL, @escaping (Bool) -> Void) -> Void
+    private let openAsText: (URL, @escaping (Bool) -> Void) -> Void
+    private let refuse: (any Error) -> Void
     private let openBundle: ([URL], [URL]) -> DocumentViewModel?
     private let openBinder: ([URL], [URL]) -> DocumentViewModel?
     private let warn: (NSWindow?) -> Void
     private let hasOpenWindows: () -> Bool
     private let showWelcome: () -> Void
     private let openMemory: (Data, DocumentFormat, String?, Bool) -> Void
+    private let openMemoryFile: ((Data, DocumentFormat, String, Bool) -> Void)?
     private let openText: (String, ClipboardFormatHints, String?, Bool) -> Void
     private let openIncludes: (MarkdownIncludes.Plan) -> Void
     private let openWindows: () -> [DocumentViewModel]
@@ -99,10 +125,15 @@ final class OpenRouter {
         openBinder: @escaping ([URL], [URL]) -> DocumentViewModel?,
         warn: @escaping (NSWindow?) -> Void, hasOpenWindows: @escaping () -> Bool, showWelcome: @escaping () -> Void,
         openMemory: @escaping (Data, DocumentFormat, String?, Bool) -> Void = { _, _, _, _ in },
+        openMemoryFile: ((Data, DocumentFormat, String, Bool) -> Void)? = nil,
         openIncludes: @escaping (MarkdownIncludes.Plan) -> Void = { _ in },
         openWindows: @escaping () -> [DocumentViewModel] = { [] }, isActive: @escaping () -> Bool = { true },
-        openText: @escaping (String, ClipboardFormatHints, String?, Bool) -> Void = { _, _, _, _ in }
+        openText: @escaping (String, ClipboardFormatHints, String?, Bool) -> Void = { _, _, _, _ in },
+        openAsText: @escaping (URL, @escaping (Bool) -> Void) -> Void = { _, completion in completion(false) },
+        refuse: @escaping (any Error) -> Void = { _ in }
     ) {
+        self.openAsText = openAsText
+        self.refuse = refuse
         self.isActive = isActive
         self.openText = openText
         self.openDocument = openDocument
@@ -112,6 +143,7 @@ final class OpenRouter {
         self.hasOpenWindows = hasOpenWindows
         self.showWelcome = showWelcome
         self.openMemory = openMemory
+        self.openMemoryFile = openMemoryFile
         self.openIncludes = openIncludes
         self.openWindows = openWindows
     }
@@ -138,7 +170,7 @@ final class OpenRouter {
                 arrivingAccess[key, default: []] += access
             }
             pendingOpens += 1
-            openDocument(url) { [weak self] opened in
+            openSingle(url) { [weak self] opened in
                 if !opened {
                     self?.printRequests.remove(key)
                     self?.giveUpAccess(for: key)
@@ -160,6 +192,19 @@ final class OpenRouter {
         }
         // A window that was open already shows nothing new, so nothing else would notice the request.
         for model in openWindows() { printIfRequested(model) }
+        return true
+    }
+
+    /// A file that exists only in memory, as one made by an earlier action of a shortcut. It opens as a document
+    /// in memory under its own file name, which tells what the name of a file on disk would (a source file's
+    /// language). Text from the clipboard has no such name and goes through `open(_:printing:title:)`.
+    @discardableResult
+    func open(memoryFile data: Data, format: DocumentFormat, fileName: String, printing: Bool) -> Bool {
+        if let openMemoryFile {
+            openMemoryFile(data, format, fileName, printing)
+        } else {
+            openMemory(data, format, fileName, printing)
+        }
         return true
     }
 
@@ -207,13 +252,36 @@ final class OpenRouter {
         restorations[key] = origin
         if origin.wasPrinting && !origin.leavingBinder { printRequests.insert(key) }
         pendingOpens += 1
-        openDocument(url) { [weak self] opened in
+        openSingle(url) { [weak self] opened in
             if !opened {
                 self?.restorations.removeValue(forKey: key)
                 self?.printRequests.remove(key)
             }
             self?.finishOpening(opened)
             completion(opened)
+        }
+    }
+
+    /// Whether one file would be turned away without a window: a video under `.ts`, a text too large to lay out.
+    func refusesSingle(_ url: URL) -> Bool {
+        switch route(url) {
+        case .refuse, .tooLarge: true
+        case .document, .asText: false
+        }
+    }
+
+    /// One file, by the way its beginning calls for. A video under `.ts` is turned away here, before the document
+    /// controller would load all of it to find out.
+    private func openSingle(_ url: URL, completion: @escaping (Bool) -> Void) {
+        switch route(url) {
+        case .document: openDocument(url, completion)
+        case .asText: openAsText(url, completion)
+        case .refuse:
+            refuse(SourceFileError.notText)
+            completion(false)
+        case .tooLarge(let bytes):
+            refuse(DocumentRenderer.RenderingError.tooLarge(bytes: bytes))
+            completion(false)
         }
     }
 

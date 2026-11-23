@@ -24,6 +24,8 @@ struct ClosedClipboardDocuments {
         let data: Data
         let format: DocumentFormat
         let title: String
+        /// The file name the document came with, which names its language again when it is opened again.
+        let fileName: String?
         let origin: TextFormatOrigin?
         let baseURL: URL?
         let settings: DocumentSettings
@@ -49,6 +51,7 @@ struct ClosedClipboardDocuments {
             menuItem = MenuItem(id: hash, title: parts.joined(separator: " · "))
             self.data = data
             format = model.format
+            fileName = model.sourceFileName
             origin = model.textFormatOrigin
             baseURL = model.htmlBaseURL
             var settings = model.rememberedSettings

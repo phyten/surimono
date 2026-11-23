@@ -1148,12 +1148,26 @@
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
+  "sample-sample-py" : {
+    "fonts" : [
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
   "sample-sample-qmd" : {
     "fonts" : [
       "Helvetica",
       "HiraKakuProN-W3",
       "HiraKakuProN-W6",
       "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "sample-sample-rb" : {
+    "fonts" : [
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
@@ -1179,6 +1193,13 @@
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
+  "sample-sample-swift" : {
+    "fonts" : [
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
   "sample-sample-tex" : {
     "fonts" : [
       "Helvetica",
@@ -1198,6 +1219,13 @@
       "HiraginoSans-W4",
       "Menlo-Bold",
       "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "sample-sample-ts" : {
+    "fonts" : [
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },

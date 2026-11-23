@@ -190,7 +190,8 @@ extension DocumentViewModel {
 
     /// Does what the place under the pointer said it would.
     func performDrop() -> Bool {
-        guard let plan = drop.plan, let zone = drop.zone else { return false }
+        // What could not be read while it was only dragged over the window can be read now, at the drop.
+        guard let plan = drop.plan?.decided(), let zone = drop.zone else { return false }
         let position = drop.insertion
         switch (plan.choice, zone) {
         case (.joinOrOpen(let joining), .join), (.join(let joining), _): join(plan, joining, at: position)

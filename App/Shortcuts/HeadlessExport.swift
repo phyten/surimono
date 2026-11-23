@@ -91,14 +91,16 @@ struct HeadlessExport {
 
     /// `fileURL` only tells the layout where the document's images are; the document is read from `data`.
     func export(
-        _ data: Data, fileURL: URL?, format: DocumentFormat, name: String, layoutID: String? = nil, style: String? = nil
+        _ data: Data, fileURL: URL?, format: DocumentFormat, name: String, sourceName: String? = nil,
+        layoutID: String? = nil, style: String? = nil
     ) async throws -> Output {
         // An archive is a bundle of images, which only a window puts in order.
         guard format != .zipArchive else {
             throw Failure(
                 message: String(localized: "“\(name)” is not a file Surimono can export as a PDF.", table: "Shortcuts"))
         }
-        let source = DocumentSource(data: data, fileURL: fileURL, format: format)
+        // A file in memory has no URL to tell a source file's language by; its own name does.
+        let source = DocumentSource(data: data, fileURL: fileURL, format: format).named(sourceName)
         let settings = try settings(format: format, name: name, layoutID: layoutID, style: style, source: source)
         let result: RenderResult
         do {

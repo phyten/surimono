@@ -45,18 +45,41 @@ public struct DropPlan: Equatable, Sendable {
     public let others: [URL]
     /// What opening `others` does.
     public let opening: OpenRequest
+    /// Files that could not be read yet, as before a sandboxed app is given what is dragged over it. They count as
+    /// what they would be if they are text, and `decided()` finds out at the drop.
+    public let undecided: [URL]
+    /// Files that could still not be read when the plan was decided at the drop. They are among `leftOut`.
+    public let unreadable: [URL]
+    private let urls: [URL]
+    private let receiver: Receiver
 
     public init(urls: [URL], receiver: Receiver) {
+        self.init(urls: urls, receiver: receiver, formats: FileFormats())
+    }
+
+    /// The plan made again once the files can be read, when anything in it was not decided.
+    public func decided() -> DropPlan {
+        undecided.isEmpty ? self : DropPlan(urls: urls, receiver: receiver, formats: FileFormats(keepsUndecided: false))
+    }
+
+    package init(urls: [URL], receiver: Receiver, formats: FileFormats) {
+        self.urls = urls
+        self.receiver = receiver
         var seen = Set<URL>()
         let files = urls.filter(\.isFileURL).map(\.standardizedFileURL).filter { seen.insert($0).inserted }
         let own = Set(receiver.ownURLs.map(\.standardizedFileURL))
         others = files.filter { !own.contains($0) }
         alreadyIn = files.filter(own.contains)
-        let joinable = receiver.canHoldFiles ? others.filter { OpenRequest.binderFormat($0) != nil } : []
+        // One decision per file for the whole plan: a decision can read the file, and a drag asks again and again.
+        let waiting = OpenRequest.sorted(others.filter(formats.isUndecided))
+        let candidates = waiting.filter { formats.binderFormat($0) != nil }
+        undecided = candidates
+        unreadable = waiting.filter { !candidates.contains($0) }
+        let joinable = receiver.canHoldFiles ? others.filter { formats.binderFormat($0) != nil } : []
         adding = OpenRequest.sorted(joinable)
-        leftOut = receiver.canHoldFiles ? OpenRequest.sorted(others.filter { OpenRequest.binderFormat($0) == nil }) : []
-        opening = Self.opening(others)
-        let joining = receiver.joining(adding)
+        leftOut = receiver.canHoldFiles ? OpenRequest.sorted(others.filter { formats.binderFormat($0) == nil }) : []
+        opening = Self.opening(others, formats)
+        let joining = receiver.joining(adding, formats)
         switch (joining, opening) {
         case (let joining?, _):
             if case .document = receiver {
@@ -71,12 +94,10 @@ public struct DropPlan: Equatable, Sendable {
         }
     }
 
-    private static func opening(_ urls: [URL]) -> OpenRequest {
-        let request = OpenRequest(urls: urls)
+    private static func opening(_ urls: [URL], _ formats: FileFormats) -> OpenRequest {
+        let request = OpenRequest(urls: urls, formats: formats)
         // One file goes to the document controller whatever it is, which only answers a folder with an error.
-        if case .single(let url) = request, OpenRequest.binderFormat(url) == nil,
-            !OpenRequest.isArchive(url)
-        {
+        if case .single(let url) = request, formats.binderFormat(url) == nil, !formats.isArchive(url) {
             return .unsupported
         }
         return request
@@ -97,13 +118,13 @@ extension DropPlan.Receiver {
         return true
     }
 
-    fileprivate func joining(_ adding: [URL]) -> DropPlan.Joining? {
+    fileprivate func joining(_ adding: [URL], _ formats: FileFormats) -> DropPlan.Joining? {
         guard !adding.isEmpty else { return nil }
         switch self {
         case .document: return .newBinder
         case .binder: return .binder
         case .imageBundle:
-            return adding.allSatisfy { OpenRequest.binderFormat($0) == .image } ? .images : .newBinder
+            return adding.allSatisfy { formats.binderFormat($0) == .image } ? .images : .newBinder
         case .closed: return nil
         }
     }

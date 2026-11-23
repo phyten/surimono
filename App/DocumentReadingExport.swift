@@ -149,7 +149,8 @@ extension DocumentViewModel {
                 return true
             }
             guard let settings = renderSettings(in: .view) else { return false }
-            let source = withFolderAccess(DocumentSource(data: data, fileURL: fileURL, format: format))
+            let source = withFolderAccess(
+                DocumentSource(data: data, fileURL: fileURL, format: format).named(sourceFileName))
             if kind == .richText {
                 let rich = try await HTMLExporter.richText(source: source, settings: settings, title: metadataTitle)
                 try checkCurrent()

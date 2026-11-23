@@ -9,10 +9,7 @@ struct DocumentViewer: View {
         document: SurimonoDocument, fileURL: URL?, preferences: AppPreferences, library: UserLibrary,
         settingsStore: DocumentSettingsStore?
     ) {
-        let format =
-            document.format == .html && fileURL?.pathExtension.lowercased() == "xml"
-            ? .html
-            : fileURL.flatMap { DocumentFormat(fileExtension: $0.pathExtension) } ?? document.format ?? .plainText
+        let format = document.format(at: fileURL)
         var bundle: ImageBundleModel?
         var failure: String?
         if format == .zipArchive {
