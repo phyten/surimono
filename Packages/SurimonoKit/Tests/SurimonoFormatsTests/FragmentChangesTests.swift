@@ -90,6 +90,65 @@ struct FragmentChangesTests {
         #expect(marks(old, new) == [.init(blockID: "lines-0-0")])
     }
 
+    @Test("一万行までは変えた行だけに印を付け、一万一行からは印を付けず文書全体にも付けない", arguments: ["a.swift", "a.txt"])
+    func lineLimit(fileName: String) {
+        func body(_ count: Int, changing line: Int?) -> String {
+            var lines = (0..<count).map { "let a\($0) = 1" }
+            if let line { lines[line] = "let changed = 2" }
+            return PlainTextConverter.convert(lines.joined(separator: "\n"), fileName: fileName).body
+        }
+        let atLimit = body(10_000, changing: 5000)
+        let only = marks(body(10_000, changing: nil), atLimit)
+        #expect(only == [.init(blockID: "lines-5000-5000")])
+        #expect(FragmentChanges.identifyingBlocks(in: atLimit, for: only).contains("data-surimono-block=\"lines-5000-"))
+        let over = body(10_001, changing: 5000)
+        #expect(marks(body(10_001, changing: nil), over).isEmpty)
+        #expect(marks(body(10_000, changing: nil), over).isEmpty)
+        #expect(marks(body(10_001, changing: nil), atLimit).isEmpty)
+        // A request that names the whole block must find nothing to name in a text over the limit.
+        #expect(FragmentChanges.identifyingBlocks(in: over, for: [.init(blockID: "fragment-0")]) == over)
+        #expect(FragmentChanges.identifyingBlocks(in: over, for: [.init(blockID: "lines-0-0")]) == over)
+    }
+
+    @Test("閉じていないコメントの中で終わる文書でも、印を付けた HTML は末尾の改行を保つ")
+    func trailingNewlineInsideSpan() {
+        let new = PlainTextConverter.convert("let a = 1\n/* open\nstill open\n", fileName: "a.swift").body
+        #expect(new.hasSuffix("still open\n</span></pre>"))
+        let old = PlainTextConverter.convert("let a = 0\n/* open\nstill open\n", fileName: "a.swift").body
+        let only = marks(old, new)
+        #expect(only == [.init(blockID: "lines-0-0")])
+        #expect(
+            FragmentChanges.identifyingBlocks(in: new, for: only) == """
+                <pre class="surimono-plain"><span data-surimono-block="lines-0-0"><span class="hl-keyword">let</span> a = <span class="hl-number">1</span></span>
+                <span class="hl-comment">/* open</span>
+                <span class="hl-comment">still open</span>
+                </pre>
+                """)
+    }
+
+    @Test("色なしの文書に最初の色付きの語が現れても、末尾の行ではなく変えた行だけに印を付ける")
+    func firstColoredToken() {
+        let old = PlainTextConverter.convert("a b\nc d\ne f\n", fileName: "a.swift").body
+        #expect(!old.contains("<span"))
+        let new = PlainTextConverter.convert("a b\nlet d\ne f\n", fileName: "a.swift").body
+        #expect(new.contains("<span"))
+        #expect(marks(old, new) == [.init(blockID: "lines-1-1")])
+        #expect(marks(new, old) == [.init(blockID: "lines-1-1")])
+    }
+
+    @Test("色付きの行に印を付けて戻した HTML は、span を除けば元の本文と同じ")
+    func identifyingKeepsText() {
+        let text = "/* a\n\n<b> & \"c\"\n*/\nlet d = 1\n\n"
+        let html = PlainTextConverter.convert(text, fileName: "a.swift").body
+        let marked = FragmentChanges.identifyingBlocks(in: html, for: [.init(blockID: "lines-2-2")])
+        func stripped(_ html: String) -> String {
+            html.replacingOccurrences(of: "<[^>]*>", with: "", options: .regularExpression)
+        }
+        #expect(stripped(marked) == stripped(html))
+        #expect(stripped(marked) == "/* a\n\n&lt;b&gt; &amp; &quot;c&quot;\n*/\nlet d = 1\n\n")
+        #expect(marked.contains("<span data-surimono-block=\"lines-2-2\"><span class=\"hl-comment\">&lt;b&gt;"))
+    }
+
     @Test("色付きの JSON でも行の削除は隣の行に短い印を付ける")
     func coloredDeletion() {
         let old = PlainTextConverter.convert("{\n  \"a\": 1,\n  \"b\": 2,\n  \"c\": 3\n}\n", fileName: "a.json").body

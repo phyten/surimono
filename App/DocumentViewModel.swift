@@ -89,9 +89,14 @@ final class DocumentViewModel {
     private var renderedSourceURLs: [URL] = []
     private(set) var format: DocumentFormat
     private(set) var data: Data {
-        didSet { knownSourceLanguage = nil }
+        didSet { dataGeneration += 1 }
     }
-    @ObservationIgnored private var knownSourceLanguage: SourceLanguage??
+    /// Counts the contents the window has held, so that what a layout read is only taken for the contents it read.
+    @ObservationIgnored private var dataGeneration = 0
+    /// The language of a source file. Until the first layout has decoded the text it is what the name alone tells,
+    /// and after a reload it stays what it was until the new text is laid out: decoding up to 30 MB to name a badge
+    /// is not work for the main actor.
+    private(set) var detectedSourceLanguage: SourceLanguage?
     private(set) var classStyle: String?
     private(set) var classLayout: PrintLayout?
     var themeFormat: DocumentFormat? { binder == nil && imageBundle == nil ? format : nil }
@@ -628,6 +633,7 @@ final class DocumentViewModel {
             location = nil
         }
         self.data = data
+        detectedSourceLanguage = fileURL.flatMap { SourceLanguage.detect(fileName: $0.lastPathComponent) }
         self.fileURL = fileURL
         self.htmlBaseURL = htmlBaseURL
         self.title = title
@@ -758,14 +764,9 @@ final class DocumentViewModel {
         return sourceLanguage?.displayName ?? format.badge
     }
 
-    /// The language a plain text file is colored as: the renderer's own answer, kept until the file or its format
-    /// changes because telling it can mean decoding the text.
+    /// The language a plain text file is colored as.
     var sourceLanguage: SourceLanguage? {
-        guard format == .plainText, binder == nil, fileURL != nil else { return nil }
-        if let knownSourceLanguage { return knownSourceLanguage }
-        let language = DocumentRenderer.sourceLanguage(of: DocumentSource(data: data, fileURL: fileURL, format: format))
-        knownSourceLanguage = .some(language)
-        return language
+        format == .plainText && binder == nil && fileURL != nil ? detectedSourceLanguage : nil
     }
 
     var language: String { Bundle.main.preferredLocalizations.first ?? "en" }
@@ -1642,6 +1643,7 @@ final class DocumentViewModel {
             : DocumentSource(data: data, fileURL: fileURL, format: format, htmlBaseURL: htmlBaseURL)
         let started = ContinuousClock.now
         let layoutsBefore = renderer.logicalRenderCount
+        let generation = dataGeneration
         renderTask = Task { [weak self] in
             guard let self else { return }
             var settings = settings
@@ -1674,6 +1676,12 @@ final class DocumentViewModel {
                     settings.options.rotatesBackSides = mode == .print && printerRotation(for: prepared.layout)
                     renderingSettings = settings
                     result = prepared
+                    // Only the layout of the contents shown now names their language.
+                    if source.format == .plainText, !fromSnapshot, generation == dataGeneration,
+                        let facts = prepared.facts, detectedSourceLanguage != facts.sourceLanguage
+                    {
+                        detectedSourceLanguage = facts.sourceLanguage
+                    }
                     if source.format.supportsChangeMarks { displayedChangeSource = source }
                     chosenTrial = nil
                     // Pages laid out on the tray are the ones read unless the tray added or changed some, so the outline

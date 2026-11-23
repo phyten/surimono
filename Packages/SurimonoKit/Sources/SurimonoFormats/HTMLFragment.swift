@@ -6,6 +6,8 @@ public struct HTMLFragment: Equatable, Sendable {
     public var language: String?
     /// Document-level diagnostics that have no position on a printed page.
     public var readingIssues: [String]
+    /// The language plain text was told to be when it was converted, for what names it beside the paper.
+    public var sourceLanguage: SourceLanguage?
     // Keeping the full profile inline would reserve its size on the worker stack for each
     // temporary fragment, including the other formats' branches while a nested frame is read.
     private enum DocumentClassStorage: Equatable, Sendable {
@@ -60,10 +62,10 @@ public enum PlainTextConverter {
     public static func convert(_ text: String, fileName: String?) -> HTMLFragment {
         let language = fileName.flatMap { SourceLanguage.detect(fileName: $0, text: { text }) }
         // Code too long to color is shown whole without colors rather than cut.
-        if let language, let tokens = SyntaxHighlighter.highlight(text, language: language.id) {
-            return HTMLFragment(body: "<pre class=\"surimono-plain\">\(tokens)</pre>")
-        }
-        return HTMLFragment(body: "<pre class=\"surimono-plain\">\(HTML.escape(text))</pre>")
+        let colored = language.flatMap { SyntaxHighlighter.highlight(text, language: $0.id) }
+        var fragment = HTMLFragment(body: "<pre class=\"surimono-plain\">\(colored ?? HTML.escape(text))</pre>")
+        fragment.sourceLanguage = language
+        return fragment
     }
 
     public static func convert(_ text: String, fileExtension: String? = nil) -> HTMLFragment {

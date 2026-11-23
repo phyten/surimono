@@ -244,6 +244,8 @@ public struct DocumentFacts: Equatable, Sendable {
     public var thematicBreakCount: Int
     public var offersLaTeXComposition = false
     public var latexRecognition: LaTeXRecognition?
+    /// The language a source file was told to be from its decoded text, by the conversion that drew it.
+    public var sourceLanguage: SourceLanguage?
     public var beamerPageSize: CGSize?
     public var unsupportedBeamerTheme: String?
     public var unreadableBeamerFrames = 0
@@ -266,6 +268,7 @@ public struct DocumentFacts: Equatable, Sendable {
     public init(fragment: HTMLFragment) {
         offersLaTeXComposition = fragment.latexClass?.offersCompositionChoice == true
         latexRecognition = fragment.latexClass?.recognition
+        sourceLanguage = fragment.sourceLanguage
         title = fragment.title
         beamerPageSize = fragment.latexClass?.beamerPageSize
         unsupportedBeamerTheme = fragment.latexClass?.unsupportedBeamerTheme
