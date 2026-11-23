@@ -1,31 +1,40 @@
 import Foundation
 
 /// The thresholds of the writing check. They are provisional: starting points to be tried against real manuscripts,
-/// not boundaries any study fixed. Nothing else in the check holds a number of this kind.
-public struct ProseLimits: Equatable, Sendable {
+/// not boundaries any study fixed. Nothing else in the check holds a number of this kind. They are not open to
+/// callers: a screen that lets a reader change one validates what it takes first.
+struct ProseLimits: Equatable, Sendable {
     /// A Japanese sentence of this many characters or more is long.
-    public var longJapaneseSentence = 80
+    var longJapaneseSentence = 80
     /// An English sentence of this many words or more is long.
-    public var longEnglishSentence = 40
+    var longEnglishSentence = 40
     /// A word repeated this many times or more, close together in one paragraph, is reported.
-    public var repetitionCount = 3
-    /// "Close together" in Japanese text: from the first of the words to the end of the last, in characters.
-    public var japaneseRepetitionWindow = 200
-    /// "Close together" in English text: from the first of the words to the last, in words.
-    public var englishRepetitionWindow = 80
+    var repetitionCount = 3
+    /// "Close together" in Japanese sentences: from the first of the words to the end of the last, in characters.
+    var japaneseRepetitionWindow = 200
+    /// "Close together" in English sentences: from the first of the words to the last, in words.
+    var englishRepetitionWindow = 80
     /// A word found in at least this share of the document's paragraphs, and in at least
     /// `subjectMinimumParagraphs` of them, is what the document is about, and its repetition is not reported.
-    public var subjectParagraphShare = 0.2
-    public var subjectMinimumParagraphs = 4
-    /// A sentence is Japanese when at least this share of its letters are kana or kanji; otherwise its Latin
-    /// letters make it English. Low, because a kana says as much as a Latin word.
-    public var japaneseLetterShare = 0.15
+    var subjectParagraphShare = 0.2
+    var subjectMinimumParagraphs = 4
+    /// A sentence with kana is Japanese when at least this share of its letters are kana or kanji. Low, because a
+    /// kana says as much as a Latin word.
+    var japaneseLetterShare = 0.15
+    /// How sure the recognizer must be of a sentence's language for it to count as decided.
+    var recognizerConfidence = 0.6
     /// A document is mixed when the smaller of its two languages has at least this share of the sentences.
-    public var mixedSentenceShare = 0.1
+    var mixedSentenceShare = 0.1
 
-    public static let provisional = ProseLimits()
+    static let provisional = ProseLimits()
 
-    public init() {}
+    /// The number of paragraphs a word must stand in to be the document's subject. A share that is no number
+    /// (NaN, infinite) leaves only the minimum.
+    func subjectFloor(paragraphs: Int) -> Int {
+        let share = Double(paragraphs) * subjectParagraphShare
+        guard share.isFinite, share < Double(Int.max / 2) else { return max(1, subjectMinimumParagraphs) }
+        return max(1, subjectMinimumParagraphs, Int(share.rounded(.up)))
+    }
 }
 
 /// The language the check read a document's prose as. It is decided from the prose, never from the interface.
@@ -47,7 +56,12 @@ public struct ProseOccurrence: Hashable, Sendable {
 }
 
 public enum ProseLengthUnit: Equatable, Sendable {
-    case characters, words
+    /// Characters as a reader counts them (grapheme clusters), without white space and without what stands for
+    /// inline code, a formula, a URL or an image.
+    case characters
+    /// Runs of letters and digits; an apostrophe, a hyphen or a full stop between two of them joins them
+    /// (`don't`, `state-of-the-art`, `e.g`), any other mark parts them (`one—two` is two words).
+    case words
 }
 
 /// One thing worth a second look. A finding states a fact about the text; it is not an error and carries no weight.
@@ -82,7 +96,8 @@ public struct ProseScriptCounts: Equatable, Sendable {
 public struct ProseFacts: Equatable, Sendable {
     public struct Sentences: Equatable, Sendable {
         public let count: Int
-        /// In characters for Japanese sentences and in words for English ones; the two are never averaged.
+        /// In characters for Japanese sentences and in words for English ones (`ProseLengthUnit`); the two are
+        /// never averaged.
         public let medianLength: Double
         public let longCount: Int
     }
@@ -114,7 +129,10 @@ public enum ProseAnalysis: Equatable, Sendable {
         case unsupportedFormat
         /// There is no running text: an empty document, or one of code, tables and headings only.
         case noProse
-        /// The prose is mostly in a language the check has no rules for. The code is a BCP 47 tag ("fr", "zh-Hans").
+        /// There is too little text to tell its language (a word or two), and nothing around it that settles it.
+        case undeterminedLanguage
+        /// The prose is mostly in a language the check has no rules for. The code is a BCP 47 tag ("fr", "zh-Hans",
+        /// or "und" for a script whose language was not named); it is never Japanese or English.
         case unsupportedLanguage(String)
     }
 
@@ -125,14 +143,24 @@ public enum ProseAnalysis: Equatable, Sendable {
 /// The writing check: facts about a document's prose and the places worth a second look. It gives no score and no
 /// grade, changes nothing, and reads nothing but the text it is given.
 public enum ProseCheck {
-    /// Analyses a document off the caller's actor. Cancelling the calling task stops the analysis at the next
-    /// paragraph (and within a long paragraph, at the tokenizer's next batch of words).
-    public static func analysis(
-        of text: String, format: DocumentFormat, tokenizer: any ProseTokenizer = SystemProseTokenizer(),
-        limits: ProseLimits = .provisional
+    /// Analyses a document off the caller's actor.
+    ///
+    /// Cancelling the calling task ends the analysis with `CancellationError` at its next check: before the text is
+    /// read, between the lines and blocks while it is read, between paragraphs, between the steps of one paragraph
+    /// and every few thousand words inside them, and once more before the answer is returned. A single call into
+    /// the Markdown parser or the system's tokenizer is not interrupted (the tokenizer is asked to stop every few
+    /// hundred words).
+    public static func analysis(of text: String, format: DocumentFormat) async throws -> ProseAnalysis {
+        try await analysis(
+            of: text, format: format, tokenizer: SystemProseTokenizer(), recognizer: SystemProseLanguageRecognizer())
+    }
+
+    static func analysis(
+        of text: String, format: DocumentFormat, tokenizer: any ProseTokenizer,
+        recognizer: any ProseLanguageRecognizer, limits: ProseLimits = .provisional
     ) async throws -> ProseAnalysis {
         let task = Task.detached(priority: .userInitiated) {
-            try analyse(text, format: format, tokenizer: tokenizer, limits: limits)
+            try analyse(text, format: format, tokenizer: tokenizer, recognizer: recognizer, limits: limits)
         }
         return try await withTaskCancellationHandler {
             try await task.value
@@ -143,26 +171,31 @@ public enum ProseCheck {
 
     /// Analyses a document on the calling thread.
     /// - Throws: `CancellationError` when the task it runs in is cancelled.
-    public static func analyse(
+    static func analyse(
         _ text: String, format: DocumentFormat, tokenizer: any ProseTokenizer = SystemProseTokenizer(),
+        recognizer: any ProseLanguageRecognizer = SystemProseLanguageRecognizer(),
         limits: ProseLimits = .provisional
     ) throws -> ProseAnalysis {
+        try Task.checkCancellation()
         guard let source = try ProseSource.read(text, format: format) else { return .notAnalysed(.unsupportedFormat) }
-        return try analyse(source, tokenizer: tokenizer, limits: limits)
+        let analysis = try analyse(source, tokenizer: tokenizer, recognizer: recognizer, limits: limits)
+        try Task.checkCancellation()
+        return analysis
     }
 
     static func analyse(
-        _ source: ProseSource, tokenizer: any ProseTokenizer = SystemProseTokenizer(),
-        limits: ProseLimits = .provisional
+        _ source: ProseSource, tokenizer: any ProseTokenizer, recognizer: any ProseLanguageRecognizer,
+        limits: ProseLimits
     ) throws -> ProseAnalysis {
-        var paragraphs: [Paragraph] = []
+        var paragraphs: [ProseParagraphReading] = []
         paragraphs.reserveCapacity(source.paragraphs.count)
         for paragraph in source.paragraphs {
             try Task.checkCancellation()
-            paragraphs.append(Paragraph(paragraph, lineBreaksEnd: source.kind == .plainText, limits: limits))
+            paragraphs.append(
+                ProseParagraphReading(paragraph, lineBreaksEnd: source.kind == .plainText, limits: limits))
         }
         let language: ProseLanguage
-        switch ProseLanguageChoice.choose(for: &paragraphs, limits: limits) {
+        switch try ProseLanguageChoice.choose(for: &paragraphs, recognizer: recognizer, limits: limits) {
         case .language(let chosen): language = chosen
         case .notAnalysed(let reason): return .notAnalysed(reason)
         }
@@ -173,43 +206,47 @@ public enum ProseCheck {
         var repetitions: [ProseRepetition.Group] = []
         var paragraphsHolding: [String: Int] = [:]
         var readParagraphs = 0
-        for paragraph in paragraphs where !paragraph.sentences.isEmpty {
+        for index in paragraphs.indices where paragraphs[index].hasAcceptedSentences {
             try Task.checkCancellation()
+            paragraphs[index].measure()
+            let paragraph = paragraphs[index]
             readParagraphs += 1
             for sentence in paragraph.sentences {
+                let length = paragraph.length(of: sentence)
                 let isLong: Bool
                 switch sentence.language {
                 case .japanese:
-                    japaneseLengths.append(sentence.length)
+                    japaneseLengths.append(length)
                     scripts.kanji += sentence.scripts.kanji
                     scripts.hiragana += sentence.scripts.hiragana
                     scripts.katakana += sentence.scripts.katakana
                     scripts.latin += sentence.scripts.latin
-                    isLong = sentence.length >= limits.longJapaneseSentence
+                    isLong = length >= limits.longJapaneseSentence
                 case .english:
-                    englishLengths.append(sentence.length)
-                    isLong = sentence.length >= limits.longEnglishSentence
+                    englishLengths.append(length)
+                    isLong = length >= limits.longEnglishSentence
+                default: continue
                 }
                 guard isLong else { continue }
                 findings.append(
                     ProseFinding(
                         kind: .longSentence(
-                            length: sentence.length, unit: sentence.language == .japanese ? .characters : .words),
+                            length: length, unit: sentence.language == .japanese ? .characters : .words),
                         occurrences: [paragraph.occurrence(sentence.range)]))
             }
-            let isEnglish = paragraph.isEnglish
-            let tokens = tokenizer.tokens(in: paragraph.source.text, tagsEnglish: isEnglish).filter {
-                $0.range.lowerBound >= 0 && $0.range.upperBound <= paragraph.units.count && !$0.range.isEmpty
-            }
+            let english = paragraph.sentences.filter { $0.language == .english }.map(\.range)
+            let tokens = tokenizer.tokens(in: paragraph.source.text, english: english)
             try Task.checkCancellation()
-            findings += ProseDuplicates.findings(in: paragraph, tokens: tokens)
-            let found = ProseRepetition.groups(in: paragraph, tokens: tokens, isEnglish: isEnglish, limits: limits)
+            let words = try paragraph.words(from: tokens)
+            findings += try ProseDuplicates.findings(in: paragraph, words: words)
+            let found = try ProseRepetition.groups(in: paragraph, words: words, limits: limits)
             repetitions += found.groups
             for key in found.keys { paragraphsHolding[key, default: 0] += 1 }
         }
-        // A word in a fifth of the paragraphs is the document's subject: an article about PDF says PDF.
-        let subjectFloor = max(
-            limits.subjectMinimumParagraphs, Int((Double(readParagraphs) * limits.subjectParagraphShare).rounded(.up)))
+        try Task.checkCancellation()
+        // A word in a fifth of the paragraphs is the document's subject: an article about PDF says PDF. That holds
+        // for a word repeated in every paragraph too, which is why it is not reported anywhere.
+        let subjectFloor = limits.subjectFloor(paragraphs: readParagraphs)
         for group in repetitions where (paragraphsHolding[group.key] ?? 0) < subjectFloor {
             findings.append(ProseFinding(kind: .repetition(word: group.word), occurrences: group.occurrences))
         }
@@ -235,88 +272,169 @@ public enum ProseCheck {
                     scripts: japaneseLengths.isEmpty ? nil : scripts),
                 findings: findings, paragraphs: source.paragraphs))
     }
+}
 
-    // MARK: - Working forms
+/// What a sentence is written in, as far as the check has got with it.
+enum ProseSentenceLanguage: Equatable {
+    case japanese, english
+    /// A language without rules here, by its code.
+    case other(String)
+    /// Too little to tell. `isIdeographic` is a sentence of kanji without kana, which can become Japanese but
+    /// never English.
+    case undetermined(isIdeographic: Bool)
+    /// Left out of the analysis: its numbers are not counted and no finding points into it.
+    case excluded
+}
 
-    enum SentenceLanguage {
-        case japanese, english
+struct ProseSentence {
+    var range: Range<Int>
+    var language: ProseSentenceLanguage
+    var scripts = ProseScriptCounts()
+    /// What the recognizer is to be asked about the sentence, if anything.
+    var question: Question?
+
+    enum Question {
+        /// Latin letters: which language?
+        case latin
+        /// Mostly Latin letters with some kana: English that quotes Japanese, or Japanese full of English terms?
+        case latinWithKana
+        /// Kanji without kana: Chinese, or Japanese without a particle?
+        case ideographic
     }
+}
 
-    struct Sentence {
-        var range: Range<Int>
-        var language: SentenceLanguage
-        /// Characters for a Japanese sentence, words for an English one.
-        var length: Int
-        var scripts = ProseScriptCounts()
-    }
+/// A word of an accepted sentence: the token, the sentence it is in, and that sentence's language.
+struct ProseWord {
+    var token: ProseToken
+    var sentence: Int
+    var isEnglish: Bool
+}
 
-    /// A paragraph as the rules read it: its UTF-16 units and its sentences. A sentence without letters (a number, a
-    /// placeholder alone) is no sentence, and one in a script the check has no rules for is counted apart.
-    struct Paragraph {
-        let source: ProseParagraph
-        let units: [UInt16]
-        var sentences: [Sentence] = []
-        var otherSentences = 0
-        var otherLetters = 0
+/// A paragraph as the rules read it: its UTF-16 units and its sentences. A stretch without letters (a number, a
+/// placeholder alone) is no sentence.
+struct ProseParagraphReading {
+    let source: ProseParagraph
+    let units: [UInt16]
+    var sentences: [ProseSentence] = []
+    /// Characters before each UTF-16 unit, as `ProseLengthUnit.characters` counts them. Made by `measure()`.
+    private var charactersBefore: [Int32] = []
+    /// Words that start before each UTF-16 unit, as `ProseLengthUnit.words` counts them. Made by `measure()`.
+    private var wordsBefore: [Int32] = []
 
-        init(_ source: ProseParagraph, lineBreaksEnd: Bool, limits: ProseLimits) {
-            self.source = source
-            units = Array(source.text.utf16)
-            for range in ProseSentences.ranges(in: units, lineBreaksEnd: lineBreaksEnd) {
-                var counts = ProseScriptCounts()
-                var other = 0
-                ProseScript.scalars(units, range) { value, _ in
-                    switch ProseScript.of(value) {
-                    case .kanji: counts.kanji += 1
-                    case .hiragana: counts.hiragana += 1
-                    case .katakana: counts.katakana += 1
-                    case .latin: counts.latin += 1
-                    case .otherLetter: other += 1
-                    case .none: break
-                    }
-                }
-                let japanese = counts.kanji + counts.hiragana + counts.katakana
-                guard japanese + counts.latin + other > 0 else { continue }
-                if other > japanese, other > counts.latin {
-                    otherSentences += 1
-                    otherLetters += other
-                } else if Double(japanese) >= Double(japanese + counts.latin) * limits.japaneseLetterShare {
-                    sentences.append(
-                        Sentence(range: range, language: .japanese, length: characters(range), scripts: counts))
-                } else {
-                    sentences.append(Sentence(range: range, language: .english, length: words(range)))
+    init(_ source: ProseParagraph, lineBreaksEnd: Bool, limits: ProseLimits) {
+        self.source = source
+        units = Array(source.text.utf16)
+        for range in ProseSentences.ranges(in: units, lineBreaksEnd: lineBreaksEnd) {
+            var counts = ProseScriptCounts()
+            var other = 0
+            ProseScript.scalars(units, range) { value, _ in
+                switch ProseScript.of(value) {
+                case .kanji: counts.kanji += 1
+                case .hiragana: counts.hiragana += 1
+                case .katakana: counts.katakana += 1
+                case .latin: counts.latin += 1
+                case .otherLetter: other += 1
+                case .none: break
                 }
             }
-        }
-
-        var isEnglish: Bool {
-            sentences.count { $0.language == .english } * 2 > sentences.count
-        }
-
-        func occurrence(_ range: Range<Int>) -> ProseOccurrence {
-            ProseOccurrence(paragraph: source.index, sourceRange: source.sourceRange(of: range), textRange: range)
-        }
-
-        func string(_ range: Range<Int>) -> String { String(decoding: units[range], as: UTF16.self) }
-
-        /// The characters a reader counts: no white space, and nothing for inline code, a formula or a URL.
-        private func characters(_ range: Range<Int>) -> Int {
-            string(range).count { !$0.isWhitespace && $0 != ProseParagraph.placeholder }
-        }
-
-        /// Words as they are counted by hand: stretches between white space that hold a letter or a digit.
-        private func words(_ range: Range<Int>) -> Int {
-            var count = 0
-            var holdsWord = false
-            for unit in units[range] {
-                if ProseScript.isWhitespace(unit) {
-                    if holdsWord { count += 1 }
-                    holdsWord = false
-                } else if !holdsWord, let scalar = Unicode.Scalar(unit) {
-                    holdsWord = scalar.properties.isAlphabetic || scalar.properties.numericType != nil
-                }
+            let kana = counts.hiragana + counts.katakana
+            let japanese = kana + counts.kanji
+            guard japanese + counts.latin + other > 0 else { continue }
+            var sentence = ProseSentence(range: range, language: .undetermined(isIdeographic: false), scripts: counts)
+            let isMostlyJapanese = Double(japanese) >= Double(japanese + counts.latin) * limits.japaneseLetterShare
+            if other > japanese, other > counts.latin {
+                sentence.language = .other("und")
+            } else if kana > 0 {
+                // Kana is written in no other language.
+                if isMostlyJapanese { sentence.language = .japanese } else { sentence.question = .latinWithKana }
+            } else if counts.kanji > 0, isMostlyJapanese {
+                sentence.language = .undetermined(isIdeographic: true)
+                if counts.kanji >= Self.lettersToAsk { sentence.question = .ideographic }
+            } else if counts.latin >= Self.lettersToAsk {
+                sentence.question = .latin
             }
-            return count + (holdsWord ? 1 : 0)
+            sentences.append(sentence)
         }
+    }
+
+    /// Fewer letters than this say too little for the recognizer to be asked at all.
+    private static let lettersToAsk = 4
+
+    var hasAcceptedSentences: Bool {
+        sentences.contains { $0.language == .japanese || $0.language == .english }
+    }
+
+    func occurrence(_ range: Range<Int>) -> ProseOccurrence {
+        ProseOccurrence(paragraph: source.index, sourceRange: source.sourceRange(of: range), textRange: range)
+    }
+
+    func string(_ range: Range<Int>) -> String { String(decoding: units[range], as: UTF16.self) }
+
+    /// Counts the paragraph's characters and words once, so that a sentence's length and the distance between two
+    /// words are read off the same count.
+    mutating func measure() {
+        guard charactersBefore.isEmpty else { return }
+        charactersBefore = [Int32](repeating: 0, count: units.count + 1)
+        var offset = 0
+        var count: Int32 = 0
+        for character in source.text {
+            let width = character.utf16.count
+            let counts = !character.isWhitespace && character != ProseParagraph.placeholder
+            for unit in 0..<width where offset + unit + 1 <= units.count {
+                charactersBefore[offset + unit + 1] = count + (counts ? 1 : 0)
+            }
+            if counts { count += 1 }
+            offset += width
+        }
+        wordsBefore = [Int32](repeating: 0, count: units.count + 1)
+        var words: Int32 = 0
+        var isInWord = false
+        for index in units.indices {
+            let unit = units[index]
+            var isWord = ProseScript.isWordUnit(unit)
+            if !isWord, isInWord, [0x27, 0x2019, 0x2D, 0x2E].contains(unit), index + 1 < units.count,
+                ProseScript.isWordUnit(units[index + 1])
+            {
+                isWord = true
+            }
+            if isWord, !isInWord { words += 1 }
+            isInWord = isWord
+            wordsBefore[index + 1] = words
+        }
+    }
+
+    /// From the start of `first` to the end of `last`: characters between Japanese words, words between English.
+    func distance(from first: Range<Int>, to last: Range<Int>, inWords: Bool) -> Int {
+        let counts = inWords ? wordsBefore : charactersBefore
+        guard first.lowerBound < counts.count, last.upperBound < counts.count else { return .max }
+        // A word that began before `first` and runs into it is not counted before it, so it is counted here.
+        return Int(counts[last.upperBound] - counts[first.lowerBound])
+    }
+
+    func length(of sentence: ProseSentence) -> Int {
+        distance(from: sentence.range, to: sentence.range, inWords: sentence.language == .english)
+    }
+
+    /// The tokens that lie inside an accepted sentence, each with its sentence. A token outside one (in a sentence
+    /// of another language, or across two sentences) is dropped here, so no rule can see it.
+    func words(from tokens: [ProseToken]) throws -> [ProseWord] {
+        var words: [ProseWord] = []
+        var sentence = 0
+        for (index, token) in tokens.enumerated() {
+            if index % 2048 == 2047 { try Task.checkCancellation() }
+            guard token.range.lowerBound >= 0, token.range.upperBound <= units.count, !token.range.isEmpty else {
+                continue
+            }
+            while sentence < sentences.count, sentences[sentence].range.upperBound <= token.range.lowerBound {
+                sentence += 1
+            }
+            guard sentence < sentences.count else { break }
+            let found = sentences[sentence]
+            guard found.range.lowerBound <= token.range.lowerBound, token.range.upperBound <= found.range.upperBound
+            else { continue }
+            guard found.language == .japanese || found.language == .english else { continue }
+            words.append(ProseWord(token: token, sentence: sentence, isEnglish: found.language == .english))
+        }
+        return words
     }
 }

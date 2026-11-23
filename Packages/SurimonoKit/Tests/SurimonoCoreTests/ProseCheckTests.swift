@@ -1,4 +1,5 @@
 import Foundation
+import NaturalLanguage
 import Testing
 
 @testable import SurimonoCore
@@ -7,9 +8,10 @@ import Testing
 /// so that a test does not depend on how the system's tokenizer happens to cut Japanese.
 struct ListedWords: ProseTokenizer {
     var words: [String]
-    var tags: [String: (lemma: String, isContent: Bool)] = [:]
+    /// Lemma and class by lower-case word, given to the words inside English sentences.
+    var tags: [String: (lemma: String, wordClass: ProseWordClass)] = [:]
 
-    func tokens(in text: String, tagsEnglish: Bool) -> [ProseToken] {
+    func tokens(in text: String, english: [Range<Int>]) -> [ProseToken] {
         let whole = text as NSString
         var from = 0
         var tokens: [ProseToken] = []
@@ -17,65 +19,85 @@ struct ListedWords: ProseTokenizer {
             let found = whole.range(of: word, range: NSRange(location: from, length: whole.length - from))
             guard found.location != NSNotFound else { continue }
             from = found.location + found.length
-            let tag = tagsEnglish ? tags[word.lowercased()] : nil
-            tokens.append(
-                ProseToken(
-                    range: found.location..<from, lemma: tag?.lemma, isContentWord: tag.map(\.isContent)))
+            let isEnglish = english.contains { $0.lowerBound <= found.location && from <= $0.upperBound }
+            let tag = isEnglish ? tags[word.lowercased()] : nil
+            tokens.append(ProseToken(range: found.location..<from, lemma: tag?.lemma, wordClass: tag?.wordClass))
         }
         return tokens
     }
 }
 
-/// Cuts at everything that is not a letter or a digit, as English is cut. Only the listed words are content words.
+/// Cuts at everything that is not a letter or a digit, as English is cut. In English sentences the listed words
+/// are nouns and every other word is a function word.
 struct SpacedWords: ProseTokenizer {
     var content: Set<String> = []
 
-    func tokens(in text: String, tagsEnglish: Bool) -> [ProseToken] {
+    func tokens(in text: String, english: [Range<Int>]) -> [ProseToken] {
         var tokens: [ProseToken] = []
         var start: Int?
         let units = Array(text.utf16)
+        func token(_ range: Range<Int>) -> ProseToken {
+            guard english.contains(where: { $0.lowerBound <= range.lowerBound && range.upperBound <= $0.upperBound })
+            else { return ProseToken(range: range) }
+            let word = String(decoding: units[range], as: UTF16.self).lowercased()
+            return ProseToken(range: range, lemma: word, wordClass: content.contains(word) ? .noun : .other)
+        }
         for (index, unit) in units.enumerated() {
             let isWord = Unicode.Scalar(unit).map { $0.properties.isAlphabetic || $0.properties.numericType != nil }
             if isWord == true {
                 start = start ?? index
             } else if let from = start {
-                tokens.append(token(from..<index, units))
+                tokens.append(token(from..<index))
                 start = nil
             }
         }
-        if let from = start { tokens.append(token(from..<units.count, units)) }
+        if let from = start { tokens.append(token(from..<units.count)) }
         return tokens
     }
+}
 
-    private func token(_ range: Range<Int>, _ units: [UInt16]) -> ProseToken {
-        let word = String(decoding: units[range], as: UTF16.self).lowercased()
-        return ProseToken(range: range, lemma: word, isContentWord: content.contains(word))
+/// Answers the recognizer's questions from a table: the first entry whose text the sentence holds, or English with
+/// full confidence. The rules for settling a document's language are tested with these fixed answers.
+struct FixedLanguages: ProseLanguageRecognizer {
+    var answers: [(containing: String, code: String, confidence: Double)] = []
+    var otherwise = ProseRecognizedLanguage(code: "en", confidence: 1)
+
+    func languages(of texts: [String]) -> [ProseRecognizedLanguage?] {
+        texts.map { text in
+            guard let answer = answers.first(where: { text.contains($0.containing) }) else { return otherwise }
+            return ProseRecognizedLanguage(code: answer.code, confidence: answer.confidence)
+        }
     }
 }
 
 enum ProseTesting {
+    static func analyse(
+        _ text: String, format: DocumentFormat = .markdown, tokenizer: any ProseTokenizer = SpacedWords(),
+        recognizer: any ProseLanguageRecognizer = FixedLanguages()
+    ) throws -> ProseAnalysis {
+        try ProseCheck.analyse(text, format: format, tokenizer: tokenizer, recognizer: recognizer)
+    }
+
     static func report(
-        _ text: String, format: DocumentFormat = .markdown, tokenizer: any ProseTokenizer = SystemProseTokenizer(),
-        limits: ProseLimits = .provisional
+        _ text: String, format: DocumentFormat = .markdown, tokenizer: any ProseTokenizer = SpacedWords(),
+        recognizer: any ProseLanguageRecognizer = FixedLanguages()
     ) throws -> ProseReport {
         guard
-            case .analysed(let report) = try ProseCheck.analyse(
-                text, format: format, tokenizer: tokenizer, limits: limits)
-        else {
-            throw Missing()
-        }
+            case .analysed(let report) = try analyse(text, format: format, tokenizer: tokenizer, recognizer: recognizer)
+        else { throw Missing() }
         return report
     }
 
     struct Missing: Error {}
 
+    static func slice(_ text: String, _ range: Range<Int>) -> String {
+        (text as NSString).substring(with: NSRange(location: range.lowerBound, length: range.count))
+    }
+
     /// Each finding as a line a test can read: its kind and the source text it points at.
     static func lines(_ report: ProseReport, in text: String) -> [String] {
         report.findings.map { finding in
-            let places = finding.occurrences.map {
-                (text as NSString).substring(
-                    with: NSRange(location: $0.sourceRange.lowerBound, length: $0.sourceRange.count))
-            }
+            let places = finding.occurrences.map { slice(text, $0.sourceRange) }
             switch finding.kind {
             case .longSentence(let length, let unit):
                 return "long \(length)\(unit == .characters ? "字" : "語") @\(finding.occurrences[0].paragraph)"
@@ -96,14 +118,16 @@ enum ProseTesting {
     }
 }
 
-@Suite("文章の点検: 言語と数字")
-struct ProseCheckFactsTests {
-    @Test("日本語の本文は日本語として読む")
+@Suite("文章の点検: 言語")
+struct ProseCheckLanguageTests {
+    @Test("かなのある文は、認識器に聞かずに日本語として読む")
     func japanese() throws {
-        #expect(try ProseTesting.report("これは日本語の文です。もう一つの文も日本語です。").language == .japanese)
+        // The recognizer would call everything Korean; a sentence with kana is never asked about.
+        let korean = FixedLanguages(otherwise: .init(code: "ko", confidence: 1))
+        #expect(try ProseTesting.report("これは日本語の文です。もう一つの文も日本語です。", recognizer: korean).language == .japanese)
     }
 
-    @Test("英語の本文は英語として読む")
+    @Test("英語と認識された文は英語として読む")
     func english() throws {
         #expect(try ProseTesting.report("This is a sentence in English. Here is another one.").language == .english)
     }
@@ -126,28 +150,100 @@ struct ProseCheckFactsTests {
         #expect(report.facts.sentenceCount == 4)
     }
 
+    @Test("ほとんどが英字でかなが少しある文は、認識器の答えで日本語か英語に決まり、対象外にはならない")
+    func mostlyLatinWithKana() throws {
+        let text = "InternationalizationConfigurationを使う。"
+        let asJapanese = FixedLanguages(answers: [("Internationalization", "ja", 0.9)])
+        #expect(try ProseTesting.report(text, recognizer: asJapanese).language == .japanese)
+        #expect(try ProseTesting.report(text, recognizer: FixedLanguages()).language == .english)
+        let unsure = FixedLanguages(answers: [("Internationalization", "fr", 0.2)])
+        #expect(try ProseTesting.report(text, recognizer: unsure).language == .japanese)
+    }
+
+    @Test("文ごとに認識するので、英語の文書の中のフランス語の文だけが外れる")
+    func sentenceBySentence() throws {
+        let text = "This is the first sentence. Ceci est une phrase en français. This is the last sentence."
+        let report = try ProseTesting.report(text, recognizer: FixedLanguages(answers: [("Ceci", "fr", 1)]))
+        #expect(report.language == .english)
+        #expect(report.facts.english?.count == 2)
+    }
+
+    @Test("段落の英字の文をまとめて聞いた答えが英語でなければ、文ごとに聞き直す")
+    func askedAgainOneByOne() throws {
+        let text = "Das ist gut so. This is English text here. And this one is English too."
+        let report = try ProseTesting.report(text, recognizer: FixedLanguages(answers: [("Das", "de", 1)]))
+        #expect(report.language == .english)
+        #expect(report.facts.english?.count == 2)
+    }
+
     @Test(
-        "日本語でも英語でもない本文は「点検していない」になる",
+        "日本語でも英語でもない本文は「点検していない」になり、理由はその言語を名指す",
         arguments: [
-            (
-                "Ceci est un document écrit en français. Il contient plusieurs phrases assez longues pour être reconnu.",
-                "fr"
-            ),
-            (
-                "Dies ist ein Dokument in deutscher Sprache. Es enthält mehrere Sätze, damit die Sprache erkannt wird.",
-                "de"
-            ),
-            ("这是一份用中文写的文档。它包含了几个句子，没有任何假名。我们很高兴你能阅读它吗？", "zh-Hans"),
+            ("Ceci est un document écrit en français. Il contient plusieurs phrases.", "fr"),
+            ("这是一份用中文写的文档。它包含了几个句子，没有任何假名。", "zh-Hans"),
             ("이 문서는 한국어로 작성되었습니다. 여러 문장이 들어 있습니다.", "ko"),
         ])
     func otherLanguages(_ text: String, _ code: String) throws {
-        #expect(try ProseCheck.analyse(text, format: .markdown) == .notAnalysed(.unsupportedLanguage(code)))
+        let recognizer = FixedLanguages(
+            answers: [("Ceci", "fr", 1), ("Il contient", "fr", 1)], otherwise: .init(code: "zh-Hans", confidence: 1))
+        #expect(try ProseTesting.analyse(text, recognizer: recognizer) == .notAnalysed(.unsupportedLanguage(code)))
+    }
+
+    @Test("認識器が英字の文を日本語と答えても、日本語や英語が対象外の理由になることはない")
+    func supportedLanguagesAreNeverTheReason() throws {
+        let recognizer = FixedLanguages(otherwise: .init(code: "ja", confidence: 1))
+        #expect(
+            try ProseTesting.analyse("Plain words in Latin letters only.", recognizer: recognizer)
+                == .notAnalysed(.undeterminedLanguage))
+    }
+
+    @Test(
+        "短すぎて決められない本文は「言語を決められない」になる",
+        arguments: ["OK.", "你好。", "Bonjour tout le monde.", "東京都"])
+    func undetermined(_ text: String) throws {
+        // Fewer than four letters are not asked about; an unsure answer decides nothing.
+        let recognizer = FixedLanguages(answers: [("Bonjour", "fr", 0.4)])
+        #expect(try ProseTesting.analyse(text, recognizer: recognizer) == .notAnalysed(.undeterminedLanguage))
+    }
+
+    @Test("確かな答えのある短いフランス語は、英語にならず対象外になる")
+    func shortFrench() throws {
+        let recognizer = FixedLanguages(answers: [("Bonjour", "fr", 0.9)])
+        #expect(
+            try ProseTesting.analyse("Bonjour.", recognizer: recognizer) == .notAnalysed(.unsupportedLanguage("fr")))
+    }
+
+    @Test("決められない文は、同じ段落の前の文、なければ後ろの文の言語になる")
+    func settledByNeighbours() throws {
+        let unsure = FixedLanguages(answers: [("Fine", "en", 0.1)])
+        let after = try ProseTesting.report("これは日本語の文です。Fine words.", recognizer: unsure)
+        #expect(after.facts.japanese?.count == 2)
+        #expect(after.facts.english == nil)
+        let before = try ProseTesting.report("OK. This sentence is English. これは日本語の文です。", recognizer: unsure)
+        #expect(before.facts.english?.count == 2)
+        #expect(before.facts.japanese?.count == 1)
+    }
+
+    @Test("決まった文のない段落の決められない文は、文書で多い方の言語になる")
+    func settledByDocument() throws {
+        let report = try ProseTesting.report("OK.\n\nこれは日本語の文です。二つ目も日本語です。\n")
+        #expect(report.language == .japanese)
+        #expect(report.facts.japanese?.count == 3)
+    }
+
+    @Test("かなのない漢字だけの文は、日本語にはなっても英語にはならない")
+    func ideographicNeverEnglish() throws {
+        let english = try ProseTesting.report("This sentence is English. So is this one.\n\n東京都\n")
+        #expect(english.language == .english)
+        #expect(english.facts.sentenceCount == 2)
+        let japanese = try ProseTesting.report("これは日本語の文です。\n\n東京都\n")
+        #expect(japanese.facts.japanese?.count == 2)
     }
 
     @Test("本文がない文書は「点検していない」で、指摘のない文書とは別の答えになる")
     func noProse() throws {
-        #expect(try ProseCheck.analyse("", format: .markdown) == .notAnalysed(.noProse))
-        #expect(try ProseCheck.analyse("# 見出しだけ\n\n```\ncode\n```\n", format: .markdown) == .notAnalysed(.noProse))
+        #expect(try ProseTesting.analyse("") == .notAnalysed(.noProse))
+        #expect(try ProseTesting.analyse("# 見出しだけ\n\n```\ncode\n```\n") == .notAnalysed(.noProse))
         let clean = try ProseTesting.report("短い文です。")
         #expect(clean.findings.isEmpty)
         #expect(clean.facts.sentenceCount == 1)
@@ -155,21 +251,86 @@ struct ProseCheckFactsTests {
 
     @Test("本文を読まない形式は「点検していない」になる")
     func unsupportedFormat() throws {
-        #expect(try ProseCheck.analyse("<p>本文です。</p>", format: .html) == .notAnalysed(.unsupportedFormat))
+        #expect(try ProseTesting.analyse("<p>本文です。</p>", format: .html) == .notAnalysed(.unsupportedFormat))
     }
 
     @Test("日本語の文書の中のフランス語の引用は数えず、文書は日本語のまま")
     func foreignQuotation() throws {
         let report = try ProseTesting.report(
-            "最初の文は日本語です。二つ目の文も日本語です。三つ目の文も日本語です。\n\nCeci est une citation écrite en français pour le test.\n")
+            "最初の文は日本語です。二つ目の文も日本語です。三つ目の文も日本語です。\n\nCeci est une citation écrite en français.\n",
+            recognizer: FixedLanguages(answers: [("Ceci", "fr", 1)]))
         #expect(report.language == .japanese)
         #expect(report.facts.japanese?.count == 3)
         #expect(report.facts.english == nil)
     }
+}
+
+@Suite("文章の点検: 文と数字")
+struct ProseCheckFactsTests {
+    private func sentences(_ text: String, plain: Bool = false) -> [String] {
+        let units = Array(text.utf16)
+        return ProseSentences.ranges(in: units, lineBreaksEnd: plain).map {
+            String(decoding: units[$0], as: UTF16.self)
+        }
+    }
+
+    @Test(
+        "文の区切り",
+        arguments: [
+            ("彼は「行く。すぐ戻る。」と言った。次の文です。", ["彼は「行く。すぐ戻る。」と言った。", "次の文です。"]),
+            ("「行く。」「待って。」", ["「行く。」", "「待って。」"]),
+            ("We live in the U.S. She left.", ["We live in the U.S.", "She left."]),
+            ("He joined the U.S. Navy in May.", ["He joined the U.S. Navy in May."]),
+            (
+                "Dr. Smith read it, e.g. the summary, on version 1.2. Then J. Doe signed it!",
+                ["Dr. Smith read it, e.g. the summary, on version 1.2.", "Then J. Doe signed it!"]
+            ),
+            ("Wait… Next.", ["Wait…", "Next."]),
+            ("Wait.....really", ["Wait.....really"]),
+            ("Wait... Really. Yes", ["Wait...", "Really.", "Yes"]),
+            ("そうか…次へ進む。", ["そうか…次へ進む。"]),
+            ("本当？！次です。", ["本当？！", "次です。"]),
+            ("本当?！次です。", ["本当?！", "次です。"]),
+            ("What?now. Really?! Yes.", ["What?now.", "Really?!", "Yes."]),
+            ("\"Go.\" she said. \"Stop!\" he cried.", ["\"Go.\" she said.", "\"Stop!\" he cried."]),
+            ("(See Fig. 2.) Next one.", ["(See Fig. 2.)", "Next one."]),
+            ("終止符のない文", ["終止符のない文"]),
+            ("値は 1.2 です。次。", ["値は 1.2 です。", "次。"]),
+        ])
+    func sentenceBoundaries(_ text: String, _ expected: [String]) {
+        #expect(sentences(text) == expected)
+    }
+
+    @Test("閉じた長い引用は、長くても中の句点で切らない")
+    func longClosedQuotation() {
+        let text = "彼は「" + String(repeating: "あ", count: 300) + "。まだ続く。」と言った。終わり。"
+        #expect(sentences(text).count == 2)
+    }
+
+    @Test("閉じない括弧は文をまとめない")
+    func unclosedBracket() {
+        #expect(sentences("これは（閉じない括弧の文です。短い文です。次の文です。") == ["これは（閉じない括弧の文です。", "短い文です。", "次の文です。"])
+    }
+
+    @Test(
+        "プレーンテキストの日本語の行は、CR・CRLF・LF のどれでも文を切る", arguments: ["折る\r開く", "折る\r\n開く", "折る\n開く"])
+    func plainLineEndings(_ text: String) {
+        #expect(sentences(text, plain: true) == ["折る", "開く"])
+    }
+
+    @Test("プレーンテキストの英字の行の折り返しと、Markdown の行の折り返しは文を切らない")
+    func softLineBreaks() throws {
+        #expect(sentences("This line is\nwrapped by hand", plain: true) == ["This line is\nwrapped by hand"])
+        let text = "一行目の文は\n二行目に続く\n\nThis line is\nwrapped by hand\n"
+        #expect(try ProseTesting.report(text).facts.japanese?.count == 1)
+        let plain = try ProseTesting.report(text, format: .plainText)
+        #expect(plain.facts.japanese?.count == 2)
+        #expect(plain.facts.english?.count == 1)
+    }
 
     @Test("文の数と長さの中央値を、日本語は字で、英語は語で数える")
     func sentenceFacts() throws {
-        let japanese = try ProseTesting.report("一二三四。一二三四五六七八九。一二三四五六。")
+        let japanese = try ProseTesting.report("あいうえ。あいうえおかきくけ。あいうえおか。")
         #expect(japanese.facts.japanese == .init(count: 3, medianLength: 7, longCount: 0))
         let english = try ProseTesting.report(
             "One two three. One two three four five. One two. One two three four five six.")
@@ -182,40 +343,37 @@ struct ProseCheckFactsTests {
         #expect(report.facts.japanese?.medianLength == 7)
     }
 
+    @Test("日本語の長さは見た目の字で数え、結合文字は 1 字に含める")
+    func graphemes() throws {
+        let text = String(repeating: "か\u{3099}", count: 79) + "。"
+        let report = try ProseTesting.report(text)
+        #expect(report.facts.japanese == .init(count: 1, medianLength: 80, longCount: 1))
+    }
+
+    @Test("英語の語は英数字の続きで、ダッシュは語を分け、アポストロフィとハイフンは分けない")
+    func words() throws {
+        let report = try ProseTesting.report("We don't ship state-of-the-art parsers—ever, e.g. today.")
+        #expect(report.facts.english?.medianLength == 8)
+    }
+
     @Test("日本語の文の漢字・ひらがな・カタカナ・英字を数える")
     func scripts() throws {
         let report = try ProseTesting.report("漢字とカタカナと ABC を数える。")
         let scripts = try #require(report.facts.scripts)
         #expect(scripts == ProseScriptCounts(kanji: 3, hiragana: 5, katakana: 4, latin: 3))
         #expect(scripts.share(scripts.kanji) == 0.2)
-        #expect(try ProseTesting.report("English only.").facts.scripts == nil)
+        #expect(try ProseTesting.report("English only, with enough letters.").facts.scripts == nil)
     }
 
-    @Test("かぎ括弧の中の句点では文を切らない")
-    func quotedStop() throws {
-        #expect(try ProseTesting.report("彼は「行く。すぐ戻る。」と言った。次の文です。").facts.japanese?.count == 2)
-    }
-
-    @Test("閉じない括弧があっても、段落の残りを 1 文にしない")
-    func unclosedBracket() throws {
-        let text = "これは（閉じない括弧の文です。" + String(repeating: "短い文が続きます。", count: 30)
-        #expect((try ProseTesting.report(text).facts.japanese?.count ?? 0) > 15)
-    }
-
-    @Test("英語の略語と頭文字のピリオドでは文を切らない")
-    func abbreviations() throws {
-        let report = try ProseTesting.report(
-            "Dr. Smith read the U.S. report, e.g. the summary, on version 1.2 of the plan. Then J. Doe signed it!")
-        #expect(report.facts.english?.count == 2)
-    }
-
-    @Test("Markdown の行の折り返しは文を切らず、プレーンテキストの日本語の行は文を切る")
-    func lineBreaks() throws {
-        let text = "一行目の文は\n二行目に続く\n\nThis line is\nwrapped by hand\n"
-        #expect(try ProseTesting.report(text).facts.japanese?.count == 1)
-        let plain = try ProseTesting.report(text, format: .plainText)
-        #expect(plain.facts.japanese?.count == 2)
-        #expect(plain.facts.english?.count == 1)
+    @Test("主題の語の段落数は、割合が数でなくても止まらずに最小の数になる")
+    func subjectFloor() {
+        var limits = ProseLimits()
+        #expect(limits.subjectFloor(paragraphs: 40) == 8)
+        #expect(limits.subjectFloor(paragraphs: 3) == 4)
+        for share in [Double.nan, .infinity, -.infinity, 1e300] {
+            limits.subjectParagraphShare = share
+            #expect(limits.subjectFloor(paragraphs: 40) == 4)
+        }
     }
 }
 
@@ -226,24 +384,19 @@ struct ProseCheckFindingTests {
         let long = String(repeating: "あ", count: 79) + "。"
         let short = String(repeating: "あ", count: 78) + "。"
         let text = "# 題\n\n短い文です。\(long)\n\n\(short)\n"
-        let report = try ProseTesting.report(text, tokenizer: SpacedWords())
+        let report = try ProseTesting.report(text)
         #expect(ProseTesting.lines(report, in: text) == ["long 80字 @0"])
         #expect(report.facts.japanese?.longCount == 1)
         let place = try #require(report.findings.first?.occurrences.first)
-        #expect(
-            (text as NSString).substring(
-                with: NSRange(location: place.sourceRange.lowerBound, length: place.sourceRange.count)) == long)
-        #expect(
-            (report.paragraphs[0].text as NSString).substring(
-                with: NSRange(location: place.textRange.lowerBound, length: place.textRange.count)) == long)
+        #expect(ProseTesting.slice(text, place.sourceRange) == long)
+        #expect(ProseTesting.slice(report.paragraphs[0].text, place.textRange) == long)
     }
 
-    @Test("40 語の英語の文は長い文で、39 語は違う")
+    @Test("40 語の英語の文は長い文で、39 語は違う。ダッシュで分かれた語も 1 語ずつ数える")
     func longEnglish() throws {
-        let words =
-            Array(repeating: "the sheet folds and", count: 10).dropLast().joined(separator: " ") + " the sheet folds"
-        let text = "\(words) end.\n\n\(words).\n"
-        let report = try ProseTesting.report(text, tokenizer: SpacedWords())
+        let words = Array(repeating: "the sheet folds and", count: 9).joined(separator: " ")
+        let text = "\(words) it folds—flat end.\n\n\(words) it folds flat.\n"
+        let report = try ProseTesting.report(text)
         #expect(ProseTesting.lines(report, in: text) == ["long 40語 @0"])
         #expect(report.facts.english == .init(count: 2, medianLength: 39.5, longCount: 1))
     }
@@ -251,7 +404,7 @@ struct ProseCheckFindingTests {
     @Test("同じ語が続く所を、止め語の表なしで見つける")
     func adjacentDuplicates() throws {
         let english = "Check the the grain and and and fold."
-        let inEnglish = ProseTesting.lines(try ProseTesting.report(english, tokenizer: SpacedWords()), in: english)
+        let inEnglish = ProseTesting.lines(try ProseTesting.report(english), in: english)
         #expect(inEnglish == ["double the: the the", "double and: and and and"])
         let japanese = "設定をを変更して、用紙用紙を保存する。"
         let words = ListedWords(words: ["設定", "を", "を", "変更", "し", "て", "用紙", "用紙", "を", "保存", "する"])
@@ -279,7 +432,8 @@ struct ProseCheckFindingTests {
             ("人々が集まる。", ["人々", "が", "集まる"]),
             ("一つ一つ確かめる。", ["一つ", "一つ", "確かめる"]),
             // The same word on either side of something else is not a pair.
-            ("It is the `the` keyword.", ["It", "is", "the", "the", "keyword"]),
+            ("Use the `x` the same way.", ["Use", "the", "the", "same", "way"]),
+            ("図は ![the](a.png) the とする。", ["図", "は", "the", "と", "する"]),
             ("終わった。た、という音。", ["終わっ", "た", "た", "という", "音"]),
             ("That is fine. Fine words follow.", ["That", "is", "fine", "Fine", "words", "follow"]),
             ("値は 10 10 と並ぶ。", ["値", "は", "10", "10", "と", "並ぶ"]),
@@ -289,13 +443,27 @@ struct ProseCheckFindingTests {
         #expect(ProseTesting.lines(report, in: text) == [])
     }
 
+    @Test("had had had のような 3 つ続きは見つける。is is は見分けられないので、そのまま見つける")
+    func runsOfThree() throws {
+        let text = "She had had had enough. What it is is unclear."
+        #expect(
+            ProseTesting.lines(try ProseTesting.report(text), in: text) == [
+                "double had: had had had", "double is: is is",
+            ])
+    }
+
+    @Test("対象外の文の中の重複は見つけない")
+    func excludedSentence() throws {
+        let text = "日本語です。次です。終わりです。 Это длинное предложение the the."
+        let report = try ProseTesting.report(text)
+        #expect(report.facts.japanese?.count == 3)
+        #expect(ProseTesting.lines(report, in: text) == [])
+    }
+
     @Test("同じ段落の 200 字のうちに 3 回出る語を、1 つの指摘にまとめる")
     func nearbyRepetition() throws {
         let text = "処理を始める前に処理の順を決め、処理が終わったら結果を見る。\n\n次の段落に処理が一度だけ出る。\n"
-        let words = ListedWords(words: [
-            "処理", "を", "始める", "前", "に", "処理", "の", "順", "を", "決め", "処理", "が", "終わっ", "たら", "結果", "を", "見る",
-        ])
-        let report = try ProseTesting.report(text, tokenizer: words)
+        let report = try ProseTesting.report(text, tokenizer: ListedWords(words: ["処理", "処理", "処理", "結果"]))
         #expect(ProseTesting.lines(report, in: text) == ["repeat 処理 ×3: 処理|処理|処理"])
         #expect(report.findings[0].occurrences.map(\.sourceRange.lowerBound) == [0, 8, 16])
     }
@@ -314,18 +482,30 @@ struct ProseCheckFindingTests {
         }
     }
 
-    @Test("離れた所でまた 3 回続けば、別の指摘になる")
-    func separateGroups() throws {
-        let filler = String(repeating: "あいうえおかきくけこ", count: 25)
-        let text = "処理と処理と処理。\(filler)処理と処理と処理と処理。"
-        let report = try ProseTesting.report(text, tokenizer: ListedWords(words: Array(repeating: "処理", count: 7)))
+    @Test("指摘の最初と最後は窓に収まる。収まらない続きは別の指摘になるか、指摘にならない")
+    func groupsFitTheWindow() throws {
+        // 99 characters a step: three in a row end 200 characters after the first begins, and a fourth does not.
+        let step = "処理" + String(repeating: "あ", count: 96) + "。"
+        let text = String(repeating: step, count: 6)
+        let report = try ProseTesting.report(text, tokenizer: ListedWords(words: Array(repeating: "処理", count: 6)))
         #expect(
-            ProseTesting.repetitions(report, in: text) == ["repeat 処理 ×3: 処理|処理|処理", "repeat 処理 ×4: 処理|処理|処理|処理"])
+            ProseTesting.repetitions(report, in: text) == ["repeat 処理 ×3: 処理|処理|処理", "repeat 処理 ×3: 処理|処理|処理"])
+        let four = String(repeating: step, count: 4)
+        let once = try ProseTesting.report(four, tokenizer: ListedWords(words: Array(repeating: "処理", count: 4)))
+        #expect(ProseTesting.repetitions(once, in: four) == ["repeat 処理 ×3: 処理|処理|処理"])
+    }
+
+    @Test("日本語の距離は見た目の字で測るので、結合文字で書いても同じ判定になる")
+    func distanceInGraphemes() throws {
+        let filler = String(repeating: "か\u{3099}", count: 50)
+        let text = "処理\(filler)処理\(filler)処理。"
+        let report = try ProseTesting.report(text, tokenizer: ListedWords(words: ["処理", "処理", "処理"]))
+        #expect(ProseTesting.repetitions(report, in: text) == ["repeat 処理 ×3: 処理|処理|処理"])
     }
 
     @Test("日本語の候補は、漢字を含む 2 字以上・カタカナ 3 字以上・英字 3 字以上の語だけ")
     func japaneseCandidates() throws {
-        let text = "こと、こと、こと。紙、紙、紙。ログ、ログ、ログ。サーバー、サーバー、サーバー。API、api、Api。OK、OK、OK。読み込み、読み込み、読み込み。"
+        let text = "こと、こと、こと、紙、紙、紙、ログ、ログ、ログ、サーバー、サーバー、サーバー、API、api、Api、OK、OK、OK、読み込み、読み込み、読み込みを見る。"
         let words = ListedWords(
             words: [
                 "こと", "こと", "こと", "紙", "紙", "紙", "ログ", "ログ", "ログ", "サーバー", "サーバー", "サーバー", "API", "api", "Api",
@@ -339,11 +519,19 @@ struct ProseCheckFindingTests {
             ])
     }
 
-    @Test("形式名詞や接続の語は、漢字で書いてあっても繰り返しにしない")
+    @Test("形式名詞や接続の語は、漢字で書いてあっても繰り返しにしない。道の「通り」は語として比べる")
     func japaneseStopWords() throws {
-        let text = "その場合は止める。別の場合は進む。どの場合も記録する。及び、及び、及び。"
-        let words = ListedWords(words: ["場合", "止める", "場合", "進む", "場合", "記録", "及び", "及び", "及び"])
-        #expect(ProseTesting.lines(try ProseTesting.report(text, tokenizer: words), in: text) == [])
+        let text = "その場合は止める。別の場合は進む。どの場合も記録する。及び、及び、及び。通りを歩き、通りを渡り、通りを見る。"
+        let words = ListedWords(words: ["場合", "止める", "場合", "進む", "場合", "記録", "及び", "及び", "及び", "通り", "通り", "通り"])
+        #expect(
+            ProseTesting.lines(try ProseTesting.report(text, tokenizer: words), in: text) == ["repeat 通り ×3: 通り|通り|通り"])
+    }
+
+    @Test("日本語の文の中の英語の機能語は繰り返しにしない")
+    func functionWordsInJapanese() throws {
+        let text = "the と the と the を並べ、and と and と and も並べ、token と token と token を使う。"
+        #expect(
+            ProseTesting.lines(try ProseTesting.report(text), in: text) == ["repeat token ×3: token|token|token"])
     }
 
     @Test("英語は 80 語のうちに 3 回出る内容語を、見出し語でまとめる")
@@ -357,24 +545,59 @@ struct ProseCheckFindingTests {
                 "stops", "and", "it", "also", "logs", "and", "it", "also", "waits",
             ],
             tags: [
-                "the": ("the", false), "parser": ("parser", true), "parsers": ("parser", true), "reads": ("read", true),
-                "file": ("file", true), "and": ("and", false), "it": ("it", false), "also": ("also", true),
+                "the": ("the", .other), "parser": ("parser", .noun), "parsers": ("parser", .noun),
+                "reads": ("read", .verb), "file": ("file", .noun), "and": ("and", .other), "it": ("it", .other),
+                "also": ("also", .adverb),
             ])
         let report = try ProseTesting.report(text, tokenizer: words)
         #expect(ProseTesting.lines(report, in: text) == ["repeat parser ×3: parser|parsers|parser"])
     }
 
-    @Test("英語で 80 語より離れた語は繰り返しにしない")
-    func englishWindow() throws {
+    @Test("止め語は品詞ごとで、will は動詞なら比べず、名詞（遺言）なら比べる")
+    func stopWordsByClass() throws {
+        let text = "The will names her. A will binds them. Each will differs."
+        let words = ["The", "will", "names", "her", "A", "will", "binds", "them", "Each", "will", "differs"]
+        let asNoun = ListedWords(words: words, tags: ["will": ("will", .noun)])
+        #expect(
+            ProseTesting.lines(try ProseTesting.report(text, tokenizer: asNoun), in: text) == [
+                "repeat will ×3: will|will|will"
+            ])
+        let asVerb = ListedWords(words: words, tags: ["will": ("will", .verb)])
+        #expect(ProseTesting.lines(try ProseTesting.report(text, tokenizer: asVerb), in: text) == [])
+    }
+
+    @Test("日本語の段落の中の英語の文は、英語の規則（品詞と語数の窓）で比べる")
+    func englishSentenceInJapaneseParagraph() throws {
         let filler = Array(repeating: "we fold a sheet along the grain and press it flat", count: 4).joined(
             separator: " ")
-        let text = "The crease opens. \(filler) crease \(filler) crease again."
-        let far = try ProseTesting.report(text, tokenizer: SpacedWords(content: ["crease"]))
-        #expect(ProseTesting.repetitions(far, in: text) == [])
-        let near = "The crease opens, a crease moves, each crease shows."
+        let near = "これは日本語の文です。The crease opens, a crease moves, each crease shows."
+        let tokenizer = SpacedWords(content: ["crease"])
         #expect(
-            ProseTesting.lines(try ProseTesting.report(near, tokenizer: SpacedWords(content: ["crease"])), in: near)
+            ProseTesting.repetitions(try ProseTesting.report(near, tokenizer: tokenizer), in: near)
                 == ["repeat crease ×3: crease|crease|crease"])
+        // More than 200 characters from the first to the last, which a Japanese sentence would not report, and
+        // fewer than 80 words.
+        let half = Array(repeating: "we fold a sheet along the grain and press it flat", count: 2).joined(
+            separator: " ")
+        let wide = "これは日本語の文です。The crease opens and \(half) crease \(half) crease again."
+        #expect(
+            ProseTesting.repetitions(try ProseTesting.report(wide, tokenizer: tokenizer), in: wide)
+                == ["repeat crease ×3: crease|crease|crease"])
+        let far = "これは日本語の文です。The crease opens and \(filler) crease \(filler) crease again."
+        let report = try ProseTesting.report(far, tokenizer: tokenizer)
+        #expect(report.facts.english?.count == 1)
+        #expect(ProseTesting.repetitions(report, in: far) == [])
+    }
+
+    @Test("繰り返しは、対象外の文をまたがない")
+    func excludedSentenceIsABoundary() throws {
+        let words = ListedWords(words: ["処理", "処理", "処理"])
+        let apart = "処理を見る。処理を直す。Это предложение написано по-русски. 処理を終える。"
+        #expect(ProseTesting.repetitions(try ProseTesting.report(apart, tokenizer: words), in: apart) == [])
+        let together = "処理を見る。処理を直す。処理を終える。Это предложение написано по-русски."
+        #expect(
+            ProseTesting.repetitions(try ProseTesting.report(together, tokenizer: words), in: together)
+                == ["repeat 処理 ×3: 処理|処理|処理"])
     }
 
     @Test("文書の 2 割以上、4 つ以上の段落に出る語は文書の主題で、繰り返しにしない")
@@ -405,120 +628,165 @@ struct ProseCheckFindingTests {
     }
 }
 
-@Suite("文章の点検: システムの語の区切り")
-struct ProseSystemTokenizerTests {
-    private func words(_ text: String) -> [String] {
-        SystemProseTokenizer().tokens(in: text, tagsEnglish: false).map {
-            (text as NSString).substring(with: NSRange(location: $0.range.lowerBound, length: $0.range.count))
+/// What must hold whatever the system's tokenizer and recognizer do on this machine. The rules themselves are
+/// tested above with fixed words and fixed answers.
+@Suite("文章の点検: システムの語の区切りと言語の認識")
+struct ProseSystemTests {
+    @Test(
+        "語は順に並び、重ならず、本文の中にあり、文字を含む",
+        arguments: [
+            "設定をを変更する。ますます人々がいろいろな方法を試す。", "😀 か\u{3099}ぎの設定を見る。API サーバーを再起動する。",
+            "The parsers were parsing files quickly, e.g. state-of-the-art ones.", "",
+        ])
+    func tokenInvariants(_ text: String) {
+        let length = text.utf16.count
+        let tokens = SystemProseTokenizer().tokens(in: text, english: length > 0 ? [0..<length] : [])
+        var end = 0
+        for token in tokens {
+            #expect(token.range.lowerBound >= end)
+            #expect(token.range.lowerBound < token.range.upperBound)
+            #expect(token.range.upperBound <= length)
+            #expect(!ProseTesting.slice(text, token.range).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            end = token.range.upperBound
+        }
+        #expect(tokens.isEmpty == text.isEmpty)
+    }
+
+    @Test("英語の品詞と見出し語は、この Mac が付けられるときに付く")
+    func englishTags() throws {
+        let schemes = NLTagger.availableTagSchemes(for: .word, language: .english)
+        let text = "The parsers were parsing files."
+        let tokens = SystemProseTokenizer().tokens(in: text, english: [0..<text.utf16.count])
+        let word = try #require(tokens.first { ProseTesting.slice(text, $0.range) == "parsers" })
+        if schemes.contains(.lexicalClass) { #expect(word.wordClass == .noun) } else { #expect(word.wordClass == nil) }
+        if schemes.contains(.lemma) { #expect(word.lemma == "parser") }
+        // Outside the English sentences nothing is tagged.
+        #expect(
+            SystemProseTokenizer().tokens(in: text, english: []).allSatisfy { $0.wordClass == nil && $0.lemma == nil })
+    }
+
+    @Test("認識器は文ごとに答えを 1 つずつ返す")
+    func recognizerAnswers() {
+        let answers = SystemProseLanguageRecognizer().languages(of: [
+            "This is a plain sentence written in English.", "", "これは日本語で書いた文です。",
+        ])
+        #expect(answers.count == 3)
+        for answer in answers.compactMap({ $0 }) {
+            #expect(answer.confidence >= 0 && answer.confidence <= 1)
+            #expect(!answer.code.isEmpty)
         }
     }
 
-    @Test("日本語の助詞は 1 字ずつの語になり、重ねた助詞は 2 つの語になる")
-    func japaneseParticles() {
-        #expect(words("設定をを変更する。") == ["設定", "を", "を", "変更", "する"])
-    }
-
-    @Test("ますます・人々・いろいろは 1 つの語になる")
-    func japaneseDoubledWords() {
-        #expect(words("ますます人々がいろいろな方法を試す。") == ["ますます", "人々", "が", "いろいろ", "な", "方法", "を", "試す"])
-    }
-
-    @Test("英語は見出し語と品詞が付く")
-    func englishTags() {
-        let text = "The parsers were parsing files quickly."
-        let tokens = SystemProseTokenizer().tokens(in: text, tagsEnglish: true)
-        #expect(tokens.map(\.lemma) == ["the", "parser", "be", "parse", "file", "quickly"])
-        #expect(tokens.map(\.isContentWord) == [false, true, true, true, true, true])
-    }
-
-    @Test("絵文字のあとでも語の範囲は UTF-16 でずれない")
-    func utf16Ranges() {
-        #expect(
-            words("😀 設定を変更する。").prefix(2) == ["設定", "を"] || words("😀 設定を変更する。").dropFirst().prefix(2) == ["設定", "を"])
-    }
-
-    @Test("システムの区切りでも、正しい重なりは重複にならない")
-    func legitimateDoublesWithSystemWords() throws {
-        let text = "はいはい、ますます人々がいろいろ試す。山々と日々を見る。\n\nShe had had it, and I know that that is so.\n"
-        #expect(ProseTesting.lines(try ProseTesting.report(text), in: text) == [])
-    }
-
-    @Test("システムの区切りで、重ねた助詞と the the が見つかる")
-    func slipsWithSystemWords() throws {
-        let text = "ここでで止まり、設定をを変える。\n\nCheck the the grain before you fold.\n"
-        #expect(
-            ProseTesting.lines(try ProseTesting.report(text), in: text)
-                == ["double で: でで", "double を: をを", "double the: the the"])
-    }
-
-    @Test("日本語の見本: 重ねた助詞・近い繰り返し・長い文を見つけ、コード・表・引用は読まない")
-    func japaneseFixture() throws {
-        let text = try ProseTesting.fixture("japanese")
-        let report = try ProseTesting.report(text)
-        #expect(report.language == .japanese)
-        #expect(report.facts.japanese?.count == 8)
-        #expect(report.facts.japanese?.longCount == 1)
-        #expect(
-            ProseTesting.lines(report, in: text) == [
-                "double を: をを", "repeat 折り目 ×4: 折り目|折り目|折り目|折り目", "long 114字 @3",
-            ])
-    }
-
-    @Test("英語の見本: the the と crease・fold の繰り返しと長い文を見つけ、had had と that that は見つけない")
-    func englishFixture() throws {
-        let text = try ProseTesting.fixture("english")
-        let report = try ProseTesting.report(text)
-        #expect(report.language == .english)
-        #expect(report.facts.english?.count == 9)
-        #expect(
-            ProseTesting.lines(report, in: text) == [
-                "double the: the the", "repeat crease ×3: crease|crease|crease", "long 57語 @4",
-                "repeat folding ×3: folding|fold|fold",
-            ])
-    }
-
-    @Test("混在の見本: 文を言語ごとに数え、サーバーの繰り返しを見つける")
-    func mixedFixture() throws {
-        let text = try ProseTesting.fixture("mixed")
-        let report = try ProseTesting.report(text)
-        #expect(report.language == .mixed)
-        #expect(report.facts.japanese?.count == 4)
-        #expect(report.facts.english?.count == 4)
-        #expect(ProseTesting.lines(report, in: text) == ["repeat サーバー ×3: サーバー|サーバー|サーバー"])
+    @Test("見本の文書: 指摘は文書の順で、範囲は本文と原文の中にあり、本文の範囲から原文の範囲へ戻れる", arguments: ["japanese", "english", "mixed"])
+    func fixtures(_ name: String) throws {
+        let text = try ProseTesting.fixture(name)
+        guard case .analysed(let report) = try ProseCheck.analyse(text, format: .markdown) else {
+            Issue.record("\(name) was not analysed")
+            return
+        }
+        #expect(report.facts.sentenceCount > 0)
+        var last = (paragraph: 0, start: 0)
+        for finding in report.findings {
+            let first = try #require(finding.occurrences.first)
+            #expect((first.paragraph, first.textRange.lowerBound) >= last)
+            last = (first.paragraph, first.textRange.lowerBound)
+            for occurrence in finding.occurrences {
+                let paragraph = report.paragraphs[occurrence.paragraph]
+                #expect(occurrence.textRange.upperBound <= paragraph.text.utf16.count)
+                #expect(occurrence.sourceRange.upperBound <= text.utf16.count)
+                #expect(paragraph.sourceRange(of: occurrence.textRange) == occurrence.sourceRange)
+                #expect(paragraph.sourceRange.lowerBound <= occurrence.sourceRange.lowerBound)
+                #expect(occurrence.sourceRange.upperBound <= paragraph.sourceRange.upperBound)
+            }
+        }
+        // What is not prose is not read, whatever the tokenizer does: the table and the code hold these words.
+        if name == "japanese" {
+            #expect(!report.paragraphs.contains { $0.text.contains("コードの中") || $0.text.contains("引用の中") })
+        }
     }
 }
 
-@Suite("文章の点検: 速さと取り消し")
-struct ProseCheckPerformanceTests {
-    @Test("20 万字でも、語が 1 つだけ何万回も出ても、すぐに終わる", .timeLimit(.minutes(1)))
+/// A tokenizer that reports when the analysis has reached it and then waits to be cancelled.
+private struct WaitingTokenizer: ProseTokenizer {
+    let reached: AsyncStream<Void>.Continuation
+
+    func tokens(in text: String, english: [Range<Int>]) -> [ProseToken] {
+        reached.yield()
+        let deadline = Date().addingTimeInterval(20)
+        while !Task.isCancelled, Date() < deadline { usleep(1000) }
+        return []
+    }
+}
+
+@Suite("文章の点検: 大きな文書と取り消し")
+struct ProseCheckLargeTests {
+    // No time is asserted here (the benchmark records times). The limits only stop a pass that has become
+    // quadratic, which at these sizes takes many minutes instead of a second.
+    @Test("20 万字の文書も、語が 1 つだけ何万回も出る段落も、終わりまで読める", .timeLimit(.minutes(2)))
     func largeDocuments() throws {
         let paragraph = "紙を半分に折ったあとで、左右の端を中央の線に合わせて折り、開いたときに区画がそろっていることを確かめます。Then check the grain again.\n\n"
         let many = String(repeating: paragraph, count: 200_000 / paragraph.count + 1)
+        #expect(try ProseTesting.report(many).facts.sentenceCount == 2 * (200_000 / paragraph.count + 1))
         let single = String(repeating: "処理と処理を処理する。", count: 20_000)
-        let clock = ContinuousClock()
-        let elapsed = try clock.measure {
-            _ = try ProseTesting.report(many)
-            let report = try ProseTesting.report(single)
-            #expect(report.findings.count == 1)
-        }
-        // Linear work takes about a second here in a debug build; a quadratic pass over 200,000 characters would
-        // take minutes.
-        #expect(elapsed < .seconds(15))
+        let words = ListedWords(words: Array(repeating: "処理", count: 60_000))
+        let groups = try ProseTesting.report(single, tokenizer: words).findings
+        #expect(groups.count > 500)
+        #expect(groups.allSatisfy { $0.occurrences.count >= 3 })
     }
 
-    @Test("呼び出したタスクを取り消すと、点検は CancellationError で終わる", .timeLimit(.minutes(1)))
-    func cancellation() async {
-        let text = String(repeating: "紙を折って、折り目を確かめます。\n\n", count: 100_000)
-        let task = Task { try await ProseCheck.analysis(of: text, format: .markdown) }
+    @Test("終わりの印が 20 万個続いても、文の区切りは一度の走査で終わる", .timeLimit(.minutes(1)))
+    func runsOfEndMarks() {
+        let text =
+            "Wait" + String(repeating: ".", count: 200_000) + "really and " + String(repeating: "!", count: 200_000)
+            + "x " + String(repeating: "a.", count: 100_000)
+        #expect(ProseSentences.ranges(in: Array(text.utf16), lineBreaksEnd: false).count == 1)
+    }
+
+    @Test("始まる前に取り消されていれば、空の文書でも CancellationError で終わる")
+    func cancelledBeforeStart() async {
+        let task = Task {
+            await Task.yield()
+            return try ProseTesting.analyse("")
+        }
         task.cancel()
         await #expect(throws: CancellationError.self) { try await task.value }
     }
 
-    @Test("非同期の入口は同期の入口と同じ答えを返す")
+    @Test("点検が始まってから取り消すと、CancellationError で終わる", .timeLimit(.minutes(1)))
+    func cancelledWhileRunning() async {
+        let (reached, continuation) = AsyncStream<Void>.makeStream()
+        let text = String(repeating: "紙を折って、折り目を確かめます。\n\n", count: 50)
+        let task = Task {
+            try await ProseCheck.analysis(
+                of: text, format: .markdown, tokenizer: WaitingTokenizer(reached: continuation),
+                recognizer: FixedLanguages())
+        }
+        // The analysis is inside the first paragraph's tokenizer now, not before or after its work.
+        for await _ in reached { break }
+        task.cancel()
+        await #expect(throws: CancellationError.self) { try await task.value }
+    }
+
+    @Test("非同期の入口は、呼び出したタスクとは別のタスクで同じ答えを返す")
     func asynchronous() async throws {
-        let text = "設定をを変更する。\n"
-        #expect(
-            try await ProseCheck.analysis(of: text, format: .markdown)
-                == (try ProseCheck.analyse(text, format: .markdown)))
+        let text = "Check the the grain.\n"
+        let answer = try await CallerTask.$isCaller.withValue(true) {
+            try await ProseCheck.analysis(
+                of: text, format: .markdown, tokenizer: CallerTask.Tokenizer(), recognizer: FixedLanguages())
+        }
+        // A detached task does not inherit the caller's task-local value. Run in the caller's own task, the
+        // tokenizer would have seen it and returned no words, and the duplicate would not be found.
+        #expect(ProseTesting.lines(try ProseTesting.report(text), in: text) == ["double the: the the"])
+        #expect(answer == (try ProseTesting.analyse(text)))
+    }
+}
+
+private enum CallerTask {
+    @TaskLocal static var isCaller = false
+
+    struct Tokenizer: ProseTokenizer {
+        func tokens(in text: String, english: [Range<Int>]) -> [ProseToken] {
+            CallerTask.isCaller ? [] : SpacedWords().tokens(in: text, english: english)
+        }
     }
 }
