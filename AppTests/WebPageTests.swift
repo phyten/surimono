@@ -298,10 +298,13 @@ struct WebPageSnapshotDeadlineTests {
     /// The outcome of a copy running beside the test; nil while it is still waiting.
     @MainActor private final class Copy {
         private(set) var outcome: WebPageController.Snapshot?
+        private var task: Task<Void, Never>?
 
         init(of controller: WebPageController) {
-            Task { self.outcome = await controller.snapshot() }
+            task = Task { self.outcome = await controller.snapshot() }
         }
+
+        func cancel() { task?.cancel() }
     }
 
     private func waitUntil(_ condition: () -> Bool) async throws {
@@ -517,6 +520,93 @@ struct WebPageSnapshotDeadlineTests {
             // The load given up cannot finish the new one.
             controller.navigationDidFinish(try #require(controller.webView), abandoned)
             #expect(controller.state == .reloading)
+        }
+    }
+
+    @Test("最初の表示で読み込みを始められない・読み込みに失敗したページの写しは、ファイルに進まず失敗になる")
+    func firstLoadFails() async throws {
+        let file = URL(fileURLWithPath: "/Documents/page.html")
+        let notStarted = WebPageController()
+        defer { notStarted.close() }
+        notStarted.startNavigation = { _, _, _ in nil }
+        notStarted.show(file, allowsJavaScript: false)
+        #expect(notStarted.state == .ended && notStarted.loadCount == 1)
+        #expect(await notStarted.snapshot() == .failed)
+
+        let failing = WebPageController()
+        defer { failing.close() }
+        let navigations = HeldNavigations()
+        navigations.hold(in: failing)
+        failing.show(file, allowsJavaScript: false)
+        let webView = try #require(failing.webView)
+        let error = NSError(domain: NSURLErrorDomain, code: NSURLErrorCannotOpenFile)
+        // The failure of another load is not this one's.
+        failing.navigationDidFail(webView, NSObject(), error)
+        #expect(failing.state == .live)
+        failing.navigationDidFail(webView, navigations.last, error)
+        #expect(failing.state == .ended)
+        #expect(await failing.snapshot() == .failed)
+    }
+
+    @Test("本文を見せていたページの再読み込みを始められなければ、前の本文を写さず失敗になる", arguments: [false, true])
+    func reloadOfLivePageNotStarted(sandboxed: Bool) async throws {
+        try await withPage { controller, _ in
+            let replies = HeldReplies()
+            replies.hold(in: controller)
+            controller.isSandboxed = { sandboxed }
+            controller.startNavigation = { _, _, _ in nil }
+            controller.reload()
+            #expect(controller.state == .ended && controller.loadCount == 2)
+            #expect(await controller.snapshot() == .failed)
+            // The page that showed the text before was not asked for a copy.
+            #expect(replies.count == 0)
+        }
+    }
+
+    @Test("待っていた写しの締切を過ぎてから届いた読み込みの完了ではページを生かさず、もう一度試すと新しく読み込む")
+    func finishAfterDeadline() async throws {
+        try await withPage { controller, _ in
+            let navigations = HeldNavigations()
+            navigations.hold(in: controller)
+            let replies = HeldReplies()
+            replies.hold(in: controller)
+            controller.snapshotTimeout = .milliseconds(200)
+            let copy = try await copyWaitingForReload(controller)
+            // Keeps the main actor past the deadline, so that the finish arrives before the waiting copy runs again.
+            let late = ContinuousClock.now + .milliseconds(300)
+            while ContinuousClock.now < late {}
+            controller.navigationDidFinish(try #require(controller.webView), navigations.last)
+            #expect(controller.state == .ended)
+            try await waitUntil { copy.outcome != nil }
+            #expect(copy.outcome == .failed && replies.count == 0)
+            controller.reloadEndedPage()
+            #expect(controller.state == .reloading && controller.loadCount == 3)
+        }
+    }
+
+    @Test("二つの写しが同じ読み込み直しを待つとき、一方の取り消しや短い締切では読み込みを止めない")
+    func cancelledWaiterLeavesTheReload() async throws {
+        try await withPage { controller, _ in
+            let navigations = HeldNavigations()
+            navigations.hold(in: controller)
+            controller.snapshotTimeout = .seconds(300)
+            let long = try await copyWaitingForReload(controller)
+            let cancelled = Copy(of: controller)
+            controller.snapshotTimeout = .seconds(1)
+            let short = Copy(of: controller)
+            try await waitUntil { controller.reloadWaiterCount == 3 }
+            cancelled.cancel()
+            try await waitUntil { cancelled.outcome != nil && short.outcome != nil }
+            #expect(cancelled.outcome == .failed && short.outcome == .failed)
+            // The load is still the one the last copy waits for.
+            #expect(controller.state == .reloading && long.outcome == nil && controller.loadCount == 2)
+            controller.navigationDidFinish(try #require(controller.webView), navigations.last)
+            try await waitUntil { long.outcome != nil }
+            guard case .captured = long.outcome else {
+                Issue.record("The reloaded page was not copied")
+                return
+            }
+            #expect(controller.state == .live)
         }
     }
 
