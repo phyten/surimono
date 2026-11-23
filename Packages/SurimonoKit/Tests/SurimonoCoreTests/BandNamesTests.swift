@@ -89,7 +89,7 @@ struct BandNamesTests {
         #expect(showsScrubber(149) == false)
     }
 
-    @Test("名前を表示する設定は従来の既定計画と広い窓から狭い窓まで一致する", arguments: MenuArrangement.allCases)
+    @Test("名前の指定を省くと名前を表示する設定と同じ計画になる", arguments: MenuArrangement.allCases)
     func defaultPlans(mode: MenuArrangement) {
         let arrangement = BandArrangement.standard(for: mode)
         let widths = BandLayoutTests.workedWidths
