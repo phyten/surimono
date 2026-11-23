@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import SurimonoCore
+import SurimonoRendering
 import Testing
 import WebKit
 
@@ -269,9 +270,36 @@ struct WebPageKeyTests {
 @MainActor
 @Suite(.timeLimit(.minutes(1)))
 struct WebPageSnapshotDeadlineTests {
-    /// A script whose reply never arrives, as from a stopped web content process.
-    private let silentScript = "await new Promise(() => {})"
+    /// Stands in for WebKit: takes the request for a copy and never answers it, as a stopped process does.
+    @MainActor private final class HeldReplies {
+        private(set) var replies: [WebPaginator.Reply] = []
+        var count: Int { replies.count }
 
+        func hold(in controller: WebPageController) {
+            controller.startSnapshot = { [self] _, reply in replies.append(reply) }
+        }
+    }
+
+    /// The outcome of a copy running beside the test; nil while it is still waiting.
+    @MainActor private final class Copy {
+        private(set) var outcome: WebPageController.Snapshot?
+
+        init(of controller: WebPageController) {
+            Task { self.outcome = await controller.snapshot() }
+        }
+    }
+
+    private func waitUntil(_ condition: () -> Bool) async throws {
+        // Up to 20 seconds: a web content process may start slowly on a busy machine.
+        for _ in 0..<1000 {
+            if condition() { return }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        Issue.record("The condition was not met in time")
+        throw CancellationError()
+    }
+
+    /// Runs `body` with a page that has loaded and been copied once.
     private func withPage(_ body: (WebPageController) async throws -> Void) async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -284,66 +312,106 @@ struct WebPageSnapshotDeadlineTests {
         let controller = WebPageController()
         controller.container.frame = NSRect(x: 0, y: 0, width: 300, height: 200)
         window.contentView = controller.container
-        controller.show(file, allowsJavaScript: true)
         defer {
             controller.close()
             window.contentView = nil
             window.close()
             try? FileManager.default.removeItem(at: directory)
         }
-        // Up to 20 seconds: a web content process may start slowly on a busy machine.
-        for _ in 0..<1000 {
-            if controller.webView?.isLoading == false, case .captured = await controller.snapshot() { break }
-            try await Task.sleep(for: .milliseconds(20))
+        #expect(await controller.snapshot() == .notLoaded)
+        controller.show(file, allowsJavaScript: true)
+        try await waitUntil { controller.webView?.isLoading == false && controller.webView?.url != nil }
+        guard case .captured(let copy) = await controller.snapshot() else {
+            Issue.record("The loaded page could not be copied")
+            return
         }
+        try #require(copy.html.contains("Snapshot fixture"))
+        try #require(controller.loadCount == 1)
         try await body(controller)
     }
 
-    @Test("応答しないページの写しは、締切で失敗になり、そのあとのページはまた写せる")
-    func silentPage() async throws {
+    @Test("応答のない写しは、締切までは待ち、締切で失敗になる")
+    func deadline() async throws {
         try await withPage { controller in
-            controller.snapshotScript = silentScript
-            controller.snapshotTimeout = .milliseconds(300)
+            let held = HeldReplies()
+            held.hold(in: controller)
+            controller.snapshotTimeout = .seconds(2)
             let started = ContinuousClock.now
-            #expect(await controller.snapshot() == .failed)
-            #expect(ContinuousClock.now - started < .seconds(10))
-            controller.snapshotScript = HTMLSnapshotScript.javaScript
-            controller.snapshotTimeout = .seconds(20)
-            guard case .captured = await controller.snapshot() else {
-                Issue.record("The page was not copied after a copy that timed out")
-                return
-            }
+            let copy = Copy(of: controller)
+            try await waitUntil { held.count == 1 }
+            try await Task.sleep(for: .milliseconds(300))
+            // Well before the deadline the copy is still waiting.
+            try #require(ContinuousClock.now - started < .seconds(1.5))
+            #expect(copy.outcome == nil)
+            try await waitUntil { copy.outcome != nil }
+            #expect(copy.outcome == .failed)
+            #expect(ContinuousClock.now - started >= .seconds(2))
+            #expect(controller.state == .live)
         }
     }
 
-    @Test("写している途中でページのプロセスが終わったら、締切を待たずに失敗になる")
+    @Test("写している途中でプロセスが終わったら長い締切より先に失敗になり、ページを勝手に読み込み直さない")
     func endedProcess() async throws {
         try await withPage { controller in
             let webView = try #require(controller.webView)
-            controller.snapshotScript = silentScript
-            // Far beyond the test's limit: the failure must come from the ended process, not the deadline.
+            let held = HeldReplies()
+            held.hold(in: controller)
+            // Far beyond the test's limit: only the ended process can end these waits.
             controller.snapshotTimeout = .seconds(300)
-            let copy = Task { await controller.snapshot() }
-            try await Task.sleep(for: .milliseconds(200))
-            let started = ContinuousClock.now
+            let copy = Copy(of: controller)
+            try await waitUntil { held.count == 1 }
+            #expect(copy.outcome == nil)
             // WebKit's own report of an ended process; the process of the test's page keeps running.
             controller.webViewWebContentProcessDidTerminate(webView)
-            #expect(await copy.value == .failed)
-            #expect(ContinuousClock.now - started < .seconds(10))
+            try await waitUntil { copy.outcome != nil }
+            #expect(copy.outcome == .failed)
+            #expect(controller.state == .ended)
+            // A later request fails too, without asking the page (it would answer from an empty page) and without
+            // reading the file as if no page had been shown.
+            #expect(await controller.snapshot() == .failed)
+            #expect(held.count == 1)
+            #expect(controller.loadCount == 1)
         }
     }
 
-    @Test("読み込みを終える前にプロセスが終わったページは読み込み直さず、写しはすぐに失敗になる")
-    func endedBeforeLoading() async throws {
+    @Test("プロセスが終わったページは、もう一度試すと一度だけ読み込み直し、読み込みを終えてから写す")
+    func reloadOnRetry() async throws {
         try await withPage { controller in
             let webView = try #require(controller.webView)
-            // The first report loads the page again; the second arrives before that load has finished.
             controller.webViewWebContentProcessDidTerminate(webView)
-            controller.webViewWebContentProcessDidTerminate(webView)
-            controller.snapshotTimeout = .seconds(300)
-            let started = ContinuousClock.now
+            // A live process would still answer here; the page changes so that only a reloaded page has the text.
+            _ = try await webView.evaluateJavaScript("document.body.innerHTML = '<p>Stale</p>'; 0")
             #expect(await controller.snapshot() == .failed)
-            #expect(ContinuousClock.now - started < .seconds(10))
+            controller.reloadEndedPage()
+            controller.reloadEndedPage()
+            #expect(controller.loadCount == 2)
+            #expect(controller.state == .reloading)
+            guard case .captured(let copy) = await controller.snapshot() else {
+                Issue.record("The reloaded page was not copied")
+                return
+            }
+            #expect(copy.html.contains("Snapshot fixture") && !copy.html.contains("Stale"))
+            #expect(controller.state == .live)
+            #expect(controller.loadCount == 2)
+        }
+    }
+
+    @Test("読み込み直している途中でまたプロセスが終わったら、待っていた写しは長い締切より先に失敗になる")
+    func endedWhileReloading() async throws {
+        try await withPage { controller in
+            let webView = try #require(controller.webView)
+            controller.webViewWebContentProcessDidTerminate(webView)
+            controller.reloadEndedPage()
+            // Far beyond the test's limit: only the ended process can end the wait for the reload.
+            controller.snapshotTimeout = .seconds(300)
+            let copy = Copy(of: controller)
+            // Lets the copy start waiting for the reload.
+            try await Task.sleep(for: .milliseconds(1))
+            controller.webViewWebContentProcessDidTerminate(webView)
+            try await waitUntil { copy.outcome != nil }
+            #expect(copy.outcome == .failed)
+            #expect(controller.state == .ended)
+            #expect(controller.loadCount == 2)
         }
     }
 }

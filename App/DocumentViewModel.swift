@@ -2530,6 +2530,8 @@ final class DocumentViewModel {
     func retryWebCapture() {
         dismissToast()
         guard usesHTMLPresentation, webCaptureFailed else { return }
+        // A page whose process ended has nothing to copy until it is loaded again; the copy waits for that load.
+        web.reloadEndedPage()
         captureWeb { [weak self] outcome in
             if outcome == .failed { self?.showCaptureFailure() }
             self?.sizeWindowToPaper(keepHeight: true)
