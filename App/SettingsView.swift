@@ -97,9 +97,10 @@ struct SettingsView: View {
             #if DEBUG
                 .modifier(SnapshotSettingsSurface(sidebar: true))
             #endif
-            // Without the sidebar toggle the split view lets a narrow window squeeze the column below its minimum.
-            .frame(minWidth: 230)
-            .navigationSplitViewColumnWidth(min: 230, ideal: 250, max: 300)
+            // One fixed width: without the sidebar toggle the split view lets a narrow window squeeze a resizable
+            // column below its minimum (macOS 26 honours a minimum frame, macOS 27 does not).
+            .frame(width: 250)
+            .navigationSplitViewColumnWidth(250)
             // Settings always shows its sections. Without the toggle the window has no toolbar row, so every
             // section starts right under the title bar with the system's own inset.
             .toolbar(removing: .sidebarToggle)

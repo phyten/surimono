@@ -121,14 +121,16 @@ struct BandEditorGeometryTests {
                         preferences: preferences, library: UserLibrary(root: directory), arrangementEditor: session))
             }
             let contentWidth = detailOnly ? width - 260 : width
+            // Shorter than the palette on any system, so the page must scroll whatever the font metrics are.
+            let contentHeight: Double = detailOnly ? 600 : 900
             let hosting = NSHostingController(rootView: root.environment(\.locale, Locale(identifier: "de")))
             hosting.sizingOptions = []
             window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: contentWidth, height: 900),
+                contentRect: NSRect(x: 0, y: 0, width: contentWidth, height: contentHeight),
                 styleMask: [.titled, .closable], backing: .buffered, defer: false)
             window.isReleasedWhenClosed = false
             window.contentViewController = hosting
-            window.setContentSize(NSSize(width: contentWidth, height: 900))
+            window.setContentSize(NSSize(width: contentWidth, height: contentHeight))
             window.alphaValue = 0
             window.orderFrontRegardless()
         }
