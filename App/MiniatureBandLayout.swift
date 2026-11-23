@@ -67,6 +67,8 @@ struct MiniatureBandLayout: Layout {
                 x += (index == left && !stacked ? leftWidth : size.width) + gap
             }
         }
-        return (frames, CGSize(width: max(width, (frames.map(\.maxX).max() ?? 0)), height: height))
+        // A finite proposal is the column allocation. Reporting a child’s extent here feeds a larger width
+        // back into placement, so wrapping would use a different width than the one just measured.
+        return (frames, CGSize(width: width, height: height))
     }
 }

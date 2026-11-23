@@ -10,20 +10,39 @@ import Testing
 struct BandEditorGeometryTests {
     @Test("設定幅1100と820の混雑したミニチュアでも左右の領域が重ならない", arguments: [1100.0, 820.0])
     func crowdedZones(width: Double) async throws {
+        let fixture = try Fixture(width: width, layouts: crowdedArrangement())
+        defer { fixture.close() }
+        try await fixture.checkZones(windowWidth: width)
+    }
+
+    @Test("同じ配置ペインで幅1100と820を往復すると両方の帯がその場で折り返す", arguments: [820.0, 1100.0])
+    func resizeCrowdedZones(initialWidth: Double) async throws {
+        // A saved name wider than the narrow column makes the header ask for extra room even on macOS 26.
+        let fixture = try Fixture(
+            width: initialWidth, layouts: crowdedArrangement(),
+            setName: "Geometry – " + String(repeating: "Print and Page Layout ", count: 5))
+        defer { fixture.close() }
+        let otherWidth: Double = initialWidth == 820 ? 1100 : 820
+        for width in [initialWidth, otherWidth, initialWidth] {
+            fixture.window.setContentSize(CGSize(width: width, height: 900))
+            try await fixture.checkZones(windowWidth: width)
+            let viewport = try #require(fixture.scrollViews.first).contentView.bounds.width
+            // The wide arrangement gives the palette 230 points and a 14-point gutter.
+            // In both arrangements there are two 20-point page margins and two 8-point band insets.
+            let expected = viewport - 40 - 16 - (width == 1100 ? 244 : 0)
+            for key in ["topBand", "bottomBand"] {
+                let band = try #require(fixture.session.layoutFrames[key])
+                #expect(abs(band.width - expected) <= 1, "\(fixture.geometryDetails)")
+            }
+        }
+    }
+
+    private func crowdedArrangement() throws -> BandArrangementVariants {
         var layouts = BandArrangementVariants()
         for item in BandTestCatalog.addedItems {
             layouts.split = try layouts.split.moving(item, to: .zone(.topRight), before: .print, for: .split)
         }
-        let fixture = try Fixture(width: width, layouts: layouts)
-        defer { fixture.close() }
-        try await fixture.waitForFrames(["topLeft", "topRight", "bottomLeft", "bottomRight"])
-        for pair in [("topLeft", "topRight"), ("bottomLeft", "bottomRight")] {
-            let left = try #require(fixture.session.layoutFrames[pair.0])
-            let right = try #require(fixture.session.layoutFrames[pair.1])
-            #expect(!left.isEmpty && !right.isEmpty)
-            #expect(!left.intersects(right), "\(width): \(left), \(right)")
-            #expect(left.minX >= 20 && right.maxX <= width - 230 - 20, "\(width): \(left), \(right)")
-        }
+        return layouts
     }
 
     @Test("設定幅820・900・1100で表示中のペインは詳細列に収まり、隠したペインは再表示で追いつく")
@@ -87,15 +106,11 @@ struct BandEditorGeometryTests {
             let chip = try #require(fixture.session.layoutFrames[key])
             #expect(palette.contains(chip), "\(key): \(chip), palette: \(palette)")
         }
-        func scrollViews(_ view: NSView) -> [NSScrollView] {
-            ((view as? NSScrollView).map { [$0] } ?? []) + view.subviews.flatMap(scrollViews)
-        }
-        // The fixture hosts the detail page directly, so the sidebar's native list is not counted.
-        let content = try #require(fixture.window.contentView)
-        let scrolls = scrollViews(content)
+        let scrolls = fixture.scrollViews
         #expect(scrolls.count == 1)
         let scroll = try #require(scrolls.first)
-        #expect((scroll.documentView?.bounds.height ?? 0) > scroll.contentView.bounds.height)
+        #expect(
+            (scroll.documentView?.bounds.height ?? 0) > scroll.contentView.bounds.height, "\(fixture.geometryDetails)")
     }
 
     @MainActor private final class Fixture {
@@ -104,11 +119,13 @@ struct BandEditorGeometryTests {
         let window: NSWindow
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
 
-        init(width: Double, layouts: BandArrangementVariants, detailOnly: Bool = false) throws {
+        init(width: Double, layouts: BandArrangementVariants, detailOnly: Bool = false, setName: String = "Geometry")
+            throws
+        {
             let preferences = AppPreferences(defaults: suite.defaults)
             preferences.menuArrangement = .split
             preferences.settingsSection = .toolbarArrangement
-            try preferences.saveBandArrangement(.init(name: "Geometry", layouts: layouts))
+            try preferences.saveBandArrangement(.init(name: setName, layouts: layouts))
             session = BandArrangementEditorSession(preferences: preferences)
             // The overlap regression uses the real Settings sidebar and its width negotiation.
             // Only the scroll-count test isolates the detail page from the sidebar's own list.
@@ -135,10 +152,57 @@ struct BandEditorGeometryTests {
             window.orderFrontRegardless()
         }
 
+        private var paneHost: NSView? {
+            guard let content = window.contentView else { return nil }
+            // The palette-only fixture mounts its editor directly. The full fixture also contains a sidebar list.
+            if let container = settingsPaneContainer(in: content) { return container.subviews.first { !$0.isHidden } }
+            return content
+        }
+
+        var scrollViews: [NSScrollView] {
+            func collect(in view: NSView) -> [NSScrollView] {
+                let children = view.subviews.flatMap { collect(in: $0) }
+                guard let scroll = view as? NSScrollView else { return children }
+                return [scroll] + children
+            }
+            return paneHost.map { collect(in: $0) } ?? []
+        }
+
+        var geometryDetails: String {
+            let frames = session.layoutFrames
+            let bands = ["topBand", "bottomBand"].map { frames[$0]?.width.description ?? "?" }
+            let zones = ["topLeft", "topRight", "bottomLeft", "bottomRight"].map {
+                "\($0)=\(String(describing: frames[$0]))"
+            }
+            return
+                "window=\(window.contentView?.bounds.width.description ?? "?"), host=\(paneHost?.bounds.width.description ?? "?"), "
+                + "viewport=\(scrollViews.map { $0.contentView.bounds.width }), wrap(top,bottom)=\(bands), \(zones.joined(separator: ", "))"
+        }
+
+        func checkZones(windowWidth: Double) async throws {
+            try await waitForFrames(["topBand", "bottomBand", "topLeft", "topRight", "bottomLeft", "bottomRight"])
+            let viewport = try #require(scrollViews.first, "\(geometryDetails)").contentView.bounds.width
+            let details = geometryDetails
+            for (bandID, leftID, rightID) in [
+                ("topBand", "topLeft", "topRight"), ("bottomBand", "bottomLeft", "bottomRight"),
+            ] {
+                let band = try #require(session.layoutFrames[bandID])
+                let left = try #require(session.layoutFrames[leftID])
+                let right = try #require(session.layoutFrames[rightID])
+                #expect(!left.isEmpty && !right.isEmpty, "\(details)")
+                #expect(!left.intersects(right), "\(details)")
+                #expect(left.minX >= 20 && right.maxX <= windowWidth - 230 - 20, "\(details)")
+                #expect(right.maxX <= viewport - 20, "\(details)")
+                #expect(left.minX >= band.minX - 1 && right.maxX <= band.maxX + 1, "\(details)")
+                // The bottom band has no fixed suffix. Its right zone should actually use the available room.
+                if bandID == "bottomBand" { #expect(abs(right.maxX - band.maxX) <= 1, "\(details)") }
+            }
+        }
+
         func nextLayout() async {
+            // A hosted test can be driving a run-loop mode other than .default.
             await withCheckedContinuation { continuation in
-                RunLoop.main.perform(inModes: [.default]) { continuation.resume() }
-                CFRunLoopWakeUp(CFRunLoopGetMain())
+                DispatchQueue.main.async { continuation.resume() }
             }
             window.contentView?.layoutSubtreeIfNeeded()
             window.displayIfNeeded()
@@ -149,11 +213,12 @@ struct BandEditorGeometryTests {
             var previous: [String: CGRect] = [:]
             while ContinuousClock.now < deadline {
                 await nextLayout()
-                let frames = session.layoutFrames
-                if keys.allSatisfy({ frames[$0]?.isEmpty == false }), frames == previous { return }
+                let frames = session.layoutFrames.filter { keys.contains($0.key) && !$0.value.isEmpty }
+                if frames.count == keys.count, frames == previous { return }
                 previous = frames
             }
-            Issue.record("レイアウトの記録が揃わない: \(keys), \(session.layoutFrames)")
+            let missing = keys.filter { session.layoutFrames[$0]?.isEmpty != false }
+            Issue.record("レイアウトの記録が揃わない: missing=\(missing), \(geometryDetails)")
             throw CocoaError(.coderInvalidValue)
         }
 
