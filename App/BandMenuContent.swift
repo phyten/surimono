@@ -4,7 +4,7 @@ import SwiftUI
 /// The complete index of operations for a document. These identities are never persisted as band parts.
 struct BandMenuContent {
     enum ID: String, Hashable {
-        case outline, thumbnails, previousPage, nextPage, documentInfo
+        case outline, checkWriting, thumbnails, previousPage, nextPage, documentInfo
         case presentation, layout, transition, zoom
         case readingDirection, scrollDirection, cover, selectText
         case textFormat, composition, style, paperOrientation, paperSeries, margins, ignoreSlides
@@ -18,7 +18,7 @@ struct BandMenuContent {
 
         var items: [ID] {
             switch self {
-            case .navigation: [.outline, .thumbnails, .previousPage, .nextPage, .documentInfo]
+            case .navigation: [.outline, .checkWriting, .thumbnails, .previousPage, .nextPage, .documentInfo]
             case .display: [.presentation, .layout, .transition, .zoom]
             case .reading: [.readingDirection, .scrollDirection, .cover, .selectText]
             case .paper: [.textFormat, .style, .composition, .paperOrientation, .paperSeries, .margins, .ignoreSlides]
@@ -109,6 +109,7 @@ struct BandMenuContent {
     private func isApplicable(_ id: ID) -> Bool {
         let parts = BandLayout.Item.applicable(for: model)
         switch id {
+        case .checkWriting: return model.offersProse
         case .outline: return parts.contains(.outline)
         case .thumbnails: return parts.contains(.thumbnails)
         case .previousPage, .nextPage: return parts.contains(.pageTurn)
@@ -141,6 +142,7 @@ struct BandMenuContent {
         var checked: Bool?
         var enabled = true
         switch id {
+        case .checkWriting: title = String(localized: "Check Writing")
         case .outline: title = String(localized: "Contents…")
         case .thumbnails:
             title = String(localized: "Show List")
@@ -222,7 +224,8 @@ struct BandMenuContent {
     func setChecked(_ checked: Bool, for id: ID) {
         guard isApplicable(id), entry(id).isEnabled, entry(id).isChecked != checked else { return }
         switch id {
-        case .outline, .previousPage, .nextPage, .documentInfo, .presentation, .layout, .transition, .zoom,
+        case .outline, .checkWriting, .previousPage, .nextPage, .documentInfo, .presentation, .layout, .transition,
+            .zoom,
             .readingDirection, .scrollDirection, .textFormat, .composition, .style, .paperOrientation, .paperSeries,
             .margins,
             .viewOptions, .printSettings, .beforePrinting, .print, .saveAsFile, .keysAndGestures:
@@ -241,6 +244,7 @@ struct BandMenuContent {
     func perform(_ id: ID) {
         guard isApplicable(id), entry(id).isEnabled else { return }
         switch id {
+        case .checkWriting: model.openProse()
         case .outline: model.toggleOutline()
         case .thumbnails: model.setSideListOpen(!model.isDrawerOpen)
         case .previousPage: model.paper.turnPage(forward: false)

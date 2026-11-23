@@ -69,6 +69,7 @@ struct MenuSnapshot: Equatable {
         let recentBinders: [BinderEntry]
         let visibility: Visibility
         let region: ShortcutRegion?
+        let offersProse: Bool
         let printing: Bool
         let showsPaper: Bool
         let showsSlides: Bool
@@ -118,6 +119,7 @@ struct MenuSnapshot: Equatable {
             typeface = model?.offersTypeface == true ? model?.typeface : nil
             selectingText = model?.isSelectingText == true
             region = ShortcutDispatcher.region(for: model)
+            offersProse = model?.offersProse == true
             printing = model?.mode == .print
             showsPaper = model?.htmlPresentation == .paper
             showsSlides = model?.slideDeck != nil

@@ -24,7 +24,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
     }
 
     public struct ContentsPanel: Codable, Equatable, Sendable {
-        public enum Tab: String, Codable, Sendable { case contents, pages }
+        public enum Tab: String, Codable, Sendable { case contents, pages, prose }
         public var isOpen: Bool?
         public var width: Double?
         public var tab: Tab?

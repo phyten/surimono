@@ -78,6 +78,7 @@ final class DocumentViewModel {
     /// waits, which is then for a newer request to open the same file.
     @ObservationIgnored var hasTakenItsFileAccess = false
     let fileURL: URL?
+    let isStreamingPreview: Bool
     /// The file name a document came with when it has no file of that name (a file handed over by Shortcuts),
     /// which names its language.
     let sourceFileName: String?
@@ -188,6 +189,7 @@ final class DocumentViewModel {
     var selectedSettingSetID: UUID?
     var mode: ViewerMode = .view {
         didSet {
+            if mode != .view { dismissProseMark() }
             // Leaving the tray cancels its outstanding sheets even when both modes use identical settings.
             if oldValue == .print, mode == .view, isRendering, composingSheets { render() }
         }
@@ -219,7 +221,12 @@ final class DocumentViewModel {
     /// The 0-based index of the first visible logical page.
     var currentPageIndex = 0 {
         didSet {
-            if oldValue != currentPageIndex { selectedReadingPage = nil }
+            if oldValue != currentPageIndex {
+                selectedReadingPage = nil
+                if !proseMark.spans.isEmpty {
+                    proseMark.update(presented: true, generation: proseGeneration, readingPage: currentPageIndex)
+                }
+            }
             shownPageIndex = currentPageIndex
         }
     }
@@ -297,13 +304,20 @@ final class DocumentViewModel {
     var isSelectingText = false
     /// The find bar over the paper. It belongs to the window and is never saved.
     let find = PaperFind()
+    var proseMark = ProsePaperMark()
     var isGoToPagePresented = false
     var isViewOptionsPresented = false
     var isOutlinePresented = false {
-        didSet { if !isOutlinePresented { outlineFilter.setQuery("", entries: outlineEntries) } }
+        didSet {
+            if oldValue && !isOutlinePresented {
+                dismissProseMark()
+            }
+            if !isOutlinePresented { outlineFilter.setQuery("", entries: outlineEntries) }
+        }
     }
     var outlineFilter = OutlineFilterState()
     #if DEBUG
+        var snapshotProseReady = false
         var snapshotOutlineDrawer = false
         var snapshotContentsTab: DocumentSettings.ContentsPanel.Tab?
         @ObservationIgnored var snapshotThumbnailRequests: [UUID: Bool] = [:]
@@ -311,23 +325,42 @@ final class DocumentViewModel {
     var isOutlineDrawerOpen = false
     var contentsPanel = DocumentSettings.ContentsPanel()
     var contentsTab: DocumentSettings.ContentsPanel.Tab {
-        guard pageCount > 1 else { return .contents }
         #if DEBUG
-            if let snapshotContentsTab { return snapshotContentsTab }
+            if let snapshotContentsTab, snapshotContentsTab != .prose || offersProse { return snapshotContentsTab }
         #endif
         if drop.isListSprung && imageBundle != nil && mode == .view { return .pages }
-        // With no headings and no bookmarks the contents tab would be an empty list.
-        guard showsContentsTabs else { return .pages }
-        return contentsPanel.tab ?? (hasOutline ? .contents : .pages)
+        if offersProse {
+            return contentsPanel.tab ?? (hasOutline || (pageCount <= 1 && !bookmarkPages.isEmpty) ? .contents : .pages)
+        }
+        guard pageCount > 1 else { return .contents }
+        guard hasOutline || !bookmarkPages.isEmpty else { return .pages }
+        if let tab = contentsPanel.tab, tab != .prose { return tab }
+        return hasOutline ? .contents : .pages
     }
-    var showsContentsTabs: Bool { pageCount > 1 && (hasOutline || !bookmarkPages.isEmpty) }
+    var offersProse: Bool {
+        guard mode == .view, !isStreamingPreview, imageBundle == nil, binder == nil else { return false }
+        if format == .markdown { return true }
+        guard format == .plainText, sourceLanguage == nil else { return false }
+        // A named file can turn out to be a script when its first line is decoded by the layout.
+        return (fileURL == nil && sourceFileName == nil) || result?.facts != nil
+    }
+    var showsContentsTabs: Bool { offersProse || (pageCount > 1 && (hasOutline || !bookmarkPages.isEmpty)) }
+
+    func openProse() {
+        guard offersProse else { return }
+        selectContentsTab(.prose)
+        if !isOutlineShown { toggleOutline() }
+    }
+
     var contentsWidth: CGFloat { min(400, max(176, contentsPanel.width ?? SidePanelMetrics.width)) }
     func selectContentsTab(_ tab: DocumentSettings.ContentsPanel.Tab) {
+        if tab != .prose { dismissProseMark() }
         contentsPanel.tab = tab
         outlineFilter.setQuery("", entries: outlineEntries)
     }
 
     func setContentsOpen(_ open: Bool) {
+        if !open { dismissProseMark() }
         if imageBundle != nil { isDrawerOpen = open } else { isOutlineDrawerOpen = open }
         contentsPanel.isOpen = open
     }
@@ -622,7 +655,12 @@ final class DocumentViewModel {
         try await Task.detached(priority: .utility) { try SourceFileOpening.read(url, format: format) }.value
     }
     private var reloadGeneration = 0
-    private var displayedChangeSource: DocumentSource?
+    private(set) var displayedChangeSource: DocumentSource?
+    /// A failed reload can leave the last readable pages on screen. Their source still belongs to those pages.
+    var proseGeneration: Int? {
+        guard !isRendering, displayedChangeSource != nil, paperDocument === result?.viewDocument else { return nil }
+        return result?.id
+    }
     private(set) var markdownChanges: [MarkdownMarkRequest] = []
     /// The changes of the last reload have not been brought to the reader's attention yet.
     @ObservationIgnored private var hasUnannouncedChanges = false
@@ -650,8 +688,9 @@ final class DocumentViewModel {
         imageBundle: ImageBundleModel? = nil, settingsStore: DocumentSettingsStore? = nil,
         trialRenderer: DocumentRenderer = DocumentRenderer(), title: String? = nil, sourceFileName: String? = nil,
         binder: BinderModel? = nil,
-        htmlBaseURL: URL? = nil
+        htmlBaseURL: URL? = nil, isStreamingPreview: Bool = false
     ) {
+        self.isStreamingPreview = isStreamingPreview
         themeTrial = ThemeTrial(renderer: trialRenderer)
         self.imageBundle = imageBundle
         self.binder = binder
@@ -1659,6 +1698,7 @@ final class DocumentViewModel {
 
     private func render(reusing currentPages: PreparedRender?) {
         if reloadedPages == .failed { reloadedPages = .unchanged }
+        dismissProseMark()
         selectedReadingPage = nil
         thumbnailCache = nil
         layoutTooLarge = false

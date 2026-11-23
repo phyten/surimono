@@ -82,6 +82,43 @@ struct LanguageTests {
         }
     }
 
+    @Test("語数の中央値は各言語で1語と小数と複数の単位を選ぶ")
+    func medianWords() throws {
+        for (language, expected) in [
+            ("en", ["1 word", "1.5 words", "2 words"]), ("de", ["1 Wort", "1,5 Wörter", "2 Wörter"]),
+            ("es", ["1 palabra", "1,5 palabras", "2 palabras"]), ("fr", ["1 mot", "1,5 mot", "2 mots"]),
+        ] {
+            let bundle = try #require(
+                Bundle.main.url(forResource: language, withExtension: "lproj").flatMap { Bundle(url: $0) })
+            let locale = Locale(identifier: language)
+            #expect([1.0, 1.5, 2.0].map { ProsePanel.words($0, bundle: bundle, locale: locale) } == expected)
+        }
+    }
+
+    @Test("文章の確認の分類名と空の表示を各言語の用語に合わせ紙面で見つからない理由を読み上げる")
+    func writingTerms() throws {
+        let empty = "No repetitions or long sentences found."
+        for (language, key, expected) in [
+            ("ko", "Repeated Word", "연달아 나온 같은 단어"), ("ko", "Close Repetition", "가까이 쓰인 같은 단어"),
+            ("de", "Close Repetition", "Wiederholungen in kurzem Abstand"),
+            ("de", "Kanji %1$@ · Kana %2$@ · Latin %3$@", "Kanji %1$@ · Kana %2$@ · Lateinisch %3$@"),
+            ("en", empty, empty), ("es", empty, "No se encontraron repeticiones ni oraciones largas."),
+            ("fr", empty, "Aucune répétition ni phrase longue détectée."), ("ja", empty, "見つかりませんでした"),
+            ("ja", "Repeated Word", "続いた語"), ("ja", "There is no prose to check.", "本文がありません"),
+        ] {
+            let url = try #require(Bundle.main.url(forResource: language, withExtension: "lproj"))
+            let bundle = try #require(Bundle(url: url))
+            #expect(bundle.localizedString(forKey: key, value: "MISSING", table: nil) == expected)
+        }
+        for language in ["en", "de", "es", "fr", "ja", "ko", "zh-Hans", "zh-Hant"] {
+            let url = try #require(Bundle.main.url(forResource: language, withExtension: "lproj"))
+            let bundle = try #require(Bundle(url: url))
+            #expect(
+                bundle.localizedString(
+                    forKey: "Could not locate this passage on the page.", value: "MISSING", table: nil) != "MISSING")
+        }
+    }
+
     @Test("文字列カタログの全キーに8言語の翻訳済みエントリがある")
     func catalogCoverage() throws {
         let source = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
@@ -384,7 +421,7 @@ struct LanguageTests {
     }
 
     private func specifiers(_ text: String) -> [String] {
-        let pattern = #/%(?:(\d+)\$)?(lld|ld|@)/#
+        let pattern = #/%(?:(\d+)\$)?(lld|ld|\.15g|@)/#
         return text.matches(of: pattern).enumerated().map { index, match in
             let position = match.output.1.map(String.init) ?? String(index + 1)
             return "\(position):\(match.output.2)"

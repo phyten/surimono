@@ -288,6 +288,13 @@ extension PaperView {
     /// Hands the paper the words of the window's find bar, and the model the hits the paper found.
     fileprivate func paperFind(_ model: DocumentViewModel) -> PaperView {
         var view = self
+        let mark = model.proseMark
+        if !mark.spans.isEmpty, model.isOutlineShown, model.contentsTab == .prose,
+            mark.matches(generation: model.proseGeneration, readingPage: model.currentPageIndex)
+        {
+            view.proseSpans = mark.spans
+        }
+        view.onPaperPress = { model.dismissProseMark() }
         view.findQuery = model.find.query
         view.onFindHits = { pages, query in model.paperFound(pages, for: query) }
         return view

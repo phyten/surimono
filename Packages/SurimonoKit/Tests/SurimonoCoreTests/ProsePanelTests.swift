@@ -1,0 +1,282 @@
+import Foundation
+import Testing
+
+@testable import SurimonoCore
+
+struct ProsePanelTests {
+    private func occurrence(_ range: Range<Int>, paragraph: Int = 0) -> ProseOccurrence {
+        ProseOccurrence(
+            paragraph: paragraph, sourceRange: range, textRange: range, sentenceRange: range, isEnglish: true)
+    }
+
+    @Test("原文の何番目の重複かを数えて改行とページを越えた紙面の位置を返す")
+    func ordinal() throws {
+        let paragraphs = ["😀 I read the the letter.", "Then the the bell rang."]
+        let occurrence = occurrence(5..<12, paragraph: 1)
+        let index = try ProsePaperIndex(
+            paragraphs: paragraphs, pages: ["😀 I read the\nthe letter.\nThen the", "the bell rang."],
+            occurrences: [occurrence])
+        let result = try index.spans(for: [occurrence])
+        #expect(result.map(\.page) == [0, 1])
+        #expect(result.map(\.text) == ["the", "the"])
+        #expect(result.last?.range == NSRange(location: 0, length: 3))
+    }
+
+    @Test("見出しに同じ語が増えた場合も本文の語が別の場所に移った場合も印を付けない")
+    func ambiguous() throws {
+        let occurrence = occurrence(4..<8)
+        for paper in ["word\nThe word I read.", "No word at all.", "The wo rd I read."] {
+            let index = try ProsePaperIndex(paragraphs: ["The word I read."], pages: [paper], occurrences: [occurrence])
+            #expect(try index.spans(for: [occurrence]).isEmpty)
+        }
+    }
+
+    @Test("見出しだけ綴りが一致しても縮約や折り返しを含む本文と区別できなければ選ばない")
+    func headingAboveCoalescedBody() throws {
+        let paragraph = "This is a small small world."
+        for body in ["This is a smal smal world.", "This is a small\nsmall world.", "This is a smal\nsmal world."] {
+            let index = try ProsePaperIndex(
+                paragraphs: [paragraph], pages: [paragraph, body], occurrences: [occurrence(10..<21)])
+            #expect(try index.spans(for: [occurrence(10..<21)]).isEmpty)
+        }
+    }
+
+    @Test("紙面でエルの間に改行が入っても完全一致する見出しを選ばない")
+    func wrappingInsideDoubleL() throws {
+        let paragraph = "This is a small small world."
+        let report = try ProseTesting.report(paragraph)
+        for pages in [[paragraph, "This is a smal\nl small world."], [paragraph, "This is a smal", "l small world."]] {
+            let panel = try ProsePanelReport(report: report, pages: pages)
+            #expect(panel.groups[.duplicate]?.first?.location == .missing)
+        }
+    }
+
+    @Test("エルの間の折り返しだけなら紙面上の両方の文字を含め語末に次の語を巻き込まない")
+    func wrapsInsideFinding() throws {
+        let paragraph = "This is a small small lake."
+        let report = try ProseTesting.report(paragraph)
+        let panel = try ProsePanelReport(report: report, pages: ["This is a smal\nl small lake."])
+        #expect(panel.groups[.duplicate]?.first?.spans.first?.text == "smal\nl small")
+    }
+
+    @Test("段落末の縮約されたエルに次の段落の先頭を足して重複語にしない")
+    func coalescedParagraphEnd() throws {
+        let hit = occurrence(10..<21)
+        let paragraphs = ["This is a small small", "l is a letter."]
+        for pages in [["This is a small smal\nl is a letter."], ["This is a small smal", "l is a letter."]] {
+            let index = try ProsePaperIndex(paragraphs: paragraphs, pages: pages, occurrences: [hit])
+            #expect(try index.spans(for: [hit]).isEmpty)
+            #expect(try index.spans(for: [hit], longSentence: true).isEmpty)
+        }
+    }
+
+    @Test("縮約のない段落境界では語中の折り返しと次の段落のエルを区別する")
+    func exactParagraphEnd() throws {
+        let hits = [occurrence(10..<21), occurrence(0..<4, paragraph: 1)]
+        let index = try ProsePaperIndex(
+            paragraphs: ["This is a small small", "l is a letter."],
+            pages: ["This is a small smal\nl", "l is a letter."],
+            occurrences: hits)
+        #expect(
+            try index.spans(for: [hits[0]]) == [
+                ProsePaperSpan(page: 0, range: NSRange(location: 10, length: 12), text: "small smal\nl")
+            ])
+        #expect(
+            try index.spans(for: [hits[1]]) == [
+                ProsePaperSpan(page: 1, range: NSRange(location: 0, length: 4), text: "l is")
+            ])
+    }
+
+    @Test("一字に縮約されたエルの片側だけを選ばない")
+    func partialCoalescedGlyph() throws {
+        let hits = [occurrence(2..<3), occurrence(3..<4), occurrence(2..<4)]
+        let index = try ProsePaperIndex(paragraphs: ["ball"], pages: ["bal"], occurrences: hits)
+        for hit in hits.prefix(2) {
+            #expect(try index.spans(for: [hit], longSentence: true).isEmpty)
+        }
+        #expect(try index.spans(for: [hits[2]], longSentence: true).map(\.text) == ["l"])
+    }
+
+    @Test("異なる綴りの二段落が紙面で同じになれば後ろの完全一致も選ばず綴りを保てば順に選ぶ")
+    func collapsedDistinctParagraphs() throws {
+        let first = "A small world."
+        let second = "A smal world."
+        let hits = [occurrence(8..<13), occurrence(7..<12, paragraph: 1)]
+        for pages in [[first, second], [second, second]] {
+            let index = try ProsePaperIndex(paragraphs: [first, second], pages: pages, occurrences: hits)
+            for (n, hit) in hits.enumerated() {
+                #expect(try index.spans(for: [hit]).first?.page == (pages[0] == first ? n : nil))
+            }
+        }
+    }
+
+    @Test("異なる長文6500件を段落順に一度対応付けて各ページを引ける", .timeLimit(.minutes(1)))
+    func thousandsOfSentences() throws {
+        let body = String(repeating: "across the valley we followed the river, ", count: 7)
+        let paragraphs = (0..<6500).map { "On day \($0), " + body + "until we reached the sea." }
+        let occurrences = paragraphs.enumerated().map { occurrence(0..<$0.element.utf16.count, paragraph: $0.offset) }
+        let index = try ProsePaperIndex(paragraphs: paragraphs, pages: paragraphs, occurrences: occurrences)
+        for (page, hit) in occurrences.enumerated() {
+            let spans = try index.spans(for: [hit], longSentence: true)
+            try #require(spans.first?.page == page)
+        }
+    }
+
+    @Test("紙面の別の単語の一部を独立した原文の語と取り違えない")
+    func wordBoundary() throws {
+        let occurrence = occurrence(0..<7)
+        let index = try ProsePaperIndex(paragraphs: ["the the"], pages: ["the theatre"], occurrences: [occurrence])
+        #expect(try index.spans(for: [occurrence]).isEmpty)
+    }
+
+    @Test("近い繰り返しの全箇所がそろうときだけ印を返す")
+    func allOccurrences() throws {
+        let text = "青い花と白い花と赤い花。"
+        let occurrences = [2, 6, 10].map { occurrence($0..<($0 + 1)) }
+        let ok = try ProsePaperIndex(paragraphs: [text], pages: ["青い花と白\nい花と赤い花。"], occurrences: occurrences)
+        #expect(try ok.spans(for: occurrences).map(\.range.location) == [2, 7, 11])
+        let missing = try ProsePaperIndex(paragraphs: [text], pages: ["青い花と白い布と赤い花。"], occurrences: occurrences)
+        #expect(try missing.spans(for: occurrences).isEmpty)
+    }
+
+    @Test("指摘は種類順にまとまり各組の中は原文の順を保つ")
+    func groups() throws {
+        let text = "We read the the letter. We saw a a bird."
+        let report = try ProsePanelReport(report: ProseTesting.report(text), pages: [text])
+        #expect(ProsePanelReport.Group.allCases == [.duplicate, .repetition, .longSentence])
+        #expect(report.groups.keys.count == 1)
+        #expect(report.groups[.duplicate]?.map(\.excerpt.text) == ["We read the the letter.", "We saw a a bird."])
+    }
+
+    @Test("紙面を照合する前から文の数と抜粋を読み取れ、照合後に位置が分かる")
+    func figuresBeforePaper() throws {
+        let text = "We read the the letter."
+        let report = try ProseTesting.report(text)
+        let pending = try ProsePanelReport(report: report)
+        #expect(pending.facts.sentenceCount == 1)
+        let before = try #require(pending.groups[.duplicate]?.first)
+        #expect(before.excerpt.place == "the the")
+        #expect(before.location == .checking)
+        let missing = try pending.located(on: ["Other text."])
+        #expect(missing.groups[.duplicate]?.first?.location == .missing)
+        let located = try pending.located(on: [text])
+        let after = try #require(located.groups[.duplicate]?.first)
+        #expect(after.id == before.id && after.location == .found)
+        #expect(after.spans.first?.page == 0)
+    }
+
+    @Test("取り消された紙面照合はページ番号を返さない")
+    func cancelledPairing() async throws {
+        let text = "We read the the letter."
+        let pending = try ProsePanelReport(report: ProseTesting.report(text))
+        let pairing = Task {
+            withUnsafeCurrentTask { $0?.cancel() }
+            return try pending.located(on: [text])
+        }
+        await #expect(throws: CancellationError.self) { try await pairing.value }
+    }
+
+    @Test("合計30件までは開き31件からはたたむ", arguments: [30, 31])
+    func threshold(count: Int) throws {
+        let text = Array(repeating: "We read the the letter.", count: count).joined(separator: "\n\n")
+        let panel = try ProsePanelReport(report: ProseTesting.report(text), pages: [text])
+        #expect(panel.groups[.duplicate]?.count == count)
+        #expect(panel.initiallyExpanded == (count == 30))
+    }
+
+    private let source = """
+        As I traced the pencil line from the village to the river and followed the narrow path beside \
+        the old mill, I wondered how the person who drew this map had managed to capture so \
+        many small details on a single sheet of paper.
+        """
+    // PDFKit's text from a Quartz PDF with the same three lines as the sample window.
+    private let extracted = """
+        As I traced the pencil line from the vilage to the river and folowed the narrow path beside
+        the old mil, I wondered how the person who drew this map had managed to capture so
+        many smal details on a single sheet of paper.
+        """
+
+    @Test("英語見本の44語が折り返され細い小文字のエルが重なって抽出されても元のPDF範囲を選ぶ")
+    func wrappedEnglish() throws {
+        let page = "Map\n" + extracted
+        let report = try ProseTesting.report(source)
+        let panel = try ProsePanelReport(report: report, pages: [page])
+        let row = try #require(panel.groups[.longSentence]?.first)
+        #expect(row.kind == .longSentence(length: 44, unit: .words))
+        #expect(
+            row.spans == [
+                ProsePaperSpan(page: 0, range: NSRange(location: 4, length: extracted.utf16.count), text: extracted)
+            ])
+    }
+
+    @Test("同じ英文の候補が余る場合やエル以外の文字が違う場合は選ばない")
+    func ambiguousEnglishSentence() throws {
+        let report = try ProseTesting.report(source)
+        let page = "Map\n" + extracted
+        for ambiguous in [[page, page], [page, source], [page.replacingOccurrences(of: "river", with: "rider")]] {
+            let panel = try ProsePanelReport(report: report, pages: ambiguous)
+            #expect(panel.groups[.longSentence]?.first?.spans.isEmpty == true)
+        }
+    }
+
+    @Test("紙面の細いエルが重なっても同じ全文が二度あれば原文の順に選ぶ")
+    func repeatedEnglishSentence() throws {
+        let page = "Map\n" + extracted
+        let twice = try ProseTesting.report(source + "\n\n" + source)
+        let repeated = try ProsePanelReport(report: twice, pages: [page, page])
+        #expect(repeated.groups[.longSentence]?.map { $0.spans.first?.page } == [0, 1])
+    }
+
+    @Test("抜粋は文頭では省かず文の途中では日本語は直前4文字と英語は直前2語を残す")
+    func excerptContext() throws {
+        for (sentence, hit, english, prefix, suffix) in [
+            ("をを見た。", "をを", false, "", "見た。"),
+            ("朝の小さな青い花をを見た。", "をを", false, "…な青い花", "見た。"),
+            ("The the ink dried.", "The the", true, "", " ink dried."),
+            ("After lunch I laid the the letter.", "the the", true, "…I laid ", " letter."),
+        ] {
+            let paragraph = "先の文。" + sentence + "次の文。"
+            let text = paragraph as NSString
+            let range = try #require(Range(text.range(of: hit)))
+            let sentenceRange = try #require(Range(text.range(of: sentence)))
+            let occurrence = ProseOccurrence(
+                paragraph: 0, sourceRange: range, textRange: range, sentenceRange: sentenceRange, isEnglish: english)
+            let excerpt = ProseExcerpt(paragraph: paragraph, occurrence: occurrence)
+            #expect(excerpt.before == prefix)
+            #expect(excerpt.place == hit)
+            #expect(excerpt.after == suffix)
+        }
+    }
+
+    @Test("日本語の抜粋は絵文字を丸ごと残し改行を詰めて末尾を省く")
+    func excerptBoundaries() {
+        let paragraph = "前置き😀\n白い紙" + String(repeating: "あ", count: 140)
+        let occurrence = ProseOccurrence(
+            paragraph: 0, sourceRange: 3..<5, textRange: 3..<5, sentenceRange: 0..<paragraph.utf16.count,
+            isEnglish: false)
+        let excerpt = ProseExcerpt(paragraph: paragraph, occurrence: occurrence)
+        #expect(excerpt.before == "前置き")
+        #expect(excerpt.place == "😀")
+        #expect(excerpt.after.hasPrefix(" 白い紙"))
+        #expect(excerpt.after.hasSuffix("…"))
+    }
+
+    @Test("印は同じページと組版で表示している間だけ保ち閉じた後や検索の後に復活しない")
+    func lifetime() {
+        let span = ProsePaperSpan(page: 1, range: NSRange(location: 1, length: 2), text: "紙面")
+        for (open, generation, page) in [(false, 7, 0), (true, 8, 0), (true, 7, 2)] {
+            var mark = ProsePaperMark()
+            mark.select([span], findingID: 1, generation: 7, readingPage: 0)
+            mark.update(presented: true, generation: 7, readingPage: 0)
+            #expect(mark.spans == [span])
+            mark.update(presented: open, generation: generation, readingPage: page)
+            mark.update(presented: true, generation: 7, readingPage: 0)
+            #expect(mark.spans.isEmpty)
+        }
+        var mark = ProsePaperMark()
+        mark.select([span], findingID: 1, generation: 7, readingPage: 0)
+        mark.dismiss()
+        #expect(mark.spans.isEmpty)
+        #expect(mark.findingID == nil)
+    }
+}

@@ -53,7 +53,7 @@ final class StreamingPreviewWindows {
         let model = DocumentViewModel(
             data: data, fileURL: nil, format: format,
             preferences: preferences ?? AppPreferences(), library: library ?? UserLibrary(),
-            title: String(localized: "Streaming Preview"))
+            title: String(localized: "Streaming Preview"), isStreamingPreview: true)
         let controller = MemoryDocumentWindowController(model: model) { [weak self] in self?.windowDidClose() }
         self.controller = controller
         showsNote = true

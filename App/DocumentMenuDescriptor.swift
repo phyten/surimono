@@ -6,7 +6,7 @@ enum DocumentMenuAction: Hashable {
     case operation(ShortcutOperationID)
     case history(ContentHash)
     case recentBinder(RecentBinder.ID)
-    case clearClipboard, clearBinders, openSample
+    case clearClipboard, clearBinders, openSample, checkWriting
     case composition(LaTeXComposition)
     case typeface(Typeface)
     case setting(UUID)
@@ -24,6 +24,7 @@ enum DocumentMenuAction: Hashable {
             if let current = preferences.recentBinders.entries.first(where: { $0.id == id }) { openBinder(current) }
         case .clearClipboard: preferences.clearClosedClipboardDocuments()
         case .clearBinders: preferences.clearRecentBinders()
+        case .checkWriting: model()?.openProse()
         case .openSample: OpenRouter.shared.openSampleDocument()
         case .composition(let value): model()?.selectComposition(value)
         case .typeface(let value):
@@ -102,6 +103,7 @@ struct DocumentMenuDescriptor: Identifiable {
         case .action(.operation(let operation)):
             row.shortcut = snapshot.shortcut(for: operation)
             row.isEnabled = snapshot.content.enabled.contains(operation)
+        case .action(.checkWriting): row.isEnabled = snapshot.content.offersProse
         case .action(.setting), .action(.replaceSetting): row.isEnabled = snapshot.content.region != nil
         case .menu, .typefacePicker:
             row.isEnabled = row.children.contains { child in
@@ -201,6 +203,7 @@ struct DocumentMenuDescriptor: Identifiable {
         }
         rows += [
             command("View Options…", .viewOptions), command("Go to Page…", .documentGoToPage),
+            button("Check Writing", .checkWriting),
             command("Back", .readingBack), command("Forward", .readingForward), divider("bookmark"),
             command("Bookmark This Page", .bookmarkToggle, checked: state.bookmarked),
             command("Next Bookmark", .bookmarkNext), command("Previous Bookmark", .bookmarkPrevious), divider("text"),
