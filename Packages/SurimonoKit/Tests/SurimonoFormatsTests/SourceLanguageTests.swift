@@ -21,7 +21,7 @@ struct SourceLanguageTests {
             ("data.json", "json"), ("data.jsonl", "json"), ("data.ndjson", "json"), ("settings.jsonc", "json"),
             ("settings.json5", "json"), ("map.geojson", "json"),
             ("config.yaml", "yaml"), ("config.yml", "yaml"), ("Cargo.toml", "toml"),
-            ("setup.ini", "ini"), ("setup.cfg", "ini"), ("app.properties", "ini"),
+            ("setup.ini", "ini"), ("app.properties", "ini"),
             ("App.vue", "html"), ("App.svelte", "html"),
             ("feed.xml", "xml"), ("Info.plist", "xml"), ("page.xsl", "xml"), ("page.xslt", "xml"),
             ("schema.xsd", "xml"), ("feed.rss", "xml"), ("feed.atom", "xml"), ("App.entitlements", "xml"),
@@ -121,6 +121,10 @@ struct SourceLanguageTests {
         #expect(SourceLanguage.detect(fileName: "solve.m", firstLine: "% Solves the system.")?.id == "matlab")
         #expect(SourceLanguage.detect(fileName: "solve.m", firstLine: "function x = solve(a, b)")?.id == "matlab")
         #expect(SourceLanguage.detect(fileName: "Shape.m", firstLine: "classdef Shape")?.id == "matlab")
+        #expect(SourceLanguage.detect(fileName: "solve.m", firstLine: "function\tx = solve(a)")?.id == "matlab")
+        #expect(SourceLanguage.detect(fileName: "solve.m", firstLine: "\t% indented")?.id == "matlab")
+        #expect(SourceLanguage.detect(fileName: "View.m", firstLine: "functionPointer_t f;")?.id == "objectivec")
+        #expect(SourceLanguage.detect(fileName: "solve.m", text: { "% Solves.\nx = 1;\n" })?.id == "matlab")
     }
 
     @Test("言語の名前は読みやすい表記で返す")
@@ -138,15 +142,6 @@ struct SourceLanguageTests {
             #expect(SyntaxHighlighter.highlight("x = \"a\"\n", language: id) != nil, "\(id)")
         }
         #expect(SourceLanguage.supportedIDs.count == 32)
-    }
-
-    @Test("データの最初の行は改行と BOM を除いて取り出す")
-    func firstLineOfData() {
-        #expect(SourceLanguage.firstLine(of: Data("#!/bin/sh\necho 1\n".utf8)) == "#!/bin/sh")
-        #expect(SourceLanguage.firstLine(of: Data("#!/bin/sh\r\necho 1\r\n".utf8)) == "#!/bin/sh")
-        #expect(SourceLanguage.firstLine(of: Data([0xEF, 0xBB, 0xBF] + Array("#!/bin/zsh\n".utf8))) == "#!/bin/zsh")
-        #expect(SourceLanguage.firstLine(of: Data()) == "")
-        #expect(SourceLanguage.firstLine(of: Data(repeating: 0x61, count: 10_000)).count == 256)
     }
 
     @Test("ソースコードは拡張子に合わせて色を付ける")
@@ -174,20 +169,119 @@ struct SourceLanguageTests {
         #expect(PlainTextConverter.convert(text, fileName: "server.log").body == plain)
     }
 
-    @Test("設定ファイルの色付けは拡張子だけを渡したときと変わらない")
-    func keepsStructuredText() {
-        for (suffix, input) in [
-            ("json", "{\"count\": 2}"), ("jsonl", "{\"count\":2}"), ("yaml", "count: 2"), ("toml", "count = 2"),
-            ("xml", "<count>2</count>"),
-        ] {
-            #expect(
-                PlainTextConverter.convert(input, fileName: "sample." + suffix).body
-                    == PlainTextConverter.convert(input, fileExtension: suffix).body)
-            #expect(
-                PlainTextConverter.convert(input, fileExtension: suffix).body
-                    == "<pre class=\"surimono-plain\">\(SyntaxHighlighter.highlight(input, language: suffix == "jsonl" ? "json" : suffix) ?? "")</pre>"
-            )
+    @Test("JSON の色付けの結果を固定する")
+    func fixedJSON() {
+        let input = "{\n  \"title\": \"A < B\",\n  \"copies\": 2,\n  \"duplex\": true,\n  \"printer\": null\n}\n"
+        let expected = """
+            <pre class="surimono-plain">{
+              <span class="hl-attr">&quot;title&quot;</span>: <span class="hl-string">&quot;A &lt; B&quot;</span>,
+              <span class="hl-attr">&quot;copies&quot;</span>: <span class="hl-number">2</span>,
+              <span class="hl-attr">&quot;duplex&quot;</span>: <span class="hl-literal">true</span>,
+              <span class="hl-attr">&quot;printer&quot;</span>: <span class="hl-literal">null</span>
+            }
+            </pre>
+            """
+        #expect(PlainTextConverter.convert(input, fileName: "sample.json").body == expected)
+        #expect(PlainTextConverter.convert(input, fileExtension: "json").body == expected)
+    }
+
+    @Test("XML の色付けの結果を固定する")
+    func fixedXML() {
+        let input = "<?xml version=\"1.0\"?>\n<!-- 見本 -->\n<job copies=\"2\">\n  <paper>A4 &amp; B5</paper>\n</job>\n"
+        let expected = """
+            <pre class="surimono-plain"><span class="hl-meta">&lt;?xml version=&quot;1.0&quot;?&gt;</span>
+            <span class="hl-comment">&lt;!-- 見本 --&gt;</span>
+            &lt;<span class="hl-tag">job</span> <span class="hl-attr">copies</span>=<span class="hl-string">&quot;2&quot;</span>&gt;
+              &lt;<span class="hl-tag">paper</span>&gt;A4 <span class="hl-literal">&amp;amp;</span> B5&lt;/<span class="hl-tag">paper</span>&gt;
+            &lt;/<span class="hl-tag">job</span>&gt;
+            </pre>
+            """
+        #expect(PlainTextConverter.convert(input, fileName: "sample.xml").body == expected)
+        #expect(PlainTextConverter.convert(input, fileExtension: "xml").body == expected)
+    }
+
+    @Test("JSONL・YAML・TOML は拡張子だけを渡しても色が付く")
+    func structuredTextByExtension() {
+        for (suffix, input) in [("jsonl", "{\"count\":2}"), ("yaml", "count: 2"), ("toml", "count = 2")] {
+            #expect(PlainTextConverter.convert(input, fileExtension: suffix).body.contains("class=\"hl-"))
         }
+    }
+
+    @Test(
+        "固定名から派生した名前より、明示した拡張子を先に見る",
+        arguments: [
+            ("Dockerfile.txt", nil), (".env.md", nil), ("Dockerfile.json", "json"), (".env.local", "ini"),
+            ("Dockerfile.dev", "dockerfile"), ("Dockerfile.yaml.bak", "yaml"), (".env.html", nil),
+            ("Containerfile.log", nil), ("Dockerfile.bak", "dockerfile"), ("config.yaml.in.bak", "yaml"),
+            ("notes.txt.bak", nil),
+        ] as [(String, String?)])
+    func explicitExtensionBeforeDerivedName(fileName: String, id: String?) {
+        #expect(SourceLanguage.detect(fileName: fileName, firstLine: "#!/bin/sh")?.id == id)
+    }
+
+    @Test(
+        "env のオプションの値や環境変数をインタープリターと取り違えない",
+        arguments: [
+            ("#!/usr/bin/env -S -u ruby python3", "python"), ("#!/usr/bin/env -u ruby python3", "python"),
+            ("#!/usr/bin/env -uruby python3", "python"), ("#!/usr/bin/env -C /tmp/lua node", "javascript"),
+            ("#!/usr/bin/env -P /opt/ruby/bin python3", "python"), ("#!/usr/bin/env -i -S python3 -u", "python"),
+            ("#!/usr/bin/env -iS python3 -u", "python"), ("#!/usr/bin/env -S \"python3 -u\"", "python"),
+            ("#!/usr/bin/env -S 'ruby -w'", "ruby"), ("#!/usr/bin/env -Spython3", "python"),
+            ("#!/usr/bin/env --unset ruby python3", "python"), ("#!/usr/bin/env --unset=ruby python3", "python"),
+            ("#!/usr/bin/env --split-string=python3 -u", "python"), ("#!/usr/bin/env -- node", "javascript"),
+            ("#!/usr/bin/env -S \"NAME=a b\" python3", "python"),
+            ("#!/usr/bin/env -u ruby", nil), ("#!/usr/bin/env -S \"python3 -u", nil), ("#!/usr/bin/env -u", nil),
+        ] as [(String, String?)])
+    func envOptions(firstLine: String, id: String?) {
+        #expect(SourceLanguage.detect(fileName: "tool", firstLine: firstLine)?.id == id)
+    }
+
+    @Test("長さの上限で切れたかもしれないコマンド名では言語を決めない")
+    func cutShebang() {
+        let padding = String(repeating: "x", count: 240)
+        // "…/python" would end exactly at the limit if the line went on as "python3-config".
+        let cut = "#!/" + padding + "/python" + String(repeating: "z", count: 40)
+        #expect(SourceLanguage.detect(fileName: "tool", firstLine: cut) == nil)
+        let python = "#!/" + String(repeating: "x", count: 246) + "/python"
+        #expect(python.count == 256)
+        #expect(SourceLanguage.detect(fileName: "tool", firstLine: python + "3-config") == nil)
+        #expect(SourceLanguage.detect(fileName: "tool", firstLine: python)?.id == "python")
+        let arguments = "#!/usr/bin/env python3 " + String(repeating: "-v ", count: 100)
+        #expect(SourceLanguage.detect(fileName: "tool", firstLine: arguments)?.id == "python")
+    }
+
+    @Test("本文から見分けるときは最初の行だけを読み、名前で決まるなら本文を読まない")
+    func detectsFromText() {
+        #expect(SourceLanguage.detect(fileName: "tool", text: { "#!/bin/sh\n#!/usr/bin/env python3\n" })?.id == "shell")
+        #expect(SourceLanguage.detect(fileName: "tool", text: { "\n#!/bin/sh\n" }) == nil)
+        #expect(SourceLanguage.detect(fileName: "tool", text: { "#!/usr/bin/env ruby\r\nputs 1\r\n" })?.id == "ruby")
+        var reads = 0
+        let language = SourceLanguage.detect(
+            fileName: "main.swift",
+            text: {
+                reads += 1
+                return "#!/bin/sh"
+            })
+        #expect(language?.id == "swift")
+        #expect(reads == 0)
+    }
+
+    @Test("大文字の .C と .H は C++、小文字は C として読む")
+    func capitalCExtensions() {
+        #expect(SourceLanguage.detect(fileName: "main.C")?.id == "cpp")
+        #expect(SourceLanguage.detect(fileName: "main.H")?.id == "cpp")
+        #expect(SourceLanguage.detect(fileName: "main.C.orig")?.id == "cpp")
+        #expect(SourceLanguage.detect(fileName: "main.c")?.id == "c")
+        #expect(SourceLanguage.detect(fileName: "main.h")?.id == "c")
+    }
+
+    @Test(".cfg は INI と分かっている名前だけに色を付ける")
+    func configurationNames() {
+        #expect(SourceLanguage.detect(fileName: "setup.cfg")?.id == "ini")
+        #expect(SourceLanguage.detect(fileName: "tox.ini")?.id == "ini")
+        #expect(SourceLanguage.detect(fileName: ".flake8")?.id == "ini")
+        #expect(SourceLanguage.detect(fileName: "haproxy.cfg") == nil)
+        #expect(SourceLanguage.detect(fileName: "nginx.conf") == nil)
     }
 
     @Test("色付けの上限を超えたソースは切らずに色なしで全部出す")

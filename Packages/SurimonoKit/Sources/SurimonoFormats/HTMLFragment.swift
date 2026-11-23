@@ -58,9 +58,7 @@ public enum PlainTextConverter {
     /// The text as one preformatted block. A file name that tells a programming or configuration language (or, for
     /// a name that tells nothing, a shebang line) colors it; text with no name is never colored.
     public static func convert(_ text: String, fileName: String?) -> HTMLFragment {
-        let language = fileName.flatMap {
-            SourceLanguage.detect(fileName: $0, firstLine: String(text.prefix(256).prefix { !$0.isNewline }))
-        }
+        let language = fileName.flatMap { SourceLanguage.detect(fileName: $0, text: { text }) }
         // Code too long to color is shown whole without colors rather than cut.
         if let language, let tokens = SyntaxHighlighter.highlight(text, language: language.id) {
             return HTMLFragment(body: "<pre class=\"surimono-plain\">\(tokens)</pre>")
