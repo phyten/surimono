@@ -540,6 +540,8 @@ final class DocumentViewModel {
     @ObservationIgnored private var captureCompletions: [(CaptureOutcome) -> Void] = []
     /// Stands in for the live page in tests.
     @ObservationIgnored var snapshotSource: (() async -> WebPageController.Snapshot)?
+    /// The copy in flight already opens the print tray when it arrives.
+    @ObservationIgnored private var captureOpensTray = false
     /// The key of the remembered settings: the content hash of the file, of the ZIP, or of the set of images.
     private(set) var contentHash: ContentHash?
     private(set) var hasSavedSettings = false
@@ -1984,9 +1986,13 @@ final class DocumentViewModel {
         dropSpot()
         guard mode != .print else { return }
         guard mode == .view, isWebPresentation || isCapturingWeb || webCaptureFailed else { return showPrintTray() }
-        // The tray prints the page as it is now.
+        // The tray prints the page as it is now. One request waits for the copy at a time, and it opens the tray
+        // only if the reader has not chosen something else since.
+        guard !(isCapturingWeb && captureOpensTray) else { return }
+        captureOpensTray = true
         captureWeb { [weak self] outcome in
-            guard let self else { return }
+            guard let self, captureOpensTray else { return }
+            captureOpensTray = false
             if outcome == .failed {
                 outputAfterReview = nil
                 showCaptureFailure()
@@ -2181,9 +2187,10 @@ final class DocumentViewModel {
 
     /// The page called `window.print()`: open the print tray as ⌘P does. Only the page the reader is using may ask:
     /// not one behind paper or the tray, nor one in a window in the background, and a request while the page is
-    /// being copied for the tray is already on its way there.
+    /// being copied for the tray is already on its way there. A copy made for another reason (the failure notice's
+    /// Try Again) does not open the tray, so the first request during it joins that copy.
     func pageDidRequestPrint() {
-        guard showsWeb, !isCapturingWeb, isWindowActive else { return }
+        guard showsWeb, !(isCapturingWeb && captureOpensTray), isWindowActive else { return }
         enterPrintMode()
     }
 
@@ -2206,6 +2213,8 @@ final class DocumentViewModel {
         // The review outlines parts of the paper.
         setHTMLPresentation(.paper)
         outputAfterReview = nil
+        // A tray waiting for the copy would close the review as soon as the copy arrived.
+        captureOpensTray = false
         if mode == .print { exitPrintMode() }
         isReviewingSmartRemoval = true
     }
@@ -2545,6 +2554,7 @@ final class DocumentViewModel {
         // A request waiting on this capture must not survive a reload and run on a later visit to the tray.
         outputAfterReview = nil
         isCapturingWeb = false
+        captureOpensTray = false
         webCaptureFailed = false
     }
 
@@ -2552,6 +2562,8 @@ final class DocumentViewModel {
     func retryWebCapture() {
         dismissToast()
         guard usesHTMLPresentation, webCaptureFailed else { return }
+        // A page whose process ended has nothing to copy until it is loaded again; the copy waits for that load.
+        web.reloadEndedPage()
         captureWeb { [weak self] outcome in
             if outcome == .failed { self?.showCaptureFailure() }
             self?.sizeWindowToPaper(keepHeight: true)
