@@ -73,7 +73,7 @@ struct LaTeXWebKitLineDumpTests {
                 title: prepared.facts?.title ?? outline.title ?? directory.lastPathComponent,
                 headings: outline.headings, sourceURL: file, furniture: prepared.viewFurniture)
             let url = pdfs.appendingPathComponent(id + ".pdf")
-            try #require(document.write(to: url))
+            try ReadingPDFExporter.data(from: document).write(to: url)
             // PDFKit infers a reading order on reopened pages, including their furniture.
             let saved = try #require(PDFDocument(url: url))
             savedPageText = try (0..<saved.pageCount).map { index in

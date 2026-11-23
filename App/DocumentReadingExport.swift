@@ -73,7 +73,7 @@ extension DocumentViewModel {
         }
         do {
             if kind == .share {
-                guard let document = exportingDocument, let view = window?.contentView else { return false }
+                guard let pendingPDF, let view = window?.contentView else { return false }
                 clearSharedExport()
                 let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
                 try FileManager.default.createDirectory(
@@ -81,7 +81,7 @@ extension DocumentViewModel {
                     attributes: [.posixPermissions: 0o700])
                 sharedExportDirectory = directory
                 let file = directory.appendingPathComponent(readingExportName)
-                guard let bytes = document.dataRepresentation() else { throw CocoaError(.fileWriteUnknown) }
+                let bytes = try pendingPDF.bytes()
                 try checkCurrent()
                 guard Self.canExport(to: file, sourceURLs: originalSources) else {
                     throw CocoaError(.fileWriteNoPermission)
@@ -95,7 +95,7 @@ extension DocumentViewModel {
                 return true
             }
             if kind == .png {
-                guard let document = exportingDocument, let bytes = document.dataRepresentation() else {
+                guard case .reading(let document) = pendingPDF, let bytes = document.dataRepresentation() else {
                     throw CocoaError(.fileWriteUnknown)
                 }
                 let folderMode = destination != nil || document.pageCount > 1

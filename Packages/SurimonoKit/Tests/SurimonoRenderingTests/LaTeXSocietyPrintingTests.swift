@@ -187,9 +187,26 @@ struct LaTeXSocietyPrintingTests {
                 for: texSecond)
             let top = size.height - continuation.midY
             let texTop = texSecond.bounds(for: .mediaBox).height - texLine.midY
+            func columnStarts(_ sheet: PDFPage) -> String {
+                // Separate an extra line carried across the column break from a shifted top margin.
+                let box = sheet.bounds(for: .mediaBox)
+                return [box.minX, box.midX].map { x in
+                    let area = CGRect(x: x, y: box.maxY - 140, width: box.width / 2, height: 90)
+                    let lines = sheet.selection(for: area)?.selectionsByLine() ?? []
+                    let starts = lines.map { ($0, $0.bounds(for: sheet)) }.sorted { $0.1.midY > $1.1.midY }
+                    return starts.prefix(3).map { line, rect in
+                        String(format: "%.1f", box.maxY - rect.midY) + "@"
+                            + String((line.string ?? "").prefix(14)).debugDescription
+                    }.joined(separator: ",")
+                }.joined(separator: " / ")
+            }
+            func inkTop(_ deck: PDFDocument, on sheet: PDFPage) -> String {
+                guard let ink = try? printedInk(of: word, in: deck, on: sheet) else { return "?" }
+                return String(format: "%.2f", sheet.bounds(for: .mediaBox).maxY - ink.maxY)
+            }
             #expect(
                 continuation.minX > size.width / 2 && abs(top - texTop) < 4,
-                "p2 続き view=\(locations(word, in: result.viewDocument, at: 1)) saved=\(locations(word, in: pdf, at: 1)) TeX=\(locations(word, in: tex, at: 1))"
+                "p2 続き view=\(locations(word, in: result.viewDocument, at: 1)) saved=\(locations(word, in: pdf, at: 1)) TeX=\(locations(word, in: tex, at: 1)) 段頭=\(columnStarts(second)) TeX段頭=\(columnStarts(texSecond)) 墨上端=\(inkTop(pdf, on: second))/\(inkTop(tex, on: texSecond))"
             )
             let entry = try bounds("模型線路係", on: second)
             // An inline citation must not satisfy the check for the printed bibliography label.

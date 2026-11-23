@@ -637,7 +637,21 @@ final class DocumentViewModel {
     var shortcutListFocused = false
     private var printCompletion: PrintCompletion?
     private var printOperation: NSPrintOperation?
-    var exportingDocument: PDFDocument?
+    enum PendingPDF {
+        case reading(PDFDocument)
+        case sheets(PDFDocument)
+
+        @MainActor func bytes() throws -> Data {
+            switch self {
+            case .reading(let document): return try ReadingPDFExporter.data(from: document)
+            case .sheets(let document):
+                guard let data = document.dataRepresentation() else { throw CocoaError(.fileWriteUnknown) }
+                return data
+            }
+        }
+    }
+
+    var pendingPDF: PendingPDF?
 
     init(
         data: Data, fileURL: URL?, format: DocumentFormat,
@@ -4208,7 +4222,7 @@ final class DocumentViewModel {
     }
 
     func endReadingExport() {
-        exportingDocument = nil
+        pendingPDF = nil
         exportingSourceURLs = []
         isExporting = false
     }
@@ -4280,9 +4294,10 @@ final class DocumentViewModel {
             let metadataTitle =
                 candidates.compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
                 .first { !$0.isEmpty } ?? String(readingExportName.dropLast(4))
-            exportingDocument = try ReadingPDFExporter.document(
+            let reading = try ReadingPDFExporter.document(
                 from: document, entries: entries, title: metadataTitle, preservesOutline: format == .pdf,
                 headings: headings, sourceURL: fileURL, furniture: themeFormat == .latex ? prepared.viewFurniture : [:])
+            pendingPDF = .reading(reading)
             exportingSourceURLs = sources
             return true
         } catch {
@@ -4312,7 +4327,7 @@ final class DocumentViewModel {
     func beginPDFExport() -> Bool {
         guard canOutput, let result = printResult else { return false }
         // Keep the selected output stable even if the file reloads while the save panel is open.
-        exportingDocument = result.sheetDocument
+        pendingPDF = .sheets(result.sheetDocument)
         exportingSourceURLs = protectedSourceURLs
         isExporting = true
         outputError = nil
@@ -4320,9 +4335,9 @@ final class DocumentViewModel {
     }
 
     func completePDFExport(to url: URL?) {
-        guard isExporting, let exportingDocument else { return }
+        guard isExporting, let pendingPDF else { return }
         defer {
-            self.exportingDocument = nil
+            self.pendingPDF = nil
             exportingSourceURLs = []
             isExporting = false
         }
@@ -4330,7 +4345,7 @@ final class DocumentViewModel {
         do {
             let sources = protectedSourceURLs + exportingSourceURLs
             guard Self.canExport(to: url, sourceURLs: sources) else { throw CocoaError(.fileWriteNoPermission) }
-            guard let data = exportingDocument.dataRepresentation() else { throw CocoaError(.fileWriteUnknown) }
+            let data = try pendingPDF.bytes()
             try data.write(to: url, options: .atomic)
         } catch {
             outputError = String(localized: "The PDF could not be exported.") + "\n" + error.localizedDescription

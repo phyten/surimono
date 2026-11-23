@@ -1,6 +1,12 @@
 import PDFKit
 import Testing
 
+func baseFonts(in pageData: Data) -> [String] {
+    let names = String(decoding: pageData, as: UTF8.self).matches(
+        of: #/\/BaseFont\s*\/(?:[A-Z]{6}\+)?([^/\s<>]+)/#)
+    return Set(names.map { String($0.output.1) }).sorted()
+}
+
 enum PrintedInkColor { case any, chromatic, black }
 
 // PDFKit's selection bounds include the font's ascenders and descenders even for a single dot.

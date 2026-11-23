@@ -4,7 +4,17 @@ import SurimonoCore
 
 @MainActor
 public enum ReadingPDFExporter {
-    public enum ExportError: Error { case cannotCopyDocument }
+    public enum ExportError: LocalizedError {
+        case cannotCopyDocument
+        case navigation(String)
+
+        public var errorDescription: String? {
+            switch self {
+            case .cannotCopyDocument: return String(localized: "The PDF could not be exported.")
+            case .navigation(let detail): return detail
+            }
+        }
+    }
 
     /// Uses the same HTML and forward-only page matching as the Contents popover, when no reading outline is cached.
     public static func outline(
@@ -35,12 +45,21 @@ public enum ReadingPDFExporter {
         return (entries, structure.2, structure.0)
     }
 
+    /// Returns the actual file bytes used for Save and Share. Capture before the write because
+    /// the destination page can already be missing when the serialized annotation is reopened.
+    public static func data(from document: PDFDocument) throws -> Data {
+        let navigation = try ReadingPDFNavigation(document)
+        guard let bytes = document.dataRepresentation() else { throw ExportError.cannotCopyDocument }
+        return try navigation.verified(bytes, pageCount: document.pageCount, stage: "export → saved").data
+    }
+
     public static func document(
         from logical: PDFDocument, entries: [OutlineEntry], title: String, preservesOutline: Bool = false,
         headings: [DocumentHeading] = [], sourceURL: URL? = nil, furniture: [Int: FurniturePlacement] = [:]
     ) throws -> PDFDocument {
         // Serializing the whole document preserves cross-page destinations and isolates the renderer's cache.
         // Drawing pages into a new context would discard the links and the source PDF's outline.
+        let navigation = try ReadingPDFNavigation(logical)
         let pages: PDFDocument
         if furniture.isEmpty {
             pages = logical
@@ -56,9 +75,10 @@ public enum ReadingPDFExporter {
             else { throw ExportError.cannotCopyDocument }
             pages = decorated
         }
-        guard let data = pages.dataRepresentation(), let document = PDFDocument(data: data) else {
-            throw ExportError.cannotCopyDocument
-        }
+        // The footer keeps page order and coordinates. Capture navigation on the original because
+        // PDFKit may lose a target while the annotation is being copied onto a decorated page.
+        guard let bytes = pages.dataRepresentation() else { throw ExportError.cannotCopyDocument }
+        let document = try navigation.verified(bytes, pageCount: logical.pageCount, stage: "view → export").document
         // Do not inherit author names or arbitrary producer metadata from the source or the printing system.
         document.documentAttributes = [
             PDFDocumentAttribute.titleAttribute: title, PDFDocumentAttribute.creatorAttribute: "Surimono",

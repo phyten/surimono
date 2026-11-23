@@ -43,7 +43,7 @@ struct MathOutlinePrintingTests {
             settings: RenderSettings(layout: .letterSingle, theme: theme, preset: .init(id: "none", name: "")))
         let reading = try ReadingPDFExporter.document(
             from: prepared.viewDocument, entries: [], title: "Math", furniture: prepared.viewFurniture)
-        let data = try #require(reading.dataRepresentation())
+        let data = try ReadingPDFExporter.data(from: reading)
         let pdf = try #require(PDFDocument(data: data))
         let reference = try #require(PDFDocument(url: try fixture("math-outlines-reference", "pdf")))
         let expected = try JSONDecoder().decode(

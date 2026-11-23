@@ -15,10 +15,34 @@ struct LaTeXTablePrintingTests {
         let file = corpus.appendingPathComponent("Snapshots/corpus/latex/\(folder)/main.tex")
         let source = DocumentSource(data: try Data(contentsOf: file), fileURL: file, format: .latex)
         let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
-        let result = try await DocumentRenderer().prepare(
+        let scaled = folder == "022-batch-grid"
+        let paginator = WebPaginator()
+        var dimensions = "?"
+        if scaled {
+            paginator.inspectPrintLayout = { view in
+                do {
+                    let value = try await view.evaluateForPrinting(
+                        """
+                        const box = document.querySelector('.latex-graphic-box');
+                        if (!box) return null;
+                        const ink = box.firstElementChild, table = ink.querySelector('table');
+                        if (!table) return 'table missing';
+                        const size = getComputedStyle(ink), shape = el => {
+                            const r = el.getBoundingClientRect();
+                            return [r.top, r.width, r.height].map(n => +n.toFixed(2));
+                        };
+                        return JSON.stringify({natural:[size.width,size.height], matrix:size.transform,
+                          rows:[...table.rows].slice(0,3).map(shape), struts:table.querySelectorAll('.latex-array-strut').length,
+                          font:getComputedStyle(table).fontFamily, dpr:devicePixelRatio});
+                        """, until: .now + .seconds(3))
+                    if let value = value as? String { dimensions = value }
+                } catch { dimensions = String(describing: error) }
+            }
+        }
+        let renderer = DocumentRenderer(paginateWithResult: { request in try await paginator.paginate(request) })
+        let result = try await renderer.prepare(
             source, settings: .init(layout: .a4Single, theme: theme, preset: .init(id: "none", name: "")))
         let pdf = result.logicalDocument
-        let scaled = folder == "022-batch-grid"
         let referenceURL = corpus.appendingPathComponent("Snapshots/reference/latex/\(folder.prefix(3)).pdf")
         let reference = try #require(PDFDocument(url: referenceURL))
         // Four sampled edges enter each comparison. A 0.025pt pixel keeps their combined
@@ -37,7 +61,19 @@ struct LaTeXTablePrintingTests {
         guard scaled else { return }
         let heading = try inkDistance("Batch comparison grid", "Amber", in: pdf)
         let texHeading = try inkDistance("Batch comparison grid", "Amber", in: reference)
-        #expect(abs(heading - texHeading) < 1, "表題から Amber の墨まで \(heading)pt、実 TeX \(texHeading)pt")
+        func anchors(_ deck: PDFDocument) -> String {
+            guard let sheet = deck.page(at: 0) else { return "page missing" }
+            let positions = ["Batch comparison grid", "Maximum deviation", "Amber", "Slate", "Three"].map { text in
+                guard let ink = try? printedInk(of: text, in: deck, on: sheet, scale: 40) else { return "\(text)=?" }
+                return String(
+                    format: "%.2f/%.2f/w%.2f", ink.minX, sheet.bounds(for: .mediaBox).maxY - ink.minY, ink.width)
+            }.joined(separator: ",")
+            return "\(positions) fonts=\(baseFonts(in: sheet.dataRepresentation ?? Data()))"
+        }
+        #expect(
+            abs(heading - texHeading) < 1,
+            "表題→Amber \(heading)pt、実 TeX \(texHeading)pt。表題/表見出し/Amber/Slate/Three の x/y/幅=\(anchors(pdf)) TeX=\(anchors(reference)) DOM=\(dimensions)"
+        )
     }
 
     @Test("伸縮表では太字の語を一行に収め、固定幅列と同行の基準線を実寸で刷る", .timeLimit(.minutes(1)))

@@ -61,6 +61,10 @@ struct PublicationGrid: Equatable, Sendable {
         ]
         registers["zw"] = characterWidth ?? bodySize
         var result = registers.mapValues { "calc(\(LaTeXPageSettings.number($0)) * var(--tex-pt))" }
+        if let japaneseScales {
+            // The byline's Japanese em is its Q size, even when WebKit resolves ic with the Latin font.
+            result["author-zw"] = "\(LaTeXPageSettings.number(japaneseScales.author))em"
+        }
         // Array struts also multiply by arraystretch and the table's local size declarations.
         result["float-row-baseline"] = LaTeXPageSettings.number(floatPitch)
         for (key, natural, plus, minus) in [

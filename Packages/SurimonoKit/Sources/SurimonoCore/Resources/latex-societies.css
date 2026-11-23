@@ -222,7 +222,7 @@ body.format-latex[data-latex-publication-grid="insetBilingual"][data-latex-size]
         font-family: "Surimono Author Mincho", var(--tex-body-fonts); font-size: calc(10.95 * var(--tex-pt)); line-height: calc(5.25 * var(--society-mm));
     }
     & .latex-front-author-row[lang="ja"] .latex-front-author { white-space: nowrap; }
-    & .latex-japanese-name { display: inline-flex; min-width: 5ic; justify-content: space-between; }
+    & .latex-japanese-name { display: inline-flex; min-width: calc(5 * var(--latex-author-zw, 1ic)); justify-content: space-between; }
     /* The 15 mm between consecutive name boxes includes the normal inline affiliation mark. */
     & .latex-front-author-row[lang="ja"] .latex-front-author:not(:last-child) > sup {
         display: inline-block; min-width: calc(15 * var(--society-mm));

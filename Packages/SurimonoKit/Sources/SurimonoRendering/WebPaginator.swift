@@ -106,6 +106,8 @@ public final class WebPaginator: NSObject {
     /// Test hooks that make the order of events around printing deterministic.
     var didStartWaitingForResources: (@MainActor () -> Void)?
     var didFinishPrinting: (@MainActor () -> Void)?
+    /// Lets layout tests read the prepared DOM before starting the native print operation.
+    var inspectPrintLayout: (@MainActor (WKWebView) async -> Void)?
     /// Receives the web view of a session as it starts to print (a test ends that page's process there).
     var didStartPrinting: (@MainActor (WKWebView) -> Void)?
     /// Receives the web view of a session as it starts to serialize an HTML export (a test ends its process there).
@@ -473,7 +475,8 @@ public final class WebPaginator: NSObject {
             let pass = try await LaTeXFlowPaginator.paginate(
                 in: session.webView, pageSize: pageSize, margins: margins, timeout: remaining(),
                 scriptTimeout: timeout, evaluator: flowEvaluator)
-            guard let data = pass.document?.dataRepresentation() else { throw PaginationError.emptyDocument }
+            // Keep the page references written by Quartz until the viewer opens these bytes.
+            guard let data = pass.data else { throw PaginationError.emptyDocument }
             return data
         }
         func printHorizontal() async throws -> Result {
@@ -583,6 +586,13 @@ public final class WebPaginator: NSObject {
                 }
             }
             if indexesFormulas { try await installFormulaIndex() }
+            if let inspectPrintLayout {
+                let webView = session.webView
+                let media = webView.mediaType
+                webView.mediaType = "print"
+                await inspectPrintLayout(webView)
+                webView.mediaType = media
+            }
             let pageData = try await pageDataForPass(indexFormulas: indexesFormulas)
             try await recordLines(final: true)
             guard let document = PDFDocument(data: pageData) else { throw PaginationError.emptyDocument }

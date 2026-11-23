@@ -186,7 +186,7 @@ public final class ThemeSampler {
                 let pass = try await LaTeXFlowPaginator.paginate(
                     in: session.webView, pageSize: pageSize,
                     margins: margins, timeout: timeout, sample: true)
-                guard let document = pass.document, let text = StandalonePage.first(of: document) else {
+                guard let data = pass.data, let text = StandalonePage.first(of: data) else {
                     throw SamplingError.emptyPage
                 }
                 if resourceAccess != nil { LocalResourceSchemeHandler.restoreFileLinks(on: text) }

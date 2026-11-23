@@ -101,12 +101,45 @@ struct LaTeXBeamerPrintingTests {
         }
         let reference = try #require(PDFDocument(url: referenceURL))
         let source = DocumentSource(data: try Data(contentsOf: sourceURL), fileURL: sourceURL, format: .latex)
-        let renderer = DocumentRenderer()
+        let paginator = WebPaginator()
+        var measurement: String?
+        if name == "083" || name == "specimen" {
+            // Record the layout in the actual print view. The final PDF alone cannot show
+            // whether the list pitches drifted in the DOM or only while printing its glyphs.
+            paginator.inspectPrintLayout = { view in
+                do {
+                    let value = try await view.evaluateForPrinting(
+                        """
+                        const frames = [...document.querySelectorAll('.beamer-frame')];
+                        if (!frames.length) return null;
+                        const result = [];
+                        for (const index of indices) {
+                            const frame = frames[index];
+                            if (!frame) continue;
+                            const root = frame.getBoundingClientRect();
+                            const elems = frame.querySelectorAll('.beamer-frame-heading,.beamer-frame-body,.beamer-block-title,.beamer-block-body,li,.latex-item-mark,.beamer-bib-icon,.latex-front-date,.beamer-titlegraphic,pre');
+                            const rows = [...elems].slice(0,16).map(el => {
+                                const r=el.getBoundingClientRect(), cs=getComputedStyle(el);
+                                return [el.classList[0] || el.localName, +(r.top-root.top).toFixed(2), +r.height.toFixed(2), cs.lineHeight];
+                            });
+                            result.push([index+1, +root.height.toFixed(2), rows]);
+                        }
+                        return JSON.stringify({dpr:devicePixelRatio,media:matchMedia('print').matches,frames:result});
+                        """,
+                        arguments: ["indices": name == "083" ? [1, 2] : [0, 2, 3, 5, 8]], until: .now + .seconds(3))
+                    if let value = value as? String { measurement = value }
+                } catch { measurement = String(describing: error) }
+            }
+        }
+        let renderer = DocumentRenderer(paginateWithResult: { request in try await paginator.paginate(request) })
         let style = PrintThemeLibrary.defaultLaTeXStyle(for: renderer.latexClassInfo(for: source))
         let theme = try #require(PrintThemeLibrary.load().first { $0.id == style })
         let settings = RenderSettings(layout: .a4Single, theme: theme, preset: .init(id: "none", name: ""))
         let result = try await renderer.prepare(source, settings: settings)
         let pdf = result.logicalDocument
+        if let measurement {
+            print("Beamer \(name) DOM [page,height,[element,top,height,lineHeight]] CSS px \(measurement)")
+        }
         if let path = ProcessInfo.processInfo.environment["SURIMONO_LATEX_WEBKIT_LINE_DUMP"] {
             #expect(pdf.write(to: URL(fileURLWithPath: path).appendingPathComponent(name + ".pdf")))
         }

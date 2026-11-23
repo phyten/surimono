@@ -55,7 +55,7 @@ struct ReadingPDFExporterTests {
             from: prepared.logicalDocument, entries: entries, title: "First",
             headings: try #require(prepared.facts).headings, sourceURL: source.fileURL)
         let before = exportState(output)
-        let bytes = try #require(output.dataRepresentation())
+        let bytes = try ReadingPDFExporter.data(from: output)
         let reread = try #require(PDFDocument(data: bytes))
         let detail = "view[\(exportState(prepared.logicalDocument))] export[\(before)] saved[\(exportState(reread))]"
         #expect(reread.pageCount == prepared.logicalDocument.pageCount)
@@ -100,7 +100,7 @@ struct ReadingPDFExporterTests {
         ]
         let output = try ReadingPDFExporter.document(from: source, entries: entries, title: "Reading")
         let before = exportState(output)
-        let bytes = try #require(output.dataRepresentation())
+        let bytes = try ReadingPDFExporter.data(from: output)
         let reread = try #require(PDFDocument(data: bytes))
         #expect(reread.pageCount == 2)
         let first = try #require(reread.outlineRoot?.child(at: 0), "export[\(before)] saved[\(exportState(reread))]")
@@ -131,18 +131,120 @@ struct ReadingPDFExporterTests {
         first.addAnnotation(link)
         let output = try ReadingPDFExporter.document(from: source, entries: [], title: "After", preservesOutline: true)
         let before = exportState(output)
-        let bytes = try #require(output.dataRepresentation())
+        let bytes = try ReadingPDFExporter.data(from: output)
         let reread = try #require(PDFDocument(data: bytes))
         let bookmark = try #require(
             reread.outlineRoot?.child(at: 0),
             "source[\(exportState(source))] export[\(before)] saved[\(exportState(reread))]")
         #expect(bookmark.label == "Original")
         #expect(reread.index(for: try #require(bookmark.destination?.page)) == 1)
-        let action = try #require(reread.page(at: 0)?.annotations.first?.action as? PDFActionGoTo)
-        #expect(reread.index(for: try #require(action.destination.page)) == 1)
+        for stage in [source, output, reread] {
+            let detail = "source[\(exportState(source))] export[\(before)] saved[\(exportState(reread))]"
+            let link = try #require(stage.page(at: 0)?.annotations.first, "\(detail)")
+            let target = try #require((link.action as? PDFActionGoTo)?.destination ?? link.destination, "\(detail)")
+            #expect(stage.index(for: try #require(target.page, "\(detail)")) == 1, "\(detail)")
+            #expect(target.point == CGPoint(x: 0, y: 100), "\(detail)")
+        }
         #expect(reread.documentAttributes?[PDFDocumentAttribute.authorAttribute] == nil)
         #expect(source.documentAttributes?[PDFDocumentAttribute.titleAttribute] as? String == "Before")
         #expect(source.outlineRoot === root)
+    }
+
+    @Test("Quartz の別ページへのリンクは柱を足した読む PDF でも同じ座標を指す")
+    func namedDestinationWithFurniture() async throws {
+        let point = CGPoint(x: 72, y: 400)
+        let bytes = try await PDFDrawing.data(pageSize: PaperSize.a4.size) { context in
+            context.beginPDFPage(nil)
+            context.setDestination("section" as CFString, for: CGRect(x: 20, y: 60, width: 30, height: 10))
+            context.endPDFPage()
+            context.beginPDFPage(nil)
+            context.addDestination("section" as CFString, at: point)
+            context.endPDFPage()
+        }
+        let view = try #require(PDFDocument(data: bytes))
+        var options = PrintOptions()
+        options.furniture = .name
+        let furniture = try #require(
+            PDFComposer.furniture(
+                onPage: 0, at: 0, pageCount: 2, layout: .a4Single, options: options,
+                context: .init(fileName: "Paper.tex")))
+        let output = try ReadingPDFExporter.document(from: view, entries: [], title: "Paper", furniture: [0: furniture])
+        let saved = try #require(PDFDocument(data: try ReadingPDFExporter.data(from: output)))
+        #expect(saved.page(at: 0)?.string?.contains("Paper.tex") == true)
+        for stage in [view, output, saved] {
+            let annotation = try #require(stage.page(at: 0)?.annotations.first)
+            let target = try #require((annotation.action as? PDFActionGoTo)?.destination ?? annotation.destination)
+            #expect(stage.index(for: try #require(target.page)) == 1)
+            #expect(target.point == point)
+            #expect((annotation.border?.lineWidth ?? 0) == 0)
+        }
+    }
+
+    @Test("保存で消えた階層しおりと行先だけを直し、用紙・本文・外部リンク・注釈を保つ")
+    func repairsMissingNavigation() throws {
+        func input() throws -> PDFDocument {
+            let pdf = try RenderingFixtures.pdf(count: 2)
+            let first = try #require(pdf.page(at: 0))
+            first.rotation = 90
+            let rect = CGRect(x: 11, y: 20, width: 35, height: 8)
+            let internalLink = PDFAnnotation(bounds: rect, forType: .link, withProperties: nil)
+            internalLink.destination = pdf.destination(on: first, at: .zero)
+            first.addAnnotation(internalLink)
+            let external = PDFAnnotation(bounds: rect, forType: .link, withProperties: nil)
+            external.url = URL(string: "https://example.com/paper")
+            first.addAnnotation(external)
+            let note = PDFAnnotation(bounds: rect, forType: .text, withProperties: nil)
+            note.contents = "Keep these notes (including /Dest [9 0 R] and >>)."
+            first.addAnnotation(note)
+            return pdf
+        }
+        let expected = try input()
+        let first = try #require(expected.page(at: 0))
+        let second = try #require(expected.page(at: 1))
+        let target = expected.destination(on: second, at: CGPoint(x: 12, y: 103.25))
+        target.zoom = 1.5
+        let internalLink = try #require(first.annotations.first)
+        internalLink.destination = target
+        let root = PDFOutline()
+        let parent = PDFOutline()
+        parent.label = "First"
+        parent.destination = expected.destination(on: first, at: .zero)
+        root.insertChild(parent, at: 0)
+        let child = PDFOutline()
+        child.label = "図📄"
+        child.destination = target
+        parent.insertChild(child, at: 0)
+        expected.outlineRoot = root
+
+        // Supply the wrong page and no bookmarks even on systems whose native writer works.
+        let damaged = try #require(try input().dataRepresentation())
+        let bytes = try ReadingPDFNavigation(expected).verified(damaged, pageCount: 2, stage: "first save").data
+        #expect(bytes.starts(with: damaged))
+        let saved = try #require(PDFDocument(data: bytes))
+        let headings = PDFOutlineReader.entries(of: saved)
+        #expect(headings.map(\.title) == ["First", "図📄"])
+        #expect(headings.map(\.pageIndex) == [0, 1])
+        #expect(saved.outlineRoot?.numberOfChildren == 1)
+        #expect(saved.outlineRoot?.child(at: 0)?.child(at: 0)?.label == "図📄")
+        let page = try #require(saved.page(at: 0))
+        #expect(page.rotation == 90 && page.string?.contains("PAGE-1") == true)
+        // PDFKit may synthesize a popup for the text note when writing it.
+        let original = try #require(PDFDocument(data: damaged))
+        let originalTypes = try #require(original.page(at: 0)).annotations.map(\.type)
+        #expect(page.annotations.map(\.type) == originalTypes)
+        let link = try #require(page.annotations.first)
+        let destination = try #require((link.action as? PDFActionGoTo)?.destination ?? link.destination)
+        #expect(saved.index(for: try #require(destination.page)) == 1)
+        #expect(destination.point == CGPoint(x: 12, y: 103.25) && destination.zoom == 1.5)
+        #expect(page.annotations.contains { $0.url?.absoluteString == "https://example.com/paper" })
+        #expect(page.annotations.contains { $0.contents == "Keep these notes (including /Dest [9 0 R] and >>)." })
+
+        // A later save must resolve the newest cross-reference entry for each updated object.
+        child.label = "Renamed"
+        let updated = try ReadingPDFNavigation(expected).verified(bytes, pageCount: 2, stage: "second save").data
+        #expect(updated.starts(with: bytes))
+        let reopened = try #require(PDFDocument(data: updated))
+        #expect(PDFOutlineReader.entries(of: reopened).map(\.title) == ["First", "Renamed"])
     }
 
     @Test("見出しなしでは空のしおりを付けない")
@@ -203,11 +305,17 @@ struct ReadingPDFExporterTests {
             from: source, entries: [OutlineEntry(level: 2, title: "図", pageIndex: 1)], title: "Test",
             headings: [DocumentHeading(level: 2, text: "図", id: "図")],
             sourceURL: URL(fileURLWithPath: "/private/source.md"))
-        let data = try #require(output.dataRepresentation())
+        let data = try ReadingPDFExporter.data(from: output)
         let reread = try #require(PDFDocument(data: data))
         let links = try #require(reread.page(at: 0)).annotations
         #expect(links.count == 9)
-        #expect(links.compactMap { $0.action as? PDFActionGoTo }.count == 7)
+        let localTargets = try links.compactMap { annotation -> Int? in
+            guard let target = (annotation.action as? PDFActionGoTo)?.destination ?? annotation.destination else {
+                return nil
+            }
+            return reread.index(for: try #require(target.page))
+        }
+        #expect(localTargets == Array(repeating: 1, count: 7))
         #expect(
             links.compactMap { ($0.action as? PDFActionURL)?.url?.absoluteString } == [
                 "https://example.com/#%E5%9B%B3", "mailto:reader@example.com",

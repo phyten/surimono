@@ -2,11 +2,6 @@ import AppKit
 import PDFKit
 import Testing
 
-private func baseFonts(in pageData: Data) -> [String] {
-    let names = String(decoding: pageData, as: UTF8.self).matches(of: #/\/BaseFont\s*\/(?:[A-Z]{6}\+)?([^/\s<>]+)/#)
-    return Set(names.map { String($0.output.1) }).sorted()
-}
-
 // Called from the timed print test to inspect the same physical pages that the reader exports.
 @MainActor
 func compareBeamerReference(_ pdf: PDFDocument, to reference: PDFDocument, fixture: String) throws {
