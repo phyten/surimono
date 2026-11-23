@@ -41,6 +41,8 @@ enum PrintPalette {
 
     // Drawn on the white paper, so they do not change with the appearance.
     static let paper = Color.white
+    /// The preview floats over white paper in either appearance.
+    static let previewEdge = Color(.sRGB, white: 0.55, opacity: 1)
     static var blankPaper: Color { color(.blankPaper) }
     static var blankInk: Color { color(.blankInk) }
     static var foldLine: Color { color(.foldLine) }

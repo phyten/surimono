@@ -10,6 +10,8 @@ public struct PageTrack: Sendable {
         self.rightToLeft = rightToLeft
     }
 
+    public var stepToRight: Int { rightToLeft ? -1 : 1 }
+
     public func page(at fraction: CGFloat) -> Int? {
         guard count > 0, fraction.isFinite else { return nil }
         let position = min(1, max(0, fraction))
@@ -32,6 +34,12 @@ public struct PageTrack: Sendable {
         return result
     }
 
+    public static func previewCaption(page: Int, chapter: String?) -> String {
+        let number = String(page + 1)
+        guard let chapter, !chapter.isEmpty else { return number }
+        return number + " · " + chapter
+    }
+
     public static func previewPaper(aspect: CGFloat, available: CGSize) -> CGSize {
         let ratio = aspect.isFinite && aspect > 0 ? aspect : 0.707
         let width = min(ratio > 1 ? 210 : 160, max(0, available.width))
@@ -42,5 +50,10 @@ public struct PageTrack: Sendable {
     public static func previewCenter(pointer: CGFloat, width: CGFloat, window: CGFloat) -> CGFloat {
         let inset = min(window / 2, 12 + width / 2)
         return min(max(inset, pointer), window - inset)
+    }
+
+    public static func hoverMark(fraction: CGFloat, size: CGSize) -> CGRect {
+        let x = min(size.width - 2.5, max(2.5, fraction * size.width))
+        return CGRect(x: x - 2.5, y: size.height / 2 - 2.5, width: 5, height: 5)
     }
 }

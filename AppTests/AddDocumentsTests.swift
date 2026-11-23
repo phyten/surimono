@@ -491,6 +491,29 @@ struct DropSessionTests {
         #expect(session.insertionY == nil)
     }
 
+    @Test("外から画像を追加しても見開きの空欄には落ちず、右開きのすき間は次の可読画像を指す")
+    func spreadImageGaps() {
+        let session = DropSession()
+        let rows = ["a", "hidden", "b", "c"].map { URL(fileURLWithPath: "/fixture/\($0).png") }
+        session.listFrame = CGRect(x: 0, y: 0, width: 200, height: 300)
+        session.pageGrid = .init(readable: [rows[0], rows[2], rows[3]], columns: 2, rightToLeft: true)
+        session.rowFrames = [
+            rows[0]: CGRect(x: 0, y: 0, width: 100, height: 100),
+            rows[2]: CGRect(x: 100, y: 100, width: 100, height: 100),
+            rows[3]: CGRect(x: 0, y: 100, width: 100, height: 100),
+        ]
+        let plan = DropPlan(urls: [URL(fileURLWithPath: "/fixture/new.png")], receiver: .imageBundle(rows))
+        session.begin(plan, rows: rows, at: CGPoint(x: 4, y: 50))
+        #expect(session.insertion == 2)
+        #expect(!session.move(to: CGPoint(x: 150, y: 50)))
+        #expect(session.gridInsertionLine == nil && session.insertionY == nil)
+        #expect(session.move(to: CGPoint(x: 99, y: 150)))
+        let line = session.gridInsertionLine
+        #expect(line != nil && session.insertion == 3)
+        #expect(session.move(to: CGPoint(x: 101, y: 150)))
+        #expect(session.gridInsertionLine == line && session.insertion == 3)
+    }
+
     @Test("一覧の部品に 0.5 秒とどまると一覧が開き、離れると開かない")
     func spring() async throws {
         let session = DropSession()

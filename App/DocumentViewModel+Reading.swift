@@ -13,8 +13,8 @@ extension DocumentViewModel {
         switch key {
         case .home: scrubToPage(0)
         case .end: scrubToPage(pageCount - 1)
-        case .leftArrow: scrubToPage(logicalReadingPage - 1)
-        case .rightArrow: scrubToPage(logicalReadingPage + 1)
+        case .leftArrow: scrubToPage(logicalReadingPage - pageTrack.stepToRight)
+        case .rightArrow: scrubToPage(logicalReadingPage + pageTrack.stepToRight)
         default: return false
         }
         return true

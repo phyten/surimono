@@ -65,7 +65,7 @@ final class WebPageController: NSObject {
         // One controller shows one document: the file is taken only when a page is made for it.
         self.fileURL = fileURL
         makeWebView(fileURL, allowsJavaScript: allowsJavaScript)
-        load(as: .live)
+        load(as: .loading)
         // A page that replaces one on screen takes the keys at once.
         if container.window != nil { focus() }
     }
@@ -104,21 +104,19 @@ final class WebPageController: NSObject {
         switch state {
         case .notShown: return
         case .ended, .reloading: startRecovery()
-        case .live:
-            guard webView != nil else { return }
-            if isSandboxed(), let fileURL, let allowsJavaScript {
-                close()
-                onRestart?()
-                show(fileURL, allowsJavaScript: allowsJavaScript)
-                return
-            }
-            load(as: .live)
+        case .live, .loading:
+            guard let fileURL, let allowsJavaScript else { return }
+            // A provisional start still in transit from the old page must arrive on a different view.
+            close()
+            onRestart?()
+            show(fileURL, allowsJavaScript: allowsJavaScript)
         }
     }
 
     /// The reader asked for the page again (the failure notice's Try Again): a page whose process ended is loaded
-    /// once more, and the copy that follows waits for that load. A live page, and one already loading, is left alone.
+    /// once more. Check the deadline here too: its timer may still be waiting to run on the main actor.
     func reloadEndedPage() {
+        expireLoadIfNeeded()
         guard state == .ended else { return }
         startRecovery()
     }
@@ -127,28 +125,30 @@ final class WebPageController: NSObject {
     /// for an earlier load are told that their page was replaced.
     private func startRecovery() {
         guard let fileURL, let allows = wantsJavaScript ?? allowsJavaScript else { return }
-        pageGeneration += 1
-        // The sandboxed page takes a new web view on every reload, as a live one does.
-        if webView == nil || isSandboxed() || allowsJavaScript != allows {
-            discardEndedWebView()
-            makeWebView(fileURL, allowsJavaScript: allows)
-        }
+        discardEndedWebView()
+        makeWebView(fileURL, allowsJavaScript: allows)
         load(as: .reloading)
         if state == .reloading, container.window != nil { focus() }
     }
 
-    /// Every load starts here. One that does not start reports nothing later, so the page counts as ended at once:
-    /// a copy must not take the web view's earlier page, or the file, for the document that was asked for.
+    /// An app-requested load that does not start reports nothing later. End it immediately so that a copy
+    /// cannot take the previous page while waiting for a navigation that does not exist.
     private func load(as started: PageState) {
-        recoveryDeadline = nil
         guard let webView, let fileURL else { return }
+        beginLoad(startNavigation(webView, fileURL, isSandboxed()), as: started, ifUnidentified: .navigationNotStarted)
+    }
+
+    private func beginLoad(_ navigation: AnyObject?, as started: PageState, ifUnidentified failure: CaptureFailure) {
+        pageGeneration += 1
         loadCount += 1
-        navigation = startNavigation(webView, fileURL, isSandboxed())
-        if navigation == nil {
-            pageGeneration += 1
-            end(.navigationNotStarted)
-        } else {
-            state = started
+        clearLoadDeadlines()
+        guard let navigation else { return end(failure) }
+        self.navigation = navigation
+        knownNavigations.add(navigation)
+        state = started
+        if started == .reloading {
+            unattendedDeadline = loadNow() + snapshotTimeout
+            scheduleRecoveryTimer()
         }
     }
 
@@ -163,6 +163,9 @@ final class WebPageController: NSObject {
             webView.loadFileURL(fileURL, allowingReadAccessTo: fileURL.deletingLastPathComponent())
         }
     }
+
+    /// A timed-out navigation must stop fetching even if its web view stays in the window.
+    var stopNavigation: (WKWebView) -> Void = { $0.stopLoading() }
 
     /// Applies a changed JavaScript setting whether or not the page is on screen: a page kept while paper or the tray
     /// is shown must not go on running scripts the reader turned off. A page off screen is loaded again when it shows.
@@ -267,6 +270,7 @@ final class WebPageController: NSObject {
     }
 
     private func discardWebView() {
+        clearLoadDeadlines()
         webView?.configuration.userContentController.removeAllScriptMessageHandlers()
         webView?.stopLoading()
         webView?.navigationDelegate = nil
@@ -276,6 +280,7 @@ final class WebPageController: NSObject {
         // A copy still waiting for this page's answer gets none.
         pageGeneration += 1
         navigation = nil
+        knownNavigations.removeAllObjects()
         allowsJavaScript = nil
         // The page that measured it is gone; the owner learns of a restart separately.
         slideDeck = nil
@@ -305,10 +310,10 @@ final class WebPageController: NSObject {
     enum PageState: Equatable {
         /// No page has been shown; the file itself is the document's state.
         case notShown
+        /// An ordinary load may still show the previous DOM until its navigation finishes.
+        case loading
         case live
-        /// The page's web content process ended, or the load after that did not come back. The page is blank and
-        /// WebKit would answer from a new, empty page, so nothing is copied, and nothing is loaded, until the reader
-        /// asks for the page again (Try Again, or a reload of the file). It may have no web view.
+        /// A process ended or a load failed. The view may be blank, stale or gone; only the reader can retry.
         case ended
         /// Loading again after its process ended; a copy waits for this load to finish.
         case reloading
@@ -326,7 +331,9 @@ final class WebPageController: NSObject {
 
     private(set) var state = PageState.notShown
     private var endReason = CaptureFailure.processEnded
-    /// The load a `reloading` page waits for.
+    /// A repeated provisional start for an earlier navigation on this view must not supersede the current one.
+    private let knownNavigations = NSHashTable<AnyObject>(options: [.weakMemory, .objectPointerPersonality])
+    /// The navigation of this generation.
     private var navigation: AnyObject?
     /// Counts the pages a waiting copy can no longer hear from: ended processes, closed web views, replaced loads.
     private var pageGeneration = 0
@@ -334,14 +341,52 @@ final class WebPageController: NSObject {
     private var wantsJavaScript: Bool?
     /// Number of times the document was loaded into a web view (observed by tests).
     private(set) var loadCount = 0
-    /// Number of copies waiting for a reload to finish (observed by tests).
-    private(set) var reloadWaiterCount = 0
-    /// The latest deadline of the copies that waited for the current reload; nil when none has.
-    private var recoveryDeadline: ContinuousClock.Instant?
+    private var isLoadingPage: Bool { state == .loading || state == .reloading }
+    private var waiterDeadlines: [UUID: ContinuousClock.Instant] = [:]
+    var reloadWaiterCount: Int { waiterDeadlines.count }
+    /// With no copies waiting, recovery still has its original budget, measured from the start of the load.
+    private var unattendedDeadline: ContinuousClock.Instant?
+    private var loadDeadline: ContinuousClock.Instant? { waiterDeadlines.values.max() ?? unattendedDeadline }
+    /// Load time can be advanced independently of WebKit's script reply in tests.
+    var loadNow: () -> ContinuousClock.Instant = { .now }
+    /// Returns the cancellation for this alarm so registering a new deadline can withdraw it.
+    var scheduleLoadAlarm: (ContinuousClock.Instant, @escaping @MainActor () -> Void) -> () -> Void = {
+        deadline, fire in
+        let timer = Task { @MainActor in
+            try await Task.sleep(until: deadline, clock: .continuous)
+            try Task.checkCancellation()
+            fire()
+        }
+        return { timer.cancel() }
+    }
+    private var cancelLoadAlarm: (() -> Void)?
+
+    private func clearLoadDeadlines() {
+        cancelLoadAlarm?()
+        cancelLoadAlarm = nil
+        unattendedDeadline = nil
+        waiterDeadlines.removeAll()
+    }
+
+    private func scheduleRecoveryTimer() {
+        guard state == .reloading, let navigation, let deadline = loadDeadline else { return }
+        cancelLoadAlarm?()
+        let generation = pageGeneration
+        cancelLoadAlarm = scheduleLoadAlarm(deadline) { [weak self] in
+            guard let self, pageGeneration == generation, self.navigation === navigation else { return }
+            expireLoadIfNeeded()
+        }
+    }
+
+    private func expireLoadIfNeeded() {
+        guard isLoadingPage, let deadline = loadDeadline, loadNow() >= deadline else { return }
+        end(.navigationTimedOut)
+        if let webView { stopNavigation(webView) }
+    }
 
     private func end(_ reason: CaptureFailure) {
         navigation = nil
-        recoveryDeadline = nil
+        clearLoadDeadlines()
         endReason = reason
         state = .ended
     }
@@ -367,19 +412,23 @@ final class WebPageController: NSObject {
     func snapshot() async -> Snapshot {
         guard state != .notShown else { return .notLoaded }
         let generation = pageGeneration
-        let deadline = ContinuousClock.now + snapshotTimeout
+        let deadline = loadNow() + snapshotTimeout
         do {
-            if state == .reloading { try await waitForReload(generation: generation, until: deadline) }
-            if state == .ended { throw endReason }
-            guard let webView, webView.url != nil else { return .notLoaded }
+            if isLoadingPage { try await waitForReload(generation: generation, until: deadline) }
+            try checkPage(generation: generation)
+            guard state == .live, let webView, webView.url != nil else { throw CaptureFailure.replaced }
+            // WebKit waits on the system clock. Only the budget left after navigation belongs to the script.
+            let scriptDeadline = ContinuousClock.now + loadNow().duration(to: deadline)
             let value = try await WebPaginator.reply(
-                until: deadline,
+                until: scriptDeadline,
                 ended: { [weak self] in
                     guard let self else { return "" }
                     guard pageGeneration != generation else { return nil }
+                    if state == .ended, case .replaced = endReason { return "" }
                     return state == .ended ? Self.endedMessage : ""
                 },
                 start: { [startSnapshot] reply in startSnapshot(webView, reply) })
+            try checkPage(generation: generation)
             guard let json = value as? String, let snapshot = HTMLSnapshot(scriptResult: json) else { return .failed }
             return .captured(snapshot)
         } catch {
@@ -388,27 +437,36 @@ final class WebPageController: NSObject {
         }
     }
 
-    /// Returns once the reload has finished and the page is live. A reload that does not answer by the deadline is
-    /// given up and the page counts as ended again, so that the reader's next request starts a new load instead of
-    /// waiting for this one; a copy that is only cancelled leaves the load to the others waiting for it.
+    private func checkPage(generation: Int) throws {
+        if state == .ended { throw endReason }
+        guard pageGeneration == generation else { throw CaptureFailure.replaced }
+    }
+
+    /// A copy keeps the same deadline through navigation and script execution. Only waiters for this generation
+    /// may change its deadline; a cancelled or replaced copy cannot keep a later load waiting.
     private func waitForReload(generation: Int, until deadline: ContinuousClock.Instant) async throws {
-        let awaited = navigation
-        reloadWaiterCount += 1
-        defer { reloadWaiterCount -= 1 }
-        recoveryDeadline = max(recoveryDeadline ?? deadline, deadline)
-        while state == .reloading, pageGeneration == generation {
-            guard ContinuousClock.now < deadline else {
-                // A cancelled copy, or one whose deadline is not the last, leaves the load to the others.
-                try Task.checkCancellation()
-                if navigation === awaited, let last = recoveryDeadline, ContinuousClock.now >= last {
-                    webView?.stopLoading()
-                    end(.navigationTimedOut)
-                }
+        try Task.checkCancellation()
+        expireLoadIfNeeded()
+        try checkPage(generation: generation)
+        guard isLoadingPage else { return }
+        let id = UUID()
+        waiterDeadlines[id] = deadline
+        scheduleRecoveryTimer()
+        defer {
+            if waiterDeadlines.removeValue(forKey: id) != nil {
+                expireLoadIfNeeded()
+                scheduleRecoveryTimer()
+            }
+        }
+        while isLoadingPage, pageGeneration == generation {
+            try Task.checkCancellation()
+            let remaining = loadNow().duration(to: deadline)
+            guard remaining > .zero else {
+                expireLoadIfNeeded()
                 throw CaptureFailure.navigationTimedOut
             }
-            try await Task.sleep(for: .milliseconds(20))
+            try await Task.sleep(for: min(remaining, Duration.milliseconds(20)), clock: .continuous)
         }
-        guard pageGeneration == generation else { throw state == .ended ? endReason : CaptureFailure.replaced }
     }
 
     private static let endedMessage = "ended"
@@ -539,6 +597,17 @@ extension WebPageController: WKNavigationDelegate {
         decisionHandler(perform(Self.decision(for: url, type: type, target: target, document: fileURL), for: url))
     }
 
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        navigationDidStart(webView, navigation)
+    }
+
+    func navigationDidStart(_ webView: WKWebView, _ navigation: AnyObject?) {
+        guard webView === self.webView, state != .ended, state != .notShown else { return }
+        if let navigation, knownNavigations.contains(navigation) { return }
+        // A nil start replaces the old DOM, but no later finish can prove it belongs to this start.
+        beginLoad(navigation, as: state == .reloading ? .reloading : .loading, ifUnidentified: .replaced)
+    }
+
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         navigationDidFinish(webView, navigation)
     }
@@ -553,24 +622,20 @@ extension WebPageController: WKNavigationDelegate {
         navigationDidFail(webView, navigation, error)
     }
 
-    /// Only the load the page is waiting for makes it live again; a late report of one it replaced does not. This
-    /// is the one place that decides what a finish after the deadline means: once every copy that waited for the
-    /// load has passed its deadline, the load counts as given up whether or not a waiter has noticed yet, so the
-    /// reader's next request starts a new one.
+    /// Only the load the page is waiting for makes it live. A late finish must respect the deadline even if the
+    /// timer or the waiting copy has not run yet.
     func navigationDidFinish(_ webView: WKWebView, _ navigation: AnyObject?) {
-        guard webView === self.webView, state == .reloading, navigation === self.navigation else { return }
-        if let recoveryDeadline, ContinuousClock.now >= recoveryDeadline {
-            end(.navigationTimedOut)
-        } else {
-            state = .live
-        }
+        guard webView === self.webView, isLoadingPage, navigation === self.navigation else { return }
+        expireLoadIfNeeded()
+        guard isLoadingPage else { return }
+        clearLoadDeadlines()
+        state = .live
     }
 
     /// The page did not come: a copy must not take what the web view showed before for it. The reader's next
     /// request loads it once more.
     func navigationDidFail(_ webView: WKWebView, _ navigation: AnyObject?, _ error: any Error) {
-        guard webView === self.webView, state == .reloading || state == .live, navigation === self.navigation
-        else { return }
+        guard webView === self.webView, isLoadingPage, navigation === self.navigation else { return }
         pageGeneration += 1
         end(.navigationFailed(domain: (error as NSError).domain, code: (error as NSError).code))
     }
