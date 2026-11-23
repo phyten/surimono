@@ -45,15 +45,31 @@ public struct DropPlan: Equatable, Sendable {
     public let others: [URL]
     /// What opening `others` does.
     public let opening: OpenRequest
+    /// Files that could not be read yet, as before a sandboxed app is given what is dragged over it. They count as
+    /// what they would be if they are text, and `decided()` finds out at the drop.
+    public let undecided: [URL]
+    private let urls: [URL]
+    private let receiver: Receiver
 
     public init(urls: [URL], receiver: Receiver) {
+        self.init(urls: urls, receiver: receiver, formats: FileFormats())
+    }
+
+    /// The plan made again once the files can be read, when anything in it was not decided.
+    public func decided() -> DropPlan {
+        undecided.isEmpty ? self : DropPlan(urls: urls, receiver: receiver)
+    }
+
+    package init(urls: [URL], receiver: Receiver, formats: FileFormats) {
+        self.urls = urls
+        self.receiver = receiver
         var seen = Set<URL>()
         let files = urls.filter(\.isFileURL).map(\.standardizedFileURL).filter { seen.insert($0).inserted }
         let own = Set(receiver.ownURLs.map(\.standardizedFileURL))
         others = files.filter { !own.contains($0) }
         alreadyIn = files.filter(own.contains)
         // One decision per file for the whole plan: a decision can read the file, and a drag asks again and again.
-        let formats = FileFormats()
+        undecided = OpenRequest.sorted(others.filter(formats.isUndecided))
         let joinable = receiver.canHoldFiles ? others.filter { formats.binderFormat($0) != nil } : []
         adding = OpenRequest.sorted(joinable)
         leftOut = receiver.canHoldFiles ? OpenRequest.sorted(others.filter { formats.binderFormat($0) == nil }) : []
@@ -76,9 +92,7 @@ public struct DropPlan: Equatable, Sendable {
     private static func opening(_ urls: [URL], _ formats: FileFormats) -> OpenRequest {
         let request = OpenRequest(urls: urls, formats: formats)
         // One file goes to the document controller whatever it is, which only answers a folder with an error.
-        if case .single(let url) = request, formats.binderFormat(url) == nil,
-            !OpenRequest.isArchive(url)
-        {
+        if case .single(let url) = request, formats.binderFormat(url) == nil, !formats.isArchive(url) {
             return .unsupported
         }
         return request

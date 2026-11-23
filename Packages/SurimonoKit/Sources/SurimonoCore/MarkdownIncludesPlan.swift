@@ -10,6 +10,9 @@ extension MarkdownIncludes {
         public let hasPreface: Bool
         /// The documents that can be read, in reading order.
         public let documents: [URL]
+        /// The format each document was found to have, under `root`. The binder takes it from here and does not
+        /// look at the file again, where a link put in its place since could lead out of the folder.
+        public let formats: [URL: DocumentFormat]
         /// References that lead to nothing that may be read, as paths for the reader.
         public let missing: [String]
         /// Files that exist in a format a binder cannot hold.
@@ -27,6 +30,7 @@ extension MarkdownIncludes {
         var documents: [URL] = []
         var missing: [String] = []
         var excluded: [URL] = []
+        var formats: [URL: DocumentFormat] = [:]
         let root = (try? ConfinedFile.canonicalPath(folder)) ?? folder.path
         for path in paths {
             let url = folder.appending(path: path).standardizedFileURL
@@ -36,15 +40,16 @@ extension MarkdownIncludes {
                 continue
             }
             // What is read to tell the format must be the file under the folder, not what a link leads to.
-            if OpenRequest.binderFormat(url, within: root) == nil {
-                excluded.append(url)
-            } else {
+            if let format = OpenRequest.binderFormat(url, within: root) {
                 documents.append(url)
+                formats[url] = format
+            } else {
+                excluded.append(url)
             }
         }
         let hasText = preface?.contains { !$0.isWhitespace } == true
         return Plan(
             parent: parent, root: root, hasPreface: hasText,
-            documents: documents, missing: missing + refused, excluded: excluded)
+            documents: documents, formats: formats, missing: missing + refused, excluded: excluded)
     }
 }

@@ -11,13 +11,31 @@ public enum TextFileGate {
     /// How much of a file the decision reads.
     public static let headLength = 4096
 
-    public enum Decision: Equatable, Sendable {
-        /// The name has a format of its own or says nothing this gate knows; the caller goes by the name as before.
-        case unrelated
-        /// Opens as plain text, in this language as far as the beginning of the file tells.
+    /// What the gate says about the beginning of some bytes.
+    public enum Verdict: Equatable, Sendable {
+        /// Not a kind the gate looks at, or text that nothing names a language for: the caller goes by the name and
+        /// type as it always did.
+        case notConcerned
+        /// Opens as plain text, in this language as far as the beginning tells.
         case text(SourceLanguage?)
-        /// Not text, or not a regular file: never laid out as text.
+        /// Looked at, and not text. Never laid out as text, wherever the bytes came from.
+        case binary
+    }
+
+    /// What the gate says about a file.
+    public enum FileVerdict: Equatable, Sendable {
+        case decided(Verdict)
+        /// There is no file there. The name alone decides, and opening reports the error.
+        case missing
+        /// The file may not be read yet, as before a sandboxed app is given access. Nothing is known: it is a
+        /// candidate to be decided once it can be read.
+        case undecided
+        /// A pipe, a device or a folder, a file outside the folder it had to lie in, or one that fails to be read.
         case refused
+    }
+
+    public struct Refusal: Error, Equatable, Sendable {
+        public init() {}
     }
 
     private enum Kind { case transportStream, propertyList, untyped }
@@ -25,104 +43,250 @@ public enum TextFileGate {
     /// Extensions `SourceLanguage` reads as TypeScript that macOS gives to MPEG video.
     private static let streamExtensions: Set<String> = ["ts", "mts"]
 
-    private static func kind(of fileName: String) -> Kind? {
-        let suffix = (fileName as NSString).pathExtension.lowercased()
-        if streamExtensions.contains(suffix) { return .transportStream }
-        if suffix == "plist" { return .propertyList }
-        if DocumentFormat(fileExtension: suffix) != nil { return nil }
-        if let type = UTType(filenameExtension: suffix), DocumentFormat(contentType: type) != nil { return nil }
-        return .untyped
+    /// A type that says nothing about the content.
+    private static func isGeneric(_ type: UTType?) -> Bool {
+        guard let type else { return true }
+        return type == .data || type == .item || type == .content || type == .unixExecutable || type.isDynamic
     }
 
-    /// The decision for the beginning of a file.
-    public static func decide(fileName: String, head: Data) -> Decision {
-        guard let kind = kind(of: fileName) else { return .unrelated }
+    /// The name is the one the file really has, and `type` the one the system gave it when that is known. A file of
+    /// a type that means something else (a movie, an archive) is none of the gate's kinds whatever is inside it.
+    private static func kind(fileName: String, type: UTType?) -> Kind? {
+        let suffix = (fileName as NSString).pathExtension.lowercased()
+        let named = suffix.isEmpty ? nil : UTType(filenameExtension: suffix)
+        let actual = type ?? named
+        if streamExtensions.contains(suffix) || actual?.conforms(to: .mpeg2TransportStream) == true {
+            return .transportStream
+        }
+        if suffix == "plist" || actual?.conforms(to: .propertyList) == true { return .propertyList }
+        guard isGeneric(actual), DocumentFormat(fileExtension: suffix) == nil else { return nil }
+        // An extension the system knows as something this app reads (an image format) is not untyped either.
+        if let named, !isGeneric(named), DocumentFormat(contentType: named) != nil { return nil }
+        return isGeneric(named) ? .untyped : nil
+    }
+
+    /// Whether the gate looks at files of this name and type at all. For the others nothing is read.
+    public static func concerns(fileName: String, type: UTType? = nil) -> Bool {
+        kind(fileName: fileName, type: type) != nil
+    }
+
+    /// The verdict for the beginning of a file. `isWhole` tells that `head` is all of it, which matters for a text
+    /// in UTF-16 that ends in the middle of a character and for a stream of a packet or two.
+    public static func verdict(fileName: String, type: UTType? = nil, head: Data, isWhole: Bool) -> Verdict {
+        guard let kind = kind(fileName: fileName, type: type) else { return .notConcerned }
         let bytes = [UInt8](head.prefix(headLength))
-        let text = isPlausibleText(bytes)
+        let text = isText(bytes, isWhole: isWhole)
         func language() -> SourceLanguage? {
             SourceLanguage.detect(fileName: fileName, text: { TextDecoding.decode(Data(bytes)).text })
         }
         switch kind {
         case .transportStream:
-            return text && !isTransportStream(bytes) ? .text(language()) : .refused
+            // Source text can line a "G" up where packets would start; a stream is never also clean UTF-8.
+            let stream = hasPacketStructure(bytes, isWhole: isWhole) && !isCleanUTF8(bytes, isWhole: isWhole)
+            return text && !stream ? .text(language()) : .binary
         case .propertyList:
-            return text && !isBinaryPropertyList(bytes) ? .text(language()) : .refused
+            return text && !isBinaryPropertyList(bytes) ? .text(language()) : .binary
         case .untyped:
             // A fixed name such as "Dockerfile" is no more a promise of text than an extension is.
-            guard text, let language = language() else { return .unrelated }
-            return .text(language)
+            guard text else { return .binary }
+            return language().map { .text($0) } ?? .notConcerned
         }
     }
 
-    /// Whether bytes that are about to be shown under this name must not be: a reload, a binder's own read, what
-    /// Shortcuts hands over. The same decision as for the file, on the bytes that are really used.
-    public static func refuses(fileName: String, data: Data) -> Bool {
-        decide(fileName: fileName, head: data.prefix(headLength)) == .refused
+    /// The verdict for bytes that are all there: a reload, a binder's own read, what Shortcuts hands over.
+    public static func verdict(fileName: String, type: UTType? = nil, data: Data) -> Verdict {
+        verdict(fileName: fileName, type: type, head: data.prefix(headLength), isWhole: data.count <= headLength)
     }
 
-    /// The decision for a file, reading at most `headLength` bytes of it. With `root`, a file that opens outside
-    /// that folder (through a link) is refused. A file that cannot be opened is `.unrelated`: opening it reports
-    /// the real error.
-    public static func decide(_ url: URL, within root: String? = nil) -> Decision {
-        let name = url.lastPathComponent
-        guard url.isFileURL, let kind = kind(of: name) else { return .unrelated }
-        let refusal: Decision = kind == .untyped ? .unrelated : .refused
-        guard let descriptor = try? ConfinedFile.open(url) else { return .unrelated }
+    /// Whether bytes that are about to be shown under this name were looked at and are not text.
+    public static func refuses(fileName: String, type: UTType? = nil, data: Data) -> Bool {
+        verdict(fileName: fileName, type: type, data: data) == .binary
+    }
+
+    // MARK: Files
+
+    /// The verdict for a file, reading at most `headLength` bytes of it. With `root`, a file that opens outside
+    /// that folder (through a link) is refused. A file of no kind the gate looks at is not opened at all.
+    public static func inspect(_ url: URL, within root: String? = nil) -> FileVerdict {
+        guard url.isFileURL else { return .decided(.notConcerned) }
+        let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType
+        guard concerns(fileName: url.lastPathComponent, type: type) else { return .decided(.notConcerned) }
+        let descriptor: Int32
+        do {
+            descriptor = try ConfinedFile.open(url)
+        } catch let error as POSIXError {
+            switch error.code {
+            case .ENOENT, .ENOTDIR: return .missing
+            case .EACCES, .EPERM: return .undecided
+            default: return .refused
+            }
+        } catch {
+            return .refused
+        }
         defer { Darwin.close(descriptor) }
-        if let root {
-            guard let opened = try? ConfinedFile.openedPath(descriptor),
-                opened.hasPrefix(root.hasSuffix("/") ? root : root + "/")
-            else { return refusal }
+        guard let opened = try? check(descriptor, within: root),
+            let head = try? readHead(descriptor)
+        else { return .refused }
+        return .decided(
+            verdict(
+                fileName: url.lastPathComponent, type: type, head: head, isWhole: opened.size <= head.count))
+    }
+
+    /// The verdict for the file a descriptor is open on, for callers that read the rest through the same descriptor
+    /// and for the test that no more than the beginning is read.
+    package static func inspect(descriptor: Int32, fileName: String, type: UTType? = nil) throws -> Verdict {
+        let opened = try check(descriptor, within: nil)
+        let head = try readHead(descriptor)
+        return verdict(fileName: fileName, type: type, head: head, isWhole: opened.size <= head.count)
+    }
+
+    /// The whole of a file of a kind the gate looks at, read through one descriptor: what is checked (a regular
+    /// file, its size, its beginning) and what is read are the same open file, so nothing can be put in its place in
+    /// between, and a video or a text over the limit is turned away before it is loaded. Throws `Refusal` for a
+    /// file that is not text.
+    public static func read(_ url: URL, within root: String? = nil, maximumSize: Int) throws -> Data {
+        let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType
+        let descriptor = try ConfinedFile.open(url)
+        defer { Darwin.close(descriptor) }
+        let opened = try check(descriptor, within: root)
+        guard opened.size <= maximumSize else { throw CocoaError(.fileReadTooLarge) }
+        let head = try readHead(descriptor)
+        let name = url.lastPathComponent
+        guard verdict(fileName: name, type: type, head: head, isWhole: opened.size <= head.count) != .binary else {
+            throw Refusal()
         }
-        // The descriptor, not the path, is what is checked and read: the path could name something else by now.
+        // The file can grow after it was measured; the limit holds while reading too.
+        let rest = try ConfinedFile.readBytes(
+            descriptor, size: max(0, opened.size - head.count), maximumSize: maximumSize - head.count)
+        return head + rest
+    }
+
+    // The descriptor, not the path, is what is checked and read: the path could name something else by now.
+    private static func check(_ descriptor: Int32, within root: String?) throws -> (size: Int, path: String?) {
+        var path: String?
+        if let root {
+            let opened = try ConfinedFile.openedPath(descriptor)
+            guard opened.hasPrefix(root.hasSuffix("/") ? root : root + "/") else {
+                throw CocoaError(.fileReadNoPermission)
+            }
+            path = opened
+        }
         var info = stat()
-        guard Darwin.fstat(descriptor, &info) == 0, (info.st_mode & S_IFMT) == S_IFREG else { return refusal }
+        guard Darwin.fstat(descriptor, &info) == 0 else { throw ConfinedFile.posixError() }
+        guard (info.st_mode & S_IFMT) == S_IFREG, info.st_size >= 0 else { throw CocoaError(.fileReadNoPermission) }
+        return (Int(info.st_size), path)
+    }
+
+    // An error is an error: bytes that could not be read are not an empty text.
+    private static func readHead(_ descriptor: Int32) throws -> Data {
         var head = [UInt8](repeating: 0, count: headLength)
         var count = 0
         while count < headLength {
             let read = head.withUnsafeMutableBytes { buffer in
                 Darwin.read(descriptor, buffer.baseAddress.map { $0 + count }, headLength - count)
             }
-            if read < 0, errno == EINTR { continue }
-            guard read > 0 else { break }
+            if read < 0 {
+                if errno == EINTR { continue }
+                throw ConfinedFile.posixError()
+            }
+            if read == 0 { break }
             count += read
         }
-        return decide(fileName: name, head: Data(head.prefix(count)))
+        return Data(head.prefix(count))
     }
 
-    // Text has no control bytes but tabs, line breaks, form feeds and escapes, in any encoding that is not UTF-16
-    // or UTF-32; those are told by their byte order mark and then held to the same rule, character by character.
-    static func isPlausibleText(_ bytes: [UInt8]) -> Bool {
-        func allowed(_ value: UInt32) -> Bool { value >= 0x20 || [0x09, 0x0A, 0x0C, 0x0D, 0x1B].contains(value) }
-        func units(_ width: Int, from start: Int, littleEndian: Bool) -> Bool {
-            var index = start
-            while index + width <= bytes.count {
-                var value: UInt32 = 0
-                for offset in 0..<width {
-                    let byte = UInt32(bytes[index + (littleEndian ? width - 1 - offset : offset)])
-                    value = value << 8 | byte
-                }
-                guard allowed(value) else { return false }
-                index += width
-            }
-            return true
+    // MARK: What text looks like
+
+    private static func allowed(_ value: UInt32) -> Bool {
+        value >= 0x20 || [0x09, 0x0A, 0x0C, 0x0D, 0x1B].contains(value)
+    }
+
+    /// Text has no control characters but tabs, line breaks, form feeds and escapes. The encoding is told as
+    /// `TextDecoding` tells it. With a byte order mark the bytes must also be that encoding and nothing else: a
+    /// character cut off by the end of the file, an unpaired surrogate or a value outside Unicode is not text. A
+    /// sample that stops at `headLength` may stop inside a character, and that is not held against it.
+    ///
+    /// UTF-16 without a byte order mark is refused, because `TextDecoding` does not read it either: it would be
+    /// laid out as UTF-8 with a null character after every letter.
+    static func isText(_ bytes: [UInt8], isWhole: Bool) -> Bool {
+        guard let mark = TextDecoding.byteOrderMark(of: bytes) else { return bytes.allSatisfy { allowed(UInt32($0)) } }
+        var content = Array(bytes.dropFirst(mark.length))
+        if mark.encoding == .utf8 { return isCleanUTF8(content, isWhole: isWhole) }
+        let width = mark.encoding == .utf16LittleEndian || mark.encoding == .utf16BigEndian ? 2 : 4
+        let little = mark.encoding == .utf16LittleEndian || mark.encoding == .utf32LittleEndian
+        if content.count % width != 0 {
+            guard !isWhole else { return false }
+            content.removeLast(content.count % width)
         }
-        if bytes.starts(with: [0xFF, 0xFE, 0, 0]) { return units(4, from: 4, littleEndian: true) }
-        if bytes.starts(with: [0, 0, 0xFE, 0xFF]) { return units(4, from: 4, littleEndian: false) }
-        if bytes.starts(with: [0xFF, 0xFE]) { return units(2, from: 2, littleEndian: true) }
-        if bytes.starts(with: [0xFE, 0xFF]) { return units(2, from: 2, littleEndian: false) }
-        return bytes.allSatisfy { allowed(UInt32($0)) }
+        var units: [UInt32] = []
+        units.reserveCapacity(content.count / width)
+        for index in stride(from: 0, to: content.count, by: width) {
+            var value: UInt32 = 0
+            for offset in 0..<width {
+                value = value << 8 | UInt32(content[index + (little ? width - 1 - offset : offset)])
+            }
+            units.append(value)
+        }
+        if width == 4 { return units.allSatisfy { Unicode.Scalar($0) != nil && allowed($0) } }
+        var words = units.map { UInt16(truncatingIfNeeded: $0) }
+        // The sample may stop between the two halves of a character.
+        if !isWhole, let last = words.last, (0xD800...0xDBFF).contains(last) { words.removeLast() }
+        return decodes(words, as: UTF16.self)
+    }
+
+    /// Whether every character decodes, strictly, and none is a control character.
+    private static func decodes<Codec: UnicodeCodec>(_ units: [Codec.CodeUnit], as codec: Codec.Type) -> Bool {
+        var decoder = Codec()
+        var iterator = units.makeIterator()
+        while true {
+            switch decoder.decode(&iterator) {
+            case .scalarValue(let scalar): if !allowed(scalar.value) { return false }
+            case .emptyInput: return true
+            case .error: return false
+            }
+        }
+    }
+
+    /// Whether the bytes are UTF-8 with no control characters, with a byte order mark or without. A sample that is
+    /// not the whole file may stop inside a character.
+    static func isCleanUTF8(_ bytes: [UInt8], isWhole: Bool) -> Bool {
+        var content = bytes.starts(with: [0xEF, 0xBB, 0xBF]) ? Array(bytes.dropFirst(3)) : bytes
+        if !isWhole {
+            // Up to three bytes at the end can be the beginning of a character whose rest was not read.
+            var tail = 0
+            while tail < 3, tail < content.count, content[content.count - 1 - tail] & 0xC0 == 0x80 { tail += 1 }
+            if tail < content.count {
+                let lead = content[content.count - 1 - tail]
+                let length = lead >= 0xF0 ? 4 : lead >= 0xE0 ? 3 : lead >= 0xC0 ? 2 : 1
+                if length > tail + 1 { content.removeLast(tail + 1) }
+            }
+        }
+        return decodes(content, as: UTF8.self)
     }
 
     // A transport stream is packets of 188 bytes (192 with a timestamp in front, 204 with error correction behind),
-    // each starting with 0x47, and may begin anywhere inside a packet. Five in a row are asked for: source text can
-    // have a "G" where one packet would start, not where five would. A beginning too short to hold five is left to
-    // the test for text.
-    static func isTransportStream(_ bytes: [UInt8]) -> Bool {
-        let wanted = 5
-        for size in [188, 192, 204] {
-            for start in 0..<size where start + (wanted - 1) * size < bytes.count {
-                if (0..<wanted).allSatisfy({ bytes[start + $0 * size] == 0x47 }) { return true }
+    // and may begin anywhere, even after other bytes. A packet starts with 0x47, has its error bit clear and says
+    // whether it carries a payload, an adaptation field or both ("neither" is not allowed). Five such packets in a
+    // row anywhere in the sample make a stream. So does a file that is nothing but whole packets, however few.
+    static func hasPacketStructure(_ bytes: [UInt8], isWhole: Bool) -> Bool {
+        func isPacket(at index: Int) -> Bool {
+            index + 3 < bytes.count && bytes[index] == 0x47 && bytes[index + 1] & 0x80 == 0
+                && bytes[index + 3] & 0x30 != 0
+        }
+        for (size, lead) in [(188, 0), (192, 4), (204, 0)] {
+            for phase in 0..<min(size, bytes.count) {
+                var run = 0
+                var index = phase
+                while index + 3 < bytes.count {
+                    run = isPacket(at: index) ? run + 1 : 0
+                    if run >= 5 { return true }
+                    index += size
+                }
+            }
+            if isWhole, !bytes.isEmpty, bytes.count % size == 0,
+                stride(from: lead, to: bytes.count, by: size).allSatisfy(isPacket)
+            {
+                return true
             }
         }
         return false

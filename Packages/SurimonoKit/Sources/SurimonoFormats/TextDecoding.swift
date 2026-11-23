@@ -7,12 +7,18 @@ public struct DecodedText: Equatable, Sendable {
 }
 
 public enum TextDecoding {
+    // Check longer BOMs first because UTF-32 LE shares its first two bytes with UTF-16 LE.
+    private static let signatures: [([UInt8], String.Encoding)] = [
+        ([0xFF, 0xFE, 0, 0], .utf32LittleEndian), ([0, 0, 0xFE, 0xFF], .utf32BigEndian),
+        ([0xEF, 0xBB, 0xBF], .utf8), ([0xFF, 0xFE], .utf16LittleEndian), ([0xFE, 0xFF], .utf16BigEndian),
+    ]
+
+    /// The byte order mark the bytes begin with, as `decode` reads it, for what must agree with it on the encoding.
+    package static func byteOrderMark(of bytes: [UInt8]) -> (length: Int, encoding: String.Encoding)? {
+        signatures.first { bytes.starts(with: $0.0) }.map { ($0.0.count, $0.1) }
+    }
+
     public static func decode(_ data: Data) -> DecodedText {
-        // Check longer BOMs first because UTF-32 LE shares its first two bytes with UTF-16 LE.
-        let signatures: [([UInt8], String.Encoding)] = [
-            ([0xFF, 0xFE, 0, 0], .utf32LittleEndian), ([0, 0, 0xFE, 0xFF], .utf32BigEndian),
-            ([0xEF, 0xBB, 0xBF], .utf8), ([0xFF, 0xFE], .utf16LittleEndian), ([0xFE, 0xFF], .utf16BigEndian),
-        ]
         for (signature, encoding) in signatures where data.starts(with: signature) {
             let content = data.dropFirst(signature.count)
             return result(
