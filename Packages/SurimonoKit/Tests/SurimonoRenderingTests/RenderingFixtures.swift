@@ -9,18 +9,23 @@ enum RenderingFixtures {
     static func pdf(
         count: Int = 1, size: CGSize = CGSize(width: 612, height: 792), textPrefix: String = "PAGE-"
     ) throws -> PDFDocument {
+        try pdf(pages: (0..<count).map { ["\(textPrefix)\($0 + 1)"] }, size: size)
+    }
+
+    static func pdf(pages: [[String]], size: CGSize = CGSize(width: 612, height: 792)) throws -> PDFDocument {
         let data = NSMutableData()
         var box = CGRect(origin: .zero, size: size)
         let consumer = try #require(CGDataConsumer(data: data))
         let context = try #require(CGContext(consumer: consumer, mediaBox: &box, nil))
-        for index in 0..<count {
+        for lines in pages {
             context.beginPDFPage(nil)
             context.setFillColor(CGColor(gray: 0, alpha: 1))
             context.fill(CGRect(x: 0, y: 0, width: 12, height: 12))
-            let text = NSAttributedString(
-                string: "\(textPrefix)\(index + 1)", attributes: [.font: NSFont.systemFont(ofSize: 20)])
-            context.textPosition = CGPoint(x: 30, y: size.height - 50)
-            CTLineDraw(CTLineCreateWithAttributedString(text), context)
+            for (index, line) in lines.enumerated() {
+                let text = NSAttributedString(string: line, attributes: [.font: NSFont.systemFont(ofSize: 20)])
+                context.textPosition = CGPoint(x: 30, y: size.height - 50 - CGFloat(index) * 30)
+                CTLineDraw(CTLineCreateWithAttributedString(text), context)
+            }
             context.endPDFPage()
         }
         context.closePDF()

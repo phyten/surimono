@@ -27,6 +27,7 @@ public enum PageFootnotes {
 
     fileprivate struct Note: Sendable {
         let number: Int
+        let id: String
         let inner: String
         /// The change-mark id of the definition, so a moved or rebuilt note keeps its mark.
         let blockID: String?
@@ -36,7 +37,7 @@ public enum PageFootnotes {
         }
     }
 
-    /// Numeric IDs can be measured and moved. Other notes keep their original list item, in document order.
+    /// Notes with a known display number can move. Other series retain their markup and document order.
     fileprivate enum Endnote: Sendable {
         case numbered(index: Int)
         case original(Range<Int>)
@@ -53,6 +54,7 @@ public enum PageFootnotes {
         fileprivate let tokens: [String]
         fileprivate let section: Range<Int>
         fileprivate let notes: [Note]
+        fileprivate let anchors: [Int: String]
         fileprivate let endnoteOrder: [Endnote]
 
         public func measuringHTML(placing: Set<Int>) -> String { html(placing: placing, groups: []) }
@@ -70,19 +72,20 @@ public enum PageFootnotes {
                 case .numbered(let index):
                     let note = notes[index]
                     guard !placing.contains(note.number) else { return nil }
-                    return "<li id=\"fn-\(note.number)\" value=\"\(note.number)\"\(note.blockAttribute)>"
+                    let series = note.id == "fn-\(note.number)" ? "" : " class=\"numbered-footnote\""
+                    return "<li id=\"\(HTML.escape(note.id))\" value=\"\(note.number)\"\(series)\(note.blockAttribute)>"
                         + "\(note.inner)</li>"
                 }
             }.joined()
             let endnotes = remaining.isEmpty ? "" : "<section class=\"footnotes\"><ol>\(remaining)</ol></section>"
             var insertions: [Int: String] = [:]
             for group in groups {
-                guard let reference = references.first(where: { $0.index == group.firstReference && $0.eligible }),
-                    let note = group.notes.first, group.heightPixels > 0
+                guard references.indices.contains(group.firstReference), references[group.firstReference].eligible,
+                    let number = group.notes.first, let anchor = anchors[number], group.heightPixels > 0
                 else { continue }
-                insertions[reference.end, default: ""] +=
+                insertions[references[group.firstReference].end, default: ""] +=
                     "<span class=\"paper-footnote-room\" style=\"height:\(group.heightPixels)px\">"
-                    + "<a class=\"paper-footnote-mark\" href=\"#fn-\(note)\"></a></span>"
+                    + "<a class=\"paper-footnote-mark\" href=\"#\(HTML.escape(anchor))\"></a></span>"
             }
             var body = ""
             for index in tokens.indices {
@@ -91,10 +94,10 @@ public enum PageFootnotes {
                 body += insertions[index] ?? ""
             }
             let stock = notes.filter { placing.contains($0.number) }.map { note in
-                "<div class=\"paper-footnote\" id=\"fn-\(note.number)\"\(note.blockAttribute)>"
-                    + "<a class=\"paper-footnote-stock-mark paper-footnote-top\" href=\"#fn-\(note.number)\"></a>"
+                "<div class=\"paper-footnote\" id=\"\(HTML.escape(note.id))\"\(note.blockAttribute)>"
+                    + "<a class=\"paper-footnote-stock-mark paper-footnote-top\" href=\"#\(HTML.escape(note.id))\"></a>"
                     + "<span class=\"paper-footnote-number\">\(note.number)</span>\(note.inner)"
-                    + "<a class=\"paper-footnote-stock-mark paper-footnote-bottom\" href=\"#fn-\(note.number)\"></a></div>"
+                    + "<a class=\"paper-footnote-stock-mark paper-footnote-bottom\" href=\"#\(HTML.escape(note.id))\"></a></div>"
             }.joined()
             return body + (stock.isEmpty ? "" : "\n<section class=\"paper-footnote-stock\">\(stock)</section>")
         }
@@ -117,29 +120,30 @@ public enum PageFootnotes {
         var section: Range<Int>?
         var notes: [Note] = []
         var endnoteOrder: [Endnote] = []
-        var references: [Reference] = []
-        var pending: (start: Int, note: Int, eligible: Bool)?
+        var links: [(id: String, eligible: Bool, end: Int)] = []
+        var pending: (start: Int, id: String, eligible: Bool)?
         for (index, token) in tokens.enumerated() {
             guard case .tag(let tag) = token else { continue }
             if tag.isClosing {
                 guard let opening = stack.lastIndex(where: { $0.name == tag.name }) else { continue }
                 let element = stack[opening]
                 if tag.name == "sup", let current = pending, current.start == element.start {
-                    references.append(
-                        Reference(index: references.count, note: current.note, eligible: current.eligible, end: index))
+                    links.append((current.id, current.eligible, index))
                     pending = nil
                 }
                 if tag.name == "li", element.footnotes,
                     !stack[..<opening].contains(where: { $0.name == "li" }),
                     case .tag(let start) = tokens[element.start]
                 {
-                    if let id = start.attribute("id"), id.hasPrefix("fn-"), let number = Int(id.dropFirst(3)),
+                    if let id = start.attribute("id"), id.hasPrefix("fn-"),
+                        let number = hasClass("numbered-footnote", start)
+                            ? start.attribute("value").flatMap({ Int($0) }) : Int(id.dropFirst(3)),
                         number > 0
                     {
                         endnoteOrder.append(.numbered(index: notes.count))
                         notes.append(
                             Note(
-                                number: number, inner: sources[(element.start + 1)..<index].joined(),
+                                number: number, id: id, inner: sources[(element.start + 1)..<index].joined(),
                                 blockID: start.attribute("data-surimono-block")))
                     } else {
                         // A symbolic title note or a restarted chapter series cannot use the numeric stock
@@ -158,31 +162,34 @@ public enum PageFootnotes {
                 let excluded = stack.last?.blocked == true || blocked.contains(tag.name) || inNotes
                 if tag.name == "a", !inNotes,
                     let sup = stack.last, sup.name == "sup", case .tag(let start) = tokens[sup.start],
-                    hasClass("footnote-ref", start), let href = tag.attribute("href"), href.hasPrefix("#fn-"),
-                    let number = Int(href.dropFirst(4))
+                    hasClass("footnote-ref", start), let href = tag.attribute("href"), href.hasPrefix("#fn-")
                 {
-                    pending = (sup.start, number, !excluded)
+                    pending = (sup.start, String(href.dropFirst()), !excluded)
                 }
                 if !tag.isSelfClosing, !voids.contains(tag.name) {
                     stack.append((tag.name, index, excluded, inNotes))
                 }
             }
         }
-        let numbers = Set(notes.map(\.number))
-        guard let section, numbers.count == notes.count else { return nil }
-        // The page of a note is the page of its first reference. When that one cannot take the note (it sits in a
-        // table, say), the note stays at the end rather than moving to a later page that merely mentions it again.
+        guard let section, Set(notes.map(\.number)).count == notes.count, Set(notes.map(\.id)).count == notes.count
+        else { return nil }
+        let numbers = Dictionary(uniqueKeysWithValues: notes.map { ($0.id, $0.number) })
+        let anchors = Dictionary(uniqueKeysWithValues: notes.map { ($0.number, $0.id) })
+        // Only the first reference determines whether the definition may leave the end of the document.
         var firstEligible: [Int: Bool] = [:]
-        for reference in references where firstEligible[reference.note] == nil {
-            firstEligible[reference.note] = reference.eligible
-        }
-        references = references.map {
-            Reference(
-                index: $0.index, note: $0.note,
-                eligible: $0.eligible && numbers.contains($0.note) && firstEligible[$0.note] == true, end: $0.end)
+        var references: [Reference] = []
+        for link in links {
+            guard let number = numbers[link.id] else { continue }
+            if firstEligible[number] == nil { firstEligible[number] = link.eligible }
+            references.append(
+                Reference(
+                    index: references.count, note: number,
+                    eligible: link.eligible && firstEligible[number] == true, end: link.end))
         }
         guard references.contains(where: \.eligible) else { return nil }
-        return Plan(references: references, tokens: sources, section: section, notes: notes, endnoteOrder: endnoteOrder)
+        return Plan(
+            references: references, tokens: sources, section: section, notes: notes, anchors: anchors,
+            endnoteOrder: endnoteOrder)
     }
 
     private static func hasClass(_ name: String, _ tag: HTMLScanner.Tag) -> Bool {

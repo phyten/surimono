@@ -1,6 +1,8 @@
 import Foundation
 
 public enum OrgConverter {
+    package static let contentsLimitIssue = "Table of contents size limit reached"
+
     /// On a stack of known size, so a document reads the same on every thread.
     /// `defaults` decide what the document's own `#+OPTIONS:` lines leave open.
     public static func convert(_ text: String, defaults: OrgReadingDefaults = .surimono) -> HTMLFragment {
@@ -35,23 +37,12 @@ public enum OrgConverter {
         let content = parser.render()
         let context = parser.context
         let japanese = context.metadata["LANGUAGE"]?.lowercased().hasPrefix("ja") == true
-        var tables: [OrgOutline.Request: (html: String, count: Int)] = [:]
-        var budget = OrgOutline.entryBudget
-        /// The table for a request, built once however often the document asks for it, while the budget lasts.
-        func contents(_ request: OrgOutline.Request) -> String {
-            let table =
-                tables[request]
-                ?? context.outline.contents(
-                    request, headlineLevels: context.reading.headlineLevels,
-                    title: japanese ? "目次" : "Table of Contents")
-            tables[request] = table
-            guard table.count <= budget else { return "" }
-            budget -= table.count
-            return table.html
-        }
+        var contents = OrgContents(
+            entries: context.outline.entries, headlineLevels: context.reading.headlineLevels,
+            title: japanese ? "目次" : "Table of Contents")
         let depth = context.reading.tableOfContents
         var pieces = [titleBlock]
-        if depth != .off { pieces.append(contents(OrgOutline.Request(depth: depth == .all ? nil : depth.limit))) }
+        if depth != .off { pieces.append(contents.table(OrgOutline.Request(depth: depth == .all ? nil : depth.limit))) }
         // Each mark is found once, in one walk over the text, however many tables the document asks for.
         let marked = content.components(separatedBy: "<!--\(context.contentsToken)-")
         pieces.append(marked[0])
@@ -59,7 +50,7 @@ public enum OrgConverter {
             guard let end = piece.range(of: "-->\n"), let position = Int(piece[..<end.lowerBound]),
                 context.outline.requests.indices.contains(position)
             else { continue }
-            pieces.append(contents(context.outline.requests[position]))
+            pieces.append(contents.table(context.outline.requests[position]))
             pieces.append(String(piece[end.upperBound...]))
         }
         pieces.append(parser.footnotes())
@@ -69,6 +60,7 @@ public enum OrgConverter {
         return HTMLFragment(
             body: html + (fonts.isEmpty ? "" : "<style>\n\(fonts)\n</style>\n"),
             title: parser.context.metadata["TITLE"], language: parser.context.metadata["LANGUAGE"],
+            readingIssues: contents.omitted ? [OrgConverter.contentsLimitIssue] : [],
             decidesHeadingNumbers: context.options.sectionNumbers != nil || context.reading.sectionNumbers != .off)
     }
 }
@@ -245,36 +237,37 @@ struct OrgParser {
                 if depth == 0, context.discovering {
                     context.outline.shallowest = min(context.outline.shallowest ?? Int.max, heading[0].count)
                     // Known before any id is made, so a made id never takes one the document wrote further down.
-                    if let custom = customID(after: index) { context.outline.reserve(custom) }
+                    let properties = headingProperties(after: index)
+                    if !properties.isEmpty { context.propertiesByHeading[index] = properties }
+                    if let custom = properties["CUSTOM_ID"], !custom.isEmpty { context.outline.reserve(custom) }
                 } else if depth == 0 {
                     let numbers = context.reading.sectionNumbers.limit > 0
                     let anchors = context.anchorsHeadings
-                    let properties = headingProperties(after: index)
+                    let properties = context.propertiesByHeading[index] ?? [:]
                     let relative = heading[0].count - (context.outline.shallowest ?? 1) + 1
                     var listed = true
                     // A document without numbers and without a table of contents keeps no outline at all.
                     if numbers || anchors {
                         let unnumbered = context.outline.unnumberedValue(level: relative, properties: properties)
                         listed = unnumbered != "notoc"
-                        if numbers, unnumbered == nil {
+                        if relative <= context.reading.sectionNumbers.limit, unnumbered == nil {
                             let next = context.outline.nextNumber(level: relative)
-                            if relative <= context.reading.sectionNumbers.limit {
-                                number = "<span class=\"section-number-\(level)\">\(next)</span> "
-                            }
+                            number = "<span class=\"section-number-\(level)\">\(next)</span> "
                         }
                     }
                     // The id the document wrote is a link target with or without a table of contents.
-                    let custom = customID(after: index)
+                    let custom = properties["CUSTOM_ID"].flatMap { $0.isEmpty ? nil : context.outline.customID($0) }
                     if anchors || custom != nil {
                         let id =
                             custom
                             ?? context.outline.id(
                                 for: HTML.unescape(Self.withoutTags(Self.withoutNotes(parts.title))))
-                        attribute = " id=\"\(HTML.escape(id))\"" + attribute
+                        let escapedID = HTML.escape(id)
+                        attribute = " id=\"\(escapedID)\"" + attribute
                         if anchors {
                             context.outline.entries.append(
                                 OrgOutline.Entry(
-                                    level: relative, id: id,
+                                    level: relative, escapedID: escapedID,
                                     html: Self.withoutLinks(
                                         Self.withoutNotes(Self.withoutTags(number) + parts.html)),
                                     listed: listed))
@@ -397,11 +390,6 @@ struct OrgParser {
         let entries = context.outline.entries
         guard keyword.local, let heading = entries.last else { return OrgOutline.Request(depth: keyword.depth) }
         return OrgOutline.Request(depth: keyword.depth, after: entries.count, level: heading.level)
-    }
-
-    private func customID(after position: Int) -> String? {
-        guard let id = headingProperties(after: position)["CUSTOM_ID"], !id.isEmpty else { return nil }
-        return id
     }
 
     /// The property drawer of the headline at `position`, which may follow one planning line.
@@ -664,11 +652,16 @@ struct OrgParser {
         var position = 0
         while position < context.order.count {
             let label = context.order[position]
+            position += 1
+            guard let note = context.notes[label] else { continue }
             var nested = OrgParser(
                 lines: (context.definitions[label] ?? "").components(separatedBy: "\n"),
-                depth: (context.noteDepths[label] ?? depth) + 1, context: context)
-            items += "<li id=\"fn-\(position + 1)\">\(nested.render())</li>\n"
-            position += 1
+                depth: note.depth + 1, context: context)
+            // A shifted anchor no longer encodes the printed number. Mark this series explicitly
+            // so page-bottom placement can distinguish it from a restarted or symbolic series.
+            let numbering =
+                note.id == "fn-\(note.number)" ? "" : " value=\"\(note.number)\" class=\"numbered-footnote\""
+            items += "<li id=\"\(note.id)\"\(numbering)>\(nested.render())</li>\n"
         }
         return items.isEmpty ? "" : "<section class=\"footnotes\">\n<ol>\n\(items)</ol>\n</section>\n"
     }

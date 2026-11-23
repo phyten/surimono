@@ -60,23 +60,77 @@ public enum DocumentOutline {
         return headings
     }
 
-    /// The entries of the text's own tables of contents, which repeat its headings wherever they stand on the
-    /// pages. An empty entry stands between two tables: with text between them they are two runs of lines.
-    public static func sourceContentsEntries(inHTML html: String) -> [String] {
+    /// Everything printed between the preceding contents block (or document start) and this block's
+    /// first link, including its caption. This locates even a titleless local table after ordinary prose.
+    public struct SourceContents: Equatable, Sendable {
+        public var precedingText: String
+        public var entries: [String]
+        public var caption: String
+        public var previousBlock: String
+        public var followingBlock: String
+    }
+
+    public static func sourceContents(inHTML html: String) -> [SourceContents] {
+        guard html.contains("<nav") || html.range(of: "<nav", options: .caseInsensitive) != nil else { return [] }
+        var blocks: [SourceContents] = []
+        var preceding = ""
         var entries: [String] = []
+        var caption = ""
+        var bodyBlock = ""
+        var previous = ""
+        var needsFollowing = false
+        func finishBodyBlock() {
+            let text = bodyBlock.trimmingCharacters(in: .whitespacesAndNewlines)
+            bodyBlock = ""
+            guard !text.isEmpty else { return }
+            previous = HTMLScanner.decodingEntities(text)
+            if needsFollowing {
+                blocks[blocks.count - 1].followingBlock = previous
+                needsFollowing = false
+            }
+        }
         var depth = 0
+        var hidden: (name: String, depth: Int)?
         var link: String?
         for token in HTMLScanner.tokens(html) {
             switch token {
-            case .text(let text): link? += text
+            case .text(let text):
+                guard hidden == nil else { continue }
+                if link != nil {
+                    link? += text
+                } else if depth == 0 {
+                    preceding += text
+                    bodyBlock += text
+                } else if entries.isEmpty {
+                    caption += text
+                    preceding += text
+                }
             case .opaque: break
             case .tag(let tag):
+                if updateHidden(&hidden, with: tag) { continue }
+                if depth == 0, bodyBoundaries.contains(tag.name) { finishBodyBlock() }
                 if tag.name == "nav" {
-                    let isContents = tag.attribute("class")?.split(separator: " ").contains("toc") == true
                     if tag.isClosing, depth > 0 {
                         depth -= 1
-                    } else if depth > 0 || isContents {
-                        if depth == 0, entries.last?.isEmpty == false { entries.append("") }
+                        if depth == 0, !entries.isEmpty {
+                            blocks.append(
+                                SourceContents(
+                                    precedingText: HTMLScanner.decodingEntities(preceding), entries: entries,
+                                    caption: HTMLScanner.decodingEntities(caption), previousBlock: previous,
+                                    followingBlock: "")
+                            )
+                            preceding = ""
+                            entries = []
+                            previous = ""
+                            needsFollowing = true
+                        }
+                    } else if !tag.isClosing,
+                        depth > 0 || tag.attribute("class")?.split(separator: " ").contains("toc") == true
+                    {
+                        if depth == 0 {
+                            caption = ""
+                            needsFollowing = false
+                        }
                         depth += 1
                     }
                 } else if depth > 0, tag.name == "a" {
@@ -90,7 +144,19 @@ public enum DocumentOutline {
                 }
             }
         }
-        return entries
+        finishBodyBlock()
+        return blocks
+    }
+
+    // Inline spans may split a printed word, so only block boundaries finish a neighbouring text anchor.
+    private static let bodyBoundaries: Set<String> = [
+        "p", "h1", "h2", "h3", "h4", "h5", "h6", "pre", "li", "td", "th", "dt", "dd", "div", "section",
+        "blockquote", "figure", "figcaption", "header", "footer", "nav", "br", "hr",
+    ]
+
+    /// A flat list for callers interested only in labels.
+    public static func sourceContentsEntries(inHTML html: String) -> [String] {
+        Array(sourceContents(inHTML: html).map(\.entries).joined(separator: [""]))
     }
 
     /// The text of the first `<title>` element that has a closing tag: the first match of the expression

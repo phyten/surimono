@@ -1,5 +1,6 @@
-import SurimonoFormats
 import Testing
+
+@testable import SurimonoFormats
 
 /// The expected values are what Emacs 30.2 (Org 9.7.11, ox-html) printed for the same inputs, apart from the
 /// markup around the contents list and the ids, which are Surimono's own.
@@ -10,6 +11,145 @@ struct OrgOptionsTests {
 
     private func body(_ source: String, defaults: OrgReadingDefaults = .surimono) -> String {
         OrgConverter.convert(source, defaults: defaults).body
+    }
+
+    @Test("文字列の属性を含む未知の値の後の num:nil が既定値を上書きする")
+    func propertyStringBoundary() {
+        let org = #"#+OPTIONS: foo:#("x" 0 1 (face bold)) num:nil"# + "\n* A"
+        #expect(OrgConverter.convert(org).decidesHeadingNumbers)
+        let result = OrgConverter.convert(org, defaults: Self.likeEmacs)
+        #expect(result.decidesHeadingNumbers)
+        #expect(!result.body.contains("section-number"))
+    }
+
+    @Test("基数を指定した整数は番号を付ける深さになる", arguments: ["#x2", "#b10", "#o2", "#16r2"])
+    func radixOption(_ value: String) {
+        let html = body("#+OPTIONS: num:\(value)\n* A\n** B\n*** C")
+        #expect(DocumentOutline.headings(inHTML: html).map(\.text) == ["1. A", "1.1. B", "C"])
+    }
+
+    @Test(
+        "未知キーの引用文字列と入れ子のリストを読み切ってから次のキーを読む",
+        arguments: [
+            #"foo:"a num:t b""#, #"foo:((x) num:t y)"#, #"foo:"a \" num:t b""#,
+            #"foo:(("x)" "a\"b") num:t y)"#,
+        ])
+    func compoundOptionValue(option: String) {
+        let result = OrgConverter.convert("#+OPTIONS: \(option) ^:t\n* A\na_b")
+        #expect(!result.decidesHeadingNumbers)
+        #expect(result.body == "<h1>A</h1>\n<p>a<sub>b</sub></p>\n")
+    }
+
+    @Test("空白だけのリストは空の値、引用したリスト全体は一つの値として読む")
+    func lispTokens() {
+        let html = body("#+OPTIONS: num:(  ) foo:'(x num:t y) ^:t\n* A a_b", defaults: Self.likeEmacs)
+        #expect(html.contains("<h1 id=\"a-ab\">A a<sub>b</sub></h1>"))
+        #expect(!html.contains("section-number"))
+    }
+
+    @Test("接尾辞つきの見出しと脚注は別のリンク先になる")
+    func automaticIDAndNote() {
+        let html = body("#+OPTIONS: toc:t\n* fn\n* fn\ntext[fn:1]\n\n[fn:1] note")
+        let ids = DocumentOutline.headings(inHTML: html).compactMap(\.id)
+        #expect(ids.count == 2 && Set(ids).count == 2)
+        #expect(html.contains("<a href=\"#fn-1-1\" id=\"fnref-1\">1</a>"))
+        #expect(html.contains("<li id=\"fn-1-1\" value=\"1\""))
+        for id in ids {
+            #expect(html.components(separatedBy: " id=\"\(id)\"").count == 2)
+            #expect(html.contains("<a href=\"#\(id)\">fn</a>"))
+        }
+    }
+
+    @Test("明示した見出しの ID を保ち、脚注と繰り返した参照のリンク先をずらす")
+    func customIDAndNote() {
+        let html = body(
+            """
+            #+OPTIONS: toc:t
+            * A
+            :PROPERTIES:
+            :CUSTOM_ID: fn-1
+            :END:
+            text[fn:1] again[fn:1]
+            * B
+            :PROPERTIES:
+            :CUSTOM_ID: fnref-1-2
+            :END:
+
+            [fn:1] note
+            """)
+        #expect(html.contains(#"<h1 id="fn-1">A</h1>"#))
+        #expect(html.contains("<a href=\"#fn-1\">A</a>"))
+        #expect(html.contains("<li id=\"fn-1-1\" value=\"1\""))
+        #expect(html.components(separatedBy: "href=\"#fn-1-1\"").count == 3)
+        #expect(html.contains("id=\"fnref-1-2-1\">1</a>"))
+    }
+
+    @Test("接尾辞の候補が既存の見出しなら次の番号を使う")
+    func skipsOccupiedSuffix() {
+        let html = body("#+OPTIONS: toc:t\n* A\n* A-1\n* A")
+        #expect(DocumentOutline.headings(inHTML: html).compactMap(\.id) == ["a", "a-1", "a-2"])
+    }
+
+    @Test("50,001 件の見出しで目次を省いた理由が読み取り結果に残る")
+    func oversizedContentsNotice() {
+        let result = OrgConverter.convert("#+OPTIONS: toc:t\n" + String(repeating: "* A\n", count: 50_001))
+        let issues = result.readingIssues
+        #expect(issues == ["Table of contents size limit reached"])
+        let keepsLastHeading = result.body.hasSuffix("<h1 id=\"a-50000\">A</h1>\n")
+        #expect(keepsLastHeading)
+    }
+
+    @Test("同じ長い項目を繰り返す目次もバイト数の上限で省く")
+    func contentsByteBudget() {
+        let title = String(repeating: "あ", count: 256)
+        let source = "* \(title)\n" + String(repeating: "#+TOC: headlines\n", count: 6_000)
+        let result = OrgConverter.convert(source)
+        let heading = "<h1 id=\"\(title)\">\(title)</h1>\n"
+        let table =
+            "<nav class=\"toc\" role=\"doc-toc\"><p class=\"toc-title\">Table of Contents</p>"
+            + "<ul><li><a href=\"#\(title)\">\(title)</a></li></ul></nav>\n"
+        let bytes = result.body.utf8.count - heading.utf8.count
+        #expect(bytes == (8_000_000 / table.utf8.count) * table.utf8.count)
+        let issues = result.readingIssues
+        #expect(issues == ["Table of contents size limit reached"])
+    }
+
+    @Test("一段の文書では三段から五段の目次に同じ項目が並ぶ")
+    func equivalentContentsDepths() {
+        let html = body("#+OPTIONS: H:99\n* A\n#+TOC: headlines 3\n#+TOC: headlines 4\n#+TOC: headlines 5")
+        #expect(html.components(separatedBy: "<li><a href=\"#a\">A</a></li>").count == 4)
+        let entries = [OrgOutline.Entry(level: 1, escapedID: "a", html: "A", listed: true)]
+        var contents = OrgContents(entries: entries, headlineLevels: 99, title: "Contents")
+        for depth in 3...5 { _ = contents.table(OrgOutline.Request(depth: depth)) }
+        #expect(contents.tables.count == 1)
+    }
+
+    @Test("途中の段が空のときも同じ項目の目次を一度だけ組む")
+    func missingContentsLevels() {
+        let entries = [
+            OrgOutline.Entry(level: 1, escapedID: "a", html: "A", listed: true),
+            OrgOutline.Entry(level: 5, escapedID: "b", html: "B", listed: true),
+        ]
+        var contents = OrgContents(entries: entries, headlineLevels: 5, title: "Contents")
+        for depth in 1...5 { _ = contents.table(OrgOutline.Request(depth: depth)) }
+        #expect(contents.tables.count == 2)
+    }
+
+    @Test("部分目次が項目上限を超えても後ろの小さい目次を出せる")
+    func smallerContentsAfterOmission() {
+        let first = OrgOutline.Entry(level: 1, escapedID: "a", html: "A", listed: true)
+        let second = OrgOutline.Entry(level: 2, escapedID: "b", html: "B", listed: true)
+        let third = OrgOutline.Entry(level: 3, escapedID: "c", html: "C", listed: true)
+        let entries = [first] + Array(repeating: second, count: 50_000) + [third]
+        var contents = OrgContents(entries: entries, headlineLevels: 3, title: "Contents")
+        #expect(contents.table(OrgOutline.Request(depth: 2)).isEmpty)
+        #expect(contents.omitted)
+        #expect(contents.table(OrgOutline.Request(depth: 1)).contains(">A</a>"))
+    }
+
+    @Test("IPv6 アドレスの角括弧を含む URL も下付きに分けない")
+    func bracketedPlainURL() {
+        #expect(body("#+OPTIONS: ^:t\nhttps://[::1]/a_b") == "<p>https://[::1]/a_b</p>\n")
     }
 
     // MARK: - Defaults
@@ -238,6 +378,8 @@ struct OrgOptionsTests {
     func manyHeadingsWithOneTitle() {
         let html = body("#+OPTIONS: toc:nil\n#+TOC: headlines\n" + String(repeating: "* Same\n", count: 5_000))
         #expect(html.contains("<h1 id=\"same\">Same</h1>\n<h1 id=\"same-1\">Same</h1>"))
+        let ids = DocumentOutline.headings(inHTML: html).compactMap(\.id)
+        #expect(ids.count == 5_000 && Set(ids).count == 5_000)
         #expect(html.hasSuffix("<h1 id=\"same-4999\">Same</h1>\n"))
     }
 

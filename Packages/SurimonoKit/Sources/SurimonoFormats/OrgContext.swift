@@ -10,9 +10,14 @@ final class OrgContext {
     var definitions: [String: String] = [:]
     var anonymous = 0
     var order: [String] = []
-    var numbers: [String: Int] = [:]
-    var noteDepths: [String: Int] = [:]
-    var references: [String: Int] = [:]
+    struct Note {
+        let number: Int
+        let id: String
+        let depth: Int
+        var references = 0
+    }
+    var notes: [String: Note] = [:]
+    var propertiesByHeading: [Int: [String: String]] = [:]
     /// Definitions from `#+LATEX_HEADER:` lines, given to every formula.
     var mathDefinitions = ""
     var equationCount = 0
@@ -65,16 +70,18 @@ final class OrgContext {
 
     func reference(_ label: String, depth: Int) -> String? {
         guard !discovering, definitions[label] != nil else { return nil }
-        if numbers[label] == nil {
+        var note: Note
+        if let existing = notes[label] {
+            note = existing
+        } else {
             order.append(label)
-            numbers[label] = order.count
-            noteDepths[label] = depth
+            note = Note(number: order.count, id: outline.allocateID("fn-\(order.count)"), depth: depth)
         }
-        let number = numbers[label] ?? 1
-        references[label, default: 0] += 1
-        let count = references[label] ?? 1
-        let anchor = count == 1 ? "fnref-\(number)" : "fnref-\(number)-\(count)"
-        return "<sup class=\"footnote-ref\"><a href=\"#fn-\(number)\" id=\"\(anchor)\">\(number)</a></sup>"
+        note.references += 1
+        notes[label] = note
+        let base = "fnref-\(note.number)"
+        let anchor = outline.allocateID(note.references == 1 ? base : "\(base)-\(note.references)")
+        return "<sup class=\"footnote-ref\"><a href=\"#\(note.id)\" id=\"\(anchor)\">\(note.number)</a></sup>"
     }
 }
 

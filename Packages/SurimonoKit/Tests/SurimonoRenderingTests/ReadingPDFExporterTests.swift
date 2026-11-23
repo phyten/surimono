@@ -7,6 +7,26 @@ import Testing
 
 @MainActor
 struct ReadingPDFExporterTests {
+    @Test(
+        "コードと表の後の目次を四つの印刷設定で本文のページに照合する", .timeLimit(.minutes(1)),
+        arguments: ["standard", "confetti", "academic", "line-numbers"])
+    func printedMarkdownContents(_ variant: String) async throws {
+        let file = try #require(
+            Bundle.module.url(forResource: "toc-probe", withExtension: "md", subdirectory: "Fixtures"))
+        let source = DocumentSource(data: try Data(contentsOf: file), fileURL: file, format: .markdown)
+        let themes = try PrintThemeLibrary.load()
+        let theme = try #require(themes.first { $0.id == (variant == "line-numbers" ? "standard" : variant) })
+        var settings = RenderSettings(
+            layout: .a4Single, theme: theme, preset: HTMLCleanupPreset(id: "none", name: "None"))
+        if variant == "line-numbers" { settings.code.block.lineNumbers = .all }
+        let prepared = try await DocumentRenderer().prepare(source, settings: settings)
+        let outline = await ReadingPDFExporter.outline(
+            of: source, in: prepared.logicalDocument, proof: .shown, includesSourceContents: true)
+        let sections = outline.entries.filter { $0.level == 2 }
+        #expect(sections.map(\.title) == ["第一節 用紙", "第二節 余白", "第三節 綴じ"])
+        #expect(sections.map(\.pageIndex) == [1, 2, 3])
+    }
+
     @Test("読むPDFは論理ページ順と見出しと外部リンクと題名を保存する", .timeLimit(.minutes(1)))
     func markdown() async throws {
         let source = DocumentSource(
@@ -111,6 +131,26 @@ struct ReadingPDFExporterTests {
         #expect(reread.index(for: try #require(first.child(at: 0)?.destination?.page)) == 2)
         let second = try #require(reread.outlineRoot?.child(at: 1))
         #expect(reread.index(for: try #require(second.destination?.page)) == 3)
+    }
+
+    @Test("本文で目次の項目が別順に現れても、書き出した PDF のしおりは本文のページを指す")
+    func trailingOrgContents() async throws {
+        let source = DocumentSource(
+            data: Data("#+LANGUAGE: ja\n* A\nC\n* B\n* C\n本文\n#+TOC: headlines".utf8), format: .org)
+        let logical = try RenderingFixtures.pdf(pages: [["A", "C", "B"], ["C", "本文"], ["目次", "A", "B", "C"]])
+        let outline = await ReadingPDFExporter.outline(
+            of: source, in: logical, proof: .shown, includesSourceContents: true)
+        #expect(outline.entries.map(\.pageIndex) == [0, 0, 1])
+        let output = try ReadingPDFExporter.document(from: logical, entries: outline.entries, title: "Org")
+        let data = try #require(output.dataRepresentation())
+        let reread = try #require(PDFDocument(data: data))
+        let root = try #require(reread.outlineRoot)
+        var pages: [Int] = []
+        for index in 0..<root.numberOfChildren {
+            let page = try #require(root.child(at: index)?.destination?.page)
+            pages.append(reread.index(for: page))
+        }
+        #expect(pages == [0, 0, 1])
     }
 
     @Test("生成した階層しおりと外部リンクは保存して読み直しても残る")

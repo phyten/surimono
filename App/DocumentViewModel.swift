@@ -626,7 +626,7 @@ final class DocumentViewModel {
     @ObservationIgnored private var readStructure:
         (
             source: DocumentSource, proof: ProofMarks, headings: [DocumentHeading], statistics: DocumentStatistics,
-            contents: [String], title: String?
+            contents: [DocumentOutline.SourceContents], title: String?
         )?
     @ObservationIgnored private var structureDocument: PDFDocument?
     var shortcutListFocused = false
@@ -2378,7 +2378,11 @@ final class DocumentViewModel {
             guard let self else { return }
             let proof = printFinish.proof
             let known = readStructure?.source == source && readStructure?.proof == proof ? readStructure : nil
-            let read: (headings: [DocumentHeading], statistics: DocumentStatistics, contents: [String], title: String?)?
+            let read:
+                (
+                    headings: [DocumentHeading], statistics: DocumentStatistics,
+                    contents: [DocumentOutline.SourceContents], title: String?
+                )?
             if let known {
                 read = (known.headings, known.statistics, known.contents, known.title)
             } else {
@@ -2386,7 +2390,7 @@ final class DocumentViewModel {
                     DocumentRenderer.structureHTML(of: source, proof: proof).map {
                         (
                             DocumentOutline.headings(inHTML: $0), DocumentStatistics(html: $0),
-                            DocumentOutline.sourceContentsEntries(inHTML: $0), DocumentOutline.title(ofHTML: $0)
+                            DocumentOutline.sourceContents(inHTML: $0), DocumentOutline.title(ofHTML: $0)
                         )
                     }
                 }.value
@@ -2405,7 +2409,7 @@ final class DocumentViewModel {
             // A table the finish hides is not on the pages, and its lines would be taken from the real headings.
             let contents = !finishAppliesToText || printFinish.toc.showsSourceContents ? read.contents : []
             let entries = await Task.detached(priority: .utility) {
-                DocumentOutline.entries(of: headings, inPageTexts: pages, contentsEntries: contents)
+                DocumentOutline.entries(of: headings, inPageTexts: pages, sourceContents: contents)
             }.value
             guard !Task.isCancelled else { return }
             outlineEntries = entries

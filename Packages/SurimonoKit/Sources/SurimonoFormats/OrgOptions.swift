@@ -57,29 +57,94 @@ struct OrgExportOptions: Equatable {
 
     /// Reads the value of one `#+OPTIONS:` line. A later line overrides the keys it repeats.
     ///
-    /// Items are cut as Emacs cuts them: a key up to the first colon, then a value that is either one
-    /// parenthesized group or a run without white space. So a `num:t` inside another key's parentheses is not an
-    /// item, and a key without a value sets nothing. Keys are matched without regard to case.
+    /// Consume the value even for unknown keys: spaces and colons inside a Lisp string or list belong to it.
     mutating func read(_ line: String) {
-        guard let items = orgExpression(#"(.+?):(\(.*?\)|\S+)?[ \t]*"#) else { return }
-        let text = line as NSString
-        for item in items.matches(in: line, range: NSRange(location: 0, length: text.length)) {
-            guard item.range(at: 2).location != NSNotFound else { continue }
-            let value = text.substring(with: item.range(at: 2))
-            switch text.substring(with: item.range(at: 1)).lowercased() {
-            case "num": sectionNumbers = Self.depth(value)
-            case "toc": tableOfContents = Self.depth(value)
-            case "h": if let levels = Self.integer(value), levels >= 0 { headlineLevels = levels }
-            case "^":
-                scripts =
-                    switch value {
-                    case "nil", "()": OrgReadingDefaults.Scripts.off
-                    case "{}": .braces
-                    default: .all
-                    }
-            default: break
-            }
+        let chars = Array(line)
+        var cursor = 0
+        while cursor < chars.count {
+            while cursor < chars.count, chars[cursor].isWhitespace { cursor += 1 }
+            let start = cursor
+            while cursor < chars.count, chars[cursor] != ":" { cursor += 1 }
+            guard cursor < chars.count else { break }
+            let key = String(chars[start..<cursor]).lowercased()
+            cursor += 1
+            guard cursor < chars.count, !chars[cursor].isWhitespace else { continue }
+            let valueStart = cursor
+            cursor = Self.endOfValue(chars, from: cursor)
+            apply(key: key, token: chars[valueStart..<cursor])
         }
+    }
+
+    private mutating func apply(key: String, token: ArraySlice<Character>) {
+        let emptyList =
+            token.first == "(" && token.last == ")" && token.dropFirst().dropLast().allSatisfy(\.isWhitespace)
+        let value = emptyList ? "nil" : String(token)
+        switch key {
+        case "num": sectionNumbers = Self.depth(value)
+        case "toc": tableOfContents = Self.depth(value)
+        case "h": if let levels = Self.integer(value), levels >= 0 { headlineLevels = levels }
+        case "^":
+            scripts =
+                switch value {
+                case "nil", "()": OrgReadingDefaults.Scripts.off
+                case "{}": .braces
+                default: .all
+                }
+        default: break
+        }
+    }
+
+    private static func endOfValue(_ chars: [Character], from start: Int) -> Int {
+        var index = start
+        var depth = 0
+        var quoted = false
+        // Reader prefixes and escaped spaces are part of the same object.
+        while index < chars.count {
+            if chars[index] == "#", index + 1 < chars.count, chars[index + 1] == "'" {
+                index += 2
+            } else if "'`".contains(chars[index]) {
+                index += 1
+            } else {
+                break
+            }
+            while index < chars.count, chars[index].isWhitespace { index += 1 }
+        }
+        // A property-bearing string starts with #( and ends at the matching parenthesis.
+        if index + 1 < chars.count, chars[index] == "#", chars[index + 1] == "(" { index += 1 }
+        let objectStart = index
+        // A symbol ends before the next reader delimiter, even without separating whitespace.
+        if index < chars.count, !"([\"".contains(chars[index]) {
+            while index < chars.count, !chars[index].isWhitespace, !"()[]\"'`".contains(chars[index]) {
+                if chars[index] == "\\" { index = min(index + 1, chars.count) }
+                if index < chars.count { index += 1 }
+            }
+            return index == objectStart ? min(index + 1, chars.count) : index
+        }
+        while index < chars.count {
+            let char = chars[index]
+            if char == "\\" {
+                index = min(index + 2, chars.count)
+                continue
+            }
+            if char == "\"" {
+                quoted.toggle()
+                index += 1
+                if !quoted && depth == 0 { break }
+                continue
+            }
+            if !quoted {
+                if char == "(" || char == "[" { depth += 1 }
+                if char == ")" || char == "]" {
+                    index += 1
+                    depth -= 1
+                    if depth <= 0 { break }
+                    continue
+                }
+                if char.isWhitespace && depth == 0 { break }
+            }
+            index += 1
+        }
+        return index
     }
 
     /// The value as Emacs's reader takes it: `nil` is off and a whole number is a depth. Anything else is true,
@@ -90,15 +155,41 @@ struct OrgExportOptions: Equatable {
         return levels == 0 ? .off : .levels(levels)
     }
 
-    /// An integer in Lisp's spelling: a sign, digits and an optional final dot. One too large to hold counts as
-    /// the largest.
+    /// Lisp accepts decimal integers with a trailing dot, and #b, #o, #x or #Nr radix prefixes.
     private static func integer(_ value: String) -> Int? {
-        var digits = Substring(value)
-        if digits.hasSuffix(".") { digits.removeLast() }
-        let negative = digits.hasPrefix("-")
-        if negative || digits.hasPrefix("+") { digits.removeFirst() }
-        guard !digits.isEmpty, digits.utf8.allSatisfy({ (48...57).contains($0) }) else { return nil }
-        let magnitude = Int(digits) ?? Int.max
+        var digits = value.lowercased()[...]
+        var radix = 10
+        if digits.first == "#" {
+            digits.removeFirst()
+            switch digits.first {
+            case "b": radix = 2
+            case "o": radix = 8
+            case "x": radix = 16
+            default:
+                guard let marker = digits.firstIndex(of: "r"), let base = Int(digits[..<marker]),
+                    (2...36).contains(base)
+                else { return nil }
+                radix = base
+                digits = digits[marker...]
+            }
+            digits.removeFirst()
+        } else if digits.last == "." {
+            digits.removeLast()
+        }
+        let negative = digits.first == "-"
+        if negative || digits.first == "+" { digits.removeFirst() }
+        guard !digits.isEmpty else { return nil }
+        var magnitude = 0
+        for byte in digits.utf8 {
+            let digit: Int
+            switch byte {
+            case 48...57: digit = Int(byte) - 48
+            case 97...122: digit = Int(byte) - 97 + 10
+            default: return nil
+            }
+            guard digit < radix else { return nil }
+            magnitude = magnitude > (Int.max - digit) / radix ? Int.max : magnitude * radix + digit
+        }
         return negative ? -magnitude : magnitude
     }
 
@@ -117,7 +208,7 @@ struct OrgOutline {
     struct Entry {
         /// 1 for the document's shallowest headline.
         let level: Int
-        let id: String
+        let escapedID: String
         /// The heading's inline HTML, with its number, without links and footnote marks.
         let html: String
         let listed: Bool
@@ -149,6 +240,7 @@ struct OrgOutline {
     var entries: [Entry] = []
     var requests: [Request] = []
     private var counters: [Int] = []
+    private var reservedCustomIDs: Set<String> = []
     private var usedIDs: Set<String> = []
     private var nextSuffix: [String: Int] = [:]
     /// `:UNNUMBERED:` values, each for the subtree of the headline at `level`.
@@ -156,7 +248,7 @@ struct OrgOutline {
 
     /// The nearest `:UNNUMBERED:` value that applies to a headline at `level` with these properties.
     mutating func unnumberedValue(level: Int, properties: [String: String]) -> String? {
-        unnumbered.removeAll { $0.level >= level }
+        while let last = unnumbered.last, last.level >= level { unnumbered.removeLast() }
         if let value = properties["UNNUMBERED"] { unnumbered.append((level, value)) }
         guard let value = unnumbered.last?.value, value != "nil" else { return nil }
         return value
@@ -172,14 +264,24 @@ struct OrgOutline {
 
     /// Keeps an id the document wrote itself away from the ids made here.
     mutating func reserve(_ id: String) {
+        reservedCustomIDs.insert(id)
         usedIDs.insert(id)
     }
 
-    /// An id no other heading has, from the heading's text: a repeated one gets `-1`, `-2`… A heading whose text
-    /// reads like a footnote's id (`fn-1`, `fnref-1-2`) gets another stem, so no suffix can land on one either.
+    mutating func customID(_ id: String) -> String {
+        if reservedCustomIDs.remove(id) != nil { return id }
+        return allocateID(id)
+    }
+
+    /// Keep the established heading stems, including the section prefix for a title that looks like a note ID.
     mutating func id(for text: String) -> String {
         let slug = MarkdownExtensions.slug(text.trimmingCharacters(in: .whitespaces))
         let base = slug.isEmpty ? "section" : (Self.isNoteID(slug) ? "section-" + slug : slug)
+        return allocateID(base)
+    }
+
+    /// All generated anchors share this namespace, including repeated footnote references.
+    mutating func allocateID(_ base: String) -> String {
         var candidate = base
         // The suffix only grows, and it starts after the last one given out for this stem, so many headings
         // with one title do not try the same ids again. The used ids are finite, so the search ends.
@@ -200,48 +302,4 @@ struct OrgOutline {
         return !rest.isEmpty && rest.allSatisfy { $0.isNumber || $0 == "-" }
     }
 
-    /// A table of contents as nested lists and the number of its entries, or nothing when no heading belongs in
-    /// it.
-    func contents(_ request: Request, headlineLevels: Int, title: String) -> (html: String, count: Int) {
-        var candidates = entries[...]
-        var base = 0
-        if let after = request.after, let level = request.level {
-            candidates = entries[min(after, entries.count)...].prefix { $0.level > level }
-            base = level
-        }
-        // The room left under the starting point bounds the depth before anything is added to it.
-        let room = headlineLevels - base
-        guard room > 0 else { return ("", 0) }
-        let limit = base + min(max(0, request.depth ?? room), room)
-        let listed = candidates.filter { $0.listed && $0.level <= limit }
-        guard let top = listed.map(\.level).min() else { return ("", 0) }
-        var html = "<nav class=\"toc\" role=\"doc-toc\">"
-        if request.after == nil { html += "<p class=\"toc-title\">\(HTML.escape(title))</p>" }
-        // For each open list, whether an item is open in it. A list opens only inside an item, so an entry that
-        // skips a level stands in an item without a link, as in Emacs.
-        var open: [Bool] = []
-        for entry in listed {
-            let level = entry.level - top + 1
-            while open.count > level {
-                if open.removeLast() { html += "</li>" }
-                html += "</ul>"
-            }
-            if open.count == level, open[level - 1] { html += "</li>" }
-            while open.count < level {
-                if let last = open.indices.last, !open[last] {
-                    html += "<li>"
-                    open[last] = true
-                }
-                html += "<ul>"
-                open.append(false)
-            }
-            html += "<li><a href=\"#\(HTML.escape(entry.id))\">\(entry.html)</a>"
-            open[level - 1] = true
-        }
-        while !open.isEmpty {
-            if open.removeLast() { html += "</li>" }
-            html += "</ul>"
-        }
-        return (html + "</nav>\n", listed.count)
-    }
 }

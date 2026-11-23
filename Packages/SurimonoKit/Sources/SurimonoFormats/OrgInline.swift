@@ -32,9 +32,9 @@ enum OrgInline {
     private static let plainLinkTypes: Set<String> = ["http", "https", "ftp", "mailto", "file", "doi", "news"]
 
     /// The end of the address that starts at `start`: a link type and a colon at the start of a word, then
-    /// everything up to white space, a bracket or an unopened parenthesis, without the punctuation that ends
+    /// everything up to white space, an unmatched square bracket, an angle bracket or an unopened parenthesis, without the punctuation that ends
     /// it. A slash may end it.
-    private static func plainLinkEnd(_ characters: [Character], from start: Int) -> Int? {
+    private static func plainLinkEnd(_ characters: [Character], brackets: [Int: Int], from start: Int) -> Int? {
         if start > 0, characters[start - 1].isLetter || characters[start - 1].isNumber { return nil }
         var colon = start
         while colon < characters.count, colon - start < 7, characters[colon].isASCII, characters[colon].isLetter {
@@ -47,6 +47,10 @@ enum OrgInline {
         var open = 0
         while end < characters.count {
             let character = characters[end]
+            if character == "[", let close = brackets[end] {
+                end = close + 1
+                continue
+            }
             if character.isWhitespace || "[]<>".contains(character) { break }
             if character == "(" { open += 1 }
             if character == ")" {
@@ -55,7 +59,7 @@ enum OrgInline {
             }
             end += 1
         }
-        while end > colon + 1, characters[end - 1].isPunctuation, !"/)".contains(characters[end - 1]) { end -= 1 }
+        while end > colon + 1, characters[end - 1].isPunctuation, !"/)]".contains(characters[end - 1]) { end -= 1 }
         return end > colon + 1 ? end : nil
     }
 
@@ -88,6 +92,8 @@ enum OrgInline {
         }
         let characters = Array(text)
         var brackets: [Int: Int] = [:]
+        var linkBrackets: [Int: Int] = [:]
+        var lastSpace = -1
         var stack: [Int] = []
         // The closing brace or parenthesis of each opener a subscript or superscript may start with. Paired once,
         // so a run of unclosed openers never rescans the rest of the text.
@@ -103,10 +109,12 @@ enum OrgInline {
             if let last = open.indices.last { open[last].inner = max(open[last].inner, group.inner + 1) }
         }
         for (position, character) in characters.enumerated() {
+            if character.isWhitespace { lastSpace = position }
             if character == "[" {
                 stack.append(position)
             } else if character == "]", let start = stack.popLast() {
                 brackets[start] = position
+                if start > lastSpace { linkBrackets[start] = position }
             } else if character == "\n" {
                 stack.removeAll(keepingCapacity: true)
             }
@@ -303,7 +311,7 @@ enum OrgInline {
             let character = characters[index]
             // An address in the text is one piece, whatever the document says about scripts: none of its
             // characters is markup.
-            if character.isLetter, let end = plainLinkEnd(characters, from: index) {
+            if character.isLetter, let end = plainLinkEnd(characters, brackets: linkBrackets, from: index) {
                 output += HTML.escape(String(characters[index..<end]))
                 index = end
                 continue
