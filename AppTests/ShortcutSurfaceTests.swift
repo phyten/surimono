@@ -66,7 +66,7 @@ final class ShortcutSurfaceFixture {
                         directory.appendingPathComponent("a.md"),
                         directory.appendingPathComponent("b.md"),
                     ],
-                    read: { _ in Data() }) : nil)
+                    read: { _, _ in Data() }) : nil)
         model.printSubmit = { _, _, _ in Issue.record("Printing is forbidden") }
         model.outputOverride = { _, _ in Issue.record("Output is forbidden") }
         model.window = window

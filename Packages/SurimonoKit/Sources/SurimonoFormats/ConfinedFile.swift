@@ -6,6 +6,13 @@ import Foundation
 public enum ConfinedFile {
     public static let defaultMaximumSize = 1 << 31
 
+    /// An explicitly opened document can live anywhere, but a pipe or device must never hold its window up.
+    public static func read(_ url: URL) throws -> Data {
+        let descriptor = try open(url)
+        defer { Darwin.close(descriptor) }
+        return try readRegular(descriptor, maximumSize: Int.max - 1, afterValidation: nil)
+    }
+
     public static func read(
         _ url: URL, within root: String, maximumSize: Int = defaultMaximumSize,
         afterValidation: (() throws -> Void)? = nil
@@ -27,6 +34,12 @@ public enum ConfinedFile {
         else {
             throw CocoaError(.fileReadNoPermission)
         }
+        return try readRegular(descriptor, maximumSize: maximumSize, afterValidation: afterValidation)
+    }
+
+    private static func readRegular(
+        _ descriptor: Int32, maximumSize: Int, afterValidation: (() throws -> Void)?
+    ) throws -> Data {
         var info = stat()
         guard Darwin.fstat(descriptor, &info) == 0 else { throw posixError() }
         guard (info.st_mode & S_IFMT) == S_IFREG, info.st_size >= 0, info.st_size <= maximumSize else {

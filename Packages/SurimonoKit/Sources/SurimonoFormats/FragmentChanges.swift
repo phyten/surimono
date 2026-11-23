@@ -131,7 +131,7 @@ public enum FragmentChanges {
         guard html.hasPrefix(plainOpen), html.hasSuffix("</pre>") else { return .other }
         let body = html.unicodeScalars.dropFirst(plainOpen.unicodeScalars.count).dropLast(6)
         var lines = PlainLines()
-        var current = String.UnicodeScalarView()
+        var current: [Unicode.Scalar] = []
         var text = String.UnicodeScalarView()
         var open: [String.UnicodeScalarView] = []
         let close = "</span>".unicodeScalars
@@ -166,11 +166,10 @@ public enum FragmentChanges {
                 // This line and the one that follows the break, even an empty one, are one more than the lines
                 // read so far. Past the limit nothing is compared, so nothing after this break is read.
                 guard lines.text.count + 2 <= blockLimit else { return .tooLong }
-                var line = current
-                for _ in open { line.append(contentsOf: close) }
-                lines.html.append(text.isEmpty ? "" : String(line))
+                for _ in open { current.append(contentsOf: close) }
+                lines.html.append(text.isEmpty ? "" : String(String.UnicodeScalarView(current)))
                 lines.text.append(String(text))
-                current = String.UnicodeScalarView()
+                current.removeAll(keepingCapacity: true)
                 for tag in open { current.append(contentsOf: tag) }
                 text = String.UnicodeScalarView()
                 // A carriage return and the line feed after it are one break.
@@ -183,7 +182,7 @@ public enum FragmentChanges {
             index = next
         }
         guard open.isEmpty else { return .other }
-        lines.html.append(text.isEmpty ? "" : String(current))
+        lines.html.append(text.isEmpty ? "" : String(String.UnicodeScalarView(current)))
         lines.text.append(String(text))
         return .lines(lines)
     }

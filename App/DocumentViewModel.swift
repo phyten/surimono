@@ -608,8 +608,8 @@ final class DocumentViewModel {
     private var reloadRequiresRefresh = false
     private var reloadRequiresWebRefresh = false
     private var reloadOwnsProgress = false
-    var readReloadData: @Sendable (URL) async throws -> Data = { url in
-        try await Task.detached(priority: .utility) { try SourceFileOpening.read(url) }.value
+    var readReloadData: @Sendable (URL, DocumentFormat) async throws -> Data = { url, format in
+        try await Task.detached(priority: .utility) { try SourceFileOpening.read(url, format: format) }.value
     }
     private var reloadGeneration = 0
     private var displayedChangeSource: DocumentSource?
@@ -1328,10 +1328,11 @@ final class DocumentViewModel {
             guard preferences.reloadsChangedFiles, let fileURL else { return }
             let generation = reloadGeneration
             let reader = readReloadData
+            let readFormat = format
             reconciliationTask?.cancel()
             reconciliationTask = Task { [weak self] in
                 // Initial registration is not evidence of a change: leave an in-flight layout alone.
-                guard let bytes = try? await reader(fileURL), let self,
+                guard let bytes = try? await reader(fileURL, readFormat), let self,
                     !Task.isCancelled, generation == reloadGeneration, preferences.reloadsChangedFiles, bytes != data
                 else { return }
                 reload(reloadsWeb: true, onlyIfChanged: true)
@@ -1390,9 +1391,10 @@ final class DocumentViewModel {
         }
         // Detached I/O keeps large files off the main actor; generation checks reject superseded reads.
         let reader = readReloadData
+        let readFormat = format
         reloadTask = Task { [weak self] in
             do {
-                let bytes = try await reader(fileURL)
+                let bytes = try await reader(fileURL, readFormat)
                 guard let self, !Task.isCancelled, reloadGeneration == generation else { return }
                 // A `.plist` saved again as binary, or a `.ts` replaced by a video: the last pages stay, and the
                 // reader is told, as for a file that could not be read.

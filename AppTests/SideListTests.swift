@@ -250,7 +250,7 @@ struct SideListTests {
         init(pages: Int = 1) {
             let data = TestFixtures.pdf("side-list", pages: pages)
             let binder = BinderModel(
-                urls: ["a", "b", "c"].map { URL(fileURLWithPath: "/fixture/\($0).pdf") }, read: { _ in data })
+                urls: ["a", "b", "c"].map { URL(fileURLWithPath: "/fixture/\($0).pdf") }, read: { _, _ in data })
             model = DocumentViewModel(
                 data: Data(), fileURL: nil, format: .pdf,
                 preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: root), binder: binder)

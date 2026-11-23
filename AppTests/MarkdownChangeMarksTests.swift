@@ -99,7 +99,7 @@ struct MarkdownChangeMarksTests {
         fixture.model.enterPrintMode()
         try await wait { fixture.model.canOutput }
         let held = HeldRead()
-        fixture.model.readReloadData = { _ in await held.read() }
+        fixture.model.readReloadData = { _, _ in await held.read() }
         let old = fixture.model.result?.logicalDocument
         let calls = fixture.probe.calls
         fixture.model.reload()
@@ -120,7 +120,7 @@ struct MarkdownChangeMarksTests {
         fixture.model.enterPrintMode()
         try await wait { fixture.model.canOutput }
         let held = HeldRead()
-        fixture.model.readReloadData = { _ in await held.read() }
+        fixture.model.readReloadData = { _, _ in await held.read() }
         let old = fixture.model.result?.logicalDocument
         fixture.model.reload()
         while await held.count < 1 { await Task.yield() }
@@ -142,7 +142,7 @@ struct MarkdownChangeMarksTests {
         fixture.model.enterPrintMode()
         try await wait { fixture.model.canOutput }
         let composition = HeldRead()
-        fixture.model.readReloadData = { _ in await read.read() }
+        fixture.model.readReloadData = { _, _ in await read.read() }
         fixture.model.reload()
         while await read.count < 1 { await Task.yield() }
         fixture.renderer.clearCache()
@@ -212,7 +212,7 @@ struct MarkdownChangeMarksTests {
         let edited = Data("* Title\n\nEdited\n\nSecond".utf8)
         try edited.write(to: fixture.file, options: .atomic)
         let reader = model.readReloadData
-        model.readReloadData = { _ in
+        model.readReloadData = { _, _ in
             Issue.record("自動読み直しを切った後に監視からファイルを読みました")
             return previous
         }
