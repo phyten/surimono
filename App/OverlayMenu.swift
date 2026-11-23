@@ -32,6 +32,9 @@ final class OverlayMenuState {
     // Measurements outlive the band so it reopens with the tools that fit.
     var bandWidths: [BandSlot: CGFloat] = [:]
     var bandWidth: CGFloat = 0
+    var scrubberHeld = false {
+        didSet { if scrubberHeld { showFull() } else { updateHideTimer() } }
+    }
     var isHolding = false {
         didSet { updateHideTimer() }
     }
@@ -63,7 +66,7 @@ final class OverlayMenuState {
         hideTask?.cancel()
     }
 
-    private var isHeld: Bool { isHolding || menuTracking > 0 }
+    private var isHeld: Bool { isHolding || scrubberHeld || menuTracking > 0 }
     /// The edge of the paper under a hidden band, and the band's room with that edge while it shows. A band that makes
     /// room for itself moves the paper's edge away from a still pointer, which therefore stays inside; and the band
     /// hides only once the pointer is beyond both, where giving the room back cannot bring the edge under it again.
@@ -102,6 +105,7 @@ final class OverlayMenuState {
     }
 
     func hideNow() {
+        guard !scrubberHeld else { return }
         cancelHide()
         stage = .hidden
     }
@@ -150,7 +154,7 @@ struct BandPlans {
     /// The band a part is on now, or nil when it is not in use, cannot be used here or did not fit.
     func band(of item: BandLayout.Item) -> VerticalEdge? { resolved.band(of: item) }
 
-    init(model: DocumentViewModel, menu: OverlayMenuState) {
+    init(model: DocumentViewModel, menu: OverlayMenuState, availableWidth: CGFloat? = nil) {
         let measured = menu.bandWidths
         let applicable = BandLayout.Item.applicable(for: model)
         var widths: [BandLayout.Item: BandLayout.Widths] = [:]
@@ -172,8 +176,11 @@ struct BandPlans {
         resolved = BandLayout.resolve(
             arrangement: model.preferences.activeBandArrangement, mode: model.menuArrangement,
             availableItems: Set(applicable),
-            measurements: BandMeasurementsValue(items: widths, name: measured[.name] ?? .greatestFiniteMagnitude),
-            metrics: metrics, availableWidth: menu.bandWidth > 0 ? menu.bandWidth : .greatestFiniteMagnitude)
+            measurements: BandMeasurementsValue(
+                items: widths, name: measured[.name] ?? .greatestFiniteMagnitude,
+                scrubber: model.offersScrubber && menu.bandWidth > 0 ? measured[.scrubber] : nil),
+            metrics: metrics,
+            availableWidth: availableWidth ?? (menu.bandWidth > 0 ? menu.bandWidth : .greatestFiniteMagnitude))
     }
 }
 
@@ -505,7 +512,12 @@ struct BottomBand: View {
         let spacing = row.geometry.usesStandardSpacing ? OverlayBand.toolSpacing : 0
         HStack(spacing: spacing) {
             HStack(spacing: spacing) { bandParts(row.leading, row: row, model: model) }.fixedSize()
-            Spacer(minLength: Self.spacerMinimum)
+            if row.showsScrubber {
+                PageScrubber(model: model)
+                    .padding(.horizontal, Self.spacerMinimum / 2)
+            } else {
+                Spacer(minLength: Self.spacerMinimum)
+            }
             bandParts(row.trailing, row: row, model: model)
         }
         .cornerButton(model.preferences.corners, .borderless)

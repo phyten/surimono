@@ -203,6 +203,24 @@ struct ShortcutSurfaceTests {
         }
     }
 
+    @Test("スクラブ中のEscだけを先に受け、入力欄とページ指定には渡す")
+    func scrubEscape() throws {
+        let fixture = try ShortcutSurfaceFixture()
+        defer { fixture.close() }
+        let state = fixture.model.scrubber
+        let escape = fixture.event("\u{1b}", code: 53)
+        state.press(0.4)
+        fixture.responder = NSTextView()
+        #expect(!fixture.dispatcher.handle(escape) && state.dragging)
+        fixture.responder = fixture.paper
+        fixture.model.isGoToPagePresented = true
+        #expect(!fixture.dispatcher.handle(escape) && state.dragging)
+        fixture.model.isGoToPagePresented = false
+        #expect(fixture.dispatcher.handle(escape))
+        #expect(!state.dragging && state.release(1, inside: false) == nil)
+        #expect(!fixture.model.pageHistory.canGoBack)
+    }
+
     @Test("入力欄・別窓・ポップオーバーでは紙の裸キーを実行しない")
     func focusProtection() throws {
         let f = try ShortcutSurfaceFixture()

@@ -183,13 +183,30 @@ final class DocumentViewModel {
     private var defaultPaperOrientation: PaperOrientation
     private var defaultBandVisibility: BandVisibility
     var loneCoverWidth: LoneCoverWidth { preferences.loneCoverWidth }
-    var viewOptions: ViewOptions
+    var viewOptions: ViewOptions {
+        didSet {
+            if viewOptions.layout != oldValue.layout || viewOptions.showsCoverAlone != oldValue.showsCoverAlone {
+                selectedReadingPage = nil
+            }
+        }
+    }
     /// Magnification relative to fitting the current page or spread into the window.
     var zoom: Double = 1
     var pageHistory = PageHistory()
     var bookmarks = Bookmarks()
+    let scrubber = PageScrubSession()
+    var offersScrubber: Bool { menuArrangement == .split && canNavigateReading && pageCount > 1 }
+    var thumbnailGeneration: Int? { isUpToDate && paperDocument === result?.viewDocument ? result?.id : nil }
+    /// The selected half of a spread; PDFView reports only its first page.
+    var selectedReadingPage: Int?
+
     /// The 0-based index of the first visible logical page.
-    var currentPageIndex = 0 { didSet { shownPageIndex = currentPageIndex } }
+    var currentPageIndex = 0 {
+        didSet {
+            if oldValue != currentPageIndex { selectedReadingPage = nil }
+            shownPageIndex = currentPageIndex
+        }
+    }
     /// The page the paper shows, which is a trial's page while a theme is tried; `currentPageIndex` keeps the reading
     /// position in the document's own pages for when the trial ends.
     var shownPageIndex = 0
@@ -305,6 +322,9 @@ final class DocumentViewModel {
 
     #if DEBUG
         // The window benchmark timestamps a visible tile after SwiftUI has installed its image.
+        @ObservationIgnored var scrubThumbnailReady: ((Int, Int) -> Void)?
+        var snapshotScrubWidth: CGFloat?
+        var snapshotScrubImage: (generation: Int, page: Int)?
         @ObservationIgnored var thumbnailDidAppear: ((Int) -> Void)?
     #endif
     @ObservationIgnored private var thumbnailCache: PageThumbnails?
@@ -1221,6 +1241,7 @@ final class DocumentViewModel {
     }
 
     func stop() {
+        scrubber.cancel()
         thumbnailCache = nil
         pageUpdateTask?.cancel()
         pageUpdate = PageUpdateProgress()
@@ -1592,6 +1613,7 @@ final class DocumentViewModel {
 
     private func render(reusing currentPages: PreparedRender?) {
         if reloadedPages == .failed { reloadedPages = .unchanged }
+        selectedReadingPage = nil
         thumbnailCache = nil
         layoutTooLarge = false
         composingSheets = false
