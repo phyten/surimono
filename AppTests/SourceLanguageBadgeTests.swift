@@ -29,11 +29,12 @@ struct SourceLanguageBadgeTests {
         let model: DocumentViewModel
 
         @MainActor
-        init(_ name: String, _ data: Data) throws {
+        init(_ name: String, _ data: Data, paginate: DocumentRenderer.Paginate? = nil) throws {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             url = directory.appendingPathComponent(name)
             try data.write(to: url)
-            let renderer = DocumentRenderer(paginate: { _ in PDFDocument(data: TestFixtures.pdf("Source", pages: 1))! })
+            let renderer = DocumentRenderer(
+                paginate: paginate ?? { _ in PDFDocument(data: TestFixtures.pdf("Source", pages: 1))! })
             model = DocumentViewModel(
                 data: data, fileURL: url, format: .plainText, preferences: AppPreferences(defaults: suite.defaults),
                 library: UserLibrary(root: directory.appendingPathComponent("Library")), renderer: renderer,
@@ -132,6 +133,47 @@ struct SourceLanguageBadgeTests {
         try await wait("読み直した本文の言語になる") { model.shortFormatBadge == "Ruby" }
         #expect(flag.changed)
         #expect(model.sourceLanguage?.id == "ruby")
+    }
+
+    /// Holds the first layout until the test lets it go, so that a later layout can finish before it.
+    @MainActor
+    private final class HeldLayout {
+        var calls = 0
+        private var held: CheckedContinuation<Void, Never>?
+
+        func paginate(_ request: PaginationRequest) async -> PDFDocument {
+            calls += 1
+            if calls == 1 { await withCheckedContinuation { held = $0 } }
+            return PDFDocument(data: TestFixtures.pdf("Source", pages: 1))!
+        }
+
+        func release() {
+            held?.resume()
+            held = nil
+        }
+    }
+
+    @Test("古い内容の組版が新しい内容の組版より後に終わっても、形式バッジは新しい内容の言語のまま", .timeLimit(.minutes(1)))
+    func lateLayoutOfOldContents() async throws {
+        let layout = HeldLayout()
+        let fixture = try Fixture(
+            "tool", Data("#!/usr/bin/env python3\nprint(1)\n".utf8), paginate: { await layout.paginate($0) })
+        defer { fixture.close() }
+        let model = fixture.model
+        try await wait("最初の組版が始まる") { layout.calls == 1 }
+        // The first layout is held: nothing has read the text for this window yet.
+        #expect(model.result == nil)
+        #expect(model.shortFormatBadge == "TXT")
+        try Data("#!/usr/bin/env ruby\nputs 1\n".utf8).write(to: fixture.url, options: .atomic)
+        model.reload()
+        try await wait("新しい内容の組版が先に終わる") { model.shortFormatBadge == "Ruby" && !model.isRendering }
+        #expect(layout.calls >= 2)
+        // Now the layout of the old contents finishes, with Python in its facts.
+        layout.release()
+        try await Task.sleep(for: .milliseconds(500))
+        #expect(model.shortFormatBadge == "Ruby")
+        #expect(model.result?.facts?.sourceLanguage?.id == "ruby")
+        #expect(model.data == Data("#!/usr/bin/env ruby\nputs 1\n".utf8))
     }
 
     @Test("先頭行から shebang が消えると、形式バッジは TXT に戻る", .timeLimit(.minutes(1)))
