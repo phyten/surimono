@@ -31905,55 +31905,55 @@
         }
       }
     },
-    "This file is not text, so Surimono cannot show it.": {
+    "This is not a text file, so it cannot be displayed.": {
       "extractionState": "manual",
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "このファイルはテキストではないため、表示できません。"
+            "value": "このファイルはテキスト形式ではないため、表示できません。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This file is not text, so Surimono cannot show it."
+            "value": "This is not a text file, so it cannot be displayed."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "此文件不是文本，Surimono 无法显示。"
+            "value": "此文件不是文本文件，无法显示。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "此檔案不是文字，Surimono 無法顯示。"
+            "value": "此檔案不是文字檔案，無法顯示。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "이 파일은 텍스트가 아니어서 Surimono에서 표시할 수 없습니다."
+            "value": "이 파일은 텍스트 파일이 아니므로 표시할 수 없습니다."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ce fichier n’est pas du texte, Surimono ne peut donc pas l’afficher."
+            "value": "Ce fichier n’est pas au format texte et ne peut pas être affiché."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Diese Datei ist kein Text und kann von Surimono nicht angezeigt werden."
+            "value": "Diese Datei ist keine Textdatei und kann nicht angezeigt werden."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Este archivo no es de texto, por lo que Surimono no puede mostrarlo."
+            "value": "Este archivo no es de texto, por lo que no se puede mostrar."
           }
         }
       }
