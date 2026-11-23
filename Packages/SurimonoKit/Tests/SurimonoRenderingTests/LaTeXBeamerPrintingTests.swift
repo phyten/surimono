@@ -103,6 +103,8 @@ struct LaTeXBeamerPrintingTests {
         let source = DocumentSource(data: try Data(contentsOf: sourceURL), fileURL: sourceURL, format: .latex)
         let paginator = WebPaginator()
         var measurement: String?
+        let measuredPages = name == "083" ? [1, 2] : [0, 2, 3, 5, 8]
+        let dumpPath = ProcessInfo.processInfo.environment["SURIMONO_LATEX_WEBKIT_LINE_DUMP"]
         if name == "083" || name == "specimen" {
             // Record the layout in the actual print view. The final PDF alone cannot show
             // whether the list pitches drifted in the DOM or only while printing its glyphs.
@@ -120,13 +122,28 @@ struct LaTeXBeamerPrintingTests {
                             const elems = frame.querySelectorAll('.beamer-frame-heading,.beamer-frame-body,.beamer-block-title,.beamer-block-body,li,.latex-item-mark,.beamer-bib-icon,.latex-front-date,.beamer-titlegraphic,pre');
                             const rows = [...elems].slice(0,16).map(el => {
                                 const r=el.getBoundingClientRect(), cs=getComputedStyle(el);
-                                return [el.classList[0] || el.localName, +(r.top-root.top).toFixed(2), +r.height.toFixed(2), cs.lineHeight];
+                                const row = [el.classList[0] || el.localName, +(r.top-root.top).toFixed(2), +r.height.toFixed(2), cs.lineHeight];
+                                if (el.matches('.beamer-bib-icon')) {
+                                    const icon = getComputedStyle(el, '::before');
+                                    row.push({iconTop:+(r.bottom-root.top-parseFloat(icon.bottom)-parseFloat(icon.height)).toFixed(2),
+                                        iconHeight:icon.height});
+                                }
+                                return row;
                             });
+                            // Two out-of-flow marks in the empty gutter locate the frame on the
+                            // physical sheet independently of text metrics and PDFKit selections.
+                            if (markGutter) {
+                                for (const y of [16, 288]) {
+                                    const mark = document.createElement('span');
+                                    mark.style.cssText = 'position:absolute;left:3px;top:'+y+'px;width:4px;height:3px;background:#ff00ff';
+                                    frame.append(mark);
+                                }
+                            }
                             result.push([index+1, +root.height.toFixed(2), rows]);
                         }
                         return JSON.stringify({dpr:devicePixelRatio,media:matchMedia('print').matches,frames:result});
                         """,
-                        arguments: ["indices": name == "083" ? [1, 2] : [0, 2, 3, 5, 8]], until: .now + .seconds(3))
+                        arguments: ["indices": measuredPages, "markGutter": dumpPath == nil], until: .now + .seconds(3))
                     if let value = value as? String { measurement = value }
                 } catch { measurement = String(describing: error) }
             }
@@ -140,7 +157,27 @@ struct LaTeXBeamerPrintingTests {
         if let measurement {
             print("Beamer \(name) DOM [page,height,[element,top,height,lineHeight]] CSS px \(measurement)")
         }
-        if let path = ProcessInfo.processInfo.environment["SURIMONO_LATEX_WEBKIT_LINE_DUMP"] {
+        if measurement != nil && dumpPath == nil {
+            for index in measuredPages {
+                let page = try #require(pdf.page(at: index))
+                let pixels = try PagePixels(page)
+                var tops: [CGFloat] = []
+                var inMark = false
+                for row in 0..<pixels.height {
+                    let y = CGFloat(row) / pixels.scale
+                    let marked = (0..<32).contains { column in
+                        let rgb = pixels.color(atX: CGFloat(column) / pixels.scale, y: y)
+                        return rgb.red > 200 && rgb.blue > 200 && rgb.green < 60
+                    }
+                    if marked && !inMark { tops.append(y) }
+                    inMark = marked
+                }
+                print(
+                    "Beamer \(name) p\(index + 1) DOM y=[16,288]px PDF y=\(tops)pt crop=\(page.bounds(for: .cropBox)) media=\(page.bounds(for: .mediaBox))"
+                )
+            }
+        }
+        if let path = dumpPath {
             #expect(pdf.write(to: URL(fileURLWithPath: path).appendingPathComponent(name + ".pdf")))
         }
         let size = try #require(reference.page(at: 0)).bounds(for: .mediaBox)

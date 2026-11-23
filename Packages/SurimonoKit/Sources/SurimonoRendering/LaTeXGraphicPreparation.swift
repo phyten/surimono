@@ -217,8 +217,11 @@ enum LaTeXGraphicPreparation {
         for (const table of tables) {
           // Journals can set a separate table pitch; their unscaled tables already use that class strut.
           if (!table.closest('.latex-graphic-box') && document.body.hasAttribute('data-latex-journal')) continue;
-          if (!table.matches(':lang(en)') || !getComputedStyle(table).getPropertyValue('--tex-pt') ||
-              !getComputedStyle(table).fontFamily.startsWith('"Surimono Computer Modern"')) continue;
+          const style = getComputedStyle(table);
+          // CSSOM may serialize a multi-word family as a string or as unquoted identifiers.
+          const family = style.fontFamily.split(',')[0].trim().replace(/^["']|["']$/g, '').toLowerCase();
+          if (!table.matches(':lang(en)') || !style.getPropertyValue('--tex-pt') ||
+              family !== 'surimono computer modern') continue;
           for (const cell of table.querySelectorAll(':scope > :is(tbody,thead,tfoot) > tr > :is(td,th):not([data-latex-column])')) {
             if (cell.querySelector('br,p,div,table,.latex-array-strut')) continue;
             const strut = document.createElement('span');

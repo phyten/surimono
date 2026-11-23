@@ -24,8 +24,10 @@ body.format-latex .beamer-frame :is(h1,h2,h3,h4,h5,.latex-front-title,.beamer-bl
     border: 0; padding: 0; margin: 0; font: inherit; text-align: inherit; color: var(--beamer-blue);
     letter-spacing: normal; text-transform: none; break-before: auto; background: none;
 }
+/* Use the integral CSS-pixel line boxes of the reference layout. A fractional pitch
+   otherwise accumulates differently across WebKit versions, especially in nested lists. */
 body.format-latex .beamer-frame .beamer-frame-title,
-body.format-latex .beamer-frame .latex-front-title { font-size: var(--beamer-title-size,1.315em); line-height: 1.24; }
+body.format-latex .beamer-frame .latex-front-title { font-size: var(--beamer-title-size,1.315em); line-height: round(down, 1.24em, 1px); }
 body.format-latex .beamer-frame .beamer-frame-subtitle { font-size: var(--beamer-note-size,.822em); margin: 0; color: var(--beamer-blue); }
 body.format-latex > .beamer-frame[data-plain] { padding-bottom: 0; }
 .beamer-frame > .beamer-frame-body, .beamer-frame > .beamer-footnotes {
@@ -53,10 +55,14 @@ body.format-latex .beamer-titlepage .beamer-titlegraphic { position: relative; t
 body.format-latex .beamer-titlepage .latex-front-date { font: inherit; }
 body.format-latex .beamer-titlepage .latex-front-subtitle { color: var(--beamer-blue); padding-top: 0; padding-bottom: .35em; }
 body.format-latex .beamer-titlepage:has(.latex-front-subtitle) .latex-front-title { padding-bottom: .15em; }
+body.format-latex .beamer-frame :is(.beamer-frame-subtitle,.beamer-institute,.latex-front-authors,.latex-front-date,
+    .latex-front-subtitle,.beamer-titlegraphic,.beamer-frame-body > p,.beamer-block-body > p,.latex-verbatim) {
+    line-height: round(down, var(--beamer-pitch,1.24em), 1px);
+}
 /* Each nesting level adds two base ems even as the list font becomes smaller. */
 body.format-latex .beamer-frame :is(ul,ol,dl) { margin: calc(3 * var(--tex-pt)) 0; padding-left: calc(2 * var(--beamer-font)); }
-body.format-latex .beamer-frame li { padding: 0; margin: 0; line-height: 1.29; }
-body.format-latex .beamer-frame li li { line-height: 1.24; }
+body.format-latex .beamer-frame li { padding: 0; margin: 0; line-height: round(down, 1.29em, 1px); }
+body.format-latex .beamer-frame li li { line-height: round(down, 1.24em, 1px); }
 body.format-latex .beamer-frame li + li { margin-top: calc(3 * var(--tex-pt)); }
 body.format-latex .beamer-frame li > :is(ul,ol) { font-size: var(--beamer-small-size,.913em); margin-block: calc(1.5 * var(--tex-pt)); }
 body.format-latex .beamer-frame li li > :is(ul,ol) { font-size: var(--beamer-note-size,calc(9 * var(--tex-pt))); }
@@ -85,7 +91,7 @@ body.format-latex .beamer-frame .latex-description dd { margin: 0; }
 body.format-latex .beamer-frame .beamer-block { padding-block: calc(6 * var(--tex-pt)) calc(3 * var(--tex-pt)); }
 /* The centre environment opening a figure coalesces its top skip with the block's closing skip. */
 body.format-latex .beamer-frame .beamer-block:has(+ figure) { padding-bottom: calc(1.5 * var(--tex-pt)); }
-body.format-latex .beamer-frame .beamer-block-title { font-size: var(--beamer-block-size,1.096em); line-height: 1.28; }
+body.format-latex .beamer-frame .beamer-block-title { font-size: var(--beamer-block-size,1.096em); line-height: round(down, 1.28em, 1px); }
 body.format-latex .beamer-frame .beamer-block-body { padding-top: var(--beamer-title-depth,0px); }
 body.format-latex .beamer-frame :is(.beamer-alert,.alert),
 body.format-latex .beamer-frame .beamer-block[data-kind=alertblock] > .beamer-block-title { color: red; }
@@ -179,7 +185,7 @@ body.format-latex .beamer-frame .beamer-biblist-text { padding-left: 0; }
 .beamer-bib-label > :first-child { visibility: hidden; }
 .beamer-bib-label > :last-child { position: absolute; inset: 0 auto auto 0; white-space: nowrap; }
 body.format-latex .beamer-frame .latex-table + .beamer-bibliography { margin-top: 2.1em; }
-body.format-latex .beamer-frame .latex-table td { line-height: 1.29; }
+body.format-latex .beamer-frame .latex-table td { line-height: round(down, 1.29em, 1px); }
 body.format-latex .beamer-frame .latex-table figcaption { margin-top: .64em; }
 /* A tabular ends on its text baseline; its depth belongs below the centred material. */
 .beamer-frame[data-align=c] > .beamer-frame-body:has(> figure.latex-table:first-child) {

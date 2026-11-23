@@ -133,7 +133,7 @@ struct ReadingPDFExporterTests {
         let output = try ReadingPDFExporter.document(
             from: prepared.logicalDocument, entries: outline.entries, title: "Org", headings: outline.headings,
             sourceURL: source.fileURL)
-        let bytes = try #require(output.dataRepresentation())
+        let bytes = try ReadingPDFExporter.data(from: output)
         let reread = try #require(PDFDocument(data: bytes))
         func targets(onPage index: Int) -> [Int] {
             let annotations: [PDFAnnotation] = reread.page(at: index)?.annotations ?? []
@@ -161,7 +161,7 @@ struct ReadingPDFExporterTests {
             of: source, in: logical, proof: .shown, includesSourceContents: true)
         #expect(outline.entries.map(\.pageIndex) == [0, 0, 1])
         let output = try ReadingPDFExporter.document(from: logical, entries: outline.entries, title: "Org")
-        let data = try #require(output.dataRepresentation())
+        let data = try ReadingPDFExporter.data(from: output)
         let reread = try #require(PDFDocument(data: data))
         let root = try #require(reread.outlineRoot)
         var pages: [Int] = []

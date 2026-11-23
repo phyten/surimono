@@ -92,6 +92,7 @@ public final class WebPaginator: NSObject {
     /// Upper bound for the print step, which normally finishes in well under a second.
     var printTimeout: Duration?
     var flowEvaluator: LaTeXFlowPaginator.Evaluator?
+    var inspectFlowPlan: LaTeXFlowPaginator.PlanObserver?
     // Test clients opt into paragraph text only when comparing the corpus or checking PDF output.
     var collectsLatinLineDiagnostics = false
     var collectsLatinBoxDiagnostics = false
@@ -104,6 +105,8 @@ public final class WebPaginator: NSObject {
     /// Number of print operations started (observed by tests).
     private(set) var printStartCount = 0
     /// Test hooks that make the order of events around printing deterministic.
+    // Tests can deliver the navigation deadline once a committed document reaches a particular parser state.
+    var expireNavigationAfterCommit: (@MainActor (WKWebView) async throws -> Void)?
     var didStartWaitingForResources: (@MainActor () -> Void)?
     var didFinishPrinting: (@MainActor () -> Void)?
     /// Lets layout tests read the prepared DOM before starting the native print operation.
@@ -258,7 +261,8 @@ public final class WebPaginator: NSObject {
         }
         let stoppedResources: Bool
         do {
-            stoppedResources = try await session.loadForPrinting(source, timeout: timeout)
+            stoppedResources = try await session.loadForPrinting(
+                source, timeout: timeout, expireAfterCommit: expireNavigationAfterCommit)
         } catch {
             return try await retrySingleColumn(after: error, usedFlow: latexFlow)
         }
@@ -474,7 +478,7 @@ public final class WebPaginator: NSObject {
             }
             let pass = try await LaTeXFlowPaginator.paginate(
                 in: session.webView, pageSize: pageSize, margins: margins, timeout: remaining(),
-                scriptTimeout: timeout, evaluator: flowEvaluator)
+                scriptTimeout: timeout, evaluator: flowEvaluator, inspectPlan: inspectFlowPlan)
             // Keep the page references written by Quartz until the viewer opens these bytes.
             guard let data = pass.data else { throw PaginationError.emptyDocument }
             return data
@@ -1014,13 +1018,27 @@ private final class PaginationSession {
         }
     }
 
-    func loadForPrinting(_ source: WebPaginator.Source, timeout: Duration) async throws -> Bool {
+    func loadForPrinting(
+        _ source: WebPaginator.Source, timeout: Duration,
+        expireAfterCommit: (@MainActor (WKWebView) async throws -> Void)?
+    ) async throws -> Bool {
         try load(source)
+        var expired = false
         do {
             try await WebPaginator.waitUntil(timeout: timeout) {
                 navigationState != .loading || navigationTracker.terminationError != nil
+                    || (expireAfterCommit != nil && hasCommitted)
             }
         } catch WebPaginator.PaginationError.timedOut {
+            expired = true
+        }
+        if !expired, let expireAfterCommit, hasCommitted, navigationState == .loading,
+            navigationTracker.terminationError == nil
+        {
+            try await expireAfterCommit(webView)
+            expired = navigationState == .loading
+        }
+        if expired {
             // A never-loading resource may hold up a complete, printable document.
             guard hasCommitted else { throw WebPaginator.PaginationError.timedOut }
             let state =

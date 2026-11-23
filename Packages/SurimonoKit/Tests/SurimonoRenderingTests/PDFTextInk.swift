@@ -36,7 +36,9 @@ func printedInk(
                 space: color == .any ? CGColorSpaceCreateDeviceGray() : CGColorSpaceCreateDeviceRGB(),
                 bitmapInfo: (color == .any ? CGImageAlphaInfo.none : .premultipliedLast).rawValue))
         context.scaleBy(x: scale, y: scale)
-        context.translateBy(x: -rect.minX, y: -rect.minY)
+        // Selections use page coordinates, while PDFPage.draw already removes the media box origin.
+        let box = page.bounds(for: .mediaBox)
+        context.translateBy(x: box.minX - rect.minX, y: box.minY - rect.minY)
         page.draw(with: .mediaBox, to: context)
     }
     var left = width

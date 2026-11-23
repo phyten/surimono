@@ -120,6 +120,39 @@ struct LaTeXSocietyPrintingTests {
         #expect(abs(bounds.width - heading.width) < 1)
     }
 
+    // Record the same measured strips and break that Quartz will paint, before serialization.
+    private func ipsjColumnMetrics(_ input: LaTeXFlowLayout.Measurement, _ pages: [LaTeXFlowLayout.Page]) -> String {
+        guard pages.count >= 2 else { return "pages=\(pages.count)" }
+        let items = input.segments.flatMap(\.items)
+        let floats = items.compactMap { item -> String? in
+            guard let kind = item.floatKind, let box = item.slice else { return nil }
+            return kind + String(format: "=%.2f", box.height)
+        }
+        let pieces = pages[1].pieces.filter { $0.x == 0 }
+        let rows = items.compactMap { item -> (paragraph: String, top: CGFloat)? in
+            guard let para = item.paragraph, para > 0, let s = item.slice,
+                pieces.contains(where: {
+                    $0.slice.strip == s.strip && s.start < $0.slice.end - 0.1 && s.end > $0.slice.start + 0.1
+                })
+            else { return nil }
+            return ("\(s.strip).\(para)", s.start)
+        }
+        let paragraphs = Dictionary(grouping: rows, by: \.paragraph)
+        let lines = paragraphs.keys.sorted().map { key in
+            let starts = paragraphs[key, default: []].map(\.top)
+            let steps = zip(starts.dropFirst(), starts).map { $0 - $1 }.sorted()
+            let pitch = steps.isEmpty ? "–" : String(format: "%.2f", steps[steps.count / 2])
+            return "\(key):\(starts.count)@\(pitch)"
+        }
+        let breaks = pages.prefix(2).enumerated().flatMap { index, page in
+            page.columnBreaks.map { cut in
+                "p\(index + 1)c\(cut.column + 1)#\(cut.nextItem)"
+                    + String(format: " %.2f/%.2f", cut.remaining, cut.required)
+            }
+        }
+        return "floatHeight=\(floats) p2left[strip.paragraph:rows@pitch]=\(lines) break[remaining/next]=\(breaks)"
+    }
+
     @Test(
         "学会の原稿を指定判型で刷り、初頁の表題・本文・所属注と柱を検索する", .timeLimit(.minutes(1)),
         arguments: ["125-class-ipsj", "126-class-ieicej", "127-class-ieice"])
@@ -135,7 +168,14 @@ struct LaTeXSocietyPrintingTests {
         var settings = RenderSettings(layout: layout, theme: theme, preset: .init(id: "none", name: ""))
         settings.options.latexMargins = .style
         settings.options.latexFurniture = .style
-        let result = try await DocumentRenderer().prepare(.init(data: data, format: .latex), settings: settings)
+        let paginator = WebPaginator()
+        var metrics = "flow plan unavailable"
+        if !english && !supplement {
+            paginator.inspectFlowPlan = { measurement, pages in metrics = ipsjColumnMetrics(measurement, pages) }
+        }
+        let renderer = DocumentRenderer(paginateWithResult: { request in try await paginator.paginate(request) })
+        let result = try await renderer.prepare(.init(data: data, format: .latex), settings: settings)
+        if !english && !supplement { print("IPSJ 125 DOM/column CSS px \(metrics)") }
         let pdf = try ReadingPDFExporter.document(
             from: result.viewDocument, entries: [], title: "Specimen", furniture: result.viewFurniture)
         #expect(pdf.pageCount == (supplement ? 3 : 2))

@@ -33,6 +33,9 @@ struct LaTeXTablePrintingTests {
                         };
                         return JSON.stringify({natural:[size.width,size.height], matrix:size.transform,
                           rows:[...table.rows].slice(0,3).map(shape), struts:table.querySelectorAll('.latex-array-strut').length,
+                          firstCells:[...table.rows].slice(0,3).map(row =>
+                            !!row.cells[0]?.querySelector(':scope > .latex-array-strut')),
+                          size:getComputedStyle(table).fontSize, pitch:getComputedStyle(table).lineHeight,
                           font:getComputedStyle(table).fontFamily, dpr:devicePixelRatio});
                         """, until: .now + .seconds(3))
                     if let value = value as? String { dimensions = value }
@@ -59,8 +62,12 @@ struct LaTeXTablePrintingTests {
         let expected = try inkDistance(row, caption, in: reference)
         #expect(abs(distance - expected) <= 0.3, "実測 \(distance) pt、参照 \(expected) pt")
         guard scaled else { return }
+        let metrics = try #require(
+            (try? JSONSerialization.jsonObject(with: Data(dimensions.utf8))) as? [String: Any], "\(dimensions)")
+        #expect(metrics["firstCells"] as? [Bool] == [true, true, true], "\(dimensions)")
         let heading = try inkDistance("Batch comparison grid", "Amber", in: pdf)
         let texHeading = try inkDistance("Batch comparison grid", "Amber", in: reference)
+        print("Table 022 DOM \(dimensions) PDF heading→Amber=\(heading)pt TeX=\(texHeading)pt")
         func anchors(_ deck: PDFDocument) -> String {
             guard let sheet = deck.page(at: 0) else { return "page missing" }
             let positions = ["Batch comparison grid", "Maximum deviation", "Amber", "Slate", "Three"].map { text in

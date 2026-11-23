@@ -319,10 +319,12 @@ enum LaTeXFlowPaginator {
 
     typealias Evaluator = @MainActor (WKWebView, String, [String: Any], @escaping WebKitReply<Any>.Completion) -> Void
 
+    typealias PlanObserver = @MainActor (LaTeXFlowLayout.Measurement, [LaTeXFlowLayout.Page]) -> Void
+
     static func paginate(
         in view: WKWebView, pageSize: CGSize, margins: WebPaginator.Margins, timeout: Duration,
         referencesOnly: Bool = false, htmlComposition: WebPaginator.HTMLComposition? = nil, sample: Bool = false,
-        scriptTimeout: Duration? = nil, evaluator: Evaluator? = nil
+        scriptTimeout: Duration? = nil, evaluator: Evaluator? = nil, inspectPlan: PlanObserver? = nil
     ) async throws -> Pass {
         guard PDFDrawing.validGeometry(pageSize: pageSize, margins: margins) else {
             throw WebPaginator.PaginationError.printFailed
@@ -358,7 +360,9 @@ enum LaTeXFlowPaginator {
         if input.mathProof == true, try await rejectsMathSpacing(in: view, until: deadline) {
             input = try await measurement("surimonoRestoreFlow();\n" + measure)
         }
-        let (pages, locations, review) = try await plan(input, width: width, height: height, until: deadline)
+        let (pages, locations, review) = try await plan(
+            input, width: width, height: height, recordsBreaks: inspectPlan != nil, until: deadline)
+        inspectPlan?(input, pages)
         if let htmlComposition {
             let rows: [[String: Any]] = try pages.map { page in
                 [
@@ -561,11 +565,13 @@ enum LaTeXFlowPaginator {
     }
 
     @concurrent private static func plan(
-        _ input: LaTeXFlowLayout.Measurement, width: CGFloat, height: CGFloat, until deadline: ContinuousClock.Instant
+        _ input: LaTeXFlowLayout.Measurement, width: CGFloat, height: CGFloat, recordsBreaks: Bool,
+        until deadline: ContinuousClock.Instant
     ) async throws -> (
         [LaTeXFlowLayout.Page], [Int: Int], ConferenceReviewDrawing?
     ) {
-        let pages = try LaTeXFlowLayout.pages(input, width: width, height: height, until: deadline)
+        let pages = try LaTeXFlowLayout.pages(
+            input, width: width, height: height, recordsBreaks: recordsBreaks, until: deadline)
         let review = input.review.map {
             ConferenceReviewDrawing(
                 style: $0, lines: input.reviewLines ?? [], banner: input.reviewBanner, corner: input.reviewCorner)

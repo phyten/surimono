@@ -62,8 +62,13 @@ func compareBeamerReference(_ pdf: PDFDocument, to reference: PDFDocument, fixtu
             try checkBeamerReadingOrder(in: page, words: words)
         }
         for word in words {
-            let actual = try printedInk(of: word, in: pdf, on: page)
-            let expected = try printedInk(of: word, in: reference, on: tex)
+            // A cut sheet can retain the original media box origin after PDFKit writes it.
+            func paperInk(in deck: PDFDocument, on sheet: PDFPage) throws -> CGRect {
+                let box = sheet.bounds(for: .mediaBox)
+                return try printedInk(of: word, in: deck, on: sheet).offsetBy(dx: -box.minX, dy: -box.minY)
+            }
+            let actual = try paperInk(in: pdf, on: page)
+            let expected = try paperInk(in: reference, on: tex)
             // TeX uses an optical 8-point sans face for the institute. The slide uses the same
             // size and centring with the bundled design, whose natural advances are narrower.
             let isInstitute = ["Harbour Workshop", "Paper Model Workshop"].contains(word)
@@ -112,6 +117,17 @@ func compareBeamerReference(_ pdf: PDFDocument, to reference: PDFDocument, fixtu
         }
         let actual = try paperIcon(in: pdf)
         let expected = try paperIcon(in: reference)
+        let label = fixture == "083" ? "Model Rail Desk" : "Harbour Crew"
+        func labelTop(in deck: PDFDocument) throws -> CGFloat {
+            let sheet = try #require(deck.page(at: index))
+            return sheet.bounds(for: .cropBox).maxY - (try printedInk(of: label, in: deck, on: sheet)).maxY
+        }
+        let pdfLabel = try labelTop(in: pdf)
+        let texLabel = try labelTop(in: reference)
+        print(
+            String(
+                format: "Beamer %@ p%d PDF icon/label top=%.2f/%.2fpt TeX=%.2f/%.2fpt",
+                fixture, index + 1, actual.minY, pdfLabel, expected.minY, texLabel))
         #expect(abs(actual.minX - expected.minX) <= 1 && abs(actual.maxX - expected.maxX) <= 1)
         #expect(
             abs(actual.minY - expected.minY) <= 1 && abs(actual.maxY - expected.maxY) <= 1,
@@ -153,8 +169,9 @@ func compareBeamerReference(_ pdf: PDFDocument, to reference: PDFDocument, fixtu
             let pixels = try PagePixels(page)
             func darkestRed(_ title: String) throws -> Int {
                 let selection = try #require(deck.findString(title).first { $0.pages.contains(page) })
-                let box = selection.bounds(for: page)
-                let top = page.bounds(for: .mediaBox).maxY - box.maxY
+                let crop = page.bounds(for: .cropBox)
+                let box = selection.bounds(for: page).offsetBy(dx: -crop.minX, dy: -crop.minY)
+                let top = crop.height - box.maxY
                 var minimum = 255
                 for row in Int(top * 4)..<Int((top + box.height) * 4) {
                     for col in Int(box.minX * 4)..<Int(box.maxX * 4) {
@@ -248,8 +265,9 @@ private func checkSlideRules(
 ) throws {
     func rule(in deck: PDFDocument) throws -> CGRect {
         let page = try #require(deck.page(at: index))
-        let y = page.bounds(for: .mediaBox).maxY - bottom
-        return try printedInk(in: CGRect(x: x, y: y, width: 2, height: bottom - top), on: page)
+        let box = page.bounds(for: .mediaBox)
+        let area = CGRect(x: box.minX + x, y: box.maxY - bottom, width: 2, height: bottom - top)
+        return try printedInk(in: area, on: page).offsetBy(dx: -box.minX, dy: -box.minY)
     }
     let actual = try rule(in: pdf)
     let tex = try rule(in: reference)
@@ -257,7 +275,7 @@ private func checkSlideRules(
         guard let page = deck.page(at: index), let ink = try? printedInk(of: word, in: deck, on: page) else {
             return "?"
         }
-        return String(format: "%.2f", ink.minY - rule.maxY)
+        return String(format: "%.2f", ink.minY - page.bounds(for: .mediaBox).minY - rule.maxY)
     }
     #expect(
         abs(actual.maxY - tex.maxY) <= 1,

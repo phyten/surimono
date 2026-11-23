@@ -127,7 +127,16 @@ struct LaTeXFlowLayout {
 
     }
 
+    // Keep the fit operands from the chosen layout, before the column glue is stretched.
+    struct ColumnBreak {
+        var column: Int
+        var nextItem: Int
+        var remaining: CGFloat
+        var required: CGFloat
+    }
+
     struct Page {
+        var columnBreaks: [ColumnBreak] = []
         var isBlankVersoOrRecto = false
         var pieces: [Piece] = []
         var rules: [CGRect] = []
@@ -359,6 +368,7 @@ struct LaTeXFlowLayout {
 
     private let input: Measurement
     private let full: Lane
+    private let recordsBreaks: Bool
     private let normalHeight: CGFloat
     private var textFloatSep: CGFloat {
         max(0, input.textFloatSep - page.shrinkFraction * (input.glueShrink?.textFloat ?? 0))
@@ -382,7 +392,8 @@ struct LaTeXFlowLayout {
     private var top: CGFloat = 0
 
     static func pages(
-        _ input: Measurement, width: CGFloat, height: CGFloat, until deadline: ContinuousClock.Instant? = nil
+        _ input: Measurement, width: CGFloat, height: CGFloat, recordsBreaks: Bool = false,
+        until deadline: ContinuousClock.Instant? = nil
     ) throws -> [Page] {
         let spacing = [
             input.noteSkip, input.noteStrutDepth ?? 0, input.noteRuleWidth ?? 180, input.noteRuleThickness ?? 0.5,
@@ -394,7 +405,9 @@ struct LaTeXFlowLayout {
             input.glueStretch?.valid != false, input.glueShrink?.valid != false,
             input.columnNotice?.valid != false, input.firstNotice?.valid != false
         else { throw CannotFit() }
-        var layout = Self(input: input, full: Lane(x: 0, width: width), normalHeight: height, deadline: deadline)
+        var layout = Self(
+            input: input, full: Lane(x: 0, width: width), recordsBreaks: recordsBreaks, normalHeight: height,
+            deadline: deadline)
         let finalSegment = input.segments.lastIndex { !$0.items.isEmpty }
         for (index, source) in input.segments.enumerated() where !source.items.isEmpty {
             var segment = source
@@ -955,6 +968,12 @@ struct LaTeXFlowLayout {
                     footLane: segment.titleNoteWidth.map { Lane(x: 0, width: $0) } ?? (segment.pageNotes ? full : lane),
                     end: end + footHeight - depth - bodyDepth, limit: limit)
             else {
+                if recordsBreaks {
+                    page.columnBreaks.append(
+                        ColumnBreak(
+                            column: index, nextItem: cursor.item, remaining: room - y,
+                            required: end + footHeight - depth - bodyDepth - y))
+                }
                 if item.heading == true && end <= min(limit, height - page.reserved(lane, full: full)) {
                     cursor.floatAfterMovedHeading = cursor.item + 1
                 }
