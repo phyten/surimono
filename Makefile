@@ -47,6 +47,7 @@ help:
 	@echo "snapshots  Render local snapshots; snapshots-report compares and snapshots-approve accepts reviewed cases"
 	@echo "bench      Record rendering benchmarks (SURIMONO_BENCH_RUNS / SURIMONO_BENCH_OUT)"
 	@echo "bench-source  Measure source conversion, first/all pages and memory (bench-source-conversion skips WebKit)"
+	@echo "bench-prose  Time the writing check on generated Japanese, English and mixed texts (SURIMONO_BENCH_RUNS)"
 	@echo "bench-compare  Compare medians: BASE=<json> NEW=<json> [BENCH_THRESHOLD=20]"
 	@echo "lint       Check Swift formatting"
 	@echo "format     Format Swift sources"
@@ -176,6 +177,11 @@ bench-scrubber-window:
 
 bench-pages-window:
 	TEST_RUNNER_SURIMONO_BENCH_PAGES=1 $(filter-out -quiet,$(XCODEBUILD)) -configuration "$(CONFIGURATION)" -only-testing:SurimonoTests/PageDrawerWindowBenchmarks test
+
+# The writing check alone: no WebKit, so it needs neither the sandbox off nor a serial run.
+.PHONY: bench-prose
+bench-prose:
+	SURIMONO_BENCH_PROSE=1 $(SWIFT_TEST) --filter ProseCheckBenchmarks
 
 bench-compare:
 	python3 Benchmarks/compare.py "$(BASE)" "$(NEW)" --threshold "$(BENCH_THRESHOLD)"

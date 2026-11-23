@@ -19,6 +19,15 @@ enum MarkdownExtensions {
             self.definitions = definitions
         }
 
+        /// Rendering a note may discover another. Both the printed section and the prose reader consume this order.
+        func forEachReferenced(_ visit: (Int, String) -> Void) {
+            var index = 0
+            while index < order.count {
+                visit(index, order[index])
+                index += 1
+            }
+        }
+
         func number(of id: String) -> Int? { numbers[id] }
 
         /// The reference's HTML, or nil for an id without a definition, which stays as written.
@@ -305,11 +314,13 @@ enum MarkdownExtensions {
         rewriteInline(MarkdownSourceLines.unmapped(lines), footnotes: footnotes, formulas: formulas, proof: proof).lines
     }
 
+    /// When the prose reader supplies a callback, report each inline formula's input line and UTF-16 range.
+    /// Preserve the spelling and columns of those lines, and omit typesetting for display blocks.
     static func rewriteInline(
-        _ source: MarkdownSourceLines, footnotes: Footnotes, formulas: Formulas, proof: ProofMarks = .shown
-    )
-        -> MarkdownSourceLines
-    {
+        _ source: MarkdownSourceLines, footnotes: Footnotes, formulas: Formulas, proof: ProofMarks = .shown,
+        proseFormula: ((Int, NSRange) -> Void)? = nil
+    ) -> MarkdownSourceLines {
+        let blocksOnly = proseFormula != nil
         let lines = source.lines
         let protection = protection(lines)
         var output = MarkdownSourceLines()
@@ -340,7 +351,9 @@ enum MarkdownExtensions {
                 index += 1
                 continue
             }
-            if let end = protection.paragraphEnds[index], end > index + 1, line.contains("{") {
+            if let end = protection.paragraphEnds[index],
+                end > index + 1, line.contains("{")
+            {
                 if !remembers {
                     unjoinable = [:]
                     scanned = [:]
@@ -351,6 +364,27 @@ enum MarkdownExtensions {
                     counting: count)
                 {
                 case .joined(let joined):
+                    if blocksOnly {
+                        // Joining removes list and quote prefixes. Restore their widths when reporting a match.
+                        let pieces = joined.text.components(separatedBy: "\n")
+                        var piece = 0
+                        var start = 0
+                        let lengths = pieces.map { $0.utf16.count }
+                        let prefixes = zip(lines[index..<end], lengths).map { $0.utf16.count - $1 }
+                        _ = rewriteInline(joined.text, footnotes, nil, proof) { range in
+                            while piece + 1 < lengths.count, range.location > start + lengths[piece] {
+                                start += lengths[piece] + 1
+                                piece += 1
+                            }
+                            let line = index + piece
+                            let prefix = prefixes[piece]
+                            proseFormula?(
+                                line, NSRange(location: range.location - start + prefix, length: range.length))
+                        }
+                        for number in index..<end { output.append(lines[number], from: source.origins[number]) }
+                        index = end
+                        continue
+                    }
                     let rewritten = rewriteInline(joined.text, footnotes, formulas, proof)
                     let pieces = rewritten.components(separatedBy: "\n")
                     let origins = source.origins[index..<end].reduce(into: Set<Int>()) { $0.formUnion($1) }
@@ -368,7 +402,12 @@ enum MarkdownExtensions {
                 case .block(let block):
                     // An HTML block ends only at a blank line, so one follows to keep the next lines out of it.
                     let origins = source.origins[index..<block.end].reduce(into: Set<Int>()) { $0.formUnion($1) }
-                    output.append(block.prefix + formulas.block(block.latex, source: block.source), from: origins)
+                    output.append(
+                        block.prefix
+                            + (blocksOnly
+                                ? "<div class=\"math-block\"></div>"
+                                : formulas.block(block.latex, source: block.source)),
+                        from: origins)
                     output.append(block.blankLine, from: [])
                     index = block.end
                     continue
@@ -377,8 +416,25 @@ enum MarkdownExtensions {
                 }
             }
             index += 1
+            if blocksOnly, footnotes.definitions.isEmpty || !line.utf8.contains(0x5E),
+                !line.utf8.contains(0x24), !line.utf8.contains(0x5C)
+            {
+                output.append(line, from: source.origins[index - 1])
+                continue
+            }
+            // Use the converter's protected spans and recursive inline scanner to discover references, even in
+            // headings or quotes the prose reader skips. Its parser still needs the original source columns.
+            let inlineFormulas = blocksOnly ? nil : formulas
+            func rewrite(_ chunk: String, from column: Int) -> String {
+                rewriteInline(
+                    chunk, footnotes, inlineFormulas, proof, base: column,
+                    foundFormula: proseFormula.map { record in
+                        { record(index - 1, $0) }
+                    })
+            }
             guard let spans = protection.spans[index - 1] else {
-                output.append(rewriteInline(line, footnotes, formulas, proof), from: source.origins[index - 1])
+                let rewritten = rewrite(line, from: 0)
+                output.append(blocksOnly ? line : rewritten, from: source.origins[index - 1])
                 continue
             }
             let bytes = Array(line.utf8)
@@ -390,14 +446,17 @@ enum MarkdownExtensions {
             }
             var rewritten = ""
             var cursor = 0
+            var column = 0
             for span in spans.sorted(by: { $0.lowerBound < $1.lowerBound }) where span.lowerBound >= cursor {
-                rewritten += rewriteInline(text(cursor..<span.lowerBound), footnotes, formulas, proof) + text(span)
+                let before = text(cursor..<span.lowerBound)
+                let protected = text(span)
+                rewritten += rewrite(before, from: column) + protected
+                column += before.utf16.count + protected.utf16.count
                 cursor = span.upperBound
             }
             // A span can end past the line (a code span that goes on to the next line), and the rest is then empty.
-            output.append(
-                rewritten + rewriteInline(text(min(cursor, bytes.count)..<bytes.count), footnotes, formulas, proof),
-                from: source.origins[index - 1])
+            rewritten += rewrite(text(min(cursor, bytes.count)..<bytes.count), from: column)
+            output.append(blocksOnly ? line : rewritten, from: source.origins[index - 1])
         }
         return output
     }
@@ -946,7 +1005,10 @@ enum MarkdownExtensions {
             + "</\(name)>" + trailing.outside
     }
 
-    private static func rewriteInline(_ text: String, _ footnotes: Footnotes, _ formulas: Formulas, _ proof: ProofMarks)
+    private static func rewriteInline(
+        _ text: String, _ footnotes: Footnotes, _ formulas: Formulas?, _ proof: ProofMarks,
+        base: Int = 0, foundFormula: ((NSRange) -> Void)? = nil
+    )
         -> String
     {
         guard text.contains(where: { "[{=^~$\\".contains($0) }) else { return text }
@@ -960,12 +1022,21 @@ enum MarkdownExtensions {
             func capture(_ name: String) -> String? {
                 match.groups[name].map { nsText.substring(with: $0) }
             }
-            if let latex = capture("displayMath") ?? capture("displayMath2") {
-                output += formulas.token(latex, display: true, source: whole)
-            } else if let latex = capture("inlineMath") ?? capture("inlineMath2") {
-                output += formulas.token(latex, display: false, source: whole)
+            func nested(_ content: String, _ group: String) -> String {
+                rewriteInline(
+                    content, footnotes, formulas, proof, base: base + (match.groups[group]?.location ?? 0),
+                    foundFormula: foundFormula)
+            }
+            let display = capture("displayMath") ?? capture("displayMath2")
+            if let latex = display ?? capture("inlineMath") ?? capture("inlineMath2") {
+                foundFormula?(NSRange(location: base + match.range.location, length: match.range.length))
+                output += formulas?.token(latex, display: display != nil, source: whole) ?? whole
             } else if capture("verbatim") != nil {
-                output += whole == #"\@"# && formulas.citations != nil ? formulas.escapedCitationSign : whole
+                if whole == #"\@"#, let formulas, formulas.citations != nil {
+                    output += formulas.escapedCitationSign
+                } else {
+                    output += whole
+                }
             } else if capture("criticUnclosed") != nil {
                 output += whole.unicodeScalars.map { "&#\($0.value);" }.joined()
             } else if let comment = capture("criticComment") {
@@ -976,32 +1047,32 @@ enum MarkdownExtensions {
                 }
             } else if let added = capture("criticAdd") {
                 if proof != .original {
-                    let body = rewriteInline(added, footnotes, formulas, proof)
+                    let body = nested(added, "criticAdd")
                     output += proof == .shown ? criticElement("ins", body) : body
                 }
             } else if let deleted = capture("criticDelete") {
                 if proof != .accepted {
-                    let body = rewriteInline(deleted, footnotes, formulas, proof)
+                    let body = nested(deleted, "criticDelete")
                     output += proof == .shown ? criticElement("del", body) : body
                 }
             } else if let old = capture("criticOld"), let new = capture("criticNew") {
                 if proof != .accepted {
-                    let body = rewriteInline(old, footnotes, formulas, proof)
+                    let body = nested(old, "criticOld")
                     output += proof == .shown ? criticElement("del", body) : body
                 }
                 if proof != .original {
-                    let body = rewriteInline(new, footnotes, formulas, proof)
+                    let body = nested(new, "criticNew")
                     output += proof == .shown ? criticElement("ins", body) : body
                 }
             } else if let marked = capture("criticMark") {
-                let body = rewriteInline(marked, footnotes, formulas, proof)
+                let body = nested(marked, "criticMark")
                 output += proof == .shown ? criticElement("mark", body) : body
             } else if let label = capture("footnote") {
                 output += footnotes.reference(to: label) ?? whole
             } else if let base = capture("rubyBase"), let reading = capture("rubyText") {
                 output += ruby(base: base, reading: reading)
             } else if let content = capture("mark") {
-                output += "<mark>" + rewriteInline(content, footnotes, formulas, proof) + "</mark>"
+                output += "<mark>" + nested(content, "mark") + "</mark>"
             } else if let content = capture("sup") {
                 output += "<sup>" + content + "</sup>"
             } else if let content = capture("sub") {

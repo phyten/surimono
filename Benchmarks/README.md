@@ -26,6 +26,10 @@ make bench-compare BASE=Benchmarks/baseline.json NEW=build/bench/local.json BENC
 - `make bench-pages-rendering` は長辺160ptを1×と2×で描く。各文書でキャッシュを20回作り直し、最初の縮図と先頭20ページまでの各縮図について中央値と95パーセンタイル（ms）を出す。全ページを2×で一巡したあとの画像バイト数とプロセスのメモリ増分も出す。保存済みの論理PDFで入力を固定する場合は `SURIMONO_BENCH_READING_PDFS` に `sample-booklet-demo-md.pdf` と `latex-083.pdf` のあるフォルダーを渡す。
 - `make bench-pages-window` は新しい文書窓で引き出しを開いてから最初の画像がビューに現れるまでを20回測る。開閉状態を交互に復元し、窓の作成から論理ページの表示準備完了までの中央値を比べる。スクロール中の最長フレームは表示リンクのメインスレッドへの到着間隔、スタイル変更は新しい組版の世代の画像が現れるまでの時間。短いデッキがすべて見える場合はスクロール距離がゼロになる。
 
+## 文章の点検
+
+`make bench-prose` は、テストの中で作った文書（日本語 2 万字・20 万字、英語 2 万語、混在、プレーンテキスト）で `ProseCheck.analyse` の時間を測る。準備運動 1 回を除いて既定 40 回（`SURIMONO_BENCH_RUNS`）で、本文の取り出しを含む全体の中央値・95 パーセンタイル・最大（ms）と、取り出しだけの中央値を `BENCH prose/<名前>` の行で出す。Debug ビルドの値で、合否は付けない。
+
 ## 測る場面
 
 | JSON の場面 ID | 内容と計測範囲 |
