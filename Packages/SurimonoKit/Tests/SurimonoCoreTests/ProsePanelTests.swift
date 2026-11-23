@@ -59,6 +59,44 @@ struct ProsePanelTests {
         #expect(panel.groups[.duplicate]?.first?.spans.first?.text == "smal\nl small")
     }
 
+    @Test("段落末の縮約されたエルに次の段落の先頭を足して重複語にしない")
+    func coalescedParagraphEnd() throws {
+        let hit = occurrence(10..<21)
+        let paragraphs = ["This is a small small", "l is a letter."]
+        for pages in [["This is a small smal\nl is a letter."], ["This is a small smal", "l is a letter."]] {
+            let index = try ProsePaperIndex(paragraphs: paragraphs, pages: pages, occurrences: [hit])
+            #expect(try index.spans(for: [hit]).isEmpty)
+            #expect(try index.spans(for: [hit], longSentence: true).isEmpty)
+        }
+    }
+
+    @Test("縮約のない段落境界では語中の折り返しと次の段落のエルを区別する")
+    func exactParagraphEnd() throws {
+        let hits = [occurrence(10..<21), occurrence(0..<4, paragraph: 1)]
+        let index = try ProsePaperIndex(
+            paragraphs: ["This is a small small", "l is a letter."],
+            pages: ["This is a small smal\nl", "l is a letter."],
+            occurrences: hits)
+        #expect(
+            try index.spans(for: [hits[0]]) == [
+                ProsePaperSpan(page: 0, range: NSRange(location: 10, length: 12), text: "small smal\nl")
+            ])
+        #expect(
+            try index.spans(for: [hits[1]]) == [
+                ProsePaperSpan(page: 1, range: NSRange(location: 0, length: 4), text: "l is")
+            ])
+    }
+
+    @Test("一字に縮約されたエルの片側だけを選ばない")
+    func partialCoalescedGlyph() throws {
+        let hits = [occurrence(2..<3), occurrence(3..<4), occurrence(2..<4)]
+        let index = try ProsePaperIndex(paragraphs: ["ball"], pages: ["bal"], occurrences: hits)
+        for hit in hits.prefix(2) {
+            #expect(try index.spans(for: [hit], longSentence: true).isEmpty)
+        }
+        #expect(try index.spans(for: [hits[2]], longSentence: true).map(\.text) == ["l"])
+    }
+
     @Test("異なる綴りの二段落が紙面で同じになれば後ろの完全一致も選ばず綴りを保てば順に選ぶ")
     func collapsedDistinctParagraphs() throws {
         let first = "A small world."

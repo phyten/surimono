@@ -58,6 +58,11 @@ struct ProsePaperIndex {
                 .split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
         }
 
+        func hasLineBreak(in gap: Range<Int>) -> Bool {
+            !gap.isEmpty
+                && raw.rangeOfCharacter(from: .newlines, options: [], range: NSRange(gap)).location != NSNotFound
+        }
+
         func rawEnd(at index: Int) -> Int {
             (lRuns[index]?.last ?? offsets[index]) + 1
         }
@@ -73,7 +78,8 @@ struct ProsePaperIndex {
     private struct Passage {
         let range: Range<Int>
         let paperStart: Int
-        var exact = true
+        // A printed glyph cannot represent just one side of this source boundary.
+        var contractions = IndexSet()
         // Only multi-glyph runs need an individual offset when a finding ends inside the run.
         var glyphOffsets: [Int: Int] = [:]
     }
@@ -81,6 +87,8 @@ struct ProsePaperIndex {
     private let source: Folded
     private let paper: Folded
     private let pages: [Range<Int>]
+    private let paragraphsOnSource: [Range<Int>]
+    private let sharedLBreaks: IndexSet
     private let places: [ProseOccurrence: Place]
     private var passages: [Int: Passage] = [:]
     private let originals: [[Int]]
@@ -96,9 +104,9 @@ struct ProsePaperIndex {
                 return offset..<end
             }
         }
-        let paragraphsOnSource = ranges(paragraphs)
+        paragraphsOnSource = ranges(paragraphs)
         self.pages = ranges(pages)
-        source = try Folded(paragraphs.joined(separator: "\u{FFFC}"))
+        (source, sharedLBreaks) = try Self.foldParagraphs(paragraphs, ranges: paragraphsOnSource)
         paper = try Folded(pages.joined(separator: "\n"))
 
         var patterns = ProsePatternIndex()
@@ -108,7 +116,12 @@ struct ProsePaperIndex {
             try Task.checkCancellation()
             let paragraph = paragraphsOnSource[occurrence.paragraph]
             let range = occurrence.textRange
+            guard !range.isEmpty, range.lowerBound >= 0, range.upperBound <= paragraph.count else { continue }
             let raw = (paragraph.lowerBound + range.lowerBound)..<(paragraph.lowerBound + range.upperBound)
+            // Matching discards whitespace, so it cannot prove an endpoint inside a gap.
+            guard !Folded.space(source.raw.character(at: raw.lowerBound)),
+                !Folded.space(source.raw.character(at: raw.upperBound - 1))
+            else { continue }
             let folded = source.foldedRange(of: raw)
             let start = folded.lowerBound
             let end = folded.upperBound
@@ -121,9 +134,7 @@ struct ProsePaperIndex {
                 segments[segment] = (lower..<upper, id)
             }
             let pattern = try patterns.register(source.letters[start..<end])
-            let clipped = raw.clamped(to: source.rawRange(start..<end))
-            guard !clipped.isEmpty else { continue }
-            places[occurrence] = Place(range: start..<end, raw: clipped, segment: segment, pattern: pattern)
+            places[occurrence] = Place(range: start..<end, raw: raw, segment: segment, pattern: pattern)
         }
         self.places = places
         try patterns.prepare()
@@ -163,6 +174,31 @@ struct ProsePaperIndex {
         }
     }
 
+    private static func foldParagraphs(_ paragraphs: [String], ranges: [Range<Int>]) throws -> (Folded, IndexSet) {
+        // A printed l run can include glyphs from both sides of a paragraph break. Verify those
+        // paragraphs together, even when the neighbour has no findings. Keep every other separator
+        // opaque to matching and preserve the original UTF-16 offsets.
+        var sourceText = ""
+        var trailingL = false
+        var sharedBreaks = IndexSet()
+        for (i, paragraph) in paragraphs.enumerated() {
+            try Task.checkCancellation()
+            let units = paragraph.utf16
+            let first = units.first { !Folded.space($0) }
+            if i > 0 {
+                if trailingL && (first == 0x6C || first == nil) {
+                    sharedBreaks.insert(ranges[i - 1].upperBound)
+                    sourceText.append("\n")
+                } else {
+                    sourceText.append("\u{FFFC}")
+                }
+            }
+            sourceText += paragraph
+            if first != nil { trailingL = units.last { !Folded.space($0) } == 0x6C }
+        }
+        return (try Folded(sourceText), sharedBreaks)
+    }
+
     private func paired(_ offset: Int, pattern: Int) -> Int? {
         let candidates = originals[pattern]
         guard !ambiguous.contains(pattern), candidates.count == printed[pattern].count else { return nil }
@@ -179,7 +215,10 @@ struct ProsePaperIndex {
                 let hit = paired(place.range.lowerBound, pattern: place.pattern),
                 hit == passage.paperStart + (place.range.lowerBound - passage.range.lowerBound)
             else { return [] }
-            if !passage.exact {
+            guard !passage.contractions.contains(place.raw.lowerBound),
+                !passage.contractions.contains(place.raw.upperBound)
+            else { return [] }
+            if passage.contractions.intersects(integersIn: paragraphsOnSource[occurrence.paragraph]) {
                 guard longSentence, occurrence.isEnglish,
                     place.range.contains(where: { source.lRuns[$0] != nil })
                 else { return [] }
@@ -237,24 +276,27 @@ struct ProsePaperIndex {
     private func spacingAgrees(sourceGap: Bool, paperGap: Range<Int>) -> Bool {
         if sourceGap == !paperGap.isEmpty { return true }
         // A physical line break may split a word. A horizontal space may not.
-        return !paperGap.isEmpty
-            && paper.raw.rangeOfCharacter(from: .newlines, options: [], range: NSRange(paperGap)).location != NSNotFound
+        return paper.hasLineBreak(in: paperGap)
     }
 
     private func alignLs(_ original: [Int], _ printed: [Int], passage: inout Passage) -> Bool {
         if original.count == printed.count {
             for i in original.indices {
-                if i > 0,
-                    !spacingAgrees(
-                        sourceGap: original[i] > original[i - 1] + 1,
-                        paperGap: (printed[i - 1] + 1)..<printed[i])
-                {
-                    return false
+                if i > 0 {
+                    let sourceGap = (original[i - 1] + 1)..<original[i]
+                    let paperGap = (printed[i - 1] + 1)..<printed[i]
+                    guard spacingAgrees(sourceGap: !sourceGap.isEmpty, paperGap: paperGap) else { return false }
+                    if sharedLBreaks.intersects(integersIn: sourceGap), !paper.hasLineBreak(in: paperGap) {
+                        return false
+                    }
                 }
                 passage.glyphOffsets[original[i]] = printed[i]
             }
             return true
         }
+        // Once glyph counts differ at a shared run, a soft wrap and a paragraph break can
+        // assign the same printed l to different paragraphs. Neither paragraph owns a proven range.
+        guard !sharedLBreaks.intersects(integersIn: original[0]..<original[original.count - 1]) else { return false }
         // Only a pair within a word may contract. Spaces between words still anchor their glyphs.
         var i = 0
         var j = 0
@@ -266,7 +308,7 @@ struct ProsePaperIndex {
             if end - i == printedEnd - j {
                 for k in i..<end { passage.glyphOffsets[original[k]] = printed[j + (k - i)] }
             } else if end - i == 2, printedEnd - j == 1 {
-                passage.exact = false
+                passage.contractions.insert(original[i + 1])
                 passage.glyphOffsets[original[i]] = printed[j]
                 passage.glyphOffsets[original[i + 1]] = printed[j]
             } else {
