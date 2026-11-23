@@ -122,6 +122,9 @@ final class AppPreferences {
     var menuArrangement: MenuArrangement {
         didSet { defaults.set(menuArrangement.rawValue, forKey: "menuArrangement") }
     }
+    var bandNames: BandLayout.Names {
+        didSet { defaults.set(bandNames.rawValue, forKey: "bandNames") }
+    }
     private(set) var bandArrangementStore: BandArrangementStore
     private(set) var bandArrangementNotices: [BandRepairNotice]
     private(set) var retainedBandArrangementData: Data?
@@ -522,6 +525,9 @@ final class AppPreferences {
         menuArrangement =
             Self.screenshotChoice("SurimonoMenuArrangement")
             ?? MenuArrangement(rawValue: defaults.string(forKey: "menuArrangement") ?? "") ?? .split
+        bandNames =
+            Self.screenshotChoice("SurimonoBandNames")
+            ?? BandLayout.Names(rawValue: defaults.string(forKey: "bandNames") ?? "") ?? .shown
         outlinePresentation =
             Self.screenshotChoice("SurimonoOutline")
             ?? OutlinePresentation(rawValue: defaults.string(forKey: "outlinePresentation") ?? "") ?? .popover

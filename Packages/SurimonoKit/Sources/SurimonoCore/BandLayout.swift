@@ -62,6 +62,19 @@ public enum BandLayout {
         return [.formatBadge, .floatOnTop, .showOnAllSpaces, .print].contains(item) ? .top : .bottom
     }
 
+    public enum Names: String, Sendable {
+        case shown, hidden
+
+        fileprivate func preferredForm(for item: Item, widths: Widths) -> Form {
+            guard self == .hidden, widths.compact != nil else { return .full }
+            switch item {
+            // These display document values. In particular, a compact LaTeX badge drops recognition details.
+            case .formatBadge, .pageIndicator, .zoom, .chapter: return .full
+            default: return .compact
+            }
+        }
+    }
+
     public enum Form: Equatable, Sendable {
         case full, withoutSuffix
         /// The icon without its label.
@@ -138,7 +151,8 @@ public enum BandLayout {
     ) -> Plan {
         // The legacy entry point accepts already-spaced widths and arbitrary step lists. Keep that contract while
         // sharing the collapse engine; ordered-zone callers supply adjacency geometry through resolve instead.
-        collapse(widths: widths, name: name, available: available, steps: steps) { forms in
+        collapse(forms: widths.mapValues { _ in .full }, widths: widths, name: name, available: available, steps: steps)
+        { forms in
             let groups = Set(forms.keys.compactMap(\.group)).count
             return fixed + separator * CGFloat(max(groups - 1, 0))
         }
@@ -157,10 +171,11 @@ public enum BandLayout {
     }
 
     private static func collapse(
-        widths: [Item: Widths], name: CGFloat, available: CGFloat, steps: [Step], compactBeforeName: [Item] = [],
+        forms: [Item: Form], widths: [Item: Widths], name: CGFloat, available: CGFloat, steps: [Step],
+        compactBeforeName: [Item] = [],
         spacing: ([Item: Form]) -> CGFloat
     ) -> Plan {
-        var forms = widths.mapValues { _ in Form.full }
+        var forms = forms
         // Additional labels yield before the document name. Legacy callers keep their original collapse order.
         for item in compactBeforeName where itemWidth(forms, widths: widths) + spacing(forms) + name > available {
             if forms[item] == .full, widths[item]?.compact != nil { forms[item] = .compact }
@@ -187,21 +202,23 @@ public enum BandLayout {
 
     public static func resolve(
         arrangement: BandArrangement, mode: MenuArrangement, availableItems: Set<Item>,
-        measurements: BandMeasurementsValue, metrics: BandMetrics, availableWidth: CGFloat
+        measurements: BandMeasurementsValue, metrics: BandMetrics, availableWidth: CGFloat, names: Names = .shown
     ) -> BandResolvedPlan {
         // Repair at this boundary too: a caller's mutable draft must never make Print disappear.
         let arrangement = BandArrangementRepair.repair(StoredBandArrangement(arrangement), for: mode).arrangement
         let availableItems = availableItems.union([.print])
         let top = resolveRow(
             leading: arrangement.topLeft, trailing: arrangement.topRight, position: .top, mode: mode,
-            availableItems: availableItems, measurements: measurements, metrics: metrics, availableWidth: availableWidth
+            availableItems: availableItems, measurements: measurements, metrics: metrics,
+            availableWidth: availableWidth,
+            names: names
         )
         let bottom =
             mode == .split
             ? resolveRow(
                 leading: arrangement.bottomLeft, trailing: arrangement.bottomRight, position: .bottom, mode: mode,
                 availableItems: availableItems, measurements: measurements, metrics: metrics,
-                availableWidth: availableWidth
+                availableWidth: availableWidth, names: names
             ) : nil
         let placed = Set(
             (arrangement.topLeft + arrangement.topRight + arrangement.bottomLeft + arrangement.bottomRight).compactMap(
@@ -217,7 +234,8 @@ public enum BandLayout {
 
     private static func resolveRow(
         leading: [BandEntry], trailing: [BandEntry], position: Position, mode: MenuArrangement,
-        availableItems: Set<Item>, measurements: BandMeasurementsValue, metrics: BandMetrics, availableWidth: CGFloat
+        availableItems: Set<Item>, measurements: BandMeasurementsValue, metrics: BandMetrics, availableWidth: CGFloat,
+        names: Names
     ) -> BandRowPlan {
         let standard = BandArrangement.builtIn(for: mode, includesLegacyParts: true)
         let standardLeading = position == .top ? standard.topLeft : standard.bottomLeft
@@ -258,8 +276,11 @@ public enum BandLayout {
                     + visibleSeparators(in: trailingForSeparators, forms: forms),
                 position: position, mode: mode, metrics: metrics, standardSpacing: standardSpacing, moreDock: moreDock)
         }
+        let preferredForms = Dictionary(
+            uniqueKeysWithValues: widths.map { ($0.key, names.preferredForm(for: $0.key, widths: $0.value)) })
         let plan = collapse(
-            widths: widths, name: name, available: availableWidth, steps: physicalSteps(at: position),
+            forms: preferredForms, widths: widths, name: name, available: availableWidth,
+            steps: physicalSteps(at: position),
             compactBeforeName: additionalCompactOrder
         ) { geometry($0).spacingWidth }
         let minimumForms: [Item: Form] = widths[.print].map { [.print: $0.compact == nil ? .full : .compact] } ?? [:]
@@ -269,7 +290,7 @@ public enum BandLayout {
         let required = itemWidth(plan.forms, widths: widths) + resolvedGeometry.spacingWidth + plan.nameWidth
         let scrubberWidth: CGFloat
         if position == .bottom, let width = measurements.scrubber, width > 0, availableWidth - required >= width,
-            plan.forms.count == widths.count, plan.forms.values.allSatisfy({ $0 == .full })
+            plan.forms == preferredForms
         {
             scrubberWidth = width
         } else {

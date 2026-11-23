@@ -36,6 +36,7 @@
 | ページの一覧 | `Pages Tab` | Pages | ページ | Seiten | Páginas | Pages | 페이지 | 页 | 頁 |
 | 覚えた場所 | `Bookmarks` | Bookmarks | しおり | Lesezeichen | Marcadores | Signets | 책갈피 | 书签 | 書籤 |
 | 窓の上下の操作の帯 | `Toolbar` | Toolbar | ツールバー | Symbolleiste | Barra de herramientas | Barre d’outils | 도구 막대 | 工具栏 | 工具列 |
+| ツールバーの部品の表示 | `Parts` | Parts | 部品の表示 | Teile | Piezas | Éléments | 부품 | 部件 | 部件 |
 | 別の形式で保存すること | `Export` | Export | 書き出す | Exportieren | Exportar | Exporter | 내보내기 | 导出 | 輸出 |
 | アプリを新しくすること | `Updates` | Updates | アップデート | Updates | Actualizaciones | Mises à jour | 업데이트 | 更新 | 更新 |
 | 取り除く要素の決まり | `Preset` | Preset | プリセット | Voreinstellung | Preajuste | Préréglage | 프리셋 | 预设 | 預設 |
