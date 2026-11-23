@@ -3,6 +3,7 @@ import PDFKit
 import SurimonoCore
 import SurimonoFormats
 import Testing
+import WebKit
 
 @testable import SurimonoRendering
 
@@ -78,6 +79,60 @@ struct LaTeXBeamerPrintingTests {
         }
     }
 
+    // Measure the actual text baseline. A definition label and three sizes of list
+    // text have different ink depths and PDFKit selection bounds.
+    private func baselines(in view: WKWebView, frame: Int, words: [String]) async throws -> [Double] {
+        let value = try await view.evaluateForPrinting(
+            """
+            const body = document.querySelector('[data-frame="' + frame + '"] > .beamer-frame-body');
+            const text = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+            return words.map(word => {
+                let node;
+                while ((node = text.nextNode()) && node.data.trim() !== word) {}
+                if (!node) throw Error('Missing baseline: ' + word);
+                const mark = document.createElement('span');
+                mark.style.cssText = 'display:inline-block;height:0;width:0;vertical-align:baseline';
+                node.before(mark);
+                const y = mark.getBoundingClientRect().bottom;
+                mark.remove();
+                return y / pixelsPerPoint;
+            });
+            """,
+            arguments: ["frame": frame, "words": words, "pixelsPerPoint": WebPaginator.printPixelsPerPoint],
+            until: .now + .seconds(3))
+        return try #require(value as? [Double])
+    }
+
+    @Test("子リストから親項目の本文と次の項目へ戻るときは、閉じたリストの空きを一度だけ取る", .timeLimit(.minutes(1)))
+    func returningFromSublist() async throws {
+        let tex = #"""
+            \documentclass{beamer}\begin{document}\begin{frame}[t]
+            \begin{itemize}\item Entry
+            \begin{itemize}\item Leaf\end{itemize}
+            Resume
+            \begin{itemize}\item Child\end{itemize}
+            \item Sibling\end{itemize}
+            \end{frame}\end{document}
+            """#
+        let words = ["Entry", "Leaf", "Resume", "Child", "Sibling"]
+        let paginator = WebPaginator()
+        var rows: [Double] = []
+        paginator.inspectPrintLayout = { view in
+            do { rows = try await self.baselines(in: view, frame: 1, words: words) } catch { Issue.record(error) }
+        }
+        let renderer = DocumentRenderer(paginateWithResult: { request in try await paginator.paginate(request) })
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == PrintThemeLibrary.slideStyleID })
+        _ = try await renderer.prepare(
+            DocumentSource(data: Data(tex.utf8), format: .latex),
+            settings: RenderSettings(layout: .a4Single, theme: theme, preset: .init(id: "none", name: "")))
+        try #require(rows.count == words.count)
+        // Resume ends at the next sublist (small pitch); Sibling ends at the outer size.
+        for (i, expected) in [13.948, 13.947, 13.948, 16.538].enumerated() {
+            let gap = rows[i + 1] - rows[i]
+            #expect(abs(gap - expected) <= 0.1, "\(words[i]) → \(words[i + 1]) 基線 \(gap) pt、実 TeX \(expected) pt")
+        }
+    }
+
     @Test(
         "スライドの用紙と読む順序を実 TeX の原稿と照合する", .timeLimit(.minutes(1)),
         arguments: ["specimen", "additive", "swap", "handout", "overflow", "083"])
@@ -103,6 +158,8 @@ struct LaTeXBeamerPrintingTests {
         let source = DocumentSource(data: try Data(contentsOf: sourceURL), fileURL: sourceURL, format: .latex)
         let paginator = WebPaginator()
         var measurement: String?
+        var listBaselines: [Double]?
+        let listWords = ["Mark the", "Yard stick", "Copper sleeve", "Inner pin", "Cut", "File", "Tip"]
         let measuredPages = name == "083" ? [1, 2] : [0, 2, 3, 5, 8]
         let dumpPath = ProcessInfo.processInfo.environment["SURIMONO_LATEX_WEBKIT_LINE_DUMP"]
         if name == "083" || name == "specimen" {
@@ -110,6 +167,9 @@ struct LaTeXBeamerPrintingTests {
             // whether the list pitches drifted in the DOM or only while printing its glyphs.
             paginator.inspectPrintLayout = { view in
                 do {
+                    if name == "specimen" {
+                        listBaselines = try await self.baselines(in: view, frame: 3, words: listWords)
+                    }
                     let value = try await view.evaluateForPrinting(
                         """
                         const frames = [...document.querySelectorAll('.beamer-frame')];
@@ -156,6 +216,20 @@ struct LaTeXBeamerPrintingTests {
         let pdf = result.logicalDocument
         if let measurement {
             print("Beamer \(name) DOM [page,height,[element,top,height,lineHeight]] CSS px \(measurement)")
+        }
+        if name == "specimen" {
+            let rows = try #require(listBaselines, "\(measurement ?? "基線を取得できない")")
+            try #require(rows.count == listWords.count)
+            // Baseline advances in the text stream of specimen.pdf, page 3, in PDF points.
+            // A tenth of a point covers the integral CSS line box between Cut and File
+            // and the fractional CSS pixel used for each measured margin.
+            let advances = [14.944, 12.952, 12.951, 19.527, 16.538, 19.527]
+            for (index, expected) in advances.enumerated() {
+                let gap = rows[index + 1] - rows[index]
+                #expect(
+                    abs(gap - expected) <= 0.1,
+                    "\(listWords[index]) → \(listWords[index + 1]) 基線 \(gap) pt、実 TeX \(expected) pt")
+            }
         }
         if measurement != nil && dumpPath == nil {
             for index in measuredPages {
