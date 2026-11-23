@@ -7,12 +7,16 @@ import Testing
 @MainActor
 struct SourceLanguageBadgeTests {
     private func badge(_ name: String?, _ text: String = "", format: DocumentFormat = .plainText) -> String {
+        badge(name, data: Data(text.utf8), format: format)
+    }
+
+    private func badge(_ name: String?, data: Data, format: DocumentFormat = .plainText) -> String {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
         let suite = BandTestDefaultsSuite()
         defer { suite.remove() }
         let model = DocumentViewModel(
-            data: Data(text.utf8), fileURL: name.map { directory.appendingPathComponent($0) }, format: format,
+            data: data, fileURL: name.map { directory.appendingPathComponent($0) }, format: format,
             preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: directory))
         model.isolateBandTestOutput()
         return model.shortFormatBadge
@@ -31,6 +35,21 @@ struct SourceLanguageBadgeTests {
     @Test("拡張子のないスクリプトの形式バッジは shebang の言語になる")
     func shebang() {
         #expect(badge("tool", "#!/usr/bin/env python3\nprint(1)\n") == "Python")
+    }
+
+    @Test("UTF-16 や BOM 付きのファイルでも形式バッジは紙と同じ言語になる")
+    func encodings() throws {
+        let matlab = Data([0xFF, 0xFE]) + (try #require("% 解く\nx = 1;\n".data(using: .utf16LittleEndian)))
+        #expect(badge("solve.m", data: matlab) == "MATLAB")
+        #expect(badge("tool", data: Data([0xEF, 0xBB, 0xBF]) + Data("#!/usr/bin/env ruby\n".utf8)) == "Ruby")
+        let long = "#!/" + String(repeating: "紙", count: 200) + "/python3\n"
+        #expect(badge("tool", long) == "Python")
+    }
+
+    @Test("固定名から派生した名前でも、文章の拡張子なら形式バッジは TXT のまま")
+    func derivedNames() {
+        #expect(badge("Dockerfile.txt") == "TXT")
+        #expect(badge("Dockerfile.dev") == "Dockerfile")
     }
 
     @Test("文章と名前のないテキストの形式バッジは TXT のまま")

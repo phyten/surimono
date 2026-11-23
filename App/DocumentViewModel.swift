@@ -88,7 +88,10 @@ final class DocumentViewModel {
     private(set) var unreadableImageURLs: [URL] = []
     private var renderedSourceURLs: [URL] = []
     private(set) var format: DocumentFormat
-    private(set) var data: Data
+    private(set) var data: Data {
+        didSet { knownSourceLanguage = nil }
+    }
+    @ObservationIgnored private var knownSourceLanguage: SourceLanguage??
     private(set) var classStyle: String?
     private(set) var classLayout: PrintLayout?
     var themeFormat: DocumentFormat? { binder == nil && imageBundle == nil ? format : nil }
@@ -755,10 +758,14 @@ final class DocumentViewModel {
         return sourceLanguage?.displayName ?? format.badge
     }
 
-    /// The language a plain text file is colored as, told as the renderer tells it.
+    /// The language a plain text file is colored as: the renderer's own answer, kept until the file or its format
+    /// changes because telling it can mean decoding the text.
     var sourceLanguage: SourceLanguage? {
-        guard format == .plainText, binder == nil, let fileURL else { return nil }
-        return SourceLanguage.detect(fileName: fileURL.lastPathComponent, firstLine: SourceLanguage.firstLine(of: data))
+        guard format == .plainText, binder == nil, fileURL != nil else { return nil }
+        if let knownSourceLanguage { return knownSourceLanguage }
+        let language = DocumentRenderer.sourceLanguage(of: DocumentSource(data: data, fileURL: fileURL, format: format))
+        knownSourceLanguage = .some(language)
+        return language
     }
 
     var language: String { Bundle.main.preferredLocalizations.first ?? "en" }
