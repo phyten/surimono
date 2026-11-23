@@ -7,7 +7,7 @@ enum SourceFileError: LocalizedError, Equatable {
     /// A video under `.ts` or a binary property list: the extension of a text file on a file that is not text.
     case notText
 
-    var errorDescription: String? { String(localized: "This file is not text, so Surimono cannot show it.") }
+    var errorDescription: String? { String(localized: "This is not a text file, so it cannot be displayed.") }
 }
 
 /// How one file is opened and read. `TextFileGate` reads the beginning of the files whose name does not settle what
