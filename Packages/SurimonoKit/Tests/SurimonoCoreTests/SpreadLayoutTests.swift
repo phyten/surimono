@@ -2,6 +2,32 @@ import SurimonoCore
 import Testing
 
 struct SpreadLayoutTests {
+    @Test("見開きは表紙と端数を紙面と同じ側に置き、狭い一覧は読む順に一枚ずつ並ぶ")
+    func spreads() {
+        func rows(_ count: Int, _ cover: Bool, _ rtl: Bool, _ columns: Int = 2) -> [[Int?]] {
+            SpreadLayout.drawerRows(
+                pageCount: count, showsCoverAlone: cover,
+                direction: rtl ? .rightToLeft : .leftToRight, columns: columns)
+        }
+        #expect(rows(4, true, false) == [[nil, 0], [1, 2], [3, nil]])
+        #expect(rows(4, true, true) == [[0, nil], [2, 1], [nil, 3]])
+        #expect(rows(3, false, false) == [[0, 1], [2, nil]])
+        #expect(rows(3, false, true) == [[1, 0], [nil, 2]])
+        #expect(rows(4, false, true) == [[1, 0], [3, 2]])
+        #expect(rows(3, true, false) == [[nil, 0], [1, 2]])
+        #expect(rows(4, true, true, 1) == [[0], [1], [2], [3]])
+        #expect(rows(0, false, false).isEmpty)
+    }
+
+    @Test("上下キーは見開きの同じ列に移り、片方が空ならその行の実ページに移る")
+    func verticalFocus() {
+        let rows: [[Int?]] = [[0, nil], [2, 1], [nil, 3]]
+        #expect(SpreadLayout.verticalNeighbor(of: 1, down: false, in: rows) == 0)
+        #expect(SpreadLayout.verticalNeighbor(of: 2, down: true, in: rows) == 3)
+        #expect(SpreadLayout.verticalNeighbor(of: 3, down: false, in: rows) == 1)
+        #expect(SpreadLayout.verticalNeighbor(of: 0, down: false, in: rows) == 0)
+    }
+
     private func units(
         _ count: Int, layout: ViewOptions.Layout = .spread, cover: Bool, _ direction: ViewOptions.Direction
     ) -> [DisplayUnit] {

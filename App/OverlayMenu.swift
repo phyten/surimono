@@ -173,8 +173,10 @@ struct BandPlans {
             bottomFixed: BottomBand.fixedWidth, separator: 1 + OverlayBand.toolSpacing,
             titleGap: OverlayBand.titleSpacing, toolGap: OverlayBand.toolSpacing, outerGap: OverlayBand.spacing)
         // Until the band has been laid out once, its width is unknown: show everything rather than guess.
+        let arrangement = model.preferences.activeBandArrangement
         resolved = BandLayout.resolve(
-            arrangement: model.preferences.activeBandArrangement, mode: model.menuArrangement,
+            arrangement: model.imageBundle == nil ? arrangement : arrangement.forImageBundle(in: model.menuArrangement),
+            mode: model.menuArrangement,
             availableItems: Set(applicable),
             measurements: BandMeasurementsValue(
                 items: widths, name: measured[.name] ?? .greatestFiniteMagnitude,

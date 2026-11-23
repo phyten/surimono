@@ -98,6 +98,7 @@ struct ReadingNavigationTests {
         }
         model.scrubToPage(11)
         #expect(model.currentPageIndex == 10 && model.logicalReadingPage == 11)
+        #expect(model.visibleReadingPages == [10, 11])
         #expect(!model.handleScrubKey(.rightArrow))
         model.scrubber.keyboardFocus = true
         #expect(model.handleScrubKey(.rightArrow))
@@ -108,6 +109,41 @@ struct ReadingNavigationTests {
         #expect(model.logicalReadingPage == 0 && !model.pageHistory.canGoBack)
         model.goForward()
         #expect(model.logicalReadingPage == 11)
+    }
+
+    @Test("スクラバーは下の帯の上下端で入力を受け、左右の余白にはみ出さない", .timeLimit(.minutes(1)))
+    func scrubHitArea() async throws {
+        let fixture = Fixture()
+        fixture.preferences.menuArrangement = .split
+        let model = fixture.model()
+        let controller = MemoryDocumentWindowController(model: model) {}
+        defer { controller.close() }
+        let window = try #require(controller.window)
+        window.orderFront(nil)
+        for _ in 0..<500 where !model.isUpToDate { try await Task.sleep(for: .milliseconds(20)) }
+        try #require(model.pageCount == 60)
+        model.isBandAlwaysVisible = true
+        window.setContentSize(CGSize(width: 1180, height: 620))
+        let content = try #require(window.contentView)
+        var previous = CGRect.zero
+        for _ in 0..<250 {
+            try await Task.sleep(for: .milliseconds(20))
+            content.layoutSubtreeIfNeeded()
+            let frame = model.scrubber.frame
+            if frame.width >= BandLayout.scrubberMinimum, frame == previous { break }
+            previous = frame
+        }
+        let frame = model.scrubber.frame
+        try #require(frame.width >= BandLayout.scrubberMinimum)
+        #expect(frame.height == ViewerWindow.bandHeight)
+        func hitsTrack(x: CGFloat, y: CGFloat) -> Bool {
+            let point = CGPoint(x: x, y: content.isFlipped ? y : content.bounds.height - y)
+            return content.hitTest(content.convert(point, to: content.superview)) is ScrubPointer.Input
+        }
+        #expect(hitsTrack(x: frame.midX, y: frame.minY + 1))
+        #expect(hitsTrack(x: frame.midX, y: frame.maxY - 1))
+        #expect(!hitsTrack(x: frame.minX - 2, y: frame.midY))
+        #expect(!hitsTrack(x: frame.maxX + 2, y: frame.midY))
     }
 
     @Test("ドラッグ中に帯を離れても追跡し、取り消した後の解放は移動しない")

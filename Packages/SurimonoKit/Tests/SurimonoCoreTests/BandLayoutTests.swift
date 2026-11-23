@@ -129,7 +129,7 @@ struct BandLayoutTests {
         #expect(
             BandLayout.steps == [
                 .compact(.formatBadge), .compact(.style), .compact(.transition), .compact(.presentation),
-                .compact(.outline),
+                .compact(.outline), .compact(.thumbnails),
                 .remove(.chapter), .remove(.formatBadge), .remove(.pageIndicator), .remove(.style),
                 .remove(.transition),
                 .remove(.layout), .remove(.outline), .remove(.presentation), .remove(.thumbnails), .remove(.zoom),
@@ -171,7 +171,7 @@ struct BandLayoutTests {
         #expect(
             BandLayout.bottomSteps == [
                 .compact(.formatBadge), .compact(.style), .compact(.transition), .compact(.presentation),
-                .compact(.outline),
+                .compact(.outline), .compact(.thumbnails),
                 .remove(.chapter), .remove(.transition), .remove(.layout), .remove(.pageTurn), .remove(.style),
                 .remove(.outline),
                 .remove(.presentation), .remove(.thumbnails), .remove(.zoom), .remove(.pageIndicator),

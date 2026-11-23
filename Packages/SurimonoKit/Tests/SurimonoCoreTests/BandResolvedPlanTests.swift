@@ -3,6 +3,28 @@ import SurimonoCore
 import Testing
 
 struct BandResolvedPlanTests {
+    @Test("画像の束の標準の入口は上下配置でも上だけでも目次の位置に来る", arguments: MenuArrangement.allCases)
+    func bundlePlacement(mode: MenuArrangement) {
+        let original = BandArrangement.standard(for: mode)
+        let placed = original.forImageBundle(in: mode)
+        let zone: BandZoneID = mode == .split ? .bottomLeft : .topRight
+        #expect(placed[zone].firstIndex(of: .part(.thumbnails)) == original[zone].firstIndex(of: .part(.outline)))
+        let plan = BandLayout.resolve(
+            arrangement: placed, mode: mode, availableItems: [.thumbnails, .layout],
+            measurements: BandMeasurementsValue(
+                items: [.thumbnails: .init(full: 70, compact: 30), .layout: .init(full: 80)], name: 80),
+            metrics: .init(topFixed: 120, bottomFixed: 20, separator: 9), availableWidth: 800)
+        let row = mode == .split ? plan.bottom : plan.top
+        #expect(row?.geometry.usesStandardSpacing == true)
+    }
+
+    @Test("カスタムの並びで一覧を置いた場所は画像の束でも保つ")
+    func customDrawer() throws {
+        let standard = BandArrangement.standard(for: .split)
+        let custom = try standard.moving(.thumbnails, to: .zone(.topRight), before: .print, for: .split)
+        #expect(custom.forImageBundle(in: .split) == custom)
+    }
+
     @Test("印刷の後ろの部品が幅で消えてもその他のドックは印刷の反対側へ移らない")
     func moreDockDoesNotMoveOnCollapse() {
         let layout = BandArrangement(topRight: [.print, .style])
@@ -11,6 +33,28 @@ struct BandResolvedPlanTests {
         #expect(wide.top.trailing == [.print, .style])
         #expect(narrow.top.trailing == [.print])
         #expect(wide.top.geometry.moreDock == .trailing && narrow.top.geometry.moreDock == .trailing)
+    }
+
+    @Test("画像の束では実測したページ入口の幅で線を畳み、章を外す前に入口をアイコンにする")
+    func bundleDrawerFolds() {
+        let layout = BandArrangement(bottomLeft: [.thumbnails], bottomRight: [.chapter, .pageIndicator])
+        func plan(_ width: CGFloat) -> BandRowPlan? {
+            BandLayout.resolve(
+                arrangement: layout, mode: .split, availableItems: [.thumbnails, .chapter, .pageIndicator],
+                measurements: .init(
+                    items: [
+                        .thumbnails: .init(full: 75, compact: 28), .chapter: .init(full: 40),
+                        .pageIndicator: .init(full: 32),
+                    ], name: 0, scrubber: 120),
+                metrics: .init(topFixed: 0, bottomFixed: 0, separator: 0, titleGap: 0, toolGap: 0, outerGap: 0),
+                availableWidth: width
+            ).bottom
+        }
+        #expect(plan(267)?.showsScrubber == true)
+        #expect(plan(266)?.showsScrubber == false)
+        #expect(plan(147)?.forms[.thumbnails] == .full)
+        #expect(plan(100)?.forms == [.thumbnails: .compact, .chapter: .full, .pageIndicator: .full])
+        #expect(plan(99)?.forms == [.thumbnails: .compact, .pageIndicator: .full])
     }
 
     @Test("目次を外した旧配置も標準の隙間を保ち名前や他の部品を動かさない")

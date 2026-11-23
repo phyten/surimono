@@ -10,6 +10,7 @@ enum BandSlot: Hashable {
 extension BandLayout.Item {
     func hasCompactForm(for model: DocumentViewModel) -> Bool {
         if self == .formatBadge { return model.latexBadge != nil }
+        if self == .thumbnails { return model.imageBundle != nil }
         return hasCompactForm
     }
 
@@ -92,7 +93,11 @@ struct BandItemView: View {
         case .chapter: CurrentChapterButton(model: model, trailing: trailing)
         case .pageIndicator: PageIndicatorButton(model: model)
         case .pageTurn: PageTurnButtons(model: model)
-        case .outline: OutlineButton(model: model, showsName: form == .full)
+        case .outline:
+            BandDrawerButton(
+                title: "Contents", symbol: "list.bullet", showsName: form == .full, selected: model.isOutlineShown
+            ) { model.toggleOutline() }
+            .help(ShortcutHints.help(String(localized: "Contents"), [.viewOutline]))
         case .presentation: PresentationPicker(model: model, showsNames: form == .full)
         case .style: StyleMenu(model: model, showsName: form == .full)
         case .layout: LayoutPicker(model: model)
@@ -105,14 +110,18 @@ struct BandItemView: View {
             }
             .help(ShortcutHints.help(String(localized: "Fit to Window"), [.viewZoomFit]))
         case .thumbnails:
-            Toggle(isOn: Binding(get: { model.isDrawerOpen }, set: { model.setSideListOpen($0) })) {
-                if let binder = model.binder {
+            if let binder = model.binder {
+                Toggle(isOn: Binding(get: { model.isDrawerOpen }, set: { model.setSideListOpen($0) })) {
                     Text("Documents \(binder.items.count)")
-                } else if let bundle = model.imageBundle {
-                    Text("Images \(bundle.items.count)")
                 }
+                .toggleStyle(.button).help(ShortcutHints.help(String(localized: "List"), [.listToggle]))
+            } else if model.imageBundle != nil {
+                BandDrawerButton(
+                    title: "Pages Tab", symbol: "square.grid.2x2", showsName: form == .full,
+                    selected: model.showsSideList
+                ) { model.setSideListOpen(!model.isDrawerOpen) }
+                .help(ShortcutHints.help(String(localized: "Pages Tab"), [.listToggle]))
             }
-            .toggleStyle(.button).help(ShortcutHints.help(String(localized: "List"), [.listToggle]))
         case .floatOnTop: FloatOnTopButton(model: model)
         case .showOnAllSpaces:
             Toggle(isOn: $model.showsOnAllSpaces) {
@@ -231,6 +240,7 @@ struct PageIndicatorText: View {
 /// The sheet belongs to the reading surface so measuring a second button cannot present it twice.
 struct PageIndicatorButton: View {
     @Bindable var model: DocumentViewModel
+    @State private var hovered = false
 
     var body: some View {
         if !model.canGoToPage {
@@ -243,35 +253,48 @@ struct PageIndicatorButton: View {
                     .padding(.horizontal, 6)
                     .padding(.vertical, 4)
                     .background {
-                        CornerRole.control.shape.fill(model.isGoToPagePresented ? PrintPalette.hover : .clear)
+                        CornerRole.control.shape.fill(
+                            hovered || model.isGoToPagePresented ? PrintPalette.hover : .clear)
                     }
                     .selectionRule(model.isGoToPagePresented)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .onHover { hovered = $0 }
+            .pointerStyle(.link)
             .help(ShortcutHints.help(String(localized: "Go to Page…"), [.documentGoToPage]))
         }
     }
 }
 
-struct OutlineButton: View {
-    @Bindable var model: DocumentViewModel
+private struct BandDrawerButton: View {
+    let title: LocalizedStringKey
+    let symbol: String
     let showsName: Bool
+    let selected: Bool
+    let action: () -> Void
+    @State private var hovered = false
 
     var body: some View {
-        Button {
-            model.toggleOutline()
-        } label: {
-            let label = Label("Contents", systemImage: "list.bullet")
+        Button(action: action) {
+            let label = Label(title, systemImage: symbol)
             Group {
                 if showsName { label.labelStyle(.titleAndIcon) } else { label.labelStyle(.iconOnly) }
             }
-            // Open is shown in indigo, as the style button does.
-            .selectionRule(model.isOutlineShown)
-            .foregroundStyle(model.isOutlineShown ? AnyShapeStyle(PrintPalette.ai) : AnyShapeStyle(PrintPalette.ink))
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .foregroundStyle(selected ? Color.white : PrintPalette.ink)
+            .selectionRule(selected, color: .white)
+            .background {
+                CornerRole.smallControl.shape.fill(
+                    selected ? PrintPalette.aiControl : (hovered ? PrintPalette.hover : .clear))
+            }
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .fixedSize()
-        .help(ShortcutHints.help(String(localized: "Contents"), [.viewOutline]))
+        .onHover { hovered = $0 }
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 

@@ -15,14 +15,14 @@ struct PageScrubberRail: View {
             for x in ticks {
                 context.fill(Path(CGRect(x: x - 0.5, y: y - 3, width: 1, height: 6)), with: .color(PrintPalette.ink2))
             }
-            if let hover {
-                let x = hover * size.width
-                context.fill(Path(CGRect(x: x - 1, y: y - 5, width: 2, height: 10)), with: .color(.secondary))
-            }
             let x = max(3.5, min(size.width - 3.5, current * size.width))
             context.fill(Path(ellipseIn: CGRect(x: x - 3.5, y: y - 3.5, width: 7, height: 7)), with: .color(.primary))
+            if let hover {
+                context.fill(
+                    Path(ellipseIn: PageTrack.hoverMark(fraction: hover, size: size)), with: .color(PrintPalette.ai))
+            }
         }
-        .frame(height: 28)
+        .frame(height: ViewerWindow.bandHeight)
     }
 }
 
@@ -40,8 +40,14 @@ struct PageScrubber: View {
             chapters: sections.compactMap { $0.title == nil ? nil : $0.pages.lowerBound }, width: session.frame.width)
         let value = PageIndicator.text(pages: [page + 1], pageCount: model.pageCount)
         ScrubMarks(session: session, current: track.fraction(for: page), ticks: ticks)
+            // The input area spans the band's full height, where the system ring would be cut off by the window's
+            // edge, so the ring is drawn around the track instead.
+            .overlay { if focused { ScrubFocusRing() } }
             .overlay { ScrubPointer(model: model) }
+            // Like a slider, the track takes keyboard focus only through keyboard navigation: a ring after every
+            // click would be noise in the band. A press still ends field editing (see `ScrubPointer`).
             .focusable(interactions: .activate)
+            .focusEffectDisabled()
             .focused($focused)
             .onChange(of: focused) { _, value in session.keyboardFocus = value }
             .onKeyPress(keys: [.leftArrow, .rightArrow, .home, .end]) { press in
@@ -93,8 +99,18 @@ private struct ScrubMarks: View {
 }
 
 /// AppKit sends dragged/up to the view that received down, including outside its tracking area.
+private struct ScrubFocusRing: View {
+    var body: some View {
+        RoundedRectangle(cornerRadius: 5)
+            .strokeBorder(Color(nsColor: .keyboardFocusIndicatorColor), lineWidth: 3)
+            .frame(height: 28)
+            .allowsHitTesting(false)
+    }
+}
+
 struct ScrubPointer: NSViewRepresentable {
     let model: DocumentViewModel
+
     func makeNSView(context: Context) -> Input { Input() }
     func updateNSView(_ view: Input, context: Context) { view.model = model }
 
@@ -116,7 +132,15 @@ struct ScrubPointer: NSViewRepresentable {
         override func mouseEntered(with event: NSEvent) { model?.scrubber.point(fraction(event)) }
         override func mouseMoved(with event: NSEvent) { model?.scrubber.point(fraction(event)) }
         override func mouseExited(with event: NSEvent) { model?.scrubber.leave() }
-        override func mouseDown(with event: NSEvent) { model?.scrubber.press(fraction(event)) }
+        override func mouseDown(with event: NSEvent) {
+            // End field editing synchronously, so that Escape during the drag reaches the scrubber, not the field. The
+            // keys then go to the paper, as after a click on it: the window itself is no target for the arrows.
+            if let window, let editor = window.firstResponder as? NSTextView, editor.isEditable {
+                guard window.makeFirstResponder(nil) else { return }
+                model?.paper.focus()
+            }
+            model?.scrubber.press(fraction(event))
+        }
         override func mouseDragged(with event: NSEvent) {
             if model?.scrubber.dragging == true { model?.scrubber.point(fraction(event), immediately: true) }
         }
@@ -169,17 +193,13 @@ struct PageScrubPreview: View {
                         }
                     }
                     .frame(width: size.width, height: size.height)
-                    .overlay { Rectangle().strokeBorder(PrintPalette.line, lineWidth: 1) }
-                    HStack(spacing: 4) {
-                        Text(verbatim: String(page + 1)).monospacedDigit().fixedSize(horizontal: true, vertical: false)
-                        if let chapter = sections.first(where: { $0.pages.contains(page) })?.title {
-                            Text(verbatim: chapter).truncationMode(.tail)
-                        }
-                    }
-                    .font(.caption).lineLimit(1).padding(.horizontal, 3)
-                    .frame(width: size.width, height: 20)
+                    let chapter = sections.first(where: { $0.pages.contains(page) })?.title
+                    Text(verbatim: PageTrack.previewCaption(page: page, chapter: chapter))
+                        .monospacedDigit().font(.caption).lineLimit(1).padding(.horizontal, 3)
+                        .frame(width: size.width, height: 20)
                 }
                 .paperOverlayBackground(nil)
+                .overlay { Rectangle().strokeBorder(PrintPalette.previewEdge, lineWidth: 1) }
                 .shadow(color: .black.opacity(0.18), radius: 3, y: 1)
                 .position(x: center, y: session.frame.minY - 6 - (size.height + 20) / 2)
                 .task(id: request) {
