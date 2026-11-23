@@ -110,6 +110,54 @@ struct FragmentChangesTests {
         #expect(FragmentChanges.identifyingBlocks(in: over, for: [.init(blockID: "lines-0-0")]) == over)
     }
 
+    @Test("一万個目の改行で読むのをやめ、その先の数 MB の行も、もう片方の文書も行に分けない", arguments: ["a.swift", "a.txt"])
+    func stopsAtTheLimit(fileName: String) {
+        let short = (0..<10_000).map { "a\($0)" }.joined(separator: "\n")
+        let tail = String(repeating: "x", count: 3_000_000)
+        // 10,000 short lines, then one line of 3 MB after the 10,000th line break.
+        let long = "<pre class=\"surimono-plain\">" + short + "\n" + tail + "</pre>"
+        let other = PlainTextConverter.convert(short + "\nchanged", fileName: fileName).body
+        let head = short.unicodeScalars.count + 1
+        var visited = 0
+        #expect(FragmentChanges.marks(from: other, to: long, visited: &visited).isEmpty)
+        // Only the new text, up to the break that shows it is too long; the old text is not read at all.
+        #expect(visited == head)
+        visited = 0
+        #expect(FragmentChanges.marks(from: long, to: other, visited: &visited).isEmpty)
+        #expect(visited == head)
+        // Both too long: the new one is read to its 10,000th break, the old one not at all.
+        let longer = "<pre class=\"surimono-plain\">" + short + "\n" + tail + "y</pre>"
+        visited = 0
+        #expect(FragmentChanges.marks(from: long, to: longer, visited: &visited).isEmpty)
+        #expect(visited == head)
+        // At the limit both are read to the end, and the changed line is found.
+        let atLimit = PlainTextConverter.convert(short, fileName: "a.txt").body
+        let edited = PlainTextConverter.convert(short + "!", fileName: "a.txt").body
+        visited = 0
+        #expect(
+            FragmentChanges.marks(from: atLimit, to: edited, visited: &visited) == [.init(blockID: "lines-9999-9999")])
+        #expect(visited == short.unicodeScalars.count * 2 + 1)
+    }
+
+    @Test("色の閉じタグの直後に結合文字があっても、行ごとに比べて変えた行だけに印を付ける")
+    func combiningMarkAfterTag() {
+        // The comment ends and the text goes on with a combining acute accent: `</span>` + U+0301.
+        let old = PlainTextConverter.convert("<a>\n<!-- c -->\u{301}text\n<b>1</b>\n", fileName: "a.xml").body
+        #expect(old.contains("--&gt;</span>\u{301}text"))
+        let new = PlainTextConverter.convert("<a>\n<!-- c -->\u{301}text\n<b>2</b>\n", fileName: "a.xml").body
+        let only = marks(old, new)
+        #expect(only == [.init(blockID: "lines-2-2")])
+        let marked = FragmentChanges.identifyingBlocks(in: new, for: only)
+        #expect(marked.contains("<span data-surimono-block=\"lines-2-2\">&lt;<span class=\"hl-tag\">b</span>"))
+        #expect(marked.contains("--&gt;</span>\u{301}text\n"))
+        // The line with the mark itself can be the changed one.
+        let accent = PlainTextConverter.convert("<a>\n<!-- c -->\u{302}text\n<b>1</b>\n", fileName: "a.xml").body
+        #expect(marks(old, accent) == [.init(blockID: "lines-1-1")])
+        #expect(
+            FragmentChanges.identifyingBlocks(in: accent, for: [.init(blockID: "lines-1-1")]).unicodeScalars.count
+                == accent.unicodeScalars.count + "<span data-surimono-block=\"lines-1-1\"></span>".unicodeScalars.count)
+    }
+
     @Test("閉じていないコメントの中で終わる文書でも、印を付けた HTML は末尾の改行を保つ")
     func trailingNewlineInsideSpan() {
         let new = PlainTextConverter.convert("let a = 1\n/* open\nstill open\n", fileName: "a.swift").body
