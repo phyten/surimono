@@ -2436,7 +2436,11 @@ final class DocumentViewModel {
             guard let self else { return }
             let proof = printFinish.proof
             let known = readStructure?.source == source && readStructure?.proof == proof ? readStructure : nil
-            let read: (headings: [DocumentHeading], statistics: DocumentStatistics, contents: [String], title: String?)?
+            let read:
+                (
+                    headings: [DocumentHeading], statistics: DocumentStatistics,
+                    contents: [String], title: String?
+                )?
             if let known {
                 read = (known.headings, known.statistics, known.contents, known.title)
             } else {

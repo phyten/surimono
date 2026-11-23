@@ -77,6 +77,36 @@ struct ResourceLibraryTests {
         }
     }
 
+    @Test("見出しに番号を振るテーマは、番号を自分で決める文書には振らない")
+    func numberingThemesLeaveNumberedDocumentsAlone() throws {
+        var checked = 0
+        for theme in try PrintThemeLibrary.load().filter(\.isBuiltIn) {
+            // Rule by rule, so a selector on one line and its declarations on the next are still one rule.
+            for rule in theme.css.components(separatedBy: "}") {
+                let parts = rule.components(separatedBy: "{")
+                guard parts.count == 2, parts[1].contains("content:"), parts[1].contains("counter(") else { continue }
+                for selector in parts[0].components(separatedBy: ",")
+                where selector.range(of: #"\bh[1-6]\b"#, options: .regularExpression) != nil {
+                    #expect(selector.contains(":not(.own-heading-numbers)"), "\(theme.id): \(selector)")
+                    #expect(selector.contains("body:not(.format-latex)"), "\(theme.id): \(selector)")
+                    checked += 1
+                }
+            }
+        }
+        // The heading rules that print a counter in the ten numbering styles.
+        #expect(checked >= 23)
+    }
+
+    @Test("見出しの番号を自分で決める文書は body にクラスが付く")
+    func ownHeadingNumbers() throws {
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "academic" })
+        let numbered = HTMLDocumentBuilder.build(
+            fragment: OrgConverter.convert("#+OPTIONS: num:t\n* A"), format: .org, theme: theme)
+        #expect(numbered.contains("<body class=\"surimono format-org own-heading-numbers\">"))
+        let silent = HTMLDocumentBuilder.build(fragment: OrgConverter.convert("* A"), format: .org, theme: theme)
+        #expect(silent.contains("<body class=\"surimono format-org\">"))
+    }
+
     @Test("ユーザーCSSは直下だけを読み名前順で安定して並ぶ")
     func userThemes() throws {
         try withDirectory { directory in

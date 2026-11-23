@@ -14,6 +14,24 @@ struct PageFootnotesTests {
             + "</ol></section>"
     }
 
+    @Test("明示見出しと衝突した脚注も二番のままページ下と文末に置ける")
+    func shiftedOrgFootnote() throws {
+        let html = OrgConverter.convert(
+            "* A\n:PROPERTIES:\n:CUSTOM_ID: fn-2\n:END:\n\nFirst[fn:first] second[fn:second].\n\n[fn:first] First note.\n[fn:second] Second note."
+        ).body
+        let plan = try #require(PageFootnotes.plan(for: html))
+        #expect(plan.eligibleNotes == [1, 2])
+        #expect(plan.stockNumbers(placing: [1, 2]) == [1, 2])
+        let moved = plan.reservingHTML(groups: [.init(firstReference: 1, notes: [2], heightPixels: 28)])
+        #expect(moved.contains("class=\"paper-footnote\" id=\"fn-2-1\""))
+        #expect(moved.contains("class=\"paper-footnote-mark\" href=\"#fn-2-1\""))
+        #expect(moved.contains("paper-footnote-top\" href=\"#fn-2-1\""))
+        #expect(moved.contains("paper-footnote-bottom\" href=\"#fn-2-1\""))
+        #expect(moved.contains("id=\"fn-2\">A</h1>"))
+        #expect(plan.measuringHTML(placing: [1]).contains("<li id=\"fn-2-1\" value=\"2\""))
+        #expect(PageFootnotes.plan(for: plan.measuringHTML(placing: [1]))?.eligibleNotes == [2])
+    }
+
     @Test("脚注も適格な参照もなければ計画を作らない")
     func absent() {
         #expect(PageFootnotes.plan(for: "<p>本文</p>") == nil)
