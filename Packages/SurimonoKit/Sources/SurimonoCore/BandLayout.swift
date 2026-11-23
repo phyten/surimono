@@ -92,6 +92,7 @@ public enum BandLayout {
     /// are small icons whose state shows at a glance, so they stay until only Print is left.
     public static let steps: [Step] = [
         .compact(.formatBadge), .compact(.style), .compact(.transition), .compact(.presentation), .compact(.outline),
+        .compact(.thumbnails),
         .remove(.chapter), .remove(.formatBadge), .remove(.pageIndicator), .remove(.style), .remove(.transition),
         .remove(.layout), .remove(.outline), .remove(.presentation), .remove(.thumbnails), .remove(.zoom),
         .remove(.floatOnTop), .remove(.showOnAllSpaces), .compact(.print),
@@ -100,6 +101,7 @@ public enum BandLayout {
     /// The bottom band gives way the same way, but the page indicator is its reason to be there, so it stays last.
     public static let bottomSteps: [Step] = [
         .compact(.formatBadge), .compact(.style), .compact(.transition), .compact(.presentation), .compact(.outline),
+        .compact(.thumbnails),
         .remove(.chapter), .remove(.transition), .remove(.layout), .remove(.pageTurn), .remove(.style),
         .remove(.outline),
         .remove(.presentation), .remove(.thumbnails), .remove(.zoom), .remove(.pageIndicator),
@@ -224,7 +226,10 @@ public enum BandLayout {
         // Reordering, crossing zones or editing separators uses adjacency gaps instead of the legacy stacks.
         func follows(_ entries: [BandEntry], order: [BandEntry]) -> Bool {
             let parts = Set(entries.compactMap(\.item))
-            return order.filter { $0.item.map(parts.contains) ?? true } == entries
+            let expected = order.filter { $0.item.map(parts.contains) ?? true }
+            if expected == entries { return true }
+            return availableItems.contains(.thumbnails) && !availableItems.contains(.outline)
+                && expected.withBundleEntryAtContents == entries
         }
         let standardSpacing =
             follows(leading, order: standardLeading)
@@ -281,7 +286,7 @@ public enum BandLayout {
     private static func physicalSteps(at position: Position) -> [Step] {
         let compact: [Step] = [
             .compact(.formatBadge), .compact(.style), .compact(.transition), .compact(.presentation),
-            .compact(.outline),
+            .compact(.outline), .compact(.thumbnails),
         ]
         let removed: [Item] =
             position == .top

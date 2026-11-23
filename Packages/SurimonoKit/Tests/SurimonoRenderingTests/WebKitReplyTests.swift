@@ -3,6 +3,7 @@ import Testing
 
 @testable import SurimonoRendering
 
+@Suite(.timeLimit(.minutes(1)))
 @MainActor
 struct WebKitReplyTests {
     @Test("届かない応答を期限で打ち切り、後から来た応答を次の測定に渡さない")
@@ -42,6 +43,22 @@ struct WebKitReplyTests {
         task.cancel()
         await #expect(throws: CancellationError.self) { try await task.value }
         #expect(start.duration(to: .now) < .seconds(1))
+    }
+
+    @Test("応答待ちの途中でプロセスが終了したら、応答がなくても期限を待たずに終了理由を返す")
+    func processEndsWhileWaiting() async throws {
+        let began = AsyncStream<Void>.makeStream()
+        var ended: String?
+        let task = Task {
+            try await WebKitReply<Int>.wait(until: .now + .seconds(30), ended: { ended }) { _ in
+                began.continuation.finish()
+            }
+        }
+        for await _ in began.stream {}
+        let start = ContinuousClock.now
+        ended = "ended while waiting"
+        await #expect(throws: WebPaginator.PaginationError.loadFailed("ended while waiting")) { try await task.value }
+        #expect(start.duration(to: .now) < .seconds(3))
     }
 
     @Test("プロセスが終わったあとの応答の待ちは、始める前と結果を採る前に終了のエラーになる")

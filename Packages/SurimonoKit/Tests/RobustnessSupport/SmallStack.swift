@@ -28,12 +28,15 @@ package enum SmallStack {
 
         init(_ continuation: CheckedContinuation<Outcome<Value>, any Error>) { self.continuation = continuation }
 
-        func resume(_ result: Result<Outcome<Value>, any Error>) {
+        @discardableResult
+        func resume(_ result: Result<Outcome<Value>, any Error>) -> Bool {
             lock.lock()
             let pending = continuation
             continuation = nil
             lock.unlock()
-            pending?.resume(with: result)
+            guard let pending else { return false }
+            pending.resume(with: result)
+            return true
         }
     }
 
@@ -76,8 +79,8 @@ package enum SmallStack {
             let (seconds, attoseconds) = limit.components
             let nanoseconds = Int(seconds) * 1_000_000_000 + Int(attoseconds / 1_000_000_000)
             DispatchQueue.global().asyncAfter(deadline: .now() + .nanoseconds(nanoseconds)) {
-                task.cancel()
-                once.resume(.success(.timedOut))
+                // Cancellation may run a blocking handler on this thread. Release the caller first.
+                if once.resume(.success(.timedOut)) { task.cancel() }
             }
         }
     }

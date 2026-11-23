@@ -3,10 +3,11 @@ import Observation
 import SurimonoCore
 import SurimonoRendering
 import SwiftUI
+import UniformTypeIdentifiers
 
 @Observable
 final class ImageBundleModel {
-    struct Item: Identifiable, Hashable, Sendable {
+    nonisolated struct Item: Identifiable, Hashable, Sendable {
         /// The image file, or for an entry of a ZIP archive the archive's URL with the entry path appended. It only
         /// identifies the image; nothing is ever written there.
         let url: URL
@@ -15,7 +16,8 @@ final class ImageBundleModel {
         var id: URL { url }
     }
 
-    let dragID = UUID()
+    /// Only this drawer can accept this private pasteboard representation, even before the drop is committed.
+    let pageDragType = UTType(mimeType: "application/x-surimono-image-page-" + UUID().uuidString.lowercased())
     private(set) var items: [Item]
     var selection: URL?
     /// The ZIP archive the images come from, if any.
@@ -98,6 +100,12 @@ final class ImageBundleModel {
 
     func move(fromOffsets offsets: IndexSet, toOffset destination: Int) {
         items.move(fromOffsets: offsets, toOffset: destination)
+    }
+
+    func move(_ source: URL, to gap: PageGridGap<Item>) {
+        guard let image = items.first(where: { $0.url == source }) else { return }
+        let moved = gap.moving(image, in: items)
+        if moved != items { items = moved }
     }
 
     /// Adds the images that are not in the bundle yet, by name among themselves, and returns them. A ZIP's images keep

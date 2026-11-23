@@ -442,3 +442,29 @@ extension Decoder {
         return userInfo[key] as? [BandLayout.Item] ?? BandLayout.Item.allCases
     }
 }
+
+extension BandArrangement {
+    public func forImageBundle(in mode: MenuArrangement) -> Self {
+        let zone: BandZoneID = mode == .split ? .bottomLeft : .topRight
+        let entries = self[zone]
+        // Respect saved placements. Only the built-in tools row borrows the document's Contents position.
+        guard
+            entries == Self.standard(for: mode)[zone]
+                || entries == Self.builtIn(for: mode, includesLegacyParts: true)[zone]
+        else { return self }
+        var result = self
+        result[zone] = entries.withBundleEntryAtContents
+        return result
+    }
+}
+
+extension Array where Element == BandEntry {
+    var withBundleEntryAtContents: Self {
+        guard let contents = firstIndex(of: .part(.outline)), let pages = firstIndex(of: .part(.thumbnails)) else {
+            return self
+        }
+        var row = self
+        row.swapAt(contents, pages)
+        return row
+    }
+}
