@@ -18,7 +18,10 @@ public enum TextDecoding {
         signatures.first { bytes.starts(with: $0.0) }.map { ($0.0.count, $0.1) }
     }
 
-    public static func decode(_ data: Data) -> DecodedText {
+    public static func decode(_ data: Data, preservingLineEndings: Bool = false) -> DecodedText {
+        func result(_ text: String, _ encoding: String.Encoding) -> DecodedText {
+            DecodedText(text: preservingLineEndings ? text : normalizeNewlines(text), encoding: encoding)
+        }
         for (signature, encoding) in signatures where data.starts(with: signature) {
             let content = data.dropFirst(signature.count)
             return result(
@@ -157,10 +160,6 @@ public enum TextDecoding {
 
     package static func normalizeNewlines(_ text: String) -> String {
         text.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
-    }
-
-    private static func result(_ text: String, _ encoding: String.Encoding) -> DecodedText {
-        DecodedText(text: normalizeNewlines(text), encoding: encoding)
     }
 
     /// How Japanese the text reads, or nil when it does not: control characters, or too little kana among the

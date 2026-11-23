@@ -1,0 +1,34 @@
+/* The paper is the code surface. Leave font-family to the theme's pre rule and the typeface overlay.
+   WebKit prints 1.25 CSS px per point. The root zoom also scales the gutter and hanging indents. */
+pre.surimono-source {
+    margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none;
+    color: inherit; font-size: max(var(--source-size, 12px), var(--source-min-size, 10px)); line-height: 1.4;
+    font-variant-ligatures: none; letter-spacing: normal; word-spacing: normal; text-align: left;
+    direction: ltr; white-space: normal; break-inside: auto; page-break-inside: auto;
+    /* Japanese faces have no italic of their own; a slanted comment in Japanese is hard to read on paper. */
+    font-synthesis-style: none;
+    --source-gutter: calc(var(--source-digits) * 0.45em + var(--source-gap));
+}
+pre.surimono-source > code {
+    display: block; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none;
+    font-size: inherit; line-height: inherit; color: inherit; white-space: normal;
+}
+.surimono-source .source-line {
+    display: block; position: relative; margin-left: var(--source-gutter);
+    break-inside: avoid; page-break-inside: avoid; min-height: 1.4em;
+}
+.surimono-source .source-ink {
+    display: block; min-height: 1.4em; white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 4;
+    text-indent: min(var(--source-indent, 2ch), 50%) hanging;
+}
+.surimono-source.source-measuring .source-ink, .surimono-source.source-cut .source-ink { white-space: pre; padding-left: 0; text-indent: 0; }
+.surimono-source.source-cut .source-ink { overflow: hidden; text-overflow: ellipsis; }
+.surimono-source.source-cut .source-line.code-is-cut { display: flex; }
+.surimono-source.source-cut .code-is-cut .source-ink { flex: 0 1 auto; min-width: 0; text-overflow: clip; }
+.surimono-source .code-cut { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.surimono-source .source-digits { position: absolute; width: 0; height: 0; }
+.surimono-source .source-no {
+    position: absolute; top: 0.325em; right: calc(100% + var(--source-gap)); height: 0.75em; width: auto;
+    fill: none; stroke: var(--code-no, #5f5f5b); stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round;
+    pointer-events: none; user-select: none; -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}

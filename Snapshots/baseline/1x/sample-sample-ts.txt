@@ -1,4 +1,4 @@
-// Paper sizes in milimetres, and the size of a page folded in half.
+// Paper sizes in millimetres, and the size of a page folded in half.
 interface PaperSize {
 readonly name: string;
 readonly width: number;
@@ -11,12 +11,12 @@ const sizes: PaperSize[] = [
 ];
 function folded(size: PaperSize): PaperSize {
 // 長辺を半分に折る
-return { name: `${size.name} folded`, width: Math.floor(size.height / 2), height: size.width
-};
+return { name: `${size.name} folded`, width: Math.floor(size.height / 2), height:
+size.width };
 }
 export function describe(size: PaperSize): string {
 const half = folded(size);
-return `${size.name}: ${size.width} × ${size.height} mm → ${half.width} × ${half.height}
-mm`;
+return `${size.name}: ${size.width} × ${size.height} mm → ${half.width} ×
+${half.height} mm`;
 }
 sizes.map(describe).forEach((line) => console.log(line));

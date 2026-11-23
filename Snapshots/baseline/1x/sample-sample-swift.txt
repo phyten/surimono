@@ -1,4 +1,4 @@
-// A smal booklet planner: how many sheets a saddle-stitched booklet needs.
+// A small booklet planner: how many sheets a saddle-stitched booklet needs.
 import Foundation
 struct Booklet {
 let pages: Int
@@ -12,8 +12,9 @@ return front
 }
 }
 let booklet = Booklet(pages: 10)
-for sheet in 0.<booklet.sheets {
+for sheet in 0..<booklet.sheets {
 let front = booklet.side(of: sheet, front: true)
 let back = booklet.side(of: sheet, front: false)
-print("用紙 \(sheet + 1): 表 [\(front.left)|\(front.right)] 裏 [\(back.left)|\(back.right)]")
+print("用紙 \(sheet + 1): 表 [\(front.left)|\(front.right)] 裏 [\(back.left)|\
+(back.right)]")
 }

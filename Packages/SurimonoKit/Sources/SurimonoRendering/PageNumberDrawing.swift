@@ -7,7 +7,8 @@ import SurimonoFormats
 @MainActor
 public enum PageNumberDrawing {
     public static func draw(
-        _ number: Int, in rect: CGRect, margin: CGFloat, scale: CGFloat = 1, context: CGContext
+        _ number: Int, in rect: CGRect, margin: CGFloat, scale: CGFloat = 1, asOutlines: Bool = false,
+        context: CGContext
     ) {
         let text = NSAttributedString(
             string: String(number),
@@ -23,7 +24,7 @@ public enum PageNumberDrawing {
         // With zero margins, keep the label inside the page instead of clipping it below the media box.
         let centerY = rect.minY + max(margin / 2, (ascent + descent) / 2 + 2)
         context.textPosition = CGPoint(x: rect.midX - width / 2, y: centerY - (ascent - descent) / 2)
-        CTLineDraw(line, context)
+        PageFurnitureDrawing.show(line, asOutlines: asOutlines, context: context)
     }
 }
 

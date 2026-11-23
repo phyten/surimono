@@ -271,6 +271,7 @@ extension WebPaginator {
 
 /// What the renderer adds to the pages of a text and what it reads from the text on the way.
 struct FinishedPages {
+    var sourceText: String?
     var latexPages: [LaTeXPageReferences.Page] = []
     var facts: DocumentFacts?
     var contentsPageCount = 0
@@ -803,6 +804,11 @@ public final class DocumentRenderer {
                 logical.binderDocuments = binderOutput?.documents ?? [:]
                 logical.binderPageStarts = binderOutput?.pageStarts ?? [:]
                 logical.binderPageSizes = binderOutput?.pageSizes ?? []
+                if let text = finishing.sourceText {
+                    SourcePaperText.attach(
+                        text, to: document, options: settings.code.sourceBlock,
+                        language: finishing.facts?.sourceLanguage)
+                }
                 logical.finishing = finishing
                 logicalRenderCount += 1
                 // An older suspended render must not overwrite the cache of a newer request.
@@ -1087,6 +1093,7 @@ public final class DocumentRenderer {
                 if prepared.formulaIndex != nil { output.hasFormulas = true }
                 output.pageSizes += Self.pageSizes(of: document)
                 for page in pages { output.document.insert(page, at: output.document.pageCount) }
+                SourcePaperText.include(document, in: output.document, startingAt: offset)
                 if let url = child.fileURL {
                     output.documents[url] = document
                     if document.pageCount > 0 { output.pageStarts[url] = offset }
@@ -1291,7 +1298,13 @@ public final class DocumentRenderer {
             .docx,
             .notebook,
             .graphviz, .plantuml:
-            let flow = settings.theme.supports(source.format) ? settings.theme.flow : .horizontal
+            var input = input
+            if source.format == .plainText, settings.theme.flow == .vertical, input == nil {
+                input = try await Self.readThemedInput(source, settings: settings, access: resourceAccess(for: source))
+            }
+            let flow =
+                settings.theme.supports(source.format) && input?.fragment.sourceLanguage == nil
+                ? settings.theme.flow : .horizontal
             let separatesPaper = WebPaginator.drawsClearPages && flow == .horizontal
             let page = try await Self.themedPage(
                 source: source, settings: settings, access: resourceAccess(for: source), separatesPaper: separatesPaper,
@@ -1411,6 +1424,7 @@ public final class DocumentRenderer {
             }
             if page.needsFolderAccess { text.requiredFolderAccess = directory }
             text = try await finished(text, fragment: fragment, facts: page.facts, source: source, settings: settings)
+            text.finishing.sourceText = fragment.sourceText
             guard separatesPaper, text.preparationResult == "paper" else { return text }
             let paperHTML = PaperBackground.document(
                 theme: settings.theme, format: source.format, baseURL: directory,
@@ -1553,9 +1567,8 @@ public final class DocumentRenderer {
         try Task.checkCancellation()
         let language = HTMLDocumentBuilder.language(for: fragment, fallback: settings.pageLanguage).code
         fragment.language = language
-        let paper = HTMLFragment(
-            body: settings.finish.links.apply(to: fragment.body, language: settings.pageLanguage),
-            title: fragment.title, language: language, latexClass: fragment.latexClass)
+        var paper = fragment
+        paper.body = settings.finish.links.apply(to: fragment.body, language: settings.pageLanguage)
         let html = try await builtHTML(paper, source: source, settings: settings, separatesPaper: separatesPaper)
         // Text and tables cannot emit diagram elements. Check markup before adding styles or duplicating it for notes.
         let markup = source.format != .plainText && source.format != .csv
@@ -1584,12 +1597,15 @@ public final class DocumentRenderer {
         {
             finishCSS += RenderSettings.documentWidthCSS
         }
-        let html = HTMLDocumentBuilder.build(
+        let html = try HTMLDocumentBuilder.build(
             fragment: fragment, format: source.format, theme: settings.theme,
             baseURL: source.fileURL?.deletingLastPathComponent(),
             language: settings.pageLanguage, textScale: settings.textScale, typeface: settings.typeface,
             removesPaper: separatesPaper,
-            finish: finishCSS, code: isContents ? CodeStyle() : settings.code)
+            finish: finishCSS, code: isContents ? CodeStyle() : settings.code
+        ) {
+            try PageLayoutLimits.checkHTML(bytes: $0, sourceBytes: source.data.count)
+        }
         try PageLayoutLimits.checkHTML(bytes: html.utf8.count, sourceBytes: source.data.count)
         try Task.checkCancellation()
         return html
@@ -2117,8 +2133,11 @@ public final class DocumentRenderer {
         guard source.data.count <= PageLayoutLimits.plainTextBytes else {
             throw RenderingError.tooLarge(bytes: source.data.count)
         }
-        return PlainTextConverter.convert(
-            try decodedText(source.data), fileName: source.name ?? source.fileURL?.lastPathComponent)
+        let original = try decodedText(source.data, preservingLineEndings: true)
+        var fragment = PlainTextConverter.convert(
+            TextDecoding.normalizeNewlines(original), fileName: source.name ?? source.fileURL?.lastPathComponent)
+        if fragment.sourceLanguage != nil { fragment.sourceText = original }
+        return fragment
     }
 
     /// A file's extension names its delimiter. A table from memory, such as one copied from a spreadsheet, has no
@@ -2137,8 +2156,8 @@ public final class DocumentRenderer {
         }
     }
 
-    nonisolated static func decodedText(_ data: Data) throws -> String {
-        let decoded = TextDecoding.decode(data)
+    nonisolated static func decodedText(_ data: Data, preservingLineEndings: Bool = false) throws -> String {
+        let decoded = TextDecoding.decode(data, preservingLineEndings: preservingLineEndings)
         // Core deliberately tolerates invalid byte sequences; printing must surface that data loss.
         guard String(data: data, encoding: decoded.encoding) != nil else { throw RenderingError.textDecodingFailed }
         let signatures: [([UInt8], String.Encoding)] = [

@@ -253,11 +253,13 @@ enum ChangeMarkAnchors {
                     document.body.appendChild(anchor);
                   }
                 } else {
-                  inside(block, anchor);
+                  const host = block.closest('.source-ink') || block;
+                  inside(host, anchor);
                   if (block.matches('.math-block')) set(anchor, 'bottom', (-\(2 * WebPaginator.printPixelsPerPoint) / zoom) + 'px');
-                  if (block.parentElement.matches('pre.surimono-plain')) {
-                    const box = block.getBoundingClientRect();
-                    const pre = block.parentElement.getBoundingClientRect();
+                  const plainPage = block.parentElement.matches('pre.surimono-plain') ? block.parentElement : block.closest('pre.surimono-source');
+                  if (plainPage) {
+                    const box = host.getBoundingClientRect();
+                    const pre = plainPage.getBoundingClientRect();
                     set(anchor, 'left', ((pre.left - box.left) / zoom) + 'px');
                     set(anchor, 'right', 'auto'); set(anchor, 'width', pre.width / zoom + 'px');
                   }

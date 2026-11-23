@@ -84,7 +84,7 @@ struct HeadlessExport {
             settings.finish = preferences.printFinish
             let palette = library.codePalette(preferences.defaultCodePaletteID)
             settings.code = CodeStyle(
-                palette: palette, block: CodeBlockOptions(), cutFormat: String(localized: "+%d characters"))
+                palette: palette, cutFormat: String(localized: "+%d characters"))
         }
         return settings
     }

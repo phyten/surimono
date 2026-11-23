@@ -1,177 +1,179 @@
 {
   "fonts" : [
-    "HiraKakuProN-W3",
-    "HiraKakuProN-W6"
+    "HiraginoSans-W3",
+    "Menlo-Bold",
+    "Menlo-Italic",
+    "Menlo-Regular"
   ],
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 42,
+      "firstY" : 44.1,
       "height" : 841.9,
-      "lastY" : 522.6,
+      "lastY" : 378.1,
       "lineCount" : 22,
       "lines" : [
         {
-          "height" : 18.4,
-          "text" : "// Paper sizes in milimetres, and the size of a page folded in half.",
-          "width" : 364.8,
-          "x" : 42.1,
-          "y" : 42
+          "height" : 11.2,
+          "text" : "// Paper sizes in millimetres, and the size of a page folded in half.",
+          "width" : 399.3,
+          "x" : 62.7,
+          "y" : 44.1
         },
         {
-          "height" : 19.4,
+          "height" : 11.2,
           "text" : "interface PaperSize {",
-          "width" : 121,
-          "x" : 42.5,
-          "y" : 61
+          "width" : 121.5,
+          "x" : 62.7,
+          "y" : 57.7
         },
         {
-          "height" : 19.4,
+          "height" : 11.2,
           "text" : "readonly name: string;",
-          "width" : 128.1,
-          "x" : 50,
-          "y" : 80.3
+          "width" : 127.3,
+          "x" : 74.3,
+          "y" : 71.3
         },
         {
-          "height" : 19.4,
+          "height" : 11.2,
           "text" : "readonly width: number;",
-          "width" : 138.5,
-          "x" : 50,
-          "y" : 99.5
+          "width" : 133.1,
+          "x" : 74.3,
+          "y" : 84.1
         },
         {
-          "height" : 19.4,
+          "height" : 11.2,
           "text" : "readonly height: number;",
-          "width" : 143.3,
-          "x" : 50,
-          "y" : 118.7
+          "width" : 138.9,
+          "x" : 74.3,
+          "y" : 97.7
         },
         {
-          "height" : 18.4,
+          "height" : 11.2,
           "text" : "}",
-          "width" : 3.9,
-          "x" : 42.5,
-          "y" : 138.1
+          "width" : 5.8,
+          "x" : 62.7,
+          "y" : 111.3
         },
         {
-          "height" : 19.4,
+          "height" : 11.2,
           "text" : "const sizes: PaperSize[] = [",
-          "width" : 152,
-          "x" : 42.5,
-          "y" : 176.4
+          "width" : 162,
+          "x" : 62.7,
+          "y" : 138.6
         },
         {
-          "height" : 18.4,
+          "height" : 11.2,
           "text" : "{ name: \"A3\", width: 297, height: 420 },",
-          "width" : 213,
-          "x" : 50,
-          "y" : 195.8
+          "width" : 231.5,
+          "x" : 74.3,
+          "y" : 151.4
         },
         {
-          "height" : 18.4,
+          "height" : 11.2,
           "text" : "{ name: \"A4\", width: 210, height: 297 },",
-          "width" : 213,
-          "x" : 50,
-          "y" : 215
+          "width" : 231.5,
+          "x" : 74.3,
+          "y" : 165
         },
         {
-          "height" : 18.4,
+          "height" : 11.2,
           "text" : "{ name: \"B4\", width: 257, height: 364 },",
-          "width" : 212.7,
-          "x" : 50,
-          "y" : 234.2
+          "width" : 231.5,
+          "x" : 74.3,
+          "y" : 178.6
         },
         {
-          "height" : 18.4,
+          "height" : 11.2,
           "text" : "];",
-          "width" : 6.6,
-          "x" : 42.5,
-          "y" : 253.5
+          "width" : 11.6,
+          "x" : 62.7,
+          "y" : 192.2
         },
         {
-          "height" : 19.4,
+          "height" : 11.2,
           "text" : "function folded(size: PaperSize): PaperSize {",
-          "width" : 248.6,
-          "x" : 42.5,
-          "y" : 291.7
+          "width" : 260.4,
+          "x" : 62.7,
+          "y" : 218.7
         },
         {
-          "height" : 18.4,
+          "height" : 15.8,
           "text" : "// 長辺を半分に折る",
-          "width" : 106.6,
-          "x" : 49.6,
-          "y" : 311.1
+          "width" : 94.3,
+          "x" : 74.3,
+          "y" : 229
         },
         {
-          "height" : 19.4,
-          "text" : "return { name: `${size.name} folded`, width: Math.floor(size.height / 2), height: size.width",
-          "width" : 492.6,
-          "x" : 50,
-          "y" : 330.2
+          "height" : 11.2,
+          "text" : "return { name: `${size.name} folded`, width: Math.floor(size.height / 2), height:",
+          "width" : 468.7,
+          "x" : 74.3,
+          "y" : 245.9
         },
         {
-          "height" : 18.4,
-          "text" : "};",
-          "width" : 6.6,
-          "x" : 42.5,
-          "y" : 349.6
+          "height" : 11.2,
+          "text" : "size.width };",
+          "width" : 75.2,
+          "x" : 85.9,
+          "y" : 258.7
         },
         {
-          "height" : 18.4,
+          "height" : 11.2,
           "text" : "}",
-          "width" : 3.9,
-          "x" : 42.5,
-          "y" : 368.8
+          "width" : 5.8,
+          "x" : 62.7,
+          "y" : 271.5
         },
         {
-          "height" : 19.4,
+          "height" : 11.2,
           "text" : "export function describe(size: PaperSize): string {",
-          "width" : 281.7,
-          "x" : 42.5,
-          "y" : 407.1
+          "width" : 295.1,
+          "x" : 62.7,
+          "y" : 298.8
         },
         {
-          "height" : 19.4,
+          "height" : 11.2,
           "text" : "const half = folded(size);",
-          "width" : 139.7,
-          "x" : 50,
-          "y" : 426.3
+          "width" : 150.5,
+          "x" : 74.3,
+          "y" : 311.6
         },
         {
-          "height" : 19.4,
-          "text" : "return `${size.name}: ${size.width} × ${size.height} mm → ${half.width} × ${half.height}",
-          "width" : 479.1,
-          "x" : 50,
-          "y" : 445.5
+          "height" : 11.2,
+          "text" : "return `${size.name}: ${size.width} × ${size.height} mm → ${half.width} ×",
+          "width" : 422.5,
+          "x" : 74.3,
+          "y" : 325.2
         },
         {
-          "height" : 18.4,
-          "text" : "mm`;",
-          "width" : 29.2,
-          "x" : 42.5,
-          "y" : 464.9
+          "height" : 11.2,
+          "text" : "${half.height} mm`;",
+          "width" : 110,
+          "x" : 85.9,
+          "y" : 338
         },
         {
-          "height" : 18.4,
+          "height" : 11.2,
           "text" : "}",
-          "width" : 3.9,
-          "x" : 42.5,
-          "y" : 484.1
+          "width" : 5.8,
+          "x" : 62.7,
+          "y" : 350.8
         },
         {
-          "height" : 18.4,
+          "height" : 11.2,
           "text" : "sizes.map(describe).forEach((line) => console.log(line));",
-          "width" : 302.6,
-          "x" : 42.5,
-          "y" : 522.6
+          "width" : 329.9,
+          "x" : 62.7,
+          "y" : 378.1
         }
       ],
-      "textHeight" : 499,
-      "textLeft" : 42.1,
-      "textTop" : 42,
-      "textWidth" : 500.4,
+      "textHeight" : 345.2,
+      "textLeft" : 62.7,
+      "textTop" : 44.1,
+      "textWidth" : 480.3,
       "width" : 595.3
     }
   ],
-  "textSHA256" : "aaaaf336c25fdb2b6f2e88a8842383a4a8870bf72c0fca1b6efb5305d7b568dd"
+  "textSHA256" : "3c297d2b5c2e94519c511067facca729d068bd4679c7662864e73685bf958d96"
 }

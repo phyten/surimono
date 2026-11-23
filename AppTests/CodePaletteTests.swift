@@ -117,6 +117,38 @@ struct CodePaletteModelTests {
         #expect(model.codeBlock == CodeBlockOptions())
     }
 
+    @Test("ソースの番号は既定で全行、選んだ文書だけ変更を保存し、戻すと記録から消える", .timeLimit(.minutes(1)))
+    func sourceDefaults() async throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = DocumentSettingsStore(directory: directory)
+        func source(_ name: String) -> DocumentViewModel {
+            DocumentViewModel(
+                data: Data("let a = 1\n".utf8), fileURL: nil, format: .plainText,
+                preferences: AppPreferences(defaults: suite.defaults), library: library(), renderer: renderer(pages: 1),
+                settingsStore: store, sourceFileName: name)
+        }
+        let code = source("a.swift")
+        let other = source("b.swift")
+        #expect(code.codeBlock == CodeBlockOptions(frame: .none, lineNumbers: .all))
+        #expect(code.rememberedSettings.codeBlock == nil)
+        code.codeBlock.lineNumbers = .none
+        #expect(code.rememberedSettings.codeBlock == CodeBlockOptions(frame: .none))
+        #expect(other.codeBlock.lineNumbers == .all)
+        let key = ContentHash.of(Data("let a = 1\n".utf8)).hex
+        try store.save(code.rememberedSettings, for: key)
+        let restored = source("a.swift")
+        restored.start()
+        try await waitUntil { restored.contentHash != nil }
+        #expect(restored.codeBlock.lineNumbers == .none)
+        restored.resetDocumentSettings()
+        #expect(restored.codeBlock == CodeBlockOptions(frame: .none, lineNumbers: .all))
+        #expect(restored.rememberedSettings.codeBlock == nil)
+        #expect(source("a.log").codeBlock == CodeBlockOptions())
+    }
+
     @Test("HTML 文書にはコードの配色を渡さない")
     func htmlIgnoresThePalette() throws {
         let suite = TestDefaultsSuite()
