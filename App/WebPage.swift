@@ -104,6 +104,8 @@ final class WebPageController: NSObject {
 
     private func load() {
         guard let webView, let fileURL else { return }
+        terminationError = nil
+        hasFinishedLoading = false
         // The document may refer to files next to it, such as images and style sheets.
         if isSandboxed() {
             webView.load(URLRequest(url: LocalResourceSchemeHandler.url(for: fileURL)))
@@ -194,6 +196,9 @@ final class WebPageController: NSObject {
         webView?.uiDelegate = nil
         webView?.removeFromSuperview()
         webView = nil
+        // A copy still waiting for this page's answer gets none.
+        pageGeneration += 1
+        terminationError = nil
         allowsJavaScript = nil
         // The page that measured it is gone; the owner learns of a restart separately.
         slideDeck = nil
@@ -219,19 +224,43 @@ final class WebPageController: NSObject {
         case failed
     }
 
+    /// How long a copy of the page may take. The script only reads the DOM, which takes well under a second for an
+    /// ordinary page; the minute is the base the paginator allows its print step, so a very large page on a busy
+    /// machine still gets its copy, and a page that never answers ends in the failure notice instead of "loading".
+    var snapshotTimeout: Duration = .seconds(60)
+    /// The script that copies the page; replaced in tests by one that never answers.
+    var snapshotScript = HTMLSnapshotScript.javaScript
+    /// Why the page's web content process ended, until the page is loaded again.
+    private(set) var terminationError: String?
+    /// Counts the pages a waiting copy can no longer hear from: ended processes and closed web views.
+    private var pageGeneration = 0
+    private var hasFinishedLoading = false
+
     /// The page as it is now, as HTML.
     func snapshot() async -> Snapshot {
         guard let webView, webView.url != nil else { return .notLoaded }
+        let generation = pageGeneration
         do {
-            // An isolated world works whether or not the page's own JavaScript may run.
-            let value = try await webView.callAsyncJavaScript(
-                HTMLSnapshotScript.javaScript, arguments: [:], in: nil, contentWorld: Self.contentWorld)
+            // An isolated world works whether or not the page's own JavaScript may run. WebKit may never call back
+            // (its process stopped, or a page that never settles), and once its process has ended it answers from a
+            // new, empty page, so the wait has a deadline and ends with the process.
+            let value = try await webView.evaluate(
+                snapshotScript, world: Self.contentWorld, until: .now + snapshotTimeout
+            ) { [weak self] in
+                guard let self, pageGeneration == generation else { return Self.terminationMessage }
+                return terminationError
+            }
             guard let json = value as? String, let snapshot = HTMLSnapshot(scriptResult: json) else { return .failed }
             return .captured(snapshot)
         } catch {
-            Self.logger.error("Capturing the web page failed: \(error.localizedDescription, privacy: .public)")
+            Self.logger.error("Capturing the web page failed: \(String(describing: error), privacy: .public)")
             return .failed
         }
+    }
+
+    private static var terminationMessage: String {
+        NSError(domain: WKError.errorDomain, code: WKError.Code.webContentProcessTerminated.rawValue)
+            .localizedDescription
     }
 
     func zoomIn() { setZoom(Self.zoomSteps.first { $0 > zoom + 0.001 } ?? zoom) }
@@ -335,6 +364,24 @@ extension WebPageController: WKNavigationDelegate {
             case nil: .newWindow(byUser: type == .linkActivated)
             }
         decisionHandler(perform(Self.decision(for: url, type: type, target: target, document: fileURL), for: url))
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        hasFinishedLoading = true
+    }
+
+    /// The page is blank from here on and answers nothing it was asked. A copy in flight fails with the notice the
+    /// reader can retry from, and the document is loaded again so that the retry has a page to copy. A page whose
+    /// process ended before it finished loading is left alone: loading it again could end the same way for ever.
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        guard webView === self.webView else { return }
+        Self.logger.error("The web content process of the page ended")
+        pageGeneration += 1
+        if hasFinishedLoading {
+            load()
+        } else {
+            terminationError = Self.terminationMessage
+        }
     }
 }
 
