@@ -116,13 +116,16 @@ WebKit の文書組版もメインディスプレイの倍率に影響される�
 - これらを束ねるのが `DocumentRenderer`（SurimonoRendering）。文書ごとに 1 つ持ち、論理ページの PDF を使い回す（両面設定やページ番号の変更だけなら組版し直さない）。ファイルが変わったら `clearCache()` を呼ぶ。
 - テキストは 30 MB、CSV / TSV は見出しを含む 60,000 行、生成した HTML は 60 MB まで（1 MB = 1,000,000 バイト）。超過時は WebKit を起動せず文書の大きさを知らせる。言語判定は HTML 断片の先頭 64 KiB まで。読み込みは 15 秒、印刷組版は 60 秒から入力 1 MB あたり 4 秒延長し、各 5 分まで。Mermaid の描画は 10 秒 + 1 個あたり 0.3 秒、最大 60 秒。時間切れで原文が残った個数は刷り台の「確認」に出す。
 - JSON・JSON Lines（.jsonl / .ndjson）・YAML・TOML・XML はテキストとして開き、既存の構文色付け器の範囲（UTF-16 で 20 万単位まで）で色を付ける。.log は無色。Notebook と HTML は従来の変換経路を使う。
-- ソースコードと設定ファイルは、形式を `.plainText` のままにして、`SourceLanguage`（SurimonoFormats）が見分けた言語で `PlainTextConverter` が `pre.surimono-plain` の中を色付けする。従来から開けるテキスト文書について言語を見分けるだけで、開ける形式は追加しない（文書の種類の登録は別の変更）。
+- ソースコードと設定ファイルは、形式を `.plainText` のままにして、`SourceLanguage`（SurimonoFormats）が見分けた言語で `PlainTextConverter` が `pre.surimono-plain` の中を色付けする。開ける種類の登録は次の「開く経路」のとおり。
   - 見る順: 固定名の完全一致（`Makefile`・`Dockerfile`・`Gemfile`・`.env`・`setup.cfg` など）→ `.example`・`.bak` などの末尾を外してやり直す → 拡張子 → 固定名から派生した名前（`Dockerfile.dev`・`.env.local`）→ 先頭の `#!`。拡張子が `.txt`・`.log` や、自分の読み方がある形式（`.md`・`.html`・`.tex` など。「テキストとして開く」で開いたときも）なら、派生名にも `#!` にも進まず色を付けない（`Dockerfile.txt`・`.env.md`）。ファイル名のないテキスト（クリップボード）にも付けない。
   - `#!` は `env` の `-S`（引用も）と、値を取る `-u`・`-C`・`-P`、`NAME=value` を読み飛ばす。最初の行は 256 文字までで、そこで切れたかもしれないコマンド名では決めない。
   - 割り切り: `.h` は C（C++ や Objective-C のヘッダーも同じ拡張子）、`.r` は R（macOS では Rez）、大文字の `.C`・`.H` は C++、`.m` は Objective-C で書き出しが `%`・`function`・`classdef` なら MATLAB。`.cfg`・`.conf` は構文がまちまちなので拡張子では色を付けない。
   - 紙と帯の形式のバッジ（言語の名前。「Swift」「YAML」）は、どちらも `DocumentRenderer.sourceLanguage(of:)` と同じ、デコード済みの本文からの判定を使う。バイト列から別に判定しない（UTF-16 で食い違う）。
   - 色付けの上限（UTF-16 で 20 万）を超えたら、切らずに色なしで全部出す。保存し直したときの変更の印は、色付きでも行ごと（`FragmentChanges` が本文の行で比べ、色の span ごと行を囲む）。
-  - 言語を足すときは `SyntaxLanguage` の定義と `SourceLanguage` の表の両方に足す（`SourceLanguageTests`）。行番号と行へ移動はまだない。
+  - 開く経路: 拡張子は `DocumentFormat.sourceCodeExtensions`（`.plainText` になる。`SourceLanguage` の表と一致することを `SourceCodeOpeningTests` で固定）。Info.plist の書類の種類（`Alternate` のまま）と `readableContentTypes` には、`public.source-code`、macOS が型を持たない拡張子（`.go`・`.rs`・`.kt`・`.cs`・`.lua`・`.jl`・`.hs`・`.vue` など）をまとめた取り込みの型 `app.surimono.source-code`（`UTType.surimonoSourceCode`。ほかのアプリがその拡張子に型を宣言すれば、そちらが使われる）、`public.css`、`com.microsoft.ini`、`com.apple.property-list`、`public.mpeg-2-transport-stream` を足してある。
+  - `.ts` は macOS では MPEG のトランスポートストリーム、`.plist` はバイナリのこともある。`BinaryLookalike`（SurimonoFormats）が先頭 1024 バイトで見分け、動画とバイナリの plist は `SurimonoDocument` が `SourceFileError.notText` で断り、`OpenRequest` は合本から除く。`.mts` は AVCHD の動画と重なるので、言語は見分けるが開く種類には登録しない。
+  - 拡張子のない `Dockerfile`・`Gemfile`・`.env`・shebang だけのスクリプトは、型が `public.data`（実行可能なら `public.unix-executable`）で、書類の種類に宣言するとすべてのファイルに名乗ることになる。宣言せず、`OpenRouter` が `SourceFileOpening.readsAsPlainText`（型が内容を表さず、名前か先頭行で言語が分かる）のときだけ `makeDocument(withContentsOf:ofType:)` でテキストとして開く。ドロップでは開けるが、Finder の「このアプリケーションで開く」と「開く…」のパネルでは選べない。`Makefile` は macOS が `public.make-source` にするので普通に開く。
+  - 言語を足すときは `SyntaxLanguage` の定義、`SourceLanguage` の表、`DocumentFormat.sourceCodeExtensions`、型がなければ Info.plist の `app.surimono.source-code` の拡張子に足す。行番号と行へ移動はまだない。
 - Markdown と Org のコードは SurimonoFormats の `SyntaxHighlighter` で色付けする（JavaScript は使わない）。Markdown の `:::` と `> [!note]` は囲み（`callout-*`）にする。
 - Org（`OrgConverter`・`OrgInline`・`OrgContext`、SurimonoFormats）は、紙で読むための形にして出す。原文の記号（`[fn:1]`・`SCHEDULED: <…>`・`#+begin_note`）を紙に残さない。
   - `#+TITLE` があるときは表題だけが h1 で、`*` は h2 から（org-export と同じ。テーマは h1 を文書の表題として作ってある）。表題がなければ `*` が h1 のまま。表題ブロックは表題・副題（`#+SUBTITLE`）・著者・日付の順。

@@ -105,7 +105,7 @@ Surimono はオフラインで使えます。通信するのは「URL から開�
 | 画像 | `.png`, `.jpg`, `.heic`, `.gif`, `.tiff`, `.webp` など |
 | Org | `.org` |
 | テキスト | `.txt`、`.log` など |
-| ソースコードと設定ファイル（言語に合わせて色を付け、書かれたとおりに表示） | `.swift`、`.py`、`.rb`、`.js`、`.java`、`.c`、`.h`、`.cpp`、`.m`、`.php`、`.sh`、`.sql`、`.diff`、`.patch`、`.mk`、`.json`、`.jsonl`、`.ndjson`、`.yaml`、`.yml`、`.toml`、`.xml` など、macOS がテキストとして扱うファイル |
+| ソースコードと設定ファイル（言語に合わせて色を付け、書かれたとおりに表示） | `.swift`、`.py`、`.rb`、`.js`、`.ts`、`.tsx`、`.go`、`.rs`、`.java`、`.kt`、`.c`、`.h`、`.cpp`、`.cs`、`.m`、`.php`、`.sh`、`.sql`、`.lua`、`.r`、`.jl`、`.hs`、`.vue`、`.css`、`.scss`、`.json`、`.jsonl`、`.ndjson`、`.yaml`、`.yml`、`.toml`、`.ini`、`.xml`、`.plist`、`.diff`、`.patch`、`.mk`、`Makefile` など |
 | HTML | `.html`, `.htm` |
 | CSV / TSV | `.csv`, `.tsv` |
 | LaTeX | `.tex`, `.latex`, `.ltx` |
@@ -122,7 +122,7 @@ Surimono はオフラインで使えます。通信するのは「URL から開�
 | PlantUML | `.puml`, `.plantuml`, `.pu`, `.iuml`, `.wsd` |
 | 画像の ZIP | `.zip`（1 つの画像の束として開く） |
 
-ページに組める上限は、テキストが 30 MB、CSV・TSV が見出しを含む 60,000 行、変換後の HTML が 60 MB です（1 MB = 1,000,000 バイト）。ソースコードと設定ファイルは UTF-16 で 20 万単位まで構文に色を付け、それより長いファイルは色なしで全部表示します。これまでも開けたテキスト文書について、決まったファイル名（`Makefile`・`Dockerfile` など）、拡張子、先頭の `#!` の順に言語を見分けます。開ける形式は増えていません。
+ページに組める上限は、テキストが 30 MB、CSV・TSV が見出しを含む 60,000 行、変換後の HTML が 60 MB です（1 MB = 1,000,000 バイト）。ソースコードと設定ファイルは UTF-16 で 20 万単位まで構文に色を付け、それより長いファイルは色なしで全部表示します。決まったファイル名（`Makefile`・`Dockerfile` など）、拡張子、先頭の `#!` の順に言語を見分けます。macOS は `.ts` を動画として扱いますが、中身がテキストなら開き、本物の動画は開きません。これらのファイルの既定のアプリにはなりません。macOS が種類を持たない拡張子なしのファイル（`Dockerfile`・`Gemfile`・`.env`・スクリプト）は、Surimono のウインドウかウェルカム画面にドロップすると開けます（Finder の「このアプリケーションで開く」には出ません）。
 
 ### 対応していないこと
 
@@ -159,7 +159,7 @@ make clean                      # ビルド生成物を削除
 
 `Surimono.xcodeproj` を開き、共有スキーム `Surimono` でもビルドできます。ビルド時は `CONFIGURATION`・`DERIVED_DATA`、パッケージ作成時は `VERSION`・`BUILD_NUMBER` を指定できます（`0.2.0-beta.1` のようなプレリリースでは `MARKETING_VERSION=0.2.0` も指定します）。署名はアドホックのため、開発者アカウントは不要です。文書変換から印刷プレビュー、印刷、PDF 書き出しまでを SurimonoKit の描画パイプラインで接続しています。
 
-`Samples/` に reStructuredText（`sample.rst`）・Djot（`sample.dj`）・Textile（`sample.textile`）・Markdown・Org・UTF-8／Shift_JIS テキスト・HTML・CSV・JSON（`sample.json`）のサンプルがあります。`booklet-demo.md` は冊子の読み順を確認するための、画像を含まない長い文書で、`callouts.md` はすべての種類の囲みの見本です。設定画面で余白・ページ番号・裏面回転・HTML の JavaScript を指定できます。ユーザー CSS は `~/Library/Application Support/Surimono/Styles/`、JSON プリセットは `Presets/` に追加し、設定画面から再読み込みします。Markdown などの印刷スタイル（ユーザー CSS も）が `html` に付けた背景（紙の色や罫線）は余白まで敷かれ、模様は本文の左上にそろいます（横に大きくはみ出す文書では本文の範囲だけになります）。外部で保存すると自動で読み直します。Markdown・Org・Word などの文書では、今のページに変更があればそこにとどまり、ほかのページにあれば次の変更へ移ります。画面では変更した段落やテキストの行、リストの項目、表の行に薄い黄色を付けます。削除した所には細い帯が付きます。「一般」設定で色を変えたり、今のページにとどまったり、自動の読み直しを切ったりできます。元のファイルには書き込みません。
+`Samples/` に reStructuredText（`sample.rst`）・Djot（`sample.dj`）・Textile（`sample.textile`）・Markdown・Org・UTF-8／Shift_JIS テキスト・HTML・CSV・JSON（`sample.json`）・ソースコード（`sample.swift`・`sample.py`・`sample.rb`・`sample.ts`）のサンプルがあります。`booklet-demo.md` は冊子の読み順を確認するための、画像を含まない長い文書で、`callouts.md` はすべての種類の囲みの見本です。設定画面で余白・ページ番号・裏面回転・HTML の JavaScript を指定できます。ユーザー CSS は `~/Library/Application Support/Surimono/Styles/`、JSON プリセットは `Presets/` に追加し、設定画面から再読み込みします。Markdown などの印刷スタイル（ユーザー CSS も）が `html` に付けた背景（紙の色や罫線）は余白まで敷かれ、模様は本文の左上にそろいます（横に大きくはみ出す文書では本文の範囲だけになります）。外部で保存すると自動で読み直します。Markdown・Org・Word などの文書では、今のページに変更があればそこにとどまり、ほかのページにあれば次の変更へ移ります。画面では変更した段落やテキストの行、リストの項目、表の行に薄い黄色を付けます。削除した所には細い帯が付きます。「一般」設定で色を変えたり、今のページにとどまったり、自動の読み直しを切ったりできます。元のファイルには書き込みません。
 
 ## コントリビュート
 
