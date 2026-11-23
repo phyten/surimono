@@ -18,7 +18,7 @@ struct SourcePaperTextTests {
                 let page = try #require(pdf.page(at: i))
                 selection.add(try #require(page.selection(for: NSRange(location: 0, length: page.numberOfCharacters))))
             }
-            return try SourcePaperText.selected(selection, in: pdf, logicalIndex: { pdf.index(for: $0) })
+            return SourcePaperText.selected(selection, in: pdf, logicalIndex: { pdf.index(for: $0) })
         }
         #expect(try selected([2]) == "紙3\n")
         #expect(try selected([0]) == "\t紙1\r\n")
@@ -38,11 +38,11 @@ struct SourcePaperTextTests {
         let page = try #require(view.page(at: 0))
         #expect(page.string == "body1")
         let all = try #require(page.selection(for: NSRange(location: 0, length: page.numberOfCharacters)))
-        #expect(try SourcePaperText.selected(all, in: pdf, logicalIndex: { view.index(for: $0) }) == "body1\r\n")
+        #expect(SourcePaperText.selected(all, in: pdf, logicalIndex: { view.index(for: $0) }) == "body1\r\n")
         let matches = view.findString("1")
         #expect(matches.count == 1)
         let last = try #require(matches.first)
-        #expect(try SourcePaperText.selected(last, in: pdf, logicalIndex: { view.index(for: $0) }) == "1")
+        #expect(SourcePaperText.selected(last, in: pdf, logicalIndex: { view.index(for: $0) }) == "1")
     }
 
     @Test("一枚の中で飛び飛びに選んだコードは間の文字をコピーしない")
@@ -53,7 +53,7 @@ struct SourcePaperTextTests {
         let selection = PDFSelection(document: pdf)
         selection.add(try #require(page.selection(for: NSRange(location: 0, length: 2))))
         selection.add(try #require(page.selection(for: NSRange(location: 4, length: 2))))
-        #expect(try SourcePaperText.selected(selection, in: pdf, logicalIndex: { pdf.index(for: $0) }) == "ab\nef")
+        #expect(SourcePaperText.selected(selection, in: pdf, logicalIndex: { pdf.index(for: $0) }) == "ab\nef")
     }
 
     @Test("折り返した行末までの選択はそこで終わり、次の行まで選んだときだけ原文の改行とタブが入る")
@@ -65,7 +65,7 @@ struct SourcePaperTextTests {
         func copied(through end: String) throws -> String? {
             let range = NSUnionRange(text.range(of: "START"), text.range(of: end))
             let selection = try #require(page.selection(for: range))
-            return try SourcePaperText.selected(selection, in: pdf, logicalIndex: { pdf.index(for: $0) })
+            return SourcePaperText.selected(selection, in: pdf, logicalIndex: { pdf.index(for: $0) })
         }
         let line = try copied(through: "END")
         #expect(line == "STARTEND")
@@ -79,9 +79,7 @@ struct SourcePaperTextTests {
         SourcePaperText.attach("wanted", to: pdf, options: .sourcePage, language: nil)
         let page = try #require(pdf.page(at: 0))
         let selection = try #require(page.selection(for: NSRange(location: 0, length: page.numberOfCharacters)))
-        #expect(throws: (any Error).self) {
-            try SourcePaperText.selected(selection, in: pdf, logicalIndex: { pdf.index(for: $0) })
-        }
+        #expect(SourcePaperText.selected(selection, in: pdf, logicalIndex: { pdf.index(for: $0) }) == nil)
     }
 
     @Test("合本で選んだ子の同じ文字列をその子の空白に対応付ける")
@@ -97,6 +95,6 @@ struct SourcePaperTextTests {
         let page = try #require(binder.page(at: 1))
         let selection = try #require(page.selection(for: NSRange(location: 0, length: page.numberOfCharacters)))
         #expect(
-            try SourcePaperText.selected(selection, in: binder, logicalIndex: { binder.index(for: $0) }) == "\t紙1\r\n")
+            SourcePaperText.selected(selection, in: binder, logicalIndex: { binder.index(for: $0) }) == "\t紙1\r\n")
     }
 }

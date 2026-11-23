@@ -56,17 +56,20 @@ struct SourcePageTests {
     }
 
     @Test("行の組版で HTML の上限に達したら残りを展開する前に知らせる")
-    func boundsExpansion() {
+    func boundsExpansion() throws {
         struct Limit: Error {}
         let fragment = PlainTextConverter.convert(String(repeating: "a\n", count: 8_000), fileName: "a.swift")
-        var checks = 0
+        let total = CodeBlockMarkup.apply(CodeStyle(), to: fragment.body, language: fragment.sourceLanguage).utf8.count
+        var checks: [Int] = []
         #expect(throws: Limit.self) {
-            try CodeBlockMarkup.apply(CodeStyle(), to: fragment.body, language: fragment.sourceLanguage) { _ in
-                checks += 1
+            try CodeBlockMarkup.apply(CodeStyle(), to: fragment.body, language: fragment.sourceLanguage) { bytes in
+                checks.append(bytes)
                 throw Limit()
             }
         }
-        #expect(checks == 1)
+        #expect(checks.count == 1)
+        let first = try #require(checks.first)
+        #expect(first < total / 2)
     }
 
     @Test("短い二十万行をすべて組み、色付けの上限でも末尾を残す")

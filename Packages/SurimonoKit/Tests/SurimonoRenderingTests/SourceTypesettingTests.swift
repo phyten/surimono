@@ -152,8 +152,8 @@ struct SourceTypesettingTests {
             hasLogicalMargins: false, showsNumbers: true)
         let displayed = try #require(ViewPageDocument.make(logical, plan: plan, margin: 0))
         for paper in [logical, displayed] {
-            func copied(_ selection: PDFSelection) throws -> String? {
-                try SourcePaperText.selected(selection, in: logical, logicalIndex: { paper.index(for: $0) })
+            func copied(_ selection: PDFSelection) -> String? {
+                SourcePaperText.selected(selection, in: logical, logicalIndex: { paper.index(for: $0) })
             }
             let first = try #require(paper.page(at: 0))
             let printed = try #require(first.string) as NSString
@@ -165,7 +165,6 @@ struct SourceTypesettingTests {
             }
             let across = try select("START", "END")
             #expect(across.selectionsByLine().count > 1)
-            // Evaluate the throwing call outside the macro so failures distinguish a mismatch from an error.
             func escaped(_ value: String?) -> String {
                 guard let value else { return "nil" }
                 let ascii = value.unicodeScalars.prefix(260).map { $0.escaped(asASCII: true) }.joined()
@@ -186,20 +185,28 @@ struct SourceTypesettingTests {
                     + "ranges=\(ranges(across)) lines=\(lines) selection=\(escaped(across.string)) "
                     + "page=\(escaped(printed.substring(with: context)))"
             }
-            do {
-                let actual = try copied(across)
-                if actual != wrapped { Issue.record("\(diagnostic("copied=" + escaped(actual)))") }
-            } catch {
-                Issue.record("\(diagnostic("error=" + String(describing: error)))")
-            }
+            let actual = copied(across)
+            if actual != wrapped { Issue.record("\(diagnostic("copied=" + escaped(actual)))") }
             #expect(try copied(select("let", "コメント")) == line)
             let all = PDFSelection(document: paper)
             for i in 0..<paper.pageCount {
                 let page = try #require(paper.page(at: i))
                 all.add(try #require(page.selection(for: NSRange(location: 0, length: page.numberOfCharacters))))
             }
-            #expect(try copied(all) == text)
+            #expect(copied(all) == text)
         }
+    }
+
+    @Test("空行だけの紙が続くときは、最初の紙のコピーに後続ページの空行を足さない")
+    func firstPageBeforeBlankPages() async throws {
+        _ = NSApplication.shared
+        let text = "A\n" + String(repeating: "\n", count: 200) + "B\n"
+        let pdf = try await DocumentRenderer().prepare(file(text), settings: settings()).logicalDocument
+        try #require(pdf.pageCount > 2)
+        let page = try #require(pdf.page(at: 0))
+        let selection = try #require(page.selection(for: NSRange(location: 0, length: page.numberOfCharacters)))
+        #expect(selection.string?.trimmingCharacters(in: .whitespacesAndNewlines) == "A")
+        #expect(SourcePaperText.selected(selection, in: pdf, logicalIndex: { pdf.index(for: $0) }) == nil)
     }
 
     @Test("用紙よりも長い元の一行は複数ページに分かれ、文字数と前後の目印を保つ")

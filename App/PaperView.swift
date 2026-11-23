@@ -312,20 +312,14 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
 
     func copySourceSelection(to board: NSPasteboard) -> Bool {
         guard let selection = currentSelection, let sourceDocument, let document, let pagePlan else { return false }
-        do {
-            guard
-                let text = try SourcePaperText.selected(
-                    selection, in: sourceDocument,
-                    logicalIndex: { page in
-                        pagePlan.logicalIndex(at: document.index(for: page))
-                    })
-            else { return false }
-            guard !text.isEmpty else { return false }
-            board.clearContents()
-            return board.setString(text, forType: .string)
-        } catch {
-            return false
-        }
+        guard
+            let text = SourcePaperText.selected(
+                selection, in: sourceDocument,
+                logicalIndex: { page in pagePlan.logicalIndex(at: document.index(for: page)) }),
+            !text.isEmpty
+        else { return false }
+        board.clearContents()
+        return board.setString(text, forType: .string)
     }
 
     override func copy(_ sender: Any?) {
