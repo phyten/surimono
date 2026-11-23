@@ -6,7 +6,7 @@ h1 { font-size: 1.75em; padding-bottom: 0.25em; border-bottom: 2pt solid #17466b
 h2 { font-size: 1.2em; padding: 0.2em 0.6em; background: #17466b; color: #fff; counter-increment: step;
     -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 /* Numbering is generated so a Markdown source need not number its steps by hand. */
-body:not(.format-latex) h2::before { content: counter(step); margin-inline-end: 0.7em; font-weight: 800; }
+body:not(.format-latex):not(.own-heading-numbers) h2::before { content: counter(step); margin-inline-end: 0.7em; font-weight: 800; }
 h3 { font-size: 1.08em; padding-inline-start: 0.5em; border-inline-start: 3pt solid #17466b; }
 h4, h5, h6 { font-size: 1em; }
 p, ul, ol, table, pre { margin: 0.6em 0; }

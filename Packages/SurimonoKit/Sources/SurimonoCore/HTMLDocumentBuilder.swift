@@ -59,6 +59,8 @@ public enum HTMLDocumentBuilder {
             code: code, language: language.code)
         let slideStyle = info.flatMap { beamerStyle($0, sheet: sheet) } ?? ""
         let direction = language.isRightToLeft ? " dir=\"rtl\"" : ""
+        // Styles that number headings with counters leave such a document alone.
+        let ownNumbers = fragment.decidesHeadingNumbers ? " own-heading-numbers" : ""
         let base = baseURL.map { "<base href=\"\(HTML.escape($0.absoluteString))\">\n" } ?? ""
         let finishStyle = finish.isEmpty ? "" : "\n<style id=\"surimono-finish\">\n\(finish)\n</style>"
         return """
@@ -71,7 +73,7 @@ public enum HTMLDocumentBuilder {
             \(sheet)
             </style>\(fontStyle)\(format == .rst ? rstStyle : "")\(finishStyle)\(slideStyle)\(removesPaper ? "\n" + PaperBackground.removalStyle : "")
             </head>
-            <body class="surimono format-\(format.rawValue)"\(latex)>
+            <body class="surimono format-\(format.rawValue)\(ownNumbers)"\(latex)>
             \(LongTokenMarks.marked(CodeBlockMarkup.apply(code, to: fragment.body)))
             </body>
             </html>

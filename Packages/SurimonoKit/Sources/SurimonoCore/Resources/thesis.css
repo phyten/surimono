@@ -5,11 +5,11 @@ h1, h2, h3, h4, h5, h6 { font-family: "YuMincho", "Hiragino Mincho ProN", serif;
 h1 { font-size: 1.6em; text-align: center; margin: 0 0 1.4em; letter-spacing: 0.1em; }
 h2 { font-size: 1.3em; margin: 1.6em 0 0.6em; counter-reset: sec; }
 /* A chapter is 第n章 in Japanese and Chinese, 제n장 in Korean, and its number alone in other languages. */
-body:not(.format-latex) h2::before { counter-increment: chap; content: counter(chap) "\3000"; }
-body:not(.format-latex) h2:is(:lang(ja), :lang(zh))::before { content: "第" counter(chap) "章\3000"; }
-body:not(.format-latex) h2:lang(ko)::before { content: "제" counter(chap) "장\3000"; }
+body:not(.format-latex):not(.own-heading-numbers) h2::before { counter-increment: chap; content: counter(chap) "\3000"; }
+body:not(.format-latex):not(.own-heading-numbers) h2:is(:lang(ja), :lang(zh))::before { content: "第" counter(chap) "章\3000"; }
+body:not(.format-latex):not(.own-heading-numbers) h2:lang(ko)::before { content: "제" counter(chap) "장\3000"; }
 h3 { font-size: 1.1em; margin: 1.3em 0 0.4em; }
-body:not(.format-latex) h3::before { counter-increment: sec; content: counter(chap) "." counter(sec) "\3000"; }
+body:not(.format-latex):not(.own-heading-numbers) h3::before { counter-increment: sec; content: counter(chap) "." counter(sec) "\3000"; }
 h4, h5, h6 { font-size: 1em; margin: 1em 0 0.3em; }
 p { margin: 0; text-indent: 1em; }
 li p, blockquote p, td p, th p, .callout p { text-indent: 0; }

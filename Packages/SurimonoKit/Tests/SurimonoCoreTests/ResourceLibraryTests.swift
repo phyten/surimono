@@ -77,6 +77,26 @@ struct ResourceLibraryTests {
         }
     }
 
+    @Test("見出しに番号を振るテーマは、番号を自分で決める文書には振らない")
+    func numberingThemesLeaveNumberedDocumentsAlone() throws {
+        let numbering = try PrintThemeLibrary.load().filter(\.isBuiltIn).filter { $0.css.contains("counter(") }
+        for theme in numbering {
+            for line in theme.css.split(separator: "\n") where line.contains("counter(") && line.contains("content:") {
+                #expect(line.contains(":not(.own-heading-numbers)"), "\(theme.id): \(line)")
+            }
+        }
+    }
+
+    @Test("見出しの番号を自分で決める文書は body にクラスが付く")
+    func ownHeadingNumbers() throws {
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "academic" })
+        let numbered = HTMLDocumentBuilder.build(
+            fragment: OrgConverter.convert("#+OPTIONS: num:t\n* A"), format: .org, theme: theme)
+        #expect(numbered.contains("<body class=\"surimono format-org own-heading-numbers\">"))
+        let silent = HTMLDocumentBuilder.build(fragment: OrgConverter.convert("* A"), format: .org, theme: theme)
+        #expect(silent.contains("<body class=\"surimono format-org\">"))
+    }
+
     @Test("ユーザーCSSは直下だけを読み名前順で安定して並ぶ")
     func userThemes() throws {
         try withDirectory { directory in

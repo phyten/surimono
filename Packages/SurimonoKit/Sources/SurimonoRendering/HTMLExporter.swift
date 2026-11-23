@@ -55,7 +55,8 @@ public enum HTMLExporter {
         let settings = candidate
         let body = HTMLFragment(
             body: settings.finish.links.apply(to: fragment.body, language: settings.pageLanguage),
-            title: fragment.title, language: fragment.language, latexClass: fragment.latexClass)
+            title: fragment.title, language: fragment.language, latexClass: fragment.latexClass,
+            decidesHeadingNumbers: fragment.decidesHeadingNumbers)
         let directory = source.fileURL?.deletingLastPathComponent()
         let html = try await DocumentRenderer.builtHTML(body, source: source, settings: settings, separatesPaper: false)
         let input = renderer.exportSource(

@@ -6,9 +6,9 @@ h1 { font-size: 1.6em; font-weight: 400; text-align: center; margin: 0.4em 0 1.2
 h2 { font-size: 1.3em; margin: 1.6em 0 0.6em; counter-reset: subsec; }
 h3 { font-size: 1.1em; margin: 1.3em 0 0.5em; counter-reset: subsubsec; }
 h4, h5, h6 { font-size: 1em; margin: 1.1em 0 0.4em; }
-body:not(.format-latex) h2::before { counter-increment: sec; content: counter(sec) "\2003"; }
-body:not(.format-latex) h3::before { counter-increment: subsec; content: counter(sec) "." counter(subsec) "\2003"; }
-body:not(.format-latex) h4::before { counter-increment: subsubsec; content: counter(sec) "." counter(subsec) "." counter(subsubsec) "\2003"; }
+body:not(.format-latex):not(.own-heading-numbers) h2::before { counter-increment: sec; content: counter(sec) "\2003"; }
+body:not(.format-latex):not(.own-heading-numbers) h3::before { counter-increment: subsec; content: counter(sec) "." counter(subsec) "\2003"; }
+body:not(.format-latex):not(.own-heading-numbers) h4::before { counter-increment: subsubsec; content: counter(sec) "." counter(subsec) "." counter(subsubsec) "\2003"; }
 /* As in LaTeX: no space between paragraphs, each indented except the first after a heading. */
 p { margin: 0; text-indent: 1em; }
 h1 + p, h2 + p, h3 + p, h4 + p, h5 + p, h6 + p, li p, blockquote p, td p, th p, .callout p, .footnotes p, .latex-title-block p, .abstract-title { text-indent: 0; }

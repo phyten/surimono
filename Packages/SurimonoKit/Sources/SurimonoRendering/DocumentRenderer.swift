@@ -1544,7 +1544,8 @@ public final class DocumentRenderer {
         fragment.language = language
         let paper = HTMLFragment(
             body: settings.finish.links.apply(to: fragment.body, language: settings.pageLanguage),
-            title: fragment.title, language: language, latexClass: fragment.latexClass)
+            title: fragment.title, language: language, latexClass: fragment.latexClass,
+            decidesHeadingNumbers: fragment.decidesHeadingNumbers)
         let html = try await builtHTML(paper, source: source, settings: settings, separatesPaper: separatesPaper)
         // Text and tables cannot emit diagram elements. Check markup before adding styles or duplicating it for notes.
         let markup = source.format != .plainText && source.format != .csv
