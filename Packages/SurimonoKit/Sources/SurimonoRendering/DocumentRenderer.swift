@@ -2099,7 +2099,7 @@ public final class DocumentRenderer {
         guard source.data.count <= PageLayoutLimits.plainTextBytes else {
             throw RenderingError.tooLarge(bytes: source.data.count)
         }
-        return PlainTextConverter.convert(try decodedText(source.data), fileExtension: source.fileURL?.pathExtension)
+        return PlainTextConverter.convert(try decodedText(source.data), fileName: source.fileURL?.lastPathComponent)
     }
 
     /// A file's extension names its delimiter. A table from memory, such as one copied from a spreadsheet, has no
