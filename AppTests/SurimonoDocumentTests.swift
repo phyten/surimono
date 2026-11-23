@@ -212,7 +212,7 @@ struct SurimonoDocumentTests {
                     UTType.surimonoMediaWiki.identifier, UTType.surimonoRST.identifier,
                     UTType.surimonoAsciiDoc.identifier, UTType.surimonoLaTeX.identifier,
                     UTType.surimonoNotebook.identifier, UTType.surimonoJSONLines.identifier,
-                    UTType.surimonoTOML.identifier,
+                    UTType.surimonoTOML.identifier, UTType.surimonoSourceCode.identifier,
                     UTType.surimonoGraphviz.identifier, UTType.surimonoPlantUML.identifier,
                 ]))
     }

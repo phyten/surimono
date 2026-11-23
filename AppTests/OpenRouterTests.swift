@@ -108,6 +108,37 @@ struct OpenRouterTests {
         #expect(opened == [url("a.md"), url("b.pdf")])
     }
 
+    @Test(
+        "ソースコードは 1 つなら文書を開く処理に渡す",
+        arguments: ["main.ts", "main.go", "lib.rs", "Main.kt", "Program.cs", "init.lua", "Info.plist", "Dockerfile"])
+    func singleSourceFile(name: String) {
+        var opened: [URL] = []
+        let router = router(openDocument: { url, _ in opened.append(url) })
+        router.open([url(name)])
+        #expect(opened == [url(name)])
+    }
+
+    @Test("ソースコードと文章の複数選択は合本を開き、拡張子のない Dockerfile も含める")
+    func binderOfSourceFiles() {
+        var opened: [URL] = []
+        var left: [URL] = []
+        let router = router(openBinder: { urls, excluded in
+            opened = urls
+            left = excluded
+        })
+        router.open([url("notes.md"), url("main.ts"), url("main.go"), url("Dockerfile"), url("LICENSE")])
+        #expect(opened == [url("Dockerfile"), url("main.go"), url("main.ts"), url("notes.md")])
+        #expect(left == [url("LICENSE")])
+    }
+
+    @Test("ソースコードだけの複数選択も合本になり、画像の束にはならない")
+    func binderOfOnlySourceFiles() {
+        var opened: [URL] = []
+        let router = router(openBinder: { urls, _ in opened = urls })
+        router.open([url("b.rs"), url("a.swift")])
+        #expect(opened == [url("a.swift"), url("b.rs")])
+    }
+
     @Test("最近使った合本は、画像だけの組でも画像の束にせず合本のまま開く")
     func recentBinderOfImages() {
         var opened: [[URL]] = []

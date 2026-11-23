@@ -10,6 +10,17 @@ final class OpenRouter {
                 completion(false)
                 return
             }
+            // A file with no extension has no type the document controller could go by.
+            if SourceFileOpening.readsAsPlainText(url) {
+                do {
+                    try SourceFileOpening.open(url)
+                    completion(true)
+                } catch {
+                    NSApp.presentError(error)
+                    completion(false)
+                }
+                return
+            }
             NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { document, _, error in
                 if let error { NSApp.presentError(error) }
                 // Explicitly bring an already open document forward as well.

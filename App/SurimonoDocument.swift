@@ -10,10 +10,14 @@ struct SurimonoDocument: FileDocument {
             .surimonoTextile, .surimonoMediaWiki, .surimonoRST, .surimonoLaTeX,
             .surimonoNotebook, .surimonoGraphviz,
             .surimonoPlantUML,
-            .plainText, .json, .yaml, .xml, .surimonoJSONLines, .surimonoTOML, .html, .pdf, .image,
+            .plainText, .sourceCode, .surimonoSourceCode, .propertyList, .mpeg2TransportStream,
+            .json, .yaml, .xml, .surimonoJSONLines, .surimonoTOML, .html, .pdf, .image,
             .commaSeparatedText,
             .tabSeparatedText, .zip,
-        ] + ["com.apple.log", "public.ndjson", "public.toml"].compactMap { UTType($0) } + wordTemplate
+        ]
+            + ["com.apple.log", "public.ndjson", "public.toml", "public.css", "com.microsoft.ini"].compactMap {
+                UTType($0)
+            } + wordTemplate
             + [UTType("org.openxmlformats.wordprocessingml.document")].compactMap { $0 }
     }
 
@@ -40,6 +44,15 @@ struct SurimonoDocument: FileDocument {
         // regularFileContents raises an Objective-C exception for directory wrappers, so check the kind first.
         guard file.isRegularFile, let data = file.regularFileContents else {
             throw CocoaError(.fileReadCorruptFile)
+        }
+        // macOS calls `.ts` an MPEG transport stream and a `.plist` may be binary. Only the content tells a video
+        // from TypeScript, and laying a video out as text would fill pages with noise.
+        let name = file.preferredFilename ?? file.filename ?? ""
+        let kind =
+            contentType.conforms(to: .mpeg2TransportStream)
+            ? "ts" : contentType.conforms(to: .propertyList) ? "plist" : (name as NSString).pathExtension
+        guard !BinaryLookalike.isBinary(data.prefix(BinaryLookalike.headLength), fileExtension: kind) else {
+            throw SourceFileError.notText
         }
         self.data = data
         // Some systems have only the JSON association installed; the file name distinguishes notebooks from ordinary JSON.
