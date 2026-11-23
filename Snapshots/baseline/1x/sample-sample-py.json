@@ -1,0 +1,121 @@
+{
+  "fonts" : [
+    "HiraKakuProN-W3",
+    "HiraKakuProN-W6"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 42,
+      "height" : 841.9,
+      "lastY" : 407.2,
+      "lineCount" : 14,
+      "lines" : [
+        {
+          "height" : 18.4,
+          "text" : "#!/usr/bin/env python3",
+          "width" : 130.9,
+          "x" : 42.5,
+          "y" : 42
+        },
+        {
+          "height" : 18.4,
+          "text" : "\"\"\"Counts the words of a text file, the most frequent first.\"\"\"",
+          "width" : 329.9,
+          "x" : 42.5,
+          "y" : 61.2
+        },
+        {
+          "height" : 19.4,
+          "text" : "import sys",
+          "width" : 62.2,
+          "x" : 42.5,
+          "y" : 80.3
+        },
+        {
+          "height" : 19.4,
+          "text" : "from colections import Counter",
+          "width" : 185.1,
+          "x" : 42.5,
+          "y" : 99.5
+        },
+        {
+          "height" : 19.4,
+          "text" : "def count_words(text: str) -> Counter:",
+          "width" : 211.4,
+          "x" : 42.5,
+          "y" : 157.2
+        },
+        {
+          "height" : 19.4,
+          "text" : "words = (word.strip(\".,!?\\\"'()\").lower() for word in text.split())",
+          "width" : 329.8,
+          "x" : 57.5,
+          "y" : 176.4
+        },
+        {
+          "height" : 19.4,
+          "text" : "return Counter(word for word in words if word)",
+          "width" : 271.6,
+          "x" : 57.5,
+          "y" : 195.6
+        },
+        {
+          "height" : 19.4,
+          "text" : "def main(path: str, limit: int = 10) -> None:",
+          "width" : 235.8,
+          "x" : 42.5,
+          "y" : 253.3
+        },
+        {
+          "height" : 19.4,
+          "text" : "with open(path, encoding=\"utf-8\") as file:",
+          "width" : 229.8,
+          "x" : 57.5,
+          "y" : 272.5
+        },
+        {
+          "height" : 18.4,
+          "text" : "counts = count_words(file.read())",
+          "width" : 183.6,
+          "x" : 72.4,
+          "y" : 291.9
+        },
+        {
+          "height" : 19.4,
+          "text" : "for word, count in counts.most_common(limit):",
+          "width" : 261.8,
+          "x" : 57.5,
+          "y" : 311
+        },
+        {
+          "height" : 18.4,
+          "text" : "print(f\"{count:5d} {word}\") # 数を右にそろえる",
+          "width" : 256.1,
+          "x" : 72.4,
+          "y" : 330.3
+        },
+        {
+          "height" : 19.4,
+          "text" : "if __name__ == \"__main__\":",
+          "width" : 146.8,
+          "x" : 42.5,
+          "y" : 387.9
+        },
+        {
+          "height" : 18.4,
+          "text" : "main(sys.argv[1])",
+          "width" : 95.1,
+          "x" : 57.5,
+          "y" : 407.2
+        }
+      ],
+      "textHeight" : 383.6,
+      "textLeft" : 42.5,
+      "textTop" : 42,
+      "textWidth" : 344.7,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "4b6583e9b2600bc3f9e13ea45b4a2b3ee38dae6010db051bfeccd39d9aa5f22b"
+}
