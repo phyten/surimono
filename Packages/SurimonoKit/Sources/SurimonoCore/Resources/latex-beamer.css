@@ -10,6 +10,8 @@ body.surimono.format-latex {
 }
 /* Leave one printer point for WebKit’s integral page-fragment rounding. */
 body.format-latex > .beamer-frame {
+    /* Beamer supplies three TeX points of topsep to the verbatim trivlist at either end. */
+    --latex-verbatim-skip: calc(3 * var(--tex-pt));
     box-sizing: border-box; width: var(--beamer-width); height: calc(var(--beamer-height) - 1.25px);
     padding: 0 0 calc(4 * var(--tex-pt)); margin: 0; border: 0; color: black; background: white;
     break-inside: avoid; break-after: page; display: flex; flex-direction: column;

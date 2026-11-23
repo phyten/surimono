@@ -146,8 +146,17 @@ struct LaTeXSocietyPrintingTests {
         }
         let breaks = pages.prefix(2).enumerated().flatMap { index, page in
             page.columnBreaks.map { cut in
-                "p\(index + 1)c\(cut.column + 1)#\(cut.nextItem)"
+                var message =
+                    "p\(index + 1)c\(cut.column + 1)#\(cut.nextItem)"
                     + String(format: " %.2f/%.2f", cut.remaining, cut.required)
+                if index == 1, cut.column == 0, let trial = cut.trial {
+                    func value(_ number: CGFloat?) -> String { number.map { String(format: "%.3f", $0) } ?? "–" }
+                    message +=
+                        " natural/full=#\(trial.naturalNext)/#\(trial.fullNext)"
+                        + " fullShortfall=\(value(trial.fullShortfall))px"
+                        + " cost=\(value(trial.naturalCost))/\(value(trial.compressedCost))"
+                }
+                return message
             }
         }
         return "floatHeight=\(floats) p2left[strip.paragraph:rows@pitch]=\(lines) break[remaining/next]=\(breaks)"

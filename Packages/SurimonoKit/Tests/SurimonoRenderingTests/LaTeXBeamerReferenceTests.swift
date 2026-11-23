@@ -74,6 +74,16 @@ func compareBeamerReference(_ pdf: PDFDocument, to reference: PDFDocument, fixtu
             let isInstitute = ["Harbour Workshop", "Paper Model Workshop"].contains(word)
             let x = isInstitute ? actual.midX - expected.midX : actual.minX - expected.minX
             #expect(abs(x) <= (isInstitute ? 1 : 2), "\(fixture) \(index + 1) \(word) 左端")
+            // The footnote on this slide reaches into the selection's descent. Its ink
+            // does not overlap the leading capital, which sits on the same body baseline.
+            func inkBottom(_ ink: CGRect, in deck: PDFDocument, on sheet: PDFPage) throws -> CGFloat {
+                if fixture == "specimen", index == 4, word == "The tide turns" {
+                    return try leadingGlyphInk(of: word, in: deck, on: sheet).minY - sheet.bounds(for: .mediaBox).minY
+                }
+                return ink.minY
+            }
+            let y = try inkBottom(actual, in: pdf, on: page)
+            let texY = try inkBottom(expected, in: reference, on: tex)
             func verticalPosition() -> String {
                 if embeddedFaces == nil {
                     embeddedFaces = baseFonts(in: page.dataRepresentation ?? Data())
@@ -86,10 +96,10 @@ func compareBeamerReference(_ pdf: PDFDocument, to reference: PDFDocument, fixtu
                     return "\(font.fontName)@\(font.pointSize) rect=\(hit.bounds(for: sheet))"
                 }
                 return
-                    "\(fixture) p\(index + 1) \(word) inkY=\(actual.minY) TeX=\(expected.minY) Δ=\(actual.minY - expected.minY)pt (±2pt) "
+                    "\(fixture) p\(index + 1) \(word) inkY=\(y) TeX=\(texY) Δ=\(y - texY)pt (±2pt) "
                     + "font=\(face(in: pdf, on: page))/\(face(in: reference, on: tex)) embedded=\(embeddedFaces ?? []) scale=\(NSScreen.main?.backingScaleFactor ?? 0)"
             }
-            #expect(abs(actual.minY - expected.minY) <= 2, "\(verticalPosition())")
+            #expect(abs(y - texY) <= 2, "\(verticalPosition())")
         }
     }
     if fixture == "specimen" || fixture == "083" {
@@ -231,6 +241,15 @@ func compareBeamerReference(_ pdf: PDFDocument, to reference: PDFDocument, fixtu
         }
         let point = try marker(pixels)
         let target = try marker(refPixels)
+        if x == 58 {
+            func offset(_ mark: CGRect, in deck: PDFDocument, on sheet: PDFPage) throws -> CGFloat {
+                let ink = try leadingGlyphInk(of: "Copper sleeve", in: deck, on: sheet)
+                return mark.minY - (sheet.bounds(for: .cropBox).maxY - ink.maxY)
+            }
+            let actual = try offset(point, in: pdf, on: page)
+            let expected = try offset(target, in: reference, on: ref)
+            print(String(format: "Beamer specimen p3 marker top − C top=%.2fpt TeX=%.2fpt", actual, expected))
+        }
         #expect(abs(point.minX - target.minX) <= 1 && abs(point.maxX - target.maxX) <= 1, "箇条書きの印 \(x) の横位置")
         #expect(
             abs(point.minY - target.minY) <= 1 && abs(point.maxY - target.maxY) <= 1,
@@ -246,6 +265,19 @@ func compareBeamerReference(_ pdf: PDFDocument, to reference: PDFDocument, fixtu
             (0..<Int(width)).allSatisfy { pixels.color(atX: CGFloat($0), y: CGFloat(y)).red > 245 }, "スライド下端に罫線や操作部品がない"
         )
     }
+}
+
+@MainActor
+private func leadingGlyphInk(of word: String, in deck: PDFDocument, on sheet: PDFPage) throws -> CGRect {
+    let hit = try #require(deck.findString(word).first { $0.pages.contains(sheet) })
+    try #require(hit.numberOfTextRanges(on: sheet) > 0)
+    let range = hit.range(at: 0, on: sheet)
+    try #require(range.location != NSNotFound && range.length > 0)
+    let glyph = try #require(sheet.selection(for: NSRange(location: range.location, length: 1)))
+    try #require(glyph.string == String(word.prefix(1)))
+    let box = glyph.bounds(for: sheet)
+    try #require(!box.isEmpty, "\(word) の先頭字 \(box)")
+    return try printedInk(in: box, on: sheet)
 }
 
 @MainActor

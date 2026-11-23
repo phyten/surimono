@@ -214,6 +214,20 @@ enum LaTeXGraphicPreparation {
     // and multiline cells, which establish their own line boxes.
     private static let tableStruts = #"""
         const tables = document.querySelectorAll('.latex-graphic-box table.latex-tabular, figure.latex-table > table.latex-tabular:not(.latex-longtable)');
+        // A native caption needs the integral-pixel compensation only on engines which truncate
+        // fractional line boxes. Compare a line to an explicit box at the same layout zoom.
+        if (document.body.hasAttribute('data-latex-natural-table-captions') &&
+            [...tables].some(table => table.parentElement.matches('figure.latex-table') && table.nextElementSibling?.matches('figcaption'))) {
+          const probe = document.createElement('div');
+          probe.style.cssText = 'all:initial;display:block;position:absolute;visibility:hidden;font:10px/20.5px serif';
+          probe.textContent = 'M';
+          document.body.append(probe);
+          const line = probe.getBoundingClientRect().height;
+          probe.style.height = '20.5px';
+          const box = probe.getBoundingClientRect().height;
+          probe.remove();
+          document.body.toggleAttribute('data-latex-snaps-line-height', box > 0 && Math.abs(line / box - 1) > 0.002);
+        }
         for (const table of tables) {
           // Journals can set a separate table pitch; their unscaled tables already use that class strut.
           if (!table.closest('.latex-graphic-box') && document.body.hasAttribute('data-latex-journal')) continue;

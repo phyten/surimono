@@ -127,12 +127,21 @@ struct LaTeXFlowLayout {
 
     }
 
+    struct CompressionTrial {
+        var naturalNext: Int
+        var fullNext: Int
+        var fullShortfall: CGFloat?
+        var naturalCost: CGFloat?
+        var compressedCost: CGFloat?
+    }
+
     // Keep the fit operands from the chosen layout, before the column glue is stretched.
     struct ColumnBreak {
         var column: Int
         var nextItem: Int
         var remaining: CGFloat
         var required: CGFloat
+        var trial: CompressionTrial?
     }
 
     struct Page {
@@ -720,6 +729,7 @@ struct LaTeXFlowLayout {
             {
                 let naturalCursor = cursor
                 let naturalPage = page
+                var trialFit: CompressionTrial?
                 var fullCompression: (item: Int, space: CGFloat)?
                 y = try replayShrink(from: initialPage, initial: initial, cursor: &cursor, natural: y) {
                     layout, trial, fraction in
@@ -728,6 +738,12 @@ struct LaTeXFlowLayout {
                         segment, lane: lane, index: index, base: base, cursor: &trial,
                         limit: limit, shrinkFraction: fraction
                     )
+                    if fraction == 1, layout.recordsBreaks {
+                        let cut = layout.page.columnBreaks.dropFirst(initialPage.columnBreaks.count).last
+                        trialFit = CompressionTrial(
+                            naturalNext: naturalCursor.item, fullNext: trial.item,
+                            fullShortfall: cut.map { $0.required - $0.remaining })
+                    }
                     if fraction == 1,
                         let space = layout.page.noteBreakSpace(in: lane, height: layout.height, full: layout.full)
                     {
@@ -749,13 +765,18 @@ struct LaTeXFlowLayout {
                         fullyShrunkSpace: fullCompression?.item == cursor.item ? fullCompression?.space : nil)
                     let naturalPenalty: CGFloat = segment.items[naturalCursor.item - 1].brokenAfter == true ? 1 : 0
                     let compressedPenalty: CGFloat = segment.items[cursor.item - 1].brokenAfter == true ? 1 : 0
-                    if !shrink.isFinite
-                        || naturalPenalty + stretch * stretch * stretch < compressedPenalty + shrink * shrink * shrink
-                    {
+                    let naturalCost = naturalPenalty + stretch * stretch * stretch
+                    let compressedCost = compressedPenalty + shrink * shrink * shrink
+                    trialFit?.naturalCost = naturalCost
+                    trialFit?.compressedCost = compressedCost
+                    if !shrink.isFinite || naturalCost < compressedCost {
                         page = naturalPage
                         cursor = naturalCursor
                         y = natural.depth
                     }
+                }
+                if let trialFit, page.columnBreaks.count > initialPage.columnBreaks.count {
+                    page.columnBreaks[page.columnBreaks.count - 1].trial = trialFit
                 }
                 page.shrinkFraction = 0
             }

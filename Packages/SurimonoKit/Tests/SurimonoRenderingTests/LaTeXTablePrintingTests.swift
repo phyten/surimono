@@ -18,29 +18,42 @@ struct LaTeXTablePrintingTests {
         let scaled = folder == "022-batch-grid"
         let paginator = WebPaginator()
         var dimensions = "?"
-        if scaled {
-            paginator.inspectPrintLayout = { view in
-                do {
-                    let value = try await view.evaluateForPrinting(
-                        """
-                        const box = document.querySelector('.latex-graphic-box');
-                        if (!box) return null;
-                        const ink = box.firstElementChild, table = ink.querySelector('table');
-                        if (!table) return 'table missing';
-                        const size = getComputedStyle(ink), shape = el => {
-                            const r = el.getBoundingClientRect();
-                            return [r.top, r.width, r.height].map(n => +n.toFixed(2));
+        paginator.inspectPrintLayout = { view in
+            do {
+                let value = try await view.evaluateForPrinting(
+                    """
+                    const box = document.querySelector('.latex-graphic-box');
+                    if (!box) {
+                        const table = document.querySelector('figure.latex-table > table'), caption = table?.nextElementSibling;
+                        const cell = table?.rows[table.rows.length - 1]?.cells[0], title = caption?.querySelector('.latex-caption-label');
+                        if (!cell || !title || !caption.matches('figcaption')) return 'native caption missing';
+                        const mark = () => {
+                            const probe = document.createElement('span');
+                            probe.style.cssText = 'display:inline-block;vertical-align:baseline;width:0;height:0;padding:0';
+                            return probe;
                         };
-                        return JSON.stringify({natural:[size.width,size.height], matrix:size.transform,
-                          rows:[...table.rows].slice(0,3).map(shape), struts:table.querySelectorAll('.latex-array-strut').length,
-                          firstCells:[...table.rows].slice(0,3).map(row =>
-                            !!row.cells[0]?.querySelector(':scope > .latex-array-strut')),
-                          size:getComputedStyle(table).fontSize, pitch:getComputedStyle(table).lineHeight,
-                          font:getComputedStyle(table).fontFamily, dpr:devicePixelRatio});
-                        """, until: .now + .seconds(3))
-                    if let value = value as? String { dimensions = value }
-                } catch { dimensions = String(describing: error) }
-            }
+                        const row = mark(), label = mark();
+                        cell.append(row); title.prepend(label);
+                        const gap = label.getBoundingClientRect().bottom-row.getBoundingClientRect().bottom;
+                        row.remove(); label.remove();
+                        return JSON.stringify({baselineGap:+gap.toFixed(3), padding:getComputedStyle(caption).paddingTop,
+                            integral:document.body.hasAttribute('data-latex-snaps-line-height')});
+                    }
+                    const ink = box.firstElementChild, table = ink.querySelector('table');
+                    if (!table) return 'table missing';
+                    const size = getComputedStyle(ink), shape = el => {
+                        const r = el.getBoundingClientRect();
+                        return [r.top, r.width, r.height].map(n => +n.toFixed(2));
+                    };
+                    return JSON.stringify({natural:[size.width,size.height], matrix:size.transform,
+                      rows:[...table.rows].slice(0,3).map(shape), struts:table.querySelectorAll('.latex-array-strut').length,
+                      firstCells:[...table.rows].slice(0,3).map(row =>
+                        !!row.cells[0]?.querySelector(':scope > .latex-array-strut')),
+                      size:getComputedStyle(table).fontSize, pitch:getComputedStyle(table).lineHeight,
+                      font:getComputedStyle(table).fontFamily, dpr:devicePixelRatio});
+                    """, until: .now + .seconds(3))
+                if let value = value as? String { dimensions = value }
+            } catch { dimensions = String(describing: error) }
         }
         let renderer = DocumentRenderer(paginateWithResult: { request in try await paginator.paginate(request) })
         let result = try await renderer.prepare(
@@ -60,7 +73,8 @@ struct LaTeXTablePrintingTests {
         let caption = scaled ? "Three" : "Schedule"
         let distance = try inkDistance(row, caption, in: pdf)
         let expected = try inkDistance(row, caption, in: reference)
-        #expect(abs(distance - expected) <= 0.3, "実測 \(distance) pt、参照 \(expected) pt")
+        if !scaled { print("Table 012 DOM CSS px \(dimensions) PDF Firm→Schedule=\(distance)pt TeX=\(expected)pt") }
+        #expect(abs(distance - expected) <= 0.3, "実測 \(distance) pt、参照 \(expected) pt DOM=\(dimensions)")
         guard scaled else { return }
         let metrics = try #require(
             (try? JSONSerialization.jsonObject(with: Data(dimensions.utf8))) as? [String: Any], "\(dimensions)")
