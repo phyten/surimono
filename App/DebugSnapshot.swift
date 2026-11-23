@@ -616,7 +616,7 @@
             else { return }
             scheduled = true
             applyOverrides(to: model)
-            Task { @MainActor in
+            Task { @MainActor [model] in
                 defer { scheduled = false }
                 // Allow SwiftUI, the window resize and PDFKit to settle.
                 try? await Task.sleep(for: .milliseconds(1200))
@@ -696,6 +696,20 @@
                     model.setHTMLPresentation(.web)
                     try? await Task.sleep(for: .milliseconds(600))
                 default: break
+                }
+                if let number = argument("SurimonoScrub").flatMap(Int.init) {
+                    let room = argument("SurimonoScrubRoom").flatMap(Double.init)
+                    NotificationCenter.default.post(
+                        name: showMenu, object: model, userInfo: room.map { ["scrubRoom": CGFloat($0)] })
+                    if number > 0 {
+                        for _ in 0..<100 where model.scrubber.frame.width == 0 {
+                            try? await Task.sleep(for: .milliseconds(20))
+                        }
+                        model.scrubThumbnailReady = { [weak model] generation, page in
+                            model?.snapshotScrubImage = (generation, page)
+                        }
+                        model.scrubber.point(model.pageTrack.fraction(for: number - 1), immediately: true)
+                    }
                 }
                 // The table of contents is read after the pages are laid out.
                 if ["toc", "outline", "stats"].contains(argument("SurimonoPopover")) || flag("SurimonoOutlineDrawer") {
@@ -935,6 +949,20 @@
                         }
                         if folded && !model.showsFold { return "Waiting for the folded book" }
                         if !model.isUpToDate { return "Waiting for the current document render" }
+                        if let number = argument("SurimonoScrub").flatMap(Int.init) {
+                            if argument("SurimonoScrubRoom") != nil {
+                                guard let width = model.snapshotScrubWidth, let content = window.contentView,
+                                    abs(content.bounds.width - width) <= 1, model.bandAnchors.plan?.bottom != nil
+                                else { return "Waiting for the measured bottom band" }
+                            }
+                            if number == 0, model.scrubber.frame.width > 0 { return "Waiting for the scrubber to fold" }
+                            if number > 0,
+                                model.snapshotScrubImage?.page != number - 1
+                                    || model.snapshotScrubImage?.generation != model.thumbnailGeneration
+                            {
+                                return "Waiting for the scrubber thumbnail"
+                            }
+                        }
                         if model.snapshotContentsTab == .pages,
                             model.snapshotThumbnailRequests.isEmpty
                                 || model.snapshotThumbnailRequests.values.contains(false)

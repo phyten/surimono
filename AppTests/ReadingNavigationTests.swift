@@ -85,6 +85,47 @@ struct ReadingNavigationTests {
         #expect(model.currentPageIndex == 10)
     }
 
+    @Test("見開きの後半へ飛ぶと一枚ずつ進めて、履歴も後半のページへ戻る")
+    func scrubSpread() async throws {
+        let fixture = Fixture()
+        fixture.preferences.menuArrangement = .split
+        let model = fixture.model()
+        defer { model.stop() }
+        try await start(model)
+        model.updateViewOptions {
+            $0.layout = .spread
+            $0.showsCoverAlone = false
+        }
+        model.scrubToPage(11)
+        #expect(model.currentPageIndex == 10 && model.logicalReadingPage == 11)
+        #expect(!model.handleScrubKey(.rightArrow))
+        model.scrubber.keyboardFocus = true
+        #expect(model.handleScrubKey(.rightArrow))
+        #expect(model.logicalReadingPage == 12)
+        model.goBack()
+        #expect(model.currentPageIndex == 10 && model.logicalReadingPage == 11)
+        model.goBack()
+        #expect(model.logicalReadingPage == 0 && !model.pageHistory.canGoBack)
+        model.goForward()
+        #expect(model.logicalReadingPage == 11)
+    }
+
+    @Test("ドラッグ中に帯を離れても追跡し、取り消した後の解放は移動しない")
+    func scrubCancellation() {
+        let state = PageScrubSession()
+        state.press(0.2)
+        state.leave()
+        #expect(state.dragging && state.holdsBand && state.showsPreview)
+        state.point(1.5, immediately: true)
+        #expect(state.fraction == 1)
+        state.cancel()
+        #expect(state.release(0.9, inside: true) == nil)
+        #expect(!state.holdsBand && !state.showsPreview)
+        state.press(0.5)
+        #expect(state.release(-1, inside: false) == 0)
+        #expect(!state.holdsBand)
+    }
+
     @Test("普通のページ通知と検索では履歴を積まず紙のないモードでは操作しない", .timeLimit(.minutes(1)))
     func ordinaryTurns() async throws {
         let fixture = Fixture()

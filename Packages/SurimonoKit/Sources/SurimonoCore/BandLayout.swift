@@ -105,6 +105,8 @@ public enum BandLayout {
         .remove(.presentation), .remove(.thumbnails), .remove(.zoom), .remove(.pageIndicator),
     ]
 
+    public static let scrubberMinimum: CGFloat = 120
+
     /// The file name keeps this much room until every step has been taken.
     public static let nameMinimum: CGFloat = 80
     /// A name squeezed narrower than this says nothing and is left out; the "…" menu names the document instead.
@@ -256,13 +258,24 @@ public enum BandLayout {
             compactBeforeName: additionalCompactOrder
         ) { geometry($0).spacingWidth }
         let minimumForms: [Item: Form] = widths[.print].map { [.print: $0.compact == nil ? .full : .compact] } ?? [:]
+        // Only the surplus of the *unfolded* row belongs to the scrubber. A label folding must never
+        // make the scrubber reappear. The ordinary spacer minimum remains as clearance for the controls.
+        let resolvedGeometry = geometry(plan.forms)
+        let required = itemWidth(plan.forms, widths: widths) + resolvedGeometry.spacingWidth + plan.nameWidth
+        let scrubberWidth: CGFloat
+        if position == .bottom, let width = measurements.scrubber, width > 0, availableWidth - required >= width,
+            plan.forms.count == widths.count, plan.forms.values.allSatisfy({ $0 == .full })
+        {
+            scrubberWidth = width
+        } else {
+            scrubberWidth = 0
+        }
         return BandRowPlan(
             leading: leading.compactMap(\.item).filter { plan.forms[$0] != nil },
             trailing: trailing.compactMap(\.item).filter { plan.forms[$0] != nil },
             forms: plan.forms, nameWidth: plan.nameWidth,
             minimumWidth: itemWidth(minimumForms, widths: widths) + geometry(minimumForms).spacingWidth,
-            geometry: geometry(plan.forms),
-            requiredWidth: itemWidth(plan.forms, widths: widths) + geometry(plan.forms).spacingWidth + plan.nameWidth)
+            geometry: resolvedGeometry, requiredWidth: required + scrubberWidth, showsScrubber: scrubberWidth > 0)
     }
 
     private static func physicalSteps(at position: Position) -> [Step] {

@@ -23,6 +23,30 @@ public actor PageThumbnails {
         self.limit = limit
     }
 
+    private var nextScrubRender = ContinuousClock.now
+    private var scrubSequence: UInt64 = 0
+    #if DEBUG
+        public private(set) var rendersStarted = 0
+        public private(set) var rendersFinished = 0
+    #endif
+
+    /// One moving pointer shares the tile cache but may only start one new raster per interval.
+    /// Do not debounce from the last event: a continuous sweep should still get intermediate images.
+    public func scrubImage(page: Int, pixels: Int) async -> CGImage? {
+        guard !Task.isCancelled else { return nil }
+        scrubSequence &+= 1
+        let ticket = scrubSequence
+        if images[Key(page: page, pixels: pixels)] == nil {
+            if nextScrubRender > .now {
+                do { try await Task.sleep(until: nextScrubRender, clock: .continuous) } catch { return nil }
+            }
+            guard !Task.isCancelled, ticket == scrubSequence else { return nil }
+            nextScrubRender = .now + .milliseconds(33)
+        }
+        let result = await image(page: page, pixels: pixels)
+        return ticket == scrubSequence && !Task.isCancelled ? result : nil
+    }
+
     public func image(page: Int, pixels: Int) async -> CGImage? {
         guard !Task.isCancelled, page >= 0, (1...1024).contains(pixels) else { return nil }
         let key = Key(page: page, pixels: pixels)
@@ -45,9 +69,15 @@ public actor PageThumbnails {
             pdf = Self.open(data)
             number = 1
         }
-        guard !Task.isCancelled, let sheet = pdf?.page(at: number),
-            let image = Self.draw(sheet, pixels: pixels), !Task.isCancelled
-        else { return nil }
+        guard !Task.isCancelled, let sheet = pdf?.page(at: number) else { return nil }
+        #if DEBUG
+            rendersStarted += 1
+        #endif
+        guard let image = Self.draw(sheet, pixels: pixels) else { return nil }
+        #if DEBUG
+            rendersFinished += 1
+        #endif
+        guard !Task.isCancelled else { return nil }
         let cost = image.bytesPerRow * image.height
         if cost <= limit {
             while byteCount + cost > limit, let oldest = images.min(by: { $0.value.used < $1.value.used }) {

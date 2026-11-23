@@ -65,10 +65,7 @@ struct ContentsPages: View {
     }
 
     private func grid(columns: Int, width: CGFloat) -> some View {
-        let result = model.result
-        let generation =
-            !model.isUpToDate || model.paperDocument !== result?.viewDocument
-            ? nil : result?.id
+        let generation = model.thumbnailGeneration
         let marks = Set(model.bookmarkPages)
         let sections = PageSection.sections(count: model.pageCount, chapters: model.chapterEntries)
         let items = model.imageBundle?.items.filter { !model.unreadableImageURLs.contains($0.url) }

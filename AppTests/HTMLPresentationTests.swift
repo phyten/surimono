@@ -642,6 +642,110 @@ struct WebCaptureTests {
         #expect(model.mode == .print)
     }
 
+    @Test("写し直しを待つ間にページが印刷を頼んだら、その写しに合流して刷り台を 1 回だけ開く")
+    func requestDuringRetryJoinsTheCopy() async throws {
+        let fixture = try await fixture()
+        defer { fixture.close() }
+        let model = fixture.model
+        model.windowActiveOverride = true
+        model.pageDidRequestPrint()
+        try await waitUntil { fixture.snapshots.requestCount == 1 }
+        fixture.snapshots.resolve(.failed)
+        try await waitUntil { !model.isCapturingWeb }
+        #expect(model.mode == .view && model.webCaptureFailed)
+        model.retryWebCapture()
+        try await waitUntil { fixture.snapshots.requestCount == 2 }
+        // The copy in flight is the retry's, which opens no tray by itself.
+        for _ in 0..<3 { model.pageDidRequestPrint() }
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(fixture.snapshots.requestCount == 2)
+        #expect(model.mode == .view)
+        fixture.snapshots.resolve(.captured(HTMLSnapshot(html: "<p>Retry</p>")))
+        try await waitUntil { model.mode == .print }
+        #expect(fixture.snapshots.requestCount == 2)
+    }
+
+    @Test("プロセスが終わったページは、失敗の通知の「もう一度試す」で一度だけ読み込み直す")
+    func retryReloadsAnEndedPage() async throws {
+        let fixture = try await fixture()
+        defer { fixture.close() }
+        let model = fixture.model
+        model.web.startNavigation = { _, _, _ in NSObject() }
+        model.web.show(fixture.directory.appendingPathComponent("page.html"), allowsJavaScript: false)
+        defer { model.web.close() }
+        model.web.webViewWebContentProcessDidTerminate(try #require(model.web.webView))
+        model.setHTMLPresentation(.paper)
+        try await waitUntil { fixture.snapshots.requestCount == 1 }
+        fixture.snapshots.resolve(.failed)
+        try await waitUntil { !model.isCapturingWeb }
+        // Asking for output copies again without loading the page.
+        model.exportPDF()
+        try await waitUntil { fixture.snapshots.requestCount == 2 }
+        fixture.snapshots.resolve(.failed)
+        try await waitUntil { !model.isCapturingWeb }
+        #expect(model.web.state == .ended && model.web.loadCount == 1)
+        model.retryWebCapture()
+        #expect(model.web.state == .reloading && model.web.loadCount == 2)
+        try await waitUntil { fixture.snapshots.requestCount == 3 }
+        fixture.snapshots.resolve(.failed)
+        try await waitUntil { !model.isCapturingWeb }
+    }
+
+    @Test("印刷を頼んだあと、写しを待つ間に削除箇所の確認を選んだら、写しが届いても刷り台を開かない")
+    func reviewWithdrawsTheTray() async throws {
+        let fixture = try await fixture()
+        defer { fixture.close() }
+        let model = fixture.model
+        model.windowActiveOverride = true
+        model.setSmartRemoval(enabled: true)
+        try await waitUntil { model.result != nil && !model.isRendering }
+        model.enterPrintMode()
+        // A second request while the first waits adds nothing.
+        model.enterPrintMode()
+        try await waitUntil { fixture.snapshots.requestCount == 1 }
+        model.reviewSmartRemoval()
+        fixture.snapshots.resolve(.captured(HTMLSnapshot(html: "<p>Review</p>")))
+        try await waitUntil { !model.isCapturingWeb && model.result != nil && !model.isRendering }
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(model.mode == .view)
+        #expect(model.isReviewingSmartRemoval)
+        #expect(fixture.snapshots.requestCount == 1)
+    }
+
+    @Test("横長のスライドだったページのプロセスが終わり、ふつうの HTML として読み込み直すと、スライドの寸法は印刷に残らない")
+    func recoveryForgetsTheSlides() async throws {
+        let fixture = try await fixture()
+        defer { fixture.close() }
+        let model = fixture.model
+        // The sandboxed page takes a new web view when it is loaded again; the load itself is held.
+        model.web.isSandboxed = { true }
+        model.web.startNavigation = { _, _, _ in NSObject() }
+        model.web.show(fixture.directory.appendingPathComponent("page.html"), allowsJavaScript: false)
+        defer { model.web.close() }
+        model.web.slideFactsDidArrive(
+            """
+            {"viewportWidth":1280,"viewportHeight":720,"groups":[{"members":[
+            {"width":1280,"height":720,"fixed":true,"visible":0,"x":0,"y":0,"boxWidth":0,"boxHeight":0},
+            {"width":1280,"height":720,"fixed":true,"visible":1,"x":0,"y":0,"boxWidth":1280,"boxHeight":720}]}]}
+            """)
+        try #require(model.slideDeck?.size == CGSize(width: 1280, height: 720))
+        try #require(model.renderSettings?.slides != nil)
+        var restarts = 0
+        let restart = model.web.onRestart
+        model.web.onRestart = {
+            restarts += 1
+            restart?()
+        }
+        model.web.webViewWebContentProcessDidTerminate(try #require(model.web.webView))
+        #expect(model.slideDeck != nil)
+        model.web.reloadEndedPage()
+        // The page loaded next is an ordinary one and reports no slides of its own.
+        #expect(model.web.state == .reloading)
+        #expect(model.slideDeck == nil)
+        #expect(model.renderSettings?.slides == nil)
+        #expect(restarts == 0)
+    }
+
     @Test("刷り台を閉じている途中に文書が印刷を頼んでも、刷り台へ戻さない")
     func requestRightAfterReturning() async throws {
         let fixture = try await fixture()

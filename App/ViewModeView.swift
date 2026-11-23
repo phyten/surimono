@@ -65,6 +65,7 @@ struct ViewModeView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             }
+            if bandVisible, plans.bottom?.showsScrubber == true { PageScrubPreview(model: model) }
             ToastOverlay(model: model).padding(.bottom, bottomInset)
             BandPresentationHost(model: model, plans: plans)
             ThemePaletteAnchor(model: model)
@@ -114,6 +115,12 @@ struct ViewModeView: View {
             if let window = model.window { ViewerWindow.setTrafficLightsVisible(visible, in: window) }
         }
         // The band, which anchors its popovers, must stay while one is open, however it was opened.
+        .onChange(of: model.scrubber.holdsBand, initial: true) { _, held in
+            menu.scrubberHeld = held
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { note in
+            if let window = note.object as? NSWindow, window === model.window { model.scrubber.cancel() }
+        }
         .onChange(of: holdsBand) { _, held in
             if held { menu.showFull() }
             menu.isHolding = held
@@ -123,6 +130,14 @@ struct ViewModeView: View {
                 guard let target = note.object as? DocumentViewModel, target === model else { return }
                 menu.isHolding = true
                 menu.showFull()
+                if let room = note.userInfo?["scrubRoom"] as? CGFloat, let window = model.window,
+                    let row = BandPlans(model: model, menu: menu, availableWidth: .greatestFiniteMagnitude).bottom,
+                    row.showsScrubber, let content = window.contentView
+                {
+                    let width = row.requiredWidth - BandLayout.scrubberMinimum + room
+                    model.snapshotScrubWidth = width
+                    window.setContentSize(CGSize(width: width, height: content.bounds.height))
+                }
             }
         #endif
     }

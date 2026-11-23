@@ -4,10 +4,12 @@ import CoreGraphics
 public struct BandMeasurementsValue: Equatable, Sendable {
     public var items: [BandLayout.Item: BandLayout.Widths]
     public var name: CGFloat
+    public var scrubber: CGFloat?
 
-    public init(items: [BandLayout.Item: BandLayout.Widths], name: CGFloat) {
+    public init(items: [BandLayout.Item: BandLayout.Widths], name: CGFloat, scrubber: CGFloat? = nil) {
         self.items = items
         self.name = name
+        self.scrubber = scrubber
     }
 }
 
@@ -62,6 +64,7 @@ public struct BandRowPlan: Equatable, Sendable {
     public var geometry: BandRowGeometry
     /// Includes the allocated name width even below the threshold at which the renderer hides it.
     public var requiredWidth: CGFloat
+    public var showsScrubber = false
 
     public var showsName: Bool { nameWidth >= BandLayout.nameHidingWidth }
 }

@@ -2,6 +2,29 @@ import Foundation
 import SurimonoCore
 
 extension DocumentViewModel {
+    var pageTrack: PageTrack { PageTrack(count: pageCount, rightToLeft: viewOptions.direction == .rightToLeft) }
+
+    var scrubSections: [PageSection] {
+        imageBundle == nil ? PageSection.sections(count: pageCount, chapters: chapterEntries) : []
+    }
+
+    func handleScrubKey(_ key: ShortcutNamedKey) -> Bool {
+        guard scrubber.keyboardFocus, offersScrubber, !blocksSurfaceShortcuts else { return false }
+        switch key {
+        case .home: scrubToPage(0)
+        case .end: scrubToPage(pageCount - 1)
+        case .leftArrow: scrubToPage(logicalReadingPage - 1)
+        case .rightArrow: scrubToPage(logicalReadingPage + 1)
+        default: return false
+        }
+        return true
+    }
+
+    func scrubToPage(_ page: Int) {
+        guard offersScrubber, !blocksSurfaceShortcuts, (0..<pageCount).contains(page) else { return }
+        jumpToReadingPage(page)
+    }
+
     var canNavigateReading: Bool { mode == .view && !showsWeb && pageCount > 0 }
     var hasContents: Bool { !showsWeb && (pageCount > 1 || hasOutline || !bookmarkPages.isEmpty) }
     var bookmarkPages: [Int] { bookmarks.pages(pageCount: pageCount, entries: outlineEntries) }
@@ -13,12 +36,14 @@ extension DocumentViewModel {
     var isVisiblePageBookmarked: Bool {
         canNavigateReading && !Set(bookmarkPages).isDisjoint(with: visibleReadingPages)
     }
+    var logicalReadingPage: Int { selectedReadingPage ?? currentPageIndex }
+
     private var readingPosition: ReadingPosition {
-        ReadingPosition(page: currentPageIndex, pageCount: pageCount, entries: outlineEntries)
+        ReadingPosition(page: logicalReadingPage, pageCount: pageCount, entries: outlineEntries)
     }
 
     func recordReadingJump(to page: Int) {
-        guard canNavigateReading, (0..<pageCount).contains(page), page != currentPageIndex else { return }
+        guard canNavigateReading, (0..<pageCount).contains(page), page != logicalReadingPage else { return }
         pageHistory.record(readingPosition)
     }
 
@@ -31,6 +56,11 @@ extension DocumentViewModel {
     private func navigateReadingPage(_ page: Int) {
         // The model also owns the position while SwiftUI is replacing the paper after a reflow.
         currentPageIndex = visibleStart(of: page)
+        selectedReadingPage = page
+        if let bundle = imageBundle {
+            let readable = bundle.urls.filter { !unreadableImageURLs.contains($0) }
+            if readable.indices.contains(page) { bundle.selection = readable[page] }
+        }
         paper.goToPage(index: page)
     }
 

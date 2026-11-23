@@ -212,12 +212,12 @@ public final class ThemeSampler {
             defer { resetSessions() }
             let sample = try await VerticalPaginator.pages(
                 in: session.webView, pageSize: pageSize, margins: margins, timeout: timeout
-            ) {
+            ) { deadline in
                 guard let place else { return nil }
                 let x = try await session.webView.evaluateForPrinting(
                     Self.placeElements + "const el = elements[kind][index]; return el ? surimonoVerticalX(el) : null;",
                     arguments: ["kind": place.kind.rawValue, "index": place.index], world: self.world,
-                    until: .now + self.timeout)
+                    until: deadline)
                 return (x as? NSNumber).map { CGFloat(truncating: $0) }
             }
             try session.checkReady()

@@ -7,10 +7,11 @@ enum VerticalPaginator {
         .flatMap { try? String(contentsOf: $0, encoding: .utf8) }
 
     /// The optional sample position is an x coordinate in the prepared strip, measured after the theme took effect.
-    /// Only that page needs a PDF capture in the palette.
+    /// Only that page needs a PDF capture in the palette. It receives the deadline of the whole call, so that looking
+    /// the position up spends what is left of the budget instead of starting one of its own.
     static func pages(
         in webView: WKWebView, pageSize: CGSize, margins: WebPaginator.Margins, timeout: Duration,
-        samplePosition: (@MainActor () async throws -> CGFloat?)? = nil
+        samplePosition: (@MainActor (ContinuousClock.Instant) async throws -> CGFloat?)? = nil
     ) async throws -> PDFDocument {
         try Task.checkCancellation()
         guard PDFDrawing.validGeometry(pageSize: pageSize, margins: margins), let measurement else {
@@ -20,21 +21,24 @@ enum VerticalPaginator {
         let pixelsPerPoint = 96.0 / 72
         let width = (pageSize.width - margins.left - margins.right) * pixelsPerPoint
         let height = (pageSize.height - margins.top - margins.bottom) * pixelsPerPoint
+        // Each WebKit reply below is awaited only until this deadline, and fails at once when the page's process
+        // has ended: awaiting WebKit's own async calls left the capture task (and its session) waiting for good.
+        let deadline = ContinuousClock.now + timeout
         var result: Result<PDFDocument, any Error>?
         let capture = Task { @MainActor in
             do {
-                let slices = try await measure(in: webView, script: measurement, width: width, height: height)
+                let slices = try await measure(
+                    in: webView, script: measurement, width: width, height: height, until: deadline)
                 try Task.checkCancellation()
                 var indices = slices.indices
                 if let samplePosition, !indices.isEmpty {
-                    let position = try await samplePosition()
+                    let position = try await samplePosition(deadline)
                     let index = position.flatMap { x in slices.firstIndex { $0.end >= -x } } ?? indices.startIndex
                     indices = index..<(index + 1)
                 }
                 if slices.count > 1 {
-                    _ = try await webView.callAsyncJavaScript(
-                        "surimonoIndexSlices(cuts)", arguments: ["cuts": slices.map(\.end)], in: nil,
-                        contentWorld: WebPaginator.preparationWorld)
+                    _ = try await webView.evaluateForPrinting(
+                        "surimonoIndexSlices(cuts)", arguments: ["cuts": slices.map(\.end)], until: deadline)
                 }
                 let document = try await PDFDrawing.document(pageSize: pageSize) { context in
                     if slices.isEmpty {
@@ -45,9 +49,8 @@ enum VerticalPaginator {
                         let slice = slices[index]
                         try Task.checkCancellation()
                         if slices.count > 1 {
-                            _ = try await webView.callAsyncJavaScript(
-                                "surimonoCaptureSlice(index)", arguments: ["index": index], in: nil,
-                                contentWorld: WebPaginator.preparationWorld)
+                            _ = try await webView.evaluateForPrinting(
+                                "surimonoCaptureSlice(index)", arguments: ["index": index], until: deadline)
                         }
                         let rect = CGRect(x: -slice.end, y: 0, width: slice.end - slice.start, height: ceil(height))
                         let scale = min(1, width / rect.width) / pixelsPerPoint
@@ -57,7 +60,8 @@ enum VerticalPaginator {
                             width: rect.width * scale, height: rect.height * scale)
                         context.beginPDFPage(nil)
                         defer { context.endPDFPage() }
-                        try await FlowPageCapture.draw(rect, from: webView, into: target, in: context)
+                        try await FlowPageCapture.draw(
+                            rect, from: webView, into: target, in: context, deadline: deadline)
                     }
                 }
                 result = .success(document)
@@ -74,11 +78,11 @@ enum VerticalPaginator {
         return try result.get()
     }
 
-    private static func measure(in webView: WKWebView, script: String, width: CGFloat, height: CGFloat) async throws
-        -> [FlowPageCuts.Band]
-    {
-        let value = try await webView.callAsyncJavaScript(
-            script, arguments: ["width": width, "height": height], in: nil, contentWorld: WebPaginator.preparationWorld)
+    private static func measure(
+        in webView: WKWebView, script: String, width: CGFloat, height: CGFloat, until deadline: ContinuousClock.Instant
+    ) async throws -> [FlowPageCuts.Band] {
+        let value = try await webView.evaluateForPrinting(
+            script, arguments: ["width": width, "height": height], until: deadline)
         try Task.checkCancellation()
         guard let json = value as? String else { throw WebPaginator.PaginationError.printFailed }
         return try await cuts(from: json, capacity: width)
@@ -116,17 +120,12 @@ enum FlowPageCapture {
     @discardableResult
     static func draw(
         _ rect: CGRect, from webView: WKWebView, into target: CGRect, in context: CGContext, transparent: Bool = false,
-        deadline: ContinuousClock.Instant? = nil
+        deadline: ContinuousClock.Instant
     ) async throws -> PrintedSlice {
         let config = WKPDFConfiguration()
         config.rect = rect
         config.allowTransparentBackground = transparent
-        let data: Data
-        if let deadline {
-            data = try await webView.pdfForPrinting(configuration: config, until: deadline)
-        } else {
-            data = try await webView.pdf(configuration: config)
-        }
+        let data = try await webView.pdfForPrinting(configuration: config, until: deadline)
         try Task.checkCancellation()
         return try draw(data, into: target, in: context)
     }
