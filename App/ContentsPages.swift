@@ -113,7 +113,9 @@ struct ContentsPages: View {
             .focused($focused)
             .accessibilityLabel("Pages Tab")
             .onKeyPress(keys: [.upArrow, .downArrow, .leftArrow, .rightArrow, .space, .return]) { press in
-                guard press.modifiers.isEmpty, model.pageCount > 0 else { return .ignored }
+                // Arrow keys always carry the numeric-pad and function flags.
+                guard press.modifiers.isDisjoint(with: [.command, .option, .control, .shift]), model.pageCount > 0
+                else { return .ignored }
                 let next: Int
                 switch press.key {
                 case .upArrow, .downArrow:
