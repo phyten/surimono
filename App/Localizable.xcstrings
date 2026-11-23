@@ -143,7 +143,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "연달아 나온 단어"
+            "value": "연달아 나온 같은 단어"
           }
         },
         "zh-Hans": {
@@ -178,7 +178,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nahe Wiederholung"
+            "value": "Wiederholungen in kurzem Abstand"
           }
         },
         "es": {
@@ -196,7 +196,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "가까운 반복"
+            "value": "가까이 쓰인 같은 단어"
           }
         },
         "zh-Hans": {
@@ -478,13 +478,13 @@
         }
       }
     },
-    "No places found": {
+    "No repetitions or long sentences found.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No places found"
+            "value": "No repetitions or long sentences found."
           }
         },
         "ja": {
@@ -502,13 +502,13 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "No se encontraron pasajes"
+            "value": "No se encontraron repeticiones ni oraciones largas."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aucun passage trouvé"
+            "value": "Aucune répétition ni phrase longue détectée."
           }
         },
         "ko": {
@@ -527,6 +527,59 @@
           "stringUnit": {
             "state": "translated",
             "value": "找不到相符的內容"
+          }
+        }
+      }
+    },
+    "Could not locate this passage on the page.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not locate this passage on the page."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "紙面の位置を特定できませんでした"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Stelle konnte auf der Seite nicht gefunden werden."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo localizar este pasaje en la página."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce passage est introuvable sur la page."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "페이지에서 이 부분을 찾을 수 없습니다"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法在页面上找到这段文字"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法在頁面上找到這段文字"
           }
         }
       }
@@ -690,55 +743,127 @@
         }
       }
     },
-    "%@ words": {
+    "%.15g words": {
       "extractionState": "manual",
       "localizations": {
         "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ words"
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%.15g word"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%.15g words"
+                }
+              }
+            }
           }
         },
         "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ 語"
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%.15g 語"
+                }
+              }
+            }
           }
         },
         "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ Wörter"
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%.15g Wort"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%.15g Wörter"
+                }
+              }
+            }
           }
         },
         "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ palabras"
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%.15g palabra"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%.15g palabras"
+                }
+              }
+            }
           }
         },
         "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ mots"
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%.15g mot"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%.15g mots"
+                }
+              }
+            }
           }
         },
         "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@단어"
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%.15g단어"
+                }
+              }
+            }
           }
         },
         "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ 词"
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%.15g 词"
+                }
+              }
+            }
           }
         },
         "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ 詞"
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%.15g 詞"
+                }
+              }
+            }
           }
         }
       }
@@ -761,7 +886,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kanji %1$@ · Kana %2$@ · Latein %3$@"
+            "value": "Kanji %1$@ · Kana %2$@ · Lateinisch %3$@"
           }
         },
         "es": {

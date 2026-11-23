@@ -194,6 +194,11 @@ struct PaperFindTests {
         try await waitUntil { model.proseGeneration != nil }
         let generation = try #require(model.proseGeneration)
         let document = try #require(model.paperDocument)
+        // The page text can be identical after a reflow. Both the generation and the actual PDF must still match.
+        let replacement = try #require(PDFDocument(data: pdf))
+        try model.checkProseLayout(generation, document: document)
+        #expect(throws: CancellationError.self) { try model.checkProseLayout(generation, document: replacement) }
+        #expect(throws: CancellationError.self) { try model.checkProseLayout(generation - 1, document: document) }
         let paper = PaperView(
             document: document, initialPageIndex: 0, options: model.viewOptions, zoom: 1, controller: model.paper,
             onZoomChange: { _ in }, onPageChange: { _ in }, onTurn: {}, onKey: { _ in false })
@@ -294,6 +299,42 @@ struct PaperFindTests {
         let rect = view.convert(hit.bounds(for: page), from: page)
         #expect(view.bounds.insetBy(dx: -3, dy: -3).contains(NSPoint(x: rect.minX, y: rect.midY)))
         withExtendedLifetime(window) {}
+    }
+
+    @Test("拡大した同じページの文章の印まで送り、見えていれば動かさず文字選択を保つ")
+    func scrollsToWritingOnTheSamePage() async throws {
+        let line = "After walking down the lane we saw the the bird."
+        let (view, _, window) = try makePaper([line])
+        defer {
+            window.contentView = nil
+            window.orderOut(nil)
+        }
+        guard case .analysed(let report) = try await ProseCheck.analysis(of: line, format: .plainText) else {
+            Issue.record("本文を解析できませんでした")
+            return
+        }
+        let page = try #require(view.document?.page(at: 0))
+        let panel = try ProsePanelReport(report: report, pages: [page.string ?? ""])
+        let spans = try #require(panel.groups[.duplicate]?.first?.spans)
+        view.setZoom(4, anchor: .zero)
+        view.drawProse(spans)
+        let hit = try #require(view.highlightedSelections?.first)
+        view.currentSelection = page.selection(for: NSRange(location: 0, length: 5))
+        let selected = view.currentSelection?.string
+        let documentView = try #require(view.documentView)
+        let target = documentView.convert(view.convert(hit.bounds(for: page), from: page), from: view)
+        let before = documentView.visibleRect
+        try #require(!before.contains(target))
+        view.revealProse(spans)
+        let shown = documentView.visibleRect
+        #expect(shown.insetBy(dx: -1, dy: -1).contains(target))
+        let expectedX = min(before.minX, target.minX) + max(0, target.maxX - before.maxX)
+        let expectedY = min(before.minY, target.minY) + max(0, target.maxY - before.maxY)
+        #expect(abs(shown.minX - expectedX) <= 1 && abs(shown.minY - expectedY) <= 1)
+        #expect(view.currentSelection?.string == selected && selected == "After")
+        view.revealProse(spans)
+        #expect(documentView.visibleRect == shown)
+        #expect(view.currentPageIndex == 0)
     }
 
     @Test("見開きでも、一致のあるページを読む順のページ番号で返し、その見開きへめくる", .timeLimit(.minutes(1)))

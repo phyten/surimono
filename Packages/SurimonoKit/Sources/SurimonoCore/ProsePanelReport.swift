@@ -21,36 +21,58 @@ public struct ProsePanelReport: Sendable {
         }
     }
 
+    public enum Location: Sendable { case checking, missing, found }
+
     public struct Row: Identifiable, Sendable {
         public let id: Int
         public let kind: ProseFinding.Kind
         public let excerpt: ProseExcerpt
-        public let spans: [ProsePaperSpan]
+        fileprivate var locatedSpans: [ProsePaperSpan]?
+        public var spans: [ProsePaperSpan] { locatedSpans ?? [] }
+        public var location: Location {
+            guard let locatedSpans else { return .checking }
+            return locatedSpans.isEmpty ? .missing : .found
+        }
     }
 
     public let facts: ProseFacts
-    public let groups: [Group: [Row]]
+    public private(set) var groups: [Group: [Row]] = [:]
     public let initiallyExpanded: Bool
+    private var pending: ProseReport?
 
-    public init(report: ProseReport, pages: [String]) throws {
+    public init(report: ProseReport) throws {
         facts = report.facts
         initiallyExpanded = report.findings.count <= 30
-        var groups: [Group: [Row]] = [:]
-        if !report.findings.isEmpty {
-            let paragraphs = report.paragraphs.map(\.text)
-            var index = try ProsePaperIndex(paragraphs: paragraphs, pages: pages)
-            for (id, finding) in report.findings.enumerated() {
-                try Task.checkCancellation()
-                guard let first = finding.occurrences.first else { continue }
-                let excerpt = ProseExcerpt(paragraph: paragraphs[first.paragraph], occurrence: first)
-                let group = Group(finding.kind)
-                let row = Row(
-                    id: id, kind: finding.kind, excerpt: excerpt,
-                    spans: try index.spans(for: finding.occurrences, longSentence: group == .longSentence))
-                groups[group, default: []].append(row)
+        pending = report.findings.isEmpty ? nil : report
+        for (id, finding) in report.findings.enumerated() {
+            try Task.checkCancellation()
+            guard let first = finding.occurrences.first else { continue }
+            let excerpt = ProseExcerpt(paragraph: report.paragraphs[first.paragraph].text, occurrence: first)
+            groups[Group(finding.kind), default: []].append(Row(id: id, kind: finding.kind, excerpt: excerpt))
+        }
+    }
+
+    public func located(on pages: [String]) throws -> Self {
+        try Task.checkCancellation()
+        guard let pending else { return self }
+        let index = try ProsePaperIndex(
+            paragraphs: pending.paragraphs.map(\.text), pages: pages,
+            occurrences: pending.findings.flatMap(\.occurrences))
+        var result = self
+        for (group, rows) in groups {
+            result.groups[group] = try rows.map { row in
+                var row = row
+                row.locatedSpans = try index.spans(
+                    for: pending.findings[row.id].occurrences, longSentence: group == .longSentence)
+                return row
             }
         }
-        self.groups = groups
+        result.pending = nil
+        return result
+    }
+
+    public init(report: ProseReport, pages: [String]) throws {
+        self = try Self(report: report).located(on: pages)
     }
 }
 

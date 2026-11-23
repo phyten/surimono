@@ -103,6 +103,7 @@ struct DocumentMenuDescriptor: Identifiable {
         case .action(.operation(let operation)):
             row.shortcut = snapshot.shortcut(for: operation)
             row.isEnabled = snapshot.content.enabled.contains(operation)
+        case .action(.checkWriting): row.isEnabled = snapshot.content.offersProse
         case .action(.setting), .action(.replaceSetting): row.isEnabled = snapshot.content.region != nil
         case .menu, .typefacePicker:
             row.isEnabled = row.children.contains { child in

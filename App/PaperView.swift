@@ -39,6 +39,8 @@ final class PaperController {
         return view.proseSelections(spans) != nil
     }
 
+    func revealProse(_ spans: [ProsePaperSpan]) { view?.revealProse(spans) }
+
     func isProsePageVisible(_ page: Int) -> Bool { view?.isLogicalPageVisible(page) == true }
 
     #if DEBUG
@@ -1437,6 +1439,47 @@ extension PaperPDFView {
             selections.append(selection)
         }
         return selections
+    }
+
+    func revealProse(_ spans: [ProsePaperSpan]) {
+        guard let document, let selections = proseSelections(spans) else { return }
+        layoutDocumentView()
+        guard let documentView else { return }
+        let visible = documentView.visibleRect
+        guard !visible.isEmpty else { return }
+        var nearest: NSRect?
+        var leastDistance = CGFloat.infinity
+        let onScreen = visiblePages
+        let readingPage = currentPageIndex
+        for selection in selections {
+            guard let page = selection.pages.first,
+                onScreen.contains(page) || pagePlan?.readingIndex(at: document.index(for: page)) == readingPage
+            else { continue }
+            func frame(of selection: PDFSelection) -> CGRect {
+                documentView.convert(convert(selection.bounds(for: page), from: page), from: self)
+            }
+            let whole = frame(of: selection)
+            let fits = whole.width <= visible.width && whole.height <= visible.height
+            let boxes = fits ? [whole] : selection.selectionsByLine().map { frame(of: $0) }
+            for box in boxes {
+                guard !box.isEmpty else { continue }
+                let width = min(box.width, visible.width)
+                let height = min(box.height, visible.height)
+                // A line wider than the viewport can already be readable at the current scroll position.
+                let target = NSRect(
+                    x: max(box.minX, min(visible.minX, box.maxX - width)),
+                    y: max(box.minY, min(visible.minY, box.maxY - height)), width: width, height: height)
+                if visible.contains(target) { return }
+                let dx = max(0, visible.minX - target.minX, target.maxX - visible.maxX)
+                let dy = max(0, visible.minY - target.minY, target.maxY - visible.maxY)
+                let distance = dx * dx + dy * dy
+                if distance < leastDistance {
+                    nearest = target
+                    leastDistance = distance
+                }
+            }
+        }
+        if let nearest { documentView.scrollToVisible(nearest) }
     }
 
     func drawProse(_ spans: [ProsePaperSpan]) {

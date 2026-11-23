@@ -3,6 +3,11 @@ import SurimonoCore
 import SwiftUI
 
 extension DocumentViewModel {
+    func checkProseLayout(_ generation: Int, document: PDFDocument) throws {
+        try Task.checkCancellation()
+        guard proseGeneration == generation, paperDocument === document else { throw CancellationError() }
+    }
+
     func dismissProseMark() {
         if !proseMark.spans.isEmpty { proseMark.dismiss() }
     }
@@ -16,6 +21,7 @@ extension DocumentViewModel {
         if !row.spans.contains(where: { visible.contains($0.page) || paper.isProsePageVisible($0.page) }) {
             jumpToReadingPage(first.page)
         }
+        paper.revealProse(row.spans)
         proseMark.select(row.spans, findingID: row.id, generation: generation, readingPage: currentPageIndex)
     }
 }
@@ -33,7 +39,7 @@ extension ProsePanelReport.Group {
 struct ProsePanel: View {
     let model: DocumentViewModel
 
-    private enum Result {
+    private enum Result: Sendable {
         case report(ProsePanelReport)
         case unavailable(ProseAnalysis.Reason)
     }
@@ -52,7 +58,7 @@ struct ProsePanel: View {
                         figures(report.facts)
                         Divider()
                         if report.groups.isEmpty {
-                            Text("No places found")
+                            Text("No repetitions or long sentences found.")
                         } else {
                             ForEach(ProsePanelReport.Group.allCases, id: \.self) { group in
                                 if let rows = report.groups[group] {
@@ -73,6 +79,7 @@ struct ProsePanel: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .task(id: generation) {
+            guard !Task.isCancelled, model.proseGeneration == generation else { return }
             completed = nil
             result = nil
             model.dismissProseMark()
@@ -83,34 +90,33 @@ struct ProsePanel: View {
                 return
             }
             do {
-                let analysis = try await Self.analyse(source.data, format: source.format)
-                try Task.checkCancellation()
-                switch analysis {
-                case .notAnalysed(let reason): result = .unavailable(reason)
-                case .analysed(let prose):
-                    var pages: [String] = []
-                    if !prose.findings.isEmpty {
-                        for index in 0..<document.pageCount {
-                            try Task.checkCancellation()
-                            pages.append(document.page(at: index)?.string ?? "")
-                            await Task.yield()
-                        }
-                    }
-                    let report = try await Self.pair(prose, pages: pages)
-                    try Task.checkCancellation()
-                    guard model.proseGeneration == generation else { return }
-                    result = .report(report)
-                    expanded = report.initiallyExpanded ? Set(report.groups.keys) : []
-                    #if DEBUG
-                        if let n = DebugSnapshot.argument("SurimonoProseFinding").flatMap(Int.init), n > 0 {
-                            let rows = ProsePanelReport.Group.allCases.flatMap { report.groups[$0] ?? [] }
-                            if rows.indices.contains(n - 1) {
-                                model.selectProseFinding(rows[n - 1], generation: generation)
-                            }
-                        }
-                    #endif
-                }
+                let initial = try await Self.analyse(source.data, format: source.format)
+                try model.checkProseLayout(generation, document: document)
+                result = initial
                 completed = generation
+                if case .report(let pending) = initial {
+                    expanded = pending.initiallyExpanded ? Set(pending.groups.keys) : []
+                    if !pending.groups.isEmpty {
+                        // PDFKit owns the displayed pages on the main actor. Yield between page reads.
+                        var pages: [String] = []
+                        for index in 0..<document.pageCount {
+                            await Task.yield()
+                            try model.checkProseLayout(generation, document: document)
+                            pages.append(document.page(at: index)?.string ?? "")
+                        }
+                        let report = try await Self.pair(pending, pages: pages)
+                        try model.checkProseLayout(generation, document: document)
+                        result = .report(report)
+                        #if DEBUG
+                            if let n = DebugSnapshot.argument("SurimonoProseFinding").flatMap(Int.init), n > 0 {
+                                let rows = ProsePanelReport.Group.allCases.flatMap { report.groups[$0] ?? [] }
+                                if rows.indices.contains(n - 1) {
+                                    model.selectProseFinding(rows[n - 1], generation: generation)
+                                }
+                            }
+                        #endif
+                    }
+                }
                 #if DEBUG
                     model.snapshotProseReady = true
                 #endif
@@ -128,13 +134,16 @@ struct ProsePanel: View {
         }
     }
 
-    @concurrent private static func analyse(_ data: Data, format: DocumentFormat) async throws -> ProseAnalysis {
+    @concurrent private static func analyse(_ data: Data, format: DocumentFormat) async throws -> Result {
         try Task.checkCancellation()
-        return try await ProseCheck.analysis(of: TextDecoding.decode(data).text, format: format)
+        switch try await ProseCheck.analysis(of: TextDecoding.decode(data).text, format: format) {
+        case .notAnalysed(let reason): return .unavailable(reason)
+        case .analysed(let report): return .report(try ProsePanelReport(report: report))
+        }
     }
 
-    @concurrent private static func pair(_ report: ProseReport, pages: [String]) async throws -> ProsePanelReport {
-        try ProsePanelReport(report: report, pages: pages)
+    @concurrent private static func pair(_ report: ProsePanelReport, pages: [String]) async throws -> ProsePanelReport {
+        try report.located(on: pages)
     }
 
     private func findings(_ rows: [ProsePanelReport.Row], group: ProsePanelReport.Group, generation: Int) -> some View {
@@ -184,8 +193,18 @@ struct ProsePanel: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .disabled(row.location != .found)
+        .accessibilityValue(accessibilityValue(for: row.location))
         .accessibilityLabel(Text(verbatim: [group.label, row.excerpt.text, detail].joined(separator: " ")))
         .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    private func accessibilityValue(for location: ProsePanelReport.Location) -> Text {
+        switch location {
+        case .checking: Text("Checking…")
+        case .missing: Text("Could not locate this passage on the page.")
+        case .found: Text(verbatim: "")
+        }
     }
 
     private func detail(for row: ProsePanelReport.Row) -> String {
@@ -195,9 +214,16 @@ struct ProsePanel: View {
     }
 
     private func length(_ count: Double, _ unit: ProseLengthUnit) -> String {
-        String(
-            format: unit == .characters ? String(localized: "%@ characters") : String(localized: "%@ words"),
-            count.formatted(.number.precision(.fractionLength(0...1))))
+        if unit == .words {
+            return Self.words(count, bundle: .main, locale: Locale(identifier: model.language))
+        }
+        return String(
+            format: String(localized: "%@ characters"), count.formatted(.number.precision(.fractionLength(0...1))))
+    }
+
+    static func words(_ count: Double, bundle: Bundle, locale: Locale) -> String {
+        let format = String(localized: "%.15g words", bundle: bundle)
+        return String(format: format, locale: locale, count)
     }
 
     private func figures(_ facts: ProseFacts) -> some View {

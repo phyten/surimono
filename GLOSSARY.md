@@ -46,6 +46,6 @@
 | 紙面の数式 | `Formula Exceeds the Text Width` | Formula | 数式 | Formel | fórmula | formule | 수식 | 公式 | 公式 |
 | 文章の確認タブ | `Writing` | Writing | 文章 | Text | Texto | Texte | 글 | 文章 | 文章 |
 | 文章を点検する操作 | `Check Writing` | Check Writing | 文章の確認 | Text prüfen | Revisar texto | Vérifier le texte | 글 확인 | 检查文章 | 檢查文章 |
-| 同じ語が続いた箇所 | `Repeated Word` | Repeated Word | 続いた語 | Doppeltes Wort | Palabra duplicada | Mot doublé | 연달아 나온 단어 | 连续重复的词 | 連續重複的詞 |
-| 近くで繰り返した語 | `Close Repetition` | Close Repetition | 近い繰り返し | Nahe Wiederholung | Repetición cercana | Répétition rapprochée | 가까운 반복 | 邻近重复 | 鄰近重複 |
+| 同じ語が続いた箇所 | `Repeated Word` | Repeated Word | 続いた語 | Doppeltes Wort | Palabra duplicada | Mot doublé | 연달아 나온 같은 단어 | 连续重复的词 | 連續重複的詞 |
+| 近くで繰り返した語 | `Close Repetition` | Close Repetition | 近い繰り返し | Wiederholungen in kurzem Abstand | Repetición cercana | Répétition rapprochée | 가까이 쓰인 같은 단어 | 邻近重复 | 鄰近重複 |
 | 長さを確認する文 | `Long Sentence` | Long Sentence | 長い文 | Langer Satz | Oración larga | Phrase longue | 긴 문장 | 长句 | 長句 |
