@@ -16,6 +16,22 @@ final class OrgContext {
     /// Definitions from `#+LATEX_HEADER:` lines, given to every formula.
     var mathDefinitions = ""
     var equationCount = 0
+    /// What the document's `#+OPTIONS:` lines set, gathered by the discovery pass.
+    var options = OrgExportOptions()
+    /// The options over the defaults; the discovery pass reads with the defaults alone.
+    var reading: OrgReadingDefaults
+    var outline = OrgOutline()
+    /// Whether a `#+TOC: headlines` line asks for a table of contents somewhere in the text.
+    var hasContentsKeyword = false
+    /// Marks where a table of contents goes until every heading is known. Random, so no document can write it.
+    let contentsToken = UUID().uuidString
+
+    init(defaults: OrgReadingDefaults = .surimono) {
+        reading = defaults
+    }
+
+    /// Headings need anchors only when a table of contents links to them.
+    var anchorsHeadings: Bool { reading.tableOfContents.limit > 0 || hasContentsKeyword }
 
     /// A formula as HTML, or its source marked as unreadable. The discovery pass draws nothing.
     func formula(_ latex: String, display: Bool, source: String) -> String {
@@ -28,6 +44,8 @@ final class OrgContext {
 
     func directive(_ key: String, value: String) {
         if ["TITLE", "SUBTITLE", "AUTHOR", "DATE", "LANGUAGE"].contains(key) { metadata[key] = value }
+        if key == "OPTIONS" { options.read(value) }
+        if key == "TOC", value.lowercased().hasPrefix("headlines") { hasContentsKeyword = true }
         if key == "LATEX_HEADER" || key == "LATEX_HEADER_EXTRA",
             let definition = OrgMath.definition(value, after: mathDefinitions)
         {

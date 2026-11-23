@@ -6,6 +6,9 @@ public struct HTMLFragment: Equatable, Sendable {
     public var language: String?
     /// Document-level diagnostics that have no position on a printed page.
     public var readingIssues: [String]
+    /// Whether the document settles its heading numbers itself, with numbers in the headings or by asking for
+    /// none. A style then adds no numbers of its own.
+    public var decidesHeadingNumbers: Bool
     // Keeping the full profile inline would reserve its size on the worker stack for each
     // temporary fragment, including the other formats' branches while a nested frame is read.
     private enum DocumentClassStorage: Equatable, Sendable {
@@ -24,8 +27,9 @@ public struct HTMLFragment: Equatable, Sendable {
 
     public init(
         body: String, title: String? = nil, language: String? = nil, readingIssues: [String] = [],
-        latexClass: LaTeXDocumentClassInfo? = nil
+        latexClass: LaTeXDocumentClassInfo? = nil, decidesHeadingNumbers: Bool = false
     ) {
+        self.decidesHeadingNumbers = decidesHeadingNumbers
         self.body = body
         self.title = title
         self.language = language

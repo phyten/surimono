@@ -29,6 +29,13 @@ enum OrgInline {
         return "<p class=\"org-planning\">" + items.joined(separator: " ") + "</p>\n"
     }
 
+    /// The end of the `http://` or `https://` address that starts at `start`.
+    private static func addressEnd(_ characters: [Character], from start: Int) -> Int? {
+        guard characters[start...].starts(with: "http://") || characters[start...].starts(with: "https://")
+        else { return nil }
+        return characters[start...].firstIndex(where: \.isWhitespace) ?? characters.count
+    }
+
     static func render(_ text: String, context: OrgContext = OrgContext(), depth: Int = 0, cookies: Cookies = .none)
         -> String
     {
@@ -59,6 +66,12 @@ enum OrgInline {
         let characters = Array(text)
         var brackets: [Int: Int] = [:]
         var stack: [Int] = []
+        // The closing brace or parenthesis of each opener a subscript or superscript may start with. Paired once,
+        // so a run of unclosed openers never rescans the rest of the text.
+        let scripts = context.reading.scripts
+        var groups: [Int: Int] = [:]
+        var braces: [Int] = []
+        var parentheses: [Int] = []
         for (position, character) in characters.enumerated() {
             if character == "[" {
                 stack.append(position)
@@ -67,6 +80,49 @@ enum OrgInline {
             } else if character == "\n" {
                 stack.removeAll(keepingCapacity: true)
             }
+            guard scripts != .off else { continue }
+            switch character {
+            case "{": braces.append(position)
+            case "}": if let start = braces.popLast() { groups[start] = position }
+            case "(": parentheses.append(position)
+            case ")": if let start = parentheses.popLast() { groups[start] = position }
+            default: break
+            }
+        }
+        /// The end of the subscript or superscript whose `_` or `^` stands at `marker`, and its HTML. As in Org,
+        /// the script is `{…}`, `(…)`, `*`, or a signed run of letters, digits, commas, dots and backslashes that
+        /// ends in a letter or digit; the character before the marker is not white space.
+        func script(at marker: Int) -> (end: Int, html: String)? {
+            guard scripts != .off, marker > 0, !characters[marker - 1].isWhitespace, marker + 1 < characters.count
+            else { return nil }
+            let start = marker + 1
+            let tag = characters[marker] == "_" ? "sub" : "sup"
+            func nested(_ range: Range<Int>) -> String {
+                render(String(characters[range]), context: context, depth: depth + 1, cookies: cookies)
+            }
+            if characters[start] == "{" {
+                guard let end = groups[start], end > start + 1 else { return nil }
+                return (end + 1, "<\(tag)>\(nested((start + 1)..<end))</\(tag)>")
+            }
+            guard scripts == .all else { return nil }
+            if characters[start] == "(" {
+                guard let end = groups[start] else { return nil }
+                return (end + 1, "<\(tag)>(\(nested((start + 1)..<end)))</\(tag)>")
+            }
+            if characters[start] == "*" { return (start + 1, "<\(tag)>*</\(tag)>") }
+            var end = start + (characters[start] == "+" || characters[start] == "-" ? 1 : 0)
+            var last: Int?
+            while end < characters.count {
+                let character = characters[end]
+                if character.isLetter || character.isNumber {
+                    last = end
+                } else if !",.\\".contains(character) {
+                    break
+                }
+                end += 1
+            }
+            guard let last else { return nil }
+            return (last + 1, "<\(tag)>\(HTML.escape(String(characters[start...last])))</\(tag)>")
         }
         // A formula is looked for only where the scan arrives, so one that would open inside code, which the scan
         // steps over, cannot hide what follows the code. Each position is tried once.
@@ -217,6 +273,15 @@ enum OrgInline {
                 output +=
                     "<\(tag)>\(tag == "code" ? HTML.escape(inner) : render(inner, context: context, depth: depth + 1, cookies: cookies))</\(tag)>"
                 index = end + 1
+            } else if character == "_" || character == "^", let script = script(at: index) {
+                output += script.html
+                index = script.end
+            } else if scripts == .all, character == "h", index == 0 || !characters[index - 1].isLetter,
+                let end = addressEnd(characters, from: index)
+            {
+                // Org reads a bare address as a link before it looks for scripts; here it stays text.
+                output += HTML.escape(String(characters[index..<end]))
+                index = end
             } else {
                 output += HTML.escape(String(character))
                 index += 1
