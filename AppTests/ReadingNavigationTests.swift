@@ -328,6 +328,32 @@ struct ReadingNavigationTests {
         #expect(model.currentPageIndex == 0 && !model.pageHistory.canGoBack)
     }
 
+    @Test("並べ替えで表示画像が見開きの後半に移っても、紙面の通知は一覧の未確定の選択を保つ")
+    func bundleSelectionAfterSpreadReorder() async throws {
+        let fixture = Fixture()
+        let model = fixture.bundleModel()
+        defer { model.stop() }
+        try await render(model, starting: model.start)
+        model.updateViewOptions {
+            $0.layout = .spread
+            $0.showsCoverAlone = false
+        }
+        let bundle = try #require(model.imageBundle)
+        let urls = bundle.urls
+        try #require(model.visibleReadingPages == [0, 1])
+        bundle.selection = urls[2]
+        bundle.move(fromOffsets: IndexSet(integer: 1), toOffset: 0)
+        try await render(model, starting: model.listDidChange)
+        try #require(model.currentPageIndex == 1)
+        // The replacement PDF reports the first page of the spread containing the restored image.
+        model.paperDidChangePage(0)
+        #expect(bundle.selection == urls[2])
+        #expect(model.currentPageIndex == 0)
+        bundle.selection = urls[0]
+        model.paperDidChangePage(2)
+        #expect(bundle.selection == urls[2])
+    }
+
     @Test("ドラッグで開いた画像一覧は終了時に元へ戻り、文書の設定記録を作らない", arguments: [false, true])
     func temporaryDrawer(alreadyOpen: Bool) async throws {
         let fixture = Fixture()

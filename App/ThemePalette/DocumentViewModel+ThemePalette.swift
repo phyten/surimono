@@ -69,7 +69,7 @@ extension DocumentViewModel {
     func paperDidChangePage(_ index: Int) {
         shownPageIndex = index
         guard !paperShowsTrial else { return }
-        let turned = index != currentPageIndex
+        let previousPage = currentPageIndex
         currentPageIndex = index
         let units = displayUnits
         let pages =
@@ -78,8 +78,8 @@ extension DocumentViewModel {
         if let bundle = imageBundle {
             let urls = readingImageURLs
             let selected = bundle.selection.flatMap { urls.firstIndex(of: $0) }
-            // Installing a replacement PDF reports its page again. Keep any uncommitted list selection.
-            guard turned || selected == nil else { return }
+            // PDFKit reports the spread's first page even when the restored image is its second.
+            guard !pages.contains(previousPage) || selected == nil else { return }
             if let next = BinderPagination.selection(
                 current: selected, visiblePages: pages,
                 starts: Array(urls.indices), pageCount: urls.count), urls.indices.contains(next)
