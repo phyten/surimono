@@ -465,7 +465,7 @@ final class WebPageController: NSObject {
                 expireLoadIfNeeded()
                 throw CaptureFailure.navigationTimedOut
             }
-            try await Task.sleep(for: min(remaining, .milliseconds(20)), clock: .continuous)
+            try await Task.sleep(for: min(remaining, Duration.milliseconds(20)), clock: .continuous)
         }
     }
 
