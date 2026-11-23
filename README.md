@@ -105,7 +105,8 @@ Surimono works offline and has no telemetry. It connects when you press **Open**
 | PDF | `.pdf` |
 | Images | `.png`, `.jpg`, `.heic`, `.gif`, `.tiff`, `.webp`, … |
 | Org | `.org` |
-| Plain text | `.txt`, `.log`, `.json`, `.jsonl`, `.ndjson`, `.yaml`, `.yml`, `.toml`, `.xml` and other text files |
+| Plain text | `.txt`, `.log` and other text files |
+| Source code and configuration (colored by language; shown as written) | `.swift`, `.py`, `.rb`, `.js`, `.java`, `.c`, `.h`, `.cpp`, `.m`, `.php`, `.sh`, `.sql`, `.diff`, `.patch`, `.mk`, `.json`, `.jsonl`, `.ndjson`, `.yaml`, `.yml`, `.toml`, `.xml` and other files macOS knows as plain text |
 | HTML | `.html`, `.htm` |
 | CSV / TSV | `.csv`, `.tsv` |
 | LaTeX | `.tex`, `.latex`, `.ltx` |
@@ -122,7 +123,7 @@ Surimono works offline and has no telemetry. It connects when you press **Open**
 | PlantUML | `.puml`, `.plantuml`, `.pu`, `.iuml`, `.wsd` |
 | ZIP of images | `.zip` (opened as one image bundle) |
 
-Page layout supports plain text up to 30 MB, CSV and TSV up to 60,000 rows including the header, and generated HTML up to 60 MB (1 MB = 1,000,000 bytes). JSON, YAML, TOML and XML use syntax highlighting up to 200,000 UTF-16 code units.
+Page layout supports plain text up to 30 MB, CSV and TSV up to 60,000 rows including the header, and generated HTML up to 60 MB (1 MB = 1,000,000 bytes). Source code and configuration files use syntax highlighting up to 200,000 UTF-16 code units; a longer file is shown whole without colors. The language comes from the file name or extension.
 
 ### Not supported
 
