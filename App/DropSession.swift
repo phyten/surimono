@@ -32,10 +32,9 @@ final class DropSession {
     @ObservationIgnored var rowFrames: [URL: CGRect] = [:]
     @ObservationIgnored var listFrame: CGRect?
     @ObservationIgnored var listButtonFrame: CGRect?
-    /// Opens the list when a drag rests on its button.
-    @ObservationIgnored var onSpring: (() -> Void)?
+    private(set) var isListSprung = false
     @ObservationIgnored private var rows: [URL] = []
-    @ObservationIgnored private var springTask: Task<Void, Never>?
+    @ObservationIgnored private(set) var springTask: Task<Void, Never>?
 
     var isActive: Bool { plan != nil }
     /// Whether the drag needs the band: only for the list's button, which opens the list when a drag rests on it.
@@ -69,6 +68,7 @@ final class DropSession {
     func end() {
         springTask?.cancel()
         springTask = nil
+        isListSprung = false
         plan = nil
         zone = nil
         insertion = nil
@@ -140,7 +140,8 @@ final class DropSession {
         guard springTask == nil else { return }
         springTask = Task { [weak self] in
             do { try await Task.sleep(for: Self.springDelay) } catch { return }
-            self?.onSpring?()
+            guard !Task.isCancelled else { return }
+            self?.isListSprung = true
         }
     }
 }

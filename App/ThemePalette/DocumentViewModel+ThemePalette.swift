@@ -69,14 +69,17 @@ extension DocumentViewModel {
     func paperDidChangePage(_ index: Int) {
         shownPageIndex = index
         guard !paperShowsTrial else { return }
+        let turned = index != currentPageIndex
         currentPageIndex = index
         let units = displayUnits
         let pages =
             SpreadLayout.unitIndex(containing: index + 1, in: units).map { units[$0].pages.map { $0 - 1 } } ?? [index]
         binder?.follow(page: index, visiblePages: pages)
         if let bundle = imageBundle {
-            let urls = bundle.urls.filter { !unreadableImageURLs.contains($0) }
+            let urls = readingImageURLs
             let selected = bundle.selection.flatMap { urls.firstIndex(of: $0) }
+            // Installing a replacement PDF reports its page again. Keep any uncommitted list selection.
+            guard turned || selected == nil else { return }
             if let next = BinderPagination.selection(
                 current: selected, visiblePages: pages,
                 starts: Array(urls.indices), pageCount: urls.count), urls.indices.contains(next)

@@ -517,18 +517,18 @@ struct DropSessionTests {
     @Test("一覧の部品に 0.5 秒とどまると一覧が開き、離れると開かない")
     func spring() async throws {
         let session = DropSession()
-        var opened = 0
-        session.onSpring = { opened += 1 }
         session.listButtonFrame = CGRect(x: 0, y: 0, width: 50, height: 20)
         let rows = [URL(fileURLWithPath: "/fixture/a.md")]
         session.begin(plan(.binder(rows)), rows: rows, at: CGPoint(x: 100, y: 100))
         session.move(to: CGPoint(x: 10, y: 10))
+        let cancelled = try #require(session.springTask)
         session.move(to: CGPoint(x: 100, y: 100))
-        try await Task.sleep(for: .milliseconds(650))
-        #expect(opened == 0)
+        await cancelled.value
+        #expect(!session.isListSprung)
         session.move(to: CGPoint(x: 10, y: 10))
-        try await Task.sleep(for: .milliseconds(650))
-        #expect(opened == 1)
+        let settled = try #require(session.springTask)
+        await settled.value
+        #expect(session.isListSprung)
     }
 
     @Test("落とす前の文章は同じ判定から作る")

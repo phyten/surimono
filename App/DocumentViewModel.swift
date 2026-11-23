@@ -252,7 +252,11 @@ final class DocumentViewModel {
     @ObservationIgnored private var fullScreenAttempt = 0
     var isAlwaysOnTop: Bool
     var showsOnAllSpaces: Bool
-    var isDrawerOpen = false
+    private var readerOpenedDrawer = false
+    var isDrawerOpen: Bool {
+        get { readerOpenedDrawer || drop.isListSprung }
+        set { readerOpenedDrawer = newValue }
+    }
     var showsSideList: Bool { isDrawerOpen && (binder != nil || imageBundle != nil) }
     var sideInset: CGFloat {
         guard mode == .view, showsSideList else { return 0 }
@@ -306,6 +310,7 @@ final class DocumentViewModel {
         #if DEBUG
             if let snapshotContentsTab { return snapshotContentsTab }
         #endif
+        if drop.isListSprung && imageBundle != nil && mode == .view { return .pages }
         // With no headings and no bookmarks the contents tab would be an empty list.
         guard showsContentsTabs else { return .pages }
         return contentsPanel.tab ?? (hasOutline ? .contents : .pages)
@@ -723,11 +728,6 @@ final class DocumentViewModel {
         paper.onReadingJump = { [weak self] page in self?.recordReadingJump(to: page) }
         paper.onToast = { [weak self] toast in self?.showToast(toast) }
         web.onFolderAccessRequired = { [weak self] _ in self?.requestFolderAccess() }
-        drop.onSpring = { [weak self] in
-            guard let self else { return }
-            if mode == .view, imageBundle != nil, pageCount > 1 { selectContentsTab(.pages) }
-            setSideListOpen(true)
-        }
         #if DEBUG
             DebugSnapshot.configure(self)
         #endif
@@ -1607,15 +1607,24 @@ final class DocumentViewModel {
         if mode == .print {
             trayRequest = url
             resolveTrayRequest()
-        } else if mode == .view, let index = readableImageIndex(of: url) {
+        } else if mode == .view, let index = readingImageURLs.firstIndex(of: url) {
             recordReadingJump(to: index)
             currentPageIndex = index
             paper.goToPage(index: index)
         }
     }
 
-    /// The page of the image being read, which keeps its place when images are added in front of it.
-    private var selectedImagePage: Int? { imageBundle?.selection.flatMap(readableImageIndex(of:)) }
+    /// A list edit changes the bundle immediately, while the paper still shows the previous order.
+    private(set) var readingImageURLs: [URL] = []
+
+    private func restoreReadingImage(in images: [DocumentSource.Image], skipping unreadable: [URL]) {
+        let shown = readingImageURLs.indices.contains(currentPageIndex) ? readingImageURLs[currentPageIndex] : nil
+        let skipped = Set(unreadable)
+        readingImageURLs = images.compactMap { skipped.contains($0.fileURL) ? nil : $0.fileURL }
+        currentPageIndex =
+            shown.flatMap { readingImageURLs.firstIndex(of: $0) }
+            ?? min(currentPageIndex, max(0, readingImageURLs.count - 1))
+    }
 
     private func readableImageIndex(of url: URL) -> Int? {
         imageBundle?.urls.filter { !unreadableImageURLs.contains($0) }.firstIndex(of: url)
@@ -1735,8 +1744,10 @@ final class DocumentViewModel {
                     refreshPageUpdate()
                     unreadableImageURLs = prepared.unreadableImageURLs
                     binder?.didRender(prepared, forReading: forReading)
-                    if forReading, let page = binder?.settleReadingPage() ?? selectedImagePage {
+                    if forReading, let page = binder?.settleReadingPage() {
                         currentPageIndex = page
+                    } else if forReading, let images = source.images {
+                        restoreReadingImage(in: images, skipping: prepared.unreadableImageURLs)
                     }
                     resolveViewOptionsIfNeeded(for: prepared.viewDocument)
                     validateMigratedContentIfReady()
