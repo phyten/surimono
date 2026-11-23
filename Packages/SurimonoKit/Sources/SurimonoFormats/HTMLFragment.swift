@@ -6,6 +6,9 @@ public struct HTMLFragment: Equatable, Sendable {
     public var language: String?
     /// Document-level diagnostics that have no position on a printed page.
     public var readingIssues: [String]
+    /// Whether the document settles its heading numbers itself, with numbers in the headings or by asking for
+    /// none. A style then adds no numbers of its own.
+    public var decidesHeadingNumbers: Bool
     /// The language plain text was told to be when it was converted, for what names it beside the paper.
     public var sourceLanguage: SourceLanguage?
     /// The decoded input associated with these exact pages, including whitespace invisible in a PDF.
@@ -28,8 +31,9 @@ public struct HTMLFragment: Equatable, Sendable {
 
     public init(
         body: String, title: String? = nil, language: String? = nil, readingIssues: [String] = [],
-        latexClass: LaTeXDocumentClassInfo? = nil
+        latexClass: LaTeXDocumentClassInfo? = nil, decidesHeadingNumbers: Bool = false
     ) {
+        self.decidesHeadingNumbers = decidesHeadingNumbers
         self.body = body
         self.title = title
         self.language = language

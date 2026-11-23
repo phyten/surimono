@@ -1,0 +1,305 @@
+import Foundation
+
+/// How an Org document is read where its own `#+OPTIONS:` lines say nothing. The document's options always win.
+///
+/// Three keys are covered: `num`, `toc` and `^`. Everything else is read as before, whatever Emacs would do.
+public struct OrgReadingDefaults: Equatable, Sendable {
+    /// How far down the outline something reaches.
+    public enum Depth: Equatable, Sendable {
+        case off
+        case all
+        case levels(Int)
+
+        var limit: Int {
+            switch self {
+            case .off: 0
+            case .all: Int.max
+            case .levels(let count): max(0, count)
+            }
+        }
+    }
+
+    /// Which `a_b` and `a^b` become subscripts and superscripts.
+    public enum Scripts: Equatable, Sendable {
+        case off
+        /// Only `a_{b}` and `a^{b}`: file and variable names keep their underscores.
+        case braces
+        case all
+    }
+
+    /// `num`
+    public var sectionNumbers: Depth
+    /// `toc`
+    public var tableOfContents: Depth
+    /// `^`
+    public var scripts: Scripts
+    /// `H`, which only the document can set. Here it limits the table of contents and nothing else: deeper
+    /// headlines still print as headings, where Emacs turns them into list items.
+    var headlineLevels = 3
+
+    public init(sectionNumbers: Depth, tableOfContents: Depth, scripts: Scripts) {
+        self.sectionNumbers = sectionNumbers
+        self.tableOfContents = tableOfContents
+        self.scripts = scripts
+    }
+
+    /// Surimono's own: notes stay as written, without numbers or a table of contents nobody asked for.
+    public static let surimono = OrgReadingDefaults(sectionNumbers: .off, tableOfContents: .off, scripts: .braces)
+}
+
+/// What the document's `#+OPTIONS:` lines set. A key they leave out stays `nil`, apart from an explicit `nil`
+/// value, so a reading setting can fill in only what the document did not decide.
+struct OrgExportOptions: Equatable {
+    var sectionNumbers: OrgReadingDefaults.Depth?
+    var tableOfContents: OrgReadingDefaults.Depth?
+    var scripts: OrgReadingDefaults.Scripts?
+    var headlineLevels: Int?
+
+    /// Reads the value of one `#+OPTIONS:` line. A later line overrides the keys it repeats.
+    ///
+    /// Consume the value even for unknown keys: spaces and colons inside a Lisp string or list belong to it.
+    mutating func read(_ line: String) {
+        let chars = Array(line)
+        var cursor = 0
+        while cursor < chars.count {
+            while cursor < chars.count, chars[cursor].isWhitespace { cursor += 1 }
+            let start = cursor
+            while cursor < chars.count, chars[cursor] != ":" { cursor += 1 }
+            guard cursor < chars.count else { break }
+            let key = String(chars[start..<cursor]).lowercased()
+            cursor += 1
+            guard cursor < chars.count, !chars[cursor].isWhitespace else { continue }
+            let valueStart = cursor
+            cursor = Self.endOfValue(chars, from: cursor)
+            apply(key: key, token: chars[valueStart..<cursor])
+        }
+    }
+
+    private mutating func apply(key: String, token: ArraySlice<Character>) {
+        let emptyList =
+            token.first == "(" && token.last == ")" && token.dropFirst().dropLast().allSatisfy(\.isWhitespace)
+        let value = emptyList ? "nil" : String(token)
+        switch key {
+        case "num": sectionNumbers = Self.depth(value)
+        case "toc": tableOfContents = Self.depth(value)
+        case "h": if let levels = Self.integer(value), levels >= 0 { headlineLevels = levels }
+        case "^":
+            scripts =
+                switch value {
+                case "nil", "()": OrgReadingDefaults.Scripts.off
+                case "{}": .braces
+                default: .all
+                }
+        default: break
+        }
+    }
+
+    private static func endOfValue(_ chars: [Character], from start: Int) -> Int {
+        var index = start
+        var depth = 0
+        var quoted = false
+        // Reader prefixes and escaped spaces are part of the same object.
+        while index < chars.count {
+            if chars[index] == "#", index + 1 < chars.count, chars[index + 1] == "'" {
+                index += 2
+            } else if "'`".contains(chars[index]) {
+                index += 1
+            } else {
+                break
+            }
+            while index < chars.count, chars[index].isWhitespace { index += 1 }
+        }
+        // A property-bearing string starts with #( and ends at the matching parenthesis.
+        if index + 1 < chars.count, chars[index] == "#", chars[index + 1] == "(" { index += 1 }
+        let objectStart = index
+        // A symbol ends before the next reader delimiter, even without separating whitespace.
+        if index < chars.count, !"([\"".contains(chars[index]) {
+            while index < chars.count, !chars[index].isWhitespace, !"()[]\"'`".contains(chars[index]) {
+                if chars[index] == "\\" { index = min(index + 1, chars.count) }
+                if index < chars.count { index += 1 }
+            }
+            return index == objectStart ? min(index + 1, chars.count) : index
+        }
+        while index < chars.count {
+            let char = chars[index]
+            if char == "\\" {
+                index = min(index + 2, chars.count)
+                continue
+            }
+            if char == "\"" {
+                quoted.toggle()
+                index += 1
+                if !quoted && depth == 0 { break }
+                continue
+            }
+            if !quoted {
+                if char == "(" || char == "[" { depth += 1 }
+                if char == ")" || char == "]" {
+                    index += 1
+                    depth -= 1
+                    if depth <= 0 { break }
+                    continue
+                }
+                if char.isWhitespace && depth == 0 { break }
+            }
+            index += 1
+        }
+        return index
+    }
+
+    /// The value as Emacs's reader takes it: `nil` is off and a whole number is a depth. Anything else is true,
+    /// and so is a negative number, which Emacs does not take for a depth.
+    private static func depth(_ value: String) -> OrgReadingDefaults.Depth {
+        if value == "nil" || value == "()" { return .off }
+        guard let levels = integer(value), levels >= 0 else { return .all }
+        return levels == 0 ? .off : .levels(levels)
+    }
+
+    /// Lisp accepts decimal integers with a trailing dot, and #b, #o, #x or #Nr radix prefixes.
+    private static func integer(_ value: String) -> Int? {
+        var digits = value.lowercased()[...]
+        var radix = 10
+        if digits.first == "#" {
+            digits.removeFirst()
+            switch digits.first {
+            case "b": radix = 2
+            case "o": radix = 8
+            case "x": radix = 16
+            default:
+                guard let marker = digits.firstIndex(of: "r"), let base = Int(digits[..<marker]),
+                    (2...36).contains(base)
+                else { return nil }
+                radix = base
+                digits = digits[marker...]
+            }
+            digits.removeFirst()
+        } else if digits.last == "." {
+            digits.removeLast()
+        }
+        let negative = digits.first == "-"
+        if negative || digits.first == "+" { digits.removeFirst() }
+        guard !digits.isEmpty else { return nil }
+        var magnitude = 0
+        for byte in digits.utf8 {
+            let digit: Int
+            switch byte {
+            case 48...57: digit = Int(byte) - 48
+            case 97...122: digit = Int(byte) - 97 + 10
+            default: return nil
+            }
+            guard digit < radix else { return nil }
+            magnitude = magnitude > (Int.max - digit) / radix ? Int.max : magnitude * radix + digit
+        }
+        return negative ? -magnitude : magnitude
+    }
+
+    func resolved(over defaults: OrgReadingDefaults) -> OrgReadingDefaults {
+        var reading = defaults
+        reading.sectionNumbers = sectionNumbers ?? defaults.sectionNumbers
+        reading.tableOfContents = tableOfContents ?? defaults.tableOfContents
+        reading.scripts = scripts ?? defaults.scripts
+        reading.headlineLevels = headlineLevels ?? defaults.headlineLevels
+        return reading
+    }
+}
+
+/// The outline of one conversion: numbers, anchors and the entries of the tables of contents.
+struct OrgOutline {
+    struct Entry {
+        /// 1 for the document's shallowest headline.
+        let level: Int
+        let escapedID: String
+        /// The heading's inline HTML, with its number, without links and footnote marks.
+        let html: String
+        let listed: Bool
+    }
+
+    /// One table of contents. Equal requests give the same table.
+    struct Request: Hashable {
+        /// The levels below the starting point, or all the headline levels.
+        var depth: Int?
+        /// For `local`: the number of entries before the keyword and the level of the heading it stands under.
+        var after: Int?
+        var level: Int?
+    }
+
+    /// What follows `#+TOC:` when it asks for the headlines: `headlines`, `headlines 2`, `headlines 2 local`.
+    /// The discovery pass and the rendering pass both ask here, so they agree on which lines count.
+    static func keyword(_ value: String) -> (depth: Int?, local: Bool)? {
+        let words = value.lowercased().split(whereSeparator: \.isWhitespace)
+        guard words.first == "headlines" else { return nil }
+        return (words.dropFirst().compactMap { Int($0) }.first, words.contains("local"))
+    }
+
+    /// As many entries as all the tables of one document may list together; tables beyond that stay empty.
+    /// A keyword costs one line and can ask for every heading again.
+    static let entryBudget = 50_000
+
+    /// The number of stars of the shallowest headline, known after the discovery pass.
+    var shallowest: Int?
+    var entries: [Entry] = []
+    var requests: [Request] = []
+    private var counters: [Int] = []
+    private var reservedCustomIDs: Set<String> = []
+    private var usedIDs: Set<String> = []
+    private var nextSuffix: [String: Int] = [:]
+    /// `:UNNUMBERED:` values, each for the subtree of the headline at `level`.
+    private var unnumbered: [(level: Int, value: String)] = []
+
+    /// The nearest `:UNNUMBERED:` value that applies to a headline at `level` with these properties.
+    mutating func unnumberedValue(level: Int, properties: [String: String]) -> String? {
+        while let last = unnumbered.last, last.level >= level { unnumbered.removeLast() }
+        if let value = properties["UNNUMBERED"] { unnumbered.append((level, value)) }
+        guard let value = unnumbered.last?.value, value != "nil" else { return nil }
+        return value
+    }
+
+    /// The next number at `level`, such as `1.2.`. A skipped level counts as 0, as in Emacs.
+    mutating func nextNumber(level: Int) -> String {
+        while counters.count < level { counters.append(0) }
+        counters.removeLast(counters.count - level)
+        counters[level - 1] += 1
+        return counters.map(String.init).joined(separator: ".") + "."
+    }
+
+    /// Keeps an id the document wrote itself away from the ids made here.
+    mutating func reserve(_ id: String) {
+        reservedCustomIDs.insert(id)
+        usedIDs.insert(id)
+    }
+
+    mutating func customID(_ id: String) -> String {
+        if reservedCustomIDs.remove(id) != nil { return id }
+        return allocateID(id)
+    }
+
+    /// Keep the established heading stems, including the section prefix for a title that looks like a note ID.
+    mutating func id(for text: String) -> String {
+        let slug = MarkdownExtensions.slug(text.trimmingCharacters(in: .whitespaces))
+        let base = slug.isEmpty ? "section" : (Self.isNoteID(slug) ? "section-" + slug : slug)
+        return allocateID(base)
+    }
+
+    /// All generated anchors share this namespace, including repeated footnote references.
+    mutating func allocateID(_ base: String) -> String {
+        var candidate = base
+        // The suffix only grows, and it starts after the last one given out for this stem, so many headings
+        // with one title do not try the same ids again. The used ids are finite, so the search ends.
+        var suffix = nextSuffix[base] ?? 0
+        while usedIDs.contains(candidate) {
+            suffix += 1
+            candidate = "\(base)-\(suffix)"
+        }
+        nextSuffix[base] = suffix
+        usedIDs.insert(candidate)
+        return candidate
+    }
+
+    /// `fn-` or `fnref-` and then only digits and hyphens: every id the footnotes use, and every suffix of one.
+    private static func isNoteID(_ id: String) -> Bool {
+        guard let prefix = ["fnref-", "fn-"].first(where: id.hasPrefix) else { return false }
+        let rest = id.dropFirst(prefix.count)
+        return !rest.isEmpty && rest.allSatisfy { $0.isNumber || $0 == "-" }
+    }
+
+}

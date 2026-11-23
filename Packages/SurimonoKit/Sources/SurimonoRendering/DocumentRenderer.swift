@@ -1412,6 +1412,7 @@ public final class DocumentRenderer {
                     switch source.format {
                     case _ where detail == StackSpace.limitIssue: .nestingLimit
                     case _ where detail == StackSpace.omissionIssue: .nestingOmission
+                    case .org where detail == OrgConverter.contentsLimitIssue: .contentsLimit
                     case .rst: .rst
                     case .markdown: .bibliography
                     default: .latex

@@ -14,6 +14,17 @@ struct PrintIssueTests {
         var releaseView = false
     }
 
+    @Test("大きすぎる目次は印刷時に省く範囲を選択言語で知らせる")
+    func contentsOmission() {
+        let issue = PrintIssue(id: "0", kind: .contentsLimit, detail: "")
+        let english = PrintIssueText.title(issue, language: "en")
+        #expect(english == "The table of contents is too large, so part or all of it will be left out when printing.")
+        #expect(PrintIssueText.title(issue, language: "ja") == "目次は大きすぎるため、一部または全部を省いて印刷します。")
+        for language in ["de", "es", "fr", "ko", "zh-Hans", "zh-Hant"] {
+            #expect(PrintIssueText.title(issue, language: language) != english)
+        }
+    }
+
     @Test("問題がなければ札もメニューも出さず、問題があれば件数を示す", .timeLimit(.minutes(1)))
     func count() async throws {
         let suite = TestDefaultsSuite()

@@ -16,9 +16,11 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private func setVisible(_ visible: Bool) {
         if visible, item == nil {
             let status = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-            let glyph = NSImage(systemSymbolName: "doc.text", accessibilityDescription: "Surimono")
-            glyph?.isTemplate = true
+            let glyph = NSImage(named: "MenuBarIcon")
+            glyph?.accessibilityDescription = "Surimono"
             status.button?.image = glyph
+            status.button?.setAccessibilityLabel("Surimono")
+            status.button?.toolTip = "Surimono"
             let menu = NSMenu()
             menuNeedsUpdate(menu)
             menu.delegate = self
@@ -38,17 +40,22 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.removeAllItems()
         add(.clipboardOpen, to: menu)
         add(.clipboardOpenPrintScreen, to: menu)
-        add(.appStreamingPreview, to: menu)
         menu.addItem(.separator())
-        let urls = recentURLs().prefix(8)
+        let urls = recentURLs().prefix(5)
+        if urls.isEmpty {
+            let placeholder = menu.addItem(
+                withTitle: String(localized: "No Recent Files"), action: nil, keyEquivalent: "")
+            placeholder.isEnabled = false
+        }
         for url in urls {
             let entry = menu.addItem(withTitle: url.lastPathComponent, action: #selector(openRecent), keyEquivalent: "")
             entry.target = self
             entry.representedObject = url
             entry.toolTip = url.path
         }
-        if !urls.isEmpty { menu.addItem(.separator()) }
+        menu.addItem(.separator())
         add(.appOpen, to: menu)
+        add(.appStreamingPreview, to: menu)
         add(.appSettings, to: menu)
     }
 
