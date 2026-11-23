@@ -45,13 +45,12 @@ struct SurimonoDocument: FileDocument {
         guard file.isRegularFile, let data = file.regularFileContents else {
             throw CocoaError(.fileReadCorruptFile)
         }
-        // The router turns a video under `.ts` away before its contents are loaded. This is the second check, on
-        // the bytes that would be shown, for the ways that do not pass the router (the Recent menu, a restored
-        // window). A video under another extension is held to the same test as a `.ts`.
+        // The router turns a video under `.ts` away before its contents are loaded. The Recent menu and a restored
+        // window do not pass the router, and there the framework hands over a file wrapper whose contents are
+        // already read whole; this check, on the bytes that would be shown, is all that can be done for them.
         let name = file.preferredFilename ?? file.filename ?? ""
-        let gated = contentType.conforms(to: .mpeg2TransportStream) ? "video.ts" : name
-        let decision = TextFileGate.decide(fileName: gated, head: data.prefix(TextFileGate.headLength))
-        guard decision != .refused else { throw SourceFileError.notText }
+        let decision = TextFileGate.verdict(fileName: name, type: contentType, data: data)
+        guard decision != .binary else { throw SourceFileError.notText }
         self.data = data
         // Some systems have only the JSON association installed; the file name distinguishes notebooks from ordinary JSON.
         let suffix = ((file.preferredFilename ?? file.filename ?? "") as NSString).pathExtension

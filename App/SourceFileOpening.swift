@@ -1,5 +1,6 @@
 import AppKit
 import SurimonoCore
+import SurimonoRendering
 import UniformTypeIdentifiers
 
 enum SourceFileError: LocalizedError, Equatable {
@@ -9,8 +10,8 @@ enum SourceFileError: LocalizedError, Equatable {
     var errorDescription: String? { String(localized: "This file is not text, so Surimono cannot show it.") }
 }
 
-/// How one file is opened. `TextFileGate` reads the beginning of the files whose name does not settle what they
-/// are, before anything loads their contents.
+/// How one file is opened and read. `TextFileGate` reads the beginning of the files whose name does not settle what
+/// they are, before anything loads their contents.
 enum SourceFileOpening {
     enum Route: Equatable {
         /// The document controller opens it by its own type, as it opens any other file.
@@ -23,18 +24,34 @@ enum SourceFileOpening {
     }
 
     nonisolated static func route(for url: URL) -> Route {
-        switch TextFileGate.decide(url) {
-        case .refused: return .refuse
-        case .unrelated: return .document
-        case .text:
+        switch TextFileGate.inspect(url) {
+        case .decided(.binary), .refused: return .refuse
+        case .decided(.text):
             let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType
             return type.map(reads) == true ? .document : .asText
+        // A file that is missing or may not be read yet is the document controller's to report or to be given.
+        case .decided(.notConcerned), .missing, .undecided: return .document
         }
     }
 
     /// Whether a file of this type opens through the document types the app declares.
     nonisolated static func reads(_ type: UTType) -> Bool {
         SurimonoDocument.readableContentTypes.contains { type.conforms(to: $0) }
+    }
+
+    /// The contents of a file a window or a binder shows, read again after the first time. A file of a kind the
+    /// gate looks at is checked and read through one descriptor, so a video put in a `.ts` file's place is turned
+    /// away before it is loaded, and what was checked is what is read. With `root`, the file must lie under it.
+    nonisolated static func read(_ url: URL, within root: String? = nil) throws -> Data {
+        let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType
+        guard TextFileGate.concerns(fileName: url.lastPathComponent, type: type) else {
+            return try root.map { try ConfinedFile.read(url, within: $0) } ?? Data(contentsOf: url)
+        }
+        do {
+            return try TextFileGate.read(url, within: root, maximumSize: PageLayoutLimits.plainTextBytes)
+        } catch is TextFileGate.Refusal {
+            throw SourceFileError.notText
+        }
     }
 
     /// The document for `url` read as plain text, not yet shown; the one already open for it if there is one.

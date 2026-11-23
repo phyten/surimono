@@ -54,7 +54,8 @@ final class BinderModel {
     private let read: @Sendable (URL) throws -> Data
 
     init(
-        urls: [URL], excluded: [URL] = [], read: @escaping @Sendable (URL) throws -> Data = { try Data(contentsOf: $0) }
+        urls: [URL], excluded: [URL] = [],
+        read: @escaping @Sendable (URL) throws -> Data = { try SourceFileOpening.read($0) }
     ) {
         self.read = read
         origin = .files
@@ -66,7 +67,7 @@ final class BinderModel {
     /// own, so it is remembered like one made by hand.
     init(
         orderedURLs urls: [URL], excluded: [URL] = [],
-        read: @escaping @Sendable (URL) throws -> Data = { try Data(contentsOf: $0) }
+        read: @escaping @Sendable (URL) throws -> Data = { try SourceFileOpening.read($0) }
     ) {
         self.read = read
         origin = .files
@@ -94,15 +95,15 @@ final class BinderModel {
         let named = Set(plan.documents)
         read = { url in
             if url == parent { return MarkdownIncludes.prefaceData(try Data(contentsOf: url)) }
-            return named.contains(url) ? try ConfinedFile.read(url, within: root) : try Data(contentsOf: url)
+            return try SourceFileOpening.read(url, within: named.contains(url) ? root : nil)
         }
         origin = .parent(parent, hasPreface: plan.hasPreface, documents: plan.documents)
         excludedURLs = plan.excluded
         missingPaths = plan.missing
         if plan.hasPreface { items.append(Item(url: parent, format: .markdown, isPreface: true)) }
-        items += plan.documents.compactMap { url in
-            OpenRequest.binderFormat(url).map { Item(url: url, format: $0) }
-        }
+        // The plan found each format under its root. Asking the file again here would read whatever stands at
+        // the path now, which may be a link out of the folder.
+        items += plan.documents.compactMap { url in plan.formats[url].map { Item(url: url, format: $0) } }
         startingOrder = items.map(\.url)
         selection = items.first?.url
     }

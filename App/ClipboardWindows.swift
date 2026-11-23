@@ -153,7 +153,7 @@ final class ClipboardWindows {
     @discardableResult
     func open(
         _ data: Data, format: DocumentFormat, title: String, printing: Bool = false,
-        textOrigin: TextFormatOrigin? = nil, baseURL: URL? = nil
+        textOrigin: TextFormatOrigin? = nil, baseURL: URL? = nil, fileName: String? = nil
     ) -> MemoryDocumentWindowController {
         let hash = ContentHash.of(data)
         let entry = preferences?.closedClipboardDocuments.entries.first { $0.menuItem.id == hash }
@@ -161,7 +161,7 @@ final class ClipboardWindows {
             controllers[hash]
             ?? makeController(
                 data, format: format, title: title, hash: hash, textOrigin: textOrigin, baseURL: baseURL,
-                restoring: entry?.format == format ? entry : nil)
+                restoring: entry?.format == format ? entry : nil, fileName: fileName)
         // Pasting the same bytes again also ends their on-disk retention.
         if entry != nil, let preferences, preferences.keepsClipboardAfterQuitting {
             preferences.closedClipboardDocuments.remove(hash)
@@ -214,12 +214,13 @@ final class ClipboardWindows {
 
     private func makeController(
         _ data: Data, format: DocumentFormat, title: String, hash: ContentHash, textOrigin: TextFormatOrigin?,
-        baseURL: URL?, restoring entry: ClosedClipboardDocuments.Entry? = nil, cascades: Bool = true
+        baseURL: URL?, restoring entry: ClosedClipboardDocuments.Entry? = nil, cascades: Bool = true,
+        fileName: String? = nil
     ) -> MemoryDocumentWindowController {
         let model = DocumentViewModel(
             data: data, fileURL: nil, format: format,
             preferences: preferences ?? AppPreferences(), library: library ?? UserLibrary(),
-            title: title, htmlBaseURL: baseURL)
+            title: title, sourceFileName: fileName, htmlBaseURL: baseURL)
         model.keepsClipboardSettingsInMemory = true
         entry?.restore(in: model)
         if let textOrigin, ClipboardTextKind(format) != nil {

@@ -1,4 +1,5 @@
 import AppKit
+import Darwin
 import PDFKit
 import SurimonoCore
 import SurimonoRendering
@@ -102,6 +103,17 @@ struct SourceFileOpeningTests {
         #expect(throws: SourceFileError.notText) { try document("clip.mts", video, type: .plainText) }
     }
 
+    @Test("名前のないまま plist の型で届いたバイナリの plist は開かない")
+    func namelessPropertyList() throws {
+        let binary = try binaryPropertyList()
+        #expect(throws: SourceFileError.notText) {
+            try SurimonoDocument(file: FileWrapper(regularFileWithContents: binary), contentType: .propertyList)
+        }
+        let xml = try SurimonoDocument(
+            file: FileWrapper(regularFileWithContents: try xmlPropertyList()), contentType: .propertyList)
+        #expect(xml.format == .plainText)
+    }
+
     @Test("XML の .plist はテキストとして読み、Foundation が作ったバイナリの .plist は開かない")
     func propertyList() throws {
         #expect(try document("Info.plist", try xmlPropertyList(), type: .propertyList).format == .plainText)
@@ -161,11 +173,53 @@ struct SourceFileOpeningTests {
         }
     }
 
-    @Test("固定名でも中身がバイナリなら、テキストとして開く道を選ばない")
+    @Test("固定名でも中身がバイナリなら、テキストとして開かずに断る")
     func binaryUnderFixedName() async throws {
         let machO = Data([0xCF, 0xFA, 0xED, 0xFE, 0x0C, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00])
-        try await withFile("Dockerfile", machO) { #expect(SourceFileOpening.route(for: $0) == .document) }
-        try await withFile("Gemfile", video) { #expect(SourceFileOpening.route(for: $0) == .document) }
+        try await withFile("Dockerfile", machO) { #expect(SourceFileOpening.route(for: $0) == .refuse) }
+        try await withFile("Gemfile", video) { #expect(SourceFileOpening.route(for: $0) == .refuse) }
+    }
+
+    @Test("実際の型が動画のファイルは、中身が shebang つきのテキストでも、テキストとして開く道を選ばない")
+    func knownTypeIsNotText() async throws {
+        try await withFile("clip.mp4", Data("#!/bin/sh\necho 1\n".utf8)) { url in
+            let type = try #require(try url.resourceValues(forKeys: [.contentTypeKey]).contentType)
+            #expect(type.conforms(to: .movie))
+            #expect(SourceFileOpening.route(for: url) == .document)
+        }
+    }
+
+    @Test("ないファイルと読む許可のないファイルは、文書を開く処理に任せる")
+    func missingAndUnreadable() async throws {
+        #expect(SourceFileOpening.route(for: URL(fileURLWithPath: "/fixtures/missing.ts")) == .document)
+        try await withFile("locked.ts", video) { url in
+            #expect(chmod(url.path, 0o000) == 0)
+            defer { chmod(url.path, 0o600) }
+            #expect(SourceFileOpening.route(for: url) == .document)
+        }
+    }
+
+    @Test("読み直しと合本の読み取りは、動画を読み込まずに断り、テキストはそのまま読む")
+    func gatedRead() async throws {
+        try await withFile("clip.ts", video) { url in
+            #expect(throws: SourceFileError.notText) { try SourceFileOpening.read(url) }
+        }
+        let binary = try binaryPropertyList()
+        try await withFile("Info.plist", binary) { url in
+            #expect(throws: SourceFileError.notText) { try SourceFileOpening.read(url) }
+        }
+        try await withFile("Dockerfile", video) { url in
+            #expect(throws: SourceFileError.notText) { try SourceFileOpening.read(url) }
+        }
+        try await withFile("main.ts", Data("let a = 1\n".utf8)) { url in
+            let read = try SourceFileOpening.read(url)
+            #expect(read == Data("let a = 1\n".utf8))
+        }
+        // A format of its own is read as it always was, whatever is inside.
+        try await withFile("notes.md", video) { url in
+            let read = try SourceFileOpening.read(url)
+            #expect(read == video)
+        }
     }
 
     @Test("拡張子のない Dockerfile から、文書の仕組みでテキストの文書を作れる")
@@ -207,7 +261,33 @@ struct SourceFileOpeningTests {
         }
     }
 
-    @Test("合本は、読んだ中身が動画やバイナリの plist だった子を除いて一覧へ伝える")
+    @Test("開いている Dockerfile がバイナリに替わっても、最後に表示できたページを残して知らせる", .timeLimit(.minutes(1)))
+    func reloadOfUntypedFile() async throws {
+        let text = Data("FROM scratch\n".utf8)
+        let video = video
+        try await withFile("Dockerfile", text) { url in
+            let suite = TestDefaultsSuite()
+            defer { suite.remove() }
+            let directory = url.deletingLastPathComponent()
+            let renderer = DocumentRenderer(paginate: { _ in PDFDocument(data: TestFixtures.pdf("Text", pages: 1))! })
+            let model = DocumentViewModel(
+                data: text, fileURL: url, format: .plainText, preferences: AppPreferences(defaults: suite.defaults),
+                library: UserLibrary(root: directory.appendingPathComponent("Library")), renderer: renderer,
+                settingsStore: DocumentSettingsStore(directory: directory.appendingPathComponent("Settings")))
+            model.start()
+            defer { model.stop() }
+            try await wait("組版が終わる") { model.result != nil && !model.isRendering }
+            let pages = try #require(model.result?.logicalDocument)
+            // The file itself is replaced, and the window's own reading finds out before loading it.
+            try video.write(to: url, options: .atomic)
+            model.reload()
+            try await wait("読み直しの失敗を知らせる") { model.toast?.detail == SourceFileError.notText.localizedDescription }
+            #expect(model.data == text)
+            #expect(model.result?.logicalDocument === pages)
+        }
+    }
+
+    @Test("合本は、読んだ中身が動画やバイナリだった子を除いて一覧へ伝える")
     func binderReads() async throws {
         func url(_ name: String) -> URL { URL(fileURLWithPath: "/fixtures/" + name) }
         let video = video
@@ -228,12 +308,110 @@ struct SourceFileOpeningTests {
         model.stop()
     }
 
-    @Test("ショートカットから渡されたバイト列も同じ決め方で断る")
-    func shortcutInput() throws {
-        #expect(!ShortcutFiles.accepts(video, named: "clip.ts"))
-        #expect(!ShortcutFiles.accepts(try binaryPropertyList(), named: "Info.plist"))
-        #expect(ShortcutFiles.accepts(Data("let a = 1\n".utf8), named: "main.ts"))
-        #expect(ShortcutFiles.accepts(try xmlPropertyList(), named: "Info.plist"))
-        #expect(ShortcutFiles.accepts(Data("# a".utf8), named: "notes.md"))
+    @Test("Markdown から取り込む合本は、計画のあとで子が外の動画へのリンクに替わっても、子を調べ直さず外を読まない", .timeLimit(.minutes(1)))
+    func plannedChildIsNotAskedAgain() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let folder = root.appendingPathComponent("book")
+        let outside = root.appendingPathComponent("outside")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let text = "<<[main.ts]\n<<[notes.md]\n"
+        let parent = folder.appendingPathComponent("index.md")
+        try Data(text.utf8).write(to: parent)
+        try Data("let a = 1\n".utf8).write(to: folder.appendingPathComponent("main.ts"))
+        try Data("# notes".utf8).write(to: folder.appendingPathComponent("notes.md"))
+        try video.write(to: outside.appendingPathComponent("clip.ts"))
+        let plan = try #require(MarkdownIncludes(markdown: text)).plan(parent: parent)
+        #expect(plan.documents.map(\.lastPathComponent) == ["main.ts", "notes.md"])
+        // After the plan the child becomes a link to a video outside the folder.
+        let child = folder.appendingPathComponent("main.ts")
+        try FileManager.default.removeItem(at: child)
+        try FileManager.default.createSymbolicLink(
+            at: child, withDestinationURL: outside.appendingPathComponent("clip.ts"))
+        let binder = BinderModel(plan: plan)
+        defer { binder.stop() }
+        // Asking the file again, outside the root, would find a video and drop the child from the list. The plan's
+        // own answer keeps it, and the read under the root then refuses it without touching the target.
+        #expect(binder.items.map(\.url.lastPathComponent) == ["main.ts", "notes.md"])
+        let source = try await binder.source()
+        #expect(source.children?.map(\.fileURL?.lastPathComponent) == ["notes.md"])
+        #expect(binder.unreadableURLs.map(\.lastPathComponent) == ["main.ts"])
+    }
+
+    // MARK: Files that exist only in memory
+
+    @Test("ショートカットがメモリで渡すファイルの形式は、名前・型・先頭から一度に決める")
+    func shortcutFormats() throws {
+        func format(_ name: String, _ data: Data, _ type: UTType? = nil) -> DocumentFormat? {
+            ShortcutFiles.format(name: name, type: type, data: data)
+        }
+        #expect(format("main.ts", Data("let a = 1\n".utf8), .mpeg2TransportStream) == .plainText)
+        #expect(format("module.mts", Data("export const a = 1\n".utf8), UTType(filenameExtension: "mts")) == .plainText)
+        #expect(format("tool", Data("#!/bin/sh\necho 1\n".utf8), .data) == .plainText)
+        #expect(format("Dockerfile", Data("FROM scratch\n".utf8), .data) == .plainText)
+        #expect(format("clip.ts", video, .mpeg2TransportStream) == nil)
+        #expect(format("clip.mts", video, UTType(filenameExtension: "mts")) == nil)
+        #expect(format("Info.plist", try binaryPropertyList(), .propertyList) == nil)
+        #expect(format("Info.plist", try xmlPropertyList(), .propertyList) == .plainText)
+        #expect(format("notes.md", Data("# a".utf8), .surimonoMarkdown) == .markdown)
+        #expect(format("clip.mp4", Data("#!/bin/sh\n".utf8), .mpeg4Movie) == nil)
+        #expect(format("LICENSE", Data("Free.\n".utf8), .data) == nil)
+        #expect(format("tool", Data([0xCF, 0xFA, 0xED, 0xFE, 0x00]), .data) == nil)
+    }
+
+    @Test("メモリのファイルは元のファイル名と一緒に渡り、名前のないテキストとは別の入口を通る")
+    func memoryFileKeepsItsName() {
+        var files: [String] = []
+        var texts: [String?] = []
+        let router = OpenRouter(
+            openDocument: { _, _ in }, openBundle: { _, _ in nil }, openBinder: { _, _ in nil }, warn: { _ in },
+            hasOpenWindows: { true }, showWelcome: {},
+            openMemory: { _, _, title, _ in texts.append(title) },
+            openMemoryFile: { _, format, fileName, printing in
+                #expect(format == .plainText)
+                #expect(printing)
+                files.append(fileName)
+            })
+        #expect(
+            router.open(memoryFile: Data("let a = 1\n".utf8), format: .plainText, fileName: "main.ts", printing: true))
+        #expect(
+            router.open(.document(data: Data("x".utf8), format: .plainText), printing: true, title: "Selected Text"))
+        #expect(files == ["main.ts"])
+        #expect(texts == ["Selected Text"])
+    }
+
+    @Test("ファイル名つきのメモリの文書は、その名前の言語で色が付き、形式バッジもその言語になる", .timeLimit(.minutes(1)))
+    func memoryFileIsColored() async throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        func model(_ name: String?, _ text: String) -> DocumentViewModel {
+            DocumentViewModel(
+                data: Data(text.utf8), fileURL: nil, format: .plainText,
+                preferences: AppPreferences(defaults: suite.defaults),
+                library: UserLibrary(root: directory.appendingPathComponent("Library")),
+                renderer: DocumentRenderer(paginate: { _ in PDFDocument(data: TestFixtures.pdf("Memory", pages: 1))! }),
+                title: name ?? "Clipboard", sourceFileName: name)
+        }
+        let named = model("main.ts", "const pages: number = 2;\n")
+        named.start()
+        defer { named.stop() }
+        #expect(named.shortFormatBadge == "TypeScript")
+        try await wait("組版が終わる") { named.result != nil && !named.isRendering }
+        #expect(named.result?.facts?.sourceLanguage?.id == "typescript")
+        let script = model("tool", "#!/usr/bin/env ruby\nputs 1\n")
+        script.start()
+        defer { script.stop() }
+        try await wait("組版が終わる") { script.result != nil && !script.isRendering }
+        #expect(script.shortFormatBadge == "Ruby")
+        // Text from the clipboard has no file name, and stays as it was.
+        let clipboard = model(nil, "#!/usr/bin/env ruby\nputs 1\n")
+        clipboard.start()
+        defer { clipboard.stop() }
+        try await wait("組版が終わる") { clipboard.result != nil && !clipboard.isRendering }
+        #expect(clipboard.shortFormatBadge == "TXT")
+        #expect(clipboard.result?.facts?.sourceLanguage == nil)
     }
 }
