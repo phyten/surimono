@@ -203,7 +203,14 @@ struct OpenInPrintModeIntent: AppIntent {
         switch ShortcutFiles.plan(inputs) {
         case .files(let urls):
             // The windows go on reading the files after this returns, so each takes its files' access with it.
-            opened = ShortcutEnvironment.router.open(urls, printing: true, access: access.leases(for: urls))
+            // One file that is turned away opens no window, and the action must not report that it did.
+            let leases = access.leases(for: urls)
+            if urls.count == 1, let url = urls.first, ShortcutEnvironment.router.refusesSingle(url) {
+                for lease in leases { lease.close() }
+                opened = false
+            } else {
+                opened = ShortcutEnvironment.router.open(urls, printing: true, access: leases)
+            }
         case .memory(let index, let format):
             // The file is gone when the shortcut ends, so its bytes are taken now.
             let file = files[index]

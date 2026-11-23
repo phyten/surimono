@@ -1,5 +1,6 @@
 import AppKit
 import SurimonoCore
+import SurimonoRendering
 
 @MainActor
 final class OpenRouter {
@@ -58,7 +59,13 @@ final class OpenRouter {
                 completion(false)
             }
         },
-        refuse: { NSApp.presentError($0) })
+        refuse: { error in
+            // The words the window itself uses for the same refusal.
+            NSApp.presentError(
+                NSError(
+                    domain: NSCocoaErrorDomain, code: NSFileReadUnknownError,
+                    userInfo: [NSLocalizedDescriptionKey: DocumentViewModel.message(for: error)]))
+        })
 
     /// Replaceable so that tests can stand in for a file without writing it.
     var route: (URL) -> SourceFileOpening.Route = SourceFileOpening.route(for:)
@@ -255,6 +262,14 @@ final class OpenRouter {
         }
     }
 
+    /// Whether one file would be turned away without a window: a video under `.ts`, a text too large to lay out.
+    func refusesSingle(_ url: URL) -> Bool {
+        switch route(url) {
+        case .refuse, .tooLarge: true
+        case .document, .asText: false
+        }
+    }
+
     /// One file, by the way its beginning calls for. A video under `.ts` is turned away here, before the document
     /// controller would load all of it to find out.
     private func openSingle(_ url: URL, completion: @escaping (Bool) -> Void) {
@@ -263,6 +278,9 @@ final class OpenRouter {
         case .asText: openAsText(url, completion)
         case .refuse:
             refuse(SourceFileError.notText)
+            completion(false)
+        case .tooLarge(let bytes):
+            refuse(DocumentRenderer.RenderingError.tooLarge(bytes: bytes))
             completion(false)
         }
     }

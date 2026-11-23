@@ -155,7 +155,7 @@ final class ClipboardWindows {
         _ data: Data, format: DocumentFormat, title: String, printing: Bool = false,
         textOrigin: TextFormatOrigin? = nil, baseURL: URL? = nil, fileName: String? = nil
     ) -> MemoryDocumentWindowController {
-        let hash = ContentHash.of(data)
+        let hash = Self.key(data, format: format, fileName: fileName)
         let entry = preferences?.closedClipboardDocuments.entries.first { $0.menuItem.id == hash }
         let controller =
             controllers[hash]
@@ -168,6 +168,14 @@ final class ClipboardWindows {
         }
         show(controller, printing: printing)
         return controller
+    }
+
+    /// What tells one window of a document in memory from another. Text from the clipboard is its bytes. A file
+    /// handed over under a name is its bytes, its format and its name, because the name decides how it is shown:
+    /// the same bytes as `a.ts` and as `a.swift` are two documents, and neither is the clipboard's.
+    static func key(_ data: Data, format: DocumentFormat, fileName: String?) -> ContentHash {
+        guard let fileName else { return .of(data) }
+        return .of(Data("surimono-memory-file\u{0}\(format.rawValue)\u{0}\(fileName)\u{0}".utf8) + data)
     }
 
     @discardableResult
@@ -185,7 +193,7 @@ final class ClipboardWindows {
         }
         let controller = makeController(
             entry.data, format: entry.format, title: entry.title, hash: hash, textOrigin: entry.origin,
-            baseURL: entry.baseURL, restoring: entry)
+            baseURL: entry.baseURL, restoring: entry, fileName: entry.fileName)
         show(controller, printing: entry.wasPrinting)
         return controller
     }

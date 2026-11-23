@@ -282,7 +282,7 @@ final class BinderModel {
                     loaded[item.url] = cached
                 } else if let data = try? read(item.url),
                     // What was text when it joined can be a video or a binary property list by now.
-                    !TextFileGate.refuses(fileName: item.url.lastPathComponent, data: data)
+                    !SourceFileOpening.refuses(data, at: item.url, format: item.format)
                 {
                     loaded[item.url] = DocumentSource(data: data, fileURL: item.url, format: item.format).hashed()
                 }

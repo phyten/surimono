@@ -21,12 +21,16 @@ enum SourceFileOpening {
         case asText
         /// Not text under a text file's name. Its contents are never loaded.
         case refuse
+        /// Text of this many bytes, more than is laid out as pages. It is told before the framework reads it.
+        case tooLarge(Int)
     }
 
     nonisolated static func route(for url: URL) -> Route {
-        switch TextFileGate.inspect(url) {
+        let inspection = TextFileGate.inspection(of: url)
+        switch inspection.verdict {
         case .decided(.binary), .refused: return .refuse
         case .decided(.text):
+            if let size = inspection.size, size > PageLayoutLimits.plainTextBytes { return .tooLarge(size) }
             let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType
             return type.map(reads) == true ? .document : .asText
         // A file that is missing or may not be read yet is the document controller's to report or to be given.
@@ -52,6 +56,14 @@ enum SourceFileOpening {
         } catch is TextFileGate.Refusal {
             throw SourceFileError.notText
         }
+    }
+
+    /// Whether bytes read for a plain text document must not be shown: the gate's answer for the file's own name
+    /// and type. A document in another format (an image with no extension) is not the gate's to judge.
+    nonisolated static func refuses(_ data: Data, at url: URL, format: DocumentFormat) -> Bool {
+        guard format == .plainText else { return false }
+        let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType
+        return TextFileGate.refuses(fileName: url.lastPathComponent, type: type, data: data)
     }
 
     /// The document for `url` read as plain text, not yet shown; the one already open for it if there is one.

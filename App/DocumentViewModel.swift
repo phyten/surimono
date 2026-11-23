@@ -78,7 +78,8 @@ final class DocumentViewModel {
     /// waits, which is then for a newer request to open the same file.
     @ObservationIgnored var hasTakenItsFileAccess = false
     let fileURL: URL?
-    /// The file name a document in memory came with (a file handed over by Shortcuts), which names its language.
+    /// The file name a document came with when it has no file of that name (a file handed over by Shortcuts),
+    /// which names its language.
     let sourceFileName: String?
     let htmlBaseURL: URL?
     private let title: String?
@@ -658,8 +659,8 @@ final class DocumentViewModel {
             location = nil
         }
         self.data = data
-        self.sourceFileName = fileURL == nil ? sourceFileName : nil
-        detectedSourceLanguage = (fileURL?.lastPathComponent ?? sourceFileName).flatMap {
+        self.sourceFileName = sourceFileName
+        detectedSourceLanguage = (sourceFileName ?? fileURL?.lastPathComponent).flatMap {
             SourceLanguage.detect(fileName: $0)
         }
         self.fileURL = fileURL
@@ -1395,9 +1396,7 @@ final class DocumentViewModel {
                 guard let self, !Task.isCancelled, reloadGeneration == generation else { return }
                 // A `.plist` saved again as binary, or a `.ts` replaced by a video: the last pages stay, and the
                 // reader is told, as for a file that could not be read.
-                if TextFileGate.refuses(fileName: fileURL.lastPathComponent, data: bytes) {
-                    throw SourceFileError.notText
-                }
+                if SourceFileOpening.refuses(bytes, at: fileURL, format: format) { throw SourceFileError.notText }
                 if bytes != data && preferences.reloadsChangedFiles {
                     reloadedPages = .reading
                     refreshPageUpdate()

@@ -103,6 +103,41 @@ struct SourceFileOpeningTests {
         #expect(throws: SourceFileError.notText) { try document("clip.mts", video, type: .plainText) }
     }
 
+    @Test("テキストとして開く道で読み込むまでに Dockerfile の中身がバイナリに替わっていたら、開かない")
+    func changedBetweenGateAndLoad() throws {
+        // What the router asks the document controller for: the file's own name under the plain text type. The
+        // bytes are the ones found at the path when the framework read it, after the router's look.
+        let machO = Data([0xCF, 0xFA, 0xED, 0xFE, 0x0C, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00])
+        #expect(throws: SourceFileError.notText) { try document("Dockerfile", machO, type: .plainText) }
+        #expect(throws: SourceFileError.notText) { try document("Gemfile", video, type: .plainText) }
+        #expect(throws: SourceFileError.notText) { try document("tool", video, type: .plainText) }
+        #expect(throws: SourceFileError.notText) { try document(".env", try binaryPropertyList(), type: .plainText) }
+        let text = try document("Dockerfile", Data("FROM scratch\n".utf8), type: .plainText)
+        #expect(text.format == .plainText)
+        #expect(text.isGatedText)
+        // A name with a format of its own is not the gate's, under the plain text type as under any.
+        #expect(try document("notes.txt", video, type: .plainText).format == .plainText)
+    }
+
+    @Test("ウインドウに出す形式は、門がテキストと決めた文書ではプレーンテキストのままで、拡張子では直さない")
+    func formatShown() throws {
+        let url = URL(fileURLWithPath: "/fixtures/notes.md")
+        // Text that arrived under a video's type: the gate looked at it, and its answer stands everywhere.
+        let gated = try document("notes.md", Data("# words\n".utf8), type: .mpeg2TransportStream)
+        #expect(gated.isGatedText)
+        #expect(gated.format == .plainText)
+        #expect(gated.format(at: url) == .plainText)
+        // Where the gate had nothing to say, the extension still corrects the type.
+        let markdown = try document("notes.md", Data("# words\n".utf8), type: .plainText)
+        #expect(!markdown.isGatedText)
+        #expect(markdown.format(at: url) == .markdown)
+        let feed = try document("feed.xml", Data("<a/>".utf8), type: .html)
+        #expect(feed.format(at: URL(fileURLWithPath: "/fixtures/feed.xml")) == .html)
+        let script = try document("main.ts", Data("let a = 1\n".utf8), type: .mpeg2TransportStream)
+        #expect(script.format(at: URL(fileURLWithPath: "/fixtures/main.ts")) == .plainText)
+        #expect(try document("a.pdf", Data("%PDF-1.4".utf8), type: .pdf).format(at: nil) == .pdf)
+    }
+
     @Test("名前のないまま plist の型で届いたバイナリの plist は開かない")
     func namelessPropertyList() throws {
         let binary = try binaryPropertyList()
@@ -199,6 +234,42 @@ struct SourceFileOpeningTests {
         }
     }
 
+    @Test("ページに組める大きさを超えるテキストは、読み込む前に「大きすぎる」として断る道を選ぶ")
+    func tooLarge() async throws {
+        let limit = PageLayoutLimits.plainTextBytes
+        try await withFile("main.ts", Data(repeating: 0x61, count: limit + 1)) { url in
+            #expect(SourceFileOpening.route(for: url) == .tooLarge(limit + 1))
+            var refusals: [DocumentRenderer.RenderingError] = []
+            var opened = 0
+            let router = OpenRouter(
+                openDocument: { _, _ in opened += 1 }, openBundle: { _, _ in nil }, openBinder: { _, _ in nil },
+                warn: { _ in }, hasOpenWindows: { true }, showWelcome: {},
+                openAsText: { _, _ in opened += 1 },
+                refuse: { if let error = $0 as? DocumentRenderer.RenderingError { refusals.append(error) } })
+            router.open([url])
+            #expect(opened == 0)
+            #expect(refusals == [.tooLarge(bytes: limit + 1)])
+            #expect(router.refusesSingle(url))
+        }
+        try await withFile("main.ts", Data(repeating: 0x61, count: limit)) { url in
+            #expect(SourceFileOpening.route(for: url) == .document)
+        }
+        try await withFile("Dockerfile", Data("FROM a\n".utf8) + Data(repeating: 0x61, count: limit)) { url in
+            #expect(SourceFileOpening.route(for: url) == .tooLarge(limit + 7))
+        }
+    }
+
+    @Test("ショートカットに失敗を返すために、1 つのファイルが窓なしで断られるかを先に答える")
+    func refusedSingleFile() async throws {
+        let router = OpenRouter(
+            openDocument: { _, _ in }, openBundle: { _, _ in nil }, openBinder: { _, _ in nil }, warn: { _ in },
+            hasOpenWindows: { true }, showWelcome: {})
+        try await withFile("clip.ts", video) { #expect(router.refusesSingle($0)) }
+        try await withFile("main.ts", Data("let a = 1\n".utf8)) { #expect(!router.refusesSingle($0)) }
+        try await withFile("Dockerfile", Data("FROM a\n".utf8)) { #expect(!router.refusesSingle($0)) }
+        try await withFile("notes.md", video) { #expect(!router.refusesSingle($0)) }
+    }
+
     @Test("読み直しと合本の読み取りは、動画を読み込まずに断り、テキストはそのまま読む")
     func gatedRead() async throws {
         try await withFile("clip.ts", video) { url in
@@ -285,6 +356,53 @@ struct SourceFileOpeningTests {
             #expect(model.data == text)
             #expect(model.result?.logicalDocument === pages)
         }
+    }
+
+    private func png(side: Int) throws -> Data {
+        let image = try #require(
+            NSBitmapImageRep(
+                bitmapDataPlanes: nil, pixelsWide: side, pixelsHigh: side, bitsPerSample: 8, samplesPerPixel: 4,
+                hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+        return try #require(image.representation(using: .png, properties: [:]))
+    }
+
+    @Test("拡張子のない画像の文書は、読み直しても門に断られない", .timeLimit(.minutes(1)))
+    func imageWithoutExtensionReloads() async throws {
+        let first = try png(side: 4)
+        let second = try png(side: 6)
+        #expect(first != second)
+        try await withFile("illustration", first) { url in
+            // By its name alone this is an untyped file full of control bytes. It is an image document, and the
+            // gate is asked about plain text only.
+            #expect(TextFileGate.refuses(fileName: "illustration", data: second))
+            #expect(!SourceFileOpening.refuses(second, at: url, format: .image))
+            #expect(SourceFileOpening.refuses(second, at: url, format: .plainText))
+            let suite = TestDefaultsSuite()
+            defer { suite.remove() }
+            let directory = url.deletingLastPathComponent()
+            let model = DocumentViewModel(
+                data: first, fileURL: url, format: .image, preferences: AppPreferences(defaults: suite.defaults),
+                library: UserLibrary(root: directory.appendingPathComponent("Library")),
+                settingsStore: DocumentSettingsStore(directory: directory.appendingPathComponent("Settings")))
+            model.start()
+            defer { model.stop() }
+            try await wait("組版が終わる") { model.result != nil && !model.isRendering }
+            model.readReloadData = { _ in second }
+            model.reload()
+            try await wait("読み直した画像を採る") { model.data == second }
+            #expect(model.toast?.detail != SourceFileError.notText.localizedDescription)
+        }
+    }
+
+    @Test("合本の画像の子も、拡張子がなくても門に断られない")
+    func binderImageChild() async throws {
+        func url(_ name: String) -> URL { URL(fileURLWithPath: "/fixtures/" + name) }
+        let image = try png(side: 4)
+        #expect(!SourceFileOpening.refuses(image, at: url("illustration"), format: .image))
+        #expect(!SourceFileOpening.refuses(video, at: url("notes.md"), format: .markdown))
+        #expect(SourceFileOpening.refuses(video, at: url("Dockerfile"), format: .plainText))
+        #expect(SourceFileOpening.refuses(video, at: url("clip.ts"), format: .plainText))
+        #expect(!SourceFileOpening.refuses(Data("echo 1\n".utf8), at: url("tool"), format: .plainText))
     }
 
     @Test("合本は、読んだ中身が動画やバイナリだった子を除いて一覧へ伝える")
@@ -413,5 +531,71 @@ struct SourceFileOpeningTests {
         try await wait("組版が終わる") { clipboard.result != nil && !clipboard.isRendering }
         #expect(clipboard.shortFormatBadge == "TXT")
         #expect(clipboard.result?.facts?.sourceLanguage == nil)
+    }
+
+    @Test("同じバイト列を a.ts・a.swift・名前なしで順に開くと、それぞれの窓・形式バッジ・言語になる", .timeLimit(.minutes(1)))
+    func memoryFilesGetTheirOwnWindows() async throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let windows = ClipboardWindows(
+            openFiles: { _, _, _ in Issue.record("ファイルは開かない") },
+            warn: { _ in Issue.record("警告しない") }, closeWelcome: {})
+        let presentation = ClipboardWindowFixture(windows)
+        defer { presentation.close() }
+        windows.preferences = AppPreferences(defaults: suite.defaults)
+        windows.library = UserLibrary(root: directory)
+        let data = Data("let pages = 2\n".utf8)
+        // The clipboard's text first: a named file of the same bytes must not take its uncolored window.
+        let clipboard = windows.open(data, format: .plainText, title: "Clipboard")
+        let typeScript = windows.open(data, format: .plainText, title: "a.ts", fileName: "a.ts")
+        let swift = windows.open(data, format: .plainText, title: "a.swift", fileName: "a.swift")
+        defer { for controller in [clipboard, typeScript, swift] { controller.window?.close() } }
+        #expect(clipboard !== typeScript)
+        #expect(typeScript !== swift)
+        #expect(clipboard !== swift)
+        #expect(typeScript.model.sourceFileName == "a.ts")
+        #expect(swift.model.sourceFileName == "a.swift")
+        #expect(clipboard.model.sourceFileName == nil)
+        #expect(typeScript.model.shortFormatBadge == "TypeScript")
+        #expect(swift.model.shortFormatBadge == "Swift")
+        #expect(clipboard.model.shortFormatBadge == "TXT")
+        // The same file again comes back to its own window.
+        #expect(windows.open(data, format: .plainText, title: "a.ts", fileName: "a.ts") === typeScript)
+        #expect(windows.open(data, format: .plainText, title: "Clipboard") === clipboard)
+        #expect(ClipboardWindows.key(data, format: .plainText, fileName: nil) == ContentHash.of(data))
+        #expect(
+            ClipboardWindows.key(data, format: .plainText, fileName: "a.ts")
+                != ClipboardWindows.key(data, format: .markdown, fileName: "a.ts"))
+        // Each is laid out in its own language.
+        for controller in [typeScript, swift, clipboard] {
+            try await wait("組版が終わる") { controller.model.result != nil && !controller.model.isRendering }
+        }
+        #expect(typeScript.model.result?.facts?.sourceLanguage?.id == "typescript")
+        #expect(swift.model.result?.facts?.sourceLanguage?.id == "swift")
+        #expect(clipboard.model.result?.facts?.sourceLanguage == nil)
+        // A closed window remembers the name it was shown under.
+        let closed = ClosedClipboardDocuments.Entry(
+            model: swift.model, hash: ClipboardWindows.key(data, format: .plainText, fileName: "a.swift"), data: data,
+            date: Date())
+        #expect(closed.fileName == "a.swift")
+        let decoded = try JSONDecoder().decode(
+            ClosedClipboardDocuments.Entry.self, from: try JSONEncoder().encode(closed))
+        #expect(decoded.fileName == "a.swift")
+    }
+
+    @Test("ファイルのある文書でも、渡された元のファイル名で言語を見分ける")
+    func nameIndependentOfURL() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let model = DocumentViewModel(
+            data: Data("let a = 1\n".utf8), fileURL: directory.appendingPathComponent("0C1F-temporary"),
+            format: .plainText, preferences: AppPreferences(defaults: suite.defaults),
+            library: UserLibrary(root: directory), sourceFileName: "main.ts")
+        #expect(model.sourceFileName == "main.ts")
+        #expect(model.shortFormatBadge == "TypeScript")
     }
 }
