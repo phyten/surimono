@@ -144,7 +144,7 @@ Recent files are also saved by Surimono, including bookmarks to follow moved fil
 
 ## Building from source
 
-Requires macOS 15 or later and Xcode 26 or later (Swift 6.2 or later). Select Xcode as the active developer directory before building. CI uses Xcode 26.6; local development also supports Xcode 27.
+Building requires Xcode 27 (Swift 6.4); the app itself runs on macOS 15 or later. Select Xcode as the active developer directory before building. CI and releases are built with Xcode 27.2, and older Xcode versions are no longer checked.
 
 ```bash
 make build                      # Debug build in build/DerivedData

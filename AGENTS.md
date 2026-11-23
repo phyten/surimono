@@ -64,8 +64,8 @@ make clean
   - `AppIcon-Dev` は、Dock や ⌘Tab でも公開版と取り違えないよう、全体の明るさと帯の色で分ける。原画は、`Design/AppIcon.svg` を暗い地に置いて少し暗くし、黄色の注意の帯（縞と DEV の文字）を重ねた `Design/AppIcon-Dev.svg` と、16・32px 用の `Design/AppIcon-small.svg` に同じことをして、縞と文字を省いて帯を太くした `Design/AppIcon-Dev-small.svg`。どちらも公開版の SVG（`AppIcon.svg`・`AppIcon-small.svg`）に行を足しただけで、元の行は変えていない。
   - アイコンの絵は、背の外側から見た薄い中綴じの冊子（生成りの冊子、藍の地、朱のホチキス）。16・32px では紙の重なりがつぶれるので、重なりを省いて折り目とホチキスを太くした `AppIcon-small.svg` を使う。
   - PNG は `rsvg-convert -w <px> -h <px> <SVG> -o <名前>.png` で書き出す。公開版も開発版も、`icon_16x16`・`icon_16x16@2x`・`icon_32x32` は small の SVG から、残りの 7 枚は大きい方の SVG から。`AppIcon.svg` か `AppIcon-small.svg` を変えたら、対応する開発版の SVG にも同じ変更を入れて、両方を書き出し直す。
-- CI（`.github/workflows/ci.yml`）は Xcode 26.6 / macOS 26、ローカルは Xcode 27 系を想定。**両方でビルドできるコードにする**。`if #available` は実行時の OS の分岐で、古い SDK でのコンパイルは助けない。CI の SDK（Xcode 26.6）に無い API は使わず、どうしても使う場合は `#if compiler(>=…)` などの条件付きコンパイルと代替の実装を用意する。
-- CI は macOS の実行時間をビルドに使う。毎回走るのは `package`（`make package` と成果物の保存）だけで、Xcode 26.6 で組み立てられることをここで確かめる。テストと確認のジョブ（`lint-and-core`（`make lint`・`make test-tools`・`make test-formats`・`make test-core`）、`rendering`（`make test-rendering`）、`app-tests`（`make test-app`）、`appstore`（`make check-appstore`））は、PR にラベル `ci:test` を付けたときと、ワークフローを手で起動したとき（`gh workflow run ci.yml --ref <ブランチ>`）だけ走る。lint とテストは手元で通してから PR を出す。必須チェックの `build-and-test` は Linux の門番のジョブで、`package` が成功し、ほかのジョブが成功か未実行（スキップ）のときだけ通る（走って失敗・取り消しになったジョブがあれば落ちる）。決まりは `.claude/rules/github-actions.md`。macOS のジョブは同時に 5 つまでなので増やさない。
+- CI とリリース（`.github/workflows/`）は、手元と同じ Xcode 27.2 で組む（runner は `xcode-27`、macOS 27）。出荷するアプリもこの runner で組むので、Xcode を上げるときは手元と CI を一緒に上げる。対応する macOS はデプロイメントターゲット（15.0）で決まり、Xcode の版とは別。`if #available` は実行時の OS の分岐で、古い SDK でのコンパイルは助けない。
+- CI は macOS の実行時間をビルドに使う。毎回走るのは `package`（`make package` と成果物の保存）だけで、出荷に使う runner で組み立てられることをここで確かめる。テストと確認のジョブ（`lint-and-core`（`make lint`・`make test-tools`・`make test-formats`・`make test-core`）、`rendering`（`make test-rendering`）、`app-tests`（`make test-app`）、`appstore`（`make check-appstore`））は、PR にラベル `ci:test` を付けたときと、ワークフローを手で起動したとき（`gh workflow run ci.yml --ref <ブランチ>`）だけ走る。lint とテストは手元で通してから PR を出す。必須チェックの `build-and-test` は Linux の門番のジョブで、`package` が成功し、ほかのジョブが成功か未実行（スキップ）のときだけ通る（走って失敗・取り消しになったジョブがあれば落ちる）。決まりは `.claude/rules/github-actions.md`。macOS のジョブは同時に 5 つまでなので増やさない。
 
 ## スナップショット（見た目の回帰）
 
@@ -536,7 +536,7 @@ WebKit の文書組版もメインディスプレイの倍率に影響される�
 
 ## Git / PR
 
-- `master` は保護されている。topic ブランチ → PR → CI（`build-and-test`）成功でマージ。CI が毎回確かめるのはビルドだけなので、テストは手元で走らせる。CI でも走らせたい PR（Xcode 26.6 でしか出ない失敗を疑うとき、CI の runner での時間切れを見たいときなど）にはラベル `ci:test` を付ける。
+- `master` は保護されている。topic ブランチ → PR → CI（`build-and-test`）成功でマージ。CI が毎回確かめるのはビルドだけなので、テストは手元で走らせる。CI でも走らせたい PR（CI の runner での時間切れを見たいときなど）にはラベル `ci:test` を付ける。CI の runner は手元より遅く、時間の上限のあるテストや実 TeX との照合が落ちることがある（2026-11-24 時点で未解決）。
 - コミットは論理的な最小単位ごと。メッセージは**日本語の Conventional Commits**（例: `feat(print): A5 冊子レイアウトを追加`）。AI と協業したコミットには `Co-Authored-By` を付ける。
 - **エージェントは明示的に頼まれない限り commit / push / merge をしない**。
 - PR を出したら、CI の結果まで利用者に声をかけさせずにエージェントが待つ。落ちたら原因を調べて直し、通ったら頼まれた範囲（マージ・リリース）まで進める。
@@ -579,7 +579,7 @@ WebKit の文書組版もメインディスプレイの倍率に影響される�
 - 両端揃えのテーマでは、長いパスや URL の前の行が字間を広げて伸びる（改行できる所が少なく、行の残りが空くため。`overflow-wrap` は行に改行できる所がないときしか効かない）。`HTMLDocumentBuilder` が `LongTokenMarks` で本文の長い語に `.long-token`（`word-break: break-all`）を付けている。
 - 語の途中に字間（`letter-spacing`）や要素の隙間を入れると、PDFKit はその語を 1 文字ずつに分けて読み、検索とコピーが効かなくなる（listings の等幅の格子と amsart の小型大文字で起きた）。本物の LaTeX と幅が合わなくても、語の中には字間を入れない。`LaTeXFlowPrintingTests` が listing と amsart の見出しの検索で固定している。
 - 目次の点線を SVG の破線で描くと、WebKit の印刷では点が 2 つしか出ない。背景の繰り返しで描く。
-- Swift 6.3（CI の Xcode 26.6）は、MainActor のメソッドを参照のまま `Binding(get:set:)` の `set:` に渡すと、IR の生成で落ちる（`While emitting IR SIL function … TR`。Xcode 27 では通る）。`set: { model.select($0) }` のようにクロージャで書く。ログにはマングルされた名前しか出ないので、そこに含まれる型の名前で探す。
+- Swift 6.3（2026-11 まで CI で使っていた Xcode 26.6）は、MainActor のメソッドを参照のまま `Binding(get:set:)` の `set:` に渡すと、IR の生成で落ちる（`While emitting IR SIL function … TR`。Xcode 27 では通る）。`set: { model.select($0) }` のようにクロージャで書く。ログにはマングルされた名前しか出ないので、そこに含まれる型の名前で探す。
 - WKWebView では、折り畳まれた空白 1 つの `Range.getBoundingClientRect()` に `word-spacing` が含まれない（Chromium では含まれる）。語間を確かめるときは、隣の語の矩形の間を測るか、行の右端と計算値で確かめる。
 - WebKit は、組版の準備の段階（印刷の倍率が掛かる前）では行を整数ピクセルに置く（`line-height: 13.636px` の行が 13px になる）。自前で組んだ行の行送りは、CSS の値ではなく、同じ場で測った素の 1 行と比べる。
 - 2 段組のページを PDFKit の `page.string` で読むと、段をまたぐ題名やノンブルがあるページで左右の段が混ざる（PDF には左の段から順に書かれている。macOS 26.6 で確認）。検索と見た目には影響しない。読み順をテストで固定するときは、段の中の順だけを必須にする。
@@ -623,7 +623,7 @@ WebKit の文書組版もメインディスプレイの倍率に影響される�
 - 紙（ページ）はダークでも白い。紙の上に浮かべるパネルにマテリアルだけを敷くと、白い紙の上で中間のグレーになり補足の文字が読めない。`paperOverlayBackground` を使う。
 - アドホック署名には Team ID がないため、Hardened Runtime の Library Validation が、埋め込んだ Sparkle.framework を拒んで Release 版が起動時に落ちる（`different Team IDs`）。`Configs/Surimono.entitlements` の `com.apple.security.cs.disable-library-validation` で外している。Developer ID で署名するようになったら消す。Debug は Hardened Runtime が無効なので気づけない。署名や依存を変えたら、`make package` で作ったアプリを起動して確かめる。
 - xcconfig では `//` から後ろがコメントになる。URL は `https:/$()/…` と書く（`SURIMONO_UPDATE_FEED_URL`）。
-- CI の Xcode 26.6 は、手元の Xcode 27 で通るコードを通さないことがある。SwiftUI の `body` に修飾子を長くつなぐと型の検査が終わらない（`ViewModifier` に分ける）。Release ビルドでは、総称型の中のクラスの `isolated deinit` と、総称型の `NSView` のサブクラスの暗黙の deinit で swift-frontend が落ちた（総称型にしない）。どちらも手元の `make check-appstore` では再現しない。
+- Xcode 26.6（2026-11 まで CI で使っていた）は、Xcode 27 で通るコードを通さないことがあった。SwiftUI の `body` に修飾子を長くつなぐと型の検査が終わらない（`ViewModifier` に分ける）。Release ビルドでは、総称型の中のクラスの `isolated deinit` と、総称型の `NSView` のサブクラスの暗黙の deinit で swift-frontend が落ちた（総称型にしない）。どちらも手元の `make check-appstore` では再現しない。
 - `WKContentWorld.world(name:)` は、誰も保持していないと解放され、同じ名前の次の世界は空で始まる。呼び出しをまたいで世界の中の JavaScript の状態を残すときは、世界を保持する（`ThemeSampler.world`）。
 - エージェントのサンドボックス（Codex など）では、LaunchServices（UTType の準拠関係）、testmanagerd（ホスト付きテスト）、WebKit の子プロセス、ホーム配下のキャッシュへの書き込みが拒否されることがある。ビルドだけなら `CFFIXED_USER_HOME` などを `build/` 配下に向ける回避策があるが、Makefile には入れない。テストと起動の最終確認は通常の環境で `make test` / `make run` を実行して行う。
 
