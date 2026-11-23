@@ -79,6 +79,14 @@ final class ShortcutDispatcher {
             return !matches.isEmpty
         }
         if let model, model.window === window, !model.blocksSurfaceShortcuts {
+            if model.scrubber.dragging, combination == .init(key: .named(.escape)) {
+                model.scrubber.cancel()
+                return true
+            }
+            // Focus belongs to the track even if PDFKit still owns the native responder during the handoff.
+            if combination.modifiers.isEmpty, case .named(let key) = combination.key, model.handleScrubKey(key) {
+                return true
+            }
             if let surface = ShortcutSurfaceKeys.owner(of: responder),
                 (model.mode == .view && !model.showsWeb && surface.shortcutRegion != .foldedPreview)
                     || (model.mode == .print && model.showsFold && surface.shortcutRegion == .foldedPreview),

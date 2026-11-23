@@ -4,7 +4,7 @@ import SwiftUI
 /// A measured part of the band: an item in one of its forms, or a part that always stays.
 enum BandSlot: Hashable {
     case item(BandLayout.Item, BandLayout.Form)
-    case name, more
+    case name, more, scrubber
 }
 
 extension BandLayout.Item {
@@ -369,6 +369,11 @@ struct BandMeasurements: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             measure(.name) { Text(verbatim: model.displayName).font(OverlayBand.nameFont).lineLimit(1) }
+            if model.offersScrubber {
+                measure(.scrubber) {
+                    PageScrubberRail(current: 0, hover: nil, ticks: []).frame(width: BandLayout.scrubberMinimum)
+                }
+            }
             measure(.more) { BandMoreButton { EmptyView() } }
             ForEach(items, id: \.self) { item in
                 measure(.item(item, .full)) { BandItemView(model: model, item: item, form: .full) }
