@@ -80,7 +80,8 @@
                             frame = next
                             settled = .now
                         }
-                        return frame.width >= 120 && content.bounds.contains(frame) && settled + .milliseconds(300) < .now
+                        return frame.width >= 120 && content.bounds.contains(frame)
+                            && settled + .milliseconds(300) < .now
                     }
                     let y = content.isFlipped ? frame.midY : content.bounds.height - frame.midY
                     let middle = CGPoint(x: frame.midX, y: y)
