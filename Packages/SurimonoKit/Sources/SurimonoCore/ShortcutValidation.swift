@@ -225,8 +225,28 @@ public struct ShortcutValidator: Sendable {
     }
 
     public func conflicts(in configuration: ShortcutConfiguration) -> [ShortcutConflict] {
-        ShortcutOperationID.allCases.flatMap {
-            conflicts(for: $0, keys: configuration.keys(for: $0), in: configuration)
+        // Index both spellings so logical aliases and physical global keys meet in the same bucket.
+        // The ordinal preserves catalog and binding order when several signatures find the same owner.
+        var owners: [ShortcutConflict.Owner] = []
+        var buckets: [ShortcutCombination: [Int]] = [:]
+        var signatures: [Set<ShortcutCombination>] = []
+        for operation in ShortcutOperation.catalog {
+            for binding in configuration.bindings(for: operation.id) {
+                let key = (try? binding.combination.normalized()) ?? binding.combination
+                let matches = environment.physicalSignatures(for: key).union([key])
+                for signature in matches { buckets[signature, default: []].append(owners.count) }
+                signatures.append(matches)
+                owners.append(.init(operation: operation.id, binding: binding))
+            }
+        }
+        return owners.enumerated().compactMap { index, owner in
+            let key = owner.binding.combination
+            let proposed = ShortcutOperation.operation(owner.operation).binding(for: (try? key.normalized()) ?? key)
+            let candidates = Set(signatures[index].flatMap { buckets[$0] ?? [] }).sorted()
+            let others = candidates.map { owners[$0] }.filter {
+                $0.operation != owner.operation && proposed.overlaps($0.binding)
+            }
+            return others.isEmpty ? nil : .init(operation: owner.operation, proposed: proposed, owners: others)
         }
     }
 

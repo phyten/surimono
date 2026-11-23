@@ -240,9 +240,7 @@ final class ShortcutDispatcher {
         }
     }
 
-    static var operations: Set<ShortcutOperationID> {
-        SystemMenuShortcuts.operations.union(ShortcutCommands.operations)
-    }
+    static let operations = SystemMenuShortcuts.operations.union(ShortcutCommands.operations)
 
     /// Menu tracking may bypass a local monitor. Recheck the event through the same key-up gate; mouse clicks
     /// remain ordinary commands. A stale SwiftUI equivalent can never resurrect a cleared output binding.

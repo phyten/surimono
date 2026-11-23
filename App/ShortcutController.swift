@@ -47,33 +47,65 @@ final class ShortcutController {
     func refreshEnvironment() {
         let reserved = reservations()
         let currentLayout = keyboardLayout()
-        if layout.projection != currentLayout.projection { localizedDefaults = [:] }
-        layout = currentLayout
+        if layout != currentLayout {
+            if layout.projection != currentLayout.projection { localizedDefaults = [:] }
+            layout = currentLayout
+        }
+        let combined = (reserved ?? []) + externalMenuKeys.values.map { ShortcutSystemReservation(combination: $0) }
+        guard
+            environment.reservations != combined || environment.reservationsAvailable != (reserved != nil)
+                || environment.projection != layout.projection || environment.projectionAvailable != layout.available
+        else { return }
         environment = .init(
-            reservations: (reserved ?? []) + externalMenuKeys.values.map { .init(combination: $0) },
+            reservations: combined,
             projection: layout.projection,
             reservationsAvailable: reserved != nil, projectionAvailable: layout.available)
+    }
+
+    private struct RefreshValidation {
+        let configuration: ShortcutConfiguration
+        let environment: ShortcutValidationContext
+        let standard: [ShortcutOperationID: ShortcutCombination]
+        let issues: [ShortcutValidationIssue]
+        let registrations: [KeyCombo: GlobalHotKeys.Action]
+    }
+
+    @ObservationIgnored private var lastValidation: RefreshValidation?
+
+    private func validateForRefresh(_ configuration: ShortcutConfiguration) -> RefreshValidation {
+        if let lastValidation, lastValidation.configuration == configuration, lastValidation.environment == environment,
+            lastValidation.standard == standardMenuKeys
+        {
+            return lastValidation
+        }
+        let result = RefreshValidation(
+            configuration: configuration, environment: environment, standard: standardMenuKeys,
+            issues: ShortcutValidator(environment: environment).issues(in: configuration),
+            registrations: registrations(for: configuration))
+        lastValidation = result
+        return result
     }
 
     func refresh() {
         guard let preferences else { return }
         refreshEnvironment()
         preferences.reloadKeyboardShortcuts(environment: environment)
-        loadError = preferences.keyboardShortcutsLoadState.isUnreadable
+        let unreadable = preferences.keyboardShortcutsLoadState.isUnreadable
+        if loadError != unreadable { loadError = unreadable }
         guard !loadError else {
             snapshot = ShortcutConfiguration()
             hotKeys.synchronize([:])
             return
         }
         let candidate = preferences.keyboardShortcuts
-        let validator = ShortcutValidator(environment: environment)
-        unavailableBindings = validator.issues(in: candidate)
+        let validation = validateForRefresh(candidate)
+        if unavailableBindings != validation.issues { unavailableBindings = validation.issues }
         if preferences.keyboardShortcutsLoadState == .migrationRequired {
             do {
                 guard environment.reservationsAvailable, environment.projectionAvailable else {
                     throw ShortcutPreferencesError.environmentUnavailable
                 }
-                try hotKeys.apply(registrations(for: candidate)) {
+                try hotKeys.apply(validation.registrations) {
                     try preferences.saveKeyboardShortcutMigration(
                         environment: environment, expectedConfiguration: candidate)
                 }
@@ -85,9 +117,9 @@ final class ShortcutController {
                 migrationError = Self.message(error)
             }
         } else {
-            snapshot = candidate
+            if snapshot != candidate { snapshot = candidate }
             migrationError = nil
-            hotKeys.synchronize(registrations(for: candidate))
+            hotKeys.synchronize(validation.registrations)
         }
     }
 
@@ -317,42 +349,82 @@ final class ShortcutController {
         return externalMenuKeys[operation].map { [$0] } ?? snapshot.keys(for: operation)
     }
 
-    func status(for operation: ShortcutOperationID) -> String {
-        if menuAmbiguities.contains(operation) {
-            return String(localized: "This menu command could not be identified uniquely.")
+    enum SettingsStatus: Equatable {
+        case normal, unassigned
+        case inline(String)
+        case note(String)
+
+        var text: String {
+            switch self {
+            case .normal: ""
+            case .unassigned: String(localized: "Unassigned")
+            case .inline(let text), .note(let text): text
+            }
         }
-        if externalMenuKeys[operation] != nil { return String(localized: "Managed in macOS") }
-        if loadError { return Self.message(EditError.savedDataUnavailable) }
-        if let record = snapshot.inactiveMigration.first(where: { $0.operation == operation }) {
-            return record.reasons.map { ShortcutText.reason($0) }.joined(separator: "\n")
-        }
-        if let issue = unavailableBindings.first(where: { $0.operation == operation }) {
-            return ShortcutText.reason(issue.code)
-        }
-        if snapshot.keys(for: operation).contains(where: { reservedByStandardMenu($0, for: operation) }) {
-            return ShortcutText.reason(.systemReserved)
-        }
-        if standardMenuKeys[operation] != nil && snapshot.keys(for: operation).isEmpty {
-            return String(localized: "Managed in macOS")
-        }
-        guard !snapshot.keys(for: operation).isEmpty else { return String(localized: "Unassigned") }
-        let validator = ShortcutValidator(environment: environment)
-        if let issue = snapshot.keys(for: operation).flatMap({ validator.issues(for: operation, combination: $0) })
-            .first
-        {
-            return ShortcutText.reason(issue.code)
-        }
-        if !validator.conflicts(
-            for: operation, keys: snapshot.keys(for: operation), in: snapshot
-        ).isEmpty {
-            return ShortcutText.reason(.conflict)
-        }
-        if !ShortcutOperation.operation(operation).isGlobal { return "" }
-        guard let action = GlobalHotKeys.Action.allCases.first(where: { $0.operation == operation }),
-            hotKeys.isRegistered(action), !hotKeys.failed.contains(action)
-        else { return String(localized: "Could not register this shortcut. Try another combination.") }
-        return String(localized: "Registered")
     }
+
+    // Status also changes without an edit, e.g. on an input-source switch or a failed global registration.
+    private struct StatusInputs: Equatable {
+        let snapshot: ShortcutConfiguration
+        let environment: ShortcutValidationContext
+        let unavailable: [ShortcutValidationIssue]
+        let ambiguous: Set<ShortcutOperationID>
+        let external: [ShortcutOperationID: ShortcutCombination]
+        let standard: [ShortcutOperationID: ShortcutCombination]
+        let loadError: Bool
+        let registered: Set<ShortcutOperationID>
+    }
+
+    @ObservationIgnored private var cachedStatuses: (StatusInputs, [ShortcutOperationID: SettingsStatus])?
+
+    var settingsStatuses: [ShortcutOperationID: SettingsStatus] {
+        let registered = GlobalHotKeys.Action.allCases.filter {
+            hotKeys.isRegistered($0) && !hotKeys.failed.contains($0)
+        }
+        let inputs = StatusInputs(
+            snapshot: snapshot, environment: environment, unavailable: unavailableBindings, ambiguous: menuAmbiguities,
+            external: externalMenuKeys, standard: standardMenuKeys, loadError: loadError,
+            registered: Set(registered.map(\.operation)))
+        if let cachedStatuses, cachedStatuses.0 == inputs { return cachedStatuses.1 }
+
+        let validator = ShortcutValidator(environment: environment)
+        let conflicts = Set(validator.conflicts(in: snapshot).map(\.operation))
+        let unavailable = Dictionary(grouping: unavailableBindings, by: \.operation)
+        var result: [ShortcutOperationID: SettingsStatus] = [:]
+        for operation in ShortcutOperation.catalog {
+            let id = operation.id
+            let keys = snapshot.keys(for: id)
+            if menuAmbiguities.contains(id) {
+                result[id] = .note(String(localized: "This menu command could not be identified uniquely."))
+            } else if externalMenuKeys[id] != nil {
+                result[id] = .inline(String(localized: "Managed in macOS"))
+            } else if loadError {
+                result[id] = .note(Self.message(EditError.savedDataUnavailable))
+            } else if let record = snapshot.inactiveMigration.first(where: { $0.operation == id }) {
+                result[id] = .note(record.reasons.map { ShortcutText.reason($0) }.joined(separator: "\n"))
+            } else if let issue = unavailable[id]?.first {
+                result[id] = .note(ShortcutText.reason(issue.code))
+            } else if keys.contains(where: { reservedByStandardMenu($0, for: id) }) {
+                result[id] = .note(ShortcutText.reason(.systemReserved))
+            } else if keys.isEmpty {
+                result[id] = standardMenuKeys[id] == nil ? .unassigned : .inline(String(localized: "Managed in macOS"))
+            } else if let issue = keys.lazy.compactMap({ validator.issues(for: id, combination: $0).first }).first {
+                result[id] = .note(ShortcutText.reason(issue.code))
+            } else if conflicts.contains(id) {
+                result[id] = .note(ShortcutText.reason(.conflict))
+            } else if !operation.isGlobal {
+                result[id] = .normal
+            } else if inputs.registered.contains(id) {
+                result[id] = .inline(String(localized: "Registered"))
+            } else {
+                result[id] = .note(String(localized: "Could not register this shortcut. Try another combination."))
+            }
+        }
+        cachedStatuses = (inputs, result)
+        return result
+    }
+
+    func status(for operation: ShortcutOperationID) -> String { settingsStatuses[operation]?.text ?? "" }
 
     static func message(_ error: any Error) -> String {
         if case ShortcutModelError.validation(let issues) = error, let issue = issues.first {

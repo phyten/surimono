@@ -1,5 +1,6 @@
 import AppKit
 import Carbon.HIToolbox
+import Observation
 import SurimonoCore
 import Testing
 
@@ -40,6 +41,74 @@ struct ShortcutControllerTests {
         -> ShortcutController
     {
         ShortcutController(hotKeys: backend.hotKeys, reservations: reservations, keyboardLayout: { Self.layout })
+    }
+
+    @Test("一覧の操作名は全操作で従来の翻訳と改行処理に一致する")
+    func localizedRowNames() {
+        for id in ShortcutOperationID.allCases {
+            let reference = String(localized: ShortcutText.nameResource(id)).replacingOccurrences(of: "\n", with: "")
+            #expect(ShortcutText.name(id) == reference)
+        }
+    }
+
+    @Test("一覧の状態は未割当、競合、外部割当とその解除に追従する")
+    func settingsStatuses() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let backend = Backend()
+        let controller = controller(backend)
+        controller.start(preferences: AppPreferences(defaults: suite.defaults))
+        #expect(controller.settingsStatuses[.globalClipboardOpen] == .unassigned)
+        #expect(controller.settingsStatuses[.documentReload] == .normal)
+        let reload = ShortcutCombination(key: .character("r"), modifiers: .command)
+        controller.setExternalMenuKeys([.appOpenURL: reload])
+        #expect(controller.settingsStatuses[.appOpenURL] == .inline(String(localized: "Managed in macOS")))
+        #expect(controller.settingsStatuses[.documentReload] == .note(ShortcutText.reason(.systemReserved)))
+        controller.setExternalMenuKeys([:])
+        #expect(controller.settingsStatuses[.documentReload] == .normal)
+    }
+
+    @Test("割当と環境が同じまま再表示しても一覧を無効にしない")
+    func unchangedRefresh() throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let backend = Backend()
+        defer { backend.hotKeys.stop() }
+        let controller = controller(backend)
+        controller.start(preferences: AppPreferences(defaults: suite.defaults))
+        try controller.edit(.globalClipboardOpen, keys: [Self.j])
+        var invalidated = false
+        withObservationTracking {
+            _ = controller.settingsStatuses
+            _ = controller.layout
+        } onChange: {
+            MainActor.assumeIsolated { invalidated = true }
+        }
+        controller.refresh()
+        #expect(!invalidated)
+    }
+
+    @Test("配列の変更で同じ物理キーを共有した両方の操作に競合を表示する")
+    func projectedConflictStatuses() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let backend = Backend()
+        var layout = Self.layout
+        let controller = ShortcutController(hotKeys: backend.hotKeys, reservations: { [] }, keyboardLayout: { layout })
+        controller.start(preferences: AppPreferences(defaults: suite.defaults))
+        #expect(controller.settingsStatuses[.documentFind] == .normal)
+        let physical = ShortcutCombination(key: .macVirtualKey(15), modifiers: .command)
+        // The saved keys can become aliases after the input source changes.
+        layout = ShortcutKeyboardLayout(
+            projection: [
+                .init(logical: .init(key: .character("f"), modifiers: .command), physical: physical),
+                .init(logical: .init(key: .character("r"), modifiers: .command), physical: physical),
+            ], names: [:], available: true)
+        controller.refreshEnvironment()
+        let statuses = controller.settingsStatuses
+        #expect(statuses[.documentFind] == .note(ShortcutText.reason(.conflict)))
+        #expect(statuses[.documentReload] == .note(ShortcutText.reason(.conflict)))
+        #expect(statuses[.documentPrint] == .normal)
     }
 
     @Test("旧キーは登録時には未保存で登録成功後に新ストアだけを参照する")
@@ -232,6 +301,24 @@ struct ShortcutControllerTests {
         #expect(suite.defaults.data(forKey: "keyboardShortcuts.v1") == data)
     }
 
+    @Test("保存値も環境も同じまま再表示したときに失敗したグローバル登録を再試行する")
+    func retryRegistrationOnRefresh() throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let configuration = ShortcutConfiguration(overrides: [.globalClipboardOpen: [Self.j]])
+        suite.defaults.set(try ShortcutStore.encode(configuration), forKey: ShortcutStore.preferencesKey)
+        let backend = Backend()
+        defer { backend.hotKeys.stop() }
+        backend.fail.insert(try #require(KeyCombo(Self.j)))
+        let controller = controller(backend)
+        controller.start(preferences: AppPreferences(defaults: suite.defaults))
+        #expect(!backend.hotKeys.isRegistered(.open))
+        backend.fail.removeAll()
+        controller.refresh()
+        #expect(backend.hotKeys.isRegistered(.open))
+        #expect(backend.calls == ["register:38", "register:38"])
+    }
+
     @Test("解除と既定復元では旧保存キーを復活させない")
     func clearAndRestore() throws {
         let suite = TestDefaultsSuite()
@@ -391,6 +478,24 @@ struct ShortcutControllerTests {
             NSEvent.keyEvent(
                 with: .keyDown, location: .zero, modifierFlags: flags, timestamp: 0, windowNumber: 0,
                 context: nil, characters: text, charactersIgnoringModifiers: text, isARepeat: false, keyCode: code))
+    }
+
+    @Test("記録を開始した行は Escape で入力を取り消してもフォーカスを保つ")
+    func recorderKeepsFocusOnEscape() throws {
+        let backend = Backend()
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 200, height: 80),
+            styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        defer { window.close() }
+        let button = ShortcutRecorder.RecorderButton()
+        button.hotKeys = backend.hotKeys
+        button.change = { _ in Issue.record("取り消したキーが採用された") }
+        window.contentView?.addSubview(button)
+        #expect(backend.hotKeys.isRecording)
+        button.keyDown(with: try event(code: 53, flags: [], text: "\u{1b}"))
+        #expect(!backend.hotKeys.isRecording)
+        #expect(window.firstResponder === button)
     }
 
     @Test("記録は修飾なしのDeleteだけを解除し修飾不足のキーは検証へ渡す")

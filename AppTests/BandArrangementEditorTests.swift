@@ -31,6 +31,27 @@ struct BandArrangementEditorTests {
         BandEntryLocation(destination: destination, index: index)
     }
 
+    @Test("部品の表示は下書きや履歴を作らず標準に戻してもセットを切り替えても保たれる")
+    func namesAreIndependentOfDraft() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let session = environment.session
+        environment.preferences.bandNames = .hidden
+        #expect(!session.isDirty && !session.canUndo)
+        // Exercise an actual reset of a changed arrangement and its history.
+        #expect(session.insertSeparator(in: .topLeft, at: 0))
+        #expect(session.duplicate(named: "Reading") == nil)
+        session.backToStandard()
+        #expect(session.isDirty && environment.preferences.bandNames == .hidden)
+        session.undo()
+        #expect(!session.isDirty && environment.preferences.bandNames == .hidden)
+        session.redo()
+        #expect(session.isDirty && environment.preferences.bandNames == .hidden)
+        #expect(session.overwrite() == nil)
+        session.selectSet(.standard)
+        #expect(session.active == .standard && environment.preferences.bandNames == .hidden)
+    }
+
     @Test("未使用の分類は全28部品を正しい群に一度ずつ元の順と添字で投影する")
     func paletteProjection() {
         let unused: [BandLayout.Item] = [

@@ -22,7 +22,53 @@ struct BandEditorGeometryTests {
             let right = try #require(fixture.session.layoutFrames[pair.1])
             #expect(!left.isEmpty && !right.isEmpty)
             #expect(!left.intersects(right), "\(width): \(left), \(right)")
-            #expect(left.minX >= 20 && right.maxX <= width - 230 - 20)
+            #expect(left.minX >= 20 && right.maxX <= width - 230 - 20, "\(width): \(left), \(right)")
+        }
+    }
+
+    @Test("設定幅820・900・1100で表示中のペインは詳細列に収まり、隠したペインは再表示で追いつく")
+    func retainedPaneBounds() async throws {
+        let fixture = try Fixture(width: 900, layouts: BandArrangementVariants())
+        defer { fixture.close() }
+        let window = fixture.window
+        let content = try #require(window.contentView)
+        await fixture.nextLayout()
+        let pane = try #require(settingsPaneContainer(in: content))
+        var hosts: [SettingsSection: NSView] = [:]
+        var sections: [SettingsSection] = [.toolbarArrangement, .keyboardShortcuts, .general]
+        for section in sections {
+            fixture.session.showSection(section)
+            await fixture.nextLayout()
+            hosts[section] = try #require(pane.subviews.first { !$0.isHidden })
+        }
+        #expect(Set(hosts.values.map { ObjectIdentifier($0) }).count == 3)
+        let verticalInset = content.bounds.height - pane.bounds.height
+
+        // Leave a different pane visible during each resize, then bring both frozen frames up to date.
+        for (index, width) in [820, 900, 1100].enumerated() {
+            let hidden = pane.subviews.filter(\.isHidden).map { ($0, $0.frame) }
+            let size = CGSize(width: width, height: 630 + 40 * index)
+            window.setContentSize(size)
+            await fixture.nextLayout()
+            #expect(content.bounds.size == size)
+            let column = pane.convert(pane.bounds, to: content)
+            #expect(column.maxX == content.bounds.maxX)
+            // The detail starts after the negotiated sidebar and the native divider.
+            #expect(column.minX >= 230 && column.minX <= 301)
+            #expect(column.height == size.height - verticalInset)
+            #expect(pane.subviews.first { !$0.isHidden }?.frame == pane.bounds)
+            for (host, frame) in hidden {
+                #expect(host.isHidden && host.frame == frame)
+            }
+            sections.append(sections.removeFirst())
+            for section in sections {
+                fixture.session.showSection(section)
+                await fixture.nextLayout()
+                let host = try #require(hosts[section])
+                #expect(pane.convert(pane.bounds, to: content) == column)
+                #expect(
+                    !host.isHidden && host.frame == pane.bounds, "\(width), \(section): \(host.frame), \(pane.bounds)")
+            }
         }
     }
 
@@ -87,16 +133,20 @@ struct BandEditorGeometryTests {
             window.orderFrontRegardless()
         }
 
+        func nextLayout() async {
+            await withCheckedContinuation { continuation in
+                RunLoop.main.perform(inModes: [.default]) { continuation.resume() }
+                CFRunLoopWakeUp(CFRunLoopGetMain())
+            }
+            window.contentView?.layoutSubtreeIfNeeded()
+            window.displayIfNeeded()
+        }
+
         func waitForFrames(_ keys: [String]) async throws {
             let deadline = ContinuousClock.now + .seconds(10)
             var previous: [String: CGRect] = [:]
             while ContinuousClock.now < deadline {
-                await withCheckedContinuation { continuation in
-                    RunLoop.main.perform(inModes: [.default]) { continuation.resume() }
-                    CFRunLoopWakeUp(CFRunLoopGetMain())
-                }
-                window.contentView?.layoutSubtreeIfNeeded()
-                window.displayIfNeeded()
+                await nextLayout()
                 let frames = session.layoutFrames
                 if keys.allSatisfy({ frames[$0]?.isEmpty == false }), frames == previous { return }
                 previous = frames

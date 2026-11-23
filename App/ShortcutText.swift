@@ -2,9 +2,17 @@ import Foundation
 import SurimonoCore
 
 enum ShortcutText {
+    // Changing the app language relaunches it. Resolve only the IDs actually requested in this process.
+    private static var names: [ShortcutOperationID: String] = [:]
+
     /// The names of the print layouts break into two lines for their cards; a list row shows one line.
     static func name(_ value: ShortcutOperationID) -> String {
-        String(localized: nameResource(value)).replacingOccurrences(of: "\n", with: "")
+        if let name = names[value] { return name }
+        let key = nameResource(value).key
+        let name = Bundle.main.localizedString(forKey: key, value: key, table: nil).replacingOccurrences(
+            of: "\n", with: "")
+        names[value] = name
+        return name
     }
 
     static func nameResource(_ value: ShortcutOperationID) -> LocalizedStringResource {
