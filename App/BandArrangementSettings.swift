@@ -26,9 +26,24 @@ struct BandArrangementSettings: View {
         }
     }
 
+    private var partsRow: some View {
+        @Bindable var preferences = session.preferences
+        return HStack(spacing: 10) {
+            Text("Parts").fixedSize()
+            Picker("Parts", selection: $preferences.bandNames) {
+                Text("Icons and Names").tag(BandLayout.Names.shown)
+                Text("Icons Only").tag(BandLayout.Names.hidden)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize()
+        }
+    }
+
     private var editorScroll: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
+                partsRow.settingSearchRow("Parts")
                 if session.needsRecovery { RecoveryNotice(session: session).settingSearchRow("Start Over") }
                 RepairNotice(notices: session.preferences.bandArrangementNotices)
                 if session.hasConflict { ConflictNotice(session: session).settingSearchRow("Use Saved") }
@@ -686,7 +701,9 @@ private struct EntryChip: View {
             SeparatorMark(isIdle: isIdle)
         case .part(let item):
             HStack(spacing: 6) {
-                BandPartGlyph(item: item, besideName: showsName)
+                BandPartGlyph(
+                    item: item, besideName: showsName,
+                    iconOnly: !showsName && session.preferences.bandNames == .hidden)
                 if showsName {
                     Text(verbatim: name).font(.system(size: 12)).foregroundStyle(PrintPalette.ink)
                         .lineLimit(2)

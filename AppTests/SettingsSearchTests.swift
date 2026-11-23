@@ -4,6 +4,13 @@ import Testing
 
 @MainActor
 struct SettingsSearchTests {
+    @Test("アイコンと部品の表示を検索するとツールバーの配置の先頭行が見つかる", arguments: ["icon", "アイコン", "Parts", "部品の表示"])
+    func bandNames(query: String) {
+        let labels = ["Parts": "部品の表示", "Icons and Names": "アイコンと名前", "Icons Only": "アイコンのみ"]
+        let hits = SettingsCatalogue.search(query, in: SettingsCatalogue.rows, localize: { labels[$0] ?? $0 })
+        #expect(hits.rows.contains { $0.section == .toolbarArrangement && $0.anchor == "Parts" })
+    }
+
     @Test("一般の検索結果は画面と同じ順で、見出しで検索すると配下の各行を強調する")
     func generalGroups() {
         let documents = [

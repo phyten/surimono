@@ -16,6 +16,7 @@
 
 | 概念 | 確かめるキー | en | ja | de | es | fr | ko | zh-Hans | zh-Hant |
 |---|---|---|---|---|---|---|---|---|---|
+| 最近使ったファイルがないときの表示 | `No Recent Files` | No Recent Files | 最近使ったファイルはありません | Keine zuletzt verwendeten Dateien | No hay archivos recientes | Aucun fichier récent | 최근 파일 없음 | 没有最近使用的文件 | 沒有最近使用的檔案 |
 | 複数の文書をまとめたもの | `Binder` | Binder | 合本 | Sammelband | Compilación | Recueil | 합본 | 合订本 | 合訂本 |
 | 複数の画像をまとめたもの | `Opens as an image bundle in another window` | image bundle | 画像の束 | Bilderstapel | lote de imágenes | lot d’images | 이미지 묶음 | 图像集 | 影像集 |
 | 用紙を並べて刷る画面 | `Open the print screen` | print screen | 印刷画面 | Druckbildschirm | pantalla de impresión | écran d’impression | 인쇄 화면 | 打印界面 | 列印畫面 |
@@ -36,6 +37,7 @@
 | ページの一覧 | `Pages Tab` | Pages | ページ | Seiten | Páginas | Pages | 페이지 | 页 | 頁 |
 | 覚えた場所 | `Bookmarks` | Bookmarks | しおり | Lesezeichen | Marcadores | Signets | 책갈피 | 书签 | 書籤 |
 | 窓の上下の操作の帯 | `Toolbar` | Toolbar | ツールバー | Symbolleiste | Barra de herramientas | Barre d’outils | 도구 막대 | 工具栏 | 工具列 |
+| ツールバーの部品の表示 | `Parts` | Parts | 部品の表示 | Teile | Piezas | Éléments | 부품 | 部件 | 部件 |
 | 別の形式で保存すること | `Export` | Export | 書き出す | Exportieren | Exportar | Exporter | 내보내기 | 导出 | 輸出 |
 | アプリを新しくすること | `Updates` | Updates | アップデート | Updates | Actualizaciones | Mises à jour | 업데이트 | 更新 | 更新 |
 | 取り除く要素の決まり | `Preset` | Preset | プリセット | Voreinstellung | Preajuste | Préréglage | 프리셋 | 预设 | 預設 |

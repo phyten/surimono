@@ -1,16 +1,21 @@
 import Foundation
 
 public enum OrgConverter {
+    package static let contentsLimitIssue = "Table of contents size limit reached"
+
     /// On a stack of known size, so a document reads the same on every thread.
-    public static func convert(_ text: String) -> HTMLFragment {
+    /// `defaults` decide what the document's own `#+OPTIONS:` lines leave open.
+    public static func convert(_ text: String, defaults: OrgReadingDefaults = .surimono) -> HTMLFragment {
         StackSpace.onLargeStack {
-            let (fragment, reachedLimit) = StackSpace.collectingLimit { convertInPlace(text) }
+            let (fragment, reachedLimit) = StackSpace.collectingLimit { convertInPlace(text, defaults: defaults) }
             return fragment.notingLimit(reachedLimit)
         }
     }
 
-    private static func convertInPlace(_ text: String) -> HTMLFragment {
-        var parser = OrgParser(lines: TextDecoding.normalizeNewlines(text).components(separatedBy: "\n"))
+    private static func convertInPlace(_ text: String, defaults: OrgReadingDefaults) -> HTMLFragment {
+        var parser = OrgParser(
+            lines: TextDecoding.normalizeNewlines(text).components(separatedBy: "\n"),
+            context: OrgContext(defaults: defaults))
         // Discover forward declarations before rendering headings or numbering any references.
         parser.context.discovering = true
         _ = parser.render()
@@ -19,6 +24,7 @@ public enum OrgConverter {
         }
         parser.context.discovering = false
         parser.context.anonymous = 0
+        parser.context.reading = parser.context.options.resolved(over: defaults)
         parser.index = 0
         var titleBlock = ""
         for (key, tag) in [("TITLE", "h1"), ("SUBTITLE", "p"), ("AUTHOR", "p"), ("DATE", "p")] {
@@ -28,12 +34,34 @@ public enum OrgConverter {
             }
         }
         if !titleBlock.isEmpty { titleBlock = "<header class=\"org-title-block\">\(titleBlock)</header>\n" }
-        let html = titleBlock + parser.render() + parser.footnotes()
+        let content = parser.render()
+        let context = parser.context
+        let japanese = context.metadata["LANGUAGE"]?.lowercased().hasPrefix("ja") == true
+        var contents = OrgContents(
+            entries: context.outline.entries, headlineLevels: context.reading.headlineLevels,
+            title: japanese ? "目次" : "Table of Contents")
+        let depth = context.reading.tableOfContents
+        var pieces = [titleBlock]
+        if depth != .off { pieces.append(contents.table(OrgOutline.Request(depth: depth == .all ? nil : depth.limit))) }
+        // Each mark is found once, in one walk over the text, however many tables the document asks for.
+        let marked = content.components(separatedBy: "<!--\(context.contentsToken)-")
+        pieces.append(marked[0])
+        for piece in marked.dropFirst() {
+            guard let end = piece.range(of: "-->\n"), let position = Int(piece[..<end.lowerBound]),
+                context.outline.requests.indices.contains(position)
+            else { continue }
+            pieces.append(contents.table(context.outline.requests[position]))
+            pieces.append(String(piece[end.upperBound...]))
+        }
+        pieces.append(parser.footnotes())
+        let html = pieces.joined()
         // At the end of the body, so the theme's rules for the first block still find the document's first block.
         let fonts = MathRenderer.fontFaces(for: html)
         return HTMLFragment(
             body: html + (fonts.isEmpty ? "" : "<style>\n\(fonts)\n</style>\n"),
-            title: parser.context.metadata["TITLE"], language: parser.context.metadata["LANGUAGE"])
+            title: parser.context.metadata["TITLE"], language: parser.context.metadata["LANGUAGE"],
+            readingIssues: contents.omitted ? [OrgConverter.contentsLimitIssue] : [],
+            decidesHeadingNumbers: context.options.sectionNumbers != nil || context.reading.sectionNumbers != .off)
     }
 }
 
@@ -201,13 +229,61 @@ struct OrgParser {
                 let level = min(6, heading[0].count + (context.metadata["TITLE"] == nil ? 0 : 1))
                 let done = context.done.contains(
                     heading[1].split(whereSeparator: \.isWhitespace).first.map(String.init) ?? "")
-                let attribute = done ? " class=\"org-done-heading\"" : ""
-                output += "<h\(level)\(attribute)>\(renderHeading(heading[1]))</h\(level)>\n"
+                var attribute = done ? " class=\"org-done-heading\"" : ""
+                let parts = renderHeading(heading[1])
+                var number = ""
+                // Only the document's own outline is numbered and listed; a starred line inside a block or a
+                // list item is not part of it.
+                if depth == 0, context.discovering {
+                    context.outline.shallowest = min(context.outline.shallowest ?? Int.max, heading[0].count)
+                    // Known before any id is made, so a made id never takes one the document wrote further down.
+                    let properties = headingProperties(after: index)
+                    if !properties.isEmpty { context.propertiesByHeading[index] = properties }
+                    if let custom = properties["CUSTOM_ID"], !custom.isEmpty { context.outline.reserve(custom) }
+                } else if depth == 0 {
+                    let numbers = context.reading.sectionNumbers.limit > 0
+                    let anchors = context.anchorsHeadings
+                    let properties = context.propertiesByHeading[index] ?? [:]
+                    let relative = heading[0].count - (context.outline.shallowest ?? 1) + 1
+                    var listed = true
+                    // A document without numbers and without a table of contents keeps no outline at all.
+                    if numbers || anchors {
+                        let unnumbered = context.outline.unnumberedValue(level: relative, properties: properties)
+                        listed = unnumbered != "notoc"
+                        if relative <= context.reading.sectionNumbers.limit, unnumbered == nil {
+                            let next = context.outline.nextNumber(level: relative)
+                            number = "<span class=\"section-number-\(level)\">\(next)</span> "
+                        }
+                    }
+                    // The id the document wrote is a link target with or without a table of contents.
+                    let custom = properties["CUSTOM_ID"].flatMap { $0.isEmpty ? nil : context.outline.customID($0) }
+                    if anchors || custom != nil {
+                        let id =
+                            custom
+                            ?? context.outline.id(
+                                for: HTML.unescape(Self.withoutTags(Self.withoutNotes(parts.title))))
+                        let escapedID = HTML.escape(id)
+                        attribute = " id=\"\(escapedID)\"" + attribute
+                        if anchors {
+                            context.outline.entries.append(
+                                OrgOutline.Entry(
+                                    level: relative, escapedID: escapedID,
+                                    html: Self.withoutLinks(
+                                        Self.withoutNotes(Self.withoutTags(number) + parts.html)),
+                                    listed: listed))
+                        }
+                    }
+                }
+                output += "<h\(level)\(attribute)>\(number)\(parts.html)</h\(level)>\n"
                 index += 1
             } else if let directive = orgCaptures(#"^#\+([A-Za-z_]+):\s*(.*)$"#, trimmed) {
                 flush()
                 let key = directive[0].uppercased()
                 if depth == 0, context.discovering { context.directive(key, value: directive[1]) }
+                if key == "TOC", depth == 0, !context.discovering, let request = contentsRequest(directive[1]) {
+                    output += "<!--\(context.contentsToken)-\(context.outline.requests.count)-->\n"
+                    context.outline.requests.append(request)
+                }
                 if key == "CAPTION" {
                     caption = directive[1]
                 } else if key != "NAME" && !key.hasPrefix("ATTR_") {
@@ -308,7 +384,46 @@ struct OrgParser {
         }
     }
 
-    private func renderHeading(_ source: String) -> String {
+    /// The table a `#+TOC:` line asks for at this point. Lists of tables and listings are not read.
+    private func contentsRequest(_ value: String) -> OrgOutline.Request? {
+        guard let keyword = OrgOutline.keyword(value) else { return nil }
+        let entries = context.outline.entries
+        guard keyword.local, let heading = entries.last else { return OrgOutline.Request(depth: keyword.depth) }
+        return OrgOutline.Request(depth: keyword.depth, after: entries.count, level: heading.level)
+    }
+
+    /// The property drawer of the headline at `position`, which may follow one planning line.
+    private func headingProperties(after position: Int) -> [String: String] {
+        var next = position + 1
+        if next < lines.count, OrgInline.planning(lines[next].trimmingCharacters(in: .whitespaces)) != nil {
+            next += 1
+        }
+        guard next < lines.count, lines[next].trimmingCharacters(in: .whitespaces).uppercased() == ":PROPERTIES:",
+            let end = regionEnds[next]
+        else { return [:] }
+        var properties: [String: String] = [:]
+        for line in lines[(next + 1)..<end] {
+            if let property = orgCaptures(#"^\s*:([^\s:]+):\s*(.*?)\s*$"#, line) {
+                properties[property[0].uppercased()] = property[1]
+            }
+        }
+        return properties
+    }
+
+    private static func withoutNotes(_ html: String) -> String {
+        html.replacingOccurrences(
+            of: #"<sup class="footnote-ref">.*?</sup>"#, with: "", options: .regularExpression)
+    }
+
+    private static func withoutLinks(_ html: String) -> String {
+        html.replacingOccurrences(of: #"</?a(?:\s[^>]*)?>"#, with: "", options: .regularExpression)
+    }
+
+    private static func withoutTags(_ html: String) -> String {
+        html.replacingOccurrences(of: #"<[^>]*>"#, with: "", options: .regularExpression)
+    }
+
+    private func renderHeading(_ source: String) -> (html: String, title: String) {
         var text = source
         var prefix = ""
         var tags = ""
@@ -329,7 +444,8 @@ struct OrgParser {
                 + match[1].split(separator: ":").map { "<span class=\"org-tag\">\(HTML.escape(String($0)))</span>" }
                 .joined(separator: " ") + "</span>"
         }
-        return prefix + inline(text, cookies: .all) + tags
+        let title = inline(text, cookies: .all)
+        return (prefix + title + tags, title)
     }
 
     private mutating func renderTable() -> String {
@@ -536,11 +652,16 @@ struct OrgParser {
         var position = 0
         while position < context.order.count {
             let label = context.order[position]
+            position += 1
+            guard let note = context.notes[label] else { continue }
             var nested = OrgParser(
                 lines: (context.definitions[label] ?? "").components(separatedBy: "\n"),
-                depth: (context.noteDepths[label] ?? depth) + 1, context: context)
-            items += "<li id=\"fn-\(position + 1)\">\(nested.render())</li>\n"
-            position += 1
+                depth: note.depth + 1, context: context)
+            // A shifted anchor no longer encodes the printed number. Mark this series explicitly
+            // so page-bottom placement can distinguish it from a restarted or symbolic series.
+            let numbering =
+                note.id == "fn-\(note.number)" ? "" : " value=\"\(note.number)\" class=\"numbered-footnote\""
+            items += "<li id=\"\(note.id)\"\(numbering)>\(nested.render())</li>\n"
         }
         return items.isEmpty ? "" : "<section class=\"footnotes\">\n<ol>\n\(items)</ol>\n</section>\n"
     }

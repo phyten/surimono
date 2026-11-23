@@ -7,6 +7,7 @@ public struct PrintIssue: Codable, Sendable, Equatable, Identifiable {
         case nestingLimit
         /// A reader left out part of the document (a Word part, a notebook's JSON), because it nested too deeply.
         case nestingOmission
+        case contentsLimit
     }
     public enum ImageFailure: String, Codable, Sendable { case missing, folderAccess, other }
     public enum Element: String, Codable, Sendable { case table, image, figure, code, math }

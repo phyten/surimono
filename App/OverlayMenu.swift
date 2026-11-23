@@ -182,7 +182,8 @@ struct BandPlans {
                 items: widths, name: measured[.name] ?? .greatestFiniteMagnitude,
                 scrubber: model.offersScrubber && menu.bandWidth > 0 ? measured[.scrubber] : nil),
             metrics: metrics,
-            availableWidth: availableWidth ?? (menu.bandWidth > 0 ? menu.bandWidth : .greatestFiniteMagnitude))
+            availableWidth: availableWidth ?? (menu.bandWidth > 0 ? menu.bandWidth : .greatestFiniteMagnitude),
+            names: model.preferences.bandNames)
     }
 }
 
@@ -579,6 +580,16 @@ struct StyleMenu: View {
     let showsName: Bool
 
     var body: some View {
+        let title =
+            model.usesHTMLPreset && !model.usesPrintTheme
+            ? String(localized: "HTML Preset") : String(localized: "Style")
+        let description = choice(title, model.styleName)
+        control
+            .help(Text(verbatim: showsName ? title : description))
+            .accessibilityLabel(Text(verbatim: description), isEnabled: !showsName)
+    }
+
+    @ViewBuilder private var control: some View {
         if model.usesPrintTheme, model.binder == nil {
             // Print themes open the palette of samples beside the paper, where it leaves the paper in view.
             Button {
@@ -594,7 +605,6 @@ struct StyleMenu: View {
                 .selectionRule(model.isThemePalettePresented)
             }
             .fixedSize()
-            .help("Style")
         } else {
             Menu {
                 StyleMenuItems(model: model)
@@ -610,7 +620,6 @@ struct StyleMenu: View {
             .buttonStyle(.plain)
             .menuIndicator(.hidden)
             .fixedSize()
-            .help(model.usesHTMLPreset ? LocalizedStringKey("HTML Preset") : LocalizedStringKey("Style"))
         }
     }
 

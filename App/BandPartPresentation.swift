@@ -127,6 +127,7 @@ struct BandPartGlyph: View {
     let item: BandLayout.Item
     /// Beside the part's name, where the List's own label would only repeat it.
     var besideName = false
+    var iconOnly = false
 
     var sampleIssueCount: Int? { item == .beforePrinting && !besideName ? 2 : nil }
 
@@ -146,7 +147,7 @@ struct BandPartGlyph: View {
         case .transition: WithChevron(symbol: ViewOptions.Transition.scroll.symbol)
         case .zoom: Text(verbatim: "125%").font(.system(size: 11)).monospacedDigit().foregroundStyle(PrintPalette.ink)
         case .thumbnails:
-            if besideName {
+            if besideName || iconOnly {
                 symbol("square.grid.2x2")
             } else {
                 Label("Pages Tab", systemImage: "square.grid.2x2")
@@ -159,7 +160,7 @@ struct BandPartGlyph: View {
                 symbol("chevron.left")
                 symbol("chevron.right")
             }
-        case .print: PrintGlyph()
+        case .print: PrintGlyph(iconOnly: iconOnly)
         case .readingDirection, .scrollDirection, .paperOrientation, .paperSeries, .margins:
             WithChevron(symbol: item.additionalSymbol ?? "questionmark")
         case .beforePrinting:
@@ -214,10 +215,12 @@ struct BandPartGlyph: View {
 
 /// The band's Print button as a picture: vermilion is the color of printing, and it never prints from here.
 struct PrintGlyph: View {
+    var iconOnly = false
+
     var body: some View {
         HStack(spacing: 3) {
             Image(systemName: "printer").font(.system(size: 10, weight: .medium))
-            Text("Print").font(.system(size: 11, weight: .medium)).lineLimit(1)
+            if !iconOnly { Text("Print").font(.system(size: 11, weight: .medium)).lineLimit(1) }
         }
         .foregroundStyle(.white)
         .padding(.horizontal, 7)
