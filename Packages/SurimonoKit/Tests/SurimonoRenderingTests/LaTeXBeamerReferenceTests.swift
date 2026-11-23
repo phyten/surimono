@@ -68,7 +68,18 @@ func compareBeamerReference(_ pdf: PDFDocument, to reference: PDFDocument, fixtu
             let isInstitute = ["Harbour Workshop", "Paper Model Workshop"].contains(word)
             let x = isInstitute ? actual.midX - expected.midX : actual.minX - expected.minX
             #expect(abs(x) <= (isInstitute ? 1 : 2), "\(fixture) \(index + 1) \(word) 左端")
-            #expect(abs(actual.minY - expected.minY) <= 2, "\(fixture) \(index + 1) \(word) 縦位置")
+            func verticalPosition() -> String {
+                func face(in deck: PDFDocument, on sheet: PDFPage) -> String {
+                    guard let hit = deck.findString(word).first(where: { $0.pages.contains(sheet) })?.attributedString,
+                        hit.length > 0, let font = hit.attribute(.font, at: 0, effectiveRange: nil) as? NSFont
+                    else { return "?" }
+                    return "\(font.fontName)@\(font.pointSize)"
+                }
+                return
+                    "\(fixture) p\(index + 1) \(word) inkY=\(actual.minY) TeX=\(expected.minY) Δ=\(actual.minY - expected.minY)pt (±2pt) "
+                    + "font=\(face(in: pdf, on: page))/\(face(in: reference, on: tex)) scale=\(NSScreen.main?.backingScaleFactor ?? 0)"
+            }
+            #expect(abs(actual.minY - expected.minY) <= 2, "\(verticalPosition())")
         }
     }
     if fixture == "specimen" || fixture == "083" {
@@ -96,7 +107,9 @@ func compareBeamerReference(_ pdf: PDFDocument, to reference: PDFDocument, fixtu
         let actual = try paperIcon(in: pdf)
         let expected = try paperIcon(in: reference)
         #expect(abs(actual.minX - expected.minX) <= 1 && abs(actual.maxX - expected.maxX) <= 1)
-        #expect(abs(actual.minY - expected.minY) <= 1 && abs(actual.maxY - expected.maxY) <= 1)
+        #expect(
+            abs(actual.minY - expected.minY) <= 1 && abs(actual.maxY - expected.maxY) <= 1,
+            "\(fixture) p\(index + 1) icon=\(actual) TeX=\(expected)")
     }
     if fixture == "083" {
         try checkSlideRules(in: pdf, against: reference, page: 1, top: 130, bottom: 146, x: 180)
@@ -193,8 +206,10 @@ func compareBeamerReference(_ pdf: PDFDocument, to reference: PDFDocument, fixtu
         let point = try marker(pixels)
         let target = try marker(refPixels)
         #expect(abs(point.minX - target.minX) <= 1 && abs(point.maxX - target.maxX) <= 1, "箇条書きの印 \(x) の横位置")
-        #expect(abs(point.minY - target.minY) <= 1 && abs(point.maxY - target.maxY) <= 1, "箇条書きの印 \(x) の縦位置")
-        #expect(abs(point.height - target.height) <= 0.5, "箇条書きの印 \(x) の高さ")
+        #expect(
+            abs(point.minY - target.minY) <= 1 && abs(point.maxY - target.maxY) <= 1,
+            "箇条書きの印 \(x) の縦位置 \(point) TeX=\(target)")
+        #expect(abs(point.height - target.height) <= 0.5, "箇条書きの印 \(x) の高さ \(point.height) TeX=\(target.height)")
     }
     let listFonts = String(decoding: try #require(page.dataRepresentation), as: UTF8.self)
     #expect(listFonts.contains("SurimonoMathSymbols") && !listFonts.contains("LucidaGrande"))
@@ -228,7 +243,7 @@ private func checkSlideRules(
     }
     let actual = try rule(in: pdf)
     let tex = try rule(in: reference)
-    #expect(abs(actual.maxY - tex.maxY) <= 1, "スライドの横罫の上端")
+    #expect(abs(actual.maxY - tex.maxY) <= 1, "p\(index + 1) 横罫=\(actual) TeX=\(tex)")
     let thicknessTolerance: CGFloat = tex.height < 1 ? 0.15 : 0.5
     #expect(abs(actual.height - tex.height) <= thicknessTolerance, "スライドの横罫の太さ")
 }
@@ -245,5 +260,5 @@ private func checkBlockGap(
     }
     let actual = try gap(in: pdf)
     let tex = try gap(in: reference)
-    #expect(abs(actual - tex) <= 1, "「\(title)」から本文までの間隔")
+    #expect(abs(actual - tex) <= 1, "p\(index + 1) 「\(title)」→「\(body)」 間隔=\(actual) TeX=\(tex)")
 }

@@ -51,19 +51,26 @@ package enum SmallStack {
             }
             thread.stackSize = stackSize
             thread.start()
-            let (seconds, attoseconds) = limit.components
-            let nanoseconds = Int(seconds) * 1_000_000_000 + Int(attoseconds / 1_000_000_000)
-            DispatchQueue.global().asyncAfter(deadline: .now() + .nanoseconds(nanoseconds)) {
+            schedule(after: limit) {
                 once.resume(.success(.timedOut))
             }
         }
+    }
+
+    package typealias DeadlineCallback = @Sendable () -> Void
+
+    package static func schedule(after limit: Duration, _ fire: @escaping DeadlineCallback) {
+        let (seconds, attoseconds) = limit.components
+        let nanoseconds = Int(seconds) * 1_000_000_000 + Int(attoseconds / 1_000_000_000)
+        DispatchQueue.global().asyncAfter(deadline: .now() + .nanoseconds(nanoseconds), execute: fire)
     }
 
     /// Runs an asynchronous operation (the app's PDF, image and WebKit paths are asynchronous) against a deadline.
     /// A task group would wait for an operation that ignores cancellation, so the race is unstructured; on timeout
     /// the operation is cancelled and left to finish on its own.
     package static func withDeadline<Value: Sendable>(
-        limit: Duration, operation: @escaping @Sendable () async throws -> Value
+        limit: Duration, schedule: @Sendable (Duration, @escaping DeadlineCallback) -> Void = schedule(after:_:),
+        operation: @escaping @Sendable () async throws -> Value
     ) async throws -> Outcome<Value> {
         try await withCheckedThrowingContinuation { continuation in
             let once = Once(continuation)
@@ -76,9 +83,7 @@ package enum SmallStack {
                     once.resume(.failure(error))
                 }
             }
-            let (seconds, attoseconds) = limit.components
-            let nanoseconds = Int(seconds) * 1_000_000_000 + Int(attoseconds / 1_000_000_000)
-            DispatchQueue.global().asyncAfter(deadline: .now() + .nanoseconds(nanoseconds)) {
+            schedule(limit) {
                 // Cancellation may run a blocking handler on this thread. Release the caller first.
                 if once.resume(.success(.timedOut)) { task.cancel() }
             }

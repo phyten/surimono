@@ -161,6 +161,21 @@ struct LaTeXFidelityPrintingTests {
         #expect(abs(Double(actual.pixels) / Double(expected.pixels) - 1) < 0.06)
     }
 
+    // A destination can change when PDFKit serializes a decorated document. Keep source and target
+    // page numbers and coordinates for the same links at each boundary of the export.
+    private func destinations(in pdf: PDFDocument) -> String {
+        (0..<min(pdf.pageCount, 2)).map { source in
+            let links = (pdf.page(at: source)?.annotations ?? []).compactMap { annotation -> String? in
+                guard let target = (annotation.action as? PDFActionGoTo)?.destination ?? annotation.destination
+                else { return nil }
+                let index = target.page.map { pdf.index(for: $0) } ?? NSNotFound
+                let point = String(format: "(%.1f,%.1f)", Double(target.point.x), Double(target.point.y))
+                return "\(index == NSNotFound ? -1 : index + 1)@\(point)"
+            }
+            return "p\(source + 1)→" + links.prefix(12).joined(separator: ",")
+        }.joined(separator: " ")
+    }
+
     @Test("学会原稿のURLと別ページの節を枠なしでリンクする", .timeLimit(.minutes(1)))
     func conferenceLinks() async throws {
         let url = try #require(
@@ -183,7 +198,9 @@ struct LaTeXFidelityPrintingTests {
         let heading = try #require(
             pdf.findString("Checks", withOptions: .caseInsensitive).first { $0.pages.contains(second) }
         ).bounds(for: second)
-        #expect(target.page === second)
+        let stages =
+            "view[\(destinations(in: prepared.viewDocument))] export[\(destinations(in: reading))] saved[\(destinations(in: pdf))]"
+        #expect(target.page === second, "\(stages)")
         #expect(abs(target.point.y - heading.maxY) < 10)
         #expect(first.annotations.allSatisfy { ($0.border?.lineWidth ?? 0) == 0 })
     }
@@ -210,12 +227,14 @@ struct LaTeXFidelityPrintingTests {
         // A tight line must still provide the same searchable space after the minus sign.
         #expect(pdf.findString("c = h2− 2t").count == 1)
         #expect(first.string?.contains("c = h2− 2t") == true)
+        let stages =
+            "view[\(destinations(in: prepared.viewDocument))] export[\(destinations(in: decorated))] saved[\(destinations(in: pdf))]"
         let refs = try #require(pdf.findString("Spacer Card Register").first).bounds(for: last)
         #expect(
             first.annotations.contains { a in
                 guard let target = destination(a), target.page === last else { return false }
                 return abs(target.point.y - refs.maxY) < 6
-            })
+            }, "refsY=\(refs.maxY) \(stages)")
         let splitEntry = try #require(
             pdf.findString("A gauge block of folded").first ?? pdf.findString("A gauge block made of folded").first
         ).bounds(for: last)
@@ -223,18 +242,18 @@ struct LaTeXFidelityPrintingTests {
             first.annotations.contains { a in
                 guard let target = destination(a), target.page === last else { return false }
                 return abs(target.point.y - splitEntry.maxY) < 8 && abs(target.point.x - splitEntry.minX) < 150
-            })
+            }, "split=\(splitEntry) \(stages)")
         let pages = last.annotations.compactMap { a -> Int? in
             guard let target = destination(a), let page = target.page, abs(target.point.y - 720) < 5 else { return nil }
             return pdf.index(for: page) + 1
         }
-        #expect(pages == [1, 2, 1, 1, 2])
+        #expect(pages == [1, 2, 1, 1, 2], "\(stages)")
         // The figure starts at the top of the left column. The caption package's
         // destination is half a baseline above it in the saved reference PDF.
         #expect(
             first.annotations.contains { a in
                 guard let target = destination(a), target.page === last else { return false }
                 return abs(target.point.x - 58.5) < 1 && abs(target.point.y - 725.978) < 2
-            })
+            }, "\(stages)")
     }
 }

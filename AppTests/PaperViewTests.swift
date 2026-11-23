@@ -495,13 +495,24 @@ struct PaperViewTests {
         let (view, window) = try makeSinglePagePaper(document: source)
         var options = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false)
         view.configure(source, at: 0, options: options, logicalMargin: 42, showsPageNumbers: true)
-        view.goToPage(index: 2)
+        // Establish the zoom before navigating; zooming around the viewport centre can itself change
+        // PDFKit's current page in continuous mode. This test measures the following reconfiguration.
         view.setZoom(2, anchor: nil)
+        view.layoutDocumentView()
+        view.goToPage(index: 2)
+        func position() -> String {
+            let clip = view.documentView?.enclosingScrollView?.contentView.bounds ?? .zero
+            let pages = view.visiblePages.compactMap { view.document?.index(for: $0) }
+            return
+                "page=\(view.currentPageIndex) visible=\(pages) clip=\(clip) zoom=\(view.scaleFactor) screen=\(window.backingScaleFactor)"
+        }
+        let before = position()
+        try #require(view.currentPageIndex == 2, "切り替え前 \(before)")
         let originalBox = try #require(source.page(at: 2)?.bounds(for: .cropBox))
         #expect(view.document?.page(at: 2)?.bounds(for: .cropBox).height == originalBox.height - 84)
         options.joinsPages = false
         view.configure(source, at: 0, options: options, logicalMargin: 42, showsPageNumbers: false)
-        #expect(view.currentPageIndex == 2)
+        #expect(view.currentPageIndex == 2, "切り替え前 \(before)、後 \(position())")
         #expect(view.zoom == 2)
         #expect(view.document?.page(at: 2)?.bounds(for: .cropBox) == originalBox)
         #expect(source.page(at: 2)?.bounds(for: .cropBox) == originalBox)
