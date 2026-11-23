@@ -104,13 +104,42 @@ public enum FragmentChanges {
         }
     }
 
-    private static func plainLines(_ html: String) -> [String]? {
+    /// The lines of plain text as they stand in the HTML, and the text of each to compare.
+    private struct PlainLines {
+        var html: [String]
+        var text: [String]
+        /// A line break after the last line, which the lines of colored text do not carry.
+        var tail = ""
+    }
+
+    private static func plainLines(_ html: String) -> PlainLines? {
         guard html.hasPrefix(plainOpen), html.hasSuffix("</pre>") else { return nil }
         let body = html.dropFirst(plainOpen.count).dropLast(6)
-        guard !body.contains("<") else { return nil }
-        return TextDecoding.normalizeNewlines(String(body)).split(
-            separator: "\n", maxSplits: blockLimit, omittingEmptySubsequences: false
-        ).map(String.init)
+        guard body.contains("<") else {
+            let lines = TextDecoding.normalizeNewlines(String(body)).split(
+                separator: "\n", maxSplits: blockLimit, omittingEmptySubsequences: false
+            ).map(String.init)
+            return PlainLines(html: lines, text: lines)
+        }
+        // Colored source text: each line closes and reopens the spans that run through it, so a line inside a long
+        // comment can be marked alone. The text is compared without the spans, because an edit elsewhere (opening a
+        // comment) recolors lines it did not change.
+        guard let lines = SyntaxHighlighter.lines(of: body), lines.count <= blockLimit else { return nil }
+        let text = lines.map { line -> String in
+            var result = ""
+            var inTag = false
+            for character in line {
+                if character == "<" {
+                    inTag = true
+                } else if character == ">" {
+                    inTag = false
+                } else if !inTag {
+                    result.append(character)
+                }
+            }
+            return result
+        }
+        return PlainLines(html: lines, text: text, tail: body.last?.isNewline == true ? "\n" : "")
     }
 
     private static func keys(_ html: String) -> [String]? {
@@ -141,8 +170,8 @@ public enum FragmentChanges {
     public static func marks(from old: String, to new: String) -> [MarkdownMarkRequest] {
         guard old.utf8.count <= byteLimit, new.utf8.count <= byteLimit, old != new else { return [] }
         if let before = plainLines(old), let after = plainLines(new) {
-            if after.count == 1, after[0].isEmpty { return [] }
-            return changes(before, after, groupsLines: true)
+            if after.text.count == 1, after.text[0].isEmpty { return [] }
+            return changes(before.text, after.text, groupsLines: true)
         }
         guard let before = keys(old), let after = keys(new) else { return [] }
         return changes(before, after, groupsLines: false)
@@ -213,7 +242,8 @@ public enum FragmentChanges {
     /// Only the disposable layout needs IDs; leave the normal HTML byte-for-byte as the converter produced it.
     public static func identifyingBlocks(in html: String, for requests: [MarkdownMarkRequest]) -> String {
         guard !requests.isEmpty, html.utf8.count <= byteLimit else { return html }
-        if var lines = plainLines(html) {
+        if let plain = plainLines(html) {
+            var lines = plain.html
             // Each line keeps its original newline. Measuring an inline span follows even a wrapped line onto paper.
             for request in requests {
                 let parts = request.blockID.split(separator: "-")
@@ -226,7 +256,7 @@ public enum FragmentChanges {
                     lines[index] = "<span data-surimono-block=\"lines-\(first)-\(last)\">" + lines[index] + "</span>"
                 }
             }
-            return plainOpen + lines.joined(separator: "\n") + "</pre>"
+            return plainOpen + lines.joined(separator: "\n") + plain.tail + "</pre>"
         }
         let wanted = Set(requests.map(\.blockID))
         let tokens = HTMLScanner.tokens(html)

@@ -63,6 +63,41 @@ struct FragmentChangesTests {
         #expect(marks(old, consecutive) == [.init(blockID: "lines-1500-1501")])
     }
 
+    @Test("色付きのソースでは複数行コメントの途中の一行を変えてもその行だけに印を付ける")
+    func coloredSource() {
+        let lines = ["let a = 1", "/* first", "   second", "   third */", "let b = 2", ""]
+        let old = PlainTextConverter.convert(lines.joined(separator: "\n"), fileName: "a.swift").body
+        var edited = lines
+        edited[2] = "   changed"
+        let new = PlainTextConverter.convert(edited.joined(separator: "\n"), fileName: "a.swift").body
+        let only = marks(old, new)
+        #expect(only == [.init(blockID: "lines-2-2")])
+        #expect(
+            FragmentChanges.identifyingBlocks(in: new, for: only) == """
+                <pre class="surimono-plain"><span class="hl-keyword">let</span> a = <span class="hl-number">1</span>
+                <span class="hl-comment">/* first</span>
+                <span data-surimono-block="lines-2-2"><span class="hl-comment">   changed</span></span>
+                <span class="hl-comment">   third */</span>
+                <span class="hl-keyword">let</span> b = <span class="hl-number">2</span>
+                </pre>
+                """)
+    }
+
+    @Test("コメントを開いて後ろの行の色だけが変わったときは、書き換えた行だけに印を付ける")
+    func recoloredSource() {
+        let old = PlainTextConverter.convert("let a = 1\nlet b = 2\nlet c = 3\n", fileName: "a.swift").body
+        let new = PlainTextConverter.convert("let a = 1 /*\nlet b = 2\nlet c = 3\n", fileName: "a.swift").body
+        #expect(marks(old, new) == [.init(blockID: "lines-0-0")])
+    }
+
+    @Test("色付きの JSON でも行の削除は隣の行に短い印を付ける")
+    func coloredDeletion() {
+        let old = PlainTextConverter.convert("{\n  \"a\": 1,\n  \"b\": 2,\n  \"c\": 3\n}\n", fileName: "a.json").body
+        let new = PlainTextConverter.convert("{\n  \"a\": 1,\n  \"c\": 3\n}\n", fileName: "a.json").body
+        let change = marks(old, new)
+        #expect(change == [.init(blockID: "lines-2-2", isShort: true)])
+    }
+
     @Test("CSVのセルの変更と行の挿入はそれぞれ該当する一行だけに印を付ける")
     func csv() {
         let old = CSVConverter.convert("項目,数\n赤,1\n青,2").body
