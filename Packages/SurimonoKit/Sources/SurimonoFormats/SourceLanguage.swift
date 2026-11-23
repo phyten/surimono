@@ -77,7 +77,8 @@ public struct SourceLanguage: Equatable, Sendable {
         var end: String.Index
     }
 
-    /// The words of a shebang line, with quotations as `env -S` reads them. nil when a quotation is left open.
+    /// The words of a shebang line, with quotations as `env -S` reads them: a quoted word is one word and is never
+    /// split again, so `"/opt/My Tools/python3"` is one path. nil when a quotation is left open.
     private static func words(of line: Substring) -> [Word]? {
         var result: [Word] = []
         var current = ""
@@ -128,14 +129,6 @@ public struct SourceLanguage: Equatable, Sendable {
     /// is not the command: in `env -S -u ruby python3` the interpreter is python3.
     private static func environmentCommand(_ words: inout ArraySlice<Word>) -> Word? {
         while let word = words.popFirst() {
-            // A quoted string after `-S` is split again into the command and its arguments.
-            let pieces = word.text.split(whereSeparator: { $0 == " " || $0 == "\t" })
-            if pieces.count > 1 {
-                // `"NAME=a b"` is one setting whose value has a space.
-                if let first = pieces.first, !first.hasPrefix("-"), first.contains("=") { continue }
-                words = (pieces.map { Word(text: String($0), end: word.end) } + words)[...]
-                continue
-            }
             let text = word.text
             if text == "--" { return words.first }
             if text.hasPrefix("--") {
