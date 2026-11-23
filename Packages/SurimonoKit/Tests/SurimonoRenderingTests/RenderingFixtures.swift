@@ -17,10 +17,12 @@ enum RenderingFixtures {
             context.beginPDFPage(nil)
             context.setFillColor(CGColor(gray: 0, alpha: 1))
             context.fill(CGRect(x: 0, y: 0, width: 12, height: 12))
-            let text = NSAttributedString(
-                string: "\(textPrefix)\(index + 1)", attributes: [.font: NSFont.systemFont(ofSize: 20)])
-            context.textPosition = CGPoint(x: 30, y: size.height - 50)
-            CTLineDraw(CTLineCreateWithAttributedString(text), context)
+            let lines = "\(textPrefix)\(index + 1)".components(separatedBy: "\n")
+            for (row, content) in lines.enumerated() {
+                let text = NSAttributedString(string: content, attributes: [.font: NSFont.systemFont(ofSize: 20)])
+                context.textPosition = CGPoint(x: 30, y: size.height - 50 - CGFloat(row) * 25)
+                CTLineDraw(CTLineCreateWithAttributedString(text), context)
+            }
             context.endPDFPage()
         }
         context.closePDF()

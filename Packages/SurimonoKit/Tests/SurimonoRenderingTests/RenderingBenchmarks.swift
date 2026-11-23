@@ -322,6 +322,46 @@ struct PageThumbnailBenchmarks {
 
 }
 
+@Suite(.timeLimit(.minutes(1)), .enabled(if: ProcessInfo.processInfo.environment["SURIMONO_BENCH_SOURCE"] != nil))
+@MainActor
+struct SourceTypesettingBenchmarks {
+    @Test("ソースの行組み、最初と最後のページを利用できる時刻、メモリの山を測る")
+    func record() async throws {
+        let environment = ProcessInfo.processInfo.environment
+        let scenario = try #require(environment["SURIMONO_BENCH_SOURCE"])
+        let text: String
+        if scenario == "over-highlight" {
+            // 20,000 short lines and one more code unit, rather than one pathological unbroken word.
+            text = String(repeating: "let a = 1\n", count: 20_000) + "x"
+        } else {
+            let lines = try #require(Int(scenario))
+            text = (0..<lines).map { "let a = \($0)\n" }.joined()
+        }
+        let conversion = try await BenchmarkRecorder.capture {
+            let raw = PlainTextConverter.convert(text, fileName: "example.swift")
+            return CodeBlockMarkup.apply(CodeStyle(), to: raw.body, language: raw.sourceLanguage).utf8.count
+        }
+        print(
+            "SOURCE \(scenario) utf16=\(text.utf16.count) htmlBytes=\(conversion.outputCount) conversionMS=\(conversion.milliseconds) conversionPeakBytes=\(conversion.peakBytes)"
+        )
+        guard environment["SURIMONO_BENCH_SOURCE_RENDER"] == "1" else { return }
+        _ = NSApplication.shared
+        let settings = RenderSettings(
+            layout: .a4Single, theme: try #require(PrintThemeLibrary.load().first { $0.id == "standard" }),
+            preset: HTMLCleanupPreset(id: "none", name: "None"))
+        let source = DocumentSource(data: Data(text.utf8), format: .plainText).named("example.swift")
+        let pages = try await BenchmarkRecorder.capture {
+            let paper = try await DocumentRenderer().prepare(source, settings: settings).viewDocument
+            try #require(paper.page(at: 0) != nil && paper.page(at: paper.pageCount - 1) != nil)
+            return paper.pageCount
+        }
+        // The reader's prepare() publishes a single document. Both page availability events are the same return.
+        print(
+            "SOURCE \(scenario) pages=\(pages.outputCount) firstPageMS=\(pages.milliseconds) allPagesMS=\(pages.milliseconds) rendererPeakBytes=\(pages.peakBytes)"
+        )
+    }
+}
+
 private struct BenchmarkCheckpoint: Codable {
     let iteration: Int
     let bytes: UInt64

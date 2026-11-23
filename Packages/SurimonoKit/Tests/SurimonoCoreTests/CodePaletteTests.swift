@@ -461,7 +461,7 @@ struct CodeFitScriptTests {
             CodeFitScript.javaScript(
                 for: CodeStyle(block: CodeBlockOptions(longLines: .shrink)), layoutWidth: 637.8))
         #expect(script.contains("(637.8 / zoom)"))
-        #expect(script.contains("'pre.code-block > code'"))
+        #expect(script.contains("'pre.code-block:not(.surimono-source) > code'"))
     }
 
     @Test("切る印の文言は文字列として埋め込む")

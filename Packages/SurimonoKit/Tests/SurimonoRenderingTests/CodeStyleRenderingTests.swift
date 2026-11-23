@@ -224,7 +224,10 @@ struct CodeStyleRenderingTests {
         #expect(DocumentRenderer.containsCode(source("```\na\n```\n", .markdown)))
         #expect(!DocumentRenderer.containsCode(source("# 見出し\n", .markdown)))
         #expect(DocumentRenderer.containsCode(source("#+BEGIN_SRC swift\na\n#+END_SRC\n", .org)))
-        #expect(!DocumentRenderer.containsCode(source("a\nb\n", .plainText)))
+        let lines = source("a\nb\n", .plainText)
+        #expect(DocumentRenderer.containsCode(lines.named("module.swift")))
+        #expect(!DocumentRenderer.containsCode(lines.named("notes.txt")))
+        #expect(!DocumentRenderer.containsCode(lines))
         #expect(!DocumentRenderer.containsCode(source("<pre><code>a</code></pre>", .html)))
     }
 }

@@ -74,7 +74,7 @@ struct FragmentChangesTests {
         #expect(only == [.init(blockID: "lines-2-2")])
         #expect(
             FragmentChanges.identifyingBlocks(in: new, for: only) == """
-                <pre class="surimono-plain"><span class="hl-keyword">let</span> a = <span class="hl-number">1</span>
+                <pre class="surimono-source"><span class="hl-keyword">let</span> a = <span class="hl-number">1</span>
                 <span class="hl-comment">/* first</span>
                 <span data-surimono-block="lines-2-2"><span class="hl-comment">   changed</span></span>
                 <span class="hl-comment">   third */</span>
@@ -167,7 +167,7 @@ struct FragmentChangesTests {
         #expect(only == [.init(blockID: "lines-0-0")])
         #expect(
             FragmentChanges.identifyingBlocks(in: new, for: only) == """
-                <pre class="surimono-plain"><span data-surimono-block="lines-0-0"><span class="hl-keyword">let</span> a = <span class="hl-number">1</span></span>
+                <pre class="surimono-source"><span data-surimono-block="lines-0-0"><span class="hl-keyword">let</span> a = <span class="hl-number">1</span></span>
                 <span class="hl-comment">/* open</span>
                 <span class="hl-comment">still open</span>
                 </pre>

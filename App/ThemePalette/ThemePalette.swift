@@ -25,7 +25,9 @@ struct ThemePalette: View {
     static let height: CGFloat = 660
 
     private var isPrinting: Bool { model.mode == .print }
-    private var isCodeColumnShown: Bool { showsCodeColumn ?? (!isPrinting && model.themeSamples.containsCode) }
+    private var isCodeColumnShown: Bool {
+        showsCodeColumn ?? (!isPrinting && (model.sourceLanguage != nil || model.themeSamples.containsCode))
+    }
     private var hasSideColumn: Bool { isPrinting || isCodeColumnShown }
 
     var body: some View {

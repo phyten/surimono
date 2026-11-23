@@ -46,6 +46,7 @@ public final class ThemeSampler {
     private let resourceAccess: LocalResourceAccess?
     private let html: String
     private let documentLanguage: String
+    private let isSourcePage: Bool
     private let format: DocumentFormat
     private let baseURL: URL?
     private let typeface: Typeface
@@ -64,7 +65,7 @@ public final class ThemeSampler {
     private var isBusy = false
     private var isClosed = false
 
-    /// - Parameter html: A whole document as `HTMLDocumentBuilder` builds it, with exactly one style element.
+    /// - Parameter html: A whole document as `HTMLDocumentBuilder` builds it, with the theme in its first style element.
     public init(
         html: String, format: DocumentFormat = .markdown, baseURL: URL?, pageSize: CGSize,
         margins: WebPaginator.Margins, textScale: Double = 1, typeface: Typeface = .style,
@@ -74,6 +75,7 @@ public final class ThemeSampler {
         self.resourceAccess = resourceAccess
         self.html = html
         self.documentLanguage = Self.language(in: html)
+        self.isSourcePage = format == .plainText && html.contains("<pre class=\"surimono-source ")
         self.format = format
         self.baseURL = baseURL
         self.pageSize = pageSize
@@ -108,7 +110,8 @@ public final class ThemeSampler {
         let fields = [
             "theme-sample-v2", theme.id, language, sourceHash, html, format.rawValue,
             HTMLDocumentBuilder.styleSheet(
-                theme: theme, textScale: textScale, typeface: typeface, code: code, language: documentLanguage),
+                theme: theme, textScale: textScale, typeface: typeface, code: code, language: documentLanguage,
+                sourcePage: isSourcePage),
             theme.script ?? "",
             String(Double(pageSize.width)), String(Double(pageSize.height)),
             String(Double(effectiveMargins.top)), String(Double(effectiveMargins.left)),
@@ -207,7 +210,7 @@ public final class ThemeSampler {
             session = try await openSession()
             hasPaper = try await apply(theme, in: session.webView)
         }
-        if theme.flow == .vertical {
+        if theme.flow == .vertical && !isSourcePage {
             // Measuring moves the body into a strip. A new session gives the next theme its original DOM.
             defer { resetSessions() }
             let sample = try await VerticalPaginator.pages(
@@ -429,7 +432,8 @@ public final class ThemeSampler {
             return document.documentElement.getBoundingClientRect().height;
             """
         var css = HTMLDocumentBuilder.styleSheet(
-            theme: theme, textScale: textScale, typeface: typeface, code: code, language: documentLanguage)
+            theme: theme, textScale: textScale, typeface: typeface, code: code, language: documentLanguage,
+            sourcePage: isSourcePage)
         if documentMargins != nil, theme.formats == [.latex] || marginMode?.applies(to: theme) == true {
             css += RenderSettings.documentWidthCSS
         }
@@ -638,11 +642,14 @@ extension DocumentRenderer {
                 })
         else { return nil }
         let directory = source.fileURL?.deletingLastPathComponent()
-        let html = HTMLDocumentBuilder.build(
+        let html = try HTMLDocumentBuilder.build(
             fragment: fragment, format: source.format, theme: settings.theme, baseURL: directory,
             language: settings.pageLanguage,
             textScale: settings.textScale, typeface: settings.typeface, removesPaper: removesPaper,
-            finish: settings.finish.styleSheet, code: settings.code)
+            finish: settings.finish.styleSheet, code: settings.code
+        ) {
+            try PageLayoutLimits.checkHTML(bytes: $0, sourceBytes: source.data.count)
+        }
         try PageLayoutLimits.checkHTML(bytes: html.utf8.count, sourceBytes: source.data.count)
         // A slide specimen already carries its own paper and text margins, just like the printed deck.
         let slideSize = fragment.latexClass?.beamerPageSize
