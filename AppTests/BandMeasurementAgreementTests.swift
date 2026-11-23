@@ -45,7 +45,9 @@ struct BandMeasurementAgreementTests {
         let window: NSWindow
 
         /// A Markdown file named as in the screenshots, with the given parts before Print at the top right of Split.
-        init(parts: [BandLayout.Item], width: CGFloat, corners: CornerPreset = .standard) throws {
+        init(parts: [BandLayout.Item], width: CGFloat, corners: CornerPreset = .standard, imageBundle: Bool = false)
+            throws
+        {
             let preferences = AppPreferences(defaults: defaults.defaults)
             preferences.corners = corners
             preferences.menuArrangement = .split
@@ -55,12 +57,19 @@ struct BandMeasurementAgreementTests {
             }
             try preferences.saveBandArrangement(.init(name: "Parts", layouts: layouts))
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-            let url = directory.appendingPathComponent("booklet-demo.md")
-            let data = Data("# Toolbar\n\nA paragraph to paginate.\n".utf8)
+            let url = directory.appendingPathComponent(imageBundle ? "A.png" : "booklet-demo.md")
+            let data = imageBundle ? TestFixtures.png(red: 0) : Data("# Toolbar\n\nA paragraph to paginate.\n".utf8)
+            var bundle: ImageBundleModel?
+            if imageBundle {
+                let second = directory.appendingPathComponent("B.png")
+                try TestFixtures.png(red: 1).write(to: second)
+                bundle = ImageBundleModel(urls: [url, second])
+            }
             try data.write(to: url)
             model = DocumentViewModel(
-                data: data, fileURL: url, format: .markdown, preferences: preferences,
+                data: data, fileURL: url, format: imageBundle ? .image : .markdown, preferences: preferences,
                 library: UserLibrary(root: directory.appendingPathComponent("Library")),
+                imageBundle: bundle,
                 settingsStore: DocumentSettingsStore(directory: directory.appendingPathComponent("Settings")))
             model.isolateBandTestOutput()
             menu.hasReadTrafficLights = true
@@ -129,6 +138,41 @@ struct BandMeasurementAgreementTests {
     nonisolated private static let sixParts: [BandLayout.Item] = [
         .readingDirection, .scrollDirection, .paperOrientation, .margins, .printSettings, .saveAsFile,
     ]
+
+    @Test("画像の束では実測した文字つきの入口が先にアイコンになり、描画幅も実測幅に合う")
+    func measuredBundleEntry() async throws {
+        let fixture = try Fixture(parts: [], width: 1000, imageBundle: true)
+        defer { fixture.close() }
+        fixture.model.start()
+        for _ in 0..<500 where !fixture.model.isUpToDate { try await Task.sleep(for: .milliseconds(20)) }
+        try #require(fixture.model.pageCount == 2)
+        try await settle(fixture, width: 1000)
+        let full = try #require(fixture.menu.bandWidths[.item(.thumbnails, .full)])
+        let compact = try #require(fixture.menu.bandWidths[.item(.thumbnails, .compact)])
+        try #require(full > compact && compact > 0)
+        let row = try #require(fixture.plan?.bottom)
+        #expect(row.forms[.thumbnails] == .full)
+        let frame = try #require(fixture.model.bandAnchors.frames[.item(.thumbnails)])
+        let layout = try #require(fixture.model.bandAnchors.frames[.item(.layout)])
+        #expect(abs(frame.width - full) <= 1 && frame.maxX <= layout.minX)
+        try #require(row.showsScrubber)
+        try await settle(fixture, width: row.requiredWidth.rounded(.up) - 1)
+        #expect(fixture.plan?.bottom?.showsScrubber == false)
+        #expect(fixture.plan?.bottom?.forms[.thumbnails] == .full)
+
+        // Use the measured labels for this locale to locate the fold, then actually resize and draw it.
+        let width = try #require(
+            (1...1000).reversed().first { width in
+                BandPlans(model: fixture.model, menu: fixture.menu, availableWidth: CGFloat(width))
+                    .bottom?.forms[.thumbnails] == .compact
+            })
+        // The window cannot be made this narrow (its minimum keeps the paper readable), so the compact entry is not
+        // drawn here; the plan built from the real measurements is what decides it.
+        let plan = try #require(
+            BandPlans(model: fixture.model, menu: fixture.menu, availableWidth: CGFloat(width)).bottom)
+        #expect(plan.forms[.thumbnails] == .compact)
+        #expect(plan.forms[.layout] == .full)
+    }
 
     @Test("新しい部品を6つ置いた帯は、ファイル名を切る前に新しい部品を絵だけにする")
     func addedPartsYieldBeforeName() async throws {

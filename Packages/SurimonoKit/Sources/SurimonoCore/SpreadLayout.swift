@@ -70,3 +70,31 @@ public enum PageIndicator {
         return "\(shown) / \(pageCount)"
     }
 }
+
+extension SpreadLayout {
+    /// Zero-based cells in physical left-to-right order. A narrow drawer always follows reading order.
+    public static func drawerRows(
+        pageCount: Int, showsCoverAlone: Bool, direction: ViewOptions.Direction, columns: Int
+    ) -> [[Int?]] {
+        let units = units(
+            pageCount: pageCount, layout: columns == 1 ? .single : .spread,
+            showsCoverAlone: showsCoverAlone, direction: direction)
+        return units.map { unit in
+            switch unit {
+            case .single(let page): [page - 1]
+            case .spread(let left, let right): [left.map { $0 - 1 }, right.map { $0 - 1 }]
+            }
+        }
+    }
+
+    public static func verticalNeighbor(of page: Int, down: Bool, in rows: [[Int?]]) -> Int {
+        guard let row = rows.firstIndex(where: { $0.contains(page) }),
+            let column = rows[row].firstIndex(of: page)
+        else { return page }
+        let next = row + (down ? 1 : -1)
+        guard rows.indices.contains(next) else { return page }
+        let neighbors = rows[next]
+        if neighbors.indices.contains(column), let aligned = neighbors[column] { return aligned }
+        return neighbors.compactMap { $0 }.first ?? page
+    }
+}

@@ -51,11 +51,11 @@ final class BinderModel {
     private var sources: [URL: DocumentSource] = [:]
     private var leases: [URL: FolderAccess.Lease] = [:]
     private var scopedURLs: Set<URL> = []
-    private let read: @Sendable (URL) throws -> Data
+    private let read: @Sendable (URL, DocumentFormat) throws -> Data
 
     init(
         urls: [URL], excluded: [URL] = [],
-        read: @escaping @Sendable (URL) throws -> Data = { try SourceFileOpening.read($0) }
+        read: @escaping @Sendable (URL, DocumentFormat) throws -> Data = { try SourceFileOpening.read($0, format: $1) }
     ) {
         self.read = read
         origin = .files
@@ -67,7 +67,7 @@ final class BinderModel {
     /// own, so it is remembered like one made by hand.
     init(
         orderedURLs urls: [URL], excluded: [URL] = [],
-        read: @escaping @Sendable (URL) throws -> Data = { try SourceFileOpening.read($0) }
+        read: @escaping @Sendable (URL, DocumentFormat) throws -> Data = { try SourceFileOpening.read($0, format: $1) }
     ) {
         self.read = read
         origin = .files
@@ -93,9 +93,9 @@ final class BinderModel {
         let parent = plan.parent
         let root = plan.root
         let named = Set(plan.documents)
-        read = { url in
+        read = { url, format in
             if url == parent { return MarkdownIncludes.prefaceData(try Data(contentsOf: url)) }
-            return try SourceFileOpening.read(url, within: named.contains(url) ? root : nil)
+            return try SourceFileOpening.read(url, format: format, within: named.contains(url) ? root : nil)
         }
         origin = .parent(parent, hasPreface: plan.hasPreface, documents: plan.documents)
         excludedURLs = plan.excluded
@@ -280,7 +280,7 @@ final class BinderModel {
                         .hashed()
                 } else if let cached = known[item.url] {
                     loaded[item.url] = cached
-                } else if let data = try? read(item.url),
+                } else if let data = try? read(item.url, item.format),
                     // What was text when it joined can be a video or a binary property list by now.
                     !SourceFileOpening.refuses(data, at: item.url, format: item.format)
                 {

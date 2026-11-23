@@ -20,8 +20,12 @@ final class DropSession {
     private(set) var insertion: Int?
     /// Where the line between the rows goes, for `insertion`.
     private(set) var insertionY: CGFloat?
-    /// Two columns have a gap on either side of each thumbnail, including the last visible one.
-    @ObservationIgnored var usesPageGrid = false
+    struct PageGrid: Equatable {
+        let readable: [URL]
+        let columns: Int
+        let rightToLeft: Bool
+    }
+    @ObservationIgnored var pageGrid: PageGrid?
     private(set) var gridInsertionLine: CGRect?
     var size: CGSize = .zero
     /// The rows of the open list in order, in the window's coordinates.
@@ -79,23 +83,43 @@ final class DropSession {
             insertionY = nil
             return
         }
-        let frames = rows.map { rowFrames[$0] }
-        if usesPageGrid {
-            let candidates = frames.enumerated().compactMap { index, rect in rect.map { (index, $0) } }
-            if let (index, frame) = candidates.min(by: {
-                hypot($0.1.midX - point.x, $0.1.midY - point.y) < hypot($1.1.midX - point.x, $1.1.midY - point.y)
-            }) {
-                let after = point.y > frame.maxY || (point.y >= frame.minY && point.x >= frame.midX)
-                insertion = min(index + (after ? 1 : 0), rows.count)
-                insertionY = nil
-                gridInsertionLine = CGRect(
-                    x: after ? frame.maxX : frame.minX, y: frame.minY, width: 2, height: frame.height)
-                return
-            }
+        if let pageGrid {
+            placeGridInsertion(at: point, in: pageGrid)
+            return
         }
+        let frames = rows.map { rowFrames[$0] }
         let gap = Self.insertion(at: point.y, rows: frames)
         insertion = gap.index
         insertionY = gap.y
+    }
+
+    private func placeGridInsertion(at point: CGPoint, in grid: PageGrid) {
+        insertion = nil
+        insertionY = nil
+        // A tile owns both half-gutters. A blank cover cell has no tile and must not accept a file.
+        let drawn = grid.readable.enumerated().compactMap { index, url in rowFrames[url].map { (index, $0) } }
+        guard let first = drawn.first, let last = drawn.last else { return }
+        let page: Int
+        let frame: CGRect
+        let local: CGPoint
+        if let hit = drawn.first(where: { $0.1.contains(point) }) {
+            (page, frame) = hit
+            local = CGPoint(x: point.x - frame.minX, y: point.y - frame.minY)
+        } else if point.y < first.1.minY {
+            (page, frame) = first
+            local = CGPoint(x: grid.rightToLeft ? frame.width : 0, y: 0)
+        } else if point.y >= last.1.maxY {
+            (page, frame) = last
+            local = CGPoint(x: grid.rightToLeft ? 0 : frame.width, y: frame.height)
+        } else {
+            zone = nil
+            return
+        }
+        let placement = PageGridInsertion(
+            point: local, tile: frame.size, columns: grid.columns, rightToLeft: grid.rightToLeft)
+        let gap = PageGridGap(readable: grid.readable, page: page, after: placement.after)
+        insertion = gap.anchor.flatMap { rows.firstIndex(of: $0) } ?? rows.count
+        gridInsertionLine = placement.line.offsetBy(dx: frame.minX, dy: frame.minY)
     }
 
     /// The gap nearest to `y`. A row the list has not drawn yet keeps its place in the count without a frame.

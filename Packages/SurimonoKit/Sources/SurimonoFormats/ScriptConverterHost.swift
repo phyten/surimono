@@ -52,6 +52,8 @@ final class ScriptConverterHost: @unchecked Sendable {
         /// Points on a conversion's thread where a test can hold it or learn that it got there.
         enum Point: Sendable { case loaded, finished }
 
+        /// Lets a test observe calls to the bundled parser before the bridge wraps it.
+        var beforeBridge: String?
         /// A script run after the bridge in every new context.
         var script: String?
         /// Called on the conversion's thread at each `Point`.
@@ -60,8 +62,10 @@ final class ScriptConverterHost: @unchecked Sendable {
         var givesUp: (@Sendable () -> Bool)?
 
         init(
-            script: String? = nil, hook: (@Sendable (Point) -> Void)? = nil, givesUp: (@Sendable () -> Bool)? = nil
+            beforeBridge: String? = nil, script: String? = nil, hook: (@Sendable (Point) -> Void)? = nil,
+            givesUp: (@Sendable () -> Bool)? = nil
         ) {
+            self.beforeBridge = beforeBridge
             self.script = script
             self.hook = hook
             self.givesUp = givesUp
@@ -122,6 +126,7 @@ final class ScriptConverterHost: @unchecked Sendable {
         }
         context.evaluateScript(module)
         guard context.exception == nil else { throw CocoaError(.executableLoad) }
+        if let script = testing?.beforeBridge { context.evaluateScript(script) }
         context.evaluateScript(try script(bridge))
         guard context.exception == nil else { throw CocoaError(.executableLoad) }
         if let script = testing?.script { context.evaluateScript(script) }

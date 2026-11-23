@@ -106,9 +106,7 @@ struct ExportPDFIntent: AppIntent {
 
     @Parameter(
         title: LocalizedStringResource("File", table: "Shortcuts"),
-        supportedContentTypes: [
-            .text, .html, .pdf, .image, .commaSeparatedText, .tabSeparatedText,
-        ])
+        supportedContentTypes: [.data])
     var file: IntentFile
 
     @Parameter(
@@ -174,9 +172,7 @@ struct OpenInPrintModeIntent: AppIntent {
 
     @Parameter(
         title: LocalizedStringResource("Files", table: "Shortcuts"),
-        supportedContentTypes: [
-            .text, .html, .pdf, .image, .commaSeparatedText, .tabSeparatedText, .zip,
-        ])
+        supportedContentTypes: [.data])
     var files: [IntentFile]
 
     static var parameterSummary: some ParameterSummary {

@@ -183,7 +183,7 @@ extension DocumentViewModel {
         let plan = DropPlan(urls: urls, receiver: dropReceiver)
         drop.hasList = binder != nil || imageBundle != nil
         drop.begin(plan, rows: binder?.urls ?? imageBundle?.urls ?? [], at: point)
-        guard case .refuse = plan.choice else { return true }
+        guard case .refuse = plan.choice else { return drop.zone != nil }
         flashList(plan.alreadyIn)
         return false
     }

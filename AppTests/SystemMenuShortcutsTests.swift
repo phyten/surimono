@@ -81,7 +81,7 @@ struct SystemMenuShortcutsTests {
         func document(kind: String = "document", printMode: Bool = false) -> DocumentViewModel {
             let binder =
                 kind == "binder"
-                ? BinderModel(orderedURLs: [directory.appendingPathComponent("a.md")], read: { _ in Data() }) : nil
+                ? BinderModel(orderedURLs: [directory.appendingPathComponent("a.md")], read: { _, _ in Data() }) : nil
             let bundle = kind == "images" ? ImageBundleModel(urls: [directory.appendingPathComponent("a.png")]) : nil
             let model = DocumentViewModel(
                 data: kind == "clipboard" ? Data("# Clipboard".utf8) : Data(),

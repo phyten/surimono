@@ -7,7 +7,7 @@ enum SourceFileError: LocalizedError, Equatable {
     /// A video under `.ts` or a binary property list: the extension of a text file on a file that is not text.
     case notText
 
-    var errorDescription: String? { String(localized: "This file is not text, so Surimono cannot show it.") }
+    var errorDescription: String? { String(localized: "This is not a text file, so it cannot be displayed.") }
 }
 
 /// How one file is opened and read. `TextFileGate` reads the beginning of the files whose name does not settle what
@@ -46,16 +46,19 @@ enum SourceFileOpening {
     /// The contents of a file a window or a binder shows, read again after the first time. A file of a kind the
     /// gate looks at is checked and read through one descriptor, so a video put in a `.ts` file's place is turned
     /// away before it is loaded, and what was checked is what is read. With `root`, the file must lie under it.
-    nonisolated static func read(_ url: URL, within root: String? = nil) throws -> Data {
-        let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType
-        guard TextFileGate.concerns(fileName: url.lastPathComponent, type: type) else {
-            return try root.map { try ConfinedFile.read(url, within: $0) } ?? Data(contentsOf: url)
+    nonisolated static func read(_ url: URL, format: DocumentFormat, within root: String? = nil) throws -> Data {
+        if format == .plainText {
+            let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType
+            if TextFileGate.concerns(fileName: url.lastPathComponent, type: type) {
+                do {
+                    return try TextFileGate.read(url, within: root, maximumSize: PageLayoutLimits.plainTextBytes)
+                } catch is TextFileGate.Refusal {
+                    throw SourceFileError.notText
+                }
+            }
         }
-        do {
-            return try TextFileGate.read(url, within: root, maximumSize: PageLayoutLimits.plainTextBytes)
-        } catch is TextFileGate.Refusal {
-            throw SourceFileError.notText
-        }
+        if let root { return try ConfinedFile.read(url, within: root) }
+        return try ConfinedFile.read(url)
     }
 
     /// Whether bytes read for a plain text document must not be shown: the gate's answer for the file's own name
