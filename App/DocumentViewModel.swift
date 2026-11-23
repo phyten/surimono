@@ -1964,10 +1964,12 @@ final class DocumentViewModel {
         dropSpot()
         guard mode != .print else { return }
         guard mode == .view, isWebPresentation || isCapturingWeb || webCaptureFailed else { return showPrintTray() }
-        // The tray prints the page as it is now.
+        // The tray prints the page as it is now. One request waits for the copy at a time, and it opens the tray
+        // only if the reader has not chosen something else since.
+        guard !(isCapturingWeb && captureOpensTray) else { return }
         captureOpensTray = true
         captureWeb { [weak self] outcome in
-            guard let self else { return }
+            guard let self, captureOpensTray else { return }
             captureOpensTray = false
             if outcome == .failed {
                 outputAfterReview = nil
@@ -2189,6 +2191,8 @@ final class DocumentViewModel {
         // The review outlines parts of the paper.
         setHTMLPresentation(.paper)
         outputAfterReview = nil
+        // A tray waiting for the copy would close the review as soon as the copy arrived.
+        captureOpensTray = false
         if mode == .print { exitPrintMode() }
         isReviewingSmartRemoval = true
     }
