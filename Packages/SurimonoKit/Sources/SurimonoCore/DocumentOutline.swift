@@ -30,9 +30,15 @@ extension DocumentOutline {
             index.exclude(sourceContents)
         }
         var cursor = 0
+        // The exclusions are final and the cursor only moves forward, so a miss stays a miss.
+        var missingTargets: Set<String> = []
         return headings.map { heading in
             let target = normalized(heading.text)
-            guard !target.isEmpty, let match = index.firstMatch(of: target, from: cursor) else { return nil }
+            guard !target.isEmpty, !missingTargets.contains(target) else { return nil }
+            guard let match = index.firstMatch(of: target, from: cursor) else {
+                missingTargets.insert(target)
+                return nil
+            }
             cursor = match.end
             return match.page
         }
@@ -49,7 +55,11 @@ extension DocumentOutline {
         // Alternating lower and upper bounds of gaps where this label might be an unlocated table entry.
         private var uncertainBounds: [String: [Int]] = [:]
 
+        /// Shared across all tables, including candidate enumeration, sorting and exclusion.
+        private let contentsBudget: Int
+
         init(pages: [String]) {
+            contentsBudget = 256 + 64 * pages.reduce(0) { $0 + $1.utf8.count }
             for (page, text) in pages.enumerated() {
                 for line in text.components(separatedBy: .newlines) {
                     let forms = Self.forms(of: line)
@@ -91,25 +101,57 @@ extension DocumentOutline {
 
         private enum Location {
             case found(Range<Int>)
-            case ambiguous([Range<Int>])
+            case ambiguous([Range<Int>], Query)
             case missing
-            case exhausted
+            case alreadyHandled
         }
 
+        private struct Query: Hashable {
+            let labels: [String]
+            let captions: [String]
+            let before: String
+            let after: String
+        }
+
+        private enum SearchLimit: Error { case exhausted }
+
         private struct Cursor {
+            var remaining: Int
+            // Anchor occurrences belong to the whole document. Completed searches belong to the current floor.
+            var anchors: [String: [Range<Int>]] = [:]
+            var handledQueries: Set<Query> = []
             var line = 0
             var aligned = true
             var missing: Set<String> = []
+
+            mutating func spend(_ units: Int) throws {
+                guard units <= remaining, remaining > 0 else {
+                    remaining = 0
+                    throw SearchLimit.exhausted
+                }
+                remaining -= units
+            }
+
+            mutating func spendSort(_ count: Int) throws {
+                try spend(count * (Int.bitWidth - count.leadingZeroBitCount))
+            }
+
+            mutating func advance(to end: Int) {
+                line = end
+                aligned = true
+                missing.removeAll()
+                handledQueries.removeAll()
+            }
         }
 
         mutating func exclude(_ blocks: [SourceContents]) {
-            var cursor = Cursor()
+            var cursor = Cursor(remaining: contentsBudget)
             for block in blocks { exclude(Table(block.entries.map(normalized)), block: block, cursor: &cursor) }
             recordGap(cursor, until: lines.count)
         }
 
         mutating func exclude(_ entries: [String]) {
-            var cursor = Cursor()
+            var cursor = Cursor(remaining: contentsBudget)
             for labels in entries.split(separator: "") { exclude(Table(Array(labels)), block: nil, cursor: &cursor) }
             recordGap(cursor, until: lines.count)
         }
@@ -123,28 +165,41 @@ extension DocumentOutline {
 
         private mutating func exclude(_ table: Table, block: SourceContents?, cursor: inout Cursor) {
             guard !table.labels.isEmpty else { return }
-            if let block, cursor.aligned, let start = endOfPrefix(normalized(block.precedingText), from: cursor.line) {
-                var budget = candidateBudget(table)
-                if let end = match(table, at: start, ordered: true, budget: &budget)
-                    ?? match(table, at: start, ordered: false, budget: &budget)
-                {
-                    excluded.formUnion(start..<end)
-                    cursor.line = end
-                    return
-                }
+            guard cursor.remaining > 0 else {
+                cursor.missing.formUnion(table.labels)
+                return
             }
-            cursor.aligned = false
-            switch locate(table, from: cursor.line, block: block) {
-            case .found(let range):
-                recordGap(cursor, until: range.lowerBound)
-                excluded.formUnion(range)
-                cursor = Cursor(line: range.upperBound)
-            case .ambiguous(let candidates):
-                for range in candidates { excluded.formUnion(range) }
-            case .missing where block == nil:
-                // A legacy flat list can also describe a table which was never printed.
-                break
-            case .missing, .exhausted:
+            do {
+                let location: Location
+                if let block, cursor.aligned,
+                    let start = endOfPrefix(normalized(block.precedingText), from: cursor.line),
+                    let match = try? candidate(table, at: start, positioned: true, cursor: &cursor)
+                {
+                    location = .found(start..<match.end)
+                } else {
+                    location = try locate(table, block: block, cursor: &cursor)
+                }
+                cursor.aligned = false
+                switch location {
+                case .found(let range):
+                    try cursor.spend(range.count)
+                    recordGap(cursor, until: range.lowerBound)
+                    excluded.formUnion(range)
+                    cursor.advance(to: range.upperBound)
+                case .ambiguous(let candidates, let query):
+                    for range in candidates {
+                        try cursor.spend(range.count)
+                        excluded.formUnion(range)
+                    }
+                    cursor.handledQueries.insert(query)
+                case .alreadyHandled: break
+                case .missing:
+                    // The legacy flat list can describe a table which was never printed.
+                    if block != nil { cursor.missing.formUnion(table.labels) }
+                }
+            } catch {
+                // A partial search cannot certify a unique candidate.
+                cursor.aligned = false
                 cursor.missing.formUnion(table.labels)
             }
         }
@@ -164,24 +219,20 @@ extension DocumentOutline {
 
         /// Recover this table independently. A neighbouring body block can locate a titleless local table
         /// from either side. Without a position, only a unique run in source order is evidence.
-        private func locate(_ table: Table, from floor: Int, block: SourceContents?) -> Location {
-            let captions = block.map { [normalized($0.caption)] } ?? ["目次", "Contents", "TableofContents"]
-            let before = normalized(block?.previousBlock ?? "")
-            let after = normalized(block?.followingBlock ?? "")
-            // Common line prefixes can recur throughout a document. Bound the work to verify wrapped
-            // anchors too: an incomplete set of positions cannot establish that a candidate is unique.
-            var anchorBudget =
-                64 + 16 * (lines.count - floor + before.utf8.count + after.utf8.count)
-                + 8 * captions.reduce(0) { $0 + $1.utf8.count }
-            guard let previous = occurrences(of: before, from: floor, budget: &anchorBudget),
-                let following = occurrences(of: after, from: floor, budget: &anchorBudget)
-            else { return .exhausted }
+        private func locate(_ table: Table, block: SourceContents?, cursor: inout Cursor) throws -> Location {
+            let query = Query(
+                labels: table.labels,
+                captions: block.map { [normalized($0.caption)] } ?? ["目次", "Contents", "TableofContents"],
+                before: normalized(block?.previousBlock ?? ""), after: normalized(block?.followingBlock ?? ""))
+            if cursor.handledQueries.contains(query) { return .alreadyHandled }
+            let previous = try occurrences(of: query.before, cursor: &cursor)
+            let following = try occurrences(of: query.after, cursor: &cursor)
+            try cursor.spend(previous.count + 3 * following.count)
             var left: [Int: Int] = [:]
             for range in previous { left[range.upperBound] = 1 }
-            for caption in captions {
-                guard let ranges = occurrences(of: caption, from: floor, budget: &anchorBudget) else {
-                    return .exhausted
-                }
+            for caption in query.captions {
+                let ranges = try occurrences(of: caption, cursor: &cursor)
+                try cursor.spend(ranges.count)
                 for range in ranges { left[range.upperBound] = left[range.lowerBound] == 1 ? 3 : 2 }
             }
             let right = following.map(\.lowerBound)
@@ -189,80 +240,97 @@ extension DocumentOutline {
             var nextRight = 0
             var candidates: [Range<Int>] = []
             var bestRank = -1
-            // A single candidate may read each entry and its wrapped lines a bounded number of times.
-            // The shared allowance also bounds overlapping candidates with long common prefixes.
-            var remaining = candidateBudget(table) + (lines.count - floor) * 32
-            // Search only starts that can touch a known boundary. For label-only callers the first
-            // label supplies the extra starts at which an ordered, captionless table could begin.
+            try cursor.spend(left.count)
             var starts = Set(left.keys)
-            var covered = floor
+            var covered = cursor.line
             for end in right {
                 let lower = max(covered, end - table.characterCount)
                 let upper = end - table.labels.count + 1
                 if lower < upper {
+                    try cursor.spend(upper - lower)
                     starts.formUnion(lower..<upper)
                     covered = upper
                 }
             }
-            if block == nil, let first = table.labels.first {
-                starts.formUnion(whole[first] ?? [])
-                for length in 1..<min(first.count + 1, Self.wrappedPrefixLength) {
-                    starts.formUnion(whole[String(first.prefix(length))] ?? [])
-                }
-                starts.formUnion(wrapped[String(first.prefix(Self.wrappedPrefixLength))] ?? [])
+            // Even when the DOM supplies both neighbours, printing can change both. Include the first
+            // entry's possible starts; a run without an anchor must match all entries in source order.
+            func addStarts(_ positions: [Int]) throws {
+                let eligible = positions[Self.firstPosition(in: positions, atLeast: cursor.line)...]
+                try cursor.spend(eligible.count)
+                starts.formUnion(eligible)
             }
-            for start in starts.sorted() where start >= floor && start < lines.count {
+            if let first = table.labels.first {
+                try addStarts(whole[first] ?? [])
+                try addStarts(wrapped[String(first.prefix(Self.wrappedPrefixLength))] ?? [])
+                for length in 1..<min(first.count + 1, Self.wrappedPrefixLength) {
+                    try addStarts(whole[String(first.prefix(length))] ?? [])
+                }
+            }
+            try cursor.spendSort(starts.count)
+            for start in starts.sorted() where start < lines.count {
                 while nextRight < right.count, right[nextRight] < start + table.labels.count { nextRight += 1 }
                 let nearEnd = nextRight < right.count && right[nextRight] - start <= table.characterCount
                 let leftScore = left[start] ?? 0
-                let allowance = min(remaining, candidateBudget(table))
-                var budget = allowance
-                var ordered = true
-                var end = match(table, at: start, ordered: true, budget: &budget)
-                if end == nil, leftScore > 0 || nearEnd {
-                    ordered = false
-                    end = match(table, at: start, ordered: false, budget: &budget)
-                }
-                remaining -= allowance - budget
-                if budget <= 0 { return .exhausted }
-                guard let end else { continue }
-                let evidence = leftScore + (rightEnds.contains(end) ? 1 : 0)
-                guard evidence > 0 || (block == nil && ordered) else { continue }
-                let rank = evidence * 2 + (ordered ? 1 : 0)
+                guard let match = try candidate(table, at: start, positioned: leftScore > 0 || nearEnd, cursor: &cursor)
+                else { continue }
+                let evidence = leftScore + (rightEnds.contains(match.end) ? 1 : 0)
+                guard evidence > 0 || match.ordered else { continue }
+                let rank = evidence * 2 + (match.ordered ? 1 : 0)
                 if rank > bestRank {
-                    candidates = [start..<end]
+                    candidates = [start..<match.end]
                     bestRank = rank
                 } else if rank == bestRank {
-                    candidates.append(start..<end)
+                    candidates.append(start..<match.end)
                 }
             }
-            guard let first = candidates.first else { return .missing }
-            return candidates.count == 1 ? .found(first) : .ambiguous(candidates)
+            guard let first = candidates.first else {
+                cursor.handledQueries.insert(query)
+                return .missing
+            }
+            if candidates.count == 1 { return .found(first) }
+            return .ambiguous(candidates, query)
         }
 
-        private func occurrences(of text: String, from floor: Int, budget: inout Int) -> [Range<Int>]? {
+        /// Index both exact and wrapped anchors once. Later tables take a slice starting at their own floor.
+        private func occurrences(of text: String, cursor: inout Cursor) throws -> ArraySlice<Range<Int>> {
             guard !text.isEmpty else { return [] }
-            let exact = whole[text] ?? []
-            var ranges = exact[Self.firstPosition(in: exact, atLeast: floor)...].map { $0..<($0 + 1) }
-            if text.count > Self.wrappedPrefixLength {
-                let starts = wrapped[String(text.prefix(Self.wrappedPrefixLength))] ?? []
-                for start in starts[Self.firstPosition(in: starts, atLeast: floor)...]
-                where !lines[start].forms.contains(text) {
-                    for form in lines[start].forms {
-                        if let end = endOfWrappedLabel(text, first: form, from: start, budget: &budget) {
-                            ranges.append(start..<end)
-                            break
+            if cursor.anchors[text] == nil {
+                let exact = whole[text] ?? []
+                try cursor.spend(exact.count)
+                var ranges = exact.map { $0..<($0 + 1) }
+                if text.count > Self.wrappedPrefixLength {
+                    let starts = wrapped[String(text.prefix(Self.wrappedPrefixLength))] ?? []
+                    try cursor.spend(starts.count)
+                    for start in starts where !lines[start].forms.contains(text) {
+                        for form in lines[start].forms {
+                            if let end = endOfWrappedLabel(text, first: form, from: start, budget: &cursor.remaining) {
+                                ranges.append(start..<end)
+                                break
+                            }
+                            if cursor.remaining <= 0 { throw SearchLimit.exhausted }
                         }
-                        if budget <= 0 { return nil }
+                    }
+                    if ranges.count > exact.count {
+                        try cursor.spendSort(ranges.count)
+                        ranges.sort { $0.lowerBound < $1.lowerBound }
                     }
                 }
-                ranges.sort { $0.lowerBound < $1.lowerBound }
+                cursor.anchors[text] = ranges
             }
-            return ranges
+            let ranges = cursor.anchors[text] ?? []
+            return ranges[Self.firstPosition(in: ranges, atLeast: cursor.line, position: \.lowerBound)...]
         }
 
-        private func candidateBudget(_ table: Table) -> Int {
-            64 + 8 * (table.byteCount + table.labels.count)
+        private func candidate(_ table: Table, at start: Int, positioned: Bool, cursor: inout Cursor)
+            throws -> (end: Int, ordered: Bool)?
+        {
+            let allowance = min(cursor.remaining, 64 + 8 * (table.byteCount + table.labels.count))
+            var budget = allowance
+            let ordered = match(table, at: start, ordered: true, budget: &budget)
+            let end = ordered ?? (positioned ? match(table, at: start, ordered: false, budget: &budget) : nil)
+            cursor.remaining -= allowance - max(0, budget)
+            guard budget > 0 else { throw SearchLimit.exhausted }
+            return end.map { ($0, ordered != nil) }
         }
 
         /// Advance past one disjoint line range per entry. Number-stripped forms must themselves spell
@@ -370,11 +438,15 @@ extension DocumentOutline {
         }
 
         private static func firstPosition(in sorted: [Int], atLeast value: Int) -> Int {
+            firstPosition(in: sorted, atLeast: value, position: { $0 })
+        }
+
+        private static func firstPosition<T>(in sorted: [T], atLeast value: Int, position: (T) -> Int) -> Int {
             var low = 0
             var high = sorted.count
             while low < high {
                 let middle = (low + high) / 2
-                if sorted[middle] < value { low = middle + 1 } else { high = middle }
+                if position(sorted[middle]) < value { low = middle + 1 } else { high = middle }
             }
             return low
         }

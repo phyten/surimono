@@ -78,10 +78,70 @@ struct DocumentOutlineTests {
         #expect(locations(["BookTitle"], ["Book\nTitle", "BookTitle\ntext"], html) == [1])
     }
 
+    @Test("行番号で位置がずれて同じ目次が続いても本文のページを短時間で見つける")
+    func repeatedAmbiguousTables() {
+        let count = 2_000
+        let table = "<nav class=\"toc\">Contents<a>A</a></nav>"
+        let html = "<pre>x\ny</pre>" + String(repeating: table, count: count) + "<h1>A</h1><p>body</p>"
+        let pages = ["1\nx\n2\ny\n" + String(repeating: "Contents\nA\n", count: count), "A\nbody"]
+        let elapsed = ContinuousClock().measure {
+            let tables = DocumentOutline.sourceContents(inHTML: html)
+            #expect(tables.count == count)
+            #expect(
+                DocumentOutline.pages(
+                    of: [DocumentHeading(level: 1, text: "A")], inPageTexts: pages, sourceContents: tables) == [1])
+        }
+        #expect(elapsed < .seconds(1))
+    }
+
+    @Test("異なる本文に挟まれた目次が続いても文書全体の探索を打ち切れる")
+    func ambiguousTablesWithDifferentNeighbours() {
+        let count = 2_000
+        let html =
+            (0..<count).map { "<p>Block\($0)</p><nav class=\"toc\">Contents<a>A</a></nav>" }.joined()
+            + "<h1>A</h1><h1>B</h1>"
+        let pages = [String(repeating: "Contents\nA\n", count: count), "A\nB"]
+        let elapsed = ContinuousClock().measure {
+            let matches = locations(["A", "B"], pages, html)
+            // An incomplete search may leave A unknown; B has no ambiguous contents entry.
+            #expect(matches == [nil, 1] || matches == [1, 1])
+        }
+        #expect(elapsed < .seconds(1))
+    }
+
+    @Test("目次の前後の複数行コードに行番号が加わっても一意な項目順から見出しを探せる")
+    func contentsBetweenNumberedCodeBlocks() {
+        let html =
+            "<pre>let x = 1\nlet z = 2</pre><nav class=\"toc\"><a>Alpha</a><a>Beta</a></nav>"
+            + "<pre>let y = 2\nlet q = 3</pre><h1>Alpha</h1><p>body</p><h1>Beta</h1><p>body</p>"
+        let pages = [
+            "1\nlet x = 1\n2\nlet z = 2\nAlpha\nBeta\n1\nlet y = 2\n2\nlet q = 3", "Alpha\nbody", "Beta\nbody",
+        ]
+        #expect(locations(["Alpha", "Beta"], pages, html) == [1, 2])
+    }
+
+    @Test("位置を失った目次は項目が逆順か候補が二つなら確定しない", arguments: ["Beta\nAlpha", "Alpha\nBeta\nAlpha\nBeta"])
+    func contentsWithoutPositionNeedUniqueOrder(_ run: String) {
+        let html = "<p>Missing prefix</p><nav class=\"toc\"><a>Alpha</a><a>Beta</a></nav>"
+        #expect(locations(["Alpha", "Beta"], [run], html) == [nil, nil])
+    }
+
+    @Test("同じ名前の全候補が目次に含まれても見出し数に応じて探し直さない")
+    func repeatedExcludedHeadings() {
+        let count = 16_000
+        let headings = Array(repeating: DocumentHeading(level: 1, text: "A"), count: count)
+        let pages = Array(repeating: "A", count: count + 1)
+        let elapsed = ContinuousClock().measure {
+            let matches = DocumentOutline.pages(of: headings, inPageTexts: pages, contentsEntries: ["A"])
+            #expect(matches.count == count && matches.allSatisfy { $0 == nil })
+        }
+        #expect(elapsed < .seconds(1))
+    }
+
     private func locations(_ entries: [String], _ pages: [String], _ html: String = "") -> [Int?] {
         DocumentOutline.pages(
             of: entries.map { DocumentHeading(level: 1, text: $0) }, inPageTexts: pages,
-            contentsEntries: entries, sourceContents: DocumentOutline.sourceContents(inHTML: html))
+            contentsEntries: html.isEmpty ? entries : [], sourceContents: DocumentOutline.sourceContents(inHTML: html))
     }
 
     @Test("HTML から見出しの深さ・文字・ID を読む")
