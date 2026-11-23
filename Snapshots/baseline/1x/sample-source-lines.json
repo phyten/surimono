@@ -1,0 +1,81 @@
+{
+  "fonts" : [
+    "HiraginoSans-W3",
+    "Menlo-Bold",
+    "Menlo-Italic",
+    "Menlo-Regular"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 44.1,
+      "height" : 841.9,
+      "lastY" : 135.4,
+      "lineCount" : 8,
+      "lines" : [
+        {
+          "height" : 11.2,
+          "text" : "# Print a packing slip for each signature. Indentation uses literal tabs.",
+          "width" : 422.5,
+          "x" : 58.4,
+          "y" : 44.1
+        },
+        {
+          "height" : 11.2,
+          "text" : "def packing_slip(title, sheets):",
+          "width" : 185.2,
+          "x" : 58.4,
+          "y" : 57.7
+        },
+        {
+          "height" : 11.2,
+          "text" : "for sheet in sheets:",
+          "width" : 115.7,
+          "x" : 81.6,
+          "y" : 71.3
+        },
+        {
+          "height" : 15.8,
+          "text" : "# 長い行を折り返しても、紙からコピーしたタイトルとシート番号をそのまま元のプログラムに戻せ",
+          "width" : 432.1,
+          "x" : 104.7,
+          "y" : 80.9
+        },
+        {
+          "height" : 15.8,
+          "text" : "る。",
+          "width" : 19.2,
+          "x" : 116.3,
+          "y" : 93.7
+        },
+        {
+          "height" : 11.2,
+          "text" : "print(f\"{title} — signature {sheet.number:03d} — front {sheet.front_left:03d}",
+          "width" : 445.6,
+          "x" : 104.7,
+          "y" : 109.7
+        },
+        {
+          "height" : 11.2,
+          "text" : "/ {sheet.front_right:03d} — back {sheet.back_left:03d} /",
+          "width" : 324.1,
+          "x" : 116.3,
+          "y" : 122.6
+        },
+        {
+          "height" : 11.2,
+          "text" : "{sheet.back_right:03d}\")",
+          "width" : 138.9,
+          "x" : 116.3,
+          "y" : 135.4
+        }
+      ],
+      "textHeight" : 102.5,
+      "textLeft" : 58.4,
+      "textTop" : 44.1,
+      "textWidth" : 491.9,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "e9a48633ce98d0909e01f6b2119d002819b1dac1db5ebe0487995c77ec771a2b"
+}
