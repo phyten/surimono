@@ -53,6 +53,8 @@ public struct ProseOccurrence: Hashable, Sendable {
     public let sourceRange: Range<Int>
     /// The same place in the paragraph's `text` (the words as printed, without markup), in UTF-16 code units.
     public let textRange: Range<Int>
+    let sentenceRange: Range<Int>
+    let isEnglish: Bool
 }
 
 public enum ProseLengthUnit: Equatable, Sendable {
@@ -232,7 +234,7 @@ public enum ProseCheck {
                     ProseFinding(
                         kind: .longSentence(
                             length: length, unit: sentence.language == .japanese ? .characters : .words),
-                        occurrences: [paragraph.occurrence(sentence.range)]))
+                        occurrences: [paragraph.occurrence(sentence.range, in: sentence)]))
             }
             let english = paragraph.sentences.filter { $0.language == .english }.map(\.range)
             let tokens = tokenizer.tokens(in: paragraph.source.text, english: english)
@@ -364,8 +366,10 @@ struct ProseParagraphReading {
         sentences.contains { $0.language == .japanese || $0.language == .english }
     }
 
-    func occurrence(_ range: Range<Int>) -> ProseOccurrence {
-        ProseOccurrence(paragraph: source.index, sourceRange: source.sourceRange(of: range), textRange: range)
+    func occurrence(_ range: Range<Int>, in sentence: ProseSentence) -> ProseOccurrence {
+        ProseOccurrence(
+            paragraph: source.index, sourceRange: source.sourceRange(of: range), textRange: range,
+            sentenceRange: sentence.range, isEnglish: sentence.language == .english)
     }
 
     func string(_ range: Range<Int>) -> String { String(decoding: units[range], as: UTF16.self) }

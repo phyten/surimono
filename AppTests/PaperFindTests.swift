@@ -1,6 +1,8 @@
 import AppKit
 import PDFKit
 import SurimonoCore
+import SurimonoRendering
+import SwiftUI
 import Testing
 
 @testable import Surimono
@@ -157,13 +159,78 @@ struct PaperFindTests {
         let spans = try #require(panel.groups[.duplicate]?.first?.spans)
         view.drawProse(spans)
         #expect(view.highlightedSelections?.map(\.string) == ["the the"])
+        let page = try #require(view.document?.page(at: 0))
+        let underlines = try #require(view.pageOverlayViewProvider as? ProseUnderlines)
+        let selection = try #require(view.highlightedSelections?.first)
+        let box = selection.bounds(for: page)
+        #expect(underlines.strokes[page] == [CGRect(x: box.minX, y: box.minY, width: box.width, height: 1.5)])
         #expect(view.currentPageIndex == 0)
         view.find("ink")
+        #expect(underlines.strokes.isEmpty)
         view.drawProse([])
         try await waitUntil { view.highlightedSelections?.first?.string == "ink" }
         #expect(source.page(at: 0)?.annotations.isEmpty == true)
         #expect(source.page(at: 1)?.annotations.isEmpty == true)
         view.find("")
+    }
+
+    @Test("紙面で確認できた行だけが選択され別の行と検索に選択を引き継がない", .timeLimit(.minutes(1)))
+    func selectedProseFinding() async throws {
+        let sentences = ["We read the the letter.", "I saw a a bird.", "We saw my my hat."]
+        let text = sentences.joined(separator: "\n\n")
+        let pdf = TestFixtures.textPDF(Array(sentences.prefix(2)))
+        let suite = TestDefaultsSuite()
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let model = DocumentViewModel(
+            data: Data(text.utf8), fileURL: nil, format: .markdown,
+            preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: directory),
+            renderer: DocumentRenderer(paginate: { _ in try #require(PDFDocument(data: pdf)) }))
+        defer {
+            model.stop()
+            suite.remove()
+            try? FileManager.default.removeItem(at: directory)
+        }
+        model.start()
+        try await waitUntil { model.proseGeneration != nil }
+        let generation = try #require(model.proseGeneration)
+        let document = try #require(model.paperDocument)
+        let paper = PaperView(
+            document: document, initialPageIndex: 0, options: model.viewOptions, zoom: 1, controller: model.paper,
+            onZoomChange: { _ in }, onPageChange: { _ in }, onTurn: {}, onKey: { _ in false })
+        let host = NSHostingView(rootView: paper)
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 420, height: 594), styleMask: [.titled], backing: .buffered,
+            defer: true)
+        window.isReleasedWhenClosed = false
+        window.contentView = host
+        defer {
+            window.contentView = nil
+            window.close()
+        }
+        host.layoutSubtreeIfNeeded()
+        try await waitUntil { model.paper.isConnected }
+        model.openProse()
+        guard case .analysed(let report) = try await ProseCheck.analysis(of: text, format: .markdown) else {
+            Issue.record("本文を解析できませんでした")
+            return
+        }
+        let pages = (0..<document.pageCount).map { document.page(at: $0)?.string ?? "" }
+        let panel = try ProsePanelReport(report: report, pages: pages)
+        let rows = try #require(panel.groups[.duplicate])
+        try #require(rows.count == 3)
+        model.selectProseFinding(rows[2], generation: generation)
+        #expect(model.proseMark.findingID == nil)
+        for row in rows.prefix(2) {
+            model.selectProseFinding(row, generation: generation)
+            #expect(model.proseMark.findingID == row.id)
+            #expect(model.proseMark.spans == row.spans)
+        }
+        model.selectProseFinding(rows[2], generation: generation)
+        #expect(rows[2].spans.isEmpty)
+        #expect(model.proseMark.findingID == rows[1].id)
+        model.performFind()
+        #expect(model.proseMark.findingID == nil)
+        #expect(model.proseMark.spans.isEmpty)
     }
 
     @Test("探すと、大文字と小文字を区別せずにすべての一致へ印が付き、ページには何も書き足さない", .timeLimit(.minutes(1)))

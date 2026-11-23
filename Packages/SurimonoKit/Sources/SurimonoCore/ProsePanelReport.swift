@@ -24,7 +24,7 @@ public struct ProsePanelReport: Sendable {
     public struct Row: Identifiable, Sendable {
         public let id: Int
         public let kind: ProseFinding.Kind
-        public let excerpt: String
+        public let excerpt: ProseExcerpt
         public let spans: [ProsePaperSpan]
     }
 
@@ -42,25 +42,61 @@ public struct ProsePanelReport: Sendable {
             for (id, finding) in report.findings.enumerated() {
                 try Task.checkCancellation()
                 guard let first = finding.occurrences.first else { continue }
-                let excerpt = Self.excerpt(in: paragraphs[first.paragraph], at: first.textRange)
+                let excerpt = ProseExcerpt(paragraph: paragraphs[first.paragraph], occurrence: first)
+                let group = Group(finding.kind)
                 let row = Row(
                     id: id, kind: finding.kind, excerpt: excerpt,
-                    spans: try index.spans(for: finding.occurrences))
-                groups[Group(finding.kind), default: []].append(row)
+                    spans: try index.spans(for: finding.occurrences, longSentence: group == .longSentence))
+                groups[group, default: []].append(row)
             }
         }
         self.groups = groups
     }
+}
 
-    /// Start at the slip, with enough following text to tell similar entries apart. Slice on
-    /// Character boundaries before handing off final tail truncation to the width of the row.
-    static func excerpt(in paragraph: String, at range: Range<Int>) -> String {
+/// A single sentence window. Keep the three pieces separate so the list and VoiceOver use the same wording.
+public struct ProseExcerpt: Sendable {
+    public let before: String
+    public let place: String
+    public let after: String
+    public var text: String { before + place + after }
+
+    init(paragraph: String, occurrence: ProseOccurrence) {
         let text = paragraph as NSString
-        let start = text.rangeOfComposedCharacterSequence(at: range.lowerBound).location
-        let end = min(text.length, start + 120)
-        let sample = text.substring(with: text.rangeOfComposedCharacterSequences(for: NSRange(start..<end)))
-        return sample.replacingOccurrences(of: "\u{FFFC}", with: "…")
-            .split(whereSeparator: \.isWhitespace).joined(separator: " ") + (end < text.length ? "…" : "")
+        let sentence = occurrence.sentenceRange
+        let hit = text.rangeOfComposedCharacterSequences(for: NSRange(occurrence.textRange))
+        var start = hit.location
+        if occurrence.isEnglish {
+            // A very long preceding word would push the finding itself out of a narrow drawer.
+            var cursor = start
+            for _ in 0..<2 {
+                while cursor > sentence.lowerBound, ProseScript.isWhitespace(text.character(at: cursor - 1)) {
+                    cursor -= 1
+                }
+                while cursor > sentence.lowerBound, !ProseScript.isWhitespace(text.character(at: cursor - 1)),
+                    hit.location - cursor <= 24
+                {
+                    cursor -= 1
+                }
+                guard hit.location - cursor <= 24 else { break }
+                start = cursor
+            }
+        } else {
+            for _ in 0..<4 where start > sentence.lowerBound {
+                start = text.rangeOfComposedCharacterSequence(at: start - 1).location
+            }
+        }
+        let window = NSRange(start..<min(start + 120, sentence.upperBound))
+        let end = NSMaxRange(text.rangeOfComposedCharacterSequences(for: window))
+        let hitEnd = min(end, NSMaxRange(hit))
+        func snippet(_ range: Range<Int>) -> String {
+            text.substring(with: NSRange(range))
+                .replacingOccurrences(of: "\u{FFFC}", with: "…")
+                .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+        }
+        before = (start > sentence.lowerBound ? "…" : "") + snippet(start..<hit.location)
+        place = snippet(hit.location..<hitEnd)
+        after = snippet(hitEnd..<end) + (end < sentence.upperBound ? "…" : "")
     }
 }
 
@@ -68,13 +104,16 @@ public struct ProsePanelReport: Sendable {
 /// Explicit dismissal also covers a paper click or the start of a search at the same position.
 public struct ProsePaperMark: Sendable {
     public private(set) var spans: [ProsePaperSpan] = []
+    public private(set) var findingID: Int?
     private var generation: Int?
     private var readingPage: Int?
 
     public init() {}
 
-    public mutating func select(_ spans: [ProsePaperSpan], generation: Int, readingPage: Int) {
+    public mutating func select(_ spans: [ProsePaperSpan], findingID: Int, generation: Int, readingPage: Int) {
+        guard !spans.isEmpty else { return }
         self.spans = spans
+        self.findingID = findingID
         self.generation = generation
         self.readingPage = readingPage
     }

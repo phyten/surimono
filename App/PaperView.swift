@@ -260,6 +260,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
             if !findHits.isEmpty { markFindHit(currentFindIndex, reveals: false) }
         }
     }
+    private let proseUnderlines = ProseUnderlines()
     fileprivate private(set) var drawnProseSpans: [ProsePaperSpan] = []
     fileprivate var onPaperPress: (() -> Void)?
     private var currentFindIndex: Int?
@@ -431,6 +432,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
         super.init(frame: frameRect)
         linkDelegate.view = self
         delegate = linkDelegate
+        pageOverlayViewProvider = proseUnderlines
         acceptsDraggedFiles = false
         autoScales = false
         displaysPageBreaks = false
@@ -1440,10 +1442,12 @@ extension PaperPDFView {
     func drawProse(_ spans: [ProsePaperSpan]) {
         guard spans != drawnProseSpans else { return }
         drawnProseSpans = []
+        proseUnderlines.show([])
         guard findQuery.isEmpty else { return }
         highlightedSelections = nil
         guard let selections = proseSelections(spans) else { return }
-        for selection in selections { selection.color = NSColor(PrintPalette.paperAi).withAlphaComponent(0.30) }
+        for selection in selections { selection.color = NSColor(PrintPalette.paperAi).withAlphaComponent(0.50) }
+        proseUnderlines.show(selections)
         highlightedSelections = selections
         drawnProseSpans = spans
     }
@@ -1508,6 +1512,7 @@ extension PaperPDFView {
     /// highlights, not annotations, so the pages that are printed and exported never carry them.
     func find(_ query: String) {
         guard query != findQuery else { return }
+        if !query.isEmpty { drawProse([]) }
         findQuery = query
         restartFind()
     }

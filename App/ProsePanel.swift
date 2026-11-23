@@ -16,7 +16,7 @@ extension DocumentViewModel {
         if !row.spans.contains(where: { visible.contains($0.page) || paper.isProsePageVisible($0.page) }) {
             jumpToReadingPage(first.page)
         }
-        proseMark.select(row.spans, generation: generation, readingPage: currentPageIndex)
+        proseMark.select(row.spans, findingID: row.id, generation: generation, readingPage: currentPageIndex)
     }
 }
 
@@ -52,7 +52,7 @@ struct ProsePanel: View {
                         figures(report.facts)
                         Divider()
                         if report.groups.isEmpty {
-                            Text("No findings")
+                            Text("No places found")
                         } else {
                             ForEach(ProsePanelReport.Group.allCases, id: \.self) { group in
                                 if let rows = report.groups[group] {
@@ -146,19 +146,7 @@ struct ProsePanel: View {
         ) {
             LazyVStack(alignment: .leading, spacing: 6) {
                 ForEach(rows) { row in
-                    let detail = detail(for: row)
-                    Button {
-                        model.selectProseFinding(row, generation: generation)
-                    } label: {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(verbatim: row.excerpt).lineLimit(1).truncationMode(.tail)
-                            Text(verbatim: detail).font(.caption).foregroundStyle(PrintPalette.ink2)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(Text(verbatim: [group.label, row.excerpt, detail].joined(separator: " ")))
+                    finding(row, group: group, generation: generation)
                 }
             }
             .padding(.vertical, 4)
@@ -170,6 +158,34 @@ struct ProsePanel: View {
             }
             .contentShape(Rectangle())
         }
+        .disclosureGroupStyle(ProseDisclosureStyle())
+    }
+
+    private func finding(_ row: ProsePanelReport.Row, group: ProsePanelReport.Group, generation: Int) -> some View {
+        let detail = detail(for: row)
+        let selected = model.proseMark.findingID == row.id
+        var place = AttributedString(row.excerpt.place)
+        place.font = .system(size: 12, weight: .bold)
+        let excerpt = AttributedString(row.excerpt.before) + place + AttributedString(row.excerpt.after)
+        return Button {
+            model.selectProseFinding(row, generation: generation)
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(excerpt)
+                    .font(.system(size: 12, weight: selected ? .semibold : .regular))
+                    .lineLimit(1).truncationMode(.tail)
+                Text(verbatim: detail).font(.caption).foregroundStyle(PrintPalette.ink2)
+            }
+            .foregroundStyle(PrintPalette.ink)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background { ContentsRowBackground(isCurrent: selected) }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(verbatim: [group.label, row.excerpt.text, detail].joined(separator: " ")))
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     private func detail(for row: ProsePanelReport.Row) -> String {
@@ -215,5 +231,34 @@ struct ProsePanel: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(label))
         .accessibilityValue(Text(verbatim: value))
+    }
+}
+
+private struct ProseDisclosureStyle: DisclosureGroupStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Button {
+                configuration.isExpanded.toggle()
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: configuration.isExpanded ? "chevron.down" : "chevron.forward")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(PrintPalette.ink2)
+                        .frame(width: 10)
+                    configuration.label
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityRepresentation {
+                DisclosureGroup(isExpanded: configuration.$isExpanded) {
+                    EmptyView()
+                } label: {
+                    configuration.label
+                }
+                .disclosureGroupStyle(.automatic)
+            }
+            if configuration.isExpanded { configuration.content }
+        }
     }
 }

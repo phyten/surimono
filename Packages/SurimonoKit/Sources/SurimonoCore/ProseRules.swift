@@ -273,7 +273,9 @@ enum ProseDuplicates {
                 ProseFinding(
                     kind: .adjacentDuplicate(word: word),
                     occurrences: [
-                        paragraph.occurrence(words[index].token.range.lowerBound..<words[last].token.range.upperBound)
+                        paragraph.occurrence(
+                            words[index].token.range.lowerBound..<words[last].token.range.upperBound,
+                            in: paragraph.sentences[words[index].sentence])
                     ]))
         }
         return findings
@@ -368,7 +370,10 @@ enum ProseRepetition {
                 groups.append(
                     Group(
                         key: key, word: paragraph.string(first.token.range),
-                        occurrences: found[start...end].map { paragraph.occurrence(words[$0].token.range) }))
+                        occurrences: found[start...end].map {
+                            let word = words[$0]
+                            return paragraph.occurrence(word.token.range, in: paragraph.sentences[word.sentence])
+                        }))
                 start = end + 1
             }
         }

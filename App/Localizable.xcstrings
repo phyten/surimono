@@ -478,55 +478,55 @@
         }
       }
     },
-    "No findings": {
+    "No places found": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No findings"
+            "value": "No places found"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "指摘はありません"
+            "value": "見つかりませんでした"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Keine Auffälligkeiten"
+            "value": "Keine Stellen gefunden"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sin observaciones"
+            "value": "No se encontraron pasajes"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aucune remarque"
+            "value": "Aucun passage trouvé"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "확인할 항목이 없습니다"
+            "value": "찾은 부분이 없습니다"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "未发现问题"
+            "value": "未找到匹配内容"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "未發現問題"
+            "value": "找不到相符的內容"
           }
         }
       }
