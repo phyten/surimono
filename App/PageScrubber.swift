@@ -133,11 +133,11 @@ struct ScrubPointer: NSViewRepresentable {
         override func mouseMoved(with event: NSEvent) { model?.scrubber.point(fraction(event)) }
         override func mouseExited(with event: NSEvent) { model?.scrubber.leave() }
         override func mouseDown(with event: NSEvent) {
-            // End field editing synchronously, so that Escape during the drag reaches the scrubber, not the field.
-            if let window, let editor = window.firstResponder as? NSTextView, editor.isEditable,
-                !window.makeFirstResponder(nil)
-            {
-                return
+            // End field editing synchronously, so that Escape during the drag reaches the scrubber, not the field. The
+            // keys then go to the paper, as after a click on it: the window itself is no target for the arrows.
+            if let window, let editor = window.firstResponder as? NSTextView, editor.isEditable {
+                guard window.makeFirstResponder(nil) else { return }
+                model?.paper.focus()
             }
             model?.scrubber.press(fraction(event))
         }

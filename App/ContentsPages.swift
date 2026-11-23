@@ -396,6 +396,12 @@ private struct PageTile: View {
         .accessibilityAddTraits(current ? .isSelected : [])
         #if DEBUG
             .onDisappear { model.snapshotThumbnailRequests.removeValue(forKey: captureID) }
+            .background {
+                GeometryReader { geometry in
+                    Color.clear.preference(
+                        key: PageTileFramePreference.self, value: [page: geometry.frame(in: .global)])
+                }
+            }
         #endif
         .onScrollVisibilityChange(threshold: 0.01) { visible = $0 }
         .task(id: request, priority: .utility) {
@@ -422,6 +428,14 @@ private struct PageTile: View {
         static let defaultValue: Set<Int> = []
         static func reduce(value: inout Set<Int>, nextValue: () -> Set<Int>) {
             value.formUnion(nextValue())
+        }
+    }
+
+    /// Where each tile was laid out, so that hosted tests can check the order of a row on screen.
+    struct PageTileFramePreference: PreferenceKey {
+        static let defaultValue: [Int: CGRect] = [:]
+        static func reduce(value: inout [Int: CGRect], nextValue: () -> [Int: CGRect]) {
+            value.merge(nextValue()) { $1 }
         }
     }
 

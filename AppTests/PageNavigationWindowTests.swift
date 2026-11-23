@@ -121,6 +121,11 @@ struct PageNavigationWindowTests {
         try await Self.wait { field.currentEditor() == nil }
         // A click does not take keyboard focus, as with a slider: no focus ring after using the mouse.
         #expect(!model.scrubber.keyboardFocus)
+        // The paper takes the keys, and the next arrow turns one page through it.
+        #expect(ShortcutSurfaceKeys.owner(of: fixture.window.firstResponder) is PaperPDFView)
+        let arrow = try fixture.key(124, "\u{f703}")
+        if !dispatcher.handle(arrow) { fixture.window.sendEvent(arrow) }
+        try await Self.wait { model.logicalReadingPage == page + 1 }
         try #require(fixture.window.makeFirstResponder(field))
         #expect(!dispatcher.handle(escape))
     }
@@ -178,6 +183,40 @@ struct PageNavigationWindowTests {
     }
 
     #if DEBUG
+        @Test(
+            "見開きのページ一覧は表紙を一枚で置き、組を紙面と同じ左右に並べる（画面の言語の向きによらない）",
+            arguments: [(false, false), (true, false), (false, true), (true, true)])
+        func spreadRows(rightToLeft: Bool, interfaceRightToLeft: Bool) async throws {
+            let fixture = try Fixture()
+            defer { fixture.close() }
+            _ = try await fixture.track(rtl: rightToLeft)
+            fixture.model.updateViewOptions {
+                $0.layout = .spread
+                $0.showsCoverAlone = true
+            }
+            var frames: [Int: CGRect] = [:]
+            let drawer = ContentsPages(model: fixture.model, popover: false)
+                .environment(\.layoutDirection, interfaceRightToLeft ? .rightToLeft : .leftToRight)
+                .onPreferenceChange(PageTileFramePreference.self) { value in
+                    MainActor.assumeIsolated { frames = value }
+                }
+            let host = NSHostingView(rootView: drawer)
+            host.frame = NSRect(x: 10, y: 50, width: 300, height: 600)
+            fixture.window.contentView?.addSubview(host)
+            try await Self.wait { frames[0] != nil && frames[1] != nil && frames[2] != nil && frames[3] != nil }
+            let cover = try #require(frames[0])
+            let (left, right) = try (#require(frames[1]), #require(frames[2]))
+            let (nextLeft, nextRight) = try (#require(frames[3]), #require(frames[4]))
+            // The cover is alone on its row, in the half where the first page of the paper stands.
+            #expect(cover.maxY <= min(left.minY, right.minY) + 1)
+            let middle = host.convert(host.bounds, to: nil).midX
+            #expect(rightToLeft ? cover.midX < middle : cover.midX > middle)
+            // Pages 2 and 3 share a row, in the paper's order.
+            #expect(abs(left.midY - right.midY) <= 1 && abs(nextLeft.midY - nextRight.midY) <= 1)
+            #expect(rightToLeft ? left.midX > right.midX : left.midX < right.midX)
+            #expect(left.maxY <= nextLeft.minY + 1)
+        }
+
         @Test("見開きのページ一覧は表示中の二枚に枠を付け、単ページでは一枚に戻る")
         func selectedTiles() async throws {
             let fixture = try Fixture()
