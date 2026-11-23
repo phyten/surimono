@@ -61,6 +61,36 @@ struct SourceSelectionBoundaryTests {
         #expect(copy(text, pages: [text], selecting: [0: 3..<5]) == "\tB")
     }
 
+    @Test("空行の所属が分からなくても、その手前の文字と次のページ内の折り返しは原文に戻す")
+    func interiorSelections() {
+        let source = "abc\n\nSTARTEND\r\n\tNEXT\r\n"
+        let pages = ["abc", "START\nEND\nNEXT"]
+        #expect(copy(source, pages: pages, selecting: [0: 1..<2]) == "b")
+        #expect(copy(source, pages: pages, selecting: [1: 0..<9]) == "STARTEND")
+        #expect(copy(source, pages: pages, selecting: [1: 6..<11]) == "END\r\n\tN")
+        // Once the next boundary is known, selections can cross it with the original break and indent.
+        #expect(copy(source, pages: ["abc", "START\nEND", "NEXT"], selecting: [1: 6..<9, 2: 0..<2]) == "END\r\n\tNE")
+    }
+
+    @Test("手前の二つの改ページに空行があっても三枚目の本文は順に照合できる")
+    func twoUncertainBreaks() {
+        let source = "same END\n\nsame END\r\n\r\nsame\tEND!"
+        let pages = ["same END", "same END", "same END!"]
+        #expect(copy(source, pages: pages, selecting: [2: 0..<8]) == "same\tEND")
+        #expect(copy(source, pages: ["same END", "", "same END", "same END!"], selecting: [3: 0..<8]) == "same\tEND")
+        #expect(copy(source, pages: ["same END", "other", "same END!"], selecting: [2: 0..<8]) == nil)
+    }
+
+    @Test("境界までの選択と境界の空白を含む選択だけは所属を推測しない")
+    func uncertainEndpoints() {
+        let source = "abc\n\n\tDEF!"
+        #expect(copy(source, pages: ["abc", "DEF!"], selecting: [0: 1..<3]) == nil)
+        #expect(copy(source, pages: ["abc  ", " DEF!"], selecting: [0: 1..<4]) == nil)
+        #expect(copy(source, pages: ["abc", " DEF!"], selecting: [1: 0..<3]) == nil)
+        #expect(copy(source, pages: ["abc", " DEF!"], selecting: [1: 1..<3]) == "DE")
+        #expect(copy(source, pages: ["abc", "DEF!"], selecting: [1: 0..<4]) == nil)
+    }
+
     @Test("隣のページでも一部ずつを選んだときは区切り、端まで続く選択だけをつなぐ")
     func adjacentSelections() {
         let pages = ["abc", "def"]

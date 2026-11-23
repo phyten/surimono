@@ -18,14 +18,31 @@ public enum SourcePaperText {
         var starts: [Int: Section] = [:]
     }
 
+    private enum Boundary: Equatable {
+        case exact(Int)
+        // Whitespace ownership is unknown, but the next page's ink must match here (or this is EOF).
+        case nextInk(Int)
+
+        var cursor: Int {
+            switch self {
+            case .exact(let offset), .nextInk(let offset): offset
+            }
+        }
+
+        var edge: Int? {
+            guard case .exact(let offset) = self else { return nil }
+            return offset
+        }
+    }
+
     private final class Section {
         let text: String
         lazy var units = Array(text.utf16)
         let pageCount: Int
         let cut: Bool
         let label: String?
-        // An offset per visited page. No PDF text or per-glyph index is kept after a copy.
-        var offsets = [0]
+        // Only one cursor per visited page survives a copy, including pages with no ink.
+        var boundaries: [Boundary] = [.exact(0)]
 
         init(_ text: String, pages: Int, cut: Bool, label: String?) {
             self.text = text
@@ -38,21 +55,21 @@ public enum SourcePaperText {
             on page: PDFPage, index: Int, in document: PDFDocument, start: Int, ranges: [NSRange]
         ) -> [Piece]? {
             let local = index - start
-            while offsets.count <= local {
-                let prior = offsets.count - 1
+            while boundaries.count <= local {
+                let prior = boundaries.count - 1
                 guard let page = document.page(at: start + prior),
                     let scanned = scan(page.string ?? "", at: prior, ranges: [], visibleText: { _ in nil })
                 else { return nil }
-                offsets.append(scanned.end)
+                boundaries.append(scanned.end)
             }
             // PDFKit ranges belong to the displayed page. Redrawing a logical PDF can change its extracted whitespace.
             guard
                 let scanned = scan(
                     page.string ?? "", at: local, ranges: ranges, visibleText: { page.selection(for: $0)?.string })
             else { return nil }
-            if offsets.count == local + 1 {
-                offsets.append(scanned.end)
-            } else if offsets[local + 1] != scanned.end {
+            if boundaries.count == local + 1 {
+                boundaries.append(scanned.end)
+            } else if boundaries[local + 1] != scanned.end {
                 return nil
             }
             return scanned.selected
@@ -67,28 +84,25 @@ public enum SourcePaperText {
         }
 
         // The break terminating a nonempty source line belongs to that line; the indent after it does not.
-        // A second break represents a blank row whose page is unknown. Never cache an offset beyond it.
-        private func pageEnd(after ink: Int, final: Bool) -> Int? {
-            if final { return units[ink...].allSatisfy { white($0) } ? units.count : nil }
-            guard ink < units.count else { return nil }
-            if !white(units[ink]) { return ink }
-            // Horizontal space before a break can itself wrap onto the next page.
-            guard newline(units[ink]) else { return nil }
+        // A second break or trailing horizontal space may fall on either sheet. Advance only the ink cursor.
+        private func pageEnd(after ink: Int, hasSourceInk: Bool, final: Bool) -> Boundary? {
+            let next = units[ink...].firstIndex { !white($0) } ?? units.count
+            if final { return next == units.count ? .exact(units.count) : nil }
+            guard hasSourceInk, next < units.count else { return .nextInk(next) }
+            if next == ink { return .exact(ink) }
+            guard newline(units[ink]) else { return .nextInk(next) }
             var end = ink + 1
             if units[ink] == 13, end < units.count, units[end] == 10 { end += 1 }
-            for unit in units[end...] {
-                if !white(unit) { return end }
-                if newline(unit) { return nil }
-            }
-            return nil
+            if units[end..<next].contains(where: { newline($0) }) { return .nextInk(next) }
+            return .exact(end)
         }
 
         private func scan(_ pdf: String, at page: Int, ranges: [NSRange], visibleText: (NSRange) -> String?)
-            -> (end: Int, selected: [Piece])?
+            -> (end: Boundary, selected: [Piece])?
         {
             let glyphs = Array(pdf.utf16)
-            let start = offsets[page]
-            var cursor = start
+            let start = boundaries[page]
+            var cursor = start.cursor
             var i = 0
             var groups: [Range<Int>] = []
             for range in ranges.sorted(by: { $0.location < $1.location }) {
@@ -148,6 +162,11 @@ public enum SourcePaperText {
                 i = label.utf16.count
                 while i < glyphs.count, newline(glyphs[i]) { i += 1 }
             }
+            if start.edge == nil {
+                // Leading PDF whitespace has no known origin. The first nonblank still has a unique offset.
+                while i < glyphs.count, white(glyphs[i]) { i += 1 }
+                if groups.contains(where: { !$0.isEmpty && $0.lowerBound < i }) { return nil }
+            }
             // Handle trailing whitespace once, after deciding how much of the original belongs to this page.
             let inkEnd = glyphs.lastIndex(where: { !white($0) }).map { $0 + 1 } ?? 0
             let hasSourceInk = i < inkEnd
@@ -177,22 +196,28 @@ public enum SourcePaperText {
             if cut, hasSourceInk {
                 while cursor < units.count, !newline(units[cursor]) { cursor += 1 }
             }
-            let final = page + 1 == pageCount
-            guard hasSourceInk || final, let end = pageEnd(after: cursor, final: final), isSourceBoundary(end) else {
+            guard let end = pageEnd(after: cursor, hasSourceInk: hasSourceInk, final: page + 1 == pageCount),
+                isSourceBoundary(end.cursor)
+            else {
                 return nil
             }
             if wholePage {
-                return (end, [Piece(range: start..<end, pageStart: start, pageEnd: end)])
+                guard let first = start.edge, let last = end.edge else { return nil }
+                return (end, [Piece(range: first..<last, pageStart: first, pageEnd: last)])
             }
-            if i < glyphs.count, !record(i..<glyphs.count, source: cursor..<end) { return nil }
+            if let last = end.edge {
+                if i < glyphs.count, !record(i..<glyphs.count, source: cursor..<last) { return nil }
+            } else if let stop = groups.last?.upperBound, stop == glyphs.count || stop > inkEnd {
+                return nil
+            }
             var pieces: [Piece] = []
             for (index, part) in selected.enumerated() {
                 guard let part, !part.isEmpty else { continue }
                 guard isSourceBoundary(part.lowerBound), isSourceBoundary(part.upperBound) else { return nil }
                 pieces.append(
                     Piece(
-                        range: part, pageStart: groups[index].lowerBound == 0 ? start : nil,
-                        pageEnd: index == groups.count - 1 && endsAtEdge ? end : nil))
+                        range: part, pageStart: groups[index].lowerBound == 0 ? start.edge : nil,
+                        pageEnd: index == groups.count - 1 && endsAtEdge ? end.edge : nil))
             }
             return (end, pieces)
         }

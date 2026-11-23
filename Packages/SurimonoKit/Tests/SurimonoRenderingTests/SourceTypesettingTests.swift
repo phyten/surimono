@@ -209,6 +209,24 @@ struct SourceTypesettingTests {
         #expect(SourcePaperText.selected(selection, in: pdf, logicalIndex: { pdf.index(for: $0) }) == nil)
     }
 
+    @Test("空行だけの紙を挟んでも、前後の紙の本文を選ぶと原文のタブが戻る")
+    func selectionsAroundBlankPages() async throws {
+        _ = NSApplication.shared
+        let text = "abc\n" + String(repeating: "\n", count: 200) + "let\tvalue = 1\n"
+        let pdf = try await DocumentRenderer().prepare(file(text), settings: settings()).logicalDocument
+        try #require(pdf.pageCount > 2)
+        let first = try #require(pdf.findString("b").first)
+        let last = try #require(pdf.findString("value").first?.pages.first)
+        try #require(pdf.index(for: last) > 1)
+        let printed = try #require(last.string) as NSString
+        let begin = printed.range(of: "let")
+        let end = printed.range(of: "value")
+        try #require(begin.location != NSNotFound && end.location != NSNotFound)
+        let tail = try #require(last.selection(for: NSUnionRange(begin, end)))
+        #expect(SourcePaperText.selected(tail, in: pdf, logicalIndex: { pdf.index(for: $0) }) == "let\tvalue")
+        #expect(SourcePaperText.selected(first, in: pdf, logicalIndex: { pdf.index(for: $0) }) == "b")
+    }
+
     @Test("用紙よりも長い元の一行は複数ページに分かれ、文字数と前後の目印を保つ")
     func splitsOversizeLine() async throws {
         _ = NSApplication.shared
