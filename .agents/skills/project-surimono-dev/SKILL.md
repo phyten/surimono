@@ -71,7 +71,7 @@ Surimono の開発ループ（ビルド → 起動 → テスト → 目視確�
 
 ## つまずきやすい点
 
-- `make` が失敗したら、まず `xcodebuild -version` と `swift --version` で Xcode を確かめる（CI は Xcode 26.6、ローカルは 27 系を想定）。
+- `make` が失敗したら、まず `xcodebuild -version` と `swift --version` で Xcode を確かめる（CI もローカルも Xcode 27.2 を想定）。
 - パッケージ解決のエラーは `rm -rf build/DerivedData Packages/SurimonoKit/.build` の後に再実行する。
 - WebKit を使うテストが時々落ちるときは、単発の成否で判断せず、複数回実行して失敗率を見る。
 - ファイルを追加しても `Surimono.xcodeproj` の編集は不要（synchronized folder）。ビルド設定は `Configs/*.xcconfig` で変える。

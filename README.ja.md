@@ -143,7 +143,7 @@ Surimono はオフラインで使えます。通信するのは「URL から開�
 
 ## ソースからのビルド
 
-macOS 15 以降と Xcode 26 以降（Swift 6.2 以降）が必要です。Xcode を使用する開発者ディレクトリに選択してからビルドしてください。CI は Xcode 26.6、ローカル開発は Xcode 27 にも対応します。
+ビルドには Xcode 27（Swift 6.4）が必要です（アプリ自体は macOS 15 以降で動きます）。Xcode を使用する開発者ディレクトリに選択してからビルドしてください。CI とリリースは Xcode 27.2 で組み、それより古い Xcode では確かめていません。
 
 ```bash
 make build                      # Debug ビルド（build/DerivedData）
