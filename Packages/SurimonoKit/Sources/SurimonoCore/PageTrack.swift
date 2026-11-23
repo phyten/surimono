@@ -32,6 +32,12 @@ public struct PageTrack: Sendable {
         return result
     }
 
+    public static func previewCaption(page: Int, chapter: String?) -> String {
+        let number = String(page + 1)
+        guard let chapter, !chapter.isEmpty else { return number }
+        return number + " · " + chapter
+    }
+
     public static func previewPaper(aspect: CGFloat, available: CGSize) -> CGSize {
         let ratio = aspect.isFinite && aspect > 0 ? aspect : 0.707
         let width = min(ratio > 1 ? 210 : 160, max(0, available.width))

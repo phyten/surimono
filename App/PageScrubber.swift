@@ -16,13 +16,14 @@ struct PageScrubberRail: View {
                 context.fill(Path(CGRect(x: x - 0.5, y: y - 3, width: 1, height: 6)), with: .color(PrintPalette.ink2))
             }
             if let hover {
-                let x = hover * size.width
-                context.fill(Path(CGRect(x: x - 1, y: y - 5, width: 2, height: 10)), with: .color(.secondary))
+                let x = min(size.width - 2.5, max(2.5, hover * size.width))
+                let mark = CGRect(x: x - 2.5, y: y - 11, width: 5, height: 5)
+                context.fill(Path(ellipseIn: mark), with: .color(PrintPalette.ai))
             }
             let x = max(3.5, min(size.width - 3.5, current * size.width))
             context.fill(Path(ellipseIn: CGRect(x: x - 3.5, y: y - 3.5, width: 7, height: 7)), with: .color(.primary))
         }
-        .frame(height: 28)
+        .frame(height: ViewerWindow.bandHeight)
     }
 }
 
@@ -169,17 +170,13 @@ struct PageScrubPreview: View {
                         }
                     }
                     .frame(width: size.width, height: size.height)
-                    .overlay { Rectangle().strokeBorder(PrintPalette.line, lineWidth: 1) }
-                    HStack(spacing: 4) {
-                        Text(verbatim: String(page + 1)).monospacedDigit().fixedSize(horizontal: true, vertical: false)
-                        if let chapter = sections.first(where: { $0.pages.contains(page) })?.title {
-                            Text(verbatim: chapter).truncationMode(.tail)
-                        }
-                    }
-                    .font(.caption).lineLimit(1).padding(.horizontal, 3)
-                    .frame(width: size.width, height: 20)
+                    let chapter = sections.first(where: { $0.pages.contains(page) })?.title
+                    Text(verbatim: PageTrack.previewCaption(page: page, chapter: chapter))
+                        .monospacedDigit().font(.caption).lineLimit(1).padding(.horizontal, 3)
+                        .frame(width: size.width, height: 20)
                 }
                 .paperOverlayBackground(nil)
+                .overlay { Rectangle().strokeBorder(PrintPalette.previewEdge, lineWidth: 1) }
                 .shadow(color: .black.opacity(0.18), radius: 3, y: 1)
                 .position(x: center, y: session.frame.minY - 6 - (size.height + 20) / 2)
                 .task(id: request) {

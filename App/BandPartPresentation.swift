@@ -149,7 +149,8 @@ struct BandPartGlyph: View {
             if besideName {
                 symbol("square.grid.2x2")
             } else {
-                Text("Images \(12)").font(.system(size: 11)).foregroundStyle(PrintPalette.ink).lineLimit(1)
+                Label("Pages Tab", systemImage: "square.grid.2x2")
+                    .labelStyle(.titleAndIcon).font(.system(size: 11)).foregroundStyle(PrintPalette.ink).lineLimit(1)
             }
         case .showOnAllSpaces: symbol("rectangle.on.rectangle")
         case .floatOnTop: PinGlyph(isPinned: false).foregroundStyle(PrintPalette.ink).frame(width: 18, height: 18)

@@ -40,15 +40,6 @@ struct PageSection: Identifiable {
     }
 }
 
-nonisolated private struct DraggedImagePage: Codable, Transferable {
-    let bundle: UUID
-    let url: URL
-
-    static var transferRepresentation: some TransferRepresentation {
-        CodableRepresentation(contentType: UTType(exportedAs: "app.surimono.image-page")).visibility(.ownProcess)
-    }
-}
-
 struct ContentsPages: View {
     let model: DocumentViewModel
     let popover: Bool
@@ -59,8 +50,9 @@ struct ContentsPages: View {
     var body: some View {
         GeometryReader { geometry in
             let columns = !popover && geometry.size.width >= 220 ? 2 : 1
-            let width = min(200, floor((geometry.size.width - CGFloat(columns - 1) * 10 - 12) / CGFloat(columns)))
-            grid(columns: columns, width: max(32, width))
+            let width = PageTileSize.availableWidth(
+                in: geometry.size.width, columns: columns, bundle: model.imageBundle != nil)
+            grid(columns: columns, width: width)
         }
     }
 
@@ -70,10 +62,15 @@ struct ContentsPages: View {
         let sections = PageSection.sections(count: model.pageCount, chapters: model.chapterEntries)
         let items = model.imageBundle?.items.filter { !model.unreadableImageURLs.contains($0.url) }
         let current = model.currentPageIndex
+        let visiblePages = model.visibleReadingPages
+        // Bundle tiles own their half of the gutter so a drop directly on the insertion line still lands.
+        let spacing: CGFloat = items == nil ? 10 : 0
         let selected = selection ?? current
         return ScrollViewReader { proxy in
             ScrollView {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: columns), spacing: 10) {
+                LazyVGrid(
+                    columns: Array(repeating: GridItem(.flexible(), spacing: spacing), count: columns), spacing: spacing
+                ) {
                     ForEach(sections) { section in
                         Section {
                             ForEach(section.pages, id: \.self) { page in
@@ -81,15 +78,18 @@ struct ContentsPages: View {
                                 let tile = PageTile(
                                     model: model, page: page, generation: generation, width: width,
                                     scale: scale, chapter: section.title, marked: marks.contains(page),
-                                    current: page == current, selected: focused && selected == page
+                                    current: visiblePages.contains(page), selected: focused && selected == page,
+                                    rowMate: items == nil
+                                        ? nil : PageTileSize.rowMate(of: page, in: section.pages, columns: columns)
                                 ) {
                                     selection = page
                                     focused = true
                                     jump(page, item: item)
                                 }
-                                if let item, let bundle = model.imageBundle {
+                                if let item, let bundle = model.imageBundle, let type = bundle.pageDragType {
                                     tile.modifier(
-                                        BundlePageDrag(model: model, bundle: bundle, item: item, columns: columns)
+                                        BundlePageDrag(
+                                            model: model, bundle: bundle, type: type, item: item, columns: columns)
                                     ).id(page)
                                 } else {
                                     tile.id(page)
@@ -172,33 +172,94 @@ struct ContentsPages: View {
 private struct BundlePageDrag: ViewModifier {
     let model: DocumentViewModel
     let bundle: ImageBundleModel
+    let type: UTType
     let item: ImageBundleModel.Item
     let columns: Int
+    @Environment(\.layoutDirection) private var direction
     @State private var size: CGSize = .zero
+    @State private var insertion: PageGridInsertion?
 
     func body(content: Content) -> some View {
         content
+            .frame(maxWidth: .infinity)
             .help(item.name)
             .background {
                 if bundle.flashedURLs.contains(item.url) { CornerRole.control.shape.fill(PrintPalette.aiTint2) }
             }
-            .draggable(DraggedImagePage(bundle: bundle.dragID, url: item.url))
-            .dropDestination(for: DraggedImagePage.self) { dragged, point in
-                guard let source = dragged.first, source.bundle == bundle.dragID,
-                    let from = bundle.items.firstIndex(where: { $0.url == source.url }),
-                    let to = bundle.items.firstIndex(of: item)
-                else { return false }
-                let after = columns == 1 ? point.y > size.height / 2 : point.x > size.width / 2
-                bundle.move(fromOffsets: IndexSet(integer: from), toOffset: to + (after ? 1 : 0))
-                return true
+            .onDrag {
+                let provider = NSItemProvider()
+                let url = item.url.dataRepresentation
+                provider.registerDataRepresentation(forTypeIdentifier: type.identifier, visibility: .ownProcess) {
+                    completion in
+                    completion(url, nil)
+                    return nil
+                }
+                return provider
             }
+            .padding(5)
+            .contentShape(Rectangle())
+            .overlay {
+                if let line = insertion?.line {
+                    Path(line).fill(PrintPalette.ai).allowsHitTesting(false).accessibilityHidden(true)
+                }
+            }
+            .onDrop(
+                of: [type],
+                delegate: BundlePageDrop(
+                    bundle: bundle, type: type, target: item.url, size: size, columns: columns,
+                    rightToLeft: direction == .rightToLeft, insertion: $insertion)
+            )
             .onGeometryChange(for: CGRect.self) {
                 $0.frame(in: .global)
             } action: { frame in
                 if size != frame.size { size = frame.size }
                 model.drop.rowFrames[item.url] = frame
             }
-            .onDisappear { model.drop.rowFrames[item.url] = nil }
+            .onDisappear {
+                insertion = nil
+                model.drop.rowFrames[item.url] = nil
+            }
+    }
+}
+
+private struct BundlePageDrop: DropDelegate {
+    let bundle: ImageBundleModel
+    let type: UTType
+    let target: URL
+    let size: CGSize
+    let columns: Int
+    let rightToLeft: Bool
+    @Binding var insertion: PageGridInsertion?
+
+    private func placement(_ info: DropInfo) -> PageGridInsertion {
+        PageGridInsertion(point: info.location, tile: size, columns: columns, rightToLeft: rightToLeft)
+    }
+
+    func dropEntered(info: DropInfo) { insertion = placement(info) }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        let next = placement(info)
+        if insertion != next { insertion = next }
+        return DropProposal(operation: .move)
+    }
+
+    func dropExited(info: DropInfo) { insertion = nil }
+
+    func performDrop(info: DropInfo) -> Bool {
+        insertion = nil
+        guard let provider = info.itemProviders(for: [type]).first else { return false }
+        let after = placement(info).after
+        provider.loadDataRepresentation(forTypeIdentifier: type.identifier) { data, _ in
+            guard let data, let source = URL(dataRepresentation: data, relativeTo: nil) else { return }
+            Task { @MainActor in
+                // Resolve identities at delivery: an unreadable image still occupies its slot in the bundle.
+                guard let from = bundle.items.firstIndex(where: { $0.url == source }),
+                    let to = bundle.items.firstIndex(where: { $0.url == target })
+                else { return }
+                bundle.move(fromOffsets: IndexSet(integer: from), toOffset: to + (after ? 1 : 0))
+            }
+        }
+        return true
     }
 }
 
@@ -218,6 +279,7 @@ private struct PageTile: View {
     let marked: Bool
     let current: Bool
     let selected: Bool
+    let rowMate: Int?
     let jump: () -> Void
     #if DEBUG
         @State private var captureID = UUID()
@@ -225,7 +287,7 @@ private struct PageTile: View {
     @State private var visible = false
     @State private var loaded: (Request, CGImage)?
 
-    private var aspect: CGFloat {
+    private func aspect(of page: Int) -> CGFloat {
         if let size = model.slideDeck?.size, size.width > 0, size.height > 0 { return size.width / size.height }
         guard let sheet = model.result?.viewDocument.page(at: page) else { return 0.707 }
         let box = sheet.bounds(for: .cropBox)
@@ -234,11 +296,9 @@ private struct PageTile: View {
     }
 
     var body: some View {
-        let ratio = aspect
-        let height = min(208, width / ratio)
-        let paperWidth = min(width, height * ratio)
+        let tile = PageTileSize(width: width, aspect: aspect(of: page), rowMateAspect: rowMate.map { aspect(of: $0) })
         // Quantize the long edge so dragging the divider does not generate a bitmap for every point.
-        let pixels = min(1024, max(32, Int(ceil(max(height, paperWidth) * scale / 32)) * 32))
+        let pixels = min(1024, max(32, Int(ceil(max(tile.paper.height, tile.paper.width) * scale / 32)) * 32))
         let request = visible ? generation.map { Request(generation: $0, page: page, pixels: pixels) } : nil
         Button(action: jump) {
             VStack(spacing: 5) {
@@ -257,7 +317,7 @@ private struct PageTile: View {
                                 #endif
                         }
                     }
-                    .frame(width: paperWidth, height: height)
+                    .frame(width: tile.paper.width, height: tile.paper.height)
                     .overlay {
                         Rectangle().strokeBorder(
                             current ? PrintPalette.ai : PrintPalette.line, lineWidth: current ? 3 : 1)
@@ -265,6 +325,7 @@ private struct PageTile: View {
                     .overlay(alignment: .topTrailing) {
                         if marked { Image(systemName: "bookmark.fill").foregroundStyle(PrintPalette.ai).padding(3) }
                     }
+                    .frame(height: tile.paperAreaHeight)
                 Text(verbatim: String(page + 1)).monospacedDigit().font(.caption)
             }
             .padding(2)

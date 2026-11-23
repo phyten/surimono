@@ -3,6 +3,7 @@ import Observation
 import SurimonoCore
 import SurimonoRendering
 import SwiftUI
+import UniformTypeIdentifiers
 
 @Observable
 final class ImageBundleModel {
@@ -15,7 +16,8 @@ final class ImageBundleModel {
         var id: URL { url }
     }
 
-    let dragID = UUID()
+    /// Only this drawer can accept this private pasteboard representation, even before the drop is committed.
+    let pageDragType = UTType(mimeType: "application/x-surimono-image-page-" + UUID().uuidString.lowercased())
     private(set) var items: [Item]
     var selection: URL?
     /// The ZIP archive the images come from, if any.

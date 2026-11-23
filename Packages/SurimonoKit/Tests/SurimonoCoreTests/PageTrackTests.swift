@@ -23,6 +23,13 @@ struct PageTrackTests {
         #expect(track.ticks(chapters: [], width: 100).isEmpty)
     }
 
+    @Test("縮図は番号と章名を中点で区切り、章がないページには番号だけを出す")
+    func caption() {
+        #expect(PageTrack.previewCaption(page: 23, chapter: "第11章 春の小径") == "24 · 第11章 春の小径")
+        #expect(PageTrack.previewCaption(page: 1, chapter: nil) == "2")
+        #expect(PageTrack.previewCaption(page: 0, chapter: "") == "1")
+    }
+
     @Test("見本は左右に12ptを残し、横長の紙と低い窓でも縦横比を保つ")
     func preview() {
         #expect(PageTrack.previewCenter(pointer: 15, width: 160, window: 400) == 92)

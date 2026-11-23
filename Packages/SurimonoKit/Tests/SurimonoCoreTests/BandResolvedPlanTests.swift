@@ -13,6 +13,28 @@ struct BandResolvedPlanTests {
         #expect(wide.top.geometry.moreDock == .trailing && narrow.top.geometry.moreDock == .trailing)
     }
 
+    @Test("画像の束では実測したページ入口の幅で線を畳み、章を外す前に入口をアイコンにする")
+    func bundleDrawerFolds() {
+        let layout = BandArrangement(bottomLeft: [.thumbnails], bottomRight: [.chapter, .pageIndicator])
+        func plan(_ width: CGFloat) -> BandRowPlan? {
+            BandLayout.resolve(
+                arrangement: layout, mode: .split, availableItems: [.thumbnails, .chapter, .pageIndicator],
+                measurements: .init(
+                    items: [
+                        .thumbnails: .init(full: 75, compact: 28), .chapter: .init(full: 40),
+                        .pageIndicator: .init(full: 32),
+                    ], name: 0, scrubber: 120),
+                metrics: .init(topFixed: 0, bottomFixed: 0, separator: 0, titleGap: 0, toolGap: 0, outerGap: 0),
+                availableWidth: width
+            ).bottom
+        }
+        #expect(plan(267)?.showsScrubber == true)
+        #expect(plan(266)?.showsScrubber == false)
+        #expect(plan(147)?.forms[.thumbnails] == .full)
+        #expect(plan(100)?.forms == [.thumbnails: .compact, .chapter: .full, .pageIndicator: .full])
+        #expect(plan(99)?.forms == [.thumbnails: .compact, .pageIndicator: .full])
+    }
+
     @Test("目次を外した旧配置も標準の隙間を保ち名前や他の部品を動かさない")
     func migratedSpacing() {
         let layouts = BandArrangementStore.previousArrangement(named: "Previous").activeLayouts
