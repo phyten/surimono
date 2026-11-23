@@ -108,6 +108,37 @@ struct DocumentOutlineTests {
                 == [1, 2])
     }
 
+    @Test("本文をはさんだ二つの目次の行は、どちらも見出しに取らない")
+    func skipsSeveralSourceContents() {
+        let headings = [
+            DocumentHeading(level: 1, text: "A"), DocumentHeading(level: 2, text: "A1"),
+            DocumentHeading(level: 1, text: "B"),
+        ]
+        // The table in front, the first heading with its own table, then the other headings.
+        let pages = ["目次\nA\nA1\nB", "A\nA1", "A1\n本文", "B\n本文"]
+        #expect(
+            DocumentOutline.pages(of: headings, inPageTexts: pages, contentsEntries: ["A", "A1", "B", "", "A1"])
+                == [1, 2, 3])
+    }
+
+    @Test("入れ子の目次の行が項目と違う順に読めても、見出しに取らない")
+    func skipsSourceContentsReadOutOfOrder() {
+        let headings = [
+            DocumentHeading(level: 1, text: "A"), DocumentHeading(level: 2, text: "A1"),
+            DocumentHeading(level: 1, text: "B"),
+        ]
+        #expect(
+            DocumentOutline.pages(
+                of: headings, inPageTexts: ["目次\nA\nB\nA1", "A\n本文", "A1\n本文", "B\n本文"],
+                contentsEntries: ["A", "A1", "B"]) == [1, 2, 3])
+    }
+
+    @Test("原文の目次が二つあるとき、その項目は空の項目で区切って返す")
+    func separatesSourceContents() {
+        let html = OrgConverter.convert("#+OPTIONS: toc:t\n* A\n#+TOC: headlines local\n** A1\n* B").body
+        #expect(DocumentOutline.sourceContentsEntries(inHTML: html) == ["A", "A1", "B", "", "A1"])
+    }
+
     @Test("本文の後の目次でも本物の見出しを消さない")
     func keepsHeadingsBeforeSourceContents() {
         let headings = [DocumentHeading(level: 1, text: "第一章"), DocumentHeading(level: 1, text: "第二章")]

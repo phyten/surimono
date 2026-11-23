@@ -60,7 +60,8 @@ public enum DocumentOutline {
         return headings
     }
 
-    /// The entries of the text's own table of contents, which repeat its headings wherever it stands on the pages.
+    /// The entries of the text's own tables of contents, which repeat its headings wherever they stand on the
+    /// pages. An empty entry stands between two tables: with text between them they are two runs of lines.
     public static func sourceContentsEntries(inHTML html: String) -> [String] {
         var entries: [String] = []
         var depth = 0
@@ -72,7 +73,12 @@ public enum DocumentOutline {
             case .tag(let tag):
                 if tag.name == "nav" {
                     let isContents = tag.attribute("class")?.split(separator: " ").contains("toc") == true
-                    if tag.isClosing, depth > 0 { depth -= 1 } else if depth > 0 || isContents { depth += 1 }
+                    if tag.isClosing, depth > 0 {
+                        depth -= 1
+                    } else if depth > 0 || isContents {
+                        if depth == 0, entries.last?.isEmpty == false { entries.append("") }
+                        depth += 1
+                    }
                 } else if depth > 0, tag.name == "a" {
                     if tag.isClosing, let text = link {
                         entries.append(

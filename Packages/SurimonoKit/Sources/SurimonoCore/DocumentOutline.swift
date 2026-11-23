@@ -17,7 +17,8 @@ extension DocumentOutline {
     /// The zero-based page each heading stands on, in order. A heading stands on lines of its own, wrapped or with a
     /// number in front of it, so the same words in a sentence do not count. The search only moves forward, past each
     /// heading it found. The lines are indexed by their text, so a heading that cannot be found costs one lookup. The
-    /// lines of `contentsEntries`, where the text lists its headings itself, are not taken for them.
+    /// lines of `contentsEntries`, where the text lists its headings itself, are not taken for them; an empty entry
+    /// separates one such table from the next.
     public static func pages(
         of headings: [DocumentHeading], inPageTexts pages: [String], contentsEntries: [String] = []
     ) -> [Int?] {
@@ -57,25 +58,46 @@ extension DocumentOutline {
             }
         }
 
-        /// The text's own table of contents repeats the headings line after line, wherever it stands; a heading
-        /// with text under it never does, so the first unbroken run of the entries is the table.
+        /// The text's own tables of contents, in the order they stand in the text, with an empty entry between
+        /// them. Each is looked for after the one before it.
         mutating func exclude(_ entries: [String]) {
-            let entries = entries.filter { !$0.isEmpty }
-            guard let first = entries.first else { return }
+            var floor = 0
+            for table in entries.split(separator: "") {
+                if let end = exclude(table: Array(table), from: floor) { floor = end }
+            }
+        }
+
+        /// A table of contents repeats the headings line after line, wherever it stands; a heading with text under
+        /// it never does, so the first unbroken run of the entries is the table. Returns the line after it.
+        /// The lines of a run may stand in another order than the entries: PDFKit reads the indented entries of a
+        /// nested list after the ones at the margin.
+        private mutating func exclude(table entries: [String], from floor: Int) -> Int? {
+            guard let first = entries.first else { return nil }
             var starts = whole[first] ?? []
             if first.count > Self.wrappedPrefixLength {
                 starts += wrapped[String(first.prefix(Self.wrappedPrefixLength))] ?? []
             }
-            for start in Set(starts).sorted() {
+            // How many entries have each text, and for each entry, how many with its text stand before it.
+            var copies: [String: Int] = [:]
+            let ranks = entries.map { entry -> Int in
+                defer { copies[entry, default: 0] += 1 }
+                return copies[entry] ?? 0
+            }
+            for start in Set(starts).sorted() where start >= floor {
                 var line = start
                 var covered: [Int] = []
                 var matched = 0
-                for entry in entries {
-                    guard line < lines.count else { break }
-                    if lines[line].forms.contains(entry) {
+                // Entries with one text are taken in order, so the count taken tells which ones are left.
+                var taken: [String: Int] = [:]
+                var next = 0
+                while matched < entries.count, line < lines.count {
+                    while next < entries.count, ranks[next] < taken[entries[next]] ?? 0 { next += 1 }
+                    if let form = lines[line].forms.first(where: { taken[$0] ?? 0 < copies[$0] ?? 0 }) {
+                        taken[form, default: 0] += 1
                         covered.append(line)
                         line += 1
-                    } else if let end = endOfWrappedHeading(entry, from: line) {
+                    } else if next < entries.count, let end = endOfWrappedHeading(entries[next], from: line) {
+                        taken[entries[next], default: 0] += 1
                         covered += Array(line..<end)
                         line = end
                     } else {
@@ -86,9 +108,10 @@ extension DocumentOutline {
                 // A wrapped entry takes several lines, so only the entries themselves can tell the table is whole.
                 if matched == entries.count {
                     excluded.formUnion(covered)
-                    return
+                    return line
                 }
             }
+            return nil
         }
 
         func firstMatch(of target: String, from cursor: Int) -> (page: Int, end: Int)? {

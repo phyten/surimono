@@ -67,6 +67,52 @@ struct ReadingPDFExporterTests {
         #expect(reread.documentAttributes?[PDFDocumentAttribute.creatorAttribute] as? String == "Surimono")
     }
 
+    @Test("先頭の目次と見出しの下の目次がある Org の文書でも、しおりとリンクは見出しのページへ行く", .timeLimit(.minutes(1)))
+    func orgWithSeveralContents() async throws {
+        let source = DocumentSource(
+            data: Data(
+                """
+                #+OPTIONS: toc:t
+                * Alpha
+                #+TOC: headlines local
+                ** Beta
+                text
+                * Gamma
+                text
+                """.utf8),
+            fileURL: URL(fileURLWithPath: "/reading-export-fixture/source.org"), format: .org)
+        // The table in front on a page of its own, then one page for each heading.
+        let css = "body { font-size: 12pt; } h1, h2 { break-before: page; }"
+        let settings = RenderSettings(
+            layout: .a4BookletA5, theme: PrintTheme(id: "test", name: "Test", css: css),
+            preset: HTMLCleanupPreset(id: "none", name: "None"))
+        let prepared = try await DocumentRenderer().prepare(source, settings: settings)
+        let outline = await ReadingPDFExporter.outline(
+            of: source, in: prepared.logicalDocument, proof: .shown, includesSourceContents: true)
+        #expect(outline.entries.map(\.title) == ["Alpha", "Beta", "Gamma"])
+        #expect(outline.entries.map(\.pageIndex) == [1, 2, 3])
+        let output = try ReadingPDFExporter.document(
+            from: prepared.logicalDocument, entries: outline.entries, title: "Org", headings: outline.headings,
+            sourceURL: source.fileURL)
+        let bytes = try #require(output.dataRepresentation())
+        let reread = try #require(PDFDocument(data: bytes))
+        func targets(onPage index: Int) -> [Int] {
+            let annotations: [PDFAnnotation] = reread.page(at: index)?.annotations ?? []
+            let pages: [Int] = annotations.compactMap { annotation in
+                let destination = annotation.destination ?? (annotation.action as? PDFActionGoTo)?.destination
+                return destination?.page.map { reread.index(for: $0) }
+            }
+            return pages.sorted()
+        }
+        #expect(targets(onPage: 0) == [1, 2, 3])
+        #expect(targets(onPage: 1) == [2])
+        let first = try #require(reread.outlineRoot?.child(at: 0))
+        #expect(reread.index(for: try #require(first.destination?.page)) == 1)
+        #expect(reread.index(for: try #require(first.child(at: 0)?.destination?.page)) == 2)
+        let second = try #require(reread.outlineRoot?.child(at: 1))
+        #expect(reread.index(for: try #require(second.destination?.page)) == 3)
+    }
+
     @Test("生成した階層しおりと外部リンクは保存して読み直しても残る")
     func generatedOutline() throws {
         let source = try RenderingFixtures.pdf(count: 2)
