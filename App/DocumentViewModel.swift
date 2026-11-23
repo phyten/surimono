@@ -78,6 +78,9 @@ final class DocumentViewModel {
     /// waits, which is then for a newer request to open the same file.
     @ObservationIgnored var hasTakenItsFileAccess = false
     let fileURL: URL?
+    /// The file name a document came with when it has no file of that name (a file handed over by Shortcuts),
+    /// which names its language.
+    let sourceFileName: String?
     let htmlBaseURL: URL?
     private let title: String?
     let imageBundle: ImageBundleModel?
@@ -606,7 +609,7 @@ final class DocumentViewModel {
     private var reloadRequiresWebRefresh = false
     private var reloadOwnsProgress = false
     var readReloadData: @Sendable (URL) async throws -> Data = { url in
-        try await Task.detached(priority: .utility) { try Data(contentsOf: url) }.value
+        try await Task.detached(priority: .utility) { try SourceFileOpening.read(url) }.value
     }
     private var reloadGeneration = 0
     private var displayedChangeSource: DocumentSource?
@@ -635,7 +638,8 @@ final class DocumentViewModel {
         data: Data, fileURL: URL?, format: DocumentFormat,
         preferences: AppPreferences, library: UserLibrary, renderer: DocumentRenderer = DocumentRenderer(),
         imageBundle: ImageBundleModel? = nil, settingsStore: DocumentSettingsStore? = nil,
-        trialRenderer: DocumentRenderer = DocumentRenderer(), title: String? = nil, binder: BinderModel? = nil,
+        trialRenderer: DocumentRenderer = DocumentRenderer(), title: String? = nil, sourceFileName: String? = nil,
+        binder: BinderModel? = nil,
         htmlBaseURL: URL? = nil
     ) {
         themeTrial = ThemeTrial(renderer: trialRenderer)
@@ -655,7 +659,10 @@ final class DocumentViewModel {
             location = nil
         }
         self.data = data
-        detectedSourceLanguage = fileURL.flatMap { SourceLanguage.detect(fileName: $0.lastPathComponent) }
+        self.sourceFileName = sourceFileName
+        detectedSourceLanguage = (sourceFileName ?? fileURL?.lastPathComponent).flatMap {
+            SourceLanguage.detect(fileName: $0)
+        }
         self.fileURL = fileURL
         self.htmlBaseURL = htmlBaseURL
         self.title = title
@@ -676,7 +683,7 @@ final class DocumentViewModel {
         self.renderer = renderer
         bookletBinding = nil
         let themeFormat = binder == nil && imageBundle == nil ? format : nil
-        let source = themeFormat.map { DocumentSource(data: data, fileURL: fileURL, format: $0) }
+        let source = themeFormat.map { DocumentSource(data: data, fileURL: fileURL, format: $0).named(sourceFileName) }
         let inferredLayout = UserLibrary.classLayout(for: source, renderer: renderer)
         classLayout = inferredLayout
         layoutID = inferredLayout?.id ?? Self.defaultLayoutID(preferences)
@@ -731,7 +738,7 @@ final class DocumentViewModel {
     var themedSource: DocumentSource? {
         if let binder { return binder.cachedSource }
         return format.usesPrintTheme && imageBundle == nil
-            ? withFolderAccess(DocumentSource(data: data, fileURL: fileURL, format: format)) : nil
+            ? withFolderAccess(DocumentSource(data: data, fileURL: fileURL, format: format).named(sourceFileName)) : nil
     }
     var protectedSourceURLs: [URL] {
         NSDocumentController.shared.documents.compactMap(\.fileURL)
@@ -788,7 +795,8 @@ final class DocumentViewModel {
 
     /// The language a plain text file is colored as.
     var sourceLanguage: SourceLanguage? {
-        format == .plainText && binder == nil && fileURL != nil ? detectedSourceLanguage : nil
+        format == .plainText && binder == nil && (fileURL != nil || sourceFileName != nil)
+            ? detectedSourceLanguage : nil
     }
 
     var language: String { Bundle.main.preferredLocalizations.first ?? "en" }
@@ -1386,6 +1394,9 @@ final class DocumentViewModel {
             do {
                 let bytes = try await reader(fileURL)
                 guard let self, !Task.isCancelled, reloadGeneration == generation else { return }
+                // A `.plist` saved again as binary, or a `.ts` replaced by a video: the last pages stay, and the
+                // reader is told, as for a file that could not be read.
+                if SourceFileOpening.refuses(bytes, at: fileURL, format: format) { throw SourceFileError.notText }
                 if bytes != data && preferences.reloadsChangedFiles {
                     reloadedPages = .reading
                     refreshPageUpdate()
@@ -1394,7 +1405,8 @@ final class DocumentViewModel {
                 if let previous = displayedChangeSource, previous.format == format, previous.data != bytes,
                     reloadRequiresRefresh || (preferences.reloadsChangedFiles && bytes != data)
                 {
-                    let current = withFolderAccess(DocumentSource(data: bytes, fileURL: fileURL, format: format))
+                    let current = withFolderAccess(
+                        DocumentSource(data: bytes, fileURL: fileURL, format: format).named(sourceFileName))
                     changes = await renderer.changeRequests(from: previous, to: current, finish: printFinish)
                     guard !Task.isCancelled, reloadGeneration == generation else { return }
                 }
@@ -1664,7 +1676,8 @@ final class DocumentViewModel {
         let singleSource =
             fromSnapshot
             ? DocumentSource.liveSnapshot(liveSnapshot?.html ?? "", of: fileURL)
-            : DocumentSource(data: data, fileURL: fileURL, format: format, htmlBaseURL: htmlBaseURL)
+            : DocumentSource(data: data, fileURL: fileURL, format: format, htmlBaseURL: htmlBaseURL).named(
+                sourceFileName)
         let started = ContinuousClock.now
         let layoutsBefore = renderer.logicalRenderCount
         let generation = dataGeneration
@@ -4212,7 +4225,8 @@ final class DocumentViewModel {
             var htmlTitle = format == .html ? readStructure?.title : nil
             var readingSettings = settings
             if format == .latex, binder == nil, imageBundle == nil {
-                let source = withFolderAccess(DocumentSource(data: data, fileURL: fileURL, format: format))
+                let source = withFolderAccess(
+                    DocumentSource(data: data, fileURL: fileURL, format: format).named(sourceFileName))
                 readingSettings = settings.forReadingLaTeX(
                     renderer.latexClassInfo(for: source, composition: settings.latexComposition))
             }
@@ -4230,7 +4244,8 @@ final class DocumentViewModel {
                     source = withFolderAccess(
                         usesHTMLPresentation && liveSnapshot != nil
                             ? DocumentSource.liveSnapshot(liveSnapshot?.html ?? "", of: fileURL)
-                            : DocumentSource(data: data, fileURL: fileURL, format: format, htmlBaseURL: htmlBaseURL))
+                            : DocumentSource(data: data, fileURL: fileURL, format: format, htmlBaseURL: htmlBaseURL)
+                                .named(sourceFileName))
                 }
                 prepared = try await DocumentRenderer().prepare(source, settings: readingSettings)
                 if binder == nil, imageBundle == nil, source.format.isWebRendered {

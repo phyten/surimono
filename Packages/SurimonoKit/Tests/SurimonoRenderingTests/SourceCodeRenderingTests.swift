@@ -1,4 +1,5 @@
 import Foundation
+import PDFKit
 import SurimonoCore
 import Testing
 
@@ -79,6 +80,51 @@ struct SourceCodeRenderingTests {
         let plain = try #require(DocumentRenderer.structureHTML(of: long))
         #expect(!plain.contains("hl-"))
         #expect(DocumentRenderer.sourceLanguage(of: long) == nil)
+    }
+
+    @Test("ファイルのないメモリの文書は、渡されたファイル名の言語で色が付く")
+    func namedMemoryDocument() throws {
+        let data = Data("const pages: number = 2;\n".utf8)
+        let memory = DocumentSource(data: data, format: .plainText).named("main.ts")
+        let html = try #require(DocumentRenderer.structureHTML(of: memory))
+        #expect(html.contains("<span class=\"hl-keyword\">const</span>"))
+        #expect(DocumentRenderer.sourceLanguage(of: memory)?.id == "typescript")
+        // A file under a temporary URL with a name of its own is told by that name, not the URL's.
+        let temporary = source("0C1F-temporary", data).named("main.ts")
+        #expect(temporary.name == "main.ts")
+        #expect(DocumentRenderer.sourceLanguage(of: temporary)?.id == "typescript")
+        #expect(DocumentRenderer.sourceLanguage(of: source("0C1F-temporary", data)) == nil)
+    }
+
+    @Test("同じバイト列でも名前の違うメモリの文書は別の文書で、同じレンダラーでもそれぞれの言語で組む", .timeLimit(.minutes(1)))
+    @MainActor
+    func sameBytesUnderTwoNames() async throws {
+        let data = Data("let pages = 2\n".utf8)
+        let typeScript = DocumentSource(data: data, format: .plainText).named("a.ts")
+        let swift = DocumentSource(data: data, format: .plainText).named("a.swift")
+        let unnamed = DocumentSource(data: data, format: .plainText)
+        #expect(typeScript != swift)
+        #expect(typeScript != unnamed)
+        #expect(typeScript == DocumentSource(data: data, format: .plainText).named("a.ts"))
+        // One renderer, which keeps the pages of the last document it laid out.
+        var layouts = 0
+        let renderer = DocumentRenderer(paginate: { _ in
+            layouts += 1
+            return try RenderingFixtures.pdf()
+        })
+        let settings = RenderSettings(
+            layout: .a4Single, theme: PrintTheme(id: "test", name: "Test", css: ""),
+            preset: HTMLCleanupPreset(id: "none", name: "None"))
+        let first = try await renderer.prepare(typeScript, settings: settings)
+        #expect(first.facts?.sourceLanguage?.id == "typescript")
+        let second = try await renderer.prepare(swift, settings: settings)
+        #expect(second.facts?.sourceLanguage?.id == "swift")
+        let third = try await renderer.prepare(unnamed, settings: settings)
+        #expect(third.facts?.sourceLanguage == nil)
+        #expect(layouts == 3)
+        // The same document again is the one case that reuses the pages.
+        _ = try await renderer.prepare(unnamed, settings: settings)
+        #expect(layouts == 3)
     }
 
     @Test("文章と名前のないテキストは、紙も言語の名前も色なしのまま")
