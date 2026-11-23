@@ -501,7 +501,7 @@ final class AppPreferences {
         corners =
             Self.screenshotChoice("SurimonoCorners")
             ?? defaults.string(forKey: "corners").flatMap(CornerPreset.init(rawValue:)) ?? .standard
-        showsMenuBarItem = defaults.bool(forKey: "showsMenuBarItem")
+        showsMenuBarItem = defaults.object(forKey: "showsMenuBarItem") as? Bool ?? true
         appearance = AppAppearance(rawValue: defaults.string(forKey: "appearance") ?? "") ?? .default
         wheelSensitivity =
             WheelPageTurner.Sensitivity(rawValue: defaults.string(forKey: "wheelSensitivity") ?? "") ?? .normal

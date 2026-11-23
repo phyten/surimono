@@ -16,6 +16,7 @@
 
 | 概念 | 確かめるキー | en | ja | de | es | fr | ko | zh-Hans | zh-Hant |
 |---|---|---|---|---|---|---|---|---|---|
+| 最近使ったファイルがないときの表示 | `No Recent Files` | No Recent Files | 最近使ったファイルはありません | Keine zuletzt verwendeten Dateien | No hay archivos recientes | Aucun fichier récent | 최근 파일 없음 | 没有最近使用的文件 | 沒有最近使用的檔案 |
 | 複数の文書をまとめたもの | `Binder` | Binder | 合本 | Sammelband | Compilación | Recueil | 합본 | 合订本 | 合訂本 |
 | 複数の画像をまとめたもの | `Opens as an image bundle in another window` | image bundle | 画像の束 | Bilderstapel | lote de imágenes | lot d’images | 이미지 묶음 | 图像集 | 影像集 |
 | 用紙を並べて刷る画面 | `Open the print screen` | print screen | 印刷画面 | Druckbildschirm | pantalla de impresión | écran d’impression | 인쇄 화면 | 打印界面 | 列印畫面 |
