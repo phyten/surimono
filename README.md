@@ -123,7 +123,7 @@ Surimono works offline and has no telemetry. It connects when you press **Open**
 | PlantUML | `.puml`, `.plantuml`, `.pu`, `.iuml`, `.wsd` |
 | ZIP of images | `.zip` (opened as one image bundle) |
 
-Page layout supports plain text up to 30 MB, CSV and TSV up to 60,000 rows including the header, and generated HTML up to 60 MB (1 MB = 1,000,000 bytes). Source code and configuration files use syntax highlighting up to 200,000 UTF-16 code units; a longer file is shown whole without colors. The language comes from the file name or extension.
+Page layout supports plain text up to 30 MB, CSV and TSV up to 60,000 rows including the header, and generated HTML up to 60 MB (1 MB = 1,000,000 bytes). Source code and configuration files use syntax highlighting up to 200,000 UTF-16 code units; a longer file is shown whole without colors. For the text files Surimono already opens, the language comes from a well-known file name (`Makefile`, `Dockerfile`, …), then the extension, then a leading `#!` line. This does not add formats that can be opened.
 
 ### Not supported
 
