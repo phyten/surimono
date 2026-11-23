@@ -608,15 +608,12 @@ public enum MarkdownConverter {
         return matches
     }
 
-    private static func renderAutolinks(_ text: String, citations: MarkdownCitations?) -> String {
-        func prose(_ text: String) -> String {
-            citations?.prose(text) ?? HTML.escape(MarkdownExtensions.emojified(text))
-        }
-        guard autolinkPattern != nil else {
-            return prose(text)
-        }
-        var output = ""
-        var cursor = text.startIndex
+    /// The stretches of `text` that are printed as links: each match without what follows a web address as
+    /// punctuation (`?!.,:*_~`, an unmatched closing parenthesis, a trailing character reference), and without the
+    /// addresses that end in `-` or `_`. The writing check leaves out the same stretches, so a sentence's full stop
+    /// after an address stays the sentence's.
+    static func autolinks(in text: String) -> [(range: NSRange, isWeb: Bool)] {
+        var links: [(range: NSRange, isWeb: Bool)] = []
         for match in autolinkMatches(text) {
             guard let range = Range(match.range, in: text) else { continue }
             var label = String(text[range])
@@ -644,6 +641,24 @@ public enum MarkdownConverter {
             } else if label.hasSuffix("-") || label.hasSuffix("_") {
                 continue
             }
+            links.append((NSRange(location: match.range.location, length: (label as NSString).length), isWeb))
+        }
+        return links
+    }
+
+    private static func renderAutolinks(_ text: String, citations: MarkdownCitations?) -> String {
+        func prose(_ text: String) -> String {
+            citations?.prose(text) ?? HTML.escape(MarkdownExtensions.emojified(text))
+        }
+        guard autolinkPattern != nil else {
+            return prose(text)
+        }
+        var output = ""
+        var cursor = text.startIndex
+        for link in autolinks(in: text) {
+            guard let range = Range(link.range, in: text) else { continue }
+            let label = String(text[range])
+            let isWeb = link.isWeb
             let destination: String
             if isWeb && label.lowercased().hasPrefix("www.") {
                 destination = "http://" + label
@@ -655,7 +670,7 @@ public enum MarkdownConverter {
             // Emoji shortcodes apply around a URL, never inside it, so the link keeps its destination.
             output += prose(String(text[cursor..<range.lowerBound]))
             output += "<a href=\"\(HTML.escape(destination))\">\(HTML.escape(label))</a>"
-            cursor = text.index(range.lowerBound, offsetBy: label.count)
+            cursor = range.upperBound
         }
         return output + prose(String(text[cursor...]))
     }

@@ -147,11 +147,11 @@ public enum ProseCheck {
         _ text: String, format: DocumentFormat, tokenizer: any ProseTokenizer = SystemProseTokenizer(),
         limits: ProseLimits = .provisional
     ) throws -> ProseAnalysis {
-        guard let source = ProseSource(text: text, format: format) else { return .notAnalysed(.unsupportedFormat) }
+        guard let source = try ProseSource.read(text, format: format) else { return .notAnalysed(.unsupportedFormat) }
         return try analyse(source, tokenizer: tokenizer, limits: limits)
     }
 
-    public static func analyse(
+    static func analyse(
         _ source: ProseSource, tokenizer: any ProseTokenizer = SystemProseTokenizer(),
         limits: ProseLimits = .provisional
     ) throws -> ProseAnalysis {

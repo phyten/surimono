@@ -1,45 +1,47 @@
 import Foundation
-import cmark_gfm
-import cmark_gfm_extensions
+import Markdown
 
-/// One paragraph of a document's running text, as a reader sees it, with the way back to the source.
+/// One paragraph of a document's running text, as a reader sees it on the paper, with the way back to the source.
 ///
-/// `text` is the paragraph without its markup: emphasis marks, link targets and the like are left out, and what is
-/// shown but is not prose (inline code, a formula, a bare URL) is one U+FFFC each, so the words on either side of it
-/// do not read as neighbours. Every offset is in UTF-16 code units, the unit of `NSRange` and of PDFKit's strings.
+/// `text` is the paragraph without its markup: emphasis marks and link targets are left out, escapes and character
+/// references are what they stand for, and what is shown but is not prose (inline code, a formula, a URL, an image)
+/// is one U+FFFC each, so the words on either side of it do not read as neighbours. Every offset is in UTF-16 code
+/// units, the unit of `NSRange` and of PDFKit's strings.
 public struct ProseParagraph: Equatable, Sendable {
-    /// What stands in `text` for inline code, a formula or a URL.
+    /// What stands in `text` for inline code, a formula, a URL or an image.
     public static let placeholder: Character = "\u{FFFC}"
 
     /// The paragraph's place among the document's prose paragraphs, from 0.
     public let index: Int
-    /// The one-based source lines the paragraph is written on, numbered as `MarkdownBlock.lines` numbers them (front
-    /// matter included), so a paragraph can be matched to the block the converter made of it.
+    /// The one-based source lines the paragraph's text is written on, numbered as `MarkdownBlock.lines` numbers them
+    /// (front matter included), so a paragraph can be matched to the block the converter made of it.
     public let lines: ClosedRange<Int>
     /// The paragraph in the source, from its first character to its last.
     public let sourceRange: Range<Int>
     public let text: String
 
-    /// A stretch of `text` and where it came from. A copied stretch has the same length on both sides; a
-    /// placeholder is one unit of `text` for `sourceLength` units of the source.
+    /// A stretch of `text` and where it came from. A copied stretch is the source unit for unit; any other (a
+    /// placeholder, a decoded character reference, a line break) stands for the whole of its source stretch.
     struct Run: Equatable, Sendable {
         var text: Int
         var source: Int
         var length: Int
         var sourceLength: Int
+        var isCopy: Bool
     }
 
     let runs: [Run]
 
     /// The part of the source that a range of `text` was read from. The answer runs from the first character of the
-    /// range to its last, and so takes in any markup between them; an empty range gives an empty one.
+    /// range to its last, and so takes in any markup between them; an empty range gives an empty one. A range that
+    /// reaches outside `text` is held within it.
     public func sourceRange(of range: Range<Int>) -> Range<Int> {
         guard let first = run(holding: range.lowerBound) else { return sourceRange.upperBound..<sourceRange.upperBound }
-        let lower = first.length == first.sourceLength ? first.source + range.lowerBound - first.text : first.source
-        guard !range.isEmpty, let last = run(holding: range.upperBound - 1) else { return lower..<lower }
+        let lower = first.isCopy ? first.source + range.lowerBound - first.text : first.source
+        guard !range.isEmpty, let last = run(holding: range.upperBound - 1) ?? runs.last else { return lower..<lower }
         let upper =
-            last.length == last.sourceLength
-            ? last.source + range.upperBound - last.text : last.source + last.sourceLength
+            last.isCopy
+            ? last.source + min(range.upperBound - last.text, last.length) : last.source + last.sourceLength
         return lower..<max(lower, upper)
     }
 
@@ -56,326 +58,767 @@ public struct ProseParagraph: Equatable, Sendable {
 
 /// The running text of a document, paragraph by paragraph, for the analysis of its writing. Nothing here judges the
 /// text; it only says what is prose and where it stands in the source.
-public struct ProseSource: Equatable, Sendable {
-    public enum Kind: Equatable, Sendable {
+package struct ProseSource: Equatable, Sendable {
+    package enum Kind: Equatable, Sendable {
         case markdown
         /// Plain text has no soft line breaks of its own: a line is as the writer broke it.
         case plainText
     }
 
-    public let kind: Kind
-    public let paragraphs: [ProseParagraph]
+    package let kind: Kind
+    package let paragraphs: [ProseParagraph]
 
     /// The prose of a document of `format`, or nil for a format whose prose is not read yet.
-    public init?(text: String, format: DocumentFormat) {
+    /// - Throws: `CancellationError` when the task it runs for is cancelled: between the lines and the blocks it
+    ///   reads. The converter's own passes and the Markdown parser run to their end once started.
+    package static func read(_ text: String, format: DocumentFormat) throws -> ProseSource? {
         switch format {
-        case .markdown: self = Self.markdown(text)
-        case .plainText: self = Self.plainText(text)
+        case .markdown: return try markdown(text)
+        case .plainText: return try plainText(text)
         default: return nil
         }
     }
 
-    init(kind: Kind, paragraphs: [ProseParagraph]) {
-        self.kind = kind
-        self.paragraphs = paragraphs
-    }
-
     /// The paragraphs of a Markdown text. Offsets are into `text` as given (its line endings are not rewritten).
     ///
-    /// Left out: front matter, headings, code blocks, HTML blocks, tables, block quotes (callouts with them), the
-    /// lines of `:::` containers, list and task markers, and within a paragraph inline code, formulas, URLs, link
-    /// targets, tags, footnote marks and the reading of a ruby.
-    public static func markdown(_ text: String) -> ProseSource {
-        let source = SourceLines(text)
-        var lines = source.lines
-        if let end = MarkdownConverter.frontMatterEnd(in: lines) {
-            for index in 0...end { lines[index] = "" }
-        }
-        // A container line ends the paragraph before it, as it does for the converter; blank, it does the same here
-        // and is not read as words.
-        for index in lines.indices where lines[index].drop(while: { $0 == " " || $0 == "\t" }).hasPrefix(":::") {
-            lines[index] = ""
-        }
-        var builder = Builder(source: source)
-        for block in paragraphBlocks(lines) {
-            guard block.firstLine >= 1, block.lastLine >= block.firstLine, block.lastLine <= lines.count else {
-                continue
-            }
-            let line = block.firstLine - 1
-            let start =
-                source.ranges[line].lowerBound
-                + min(utf16Length(ofBytes: block.firstColumn - 1, in: lines[line]), source.ranges[line].count)
-            builder.addMarkdown(
-                start..<source.ranges[block.lastLine - 1].upperBound, lines: block.firstLine...block.lastLine)
-        }
-        return ProseSource(kind: .markdown, paragraphs: builder.paragraphs)
+    /// The text goes through the converter's own passes over lines (front matter, deep nesting, page breaks,
+    /// footnote definitions, display formulas, `:::` containers) and is then parsed as the converter parses it, so a
+    /// paragraph here is a paragraph on the paper. Read: the paragraphs of the document, of its lists and of its
+    /// footnotes, and the terms and descriptions of definition lists, each as a paragraph of its own. Not read:
+    /// headings, code blocks, HTML blocks, tables, block quotes (callouts with them) and the titles of containers.
+    /// Within a paragraph, cmark's tree says what is text: inline code, formulas, URLs and images are placeholders;
+    /// link targets, tags, the marks of defined footnotes and the reading of a ruby are left out.
+    package static func markdown(_ text: String) throws -> ProseSource {
+        // swift-markdown builds its tree with a call per level, which needs the converter's stack.
+        let paragraphs = StackSpace.onLargeStack(
+            { () -> [ProseParagraph]? in
+                var reader = MarkdownProseReader(source: SourceText(text))
+                return reader.read() ? reader.segments.paragraphs : nil
+            },
+            // Without that stack a deep document could end the app; such a document is then left unread.
+            withoutThread: { () -> [ProseParagraph]? in [] })
+        guard let paragraphs else { throw CancellationError() }
+        return ProseSource(kind: .markdown, paragraphs: paragraphs)
     }
 
-    /// The paragraphs of a plain text: runs of lines between blank lines. Only URLs are left out.
-    public static func plainText(_ text: String) -> ProseSource {
-        let source = SourceLines(text)
-        var builder = Builder(source: source)
+    /// The paragraphs of a plain text: runs of lines between blank lines. Only URLs and mail addresses are left
+    /// out, where the converter's rule for bare addresses ends them.
+    package static func plainText(_ text: String) throws -> ProseSource {
+        let source = SourceText(text)
+        var segments = ProseSegments(source: source)
         var first: Int?
         func isBlank(_ index: Int) -> Bool {
             source.units[source.ranges[index]].allSatisfy { $0 == 0x20 || $0 == 0x09 || $0 == 0x3000 }
         }
         for index in 0...source.ranges.count {
+            if index % 512 == 0 { try Task.checkCancellation() }
             if index < source.ranges.count, !isBlank(index) {
                 first = first ?? index
             } else if let start = first {
-                builder.addPlain(
-                    source.ranges[start].lowerBound..<source.ranges[index - 1].upperBound, lines: (start + 1)...index)
+                let range = source.ranges[start].lowerBound..<source.ranges[index - 1].upperBound
+                segments.cursor = range.lowerBound
+                for link in MarkdownConverter.autolinks(in: String(decoding: source.units[range], as: UTF16.self)) {
+                    let lower = range.lowerBound + link.range.location
+                    segments.copy(segments.cursor..<lower)
+                    segments.shown([0xFFFC], from: lower..<(lower + link.range.length))
+                }
+                segments.copy(segments.cursor..<range.upperBound)
+                segments.finish()
                 first = nil
             }
         }
-        return ProseSource(kind: .plainText, paragraphs: builder.paragraphs)
+        return ProseSource(kind: .plainText, paragraphs: segments.paragraphs)
+    }
+}
+
+/// The text as UTF-16 and as lines. cmark ends a line at LF, CR LF or a lone CR, and so does this.
+struct SourceText {
+    let units: [UInt16]
+    var ranges: [Range<Int>] = []
+    var lines: [String] = []
+
+    init(_ text: String) {
+        units = Array(text.utf16)
+        var start = 0
+        var index = 0
+        while index < units.count {
+            let unit = units[index]
+            if unit == 0x0A || unit == 0x0D {
+                ranges.append(start..<index)
+                if unit == 0x0D, index + 1 < units.count, units[index + 1] == 0x0A { index += 1 }
+                start = index + 1
+            }
+            index += 1
+        }
+        ranges.append(start..<units.count)
+        // cmark reads NUL as U+FFFD and counts its columns so; both are one UTF-16 unit, so offsets stay.
+        lines = ranges.map {
+            String(decoding: units[$0], as: UTF16.self).replacingOccurrences(of: "\0", with: "\u{FFFD}")
+        }
     }
 
-    // MARK: - Reading
+    /// The one-based line a source offset is on.
+    func line(of offset: Int) -> Int {
+        var low = 0
+        var high = ranges.count - 1
+        while low < high {
+            let middle = (low + high + 1) / 2
+            if ranges[middle].lowerBound <= offset { low = middle } else { high = middle - 1 }
+        }
+        return low + 1
+    }
+}
 
-    /// The text as UTF-16 and as lines. cmark ends a line at LF, CR LF or a lone CR, and so does this.
-    private struct SourceLines {
-        let units: [UInt16]
-        var ranges: [Range<Int>] = []
-        var lines: [String] = []
+/// Collects the paragraphs: the text of each as it is put together, and the runs that lead back to the source.
+struct ProseSegments {
+    let source: SourceText
+    var paragraphs: [ProseParagraph] = []
+    /// The source offset after the last piece taken.
+    var cursor = 0
+    private var text: [UInt16] = []
+    private var runs: [ProseParagraph.Run] = []
 
-        init(_ text: String) {
-            units = Array(text.utf16)
-            var start = 0
-            var index = 0
-            while index < units.count {
-                let unit = units[index]
-                if unit == 0x0A || unit == 0x0D {
-                    ranges.append(start..<index)
-                    if unit == 0x0D, index + 1 < units.count, units[index + 1] == 0x0A { index += 1 }
-                    start = index + 1
+    init(source: SourceText) { self.source = source }
+
+    /// Takes a stretch of the source as it is written.
+    mutating func copy(_ range: Range<Int>) {
+        guard !range.isEmpty else { return }
+        if let last = runs.indices.last, runs[last].isCopy, runs[last].source + runs[last].length == range.lowerBound {
+            runs[last].length += range.count
+            runs[last].sourceLength += range.count
+        } else {
+            runs.append(
+                .init(
+                    text: text.count, source: range.lowerBound, length: range.count, sourceLength: range.count,
+                    isCopy: true))
+        }
+        text.append(contentsOf: source.units[range])
+        cursor = max(cursor, range.upperBound)
+    }
+
+    /// Takes `units` as what a stretch of the source shows: a placeholder, a decoded reference, a line break.
+    mutating func shown(_ units: [UInt16], from range: Range<Int>) {
+        guard !units.isEmpty else { return }
+        runs.append(
+            .init(
+                text: text.count, source: range.lowerBound, length: units.count, sourceLength: range.count,
+                isCopy: false))
+        text.append(contentsOf: units)
+        cursor = max(cursor, range.upperBound)
+    }
+
+    /// Ends the paragraph being collected. White space at its ends and a paragraph without a letter are dropped.
+    mutating func finish() {
+        defer {
+            text = []
+            runs = []
+        }
+        func isSpace(_ unit: UInt16) -> Bool { unit == 0x20 || unit == 0x09 || unit == 0x0A || unit == 0x3000 }
+        var lower = 0
+        var upper = text.count
+        while lower < upper, isSpace(text[lower]) { lower += 1 }
+        while upper > lower, isSpace(text[upper - 1]) { upper -= 1 }
+        guard lower < upper else { return }
+        var kept: [ProseParagraph.Run] = []
+        for run in runs {
+            let from = max(run.text, lower)
+            let to = min(run.text + run.length, upper)
+            guard from < to else { continue }
+            if run.isCopy {
+                kept.append(
+                    .init(
+                        text: from - lower, source: run.source + from - run.text, length: to - from,
+                        sourceLength: to - from, isCopy: true))
+            } else {
+                kept.append(
+                    .init(
+                        text: from - lower, source: run.source, length: to - from, sourceLength: run.sourceLength,
+                        isCopy: false))
+            }
+        }
+        let prose = String(decoding: text[lower..<upper], as: UTF16.self)
+        guard let first = kept.first, let last = kept.last,
+            prose.unicodeScalars.contains(where: \.properties.isAlphabetic)
+        else { return }
+        let range = first.source..<(last.source + last.sourceLength)
+        paragraphs.append(
+            ProseParagraph(
+                index: paragraphs.count,
+                lines: source.line(of: range.lowerBound)...source.line(of: max(range.lowerBound, range.upperBound - 1)),
+                sourceRange: range, text: prose, runs: kept))
+    }
+}
+
+/// Reads the prose of a Markdown text from the tree the converter's parser makes of it.
+private struct MarkdownProseReader {
+    /// A line as the parser is given it. A line that is source text as written (all of a source line, or its end
+    /// after a footnote's label or indent) knows where it stands; a line the converter's passes made does not.
+    struct Line {
+        var text: String
+        var source: Int?
+    }
+
+    let source: SourceText
+    var segments: ProseSegments
+    private var footnotes: Set<String> = []
+    private var cancelled = false
+
+    init(source: SourceText) {
+        self.source = source
+        segments = ProseSegments(source: source)
+    }
+
+    /// False when the task was cancelled.
+    mutating func read() -> Bool {
+        var mapped = MarkdownSourceLines(source.lines)
+        if let end = MarkdownConverter.frontMatterEnd(in: source.lines) {
+            mapped = MarkdownSourceLines(
+                Array(source.lines.dropFirst(end + 1)), origins: Array(mapped.origins.dropFirst(end + 1)))
+        }
+        mapped.lines = MarkdownPageBreaks.marking(MarkdownNesting.flattened(mapped.lines).lines, customLine: "")
+        if StackSpace.isCancelled { return false }
+        let extracted = MarkdownExtensions.extractFootnotes(mapped)
+        footnotes = Set(extracted.definitions.keys)
+        // A footnote's body is prose of its own, printed after the text.
+        let notes = extracted.definitions.values.sorted {
+            ($0.origins.first?.min() ?? 0) < ($1.origins.first?.min() ?? 0)
+        }
+        for part in [extracted.body] + notes {
+            if StackSpace.isCancelled { return false }
+            let lines = MarkdownCallouts.preprocess(
+                MarkdownExtensions.rewriteInline(
+                    part, footnotes: MarkdownExtensions.Footnotes(definitions: [:]),
+                    formulas: MarkdownExtensions.Formulas(), blocksOnly: true))
+            var parsed: [Line] = []
+            parsed.reserveCapacity(lines.lines.count)
+            for (index, text) in lines.lines.enumerated() {
+                var offset: Int?
+                if lines.origins[index].count == 1, let number = lines.origins[index].first, number >= 1,
+                    number <= source.lines.count, source.lines[number - 1].hasSuffix(text)
+                {
+                    offset = source.ranges[number - 1].upperBound - text.utf16.count
                 }
-                index += 1
+                parsed.append(Line(text: text, source: offset))
             }
-            ranges.append(start..<units.count)
-            // cmark reads NUL as U+FFFD and counts its columns so; both are one UTF-16 unit, so offsets stay.
-            lines = ranges.map {
-                String(decoding: units[$0], as: UTF16.self).replacingOccurrences(of: "\0", with: "\u{FFFD}")
-            }
+            read(parsed)
+            if cancelled { return false }
         }
+        return true
     }
 
-    private struct Block {
-        var firstLine: Int
-        var firstColumn: Int
-        var lastLine: Int
+    private mutating func read(_ lines: [Line]) {
+        let texts = lines.map(\.text)
+        let document = MarkdownNesting.document(parsing: texts.joined(separator: "\n"), options: [.disableSmartOpts])
+        visit(document, lines: lines, texts: texts)
     }
 
-    /// Where cmark finds the paragraphs that are running text: those of the document itself and of its lists. The
-    /// tree is walked without recursion, and nothing below a paragraph is visited: cmark's positions for blocks are
-    /// exact, while those of the inlines after a hard break are not.
-    private static func paragraphBlocks(_ lines: [String]) -> [Block] {
-        cmark_gfm_core_extensions_ensure_registered()
-        guard let parser = cmark_parser_new(CMARK_OPT_SOURCEPOS) else { return [] }
-        defer { cmark_parser_free(parser) }
-        for name in ["table", "strikethrough", "tasklist"] {
-            if let extensionPointer = cmark_find_syntax_extension(name) {
-                cmark_parser_attach_syntax_extension(parser, extensionPointer)
+    private mutating func visit(_ container: any Markup, lines: [Line], texts: [String]) {
+        let blocks = Array(container.children)
+        func definitionStarts(_ paragraph: Paragraph) -> [Bool] {
+            MarkdownExtensions.lines(of: paragraph).map {
+                MarkdownExtensions.definitionBody($0, sourceLines: texts) != nil
             }
         }
-        var bytes = Array(lines.joined(separator: "\n").utf8)
-        bytes.withUnsafeMutableBufferPointer { buffer in
-            buffer.baseAddress.map {
-                cmark_parser_feed(parser, UnsafeRawPointer($0).assumingMemoryBound(to: CChar.self), buffer.count)
+        var index = 0
+        while index < blocks.count {
+            if StackSpace.isCancelled { cancelled = true }
+            if cancelled { return }
+            defer { index += 1 }
+            let block = blocks[index]
+            if block is UnorderedList || block is OrderedList {
+                for item in block.children { visit(item, lines: lines, texts: texts) }
+                continue
             }
-        }
-        guard let root = cmark_parser_finish(parser) else { return [] }
-        defer { cmark_node_free(root) }
-        guard let iterator = cmark_iter_new(root) else { return [] }
-        defer { cmark_iter_free(iterator) }
-        var blocks: [Block] = []
-        while true {
-            let event = cmark_iter_next(iterator)
-            if event == CMARK_EVENT_DONE { break }
-            guard event == CMARK_EVENT_ENTER, let node = cmark_iter_get_node(iterator) else { continue }
-            let type = cmark_node_get_type(node)
-            if type == CMARK_NODE_DOCUMENT || type == CMARK_NODE_LIST || type == CMARK_NODE_ITEM { continue }
-            if type == CMARK_NODE_PARAGRAPH {
-                blocks.append(
-                    Block(
-                        firstLine: Int(cmark_node_get_start_line(node)),
-                        firstColumn: max(1, Int(cmark_node_get_start_column(node))),
-                        lastLine: Int(cmark_node_get_end_line(node))))
+            guard let paragraph = block as? Paragraph else { continue }
+            guard paragraph.range != nil else {
+                // The table extension turns the lines before a table's header into a paragraph without positions,
+                // and gives the table that paragraph's first line. The lines are read again on their own.
+                if index + 1 < blocks.count, let table = blocks[index + 1] as? Table, let range = table.range {
+                    let header = range.upperBound.line - 1 - table.body.childCount
+                    let first = range.lowerBound.line
+                    if first >= 1, header > first, header - 1 <= lines.count {
+                        read(Array(lines[(first - 1)..<(header - 1)]))
+                    }
+                }
+                continue
             }
-            // Headings, code, HTML, tables, block quotes and everything inside them are not read.
-            cmark_iter_reset(iterator, node, CMARK_EVENT_EXIT)
-        }
-        return blocks
-    }
-
-    /// The UTF-16 length of the first `bytes` UTF-8 bytes of `line` (cmark counts columns in bytes).
-    private static func utf16Length(ofBytes bytes: Int, in line: String) -> Int {
-        var seen = 0
-        var length = 0
-        for scalar in line.unicodeScalars {
-            if seen >= bytes { break }
-            seen += UTF8.width(scalar)
-            length += UTF16.width(scalar)
-        }
-        return length
-    }
-
-    // MARK: - Paragraphs
-
-    private struct Builder {
-        let source: SourceLines
-        var paragraphs: [ProseParagraph] = []
-
-        private enum Mark: UInt8 {
-            case kept, dropped, shown, shownStart
-        }
-
-        private static let url = try? NSRegularExpression(pattern: #"(?:https?://|www\.)[^\s<]+"#)
-        private static let mathGroups = ["displayMath", "inlineMath", "displayMath2", "inlineMath2"]
-        private static let innerGroups = [
-            "criticAdd", "criticDelete", "criticMark", "criticOld", "criticNew", "mark", "sup", "sub", "rubyBase",
-        ]
-
-        mutating func addPlain(_ range: Range<Int>, lines: ClosedRange<Int>) {
-            var marks = [Mark](repeating: .kept, count: range.count)
-            let text = String(decoding: source.units[range], as: UTF16.self) as NSString
-            for match in Self.url?.matches(in: text as String, range: NSRange(location: 0, length: text.length)) ?? [] {
-                Self.show(match.range, in: &marks)
-            }
-            add(range, lines: lines, marks: marks)
-        }
-
-        mutating func addMarkdown(_ range: Range<Int>, lines: ClosedRange<Int>) {
-            var range = range
-            let units = source.units
-            func isSpace(_ unit: UInt16) -> Bool { unit == 0x20 || unit == 0x09 }
-            while range.lowerBound < range.upperBound, isSpace(units[range.lowerBound]) {
-                range = (range.lowerBound + 1)..<range.upperBound
-            }
-            // A task marker belongs to the list, whichever side of it cmark starts the paragraph on.
-            if range.count >= 4, units[range.lowerBound] == 0x5B, units[range.lowerBound + 2] == 0x5D,
-                [0x20, 0x78, 0x58].contains(units[range.lowerBound + 1]), isSpace(units[range.lowerBound + 3])
+            if MarkdownExtensions.isTableOfContentsMarker(paragraph) { continue }
+            let starts = definitionStarts(paragraph)
+            // The converter's two forms of a definition list: terms and `: ` lines in one paragraph, or a paragraph
+            // of terms followed by paragraphs that start with `: `.
+            if starts.count >= 2, !starts[0], starts[1] {
+                emit(paragraph, lines: lines, plan: starts.map { .start(marker: $0) })
+            } else if !starts.contains(true), index + 1 < blocks.count, let next = blocks[index + 1] as? Paragraph,
+                next.range != nil, definitionStarts(next).first == true
             {
-                range = (range.lowerBound + 4)..<range.upperBound
-            }
-            let text = String(decoding: units[range], as: UTF16.self) as NSString
-            guard text.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() != "[TOC]" else { return }
-            var marks = [Mark](repeating: .kept, count: range.count)
-            Self.markSyntax(text, base: 0, depth: 0, in: &marks)
-            Self.markDelimiters(Array(units[range]), in: &marks)
-            add(range, lines: lines, marks: marks)
-        }
-
-        private static func show(_ range: NSRange, in marks: inout [Mark]) {
-            guard range.length > 0, range.location >= 0, range.location + range.length <= marks.count else { return }
-            for index in range.location..<(range.location + range.length) { marks[index] = .shown }
-            marks[range.location] = .shownStart
-        }
-
-        private static func set(_ mark: Mark, _ range: NSRange, in marks: inout [Mark]) {
-            guard range.length > 0, range.location >= 0, range.location + range.length <= marks.count else { return }
-            for index in range.location..<(range.location + range.length) { marks[index] = mark }
-        }
-
-        /// Marks what the converter's own inline scanner finds, so that the analysis leaves out exactly what the
-        /// converter does not treat as words. The contents of a mark or an edit are scanned again, a few levels deep.
-        private static func markSyntax(_ text: NSString, base: Int, depth: Int, in marks: inout [Mark]) {
-            for match in MarkdownExtensions.inlineMatches(text) {
-                let range = NSRange(location: match.range.location + base, length: match.range.length)
-                if mathGroups.contains(where: { match.groups[$0] != nil }) {
-                    show(range, in: &marks)
-                } else if match.groups["verbatim"] != nil {
-                    switch text.character(at: match.range.location) {
-                    case 0x5C: set(.dropped, NSRange(location: range.location, length: 1), in: &marks)  // an escape
-                    case 0x60: show(range, in: &marks)  // a code span
-                    case 0x5D: set(.dropped, range, in: &marks)  // a link's target
-                    case 0x3C:  // a tag is not shown; an autolink is
-                        let body = text.substring(with: match.range)
-                        if body.contains("://") || body.contains("@") {
-                            show(range, in: &marks)
-                        } else {
-                            set(.dropped, range, in: &marks)
-                        }
-                    default: show(range, in: &marks)  // a bare URL
-                    }
-                } else {
-                    set(.dropped, range, in: &marks)
-                    for name in innerGroups {
-                        guard let inner = match.groups[name] else { continue }
-                        set(.kept, NSRange(location: inner.location + base, length: inner.length), in: &marks)
-                        if depth < 3 {
-                            markSyntax(
-                                text.substring(with: inner) as NSString, base: inner.location + base, depth: depth + 1,
-                                in: &marks)
-                        }
-                    }
-                }
-            }
-        }
-
-        /// Drops the marks of emphasis, links and hard breaks that are left among the kept characters.
-        private static func markDelimiters(_ units: [UInt16], in marks: inout [Mark]) {
-            func unit(_ index: Int) -> UInt16 { index >= 0 && index < units.count ? units[index] : 0x20 }
-            func isWordUnit(_ value: UInt16) -> Bool {
-                guard let scalar = Unicode.Scalar(value) else { return true }
-                return scalar.properties.isAlphabetic || scalar.properties.numericType != nil
-            }
-            var index = 0
-            while index < units.count {
-                defer { index += 1 }
-                guard marks[index] == .kept else { continue }
-                switch units[index] {
-                case 0x2A, 0x5B: marks[index] = .dropped  // * [
-                case 0x7E where unit(index - 1) == 0x7E || unit(index + 1) == 0x7E: marks[index] = .dropped  // ~~
-                case 0x5F where !isWordUnit(unit(index - 1)) || !isWordUnit(unit(index + 1)):  // _ at a word's edge
-                    marks[index] = .dropped
-                case 0x21 where unit(index + 1) == 0x5B: marks[index] = .dropped  // ![
-                case 0x5C where unit(index + 1) == 0x0A || unit(index + 1) == 0x0D: marks[index] = .dropped
-                case 0x5D:  // ] and the label of a reference link after it
-                    marks[index] = .dropped
-                    guard unit(index + 1) == 0x5B else { continue }
-                    var end = index + 2
-                    while end < units.count, units[end] != 0x5D, units[end] != 0x0A { end += 1 }
-                    guard end < units.count, units[end] == 0x5D else { continue }
-                    for inside in (index + 1)...end where marks[inside] == .kept { marks[inside] = .dropped }
-                    index = end
-                default: break
-                }
-            }
-        }
-
-        private mutating func add(_ range: Range<Int>, lines: ClosedRange<Int>, marks: [Mark]) {
-            var text: [UInt16] = []
-            text.reserveCapacity(range.count)
-            var runs: [ProseParagraph.Run] = []
-            var index = 0
-            while index < marks.count {
-                switch marks[index] {
-                case .kept:
-                    let start = index
-                    while index < marks.count, marks[index] == .kept { index += 1 }
-                    runs.append(
-                        .init(
-                            text: text.count, source: range.lowerBound + start, length: index - start,
-                            sourceLength: index - start))
-                    text.append(contentsOf: source.units[(range.lowerBound + start)..<(range.lowerBound + index)])
-                case .shownStart:
-                    let start = index
+                emit(paragraph, lines: lines, plan: starts.map { _ in .start(marker: false) })
+                while index + 1 < blocks.count, let body = blocks[index + 1] as? Paragraph, body.range != nil {
+                    let bodyStarts = definitionStarts(body)
+                    guard bodyStarts.first == true else { break }
+                    emit(body, lines: lines, plan: bodyStarts.map { $0 ? .start(marker: true) : .goesOn })
                     index += 1
-                    while index < marks.count, marks[index] == .shown { index += 1 }
-                    runs.append(
-                        .init(
-                            text: text.count, source: range.lowerBound + start, length: 1, sourceLength: index - start))
-                    text.append(0xFFFC)
-                case .dropped, .shown: index += 1
                 }
+            } else {
+                emit(paragraph, lines: lines, plan: [])
             }
-            let prose = String(decoding: text, as: UTF16.self)
-            guard prose.unicodeScalars.contains(where: \.properties.isAlphabetic) else { return }
-            paragraphs.append(
-                ProseParagraph(
-                    index: paragraphs.count, lines: lines, sourceRange: range,
-                    text: prose, runs: runs))
         }
     }
+
+    /// What a line of a paragraph is to the prose: the start of a paragraph of its own (after a `: ` that is not
+    /// read), or more of the one before.
+    enum LinePlan {
+        case start(marker: Bool)
+        case goesOn
+    }
+
+    private mutating func emit(_ paragraph: Paragraph, lines: [Line], plan: [LinePlan]) {
+        guard let range = paragraph.range else { return }
+        let first = range.lowerBound.line
+        var last = min(range.upperBound.line, lines.count)
+        if range.upperBound.column <= 1, last > first { last -= 1 }
+        guard first >= 1, first <= last, lines[(first - 1)..<last].allSatisfy({ $0.source != nil }) else { return }
+        var walk = InlineWalk(
+            lines: lines, first: first, last: last, firstColumn: range.lowerBound.column, footnotes: footnotes,
+            segments: segments)
+        walk.run(paragraph, plan: plan)
+        segments = walk.segments
+    }
+}
+
+/// Walks the inline tree of one paragraph and collects its text.
+///
+/// cmark gives every inline node a line and a column, but they are only as good as its bookkeeping: after a line
+/// break written with a backslash the line number stays where it was and the column counts on from that line's
+/// start, and a paragraph that began with link reference definitions numbers its lines from the first definition.
+/// `position(_:)` undoes both, and tests fix it against the source.
+private struct InlineWalk {
+    let lines: [MarkdownProseReader.Line]
+    let last: Int
+    let footnotes: Set<String>
+    var segments: ProseSegments
+
+    /// The line cmark's current line number stands for, and that number.
+    private var anchorLine: Int
+    private var anchorNumber: Int
+    /// The line of the last position resolved.
+    private var lastLine: Int
+    /// Where each line's own content starts, in bytes: after the list marker on the paragraph's first line, after
+    /// the indentation on the others.
+    private var contentStart: [Int: Int] = [:]
+    /// The paragraph's left edge, in bytes of its first line.
+    private let blockOffset: Int
+    private var utf16Offsets: [Int: [Int32]] = [:]
+
+    /// Per UTF-16 unit of the paragraph's lines: 0 for text, -1 for what the converter's syntax hides, and n for
+    /// the n-th stretch that is shown as something else.
+    private var marks: [Int32] = []
+    private let marksBase: Int
+    private var stretches: [Range<Int>] = []
+    private var stretchShown: [Bool] = []
+
+    /// An element whose contents are not prose is open: its name, where it began, and whether it shows anything.
+    private var hidden: (name: String, start: Int, isShown: Bool)?
+    private var linkDepth = 0
+    private var skipsMarker = false
+
+    private static let mathGroups = ["displayMath", "inlineMath", "displayMath2", "inlineMath2"]
+    private static let innerGroups = [
+        "criticAdd", "criticDelete", "criticMark", "criticOld", "criticNew", "mark", "sup", "sub", "rubyBase",
+    ]
+    /// Elements whose text is not the document's prose. A ruby's reading is not shown as a placeholder either.
+    private static let codeElements: Set<String> = [
+        "code", "kbd", "samp", "pre", "tt", "script", "style", "svg", "math",
+    ]
+    private static let readingElements: Set<String> = ["rt", "rp"]
+    private static let objectElements: Set<String> = ["img", "video", "audio", "iframe", "object", "canvas", "input"]
+
+    init(
+        lines: [MarkdownProseReader.Line], first: Int, last: Int, firstColumn: Int, footnotes: Set<String>,
+        segments: ProseSegments
+    ) {
+        self.lines = lines
+        self.last = last
+        self.footnotes = footnotes
+        self.segments = segments
+        anchorLine = first
+        anchorNumber = first
+        lastLine = first
+        contentStart[first] = max(0, firstColumn - 1)
+        blockOffset = max(0, firstColumn - 1)
+        marksBase = lines[first - 1].source ?? 0
+    }
+
+    // MARK: Positions
+
+    private func text(_ line: Int) -> String { lines[line - 1].text }
+
+    private mutating func start(of line: Int) -> Int {
+        if let known = contentStart[line] { return known }
+        let indent = text(line).utf8.prefix { $0 == 0x20 || $0 == 0x09 }.count
+        contentStart[line] = indent
+        return indent
+    }
+
+    /// The source offset of a byte of a line.
+    private mutating func offset(line: Int, byte: Int) -> Int {
+        if utf16Offsets[line] == nil {
+            var table: [Int32] = [0]
+            table.reserveCapacity(text(line).utf8.count + 1)
+            var length: Int32 = 0
+            for scalar in text(line).unicodeScalars {
+                let width = UTF8.width(scalar)
+                // A position inside a character is held to its start.
+                for _ in 1..<width { table.append(length) }
+                length += Int32(UTF16.width(scalar))
+                table.append(length)
+            }
+            utf16Offsets[line] = table
+        }
+        let table = utf16Offsets[line] ?? [0]
+        return (lines[line - 1].source ?? 0) + Int(table[min(max(byte, 0), table.count - 1)])
+    }
+
+    private mutating func position(_ location: SourceLocation) -> Int {
+        if location.line > anchorNumber {
+            // cmark moved on by so many lines since the last position; a line break it did not count was a
+            // backslash's, and `lastLine` already stands on the line after it.
+            anchorLine = min(last, lastLine + location.line - anchorNumber)
+            anchorNumber = location.line
+        }
+        var line = anchorLine
+        // A column counts from the paragraph's own left edge with each line's indentation taken off, so on any
+        // line it says how far into that line's content the position is.
+        var rest = max(0, location.column - 1 - blockOffset)
+        while line < last {
+            let length = text(line).utf8.count - start(of: line)
+            guard rest > length else { break }
+            rest -= length + 1
+            line += 1
+        }
+        lastLine = line
+        return offset(line: line, byte: start(of: line) + rest)
+    }
+
+    /// A paragraph that began with link reference definitions reports its text on the definitions' lines. The
+    /// first text of the paragraph says which line it is really on: the first one that starts with it.
+    private mutating func skipDefinitions(before paragraph: Paragraph) {
+        func firstText(_ node: any Markup) -> Text? {
+            if let text = node as? Text { return text.string.isEmpty || text.range == nil ? nil : text }
+            if node is Image { return nil }
+            for child in node.children {
+                if let found = firstText(child) { return found }
+            }
+            return nil
+        }
+        guard anchorLine < last, let text = firstText(paragraph), let range = text.range,
+            range.lowerBound.line == anchorNumber, let wanted = text.string.utf16.first
+        else { return }
+        let content = max(0, range.lowerBound.column - 1 - blockOffset)
+        let units = segments.source.units
+        for line in anchorLine...last {
+            let at = offset(line: line, byte: start(of: line) + content)
+            guard at < units.count else { break }
+            // An escape or a character reference stands for the wanted character without being it.
+            if units[at] == wanted || units[at] == 0x5C || units[at] == 0x26 {
+                anchorLine = line
+                lastLine = line
+                return
+            }
+        }
+    }
+
+    // MARK: Marks
+
+    private mutating func prepareMarks() {
+        guard let lastSource = lines[last - 1].source else { return }
+        for line in anchorLine...last {
+            let text = text(line)
+            guard text.contains(where: { "[{=^~$\\".contains($0) }), let base = lines[line - 1].source else { continue }
+            if marks.isEmpty {
+                marks = [Int32](repeating: 0, count: lastSource + lines[last - 1].text.utf16.count - marksBase)
+            }
+            mark(text as NSString, base: base, depth: 0)
+        }
+    }
+
+    private mutating func ensureMarks() {
+        guard marks.isEmpty, let lastSource = lines[last - 1].source else { return }
+        marks = [Int32](repeating: 0, count: lastSource + lines[last - 1].text.utf16.count - marksBase)
+    }
+
+    private mutating func set(_ value: Int32, _ range: NSRange, base: Int) {
+        let lower = range.location + base - marksBase
+        guard range.length > 0, lower >= 0, lower + range.length <= marks.count else { return }
+        for index in lower..<(lower + range.length) { marks[index] = value }
+    }
+
+    private mutating func show(_ range: Range<Int>) {
+        ensureMarks()
+        stretches.append(range)
+        stretchShown.append(false)
+        set(Int32(stretches.count), NSRange(location: range.lowerBound, length: range.count), base: 0)
+    }
+
+    /// Marks what the converter's own inline scanner finds on a line, which it rewrites before cmark sees the text:
+    /// formulas, footnote marks, rubies, highlights and edits. Code spans, tags and link targets are cmark's.
+    private mutating func mark(_ text: NSString, base: Int, depth: Int) {
+        for match in MarkdownExtensions.inlineMatches(text) {
+            if Self.mathGroups.contains(where: { match.groups[$0] != nil }) {
+                show((match.range.location + base)..<(match.range.location + match.range.length + base))
+            } else if match.groups["verbatim"] != nil || match.groups["criticUnclosed"] != nil {
+                continue
+            } else if let label = match.groups["footnote"] {
+                // A mark without a definition is printed as written.
+                if footnotes.contains(text.substring(with: label).lowercased()) { set(-1, match.range, base: base) }
+            } else {
+                set(-1, match.range, base: base)
+                for name in Self.innerGroups {
+                    guard let inner = match.groups[name] else { continue }
+                    set(0, inner, base: base)
+                    if depth < 3 {
+                        mark(text.substring(with: inner) as NSString, base: inner.location + base, depth: depth + 1)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: Pieces
+
+    /// What the mark of a source offset lets through: true for text. A stretch shown as something else gives its
+    /// placeholder the first time it is met.
+    private func isText(_ offset: Int) -> Bool {
+        let index = offset - marksBase
+        return hidden == nil && !(index >= 0 && index < marks.count && marks[index] != 0)
+    }
+
+    private mutating func passes(_ offset: Int) -> Bool {
+        guard hidden == nil else { return false }
+        let index = offset - marksBase
+        guard index >= 0, index < marks.count, marks[index] != 0 else { return true }
+        let mark = Int(marks[index])
+        if mark > 0, !stretchShown[mark - 1] {
+            stretchShown[mark - 1] = true
+            segments.shown([0xFFFC], from: stretches[mark - 1])
+        }
+        return false
+    }
+
+    private mutating func placeholder(_ range: Range<Int>) {
+        if passes(range.lowerBound) { segments.shown([0xFFFC], from: range) }
+    }
+
+    /// A text node: the source between its ends, with the node's own string saying what an escape and a character
+    /// reference stand for. The source is copied; the string only decides those two.
+    private mutating func take(_ range: Range<Int>, as string: String) {
+        let units = segments.source.units
+        var range = range
+        var literal = Array(string.utf16)
+        if skipsMarker {
+            // The `: ` of a definition, as `MarkdownExtensions.definitionBody` takes it off.
+            skipsMarker = false
+            var skipped = 0
+            while range.lowerBound + skipped < range.upperBound,
+                skipped == 0
+                    ? units[range.lowerBound] == 0x3A : [0x20, 0x09].contains(units[range.lowerBound + skipped])
+            {
+                skipped += 1
+            }
+            range = (range.lowerBound + skipped)..<range.upperBound
+            literal.removeFirst(min(skipped, literal.count))
+        }
+        // The spaces of a hard break are a text node without text.
+        guard !literal.isEmpty, range.lowerBound < range.upperBound, range.upperBound <= units.count else {
+            segments.cursor = max(segments.cursor, min(range.upperBound, units.count))
+            return
+        }
+        if linkDepth == 0, hidden == nil {
+            let slice = String(decoding: units[range], as: UTF16.self)
+            if slice.contains("@") || slice.contains("://") || slice.localizedCaseInsensitiveContains("www.") {
+                for link in MarkdownConverter.autolinks(in: slice) {
+                    let lower = range.lowerBound + link.range.location
+                    show(lower..<(lower + link.range.length))
+                }
+            }
+        }
+        var at = range.lowerBound
+        var read = 0
+        var copied = at
+        func flush(_ walk: inout InlineWalk, to end: Int) {
+            if copied < end { walk.segments.copy(copied..<end) }
+        }
+        while at < range.upperBound {
+            let unit = units[at]
+            var skip = 0
+            var decoded: [UInt16] = []
+            if unit == 0x26, read < literal.count, let end = Self.referenceEnd(units, at, range.upperBound),
+                !literal[read...].starts(with: units[at..<end])
+            {
+                // How many units the reference became: one character, or two when only that fits what follows.
+                var count = (0xD800...0xDBFF).contains(literal[read]) ? 2 : 1
+                if end == range.upperBound {
+                    count = literal.count - read
+                } else if read + count < literal.count, literal[read + count] != units[end],
+                    read + count + 1 < literal.count, literal[read + count + 1] == units[end]
+                {
+                    count += 1
+                }
+                count = min(count, literal.count - read)
+                decoded = Array(literal[read..<(read + count)])
+                skip = end - at
+            } else if unit == 0x5C, at + 1 < range.upperBound, read < literal.count, literal[read] == units[at + 1],
+                Self.isPunctuation(units[at + 1])
+            {
+                skip = 1
+            }
+            if skip > 0 {
+                flush(&self, to: at)
+                if passes(at), !decoded.isEmpty { segments.shown(decoded, from: at..<(at + skip)) }
+                read += decoded.count
+                at += skip
+                copied = at
+            } else if isText(at) {
+                at += 1
+                read += 1
+            } else {
+                flush(&self, to: at)
+                _ = passes(at)
+                at += 1
+                read += 1
+                copied = at
+            }
+        }
+        flush(&self, to: range.upperBound)
+        segments.cursor = max(segments.cursor, range.upperBound)
+    }
+
+    private static func isPunctuation(_ unit: UInt16) -> Bool {
+        (0x21...0x2F).contains(unit) || (0x3A...0x40).contains(unit) || (0x5B...0x60).contains(unit)
+            || (0x7B...0x7E).contains(unit)
+    }
+
+    /// The end of what may be a character reference at `start` (`&name;`, `&#38;`), or nil.
+    private static func referenceEnd(_ units: [UInt16], _ start: Int, _ limit: Int) -> Int? {
+        var index = start + 1
+        while index < limit, index - start <= 33 {
+            let unit = units[index]
+            if unit == 0x3B { return index > start + 1 ? index + 1 : nil }
+            guard
+                unit == 0x23 || (0x30...0x39).contains(unit) || (0x41...0x5A).contains(unit)
+                    || (0x61...0x7A).contains(unit)
+            else { return nil }
+            index += 1
+        }
+        return nil
+    }
+
+    /// The line break after the last piece, wherever in the source it is written.
+    private mutating func lineBreak(isTaken: Bool) {
+        let units = segments.source.units
+        let limit = (lines[last - 1].source ?? 0) + lines[last - 1].text.utf16.count
+        var at = segments.cursor
+        while at < limit, units[at] != 0x0A, units[at] != 0x0D { at += 1 }
+        guard at < limit else { return }
+        let end = units[at] == 0x0D && at + 1 < limit && units[at + 1] == 0x0A ? at + 2 : at + 1
+        if isTaken, passes(at) { segments.shown([0x0A], from: at..<end) }
+        segments.cursor = max(segments.cursor, end)
+    }
+
+    private mutating func tag(_ raw: String, _ range: Range<Int>) {
+        let isClosing = raw.hasPrefix("</")
+        let name = String(raw.dropFirst(isClosing ? 2 : 1).prefix { $0.isLetter || $0.isNumber }).lowercased()
+        if let open = hidden {
+            guard isClosing, name == open.name else { return }
+            hidden = nil
+            if open.isShown { placeholder(open.start..<range.upperBound) }
+            return
+        }
+        guard !isClosing, !name.isEmpty else { return }
+        if !raw.hasSuffix("/>"), Self.readingElements.contains(name) {
+            hidden = (name, range.lowerBound, false)
+        } else if !raw.hasSuffix("/>"), Self.codeElements.contains(name) {
+            // The placeholder is given when the element closes, for all of it.
+            if isText(range.lowerBound) { hidden = (name, range.lowerBound, true) }
+        } else if Self.objectElements.contains(name) {
+            placeholder(range)
+        } else if name == "br", passes(range.lowerBound) {
+            segments.shown([0x20], from: range)
+        }
+    }
+
+    private mutating func closeHidden() {
+        guard let open = hidden else { return }
+        hidden = nil
+        if open.isShown { placeholder(open.start..<max(open.start, segments.cursor)) }
+    }
+
+    // MARK: Walking
+
+    mutating func run(_ paragraph: Paragraph, plan: [LinePlan]) {
+        skipDefinitions(before: paragraph)
+        prepareMarks()
+        segments.cursor = offset(line: anchorLine, byte: start(of: anchorLine))
+        var line = 0
+        if case .start(let marker)? = plan.first { skipsMarker = marker }
+        for child in paragraph.children {
+            guard child is SoftBreak || child is LineBreak else {
+                walk(child)
+                continue
+            }
+            line += 1
+            if line < plan.count, case .start(let marker) = plan[line] {
+                closeHidden()
+                segments.finish()
+                lineBreak(isTaken: false)
+                skipsMarker = marker
+            } else {
+                lineBreak(isTaken: true)
+            }
+        }
+        closeHidden()
+        segments.finish()
+    }
+
+    private mutating func walk(_ node: any Markup) {
+        guard let range = node.range else {
+            for child in node.children { walk(child) }
+            return
+        }
+        let lower = position(range.lowerBound)
+        func upper(_ walk: inout InlineWalk) -> Int { max(lower, walk.position(range.upperBound)) }
+        switch node {
+        case let text as Text:
+            take(lower..<upper(&self), as: text.string)
+        case is SoftBreak, is LineBreak:
+            lineBreak(isTaken: true)
+        case is InlineCode, is Image:
+            let end = upper(&self)
+            placeholder(lower..<end)
+            segments.cursor = max(segments.cursor, end)
+        case let html as InlineHTML:
+            let end = upper(&self)
+            tag(html.rawHTML, lower..<end)
+            segments.cursor = max(segments.cursor, end)
+        case let link as Link:
+            // An address between angle brackets is its own label: shown, but not prose.
+            let label = (link.child(at: 0) as? Text)?.string
+            if link.childCount == 1, let label, let destination = link.destination,
+                destination == label || destination == "mailto:" + label
+            {
+                let end = upper(&self)
+                placeholder(lower..<end)
+                segments.cursor = max(segments.cursor, end)
+            } else {
+                linkDepth += 1
+                for child in link.children { walk(child) }
+                linkDepth -= 1
+                segments.cursor = max(segments.cursor, upper(&self))
+            }
+        default:
+            for child in node.children { walk(child) }
+            segments.cursor = max(segments.cursor, upper(&self))
+        }
+    }
+
+    typealias LinePlan = MarkdownProseReader.LinePlan
 }

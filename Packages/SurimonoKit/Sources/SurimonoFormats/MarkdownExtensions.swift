@@ -305,8 +305,12 @@ enum MarkdownExtensions {
         rewriteInline(MarkdownSourceLines.unmapped(lines), footnotes: footnotes, formulas: formulas, proof: proof).lines
     }
 
+    /// - Parameter blocksOnly: The writing check wants to know which lines are display formulas, as the converter
+    ///   finds them, and nothing else: each such block becomes an empty HTML block without being typeset, and every
+    ///   other line is passed on as written, so its columns are still those of the source.
     static func rewriteInline(
-        _ source: MarkdownSourceLines, footnotes: Footnotes, formulas: Formulas, proof: ProofMarks = .shown
+        _ source: MarkdownSourceLines, footnotes: Footnotes, formulas: Formulas, proof: ProofMarks = .shown,
+        blocksOnly: Bool = false
     )
         -> MarkdownSourceLines
     {
@@ -340,7 +344,7 @@ enum MarkdownExtensions {
                 index += 1
                 continue
             }
-            if let end = protection.paragraphEnds[index], end > index + 1, line.contains("{") {
+            if !blocksOnly, let end = protection.paragraphEnds[index], end > index + 1, line.contains("{") {
                 if !remembers {
                     unjoinable = [:]
                     scanned = [:]
@@ -368,7 +372,12 @@ enum MarkdownExtensions {
                 case .block(let block):
                     // An HTML block ends only at a blank line, so one follows to keep the next lines out of it.
                     let origins = source.origins[index..<block.end].reduce(into: Set<Int>()) { $0.formUnion($1) }
-                    output.append(block.prefix + formulas.block(block.latex, source: block.source), from: origins)
+                    output.append(
+                        block.prefix
+                            + (blocksOnly
+                                ? "<div class=\"math-block\"></div>"
+                                : formulas.block(block.latex, source: block.source)),
+                        from: origins)
                     output.append(block.blankLine, from: [])
                     index = block.end
                     continue
@@ -377,6 +386,10 @@ enum MarkdownExtensions {
                 }
             }
             index += 1
+            if blocksOnly {
+                output.append(line, from: source.origins[index - 1])
+                continue
+            }
             guard let spans = protection.spans[index - 1] else {
                 output.append(rewriteInline(line, footnotes, formulas, proof), from: source.origins[index - 1])
                 continue

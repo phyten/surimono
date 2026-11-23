@@ -23,7 +23,7 @@ struct ProseCheckBenchmarks {
             var findings = 0
             // The first pass loads the tokenizer's data and is left out, as the other benchmarks leave out theirs.
             for pass in 0...runs {
-                let reading = clock.measure { _ = ProseSource(text: text, format: format) }
+                let reading = try clock.measure { _ = try ProseSource.read(text, format: format) }
                 var analysis = ProseAnalysis.notAnalysed(.noProse)
                 let all = try clock.measure { analysis = try ProseCheck.analyse(text, format: format) }
                 guard case .analysed(let report) = analysis else {
