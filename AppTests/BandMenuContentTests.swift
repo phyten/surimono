@@ -77,6 +77,20 @@ struct BandMenuContentTests {
         #expect(model.isUpToDate)
     }
 
+    @Test("文章の確認は名前のないテキストでも選べ、対象外の表示メニューは何もしない")
+    func checkWritingCommand() throws {
+        let fixture = Fixture()
+        defer { fixture.cleanUp() }
+        let text = try fixture.make(.plainText, memory: true)
+        #expect(text.contentsPanel.tab == nil)
+        DocumentMenuAction.checkWriting.perform(preferences: fixture.preferences, model: { text })
+        #expect(text.contentsTab == .prose && text.isOutlineShown)
+        #expect(text.rememberedSettings.contentsPanel?.tab == .prose)
+        let pdf = try fixture.make(.pdf)
+        DocumentMenuAction.checkWriting.perform(preferences: fixture.preferences, model: { pdf })
+        #expect(pdf.contentsPanel.tab == nil && !pdf.isOutlineShown)
+    }
+
     /// Literal expectations are independent of the production group's catalog.
     private func verify(_ model: DocumentViewModel, _ expected: [[ID]]) throws {
         let content = BandMenuContent(model: model)
@@ -92,7 +106,7 @@ struct BandMenuContentTests {
     }
 
     private let markdown: [[ID]] = [
-        [.outline, .previousPage, .nextPage, .documentInfo],
+        [.outline, .checkWriting, .previousPage, .nextPage, .documentInfo],
         [.layout, .transition],
         [.readingDirection, .scrollDirection, .selectText],
         [.style, .paperOrientation, .paperSeries, .margins],

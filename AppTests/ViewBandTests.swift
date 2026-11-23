@@ -877,7 +877,7 @@ struct ViewBandTests {
         #expect(model.currentOutlineEntry == 1)
     }
 
-    @Test("見出しのない一ページの文書には目次を出さない")
+    @Test("見出しのない一ページのMarkdownでも目次の部品から文章を確認できる")
     func singlePageWithoutHeadings() async throws {
         let environment = Environment()
         defer { environment.cleanUp() }
@@ -887,7 +887,8 @@ struct ViewBandTests {
         try await waitUntil { model.documentStatistics != nil }
         #expect(!model.hasOutline)
         #expect(!BandLayout.Item.applicable(for: model).contains(.chapter))
-        #expect(!BandLayout.Item.applicable(for: model).contains(.outline))
+        #expect(BandLayout.Item.applicable(for: model).contains(.outline))
+        #expect(model.showsContentsTabs && model.contentsTab == .pages)
     }
 
     @Test("帯から外す設定では目次の部品を帯に置かず、「…」から開ける")

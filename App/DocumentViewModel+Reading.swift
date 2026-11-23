@@ -26,7 +26,7 @@ extension DocumentViewModel {
     }
 
     var canNavigateReading: Bool { mode == .view && !showsWeb && pageCount > 0 }
-    var hasContents: Bool { !showsWeb && (pageCount > 1 || hasOutline || !bookmarkPages.isEmpty) }
+    var hasContents: Bool { !showsWeb && (offersProse || pageCount > 1 || hasOutline || !bookmarkPages.isEmpty) }
     var bookmarkPages: [Int] { bookmarks.pages(pageCount: pageCount, entries: outlineEntries) }
     var visibleReadingPages: [Int] {
         let units = displayUnits

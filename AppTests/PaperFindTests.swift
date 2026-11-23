@@ -137,6 +137,35 @@ struct PaperFindTests {
 
     private let pages = ["An apple a day", "banana", "Apple pie and APPLE jam", "cherry"]
 
+    @Test("文章の印を検索へ引き継ぐと藍の選択だけが消え元のPDFには注釈が残らない", .timeLimit(.minutes(1)))
+    func writingAndFind() async throws {
+        let lines = ["I read the the letter.", "The ink was dry."]
+        let (view, source, window) = try makePaper(lines)
+        defer {
+            window.contentView = nil
+            window.orderOut(nil)
+        }
+        guard
+            case .analysed(let report) = try await ProseCheck.analysis(
+                of: lines.joined(separator: "\n\n"), format: .plainText)
+        else {
+            Issue.record("本文を解析できませんでした")
+            return
+        }
+        let pages = (0..<source.pageCount).map { source.page(at: $0)?.string ?? "" }
+        let panel = try ProsePanelReport(report: report, pages: pages)
+        let spans = try #require(panel.groups[.duplicate]?.first?.spans)
+        view.drawProse(spans)
+        #expect(view.highlightedSelections?.map(\.string) == ["the the"])
+        #expect(view.currentPageIndex == 0)
+        view.find("ink")
+        view.drawProse([])
+        try await waitUntil { view.highlightedSelections?.first?.string == "ink" }
+        #expect(source.page(at: 0)?.annotations.isEmpty == true)
+        #expect(source.page(at: 1)?.annotations.isEmpty == true)
+        view.find("")
+    }
+
     @Test("探すと、大文字と小文字を区別せずにすべての一致へ印が付き、ページには何も書き足さない", .timeLimit(.minutes(1)))
     func marksEveryHit() async throws {
         let (view, source, window) = try makePaper(pages)

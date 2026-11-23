@@ -8,6 +8,7 @@ extension DocumentViewModel {
     var canGoToPage: Bool { hasPaperToSearch && pageCount > 1 }
     func performFind() {
         guard hasPaperToSearch else { return }
+        dismissProseMark()
         find.open()
     }
 
@@ -15,6 +16,7 @@ extension DocumentViewModel {
     /// words of the last search.
     func findStep(forward: Bool) {
         guard hasPaperToSearch else { return }
+        dismissProseMark()
         guard find.isPresented else {
             find.open()
             return

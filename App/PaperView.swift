@@ -34,6 +34,17 @@ final class PaperController {
         view.revealChange(on: request.pageIndex, pinnedBandHeight: request.pinnedBandHeight)
     }
 
+    func canMarkProse(_ spans: [ProsePaperSpan], in source: PDFDocument) -> Bool {
+        guard let view, view.isMade(of: source) else { return false }
+        return view.proseSelections(spans) != nil
+    }
+
+    func isProsePageVisible(_ page: Int) -> Bool { view?.isLogicalPageVisible(page) == true }
+
+    #if DEBUG
+        var showsProseMark: Bool { view?.drawnProseSpans.isEmpty == false }
+    #endif
+
     func focus() {
         guard let view else { return }
         view.window?.makeFirstResponder(view)
@@ -66,6 +77,8 @@ struct PaperView: NSViewRepresentable {
     var narrowsLoneCover = false
     var keepsSpotInPage = false
     /// The words to mark on the paper; nothing takes the marks away.
+    var proseSpans: [ProsePaperSpan] = []
+    var onPaperPress: () -> Void = {}
     var findQuery = ""
     /// The logical page of every hit, with the words they were found for.
     var onFindHits: ([Int], String) -> Void = { _, _ in }
@@ -117,6 +130,8 @@ struct PaperView: NSViewRepresentable {
         view.selectsText = selectsText
         view.onFindHits = onFindHits
         view.find(findQuery)
+        view.onPaperPress = onPaperPress
+        view.drawProse(proseSpans)
         if abs(view.zoom - zoom) > 0.001 {
             // A zoom that comes from the model, as when a document's settings are brought back, has no pointer; it
             // opens at the top of the page rather than in its middle.
@@ -245,6 +260,8 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
             if !findHits.isEmpty { markFindHit(currentFindIndex, reveals: false) }
         }
     }
+    fileprivate private(set) var drawnProseSpans: [ProsePaperSpan] = []
+    fileprivate var onPaperPress: (() -> Void)?
     private var currentFindIndex: Int?
     private(set) var findHits: [PDFSelection] = []
     var narrowsLoneCover = false {
@@ -531,6 +548,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
                     furniture: copy != nil ? furniture : [:],
                     document: document))
         }
+        drawProse([])
         self.document = document
         displayBox = .cropBox
         hideScrollersAndInsets()
@@ -1226,6 +1244,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
     private var isTrackingSelectionLink = false
 
     override func mouseDown(with event: NSEvent) {
+        onPaperPress?()
         pendingMenu?.cancel()
         window?.makeFirstResponder(self)
         dragSelectsText = selectsText(for: event)
@@ -1394,6 +1413,39 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
         // Select All would highlight every word while a drag still moves the window.
         guard selectsText else { return }
         super.selectAll(sender)
+    }
+}
+
+extension PaperPDFView {
+    fileprivate func isLogicalPageVisible(_ index: Int) -> Bool {
+        guard let slot = pagePlan?.viewIndex(for: index), let page = document?.page(at: slot) else { return false }
+        return visiblePages.contains(page)
+    }
+
+    fileprivate func proseSelections(_ spans: [ProsePaperSpan]) -> [PDFSelection]? {
+        guard !spans.isEmpty else { return nil }
+        var selections: [PDFSelection] = []
+        for span in spans {
+            guard let slot = pagePlan?.viewIndex(for: span.page), let page = document?.page(at: slot),
+                let original = sourceDocument?.page(at: span.page),
+                page === original || page.string == original.string,
+                NSMaxRange(span.range) <= page.numberOfCharacters, let selection = page.selection(for: span.range),
+                selection.string == span.text
+            else { return nil }
+            selections.append(selection)
+        }
+        return selections
+    }
+
+    func drawProse(_ spans: [ProsePaperSpan]) {
+        guard spans != drawnProseSpans else { return }
+        drawnProseSpans = []
+        guard findQuery.isEmpty else { return }
+        highlightedSelections = nil
+        guard let selections = proseSelections(spans) else { return }
+        for selection in selections { selection.color = NSColor(PrintPalette.paperAi).withAlphaComponent(0.30) }
+        highlightedSelections = selections
+        drawnProseSpans = spans
     }
 }
 
