@@ -9,10 +9,15 @@ enum RenderingFixtures {
     static func pdf(
         count: Int = 1, size: CGSize = CGSize(width: 612, height: 792), textPrefix: String = "PAGE-"
     ) throws -> PDFDocument {
-        try pdf(pages: (0..<count).map { ["\(textPrefix)\($0 + 1)"] }, size: size)
+        // A prefix may hold several lines; these pages keep the 25 pt spacing their tests were written for.
+        try pdf(
+            pages: (0..<count).map { "\(textPrefix)\($0 + 1)".components(separatedBy: "\n") }, size: size,
+            lineSpacing: 25)
     }
 
-    static func pdf(pages: [[String]], size: CGSize = CGSize(width: 612, height: 792)) throws -> PDFDocument {
+    static func pdf(
+        pages: [[String]], size: CGSize = CGSize(width: 612, height: 792), lineSpacing: CGFloat = 30
+    ) throws -> PDFDocument {
         let data = NSMutableData()
         var box = CGRect(origin: .zero, size: size)
         let consumer = try #require(CGDataConsumer(data: data))
@@ -23,7 +28,7 @@ enum RenderingFixtures {
             context.fill(CGRect(x: 0, y: 0, width: 12, height: 12))
             for (index, line) in lines.enumerated() {
                 let text = NSAttributedString(string: line, attributes: [.font: NSFont.systemFont(ofSize: 20)])
-                context.textPosition = CGPoint(x: 30, y: size.height - 50 - CGFloat(index) * 30)
+                context.textPosition = CGPoint(x: 30, y: size.height - 50 - CGFloat(index) * lineSpacing)
                 CTLineDraw(CTLineCreateWithAttributedString(text), context)
             }
             context.endPDFPage()

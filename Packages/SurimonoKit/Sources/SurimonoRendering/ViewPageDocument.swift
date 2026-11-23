@@ -16,6 +16,7 @@ public enum ViewPageDocument {
     ) -> PDFDocument? {
         // What each decorated page draws, by its index in the copy.
         var decorations: [Int: Decoration] = [:]
+        let sourcePages = SourcePaperText.pageIndices(in: source)
         for (viewIndex, logicalIndex) in plan.logicalIndices.enumerated() {
             guard let logicalIndex else { continue }
             guard let original = source.page(at: logicalIndex) else { return nil }
@@ -26,7 +27,8 @@ public enum ViewPageDocument {
             let number = placement?.lines.bottom.contains { !$0.isEmpty } == true ? nil : plan.number(at: viewIndex)
             guard scale != 1 || number != nil || !marks.isEmpty || placement != nil else { continue }
             decorations[viewIndex] = Decoration(
-                original: original, number: number, furniture: placement, furnitureAsText: furnitureAsText,
+                original: original, number: number, outlinesNumber: sourcePages.contains(logicalIndex),
+                furniture: placement, furnitureAsText: furnitureAsText,
                 marks: marks,
                 visibleBox: visibleBox(of: original, at: viewIndex, plan: plan, margin: margin), scale: scale)
         }
@@ -165,6 +167,7 @@ public enum ViewPageDocument {
     private struct Decoration {
         let original: PDFPage
         let number: Int?
+        let outlinesNumber: Bool
         let furniture: FurniturePlacement?
         let furnitureAsText: Bool
         let marks: [ChangeMark]
@@ -258,7 +261,10 @@ public enum ViewPageDocument {
         }
         context.saveGState()
         context.concatenate(transform.inverted())
-        if let number { PageNumberDrawing.draw(number, in: displayed, margin: margin, context: context) }
+        if let number {
+            PageNumberDrawing.draw(
+                number, in: displayed, margin: margin, asOutlines: decoration.outlinesNumber, context: context)
+        }
         if let furniture {
             PDFComposer.draw(furniture, in: displayed, asOutlines: !decoration.furnitureAsText, context: context)
         }

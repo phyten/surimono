@@ -730,7 +730,7 @@ struct DocumentSettingsFlowTests {
                 data: Data(), fileURL: nil, format: .pdf,
                 preferences: environment.preferences, library: environment.library,
                 settingsStore: environment.store,
-                binder: BinderModel(urls: [a, b], read: { bytes[$0]! }))
+                binder: BinderModel(urls: [a, b], read: { url, _ in bytes[url]! }))
         }
         let first = makeModel()
         defer { first.stop() }

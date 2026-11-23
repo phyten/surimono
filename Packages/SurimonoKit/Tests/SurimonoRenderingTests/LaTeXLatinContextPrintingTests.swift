@@ -120,9 +120,10 @@ struct LaTeXLatinContextPrintingTests {
             }
             let ruler = try #require(pdf.findString("Ruler", withOptions: []).first).bounds(for: page)
             let pencil = try #require(pdf.findString("Pencil", withOptions: []).first).bounds(for: page)
-            let glyphs = note.split { !$0.isLetter }.flatMap { word in
+            let wordBounds: [CGRect] = note.split { !$0.isLetter }.flatMap { word in
                 pdf.findString(String(word), withOptions: []).map { $0.bounds(for: page) }
-            }.filter { !$0.isEmpty && $0.midY < pencil.midY - 3 && $0.midY > ruler.midY + 3 }
+            }
+            let glyphs = wordBounds.filter { !$0.isEmpty && $0.midY < pencil.midY - 3 && $0.midY > ruler.midY + 3 }
             let nextY = try #require(glyphs.map(\.midY).max())
             let continuationX = try #require(glyphs.filter { abs($0.midY - nextY) <= 1 }.map(\.minX).min())
             if composes {

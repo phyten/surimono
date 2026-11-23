@@ -147,7 +147,7 @@ struct SourceLanguageTests {
     @Test("ソースコードは拡張子に合わせて色を付ける")
     func convertsSource() {
         let swift = PlainTextConverter.convert("let count = 2 // total\n", fileName: "Count.swift").body
-        #expect(swift.hasPrefix("<pre class=\"surimono-plain\">"))
+        #expect(swift.hasPrefix("<pre class=\"surimono-source\">"))
         #expect(swift.contains("<span class=\"hl-keyword\">let</span>"))
         #expect(swift.contains("<span class=\"hl-comment\">// total</span>"))
         let python = PlainTextConverter.convert("def area(w, h):\n    return w * h\n", fileName: "area.py").body
@@ -173,7 +173,7 @@ struct SourceLanguageTests {
     func fixedJSON() {
         let input = "{\n  \"title\": \"A < B\",\n  \"copies\": 2,\n  \"duplex\": true,\n  \"printer\": null\n}\n"
         let expected = """
-            <pre class="surimono-plain">{
+            <pre class="surimono-source">{
               <span class="hl-attr">&quot;title&quot;</span>: <span class="hl-string">&quot;A &lt; B&quot;</span>,
               <span class="hl-attr">&quot;copies&quot;</span>: <span class="hl-number">2</span>,
               <span class="hl-attr">&quot;duplex&quot;</span>: <span class="hl-literal">true</span>,
@@ -189,7 +189,7 @@ struct SourceLanguageTests {
     func fixedXML() {
         let input = "<?xml version=\"1.0\"?>\n<!-- 見本 -->\n<job copies=\"2\">\n  <paper>A4 &amp; B5</paper>\n</job>\n"
         let expected = """
-            <pre class="surimono-plain"><span class="hl-meta">&lt;?xml version=&quot;1.0&quot;?&gt;</span>
+            <pre class="surimono-source"><span class="hl-meta">&lt;?xml version=&quot;1.0&quot;?&gt;</span>
             <span class="hl-comment">&lt;!-- 見本 --&gt;</span>
             &lt;<span class="hl-tag">job</span> <span class="hl-attr">copies</span>=<span class="hl-string">&quot;2&quot;</span>&gt;
               &lt;<span class="hl-tag">paper</span>&gt;A4 <span class="hl-literal">&amp;amp;</span> B5&lt;/<span class="hl-tag">paper</span>&gt;
@@ -293,7 +293,7 @@ struct SourceLanguageTests {
     func oversizedSource() {
         let text = String(repeating: "let a = 1\n", count: 20_001)
         let body = PlainTextConverter.convert(text, fileName: "big.swift").body
-        #expect(body == "<pre class=\"surimono-plain\">\(text)</pre>")
+        #expect(body == "<pre class=\"surimono-source\">\(text)</pre>")
     }
 
     @Test("閉じていない文字列や極端に長い 1 行でも色付けが終わる", .timeLimit(.minutes(1)))

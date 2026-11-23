@@ -254,18 +254,16 @@ public enum MarkdownConverter {
     ) -> String {
         guard !footnotes.order.isEmpty else { return "" }
         var items = ""
-        var index = 0
-        while index < footnotes.order.count {
-            let definition = footnotes.definitions[footnotes.order[index]] ?? ""
+        footnotes.forEachReferenced { index, id in
+            let definition = footnotes.definitions[id] ?? ""
             let (html, _) = renderBody(
                 MarkdownSourceLines.unmapped(definition.components(separatedBy: "\n")), footnotes: footnotes,
                 formulas: formulas,
                 anchorsHeadings: false, proof: proof)
             let item = "<li id=\"fn-\(index + 1)\">\(html)</li>\n"
             let origins =
-                definitions[footnotes.order[index]]?.origins.reduce(into: Set<Int>()) { $0.formUnion($1) } ?? []
+                definitions[id]?.origins.reduce(into: Set<Int>()) { $0.formUnion($1) } ?? []
             items += mapping?.tag(item, lines: origins, kind: "footnote") ?? item
-            index += 1
         }
         return "<section class=\"footnotes\">\n<ol>\n\(items)</ol>\n</section>\n"
     }
@@ -608,15 +606,20 @@ public enum MarkdownConverter {
         return matches
     }
 
-    private static func renderAutolinks(_ text: String, citations: MarkdownCitations?) -> String {
-        func prose(_ text: String) -> String {
-            citations?.prose(text) ?? HTML.escape(MarkdownExtensions.emojified(text))
-        }
-        guard autolinkPattern != nil else {
-            return prose(text)
-        }
-        var output = ""
-        var cursor = text.startIndex
+    struct Autolink {
+        let label: String
+        let isWeb: Bool
+        let start: String.Index
+        let resume: String.Index
+        let range: NSRange
+    }
+
+    /// The stretches of `text` that are printed as links: each match without what follows a web address as
+    /// punctuation (`?!.,:*_~`, an unmatched closing parenthesis, a trailing character reference), and without the
+    /// addresses that end in `-` or `_`. The writing check leaves out the same stretches, so a sentence's full stop
+    /// after an address stays the sentence's.
+    static func autolinks(in text: String) -> [Autolink] {
+        var links: [Autolink] = []
         for match in autolinkMatches(text) {
             guard let range = Range(match.range, in: text) else { continue }
             var label = String(text[range])
@@ -644,6 +647,29 @@ public enum MarkdownConverter {
             } else if label.hasSuffix("-") || label.hasSuffix("_") {
                 continue
             }
+            // Trimming an entity can split a grapheme. Rendering resumes by the original character count;
+            // the writing check maps the label's UTF-16 units independently.
+            links.append(
+                Autolink(
+                    label: label, isWeb: isWeb, start: range.lowerBound,
+                    resume: text.index(range.lowerBound, offsetBy: label.count),
+                    range: NSRange(location: match.range.location, length: label.utf16.count)))
+        }
+        return links
+    }
+
+    private static func renderAutolinks(_ text: String, citations: MarkdownCitations?) -> String {
+        func prose(_ text: String) -> String {
+            citations?.prose(text) ?? HTML.escape(MarkdownExtensions.emojified(text))
+        }
+        guard autolinkPattern != nil else {
+            return prose(text)
+        }
+        var output = ""
+        var cursor = text.startIndex
+        for link in autolinks(in: text) {
+            let label = link.label
+            let isWeb = link.isWeb
             let destination: String
             if isWeb && label.lowercased().hasPrefix("www.") {
                 destination = "http://" + label
@@ -653,9 +679,9 @@ public enum MarkdownConverter {
                 destination = "mailto:" + label
             }
             // Emoji shortcodes apply around a URL, never inside it, so the link keeps its destination.
-            output += prose(String(text[cursor..<range.lowerBound]))
+            output += prose(String(text[cursor..<link.start]))
             output += "<a href=\"\(HTML.escape(destination))\">\(HTML.escape(label))</a>"
-            cursor = text.index(range.lowerBound, offsetBy: label.count)
+            cursor = link.resume
         }
         return output + prose(String(text[cursor...]))
     }

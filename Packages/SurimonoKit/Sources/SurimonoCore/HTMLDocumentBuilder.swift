@@ -10,6 +10,17 @@ public enum HTMLDocumentBuilder {
         textScale: Double = 1, typeface: Typeface = .style, removesPaper: Bool = false, finish: String = "",
         code: CodeStyle = CodeStyle()
     ) -> String {
+        build(
+            fragment: fragment, format: format, theme: theme, baseURL: baseURL, language: language,
+            textScale: textScale, typeface: typeface, removesPaper: removesPaper, finish: finish, code: code,
+            checkSourceBytes: { _ in })
+    }
+
+    package static func build(
+        fragment: HTMLFragment, format: DocumentFormat, theme: PrintTheme, baseURL: URL? = nil, language: String = "ja",
+        textScale: Double = 1, typeface: Typeface = .style, removesPaper: Bool = false, finish: String = "",
+        code: CodeStyle = CodeStyle(), checkSourceBytes: (Int) throws -> Void
+    ) rethrows -> String {
         let language = Self.language(for: fragment, fallback: language)
         let info = format == .latex ? fragment.latexClass : nil
         let latex =
@@ -54,9 +65,18 @@ public enum HTMLDocumentBuilder {
             localFaces.isEmpty
             ? ""
             : "<style>\(localFaces.replacingOccurrences(of: "</style", with: "\\3C /style", options: .caseInsensitive))</style>"
+        let sourcePage = format == .plainText && fragment.sourceLanguage != nil
+        let marked = try CodeBlockMarkup.apply(
+            code, to: fragment.body, language: sourcePage ? fragment.sourceLanguage : nil,
+            checkSourceBytes: checkSourceBytes)
         let sheet = styleSheet(
             theme: theme, textScale: textScale, typeface: format.usesPrintTheme ? typeface : .style,
-            code: code, language: language.code)
+            code: code, language: language.code, sourcePage: sourcePage)
+        // The sampler replaces the first style element. This source-only sheet stays with its lines.
+        let scale = textScale.isFinite && textScale > 0 ? textScale : 1
+        let sourceStyle =
+            sourcePage
+            ? "<style>\n:root { --source-min-size: \(10 / scale)px; }\n\(sourcePageCSS)\n</style>" : ""
         let slideStyle = info.flatMap { beamerStyle($0, sheet: sheet) } ?? ""
         let direction = language.isRightToLeft ? " dir=\"rtl\"" : ""
         // Styles that number headings with counters leave such a document alone.
@@ -71,14 +91,19 @@ public enum HTMLDocumentBuilder {
             <title>\(HTML.escape(fragment.title ?? ""))</title>
             \(base)<style>
             \(sheet)
-            </style>\(fontStyle)\(format == .rst ? rstStyle : "")\(finishStyle)\(slideStyle)\(removesPaper ? "\n" + PaperBackground.removalStyle : "")
+            </style>\(sourceStyle)\(fontStyle)\(format == .rst ? rstStyle : "")\(finishStyle)\(slideStyle)\(removesPaper ? "\n" + PaperBackground.removalStyle : "")
             </head>
             <body class="surimono format-\(format.rawValue)\(ownNumbers)"\(latex)>
-            \(LongTokenMarks.marked(CodeBlockMarkup.apply(code, to: fragment.body)))
+            \(sourcePage ? marked : LongTokenMarks.marked(marked))
             </body>
             </html>
             """
     }
+
+    private static let sourcePageCSS: String = {
+        guard let url = Bundle.module.url(forResource: "source-page", withExtension: "css") else { return "" }
+        return (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+    }()
 
     private static let rstStyle = """
         <style>
@@ -191,13 +216,19 @@ public enum HTMLDocumentBuilder {
         DocumentLanguage.detect(html: fragment.body, declared: fragment.language, fallback: fallback)
     }
 
-    /// The contents of the document's one style element. A theme picker swaps it in a page that is already laid out.
+    /// The contents of the document’s replaceable theme style element. A theme picker swaps it in a page that is already laid out.
     public static func styleSheet(
         theme: PrintTheme, textScale: Double = 1, typeface: Typeface = .style, code: CodeStyle = CodeStyle(),
-        language: String = "ja"
+        language: String = "ja", sourcePage: Bool = false
     ) -> String {
-        // Since style is an HTML raw-text element, CSS-escape any closing style tags inside the CSS.
-        let css = LanguageFonts.adapt(theme.css, language: language).replacingOccurrences(
+        // Prose fallbacks can put a proportional face ahead of the code face for some languages.
+        var families = sourcePage ? theme.css : LanguageFonts.adapt(theme.css, language: language)
+        if sourcePage && theme.id == "mimeograph" {
+            // This theme normally starts even code in proportional Osaka. Use its fixed-pitch sibling.
+            families += "\npre.surimono-source > code { font-family: \"Osaka-Mono\", Menlo, monospace; }"
+        }
+        // Escape closing style tags in HTML raw text.
+        let css = families.replacingOccurrences(
             of: "</style", with: "\\3C /style", options: .caseInsensitive)
         // Zoom scales fixed-point fonts, tables and images together while pagination keeps the paper size.
         let scaleCSS =

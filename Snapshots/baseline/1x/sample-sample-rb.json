@@ -1,140 +1,142 @@
 {
   "fonts" : [
-    "HiraKakuProN-W3",
-    "HiraKakuProN-W6"
+    "HiraginoSans-W3",
+    "Menlo-Bold",
+    "Menlo-Italic",
+    "Menlo-Regular"
   ],
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 42,
+      "firstY" : 44.1,
       "height" : 841.9,
-      "lastY" : 445.7,
+      "lastY" : 323.6,
       "lineCount" : 17,
       "lines" : [
         {
-          "height" : 18.4,
+          "height" : 11.2,
           "text" : "# A paper tray that knows how many sheets are left.",
-          "width" : 292.8,
-          "x" : 42.5,
-          "y" : 42
+          "width" : 295.2,
+          "x" : 62.7,
+          "y" : 44.1
         },
         {
-          "height" : 19.4,
+          "height" : 11.2,
           "text" : "class PaperTray",
-          "width" : 90.5,
-          "x" : 42.5,
-          "y" : 61
+          "width" : 86.8,
+          "x" : 62.7,
+          "y" : 57.7
         },
         {
-          "height" : 18.4,
+          "height" : 11.2,
           "text" : "attr_reader :name, :sheets",
-          "width" : 144.7,
-          "x" : 50,
-          "y" : 80.4
+          "width" : 150.5,
+          "x" : 74.3,
+          "y" : 71.3
         },
         {
-          "height" : 19.4,
+          "height" : 11.2,
           "text" : "def initialize(name, sheets: 250)",
-          "width" : 177.3,
-          "x" : 50,
-          "y" : 118.7
+          "width" : 191,
+          "x" : 74.3,
+          "y" : 97.7
         },
         {
-          "height" : 18.4,
+          "height" : 11.2,
           "text" : "@name = name",
-          "width" : 85.8,
-          "x" : 57.5,
-          "y" : 138.1
+          "width" : 69.4,
+          "x" : 85.9,
+          "y" : 111.3
         },
         {
-          "height" : 18.4,
+          "height" : 11.2,
           "text" : "@sheets = sheets",
-          "width" : 98.1,
-          "x" : 57.5,
-          "y" : 157.3
+          "width" : 92.6,
+          "x" : 85.9,
+          "y" : 125
         },
         {
-          "height" : 19.4,
+          "height" : 11.2,
           "text" : "end",
-          "width" : 22.6,
-          "x" : 50,
-          "y" : 176.4
+          "width" : 17.4,
+          "x" : 74.3,
+          "y" : 138.6
         },
         {
-          "height" : 19.4,
+          "height" : 11.2,
           "text" : "def take(count)",
-          "width" : 87.8,
-          "x" : 50,
-          "y" : 214.8
+          "width" : 86.8,
+          "x" : 74.3,
+          "y" : 165
         },
         {
-          "height" : 19.4,
+          "height" : 15.8,
           "text" : "raise ArgumentError, \"紙が足りません\" if count > sheets",
-          "width" : 304.1,
-          "x" : 57.5,
-          "y" : 234.1
+          "width" : 304.6,
+          "x" : 85.9,
+          "y" : 175.4
         },
         {
-          "height" : 18.4,
+          "height" : 11.2,
           "text" : "@sheets -= count",
-          "width" : 97.3,
-          "x" : 57.5,
-          "y" : 272.7
+          "width" : 92.6,
+          "x" : 85.9,
+          "y" : 205.9
         },
         {
-          "height" : 19.4,
+          "height" : 11.2,
           "text" : "self",
-          "width" : 22.2,
-          "x" : 57.5,
-          "y" : 291.7
+          "width" : 23.1,
+          "x" : 85.9,
+          "y" : 218.7
         },
         {
-          "height" : 19.4,
+          "height" : 11.2,
           "text" : "end",
-          "width" : 22.6,
-          "x" : 50,
-          "y" : 311
+          "width" : 17.4,
+          "x" : 74.3,
+          "y" : 232.3
         },
         {
-          "height" : 19.4,
+          "height" : 11.2,
           "text" : "def empty? = sheets.zero?",
-          "width" : 149.9,
-          "x" : 50,
-          "y" : 349.4
+          "width" : 144.7,
+          "x" : 74.3,
+          "y" : 259.5
         },
         {
-          "height" : 19.4,
+          "height" : 11.2,
           "text" : "end",
-          "width" : 22.6,
-          "x" : 42.5,
-          "y" : 368.6
+          "width" : 17.4,
+          "x" : 62.7,
+          "y" : 273.1
         },
         {
-          "height" : 18.4,
+          "height" : 11.2,
           "text" : "tray = PaperTray.new(\"A4\", sheets: 12)",
-          "width" : 213.8,
-          "x" : 42.5,
-          "y" : 407.2
+          "width" : 219.9,
+          "x" : 62.7,
+          "y" : 299.6
         },
         {
-          "height" : 18.4,
+          "height" : 11.2,
           "text" : "tray.take(5).take(4)",
-          "width" : 105.8,
-          "x" : 42.5,
-          "y" : 426.5
+          "width" : 115.7,
+          "x" : 62.7,
+          "y" : 313.2
         },
         {
-          "height" : 18.4,
+          "height" : 15.8,
           "text" : "puts \"#{tray.name}: 残り #{tray.sheets} 枚#{' (空)' if tray.empty?}\"",
-          "width" : 353.4,
-          "x" : 42.5,
-          "y" : 445.7
+          "width" : 385.7,
+          "x" : 62.7,
+          "y" : 323.6
         }
       ],
-      "textHeight" : 422.1,
-      "textLeft" : 42.5,
-      "textTop" : 42,
-      "textWidth" : 353.4,
+      "textHeight" : 295.3,
+      "textLeft" : 62.7,
+      "textTop" : 44.1,
+      "textWidth" : 385.7,
       "width" : 595.3
     }
   ],

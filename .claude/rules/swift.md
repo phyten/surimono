@@ -30,4 +30,4 @@ AGENTS.md の「コーディング規約」の補足。Swift ファイルを編�
 - 状態は `@Observable` で持つ（`ObservableObject` は使わない）。
 - AppKit のビュー（PDFView、WKWebView）は `NSViewRepresentable` で包む。
 - UI 文言は英語で書き、String Catalog（`App/Localizable.xcstrings`）に日本語訳を足す。
-- 古い OS への対応は `if #available(macOS 26, *)` などの実行時の分岐で行う。ただし `if #available` は古い SDK でのコンパイルを助けないので、CI の SDK（Xcode 26.6）に無い API は使わない。どうしても使う場合は `#if compiler(>=…)` などの条件付きコンパイルと代替の実装を用意する。
+- 古い OS への対応は `if #available(macOS 26, *)` などの実行時の分岐で行う。CI とリリースは手元と同じ Xcode 27.2 で組むので、その SDK にある API を使ってよい。

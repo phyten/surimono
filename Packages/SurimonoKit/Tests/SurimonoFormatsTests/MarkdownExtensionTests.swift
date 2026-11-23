@@ -1,7 +1,21 @@
-import SurimonoFormats
 import Testing
 
+@testable import SurimonoFormats
+
 struct MarkdownExtensionTests {
+    @Test("リスト内で複数行にまたがる変更記号の数式は元の行と字下げを含む桁を指す")
+    func joinedFormulaPosition() {
+        let source = MarkdownSourceLines(["1. {++Fold", "   the $😀_1$ page++}."])
+        let starts = [0, 11]
+        var ranges: [Range<Int>] = []
+        _ = MarkdownExtensions.rewriteInline(source, footnotes: .init(definitions: [:]), formulas: .init()) {
+            line, range in
+            let start = starts[line] + range.location
+            ranges.append(start..<(start + range.length))
+        }
+        #expect(ranges == [18..<24])
+    }
+
     private func body(_ markdown: String) -> String { MarkdownConverter.convert(markdown).body }
 
     @Test("脚注は最初に参照した順に番号を振り、定義を本文から外して末尾にまとめる")

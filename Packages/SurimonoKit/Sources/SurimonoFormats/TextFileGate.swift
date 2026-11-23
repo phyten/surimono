@@ -81,9 +81,11 @@ public enum TextFileGate {
         }
         switch kind {
         case .transportStream:
-            // Source text can line a "G" up where packets would start; a stream is never also clean UTF-8.
+            guard text else { return .binary }
+            // Packet signatures in UTF-16 or UTF-32 are only bytes of already validated characters.
+            if TextDecoding.byteOrderMark(of: bytes) != nil { return .text(language()) }
             let stream = hasPacketStructure(bytes, isWhole: isWhole) && !isCleanUTF8(bytes, isWhole: isWhole)
-            return text && !stream ? .text(language()) : .binary
+            return stream ? .binary : .text(language())
         case .propertyList:
             return text && !isBinaryPropertyList(bytes) ? .text(language()) : .binary
         case .untyped:
@@ -266,7 +268,17 @@ public enum TextFileGate {
                     : (0xE0...0xEF).contains(lead)
                         ? 3
                         : (0xC2...0xDF).contains(lead) ? 2 : 1
-                if length > tail + 1 { content.removeLast(tail + 1) }
+                if length > tail + 1 {
+                    // These leads reserve part of the continuation range for overlong, surrogate or out-of-range values.
+                    if tail > 0 {
+                        let second = content[content.count - tail]
+                        switch (lead, second) {
+                        case (0xE0, ..<0xA0), (0xED, 0xA0...), (0xF0, ..<0x90), (0xF4, 0x90...): return false
+                        default: break
+                        }
+                    }
+                    content.removeLast(tail + 1)
+                }
             }
         }
         return decodes(content, as: UTF8.self)
@@ -276,7 +288,7 @@ public enum TextFileGate {
     // and may begin anywhere, even after other bytes. A packet starts with 0x47, has its error bit clear and says
     // whether it carries a payload, an adaptation field or both ("neither" is not allowed); an adaptation field
     // has a length that fits the packet. Five such packets in a
-    // row anywhere in the sample make a stream. So does a file that is nothing but whole packets, however few.
+    // row anywhere in the sample make a stream. A short file needs evidence beyond its size and header.
     static func hasPacketStructure(_ bytes: [UInt8], isWhole: Bool) -> Bool {
         func isPacket(at index: Int) -> Bool {
             guard index + 3 < bytes.count, bytes[index] == 0x47, bytes[index + 1] & 0x80 == 0 else { return false }
@@ -290,6 +302,32 @@ public enum TextFileGate {
             default: return false
             }
         }
+        // A short legacy-encoded source can fit the packet layout by chance. Decode from the beginning:
+        // even the fourth byte of the apparent header can be the lead byte of a Japanese character.
+        func hasTextLikeBody(packetSize: Int, lead: Int) -> Bool {
+            var asciiBytes = 0
+            var hasPrintableRun = false
+            for start in stride(from: lead, to: bytes.count, by: packetSize) {
+                var run = 0
+                for byte in bytes[(start + 4)..<(start + 188)] {
+                    let printable = (0x20...0x7E).contains(byte)
+                    if printable || (0x09...0x0D).contains(byte) { asciiBytes += 1 }
+                    run = printable ? run + 1 : 0
+                    if run >= 4 { hasPrintableRun = true }
+                }
+            }
+            // Latin-1 accepts arbitrary bytes, so a few printable bytes alone cannot establish a text body.
+            if hasPrintableRun, asciiBytes * 2 >= (bytes.count / packetSize) * 184 { return true }
+            let data = Data(bytes)
+            return [String.Encoding.utf8, .shiftJIS, .japaneseEUC].contains { encoding in
+                guard let decoded = String(data: data, encoding: encoding) else { return false }
+                return hasPrintableRun
+                    || decoded.unicodeScalars.contains { scalar in
+                        (0x3040...0x30FF).contains(scalar.value) || (0x4E00...0x9FFF).contains(scalar.value)
+                            || (0xFF66...0xFF9F).contains(scalar.value)
+                    }
+            }
+        }
         for (size, lead) in [(188, 0), (192, 4), (204, 0)] {
             for phase in 0..<min(size, bytes.count) {
                 var run = 0
@@ -301,7 +339,8 @@ public enum TextFileGate {
                 }
             }
             if isWhole, !bytes.isEmpty, bytes.count % size == 0,
-                stride(from: lead, to: bytes.count, by: size).allSatisfy(isPacket)
+                stride(from: lead, to: bytes.count, by: size).allSatisfy({ isPacket(at: $0) }),
+                !hasTextLikeBody(packetSize: size, lead: lead)
             {
                 return true
             }

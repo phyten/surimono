@@ -79,7 +79,8 @@ struct ContentsPages: View {
         let visiblePages = model.visibleReadingPages
         // Bundle tiles own their half of the gutter so a drop directly on the insertion line still lands.
         let spacing: CGFloat = items == nil ? 10 : 0
-        let selected = selection ?? current
+        let selectedImage = model.imageBundle?.selection.flatMap { url in items?.firstIndex { $0.url == url } }
+        let selected = (items == nil ? selection : selectedImage) ?? current
         @ViewBuilder func cell(_ page: Int, chapter: String?, mate: Int?) -> some View {
             let item = items.flatMap { $0.indices.contains(page) ? $0[page] : nil }
             let tile = PageTile(
@@ -87,7 +88,7 @@ struct ContentsPages: View {
                 scale: scale, chapter: chapter, marked: marks.contains(page), current: visiblePages.contains(page),
                 selected: focused && selected == page, rowMate: mate
             ) {
-                selection = page
+                if item == nil { selection = page }
                 focused = true
                 jump(page, item: item)
             }
@@ -165,21 +166,21 @@ struct ContentsPages: View {
                     jump(selected, item: item)
                     return .handled
                 }
-                selection = min(max(0, next), model.pageCount - 1)
-                if let selection {
-                    if let items, items.indices.contains(selection) {
-                        model.imageBundle?.selection = items[selection].url
-                    }
-                    proxy.scrollTo(selection)
+                let page = min(max(0, next), model.pageCount - 1)
+                if let items, items.indices.contains(page) {
+                    model.imageBundle?.selection = items[page].url
+                } else {
+                    selection = page
                 }
+                proxy.scrollTo(page)
                 return .handled
             }
             .onChange(of: current, initial: true) { _, page in
-                selection = page
+                if items == nil { selection = page }
                 proxy.scrollTo(page)
             }
             .onChange(of: model.pageCount) { _, count in
-                selection = min(selected, max(0, count - 1))
+                if items == nil { selection = min(selected, max(0, count - 1)) }
                 proxy.scrollTo(current)
             }
             .onGeometryChange(for: CGRect.self) {
@@ -300,13 +301,33 @@ private struct BundlePageDrop: DropDelegate {
     }
 }
 
-private struct PageTile: View {
+struct PageTileThumbnail {
     struct Request: Equatable {
         let generation: Int
         let page: Int
         let pixels: Int
     }
 
+    private var request: Request?
+    private var bitmap: CGImage?
+
+    mutating func begin(_ next: Request?) {
+        request = next
+        bitmap = nil
+    }
+
+    mutating func receive(_ image: CGImage, for completed: Request) {
+        guard request == completed else { return }
+        bitmap = image
+    }
+
+    func image(for visible: Request?) -> CGImage? {
+        // The body can already have a new request before its task has started.
+        request == visible ? bitmap : nil
+    }
+}
+
+private struct PageTile: View {
     let model: DocumentViewModel
     let page: Int
     let generation: Int?
@@ -322,7 +343,7 @@ private struct PageTile: View {
         @State private var captureID = UUID()
     #endif
     @State private var visible = false
-    @State private var loaded: (Request, CGImage)?
+    @State private var thumbnail = PageTileThumbnail()
 
     private func aspect(of page: Int) -> CGFloat {
         if let size = model.slideDeck?.size, size.width > 0, size.height > 0 { return size.width / size.height }
@@ -336,17 +357,18 @@ private struct PageTile: View {
         let tile = PageTileSize(width: width, aspect: aspect(of: page), rowMateAspect: rowMate.map { aspect(of: $0) })
         // Quantize the long edge so dragging the divider does not generate a bitmap for every point.
         let pixels = min(1024, max(32, Int(ceil(max(tile.paper.height, tile.paper.width) * scale / 32)) * 32))
-        let request = visible ? generation.map { Request(generation: $0, page: page, pixels: pixels) } : nil
+        let request =
+            visible ? generation.map { PageTileThumbnail.Request(generation: $0, page: page, pixels: pixels) } : nil
         Button(action: jump) {
             VStack(spacing: 5) {
                 Color.white
                     .overlay {
-                        if let loaded, loaded.0 == request {
-                            Image(decorative: loaded.1, scale: scale).resizable().scaledToFit()
+                        if let request, let image = thumbnail.image(for: request) {
+                            Image(decorative: image, scale: scale).resizable().scaledToFit()
                                 #if DEBUG
-                                    .id(loaded.0.generation)
+                                    .id(request.generation)
                                     .onAppear {
-                                        model.thumbnailDidAppear?(loaded.0.generation)
+                                        model.thumbnailDidAppear?(request.generation)
                                         if model.snapshotContentsTab == .pages {
                                             model.snapshotThumbnailRequests[captureID] = true
                                         }
@@ -410,11 +432,11 @@ private struct PageTile: View {
                     model.snapshotThumbnailRequests[captureID] = request == nil ? nil : false
                 }
             #endif
-            loaded = nil
+            thumbnail.begin(request)
             guard let request, let thumbnails = model.thumbnails(for: request.generation),
                 let image = await thumbnails.image(page: page, pixels: pixels), !Task.isCancelled
             else { return }
-            loaded = (request, image)
+            thumbnail.receive(image, for: request)
             if page + 1 < model.pageCount {
                 _ = await thumbnails.image(page: page + 1, pixels: pixels)
             }

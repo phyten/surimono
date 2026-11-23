@@ -4,7 +4,56 @@ import SurimonoCore
 import Testing
 import UniformTypeIdentifiers
 
+@testable import SurimonoFormats
+
+@Suite(.timeLimit(.minutes(1)))
 struct SourceCodeOpeningTests {
+    @Test("188 バイトごとにヘッダーに似た文字が並ぶ UTF-16 もテキストとして開く")
+    func packetShapedUTF16() throws {
+        let line = "// Gあ" + String(repeating: " ", count: 88) + "\n"
+        let bytes = try #require(String(repeating: line, count: 30).data(using: .utf16LittleEndian))
+        #expect(language(verdict("a.ts", Data([0xFF, 0xFE]) + bytes)) == "typescript")
+    }
+
+    @Test(
+        "188 バイトの旧来の文字コードのソースを動画と取り違えない",
+        arguments: [String.Encoding.shiftJIS, .japaneseEUC, .isoLatin1])
+    func packetShapedSource(encoding: String.Encoding) throws {
+        let letter = encoding == .isoLatin1 ? "é" : "あ"
+        let source = try #require("GetString(\"\(letter)\");\n".data(using: encoding))
+        let bytes = source + Data(repeating: 0x20, count: 188 - source.count)
+        #expect(language(verdict("a.ts", bytes)) == "typescript")
+    }
+
+    @Test("仮のパケットヘッダーをまたぐ Shift_JIS の「日」を含むソースをテキストとして開く")
+    func shiftJISAcrossHeader() {
+        let bytes =
+            Data([0x47, 0x2F, 0x2A]) + Data(Array(repeating: [UInt8(0x93), 0xFA], count: 91).joined())
+            + Data([0x2A, 0x2F, 0x0A])
+        #expect(bytes.count == 188)
+        #expect(language(verdict("a.ts", bytes)) == "typescript")
+    }
+
+    @Test("本文のほぼ全体が FF のパケットは末尾の ABCD だけでテキストと見なさない")
+    func binaryWithPrintableTail() {
+        let bytes = Data([0x47, 0x41, 0x21, 0x93]) + Data(repeating: 0xFF, count: 180) + Data("ABCD".utf8)
+        #expect(verdict("a.ts", bytes) == .binary)
+    }
+
+    @Test("4096 バイト目で切れた UTF-8 は、正しい文字に続きうる接頭辞だけを許す")
+    func utf8PrefixBoundary() {
+        let boundaries: [(UInt8, UInt8, Bool)] = [
+            (0xE0, 0x80, false), (0xE0, 0x9F, false), (0xE0, 0xA0, true), (0xED, 0x9F, true), (0xED, 0xA0, false),
+            (0xF0, 0x80, false), (0xF0, 0x8F, false), (0xF0, 0x90, true), (0xF4, 0x8F, true), (0xF4, 0x90, false),
+        ]
+        for (lead, second, valid) in boundaries {
+            let head = Data([0xEF, 0xBB, 0xBF]) + Data(repeating: 0x41, count: 4091) + Data([lead, second])
+            let rest = lead < 0xF0 ? Data([0x80]) : Data([0x80, 0x80])
+            #expect(isText(verdict("a.ts", head + rest)) == valid, "\(lead), \(second)")
+            #expect(verdict("a.ts", head) == .binary)
+        }
+    }
+
     private func url(_ name: String) -> URL { URL(fileURLWithPath: "/fixtures/" + name) }
 
     /// Transport stream packets: each starts with the sync byte; `payload` fills the rest.
@@ -150,12 +199,43 @@ struct SourceCodeOpeningTests {
         #expect(verdict("clip.ts", long) == .binary)
     }
 
+    private func ffmpegFixture() throws -> Data {
+        // ffmpeg -f lavfi -i color=black:s=32x32:r=5 -frames:v 10 -c:v mpeg2video -f mpegts black-mpeg2.ts
+        let url = try #require(
+            Bundle.module.url(forResource: "black-mpeg2", withExtension: "ts", subdirectory: "Fixtures"))
+        return try Data(contentsOf: url)
+    }
+
+    @Test("FFmpeg の動画は、ファイル全体でも先頭 1・3・5 パケットだけでも断る")
+    func ffmpegTransportStream() throws {
+        let file = try ffmpegFixture()
+        #expect(file.count > 4096)
+        #expect(verdict("clip.ts", file) == .binary)
+        for packets in [1, 3, 5] {
+            #expect(verdict("clip.ts", file.prefix(packets * 188)) == .binary)
+        }
+    }
+
+    @Test("FFmpeg の実動画から全体・4096 バイトの試料・先頭 1・3・5 パケットの構造を検出する")
+    func ffmpegPacketStructure() throws {
+        let bytes = try ffmpegFixture()
+        // The public gate rejects the fixture's control bytes before it needs to inspect any headers.
+        #expect(TextFileGate.hasPacketStructure(Array(bytes), isWhole: true))
+        #expect(TextFileGate.hasPacketStructure(Array(bytes.prefix(4096)), isWhole: false))
+        for packets in [1, 3, 5] {
+            #expect(TextFileGate.hasPacketStructure(Array(bytes.prefix(188 * packets)), isWhole: true), "\(packets)")
+        }
+    }
+
     @Test("短い本物のパケットも動画と決め、短いテキストはテキストと決める")
     func shortInputs() {
         // One whole packet with no zero and no control byte: a file that is nothing but packets.
         #expect(dense(packets: 1).count == 188)
         #expect(verdict("clip.ts", dense(packets: 1)) == .binary)
         #expect(verdict("clip.ts", dense(packets: 3)) == .binary)
+        // An exact packet with a binary body need not end in FF stuffing.
+        let binaryBody = Data(Array(repeating: [UInt8(0xFE), 0xFF], count: 92).joined())
+        #expect(verdict("clip.ts", Data([0x47, 0x41, 0x21, 0x53]) + binaryBody) == .binary)
         // One packet of zeros: its bytes are not text.
         #expect(verdict("clip.ts", stream(packets: 1)) == .binary)
         #expect(verdict("clip.ts", Data([0x1A, 0x45, 0xDF, 0xA3, 0x01, 0x02])) == .binary)

@@ -145,7 +145,12 @@ final class DocumentViewModel {
     /// An axis of its own: choosing another style leaves it as it is. A palette the user picks goes through
     /// `selectCodePalette(_:)`.
     var codePaletteID: String
-    var codeBlock = CodeBlockOptions()
+    private var chosenCodeBlock: CodeBlockOptions?
+    private var defaultCodeBlock: CodeBlockOptions { sourceLanguage == nil ? CodeBlockOptions() : .sourcePage }
+    var codeBlock: CodeBlockOptions {
+        get { chosenCodeBlock ?? defaultCodeBlock }
+        set { chosenCodeBlock = newValue == defaultCodeBlock ? nil : newValue }
+    }
     private(set) var typeface: Typeface
     private var savedComposition = LaTeXComposition.document {
         didSet { if oldValue != savedComposition { renderer.clearCache() } }
@@ -252,7 +257,11 @@ final class DocumentViewModel {
     @ObservationIgnored private var fullScreenAttempt = 0
     var isAlwaysOnTop: Bool
     var showsOnAllSpaces: Bool
-    var isDrawerOpen = false
+    private var readerOpenedDrawer = false
+    var isDrawerOpen: Bool {
+        get { readerOpenedDrawer || drop.isListSprung }
+        set { readerOpenedDrawer = newValue }
+    }
     var showsSideList: Bool { isDrawerOpen && (binder != nil || imageBundle != nil) }
     var sideInset: CGFloat {
         guard mode == .view, showsSideList else { return 0 }
@@ -306,6 +315,7 @@ final class DocumentViewModel {
         #if DEBUG
             if let snapshotContentsTab { return snapshotContentsTab }
         #endif
+        if drop.isListSprung && imageBundle != nil && mode == .view { return .pages }
         // With no headings and no bookmarks the contents tab would be an empty list.
         guard showsContentsTabs else { return .pages }
         return contentsPanel.tab ?? (hasOutline ? .contents : .pages)
@@ -608,8 +618,8 @@ final class DocumentViewModel {
     private var reloadRequiresRefresh = false
     private var reloadRequiresWebRefresh = false
     private var reloadOwnsProgress = false
-    var readReloadData: @Sendable (URL) async throws -> Data = { url in
-        try await Task.detached(priority: .utility) { try SourceFileOpening.read(url) }.value
+    var readReloadData: @Sendable (URL, DocumentFormat) async throws -> Data = { url, format in
+        try await Task.detached(priority: .utility) { try SourceFileOpening.read(url, format: format) }.value
     }
     private var reloadGeneration = 0
     private var displayedChangeSource: DocumentSource?
@@ -723,11 +733,6 @@ final class DocumentViewModel {
         paper.onReadingJump = { [weak self] page in self?.recordReadingJump(to: page) }
         paper.onToast = { [weak self] toast in self?.showToast(toast) }
         web.onFolderAccessRequired = { [weak self] _ in self?.requestFolderAccess() }
-        drop.onSpring = { [weak self] in
-            guard let self else { return }
-            if mode == .view, imageBundle != nil, pageCount > 1 { selectContentsTab(.pages) }
-            setSideListOpen(true)
-        }
         #if DEBUG
             DebugSnapshot.configure(self)
         #endif
@@ -916,7 +921,7 @@ final class DocumentViewModel {
         settings.pageLanguage = language
         if usesPrintTheme {
             settings.code = CodeStyle(
-                palette: library.codePalette(codePaletteID), block: codeBlock,
+                palette: library.codePalette(codePaletteID), block: chosenCodeBlock,
                 cutFormat: String(localized: "+%d characters"))
         }
         return settings
@@ -1328,10 +1333,11 @@ final class DocumentViewModel {
             guard preferences.reloadsChangedFiles, let fileURL else { return }
             let generation = reloadGeneration
             let reader = readReloadData
+            let readFormat = format
             reconciliationTask?.cancel()
             reconciliationTask = Task { [weak self] in
                 // Initial registration is not evidence of a change: leave an in-flight layout alone.
-                guard let bytes = try? await reader(fileURL), let self,
+                guard let bytes = try? await reader(fileURL, readFormat), let self,
                     !Task.isCancelled, generation == reloadGeneration, preferences.reloadsChangedFiles, bytes != data
                 else { return }
                 reload(reloadsWeb: true, onlyIfChanged: true)
@@ -1390,9 +1396,10 @@ final class DocumentViewModel {
         }
         // Detached I/O keeps large files off the main actor; generation checks reject superseded reads.
         let reader = readReloadData
+        let readFormat = format
         reloadTask = Task { [weak self] in
             do {
-                let bytes = try await reader(fileURL)
+                let bytes = try await reader(fileURL, readFormat)
                 guard let self, !Task.isCancelled, reloadGeneration == generation else { return }
                 // A `.plist` saved again as binary, or a `.ts` replaced by a video: the last pages stay, and the
                 // reader is told, as for a file that could not be read.
@@ -1605,15 +1612,24 @@ final class DocumentViewModel {
         if mode == .print {
             trayRequest = url
             resolveTrayRequest()
-        } else if mode == .view, let index = readableImageIndex(of: url) {
+        } else if mode == .view, let index = readingImageURLs.firstIndex(of: url) {
             recordReadingJump(to: index)
             currentPageIndex = index
             paper.goToPage(index: index)
         }
     }
 
-    /// The page of the image being read, which keeps its place when images are added in front of it.
-    private var selectedImagePage: Int? { imageBundle?.selection.flatMap(readableImageIndex(of:)) }
+    /// A list edit changes the bundle immediately, while the paper still shows the previous order.
+    private(set) var readingImageURLs: [URL] = []
+
+    private func restoreReadingImage(in images: [DocumentSource.Image], skipping unreadable: [URL]) {
+        let shown = readingImageURLs.indices.contains(currentPageIndex) ? readingImageURLs[currentPageIndex] : nil
+        let skipped = Set(unreadable)
+        readingImageURLs = images.compactMap { skipped.contains($0.fileURL) ? nil : $0.fileURL }
+        currentPageIndex =
+            shown.flatMap { readingImageURLs.firstIndex(of: $0) }
+            ?? min(currentPageIndex, max(0, readingImageURLs.count - 1))
+    }
 
     private func readableImageIndex(of url: URL) -> Int? {
         imageBundle?.urls.filter { !unreadableImageURLs.contains($0) }.firstIndex(of: url)
@@ -1733,8 +1749,10 @@ final class DocumentViewModel {
                     refreshPageUpdate()
                     unreadableImageURLs = prepared.unreadableImageURLs
                     binder?.didRender(prepared, forReading: forReading)
-                    if forReading, let page = binder?.settleReadingPage() ?? selectedImagePage {
+                    if forReading, let page = binder?.settleReadingPage() {
                         currentPageIndex = page
+                    } else if forReading, let images = source.images {
+                        restoreReadingImage(in: images, skipping: prepared.unreadableImageURLs)
                     }
                     resolveViewOptionsIfNeeded(for: prepared.viewDocument)
                     validateMigratedContentIfReady()
@@ -1840,7 +1858,7 @@ final class DocumentViewModel {
             setTypeface(source.typeface)
             setTextScale(source.textScale)
             codePaletteID = source.codePaletteID
-            codeBlock = source.codeBlock
+            chosenCodeBlock = source.chosenCodeBlock
         }
         if source.usesHTMLPreset { presetID = source.presetID }
         bookletBinding = source.bookletBinding
@@ -2762,7 +2780,7 @@ final class DocumentViewModel {
             binderStartsOnFront: binder != nil ? binderStartsOnFront : nil,
             printFinish: finishAppliesToText ? printFinish : nil,
             codePaletteID: usesPrintTheme ? codePaletteID : nil,
-            codeBlock: usesPrintTheme && codeBlock != CodeBlockOptions() ? codeBlock : nil,
+            codeBlock: usesPrintTheme && codeBlock != defaultCodeBlock ? codeBlock : nil,
             bandVisibility: bandVisibility == defaultBandVisibility ? nil : bandVisibility,
             notes: offersNotes && notes != NotePages() ? notes : nil, bookletBinding: bookletBinding,
             pageRange: pageRange.isAll ? nil : pageRange, bookmarks: bookmarks.isEmpty ? nil : bookmarks,
@@ -3105,7 +3123,7 @@ final class DocumentViewModel {
         if let id = saved.layoutID, PrintLayout.presets.contains(where: { $0.id == id }) { layoutID = id }
         if let id = saved.themeID, theme(id) != nil { themeID = id }
         if let id = saved.codePaletteID.flatMap({ Self.knownCodePaletteID($0, library) }) { codePaletteID = id }
-        if let block = saved.codeBlock { codeBlock = block }
+        chosenCodeBlock = saved.codeBlock
         if let id = saved.presetID, library.presets.contains(where: { $0.id == id }) { presetID = id }
         if var options = saved.printOptions {
             if themeFormat != .latex {
@@ -3315,7 +3333,7 @@ final class DocumentViewModel {
         bookletBinding = nil
         themeID = defaultThemeID
         codePaletteID = Self.defaultCodePaletteID(preferences, library)
-        codeBlock = CodeBlockOptions()
+        chosenCodeBlock = nil
         presetID = Self.defaultPresetID(preferences, library)
         printOptions = preferences.printOptions.defaults(for: themeFormat)
         printFinish = preferences.printFinish

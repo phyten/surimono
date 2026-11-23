@@ -31,6 +31,18 @@ struct ReadingNavigationTests {
             return model
         }
 
+        func bundleModel() -> DocumentViewModel {
+            let urls = ["a.png", "b.png", "c.png"].map { directory.appendingPathComponent($0) }
+            let images = Dictionary(uniqueKeysWithValues: zip(urls, [0.1, 0.3, 0.5].map { TestFixtures.png(red: $0) }))
+            let bundle = ImageBundleModel(urls: urls) { url in
+                guard let bytes = images[url] else { throw CocoaError(.fileNoSuchFile) }
+                return bytes
+            }
+            return DocumentViewModel(
+                data: Data(), fileURL: nil, format: .image, preferences: preferences, library: library,
+                imageBundle: bundle, settingsStore: store)
+        }
+
         deinit {
             suite.remove()
             try? FileManager.default.removeItem(at: directory)
@@ -278,21 +290,139 @@ struct ReadingNavigationTests {
         #expect(restored.rememberedSettings.contentsPanel?.isOpen == false)
     }
 
-    @Test("組み直しが始まれば古い世代は使えず、新しい紙には別のキャッシュを使う", .timeLimit(.minutes(1)))
+    private func render(_ model: DocumentViewModel, starting action: () -> Void) async throws {
+        let succeeded = await withCheckedContinuation { continuation in
+            model.onFirstRender = { continuation.resume(returning: $0) }
+            action()
+        }
+        try #require(succeeded)
+    }
+
+    @Test("画像一覧の未確定の選択は再読み込みや並べ替えで紙を動かさず、確定した移動だけを戻せる")
+    func bundleReadingPosition() async throws {
+        let fixture = Fixture()
+        let model = fixture.bundleModel()
+        defer { model.stop() }
+        try await render(model, starting: model.start)
+        model.setLayout(.single)
+        let bundle = try #require(model.imageBundle)
+        let urls = bundle.urls
+        model.paperDidChangePage(1)
+        // Arrow keys select the target for list commands before Return commits a reading jump.
+        bundle.selection = urls[2]
+        try await render(model, starting: model.reload)
+        #expect(model.currentPageIndex == 1)
+        model.paperDidChangePage(1)
+        #expect(bundle.selection == urls[2])
+        #expect(!model.pageHistory.canGoBack)
+        bundle.move(fromOffsets: IndexSet(integer: 0), toOffset: 3)
+        try await render(model, starting: model.listDidChange)
+        #expect(model.currentPageIndex == 0)
+        #expect(!model.pageHistory.canGoBack)
+        model.paperDidChangePage(0)
+        let selected = try #require(bundle.selection)
+        #expect(selected == urls[2])
+        model.goToBundleImage(selected)
+        #expect(model.currentPageIndex == 1)
+        model.goBack()
+        #expect(model.currentPageIndex == 0 && !model.pageHistory.canGoBack)
+    }
+
+    @Test("並べ替えで表示画像が見開きの後半に移っても、紙面の通知は一覧の未確定の選択を保つ")
+    func bundleSelectionAfterSpreadReorder() async throws {
+        let fixture = Fixture()
+        let model = fixture.bundleModel()
+        defer { model.stop() }
+        try await render(model, starting: model.start)
+        model.updateViewOptions {
+            $0.layout = .spread
+            $0.showsCoverAlone = false
+        }
+        let bundle = try #require(model.imageBundle)
+        let urls = bundle.urls
+        try #require(model.visibleReadingPages == [0, 1])
+        bundle.selection = urls[2]
+        bundle.move(fromOffsets: IndexSet(integer: 1), toOffset: 0)
+        try await render(model, starting: model.listDidChange)
+        try #require(model.currentPageIndex == 1)
+        // The replacement PDF reports the first page of the spread containing the restored image.
+        model.paperDidChangePage(0)
+        #expect(bundle.selection == urls[2])
+        #expect(model.currentPageIndex == 0)
+        bundle.selection = urls[0]
+        model.paperDidChangePage(2)
+        #expect(bundle.selection == urls[2])
+    }
+
+    @Test("ドラッグで開いた画像一覧は終了時に元へ戻り、文書の設定記録を作らない", arguments: [false, true])
+    func temporaryDrawer(alreadyOpen: Bool) async throws {
+        let fixture = Fixture()
+        let model = fixture.bundleModel()
+        defer { model.stop() }
+        try await render(model, starting: model.start)
+        let key = try #require(model.contentHash?.hex)
+        if alreadyOpen {
+            model.toggleBookmark()
+            model.selectContentsTab(.contents)
+            model.setContentsOpen(true)
+        }
+        model.rememberedSettingsDidChange()
+        model.flushPendingSettings()
+        let saved = fixture.store.token(for: key)
+        try #require((saved != nil) == alreadyOpen)
+        let previous = model.rememberedSettings
+        let tab = model.contentsTab
+        model.drop.listButtonFrame = CGRect(x: 0, y: 0, width: 40, height: 20)
+        let target = fixture.directory.appendingPathComponent("new.png")
+        try #require(model.dragEntered([target], at: CGPoint(x: 5, y: 5)))
+        let spring = try #require(model.drop.springTask)
+        await spring.value
+        try #require(model.isDrawerOpen && model.contentsTab == .pages)
+        #expect(model.rememberedSettings == previous)
+        // Flush the same change notification as DocumentViewer, even if the reader lingers before cancelling.
+        model.rememberedSettingsDidChange()
+        model.flushPendingSettings()
+        #expect(fixture.store.token(for: key) == saved)
+        model.drop.end()
+        #expect(model.isDrawerOpen == alreadyOpen && model.contentsTab == tab)
+        model.rememberedSettingsDidChange()
+        model.flushPendingSettings()
+        #expect(fixture.store.token(for: key) == saved)
+    }
+
+    @Test("組み直しで縮図を描き直し、遅れて届いた旧世代の画像を表示しない", .timeLimit(.minutes(1)))
     func thumbnailGeneration() async throws {
         let fixture = Fixture()
         let model = fixture.model()
         defer { model.stop() }
-        try await start(model)
+        try await render(model, starting: model.start)
         let old = try #require(model.result?.id)
         let cache = try #require(model.thumbnails(for: old))
-        model.render()
-        #expect(model.thumbnails(for: old) == nil)
-        for _ in 0..<500 where model.isRendering { try await Task.sleep(for: .milliseconds(10)) }
+        let oldImage = try #require(await cache.image(page: 0, pixels: 64))
+        try await render(model) {
+            model.render()
+            #expect(model.thumbnails(for: old) == nil)
+        }
         let generation = try #require(model.result?.id)
         #expect(generation != old)
         #expect(model.thumbnails(for: old) == nil)
-        #expect(model.thumbnails(for: generation) !== cache)
+        let fresh = try #require(model.thumbnails(for: generation))
+        #expect(fresh !== cache)
+        let newImage = try #require(await fresh.image(page: 0, pixels: 64))
+
+        var tile = PageTileThumbnail()
+        let previous = PageTileThumbnail.Request(generation: old, page: 0, pixels: 64)
+        let current = PageTileThumbnail.Request(generation: generation, page: 0, pixels: 64)
+        tile.begin(previous)
+        tile.receive(oldImage, for: previous)
+        #expect(tile.image(for: current) == nil)
+        tile.begin(current)
+        tile.receive(newImage, for: current)
+        // Deliver the held response after the new bitmap is on screen.
+        tile.receive(oldImage, for: previous)
+        #expect(tile.image(for: current) === newImage)
+        #expect(tile.image(for: previous) == nil)
+        #expect(tile.image(for: nil) == nil)
     }
 
     @Test("同じページに始まる章は最後の見出しを使い、最初の章より前も一度ずつ並べる")

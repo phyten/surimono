@@ -128,10 +128,11 @@ public enum FragmentChanges {
     /// character and hide the end of the tag. `visited` counts the scalars read, for the test that the reading
     /// stops at the limit.
     private static func plainText(_ html: String, visited: inout Int) -> PlainText {
-        guard html.hasPrefix(plainOpen), html.hasSuffix("</pre>") else { return .other }
-        let body = html.unicodeScalars.dropFirst(plainOpen.unicodeScalars.count).dropLast(6)
+        let opening = html.hasPrefix(PlainTextConverter.sourceOpen) ? PlainTextConverter.sourceOpen : plainOpen
+        guard html.hasPrefix(opening), html.hasSuffix("</pre>") else { return .other }
+        let body = html.unicodeScalars.dropFirst(opening.unicodeScalars.count).dropLast(6)
         var lines = PlainLines()
-        var current = String.UnicodeScalarView()
+        var current: [Unicode.Scalar] = []
         var text = String.UnicodeScalarView()
         var open: [String.UnicodeScalarView] = []
         let close = "</span>".unicodeScalars
@@ -166,11 +167,10 @@ public enum FragmentChanges {
                 // This line and the one that follows the break, even an empty one, are one more than the lines
                 // read so far. Past the limit nothing is compared, so nothing after this break is read.
                 guard lines.text.count + 2 <= blockLimit else { return .tooLong }
-                var line = current
-                for _ in open { line.append(contentsOf: close) }
-                lines.html.append(text.isEmpty ? "" : String(line))
+                for _ in open { current.append(contentsOf: close) }
+                lines.html.append(text.isEmpty ? "" : String(String.UnicodeScalarView(current)))
                 lines.text.append(String(text))
-                current = String.UnicodeScalarView()
+                current.removeAll(keepingCapacity: true)
                 for tag in open { current.append(contentsOf: tag) }
                 text = String.UnicodeScalarView()
                 // A carriage return and the line feed after it are one break.
@@ -183,7 +183,7 @@ public enum FragmentChanges {
             index = next
         }
         guard open.isEmpty else { return .other }
-        lines.html.append(text.isEmpty ? "" : String(current))
+        lines.html.append(text.isEmpty ? "" : String(String.UnicodeScalarView(current)))
         lines.text.append(String(text))
         return .lines(lines)
     }
@@ -314,11 +314,12 @@ public enum FragmentChanges {
                 else { continue }
                 for index in first...last {
                     // HTML discards the first newline of a pre. A span in front of it would add a printed line.
-                    if index == 0 && lines[index].isEmpty { continue }
+                    if index == 0 && lines[index].isEmpty && html.hasPrefix(plainOpen) { continue }
                     lines[index] = "<span data-surimono-block=\"lines-\(first)-\(last)\">" + lines[index] + "</span>"
                 }
             }
-            return plainOpen + lines.joined(separator: "\n") + "</pre>"
+            let opening = html.hasPrefix(PlainTextConverter.sourceOpen) ? PlainTextConverter.sourceOpen : plainOpen
+            return opening + lines.joined(separator: "\n") + "</pre>"
         }
         let wanted = Set(requests.map(\.blockID))
         let tokens = HTMLScanner.tokens(html)
