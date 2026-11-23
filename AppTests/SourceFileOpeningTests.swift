@@ -247,7 +247,7 @@ struct SourceFileOpeningTests {
                 warn: { _ in }, hasOpenWindows: { true }, showWelcome: {},
                 openAsText: { _ in
                     opened += 1
-                    return true
+                    return .testWindow()
                 },
                 refuse: { if let error = $0 as? DocumentRenderer.RenderingError { refusals.append(error) } })
             router.open([url])

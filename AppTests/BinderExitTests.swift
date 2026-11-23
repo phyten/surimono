@@ -69,8 +69,8 @@ struct BinderExitTests {
         var front: NSWindow?
         var opens = 0
         var failsToOpen = false
-        private var pending: ((Bool) -> Void)?
-        private func finish(_ opened: Bool) {
+        private var pending: ((OpenRouter.OpenedFile?) -> Void)?
+        private func finish(_ opened: OpenRouter.OpenedFile?) {
             let completion = pending
             pending = nil
             completion?(opened)
@@ -79,7 +79,7 @@ struct BinderExitTests {
             openDocument: { [unowned self] url, completion in
                 opens += 1
                 if failsToOpen {
-                    completion(false)
+                    completion(nil)
                     return
                 }
                 // The callback is not Sendable, so the task reaches it through the fixture instead of capturing it.
@@ -89,10 +89,10 @@ struct BinderExitTests {
                         let model = try document(url)
                         target = model
                         await render(model)
-                        finish(true)
+                        finish(.testWindow(model))
                     } catch {
                         Issue.record("テスト用文書を開けませんでした: \(error)")
-                        finish(false)
+                        finish(nil)
                     }
                 }
             }, openBundle: { _, _ in nil }, openBinder: { _, _ in nil }, warn: { _ in },
@@ -309,6 +309,46 @@ struct BinderExitTests {
         #expect(existing.window?.frame == frame)
         #expect(f.closed.contains(ObjectIdentifier(model)))
         #expect(NSApp.isActive == wasActive)
+    }
+
+    @Test(
+        "合本解除の判定中に開いた単独窓はページと位置を保ち、元が印刷中なら刷り台を頼む",
+        .timeLimit(.minutes(1)), arguments: [false, true])
+    func windowOpenedWhileLeaving(wasPrinting: Bool) async throws {
+        let f = try Fixture()
+        defer { f.clean() }
+        let url = try f.file("same.pdf")
+        var existing: DocumentViewModel?
+        let router = OpenRouter(
+            openDocument: { _, done in done(.testWindow(existing, reused: true)) }, openBundle: { _, _ in nil },
+            openBinder: { _, _ in nil },
+            warn: { _ in }, hasOpenWindows: { true }, showWelcome: {}, openWindows: { existing.map { [$0] } ?? [] })
+        let release = DispatchSemaphore(value: 0)
+        let origin = BinderOrigin(
+            contents: .document(url), frame: NSRect(x: 10, y: 20, width: 400, height: 500),
+            pageIndex: 1, wasPrinting: wasPrinting, leavingBinder: true)
+        await withCheckedContinuation { entered in
+            router.route = { @Sendable _ in
+                entered.resume()
+                release.wait()
+                return .document
+            }
+            router.reopen(url, restoring: origin) { opened in #expect(opened) }
+        }
+        let model: DocumentViewModel
+        let frame: NSRect
+        do {
+            defer { release.signal() }
+            model = try f.document(url)
+            await f.render(model)
+            model.currentPageIndex = 3
+            existing = model
+            frame = try #require(model.window?.frame)
+        }
+        await router.waitForOpeningRequests()
+        #expect(model.currentPageIndex == 3)
+        #expect(model.window?.frame == frame)
+        #expect((model.isPrintModeRequested || model.mode == .print) == wasPrinting)
     }
 
     @Test("残ったメモリ文書も保存先を作らず単独文書に戻す", .timeLimit(.minutes(1)))

@@ -10,18 +10,27 @@ final class OpenRouter {
         var formats: [URL: DocumentFormat]?
     }
 
+    struct OpenedFile {
+        let destination: DocumentWindows.Registration
+        var wasAlreadyOpen = false
+    }
+
     static let shared: OpenRouter = OpenRouter(
         openDocument: { url, completion in
             if url.pathExtension.lowercased() == "doc" {
                 NSApp.presentError(DocxError.encryptedOrLegacy)
-                completion(false)
+                completion(nil)
                 return
             }
-            NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { document, _, error in
+            // Observe closes even when they precede both view registration and the open callback.
+            let windows = DocumentWindows.shared
+            NSDocumentController.shared.openDocument(withContentsOf: url, display: true) {
+                document, wasAlreadyOpen, error in
                 if let error { NSApp.presentError(error) }
                 // Explicitly bring an already open document forward as well.
-                document?.showWindows()
-                completion(document != nil)
+                let opened = document.map { windows.opened($0, wasAlreadyOpen: wasAlreadyOpen) }
+                if let opened, !opened.destination.isClosed { document?.showWindows() }
+                completion(opened)
             }
         },
         openBundle: { ImageBundleWindows.shared.open($0, excluded: $1) },
@@ -79,8 +88,8 @@ final class OpenRouter {
         }
     }
 
-    private let openDocument: (URL, @escaping (Bool) -> Void) -> Void
-    var openAsText: @MainActor (URL) async -> Bool
+    private let openDocument: (URL, @escaping (OpenedFile?) -> Void) -> Void
+    var openAsText: @MainActor (URL) async -> OpenedFile?
     private let refuse: (any Error) -> Void
     private let openBundle: ([URL], [URL]) -> DocumentViewModel?
     private let openBinder: (BinderFiles, [URL]) -> DocumentViewModel?
@@ -98,30 +107,42 @@ final class OpenRouter {
     /// The app was launched without coming forward, so the welcome window waits for the reader to come to the app.
     private var awaitsReader = false
     /// Each completion owns its request even when AppKit finishes two opens of the same URL out of order.
-    private final class SingleFileRequest {
+    private struct SingleFileRequest {
         let url: URL
         let printing: Bool
         let access: [FolderAccess.Lease]
-        let origin: BinderOrigin?
-        weak var existingWindow: DocumentViewModel?
-        weak var registeredWindow: DocumentViewModel?
-        var sawRegistration = false
-        var opened = false
+        var origin: BinderOrigin?
 
-        init(_ url: URL, printing: Bool, access: [FolderAccess.Lease], origin: BinderOrigin? = nil) {
-            self.url = url
-            self.printing = printing
-            self.access = access
-            self.origin = origin
-        }
-
-        func closeAccess() {
-            for lease in access { lease.close() }
+        func deliver(_ opened: OpenedFile?) {
+            guard let opened else {
+                for lease in access { lease.close() }
+                return
+            }
+            guard printing || !access.isEmpty || origin != nil else { return }
+            let reused = opened.wasAlreadyOpen
+            opened.destination.whenRegistered { model in
+                guard let model else {
+                    for lease in access { lease.close() }
+                    return
+                }
+                if reused { for lease in access { lease.close() } } else { model.keep(access) }
+                if let origin, origin.leavingBinder && reused {
+                    // A separate reader may have opened the file while the binder's route was pending.
+                    if origin.wasPrinting { model.requestPrintMode() }
+                    return
+                }
+                if let origin {
+                    if origin.leavingBinder {
+                        model.restoreAfterLeavingBinder(origin)
+                    } else {
+                        model.restoreWindow(origin)
+                    }
+                }
+                if printing { model.requestPrintMode() }
+            }
         }
     }
 
-    /// Only dispatched requests can belong to a registering window. Delivery waits for the open to succeed.
-    private var waitingForWindow: [SingleFileRequest] = []
     /// Opens that have not finished, so that the welcome window does not cover a document that is still loading.
     private(set) var pendingOpens = 0
 
@@ -147,7 +168,7 @@ final class OpenRouter {
     }
 
     init(
-        openDocument: @escaping (URL, @escaping (Bool) -> Void) -> Void,
+        openDocument: @escaping (URL, @escaping (OpenedFile?) -> Void) -> Void,
         openBundle: @escaping ([URL], [URL]) -> DocumentViewModel?,
         openBinder: @escaping (BinderFiles, [URL]) -> DocumentViewModel?,
         warn: @escaping (NSWindow?) -> Void, hasOpenWindows: @escaping () -> Bool, showWelcome: @escaping () -> Void,
@@ -156,7 +177,7 @@ final class OpenRouter {
         openIncludes: @escaping (MarkdownIncludes.Plan) -> Void = { _ in },
         openWindows: @escaping () -> [DocumentViewModel] = { [] }, isActive: @escaping () -> Bool = { true },
         openText: @escaping (String, ClipboardFormatHints, String?, Bool) -> Void = { _, _, _, _ in },
-        openAsText: @escaping @MainActor (URL) async -> Bool = { _ in false },
+        openAsText: @escaping @MainActor (URL) async -> OpenedFile? = { _ in nil },
         refuse: @escaping (any Error) -> Void = { _ in }
     ) {
         self.openAsText = openAsText
@@ -187,7 +208,7 @@ final class OpenRouter {
             return false
         }
         if files.count == 1 {
-            openSingle(SingleFileRequest(url, printing: printing, access: access))
+            openSingle(SingleFileRequest(url: url, printing: printing, access: access))
         } else {
             pendingOpens += 1
             enqueueOpening { [self] in
@@ -269,7 +290,8 @@ final class OpenRouter {
     /// Opens a document again where it was when a binder took its place.
     func reopen(_ url: URL, restoring origin: BinderOrigin, completion: @escaping (Bool) -> Void) {
         openSingle(
-            SingleFileRequest(url, printing: origin.wasPrinting && !origin.leavingBinder, access: [], origin: origin),
+            SingleFileRequest(
+                url: url, printing: origin.wasPrinting && !origin.leavingBinder, access: [], origin: origin),
             completion: completion)
     }
 
@@ -287,41 +309,22 @@ final class OpenRouter {
         pendingOpens += 1
         enqueueOpening { [self] in
             let url = request.url
-            let route = await firstRoute(for: url)
-            let finish: (Bool) -> Void = { [self] opened in
-                request.opened = opened
-                if opened, let model = request.registeredWindow ?? openWindow(for: url) {
-                    deliverRequests(to: model)
-                } else if !opened || request.sawRegistration {
-                    waitingForWindow.removeAll { $0 === request }
-                    request.closeAccess()
-                }
-                finishOpening(opened)
-                completion(opened)
+            let finish: (OpenedFile?) -> Void = { [self] result in
+                request.deliver(result)
+                finishOpening(result != nil)
+                completion(result != nil)
             }
-            switch route {
-            case .document, .asText:
-                if request.printing || !request.access.isEmpty || request.origin != nil {
-                    request.existingWindow = openWindow(for: url)
-                    waitingForWindow.append(request)
-                }
-                if route == .document {
-                    openDocument(url, finish)
-                } else {
-                    finish(await openAsText(url))
-                }
+            switch await firstRoute(for: url) {
+            case .document: openDocument(url, finish)
+            case .asText: finish(await openAsText(url))
             case .refuse:
                 refuse(SourceFileError.notText)
-                finish(false)
+                finish(nil)
             case .tooLarge(let bytes):
                 refuse(DocumentRenderer.RenderingError.tooLarge(bytes: bytes))
-                finish(false)
+                finish(nil)
             }
         }
-    }
-
-    private func openWindow(for url: URL) -> DocumentViewModel? {
-        openWindows().first { $0.fileURL?.standardizedFileURL == url.standardizedFileURL }
     }
 
     private func firstRoute(for url: URL) async -> SourceFileOpening.Route {
@@ -338,59 +341,6 @@ final class OpenRouter {
         let kept = access.filter { shown.contains($0.url.standardizedFileURL) }
         for lease in access where !shown.contains(lease.url.standardizedFileURL) { lease.close() }
         if let model { model.keep(kept) } else { for lease in kept { lease.close() } }
-    }
-
-    /// Registration can come before or after AppKit's completion. A queued request is still the caller's to keep.
-    func handAccess(to model: DocumentViewModel) {
-        model.hasTakenItsFileAccess = true
-        guard let url = model.fileURL?.standardizedFileURL else { return }
-        for request in waitingForWindow where !request.opened && request.url.standardizedFileURL == url {
-            request.registeredWindow = model
-            request.sawRegistration = true
-        }
-        deliverRequests(to: model)
-    }
-
-    /// A window that closes before registration gives up completed opens still waiting for it. A registered
-    /// window can only give up a handover it saw, never the next request waiting for the same URL.
-    func windowDidClose(_ model: DocumentViewModel) {
-        guard let url = model.fileURL?.standardizedFileURL else { return }
-        for request in waitingForWindow where request.registeredWindow === model {
-            // A read in progress keeps its access until its own completion.
-            request.registeredWindow = nil
-        }
-        guard !model.hasTakenItsFileAccess else { return }
-        model.hasTakenItsFileAccess = true
-        for request in takeOpenedRequests(for: url) { request.closeAccess() }
-    }
-
-    func printIfRequested(_ model: DocumentViewModel) {
-        deliverRequests(to: model)
-    }
-
-    private func deliverRequests(to model: DocumentViewModel) {
-        guard let url = model.fileURL?.standardizedFileURL else { return }
-        let requests = takeOpenedRequests(for: url)
-        guard !requests.isEmpty else { return }
-        model.hasTakenItsFileAccess = true
-        for request in requests {
-            if request.existingWindow === model {
-                request.closeAccess()
-            } else {
-                model.keep(request.access)
-            }
-            if let origin = request.origin {
-                if origin.leavingBinder { model.restoreAfterLeavingBinder(origin) } else { model.restoreWindow(origin) }
-            }
-            if request.printing { model.requestPrintMode() }
-        }
-    }
-
-    private func takeOpenedRequests(for url: URL) -> [SingleFileRequest] {
-        let matches: (SingleFileRequest) -> Bool = { $0.opened && $0.url.standardizedFileURL == url }
-        let requests = waitingForWindow.filter(matches)
-        waitingForWindow.removeAll(where: matches)
-        return requests
     }
 
     /// The guide that comes with the app opens as any single file does, so a second request brings its window

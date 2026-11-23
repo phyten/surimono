@@ -15,7 +15,9 @@ struct ServiceProviderTests {
     }
 
     private func router(
-        openDocument: @escaping (URL, @escaping (Bool) -> Void) -> Void = { _, _ in Issue.record("文書は開かない") },
+        openDocument: @escaping (URL, @escaping (OpenRouter.OpenedFile?) -> Void) -> Void = { _, _ in
+            Issue.record("文書は開かない")
+        },
         openBinder: @escaping ([URL], [URL]) -> DocumentViewModel? = { _, _ in
             Issue.record("合本は開かない")
             return nil
@@ -172,9 +174,10 @@ struct ServiceProviderTests {
         board.writeObjects([url as NSURL])
         var opened: [URL] = []
         var activations = 0
+        let openedFile = OpenRouter.OpenedFile.testWindow()
         let router = router(openDocument: { url, completion in
             opened.append(url)
-            completion(true)
+            completion(openedFile)
         })
         let provider = ServiceProvider(router: router, activate: { activations += 1 })
         var message: NSString?
@@ -185,7 +188,7 @@ struct ServiceProviderTests {
         #expect(activations == 1)
         let window = model(url: url, suite: suite, library: directory)
         defer { window.stop() }
-        router.printIfRequested(window)
+        openedFile.destination.register(window)
         #expect(window.isPrintModeRequested)
     }
 
@@ -223,20 +226,27 @@ struct ServiceProviderTests {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
         let url = URL(fileURLWithPath: "/fixtures/a.md")
-        let router = router(openDocument: { _, completion in completion(true) })
+        let target = TestFileWindow(url)
+        defer { target.window.close() }
+        let router = router(openDocument: { _, completion in completion(target.opened()) })
         router.open(.files([url]), printing: true)
         await router.waitForOpeningRequests()
         let opened = model(url: url, suite: suite, library: directory)
         defer { opened.stop() }
-        let other = model(url: URL(fileURLWithPath: "/fixtures/b.md"), suite: suite, library: directory)
+        let other = model(url: url, suite: suite, library: directory)
         defer { other.stop() }
-        router.printIfRequested(other)
+        // Even another window for this URL must leave the pending request for the actual destination.
+        let otherWindow = TestFileWindow(url)
+        defer { otherWindow.window.close() }
+        otherWindow.register(other)
         #expect(!other.isPrintModeRequested)
-        router.printIfRequested(opened)
+        target.register(opened)
         #expect(opened.isPrintModeRequested)
         let again = model(url: url, suite: suite, library: directory)
         defer { again.stop() }
-        router.printIfRequested(again)
+        let next = TestFileWindow(url)
+        defer { next.window.close() }
+        next.register(again)
         #expect(!again.isPrintModeRequested)
     }
 
@@ -249,7 +259,9 @@ struct ServiceProviderTests {
         let url = URL(fileURLWithPath: "/fixtures/a.md")
         let existing = model(url: url, suite: suite, library: directory)
         defer { existing.stop() }
-        let router = router(openDocument: { _, completion in completion(true) }, openWindows: { [existing] })
+        let router = router(
+            openDocument: { _, completion in completion(.testWindow(existing, reused: true)) },
+            openWindows: { [existing] })
         router.open(.files([url]), printing: true)
         await router.waitForOpeningRequests()
         #expect(existing.isPrintModeRequested)
@@ -273,7 +285,9 @@ struct ServiceProviderTests {
         defer { document.stop() }
         let bound = binder([a, b], suite: suite, library: directory)
         defer { bound.stop() }
-        let router = router(openDocument: { _, completion in completion(true) }, openWindows: { [bound, document] })
+        let router = router(
+            openDocument: { _, completion in completion(.testWindow(document, reused: true)) },
+            openWindows: { [bound, document] })
         router.open(.files([a]), printing: true)
         await router.waitForOpeningRequests()
         #expect(document.isPrintModeRequested)
@@ -307,14 +321,16 @@ struct ServiceProviderTests {
         defer { try? FileManager.default.removeItem(at: directory) }
         let url = URL(fileURLWithPath: "/fixtures/a.md")
         let router = OpenRouter(
-            openDocument: { _, completion in completion(false) }, openBundle: { _, _ in nil },
+            openDocument: { _, completion in completion(nil) }, openBundle: { _, _ in nil },
             openBinder: { _, _ in nil },
             warn: { _ in }, hasOpenWindows: { true }, showWelcome: {})
         router.open(.files([url]), printing: true)
         await router.waitForOpeningRequests()
         let later = model(url: url, suite: suite, library: directory)
         defer { later.stop() }
-        router.printIfRequested(later)
+        let next = TestFileWindow(url)
+        defer { next.window.close() }
+        next.register(later)
         #expect(!later.isPrintModeRequested)
     }
 

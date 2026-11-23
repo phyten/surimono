@@ -4,6 +4,8 @@ import SurimonoCore
 import Testing
 import UniformTypeIdentifiers
 
+@testable import SurimonoFormats
+
 @Suite(.timeLimit(.minutes(1)))
 struct SourceCodeOpeningTests {
     @Test("188 バイトごとにヘッダーに似た文字が並ぶ UTF-16 もテキストとして開く")
@@ -197,17 +199,31 @@ struct SourceCodeOpeningTests {
         #expect(verdict("clip.ts", long) == .binary)
     }
 
-    @Test("FFmpeg の動画は、ファイル全体でも先頭 1・3・5 パケットだけでも断る")
-    func ffmpegTransportStream() throws {
-        // A real muxer's tables, stuffing and video payload exercise more than the repeated synthetic headers.
+    private func ffmpegFixture() throws -> Data {
         // ffmpeg -f lavfi -i color=black:s=32x32:r=5 -frames:v 10 -c:v mpeg2video -f mpegts black-mpeg2.ts
         let url = try #require(
             Bundle.module.url(forResource: "black-mpeg2", withExtension: "ts", subdirectory: "Fixtures"))
-        let file = try Data(contentsOf: url)
+        return try Data(contentsOf: url)
+    }
+
+    @Test("FFmpeg の動画は、ファイル全体でも先頭 1・3・5 パケットだけでも断る")
+    func ffmpegTransportStream() throws {
+        let file = try ffmpegFixture()
         #expect(file.count > 4096)
         #expect(verdict("clip.ts", file) == .binary)
         for packets in [1, 3, 5] {
             #expect(verdict("clip.ts", file.prefix(packets * 188)) == .binary)
+        }
+    }
+
+    @Test("FFmpeg の実動画から全体・4096 バイトの試料・先頭 1・3・5 パケットの構造を検出する")
+    func ffmpegPacketStructure() throws {
+        let bytes = try ffmpegFixture()
+        // The public gate rejects the fixture's control bytes before it needs to inspect any headers.
+        #expect(TextFileGate.hasPacketStructure(Array(bytes), isWhole: true))
+        #expect(TextFileGate.hasPacketStructure(Array(bytes.prefix(4096)), isWhole: false))
+        for packets in [1, 3, 5] {
+            #expect(TextFileGate.hasPacketStructure(Array(bytes.prefix(188 * packets)), isWhole: true), "\(packets)")
         }
     }
 

@@ -149,7 +149,6 @@ private struct DocumentWindowChanges: ViewModifier {
             .onChange(of: model.isRendering) { _, rendering in
                 if !rendering {
                     model.sizeWindowToPaper()
-                    OpenRouter.shared.printIfRequested(model)
                     model.enterRequestedPrintMode()
                 }
                 #if DEBUG

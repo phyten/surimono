@@ -261,10 +261,11 @@ struct ShortcutActionsTests {
     @Test("「印刷モードで開く」は、ファイルをルーターへ渡し、その文書の窓が刷り台を頼まれる")
     func openInPrintMode() async throws {
         var opened: [URL] = []
+        let openedFile = OpenRouter.OpenedFile.testWindow()
         let router = OpenRouter(
             openDocument: { url, completion in
                 opened.append(url)
-                completion(true)
+                completion(openedFile)
             }, openBundle: { _, _ in nil }, openBinder: { _, _ in nil }, warn: { _ in Issue.record("警告しない") },
             hasOpenWindows: { true }, showWelcome: {})
         let environment = try Environment(router: router)
@@ -279,7 +280,7 @@ struct ShortcutActionsTests {
             preferences: AppPreferences(defaults: environment.suite.defaults),
             library: UserLibrary(root: environment.directory.appendingPathComponent("Library")))
         defer { model.stop() }
-        router.printIfRequested(model)
+        openedFile.destination.register(model)
         #expect(model.isPrintModeRequested)
     }
 
@@ -401,15 +402,17 @@ struct ShortcutActionsTests {
     ) -> OpenRouter {
         OpenRouter(
             openDocument: { url, completion in
-                guard opens else { return completion(false) }
+                guard opens else { return completion(nil) }
                 // An open document is only brought forward.
-                if DocumentWindows.shared.openModels.contains(where: { $0.fileURL == url }) { return completion(true) }
+                if let existing = DocumentWindows.shared.openModels.first(where: { $0.fileURL == url }) {
+                    return completion(.testWindow(existing, reused: true))
+                }
                 let model = DocumentViewModel(
                     data: TestFixtures.pdf("access", pages: 1), fileURL: url, format: .pdf,
                     preferences: AppPreferences(defaults: environment.suite.defaults),
                     library: UserLibrary(root: environment.directory.appendingPathComponent("Library")))
                 made(MemoryDocumentWindowController(model: model) {})
-                completion(true)
+                completion(.testWindow(model))
             }, openBundle: { _, _ in nil }, openBinder: { _, _ in nil }, warn: { _ in }, hasOpenWindows: { true },
             showWelcome: {}, openWindows: { DocumentWindows.shared.openModels })
     }
@@ -435,18 +438,19 @@ struct ShortcutActionsTests {
 
     @Test("文書を開き終えたあとで窓ができ、組版が終わる前に閉じても、アクセスを 1 回ずつ始めて手放す", .timeLimit(.minutes(1)))
     func accessWhenClosedBeforeRender() async throws {
+        let document = NSDocument()
+        NSDocumentController.shared.addDocument(document)
+        defer { document.close() }
         let router = OpenRouter(
             // The document reports that it opened before its window exists, as a document group's does.
-            openDocument: { _, completion in completion(true) }, openBundle: { _, _ in nil },
+            openDocument: { url, completion in
+                document.fileURL = url
+                completion(DocumentWindows.shared.opened(document, wasAlreadyOpen: false))
+            }, openBundle: { _, _ in nil },
             openBinder: { _, _ in nil }, warn: { _ in }, hasOpenWindows: { true }, showWelcome: {},
             openWindows: { DocumentWindows.shared.openModels })
         let environment = try Environment(router: router)
-        let windowsRouter = DocumentWindows.shared.router
-        DocumentWindows.shared.router = router
-        defer {
-            DocumentWindows.shared.router = windowsRouter
-            environment.restore()
-        }
+        defer { environment.restore() }
         environment.isScoped = true
         let url = try environment.write("slow.md", Data("# a".utf8))
         var intent = OpenInPrintModeIntent()
@@ -455,8 +459,13 @@ struct ShortcutActionsTests {
         #expect(router.pendingOpens == 0)
         #expect(environment.accessLog == ["start slow.md"])
         // The pages never get done.
+        let (started, entered) = AsyncStream<Void>.makeStream()
+        let (held, release) = AsyncStream<Void>.makeStream()
+        defer { release.finish() }
         let renderer = DocumentRenderer(paginate: { _ in
-            try await Task.sleep(for: .seconds(3600))
+            entered.yield(())
+            entered.finish()
+            for await _ in held {}
             throw CancellationError()
         })
         let model = DocumentViewModel(
@@ -464,10 +473,13 @@ struct ShortcutActionsTests {
             preferences: AppPreferences(defaults: environment.suite.defaults),
             library: UserLibrary(root: environment.directory.appendingPathComponent("Library")), renderer: renderer)
         let controller = MemoryDocumentWindowController(model: model) {}
+        document.addWindowController(controller)
+        let viewer = try #require(controller.window)
+        DocumentWindows.shared.register(model, for: viewer)
         defer { controller.close() }
         controller.window?.alphaValue = 0
         controller.showWindow(nil)
-        for _ in 0..<500 where !model.isRendering { try await Task.sleep(for: .milliseconds(20)) }
+        for await _ in started { break }
         #expect(model.isRendering)
         #expect(model.result == nil)
         #expect(environment.accessLog == ["start slow.md"])
@@ -477,41 +489,33 @@ struct ShortcutActionsTests {
 
     @Test("窓がアクセスを受け取る前になくなったら、待っているアクセスを手放す")
     func accessWhenModelStopsUnregistered() async throws {
+        var target: TestFileWindow?
         let router = OpenRouter(
-            openDocument: { _, completion in completion(true) }, openBundle: { _, _ in nil },
+            openDocument: { url, completion in
+                target = TestFileWindow(url)
+                completion(target?.opened())
+            }, openBundle: { _, _ in nil },
             openBinder: { _, _ in nil }, warn: { _ in }, hasOpenWindows: { true }, showWelcome: {})
         let environment = try Environment(router: router)
-        let windowsRouter = DocumentWindows.shared.router
-        DocumentWindows.shared.router = router
-        defer {
-            DocumentWindows.shared.router = windowsRouter
-            environment.restore()
-        }
+        defer { environment.restore() }
         environment.isScoped = true
         let url = try environment.write("gone.md", Data("# a".utf8))
         var intent = OpenInPrintModeIntent()
         intent.files = [IntentFile(fileURL: url)]
         _ = try await intent.perform()
-        let model = DocumentViewModel(
-            data: Data("# a".utf8), fileURL: url, format: .markdown,
-            preferences: AppPreferences(defaults: environment.suite.defaults),
-            library: UserLibrary(root: environment.directory.appendingPathComponent("Library")))
-        model.stop()
+        let opened = try #require(target)
+        opened.window.close()
         #expect(environment.accessLog == ["start gone.md", "stop gone.md"])
     }
 
     @Test("閉じていく前の窓は、同じファイルを開き直す要求が待たせているアクセスを手放さない")
     func accessOfALaterRequestSurvivesTheOldWindow() async throws {
+        let openedFile = OpenRouter.OpenedFile.testWindow()
         let router = OpenRouter(
-            openDocument: { _, completion in completion(true) }, openBundle: { _, _ in nil },
+            openDocument: { _, completion in completion(openedFile) }, openBundle: { _, _ in nil },
             openBinder: { _, _ in nil }, warn: { _ in }, hasOpenWindows: { true }, showWelcome: {})
         let environment = try Environment(router: router)
-        let windowsRouter = DocumentWindows.shared.router
-        DocumentWindows.shared.router = router
-        defer {
-            DocumentWindows.shared.router = windowsRouter
-            environment.restore()
-        }
+        defer { environment.restore() }
         environment.isScoped = true
         let url = try environment.write("again.md", Data("# a".utf8))
         func model() -> DocumentViewModel {
@@ -522,14 +526,17 @@ struct ShortcutActionsTests {
         }
         // The old window registered long ago, when nothing waited for its file.
         let old = model()
-        router.handAccess(to: old)
+        let oldWindow = NSWindow(contentRect: .zero, styleMask: [.titled], backing: .buffered, defer: true)
+        oldWindow.isReleasedWhenClosed = false
+        DocumentWindows.shared.register(old, for: oldWindow)
         var intent = OpenInPrintModeIntent()
         intent.files = [IntentFile(fileURL: url)]
         _ = try await intent.perform()
+        oldWindow.close()
         old.stop()
         #expect(environment.accessLog == ["start again.md"])
         let new = model()
-        router.handAccess(to: new)
+        openedFile.destination.register(new)
         new.stop()
         #expect(environment.accessLog == ["start again.md", "stop again.md"])
     }

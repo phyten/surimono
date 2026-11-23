@@ -34,16 +34,15 @@ struct SurimonoApp: App {
         BandArrangementEditorSession.app = arrangementEditor
         OpenRouter.shared.openAsText = { [settingsStore] url in
             do {
-                try await SourceFileOpening.open(url) { file, bytes in
+                return try await SourceFileOpening.open(url) { file, bytes in
                     let model = DocumentViewModel(
                         data: bytes, fileURL: file, format: .plainText, preferences: preferences,
                         library: library, settingsStore: settingsStore)
                     return MemoryDocumentWindowController(model: model, onClose: {})
                 }
-                return true
             } catch {
                 NSApp.presentError(error)
-                return false
+                return nil
             }
         }
         RecentFileHistory.install(preferences: preferences)

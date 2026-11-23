@@ -456,7 +456,7 @@ extension ShortcutSurfaceTests {
         let router = OpenRouter(
             openDocument: { _, completion in
                 opens += 1
-                completion(false)
+                completion(nil)
             }, openBundle: { _, _ in nil }, openBinder: { _, _ in nil }, warn: { _ in },
             hasOpenWindows: { true }, showWelcome: {}, openWindows: { [] }, isActive: { false })
         f.model.binderExit.router = router

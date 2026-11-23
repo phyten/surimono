@@ -73,10 +73,6 @@ final class DocumentViewModel {
     private var folderLease: FolderAccess.Lease?
     /// Access to files handed in from outside the app, which this window reads for as long as it is open.
     private var fileAccess: [FolderAccess.Lease] = []
-    /// Whether the window of this model has registered and so had its turn to take the access that waited for its
-    /// file. A model that ends before that gives the waiting access up; one that ends after it leaves alone what
-    /// waits, which is then for a newer request to open the same file.
-    @ObservationIgnored var hasTakenItsFileAccess = false
     let fileURL: URL?
     /// The file name a document came with when it has no file of that name (a file handed over by Shortcuts),
     /// which names its language.
@@ -1314,8 +1310,6 @@ final class DocumentViewModel {
         folderLease = nil
         for lease in fileAccess { lease.close() }
         fileAccess = []
-        // A window that goes away before it took the access waiting for its file would leave it waiting for ever.
-        if fileURL != nil { DocumentWindows.shared.router.windowDidClose(self) }
     }
 
     func keep(_ access: [FolderAccess.Lease]) {

@@ -102,7 +102,8 @@ enum SourceFileOpening {
     }
 
     @MainActor
-    static func open(_ url: URL, window: (URL, Data) -> NSWindowController) async throws {
+    static func open(_ url: URL, window: (URL, Data) -> NSWindowController) async throws -> OpenRouter.OpenedFile {
+        let windows = DocumentWindows.shared
         let (document, isNew) = try await document(for: url, window: window)
         if isNew {
             NSDocumentController.shared.addDocument(document)
@@ -113,7 +114,9 @@ enum SourceFileOpening {
                 cascadePoint = window.cascadeTopLeft(from: cascadePoint)
             }
         }
-        document.showWindows()
+        let opened = windows.opened(document, wasAlreadyOpen: !isNew)
+        if !opened.destination.isClosed { document.showWindows() }
+        return opened
     }
 
     @MainActor private static var cascadePoint = NSPoint.zero

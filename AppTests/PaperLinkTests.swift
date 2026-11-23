@@ -76,7 +76,7 @@ struct PaperLinkTests {
         let router = OpenRouter(
             openDocument: { url, completion in
                 opened.append(url)
-                completion(true)
+                completion(.testWindow())
             },
             openBundle: { _, _ in
                 Issue.record("画像の束にしない")
