@@ -116,6 +116,13 @@ WebKit の文書組版もメインディスプレイの倍率に影響される�
 - これらを束ねるのが `DocumentRenderer`（SurimonoRendering）。文書ごとに 1 つ持ち、論理ページの PDF を使い回す（両面設定やページ番号の変更だけなら組版し直さない）。ファイルが変わったら `clearCache()` を呼ぶ。
 - テキストは 30 MB、CSV / TSV は見出しを含む 60,000 行、生成した HTML は 60 MB まで（1 MB = 1,000,000 バイト）。超過時は WebKit を起動せず文書の大きさを知らせる。言語判定は HTML 断片の先頭 64 KiB まで。読み込みは 15 秒、印刷組版は 60 秒から入力 1 MB あたり 4 秒延長し、各 5 分まで。Mermaid の描画は 10 秒 + 1 個あたり 0.3 秒、最大 60 秒。時間切れで原文が残った個数は刷り台の「確認」に出す。
 - JSON・JSON Lines（.jsonl / .ndjson）・YAML・TOML・XML はテキストとして開き、既存の構文色付け器の範囲（UTF-16 で 20 万単位まで）で色を付ける。.log は無色。Notebook と HTML は従来の変換経路を使う。
+- ソースコードと設定ファイルは、形式を `.plainText` のままにして、`SourceLanguage`（SurimonoFormats）が見分けた言語で `PlainTextConverter` が `pre.surimono-plain` の中を色付けする。従来から開けるテキスト文書について言語を見分けるだけで、開ける形式は追加しない（文書の種類の登録は別の変更）。
+  - 見る順: 固定名の完全一致（`Makefile`・`Dockerfile`・`Gemfile`・`.env`・`setup.cfg` など）→ `.example`・`.bak` などの末尾を外してやり直す → 拡張子 → 固定名から派生した名前（`Dockerfile.dev`・`.env.local`）→ 先頭の `#!`。拡張子が `.txt`・`.log` や、自分の読み方がある形式（`.md`・`.html`・`.tex` など。「テキストとして開く」で開いたときも）なら、派生名にも `#!` にも進まず色を付けない（`Dockerfile.txt`・`.env.md`）。ファイル名のないテキスト（クリップボード）にも付けない。
+  - `#!` は `env` の `-S`（引用した語は 1 語のまま。空白を含むパスも読む）と、値を取る `-u`・`-C`・`-P`、`NAME=value` を読み飛ばす。最初の行は 256 文字までで、そこで切れたかもしれないコマンド名では決めない。
+  - 割り切り: `.h` は C（C++ や Objective-C のヘッダーも同じ拡張子）、`.r` は R（macOS では Rez）、大文字の `.C`・`.H` は C++、`.m` は Objective-C で書き出しが `%`・`function`・`classdef` なら MATLAB。`.cfg`・`.conf` は構文がまちまちなので拡張子では色を付けない。
+  - 帯の形式のバッジは言語の名前（「Swift」「YAML」）。本文を変換した `PlainTextConverter` が `HTMLFragment.sourceLanguage` に判定を載せ、`DocumentFacts.sourceLanguage` 経由で組版の結果と一緒にモデルへ届く（`DocumentViewModel.detectedSourceLanguage`。観測できるプロパティ）。バッジのために本文をデコードしない（最大 30 MB をメインアクターで読むことになる）。最初の組版までは名前だけで決まる表示（shebang だけのスクリプトは「TXT」、`.m` は「Objective-C」）、読み直しのあいだは前の表示のまま。届いた結果は、いま持っている内容を読んだ組版のものだけ採る。
+  - 色付けの上限（UTF-16 で 20 万）を超えたら、切らずに色なしで全部出す。保存し直したときの変更の印は、色付きでも行ごと（`FragmentChanges` が色の有無によらず同じ読み方で行に分け、本文の行で比べ、色の span ごと行を囲む。末尾の改行は保つ）。1 万行を超えたら印を付けない（文書全体を 1 つの変更にもしない）。
+  - 言語を足すときは `SyntaxLanguage` の定義と `SourceLanguage` の表の両方に足す（`SourceLanguageTests`）。行番号と行へ移動はまだない。
 - Markdown と Org のコードは SurimonoFormats の `SyntaxHighlighter` で色付けする（JavaScript は使わない）。Markdown の `:::` と `> [!note]` は囲み（`callout-*`）にする。
 - Org（`OrgConverter`・`OrgInline`・`OrgContext`、SurimonoFormats）は、紙で読むための形にして出す。原文の記号（`[fn:1]`・`SCHEDULED: <…>`・`#+begin_note`）を紙に残さない。
   - `#+TITLE` があるときは表題だけが h1 で、`*` は h2 から（org-export と同じ。テーマは h1 を文書の表題として作ってある）。表題がなければ `*` が h1 のまま。表題ブロックは表題・副題（`#+SUBTITLE`）・著者・日付の順。

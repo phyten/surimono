@@ -2095,11 +2095,18 @@ public final class DocumentRenderer {
         }
     }
 
+    /// The language the conversion tells a plain text file to be. It converts the whole text, so it is for tests and
+    /// for work off the main actor; a window takes the answer from the facts of the pages it laid out.
+    public nonisolated static func sourceLanguage(of source: DocumentSource) -> SourceLanguage? {
+        guard source.format == .plainText else { return nil }
+        return (try? themedFragment(source, proof: .shown))??.sourceLanguage
+    }
+
     private nonisolated static func plainFragment(_ source: DocumentSource) throws -> HTMLFragment {
         guard source.data.count <= PageLayoutLimits.plainTextBytes else {
             throw RenderingError.tooLarge(bytes: source.data.count)
         }
-        return PlainTextConverter.convert(try decodedText(source.data), fileExtension: source.fileURL?.pathExtension)
+        return PlainTextConverter.convert(try decodedText(source.data), fileName: source.fileURL?.lastPathComponent)
     }
 
     /// A file's extension names its delimiter. A table from memory, such as one copied from a spreadsheet, has no

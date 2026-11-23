@@ -104,7 +104,8 @@ Surimono はオフラインで使えます。通信するのは「URL から開�
 | PDF | `.pdf` |
 | 画像 | `.png`, `.jpg`, `.heic`, `.gif`, `.tiff`, `.webp` など |
 | Org | `.org` |
-| テキスト | `.txt`、`.log`、`.json`、`.jsonl`、`.ndjson`、`.yaml`、`.yml`、`.toml`、`.xml` など |
+| テキスト | `.txt`、`.log` など |
+| ソースコードと設定ファイル（言語に合わせて色を付け、書かれたとおりに表示） | `.swift`、`.py`、`.rb`、`.js`、`.java`、`.c`、`.h`、`.cpp`、`.m`、`.php`、`.sh`、`.sql`、`.diff`、`.patch`、`.mk`、`.json`、`.jsonl`、`.ndjson`、`.yaml`、`.yml`、`.toml`、`.xml` など、macOS がテキストとして扱うファイル |
 | HTML | `.html`, `.htm` |
 | CSV / TSV | `.csv`, `.tsv` |
 | LaTeX | `.tex`, `.latex`, `.ltx` |
@@ -121,7 +122,7 @@ Surimono はオフラインで使えます。通信するのは「URL から開�
 | PlantUML | `.puml`, `.plantuml`, `.pu`, `.iuml`, `.wsd` |
 | 画像の ZIP | `.zip`（1 つの画像の束として開く） |
 
-ページに組める上限は、テキストが 30 MB、CSV・TSV が見出しを含む 60,000 行、変換後の HTML が 60 MB です（1 MB = 1,000,000 バイト）。JSON・YAML・TOML・XML は UTF-16 で 20 万単位まで構文に色を付けます。
+ページに組める上限は、テキストが 30 MB、CSV・TSV が見出しを含む 60,000 行、変換後の HTML が 60 MB です（1 MB = 1,000,000 バイト）。ソースコードと設定ファイルは UTF-16 で 20 万単位まで構文に色を付け、それより長いファイルは色なしで全部表示します。これまでも開けたテキスト文書について、決まったファイル名（`Makefile`・`Dockerfile` など）、拡張子、先頭の `#!` の順に言語を見分けます。開ける形式は増えていません。
 
 ### 対応していないこと
 
