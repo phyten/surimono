@@ -44,11 +44,26 @@ Parser.parseColspecs = function (records, ...rest) {
         const count = parseInt(compact, 10) > maximumTableSpan ? String(maximumTableSpan) : compact;
         return parseColspecs.call(this, count, ...rest);
     }
-    // Otherwise only each column spec's repeat count (`ColumnSpecRx`'s leading `(\d+)\*`) is capped.
+    if (!compact) return [];
     const separator = compact.includes(',') ? ',' : ';';
-    const capped = compact.split(separator).map(record => record.replace(/^(\d+)\*/, (spec, digits) =>
-        parseInt(digits, 10) > maximumTableSpan ? maximumTableSpan + '*' : spec)).join(separator);
-    return parseColspecs.call(this, capped, ...rest);
+    const columns = [];
+    let start = 0;
+    while (columns.length < maximumTableSpan) {
+        const end = compact.indexOf(separator, start);
+        const record = compact.slice(start, end < 0 ? compact.length : end);
+        const match = record.match(ColumnSpecRx);
+        if (match) {
+            // An explicit repeat keeps a lone width (or an empty field) in spec mode when parsed on its own.
+            const repeat = match[1];
+            const remaining = maximumTableSpan - columns.length;
+            const count = repeat ? Math.min(parseInt(repeat, 10), remaining) : 1;
+            const spec = repeat ? record.slice(repeat.length + 1) : record;
+            columns.push(...parseColspecs.call(this, count + '*' + spec, ...rest));
+        }
+        if (end < 0) break;
+        start = end + 1;
+    }
+    return columns;
 };
 
 const quoted = Html5Converter.prototype.convert_inline_quoted;
