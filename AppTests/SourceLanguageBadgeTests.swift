@@ -97,6 +97,7 @@ struct SourceLanguageBadgeTests {
         let fixture = try Fixture("tool", Data("#!/usr/bin/env python3\nprint(1)\n".utf8))
         defer { fixture.close() }
         try await wait("組版が終わる") { fixture.model.result != nil && !fixture.model.isRendering }
+        #expect(!fixture.model.offersProse)
         #expect(fixture.model.shortFormatBadge == "Python")
         #expect(fixture.model.result?.facts?.sourceLanguage?.id == "python")
     }

@@ -712,15 +712,21 @@
                     }
                 }
                 // The table of contents is read after the pages are laid out.
-                if ["toc", "outline", "stats"].contains(argument("SurimonoPopover")) || flag("SurimonoOutlineDrawer") {
+                if ["toc", "outline", "stats"].contains(argument("SurimonoPopover")) || flag("SurimonoOutlineDrawer")
+                    || argument("SurimonoContentsTab") == "prose"
+                {
                     NotificationCenter.default.post(name: showMenu, object: model)
                     try? await Task.sleep(for: .milliseconds(600))
+                    if let tab = argument("SurimonoContentsTab").flatMap(
+                        DocumentSettings.ContentsPanel.Tab.init(rawValue:))
+                    {
+                        model.snapshotContentsTab = tab
+                    }
                     switch argument("SurimonoPopover") {
                     case "toc", "outline": model.isOutlinePresented = true
                     case "stats": model.isFiguresPresented = true
                     default:
                         model.snapshotOutlineDrawer = true
-                        if argument("SurimonoContentsTab") == "pages" { model.snapshotContentsTab = .pages }
                         if model.imageBundle != nil {
                             model.isDrawerOpen = true
                         } else {
@@ -961,6 +967,12 @@
                                     || model.snapshotScrubImage?.generation != model.thumbnailGeneration
                             {
                                 return "Waiting for the scrubber thumbnail"
+                            }
+                        }
+                        if model.snapshotContentsTab == .prose {
+                            if !model.snapshotProseReady { return "Waiting for the writing check" }
+                            if argument("SurimonoProseFinding") != nil && !model.paper.showsProseMark {
+                                return "Waiting for the marked finding"
                             }
                         }
                         if model.snapshotContentsTab == .pages,

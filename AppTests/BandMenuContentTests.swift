@@ -20,7 +20,10 @@ struct BandMenuContentTests {
 
         init() { preferences = AppPreferences(defaults: defaults.defaults) }
 
-        func make(_ format: DocumentFormat, memory: Bool = false, bundle: Bool = false, issues: Bool = false) throws
+        func make(
+            _ format: DocumentFormat, memory: Bool = false, bundle: Bool = false, issues: Bool = false,
+            name: String? = nil
+        ) throws
             -> DocumentViewModel
         {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -31,7 +34,8 @@ struct BandMenuContentTests {
             case .html: data = Data("<h1>First Chapter</h1><h1>Second Chapter</h1>".utf8)
             default: data = Data("# First Chapter\n\n# Second Chapter\n".utf8)
             }
-            let url = directory.appendingPathComponent(UUID().uuidString + "." + (format == .html ? "html" : "fixture"))
+            let url = directory.appendingPathComponent(
+                name ?? (UUID().uuidString + "." + (format == .html ? "html" : "fixture")))
             if !memory { try data.write(to: url) }
             var images: ImageBundleModel?
             if bundle {
@@ -77,6 +81,47 @@ struct BandMenuContentTests {
         #expect(model.isUpToDate)
     }
 
+    @Test("文章の確認は名前のないテキストでも選べ、対象外の表示メニューは何もしない")
+    func checkWritingCommand() throws {
+        let fixture = Fixture()
+        defer { fixture.cleanUp() }
+        let text = try fixture.make(.plainText, memory: true)
+        #expect(text.contentsPanel.tab == nil)
+        DocumentMenuAction.checkWriting.perform(preferences: fixture.preferences, model: { text })
+        #expect(text.contentsTab == .prose && text.isOutlineShown)
+        #expect(text.rememberedSettings.contentsPanel?.tab == .prose)
+        let pdf = try fixture.make(.pdf)
+        DocumentMenuAction.checkWriting.perform(preferences: fixture.preferences, model: { pdf })
+        #expect(pdf.contentsPanel.tab == nil && !pdf.isOutlineShown)
+    }
+
+    @Test("文章の確認の表示メニューは文書の種類と印刷画面に応じて有効になる")
+    func writingMenuAvailability() async throws {
+        let fixture = Fixture()
+        defer { fixture.cleanUp() }
+        let markdown = try fixture.make(.markdown)
+        let text = try fixture.make(.plainText, memory: true)
+        let pdf = try fixture.make(.pdf)
+        let code = try fixture.make(.plainText, name: "example.swift")
+        try await render(code)
+        try #require(code.sourceLanguage?.id == "swift")
+        func enabled(_ model: DocumentViewModel?) throws -> Bool {
+            let snapshot = MenuSnapshot(version: 0, content: .init(model: model, preferences: fixture.preferences))
+            return try #require(
+                DocumentMenuDescriptor.rows(for: .view, in: snapshot).first {
+                    $0.id == .action(.checkWriting)
+                }
+            ).isEnabled
+        }
+        #expect(try !enabled(nil))
+        #expect(try enabled(markdown))
+        #expect(try enabled(text))
+        #expect(try !enabled(pdf))
+        #expect(try !enabled(code))
+        markdown.mode = .print
+        #expect(try !enabled(markdown))
+    }
+
     /// Literal expectations are independent of the production group's catalog.
     private func verify(_ model: DocumentViewModel, _ expected: [[ID]]) throws {
         let content = BandMenuContent(model: model)
@@ -92,7 +137,7 @@ struct BandMenuContentTests {
     }
 
     private let markdown: [[ID]] = [
-        [.outline, .previousPage, .nextPage, .documentInfo],
+        [.outline, .checkWriting, .previousPage, .nextPage, .documentInfo],
         [.layout, .transition],
         [.readingDirection, .scrollDirection, .selectText],
         [.style, .paperOrientation, .paperSeries, .margins],

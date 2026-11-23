@@ -139,6 +139,24 @@ struct BandMeasurementAgreementTests {
         .readingDirection, .scrollDirection, .paperOrientation, .margins, .printSettings, .saveAsFile,
     ]
 
+    @Test("部品の表示を変えると開いている画像の束の上下の帯は同じ幅のまま切り替わる")
+    func namesChangeInOpenWindow() async throws {
+        let fixture = try Fixture(parts: [], width: 1000, imageBundle: true)
+        defer { fixture.close() }
+        // Keep the document and the window width fixed so only a preference change can switch the forms.
+        for names in [BandLayout.Names.shown, .hidden, .shown] {
+            fixture.model.preferences.bandNames = names
+            try await settle(fixture, width: 1000)
+            let plan = try #require(fixture.plan)
+            let form: BandLayout.Form = names == .hidden ? .compact : .full
+            #expect(plan.top.forms[.print] == form)
+            #expect(plan.bottom?.forms[.thumbnails] == form)
+            let measured = try #require(fixture.menu.bandWidths[.item(.thumbnails, form)])
+            let drawn = try #require(fixture.model.bandAnchors.frames[.item(.thumbnails)])
+            #expect(measured > 0 && abs(drawn.width - measured) <= 1)
+        }
+    }
+
     @Test("画像の束では実測した文字つきの入口が先にアイコンになり、描画幅も実測幅に合う")
     func measuredBundleEntry() async throws {
         let fixture = try Fixture(parts: [], width: 1000, imageBundle: true)

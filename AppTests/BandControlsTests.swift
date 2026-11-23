@@ -19,7 +19,7 @@ struct BandControlsTests {
         model.viewOptions.layout = .spread
         #expect(
             BandLayout.Item.applicable(for: model) == [
-                .formatBadge, .style, .layout, .transition, .floatOnTop, .showOnAllSpaces, .print,
+                .formatBadge, .style, .outline, .layout, .transition, .floatOnTop, .showOnAllSpaces, .print,
                 .readingDirection, .scrollDirection, .paperOrientation, .paperSeries, .cover, .selectText,
                 .alwaysShowToolbar, .margins, .printSettings, .viewOptions, .keysAndGestures,
             ])

@@ -34,6 +34,19 @@ final class PaperController {
         view.revealChange(on: request.pageIndex, pinnedBandHeight: request.pinnedBandHeight)
     }
 
+    func canMarkProse(_ spans: [ProsePaperSpan], in source: PDFDocument) -> Bool {
+        guard let view, view.isMade(of: source) else { return false }
+        return view.proseSelections(spans) != nil
+    }
+
+    func revealProse(_ spans: [ProsePaperSpan]) { view?.revealProse(spans) }
+
+    func isProsePageVisible(_ page: Int) -> Bool { view?.isLogicalPageVisible(page) == true }
+
+    #if DEBUG
+        var showsProseMark: Bool { view?.drawnProseSpans.isEmpty == false }
+    #endif
+
     func focus() {
         guard let view else { return }
         view.window?.makeFirstResponder(view)
@@ -66,6 +79,8 @@ struct PaperView: NSViewRepresentable {
     var narrowsLoneCover = false
     var keepsSpotInPage = false
     /// The words to mark on the paper; nothing takes the marks away.
+    var proseSpans: [ProsePaperSpan] = []
+    var onPaperPress: () -> Void = {}
     var findQuery = ""
     /// The logical page of every hit, with the words they were found for.
     var onFindHits: ([Int], String) -> Void = { _, _ in }
@@ -117,6 +132,8 @@ struct PaperView: NSViewRepresentable {
         view.selectsText = selectsText
         view.onFindHits = onFindHits
         view.find(findQuery)
+        view.onPaperPress = onPaperPress
+        view.drawProse(proseSpans)
         if abs(view.zoom - zoom) > 0.001 {
             // A zoom that comes from the model, as when a document's settings are brought back, has no pointer; it
             // opens at the top of the page rather than in its middle.
@@ -245,6 +262,9 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
             if !findHits.isEmpty { markFindHit(currentFindIndex, reveals: false) }
         }
     }
+    private let proseUnderlines = ProseUnderlines()
+    fileprivate private(set) var drawnProseSpans: [ProsePaperSpan] = []
+    fileprivate var onPaperPress: (() -> Void)?
     private var currentFindIndex: Int?
     private(set) var findHits: [PDFSelection] = []
     var narrowsLoneCover = false {
@@ -414,6 +434,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
         super.init(frame: frameRect)
         linkDelegate.view = self
         delegate = linkDelegate
+        pageOverlayViewProvider = proseUnderlines
         acceptsDraggedFiles = false
         autoScales = false
         displaysPageBreaks = false
@@ -531,6 +552,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
                     furniture: copy != nil ? furniture : [:],
                     document: document))
         }
+        drawProse([])
         self.document = document
         displayBox = .cropBox
         hideScrollersAndInsets()
@@ -1226,6 +1248,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
     private var isTrackingSelectionLink = false
 
     override func mouseDown(with event: NSEvent) {
+        onPaperPress?()
         pendingMenu?.cancel()
         window?.makeFirstResponder(self)
         dragSelectsText = selectsText(for: event)
@@ -1397,6 +1420,82 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
     }
 }
 
+extension PaperPDFView {
+    fileprivate func isLogicalPageVisible(_ index: Int) -> Bool {
+        guard let slot = pagePlan?.viewIndex(for: index), let page = document?.page(at: slot) else { return false }
+        return visiblePages.contains(page)
+    }
+
+    fileprivate func proseSelections(_ spans: [ProsePaperSpan]) -> [PDFSelection]? {
+        guard !spans.isEmpty else { return nil }
+        var selections: [PDFSelection] = []
+        for span in spans {
+            guard let slot = pagePlan?.viewIndex(for: span.page), let page = document?.page(at: slot),
+                let original = sourceDocument?.page(at: span.page),
+                page === original || page.string == original.string,
+                NSMaxRange(span.range) <= page.numberOfCharacters, let selection = page.selection(for: span.range),
+                selection.string == span.text
+            else { return nil }
+            selections.append(selection)
+        }
+        return selections
+    }
+
+    func revealProse(_ spans: [ProsePaperSpan]) {
+        guard let document, let selections = proseSelections(spans) else { return }
+        layoutDocumentView()
+        guard let documentView else { return }
+        let visible = documentView.visibleRect
+        guard !visible.isEmpty else { return }
+        var nearest: NSRect?
+        var leastDistance = CGFloat.infinity
+        let onScreen = visiblePages
+        let readingPage = currentPageIndex
+        for selection in selections {
+            guard let page = selection.pages.first,
+                onScreen.contains(page) || pagePlan?.readingIndex(at: document.index(for: page)) == readingPage
+            else { continue }
+            func frame(of selection: PDFSelection) -> CGRect {
+                documentView.convert(convert(selection.bounds(for: page), from: page), from: self)
+            }
+            let whole = frame(of: selection)
+            let fits = whole.width <= visible.width && whole.height <= visible.height
+            let boxes = fits ? [whole] : selection.selectionsByLine().map { frame(of: $0) }
+            for box in boxes {
+                guard !box.isEmpty else { continue }
+                let width = min(box.width, visible.width)
+                let height = min(box.height, visible.height)
+                // A line wider than the viewport can already be readable at the current scroll position.
+                let target = NSRect(
+                    x: max(box.minX, min(visible.minX, box.maxX - width)),
+                    y: max(box.minY, min(visible.minY, box.maxY - height)), width: width, height: height)
+                if visible.contains(target) { return }
+                let dx = max(0, visible.minX - target.minX, target.maxX - visible.maxX)
+                let dy = max(0, visible.minY - target.minY, target.maxY - visible.maxY)
+                let distance = dx * dx + dy * dy
+                if distance < leastDistance {
+                    nearest = target
+                    leastDistance = distance
+                }
+            }
+        }
+        if let nearest { documentView.scrollToVisible(nearest) }
+    }
+
+    func drawProse(_ spans: [ProsePaperSpan]) {
+        guard spans != drawnProseSpans else { return }
+        drawnProseSpans = []
+        proseUnderlines.show([])
+        guard findQuery.isEmpty else { return }
+        highlightedSelections = nil
+        guard let selections = proseSelections(spans) else { return }
+        for selection in selections { selection.color = NSColor(PrintPalette.paperAi).withAlphaComponent(0.50) }
+        proseUnderlines.show(selections)
+        highlightedSelections = selections
+        drawnProseSpans = spans
+    }
+}
+
 // MARK: - Find
 
 /// One search of a document for the find bar.
@@ -1456,6 +1555,7 @@ extension PaperPDFView {
     /// highlights, not annotations, so the pages that are printed and exported never carry them.
     func find(_ query: String) {
         guard query != findQuery else { return }
+        if !query.isEmpty { drawProse([]) }
         findQuery = query
         restartFind()
     }

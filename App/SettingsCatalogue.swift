@@ -156,6 +156,7 @@ enum SettingsCatalogue {
             .init(.clipboard, "Choosing the Format"),
             .init(.clipboard, "Format to Open"),
             .init(.clipboard, "How Readily to Format"),
+            .init(.toolbarArrangement, "Parts", words: ["Icons and Names", "Icons Only"]),
             .init(.toolbarArrangement, "Start Over"),
             .init(.toolbarArrangement, "Use Saved"),
             .init(

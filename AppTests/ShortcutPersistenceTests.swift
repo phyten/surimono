@@ -262,6 +262,26 @@ struct ShortcutMigrationBoundaryTests {
         #expect(suite.defaults.data(forKey: "keyboardShortcuts.v1") == saved)
     }
 
+    @Test("同じ保存値の再表示後も外部で変わった割当や壊れた値を読み直す")
+    func refreshChangedArchive() throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let key = ShortcutStore.preferencesKey
+        let defaults = suite.defaults
+        defaults.set(try ShortcutStore.encode(.init()), forKey: key)
+        let preferences = AppPreferences(defaults: defaults)
+        preferences.reloadKeyboardShortcuts(environment: .init())
+        #expect(preferences.keyboardShortcutsRevision == 0)
+
+        let changed = ShortcutConfiguration(overrides: [.documentReload: []])
+        defaults.set(try ShortcutStore.encode(changed), forKey: key)
+        preferences.reloadKeyboardShortcuts(environment: .init())
+        #expect(preferences.keyboardShortcuts == changed)
+        defaults.set("not an archive", forKey: key)
+        preferences.reloadKeyboardShortcuts(environment: .init())
+        #expect(preferences.keyboardShortcutsLoadState == .unreadable(.malformedStore))
+    }
+
     @Test("別インスタンスが保存したデータは古い計画で上書きしない")
     func externalWrite() throws {
         let suite = TestDefaultsSuite()

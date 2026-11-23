@@ -95,13 +95,7 @@ private struct OutlineRow: View {
             .padding(.trailing, 8)
             .frame(minHeight: 32)
             .background {
-                CornerRole.control.shape
-                    .fill(
-                        isSelected
-                            ? PrintPalette.hover
-                            : isCurrent
-                                ? PrintPalette.aiTint2
-                                : isHovered ? PrintPalette.hover : .clear)
+                ContentsRowBackground(isCurrent: isCurrent, isSelected: isSelected, isHovered: isHovered)
             }
             .contentShape(Rectangle())
         }
@@ -109,6 +103,18 @@ private struct OutlineRow: View {
         .disabled(entry.pageIndex == nil)
         .onHover { isHovered = $0 }
         .accessibilityAddTraits(isCurrent ? .isSelected : [])
+    }
+}
+
+struct ContentsRowBackground: View {
+    let isCurrent: Bool
+    var isSelected = false
+    var isHovered = false
+
+    var body: some View {
+        CornerRole.control.shape.fill(
+            isSelected ? PrintPalette.hover : isCurrent ? PrintPalette.aiTint2 : isHovered ? PrintPalette.hover : .clear
+        )
     }
 }
 
@@ -182,6 +188,7 @@ private struct ContentsTabPicker: View {
         Picker("Contents", selection: Binding(get: { model.contentsTab }, set: { model.selectContentsTab($0) })) {
             Text("Contents").tag(DocumentSettings.ContentsPanel.Tab.contents)
             Text("Pages Tab").tag(DocumentSettings.ContentsPanel.Tab.pages)
+            if model.offersProse { Text("Writing").tag(DocumentSettings.ContentsPanel.Tab.prose) }
         }
         .pickerStyle(.segmented)
         .labelsHidden()
@@ -210,7 +217,9 @@ struct OutlinePopover: View {
                 Spacer(minLength: 0)
                 PopoverCloseButton()
             }
-            if model.contentsTab == .pages {
+            if model.contentsTab == .prose {
+                ProsePanel(model: model).frame(height: Self.maximumListHeight)
+            } else if model.contentsTab == .pages {
                 ContentsPages(model: model, popover: true).frame(height: Self.maximumListHeight)
                 if let bundle = model.imageBundle { BundlePageActions(model: model, bundle: bundle) }
             } else {
@@ -237,8 +246,11 @@ struct OutlineDrawer: View {
 
     private var width: CGFloat {
         // A temporary squeeze of the window must not overwrite the width the reader chose.
-        guard availableWidth > 0 else { return model.contentsWidth }
-        return min(model.contentsWidth, max(176, availableWidth - 200))
+        // Leave room for the script shares and the third segment even at the narrow end of a drag.
+        let minimum: CGFloat = model.contentsTab == .prose ? 232 : 176
+        let preferred = max(minimum, model.contentsWidth)
+        guard availableWidth > 0 else { return preferred }
+        return min(preferred, max(minimum, availableWidth - 200))
     }
 
     var body: some View {
@@ -253,7 +265,9 @@ struct OutlineDrawer: View {
             }
             PanelIconButton("xmark", label: "Close") { model.setContentsOpen(false) }
         } content: {
-            if model.contentsTab == .pages {
+            if model.contentsTab == .prose {
+                ProsePanel(model: model)
+            } else if model.contentsTab == .pages {
                 ContentsPages(model: model, popover: false)
                 if let bundle = model.imageBundle { BundlePageActions(model: model, bundle: bundle) }
             } else {
