@@ -20,10 +20,14 @@ enum VerticalPaginator {
         let pixelsPerPoint = 96.0 / 72
         let width = (pageSize.width - margins.left - margins.right) * pixelsPerPoint
         let height = (pageSize.height - margins.top - margins.bottom) * pixelsPerPoint
+        // Each WebKit reply below is awaited only until this deadline, and fails at once when the page's process
+        // has ended: awaiting WebKit's own async calls left the capture task (and its session) waiting for good.
+        let deadline = ContinuousClock.now + timeout
         var result: Result<PDFDocument, any Error>?
         let capture = Task { @MainActor in
             do {
-                let slices = try await measure(in: webView, script: measurement, width: width, height: height)
+                let slices = try await measure(
+                    in: webView, script: measurement, width: width, height: height, until: deadline)
                 try Task.checkCancellation()
                 var indices = slices.indices
                 if let samplePosition, !indices.isEmpty {
@@ -32,9 +36,8 @@ enum VerticalPaginator {
                     indices = index..<(index + 1)
                 }
                 if slices.count > 1 {
-                    _ = try await webView.callAsyncJavaScript(
-                        "surimonoIndexSlices(cuts)", arguments: ["cuts": slices.map(\.end)], in: nil,
-                        contentWorld: WebPaginator.preparationWorld)
+                    _ = try await webView.evaluateForPrinting(
+                        "surimonoIndexSlices(cuts)", arguments: ["cuts": slices.map(\.end)], until: deadline)
                 }
                 let document = try await PDFDrawing.document(pageSize: pageSize) { context in
                     if slices.isEmpty {
@@ -45,9 +48,8 @@ enum VerticalPaginator {
                         let slice = slices[index]
                         try Task.checkCancellation()
                         if slices.count > 1 {
-                            _ = try await webView.callAsyncJavaScript(
-                                "surimonoCaptureSlice(index)", arguments: ["index": index], in: nil,
-                                contentWorld: WebPaginator.preparationWorld)
+                            _ = try await webView.evaluateForPrinting(
+                                "surimonoCaptureSlice(index)", arguments: ["index": index], until: deadline)
                         }
                         let rect = CGRect(x: -slice.end, y: 0, width: slice.end - slice.start, height: ceil(height))
                         let scale = min(1, width / rect.width) / pixelsPerPoint
@@ -57,7 +59,8 @@ enum VerticalPaginator {
                             width: rect.width * scale, height: rect.height * scale)
                         context.beginPDFPage(nil)
                         defer { context.endPDFPage() }
-                        try await FlowPageCapture.draw(rect, from: webView, into: target, in: context)
+                        try await FlowPageCapture.draw(
+                            rect, from: webView, into: target, in: context, deadline: deadline)
                     }
                 }
                 result = .success(document)
@@ -74,11 +77,11 @@ enum VerticalPaginator {
         return try result.get()
     }
 
-    private static func measure(in webView: WKWebView, script: String, width: CGFloat, height: CGFloat) async throws
-        -> [FlowPageCuts.Band]
-    {
-        let value = try await webView.callAsyncJavaScript(
-            script, arguments: ["width": width, "height": height], in: nil, contentWorld: WebPaginator.preparationWorld)
+    private static func measure(
+        in webView: WKWebView, script: String, width: CGFloat, height: CGFloat, until deadline: ContinuousClock.Instant
+    ) async throws -> [FlowPageCuts.Band] {
+        let value = try await webView.evaluateForPrinting(
+            script, arguments: ["width": width, "height": height], until: deadline)
         try Task.checkCancellation()
         guard let json = value as? String else { throw WebPaginator.PaginationError.printFailed }
         return try await cuts(from: json, capacity: width)
