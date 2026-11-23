@@ -105,7 +105,6 @@ public enum FragmentChanges {
     }
 
     /// The lines of plain text as they stand in the HTML, and the text of each to compare.
-    /// The lines of plain text as they stand in the HTML, and the text of each to compare.
     private struct PlainLines {
         var html: [String] = []
         var text: [String] = []
@@ -124,49 +123,68 @@ public enum FragmentChanges {
     /// back. A span that runs over several lines is closed and opened again on each, so a line inside a long comment
     /// can be marked alone. The text is compared without the spans, because an edit elsewhere (opening a comment)
     /// recolors lines it did not change.
-    private static func plainText(_ html: String) -> PlainText {
+    ///
+    /// The text is read by Unicode scalar: a combining mark that follows a tag would join its `>` into one
+    /// character and hide the end of the tag. `visited` counts the scalars read, for the test that the reading
+    /// stops at the limit.
+    private static func plainText(_ html: String, visited: inout Int) -> PlainText {
         guard html.hasPrefix(plainOpen), html.hasSuffix("</pre>") else { return .other }
-        let body = html.dropFirst(plainOpen.count).dropLast(6)
+        let body = html.unicodeScalars.dropFirst(plainOpen.unicodeScalars.count).dropLast(6)
         var lines = PlainLines()
-        var current = ""
-        var text = ""
-        var open: [Substring] = []
+        var current = String.UnicodeScalarView()
+        var text = String.UnicodeScalarView()
+        var open: [String.UnicodeScalarView] = []
+        let close = "</span>".unicodeScalars
+        let colored = Array("<span class=\"hl-".unicodeScalars)
         var index = body.startIndex
         while index < body.endIndex {
-            let character = body[index]
-            if character == "<" {
+            let scalar = body[index]
+            visited += 1
+            if scalar == "<" {
                 guard let end = body[index...].firstIndex(of: ">") else { return .other }
-                let tag = body[index...end]
-                if tag == "</span>" {
+                let tag = String.UnicodeScalarView(body[index...end])
+                visited += tag.count - 1
+                if tag.elementsEqual(close) {
                     guard let last = open.popLast() else { return .other }
                     // A span that ended where the line began holds nothing on this line.
-                    if current.hasSuffix(last) { current.removeLast(last.count) } else { current += tag }
-                } else if tag.hasPrefix("<span class=\"hl-") {
+                    if current.count >= last.count, current.suffix(last.count).elementsEqual(last) {
+                        current.removeLast(last.count)
+                    } else {
+                        current.append(contentsOf: tag)
+                    }
+                } else if tag.starts(with: colored) {
                     open.append(tag)
-                    current += tag
+                    current.append(contentsOf: tag)
                 } else {
                     return .other
                 }
                 index = body.index(after: end)
                 continue
             }
-            if character == "\n" || character == "\r\n" || character == "\r" {
-                // Stop at the limit instead of reading on through a text that will not be compared.
-                guard lines.text.count < blockLimit else { return .tooLong }
-                lines.html.append(text.isEmpty ? "" : current + String(repeating: "</span>", count: open.count))
-                lines.text.append(text)
-                current = open.joined()
-                text = ""
-            } else {
-                current.append(character)
-                text.append(character)
+            let next = body.index(after: index)
+            if scalar == "\n" || scalar == "\r" {
+                // This line and the one that follows the break, even an empty one, are one more than the lines
+                // read so far. Past the limit nothing is compared, so nothing after this break is read.
+                guard lines.text.count + 2 <= blockLimit else { return .tooLong }
+                var line = current
+                for _ in open { line.append(contentsOf: close) }
+                lines.html.append(text.isEmpty ? "" : String(line))
+                lines.text.append(String(text))
+                current = String.UnicodeScalarView()
+                for tag in open { current.append(contentsOf: tag) }
+                text = String.UnicodeScalarView()
+                // A carriage return and the line feed after it are one break.
+                index = scalar == "\r" && next < body.endIndex && body[next] == "\n" ? body.index(after: next) : next
+                if index != next { visited += 1 }
+                continue
             }
-            index = body.index(after: index)
+            current.append(scalar)
+            text.append(scalar)
+            index = next
         }
         guard open.isEmpty else { return .other }
-        guard lines.text.count < blockLimit else { return .tooLong }
-        lines.html.append(text.isEmpty ? "" : current)
-        lines.text.append(text)
+        lines.html.append(text.isEmpty ? "" : String(current))
+        lines.text.append(String(text))
         return .lines(lines)
     }
 
@@ -196,12 +214,22 @@ public enum FragmentChanges {
     }
 
     public static func marks(from old: String, to new: String) -> [MarkdownMarkRequest] {
+        var visited = 0
+        return marks(from: old, to: new, visited: &visited)
+    }
+
+    /// `visited` is how much of the two texts was read as lines of plain text, in Unicode scalars.
+    package static func marks(from old: String, to new: String, visited: inout Int) -> [MarkdownMarkRequest] {
         guard old.utf8.count <= byteLimit, new.utf8.count <= byteLimit, old != new else { return [] }
-        switch (plainText(old), plainText(new)) {
+        // The new text first: when it has too many lines there are no marks, and the old one is not split at all.
+        let after = plainText(new, visited: &visited)
+        if case .tooLong = after { return [] }
+        let before = plainText(old, visited: &visited)
+        switch (before, after) {
         case (.lines(let before), .lines(let after)):
             if after.text.count == 1, after.text[0].isEmpty { return [] }
             return changes(before.text, after.text, groupsLines: true)
-        case (.tooLong, _), (_, .tooLong): return []
+        case (.tooLong, _): return []
         default: break
         }
         guard let before = keys(old), let after = keys(new) else { return [] }
@@ -273,7 +301,8 @@ public enum FragmentChanges {
     /// Only the disposable layout needs IDs; leave the normal HTML byte-for-byte as the converter produced it.
     public static func identifyingBlocks(in html: String, for requests: [MarkdownMarkRequest]) -> String {
         guard !requests.isEmpty, html.utf8.count <= byteLimit else { return html }
-        let plain = plainText(html)
+        var visited = 0
+        let plain = plainText(html, visited: &visited)
         if case .tooLong = plain { return html }
         if case .lines(let plain) = plain {
             var lines = plain.html
