@@ -27,6 +27,7 @@ extension MarkdownIncludes {
         var documents: [URL] = []
         var missing: [String] = []
         var excluded: [URL] = []
+        let root = (try? ConfinedFile.canonicalPath(folder)) ?? folder.path
         for path in paths {
             let url = folder.appending(path: path).standardizedFileURL
             if url == parent { continue }
@@ -34,7 +35,8 @@ extension MarkdownIncludes {
                 missing.append(path)
                 continue
             }
-            if OpenRequest.binderFormat(url) == nil {
+            // What is read to tell the format must be the file under the folder, not what a link leads to.
+            if OpenRequest.binderFormat(url, within: root) == nil {
                 excluded.append(url)
             } else {
                 documents.append(url)
@@ -42,7 +44,7 @@ extension MarkdownIncludes {
         }
         let hasText = preface?.contains { !$0.isWhitespace } == true
         return Plan(
-            parent: parent, root: (try? ConfinedFile.canonicalPath(folder)) ?? folder.path, hasPreface: hasText,
+            parent: parent, root: root, hasPreface: hasText,
             documents: documents, missing: missing + refused, excluded: excluded)
     }
 }

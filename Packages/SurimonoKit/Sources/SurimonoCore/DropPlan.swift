@@ -52,11 +52,13 @@ public struct DropPlan: Equatable, Sendable {
         let own = Set(receiver.ownURLs.map(\.standardizedFileURL))
         others = files.filter { !own.contains($0) }
         alreadyIn = files.filter(own.contains)
-        let joinable = receiver.canHoldFiles ? others.filter { OpenRequest.binderFormat($0) != nil } : []
+        // One decision per file for the whole plan: a decision can read the file, and a drag asks again and again.
+        let formats = FileFormats()
+        let joinable = receiver.canHoldFiles ? others.filter { formats.binderFormat($0) != nil } : []
         adding = OpenRequest.sorted(joinable)
-        leftOut = receiver.canHoldFiles ? OpenRequest.sorted(others.filter { OpenRequest.binderFormat($0) == nil }) : []
-        opening = Self.opening(others)
-        let joining = receiver.joining(adding)
+        leftOut = receiver.canHoldFiles ? OpenRequest.sorted(others.filter { formats.binderFormat($0) == nil }) : []
+        opening = Self.opening(others, formats)
+        let joining = receiver.joining(adding, formats)
         switch (joining, opening) {
         case (let joining?, _):
             if case .document = receiver {
@@ -71,10 +73,10 @@ public struct DropPlan: Equatable, Sendable {
         }
     }
 
-    private static func opening(_ urls: [URL]) -> OpenRequest {
-        let request = OpenRequest(urls: urls)
+    private static func opening(_ urls: [URL], _ formats: FileFormats) -> OpenRequest {
+        let request = OpenRequest(urls: urls, formats: formats)
         // One file goes to the document controller whatever it is, which only answers a folder with an error.
-        if case .single(let url) = request, OpenRequest.binderFormat(url) == nil,
+        if case .single(let url) = request, formats.binderFormat(url) == nil,
             !OpenRequest.isArchive(url)
         {
             return .unsupported
@@ -97,13 +99,13 @@ extension DropPlan.Receiver {
         return true
     }
 
-    fileprivate func joining(_ adding: [URL]) -> DropPlan.Joining? {
+    fileprivate func joining(_ adding: [URL], _ formats: FileFormats) -> DropPlan.Joining? {
         guard !adding.isEmpty else { return nil }
         switch self {
         case .document: return .newBinder
         case .binder: return .binder
         case .imageBundle:
-            return adding.allSatisfy { OpenRequest.binderFormat($0) == .image } ? .images : .newBinder
+            return adding.allSatisfy { formats.binderFormat($0) == .image } ? .images : .newBinder
         case .closed: return nil
         }
     }

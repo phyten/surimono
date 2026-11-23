@@ -52,8 +52,8 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
     }
 
     /// Source code and configuration files open as plain text, and `SourceLanguage` tells their language. `.ts` is
-    /// also what macOS calls an MPEG transport stream; `BinaryLookalike` tells the two apart by content. `.mts` is
-    /// left to the cameras that record AVCHD video under it.
+    /// also what macOS calls an MPEG transport stream; `TextFileGate` tells the two apart by content. `.mts` is not
+    /// here: by its name it is AVCHD video, and only the gate, having read it, lets one that is text in.
     public static let sourceCodeExtensions: Set<String> = [
         "swift", "js", "jsx", "mjs", "cjs", "ts", "tsx", "cts", "py", "pyw", "pyi", "rb", "rake", "gemspec", "ru",
         "go", "rs", "java", "kt", "kts", "c", "h", "cpp", "cc", "cxx", "c++", "hpp", "hh", "hxx", "h++", "cs", "m",
@@ -85,7 +85,7 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
             "public.json": .plainText, "public.yaml": .plainText, "public.xml": .plainText,
             "public.ndjson": .plainText, "com.apple.log": .plainText, "org.toml-lang.toml": .plainText,
             "app.surimono.jsonl": .plainText, "app.surimono.source-code": .plainText,
-            "com.apple.property-list": .plainText, "public.mpeg-2-transport-stream": .plainText,
+            "com.apple.property-list": .plainText,
             "public.xhtml": .html, "public.html": .html, "com.adobe.pdf": .pdf, "public.image": .image,
             "public.png": .image, "public.jpeg": .image, "public.comma-separated-values-text": .csv,
             "public.tab-separated-values-text": .csv,
@@ -99,6 +99,9 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
             "org.mediawiki.wikitext": .mediawiki,
             "org.asciidoc.asciidoc": .asciidoc,
         ]
+        // A video's type never makes text, under `.ts` or any other extension. A `.ts` that is TypeScript is told
+        // by its content (`TextFileGate`) and its extension.
+        if contentType.conforms(to: .mpeg2TransportStream) { return nil }
         if let format = known[contentType.identifier] {
             self = format
             return
