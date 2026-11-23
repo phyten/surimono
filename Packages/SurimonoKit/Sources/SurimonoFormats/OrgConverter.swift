@@ -32,23 +32,38 @@ public enum OrgConverter {
             }
         }
         if !titleBlock.isEmpty { titleBlock = "<header class=\"org-title-block\">\(titleBlock)</header>\n" }
-        var content = parser.render()
+        let content = parser.render()
         let context = parser.context
         let japanese = context.metadata["LANGUAGE"]?.lowercased().hasPrefix("ja") == true
+        var tables: [OrgOutline.Request: (html: String, count: Int)] = [:]
+        var budget = OrgOutline.entryBudget
+        /// The table for a request, built once however often the document asks for it, while the budget lasts.
         func contents(_ request: OrgOutline.Request) -> String {
-            context.outline.contents(
-                request, headlineLevels: context.reading.headlineLevels,
-                title: japanese ? "目次" : "Table of Contents")
-        }
-        for (position, request) in context.outline.requests.enumerated() {
-            content = content.replacingOccurrences(
-                of: "<!--\(context.contentsToken)-\(position)-->\n", with: contents(request))
+            let table =
+                tables[request]
+                ?? context.outline.contents(
+                    request, headlineLevels: context.reading.headlineLevels,
+                    title: japanese ? "目次" : "Table of Contents")
+            tables[request] = table
+            guard table.count <= budget else { return "" }
+            budget -= table.count
+            return table.html
         }
         let depth = context.reading.tableOfContents
-        let front =
-            depth == .off
-            ? "" : contents(OrgOutline.Request(depth: depth == .all ? nil : depth.limit, scope: nil))
-        let html = titleBlock + front + content + parser.footnotes()
+        var pieces = [titleBlock]
+        if depth != .off { pieces.append(contents(OrgOutline.Request(depth: depth == .all ? nil : depth.limit))) }
+        // Each mark is found once, in one walk over the text, however many tables the document asks for.
+        let marked = content.components(separatedBy: "<!--\(context.contentsToken)-")
+        pieces.append(marked[0])
+        for piece in marked.dropFirst() {
+            guard let end = piece.range(of: "-->\n"), let position = Int(piece[..<end.lowerBound]),
+                context.outline.requests.indices.contains(position)
+            else { continue }
+            pieces.append(contents(context.outline.requests[position]))
+            pieces.append(String(piece[end.upperBound...]))
+        }
+        pieces.append(parser.footnotes())
+        let html = pieces.joined()
         // At the end of the body, so the theme's rules for the first block still find the document's first block.
         let fonts = MathRenderer.fontFaces(for: html)
         return HTMLFragment(
@@ -229,26 +244,41 @@ struct OrgParser {
                 // list item is not part of it.
                 if depth == 0, context.discovering {
                     context.outline.shallowest = min(context.outline.shallowest ?? Int.max, heading[0].count)
+                    // Known before any id is made, so a made id never takes one the document wrote further down.
+                    if let custom = customID(after: index) { context.outline.reserve(custom) }
                 } else if depth == 0 {
-                    let relative = heading[0].count - (context.outline.shallowest ?? 1) + 1
+                    let numbers = context.reading.sectionNumbers.limit > 0
+                    let anchors = context.anchorsHeadings
                     let properties = headingProperties(after: index)
-                    let unnumbered = context.outline.unnumberedValue(level: relative, properties: properties)
-                    if unnumbered == nil {
-                        let next = context.outline.nextNumber(level: relative)
-                        if relative <= context.reading.sectionNumbers.limit {
-                            number = "<span class=\"section-number-\(level)\">\(next)</span> "
+                    let relative = heading[0].count - (context.outline.shallowest ?? 1) + 1
+                    var listed = true
+                    // A document without numbers and without a table of contents keeps no outline at all.
+                    if numbers || anchors {
+                        let unnumbered = context.outline.unnumberedValue(level: relative, properties: properties)
+                        listed = unnumbered != "notoc"
+                        if numbers, unnumbered == nil {
+                            let next = context.outline.nextNumber(level: relative)
+                            if relative <= context.reading.sectionNumbers.limit {
+                                number = "<span class=\"section-number-\(level)\">\(next)</span> "
+                            }
                         }
                     }
-                    if context.anchorsHeadings {
-                        let id = context.outline.id(
-                            custom: properties["CUSTOM_ID"],
-                            text: HTML.unescape(Self.withoutTags(Self.withoutNotes(parts.title))))
+                    // The id the document wrote is a link target with or without a table of contents.
+                    let custom = customID(after: index)
+                    if anchors || custom != nil {
+                        let id =
+                            custom
+                            ?? context.outline.id(
+                                for: HTML.unescape(Self.withoutTags(Self.withoutNotes(parts.title))))
                         attribute = " id=\"\(HTML.escape(id))\"" + attribute
-                        context.outline.entries.append(
-                            OrgOutline.Entry(
-                                level: relative, id: id,
-                                html: Self.withoutLinks(Self.withoutNotes(Self.withoutTags(number) + parts.html)),
-                                listed: unnumbered != "notoc"))
+                        if anchors {
+                            context.outline.entries.append(
+                                OrgOutline.Entry(
+                                    level: relative, id: id,
+                                    html: Self.withoutLinks(
+                                        Self.withoutNotes(Self.withoutTags(number) + parts.html)),
+                                    listed: listed))
+                        }
                     }
                 }
                 output += "<h\(level)\(attribute)>\(number)\(parts.html)</h\(level)>\n"
@@ -361,14 +391,17 @@ struct OrgParser {
         }
     }
 
-    /// `headlines`, `headlines 2` or `headlines 2 local` after `#+TOC:`. Lists of tables and listings are not read.
+    /// The table a `#+TOC:` line asks for at this point. Lists of tables and listings are not read.
     private func contentsRequest(_ value: String) -> OrgOutline.Request? {
-        let words = value.lowercased().split(whereSeparator: \.isWhitespace)
-        guard words.first == "headlines" else { return nil }
+        guard let keyword = OrgOutline.keyword(value) else { return nil }
         let entries = context.outline.entries
-        return OrgOutline.Request(
-            depth: words.dropFirst().compactMap { Int($0) }.first,
-            scope: words.contains("local") ? entries.last.map { (entries.count, $0.level) } : nil)
+        guard keyword.local, let heading = entries.last else { return OrgOutline.Request(depth: keyword.depth) }
+        return OrgOutline.Request(depth: keyword.depth, after: entries.count, level: heading.level)
+    }
+
+    private func customID(after position: Int) -> String? {
+        guard let id = headingProperties(after: position)["CUSTOM_ID"], !id.isEmpty else { return nil }
+        return id
     }
 
     /// The property drawer of the headline at `position`, which may follow one planning line.
