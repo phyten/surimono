@@ -25,8 +25,6 @@ struct ShortcutSettingsView: View {
             }
             .modifier(SettingsSearchReveal(proxy: proxy))
             .formStyle(.grouped)
-            // Match the other Settings sections, including their title-bar inset correction.
-            .contentMargins(.top, -28, for: .scrollContent)
             .onAppear { controller.refresh() }
             .onChange(of: fileError) { _, value in ShortcutHints.announce(value) }
             .sheet(isPresented: $restoringAll, onDismiss: { actionsFocused = true }) {

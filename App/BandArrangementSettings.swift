@@ -59,8 +59,6 @@ struct BandArrangementSettings: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .coordinateSpace(name: "band-editor")
-        // As the other sections' grouped forms do: the first row closer to the title bar.
-        .contentMargins(.top, -28, for: .scrollContent)
         .onGeometryChange(for: CGFloat.self) {
             $0.size.width
         } action: {

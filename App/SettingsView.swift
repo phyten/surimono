@@ -7,7 +7,6 @@ struct SettingsView: View {
     @Bindable var library: UserLibrary
     let arrangementEditor: BandArrangementEditorSession
     @State private var initialTextWell = InitialTextWell()
-    @State private var titleBarHeight: CGFloat = 0
     @State private var query = ""
     @State private var searchSelection = SettingsSearchSelection()
     @State private var pendingSearchPick: SettingsSection?
@@ -99,6 +98,9 @@ struct SettingsView: View {
                 .modifier(SnapshotSettingsSurface(sidebar: true))
             #endif
             .navigationSplitViewColumnWidth(min: 230, ideal: 250, max: 300)
+            // Settings always shows its sections. Without the toggle the window has no toolbar row, so every
+            // section starts right under the title bar with the system's own inset.
+            .toolbar(removing: .sidebarToggle)
         } detail: {
             Group {
                 if preferences.settingsSection == .toolbarArrangement {
@@ -161,7 +163,6 @@ struct SettingsView: View {
             query = ""
         }
         .frame(minWidth: 820, idealWidth: 860, minHeight: 540)
-        .onGeometryChange(for: CGFloat.self, of: \.safeAreaInsets.top) { titleBarHeight = $0 }
         .background {
             WindowReader { window in
                 let editor = arrangementEditor
@@ -539,8 +540,6 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        // The split view can extend General under the window toolbar, obscuring the language and appearance controls.
-        .contentMargins(.top, preferences.settingsSection == .general ? titleBarHeight : -28, for: .scrollContent)
     }
 
     private var defaultsNote: some View { SettingsFootnote("Defaults apply to newly opened documents.") }
