@@ -2,6 +2,7 @@ import Foundation
 import ObjectiveC
 import PDFKit
 import SurimonoCore
+import SurimonoFormats
 
 /// The decoded revision that produced a set of logical pages. A trial, reload or binder keeps its own association.
 /// PDFKit supplies the selection's UTF-16 positions. Only the original supplies characters for the clipboard.
@@ -186,7 +187,9 @@ public enum SourcePaperText {
                     if cut, glyphs[i] == 0x2026, cursor == units.count || units[cursor] != glyphs[i] {
                         while cursor < units.count, !newline(units[cursor]) { cursor += 1 }
                     } else {
-                        guard cursor < units.count, glyphs[i] == units[cursor] else { return nil }
+                        guard cursor < units.count,
+                            glyphs[i] == units[cursor] || LaTeXIdeographs.isRadicalPair(glyphs[i], units[cursor])
+                        else { return nil }
                         cursor += 1
                     }
                     i += 1

@@ -153,7 +153,7 @@ struct LaTeXFlowPrintingTests {
         let page = try #require(pdf.page(at: 0))
         let title = try #require(pdf.findString(heading).first { $0.pages.first == page }).bounds(for: page)
         try checkLeader(
-            page, title: title, startX: title.maxX + 1, count: report ? 45 : 39,
+            page, title: title, startX: title.maxX + 1, count: report ? 45 : nil,
             diameter: report ? 7...10 : 8...11, pitch: report ? 7.75 : 8.49, lastDistance: report ? 18.78 : 22.14)
     }
 
@@ -203,7 +203,7 @@ struct LaTeXFlowPrintingTests {
 
     @discardableResult
     private func checkLeader(
-        _ page: PDFPage, title: CGRect, startX: CGFloat, count: Int, diameter: ClosedRange<Int>,
+        _ page: PDFPage, title: CGRect, startX: CGFloat, count: Int?, diameter: ClosedRange<Int>,
         pitch: Double, lastDistance: Double, row: ClosedRange<CGFloat>? = nil
     ) throws -> Double {
         // Sample one complete row at 600 dpi, including the ink of its final digit.
@@ -230,9 +230,18 @@ struct LaTeXFlowPrintingTests {
         let numberInk = runs.popLast()
         let digit = try #require(numberInk)
         let dot = try #require(runs.last)
-        #expect(
-            runs.count == count,
-            "title=\(title) cropX=\(startX) first=\(String(describing: runs.first)) last=\(dot) digit=\(digit)")
+        if let count {
+            #expect(runs.count == count, "title=\(title) cropX=\(startX) last=\(dot) digit=\(digit)")
+        } else {
+            // TeX admits the first full leader box after the title. Its count can change when
+            // the title's advance crosses a pitch boundary. The other end is pinned to the folio below.
+            let first = try #require(runs.first)
+            let center = startX + CGFloat(first.lowerBound + first.upperBound) / (2 * scale)
+            let gap = center - pitch / 2 - title.maxX
+            #expect(
+                gap >= -1 / scale && gap < pitch + 1 / scale,
+                "titleEnd=\(title.maxX) firstBoxGap=\(gap) dots=\(runs.count)")
+        }
         #expect(runs.allSatisfy { diameter.contains($0.count) })
         for (a, b) in zip(runs, runs.dropFirst()) {
             #expect(abs(Double(b.lowerBound - a.lowerBound) / scale - pitch) < 0.3)

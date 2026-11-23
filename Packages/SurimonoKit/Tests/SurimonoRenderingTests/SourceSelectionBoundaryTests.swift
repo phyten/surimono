@@ -52,6 +52,17 @@ struct SourceSelectionBoundaryTests {
         return SourcePaperText.selected(selection, in: pdf, logicalIndex: { pdf.index(for: $0) })
     }
 
+    @Test("PDF が漢字と康熙部首を取り違えても選択した原文を保ち、別の字は照合しない")
+    func kangxiRadicals() {
+        let source = "\t日本語\r\n和文\r\n"
+        let paper = ["\u{2F47}本語\n和\u{2F42}"]
+        #expect(copy(source, pages: paper, selecting: [0: 0..<6]) == source)
+        #expect(copy(source, pages: paper, selecting: [0: 4..<6]) == "和文")
+        #expect(copy("A\u{2F47}B", pages: ["A日B"], selecting: [0: 1..<2]) == "\u{2F47}")
+        #expect(copy("日", pages: ["\u{2F42}"], selecting: [0: 0..<1]) == nil)
+        #expect(copy("A", pages: ["Ａ"], selecting: [0: 0..<1]) == nil)
+    }
+
     @Test("空行がページをまたいで所属を決められないときは先頭ページの原文を返さない")
     func blankPages() {
         let text = "A\n" + String(repeating: "\n", count: 200) + "B\n"

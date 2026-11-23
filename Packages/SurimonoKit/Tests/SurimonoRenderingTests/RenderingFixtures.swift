@@ -9,6 +9,15 @@ enum RenderingFixtures {
     static func pdf(
         count: Int = 1, size: CGSize = CGSize(width: 612, height: 792), textPrefix: String = "PAGE-"
     ) throws -> PDFDocument {
+        let data = try pdfData(count: count, size: size, textPrefix: textPrefix)
+        return try #require(PDFDocument(data: data))
+    }
+
+    // Author source bookmarks in Quartz so a reader test doesn't first depend on PDFKit's writer.
+    static func pdfData(
+        count: Int, size: CGSize = CGSize(width: 612, height: 792), textPrefix: String = "PAGE-",
+        bookmarks: [(String, Int)] = []
+    ) throws -> Data {
         let data = NSMutableData()
         var box = CGRect(origin: .zero, size: size)
         let consumer = try #require(CGDataConsumer(data: data))
@@ -25,8 +34,14 @@ enum RenderingFixtures {
             }
             context.endPDFPage()
         }
+        if !bookmarks.isEmpty {
+            let children: [[String: Any]] = bookmarks.map {
+                [kCGPDFOutlineTitle as String: $0.0, kCGPDFOutlineDestination as String: $0.1]
+            }
+            CGPDFContextSetOutline(context, [kCGPDFOutlineChildren as String: children] as CFDictionary)
+        }
         context.closePDF()
-        return try #require(PDFDocument(data: data as Data))
+        return data as Data
     }
 
     static func image(orientation: Int = 1, frames: Int = 1) throws -> Data {

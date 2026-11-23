@@ -204,7 +204,7 @@ enum LaTeXFlowPaginator {
     private static func restoreLinks(
         in pdf: PDFDocument, pages: [LaTeXFlowLayout.Page], origins: [Origin], textOrigin: CGPoint
     ) {
-        var targets: [String: PDFDestination] = [:]
+        var targets: [String: (page: PDFPage, point: CGPoint)] = [:]
         var links: [(page: PDFPage, rect: CGRect, href: String, pageTop: Bool)] = []
         let grouped = origins.map { Dictionary(grouping: $0.linkMarks ?? [], by: \.start) }
         for (index, layout) in pages.enumerated() {
@@ -216,7 +216,7 @@ enum LaTeXFlowPaginator {
                     let top = textOrigin.y - piece.y / ratio - (mark.y - piece.slice.start) * scale
                     let left = textOrigin.x + piece.x / ratio + mark.x * scale
                     if let id = mark.id, targets[id] == nil {
-                        targets[id] = PDFDestination(page: page, at: CGPoint(x: left, y: top))
+                        targets[id] = (page, CGPoint(x: left, y: top))
                     }
                     if let href = mark.href {
                         let rect = CGRect(
@@ -232,12 +232,9 @@ enum LaTeXFlowPaginator {
         for link in links {
             let annotation = PDFAnnotation(bounds: link.rect, forType: .link, withProperties: nil)
             if link.href.hasPrefix("#") {
-                guard let destination = targets[String(link.href.dropFirst())] else { continue }
-                if link.pageTop, let targetPage = destination.page {
-                    annotation.action = PDFActionGoTo(destination: PDFDestination(page: targetPage, at: textOrigin))
-                } else {
-                    annotation.action = PDFActionGoTo(destination: destination)
-                }
+                guard let target = targets[String(link.href.dropFirst())] else { continue }
+                let destination = pdf.destination(on: target.page, at: link.pageTop ? textOrigin : target.point)
+                annotation.action = PDFActionGoTo(destination: destination)
             } else if let url = URL(string: link.href) {
                 annotation.action = PDFActionURL(url: url)
             } else {

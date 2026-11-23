@@ -14,6 +14,16 @@ package enum LaTeXIdeographs {
     package static let unifiedRange = stride(from: 1, to: radicalPairs.count, by: 2)
         .map { String(format: "U+%04X", radicalPairs[$0]) }.joined(separator: ",")
 
+    // A PDF font may reverse-map a shared glyph to either member. Only compare this one-to-one
+    // pair: the caller needs the original UTF-16 offsets and spelling, including literal radicals.
+    package static func isRadicalPair(_ first: UniChar, _ second: UniChar) -> Bool {
+        let radical = min(first, second)
+        guard (0x2F00...0x2FD5).contains(radical) else { return false }
+        let index = 2 * Int(radical - 0x2F00)
+        return index + 1 < radicalPairs.count && radicalPairs[index] == radical
+            && radicalPairs[index + 1] == max(first, second)
+    }
+
     // These faces have been checked by drawing glyph IDs to PDF and extracting all 214 scalars.
     // Some do share glyphs but choose the unified character for the PDF's reverse map.
     private static let verifiedFaces: Set<String> = [

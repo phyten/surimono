@@ -76,8 +76,9 @@ public enum ReadingPDFExporter {
                     let child = PDFOutline()
                     child.label = node.entry.title
                     let box = page.bounds(for: .cropBox)
-                    child.destination = PDFDestination(page: page, at: CGPoint(x: box.minX, y: box.maxY))
                     parent.insertChild(child, at: parent.numberOfChildren)
+                    child.action = PDFActionGoTo(
+                        destination: document.destination(on: page, at: CGPoint(x: box.minX, y: box.maxY)))
                     append(node.children, to: child)
                 }
             }
@@ -141,7 +142,7 @@ public enum ReadingPDFExporter {
                     let box = destinationPage.bounds(for: .cropBox)
                     annotation.url = nil
                     annotation.action = PDFActionGoTo(
-                        destination: PDFDestination(page: destinationPage, at: CGPoint(x: box.minX, y: box.maxY)))
+                        destination: document.destination(on: destinationPage, at: CGPoint(x: box.minX, y: box.maxY)))
                 } else {
                     page.removeAnnotation(annotation)
                 }

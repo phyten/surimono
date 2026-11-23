@@ -71,8 +71,9 @@ struct PageSourceLifetimeTests {
         try autoreleasepool {
             let page = try #require(view?.page(at: 1))
             let copy = try #require(StandalonePage.copy(of: page))
-            #expect(copy.annotations.first?.url?.absoluteString == "https://example.com/")
-            #expect(copy.annotations.first?.hasAppearanceStream == true)
+            let detail = "表示ページの注釈=\(page.annotations.count)、再コピー後=\(copy.annotations.count)"
+            #expect(copy.annotations.first?.url?.absoluteString == "https://example.com/", "\(detail)")
+            #expect(copy.annotations.first?.hasAppearanceStream == true, "\(detail)")
         }
         autoreleasepool { view = nil }
         #expect(backing == nil)

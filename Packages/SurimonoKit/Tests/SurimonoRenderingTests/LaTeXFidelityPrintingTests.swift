@@ -165,14 +165,21 @@ struct LaTeXFidelityPrintingTests {
     // page numbers and coordinates for the same links at each boundary of the export.
     private func destinations(in pdf: PDFDocument) -> String {
         (0..<min(pdf.pageCount, 2)).map { source in
+            var backReferences: [String] = []
             let links = (pdf.page(at: source)?.annotations ?? []).compactMap { annotation -> String? in
                 guard let target = (annotation.action as? PDFActionGoTo)?.destination ?? annotation.destination
                 else { return nil }
-                let index = target.page.map { pdf.index(for: $0) } ?? NSNotFound
+                let page =
+                    target.page.map { page in
+                        let index = pdf.index(for: page)
+                        return index == NSNotFound ? "foreign" : String(index + 1)
+                    } ?? "released"
+                if source == 1, abs(target.point.y - 720) < 5 { backReferences.append(page) }
                 let point = String(format: "(%.1f,%.1f)", Double(target.point.x), Double(target.point.y))
-                return "\(index == NSNotFound ? -1 : index + 1)@\(point)"
+                return "\(page)@\(point)"
             }
-            return "p\(source + 1)→" + links.prefix(12).joined(separator: ",")
+            let back = backReferences.isEmpty ? "" : " back=[\(backReferences.joined(separator: ","))]"
+            return "p\(source + 1)→" + links.prefix(3).joined(separator: ",") + " (\(links.count))" + back
         }.joined(separator: " ")
     }
 
@@ -184,8 +191,10 @@ struct LaTeXFidelityPrintingTests {
         let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
         let settings = RenderSettings(layout: .letterSingle, theme: theme, preset: .init(id: "none", name: ""))
         let prepared = try await DocumentRenderer().prepare(source, settings: settings)
+        let viewLinks = destinations(in: prepared.viewDocument)
         let reading = try ReadingPDFExporter.document(
             from: prepared.viewDocument, entries: [], title: "Register", furniture: prepared.viewFurniture)
+        let exportLinks = destinations(in: reading)
         let pdf = try #require(PDFDocument(data: reading.dataRepresentation() ?? Data()))
         let first = try #require(pdf.page(at: 0))
         let second = try #require(pdf.page(at: 1))
@@ -199,7 +208,7 @@ struct LaTeXFidelityPrintingTests {
             pdf.findString("Checks", withOptions: .caseInsensitive).first { $0.pages.contains(second) }
         ).bounds(for: second)
         let stages =
-            "view[\(destinations(in: prepared.viewDocument))] export[\(destinations(in: reading))] saved[\(destinations(in: pdf))]"
+            "view[\(viewLinks)] export[\(exportLinks)] saved[\(destinations(in: pdf))]"
         #expect(target.page === second, "\(stages)")
         #expect(abs(target.point.y - heading.maxY) < 10)
         #expect(first.annotations.allSatisfy { ($0.border?.lineWidth ?? 0) == 0 })
@@ -216,8 +225,10 @@ struct LaTeXFidelityPrintingTests {
         let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
         let settings = RenderSettings(layout: .letterSingle, theme: theme, preset: .init(id: "none", name: ""))
         let prepared = try await renderer.prepare(source, settings: settings)
+        let viewLinks = destinations(in: prepared.viewDocument)
         let decorated = try ReadingPDFExporter.document(
             from: prepared.viewDocument, entries: [], title: "Links", furniture: prepared.viewFurniture)
+        let exportLinks = destinations(in: decorated)
         let pdf = try #require(PDFDocument(data: decorated.dataRepresentation() ?? Data()))
         let first = try #require(pdf.page(at: 0))
         let last = try #require(pdf.page(at: 1))
@@ -228,7 +239,7 @@ struct LaTeXFidelityPrintingTests {
         #expect(pdf.findString("c = h2− 2t").count == 1)
         #expect(first.string?.contains("c = h2− 2t") == true)
         let stages =
-            "view[\(destinations(in: prepared.viewDocument))] export[\(destinations(in: decorated))] saved[\(destinations(in: pdf))]"
+            "view[\(viewLinks)] export[\(exportLinks)] saved[\(destinations(in: pdf))]"
         let refs = try #require(pdf.findString("Spacer Card Register").first).bounds(for: last)
         #expect(
             first.annotations.contains { a in

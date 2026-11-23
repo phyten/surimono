@@ -141,6 +141,22 @@ struct LaTeXSocietyPrintingTests {
         #expect(pdf.pageCount == (supplement ? 3 : 2))
         let first = try #require(pdf.page(at: 0))
         let size = first.bounds(for: .mediaBox).size
+        let referenceURL = corpus.deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("reference/latex/\(name.prefix(3)).pdf")
+        func reference() throws -> PDFDocument { try #require(PDFDocument(url: referenceURL)) }
+        func locations(_ word: String, in doc: PDFDocument, at index: Int) -> String {
+            guard let sheet = doc.page(at: index) else { return "page missing" }
+            return doc.findString(word).filter { $0.pages.contains(sheet) }.prefix(8).map { hit in
+                let box = hit.bounds(for: sheet)
+                let text = hit.attributedString
+                let font = text.flatMap {
+                    $0.length > 0 ? $0.attribute(.font, at: 0, effectiveRange: nil) as? NSFont : nil
+                }
+                return String(
+                    format: "%.1f/%.1f/w%.1f", box.minX, sheet.bounds(for: .mediaBox).maxY - box.midY, box.width)
+                    + "@\(font?.fontName ?? "?")"
+            }.joined(separator: ",")
+        }
         #expect(abs(size.width - (supplement ? 515.91 : 595.28)) < 0.5)
         #expect(abs(size.height - (english ? 793.70 : supplement ? 728.50 : 841.89)) < 0.5)
         func bounds(_ word: String, on page: PDFPage) throws -> CGRect {
@@ -164,7 +180,17 @@ struct LaTeXSocietyPrintingTests {
             #expect(abs(rightStart.maxY - leftStart.maxY - 29.72) < 1.5)
             let second = try #require(pdf.page(at: 1))
             let continuation = try bounds("では薄紙と中厚紙", on: second)
-            #expect(continuation.minX > size.width / 2 && abs(size.height - continuation.midY - 69) < 4)
+            let tex = try reference()
+            let texSecond = try #require(tex.page(at: 1))
+            let word = "では薄紙と中厚紙"
+            let texLine = try #require(tex.findString(word).first { $0.pages.contains(texSecond) }).bounds(
+                for: texSecond)
+            let top = size.height - continuation.midY
+            let texTop = texSecond.bounds(for: .mediaBox).height - texLine.midY
+            #expect(
+                continuation.minX > size.width / 2 && abs(top - texTop) < 4,
+                "p2 続き view=\(locations(word, in: result.viewDocument, at: 1)) saved=\(locations(word, in: pdf, at: 1)) TeX=\(locations(word, in: tex, at: 1))"
+            )
             let entry = try bounds("模型線路係", on: second)
             // An inline citation must not satisfy the check for the printed bibliography label.
             #expect(
@@ -183,12 +209,21 @@ struct LaTeXSocietyPrintingTests {
         }
         if supplement {
             // The translation and the notes repeat the daggers farther down the page.
+            let tex = try reference()
+            let texPage = try #require(tex.page(at: 0))
+            let marks = tex.findString("††").filter { $0.pages.contains(texPage) }.map { $0.bounds(for: texPage) }
+            let texMark = try #require(
+                marks.max { $0.midY < $1.midY }, "実 TeX の1ページ目の †=\(locations("†", in: tex, at: 0))")
+            let texTop = texPage.bounds(for: .mediaBox).height - texMark.midY
             #expect(
                 pdf.findString("††").contains { match in
                     guard match.pages.contains(first) else { return false }
                     let mark = match.bounds(for: first)
-                    return abs(mark.minX - 231.7) < 2 && abs(size.height - mark.midY - 118.1) < 4 && mark.width > 6
-                })
+                    return abs(mark.minX - texMark.minX) < 2 && abs(size.height - mark.midY - texTop) < 4
+                        && mark.width > 6
+                },
+                "p1 †† view=\(locations("††", in: result.viewDocument, at: 0)) saved=\(locations("††", in: pdf, at: 0)) singles=\(locations("†", in: pdf, at: 0)) TeX=\(locations("††", in: tex, at: 0))"
+            )
             #expect(try bounds("部品はすべて", on: first).minX > size.width / 2)
             let last = try #require(pdf.page(at: pdf.pageCount - 1))
             #expect(try bounds("A folded card", on: last).midY > size.height - 95)

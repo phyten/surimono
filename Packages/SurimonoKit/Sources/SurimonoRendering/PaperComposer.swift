@@ -48,7 +48,7 @@ enum PaperComposer {
             // PDFKit marks an unspecified coordinate with a huge value, which must stay as it is.
             let x = point.x == kPDFDestinationUnspecifiedValue ? point.x : point.x - box.minX + shift(index)
             let y = point.y == kPDFDestinationUnspecifiedValue ? point.y : point.y - box.minY
-            return PDFDestination(page: target, at: CGPoint(x: x, y: y))
+            return composed.destination(on: target, at: CGPoint(x: x, y: y))
         }
         for (index, box) in boxes.enumerated() {
             guard let source = document.page(at: index), let target = composed.page(at: index) else { continue }

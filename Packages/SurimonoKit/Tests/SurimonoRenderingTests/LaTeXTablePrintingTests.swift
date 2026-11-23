@@ -18,25 +18,26 @@ struct LaTeXTablePrintingTests {
         let result = try await DocumentRenderer().prepare(
             source, settings: .init(layout: .a4Single, theme: theme, preset: .init(id: "none", name: "")))
         let pdf = result.logicalDocument
-        let page = try #require(pdf.page(at: 0))
         let scaled = folder == "022-batch-grid"
         let referenceURL = corpus.appendingPathComponent("Snapshots/reference/latex/\(folder.prefix(3)).pdf")
         let reference = try #require(PDFDocument(url: referenceURL))
-        // Compare the same outlines in each PDF: rounded letters extend slightly below the baseline.
-        func rowToCaption(_ document: PDFDocument) throws -> CGFloat {
+        // Four sampled edges enter each comparison. A 0.025pt pixel keeps their combined
+        // quantization below the 0.3pt strut tolerance. PDFKit selection centres depend on font metrics.
+        func inkDistance(_ top: String, _ bottom: String, in document: PDFDocument) throws -> CGFloat {
             let first = try #require(document.page(at: 0))
-            let row = try printedInk(of: scaled ? "Slate" : "Firm", in: document, on: first)
-            let caption = try printedInk(of: scaled ? "Three" : "Schedule", in: document, on: first)
-            return row.minY - caption.minY
+            let upper = try printedInk(of: top, in: document, on: first, scale: 40)
+            let lower = try printedInk(of: bottom, in: document, on: first, scale: 40)
+            return upper.minY - lower.minY
         }
-        let distance = try rowToCaption(pdf)
-        let expected = try rowToCaption(reference)
+        let row = scaled ? "Slate" : "Firm"
+        let caption = scaled ? "Three" : "Schedule"
+        let distance = try inkDistance(row, caption, in: pdf)
+        let expected = try inkDistance(row, caption, in: reference)
         #expect(abs(distance - expected) <= 0.3, "実測 \(distance) pt、参照 \(expected) pt")
         guard scaled else { return }
-        let heading = try #require(pdf.findString("Batch comparison grid").first).bounds(for: page)
-        let row = try #require(pdf.findString("Amber").first).bounds(for: page)
-        // The real TeX heading-to-row baseline distance is 51pt; the selection centres differ by under 1pt.
-        #expect(abs(heading.midY - row.midY - 51) < 1)
+        let heading = try inkDistance("Batch comparison grid", "Amber", in: pdf)
+        let texHeading = try inkDistance("Batch comparison grid", "Amber", in: reference)
+        #expect(abs(heading - texHeading) < 1, "表題から Amber の墨まで \(heading)pt、実 TeX \(texHeading)pt")
     }
 
     @Test("伸縮表では太字の語を一行に収め、固定幅列と同行の基準線を実寸で刷る", .timeLimit(.minutes(1)))

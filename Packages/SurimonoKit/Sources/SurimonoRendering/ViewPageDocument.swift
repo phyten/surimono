@@ -45,6 +45,7 @@ public enum ViewPageDocument {
             if let logicalIndex {
                 guard let original = source.page(at: logicalIndex) else { return nil }
                 let box = visibleBox(of: original, at: viewIndex, plan: plan, margin: margin)
+                let annotations = original.annotations
                 let page: PDFPage
                 if let decoratedPage = decorated[viewIndex] {
                     page = decoratedPage
@@ -53,9 +54,11 @@ public enum ViewPageDocument {
                     guard let copy = StandalonePage.copy(of: original) else { return nil }
                     page = copy
                 }
-                // Explicit annotation copies keep destination rewrites off the original page.
+                // Some PDFKit versions reload a copied page's annotations on insertion.
+                // Install the independent copies on the page in its final document.
+                result.insert(page, at: viewIndex)
                 for annotation in page.annotations { page.removeAnnotation(annotation) }
-                for annotation in original.annotations {
+                for annotation in annotations {
                     guard let copy = annotationCopy(annotation, scale: scale) else { return nil }
                     if let action = annotation.action as? PDFActionGoTo {
                         internalLinks.append((copy, action.destination, true))
@@ -65,7 +68,6 @@ public enum ViewPageDocument {
                     page.addAnnotation(copy)
                 }
                 page.setBounds(box.applying(transform), for: .cropBox)
-                result.insert(page, at: viewIndex)
             } else {
                 guard let neighbor = plan.readingIndex(at: viewIndex), let page = source.page(at: neighbor) else {
                     return nil
@@ -87,7 +89,7 @@ public enum ViewPageDocument {
                 value == kPDFDestinationUnspecifiedValue ? value : value * factor
             }
             let point = CGPoint(x: scaled(destination.point.x, by: scale), y: scaled(destination.point.y, by: scale))
-            let copy = PDFDestination(page: target, at: point)
+            let copy = result.destination(on: target, at: point)
             copy.zoom = scaled(destination.zoom, by: 1 / scale)
             return copy
         }
