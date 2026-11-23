@@ -10,17 +10,6 @@ final class OpenRouter {
                 completion(false)
                 return
             }
-            // A file with no extension has no type the document controller could go by.
-            if SourceFileOpening.readsAsPlainText(url) {
-                do {
-                    try SourceFileOpening.open(url)
-                    completion(true)
-                } catch {
-                    NSApp.presentError(error)
-                    completion(false)
-                }
-                return
-            }
             NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { document, _, error in
                 if let error { NSApp.presentError(error) }
                 // Explicitly bring an already open document forward as well.
@@ -56,9 +45,24 @@ final class OpenRouter {
             ClipboardWindows.shared.open(
                 text: text, hints: hints, title: title ?? String(localized: "Selected Text"), source: .selection,
                 window: NSApp.keyWindow, printing: printing)
-        })
+        },
+        openAsText: { url, completion in
+            do {
+                try SourceFileOpening.open(url)
+                completion(true)
+            } catch {
+                NSApp.presentError(error)
+                completion(false)
+            }
+        },
+        refuse: { NSApp.presentError($0) })
+
+    /// Replaceable so that tests can stand in for a file without writing it.
+    var route: (URL) -> SourceFileOpening.Route = SourceFileOpening.route(for:)
 
     private let openDocument: (URL, @escaping (Bool) -> Void) -> Void
+    private let openAsText: (URL, @escaping (Bool) -> Void) -> Void
+    private let refuse: (any Error) -> Void
     private let openBundle: ([URL], [URL]) -> DocumentViewModel?
     private let openBinder: ([URL], [URL]) -> DocumentViewModel?
     private let warn: (NSWindow?) -> Void
@@ -112,8 +116,12 @@ final class OpenRouter {
         openMemory: @escaping (Data, DocumentFormat, String?, Bool) -> Void = { _, _, _, _ in },
         openIncludes: @escaping (MarkdownIncludes.Plan) -> Void = { _ in },
         openWindows: @escaping () -> [DocumentViewModel] = { [] }, isActive: @escaping () -> Bool = { true },
-        openText: @escaping (String, ClipboardFormatHints, String?, Bool) -> Void = { _, _, _, _ in }
+        openText: @escaping (String, ClipboardFormatHints, String?, Bool) -> Void = { _, _, _, _ in },
+        openAsText: @escaping (URL, @escaping (Bool) -> Void) -> Void = { _, completion in completion(false) },
+        refuse: @escaping (any Error) -> Void = { _ in }
     ) {
+        self.openAsText = openAsText
+        self.refuse = refuse
         self.isActive = isActive
         self.openText = openText
         self.openDocument = openDocument
@@ -149,7 +157,7 @@ final class OpenRouter {
                 arrivingAccess[key, default: []] += access
             }
             pendingOpens += 1
-            openDocument(url) { [weak self] opened in
+            openSingle(url) { [weak self] opened in
                 if !opened {
                     self?.printRequests.remove(key)
                     self?.giveUpAccess(for: key)
@@ -218,13 +226,25 @@ final class OpenRouter {
         restorations[key] = origin
         if origin.wasPrinting && !origin.leavingBinder { printRequests.insert(key) }
         pendingOpens += 1
-        openDocument(url) { [weak self] opened in
+        openSingle(url) { [weak self] opened in
             if !opened {
                 self?.restorations.removeValue(forKey: key)
                 self?.printRequests.remove(key)
             }
             self?.finishOpening(opened)
             completion(opened)
+        }
+    }
+
+    /// One file, by the way its beginning calls for. A video under `.ts` is turned away here, before the document
+    /// controller would load all of it to find out.
+    private func openSingle(_ url: URL, completion: @escaping (Bool) -> Void) {
+        switch route(url) {
+        case .document: openDocument(url, completion)
+        case .asText: openAsText(url, completion)
+        case .refuse:
+            refuse(SourceFileError.notText)
+            completion(false)
         }
     }
 

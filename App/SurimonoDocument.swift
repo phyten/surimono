@@ -45,18 +45,21 @@ struct SurimonoDocument: FileDocument {
         guard file.isRegularFile, let data = file.regularFileContents else {
             throw CocoaError(.fileReadCorruptFile)
         }
-        // macOS calls `.ts` an MPEG transport stream and a `.plist` may be binary. Only the content tells a video
-        // from TypeScript, and laying a video out as text would fill pages with noise.
+        // The router turns a video under `.ts` away before its contents are loaded. This is the second check, on
+        // the bytes that would be shown, for the ways that do not pass the router (the Recent menu, a restored
+        // window). A video under another extension is held to the same test as a `.ts`.
         let name = file.preferredFilename ?? file.filename ?? ""
-        let kind =
-            contentType.conforms(to: .mpeg2TransportStream)
-            ? "ts" : contentType.conforms(to: .propertyList) ? "plist" : (name as NSString).pathExtension
-        guard !BinaryLookalike.isBinary(data.prefix(BinaryLookalike.headLength), fileExtension: kind) else {
-            throw SourceFileError.notText
-        }
+        let gated = contentType.conforms(to: .mpeg2TransportStream) ? "video.ts" : name
+        let decision = TextFileGate.decide(fileName: gated, head: data.prefix(TextFileGate.headLength))
+        guard decision != .refused else { throw SourceFileError.notText }
         self.data = data
         // Some systems have only the JSON association installed; the file name distinguishes notebooks from ordinary JSON.
         let suffix = ((file.preferredFilename ?? file.filename ?? "") as NSString).pathExtension
+        // Text that came under a video's type, or under none, is plain text from here on.
+        if case .text = decision {
+            self.contentType = .plainText
+            return
+        }
         self.contentType =
             switch DocumentFormat(fileExtension: suffix) {
             case .quarto: .surimonoQuarto

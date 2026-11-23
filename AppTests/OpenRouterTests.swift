@@ -108,27 +108,109 @@ struct OpenRouterTests {
         #expect(opened == [url("a.md"), url("b.pdf")])
     }
 
-    @Test(
-        "ソースコードは 1 つなら文書を開く処理に渡す",
-        arguments: ["main.ts", "main.go", "lib.rs", "Main.kt", "Program.cs", "init.lua", "Info.plist", "Dockerfile"])
-    func singleSourceFile(name: String) {
-        var opened: [URL] = []
-        let router = router(openDocument: { url, _ in opened.append(url) })
-        router.open([url(name)])
-        #expect(opened == [url(name)])
+    /// A router whose three ways for one file are told apart, with the choice between them left real.
+    private func routed(
+        _ record: @escaping (String, URL) -> Void, refused: @escaping (any Error) -> Void = { _ in }
+    ) -> OpenRouter {
+        OpenRouter(
+            openDocument: { url, completion in
+                record("document", url)
+                completion(true)
+            },
+            openBundle: { _, _ in nil }, openBinder: { _, _ in nil }, warn: { _ in Issue.record("警告しない") },
+            hasOpenWindows: { true }, showWelcome: {},
+            openAsText: { url, completion in
+                record("text", url)
+                completion(true)
+            },
+            refuse: refused)
     }
 
-    @Test("ソースコードと文章の複数選択は合本を開き、拡張子のない Dockerfile も含める")
-    func binderOfSourceFiles() {
-        var opened: [URL] = []
-        var left: [URL] = []
-        let router = router(openBinder: { urls, excluded in
-            opened = urls
-            left = excluded
-        })
-        router.open([url("notes.md"), url("main.ts"), url("main.go"), url("Dockerfile"), url("LICENSE")])
-        #expect(opened == [url("Dockerfile"), url("main.go"), url("main.ts"), url("notes.md")])
-        #expect(left == [url("LICENSE")])
+    private func withFiles(_ files: [String: Data], _ body: (URL) throws -> Void) throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        for (name, data) in files { try data.write(to: directory.appendingPathComponent(name)) }
+        try body(directory.standardizedFileURL)
+    }
+
+    private var video: Data {
+        var data = Data()
+        for _ in 0..<30 { data += Data([0x47, 0x40, 0x00, 0x10]) + Data(repeating: 0, count: 184) }
+        return data
+    }
+
+    @Test("1 つのファイルは、型のある文書なら文書を開く処理へ、型のないテキストならテキストとして開く処理へ渡す")
+    func singleFileWays() throws {
+        let files = [
+            "main.ts": Data("let a = 1\n".utf8), "main.go": Data("package main\n".utf8), "notes.md": Data("# a".utf8),
+            "Dockerfile": Data("FROM scratch\n".utf8), "tool": Data("#!/bin/sh\necho 1\n".utf8),
+            ".env": Data("A=1\n".utf8), "LICENSE": Data("Free.\n".utf8),
+        ]
+        try withFiles(files) { directory in
+            var ways: [String: String] = [:]
+            let router = routed({ way, url in ways[url.lastPathComponent] = way })
+            for name in files.keys { router.open([directory.appendingPathComponent(name)]) }
+            #expect(
+                ways == [
+                    "main.ts": "document", "main.go": "document", "notes.md": "document", "LICENSE": "document",
+                    "Dockerfile": "text", "tool": "text", ".env": "text",
+                ])
+        }
+    }
+
+    @Test("動画の .ts・.mts とバイナリの .plist は、どの開く処理にも渡さずに断る")
+    func singleFileRefusals() throws {
+        let binary = try PropertyListSerialization.data(fromPropertyList: ["a": 1], format: .binary, options: 0)
+        try withFiles(["clip.ts": video, "clip.mts": video, "Info.plist": binary]) { directory in
+            var opened: [URL] = []
+            var refusals: [SourceFileError] = []
+            let router = routed(
+                { _, url in opened.append(url) }, refused: { refusals.append($0 as? SourceFileError ?? .notText) })
+            for name in ["clip.ts", "clip.mts", "Info.plist"] {
+                router.open([directory.appendingPathComponent(name)], printing: true)
+            }
+            #expect(opened.isEmpty)
+            #expect(refusals == [.notText, .notText, .notText])
+        }
+    }
+
+    @Test("合本を解いて文書を開き直すときも、同じ道の選び方を通る")
+    func reopenTakesTheSameWay() throws {
+        try withFiles(["Dockerfile": Data("FROM scratch\n".utf8), "clip.ts": video]) { directory in
+            var ways: [String] = []
+            let router = routed({ way, _ in ways.append(way) })
+            var results: [Bool] = []
+            for name in ["Dockerfile", "clip.ts"] {
+                let url = directory.appendingPathComponent(name)
+                let origin = BinderOrigin(contents: .document(url), frame: .zero, pageIndex: 0, wasPrinting: false)
+                router.reopen(url, restoring: origin) { results.append($0) }
+            }
+            #expect(ways == ["text"])
+            #expect(results == [true, false])
+        }
+    }
+
+    @Test("ソースコードと文章の複数選択は合本を開き、拡張子のない Dockerfile とスクリプトを含め、動画を除く")
+    func binderOfSourceFiles() throws {
+        let files = [
+            "notes.md": Data("# a".utf8), "main.ts": Data("let a = 1\n".utf8), "main.go": Data("package main\n".utf8),
+            "Dockerfile": Data("FROM scratch\n".utf8), "tool": Data("#!/bin/sh\n".utf8),
+            "LICENSE": Data("Free.\n".utf8),
+            "clip.ts": video, "clip.mts": video,
+        ]
+        try withFiles(files) { directory in
+            func file(_ name: String) -> URL { directory.appendingPathComponent(name) }
+            var opened: [URL] = []
+            var left: [URL] = []
+            let router = router(openBinder: { urls, excluded in
+                opened = urls
+                left = excluded
+            })
+            router.open(files.keys.map(file))
+            #expect(opened == ["Dockerfile", "main.go", "main.ts", "notes.md", "tool"].map(file))
+            #expect(left == ["clip.mts", "clip.ts", "LICENSE"].map(file))
+        }
     }
 
     @Test("ソースコードだけの複数選択も合本になり、画像の束にはならない")

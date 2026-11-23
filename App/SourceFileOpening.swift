@@ -1,6 +1,5 @@
 import AppKit
 import SurimonoCore
-import SurimonoRendering
 import UniformTypeIdentifiers
 
 enum SourceFileError: LocalizedError, Equatable {
@@ -10,25 +9,32 @@ enum SourceFileError: LocalizedError, Equatable {
     var errorDescription: String? { String(localized: "This file is not text, so Surimono cannot show it.") }
 }
 
-/// Opens the source files macOS has no type for because they have no extension: `Dockerfile`, `Gemfile`, `.env`, a
-/// script that only its `#!` line names. Declaring `public.data` for them would offer this app for every file on the
-/// Mac, so they are read as plain text only when their name or first line tells a language.
+/// How one file is opened. `TextFileGate` reads the beginning of the files whose name does not settle what they
+/// are, before anything loads their contents.
 enum SourceFileOpening {
-    /// Whether `url` should be read as plain text although its own type is none the app reads.
-    nonisolated static func readsAsPlainText(_ url: URL) -> Bool {
-        guard url.isFileURL,
-            let values = try? url.resourceValues(forKeys: [.contentTypeKey, .isRegularFileKey, .fileSizeKey]),
-            values.isRegularFile == true, let type = values.contentType, isUntyped(type),
-            let size = values.fileSize, size <= PageLayoutLimits.plainTextBytes,
-            let data = try? Data(contentsOf: url)
-        else { return false }
-        return DocumentRenderer.sourceLanguage(of: DocumentSource(data: data, fileURL: url, format: .plainText)) != nil
+    enum Route: Equatable {
+        /// The document controller opens it by its own type, as it opens any other file.
+        case document
+        /// Text that macOS gives no type the app reads (`Dockerfile`, `.env`, a script named only by its `#!`
+        /// line): read as plain text. Declaring `public.data` for these would offer this app for every file.
+        case asText
+        /// Not text under a text file's name. Its contents are never loaded.
+        case refuse
     }
 
-    /// A type that says nothing about the content. A file with a type of its own (a video, an archive) is never
-    /// read as text, whatever its name.
-    nonisolated static func isUntyped(_ type: UTType) -> Bool {
-        type == .data || type == .unixExecutable || type.identifier.hasPrefix("dyn.")
+    nonisolated static func route(for url: URL) -> Route {
+        switch TextFileGate.decide(url) {
+        case .refused: return .refuse
+        case .unrelated: return .document
+        case .text:
+            let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType
+            return type.map(reads) == true ? .document : .asText
+        }
+    }
+
+    /// Whether a file of this type opens through the document types the app declares.
+    nonisolated static func reads(_ type: UTType) -> Bool {
+        SurimonoDocument.readableContentTypes.contains { type.conforms(to: $0) }
     }
 
     /// The document for `url` read as plain text, not yet shown; the one already open for it if there is one.

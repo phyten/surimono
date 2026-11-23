@@ -1363,6 +1363,11 @@ final class DocumentViewModel {
             do {
                 let bytes = try await reader(fileURL)
                 guard let self, !Task.isCancelled, reloadGeneration == generation else { return }
+                // A `.plist` saved again as binary, or a `.ts` replaced by a video: the last pages stay, and the
+                // reader is told, as for a file that could not be read.
+                if TextFileGate.refuses(fileName: fileURL.lastPathComponent, data: bytes) {
+                    throw SourceFileError.notText
+                }
                 if bytes != data && preferences.reloadsChangedFiles {
                     reloadedPages = .reading
                     refreshPageUpdate()

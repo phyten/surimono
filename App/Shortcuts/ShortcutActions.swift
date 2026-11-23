@@ -149,8 +149,15 @@ struct ExportPDFIntent: AppIntent {
         do {
             // The layout reads the file's neighbours too, so the access lasts until the pages are done.
             let output = try await ShortcutEnvironment.fileAccess.reading(file.fileURL) {
-                try await export.export(
-                    file.data, fileURL: file.fileURL, format: format, name: name.isEmpty ? file.filename : name,
+                let data = file.data
+                guard ShortcutFiles.accepts(data, named: file.filename) else {
+                    throw ShortcutFailure(
+                        message: String(
+                            localized: "“\(file.filename)” is not a file Surimono can export as a PDF.",
+                            table: "Shortcuts"))
+                }
+                return try await export.export(
+                    data, fileURL: file.fileURL, format: format, name: name.isEmpty ? file.filename : name,
                     layoutID: layout?.rawValue, style: style.flatMap { $0.isEmpty ? nil : $0 })
             }
             return .result(value: IntentFile(data: output.data, filename: output.fileName, type: .pdf))
@@ -196,8 +203,11 @@ struct OpenInPrintModeIntent: AppIntent {
             // The file is gone when the shortcut ends, so its bytes are taken now.
             let file = files[index]
             let data = await access.reading(file.fileURL) { file.data }
-            opened = ShortcutEnvironment.router.open(
-                .document(data: data, format: format), printing: true, title: file.filename)
+            // The format came from the name; the bytes must agree before they are shown.
+            opened =
+                ShortcutFiles.accepts(data, named: file.filename)
+                && ShortcutEnvironment.router.open(
+                    .document(data: data, format: format), printing: true, title: file.filename)
         case .saveFirst:
             throw ShortcutFailure(
                 message: String(
@@ -219,6 +229,11 @@ enum ShortcutFiles {
     nonisolated static func format(of file: IntentFile) -> DocumentFormat? {
         DocumentFormat(fileExtension: (file.filename as NSString).pathExtension)
             ?? file.type.flatMap(DocumentFormat.init(contentType:))
+    }
+
+    /// Whether bytes handed over under this name may be shown: the same gate as for a file that is opened.
+    nonisolated static func accepts(_ data: Data, named name: String) -> Bool {
+        !TextFileGate.refuses(fileName: name, data: data)
     }
 
     nonisolated struct Input {
