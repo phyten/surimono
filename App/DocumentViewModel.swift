@@ -78,6 +78,9 @@ final class DocumentViewModel {
     /// waits, which is then for a newer request to open the same file.
     @ObservationIgnored var hasTakenItsFileAccess = false
     let fileURL: URL?
+    /// The file name a document came with when it has no file of that name (a file handed over by Shortcuts),
+    /// which names its language.
+    let sourceFileName: String?
     let htmlBaseURL: URL?
     private let title: String?
     let imageBundle: ImageBundleModel?
@@ -88,7 +91,15 @@ final class DocumentViewModel {
     private(set) var unreadableImageURLs: [URL] = []
     private var renderedSourceURLs: [URL] = []
     private(set) var format: DocumentFormat
-    private(set) var data: Data
+    private(set) var data: Data {
+        didSet { dataGeneration += 1 }
+    }
+    /// Counts the contents the window has held, so that what a layout read is only taken for the contents it read.
+    @ObservationIgnored private var dataGeneration = 0
+    /// The language of a source file. Until the first layout has decoded the text it is what the name alone tells,
+    /// and after a reload it stays what it was until the new text is laid out: decoding up to 30 MB to name a badge
+    /// is not work for the main actor.
+    private(set) var detectedSourceLanguage: SourceLanguage?
     private(set) var classStyle: String?
     private(set) var classLayout: PrintLayout?
     var themeFormat: DocumentFormat? { binder == nil && imageBundle == nil ? format : nil }
@@ -183,13 +194,30 @@ final class DocumentViewModel {
     private var defaultPaperOrientation: PaperOrientation
     private var defaultBandVisibility: BandVisibility
     var loneCoverWidth: LoneCoverWidth { preferences.loneCoverWidth }
-    var viewOptions: ViewOptions
+    var viewOptions: ViewOptions {
+        didSet {
+            if viewOptions.layout != oldValue.layout || viewOptions.showsCoverAlone != oldValue.showsCoverAlone {
+                selectedReadingPage = nil
+            }
+        }
+    }
     /// Magnification relative to fitting the current page or spread into the window.
     var zoom: Double = 1
     var pageHistory = PageHistory()
     var bookmarks = Bookmarks()
+    let scrubber = PageScrubSession()
+    var offersScrubber: Bool { menuArrangement == .split && canNavigateReading && pageCount > 1 }
+    var thumbnailGeneration: Int? { isUpToDate && paperDocument === result?.viewDocument ? result?.id : nil }
+    /// The selected half of a spread; PDFView reports only its first page.
+    var selectedReadingPage: Int?
+
     /// The 0-based index of the first visible logical page.
-    var currentPageIndex = 0 { didSet { shownPageIndex = currentPageIndex } }
+    var currentPageIndex = 0 {
+        didSet {
+            if oldValue != currentPageIndex { selectedReadingPage = nil }
+            shownPageIndex = currentPageIndex
+        }
+    }
     /// The page the paper shows, which is a trial's page while a theme is tried; `currentPageIndex` keeps the reading
     /// position in the document's own pages for when the trial ends.
     var shownPageIndex = 0
@@ -305,6 +333,9 @@ final class DocumentViewModel {
 
     #if DEBUG
         // The window benchmark timestamps a visible tile after SwiftUI has installed its image.
+        @ObservationIgnored var scrubThumbnailReady: ((Int, Int) -> Void)?
+        var snapshotScrubWidth: CGFloat?
+        var snapshotScrubImage: (generation: Int, page: Int)?
         @ObservationIgnored var thumbnailDidAppear: ((Int) -> Void)?
     #endif
     @ObservationIgnored private var thumbnailCache: PageThumbnails?
@@ -520,6 +551,8 @@ final class DocumentViewModel {
     @ObservationIgnored private var captureCompletions: [(CaptureOutcome) -> Void] = []
     /// Stands in for the live page in tests.
     @ObservationIgnored var snapshotSource: (() async -> WebPageController.Snapshot)?
+    /// The copy in flight already opens the print tray when it arrives.
+    @ObservationIgnored private var captureOpensTray = false
     /// The key of the remembered settings: the content hash of the file, of the ZIP, or of the set of images.
     private(set) var contentHash: ContentHash?
     private(set) var hasSavedSettings = false
@@ -576,7 +609,7 @@ final class DocumentViewModel {
     private var reloadRequiresWebRefresh = false
     private var reloadOwnsProgress = false
     var readReloadData: @Sendable (URL) async throws -> Data = { url in
-        try await Task.detached(priority: .utility) { try Data(contentsOf: url) }.value
+        try await Task.detached(priority: .utility) { try SourceFileOpening.read(url) }.value
     }
     private var reloadGeneration = 0
     private var displayedChangeSource: DocumentSource?
@@ -605,7 +638,8 @@ final class DocumentViewModel {
         data: Data, fileURL: URL?, format: DocumentFormat,
         preferences: AppPreferences, library: UserLibrary, renderer: DocumentRenderer = DocumentRenderer(),
         imageBundle: ImageBundleModel? = nil, settingsStore: DocumentSettingsStore? = nil,
-        trialRenderer: DocumentRenderer = DocumentRenderer(), title: String? = nil, binder: BinderModel? = nil,
+        trialRenderer: DocumentRenderer = DocumentRenderer(), title: String? = nil, sourceFileName: String? = nil,
+        binder: BinderModel? = nil,
         htmlBaseURL: URL? = nil
     ) {
         themeTrial = ThemeTrial(renderer: trialRenderer)
@@ -625,6 +659,10 @@ final class DocumentViewModel {
             location = nil
         }
         self.data = data
+        self.sourceFileName = sourceFileName
+        detectedSourceLanguage = (sourceFileName ?? fileURL?.lastPathComponent).flatMap {
+            SourceLanguage.detect(fileName: $0)
+        }
         self.fileURL = fileURL
         self.htmlBaseURL = htmlBaseURL
         self.title = title
@@ -645,7 +683,7 @@ final class DocumentViewModel {
         self.renderer = renderer
         bookletBinding = nil
         let themeFormat = binder == nil && imageBundle == nil ? format : nil
-        let source = themeFormat.map { DocumentSource(data: data, fileURL: fileURL, format: $0) }
+        let source = themeFormat.map { DocumentSource(data: data, fileURL: fileURL, format: $0).named(sourceFileName) }
         let inferredLayout = UserLibrary.classLayout(for: source, renderer: renderer)
         classLayout = inferredLayout
         layoutID = inferredLayout?.id ?? Self.defaultLayoutID(preferences)
@@ -700,7 +738,7 @@ final class DocumentViewModel {
     var themedSource: DocumentSource? {
         if let binder { return binder.cachedSource }
         return format.usesPrintTheme && imageBundle == nil
-            ? withFolderAccess(DocumentSource(data: data, fileURL: fileURL, format: format)) : nil
+            ? withFolderAccess(DocumentSource(data: data, fileURL: fileURL, format: format).named(sourceFileName)) : nil
     }
     var protectedSourceURLs: [URL] {
         NSDocumentController.shared.documents.compactMap(\.fileURL)
@@ -748,9 +786,17 @@ final class DocumentViewModel {
         return text
     }
 
-    /// "MD", "PDF", "ZIP"…; "IMG" for a bundle of image files.
+    /// "MD", "PDF", "ZIP"…; "IMG" for a bundle of image files; the language of a source file ("Swift", "YAML").
     var shortFormatBadge: String {
-        binder != nil ? String(localized: "Binder") : imageBundle == nil || format == .zipArchive ? format.badge : "IMG"
+        if binder != nil { return String(localized: "Binder") }
+        guard imageBundle == nil || format == .zipArchive else { return "IMG" }
+        return sourceLanguage?.displayName ?? format.badge
+    }
+
+    /// The language a plain text file is colored as.
+    var sourceLanguage: SourceLanguage? {
+        format == .plainText && binder == nil && (fileURL != nil || sourceFileName != nil)
+            ? detectedSourceLanguage : nil
     }
 
     var language: String { Bundle.main.preferredLocalizations.first ?? "en" }
@@ -1221,6 +1267,7 @@ final class DocumentViewModel {
     }
 
     func stop() {
+        scrubber.cancel()
         thumbnailCache = nil
         pageUpdateTask?.cancel()
         pageUpdate = PageUpdateProgress()
@@ -1347,6 +1394,9 @@ final class DocumentViewModel {
             do {
                 let bytes = try await reader(fileURL)
                 guard let self, !Task.isCancelled, reloadGeneration == generation else { return }
+                // A `.plist` saved again as binary, or a `.ts` replaced by a video: the last pages stay, and the
+                // reader is told, as for a file that could not be read.
+                if SourceFileOpening.refuses(bytes, at: fileURL, format: format) { throw SourceFileError.notText }
                 if bytes != data && preferences.reloadsChangedFiles {
                     reloadedPages = .reading
                     refreshPageUpdate()
@@ -1355,7 +1405,8 @@ final class DocumentViewModel {
                 if let previous = displayedChangeSource, previous.format == format, previous.data != bytes,
                     reloadRequiresRefresh || (preferences.reloadsChangedFiles && bytes != data)
                 {
-                    let current = withFolderAccess(DocumentSource(data: bytes, fileURL: fileURL, format: format))
+                    let current = withFolderAccess(
+                        DocumentSource(data: bytes, fileURL: fileURL, format: format).named(sourceFileName))
                     changes = await renderer.changeRequests(from: previous, to: current, finish: printFinish)
                     guard !Task.isCancelled, reloadGeneration == generation else { return }
                 }
@@ -1592,6 +1643,7 @@ final class DocumentViewModel {
 
     private func render(reusing currentPages: PreparedRender?) {
         if reloadedPages == .failed { reloadedPages = .unchanged }
+        selectedReadingPage = nil
         thumbnailCache = nil
         layoutTooLarge = false
         composingSheets = false
@@ -1624,9 +1676,11 @@ final class DocumentViewModel {
         let singleSource =
             fromSnapshot
             ? DocumentSource.liveSnapshot(liveSnapshot?.html ?? "", of: fileURL)
-            : DocumentSource(data: data, fileURL: fileURL, format: format, htmlBaseURL: htmlBaseURL)
+            : DocumentSource(data: data, fileURL: fileURL, format: format, htmlBaseURL: htmlBaseURL).named(
+                sourceFileName)
         let started = ContinuousClock.now
         let layoutsBefore = renderer.logicalRenderCount
+        let generation = dataGeneration
         renderTask = Task { [weak self] in
             guard let self else { return }
             var settings = settings
@@ -1659,6 +1713,12 @@ final class DocumentViewModel {
                     settings.options.rotatesBackSides = mode == .print && printerRotation(for: prepared.layout)
                     renderingSettings = settings
                     result = prepared
+                    // Only the layout of the contents shown now names their language.
+                    if source.format == .plainText, !fromSnapshot, generation == dataGeneration,
+                        let facts = prepared.facts, detectedSourceLanguage != facts.sourceLanguage
+                    {
+                        detectedSourceLanguage = facts.sourceLanguage
+                    }
                     if source.format.supportsChangeMarks { displayedChangeSource = source }
                     chosenTrial = nil
                     // Pages laid out on the tray are the ones read unless the tray added or changed some, so the outline
@@ -1962,9 +2022,13 @@ final class DocumentViewModel {
         dropSpot()
         guard mode != .print else { return }
         guard mode == .view, isWebPresentation || isCapturingWeb || webCaptureFailed else { return showPrintTray() }
-        // The tray prints the page as it is now.
+        // The tray prints the page as it is now. One request waits for the copy at a time, and it opens the tray
+        // only if the reader has not chosen something else since.
+        guard !(isCapturingWeb && captureOpensTray) else { return }
+        captureOpensTray = true
         captureWeb { [weak self] outcome in
-            guard let self else { return }
+            guard let self, captureOpensTray else { return }
+            captureOpensTray = false
             if outcome == .failed {
                 outputAfterReview = nil
                 showCaptureFailure()
@@ -2159,9 +2223,10 @@ final class DocumentViewModel {
 
     /// The page called `window.print()`: open the print tray as ⌘P does. Only the page the reader is using may ask:
     /// not one behind paper or the tray, nor one in a window in the background, and a request while the page is
-    /// being copied for the tray is already on its way there.
+    /// being copied for the tray is already on its way there. A copy made for another reason (the failure notice's
+    /// Try Again) does not open the tray, so the first request during it joins that copy.
     func pageDidRequestPrint() {
-        guard showsWeb, !isCapturingWeb, isWindowActive else { return }
+        guard showsWeb, !(isCapturingWeb && captureOpensTray), isWindowActive else { return }
         enterPrintMode()
     }
 
@@ -2184,6 +2249,8 @@ final class DocumentViewModel {
         // The review outlines parts of the paper.
         setHTMLPresentation(.paper)
         outputAfterReview = nil
+        // A tray waiting for the copy would close the review as soon as the copy arrived.
+        captureOpensTray = false
         if mode == .print { exitPrintMode() }
         isReviewingSmartRemoval = true
     }
@@ -2523,6 +2590,7 @@ final class DocumentViewModel {
         // A request waiting on this capture must not survive a reload and run on a later visit to the tray.
         outputAfterReview = nil
         isCapturingWeb = false
+        captureOpensTray = false
         webCaptureFailed = false
     }
 
@@ -2530,6 +2598,8 @@ final class DocumentViewModel {
     func retryWebCapture() {
         dismissToast()
         guard usesHTMLPresentation, webCaptureFailed else { return }
+        // A page whose process ended has nothing to copy until it is loaded again; the copy waits for that load.
+        web.reloadEndedPage()
         captureWeb { [weak self] outcome in
             if outcome == .failed { self?.showCaptureFailure() }
             self?.sizeWindowToPaper(keepHeight: true)
@@ -4155,7 +4225,8 @@ final class DocumentViewModel {
             var htmlTitle = format == .html ? readStructure?.title : nil
             var readingSettings = settings
             if format == .latex, binder == nil, imageBundle == nil {
-                let source = withFolderAccess(DocumentSource(data: data, fileURL: fileURL, format: format))
+                let source = withFolderAccess(
+                    DocumentSource(data: data, fileURL: fileURL, format: format).named(sourceFileName))
                 readingSettings = settings.forReadingLaTeX(
                     renderer.latexClassInfo(for: source, composition: settings.latexComposition))
             }
@@ -4173,7 +4244,8 @@ final class DocumentViewModel {
                     source = withFolderAccess(
                         usesHTMLPresentation && liveSnapshot != nil
                             ? DocumentSource.liveSnapshot(liveSnapshot?.html ?? "", of: fileURL)
-                            : DocumentSource(data: data, fileURL: fileURL, format: format, htmlBaseURL: htmlBaseURL))
+                            : DocumentSource(data: data, fileURL: fileURL, format: format, htmlBaseURL: htmlBaseURL)
+                                .named(sourceFileName))
                 }
                 prepared = try await DocumentRenderer().prepare(source, settings: readingSettings)
                 if binder == nil, imageBundle == nil, source.format.isWebRendered {

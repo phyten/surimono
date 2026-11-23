@@ -63,6 +63,148 @@ struct FragmentChangesTests {
         #expect(marks(old, consecutive) == [.init(blockID: "lines-1500-1501")])
     }
 
+    @Test("色付きのソースでは複数行コメントの途中の一行を変えてもその行だけに印を付ける")
+    func coloredSource() {
+        let lines = ["let a = 1", "/* first", "   second", "   third */", "let b = 2", ""]
+        let old = PlainTextConverter.convert(lines.joined(separator: "\n"), fileName: "a.swift").body
+        var edited = lines
+        edited[2] = "   changed"
+        let new = PlainTextConverter.convert(edited.joined(separator: "\n"), fileName: "a.swift").body
+        let only = marks(old, new)
+        #expect(only == [.init(blockID: "lines-2-2")])
+        #expect(
+            FragmentChanges.identifyingBlocks(in: new, for: only) == """
+                <pre class="surimono-plain"><span class="hl-keyword">let</span> a = <span class="hl-number">1</span>
+                <span class="hl-comment">/* first</span>
+                <span data-surimono-block="lines-2-2"><span class="hl-comment">   changed</span></span>
+                <span class="hl-comment">   third */</span>
+                <span class="hl-keyword">let</span> b = <span class="hl-number">2</span>
+                </pre>
+                """)
+    }
+
+    @Test("コメントを開いて後ろの行の色だけが変わったときは、書き換えた行だけに印を付ける")
+    func recoloredSource() {
+        let old = PlainTextConverter.convert("let a = 1\nlet b = 2\nlet c = 3\n", fileName: "a.swift").body
+        let new = PlainTextConverter.convert("let a = 1 /*\nlet b = 2\nlet c = 3\n", fileName: "a.swift").body
+        #expect(marks(old, new) == [.init(blockID: "lines-0-0")])
+    }
+
+    @Test("一万行までは変えた行だけに印を付け、一万一行からは印を付けず文書全体にも付けない", arguments: ["a.swift", "a.txt"])
+    func lineLimit(fileName: String) {
+        func body(_ count: Int, changing line: Int?) -> String {
+            var lines = (0..<count).map { "let a\($0) = 1" }
+            if let line { lines[line] = "let changed = 2" }
+            return PlainTextConverter.convert(lines.joined(separator: "\n"), fileName: fileName).body
+        }
+        let atLimit = body(10_000, changing: 5000)
+        let only = marks(body(10_000, changing: nil), atLimit)
+        #expect(only == [.init(blockID: "lines-5000-5000")])
+        #expect(FragmentChanges.identifyingBlocks(in: atLimit, for: only).contains("data-surimono-block=\"lines-5000-"))
+        let over = body(10_001, changing: 5000)
+        #expect(marks(body(10_001, changing: nil), over).isEmpty)
+        #expect(marks(body(10_000, changing: nil), over).isEmpty)
+        #expect(marks(body(10_001, changing: nil), atLimit).isEmpty)
+        // A request that names the whole block must find nothing to name in a text over the limit.
+        #expect(FragmentChanges.identifyingBlocks(in: over, for: [.init(blockID: "fragment-0")]) == over)
+        #expect(FragmentChanges.identifyingBlocks(in: over, for: [.init(blockID: "lines-0-0")]) == over)
+    }
+
+    @Test("一万個目の改行で読むのをやめ、その先の数 MB の行も、もう片方の文書も行に分けない", arguments: ["a.swift", "a.txt"])
+    func stopsAtTheLimit(fileName: String) {
+        let short = (0..<10_000).map { "a\($0)" }.joined(separator: "\n")
+        let tail = String(repeating: "x", count: 3_000_000)
+        // 10,000 short lines, then one line of 3 MB after the 10,000th line break.
+        let long = "<pre class=\"surimono-plain\">" + short + "\n" + tail + "</pre>"
+        let other = PlainTextConverter.convert(short + "\nchanged", fileName: fileName).body
+        let head = short.unicodeScalars.count + 1
+        var visited = 0
+        #expect(FragmentChanges.marks(from: other, to: long, visited: &visited).isEmpty)
+        // Only the new text, up to the break that shows it is too long; the old text is not read at all.
+        #expect(visited == head)
+        visited = 0
+        #expect(FragmentChanges.marks(from: long, to: other, visited: &visited).isEmpty)
+        #expect(visited == head)
+        // Both too long: the new one is read to its 10,000th break, the old one not at all.
+        let longer = "<pre class=\"surimono-plain\">" + short + "\n" + tail + "y</pre>"
+        visited = 0
+        #expect(FragmentChanges.marks(from: long, to: longer, visited: &visited).isEmpty)
+        #expect(visited == head)
+        // At the limit both are read to the end, and the changed line is found.
+        let atLimit = PlainTextConverter.convert(short, fileName: "a.txt").body
+        let edited = PlainTextConverter.convert(short + "!", fileName: "a.txt").body
+        visited = 0
+        #expect(
+            FragmentChanges.marks(from: atLimit, to: edited, visited: &visited) == [.init(blockID: "lines-9999-9999")])
+        #expect(visited == short.unicodeScalars.count * 2 + 1)
+    }
+
+    @Test("色の閉じタグの直後に結合文字があっても、行ごとに比べて変えた行だけに印を付ける")
+    func combiningMarkAfterTag() {
+        // The comment ends and the text goes on with a combining acute accent: `</span>` + U+0301.
+        let old = PlainTextConverter.convert("<a>\n<!-- c -->\u{301}text\n<b>1</b>\n", fileName: "a.xml").body
+        #expect(old.contains("--&gt;</span>\u{301}text"))
+        let new = PlainTextConverter.convert("<a>\n<!-- c -->\u{301}text\n<b>2</b>\n", fileName: "a.xml").body
+        let only = marks(old, new)
+        #expect(only == [.init(blockID: "lines-2-2")])
+        let marked = FragmentChanges.identifyingBlocks(in: new, for: only)
+        #expect(marked.contains("<span data-surimono-block=\"lines-2-2\">&lt;<span class=\"hl-tag\">b</span>"))
+        #expect(marked.contains("--&gt;</span>\u{301}text\n"))
+        // The line with the mark itself can be the changed one.
+        let accent = PlainTextConverter.convert("<a>\n<!-- c -->\u{302}text\n<b>1</b>\n", fileName: "a.xml").body
+        #expect(marks(old, accent) == [.init(blockID: "lines-1-1")])
+        #expect(
+            FragmentChanges.identifyingBlocks(in: accent, for: [.init(blockID: "lines-1-1")]).unicodeScalars.count
+                == accent.unicodeScalars.count + "<span data-surimono-block=\"lines-1-1\"></span>".unicodeScalars.count)
+    }
+
+    @Test("閉じていないコメントの中で終わる文書でも、印を付けた HTML は末尾の改行を保つ")
+    func trailingNewlineInsideSpan() {
+        let new = PlainTextConverter.convert("let a = 1\n/* open\nstill open\n", fileName: "a.swift").body
+        #expect(new.hasSuffix("still open\n</span></pre>"))
+        let old = PlainTextConverter.convert("let a = 0\n/* open\nstill open\n", fileName: "a.swift").body
+        let only = marks(old, new)
+        #expect(only == [.init(blockID: "lines-0-0")])
+        #expect(
+            FragmentChanges.identifyingBlocks(in: new, for: only) == """
+                <pre class="surimono-plain"><span data-surimono-block="lines-0-0"><span class="hl-keyword">let</span> a = <span class="hl-number">1</span></span>
+                <span class="hl-comment">/* open</span>
+                <span class="hl-comment">still open</span>
+                </pre>
+                """)
+    }
+
+    @Test("色なしの文書に最初の色付きの語が現れても、末尾の行ではなく変えた行だけに印を付ける")
+    func firstColoredToken() {
+        let old = PlainTextConverter.convert("a b\nc d\ne f\n", fileName: "a.swift").body
+        #expect(!old.contains("<span"))
+        let new = PlainTextConverter.convert("a b\nlet d\ne f\n", fileName: "a.swift").body
+        #expect(new.contains("<span"))
+        #expect(marks(old, new) == [.init(blockID: "lines-1-1")])
+        #expect(marks(new, old) == [.init(blockID: "lines-1-1")])
+    }
+
+    @Test("色付きの行に印を付けて戻した HTML は、span を除けば元の本文と同じ")
+    func identifyingKeepsText() {
+        let text = "/* a\n\n<b> & \"c\"\n*/\nlet d = 1\n\n"
+        let html = PlainTextConverter.convert(text, fileName: "a.swift").body
+        let marked = FragmentChanges.identifyingBlocks(in: html, for: [.init(blockID: "lines-2-2")])
+        func stripped(_ html: String) -> String {
+            html.replacingOccurrences(of: "<[^>]*>", with: "", options: .regularExpression)
+        }
+        #expect(stripped(marked) == stripped(html))
+        #expect(stripped(marked) == "/* a\n\n&lt;b&gt; &amp; &quot;c&quot;\n*/\nlet d = 1\n\n")
+        #expect(marked.contains("<span data-surimono-block=\"lines-2-2\"><span class=\"hl-comment\">&lt;b&gt;"))
+    }
+
+    @Test("色付きの JSON でも行の削除は隣の行に短い印を付ける")
+    func coloredDeletion() {
+        let old = PlainTextConverter.convert("{\n  \"a\": 1,\n  \"b\": 2,\n  \"c\": 3\n}\n", fileName: "a.json").body
+        let new = PlainTextConverter.convert("{\n  \"a\": 1,\n  \"c\": 3\n}\n", fileName: "a.json").body
+        let change = marks(old, new)
+        #expect(change == [.init(blockID: "lines-2-2", isShort: true)])
+    }
+
     @Test("CSVのセルの変更と行の挿入はそれぞれ該当する一行だけに印を付ける")
     func csv() {
         let old = CSVConverter.convert("項目,数\n赤,1\n青,2").body

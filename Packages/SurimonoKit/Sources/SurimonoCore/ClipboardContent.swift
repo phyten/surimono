@@ -67,7 +67,9 @@ public enum ClipboardContent: Equatable, Sendable {
             "plain": .plainText, "plaintext": .plainText, "quarto": .quarto, "r markdown": .rMarkdown,
             "graphviz": .graphviz, "restructuredtext": .rst,
         ]
-        guard let format = aliases[name] ?? DocumentFormat(fileExtension: name), format.isWebRendered,
+        // A feed that names a programming language ("go", "c") is not naming one of this app's formats.
+        guard !DocumentFormat.sourceCodeExtensions.contains(name),
+            let format = aliases[name] ?? DocumentFormat(fileExtension: name), format.isWebRendered,
             format != .docx
         else { return nil }
         return format

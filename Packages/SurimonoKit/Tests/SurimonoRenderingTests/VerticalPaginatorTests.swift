@@ -143,6 +143,35 @@ struct VerticalPaginatorTests {
         }
     }
 
+    @Test("縦書きの組版中に WebContent のプロセスが終わっていたら、締切を待たずに終了のエラーになる", .timeLimit(.minutes(1)))
+    func webContentEnded() async throws {
+        _ = NSApplication.shared
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "tategaki" })
+        let size = PaperSize.a5.size
+        let html = HTMLDocumentBuilder.build(
+            fragment: HTMLFragment(body: "<p>本文</p>"), format: .markdown, theme: theme)
+        let view = WKWebView(frame: CGRect(origin: .zero, size: size))
+        let navigation = NavigationTracker()
+        view.navigationDelegate = navigation
+        view.loadHTMLString(html, baseURL: nil)
+        try await WebPaginator.waitUntil(timeout: .seconds(15)) { navigation.state != .loading }
+        try #require(navigation.state == .finished)
+        // Only this test's web view is ended (see `webContentEndsDuringSnapshot`).
+        let kill = NSSelectorFromString("_killWebContentProcessAndResetState")
+        try #require(view.responds(to: kill))
+        view.perform(kill)
+        try await WebPaginator.waitUntil(timeout: .seconds(15)) { navigation.terminationError != nil }
+        let started = ContinuousClock.now
+        let termination = NSError(domain: WKError.errorDomain, code: WKError.Code.webContentProcessTerminated.rawValue)
+        // The timeout is far beyond the test's limit: the error must come from the ended process, not the deadline.
+        await #expect(throws: WebPaginator.PaginationError.loadFailed(termination.localizedDescription)) {
+            _ = try await VerticalPaginator.pages(
+                in: view, pageSize: size, margins: .init(top: 36, left: 36, bottom: 36, right: 36),
+                timeout: .seconds(300))
+        }
+        #expect(ContinuousClock.now - started < .seconds(10))
+    }
+
     @Test("縦書き三千行が読む順の選択可能な文字で余白に収まり、面付けにも渡る", .timeLimit(.minutes(1)))
     func novel() async throws {
         _ = NSApplication.shared

@@ -7,6 +7,7 @@ struct TestDefaultsSuite {
     let name = "SurimonoTests.\(UUID().uuidString)"
 
     init() {
+        _ = Self.staleSweep
         // Binder decision tests inject a presenter and choose their policy explicitly.
         // Every other fixture, including windows created indirectly, keeps the last child in its binder.
         defaults.set(SingleDocumentBinderPolicy.stay.rawValue, forKey: "singleDocumentBinderPolicy")
@@ -49,6 +50,23 @@ struct TestDefaultsSuite {
             return domain?.isEmpty == true
         }
     }
+
+    /// A run that is stopped before its exit handler finishes (a cancelled or timed-out run, a host that was killed)
+    /// leaves its plists behind, and nothing else ever deletes them. The first suite of a run deletes those older than
+    /// an hour, which no run still in progress on this Mac can own.
+    private static let staleSweep: Void = {
+        let folder = URL.libraryDirectory.appending(path: "Preferences")
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []
+        let limit = Date.now.addingTimeInterval(-3600)
+        for name in names where name.hasPrefix("SurimonoTests.") && name.hasSuffix(".plist") {
+            let plist = folder.appending(path: name)
+            guard
+                let modified = (try? FileManager.default.attributesOfItem(atPath: plist.path))?[.modificationDate]
+                    as? Date, modified < limit
+            else { continue }
+            try? FileManager.default.removeItem(at: plist)
+        }
+    }()
 
     /// The first removal registers the deletion at exit.
     private static let removals: Mutex<[Removal]> = {

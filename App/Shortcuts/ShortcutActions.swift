@@ -134,11 +134,6 @@ struct ExportPDFIntent: AppIntent {
     @MainActor
     func perform() async throws -> some IntentResult & ReturnsValue<IntentFile> {
         let name = (file.filename as NSString).deletingPathExtension
-        guard let format = ShortcutFiles.format(of: file) else {
-            throw ShortcutFailure(
-                message: String(
-                    localized: "“\(file.filename)” is not a file Surimono can export as a PDF.", table: "Shortcuts"))
-        }
         let export = HeadlessExport(
             preferences: ShortcutEnvironment.preferences ?? AppPreferences(),
             library: ShortcutEnvironment.library ?? UserLibrary())
@@ -149,9 +144,18 @@ struct ExportPDFIntent: AppIntent {
         do {
             // The layout reads the file's neighbours too, so the access lasts until the pages are done.
             let output = try await ShortcutEnvironment.fileAccess.reading(file.fileURL) {
-                try await export.export(
-                    file.data, fileURL: file.fileURL, format: format, name: name.isEmpty ? file.filename : name,
-                    layoutID: layout?.rawValue, style: style.flatMap { $0.isEmpty ? nil : $0 })
+                let data = file.data
+                // The name, the type and the beginning of the bytes settle the format together, once.
+                guard let format = ShortcutFiles.format(name: file.filename, type: file.type, data: data) else {
+                    throw ShortcutFailure(
+                        message: String(
+                            localized: "“\(file.filename)” is not a file Surimono can export as a PDF.",
+                            table: "Shortcuts"))
+                }
+                return try await export.export(
+                    data, fileURL: file.fileURL, format: format, name: name.isEmpty ? file.filename : name,
+                    sourceName: file.filename, layoutID: layout?.rawValue,
+                    style: style.flatMap { $0.isEmpty ? nil : $0 })
             }
             return .result(value: IntentFile(data: output.data, filename: output.fileName, type: .pdf))
         } catch let failure as HeadlessExport.Failure {
@@ -181,23 +185,39 @@ struct OpenInPrintModeIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult {
+        let access = ShortcutEnvironment.fileAccess
+        // A file that will be gone when the shortcut ends can only open from memory, and only one such file can.
+        // Its bytes are taken now, and they settle its format together with its name and type: a script with no
+        // extension is text, and a video under `.ts` is nothing this app opens.
+        var memory: Data?
+        if files.count == 1, let file = files.first, file.fileURL == nil || file.removedOnCompletion {
+            memory = await access.reading(file.fileURL) { file.data }
+        }
         let inputs = files.map { file in
             ShortcutFiles.Input(
                 url: file.fileURL, isTemporary: file.removedOnCompletion, name: file.filename,
-                format: ShortcutFiles.format(of: file))
+                format: memory.map { ShortcutFiles.format(name: file.filename, type: file.type, data: $0) }
+                    ?? ShortcutFiles.format(of: file))
         }
-        let access = ShortcutEnvironment.fileAccess
         let opened: Bool
         switch ShortcutFiles.plan(inputs) {
         case .files(let urls):
             // The windows go on reading the files after this returns, so each takes its files' access with it.
-            opened = ShortcutEnvironment.router.open(urls, printing: true, access: access.leases(for: urls))
+            // One file that is turned away opens no window, and the action must not report that it did.
+            let leases = access.leases(for: urls)
+            if urls.count == 1, let url = urls.first, ShortcutEnvironment.router.refusesSingle(url) {
+                for lease in leases { lease.close() }
+                opened = false
+            } else {
+                opened = ShortcutEnvironment.router.open(urls, printing: true, access: leases)
+            }
         case .memory(let index, let format):
             // The file is gone when the shortcut ends, so its bytes are taken now.
             let file = files[index]
-            let data = await access.reading(file.fileURL) { file.data }
+            let data: Data
+            if let memory { data = memory } else { data = await access.reading(file.fileURL) { file.data } }
             opened = ShortcutEnvironment.router.open(
-                .document(data: data, format: format), printing: true, title: file.filename)
+                memoryFile: data, format: format, fileName: file.filename, printing: true)
         case .saveFirst:
             throw ShortcutFailure(
                 message: String(
@@ -219,6 +239,19 @@ enum ShortcutFiles {
     nonisolated static func format(of file: IntentFile) -> DocumentFormat? {
         DocumentFormat(fileExtension: (file.filename as NSString).pathExtension)
             ?? file.type.flatMap(DocumentFormat.init(contentType:))
+    }
+
+    /// The format of bytes handed over in memory, from their file name, their type and their beginning together:
+    /// the same gate as for a file that is opened. nil for what the app does not open, a video under `.ts` and a
+    /// binary property list among it.
+    nonisolated static func format(name: String, type: UTType?, data: Data) -> DocumentFormat? {
+        switch TextFileGate.verdict(fileName: name, type: type, data: data) {
+        case .binary: nil
+        case .text: .plainText
+        case .notConcerned:
+            DocumentFormat(fileExtension: (name as NSString).pathExtension)
+                ?? type.flatMap(DocumentFormat.init(contentType:))
+        }
     }
 
     nonisolated struct Input {

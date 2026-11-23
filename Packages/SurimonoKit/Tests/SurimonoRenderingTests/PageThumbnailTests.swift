@@ -18,6 +18,8 @@ struct PageThumbnailTests {
         #expect(first.width == 64 && first.height == 32)
         let hit = await cache.image(page: 0, pixels: 64)
         #expect(first === hit)
+        let hovered = await cache.scrubImage(page: 0, pixels: 64)
+        #expect(first === hovered)
         _ = try #require(await cache.image(page: 1, pixels: 64))
         #expect(await cache.byteCount <= 8192)
         let again = await cache.image(page: 0, pixels: 64)
