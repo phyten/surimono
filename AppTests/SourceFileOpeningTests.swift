@@ -333,6 +333,41 @@ struct SourceFileOpeningTests {
         }
     }
 
+    @Test("読み取り中に同じ URL の文書が登録されたら、読み取りの成否にかかわらずその文書を返す", arguments: [false, true])
+    func documentRegisteredDuringRead(readFails: Bool) async throws {
+        try await withFile("Dockerfile", Data("FROM scratch\n".utf8)) { url in
+            let (started, entered) = AsyncStream<Void>.makeStream()
+            let release = DispatchSemaphore(value: 0)
+            var windowsMade = 0
+            let opening = Task {
+                try await SourceFileOpening.document(
+                    for: url,
+                    read: { file in
+                        entered.yield(())
+                        entered.finish()
+                        release.wait()
+                        if readFails { throw CocoaError(.fileReadUnknown) }
+                        return try SourceFileOpening.readText(file)
+                    }
+                ) { _, _ in
+                    windowsMade += 1
+                    return NSWindowController(window: nil)
+                }
+            }
+            // AppKit can restore a document without passing through the router's queue.
+            for await _ in started { break }
+            let restored = NSDocument()
+            restored.fileURL = url
+            NSDocumentController.shared.addDocument(restored)
+            defer { restored.close() }
+            release.signal()
+            let result = try await opening.value
+            #expect(result.document === restored)
+            #expect(!result.isNew)
+            #expect(windowsMade == 0)
+        }
+    }
+
     // MARK: Bytes that arrive later
 
     @Test("開いている .plist がバイナリで保存し直されても、最後に表示できたページを残して知らせる", .timeLimit(.minutes(1)))

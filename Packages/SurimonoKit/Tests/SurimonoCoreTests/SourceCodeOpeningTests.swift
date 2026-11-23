@@ -23,6 +23,21 @@ struct SourceCodeOpeningTests {
         #expect(language(verdict("a.ts", bytes)) == "typescript")
     }
 
+    @Test("仮のパケットヘッダーをまたぐ Shift_JIS の「日」を含むソースをテキストとして開く")
+    func shiftJISAcrossHeader() {
+        let bytes =
+            Data([0x47, 0x2F, 0x2A]) + Data(Array(repeating: [UInt8(0x93), 0xFA], count: 91).joined())
+            + Data([0x2A, 0x2F, 0x0A])
+        #expect(bytes.count == 188)
+        #expect(language(verdict("a.ts", bytes)) == "typescript")
+    }
+
+    @Test("本文のほぼ全体が FF のパケットは末尾の ABCD だけでテキストと見なさない")
+    func binaryWithPrintableTail() {
+        let bytes = Data([0x47, 0x41, 0x21, 0x93]) + Data(repeating: 0xFF, count: 180) + Data("ABCD".utf8)
+        #expect(verdict("a.ts", bytes) == .binary)
+    }
+
     @Test("4096 バイト目で切れた UTF-8 は、正しい文字に続きうる接頭辞だけを許す")
     func utf8PrefixBoundary() {
         let boundaries: [(UInt8, UInt8, Bool)] = [
@@ -180,6 +195,20 @@ struct SourceCodeOpeningTests {
         var long = Data()
         for _ in 0..<25 { long += densePacket + Data(repeating: 0xFF, count: 16) }
         #expect(verdict("clip.ts", long) == .binary)
+    }
+
+    @Test("FFmpeg の動画は、ファイル全体でも先頭 1・3・5 パケットだけでも断る")
+    func ffmpegTransportStream() throws {
+        // A real muxer's tables, stuffing and video payload exercise more than the repeated synthetic headers.
+        // ffmpeg -f lavfi -i color=black:s=32x32:r=5 -frames:v 10 -c:v mpeg2video -f mpegts black-mpeg2.ts
+        let url = try #require(
+            Bundle.module.url(forResource: "black-mpeg2", withExtension: "ts", subdirectory: "Fixtures"))
+        let file = try Data(contentsOf: url)
+        #expect(file.count > 4096)
+        #expect(verdict("clip.ts", file) == .binary)
+        for packets in [1, 3, 5] {
+            #expect(verdict("clip.ts", file.prefix(packets * 188)) == .binary)
+        }
     }
 
     @Test("短い本物のパケットも動画と決め、短いテキストはテキストと決める")

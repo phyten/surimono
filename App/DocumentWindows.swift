@@ -18,7 +18,7 @@ final class DocumentWindows: NSObject {
     /// Where access to a file from outside the app waits for the file's window. Replaceable for tests.
     @ObservationIgnored var router: OpenRouter = .shared
 
-    /// The windows' models that are still open; a window can only leave this table by going away.
+    /// A closed window can still be retained by its controller and must no longer receive file requests.
     var openModels: [DocumentViewModel] { models.objectEnumerator()?.allObjects as? [DocumentViewModel] ?? [] }
 
     override private init() {
@@ -26,6 +26,15 @@ final class DocumentWindows: NSObject {
         for name in [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification] {
             NotificationCenter.default.addObserver(self, selector: #selector(updateActive), name: name, object: nil)
         }
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(windowWillClose(_:)), name: NSWindow.willCloseNotification, object: nil)
+    }
+
+    @objc private func windowWillClose(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow, let model = models.object(forKey: window) else { return }
+        models.removeObject(forKey: window)
+        router.windowDidClose(model)
+        updateActive()
     }
 
     /// Every kind of window registers its model here, so this reaches documents, bundles, binders and clipboard

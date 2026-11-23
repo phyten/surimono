@@ -13,7 +13,7 @@ struct OpenRouterTests {
         openBundle: @escaping ([URL], [URL]) -> Void = { _, _ in Issue.record("束は開かない") },
         openBinder: @escaping ([URL], [URL]) -> Void = { _, _ in Issue.record("合本は開かない") },
         warn: @escaping (NSWindow?) -> Void = { _ in Issue.record("警告しない") },
-        hasOpenWindows: @escaping () -> Bool = { false },
+        hasOpenWindows: @escaping () -> Bool = { true },
         showWelcome: @escaping () -> Void = { Issue.record("ウェルカム画面は出さない") },
         openMemory: @escaping (Data, DocumentFormat, String?, Bool) -> Void = { _, _, _, _ in }
     ) -> OpenRouter {
@@ -36,15 +36,36 @@ struct OpenRouterTests {
     func gateOffMainThread() async {
         var opened: [URL] = []
         let files = [url("Dockerfile"), url("memo.md")]
+        let secondOpened = DispatchSemaphore(value: 0)
         let router = router(openDocument: { file, complete in
             opened.append(file)
+            if file == files[1] { secondOpened.signal() }
             complete(true)
         })
+        let release = DispatchSemaphore(value: 0)
+        await withCheckedContinuation { entered in
+            router.route = { @Sendable _ in
+                #expect(!Thread.isMainThread)
+                entered.resume()
+                release.wait()
+                return .document
+            }
+            router.open([files[0]])
+        }
         router.route = { @Sendable _ in
             #expect(!Thread.isMainThread)
             return .document
         }
-        for file in files { router.open([file]) }
+        router.open([files[1]])
+        // Give the ready second worker an opportunity to overtake the held first one if the queue is broken.
+        let stayedQueued = await withCheckedContinuation { continuation in
+            DispatchQueue.global().async {
+                continuation.resume(returning: secondOpened.wait(timeout: .now() + 1) == .timedOut)
+            }
+        }
+        #expect(stayedQueued)
+        #expect(opened.isEmpty)
+        release.signal()
         await router.waitForOpeningRequests()
         #expect(opened == files)
     }
@@ -329,6 +350,133 @@ struct OpenRouterTests {
         #expect(windows.first?.isPrintModeRequested == true)
     }
 
+    @Test("同じ URL の先行要求が拒否されても、後続の窓が印刷指定とアクセスを受け取る")
+    func refusedBeforePrinting() async {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let file = url("again.ts")
+        var closed: [String] = []
+        var refusals = 0
+        var opened: [URL] = []
+        let router = OpenRouter(
+            openDocument: { url, completion in
+                opened.append(url)
+                completion(true)
+            }, openBundle: { _, _ in nil }, openBinder: { _, _ in nil }, warn: { _ in },
+            hasOpenWindows: { false }, showWelcome: { Issue.record("後続の要求が待っている") },
+            refuse: { _ in refusals += 1 })
+        let release = DispatchSemaphore(value: 0)
+        await withCheckedContinuation { entered in
+            router.route = { @Sendable _ in
+                entered.resume()
+                release.wait()
+                return .refuse
+            }
+            router.open([file], access: [.init(url: file) { closed.append("A") }])
+        }
+        router.route = { _ in .document }
+        router.open([file], printing: true, access: [.init(url: file) { closed.append("B") }])
+        release.signal()
+        await router.waitForOpeningRequests()
+        #expect(refusals == 1)
+        #expect(opened == [file])
+        #expect(closed == ["A"])
+        let new = model(file, suite: suite, library: directory)
+        router.handAccess(to: new)
+        #expect(new.isPrintModeRequested)
+        #expect(closed == ["A"])
+        new.stop()
+        #expect(closed == ["A", "B"])
+    }
+
+    @Test("後続要求の待機中に既存の窓が閉じたら、新しい窓がアクセスを引き継ぐ")
+    func closesWhileQueued() async {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let file = url("again.md")
+        let old = model(file, suite: suite, library: directory)
+        let new = model(file, suite: suite, library: directory)
+        var windows = [old]
+        var closed = 0
+        let router = OpenRouter(
+            openDocument: { url, completion in
+                if url == file { windows = [new] }
+                completion(true)
+            }, openBundle: { _, _ in nil }, openBinder: { _, _ in nil }, warn: { _ in },
+            hasOpenWindows: { true }, showWelcome: {}, openWindows: { windows })
+        router.handAccess(to: old)
+        let release = DispatchSemaphore(value: 0)
+        await withCheckedContinuation { entered in
+            router.route = { @Sendable _ in
+                entered.resume()
+                release.wait()
+                return .document
+            }
+            router.open([url("first.md")])
+        }
+        router.route = { _ in .document }
+        router.open([file], printing: true, access: [.init(url: file) { closed += 1 }])
+        #expect(!old.isPrintModeRequested)
+        windows = []
+        old.stop()
+        #expect(closed == 0)
+        release.signal()
+        await router.waitForOpeningRequests()
+        #expect(new.isPrintModeRequested)
+        #expect(closed == 0)
+        new.stop()
+        #expect(closed == 1)
+    }
+
+    @Test("閉じた文書窓を保持していても、同じ URL を開き直す要求の引き渡し先にしない")
+    func closedWindowLeavesRegistry() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let document = model(directory.appendingPathComponent("again.md"), suite: suite, library: directory)
+        defer { document.stop() }
+        let window = NSWindow(contentRect: .zero, styleMask: [.titled], backing: .buffered, defer: true)
+        window.isReleasedWhenClosed = false
+        DocumentWindows.shared.register(document, for: window)
+        #expect(DocumentWindows.shared.model(for: window) === document)
+        window.close()
+        #expect(!DocumentWindows.shared.openModels.contains { $0 === document })
+    }
+
+    @Test("同じ URL の文書オープンが逆順に完了しても、窓は成功した要求の印刷指定とアクセスをすべて受け取る", arguments: [false, true])
+    func outOfOrderCompletions(firstOpens: Bool) async {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let file = url("again.md")
+        var completions: [(Bool) -> Void] = []
+        var closed: [String] = []
+        let router = router(openDocument: { _, done in completions.append(done) })
+        router.route = { _ in .document }
+        router.open([file], printing: true, access: [.init(url: file) { closed.append("A") }])
+        router.open([file], access: [.init(url: file) { closed.append("B") }])
+        await router.waitForOpeningRequests()
+        guard completions.count == 2 else {
+            Issue.record("2 件とも文書を開く処理に届く")
+            return
+        }
+        completions[1](true)
+        completions[0](firstOpens)
+        #expect(closed == (firstOpens ? [] : ["A"]))
+        let new = model(file, suite: suite, library: directory)
+        router.handAccess(to: new)
+        #expect(new.isPrintModeRequested == firstOpens)
+        #expect(closed == (firstOpens ? [] : ["A"]))
+        new.stop()
+        #expect(closed.sorted() == ["A", "B"])
+    }
+
     @Test("印刷モードを頼まずに開いた文書は表示モードのまま")
     func singleWithoutPrintMode() async {
         let suite = TestDefaultsSuite()
@@ -428,18 +576,39 @@ struct OpenRouterTests {
 
     @Test("対応する文書がなく何も開いていなければウェルカム画面を出す")
     func welcomeAfterRejection() async {
-        var welcomes = 0
-        let router = router(warn: { _ in }, showWelcome: { welcomes += 1 })
+        var events: [String] = []
+        let router = router(
+            warn: { _ in events.append("warning") }, hasOpenWindows: { false },
+            showWelcome: { events.append("welcome") })
         router.open([url("a.zip"), url("b.unknown")])
+        #expect(router.pendingOpens == 1)
+        router.showWelcomeAfterLaunch()
+        #expect(events.isEmpty)
         await router.waitForOpeningRequests()
-        router.showWelcomeIfIdle()
-        #expect(welcomes == 1)
+        #expect(router.pendingOpens == 0)
+        #expect(events == ["warning", "welcome"])
+    }
+
+    @Test("画像の束や合本の窓を作れなかったときもウェルカム画面に戻る", arguments: [["a.png", "b.jpg"], ["a.md", "b.pdf"]])
+    func welcomeWhenNoWindowIsMade(names: [String]) async {
+        var events: [String] = []
+        let router = router(
+            openBundle: { _, _ in events.append("open") }, openBinder: { _, _ in events.append("open") },
+            hasOpenWindows: { false }, showWelcome: { events.append("welcome") })
+        router.open(names.map { url($0) })
+        router.showWelcomeAfterLaunch()
+        #expect(events.isEmpty)
+        await router.waitForOpeningRequests()
+        #expect(router.pendingOpens == 0)
+        #expect(events == ["open", "welcome"])
     }
 
     @Test("文書を開けず何も開いていなければウェルカム画面を出す")
     func welcomeAfterFailure() async {
         var welcomes = 0
-        let router = router(openDocument: { _, completion in completion(false) }, showWelcome: { welcomes += 1 })
+        let router = router(
+            openDocument: { _, completion in completion(false) }, hasOpenWindows: { false },
+            showWelcome: { welcomes += 1 })
         router.open([url("unreadable.pdf")])
         await router.waitForOpeningRequests()
         #expect(welcomes == 1)
@@ -448,7 +617,8 @@ struct OpenRouterTests {
     @Test("ほかの文書を開いている途中ならウェルカム画面を出さない")
     func noWelcomeWhilePending() async {
         var completions: [(Bool) -> Void] = []
-        let router = router(openDocument: { _, completion in completions.append(completion) })
+        let router = router(
+            openDocument: { _, completion in completions.append(completion) }, hasOpenWindows: { false })
         router.open([url("a.pdf")])
         router.open([url("unreadable.pdf")])
         await router.waitForOpeningRequests()

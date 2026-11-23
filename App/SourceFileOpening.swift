@@ -82,15 +82,16 @@ enum SourceFileOpening {
     ) async throws -> (document: NSDocument, isNew: Bool) {
         let controller = NSDocumentController.shared
         if let open = controller.document(for: url) { return (open, false) }
-        let data = try await Task.detached(priority: .userInitiated) {
+        let result = await Task.detached(priority: .userInitiated) {
             let bytes = try read(url)
             // The forced plain-text type does not describe the file itself. Recheck its name and actual bytes.
             guard !TextFileGate.refuses(fileName: url.lastPathComponent, data: bytes) else {
                 throw SourceFileError.notText
             }
             return bytes
-        }.value
+        }.result
         if let open = controller.document(for: url) { return (open, false) }
+        let data = try result.get()
         let document = ReadOnlyTextDocument()
         document.fileType = UTType.plainText.identifier
         document.fileURL = url

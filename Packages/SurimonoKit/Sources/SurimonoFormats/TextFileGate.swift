@@ -302,22 +302,30 @@ public enum TextFileGate {
             default: return false
             }
         }
-        // With fewer than five headers a legacy-encoded source can fit the packet layout by chance.
-        // Look beyond each four-byte header for printable text, including Japanese without ASCII spaces.
-        func hasTextLikeBody(at start: Int) -> Bool {
-            let body = bytes[(start + 4)..<(start + 188)]
-            var printable = 0
-            for byte in body {
-                printable = (0x20...0x7E).contains(byte) ? printable + 1 : 0
-                if printable >= 4 { return true }
+        // A short legacy-encoded source can fit the packet layout by chance. Decode from the beginning:
+        // even the fourth byte of the apparent header can be the lead byte of a Japanese character.
+        func hasTextLikeBody(packetSize: Int, lead: Int) -> Bool {
+            var asciiBytes = 0
+            var hasPrintableRun = false
+            for start in stride(from: lead, to: bytes.count, by: packetSize) {
+                var run = 0
+                for byte in bytes[(start + 4)..<(start + 188)] {
+                    let printable = (0x20...0x7E).contains(byte)
+                    if printable || (0x09...0x0D).contains(byte) { asciiBytes += 1 }
+                    run = printable ? run + 1 : 0
+                    if run >= 4 { hasPrintableRun = true }
+                }
             }
-            let data = Data(body)
+            // Latin-1 accepts arbitrary bytes, so a few printable bytes alone cannot establish a text body.
+            if hasPrintableRun, asciiBytes * 2 >= (bytes.count / packetSize) * 184 { return true }
+            let data = Data(bytes)
             return [String.Encoding.utf8, .shiftJIS, .japaneseEUC].contains { encoding in
                 guard let decoded = String(data: data, encoding: encoding) else { return false }
-                return decoded.unicodeScalars.contains { scalar in
-                    (0x3040...0x30FF).contains(scalar.value) || (0x4E00...0x9FFF).contains(scalar.value)
-                        || (0xFF66...0xFF9F).contains(scalar.value)
-                }
+                return hasPrintableRun
+                    || decoded.unicodeScalars.contains { scalar in
+                        (0x3040...0x30FF).contains(scalar.value) || (0x4E00...0x9FFF).contains(scalar.value)
+                            || (0xFF66...0xFF9F).contains(scalar.value)
+                    }
             }
         }
         for (size, lead) in [(188, 0), (192, 4), (204, 0)] {
@@ -331,9 +339,8 @@ public enum TextFileGate {
                 }
             }
             if isWhole, !bytes.isEmpty, bytes.count % size == 0,
-                stride(from: lead, to: bytes.count, by: size).allSatisfy({ start in
-                    isPacket(at: start) && !hasTextLikeBody(at: start)
-                })
+                stride(from: lead, to: bytes.count, by: size).allSatisfy({ isPacket(at: $0) }),
+                !hasTextLikeBody(packetSize: size, lead: lead)
             {
                 return true
             }

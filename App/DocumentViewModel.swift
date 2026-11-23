@@ -1315,7 +1315,7 @@ final class DocumentViewModel {
         for lease in fileAccess { lease.close() }
         fileAccess = []
         // A window that goes away before it took the access waiting for its file would leave it waiting for ever.
-        if !hasTakenItsFileAccess, let fileURL { DocumentWindows.shared.router.giveUpAccess(for: fileURL) }
+        if fileURL != nil { DocumentWindows.shared.router.windowDidClose(self) }
     }
 
     func keep(_ access: [FolderAccess.Lease]) {

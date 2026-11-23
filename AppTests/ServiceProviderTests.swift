@@ -143,9 +143,15 @@ struct ServiceProviderTests {
         let urls = [URL(fileURLWithPath: "/fixtures/b.pdf"), URL(fileURLWithPath: "/fixtures/a.md")]
         board.writeObjects(urls as [NSURL])
         var opened: [URL] = []
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let window = model(url: urls[0], suite: suite, library: directory)
+        defer { window.stop() }
         let router = router(openBinder: { urls, _ in
             opened = urls
-            return nil
+            return window
         })
         let provider = ServiceProvider(router: router, activate: {})
         var message: NSString?
