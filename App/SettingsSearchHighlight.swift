@@ -1,8 +1,17 @@
 import SwiftUI
 
+/// Revoking a reveal must not update the hidden form just to cancel its pending scroll.
+final class SettingsSearchVisit: Equatable {
+    private(set) var isCurrent = true
+    func cancel() { isCurrent = false }
+    nonisolated static func == (lhs: SettingsSearchVisit, rhs: SettingsSearchVisit) -> Bool { lhs === rhs }
+}
+
 struct SettingsSearchHits: Equatable {
     var query = ""
     var anchors: [String] = []
+    var visit: SettingsSearchVisit?
+    var canReveal: Bool { visit?.isCurrent != false }
 }
 
 // Read the last layout when a query changes. Scrolling by hand must not trigger another reveal.
@@ -59,6 +68,7 @@ struct SettingsSearchReveal: ViewModifier {
                 frames.viewport = $0
             }
             .task(id: hits) {
+                guard hits.canReveal else { return }
                 highlighted = []
                 guard let first = hits.anchors.first else {
                     bottomRoom = nil
@@ -66,17 +76,17 @@ struct SettingsSearchReveal: ViewModifier {
                 }
                 // The Form needs a layout pass when searching takes the reader to another section.
                 await Task.yield()
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled, hits.canReveal else { return }
                 if !frames.fullyShows(first) {
                     // A match near the end needs room below it to reach the requested position.
                     bottomRoom = frames.bottomRoom(toReveal: first)
                     await Task.yield()
-                    guard !Task.isCancelled else { return }
+                    guard !Task.isCancelled, hits.canReveal else { return }
                     proxy.scrollTo(first, anchor: UnitPoint(x: 0.5, y: 1.0 / 3))
                 }
                 highlighted = Set(hits.anchors)
                 try? await Task.sleep(for: .seconds(1))
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled, hits.canReveal else { return }
                 withAnimation(.easeOut(duration: 0.25)) { highlighted = [] }
             }
     }

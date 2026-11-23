@@ -14,20 +14,23 @@ struct ShortcutSettingsView: View {
     var files = ShortcutArchiveFiles()
 
     var body: some View {
+        let statuses = controller.settingsStatuses
+        let groups =
+            search.isEmpty
+            ? Self.allGroups
+            : Dictionary(
+                grouping: ShortcutOperation.catalog.filter { matches($0) }, by: \.group)
         ScrollViewReader { proxy in
             Form {
                 archiveControls
                 ForEach(SettingsCatalogue.shortcutGroups, id: \.self) { group in
-                    localSection(group)
+                    localSection(group, rows: groups[group] ?? [], statuses: statuses)
                 }
-                fixedSection
-                globalSection
+                fixedSection(hasLocalMatches: groups.keys.contains { $0 != .global })
+                globalSection(rows: groups[.global] ?? [], statuses: statuses)
             }
             .modifier(SettingsSearchReveal(proxy: proxy))
             .formStyle(.grouped)
-            // Match the other Settings sections, including their title-bar inset correction.
-            .contentMargins(.top, -28, for: .scrollContent)
-            .onAppear { controller.refresh() }
             .onChange(of: fileError) { _, value in ShortcutHints.announce(value) }
             .sheet(isPresented: $restoringAll, onDismiss: { actionsFocused = true }) {
                 restoreConfirmation
@@ -141,8 +144,12 @@ struct ShortcutSettingsView: View {
         }.padding(24).frame(width: 440)
     }
 
-    @ViewBuilder private func localSection(_ group: ShortcutGroup) -> some View {
-        let rows = ShortcutOperation.catalog.filter { $0.group == group && matches($0) }
+    private static let allGroups = Dictionary(grouping: ShortcutOperation.catalog, by: \.group)
+
+    @ViewBuilder private func localSection(
+        _ group: ShortcutGroup, rows: [ShortcutOperation],
+        statuses: [ShortcutOperationID: ShortcutController.SettingsStatus]
+    ) -> some View {
         if !rows.isEmpty {
             let sharedScope = ShortcutText.scope(Self.groupScope(group))
             Section {
@@ -152,7 +159,7 @@ struct ShortcutSettingsView: View {
                         && (operation.id != .appCheckUpdates || AppUpdater.shared.isAvailable)
                     {
                         EditableShortcutRow(
-                            controller: controller, operation: operation.id,
+                            controller: controller, operation: operation.id, status: statuses[operation.id] ?? .normal,
                             scope: rowScope == sharedScope ? nil : rowScope
                         )
                         .settingSearchRow(operation.id.rawValue)
@@ -184,25 +191,41 @@ struct ShortcutSettingsView: View {
         }
     }
 
-    @ViewBuilder private var fixedSection: some View {
-        let fixed = ShortcutFixedKey.catalog.filter { key in
-            settingsHits.anchors.contains(key.behavior.rawValue)
-                || matches(
-                    [
-                        ShortcutText.fixedName(key.behavior),
-                        String(localized: "Fixed Keys"), String(localized: "In Surimono"),
-                    ] + key.combinations.map { controller.layout.display($0) })
+    // Keep native editing and window commands under their shared footer in catalog order.
+    private static let fixedGroups: [(reason: String, keys: [ShortcutFixedKey])] = {
+        var groups: [(reason: String, keys: [ShortcutFixedKey])] = []
+        for key in ShortcutFixedKey.catalog {
+            let reason = ShortcutText.fixedReason(key.behavior)
+            if let index = groups.firstIndex(where: { $0.reason == reason }) {
+                groups[index].keys.append(key)
+            } else {
+                groups.append((reason, [key]))
+            }
         }
-        if !fixed.isEmpty {
-            // Native editing and window commands share explanations. Keep their catalog order.
-            let reasons = fixed.map { ShortcutText.fixedReason($0.behavior) }
-            let uniqueReasons = reasons.enumerated().filter { index, reason in
-                !reasons.prefix(index).contains(reason)
-            }.map(\.element)
+        return groups
+    }()
+
+    @ViewBuilder private func fixedSection(hasLocalMatches: Bool) -> some View {
+        let groups =
+            search.isEmpty
+            ? Self.fixedGroups
+            : Self.fixedGroups.compactMap { group in
+                let keys = group.keys.filter { key in
+                    settingsHits.anchors.contains(key.behavior.rawValue)
+                        || matches(
+                            [
+                                ShortcutText.fixedName(key.behavior), String(localized: "Fixed Keys"),
+                                String(localized: "In Surimono"),
+                            ]
+                                + key.combinations.map { controller.layout.display($0) })
+                }
+                return keys.isEmpty ? nil : (reason: group.reason, keys: keys)
+            }
+        if !groups.isEmpty {
             // One group per reason, which is its footer; the heading goes on the first.
-            ForEach(Array(uniqueReasons.enumerated()), id: \.element) { index, reason in
+            ForEach(Array(groups.enumerated()), id: \.element.reason) { index, group in
                 Section {
-                    ForEach(fixed.filter { ShortcutText.fixedReason($0.behavior) == reason }, id: \.behavior) { key in
+                    ForEach(group.keys, id: \.behavior) { key in
                         ShortcutInfoRow(
                             name: ShortcutText.fixedName(key.behavior),
                             keys: key.combinations.map { controller.layout.display($0) },
@@ -214,16 +237,18 @@ struct ShortcutSettingsView: View {
                 } header: {
                     if index == 0 { Text("Fixed Keys") }
                 } footer: {
-                    SettingsFootnote(verbatim: reason)
+                    SettingsFootnote(verbatim: group.reason)
                 }
             }
         }
-        if fixed.isEmpty && !ShortcutOperation.catalog.contains(where: { !$0.isGlobal && matches($0) }) {
+        if groups.isEmpty && !hasLocalMatches {
             Text("No matching shortcuts").foregroundStyle(PrintPalette.ink2)
         }
     }
 
-    private var globalSection: some View {
+    private func globalSection(
+        rows: [ShortcutOperation], statuses: [ShortcutOperationID: ShortcutController.SettingsStatus]
+    ) -> some View {
         Section {
             if let error = controller.migrationError {
                 Text(error).foregroundStyle(PrintPalette.warn).fixedSize(horizontal: false, vertical: true)
@@ -232,12 +257,13 @@ struct ShortcutSettingsView: View {
                 Text(ShortcutController.message(ShortcutController.EditError.savedDataUnavailable))
                     .foregroundStyle(PrintPalette.warn).fixedSize(horizontal: false, vertical: true)
             }
-            let global = ShortcutOperation.catalog.filter { $0.isGlobal && matches($0) }
-            ForEach(global, id: \.id) { operation in
-                EditableShortcutRow(controller: controller, operation: operation.id)
-                    .settingSearchRow(operation.id.rawValue)
+            ForEach(rows, id: \.id) { operation in
+                EditableShortcutRow(
+                    controller: controller, operation: operation.id, status: statuses[operation.id] ?? .normal
+                )
+                .settingSearchRow(operation.id.rawValue)
             }
-            if global.isEmpty { Text("No matching shortcuts").foregroundStyle(PrintPalette.ink2) }
+            if rows.isEmpty { Text("No matching shortcuts").foregroundStyle(PrintPalette.ink2) }
         } header: {
             HStack {
                 Image(systemName: "globe").accessibilityHidden(true)
@@ -311,6 +337,7 @@ private struct ShortcutInfoRow: View {
 private struct EditableShortcutRow: View {
     let controller: ShortcutController
     let operation: ShortcutOperationID
+    let status: ShortcutController.SettingsStatus
     var scope: String?
     @State private var error: String?
     @State private var pending: [ShortcutCombination]?
@@ -332,18 +359,14 @@ private struct EditableShortcutRow: View {
         }
         return !keys.isEmpty
     }
-    private var status: String { controller.status(for: operation) }
-    private var isInlineStatus: Bool {
-        status == String(localized: "Registered") || status == String(localized: "Managed in macOS")
-    }
-    private var showsStatusLine: Bool {
-        !status.isEmpty && status != String(localized: "Unassigned") && !isInlineStatus
-    }
     private var previousCandidate: ShortcutCombination? {
         controller.snapshot.inactiveMigration.first(where: { $0.operation == operation })?.candidate
     }
     /// A line under the name: such a row keeps the room its chip needs.
-    private var hasNote: Bool { previousCandidate != nil || showsStatusLine || error != nil }
+    private var hasNote: Bool {
+        if case .note = status { return true }
+        return previousCandidate != nil || error != nil
+    }
     /// How far the 28-point chip reaches past the row's content into the row's margins when nothing is under the name.
     private static let chipOverhang: CGFloat = 5
 
@@ -354,8 +377,8 @@ private struct EditableShortcutRow: View {
                     .help([title, scope].compactMap { $0 }.joined(separator: "\n"))
                     .accessibilityHint(scope ?? "")
                 Spacer(minLength: 8)
-                if isInlineStatus {
-                    Text(status).font(.caption).foregroundStyle(PrintPalette.ink2).fixedSize()
+                if case .inline(let text) = status {
+                    Text(text).font(.caption).foregroundStyle(PrintPalette.ink2).fixedSize()
                 }
                 HStack(spacing: 6) { controls }
                     .fixedSize().layoutPriority(1)
@@ -373,8 +396,8 @@ private struct EditableShortcutRow: View {
                 )
                 .font(.caption).fixedSize(horizontal: false, vertical: true)
             }
-            if showsStatusLine {
-                Text(status).font(.caption).foregroundStyle(PrintPalette.ink2)
+            if case .note(let text) = status {
+                Text(text).font(.caption).foregroundStyle(PrintPalette.ink2)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let error {
@@ -451,28 +474,27 @@ private struct EditableShortcutRow: View {
         }
     }
 
+    private static let unassigned = String(localized: "Unassigned")
+    private static let recordLabelFormat = String(localized: "%1$@. Scope: %2$@. Shortcut: %3$@.")
+    private static let more = String(localized: "More")
+
     @ViewBuilder private var controls: some View {
-        ShortcutRecorder(
-            combo: nil,
-            displayTitle: keys.isEmpty
-                ? String(localized: "Unassigned")
-                : keys.map { controller.layout.display($0) }.joined(separator: " / "),
-            displaysKeys: !keys.isEmpty,
-            label: String.localizedStringWithFormat(
-                String(localized: "%1$@. Scope: %2$@. Shortcut: %3$@."), title,
-                ShortcutText.scope(ShortcutOperation.operation(operation).applicability),
-                keys.isEmpty
-                    ? String(localized: "Unassigned")
-                    : keys.map { controller.layout.spoken($0) }.joined(separator: ", ")),
-            hotKeys: controller.hotKeys,
-            refuse: { error = ShortcutText.reason(.invalidKey) }
+        let keys = self.keys
+        let display = keys.map { controller.layout.display($0) }.joined(separator: " / ")
+        let label = String.localizedStringWithFormat(
+            Self.recordLabelFormat, title,
+            ShortcutText.scope(ShortcutOperation.operation(operation).applicability),
+            keys.isEmpty ? Self.unassigned : keys.map { controller.layout.spoken($0) }.joined(separator: ", "))
+        ShortcutRecordingControl(
+            title: keys.isEmpty ? Self.unassigned : display, displaysKeys: !keys.isEmpty, label: label,
+            hotKeys: controller.hotKeys, refuse: { error = ShortcutText.reason(.invalidKey) }
         ) { combo in
             do { propose(try combo.map { [try recorded($0)] } ?? []) } catch {
                 self.error = ShortcutController.message(error)
             }
         }
         .fixedSize().frame(height: 28)
-        .help(keys.map { controller.layout.display($0) }.joined(separator: " / "))
+        .help(display)
         Menu {
             Button("Choose Keys…") {
                 controller.refreshEnvironment()
@@ -486,8 +508,8 @@ private struct EditableShortcutRow: View {
         }
         .menuStyle(.button).buttonStyle(.borderless).menuIndicator(.hidden)
         .fixedSize().focused($chooserFocused)
-        .accessibilityLabel(String(localized: "More") + ": " + title)
-        .help(String(localized: "More") + ": " + title)
+        .accessibilityLabel(Self.more + ": " + title)
+        .help(Self.more + ": " + title)
     }
 
     private var hasInactive: Bool { controller.snapshot.inactiveMigration.contains { $0.operation == operation } }

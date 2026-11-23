@@ -486,10 +486,12 @@ final class AppPreferences {
         printClipboardShortcut = defaults.data(forKey: "printClipboardShortcut").flatMap {
             try? JSONDecoder().decode(KeyCombo.self, from: $0)
         }
-        let shortcuts = Self.loadKeyboardShortcuts(defaults: defaults, environment: shortcutEnvironment)
+        let storedShortcuts = defaults.object(forKey: ShortcutStore.preferencesKey)
+        let shortcuts = Self.loadKeyboardShortcuts(
+            storedShortcuts, defaults: defaults, environment: shortcutEnvironment)
         keyboardShortcuts = shortcuts.0
         keyboardShortcutsLoadState = shortcuts.1
-        keyboardShortcutsStoredData = defaults.data(forKey: ShortcutStore.preferencesKey)
+        keyboardShortcutsStoredData = storedShortcuts as? Data
         singleDocumentBinderPolicy =
             defaults.string(forKey: "singleDocumentBinderPolicy")
             .flatMap(SingleDocumentBinderPolicy.init(rawValue:)) ?? .defaultValue
@@ -841,13 +843,15 @@ final class AppPreferences {
 }
 
 extension AppPreferences {
-    private static func loadKeyboardShortcuts(defaults: UserDefaults, environment: ShortcutValidationContext)
+    private static func loadKeyboardShortcuts(
+        _ stored: Any?, defaults: UserDefaults, environment: ShortcutValidationContext
+    )
         -> (ShortcutConfiguration, ShortcutPreferencesLoadState)
     {
-        guard defaults.object(forKey: ShortcutStore.preferencesKey) != nil else {
+        guard let stored else {
             return (LegacyShortcutMigration.evaluate(defaults: defaults, environment: environment), .migrationRequired)
         }
-        guard let data = defaults.data(forKey: ShortcutStore.preferencesKey) else {
+        guard let data = stored as? Data else {
             return (.init(), .unreadable(.malformedStore))
         }
         do {
@@ -860,13 +864,17 @@ extension AppPreferences {
     }
 
     func reloadKeyboardShortcuts(environment: ShortcutValidationContext) {
-        let loaded = Self.loadKeyboardShortcuts(defaults: defaults, environment: environment)
+        let stored = defaults.object(forKey: ShortcutStore.preferencesKey)
+        let data = stored as? Data
+        // A loaded archive decodes independently of the current input source. Missing data still follows migration.
+        if let data, keyboardShortcutsLoadState == .loaded, data == keyboardShortcutsStoredData { return }
+        let loaded = Self.loadKeyboardShortcuts(stored, defaults: defaults, environment: environment)
         if loaded.0 != keyboardShortcuts || loaded.1 != keyboardShortcutsLoadState {
             keyboardShortcutsRevision += 1
         }
         keyboardShortcuts = loaded.0
         keyboardShortcutsLoadState = loaded.1
-        keyboardShortcutsStoredData = defaults.data(forKey: ShortcutStore.preferencesKey)
+        keyboardShortcutsStoredData = data
     }
 
     func saveKeyboardShortcuts(_ plan: ShortcutChangePlan, expectedRevision: UInt64) throws {

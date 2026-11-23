@@ -2,39 +2,89 @@ import AppKit
 import SurimonoCore
 import SwiftUI
 
-struct ShortcutRecorder: NSViewRepresentable {
-    @Environment(\.isEnabled) private var isEnabled
-    let combo: KeyCombo?
-    var displayTitle: String? = nil
-    var displaysKeys = false
+/// Leave the native responder in place after Escape or a completed recording until focus actually moves.
+struct ShortcutRecordingControl: View {
+    let title: String
+    let displaysKeys: Bool
     let label: String
     let hotKeys: GlobalHotKeys
     let refuse: () -> Void
     let change: (KeyCombo?) -> Void
+    @State private var editing = false
 
-    func makeNSView(context: Context) -> RecorderButton { RecorderButton() }
+    var body: some View {
+        if editing {
+            ShortcutRecorder(
+                displayTitle: title, displaysKeys: displaysKeys, label: label, hotKeys: hotKeys,
+                refuse: refuse, change: change, leave: { editing = false })
+        } else {
+            Button {
+                editing = true
+            } label: {
+                Text(verbatim: title)
+                    .font(displaysKeys ? .system(size: 13, weight: .medium, design: .monospaced) : .system(size: 13))
+            }
+            .buttonStyle(.bordered)
+            .onKeyPress(.return, phases: .down) { press in
+                guard press.modifiers.isEmpty else { return .ignored }
+                editing = true
+                return .handled
+            }
+            .accessibilityLabel(Text(verbatim: label))
+            .accessibilityValue(Text(verbatim: title))
+            .accessibilityHint(Text(verbatim: ShortcutRecorder.recordingHelp))
+        }
+    }
+}
+
+struct ShortcutRecorder: NSViewRepresentable {
+    @Environment(\.isEnabled) private var isEnabled
+    let displayTitle: String
+    let displaysKeys: Bool
+    let label: String
+    let hotKeys: GlobalHotKeys
+    let refuse: () -> Void
+    let change: (KeyCombo?) -> Void
+    let leave: () -> Void
+
+    static let recordingHelp =
+        String(localized: "Record Shortcut") + ". "
+        + String(localized: "Press a key combination. Escape cancels; Tab moves focus; Delete clears.")
+
+    func makeNSView(context: Context) -> RecorderButton {
+        let button = RecorderButton()
+        configure(button)
+        return button
+    }
+
     func updateNSView(_ button: RecorderButton, context: Context) {
+        configure(button)
+        if !isEnabled { button.endInteraction() }
+    }
+
+    private func configure(_ button: RecorderButton) {
         button.hotKeys = hotKeys
-        button.combo = combo
         button.displayTitle = displayTitle
         button.isEnabled = isEnabled
-        if !isEnabled { button.finish() }
         button.change = change
         button.refuse = refuse
+        button.leave = leave
         button.setAccessibilityLabel(label)
-        button.setAccessibilityHelp(
-            String(localized: "Record Shortcut") + ". "
-                + String(localized: "Press a key combination. Escape cancels; Tab moves focus; Delete clears."))
+        button.setAccessibilityHelp(Self.recordingHelp)
         button.toolTip = String(localized: "Record Shortcut")
         button.font = displaysKeys ? .monospacedSystemFont(ofSize: 13, weight: .medium) : .systemFont(ofSize: 13)
         button.refresh()
     }
+
     func sizeThatFits(_ proposal: ProposedViewSize, nsView: RecorderButton, context: Context) -> CGSize? {
-        CGSize(
-            width: proposal.width ?? nsView.intrinsicContentSize.width,
-            height: nsView.intrinsicContentSize.height)
+        let size = nsView.intrinsicContentSize
+        return CGSize(width: proposal.width ?? size.width, height: size.height)
     }
-    static func dismantleNSView(_ button: RecorderButton, coordinator: ()) { button.finish() }
+
+    static func dismantleNSView(_ button: RecorderButton, coordinator: ()) {
+        button.leave = nil
+        button.finish()
+    }
 
     static func candidate(_ event: NSEvent) throws -> KeyCombo? {
         let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
@@ -77,10 +127,11 @@ struct ShortcutRecorder: NSViewRepresentable {
 
     final class RecorderButton: NSButton {
         var hotKeys: GlobalHotKeys?
-        var combo: KeyCombo?
         var displayTitle: String?
         var change: ((KeyCombo?) -> Void)?
         var refuse: (() -> Void)?
+        var leave: (() -> Void)?
+        private var startsOnAttach = true
         private var recording = false
 
         init() {
@@ -90,7 +141,7 @@ struct ShortcutRecorder: NSViewRepresentable {
             action = #selector(record)
         }
         required init?(coder: NSCoder) { nil }
-        override var acceptsFirstResponder: Bool { true }
+        override var acceptsFirstResponder: Bool { isEnabled && !isHiddenOrHasHiddenAncestor }
 
         override func viewWillMove(toWindow newWindow: NSWindow?) {
             finish()
@@ -102,17 +153,33 @@ struct ShortcutRecorder: NSViewRepresentable {
             }
             super.viewWillMove(toWindow: newWindow)
         }
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            guard window != nil, startsOnAttach else { return }
+            startsOnAttach = false
+            record()
+            if !recording { endInteraction() }
+        }
+
         @objc private func cancelRecording() { finish() }
+
+        func endInteraction() {
+            finish()
+            guard let leave else { return }
+            self.leave = nil
+            // AppKit can move focus while SwiftUI is updating the hierarchy.
+            Task { @MainActor in leave() }
+        }
 
         func refresh() {
             title =
                 recording
                 ? String(localized: "Type a shortcut")
-                : displayTitle ?? combo?.display ?? String(localized: "Record Shortcut")
+                : displayTitle ?? String(localized: "Record Shortcut")
             setAccessibilityValue(title)
         }
         @objc private func record() {
-            guard isEnabled, !recording, window?.makeFirstResponder(self) == true else { return }
+            guard acceptsFirstResponder, !recording, window?.makeFirstResponder(self) == true else { return }
             recording = true
             hotKeys?.beginRecording()
             refresh()
@@ -124,7 +191,7 @@ struct ShortcutRecorder: NSViewRepresentable {
             refresh()
         }
         override func resignFirstResponder() -> Bool {
-            finish()
+            endInteraction()
             return super.resignFirstResponder()
         }
         override func performKeyEquivalent(with event: NSEvent) -> Bool {

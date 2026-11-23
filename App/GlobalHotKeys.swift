@@ -185,17 +185,17 @@ final class GlobalHotKeys {
             entry.release()
             registrations.removeValue(forKey: combo)
         }
-        assignments = desired
-        failed.removeAll()
-        guard !recording else { return }
-        for (combo, action) in desired where registrations[combo] == nil {
+        if assignments != desired { assignments = desired }
+        var failures: Set<Action> = []
+        for (combo, action) in desired where !recording && registrations[combo] == nil {
             if !handlerFailed, let release = register(combo, nextID) {
                 registrations[combo] = Registration(id: nextID, release: release)
                 nextID += 1
             } else {
-                failed.insert(action)
+                failures.insert(action)
             }
         }
+        if failed != failures { failed = failures }
     }
 
     func beginRecording() {
