@@ -17,411 +17,189 @@ extension DocumentOutline {
     /// The zero-based page each heading stands on, in order. A heading stands on lines of its own, wrapped or with a
     /// number in front of it, so the same words in a sentence do not count. The search only moves forward, past each
     /// heading it found. The lines are indexed by their text, so a heading that cannot be found costs one lookup. The
-    /// DOM positions in `sourceContents` distinguish the source tables from identical runs of body text.
-    /// Callers with only the legacy flat list separate tables with an empty label.
+    /// lines of `contentsEntries`, where the text lists its headings itself, are not taken for them.
     public static func pages(
-        of headings: [DocumentHeading], inPageTexts pages: [String], contentsEntries: [String] = [],
-        sourceContents: [SourceContents] = []
+        of headings: [DocumentHeading], inPageTexts pages: [String], contentsEntries: [String] = []
     ) -> [Int?] {
-        var index = LineIndex(pages: pages)
-        if sourceContents.isEmpty {
-            index.exclude(contentsEntries.map(normalized))
-        } else {
-            index.exclude(sourceContents)
-        }
-        var cursor = 0
-        // The exclusions are final and the cursor only moves forward, so a miss stays a miss.
-        var missingTargets: Set<String> = []
-        return headings.map { heading in
-            let target = normalized(heading.text)
-            guard !target.isEmpty, !missingTargets.contains(target) else { return nil }
-            guard let match = index.firstMatch(of: target, from: cursor) else {
-                missingTargets.insert(target)
-                return nil
+        guard !headings.isEmpty else { return [] }
+        var labels = Labels()
+        let titles = headings.map { labels.insert(normalized($0.text)) }
+        let tables = contentsEntries.split(separator: "").map { table in
+            var entries: [Int] = []
+            for entry in table {
+                let text = normalized(entry)
+                if !text.isEmpty { entries.append(labels.insert(text, following: !entries.isEmpty)) }
             }
-            cursor = match.end
-            return match.page
+            return entries
+        }
+        let index = LineIndex(pages: pages, labels: labels)
+        let excluded = index.contentsLines(tables)
+        var matches = index.headingMatches(excluding: excluded)
+        var cursor = 0
+        return titles.map { id in
+            while let first = matches[id]?.last, first.lowerBound < cursor { matches[id]?.removeLast() }
+            guard let match = matches[id]?.popLast() else { return nil }
+            cursor = match.upperBound
+            return index.lines[match.lowerBound].page
+        }
+    }
+
+    /// Each complete spelling has one integer ID, including labels shared by several tables. A prefix also
+    /// tells whether another printed line could complete a wrapped label.
+    private struct Labels {
+        struct Prefix {
+            var next: [Character: Int] = [:]
+            var complete = false
+            var allowsShortWrap = false
+        }
+        var prefixes = [Prefix()]
+
+        mutating func insert(_ text: String, following: Bool = false) -> Int {
+            var node = 0
+            for character in text {
+                if let next = prefixes[node].next[character] {
+                    node = next
+                } else {
+                    let next = prefixes.count
+                    prefixes[node].next[character] = next
+                    prefixes.append(Prefix())
+                    node = next
+                }
+                if following { prefixes[node].allowsShortWrap = true }
+            }
+            prefixes[node].complete = node != 0
+            return node
+        }
+
+        func advance(_ node: Int, by text: String) -> Int? {
+            var node = node
+            for character in text {
+                guard let next = prefixes[node].next[character] else { return nil }
+                node = next
+            }
+            return node
         }
     }
 
     private struct LineIndex {
-        /// A heading wraps only when it is long, so a wrapped one shares at least this much with its first line.
-        private static let wrappedPrefixLength = 4
+        struct Line {
+            let page: Int
+            var ends: [Int: Int] = [:]
+            var shortWraps: [Int: Int] = [:]
+        }
+        var lines: [Line] = []
 
-        private var lines: [(page: Int, forms: [String])] = []
-        private var whole: [String: [Int]] = [:]
-        private var wrapped: [String: [Int]] = [:]
-        private var excluded: Set<Int> = []
-        // Alternating lower and upper bounds of gaps where this label might be an unlocated table entry.
-        private var uncertainBounds: [String: [Int]] = [:]
+        private typealias Spelling = (node: Int, short: Bool)
 
-        /// Shared across all tables, including candidate enumeration, sorting and exclusion.
-        private let contentsBudget: Int
-
-        init(pages: [String]) {
-            contentsBudget = 256 + 64 * pages.reduce(0) { $0 + $1.utf8.count }
+        init(pages: [String], labels: Labels) {
             for (page, text) in pages.enumerated() {
-                for line in text.components(separatedBy: .newlines) {
-                    let forms = Self.forms(of: line)
-                    guard let first = forms.first, !first.isEmpty else { continue }
-                    for form in forms {
-                        whole[form, default: []].append(lines.count)
-                        if form.count >= Self.wrappedPrefixLength {
-                            wrapped[String(form.prefix(Self.wrappedPrefixLength)), default: []].append(lines.count)
+                var previous: [Spelling] = []
+                var continued: [Spelling] = []
+                var start = 0
+                for raw in text.components(separatedBy: .newlines) {
+                    let forms = Self.forms(of: raw)
+                    guard !forms[0].isEmpty else { continue }
+                    let line = lines.count
+                    lines.append(Line(page: page))
+                    // Check the adjacent pair even while a longer spelling is open. A failed wrap can end
+                    // on the first line of the next real heading.
+                    continued = extend(continued, from: start, by: forms[0], labels: labels)
+                    let pair = extend(previous, from: line - 1, by: forms[0], labels: labels)
+                    if continued.isEmpty {
+                        start = line - 1
+                        continued = pair
+                    }
+                    previous.removeAll(keepingCapacity: true)
+                    for form in forms where !form.isEmpty {
+                        guard let node = labels.advance(0, by: form) else { continue }
+                        let prefix = labels.prefixes[node]
+                        if prefix.complete { lines[line].ends[node] = line + 1 }
+                        // The preceding items fix the start of an interior entry, even with a short first line.
+                        let short = form.count < 4
+                        if !prefix.next.isEmpty && (!short || prefix.allowsShortWrap) {
+                            previous.append((node, short))
                         }
                     }
-                    lines.append((page, forms))
                 }
             }
         }
 
-        /// Index distinct labels once per table. A short prefix narrows the candidates when one of
-        /// the entries wraps, without storing every character prefix of a potentially very long title.
-        private struct Table {
-            let labels: [String]
-            var counts: [String: Int] = [:]
-            var prefixes: [String: [String]] = [:]
-            var characterCount = 0
-            var byteCount = 0
-
-            init(_ labels: [String]) {
-                self.labels = labels.filter { !$0.isEmpty }
-                for label in self.labels {
-                    let length = label.count
-                    characterCount += length
-                    byteCount += label.utf8.count
-                    counts[label, default: 0] += 1
-                    guard counts[label] == 1, length > 1 else { continue }
-                    for count in 1...min(length - 1, wrappedPrefixLength) {
-                        prefixes[String(label.prefix(count)), default: []].append(label)
-                    }
-                }
-            }
-        }
-
-        private enum Location {
-            case found(Range<Int>)
-            case ambiguous([Range<Int>], Query)
-            case missing
-            case alreadyHandled
-        }
-
-        private struct Query: Hashable {
-            let labels: [String]
-            let captions: [String]
-            let before: String
-            let after: String
-        }
-
-        private enum SearchLimit: Error { case exhausted }
-
-        private struct Cursor {
-            var remaining: Int
-            // Anchor occurrences belong to the whole document. Completed searches belong to the current floor.
-            var anchors: [String: [Range<Int>]] = [:]
-            var handledQueries: Set<Query> = []
-            var line = 0
-            var aligned = true
-            var missing: Set<String> = []
-
-            mutating func spend(_ units: Int) throws {
-                guard units <= remaining, remaining > 0 else {
-                    remaining = 0
-                    throw SearchLimit.exhausted
-                }
-                remaining -= units
-            }
-
-            mutating func spendSort(_ count: Int) throws {
-                try spend(count * (Int.bitWidth - count.leadingZeroBitCount))
-            }
-
-            mutating func advance(to end: Int) {
-                line = end
-                aligned = true
-                missing.removeAll()
-                handledQueries.removeAll()
-            }
-        }
-
-        mutating func exclude(_ blocks: [SourceContents]) {
-            var cursor = Cursor(remaining: contentsBudget)
-            for block in blocks { exclude(Table(block.entries.map(normalized)), block: block, cursor: &cursor) }
-            recordGap(cursor, until: lines.count)
-        }
-
-        mutating func exclude(_ entries: [String]) {
-            var cursor = Cursor(remaining: contentsBudget)
-            for labels in entries.split(separator: "") { exclude(Table(Array(labels)), block: nil, cursor: &cursor) }
-            recordGap(cursor, until: lines.count)
-        }
-
-        private mutating func recordGap(_ cursor: Cursor, until end: Int) {
-            guard cursor.line < end else { return }
-            for label in cursor.missing {
-                uncertainBounds[label, default: []].append(contentsOf: [cursor.line, end])
-            }
-        }
-
-        private mutating func exclude(_ table: Table, block: SourceContents?, cursor: inout Cursor) {
-            guard !table.labels.isEmpty else { return }
-            guard cursor.remaining > 0 else {
-                cursor.missing.formUnion(table.labels)
-                return
-            }
-            do {
-                let location: Location
-                if let block, cursor.aligned,
-                    let start = endOfPrefix(normalized(block.precedingText), from: cursor.line),
-                    let match = try? candidate(table, at: start, positioned: true, cursor: &cursor)
-                {
-                    location = .found(start..<match.end)
-                } else {
-                    location = try locate(table, block: block, cursor: &cursor)
-                }
-                cursor.aligned = false
-                switch location {
-                case .found(let range):
-                    try cursor.spend(range.count)
-                    recordGap(cursor, until: range.lowerBound)
-                    excluded.formUnion(range)
-                    cursor.advance(to: range.upperBound)
-                case .ambiguous(let candidates, let query):
-                    for range in candidates {
-                        try cursor.spend(range.count)
-                        excluded.formUnion(range)
-                    }
-                    cursor.handledQueries.insert(query)
-                case .alreadyHandled: break
-                case .missing:
-                    // The legacy flat list can describe a table which was never printed.
-                    if block != nil { cursor.missing.formUnion(table.labels) }
-                }
-            } catch {
-                // A partial search cannot certify a unique candidate.
-                cursor.aligned = false
-                cursor.missing.formUnion(table.labels)
-            }
-        }
-
-        private func endOfPrefix(_ text: String, from start: Int) -> Int? {
-            var rest = text[...]
-            var line = start
-            while !rest.isEmpty {
-                guard line < lines.count,
-                    let form = lines[line].forms.first(where: { !$0.isEmpty && rest.hasPrefix($0) })
-                else { return nil }
-                rest = rest.dropFirst(form.count)
-                line += 1
-            }
-            return line
-        }
-
-        /// Recover this table independently. A neighbouring body block can locate a titleless local table
-        /// from either side. Without a position, only a unique run in source order is evidence.
-        private func locate(_ table: Table, block: SourceContents?, cursor: inout Cursor) throws -> Location {
-            let query = Query(
-                labels: table.labels,
-                captions: block.map { [normalized($0.caption)] } ?? ["目次", "Contents", "TableofContents"],
-                before: normalized(block?.previousBlock ?? ""), after: normalized(block?.followingBlock ?? ""))
-            if cursor.handledQueries.contains(query) { return .alreadyHandled }
-            let previous = try occurrences(of: query.before, cursor: &cursor)
-            let following = try occurrences(of: query.after, cursor: &cursor)
-            try cursor.spend(previous.count + 3 * following.count)
-            var left: [Int: Int] = [:]
-            for range in previous { left[range.upperBound] = 1 }
-            for caption in query.captions {
-                let ranges = try occurrences(of: caption, cursor: &cursor)
-                try cursor.spend(ranges.count)
-                for range in ranges { left[range.upperBound] = left[range.lowerBound] == 1 ? 3 : 2 }
-            }
-            let right = following.map(\.lowerBound)
-            let rightEnds = Set(right)
-            var nextRight = 0
-            var candidates: [Range<Int>] = []
-            var bestRank = -1
-            try cursor.spend(left.count)
-            var starts = Set(left.keys)
-            var covered = cursor.line
-            for end in right {
-                let lower = max(covered, end - table.characterCount)
-                let upper = end - table.labels.count + 1
-                if lower < upper {
-                    try cursor.spend(upper - lower)
-                    starts.formUnion(lower..<upper)
-                    covered = upper
-                }
-            }
-            // Even when the DOM supplies both neighbours, printing can change both. Include the first
-            // entry's possible starts; a run without an anchor must match all entries in source order.
-            func addStarts(_ positions: [Int]) throws {
-                let eligible = positions[Self.firstPosition(in: positions, atLeast: cursor.line)...]
-                try cursor.spend(eligible.count)
-                starts.formUnion(eligible)
-            }
-            if let first = table.labels.first {
-                try addStarts(whole[first] ?? [])
-                try addStarts(wrapped[String(first.prefix(Self.wrappedPrefixLength))] ?? [])
-                for length in 1..<min(first.count + 1, Self.wrappedPrefixLength) {
-                    try addStarts(whole[String(first.prefix(length))] ?? [])
-                }
-            }
-            try cursor.spendSort(starts.count)
-            for start in starts.sorted() where start < lines.count {
-                while nextRight < right.count, right[nextRight] < start + table.labels.count { nextRight += 1 }
-                let nearEnd = nextRight < right.count && right[nextRight] - start <= table.characterCount
-                let leftScore = left[start] ?? 0
-                guard let match = try candidate(table, at: start, positioned: leftScore > 0 || nearEnd, cursor: &cursor)
-                else { continue }
-                let evidence = leftScore + (rightEnds.contains(match.end) ? 1 : 0)
-                guard evidence > 0 || match.ordered else { continue }
-                let rank = evidence * 2 + (match.ordered ? 1 : 0)
-                if rank > bestRank {
-                    candidates = [start..<match.end]
-                    bestRank = rank
-                } else if rank == bestRank {
-                    candidates.append(start..<match.end)
-                }
-            }
-            guard let first = candidates.first else {
-                cursor.handledQueries.insert(query)
-                return .missing
-            }
-            if candidates.count == 1 { return .found(first) }
-            return .ambiguous(candidates, query)
-        }
-
-        /// Index both exact and wrapped anchors once. Later tables take a slice starting at their own floor.
-        private func occurrences(of text: String, cursor: inout Cursor) throws -> ArraySlice<Range<Int>> {
-            guard !text.isEmpty else { return [] }
-            if cursor.anchors[text] == nil {
-                let exact = whole[text] ?? []
-                try cursor.spend(exact.count)
-                var ranges = exact.map { $0..<($0 + 1) }
-                if text.count > Self.wrappedPrefixLength {
-                    let starts = wrapped[String(text.prefix(Self.wrappedPrefixLength))] ?? []
-                    try cursor.spend(starts.count)
-                    for start in starts where !lines[start].forms.contains(text) {
-                        for form in lines[start].forms {
-                            if let end = endOfWrappedLabel(text, first: form, from: start, budget: &cursor.remaining) {
-                                ranges.append(start..<end)
-                                break
-                            }
-                            if cursor.remaining <= 0 { throw SearchLimit.exhausted }
-                        }
-                    }
-                    if ranges.count > exact.count {
-                        try cursor.spendSort(ranges.count)
-                        ranges.sort { $0.lowerBound < $1.lowerBound }
-                    }
-                }
-                cursor.anchors[text] = ranges
-            }
-            let ranges = cursor.anchors[text] ?? []
-            return ranges[Self.firstPosition(in: ranges, atLeast: cursor.line, position: \.lowerBound)...]
-        }
-
-        private func candidate(_ table: Table, at start: Int, positioned: Bool, cursor: inout Cursor)
-            throws -> (end: Int, ordered: Bool)?
+        private mutating func extend(_ spellings: [Spelling], from start: Int, by text: String, labels: Labels)
+            -> [Spelling]
         {
-            let allowance = min(cursor.remaining, 64 + 8 * (table.byteCount + table.labels.count))
-            var budget = allowance
-            let ordered = match(table, at: start, ordered: true, budget: &budget)
-            let end = ordered ?? (positioned ? match(table, at: start, ordered: false, budget: &budget) : nil)
-            cursor.remaining -= allowance - max(0, budget)
-            guard budget > 0 else { throw SearchLimit.exhausted }
-            return end.map { ($0, ordered != nil) }
+            var longer: [Spelling] = []
+            for spelling in spellings {
+                guard let node = labels.advance(spelling.node, by: text) else { continue }
+                let prefix = labels.prefixes[node]
+                if prefix.complete {
+                    if spelling.short {
+                        lines[start].shortWraps[node] = lines.count
+                    } else {
+                        lines[start].ends[node] = lines.count
+                    }
+                }
+                if !prefix.next.isEmpty { longer.append((node, spelling.short)) }
+            }
+            return longer
         }
 
-        /// Advance past one disjoint line range per entry. Number-stripped forms must themselves spell
-        /// a whole unused label. Never transfer a digit or any other character between two labels.
-        private func match(_ table: Table, at start: Int, ordered: Bool, budget: inout Int) -> Int? {
-            var used: [String: Int] = [:]
-            var line = start
-            for expected in table.labels {
-                guard line < lines.count, budget > 0 else { return nil }
-                func available(_ label: String) -> Bool {
-                    ordered ? label == expected : used[label, default: 0] < table.counts[label, default: 0]
-                }
-                budget -= 1
-                if let label = lines[line].forms.first(where: available) {
-                    if !ordered { used[label, default: 0] += 1 }
-                    line += 1
-                    continue
-                }
-                var wrapped: (label: String, end: Int)?
-                for first in lines[line].forms where !first.isEmpty {
-                    let prefix = String(first.prefix(Self.wrappedPrefixLength))
-                    let candidates = ordered ? [expected] : table.prefixes[prefix] ?? []
-                    for label in candidates {
-                        budget -= 1
-                        guard budget > 0 else { return nil }
-                        if available(label),
-                            let end = endOfWrappedLabel(label, first: first, from: line, budget: &budget)
-                        {
-                            wrapped = (label, end)
+        /// Each table is the first complete run after the preceding one. Keeping the length of the matching
+        /// suffix lets a partial run such as A A A still lead into A A B without rewinding the PDF cursor.
+        func contentsLines(_ tables: [[Int]]) -> Set<Int> {
+            var excluded: Set<Int> = []
+            var line = 0
+            for entries in tables {
+                guard !entries.isEmpty else { continue }
+                let fallback = Self.prefixLengths(entries)
+                var starts: [Int] = []
+                var matched = 0
+                while line < lines.count {
+                    let id = entries[matched]
+                    let end = lines[line].ends[id] ?? (matched > 0 ? lines[line].shortWraps[id] : nil)
+                    if let end {
+                        starts.append(line)
+                        line = end
+                        matched += 1
+                        if matched == entries.count {
+                            excluded.formUnion(starts[starts.count - matched]..<end)
                             break
                         }
+                    } else if matched > 0 {
+                        matched = fallback[matched - 1]
+                    } else {
+                        line += 1
                     }
-                    if wrapped != nil { break }
                 }
-                guard let wrapped else { return nil }
-                if !ordered { used[wrapped.label, default: 0] += 1 }
-                line = wrapped.end
+                if line == lines.count { break }
             }
-            return line
+            return excluded
         }
 
-        func firstMatch(of target: String, from cursor: Int) -> (page: Int, end: Int)? {
-            let bounds = uncertainBounds[target] ?? []
-            func canUse(_ line: Int) -> Bool {
-                !excluded.contains(line) && Self.firstPosition(in: bounds, atLeast: line + 1).isMultiple(of: 2)
+        private static func prefixLengths(_ entries: [Int]) -> [Int] {
+            var lengths = Array(repeating: 0, count: entries.count)
+            var matched = 0
+            for index in entries.indices.dropFirst() {
+                while matched > 0 && entries[matched] != entries[index] { matched = lengths[matched - 1] }
+                if entries[matched] == entries[index] { matched += 1 }
+                lengths[index] = matched
             }
-            var best: (page: Int, end: Int, start: Int)?
-            let exact = whole[target] ?? []
-            var start = Self.firstPosition(in: exact, atLeast: cursor)
-            while start < exact.count, !canUse(exact[start]) { start += 1 }
-            if start < exact.count {
-                best = (lines[exact[start]].page, exact[start] + 1, exact[start])
-            }
-            guard target.count > Self.wrappedPrefixLength else { return best.map { ($0.page, $0.end) } }
-            let candidates = wrapped[String(target.prefix(Self.wrappedPrefixLength))] ?? []
-            var position = Self.firstPosition(in: candidates, atLeast: cursor)
-            while position < candidates.count, candidates[position] < best?.start ?? .max {
-                let start = candidates[position]
-                if canUse(start), let end = endOfWrappedHeading(target, from: start),
-                    (start..<end).allSatisfy(canUse)
-                {
-                    best = (lines[start].page, end, start)
-                    break
+            return lengths
+        }
+
+        /// Index body matches only. A wrapped heading cannot continue through the start of a table.
+        func headingMatches(excluding excluded: Set<Int>) -> [Int: [Range<Int>]] {
+            var matches: [Int: [Range<Int>]] = [:]
+            var nextExcluded = lines.count
+            for line in lines.indices.reversed() {
+                if excluded.contains(line) {
+                    nextExcluded = line
+                } else {
+                    for (id, end) in lines[line].ends where end <= nextExcluded {
+                        matches[id, default: []].append(line..<end)
+                    }
                 }
-                position += 1
             }
-            return best.map { ($0.page, $0.end) }
-        }
-
-        /// The index after the last line of a heading that wraps from `start`. It stays on one page.
-        private func endOfWrappedHeading(_ target: String, from start: Int) -> Int? {
-            var budget = Int.max
-            for form in lines[start].forms {
-                if let end = endOfWrappedLabel(target, first: form, from: start, budget: &budget) { return end }
-            }
-            return nil
-        }
-
-        private func endOfWrappedLabel(_ label: String, first: String, from start: Int, budget: inout Int) -> Int? {
-            var rest = label[...]
-            var line = start
-            while line < lines.count, lines[line].page == lines[start].page {
-                let form = line == start ? first : lines[line].forms[0]
-                // Charge the shorter operand, including failed prefix comparisons.
-                budget -= min(rest.utf8.count, form.utf8.count) + 1
-                guard budget > 0, !form.isEmpty, rest.hasPrefix(form) else { return nil }
-                rest = rest.dropFirst(form.count)
-                line += 1
-                if rest.isEmpty { return line }
-            }
-            return nil
+            return matches
         }
 
         /// The line as it stands, and without a number when it has one: a theme can number a heading with a counter,
@@ -432,23 +210,7 @@ extension DocumentOutline {
             let rest = trimmed.dropFirst(number.count)
             let endsNumber = rest.first?.isWhitespace == true || number.last.map { !$0.isNumber } == true
             guard !number.isEmpty, !rest.isEmpty, endsNumber else { return [normalized(line)] }
-            let full = normalized(line)
-            let stripped = normalized(String(rest))
-            return full == stripped || stripped.isEmpty ? [full] : [full, stripped]
-        }
-
-        private static func firstPosition(in sorted: [Int], atLeast value: Int) -> Int {
-            firstPosition(in: sorted, atLeast: value, position: { $0 })
-        }
-
-        private static func firstPosition<T>(in sorted: [T], atLeast value: Int, position: (T) -> Int) -> Int {
-            var low = 0
-            var high = sorted.count
-            while low < high {
-                let middle = (low + high) / 2
-                if position(sorted[middle]) < value { low = middle + 1 } else { high = middle }
-            }
-            return low
+            return [normalized(line), normalized(String(rest))]
         }
     }
 
@@ -501,14 +263,9 @@ extension DocumentOutline {
     }
 
     public static func entries(
-        of headings: [DocumentHeading], inPageTexts pages: [String], contentsEntries: [String] = [],
-        sourceContents: [SourceContents] = []
+        of headings: [DocumentHeading], inPageTexts pages: [String], contentsEntries: [String] = []
     ) -> [OutlineEntry] {
-        zip(
-            headings,
-            self.pages(
-                of: headings, inPageTexts: pages, contentsEntries: contentsEntries, sourceContents: sourceContents)
-        ).map {
+        zip(headings, self.pages(of: headings, inPageTexts: pages, contentsEntries: contentsEntries)).map {
             heading, page in
             OutlineEntry(level: heading.level, title: heading.text, pageIndex: page)
         }

@@ -1016,7 +1016,7 @@ public final class DocumentRenderer {
             let headings = DocumentOutline.headings(inHTML: html)
             let texts = (0..<document.pageCount).map { document.page(at: $0)?.string ?? "" }
             let pages = DocumentOutline.pages(
-                of: headings, inPageTexts: texts, sourceContents: DocumentOutline.sourceContents(inHTML: html))
+                of: headings, inPageTexts: texts, contentsEntries: DocumentOutline.sourceContentsEntries(inHTML: html))
             return DocumentOutline.chapterEnds(of: headings, pages: pages, inPageTexts: texts)
         default: return []
         }
@@ -1620,7 +1620,7 @@ public final class DocumentRenderer {
             let pageTexts = (0..<pageCount).map { text.document.page(at: $0)?.string ?? "" }
             let headingPages = DocumentOutline.pages(
                 of: facts.headings, inPageTexts: pageTexts,
-                sourceContents: showsSourceContents ? DocumentOutline.sourceContents(inHTML: fragment.body) : []
+                contentsEntries: showsSourceContents ? DocumentOutline.sourceContentsEntries(inHTML: fragment.body) : []
             )
             let insertion = notes.map {
                 FinishedPagePlan.Notes(
@@ -1864,7 +1864,7 @@ public final class DocumentRenderer {
         let pageTexts = places.map { logical.document.page(at: $0)?.string ?? "" }
         let headingPages = DocumentOutline.pages(
             of: facts.headings, inPageTexts: pageTexts,
-            sourceContents: finishing.showsSourceContents ? DocumentOutline.sourceContents(inHTML: body) : [])
+            contentsEntries: finishing.showsSourceContents ? DocumentOutline.sourceContentsEntries(inHTML: body) : [])
         return PageChapters.titles(headings: facts.headings, pages: headingPages, pageCount: places.count, plan: plan)
     }
 

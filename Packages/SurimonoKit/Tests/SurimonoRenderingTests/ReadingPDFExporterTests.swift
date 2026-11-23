@@ -94,14 +94,14 @@ struct ReadingPDFExporterTests {
                 """
                 #+OPTIONS: toc:t
                 * Alpha
-                #+TOC: headlines local
-                ** Beta
                 text
-                * Gamma
+                * Beta
+                #+TOC: headlines local
+                ** Gamma
                 text
                 """.utf8),
             fileURL: URL(fileURLWithPath: "/reading-export-fixture/source.org"), format: .org)
-        // The table in front on a page of its own, then one page for each heading.
+        // The nested entry comes last so PDFKit can read by indentation or by height in the same order.
         let css = "body { font-size: 12pt; } h1, h2 { break-before: page; }"
         let settings = RenderSettings(
             layout: .a4BookletA5, theme: PrintTheme(id: "test", name: "Test", css: css),
@@ -125,12 +125,12 @@ struct ReadingPDFExporterTests {
             return pages.sorted()
         }
         #expect(targets(onPage: 0) == [1, 2, 3])
-        #expect(targets(onPage: 1) == [2])
+        #expect(targets(onPage: 2) == [3])
         let first = try #require(reread.outlineRoot?.child(at: 0))
         #expect(reread.index(for: try #require(first.destination?.page)) == 1)
-        #expect(reread.index(for: try #require(first.child(at: 0)?.destination?.page)) == 2)
         let second = try #require(reread.outlineRoot?.child(at: 1))
-        #expect(reread.index(for: try #require(second.destination?.page)) == 3)
+        #expect(reread.index(for: try #require(second.destination?.page)) == 2)
+        #expect(reread.index(for: try #require(second.child(at: 0)?.destination?.page)) == 3)
     }
 
     @Test("本文で目次の項目が別順に現れても、書き出した PDF のしおりは本文のページを指す")

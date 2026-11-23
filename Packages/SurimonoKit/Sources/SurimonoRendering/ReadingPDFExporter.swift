@@ -19,7 +19,7 @@ public enum ReadingPDFExporter {
             let html = DocumentRenderer.structureHTML(of: source, proof: proof) ?? ""
             return (
                 DocumentOutline.headings(inHTML: html),
-                includesSourceContents ? DocumentOutline.sourceContents(inHTML: html) : [],
+                includesSourceContents ? DocumentOutline.sourceContentsEntries(inHTML: html) : [],
                 DocumentOutline.title(ofHTML: html)
             )
         }.value
@@ -30,7 +30,7 @@ public enum ReadingPDFExporter {
             if Task.isCancelled { return ([], nil, []) }
         }
         let entries = await Task.detached(priority: .utility) { [texts] in
-            DocumentOutline.entries(of: structure.0, inPageTexts: texts, sourceContents: structure.1)
+            DocumentOutline.entries(of: structure.0, inPageTexts: texts, contentsEntries: structure.1)
         }.value
         return (entries, structure.2, structure.0)
     }

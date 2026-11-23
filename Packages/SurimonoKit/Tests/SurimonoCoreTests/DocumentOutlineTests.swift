@@ -4,7 +4,7 @@ import Testing
 
 @Suite("文書の構造", .timeLimit(.minutes(1)))
 struct DocumentOutlineTests {
-    @Test("コードの行番号で位置がずれても目次を探し直す")
+    @Test("コードに行番号が加わっても原稿順の目次を読み飛ばす")
     func printedCodeNumber() {
         let html = "<h1>Title</h1><pre>let sheets = 4</pre><nav class=\"toc\">Contents<a>A</a><a>B</a></nav>"
         let pages = ["Title\n1\nlet sheets = 4\nContents\nA\nB", "A\ntext", "B\ntext"]
@@ -23,90 +23,35 @@ struct DocumentOutlineTests {
         #expect(locations(["AB", "CD"], pages) == [2, 3])
     }
 
-    @Test("位置がなく同じ並びが二度続くときは目次ページを確定しない")
-    func ambiguousContents() {
-        #expect(locations(["A", "B"], ["A\nB", "A\nB"]) == [nil, nil])
-    }
-
-    @Test("先の目次の照合に失敗しても後ろの無題の目次は本文の境界で探し直す")
-    func laterLocalContents() {
-        let html = "<nav class=\"toc\"><a>X</a></nav><p>Before</p><nav class=\"toc\"><a>A</a><a>B</a></nav><p>After</p>"
-        #expect(locations(["A", "B"], ["unprinted\nBefore\nB\nA\nAfter", "A\ntext", "B\ntext"], html) == [1, 2])
-    }
-
-    @Test("多数の同名標題を読み飛ばして長い目次を一度だけ除く")
-    func manyContentsCaptions() {
-        let entries = (1...1500).map { "A\($0)" }
-        let pages = [
-            String(repeating: "Contents\nx\n", count: 1500) + "Contents\n" + entries.joined(separator: "\n"), "A1",
-        ]
-        #expect(
-            DocumentOutline.pages(
-                of: [DocumentHeading(level: 1, text: "A1")], inPageTexts: pages, contentsEntries: entries) == [1])
-    }
-
-    @Test("題なしの目次は直後の段落だけが一致しても位置を回復できる")
-    func followingBlockLocatesTable() {
-        let html = "<p>Missing</p><nav class=\"toc\"><a>A</a><a>B</a></nav><p>Ch<span>apt</span>er introduction</p>"
-        #expect(
-            locations(["A", "B"], ["Generated\nB\nA\nChapter introduction", "A\ntext", "B\ntext"], html) == [1, 2])
-    }
-
-    @Test("同じ標題の後に二つの候補があれば原文の項目順を優先する")
-    func prefersOrderedContents() {
-        let pages = ["Contents\nB\nA", "B", "Contents\nA\nB", "A\ntext", "B\ntext"]
-        #expect(locations(["A", "B"], pages) == [0, 1])
-    }
-
-    @Test("同じ順の本文と題なしの目次も DOM の境界があれば判別できる")
-    func titlelessContentsAfterBody() {
-        let html = "<h1>A</h1><h1>B</h1><nav class=\"toc\"><a>A</a><a>B</a></nav>"
-        #expect(locations(["A", "B"], ["A\nB", "A\nB"], html) == [0, 0])
-    }
-
-    @Test("先の目次の一部が紙面にないときも同名の後続見出しに復帰する")
-    func recoveryWithSharedLabels() {
-        let html =
-            "<nav class=\"toc\"><a>A</a><a>Missing</a></nav><p>Before</p>"
-            + "<nav class=\"toc\"><a>A</a><a>B</a></nav><p>After</p>"
-        #expect(locations(["A", "B"], ["A\nBefore\nB\nA\nAfter", "A\ntext", "B\ntext"], html) == [1, 2])
-    }
-
     @Test("本文と目次の行をつないで折り返し見出しを作らない")
     func wrappedHeadingStopsAtContents() {
         let html = "<p>Book</p><nav class=\"toc\"><a>Title</a></nav>"
         #expect(locations(["BookTitle"], ["Book\nTitle", "BookTitle\ntext"], html) == [1])
     }
 
-    @Test("行番号で位置がずれて同じ目次が続いても本文のページを短時間で見つける")
-    func repeatedAmbiguousTables() {
+    @Test("同じ標題の目次が二千個続いても本文のページを短時間で見つける")
+    func repeatedContentsTables() {
         let count = 2_000
         let table = "<nav class=\"toc\">Contents<a>A</a></nav>"
         let html = "<pre>x\ny</pre>" + String(repeating: table, count: count) + "<h1>A</h1><p>body</p>"
         let pages = ["1\nx\n2\ny\n" + String(repeating: "Contents\nA\n", count: count), "A\nbody"]
         let elapsed = ContinuousClock().measure {
-            let tables = DocumentOutline.sourceContents(inHTML: html)
-            #expect(tables.count == count)
+            let entries = DocumentOutline.sourceContentsEntries(inHTML: html)
             #expect(
                 DocumentOutline.pages(
-                    of: [DocumentHeading(level: 1, text: "A")], inPageTexts: pages, sourceContents: tables) == [1])
+                    of: [DocumentHeading(level: 1, text: "A")], inPageTexts: pages, contentsEntries: entries) == [1])
         }
         #expect(elapsed < .seconds(1))
     }
 
-    @Test("異なる本文に挟まれた目次が続いても文書全体の探索を打ち切れる")
-    func ambiguousTablesWithDifferentNeighbours() {
-        let count = 2_000
-        let html =
-            (0..<count).map { "<p>Block\($0)</p><nav class=\"toc\">Contents<a>A</a></nav>" }.joined()
-            + "<h1>A</h1><h1>B</h1>"
-        let pages = [String(repeating: "Contents\nA\n", count: count), "A\nB"]
-        let elapsed = ContinuousClock().measure {
-            let matches = locations(["A", "B"], pages, html)
-            // An incomplete search may leave A unknown; B has no ambiguous contents entry.
-            #expect(matches == [nil, 1] || matches == [1, 1])
-        }
-        #expect(elapsed < .seconds(1))
+    @Test("目次の先頭と途中が同じ項目でも、重なった並びの途中から全項目が続けば除く")
+    func overlappingContentsPrefix() {
+        #expect(locations(["A", "A", "B"], ["A", "A\nA\nB", "A\n本文", "B"]) == [0, 2, 3])
+    }
+
+    @Test("目次の途中で短い行に折り返した項目も元の順で読み飛ばす")
+    func shortWrappedContentsEntry() {
+        #expect(locations(["A", "Short"], ["A\nSh\nort", "A\n本文", "Short"]) == [1, 2])
     }
 
     @Test("目次の前後の複数行コードに行番号が加わっても一意な項目順から見出しを探せる")
@@ -120,28 +65,39 @@ struct DocumentOutlineTests {
         #expect(locations(["Alpha", "Beta"], pages, html) == [1, 2])
     }
 
-    @Test("位置を失った目次は項目が逆順か候補が二つなら確定しない", arguments: ["Beta\nAlpha", "Alpha\nBeta\nAlpha\nBeta"])
-    func contentsWithoutPositionNeedUniqueOrder(_ run: String) {
-        let html = "<p>Missing prefix</p><nav class=\"toc\"><a>Alpha</a><a>Beta</a></nav>"
-        #expect(locations(["Alpha", "Beta"], [run], html) == [nil, nil])
+    @Test("目次だけにある共通接頭辞の見出し一万六千件を短時間で照合する")
+    func sharedPrefixInContentsOnly() {
+        let labels = (0..<16_000).map { "Chapter\($0)" }
+        let headings = labels.map { DocumentHeading(level: 1, text: $0) }
+        let html = "<nav class=\"toc\">Contents" + labels.map { "<a>\($0)</a>" }.joined() + "</nav>"
+        let pages = ["Contents\n" + labels.joined(separator: "\n")]
+        let elapsed = ContinuousClock().measure {
+            let matches = DocumentOutline.pages(
+                of: headings, inPageTexts: pages,
+                contentsEntries: DocumentOutline.sourceContentsEntries(inHTML: html))
+            #expect(matches.count == labels.count && matches.allSatisfy { $0 == nil })
+        }
+        #expect(elapsed < .seconds(2))
     }
 
-    @Test("同じ名前の全候補が目次に含まれても見出し数に応じて探し直さない")
-    func repeatedExcludedHeadings() {
-        let count = 16_000
-        let headings = Array(repeating: DocumentHeading(level: 1, text: "A"), count: count)
-        let pages = Array(repeating: "A", count: count + 1)
-        let elapsed = ContinuousClock().measure {
-            let matches = DocumentOutline.pages(of: headings, inPageTexts: pages, contentsEntries: ["A"])
-            #expect(matches.count == count && matches.allSatisfy { $0 == nil })
+    @Test("行番号のあるコードと目次が百組続く三十四ページでも全見出しのページが分かる")
+    func hundredPrintedTables() {
+        let labels = (0..<100).map { "Chapter\($0)" }
+        var html = ""
+        var pages = Array(repeating: "", count: 34)
+        for (i, label) in labels.enumerated() {
+            html +=
+                "<pre>let x = \(i)\nlet y = \(i)</pre><nav class=\"toc\">Contents<a>\(label)</a></nav>"
+                + "<p>Body\(i)</p><h1>\(label)</h1><p>text</p>"
+            pages[i / 3] += "1\nlet x = \(i)\n2\nlet y = \(i)\nContents\n\(label)\nBody\(i)\n\(label)\ntext\n"
         }
-        #expect(elapsed < .seconds(1))
+        #expect(locations(labels, pages, html) == labels.indices.map { $0 / 3 })
     }
 
     private func locations(_ entries: [String], _ pages: [String], _ html: String = "") -> [Int?] {
         DocumentOutline.pages(
             of: entries.map { DocumentHeading(level: 1, text: $0) }, inPageTexts: pages,
-            contentsEntries: html.isEmpty ? entries : [], sourceContents: DocumentOutline.sourceContents(inHTML: html))
+            contentsEntries: html.isEmpty ? entries : DocumentOutline.sourceContentsEntries(inHTML: html))
     }
 
     @Test("HTML から見出しの深さ・文字・ID を読む")
@@ -261,18 +217,12 @@ struct DocumentOutlineTests {
             + "<nav class=\"toc\"><a>A1</a></nav><h2>A1</h2><p>本文</p><h1>B</h1>"
         #expect(
             DocumentOutline.pages(
-                of: headings, inPageTexts: pages, sourceContents: DocumentOutline.sourceContents(inHTML: html)) == [
-                    1, 2, 3,
-                ])
-        // Without the position, either of the two consecutive A1 lines could be the local table.
-        #expect(
-            DocumentOutline.pages(of: headings, inPageTexts: pages, contentsEntries: ["A", "A1", "B", "", "A1"]) == [
-                1, nil, 3,
-            ])
+                of: headings, inPageTexts: pages, contentsEntries: DocumentOutline.sourceContentsEntries(inHTML: html))
+                == [1, 2, 3])
     }
 
-    @Test("入れ子の目次の行が項目と違う順に読めても、見出しに取らない")
-    func skipsSourceContentsReadOutOfOrder() {
+    @Test("入れ子の目次が原稿と違う順で読まれたときは、目次の行も見出しに一致する")
+    func reorderedContentsRemainSearchable() {
         let headings = [
             DocumentHeading(level: 1, text: "A"), DocumentHeading(level: 2, text: "A1"),
             DocumentHeading(level: 1, text: "B"),
@@ -280,7 +230,7 @@ struct DocumentOutlineTests {
         #expect(
             DocumentOutline.pages(
                 of: headings, inPageTexts: ["目次\nA\nB\nA1", "A\n本文", "A1\n本文", "B\n本文"],
-                contentsEntries: ["A", "A1", "B"]) == [1, 2, 3])
+                contentsEntries: ["A", "A1", "B"]) == [0, 0, 3])
     }
 
     @Test("原文の目次が二つあるとき、その項目は空の項目で区切って返す")
@@ -298,53 +248,23 @@ struct DocumentOutlineTests {
         let html = OrgConverter.convert("#+LANGUAGE: ja\n* A\nC\n* B\n* C\n本文\n#+TOC: headlines").body
         #expect(
             DocumentOutline.pages(
-                of: headings, inPageTexts: pages, sourceContents: DocumentOutline.sourceContents(inHTML: html)) == [
+                of: headings, inPageTexts: pages, contentsEntries: DocumentOutline.sourceContentsEntries(inHTML: html))
+                == [
                     0, 0, 1,
                 ])
     }
 
-    @Test("末尾の目次と同じ順で本物の見出しが続いても本文のページを残す")
+    @Test("末尾の目次と同じ順で本物の見出しが先に続けば、先の並びを目次として除く")
     func orderedBodyBeforeNamedContents() {
         let html = OrgConverter.convert("#+LANGUAGE: ja\n* A\n* B\n* C\n#+TOC: headlines").body
         let headings = DocumentOutline.headings(inHTML: html)
         let pages = ["A\nB\nC", "目次\nA\nB\nC"]
         #expect(
-            DocumentOutline.pages(of: headings, inPageTexts: pages, contentsEntries: ["A", "B", "C"]) == [0, 0, 0])
-        #expect(
             DocumentOutline.pages(
-                of: headings, inPageTexts: pages, sourceContents: DocumentOutline.sourceContents(inHTML: html)) == [
-                    0, 0, 0,
+                of: headings, inPageTexts: pages, contentsEntries: DocumentOutline.sourceContentsEntries(inHTML: html))
+                == [
+                    1, 1, 1,
                 ])
-    }
-
-    @Test("目次の DOM 位置で本文と題なしの目次を分け、目次の先頭項目が移動しても照合する")
-    func localContentsRange() {
-        let html = OrgConverter.convert("* B\n* C\n* Parent\n導入\n#+TOC: headlines local\n** B\n** C").body
-        let pages = ["B\nC", "Parent\n導入\nC\nB", "B\n本文", "C"]
-        #expect(
-            DocumentOutline.pages(
-                of: DocumentOutline.headings(inHTML: html), inPageTexts: pages,
-                sourceContents: DocumentOutline.sourceContents(inHTML: html)) == [0, 0, 1, 2, 3])
-    }
-
-    @Test("目次の先頭に移動した項目が折り返しても目次の範囲で照合する")
-    func reorderedWrappedContents() {
-        let html = OrgConverter.convert("#+OPTIONS: toc:t\n* A\n** LongHeading").body
-        let pages = ["Table of Contents\nLong\nHeading\nA", "A", "LongHeading"]
-        #expect(
-            DocumentOutline.pages(
-                of: DocumentOutline.headings(inHTML: html), inPageTexts: pages,
-                sourceContents: DocumentOutline.sourceContents(inHTML: html)) == [1, 2])
-    }
-
-    @Test("先頭とローカルの目次は DOM の位置にある行だけを読み飛ばす")
-    func positionedContents() {
-        let html = OrgConverter.convert("#+OPTIONS: toc:t\n* A\n#+TOC: headlines local\n** A1\n* B").body
-        let pages = ["Table of Contents\nB\nA\nA1", "A\nA1", "A1\n本文", "B\n本文"]
-        #expect(
-            DocumentOutline.pages(
-                of: DocumentOutline.headings(inHTML: html), inPageTexts: pages,
-                sourceContents: DocumentOutline.sourceContents(inHTML: html)) == [1, 2, 3])
     }
 
     @Test("本文の後の目次でも本物の見出しを消さない")
@@ -368,6 +288,18 @@ struct DocumentOutlineTests {
     func findsHeadingWrappedAfterShortLine() {
         let headings = [DocumentHeading(level: 1, text: "導入方法について")]
         #expect(DocumentOutline.pages(of: headings, inPageTexts: ["導入方法\nについて\n本文"]) == [0])
+    }
+
+    @Test("先の見出しが折り返しの途中で外れても、次の二行の見出しを見つける")
+    func overlappingWrappedTitles() {
+        let headings = ["FirstPartTail", "PartRest", "End"].map { DocumentHeading(level: 1, text: $0) }
+        #expect(DocumentOutline.pages(of: headings, inPageTexts: ["First\nPart\nRest", "End"]) == [nil, 0, 1])
+    }
+
+    @Test("長い見出しが同じ折り返し行を取り合う場合は先に始まる並びを読む")
+    func overlappingLongHeadings() {
+        let headings = ["BetaGammaDelta", "AlphaBetaGammaDelta"].map { DocumentHeading(level: 1, text: $0) }
+        #expect(DocumentOutline.pages(of: headings, inPageTexts: ["Alpha\nBeta\nGamma\nDelta"]) == [nil, 0])
     }
 
     @Test("コメントの中の見出しは読まない")
