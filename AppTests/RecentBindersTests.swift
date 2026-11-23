@@ -245,8 +245,8 @@ struct RecentBindersTests {
         defer { reopened?.window?.close() }
         let router = OpenRouter(
             openDocument: { _, _ in Issue.record("単独では開かない") }, openBundle: { _, _ in nil },
-            openBinder: { urls, excluded in
-                reopened = windows.open(urls, excluded: excluded)
+            openBinder: { files, excluded in
+                reopened = windows.open(files.urls, excluded: excluded, formats: files.formats)
                 reopened?.window?.orderOut(nil)
                 return reopened
             }, warn: { _ in Issue.record("警告しない") }, hasOpenWindows: { windows.hasWindows },
@@ -404,8 +404,8 @@ struct RecentBindersTests {
         defer { reopened?.window?.close() }
         let router = OpenRouter(
             openDocument: { _, _ in Issue.record("単独では開かない") }, openBundle: { _, _ in nil },
-            openBinder: { urls, excluded in
-                reopened = windows.open(urls, excluded: excluded)
+            openBinder: { files, excluded in
+                reopened = windows.open(files.urls, excluded: excluded, formats: files.formats)
                 reopened?.window?.orderOut(nil)
                 return reopened
             }, warn: { _ in Issue.record("警告しない") }, hasOpenWindows: { windows.hasWindows },

@@ -92,6 +92,7 @@ struct PaperLinkTests {
             openExternal: { _ in Issue.record("外部アプリへ渡さない") },
             openDocument: { router.open([$0]) })
         await handler.open(url) { _ in Issue.record("トーストを出さない") }
+        await router.waitForOpeningRequests()
         #expect(opened == [url])
         #expect(try Data(contentsOf: url) == data)
     }

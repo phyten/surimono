@@ -32,7 +32,7 @@ struct ServiceProviderTests {
             openBundle: { _, _ in
                 Issue.record("束は開かない")
                 return nil
-            }, openBinder: openBinder,
+            }, openBinder: { openBinder($0.urls, $1) },
             warn: { _ in Issue.record("警告しない") }, hasOpenWindows: { false },
             showWelcome: { Issue.record("ウェルカム画面は出さない") }, openMemory: openMemory, openWindows: openWindows,
             openText: openText)
@@ -137,24 +137,25 @@ struct ServiceProviderTests {
     }
 
     @Test("ファイルはルーターの規則で開く")
-    func files() {
+    func files() async {
         let board = board()
         defer { board.releaseGlobally() }
         let urls = [URL(fileURLWithPath: "/fixtures/b.pdf"), URL(fileURLWithPath: "/fixtures/a.md")]
         board.writeObjects(urls as [NSURL])
         var opened: [URL] = []
-        let provider = ServiceProvider(
-            router: router(openBinder: { urls, _ in
-                opened = urls
-                return nil
-            }), activate: {})
+        let router = router(openBinder: { urls, _ in
+            opened = urls
+            return nil
+        })
+        let provider = ServiceProvider(router: router, activate: {})
         var message: NSString?
         provider.openSelection(board, userData: nil, error: &message)
+        await router.waitForOpeningRequests()
         #expect(opened == [urls[1], urls[0]])
     }
 
     @Test("Finder で選んだファイルを「Surimono で刷る」に渡すと、ルーターが印刷モードで開く")
-    func printFiles() {
+    func printFiles() async {
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -172,6 +173,7 @@ struct ServiceProviderTests {
         let provider = ServiceProvider(router: router, activate: { activations += 1 })
         var message: NSString?
         provider.printSelection(board, userData: nil, error: &message)
+        await router.waitForOpeningRequests()
         #expect(message == nil)
         #expect(opened == [url])
         #expect(activations == 1)
@@ -182,7 +184,7 @@ struct ServiceProviderTests {
     }
 
     @Test("「Surimono で刷る」に渡した複数の画像は、画像の束が刷り台を頼まれる")
-    func printImages() {
+    func printImages() async {
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -203,12 +205,13 @@ struct ServiceProviderTests {
             showWelcome: { Issue.record("ウェルカム画面は出さない") })
         var message: NSString?
         ServiceProvider(router: router, activate: {}).printSelection(board, userData: nil, error: &message)
+        await router.waitForOpeningRequests()
         #expect(opened == [urls[1], urls[0]])
         #expect(bundle.isPrintModeRequested)
     }
 
     @Test("「Surimono で刷る」で渡したファイルは、その文書の窓だけが刷り台を頼まれる")
-    func printFileOnceOpen() {
+    func printFileOnceOpen() async {
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -216,6 +219,7 @@ struct ServiceProviderTests {
         let url = URL(fileURLWithPath: "/fixtures/a.md")
         let router = router(openDocument: { _, completion in completion(true) })
         router.open(.files([url]), printing: true)
+        await router.waitForOpeningRequests()
         let opened = model(url: url, suite: suite, library: directory)
         defer { opened.stop() }
         let other = model(url: URL(fileURLWithPath: "/fixtures/b.md"), suite: suite, library: directory)
@@ -231,7 +235,7 @@ struct ServiceProviderTests {
     }
 
     @Test("すでに開いているファイルを「Surimono で刷る」で渡すとその窓が頼まれる")
-    func printOpenFile() {
+    func printOpenFile() async {
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -241,17 +245,18 @@ struct ServiceProviderTests {
         defer { existing.stop() }
         let router = router(openDocument: { _, completion in completion(true) }, openWindows: { [existing] })
         router.open(.files([url]), printing: true)
+        await router.waitForOpeningRequests()
         #expect(existing.isPrintModeRequested)
     }
 
     private func binder(_ urls: [URL], suite: TestDefaultsSuite, library: URL) -> DocumentViewModel {
         DocumentViewModel(
             data: Data(), fileURL: nil, format: .pdf, preferences: AppPreferences(defaults: suite.defaults),
-            library: UserLibrary(root: library), binder: BinderModel(urls: urls, read: { _ in Data() }))
+            library: UserLibrary(root: library), binder: BinderModel(urls: urls, read: { _, _ in Data() }))
     }
 
     @Test("単独の文書を刷るとき、同じファイルを含む合本の窓は要求を受け取らない")
-    func singleFileBesideBinder() {
+    func singleFileBesideBinder() async {
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -264,12 +269,13 @@ struct ServiceProviderTests {
         defer { bound.stop() }
         let router = router(openDocument: { _, completion in completion(true) }, openWindows: { [bound, document] })
         router.open(.files([a]), printing: true)
+        await router.waitForOpeningRequests()
         #expect(document.isPrintModeRequested)
         #expect(!bound.isPrintModeRequested)
     }
 
     @Test("合本を刷るとき、中のファイルを単独で開いた窓は要求を受け取らない")
-    func binderBesideSingleFile() {
+    func binderBesideSingleFile() async {
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -282,12 +288,13 @@ struct ServiceProviderTests {
         defer { bound.stop() }
         let router = router(openBinder: { _, _ in bound }, openWindows: { [bound, document] })
         router.open(.files([a, b]), printing: true)
+        await router.waitForOpeningRequests()
         #expect(bound.isPrintModeRequested)
         #expect(!document.isPrintModeRequested)
     }
 
     @Test("開けなかったファイルの刷り台の依頼は残らない")
-    func failedOpenForgetsRequest() {
+    func failedOpenForgetsRequest() async {
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -298,6 +305,7 @@ struct ServiceProviderTests {
             openBinder: { _, _ in nil },
             warn: { _ in }, hasOpenWindows: { true }, showWelcome: {})
         router.open(.files([url]), printing: true)
+        await router.waitForOpeningRequests()
         let later = model(url: url, suite: suite, library: directory)
         defer { later.stop() }
         router.printIfRequested(later)

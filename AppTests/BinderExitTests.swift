@@ -207,6 +207,7 @@ struct BinderExitTests {
         let model = f.binder([a, b])
         #expect(!model.binderExit.canLeave(model))
         model.removeFromBinder(b)
+        await f.router.waitForOpeningRequests()
         await f.task?.value
         #expect(f.questions == (policy == .ask ? 1 : 0))
         #expect(f.opens == (policy == .leave ? 1 : 0))
@@ -224,6 +225,7 @@ struct BinderExitTests {
         model.removeFromBinder(try #require(model.binder?.urls.last))
         let answer = try #require(f.answer)
         answer(.init(leave: leave, suppress: suppress))
+        await f.router.waitForOpeningRequests()
         await f.task?.value
         #expect(f.closed.contains(ObjectIdentifier(model)) == leave)
         let saved = AppPreferences(defaults: f.defaults).singleDocumentBinderPolicy
@@ -261,6 +263,7 @@ struct BinderExitTests {
         model.removeFromBinder(b)
         let answer = try #require(f.answer)
         answer(.init(leave: true, suppress: false))
+        await f.router.waitForOpeningRequests()
         await f.task?.value
         let target = try #require(f.target)
         await Self.waitUntil { !target.isRendering }
@@ -318,6 +321,7 @@ struct BinderExitTests {
         let model = f.binder([b], memory: bytes)
         f.preferences.singleDocumentBinderPolicy = .leave
         model.removeFromBinder(b)
+        await f.router.waitForOpeningRequests()
         await f.task?.value
         let target = try #require(f.target)
         #expect(!target.isRendering)
@@ -357,6 +361,7 @@ struct BinderExitTests {
         #expect(model.binder?.items.count == 1)
         #expect(f.questions == 0)
         model.binderExit.leave(model)
+        await f.router.waitForOpeningRequests()
         await f.task?.value
         #expect(f.opens == 1)
         #expect(f.questions == 0)
@@ -397,13 +402,14 @@ struct BinderExitTests {
     }
 
     @Test("単独文書を開けなければ合本を残して解除を再試行できる")
-    func failedOpen() throws {
+    func failedOpen() async throws {
         let f = try Fixture()
         defer { f.clean() }
         let model = f.binder([try f.file("a.pdf"), try f.file("b.pdf")])
         f.failsToOpen = true
         f.preferences.singleDocumentBinderPolicy = .leave
         model.removeFromBinder(try #require(model.binder?.urls.last))
+        await f.router.waitForOpeningRequests()
         #expect(!f.closed.contains(ObjectIdentifier(model)))
         #expect(model.binderExit.canLeave(model))
         #expect(model.showsSideList)

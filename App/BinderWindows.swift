@@ -17,8 +17,8 @@ final class BinderWindows {
     var hasWindows: Bool { !controllers.isEmpty }
 
     @discardableResult
-    func open(_ urls: [URL], excluded: [URL] = []) -> DocumentViewModel {
-        open(urls, origin: .files) { BinderModel(urls: urls, excluded: excluded) }
+    func open(_ urls: [URL], excluded: [URL] = [], formats: [URL: DocumentFormat]? = nil) -> DocumentViewModel {
+        open(urls, origin: .files) { BinderModel(urls: urls, excluded: excluded, formats: formats) }
     }
 
     /// A parent file's documents, with the parent's own text in front when it has any.

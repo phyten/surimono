@@ -116,7 +116,7 @@ struct ClipboardWindowsTests {
     }
 
     @Test("FinderのファイルURLは文字列より優先して既存のルーターにまとめて渡す")
-    func routesFiles() {
+    func routesFiles() async {
         let board = board()
         defer { board.releaseGlobally() }
         let urls = [URL(fileURLWithPath: "/fixtures/2.png"), URL(fileURLWithPath: "/fixtures/1.jpg")]
@@ -141,6 +141,7 @@ struct ClipboardWindowsTests {
                 Issue.record("警告しない")
             }, closeWelcome: {})
         #expect(windows.open(from: board) == nil)
+        await router.waitForOpeningRequests()
         #expect(opened == [urls[1], urls[0]])
         #expect(!windows.hasWindows)
     }
@@ -171,7 +172,7 @@ struct ClipboardWindowsTests {
             preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: directory),
             title: "Clipboard 0:13")
         defer { model.stop() }
-        model.readReloadData = { _ in
+        model.readReloadData = { _, _ in
             Issue.record("ファイルを読まない")
             return Data()
         }

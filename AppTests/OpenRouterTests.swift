@@ -24,7 +24,7 @@ struct OpenRouterTests {
                 return nil
             },
             openBinder: {
-                openBinder($0, $1)
+                openBinder($0.urls, $1)
                 return nil
             },
             warn: warn,
@@ -32,21 +32,40 @@ struct OpenRouterTests {
             showWelcome: showWelcome, openMemory: openMemory)
     }
 
+    @Test("単独ファイルの判定中もメインスレッドを空け、要求順に窓へ渡す", .timeLimit(.minutes(1)))
+    func gateOffMainThread() async {
+        var opened: [URL] = []
+        let files = [url("Dockerfile"), url("memo.md")]
+        let router = router(openDocument: { file, complete in
+            opened.append(file)
+            complete(true)
+        })
+        router.route = { @Sendable _ in
+            #expect(!Thread.isMainThread)
+            return .document
+        }
+        for file in files { router.open([file]) }
+        await router.waitForOpeningRequests()
+        #expect(opened == files)
+    }
+
     @Test("1つのファイルは文書を開く処理に渡す")
-    func single() {
+    func single() async {
         var opened: [URL] = []
         let router = router(openDocument: { url, _ in opened.append(url) })
         router.open([url("a.pdf")])
+        await router.waitForOpeningRequests()
         #expect(opened == [url("a.pdf")])
     }
 
     @Test("同梱の案内は1つのファイルとして文書を開く処理に渡し、2度目も同じファイルを渡す")
-    func gettingStarted() {
+    func gettingStarted() async {
         var opened: [URL] = []
         let router = router(openDocument: { url, _ in opened.append(url) })
         router.gettingStartedURL = { self.url("Getting Started with Surimono.md") }
         #expect(router.openGettingStarted())
         #expect(router.openGettingStarted())
+        await router.waitForOpeningRequests()
         #expect(opened == [url("Getting Started with Surimono.md"), url("Getting Started with Surimono.md")])
     }
 
@@ -74,18 +93,19 @@ struct OpenRouterTests {
     }
 
     @Test("画像3つは自然順の束として開く")
-    func bundle() {
+    func bundle() async {
         var opened: [URL] = []
         let router = router(openBundle: { urls, excluded in
             opened = urls
             #expect(excluded.isEmpty)
         })
         router.open([url("10.png"), url("2.jpg"), url("1.heic")])
+        await router.waitForOpeningRequests()
         #expect(opened == [url("1.heic"), url("2.jpg"), url("10.png")])
     }
 
     @Test("画像とZIPの選択は除外一覧付きの画像の束として開き警告しない")
-    func imagesWithExclusions() {
+    func imagesWithExclusions() async {
         var opened: [URL] = []
         var exclusions: [URL] = []
         let router = router(openBundle: { urls, excluded in
@@ -93,18 +113,20 @@ struct OpenRouterTests {
             exclusions = excluded
         })
         router.open([url("b.zip"), url("a.png")])
+        await router.waitForOpeningRequests()
         #expect(opened == [url("a.png")])
         #expect(exclusions == [url("b.zip")])
     }
 
     @Test("MarkdownとPDFは合本を開いて警告しない")
-    func binder() {
+    func binder() async {
         var opened: [URL] = []
         let router = router(openBinder: { urls, excluded in
             opened = urls
             #expect(excluded.isEmpty)
         })
         router.open([url("b.pdf"), url("a.md")])
+        await router.waitForOpeningRequests()
         #expect(opened == [url("a.md"), url("b.pdf")])
     }
 
@@ -119,19 +141,19 @@ struct OpenRouterTests {
             },
             openBundle: { _, _ in nil }, openBinder: { _, _ in nil }, warn: { _ in Issue.record("警告しない") },
             hasOpenWindows: { true }, showWelcome: {},
-            openAsText: { url, completion in
+            openAsText: { url in
                 record("text", url)
-                completion(true)
+                return true
             },
             refuse: refused)
     }
 
-    private func withFiles(_ files: [String: Data], _ body: (URL) throws -> Void) throws {
+    private func withFiles(_ files: [String: Data], _ body: (URL) async throws -> Void) async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
         for (name, data) in files { try data.write(to: directory.appendingPathComponent(name)) }
-        try body(directory.standardizedFileURL)
+        try await body(directory.standardizedFileURL)
     }
 
     private var video: Data {
@@ -141,16 +163,17 @@ struct OpenRouterTests {
     }
 
     @Test("1 つのファイルは、型のある文書なら文書を開く処理へ、型のないテキストならテキストとして開く処理へ渡す")
-    func singleFileWays() throws {
+    func singleFileWays() async throws {
         let files = [
             "main.ts": Data("let a = 1\n".utf8), "main.go": Data("package main\n".utf8), "notes.md": Data("# a".utf8),
             "Dockerfile": Data("FROM scratch\n".utf8), "tool": Data("#!/bin/sh\necho 1\n".utf8),
             ".env": Data("A=1\n".utf8), "LICENSE": Data("Free.\n".utf8),
         ]
-        try withFiles(files) { directory in
+        try await withFiles(files) { directory in
             var ways: [String: String] = [:]
             let router = routed({ way, url in ways[url.lastPathComponent] = way })
             for name in files.keys { router.open([directory.appendingPathComponent(name)]) }
+            await router.waitForOpeningRequests()
             #expect(
                 ways == [
                     "main.ts": "document", "main.go": "document", "notes.md": "document", "LICENSE": "document",
@@ -160,9 +183,9 @@ struct OpenRouterTests {
     }
 
     @Test("動画の .ts・.mts とバイナリの .plist は、どの開く処理にも渡さずに断る")
-    func singleFileRefusals() throws {
+    func singleFileRefusals() async throws {
         let binary = try PropertyListSerialization.data(fromPropertyList: ["a": 1], format: .binary, options: 0)
-        try withFiles(["clip.ts": video, "clip.mts": video, "Info.plist": binary]) { directory in
+        try await withFiles(["clip.ts": video, "clip.mts": video, "Info.plist": binary]) { directory in
             var opened: [URL] = []
             var refusals: [SourceFileError] = []
             let router = routed(
@@ -170,14 +193,15 @@ struct OpenRouterTests {
             for name in ["clip.ts", "clip.mts", "Info.plist"] {
                 router.open([directory.appendingPathComponent(name)], printing: true)
             }
+            await router.waitForOpeningRequests()
             #expect(opened.isEmpty)
             #expect(refusals == [.notText, .notText, .notText])
         }
     }
 
     @Test("合本を解いて文書を開き直すときも、同じ道の選び方を通る")
-    func reopenTakesTheSameWay() throws {
-        try withFiles(["Dockerfile": Data("FROM scratch\n".utf8), "clip.ts": video]) { directory in
+    func reopenTakesTheSameWay() async throws {
+        try await withFiles(["Dockerfile": Data("FROM scratch\n".utf8), "clip.ts": video]) { directory in
             var ways: [String] = []
             let router = routed({ way, _ in ways.append(way) })
             var results: [Bool] = []
@@ -186,20 +210,21 @@ struct OpenRouterTests {
                 let origin = BinderOrigin(contents: .document(url), frame: .zero, pageIndex: 0, wasPrinting: false)
                 router.reopen(url, restoring: origin) { results.append($0) }
             }
+            await router.waitForOpeningRequests()
             #expect(ways == ["text"])
             #expect(results == [true, false])
         }
     }
 
     @Test("ソースコードと文章の複数選択は合本を開き、拡張子のない Dockerfile とスクリプトを含め、動画を除く")
-    func binderOfSourceFiles() throws {
+    func binderOfSourceFiles() async throws {
         let files = [
             "notes.md": Data("# a".utf8), "main.ts": Data("let a = 1\n".utf8), "main.go": Data("package main\n".utf8),
             "Dockerfile": Data("FROM scratch\n".utf8), "tool": Data("#!/bin/sh\n".utf8),
             "LICENSE": Data("Free.\n".utf8),
             "clip.ts": video, "clip.mts": video,
         ]
-        try withFiles(files) { directory in
+        try await withFiles(files) { directory in
             func file(_ name: String) -> URL { directory.appendingPathComponent(name) }
             var opened: [URL] = []
             var left: [URL] = []
@@ -207,17 +232,19 @@ struct OpenRouterTests {
                 opened = urls
                 left = excluded
             })
-            router.open(files.keys.map(file))
-            #expect(opened == ["Dockerfile", "main.go", "main.ts", "notes.md", "tool"].map(file))
-            #expect(left == ["clip.mts", "clip.ts", "LICENSE"].map(file))
+            router.open(files.keys.map { file($0) })
+            await router.waitForOpeningRequests()
+            #expect(opened == ["Dockerfile", "main.go", "main.ts", "notes.md", "tool"].map { file($0) })
+            #expect(left == ["clip.mts", "clip.ts", "LICENSE"].map { file($0) })
         }
     }
 
     @Test("ソースコードだけの複数選択も合本になり、画像の束にはならない")
-    func binderOfOnlySourceFiles() {
+    func binderOfOnlySourceFiles() async {
         var opened: [URL] = []
         let router = router(openBinder: { urls, _ in opened = urls })
         router.open([url("b.rs"), url("a.swift")])
+        await router.waitForOpeningRequests()
         #expect(opened == [url("a.swift"), url("b.rs")])
     }
 
@@ -279,7 +306,7 @@ struct OpenRouterTests {
     }
 
     @Test("1つのファイルを印刷モードで開くと、その文書の窓ができたときに刷り台を頼む")
-    func singleInPrintMode() {
+    func singleInPrintMode() async {
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -296,13 +323,14 @@ struct OpenRouterTests {
             hasOpenWindows: { false }, showWelcome: { Issue.record("ウェルカム画面は出さない") },
             openWindows: { windows })
         #expect(router.open([url("a.md")], printing: true))
+        await router.waitForOpeningRequests()
         defer { for model in windows { model.stop() } }
         #expect(opened == [url("a.md")])
         #expect(windows.first?.isPrintModeRequested == true)
     }
 
     @Test("印刷モードを頼まずに開いた文書は表示モードのまま")
-    func singleWithoutPrintMode() {
+    func singleWithoutPrintMode() async {
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -315,12 +343,13 @@ struct OpenRouterTests {
             }, openBundle: { _, _ in nil }, openBinder: { _, _ in nil }, warn: { _ in },
             hasOpenWindows: { false }, showWelcome: {}, openWindows: { windows })
         router.open([url("a.md")])
+        await router.waitForOpeningRequests()
         defer { for model in windows { model.stop() } }
         #expect(windows.first?.isPrintModeRequested == false)
     }
 
     @Test("複数の画像を印刷モードで開くと、画像の束の窓が刷り台を頼まれる")
-    func bundleInPrintMode() {
+    func bundleInPrintMode() async {
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -336,12 +365,13 @@ struct OpenRouterTests {
             }, openBinder: { _, _ in nil }, warn: { _ in Issue.record("警告しない") }, hasOpenWindows: { false },
             showWelcome: {})
         router.open([url("2.png"), url("1.jpg")], printing: true)
+        await router.waitForOpeningRequests()
         #expect(opened == [url("1.jpg"), url("2.png")])
         #expect(bundle.isPrintModeRequested)
     }
 
     @Test("対応する文書がない選択を印刷モードで開こうとすると、警告だけを出して何も開かない")
-    func unsupportedInPrintMode() {
+    func unsupportedInPrintMode() async {
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -360,12 +390,13 @@ struct OpenRouterTests {
                 return nil
             }, warn: { _ in warnings += 1 }, hasOpenWindows: { true }, showWelcome: {}, openWindows: { [other] })
         router.open([url("a.zip"), url("b.unknown")], printing: true)
+        await router.waitForOpeningRequests()
         #expect(warnings == 1)
         #expect(!other.isPrintModeRequested)
     }
 
     @Test("すでに開いているファイルを印刷モードで開くと、文書を開く処理が前面に出し、その窓が刷り台を頼まれる")
-    func openFileInPrintMode() {
+    func openFileInPrintMode() async {
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -380,51 +411,57 @@ struct OpenRouterTests {
             }, openBundle: { _, _ in nil }, openBinder: { _, _ in nil }, warn: { _ in Issue.record("警告しない") },
             hasOpenWindows: { true }, showWelcome: {}, openWindows: { [existing] })
         router.open([url("a.md")], printing: true)
+        await router.waitForOpeningRequests()
         #expect(shown == [url("a.md")])
         #expect(existing.isPrintModeRequested)
     }
 
     @Test("対応する文書がないドロップは対象ウィンドウで警告する")
-    func sheet() {
+    func sheet() async {
         let window = NSWindow(contentRect: .zero, styleMask: [.titled], backing: .buffered, defer: true)
         var parent: NSWindow?
         let router = router(warn: { parent = $0 })
         router.open([url("a.zip"), url("b.unknown")], from: window)
+        await router.waitForOpeningRequests()
         #expect(parent === window)
     }
 
     @Test("対応する文書がなく何も開いていなければウェルカム画面を出す")
-    func welcomeAfterRejection() {
+    func welcomeAfterRejection() async {
         var welcomes = 0
         let router = router(warn: { _ in }, showWelcome: { welcomes += 1 })
         router.open([url("a.zip"), url("b.unknown")])
+        await router.waitForOpeningRequests()
         router.showWelcomeIfIdle()
         #expect(welcomes == 1)
     }
 
     @Test("文書を開けず何も開いていなければウェルカム画面を出す")
-    func welcomeAfterFailure() {
+    func welcomeAfterFailure() async {
         var welcomes = 0
         let router = router(openDocument: { _, completion in completion(false) }, showWelcome: { welcomes += 1 })
         router.open([url("unreadable.pdf")])
+        await router.waitForOpeningRequests()
         #expect(welcomes == 1)
     }
 
     @Test("ほかの文書を開いている途中ならウェルカム画面を出さない")
-    func noWelcomeWhilePending() {
+    func noWelcomeWhilePending() async {
         var completions: [(Bool) -> Void] = []
         let router = router(openDocument: { _, completion in completions.append(completion) })
         router.open([url("a.pdf")])
         router.open([url("unreadable.pdf")])
+        await router.waitForOpeningRequests()
         completions[1](false)
         router.showWelcomeIfIdle()
         #expect(router.pendingOpens == 1)
     }
 
     @Test("文書のウィンドウがあれば開けなかったときもウェルカム画面を出さない")
-    func noWelcomeWithWindows() {
+    func noWelcomeWithWindows() async {
         let router = router(openDocument: { _, completion in completion(false) }, hasOpenWindows: { true })
         router.open([url("unreadable.pdf")])
+        await router.waitForOpeningRequests()
         #expect(router.pendingOpens == 0)
     }
 

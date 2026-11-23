@@ -13,7 +13,7 @@ enum SourceFileError: LocalizedError, Equatable {
 /// How one file is opened and read. `TextFileGate` reads the beginning of the files whose name does not settle what
 /// they are, before anything loads their contents.
 enum SourceFileOpening {
-    enum Route: Equatable {
+    nonisolated enum Route: Equatable, Sendable {
         /// The document controller opens it by its own type, as it opens any other file.
         case document
         /// Text that macOS gives no type the app reads (`Dockerfile`, `.env`, a script named only by its `#!`
@@ -46,11 +46,18 @@ enum SourceFileOpening {
     /// The contents of a file a window or a binder shows, read again after the first time. A file of a kind the
     /// gate looks at is checked and read through one descriptor, so a video put in a `.ts` file's place is turned
     /// away before it is loaded, and what was checked is what is read. With `root`, the file must lie under it.
-    nonisolated static func read(_ url: URL, within root: String? = nil) throws -> Data {
-        let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType
-        guard TextFileGate.concerns(fileName: url.lastPathComponent, type: type) else {
-            return try root.map { try ConfinedFile.read(url, within: $0) } ?? Data(contentsOf: url)
+    nonisolated static func read(_ url: URL, format: DocumentFormat, within root: String? = nil) throws -> Data {
+        if format == .plainText {
+            let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType
+            if TextFileGate.concerns(fileName: url.lastPathComponent, type: type) {
+                return try readText(url, within: root)
+            }
         }
+        if let root { return try ConfinedFile.read(url, within: root) }
+        return try ConfinedFile.read(url)
+    }
+
+    nonisolated static func readText(_ url: URL, within root: String? = nil) throws -> Data {
         do {
             return try TextFileGate.read(url, within: root, maximumSize: PageLayoutLimits.plainTextBytes)
         } catch is TextFileGate.Refusal {
@@ -66,22 +73,55 @@ enum SourceFileOpening {
         return TextFileGate.refuses(fileName: url.lastPathComponent, type: type, data: data)
     }
 
-    /// The document for `url` read as plain text, not yet shown; the one already open for it if there is one.
+    /// Keep a real file document for recents, access and reload. Its window takes the bytes already checked by
+    /// the worker; asking the document controller to open the URL here would read it a second time.
     @MainActor
-    static func document(for url: URL) throws -> (document: NSDocument, isNew: Bool) {
+    static func document(
+        for url: URL, read: @escaping @Sendable (URL) throws -> Data = { try readText($0) },
+        window: (URL, Data) -> NSWindowController
+    ) async throws -> (document: NSDocument, isNew: Bool) {
         let controller = NSDocumentController.shared
         if let open = controller.document(for: url) { return (open, false) }
-        return (try controller.makeDocument(withContentsOf: url, ofType: UTType.plainText.identifier), true)
+        let data = try await Task.detached(priority: .userInitiated) {
+            let bytes = try read(url)
+            // The forced plain-text type does not describe the file itself. Recheck its name and actual bytes.
+            guard !TextFileGate.refuses(fileName: url.lastPathComponent, data: bytes) else {
+                throw SourceFileError.notText
+            }
+            return bytes
+        }.value
+        if let open = controller.document(for: url) { return (open, false) }
+        let document = ReadOnlyTextDocument()
+        document.fileType = UTType.plainText.identifier
+        document.fileURL = url
+        let viewer = window(url, data)
+        viewer.shouldCloseDocument = true
+        document.addWindowController(viewer)
+        return (document, true)
     }
 
     @MainActor
-    static func open(_ url: URL) throws {
-        let (document, isNew) = try document(for: url)
+    static func open(_ url: URL, window: (URL, Data) -> NSWindowController) async throws {
+        let (document, isNew) = try await document(for: url, window: window)
         if isNew {
             NSDocumentController.shared.addDocument(document)
-            document.makeWindowControllers()
             NSDocumentController.shared.noteNewRecentDocumentURL(url)
+            // These windows are made by hand, not by the document group, so they cascade on their own like the
+            // other windows the app makes; otherwise each one opens exactly over the last.
+            if let window = document.windowControllers.first?.window {
+                cascadePoint = window.cascadeTopLeft(from: cascadePoint)
+            }
         }
         document.showWindows()
+    }
+
+    @MainActor private static var cascadePoint = NSPoint.zero
+
+    private final class ReadOnlyTextDocument: NSDocument {
+        nonisolated override func writableTypes(for saveOperation: NSDocument.SaveOperationType) -> [String] { [] }
+
+        nonisolated override func data(ofType typeName: String) throws -> Data {
+            throw CocoaError(.fileWriteNoPermission)
+        }
     }
 }

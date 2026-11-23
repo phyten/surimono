@@ -4,6 +4,12 @@ import SurimonoRendering
 
 @MainActor
 final class OpenRouter {
+    struct BinderFiles {
+        let urls: [URL]
+        /// A recent binder is resolved when reopened. A new binder already has its formats from the worker.
+        var formats: [URL: DocumentFormat]?
+    }
+
     static let shared: OpenRouter = OpenRouter(
         openDocument: { url, completion in
             if url.pathExtension.lowercased() == "doc" {
@@ -19,7 +25,7 @@ final class OpenRouter {
             }
         },
         openBundle: { ImageBundleWindows.shared.open($0, excluded: $1) },
-        openBinder: { BinderWindows.shared.open($0, excluded: $1) },
+        openBinder: { BinderWindows.shared.open($0.urls, excluded: $1, formats: $0.formats) },
         warn: { window in
             let alert = NSAlert()
             alert.messageText = String(localized: "No supported documents to combine")
@@ -50,15 +56,6 @@ final class OpenRouter {
                 text: text, hints: hints, title: title ?? String(localized: "Selected Text"), source: .selection,
                 window: NSApp.keyWindow, printing: printing)
         },
-        openAsText: { url, completion in
-            do {
-                try SourceFileOpening.open(url)
-                completion(true)
-            } catch {
-                NSApp.presentError(error)
-                completion(false)
-            }
-        },
         refuse: { error in
             // The words the window itself uses for the same refusal.
             NSApp.presentError(
@@ -68,13 +65,25 @@ final class OpenRouter {
         })
 
     /// Replaceable so that tests can stand in for a file without writing it.
-    var route: (URL) -> SourceFileOpening.Route = SourceFileOpening.route(for:)
+    var route: @Sendable (URL) -> SourceFileOpening.Route = { SourceFileOpening.route(for: $0) }
+    private var openingTask: Task<Void, Never>?
+
+    /// Wait until the current requests have been handed to their windows, including any forced-text read.
+    func waitForOpeningRequests() async { await openingTask?.value }
+
+    private func enqueueOpening(_ work: @escaping @MainActor () async -> Void) {
+        let previous = openingTask
+        openingTask = Task {
+            await previous?.value
+            await work()
+        }
+    }
 
     private let openDocument: (URL, @escaping (Bool) -> Void) -> Void
-    private let openAsText: (URL, @escaping (Bool) -> Void) -> Void
+    var openAsText: @MainActor (URL) async -> Bool
     private let refuse: (any Error) -> Void
     private let openBundle: ([URL], [URL]) -> DocumentViewModel?
-    private let openBinder: ([URL], [URL]) -> DocumentViewModel?
+    private let openBinder: (BinderFiles, [URL]) -> DocumentViewModel?
     private let warn: (NSWindow?) -> Void
     private let hasOpenWindows: () -> Bool
     private let showWelcome: () -> Void
@@ -122,14 +131,14 @@ final class OpenRouter {
     init(
         openDocument: @escaping (URL, @escaping (Bool) -> Void) -> Void,
         openBundle: @escaping ([URL], [URL]) -> DocumentViewModel?,
-        openBinder: @escaping ([URL], [URL]) -> DocumentViewModel?,
+        openBinder: @escaping (BinderFiles, [URL]) -> DocumentViewModel?,
         warn: @escaping (NSWindow?) -> Void, hasOpenWindows: @escaping () -> Bool, showWelcome: @escaping () -> Void,
         openMemory: @escaping (Data, DocumentFormat, String?, Bool) -> Void = { _, _, _, _ in },
         openMemoryFile: ((Data, DocumentFormat, String, Bool) -> Void)? = nil,
         openIncludes: @escaping (MarkdownIncludes.Plan) -> Void = { _ in },
         openWindows: @escaping () -> [DocumentViewModel] = { [] }, isActive: @escaping () -> Bool = { true },
         openText: @escaping (String, ClipboardFormatHints, String?, Bool) -> Void = { _, _, _, _ in },
-        openAsText: @escaping (URL, @escaping (Bool) -> Void) -> Void = { _, completion in completion(false) },
+        openAsText: @escaping @MainActor (URL) async -> Bool = { _ in false },
         refuse: @escaping (any Error) -> Void = { _ in }
     ) {
         self.openAsText = openAsText
@@ -154,13 +163,12 @@ final class OpenRouter {
     func open(
         _ urls: [URL], from window: NSWindow? = nil, printing: Bool = false, access: [FolderAccess.Lease] = []
     ) -> Bool {
-        let request = OpenRequest(urls: urls.filter(\.isFileURL))
-        guard request != .empty else {
+        let files = urls.filter(\.isFileURL)
+        guard let url = files.first else {
             for lease in access { lease.close() }
             return false
         }
-        switch request {
-        case .single(let url):
+        if files.count == 1 {
             let key = url.standardizedFileURL
             if printing { printRequests.insert(key) }
             // A window that shows the file already reads it by its own means and is only brought forward.
@@ -177,18 +185,26 @@ final class OpenRouter {
                 }
                 self?.finishOpening(opened)
             }
-        case .imageBundle(let urls, let excluded):
-            let model = openBundle(urls, excluded)
-            Self.hand(access, for: urls, to: model)
-            if printing { model?.requestPrintMode() }
-        case .binder(let urls, let excluded):
-            let model = openBinder(urls, excluded)
-            Self.hand(access, for: urls, to: model)
-            if printing { model?.requestPrintMode() }
-        case .unsupported:
-            for lease in access { lease.close() }
-            warn(window)
-        case .empty: break
+        } else {
+            pendingOpens += 1
+            enqueueOpening { [self] in
+                let plan = await Task.detached(priority: .userInitiated) { OpenRequest.plan(files) }.value
+                pendingOpens -= 1
+                switch plan.request {
+                case .imageBundle(let urls, let excluded):
+                    let model = openBundle(urls, excluded)
+                    Self.hand(access, for: urls, to: model)
+                    if printing { model?.requestPrintMode() }
+                case .binder(let urls, let excluded):
+                    let model = openBinder(BinderFiles(urls: urls, formats: plan.binderFormats), excluded)
+                    Self.hand(access, for: urls, to: model)
+                    if printing { model?.requestPrintMode() }
+                case .unsupported:
+                    for lease in access { lease.close() }
+                    warn(window)
+                case .empty, .single: break
+                }
+            }
         }
         // A window that was open already shows nothing new, so nothing else would notice the request.
         for model in openWindows() { printIfRequested(model) }
@@ -243,7 +259,7 @@ final class OpenRouter {
     func open(recentBinder binder: RecentBinder) {
         let located = recentFiles.locate(binder)
         if located.binder != binder { replaceRecentBinder(binder, located.binder) }
-        located.keep(until: openBinder(located.urls, [])?.window)
+        located.keep(until: openBinder(BinderFiles(urls: located.urls), [])?.window)
     }
 
     /// Opens a document again where it was when a binder took its place.
@@ -263,8 +279,8 @@ final class OpenRouter {
     }
 
     /// Whether one file would be turned away without a window: a video under `.ts`, a text too large to lay out.
-    func refusesSingle(_ url: URL) -> Bool {
-        switch route(url) {
+    func refusesSingle(_ url: URL) async -> Bool {
+        switch await firstRoute(for: url) {
         case .refuse, .tooLarge: true
         case .document, .asText: false
         }
@@ -273,16 +289,23 @@ final class OpenRouter {
     /// One file, by the way its beginning calls for. A video under `.ts` is turned away here, before the document
     /// controller would load all of it to find out.
     private func openSingle(_ url: URL, completion: @escaping (Bool) -> Void) {
-        switch route(url) {
-        case .document: openDocument(url, completion)
-        case .asText: openAsText(url, completion)
-        case .refuse:
-            refuse(SourceFileError.notText)
-            completion(false)
-        case .tooLarge(let bytes):
-            refuse(DocumentRenderer.RenderingError.tooLarge(bytes: bytes))
-            completion(false)
+        enqueueOpening { [self] in
+            switch await firstRoute(for: url) {
+            case .document: openDocument(url, completion)
+            case .asText: completion(await openAsText(url))
+            case .refuse:
+                refuse(SourceFileError.notText)
+                completion(false)
+            case .tooLarge(let bytes):
+                refuse(DocumentRenderer.RenderingError.tooLarge(bytes: bytes))
+                completion(false)
+            }
         }
+    }
+
+    private func firstRoute(for url: URL) async -> SourceFileOpening.Route {
+        let route = route
+        return await Task.detached(priority: .userInitiated) { route(url) }.value
     }
 
     /// The documents every open window shows.

@@ -106,9 +106,7 @@ struct ExportPDFIntent: AppIntent {
 
     @Parameter(
         title: LocalizedStringResource("File", table: "Shortcuts"),
-        supportedContentTypes: [
-            .text, .html, .pdf, .image, .commaSeparatedText, .tabSeparatedText,
-        ])
+        supportedContentTypes: [.data])
     var file: IntentFile
 
     @Parameter(
@@ -174,9 +172,7 @@ struct OpenInPrintModeIntent: AppIntent {
 
     @Parameter(
         title: LocalizedStringResource("Files", table: "Shortcuts"),
-        supportedContentTypes: [
-            .text, .html, .pdf, .image, .commaSeparatedText, .tabSeparatedText, .zip,
-        ])
+        supportedContentTypes: [.data])
     var files: [IntentFile]
 
     static var parameterSummary: some ParameterSummary {
@@ -205,11 +201,13 @@ struct OpenInPrintModeIntent: AppIntent {
             // The windows go on reading the files after this returns, so each takes its files' access with it.
             // One file that is turned away opens no window, and the action must not report that it did.
             let leases = access.leases(for: urls)
-            if urls.count == 1, let url = urls.first, ShortcutEnvironment.router.refusesSingle(url) {
+            if urls.count == 1, let url = urls.first, await ShortcutEnvironment.router.refusesSingle(url) {
                 for lease in leases { lease.close() }
                 opened = false
             } else {
-                opened = ShortcutEnvironment.router.open(urls, printing: true, access: leases)
+                let router = ShortcutEnvironment.router
+                opened = router.open(urls, printing: true, access: leases)
+                await router.waitForOpeningRequests()
             }
         case .memory(let index, let format):
             // The file is gone when the shortcut ends, so its bytes are taken now.

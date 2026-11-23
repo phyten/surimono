@@ -32,6 +32,20 @@ struct SurimonoApp: App {
         settingsStore = DocumentSettingsStore(directory: library.root.appendingPathComponent("DocumentSettings"))
         arrangementEditor = BandArrangementEditorSession(preferences: preferences)
         BandArrangementEditorSession.app = arrangementEditor
+        OpenRouter.shared.openAsText = { [settingsStore] url in
+            do {
+                try await SourceFileOpening.open(url) { file, bytes in
+                    let model = DocumentViewModel(
+                        data: bytes, fileURL: file, format: .plainText, preferences: preferences,
+                        library: library, settingsStore: settingsStore)
+                    return MemoryDocumentWindowController(model: model, onClose: {})
+                }
+                return true
+            } catch {
+                NSApp.presentError(error)
+                return false
+            }
+        }
         RecentFileHistory.install(preferences: preferences)
         WelcomeController.shared.preferences = preferences
         ImageBundleWindows.shared.preferences = preferences

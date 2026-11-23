@@ -72,6 +72,22 @@ struct ShortcutActionsTests {
         return try #require(json?["strings"] as? [String: [String: Any]])
     }
 
+    @Test(
+        "開く・書き出す両方のファイル引数は汎用データを選べる",
+        arguments: [("OpenInPrintModeIntent", "files"), ("ExportPDFIntent", "file")])
+    func genericFileParameter(intent: String, parameter: String) throws {
+        let url = try #require(
+            Bundle.main.url(
+                forResource: "extract", withExtension: "actionsdata", subdirectory: "Metadata.appintents"))
+        let json = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any]
+        let actions = try #require(json?["actions"] as? [String: [String: Any]])
+        let parameters = try #require(actions[intent]?["parameters"] as? [[String: Any]])
+        let input = try #require(parameters.first { $0["name"] as? String == parameter })
+        let metadata = try #require(input["typeSpecificMetadata"] as? [Any])
+        let types = try JSONSerialization.data(withJSONObject: metadata)
+        #expect(String(decoding: types, as: UTF8.self).contains(#""public.data""#))
+    }
+
     private func siblings(of url: URL) throws -> [String] {
         try FileManager.default.contentsOfDirectory(atPath: url.deletingLastPathComponent().path)
     }

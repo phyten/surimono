@@ -66,7 +66,7 @@ final class ShortcutSurfaceFixture {
                         directory.appendingPathComponent("a.md"),
                         directory.appendingPathComponent("b.md"),
                     ],
-                    read: { _ in Data() }) : nil)
+                    read: { _, _ in Data() }) : nil)
         model.printSubmit = { _, _, _ in Issue.record("Printing is forbidden") }
         model.outputOverride = { _, _ in Issue.record("Output is forbidden") }
         model.window = window
@@ -442,7 +442,7 @@ extension ShortcutSurfaceTests {
     @Test(
         "一覧の削除はフォーカスを要し移動後のDeleteでは消えず最後の一件を残す",
         arguments: SingleDocumentBinderPolicy.allCases)
-    func binderRemoval(_ policy: SingleDocumentBinderPolicy) throws {
+    func binderRemoval(_ policy: SingleDocumentBinderPolicy) async throws {
         let f = try ShortcutSurfaceFixture(binder: true)
         defer { f.close() }
         f.preferences.singleDocumentBinderPolicy = policy
@@ -453,12 +453,13 @@ extension ShortcutSurfaceTests {
             completion(.init(leave: false, suppress: false))
         }
         // Keep the source window available to test its last-row key even under the leave policy.
-        f.model.binderExit.router = OpenRouter(
+        let router = OpenRouter(
             openDocument: { _, completion in
                 opens += 1
                 completion(false)
             }, openBundle: { _, _ in nil }, openBinder: { _, _ in nil }, warn: { _ in },
             hasOpenWindows: { true }, showWelcome: {}, openWindows: { [] }, isActive: { false })
+        f.model.binderExit.router = router
         let binder = try #require(f.model.binder)
         binder.selection = binder.items.first?.url
         // Represent the focused native list responder; paper focus must not activate list deletion.
@@ -474,6 +475,8 @@ extension ShortcutSurfaceTests {
         binder.selection = binder.items.first?.url
         #expect(f.dispatcher.handle(f.event("x")))
         #expect(binder.items.count == 1)
+        // The router decides the file's way off the main actor before it opens the document.
+        await router.waitForOpeningRequests()
         #expect(questions == (policy == .ask ? 1 : 0))
         #expect(opens == (policy == .leave ? 1 : 0))
         #expect(f.window.attachedSheet == nil)

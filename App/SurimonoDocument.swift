@@ -61,8 +61,8 @@ struct SurimonoDocument: FileDocument {
         // this check on the bytes that would be shown is all there is. It is also what holds when a file changes
         // between the router's look and this read.
         //
-        // Plain text is the type the router asks for when it opens a file with no type of its own (`Dockerfile`)
-        // as text. It says nothing about the file, and taking it for the file's own would end the look here.
+        // A plain-text document type can also describe an untyped file previously opened as text. The name
+        // and bytes still have to agree when the system restores that document.
         let name = file.preferredFilename ?? file.filename ?? ""
         let decision = TextFileGate.verdict(
             fileName: name, type: contentType == .plainText ? nil : contentType, data: data)

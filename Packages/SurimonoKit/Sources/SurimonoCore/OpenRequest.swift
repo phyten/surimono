@@ -38,6 +38,16 @@ public enum OpenRequest: Equatable, Sendable {
         }
     }
 
+    /// Keep the worker's decisions with the binder so creating its window does not inspect the files again.
+    public static func plan(_ urls: [URL]) -> (request: Self, binderFormats: [URL: DocumentFormat]) {
+        let formats = FileFormats()
+        let request = Self(urls: urls, formats: formats)
+        guard case .binder(let children, _) = request else { return (request, [:]) }
+        var resolved: [URL: DocumentFormat] = [:]
+        for url in children { resolved[url] = formats.binderFormat(url) }
+        return (request, resolved)
+    }
+
     /// In file name order.
     public static func sorted(_ urls: [URL]) -> [URL] {
         urls.sorted {
