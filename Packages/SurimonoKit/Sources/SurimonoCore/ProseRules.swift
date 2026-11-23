@@ -88,7 +88,11 @@ enum ProseLanguageChoice {
                         sentence.language = .other(code)
                     }
                 case .latinWithKana?:
-                    sentence.language = isSure && primary == "en" ? .english : .japanese
+                    if isSure, let code = answer?.code, primary != "ja" {
+                        sentence.language = primary == "en" ? .english : .other(code)
+                    } else {
+                        sentence.language = .japanese
+                    }
                 case .ideographic?:
                     if isSure, primary == "ja" {
                         sentence.language = .japanese
@@ -133,19 +137,25 @@ enum ProseLanguageChoice {
                 return sentence.language != .excluded
             }
             // The nearest decided sentence after each one, found once from the end.
-            var following = [ProseSentenceLanguage?](repeating: nil, count: sentences.count)
-            var next: ProseSentenceLanguage?
+            var following = [Int?](repeating: nil, count: sentences.count)
+            var next: Int?
             for number in sentences.indices.reversed() {
                 following[number] = next
-                if isDecided(sentences[number]) { next = sentences[number].language }
+                if isDecided(sentences[number]) { next = number }
             }
-            var previous: ProseSentenceLanguage?
+            var previous: Int?
             for number in sentences.indices {
                 guard case .undetermined(let isIdeographic) = sentences[number].language else {
-                    previous = sentences[number].language
+                    if isDecided(sentences[number]) { previous = number }
                     continue
                 }
-                let settled = previous ?? following[number] ?? majority
+                let nearest: Int?
+                if let previous, let next = following[number] {
+                    nearest = number - previous <= next - number ? previous : next
+                } else {
+                    nearest = previous ?? following[number]
+                }
+                let settled = nearest.map { sentences[$0].language } ?? majority
                 switch settled {
                 case .japanese: sentences[number].language = .japanese
                 case .english: sentences[number].language = isIdeographic ? .excluded : .english
@@ -193,7 +203,7 @@ struct ProseTokenShape {
     var hiragana = 0
     var katakana = 0
     var latin = 0
-    /// Digits, apostrophes and hyphens: what a Latin word may hold besides its letters.
+    /// Following combining marks, digits, apostrophes and hyphens: what a Latin word may hold besides its letters.
     var latinFillers = 0
     var first: UInt32 = 0
 
@@ -201,6 +211,10 @@ struct ProseTokenShape {
         ProseScript.scalars(units, range) { value, offset in
             if offset == range.lowerBound { first = value }
             scalars += 1
+            if latin > 0, ProseScript.isCombiningMark(value) {
+                latinFillers += 1
+                return
+            }
             switch ProseScript.of(value) {
             case .kanji: kanji += 1
             case .hiragana: hiragana += 1
@@ -240,12 +254,15 @@ enum ProseDuplicates {
     static func findings(in paragraph: ProseParagraphReading, words: [ProseWord]) throws -> [ProseFinding] {
         var findings: [ProseFinding] = []
         var index = 0
+        var comparisons = 0
         while index + 1 < words.count {
-            if index % 2048 == 2047 { try Task.checkCancellation() }
             var last = index
-            while last + 1 < words.count, words[last].sentence == words[last + 1].sentence,
-                isDouble(words[last].token.range, words[last + 1].token.range, in: paragraph)
-            {
+            while last + 1 < words.count {
+                comparisons += 1
+                if comparisons.isMultiple(of: 2048) { try Task.checkCancellation() }
+                guard words[last].sentence == words[last + 1].sentence,
+                    isDouble(words[last].token.range, words[last + 1].token.range, in: paragraph)
+                else { break }
                 last += 1
             }
             defer { index = last + 1 }

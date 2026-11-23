@@ -19,6 +19,15 @@ enum MarkdownExtensions {
             self.definitions = definitions
         }
 
+        /// Rendering a note may discover another. Both the printed section and the prose reader consume this order.
+        func forEachReferenced(_ visit: (Int, String) -> Void) {
+            var index = 0
+            while index < order.count {
+                visit(index, order[index])
+                index += 1
+            }
+        }
+
         func number(of id: String) -> Int? { numbers[id] }
 
         /// The reference's HTML, or nil for an id without a definition, which stays as written.
@@ -344,7 +353,9 @@ enum MarkdownExtensions {
                 index += 1
                 continue
             }
-            if !blocksOnly, let end = protection.paragraphEnds[index], end > index + 1, line.contains("{") {
+            if !blocksOnly || !footnotes.definitions.isEmpty, let end = protection.paragraphEnds[index],
+                end > index + 1, line.contains("{")
+            {
                 if !remembers {
                     unjoinable = [:]
                     scanned = [:]
@@ -355,6 +366,12 @@ enum MarkdownExtensions {
                     counting: count)
                 {
                 case .joined(let joined):
+                    if blocksOnly {
+                        _ = rewriteInline(joined.text, footnotes, nil, proof)
+                        for number in index..<end { output.append(lines[number], from: source.origins[number]) }
+                        index = end
+                        continue
+                    }
                     let rewritten = rewriteInline(joined.text, footnotes, formulas, proof)
                     let pieces = rewritten.components(separatedBy: "\n")
                     let origins = source.origins[index..<end].reduce(into: Set<Int>()) { $0.formUnion($1) }
@@ -386,12 +403,16 @@ enum MarkdownExtensions {
                 }
             }
             index += 1
-            if blocksOnly {
+            if blocksOnly && (footnotes.definitions.isEmpty || !line.utf8.contains(0x5E)) {
                 output.append(line, from: source.origins[index - 1])
                 continue
             }
+            // Use the converter's protected spans and recursive inline scanner to discover references, even in
+            // headings or quotes the prose reader skips. Its parser still needs the original source columns.
+            let inlineFormulas = blocksOnly ? nil : formulas
             guard let spans = protection.spans[index - 1] else {
-                output.append(rewriteInline(line, footnotes, formulas, proof), from: source.origins[index - 1])
+                let rewritten = rewriteInline(line, footnotes, inlineFormulas, proof)
+                output.append(blocksOnly ? line : rewritten, from: source.origins[index - 1])
                 continue
             }
             let bytes = Array(line.utf8)
@@ -404,13 +425,13 @@ enum MarkdownExtensions {
             var rewritten = ""
             var cursor = 0
             for span in spans.sorted(by: { $0.lowerBound < $1.lowerBound }) where span.lowerBound >= cursor {
-                rewritten += rewriteInline(text(cursor..<span.lowerBound), footnotes, formulas, proof) + text(span)
+                rewritten +=
+                    rewriteInline(text(cursor..<span.lowerBound), footnotes, inlineFormulas, proof) + text(span)
                 cursor = span.upperBound
             }
             // A span can end past the line (a code span that goes on to the next line), and the rest is then empty.
-            output.append(
-                rewritten + rewriteInline(text(min(cursor, bytes.count)..<bytes.count), footnotes, formulas, proof),
-                from: source.origins[index - 1])
+            rewritten += rewriteInline(text(min(cursor, bytes.count)..<bytes.count), footnotes, inlineFormulas, proof)
+            output.append(blocksOnly ? line : rewritten, from: source.origins[index - 1])
         }
         return output
     }
@@ -959,7 +980,9 @@ enum MarkdownExtensions {
             + "</\(name)>" + trailing.outside
     }
 
-    private static func rewriteInline(_ text: String, _ footnotes: Footnotes, _ formulas: Formulas, _ proof: ProofMarks)
+    private static func rewriteInline(
+        _ text: String, _ footnotes: Footnotes, _ formulas: Formulas?, _ proof: ProofMarks
+    )
         -> String
     {
         guard text.contains(where: { "[{=^~$\\".contains($0) }) else { return text }
@@ -974,11 +997,15 @@ enum MarkdownExtensions {
                 match.groups[name].map { nsText.substring(with: $0) }
             }
             if let latex = capture("displayMath") ?? capture("displayMath2") {
-                output += formulas.token(latex, display: true, source: whole)
+                output += formulas?.token(latex, display: true, source: whole) ?? whole
             } else if let latex = capture("inlineMath") ?? capture("inlineMath2") {
-                output += formulas.token(latex, display: false, source: whole)
+                output += formulas?.token(latex, display: false, source: whole) ?? whole
             } else if capture("verbatim") != nil {
-                output += whole == #"\@"# && formulas.citations != nil ? formulas.escapedCitationSign : whole
+                if whole == #"\@"#, let formulas, formulas.citations != nil {
+                    output += formulas.escapedCitationSign
+                } else {
+                    output += whole
+                }
             } else if capture("criticUnclosed") != nil {
                 output += whole.unicodeScalars.map { "&#\($0.value);" }.joined()
             } else if let comment = capture("criticComment") {

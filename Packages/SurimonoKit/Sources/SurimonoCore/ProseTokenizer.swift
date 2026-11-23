@@ -7,6 +7,17 @@ enum ProseWordClass: Equatable, Sendable {
     /// Everything that carries no content of its own: articles, pronouns, prepositions, conjunctions, numbers.
     case other
 
+    init?(tag: NLTag?) {
+        switch tag {
+        case NLTag.noun?: self = .noun
+        case NLTag.verb?: self = .verb
+        case NLTag.adjective?: self = .adjective
+        case NLTag.adverb?: self = .adverb
+        case nil: return nil
+        default: self = .other
+        }
+    }
+
     var isContent: Bool { self != .other }
 }
 
@@ -51,7 +62,7 @@ struct SystemProseTokenizer: ProseTokenizer {
         guard !english.isEmpty, !tokens.isEmpty else { return tokens }
         let tagger = NLTagger(tagSchemes: [.lexicalClass, .lemma])
         tagger.string = text
-        var tags: [Int: (wordClass: ProseWordClass, lemma: String?)] = [:]
+        var tags: [Int: (wordClass: ProseWordClass?, lemma: String?)] = [:]
         var seen = 0
         let units = Array(text.utf16)
         // English sentences that follow one another are tagged in one go: the tagger reads a sentence better with
@@ -75,14 +86,7 @@ struct SystemProseTokenizer: ProseTokenizer {
             tagger.enumerateTags(
                 in: range, unit: .word, scheme: .lexicalClass, options: [.omitWhitespace, .omitPunctuation]
             ) { tag, word in
-                let wordClass: ProseWordClass
-                switch tag {
-                case NLTag.noun?: wordClass = .noun
-                case NLTag.verb?: wordClass = .verb
-                case NLTag.adjective?: wordClass = .adjective
-                case NLTag.adverb?: wordClass = .adverb
-                default: wordClass = .other
-                }
+                let wordClass = ProseWordClass(tag: tag)
                 let lemma = tagger.tag(at: word.lowerBound, unit: .word, scheme: .lemma).0?.rawValue
                 tags[word.lowerBound.utf16Offset(in: text)] = (wordClass, lemma)
                 seen += 1

@@ -59,8 +59,8 @@ public enum ProseLengthUnit: Equatable, Sendable {
     /// Characters as a reader counts them (grapheme clusters), without white space and without what stands for
     /// inline code, a formula, a URL or an image.
     case characters
-    /// Runs of letters and digits; an apostrophe, a hyphen or a full stop between two of them joins them
-    /// (`don't`, `state-of-the-art`, `e.g`), any other mark parts them (`one—two` is two words).
+    /// Runs of letters and digits with their combining marks. An apostrophe, a hyphen or a full stop between
+    /// letters or digits joins them (`don't`, `state-of-the-art`, `e.g`). An em dash separates them.
     case words
 }
 
@@ -389,17 +389,19 @@ struct ProseParagraphReading {
         wordsBefore = [Int32](repeating: 0, count: units.count + 1)
         var words: Int32 = 0
         var isInWord = false
-        for index in units.indices {
-            let unit = units[index]
-            var isWord = ProseScript.isWordUnit(unit)
-            if !isWord, isInWord, [0x27, 0x2019, 0x2D, 0x2E].contains(unit), index + 1 < units.count,
-                ProseScript.isWordUnit(units[index + 1])
-            {
-                isWord = true
+        ProseScript.scalars(units, units.indices) { value, index in
+            var isWord = value <= 0xFFFF && ProseScript.isWordUnit(UInt16(value))
+            if !isWord, isInWord {
+                if ProseScript.isCombiningMark(value) {
+                    isWord = true
+                } else if [0x27, 0x2019, 0x2D, 0x2E].contains(value), index + 1 < units.count {
+                    isWord = ProseScript.isWordUnit(units[index + 1])
+                }
             }
             if isWord, !isInWord { words += 1 }
             isInWord = isWord
             wordsBefore[index + 1] = words
+            if value > 0xFFFF { wordsBefore[index + 2] = words }
         }
     }
 

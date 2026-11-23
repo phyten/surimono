@@ -39,6 +39,14 @@ enum ProseScript {
         unit == 0x20 || unit == 0x09 || unit == 0x0A || unit == 0x0D || unit == 0x3000 || unit == 0xA0
     }
 
+    static func isCombiningMark(_ value: UInt32) -> Bool {
+        guard value >= 0x300, let scalar = Unicode.Scalar(value) else { return false }
+        switch scalar.properties.generalCategory {
+        case .nonspacingMark, .spacingMark, .enclosingMark: return true
+        default: return false
+        }
+    }
+
     /// A letter or digit of the kind English words are made of.
     static func isWordUnit(_ unit: UInt16) -> Bool {
         (0x30...0x39).contains(unit) || of(UInt32(unit)) == .latin

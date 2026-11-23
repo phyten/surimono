@@ -14,7 +14,7 @@ extension ProseSource {
     }
 }
 
-@Suite("文章の本文の取り出し")
+@Suite("文章の本文の取り出し", .timeLimit(.minutes(1)))
 struct ProseSourceTests {
     private func texts(_ markdown: String) -> [String] { ProseSource.ofMarkdown(markdown).paragraphs.map(\.text) }
 
@@ -120,16 +120,10 @@ struct ProseSourceTests {
     func sourceRanges() throws {
         let markdown = "# 題\n\nこれは**重要な**文で、`code` を使う。\n"
         let paragraph = try #require(ProseSource.ofMarkdown(markdown).paragraphs.first)
-        let text = paragraph.text as NSString
-        let word = text.range(of: "重要な")
-        #expect(slice(markdown, paragraph.sourceRange(of: word.location..<(word.location + word.length))) == "重要な")
-        // A range across markup takes the markup in: it is one stretch of the source.
-        let across = text.range(of: "は重要な文")
-        #expect(
-            slice(markdown, paragraph.sourceRange(of: across.location..<(across.location + across.length)))
-                == "は**重要な**文")
-        let code = text.range(of: "\u{FFFC}")
-        #expect(slice(markdown, paragraph.sourceRange(of: code.location..<(code.location + 1))) == "`code`")
+        #expect(paragraph.sourceRange(of: 3..<6) == 10..<13)
+        // One source stretch includes any intervening markup.
+        #expect(paragraph.sourceRange(of: 2..<7) == 7..<16)
+        #expect(paragraph.sourceRange(of: 9..<10) == 18..<24)
         #expect(slice(markdown, paragraph.sourceRange) == "これは**重要な**文で、`code` を使う。")
     }
 
@@ -137,8 +131,7 @@ struct ProseSourceTests {
     func utf16Offsets() throws {
         let markdown = "- 😀 か\u{3099}ぎの**設定**を見る\r\n- 次の項目\r\n"
         let paragraph = try #require(ProseSource.ofMarkdown(markdown).paragraphs.first)
-        let word = (paragraph.text as NSString).range(of: "設定")
-        #expect(slice(markdown, paragraph.sourceRange(of: word.location..<(word.location + word.length))) == "設定")
+        #expect(paragraph.sourceRange(of: 7..<9) == 11..<13)
         #expect(ProseSource.ofMarkdown(markdown).paragraphs.map(\.lines) == [1...1, 2...2])
     }
 
@@ -149,15 +142,13 @@ struct ProseSourceTests {
         let paragraph = try #require(ProseSource.ofMarkdown(markdown).paragraphs.last)
         #expect(paragraph.text == "一行目\n二行目 強調\n三行目 \u{FFFC}\n四行目 & \u{FFFC} 太字\n五行目\n六行目 終わり")
         #expect(paragraph.lines == 3...8)
-        for word in ["一行目", "二行目", "強調", "三行目", "四行目", "太字", "五行目", "六行目", "終わり"] {
-            let found = (paragraph.text as NSString).range(of: word)
-            #expect(
-                slice(markdown, paragraph.sourceRange(of: found.location..<(found.location + found.length))) == word)
+        for (visible, source) in [
+            (0..<3, 8..<11), (4..<7, 15..<18), (8..<10, 20..<22), (11..<14, 28..<31),
+            (17..<20, 39..<42), (25..<27, 66..<68), (28..<31, 76..<79), (32..<35, 82..<85),
+            (36..<39, 88..<91), (23..<24, 49..<62), (21..<22, 43..<48),
+        ] {
+            #expect(paragraph.sourceRange(of: visible) == source)
         }
-        let image = (paragraph.text as NSString).range(of: "\u{FFFC}", options: .backwards)
-        #expect(slice(markdown, paragraph.sourceRange(of: image.location..<(image.location + 1))) == "![alt](a.png)")
-        let reference = (paragraph.text as NSString).range(of: "&")
-        #expect(slice(markdown, paragraph.sourceRange(of: reference.location..<(reference.location + 1))) == "&amp;")
     }
 
     @Test("CRLF の入れ子のリストの 2 行目で、絵文字・結合文字・タブのあとの語の位置が合う")
@@ -165,16 +156,8 @@ struct ProseSourceTests {
         let markdown = "- 親\r\n  - 😀 か\u{3099}ぎと\r\n    \tの**設定**を `x` 見る\r\n"
         let paragraph = try #require(ProseSource.ofMarkdown(markdown).paragraphs.last)
         #expect(paragraph.text == "😀 か\u{3099}ぎと\nの設定を \u{FFFC} 見る")
-        let word = (paragraph.text as NSString).range(of: "設定")
-        let expected = (markdown as NSString).range(of: "設定")
-        #expect(
-            paragraph.sourceRange(of: word.location..<(word.location + word.length)) == expected
-                .location..<(expected.location + 2))
-        let code = (paragraph.text as NSString).range(of: "\u{FFFC}")
-        let codeSource = (markdown as NSString).range(of: "`x`")
-        #expect(
-            paragraph.sourceRange(of: code.location..<(code.location + 1)) == codeSource
-                .location..<(codeSource.location + 3))
+        #expect(paragraph.sourceRange(of: 9..<11) == 26..<28)
+        #expect(paragraph.sourceRange(of: 13..<14) == 32..<35)
         #expect(paragraph.lines == 2...3)
     }
 
@@ -183,10 +166,10 @@ struct ProseSourceTests {
         let markdown = "始め `a\nb` 中 [リンク](https://example.com\n\"題\") 終わり\\\n次の行 *x*\n"
         let paragraph = try #require(ProseSource.ofMarkdown(markdown).paragraphs.first)
         #expect(paragraph.text == "始め \u{FFFC} 中 リンク 終わり\n次の行 x")
-        for word in ["中", "リンク", "終わり", "次の行", "x"] {
-            let found = (paragraph.text as NSString).range(of: word)
-            #expect(
-                slice(markdown, paragraph.sourceRange(of: found.location..<(found.location + found.length))) == word)
+        for (visible, source) in [
+            (5..<6, 9..<10), (7..<10, 12..<15), (11..<14, 42..<45), (15..<18, 47..<50), (19..<20, 52..<53),
+        ] {
+            #expect(paragraph.sourceRange(of: visible) == source)
         }
     }
 
@@ -216,8 +199,7 @@ struct ProseSourceTests {
         #expect(source.paragraphs.map(\.text) == ["本文です。", "項目", "続きの文。", "注の一行目。\n注の二行目 強調。"])
         let note = try #require(source.paragraphs.last)
         #expect(note.lines == 3...4)
-        let word = (note.text as NSString).range(of: "強調")
-        #expect(slice(markdown, note.sourceRange(of: word.location..<(word.location + word.length))) == "強調")
+        #expect(note.sourceRange(of: 13..<15) == 36..<38)
         #expect(slice(markdown, note.sourceRange) == "注の一行目。\n    注の二行目 **強調**。")
     }
 
@@ -250,16 +232,12 @@ struct ProseSourceTests {
     }
 
     // No time is asserted (the benchmark records times); the limit only stops a pass that has become quadratic.
-    @Test("20 万字の段落 1 つも、印だらけの文書も、終わりまで読める", .timeLimit(.minutes(2)))
+    @Test("20 万字の段落 1 つも、印だらけの文書も、終わりまで読める", .timeLimit(.minutes(1)))
     func largeInputs() throws {
         let single = String(repeating: "設定を**変更**すると `code` が動く。", count: 10_000)
         let paragraph = try #require(ProseSource.ofMarkdown(single).paragraphs.first)
         #expect(paragraph.text.utf16.count == 10_000 * 15)
-        let last = (paragraph.text as NSString).range(of: "変更", options: .backwards)
-        let expected = (single as NSString).range(of: "変更", options: .backwards)
-        #expect(
-            paragraph.sourceRange(of: last.location..<(last.location + 2)) == expected
-                .location..<(expected.location + 2))
+        #expect(paragraph.sourceRange(of: 149_988..<149_990) == 239_981..<239_983)
         _ = ProseSource.ofMarkdown(String(repeating: "*[`$\\(", count: 30_000))
     }
 }
