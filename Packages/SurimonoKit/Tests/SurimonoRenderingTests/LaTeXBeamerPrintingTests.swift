@@ -79,6 +79,65 @@ struct LaTeXBeamerPrintingTests {
         }
     }
 
+    @Test("箇条書きで折り返す局所的な大文字は自身の字級で行を送り、前後の項目と重ならない", .timeLimit(.minutes(1)))
+    func wrappedLargeListText() async throws {
+        let tex = #"""
+            \documentclass{beamer}\begin{document}\begin{frame}[t]
+            \begin{columns}\begin{column}{.45\textwidth}
+            \begin{itemize}\item Before
+            \begin{itemize}\item Normal {\Huge \textbf{Ag} \textbf{Ag} \textbf{Ag} \textbf{Ag} \textbf{Ag} \textbf{Ag}}\end{itemize}
+            \item After\end{itemize}
+            \end{column}\end{columns}\end{frame}\end{document}
+            """#
+        let paginator = WebPaginator()
+        var measurements: [Double] = []
+        paginator.inspectPrintLayout = { view in
+            do {
+                let value = try await view.evaluateForPrinting(
+                    """
+                    const item = document.querySelector('.beamer-frame li li');
+                    const large = item.querySelector('span[style*="font-size"]');
+                    const style = getComputedStyle(large);
+                    const words = [...large.querySelectorAll('strong')];
+                    function marker(word) {
+                        const probe = document.createElement('i');
+                        probe.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline';
+                        word.prepend(probe);
+                        return probe;
+                    }
+                    const probes = words.map(marker);
+                    const rows = [...new Set(probes.map(p => p.getBoundingClientRect().bottom))];
+                    probes.forEach(p => p.remove());
+                    function textBox(word) {
+                        const walker = document.createTreeWalker(item.closest('.beamer-frame'), NodeFilter.SHOW_TEXT);
+                        let node; while ((node = walker.nextNode()) && node.data.trim() !== word) {}
+                        const range = document.createRange();
+                        range.selectNodeContents(node);
+                        return range.getBoundingClientRect();
+                    }
+                    return [parseFloat(getComputedStyle(item).fontSize), parseFloat(style.fontSize),
+                        parseFloat(style.lineHeight), words[0].getBoundingClientRect().top - textBox('Before').bottom,
+                        textBox('After').top - words.at(-1).getBoundingClientRect().bottom, ...rows];
+                    """, until: .now + .seconds(3))
+                measurements = try #require(value as? [Double])
+            } catch { Issue.record(error) }
+        }
+        let renderer = DocumentRenderer(paginateWithResult: { request in try await paginator.paginate(request) })
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == PrintThemeLibrary.slideStyleID })
+        _ = try await renderer.prepare(
+            DocumentSource(data: Data(tex.utf8), format: .latex),
+            settings: RenderSettings(layout: .a4Single, theme: theme, preset: .init(id: "none", name: "")))
+        try #require(measurements.count >= 7, "折り返した二行以上を測る \(measurements)")
+        let pitch = floor(measurements[1] * 1.24)
+        #expect(measurements[1] > measurements[0] * 1.5)
+        #expect(measurements[2] == pitch, "大文字の行高 \(measurements)")
+        #expect(measurements[3] >= 0 && measurements[4] >= 0, "親項目と前後の空き \(measurements)")
+        let baselines = measurements.dropFirst(5)
+        for (first, second) in zip(baselines, baselines.dropFirst()) {
+            #expect(second - first >= pitch, "折り返しの基線 \(first) → \(second)、行高 \(pitch)")
+        }
+    }
+
     // Measure the actual text baseline. A definition label and three sizes of list
     // text have different ink depths and PDFKit selection bounds.
     private func baselines(in view: WKWebView, frame: Int, words: [String]) async throws -> [Double] {

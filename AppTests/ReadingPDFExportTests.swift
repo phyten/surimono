@@ -77,6 +77,50 @@ struct ReadingPDFExportTests {
         #expect(pdf.pageCount == 5)
     }
 
+    @Test("検証した読むPDFのバイト列を保存時に再生成せず、準備中の取り消しと読み直しは出力しない", .timeLimit(.minutes(1)))
+    func verifiedBytes() async throws {
+        let suite = TestDefaultsSuite()
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer {
+            suite.remove()
+            try? FileManager.default.removeItem(at: directory)
+        }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let original = TestFixtures.pdf("First")
+        let model = DocumentViewModel(
+            data: original, fileURL: nil, format: .pdf,
+            preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: directory))
+        defer { model.stop() }
+        model.render()
+        while model.isRendering { await Task.yield() }
+        try #require(model.isUpToDate)
+
+        // A legal trailing PDF comment makes a second PDFKit serialization observable.
+        let verified = original + Data("% verification marker\n".utf8)
+        let prepared = await model.beginReadingPDFExport { _, _ in verified }
+        try #require(prepared)
+        let url = directory.appendingPathComponent("Reading.pdf")
+        model.completePDFExport(to: url)
+        #expect(try Data(contentsOf: url) == verified)
+
+        let cancelled = await Task {
+            await model.beginReadingPDFExport { _, _ in
+                withUnsafeCurrentTask { $0?.cancel() }
+                await Task.yield()
+                return verified
+            }
+        }.value
+        #expect(!cancelled && !model.isExporting && model.pendingPDF == nil)
+        #expect(model.outputError == nil)
+
+        let stale = await model.beginReadingPDFExport { _, _ in
+            await MainActor.run { model.replaceContent(TestFixtures.pdf("Second"), format: .pdf) }
+            return verified
+        }
+        #expect(!stale && !model.isExporting && model.pendingPDF == nil)
+        #expect(model.outputError == nil)
+    }
+
     @Test("最新の組版がない文書は読むPDFを開始しない")
     func unrendered() async {
         let suite = TestDefaultsSuite()

@@ -33,7 +33,7 @@ struct LaTeXBeamerTrayTests {
             of: source, in: deck.viewDocument, proof: settings.finish.proof, includesSourceContents: true,
             facts: deck.facts)
         #expect(outline.entries.map(\.pageIndex) == [0, 1])
-        let reading = try ReadingPDFExporter.document(
+        let reading = try await ReadingPDFExporter.document(
             from: deck.viewDocument, entries: outline.entries, title: "Floats")
         #expect(reading.pageCount == 3)
         #expect(reading.outlineRoot?.numberOfChildren == 2)

@@ -71,11 +71,11 @@ struct ReadingPDFExporterTests {
                 prepared.logicalDocument.page(at: $0)?.string ?? ""
             })
         #expect(entries.map(\.pageIndex) == [0, 1])
-        let output = try ReadingPDFExporter.document(
+        let output = try await ReadingPDFExporter.document(
             from: prepared.logicalDocument, entries: entries, title: "First",
             headings: try #require(prepared.facts).headings, sourceURL: source.fileURL)
         let before = exportState(output)
-        let bytes = try ReadingPDFExporter.data(from: output)
+        let bytes = try await ReadingPDFExporter.data(from: output)
         let reread = try #require(PDFDocument(data: bytes))
         let detail = "view[\(exportState(prepared.logicalDocument))] export[\(before)] saved[\(exportState(reread))]"
         #expect(reread.pageCount == prepared.logicalDocument.pageCount)
@@ -130,10 +130,10 @@ struct ReadingPDFExporterTests {
             of: source, in: prepared.logicalDocument, proof: .shown, includesSourceContents: true)
         #expect(outline.entries.map(\.title) == ["Alpha", "Beta", "Gamma"])
         #expect(outline.entries.map(\.pageIndex) == [1, 2, 3])
-        let output = try ReadingPDFExporter.document(
+        let output = try await ReadingPDFExporter.document(
             from: prepared.logicalDocument, entries: outline.entries, title: "Org", headings: outline.headings,
             sourceURL: source.fileURL)
-        let bytes = try ReadingPDFExporter.data(from: output)
+        let bytes = try await ReadingPDFExporter.data(from: output)
         let reread = try #require(PDFDocument(data: bytes))
         func targets(onPage index: Int) -> [Int] {
             let annotations: [PDFAnnotation] = reread.page(at: index)?.annotations ?? []
@@ -160,8 +160,8 @@ struct ReadingPDFExporterTests {
         let outline = await ReadingPDFExporter.outline(
             of: source, in: logical, proof: .shown, includesSourceContents: true)
         #expect(outline.entries.map(\.pageIndex) == [0, 0, 1])
-        let output = try ReadingPDFExporter.document(from: logical, entries: outline.entries, title: "Org")
-        let data = try ReadingPDFExporter.data(from: output)
+        let output = try await ReadingPDFExporter.document(from: logical, entries: outline.entries, title: "Org")
+        let data = try await ReadingPDFExporter.data(from: output)
         let reread = try #require(PDFDocument(data: data))
         let root = try #require(reread.outlineRoot)
         var pages: [Int] = []
@@ -173,7 +173,7 @@ struct ReadingPDFExporterTests {
     }
 
     @Test("生成した階層しおりと外部リンクは保存して読み直しても残る")
-    func generatedOutline() throws {
+    func generatedOutline() async throws {
         let source = try RenderingFixtures.pdf(count: 2)
         let page = try #require(source.page(at: 0))
         let link = PDFAnnotation(
@@ -184,9 +184,9 @@ struct ReadingPDFExporterTests {
             OutlineEntry(level: 1, title: "First", pageIndex: 0),
             OutlineEntry(level: 3, title: "Second", pageIndex: 1),
         ]
-        let output = try ReadingPDFExporter.document(from: source, entries: entries, title: "Reading")
+        let output = try await ReadingPDFExporter.document(from: source, entries: entries, title: "Reading")
         let before = exportState(output)
-        let bytes = try ReadingPDFExporter.data(from: output)
+        let bytes = try await ReadingPDFExporter.data(from: output)
         let reread = try #require(PDFDocument(data: bytes))
         #expect(reread.pageCount == 2)
         let first = try #require(reread.outlineRoot?.child(at: 0), "export[\(before)] saved[\(exportState(reread))]")
@@ -202,7 +202,7 @@ struct ReadingPDFExporterTests {
     }
 
     @Test("元PDFのしおりとページ間リンクを保ち元文書の属性を変更しない")
-    func originalPDF() throws {
+    func originalPDF() async throws {
         let fixture = try RenderingFixtures.pdfData(count: 2, bookmarks: [("Original", 2)])
         let source = try #require(PDFDocument(data: fixture))
         let first = try #require(source.page(at: 0))
@@ -215,9 +215,10 @@ struct ReadingPDFExporterTests {
             bounds: CGRect(x: 10, y: 10, width: 50, height: 20), forType: .link, withProperties: nil)
         link.action = PDFActionGoTo(destination: source.destination(on: last, at: CGPoint(x: 0, y: 100)))
         first.addAnnotation(link)
-        let output = try ReadingPDFExporter.document(from: source, entries: [], title: "After", preservesOutline: true)
+        let output = try await ReadingPDFExporter.document(
+            from: source, entries: [], title: "After", preservesOutline: true)
         let before = exportState(output)
-        let bytes = try ReadingPDFExporter.data(from: output)
+        let bytes = try await ReadingPDFExporter.data(from: output)
         let reread = try #require(PDFDocument(data: bytes))
         let bookmark = try #require(
             reread.outlineRoot?.child(at: 0),
@@ -254,8 +255,10 @@ struct ReadingPDFExporterTests {
             PDFComposer.furniture(
                 onPage: 0, at: 0, pageCount: 2, layout: .a4Single, options: options,
                 context: .init(fileName: "Paper.tex")))
-        let output = try ReadingPDFExporter.document(from: view, entries: [], title: "Paper", furniture: [0: furniture])
-        let saved = try #require(PDFDocument(data: try ReadingPDFExporter.data(from: output)))
+        let output = try await ReadingPDFExporter.document(
+            from: view, entries: [], title: "Paper", furniture: [0: furniture])
+        let savedBytes = try await ReadingPDFExporter.data(from: output)
+        let saved = try #require(PDFDocument(data: savedBytes))
         #expect(saved.page(at: 0)?.string?.contains("Paper.tex") == true)
         for stage in [view, output, saved] {
             let annotation = try #require(stage.page(at: 0)?.annotations.first)
@@ -267,7 +270,7 @@ struct ReadingPDFExporterTests {
     }
 
     @Test("保存で消えた階層しおりと行先だけを直し、用紙・本文・外部リンク・注釈を保つ")
-    func repairsMissingNavigation() throws {
+    func repairsMissingNavigation() async throws {
         func input() throws -> PDFDocument {
             let pdf = try RenderingFixtures.pdf(count: 2)
             let first = try #require(pdf.page(at: 0))
@@ -304,7 +307,7 @@ struct ReadingPDFExporterTests {
 
         // Supply the wrong page and no bookmarks even on systems whose native writer works.
         let damaged = try #require(try input().dataRepresentation())
-        let bytes = try ReadingPDFNavigation(expected).verified(damaged, pageCount: 2, stage: "first save").data
+        let bytes = try await ReadingPDFNavigation(expected).verified(damaged, pageCount: 2, stage: "first save")
         #expect(bytes.starts(with: damaged))
         let saved = try #require(PDFDocument(data: bytes))
         let headings = PDFOutlineReader.entries(of: saved)
@@ -327,15 +330,15 @@ struct ReadingPDFExporterTests {
 
         // A later save must resolve the newest cross-reference entry for each updated object.
         child.label = "Renamed"
-        let updated = try ReadingPDFNavigation(expected).verified(bytes, pageCount: 2, stage: "second save").data
+        let updated = try await ReadingPDFNavigation(expected).verified(bytes, pageCount: 2, stage: "second save")
         #expect(updated.starts(with: bytes))
         let reopened = try #require(PDFDocument(data: updated))
         #expect(PDFOutlineReader.entries(of: reopened).map(\.title) == ["First", "Renamed"])
     }
 
     @Test("見出しなしでは空のしおりを付けない")
-    func noOutline() throws {
-        let output = try ReadingPDFExporter.document(from: RenderingFixtures.pdf(), entries: [], title: "File")
+    func noOutline() async throws {
+        let output = try await ReadingPDFExporter.document(from: RenderingFixtures.pdf(), entries: [], title: "File")
         #expect(output.outlineRoot == nil)
     }
 
@@ -365,7 +368,7 @@ struct ReadingPDFExporterTests {
     }
 
     @Test("生成PDFのローカルURLは削除し元PDFと外部URLは保持する")
-    func localLinks() throws {
+    func localLinks() async throws {
         let source = try RenderingFixtures.pdf(count: 2)
         let page = try #require(source.page(at: 0))
         let addresses = [
@@ -387,11 +390,11 @@ struct ReadingPDFExporterTests {
             link.action = PDFActionURL(url: try #require(URL(string: address)))
             page.addAnnotation(link)
         }
-        let output = try ReadingPDFExporter.document(
+        let output = try await ReadingPDFExporter.document(
             from: source, entries: [OutlineEntry(level: 2, title: "図", pageIndex: 1)], title: "Test",
             headings: [DocumentHeading(level: 2, text: "図", id: "図")],
             sourceURL: URL(fileURLWithPath: "/private/source.md"))
-        let data = try ReadingPDFExporter.data(from: output)
+        let data = try await ReadingPDFExporter.data(from: output)
         let reread = try #require(PDFDocument(data: data))
         let links = try #require(reread.page(at: 0)).annotations
         #expect(links.count == 9)
@@ -407,7 +410,8 @@ struct ReadingPDFExporterTests {
                 "https://example.com/#%E5%9B%B3", "mailto:reader@example.com",
             ])
         #expect(page.annotations.count == addresses.count)
-        let preserved = try ReadingPDFExporter.document(from: source, entries: [], title: "PDF", preservesOutline: true)
+        let preserved = try await ReadingPDFExporter.document(
+            from: source, entries: [], title: "PDF", preservesOutline: true)
         #expect(preserved.page(at: 0)?.annotations.count == addresses.count)
         #expect((preserved.page(at: 0)?.annotations.first?.action as? PDFActionURL)?.url?.isFileURL == true)
     }

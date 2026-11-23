@@ -22,7 +22,7 @@ struct LaTeXFancyFurnitureTests {
         let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
         let settings = RenderSettings(layout: .letterSingle, theme: theme, preset: .init(id: "none", name: ""))
         let prepared = try await renderer.prepare(source, settings: settings)
-        let reading = try ReadingPDFExporter.document(
+        let reading = try await ReadingPDFExporter.document(
             from: prepared.viewDocument, entries: [], title: "Sample", furniture: prepared.viewFurniture)
         let sheets = try await renderer.composeSheet(for: prepared)
         for pdf in [reading, sheets.sheetDocument] {
@@ -51,7 +51,7 @@ struct LaTeXFancyFurnitureTests {
         let settings = RenderSettings(
             layout: .a4Single, theme: theme, preset: .init(id: "none", name: ""), options: options)
         let prepared = try await renderer.prepare(source, settings: settings)
-        let reading = try ReadingPDFExporter.document(
+        let reading = try await ReadingPDFExporter.document(
             from: prepared.viewDocument, entries: [], title: "Sample", furniture: prepared.viewFurniture)
         let sheet = try await renderer.composeSheet(for: prepared)
         #expect(prepared.viewFurniture[0]?.latexFooter == nil)

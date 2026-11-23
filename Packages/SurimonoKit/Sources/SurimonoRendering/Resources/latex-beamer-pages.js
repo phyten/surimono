@@ -51,7 +51,11 @@ function alignListBaselines(content) {
     // Tall boxes and local font-size changes can trigger TeX's minimum lineskip.
     // Only ordinary paragraph text and its inline emphasis use this baseline distance.
     function plain(el) {
-        return el.textContent.trim() && !el.hasAttribute('style') && !el.querySelector(':not(span,a,em,strong,i,b),[style]');
+        if (!el.textContent.trim() || el.hasAttribute('style') || el.querySelector(':not(span,a,em,strong,i,b),[style]')) return false;
+        // A theme can change an inline font through a class without an inline style.
+        const size = getComputedStyle(el).fontSize;
+        return size === getComputedStyle(el.parentElement).fontSize &&
+            [...el.querySelectorAll('*')].every(run => getComputedStyle(run).fontSize === size);
     }
     function firstLine(item) {
         return item?.firstElementChild?.matches('p') ? item.firstElementChild : item;

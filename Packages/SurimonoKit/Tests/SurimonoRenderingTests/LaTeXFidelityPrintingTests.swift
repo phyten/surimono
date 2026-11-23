@@ -61,7 +61,7 @@ struct LaTeXFidelityPrintingTests {
             (plain, inherited, PaperSize.a4.size), (custom, customReading, CGSize(width: 700, height: 500)),
         ] {
             let prepared = try await renderer.prepare(input, settings: settings)
-            let pdf = try ReadingPDFExporter.document(from: prepared.viewDocument, entries: [], title: "Gauge")
+            let pdf = try await ReadingPDFExporter.document(from: prepared.viewDocument, entries: [], title: "Gauge")
             let box = try #require(pdf.page(at: 0)).bounds(for: .mediaBox)
             #expect(abs(box.width - size.width) < 0.01)
             #expect(abs(box.height - size.height) < 0.01)
@@ -88,11 +88,11 @@ struct LaTeXFidelityPrintingTests {
         let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
         let settings = RenderSettings(layout: .letterSingle, theme: theme, preset: .init(id: "none", name: ""))
         let prepared = try await DocumentRenderer().prepare(source, settings: settings)
-        let reading = try ReadingPDFExporter.document(
+        let reading = try await ReadingPDFExporter.document(
             from: prepared.viewDocument, entries: [], title: "Gauge", furniture: prepared.viewFurniture)
         let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".pdf")
         defer { try? FileManager.default.removeItem(at: file) }
-        try ReadingPDFExporter.data(from: reading).write(to: file)
+        try await ReadingPDFExporter.data(from: reading).write(to: file)
         let pdf = try #require(PDFDocument(url: file))
         let words = [
             "MEASURING", "FOLDED", "CARD", "SPACERS", "FOR", "MODEL", "RAILS", "ABSTRACT",
@@ -192,10 +192,11 @@ struct LaTeXFidelityPrintingTests {
         let settings = RenderSettings(layout: .letterSingle, theme: theme, preset: .init(id: "none", name: ""))
         let prepared = try await DocumentRenderer().prepare(source, settings: settings)
         let viewLinks = destinations(in: prepared.viewDocument)
-        let reading = try ReadingPDFExporter.document(
+        let reading = try await ReadingPDFExporter.document(
             from: prepared.viewDocument, entries: [], title: "Register", furniture: prepared.viewFurniture)
         let exportLinks = destinations(in: reading)
-        let pdf = try #require(PDFDocument(data: try ReadingPDFExporter.data(from: reading)))
+        let savedBytes = try await ReadingPDFExporter.data(from: reading)
+        let pdf = try #require(PDFDocument(data: savedBytes))
         let first = try #require(pdf.page(at: 0))
         let second = try #require(pdf.page(at: 1))
         #expect(
@@ -234,10 +235,11 @@ struct LaTeXFidelityPrintingTests {
         let settings = RenderSettings(layout: .letterSingle, theme: theme, preset: .init(id: "none", name: ""))
         let prepared = try await renderer.prepare(source, settings: settings)
         let viewLinks = destinations(in: prepared.viewDocument)
-        let decorated = try ReadingPDFExporter.document(
+        let decorated = try await ReadingPDFExporter.document(
             from: prepared.viewDocument, entries: [], title: "Links", furniture: prepared.viewFurniture)
         let exportLinks = destinations(in: decorated)
-        let pdf = try #require(PDFDocument(data: try ReadingPDFExporter.data(from: decorated)))
+        let savedBytes = try await ReadingPDFExporter.data(from: decorated)
+        let pdf = try #require(PDFDocument(data: savedBytes))
         let first = try #require(pdf.page(at: 0))
         let last = try #require(pdf.page(at: 1))
         func destination(_ annotation: PDFAnnotation) -> PDFDestination? {

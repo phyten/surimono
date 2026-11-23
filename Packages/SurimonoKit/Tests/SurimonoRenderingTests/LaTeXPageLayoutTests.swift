@@ -55,7 +55,7 @@ struct LaTeXPageLayoutTests {
         #expect(first.latexFooter?.fontName == "Times New Roman")
         #expect(abs((first.latexFooter?.pointSize ?? 0) - 10.909) < 0.01)
         #expect(abs((first.latexFooter?.footSkip ?? 0) - 24) < 0.01)
-        let reading = try ReadingPDFExporter.document(
+        let reading = try await ReadingPDFExporter.document(
             from: prepared.viewDocument, entries: [], title: "Example", furniture: prepared.viewFurniture)
         let page = try #require(reading.page(at: 0))
         let selection = try #require(reading.findString("IV").first)

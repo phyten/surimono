@@ -4,26 +4,50 @@ import PDFKit
 /// Repairs navigation in an unencrypted PDF with classic cross-reference tables.
 /// An incremental update leaves page content, fonts, images, annotation appearances and metadata untouched.
 enum ReadingPDFNavigationWriter {
-    struct Destination {
+    struct Destination: Equatable, Sendable {
         let page: Int
-        let point: CGPoint
-        let zoom: CGFloat
+        let mode: String
+        let arguments: [CGFloat?]
+
+        init(page: Int, mode: String, arguments: [CGFloat?]) {
+            self.page = page
+            self.mode = mode
+            self.arguments = arguments
+        }
+
+        init(page: Int, point: CGPoint, zoom: CGFloat) {
+            self.init(
+                page: page, mode: "XYZ",
+                arguments: [point.x, point.y, zoom].map { $0 == kPDFDestinationUnspecifiedValue ? nil : $0 })
+        }
+
+        static func argumentCount(for mode: String) -> Int? {
+            switch mode {
+            case "Fit", "FitB": 0
+            case "FitH", "FitV", "FitBH", "FitBV": 1
+            case "XYZ": 3
+            case "FitR": 4
+            default: nil
+            }
+        }
     }
 
-    struct Link {
+    struct Link: Equatable, Sendable {
         let page: Int
         let annotation: Int
         let destination: Destination
     }
 
-    struct Bookmark {
+    struct Bookmark: Equatable, Sendable {
         let title: String
         let destination: Destination?
+        let isOpen: Bool
         let children: [Bookmark]
     }
 
     /// Pages and annotations are zero-based. A nil outline leaves the catalog's original outline intact.
     static func repair(_ data: Data, links: [Link], bookmarks: [Bookmark]?) throws -> Data {
+        try Task.checkCancellation()
         guard !links.isEmpty || bookmarks != nil else { return data }
         return try data.withUnsafeBytes { buffer in
             var file = try File(bytes: buffer.bindMemory(to: UInt8.self))
@@ -31,11 +55,20 @@ enum ReadingPDFNavigationWriter {
         }
     }
 
-    private enum Failure: Error {
+    private enum Failure: LocalizedError {
         case unsupported
         case crossReferenceStream
         case encryptedOrHybrid
         case missingAnnotation(page: Int, index: Int)
+
+        var errorDescription: String? {
+            switch self {
+            case .unsupported: "Unsupported PDF structure for navigation repair."
+            case .crossReferenceStream: "Cannot repair navigation in a PDF with a cross-reference stream."
+            case .encryptedOrHybrid: "Cannot repair navigation in an encrypted or hybrid-reference PDF."
+            case .missingAnnotation(let page, let index): "Cannot find link annotation \(index) on page \(page)."
+            }
+        }
     }
 
     private struct Ref: Hashable {
@@ -218,6 +251,7 @@ enum ReadingPDFNavigationWriter {
             var refs: [Ref] = []
             spaces()
             while !take(93) {
+                if refs.count.isMultiple(of: 128) { try Task.checkCancellation() }
                 refs.append(try ref())
                 spaces()
             }
@@ -313,6 +347,7 @@ enum ReadingPDFNavigationWriter {
                 let count = try c.integer()
                 guard count <= bytes.count / 5, start <= Int.max - count else { throw Failure.unsupported }
                 for id in start..<start + count {
+                    if id.isMultiple(of: 128) { try Task.checkCancellation() }
                     let pos = try c.integer()
                     let gen = try c.integer()
                     let flag = try c.word()
@@ -361,6 +396,7 @@ enum ReadingPDFNavigationWriter {
         }
 
         mutating func collectPages(_ ref: Ref, visited: inout Set<Ref>, depth: Int) throws {
+            try Task.checkCancellation()
             guard depth <= 64, visited.insert(ref).inserted else { throw Failure.unsupported }
             let dict = try dictionary(ref)
             var type = try field("Type", of: dict)
@@ -375,27 +411,51 @@ enum ReadingPDFNavigationWriter {
         }
 
         func operand(_ destination: Destination) throws -> String {
-            guard pages.indices.contains(destination.page) else { throw Failure.unsupported }
-            func number(_ x: CGFloat) throws -> String {
-                if x == kPDFDestinationUnspecifiedValue { return "null" }
-                guard x.isFinite, abs(x) < 1e12 else { throw Failure.unsupported }
-                // PDF numbers have no exponent form.
-                return String(format: "%.8f", locale: Locale(identifier: "en_US_POSIX"), Double(x))
+            guard pages.indices.contains(destination.page),
+                Destination.argumentCount(for: destination.mode) == destination.arguments.count,
+                destination.mode != "FitR" || !destination.arguments.contains(nil)
+            else { throw Failure.unsupported }
+            let operands = try destination.arguments.map { value in
+                guard let value else { return "null" }
+                return try decimal(value)
             }
-            return try
-                "[\(pages[destination.page].operand) /XYZ \(number(destination.point.x)) \(number(destination.point.y)) \(number(destination.zoom))]"
+            return "[" + ([pages[destination.page].operand, "/" + destination.mode] + operands).joined(separator: " ")
+                + "]"
+        }
+
+        // PDF real numbers have no exponent. Expand Swift's round-trippable decimal digits.
+        private func decimal(_ value: CGFloat) throws -> String {
+            guard value.isFinite else { throw Failure.unsupported }
+            let parts = String(Double(value)).split(separator: "e")
+            guard parts.count == 2 else { return String(parts[0]) }
+            let sign = value.sign == .minus ? "-" : ""
+            let mantissa = parts[0].dropFirst(sign.count).split(separator: ".")
+            guard let exponent = Int(parts[1]) else { throw Failure.unsupported }
+            let digits = mantissa.joined()
+            let places = mantissa[0].count + exponent
+            if places <= 0 {
+                return sign + "0." + String(repeating: "0", count: -places) + digits
+            }
+            if places >= digits.count {
+                return sign + digits + String(repeating: "0", count: places - digits.count)
+            }
+            let split = digits.index(digits.startIndex, offsetBy: places)
+            return sign + digits[..<split] + "." + digits[split...]
         }
 
         mutating func allocate() throws -> Ref {
+            try Task.checkCancellation()
             guard next < Int(Int32.max) else { throw Failure.unsupported }
             defer { next += 1 }
             return Ref(id: next, generation: 0)
         }
 
-        mutating func buildOutline(_ items: [Bookmark], parent: Ref, depth: Int) throws -> String {
+        mutating func buildOutline(_ items: [Bookmark], parent: Ref, isOpen: Bool, depth: Int) throws
+            -> (fields: String, visibleChildren: Int)
+        {
             guard depth <= 64 else { throw Failure.unsupported }
             let refs = try items.map { _ in try allocate() }
-            var descendants = items.count
+            var visibleChildren = items.count
             for (index, item) in items.enumerated() {
                 let ref = refs[index]
                 var title = "<FEFF"
@@ -406,14 +466,15 @@ enum ReadingPDFNavigationWriter {
                 if index > 0 { entries += " /Prev \(refs[index-1].operand)" }
                 if index + 1 < refs.count { entries += " /Next \(refs[index+1].operand)" }
                 if !item.children.isEmpty {
-                    let before = next
-                    entries += " " + (try buildOutline(item.children, parent: ref, depth: depth + 1))
-                    descendants += next - before
+                    let branch = try buildOutline(item.children, parent: ref, isOpen: item.isOpen, depth: depth + 1)
+                    entries += " " + branch.fields
+                    if item.isOpen { visibleChildren += branch.visibleChildren }
                 }
                 revisions[ref] = Data("<< \(entries) >>".utf8)
             }
             guard let first = refs.first, let last = refs.last else { throw Failure.unsupported }
-            return "/First \(first.operand) /Last \(last.operand) /Count \(descendants)"
+            let count = isOpen ? visibleChildren : -visibleChildren
+            return ("/First \(first.operand) /Last \(last.operand) /Count \(count)", visibleChildren)
         }
 
         mutating func repair(_ base: Data, links: [Link], bookmarks: [Bookmark]?) throws -> Data {
@@ -427,6 +488,7 @@ enum ReadingPDFNavigationWriter {
                 guard pages.indices.contains(source) else { throw Failure.unsupported }
                 let annotations = try references("Annots", in: dictionary(pages[source]))
                 for link in group {
+                    try Task.checkCancellation()
                     guard annotations.indices.contains(link.annotation) else {
                         throw Failure.missingAnnotation(page: source + 1, index: link.annotation)
                     }
@@ -444,8 +506,8 @@ enum ReadingPDFNavigationWriter {
                 var entry = ""
                 if !bookmarks.isEmpty {
                     let outline = try allocate()
-                    let children = try buildOutline(bookmarks, parent: outline, depth: 0)
-                    revisions[outline] = Data("<< /Type /Outlines \(children) >>".utf8)
+                    let children = try buildOutline(bookmarks, parent: outline, isOpen: true, depth: 0)
+                    revisions[outline] = Data("<< /Type /Outlines \(children.fields) >>".utf8)
                     entry = "/Outlines \(outline.operand)"
                 }
                 revisions[root] = catalog.editing(["Outlines"], adding: entry, in: bytes)
@@ -454,6 +516,7 @@ enum ReadingPDFNavigationWriter {
             result.append(10)
             var entries: [(Ref, Int)] = []
             for ref in revisions.keys.sorted(by: { $0.id < $1.id }) {
+                try Task.checkCancellation()
                 entries.append((ref, result.count))
                 result.append(contentsOf: "\(ref.id) \(ref.generation) obj\n".utf8)
                 result.append(revisions[ref]!)
@@ -463,6 +526,7 @@ enum ReadingPDFNavigationWriter {
             guard xref < 10_000_000_000 else { throw Failure.unsupported }
             result.append(contentsOf: "xref\n".utf8)
             for (ref, offset) in entries {
+                try Task.checkCancellation()
                 result.append(contentsOf: "\(ref.id) 1\n".utf8)
                 result.append(
                     contentsOf: String(format: "%010lld %05d n \n", Int64(offset), ref.generation).utf8)

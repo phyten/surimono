@@ -185,7 +185,7 @@ struct LaTeXSocietyPrintingTests {
         let renderer = DocumentRenderer(paginateWithResult: { request in try await paginator.paginate(request) })
         let result = try await renderer.prepare(.init(data: data, format: .latex), settings: settings)
         if !english && !supplement { print("IPSJ 125 DOM/column CSS px \(metrics)") }
-        let pdf = try ReadingPDFExporter.document(
+        let pdf = try await ReadingPDFExporter.document(
             from: result.viewDocument, entries: [], title: "Specimen", furniture: result.viewFurniture)
         #expect(pdf.pageCount == (supplement ? 3 : 2))
         let first = try #require(pdf.page(at: 0))
