@@ -94,6 +94,46 @@ struct ReadingPDFDestinationTests {
         #expect(arguments == [21, 32, 104, 205])
     }
 
+    @Test("辞書の表示指定が一致していても、読み手が追えなくなったリンクとしおりを修復する")
+    func readerReadback() async throws {
+        let explicit = "/Dest [3 0 R /FitH null]"
+        let view = try #require(PDFDocument(data: file(link: explicit, bookmark: explicit)))
+        let expected = try await ReadingPDFNavigation(view)
+        // The legacy name has the same FitH and null as the explicit destination. Quartz
+        // resolves it even on systems where PDFKit reports a destination without a page.
+        let named = file(link: "/Dest /left", bookmark: "/Dest /left")
+        func pages(in document: PDFDocument) -> [Int?] {
+            let annotation = document.page(at: 0)?.annotations.first
+            let leaf = document.outlineRoot?.child(at: 0)?.child(at: 0)?.child(at: 0)
+            return [
+                (annotation?.action as? PDFActionGoTo)?.destination ?? annotation?.destination,
+                leaf?.destination ?? (leaf?.action as? PDFActionGoTo)?.destination,
+            ].map { dest in dest?.page.map { document.index(for: $0) } }
+        }
+        try #require(pages(in: view) == [0, 0], "view: link, bookmark")
+        let saved = try #require(PDFDocument(data: named))
+        let before = pages(in: saved)
+        let bytes = try await expected.verified(named, pageCount: 1, stage: "saved")
+        let reopened = try #require(PDFDocument(data: bytes))
+        #expect(pages(in: reopened) == [0, 0], "view=[0,0] saved=\(before) repaired=\(pages(in: reopened))")
+        if before == [0, 0] { #expect(bytes == named) }
+    }
+
+    @Test("元の XYZ 辞書でページだけが欠けても、表示中の有効な行先を保存する")
+    func liveDestinationWithMissingBackingPage() async throws {
+        let source = try #require(PDFDocument(data: file(link: "/Dest [null /XYZ 20 40 null]")))
+        let page = try #require(source.page(at: 0))
+        let link = try #require(page.annotations.first)
+        link.action = PDFActionGoTo(destination: source.destination(on: page, at: CGPoint(x: 35, y: 82)))
+        let bytes = try await ReadingPDFExporter.data(from: source)
+        let saved = try #require(PDFDocument(data: bytes))
+        let annotation = try #require(saved.page(at: 0)?.annotations.first)
+        let target = try #require((annotation.action as? PDFActionGoTo)?.destination ?? annotation.destination)
+        #expect(
+            target.page === saved.page(at: 0) && target.point == CGPoint(x: 35, y: 82),
+            "saved: expected p1@(35,82), got \(target)")
+    }
+
     @Test("元の PDF にあるリンクを表示中に移したら、新しい座標を保存する")
     func editedLink() async throws {
         let original = file(link: "/Dest [3 0 R /XYZ 20 40 null]")

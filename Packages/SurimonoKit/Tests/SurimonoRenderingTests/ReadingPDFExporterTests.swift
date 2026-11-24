@@ -7,21 +7,24 @@ import Testing
 
 @MainActor
 struct ReadingPDFExporterTests {
-    private func exportState(_ document: PDFDocument) -> String {
+    private func exportState(_ document: PDFDocument, pages: [Int] = [0]) -> String {
         var outline: CGPDFDictionaryRef?
         let raw = document.documentRef?.catalog.map { CGPDFDictionaryGetDictionary($0, "Outlines", &outline) } ?? false
         let entries = PDFOutlineReader.entries(of: document).prefix(6).map { entry in
             entry.pageIndex.map { $0 == NSNotFound ? "foreign" : String($0 + 1) } ?? "nil"
         }
-        let links = (document.page(at: 0)?.annotations ?? []).prefix(12).map { annotation in
-            guard let dest = (annotation.action as? PDFActionGoTo)?.destination ?? annotation.destination else {
-                return ((annotation.action as? PDFActionURL)?.url ?? annotation.url)?.scheme ?? "?"
+        let links = pages.map { index in
+            let targets = (document.page(at: index)?.annotations ?? []).prefix(12).map { annotation in
+                guard let dest = (annotation.action as? PDFActionGoTo)?.destination ?? annotation.destination else {
+                    return ((annotation.action as? PDFActionURL)?.url ?? annotation.url)?.scheme ?? "?"
+                }
+                guard let page = dest.page else { return "nil" }
+                let target = document.index(for: page)
+                return target == NSNotFound ? "foreign" : String(target + 1)
             }
-            guard let page = dest.page else { return "nil" }
-            let index = document.index(for: page)
-            return index == NSNotFound ? "foreign" : String(index + 1)
+            return "p\(index + 1)links=\(targets)"
         }
-        return "catalog=\(raw) bookmarks=\(entries) p1links=\(links)"
+        return "catalog=\(raw) bookmarks=\(entries) " + links.joined(separator: " ")
     }
 
     @Test(
@@ -135,6 +138,8 @@ struct ReadingPDFExporterTests {
             sourceURL: source.fileURL)
         let bytes = try await ReadingPDFExporter.data(from: output)
         let reread = try #require(PDFDocument(data: bytes))
+        let detail =
+            "view[\(exportState(prepared.logicalDocument, pages: [0, 2]))] export[\(exportState(output, pages: [0, 2]))] saved[\(exportState(reread, pages: [0, 2]))]"
         func targets(onPage index: Int) -> [Int] {
             let annotations: [PDFAnnotation] = reread.page(at: index)?.annotations ?? []
             let pages: [Int] = annotations.compactMap { annotation in
@@ -143,8 +148,8 @@ struct ReadingPDFExporterTests {
             }
             return pages.sorted()
         }
-        #expect(targets(onPage: 0) == [1, 2, 3])
-        #expect(targets(onPage: 2) == [3])
+        #expect(targets(onPage: 0) == [1, 2, 3], "\(detail)")
+        #expect(targets(onPage: 2) == [3], "\(detail)")
         let first = try #require(reread.outlineRoot?.child(at: 0))
         #expect(reread.index(for: try #require(first.destination?.page)) == 1)
         let second = try #require(reread.outlineRoot?.child(at: 1))
@@ -260,11 +265,14 @@ struct ReadingPDFExporterTests {
         let savedBytes = try await ReadingPDFExporter.data(from: output)
         let saved = try #require(PDFDocument(data: savedBytes))
         #expect(saved.page(at: 0)?.string?.contains("Paper.tex") == true)
-        for stage in [view, output, saved] {
+        let stages = "view[\(exportState(view))] export[\(exportState(output))] saved[\(exportState(saved))]"
+        for (name, stage) in [("view", view), ("export", output), ("saved", saved)] {
             let annotation = try #require(stage.page(at: 0)?.annotations.first)
-            let target = try #require((annotation.action as? PDFActionGoTo)?.destination ?? annotation.destination)
-            #expect(stage.index(for: try #require(target.page)) == 1)
-            #expect(target.point == point)
+            let target = try #require(
+                (annotation.action as? PDFActionGoTo)?.destination ?? annotation.destination, "\(name): \(stages)")
+            #expect(
+                stage.index(for: try #require(target.page, "\(name) expected p2@\(point) \(stages)")) == 1, "\(stages)")
+            #expect(target.point == point, "\(name) \(stages)")
             #expect((annotation.border?.lineWidth ?? 0) == 0)
         }
     }
@@ -307,12 +315,14 @@ struct ReadingPDFExporterTests {
 
         // Supply the wrong page and no bookmarks even on systems whose native writer works.
         let damaged = try #require(try input().dataRepresentation())
-        let bytes = try await ReadingPDFNavigation(expected).verified(damaged, pageCount: 2, stage: "first save")
+        let bytes = try await ReadingPDFNavigation(expected, stage: "view (first save)").verified(
+            damaged, pageCount: 2, stage: "first save")
         #expect(bytes.starts(with: damaged))
         let saved = try #require(PDFDocument(data: bytes))
+        let stages = "view[\(exportState(expected))] repaired[\(exportState(saved))]"
         let headings = PDFOutlineReader.entries(of: saved)
-        #expect(headings.map(\.title) == ["First", "図📄"])
-        #expect(headings.map(\.pageIndex) == [0, 1])
+        #expect(headings.map(\.title) == ["First", "図📄"], "\(stages)")
+        #expect(headings.map(\.pageIndex) == [0, 1], "\(stages)")
         #expect(saved.outlineRoot?.numberOfChildren == 1)
         #expect(saved.outlineRoot?.child(at: 0)?.child(at: 0)?.label == "図📄")
         let page = try #require(saved.page(at: 0))
@@ -323,14 +333,15 @@ struct ReadingPDFExporterTests {
         #expect(page.annotations.map(\.type) == originalTypes)
         let link = try #require(page.annotations.first)
         let destination = try #require((link.action as? PDFActionGoTo)?.destination ?? link.destination)
-        #expect(saved.index(for: try #require(destination.page)) == 1)
+        #expect(saved.index(for: try #require(destination.page, "repaired expected p2, \(stages)")) == 1, "\(stages)")
         #expect(destination.point == CGPoint(x: 12, y: 103.25) && destination.zoom == 1.5)
         #expect(page.annotations.contains { $0.url?.absoluteString == "https://example.com/paper" })
         #expect(page.annotations.contains { $0.contents == "Keep these notes (including /Dest [9 0 R] and >>)." })
 
         // A later save must resolve the newest cross-reference entry for each updated object.
         child.label = "Renamed"
-        let updated = try await ReadingPDFNavigation(expected).verified(bytes, pageCount: 2, stage: "second save")
+        let updated = try await ReadingPDFNavigation(expected, stage: "view (second save)").verified(
+            bytes, pageCount: 2, stage: "second save")
         #expect(updated.starts(with: bytes))
         let reopened = try #require(PDFDocument(data: updated))
         #expect(PDFOutlineReader.entries(of: reopened).map(\.title) == ["First", "Renamed"])
@@ -398,13 +409,14 @@ struct ReadingPDFExporterTests {
         let reread = try #require(PDFDocument(data: data))
         let links = try #require(reread.page(at: 0)).annotations
         #expect(links.count == 9)
+        let stages = "view[\(exportState(source))] export[\(exportState(output))] saved[\(exportState(reread))]"
         let localTargets = try links.compactMap { annotation -> Int? in
             guard let target = (annotation.action as? PDFActionGoTo)?.destination ?? annotation.destination else {
                 return nil
             }
-            return reread.index(for: try #require(target.page))
+            return reread.index(for: try #require(target.page, "saved expected p2, \(stages)"))
         }
-        #expect(localTargets == Array(repeating: 1, count: 7))
+        #expect(localTargets == Array(repeating: 1, count: 7), "\(stages)")
         #expect(
             links.compactMap { ($0.action as? PDFActionURL)?.url?.absoluteString } == [
                 "https://example.com/#%E5%9B%B3", "mailto:reader@example.com",
