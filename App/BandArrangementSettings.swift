@@ -6,23 +6,21 @@ import UniformTypeIdentifiers
 /// parts and separators are dragged between the zones and "Parts to Add", or moved with the inspector's buttons.
 struct BandArrangementSettings: View {
     @Bindable var session: BandArrangementEditorSession
-    @State private var width: CGFloat = 0
-
-    /// Beside the miniature only when both keep a useful width.
-    private static let sidePaletteWidth: CGFloat = 760
 
     var body: some View {
         ScrollViewReader { proxy in
-            editorScroll
-                .modifier(SettingsSearchReveal(proxy: proxy, isForm: false))
-                .task(id: session.selectionRevealRevision) {
-                    guard session.selectionRevealRevision > 0 else { return }
-                    // Let the destination chip enter the updated layout before resolving its scroll identity.
-                    await Task.yield()
-                    guard !Task.isCancelled, let selection = session.selection else { return }
-                    // Without an anchor SwiftUI moves only as far as needed to reveal the chip.
-                    proxy.scrollTo(Optional(selection))
-                }
+            GeometryReader { pane in
+                editorScroll(paneWidth: pane.size.width)
+                    .modifier(SettingsSearchReveal(proxy: proxy, isForm: false))
+            }
+            .task(id: session.selectionRevealRevision) {
+                guard session.selectionRevealRevision > 0 else { return }
+                // Let the destination chip enter the updated layout before resolving its scroll identity.
+                await Task.yield()
+                guard !Task.isCancelled, let selection = session.selection else { return }
+                // Without an anchor SwiftUI moves only as far as needed to reveal the chip.
+                proxy.scrollTo(Optional(selection))
+            }
         }
     }
 
@@ -40,46 +38,33 @@ struct BandArrangementSettings: View {
         }
     }
 
-    private var editorScroll: some View {
+    private func editorScroll(paneWidth: CGFloat) -> some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 10) {
-                partsRow.settingSearchRow("Parts")
-                if session.needsRecovery { RecoveryNotice(session: session).settingSearchRow("Start Over") }
-                RepairNotice(notices: session.preferences.bandArrangementNotices)
-                if session.hasConflict { ConflictNotice(session: session).settingSearchRow("Use Saved") }
-                Group {
-                    SetBar(session: session).settingSearchRow("Arrangement Set")
-                    StatusRow(session: session)
-                    ModeRow(session: session).settingSearchRow("Editing")
-                    if width >= Self.sidePaletteWidth {
-                        HStack(alignment: .top, spacing: 14) {
-                            VStack(alignment: .leading, spacing: 10) {
-                                ArrangementMiniature(session: session).settingSearchRow("Toolbar Arrangement")
-                                MiniatureNotes(session: session)
-                                Inspector(session: session).settingSearchRow("Move To")
-                            }
-                            UnusedPalette(session: session).settingSearchRow("Parts to Add").frame(width: 230)
-                        }
-                    } else {
-                        ArrangementMiniature(session: session).settingSearchRow("Toolbar Arrangement")
-                        MiniatureNotes(session: session)
-                        UnusedPalette(session: session).settingSearchRow("Parts to Add")
-                        Inspector(session: session).settingSearchRow("Move To")
+            BandEditorPageLayout(paneWidth: paneWidth) {
+                VStack(alignment: .leading, spacing: 10) {
+                    partsRow.settingSearchRow("Parts")
+                    if session.needsRecovery { RecoveryNotice(session: session).settingSearchRow("Start Over") }
+                    RepairNotice(notices: session.preferences.bandArrangementNotices)
+                    if session.hasConflict { ConflictNotice(session: session).settingSearchRow("Use Saved") }
+                    Group {
+                        SetBar(session: session).settingSearchRow("Arrangement Set")
+                        StatusRow(session: session)
+                        ModeRow(session: session).settingSearchRow("Editing")
                     }
+                    .disabled(session.needsRecovery)
                 }
-                .disabled(session.needsRecovery)
+                ArrangementMiniature(session: session).settingSearchRow("Toolbar Arrangement")
+                    .disabled(session.needsRecovery)
+                MiniatureNotes(session: session)
+                    .disabled(session.needsRecovery)
+                UnusedPalette(session: session).settingSearchRow("Parts to Add")
+                    .disabled(session.needsRecovery)
+                Inspector(session: session).settingSearchRow("Move To")
+                    .disabled(session.needsRecovery)
             }
-            .padding(.horizontal, 20)
             .padding(.vertical, 14)
-            // Wrap the miniature against the scroll viewport, including when a control has a wider ideal size.
-            .containerRelativeFrame(.horizontal, alignment: .leading)
         }
         .coordinateSpace(name: "band-editor")
-        .onGeometryChange(for: CGFloat.self) {
-            $0.size.width
-        } action: {
-            width = $0
-        }
         // A change saved elsewhere: followed while nothing is unsaved, told as a conflict otherwise.
         .onChange(of: session.store) { session.refresh() }
         // Everywhere but the zones and the palette: a separator dropped here is taken away.
@@ -398,6 +383,13 @@ private struct ArrangementMiniature: View {
                 ZoneEditor(session: session, zone: .topRight)
                 if !docksMore { MoreLock() }
             }
+            #if DEBUG
+                .onGeometryChange(for: CGRect.self) {
+                    $0.frame(in: .named("band-editor"))
+                } action: {
+                    session.layoutFrames["topBand"] = $0
+                }
+            #endif
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
             .frame(minHeight: MiniatureMetrics.bandHeight)
@@ -410,6 +402,13 @@ private struct ArrangementMiniature: View {
                     ZoneEditor(session: session, zone: .bottomLeft)
                     ZoneEditor(session: session, zone: .bottomRight)
                 }
+                #if DEBUG
+                    .onGeometryChange(for: CGRect.self) {
+                        $0.frame(in: .named("band-editor"))
+                    } action: {
+                        session.layoutFrames["bottomBand"] = $0
+                    }
+                #endif
                 .padding(.horizontal, 8)
                 .padding(.vertical, 6)
                 .frame(minHeight: MiniatureMetrics.bandHeight)
@@ -1109,6 +1108,51 @@ private struct BandArrangementDialog: View {
 }
 
 // MARK: - Layout
+
+/// The direct child of the vertical scroll view gets its cross-axis proposal before any controls are measured.
+/// A wide header or chip may ask for more room, but cannot change its neighbour's wrapping width.
+private struct BandEditorPageLayout: Layout {
+    let paneWidth: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = min(proposal.width ?? paneWidth, paneWidth)
+        let frames = arrange(width: width, subviews: subviews)
+        return CGSize(width: width, height: frames.map(\.maxY).max() ?? 0)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        for (child, frame) in zip(subviews, arrange(width: bounds.width, subviews: subviews)) {
+            child.place(
+                at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY),
+                anchor: .topLeading, proposal: ProposedViewSize(width: frame.width, height: nil))
+        }
+    }
+
+    private func arrange(width: CGFloat, subviews: Subviews) -> [CGRect] {
+        // Header, miniature, notes, palette, inspector. Only the header has conditional children.
+        guard subviews.count == 5 else { return [] }
+        let margin: CGFloat = 20
+        let rowSpacing: CGFloat = 10
+        let columnSpacing: CGFloat = 14
+        let pageWidth = max(0, width - 2 * margin)
+        let beside = width >= 760
+        let paletteWidth = beside ? 230 : pageWidth
+        let editorWidth = beside ? pageWidth - paletteWidth - columnSpacing : pageWidth
+
+        func frame(_ child: LayoutSubview, offset: CGFloat = 0, y: CGFloat, width: CGFloat) -> CGRect {
+            let size = child.sizeThatFits(ProposedViewSize(width: width, height: nil))
+            return CGRect(x: margin + offset, y: y, width: width, height: size.height)
+        }
+        let header = frame(subviews[0], y: 0, width: pageWidth)
+        let miniature = frame(subviews[1], y: header.maxY + rowSpacing, width: editorWidth)
+        let notes = frame(subviews[2], y: miniature.maxY + rowSpacing, width: editorWidth)
+        let palette = frame(
+            subviews[3], offset: beside ? editorWidth + columnSpacing : 0,
+            y: beside ? miniature.minY : notes.maxY + rowSpacing, width: paletteWidth)
+        let inspector = frame(subviews[4], y: (beside ? notes.maxY : palette.maxY) + rowSpacing, width: editorWidth)
+        return [header, miniature, notes, palette, inspector]
+    }
+}
 
 /// Lines of chips that wrap at the proposed width, each line centered on its tallest chip.
 struct FlowLayout: Layout {
