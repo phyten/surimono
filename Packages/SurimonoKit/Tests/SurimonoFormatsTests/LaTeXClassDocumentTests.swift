@@ -4,6 +4,51 @@ import Testing
 @testable import SurimonoFormats
 
 struct LaTeXClassDocumentTests {
+    @Test("前文の読み足しの境界にあるコメント・命令・改行でも本文の開始と向きを判定する")
+    func preambleBoundaries() {
+        let prefix = #"\documentclass{article}"#
+        for fragment in [
+            "% hidden " + #"\begin{document}"# + "\r\n",
+            #"\verb|\begin{document}| "#,
+            #"\url{a%\begin{document}} "#,
+            #"\begin{verbatim}\begin{document}\end{verbatim} "#,
+            #"\newcommand{\unused}{\begin{document}}"#,
+            "\r\n",
+        ] {
+            for split in [0, 1, 3, 6, 12] {
+                let source =
+                    prefix + String(repeating: " ", count: 1024 - prefix.count - split)
+                    + fragment + #"\documentclass{report}\begin{document}"#
+                    + #"\begin{landscape}Wide\end{landscape}\end{document}"#
+                let info = LaTeXConverter.documentClassInfo(source)
+                #expect(info.hasChapters)
+                #expect(info.pageBox.paperWidth > info.pageBox.paperHeight)
+            }
+        }
+    }
+
+    @Test("数式用の定義を追加するたびに従来の試し組みと同じ定義だけが残る")
+    func mathDefinitionValidation() {
+        StackSpace.onLargeStack {
+            let document = LaTeXDocument(fontIndex: .init(faces: [:]))
+            let reader = LaTeXReader("", document: document, isBlock: false)
+            var expected = #"\def\ensuremath#1{#1}"#
+            for definition in [
+                #"\def\a#1#2{{#1}\{#2\}}"#, #"\def\a#1{x}"#, #"\def\bad#2{x}"#, #"\let\copy=\a "#,
+                #"\def\pair#1,#2;{#2#1}"#,
+                #"\def\unknown{\notdefined}"#, "\\def\\b{a% ignore }\nb}",
+                #"\def\unclosed{x"#, #"\def\v{\verb|}"#, #"\def\w{|}"#,
+                #"\let\alias=\a"#, #"\def\def{x}"#, #"\def\z{x}"#,
+            ] {
+                if MathRenderer.html("x", display: false, macros: expected + definition) != nil {
+                    expected += definition
+                }
+                reader.addMathDefinition(definition)
+                #expect(document.mathDefinitions.source == expected)
+            }
+        }
+    }
+
     @Test("開状の有無によらず各手紙の先頭だけを無ノンブルにし、続頁には通常の柱を使う")
     func firstLetterPage() throws {
         let fragment = LaTeXConverter.convert(

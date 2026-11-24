@@ -80,15 +80,15 @@ extension DocumentRenderer {
     public func latexClassInfo(for source: DocumentSource, composition: LaTeXComposition = .document)
         -> LaTeXDocumentClassInfo
     {
-        if let cachedLaTeXInfo, cachedLaTeXInfo.source == source, cachedLaTeXInfo.composition == composition {
-            return cachedLaTeXInfo.info
-        }
+        if cachedLaTeXInfo?.source != source { cachedLaTeXInfo = (source, [:]) }
+        if let info = cachedLaTeXInfo?.infos[composition] { return info }
         let resources = CompanionTextResources(source, access: resourceAccess(for: source), onDenied: {})
-        let info = LaTeXConverter.documentClassInfo(
-            TextDecoding.decode(source.data).text, composition: composition, documentURL: resources.file,
-            readFile: { resources.read($0) }, fileIdentity: { resources.identity($0) })
-        cachedLaTeXInfo = (source, composition, info)
-        return info
+        let infos = LaTeXConverter.classInfos(
+            TextDecoding.decode(source.data, preservingLineEndings: true).text, composition: composition,
+            documentURL: resources.file, readFile: { resources.read($0) }, fileIdentity: { resources.identity($0) })
+        cachedLaTeXInfo?.infos.merge(infos.related) { _, new in new }
+        cachedLaTeXInfo?.infos[composition] = infos.requested
+        return infos.requested
     }
 }
 

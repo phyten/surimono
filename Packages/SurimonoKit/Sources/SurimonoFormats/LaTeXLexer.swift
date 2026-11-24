@@ -9,7 +9,7 @@ package enum LaTeXLexer {
     ]
 
     /// The index just past the opaque piece that starts at `index`, or nil when none starts there.
-    static func opaqueEnd(_ characters: [Character], at index: Int) -> Int? {
+    static func opaqueEnd(_ characters: [Character], at index: Int, needsMore: () -> Void = {}) -> Int? {
         guard index < characters.count else { return nil }
         if characters[index] == "%" {
             var end = index
@@ -17,11 +17,13 @@ package enum LaTeXLexer {
             return end
         }
         guard characters[index] == "\\" else { return nil }
+        if index + 1 == characters.count { needsMore() }
         if let name = word(characters, at: index + 1) {
             let after = index + 1 + name.count
+            if after == characters.count { needsMore() }
             switch name {
             case "url", "href", "path", "nolinkurl":
-                return urlArgumentEnd(characters, at: index)
+                return urlArgumentEnd(characters, at: index, needsMore: needsMore)
             case "verb":
                 var start = after
                 if start < characters.count, characters[start] == "*" { start += 1 }
@@ -35,9 +37,11 @@ package enum LaTeXLexer {
                 if start < characters.count, characters[start] == "{" { return skipping(characters, groupFrom: start) }
                 return delimited(characters, from: start)
             case "begin":
-                guard after < characters.count, characters[after] == "{",
-                    let close = characters[after...].firstIndex(of: "}")
-                else { return nil }
+                guard after < characters.count, characters[after] == "{" else { return nil }
+                guard let close = characters[after...].firstIndex(of: "}") else {
+                    needsMore()
+                    return nil
+                }
                 let environment = String(characters[(after + 1)..<close])
                 guard verbatimEnvironments.contains(environment) else { return nil }
                 let end = Array("\\end{\(environment)}")
@@ -150,7 +154,7 @@ package enum LaTeXLexer {
     }
 
     // URL arguments must stay opaque to structural scans: a percent sign cannot hide their closing brace.
-    static func urlArgumentEnd(_ characters: [Character], at index: Int) -> Int? {
+    static func urlArgumentEnd(_ characters: [Character], at index: Int, needsMore: () -> Void = {}) -> Int? {
         guard index < characters.count, characters[index] == "\\",
             let name = word(characters, at: index + 1),
             ["url", "href", "path", "nolinkurl"].contains(name)
@@ -165,7 +169,11 @@ package enum LaTeXLexer {
                 break
             }
         }
-        guard cursor < characters.count, characters[cursor] == "{" else { return nil }
+        guard cursor < characters.count else {
+            needsMore()
+            return nil
+        }
+        guard characters[cursor] == "{" else { return nil }
         var depth = 0
         while cursor < characters.count {
             let character = characters[cursor]

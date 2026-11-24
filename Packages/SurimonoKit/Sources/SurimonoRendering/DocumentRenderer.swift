@@ -453,7 +453,7 @@ public final class DocumentRenderer {
     private var sourcePageSizes: (source: DocumentSource, sizes: [CGSize])?
     /// The orientation the `@page` rules of an HTML source ask for, known once the source has been laid out.
     private var composedFragment: (source: DocumentSource, choice: LaTeXComposition, width: Double, input: ThemedInput)?
-    var cachedLaTeXInfo: (source: DocumentSource, composition: LaTeXComposition, info: LaTeXDocumentClassInfo)?
+    var cachedLaTeXInfo: (source: DocumentSource, infos: [LaTeXComposition: LaTeXDocumentClassInfo])?
     private var sourcePageRule: (source: DocumentSource, orientation: PaperOrientation?)?
 
     /// The logical pages of a cache entry. The document is handed out as is, so that a view showing it keeps it.
