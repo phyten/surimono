@@ -20,9 +20,9 @@ on:
         type: boolean
         default: false
       snapshots_only:
-        description: "Snapshot cases to render (ONLY of make snapshots, e.g. tag:light; empty renders all)"
+        description: "Snapshot cases to render (ONLY of make snapshots; the default is the UI cases, empty renders all)"
         type: string
-        default: ""
+        default: "tag:light tag:dark"
 
 permissions:
   contents: read
@@ -127,11 +127,13 @@ jobs:
 
   # Only when started by hand with `snapshots`. Nobody looks at real windows on the runner's macOS, so this renders the
   # snapshot cases there and keeps the run (pictures, PDFs and the report against the approved numbers and texts) as an
-  # artifact. The report's result does not fail the job: the approved baseline comes from another macOS.
+  # artifact. The report's result does not fail the job: the approved baseline comes from another macOS. All 360 cases
+  # took more than 90 minutes on a runner (about five seconds a document), so the default renders the UI cases only,
+  # and what was rendered is kept even when the time limit stops the job.
   snapshots:
     if: github.event_name == 'workflow_dispatch' && inputs.snapshots
     runs-on: ${{ inputs.os || 'xcode-27' }}
-    timeout-minutes: 90
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Render
@@ -144,7 +146,7 @@ jobs:
           ONLY: ${{ inputs.snapshots_only }}
         run: make snapshots-report || true
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: ${{ !cancelled() }}
+        if: always()
         with:
           name: snapshots-${{ inputs.os }}
           path: Snapshots/.runs
