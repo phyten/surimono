@@ -51,10 +51,28 @@ extension OrgSetting where Value == OrgReadingDefaults.Scripts {
     public static let scripts = Self(id: .scripts, choice: \.scripts, fallback: \.scripts)
 }
 
+public struct OrgInstructionNote: Equatable, Sendable {
+    public enum Kind: Sendable {
+        case unnumberedHeading, bodyContents, excludedFromContents
+
+        fileprivate var setting: OrgSettingID {
+            switch self {
+            case .unnumberedHeading: .sectionNumbers
+            case .bodyContents, .excludedFromContents: .tableOfContents
+            }
+        }
+    }
+
+    public let kind: Kind
+    public let source: OrgInstructionSource
+}
+
 public struct OrgFileInstructions: Equatable, Sendable {
     fileprivate var values = OrgReadingValues()
     fileprivate var sources: [OrgSettingID: OrgInstructionSource] = [:]
-    fileprivate var notes: [OrgSettingID: [OrgInstructionSource]] = [:]
+    fileprivate var notes: [OrgSettingID: [OrgInstructionNote]] = [:]
+    /// A subtree can exclude several headings with a single property drawer.
+    public internal(set) var excludedHeadingCount = 0
 
     public init() {}
 
@@ -63,8 +81,8 @@ public struct OrgFileInstructions: Equatable, Sendable {
         sources[key.id] = source
     }
 
-    public mutating func note(_ source: OrgInstructionSource, for id: OrgSettingID) {
-        notes[id, default: []].append(source)
+    public mutating func note(_ kind: OrgInstructionNote.Kind, source: OrgInstructionSource) {
+        notes[kind.setting, default: []].append(.init(kind: kind, source: source))
     }
 
     public var hasWholeDocumentInstructions: Bool { !sources.isEmpty }
@@ -139,7 +157,7 @@ public struct OrgResolvedSetting<Value: Equatable & Sendable>: Equatable, Sendab
     /// Where the reset arrow leads, even when the document currently wins.
     public let inherited: Value
     public let source: OrgInstructionSource?
-    public let notes: [OrgInstructionSource]
+    public let notes: [OrgInstructionNote]
 }
 
 public struct OrgReadingSettings: Equatable, Sendable {
@@ -168,25 +186,37 @@ public struct OrgReadingSettings: Equatable, Sendable {
     }
 
     /// Count and apply the very same transition so the confirmation matches what will be lost.
-    private func lockingFileInstructions(_ file: OrgFileInstructions) -> OrgDocumentReadingSettings {
-        guard document.allowsFileChanges else { return document }
+    private func lockingFileInstructions(_ file: OrgFileInstructions)
+        -> (locked: OrgDocumentReadingSettings, overrides: OrgDocumentReadingSettings)
+    {
         var locked = document
-        locked.allowsFileChanges = false
-        if file.sources[.sectionNumbers] != nil { locked.values.sectionNumbers = nil }
-        if file.sources[.tableOfContents] != nil { locked.values.tableOfContents = nil }
-        if file.sources[.scripts] != nil { locked.values.scripts = nil }
-        return locked
+        var overrides = OrgDocumentReadingSettings()
+        if locked.allowsFileChanges {
+            locked.allowsFileChanges = false
+            if file.sources[.sectionNumbers] != nil {
+                swap(&locked.values.sectionNumbers, &overrides.values.sectionNumbers)
+            }
+            if file.sources[.tableOfContents] != nil {
+                swap(&locked.values.tableOfContents, &overrides.values.tableOfContents)
+            }
+            if file.sources[.scripts] != nil { swap(&locked.values.scripts, &overrides.values.scripts) }
+        }
+        return (locked, overrides)
+    }
+
+    public func fileOverrides(file: OrgFileInstructions) -> OrgDocumentReadingSettings {
+        lockingFileInstructions(file).overrides
     }
 
     public func fileOverrideCount(file: OrgFileInstructions) -> Int {
-        document.changedCount - lockingFileInstructions(file).changedCount
+        fileOverrides(file: file).changedCount
     }
 
     public mutating func setAllowsFileChanges(_ allows: Bool, file: OrgFileInstructions) {
         if allows {
             document.allowsFileChanges = true
         } else {
-            document = lockingFileInstructions(file)
+            document = lockingFileInstructions(file).locked
         }
     }
 }

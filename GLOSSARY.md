@@ -51,3 +51,7 @@
 | 近くで繰り返した語 | `Close Repetition` | Close Repetition | 近い繰り返し | Wiederholungen in kurzem Abstand | Repetición cercana | Répétition rapprochée | 가까이 쓰인 같은 단어 | 邻近重复 | 鄰近重複 |
 | 長さを確認する文 | `Long Sentence` | Long Sentence | 長い文 | Langer Satz | Oración larga | Phrase longue | 긴 문장 | 长句 | 長句 |
 | 文書の読み方を選ぶ設定 | `Reading Settings` | Reading Settings | 読み方の設定 | Leseeinstellungen | Ajustes de lectura | Réglages de lecture | 읽기 설정 | 阅读设置 | 閱讀設定 |
+| 見出しの全階層 | `All Levels` | All Levels | すべての階層 | Alle Ebenen | Todos los niveles | Tous les niveaux | 모든 수준 | 所有层级 | 所有層級 |
+| 見出しの階層の上限 | `Up to Level %lld` | Up to Level %lld | %lld 階層まで | Bis Ebene %lld | Hasta el nivel %lld | Jusqu’au niveau %lld | 수준 %lld까지 | 最多 %lld 层 | 最多 %lld 層 |
+| 下付き・上付きの条件 | `Only with { }` | Only with { } | { } があるときだけ | Nur mit { } | Solo con { } | Seulement avec { } | { }가 있을 때만 | 仅在有 { } 时 | 僅在有 { } 時 |
+| 文書内の変更をすべて戻す | `Revert All` | Revert All | すべて戻す | Alles zurücksetzen | Revertir todo | Tout rétablir | 모두 되돌리기 | 全部还原 | 全部還原 |

@@ -331,7 +331,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "すべての段"
+            "value": "すべての階層"
           }
         },
         "de": {
@@ -355,7 +355,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "모든 단계"
+            "value": "모든 수준"
           }
         },
         "zh-Hans": {
@@ -384,7 +384,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld 段まで"
+            "value": "%lld 階層まで"
           }
         },
         "de": {
@@ -408,13 +408,13 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld단계까지"
+            "value": "수준 %lld까지"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "最多 %lld 级"
+            "value": "最多 %lld 层"
           }
         },
         "zh-Hant": {
@@ -425,55 +425,55 @@
         }
       }
     },
-    "Only with Braces": {
+    "Only with { }": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Only with Braces"
+            "value": "Only with { }"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "中括弧があるときだけ"
+            "value": "{ } があるときだけ"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nur mit geschweiften Klammern"
+            "value": "Nur mit { }"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Solo con llaves"
+            "value": "Solo con { }"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Seulement avec des accolades"
+            "value": "Seulement avec { }"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "중괄호가 있을 때만"
+            "value": "{ }가 있을 때만"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "仅有花括号时"
+            "value": "仅在有 { } 时"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "僅有大括號時"
+            "value": "僅在有 { } 時"
           }
         }
       }
@@ -792,6 +792,59 @@
           "stringUnit": {
             "state": "translated",
             "value": "帶有 :UNNUMBERED: 標記的標題：%lld 個"
+          }
+        }
+      }
+    },
+    "Headings excluded from the table of contents: %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Headings excluded from the table of contents: %lld"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目次から外した見出しが %lld つあります"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vom Inhaltsverzeichnis ausgeschlossene Überschriften: %lld"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Títulos excluidos del índice: %lld"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titres exclus du sommaire : %lld"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "목차에서 제외된 제목: %lld개"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "从目录中排除的标题：%lld 个"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "從目錄排除的標題：%lld 個"
           }
         }
       }
@@ -1326,55 +1379,55 @@
         }
       }
     },
-    "Revert Changes": {
+    "Revert All": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Revert Changes"
+            "value": "Revert All"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "変更を戻す"
+            "value": "すべて戻す"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Änderungen zurücknehmen"
+            "value": "Alles zurücksetzen"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Revertir cambios"
+            "value": "Revertir todo"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Annuler les modifications"
+            "value": "Tout rétablir"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "변경 사항 되돌리기"
+            "value": "모두 되돌리기"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "还原更改"
+            "value": "全部还原"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "還原更改"
+            "value": "全部還原"
           }
         }
       }

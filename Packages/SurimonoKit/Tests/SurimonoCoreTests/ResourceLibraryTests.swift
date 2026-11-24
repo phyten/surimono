@@ -97,14 +97,31 @@ struct ResourceLibraryTests {
         #expect(checked >= 23)
     }
 
-    @Test("見出しの番号を自分で決める文書は body にクラスが付く")
+    @Test("番号付きテーマでも Org は出荷時は番号なし、全階層を選ぶと見出しに一度だけ番号が付く")
     func ownHeadingNumbers() throws {
         let theme = try #require(PrintThemeLibrary.load().first { $0.id == "academic" })
-        let numbered = HTMLDocumentBuilder.build(
-            fragment: OrgConverter.convert("#+OPTIONS: num:t\n* A"), format: .org, theme: theme)
-        #expect(numbered.contains("<body class=\"surimono format-org own-heading-numbers\">"))
-        let silent = HTMLDocumentBuilder.build(fragment: OrgConverter.convert("* A"), format: .org, theme: theme)
-        #expect(silent.contains("<body class=\"surimono format-org\">"))
+        let source = "#+TITLE: Example\n* Heading"
+        var settings = OrgReadingSettings()
+        func page(_ text: String) -> String {
+            HTMLDocumentBuilder.build(
+                fragment: OrgConverter.convert(text, settings: settings), format: .org, theme: theme)
+        }
+        let shipping = page(source)
+        settings.defaults.sectionNumbers = .all
+        let numbered = page(source)
+        let fileOff = page("#+OPTIONS: num:nil\n" + source)
+        settings.set(.off, for: .sectionNumbers, file: .init())
+        let documentOff = page(source)
+        for html in [shipping, numbered, fileOff, documentOff] {
+            #expect(html.contains("<body class=\"surimono format-org own-heading-numbers\">"))
+            #expect(html.contains("body:not(.format-latex):not(.own-heading-numbers) h2::before"))
+        }
+        for html in [shipping, fileOff, documentOff] {
+            #expect(html.contains("<h2>Heading</h2>"))
+            #expect(!html.contains("<span class=\"section-number-"))
+        }
+        #expect(numbered.contains("<span class=\"section-number-2\">1.</span> Heading</h2>"))
+        #expect(numbered.components(separatedBy: "<span class=\"section-number-").count == 2)
     }
 
     @Test("ユーザーCSSは直下だけを読み名前順で安定して並ぶ")

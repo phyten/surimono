@@ -26,7 +26,7 @@ extension OrgReadingDefaults.Depth: OrgReadingChoice {
 extension OrgReadingDefaults.Scripts: OrgReadingChoice {
     fileprivate var title: String {
         switch self {
-        case .braces: String(localized: "Only with Braces")
+        case .braces: String(localized: "Only with { }")
         case .all: String(localized: "With or without Braces")
         case .off: String(localized: "Leave as Written")
         }
@@ -76,17 +76,16 @@ struct OrgReadingRows: View {
             }
         }
         if !changedOnly || changed {
+            let title = Text(label).fontWeight(changed ? .bold : .regular).foregroundStyle(
+                locked ? .secondary : .primary)
+            let picker = Picker(selection: Binding(get: { current }, set: set)) {
+                ForEach(current.choices, id: \.self) { Text(verbatim: $0.title).tag($0) }
+            } label: {
+                Text(label)
+            }
+            .labelsHidden().pickerStyle(.menu).disabled(locked)
             let row = VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text(label).fontWeight(changed ? .bold : .regular).foregroundStyle(locked ? .secondary : .primary)
-                    if model == nil { Text(verbatim: token).font(.caption.monospaced()).foregroundStyle(.secondary) }
-                    Spacer(minLength: 2)
-                    Picker(selection: Binding(get: { current }, set: set)) {
-                        ForEach(current.choices, id: \.self) { Text(verbatim: $0.title).tag($0) }
-                    } label: {
-                        Text(label)
-                    }
-                    .labelsHidden().pickerStyle(.menu).disabled(locked).frame(maxWidth: model == nil ? 230 : 158)
+                OrgReadingChoiceRow(title: title, token: model == nil ? token : nil, picker: picker) {
                     if changed {
                         let help =
                             resolved?.source != nil
@@ -108,15 +107,59 @@ struct OrgReadingRows: View {
                     OrgFileReason(model: model, source: source, changed: changed)
                 }
                 if let notes = resolved?.notes, !notes.isEmpty {
-                    if key.id == .sectionNumbers {
-                        Text("Headings marked :UNNUMBERED: \(notes.count)").font(.caption).foregroundStyle(.secondary)
-                    } else if key.id == .tableOfContents {
-                        Text("A table of contents appears at #+TOC: in the body.").font(.caption).foregroundStyle(
-                            .secondary)
+                    let marked = notes.count { $0.kind == .unnumberedHeading }
+                    VStack(alignment: .leading, spacing: 4) {
+                        if marked > 0 { Text("Headings marked :UNNUMBERED: \(marked)") }
+                        if notes.contains(where: { $0.kind == .bodyContents }) {
+                            Text("A table of contents appears at #+TOC: in the body.")
+                        }
+                        if notes.contains(where: { $0.kind == .excludedFromContents }) {
+                            Text("Headings excluded from the table of contents: \(file.excludedHeadingCount)")
+                        }
                     }
+                    .font(.caption).foregroundStyle(.secondary)
                 }
             }
             if model == nil { row.settingSearchRow(label.key) } else { row }
+        }
+    }
+}
+
+struct OrgReadingChoiceRow<Title: View, Choice: View, Reset: View>: View {
+    let title: Title
+    var token: String?
+    let picker: Choice
+    @ViewBuilder let reset: Reset
+
+    var body: some View {
+        if let token {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                title
+                Text(verbatim: token).font(.caption.monospaced()).foregroundStyle(.secondary)
+                Spacer(minLength: 2)
+                picker.frame(maxWidth: 230)
+                reset
+            }
+        } else {
+            let controls = HStack(alignment: .firstTextBaseline, spacing: 6) {
+                picker.fixedSize()
+                reset
+            }
+            // Keep the full title and the selected value readable in longer translations.
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    title.fixedSize()
+                    controls
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    title.fixedSize(horizontal: false, vertical: true)
+                    ViewThatFits(in: .horizontal) {
+                        controls
+                        // A file-specified depth can have many more digits than the standard choices.
+                        ScrollView(.horizontal) { controls }
+                    }
+                }
+            }
         }
     }
 }
@@ -128,8 +171,11 @@ struct OrgReadingDefaultsPane: View {
 
     var body: some View {
         Section {
+            OrgReadingRows(preferences: preferences, changedOnly: changedOnly)
+        } header: {
             HStack {
                 Toggle("Show Only Changed Settings", isOn: $changedOnly)
+                    .toggleStyle(.checkbox).fixedSize()
                 Spacer()
                 Menu("Preset") {
                     Button("Surimono Defaults") { choose(.surimono) }
@@ -138,7 +184,7 @@ struct OrgReadingDefaultsPane: View {
                     }
                 }.fixedSize()
             }
-            OrgReadingRows(preferences: preferences, changedOnly: changedOnly)
+            .font(.body).textCase(nil)
         }
         .alert(
             "Replace changed Org defaults?",

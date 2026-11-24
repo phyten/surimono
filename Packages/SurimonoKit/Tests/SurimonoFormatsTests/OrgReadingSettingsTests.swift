@@ -57,9 +57,33 @@ struct OrgReadingSettingsTests {
         let settings = OrgReadingSettings()
         let num = settings.resolve(.sectionNumbers, file: file)
         let toc = settings.resolve(.tableOfContents, file: file)
-        #expect(num.notes.map(\.lineNumber) == [3])
-        #expect(toc.notes.map(\.rawText) == ["#+TOC: headlines 2 local"])
+        #expect(num.notes.map(\.source.lineNumber) == [3])
+        #expect(toc.notes.map(\.source.rawText) == ["#+TOC: headlines 2 local"])
+        #expect(num.notes.map(\.kind) == [.unnumberedHeading])
+        #expect(toc.notes.map(\.kind) == [.bodyContents])
         #expect(num.layer == .app && toc.layer == .app)
+    }
+
+    @Test("notoc の除外と本文の目次は別の注記になり、子の見出しも除外件数に含む", arguments: [false, true])
+    func excludedHeadings(hasBodyContents: Bool) throws {
+        let source = """
+            * A
+            :PROPERTIES:
+            :UNNUMBERED: notoc
+            :END:
+            ** B
+            ** C
+            :PROPERTIES:
+            :UNNUMBERED: nil
+            :END:
+            * D
+            """ + (hasBodyContents ? "\n#+TOC: headlines" : "")
+        let file = try #require(OrgConverter.convert(source).orgInstructions)
+        let toc = OrgReadingSettings().resolve(.tableOfContents, file: file)
+        #expect(toc.source == nil && toc.layer == .app)
+        #expect(file.excludedHeadingCount == 2)
+        #expect(toc.notes.filter { $0.kind == .excludedFromContents }.map(\.source.lineNumber) == [3])
+        #expect(toc.notes.filter { $0.kind == .bodyContents }.map(\.source.lineNumber) == (hasBodyContents ? [11] : []))
     }
 
     @Test("上書きする項目だけ原稿に勝ち、実際に継承する値へ戻すと記録を消す")
@@ -124,9 +148,13 @@ struct OrgReadingSettingsTests {
         let line = try #require(settings.document.optionsLine)
         #expect(line == "#+OPTIONS: num:2 toc:t ^:{}")
         let file = try #require(OrgConverter.convert(line).orgInstructions)
-        #expect(settings.resolve(.sectionNumbers, file: file).value == .levels(2))
-        #expect(settings.resolve(.tableOfContents, file: file).value == .all)
-        #expect(settings.resolve(.scripts, file: file).value == .braces)
+        let reader = OrgReadingSettings(defaults: .init(sectionNumbers: .off, tableOfContents: .off, scripts: .off))
+        let numbers = reader.resolve(.sectionNumbers, file: file)
+        let contents = reader.resolve(.tableOfContents, file: file)
+        let scripts = reader.resolve(.scripts, file: file)
+        #expect(numbers.layer == .file && numbers.value == .levels(2))
+        #expect(contents.layer == .file && contents.value == .all)
+        #expect(scripts.layer == .file && scripts.value == .braces)
     }
 
     @Test("既定・文書の変更・原稿の指定を項目ごとに反映し、コピーした行で再現できる")

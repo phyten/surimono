@@ -55,7 +55,7 @@ final class OrgContext {
         if key == "OPTIONS" { options.read(value, fileName: fileName, lineNumber: lineNumber, lines: lines) }
         if key == "TOC", OrgOutline.keyword(value) != nil {
             hasContentsKeyword = true
-            options.file.note(.init(fileName: fileName, lineNumber: lineNumber, rawText: line), for: .tableOfContents)
+            options.file.note(.bodyContents, source: .init(fileName: fileName, lineNumber: lineNumber, rawText: line))
         }
         if key == "LATEX_HEADER" || key == "LATEX_HEADER_EXTRA",
             let definition = OrgMath.definition(value, after: mathDefinitions)

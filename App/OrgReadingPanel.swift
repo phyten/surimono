@@ -2,6 +2,17 @@ import AppKit
 import SurimonoCore
 import SwiftUI
 
+struct OrgDiscardConfirmation: Equatable {
+    let generation: Int
+    let overrides: OrgDocumentReadingSettings
+}
+
+enum OrgFileLockResult: Equatable {
+    case finished
+    case awaitingInstructions
+    case needsConfirmation(OrgDiscardConfirmation)
+}
+
 extension DocumentViewModel {
     func setOrgValue<Value>(_ value: Value, for key: OrgSetting<Value>) {
         guard offersOrgReading, let orgFileInstructions else { return }
@@ -10,11 +21,23 @@ extension DocumentViewModel {
         orgDocumentReading = settings.document
     }
 
-    func allowOrgFileChanges(_ allow: Bool) {
-        guard offersOrgReading, let orgFileInstructions else { return }
+    func enableOrgFileChanges() {
+        guard offersOrgReading, let file = orgFileInstructions else { return }
         var settings = orgReading
-        settings.setAllowsFileChanges(allow, file: orgFileInstructions)
+        settings.setAllowsFileChanges(true, file: file)
         orgDocumentReading = settings.document
+    }
+
+    /// Recheck and apply together on the main actor. A reload invalidates approval even if its count is unchanged.
+    func lockOrgFileInstructions(confirming approval: OrgDiscardConfirmation? = nil) -> OrgFileLockResult {
+        guard offersOrgReading, orgDocumentReading.allowsFileChanges else { return .finished }
+        guard let file = orgFileInstructions else { return .awaitingInstructions }
+        var settings = orgReading
+        let current = OrgDiscardConfirmation(generation: dataGeneration, overrides: settings.fileOverrides(file: file))
+        if current.overrides.changedCount > 0 && current != approval { return .needsConfirmation(current) }
+        settings.setAllowsFileChanges(false, file: file)
+        orgDocumentReading = settings.document
+        return .finished
     }
 
     func resetOrgValues() {
@@ -38,101 +61,147 @@ extension DocumentViewModel {
 }
 
 struct OrgReadingPanel: View {
-    static let width: CGFloat = 350
+    // Includes the panel insets and reset arrow with all three Japanese choices on one line.
+    static let width: CGFloat = 286
     let model: DocumentViewModel
     @Environment(\.openSettings) private var openSettings
     @State private var confirmation: Confirmation?
-    private enum Confirmation: Hashable, Identifiable {
-        case discard(Int)
+    @State private var retryLock = false
+    private enum Confirmation: Identifiable {
+        case discard(OrgDiscardConfirmation)
         case promote
-        var id: Self { self }
+
+        enum ID: Hashable {
+            case discard(generation: Int, choices: String?)
+            case promote
+        }
+        var id: ID {
+            switch self {
+            case .discard(let approval):
+                .discard(generation: approval.generation, choices: approval.overrides.optionsLine)
+            case .promote: .promote
+            }
+        }
+    }
+
+    private var readyToRetryLock: Bool {
+        retryLock && confirmation == nil && model.orgFileInstructions != nil
     }
 
     var body: some View {
         SidePanel("Org", width: Self.width) {
+            actionsMenu
             PanelIconButton("xmark", label: "Close") { model.isReadingPanelOpen = false }
         } content: {
             ScrollView {
-                OrgReadingRows(model: model, preferences: model.preferences)
-                    .disabled(model.orgFileInstructions == nil)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .leading, spacing: 16) {
+                    OrgReadingRows(model: model, preferences: model.preferences)
+                    fileOverride
+                }
+                .disabled(model.orgFileInstructions == nil)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            Spacer(minLength: 0)
-            Divider()
-            footer
+            OrgReadingFooter(count: model.orgDocumentReading.changedCount, revert: model.resetOrgValues)
         }
         .overlay(alignment: .leading) { Rectangle().fill(PrintPalette.line).frame(width: 1) }
         .alert(item: $confirmation) { pending in
             switch pending {
-            case .discard(let count):
-                Alert(
+            case .discard(let approval):
+                let count = approval.overrides.changedCount
+                return Alert(
                     title: Text("Discard changes to \(count) file-specified settings? Other changes will be kept."),
-                    primaryButton: .destructive(Text("Discard")) {
-                        guard let file = model.orgFileInstructions else { return }
-                        let current = model.orgReading.fileOverrideCount(file: file)
-                        if current > count {
-                            confirmation = .discard(current)
-                        } else {
-                            model.allowOrgFileChanges(false)
-                        }
-                    }, secondaryButton: .cancel())
+                    message: approval.overrides.optionsLine.map { Text(verbatim: $0) },
+                    primaryButton: .destructive(Text("Discard")) { requestLock(confirming: approval) },
+                    secondaryButton: .cancel())
             case .promote:
-                Alert(
+                return Alert(
                     title: Text("Use this document’s changes as the Org defaults?"),
                     primaryButton: .default(Text("Apply")) { model.makeOrgDefaults() }, secondaryButton: .cancel())
             }
         }
+        // Wait for both SwiftUI to dismiss the previous alert and the parser to publish the current instructions.
+        .task(id: readyToRetryLock) {
+            guard readyToRetryLock else { return }
+            retryLock = false
+            requestLock()
+        }
     }
 
-    private var footer: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if model.orgFileInstructions?.hasWholeDocumentInstructions == true
-                || model.orgDocumentReading.allowsFileChanges
-            {
+    private func requestLock(confirming approval: OrgDiscardConfirmation? = nil) {
+        switch model.lockOrgFileInstructions(confirming: approval) {
+        case .finished: retryLock = false
+        case .awaitingInstructions: retryLock = true
+        case .needsConfirmation(let current):
+            if approval == nil {
+                confirmation = .discard(current)
+            } else {
+                retryLock = true
+            }
+        }
+    }
+
+    @ViewBuilder private var fileOverride: some View {
+        if model.orgFileInstructions?.hasWholeDocumentInstructions == true || model.orgDocumentReading.allowsFileChanges
+        {
+            VStack(alignment: .leading, spacing: 4) {
                 Toggle(
                     "Allow Changes to File Instructions",
                     isOn: Binding(
                         get: { model.orgDocumentReading.allowsFileChanges },
                         set: { allow in
-                            guard let file = model.orgFileInstructions else { return }
-                            let count = model.orgReading.fileOverrideCount(file: file)
-                            if !allow && count > 0 {
-                                confirmation = .discard(count)
-                            } else {
-                                model.allowOrgFileChanges(allow)
-                            }
+                            if allow { model.enableOrgFileChanges() } else { requestLock() }
                         })
-                ).toggleStyle(.checkbox).disabled(model.orgFileInstructions == nil)
+                ).toggleStyle(.checkbox).controlSize(.small).fixedSize(horizontal: false, vertical: true)
                 if model.orgDocumentReading.allowsFileChanges {
                     Text("Only changed settings take precedence. The original file is never modified.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
-            HStack {
-                Text("Changed in This Document: \(model.orgDocumentReading.changedCount)").font(.caption)
-                Spacer()
-                Button("Revert Changes") { model.resetOrgValues() }.disabled(model.orgDocumentReading.changedCount == 0)
-                Menu {
-                    Button("Make Org Defaults…") { confirmation = .promote }.disabled(
-                        model.orgDocumentReading.changedCount == 0 || model.orgFileInstructions == nil)
-                    Button("Copy as an #+OPTIONS Line") {
-                        if let line = model.orgDocumentReading.optionsLine { Self.copy(line) }
-                    }.disabled(model.orgDocumentReading.optionsLine == nil)
-                    Button("Open Org Settings…") {
-                        BandArrangementEditorSession.showSection(.org, preferences: model.preferences)
-                        openSettings()
-                    }
-                } label: {
-                    Label("More", systemImage: "ellipsis").labelStyle(.iconOnly)
-                }
-                .menuIndicator(.hidden).fixedSize()
+        }
+    }
+
+    private var actionsMenu: some View {
+        Menu {
+            Button("Make Org Defaults…") { confirmation = .promote }.disabled(
+                model.orgDocumentReading.changedCount == 0 || model.orgFileInstructions == nil)
+            Button("Copy as an #+OPTIONS Line") {
+                if let line = model.orgDocumentReading.optionsLine { Self.copy(line) }
+            }.disabled(model.orgDocumentReading.optionsLine == nil)
+            Button("Open Org Settings…") {
+                BandArrangementEditorSession.showSection(.org, preferences: model.preferences)
+                openSettings()
             }
-        }.controlSize(.small)
+        } label: {
+            Image(systemName: "ellipsis").font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(PrintPalette.ink).frame(width: 22, height: 22)
+        }
+        .menuStyle(.borderlessButton).menuIndicator(.hidden).tint(PrintPalette.ink).fixedSize()
+        .accessibilityLabel("More").help("More")
     }
 
     static func copy(_ text: String, to pasteboard: NSPasteboard = .general) {
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
+    }
+}
+
+struct OrgReadingFooter: View {
+    let count: Int
+    let revert: () -> Void
+
+    var body: some View {
+        if count > 0 {
+            VStack(spacing: 8) {
+                Divider()
+                HStack(spacing: 8) {
+                    Text("Changed in This Document: \(count)")
+                        .font(.caption).fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                    Button("Revert All", action: revert).fixedSize()
+                }
+            }
+            .controlSize(.small)
+        }
     }
 }
 

@@ -99,7 +99,7 @@ final class DocumentViewModel {
         }
     }
     /// Counts the contents the window has held, so that what a layout read is only taken for the contents it read.
-    @ObservationIgnored private var dataGeneration = 0
+    @ObservationIgnored private(set) var dataGeneration = 0
     /// The language of a source file. Until the first layout has decoded the text it is what the name alone tells,
     /// and after a reload it stays what it was until the new text is laid out: decoding up to 30 MB to name a badge
     /// is not work for the main actor.

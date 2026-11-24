@@ -157,7 +157,7 @@ struct DocumentSettingsFlowTests {
         let file = try #require(model.orgFileInstructions)
         model.setOrgValue(.levels(1), for: .tableOfContents)
         #expect(model.orgDocumentReading.changedCount == 0)
-        model.allowOrgFileChanges(true)
+        model.enableOrgFileChanges()
         #expect(model.orgReading.fileOverrideCount(file: file) == 0)
         model.setOrgValue(.levels(1), for: .tableOfContents)
         model.setOrgValue(.off, for: .scripts)
@@ -170,13 +170,63 @@ struct DocumentSettingsFlowTests {
         model.setOrgValue(.levels(2), for: .tableOfContents)
         #expect(model.orgReading.fileOverrideCount(file: file) == 0)
         model.setOrgValue(.off, for: .tableOfContents)
-        model.allowOrgFileChanges(false)
+        let lock = model.lockOrgFileInstructions()
+        guard case .needsConfirmation(let approval) = lock else {
+            Issue.record("ファイル指定の上書きを破棄する前に確認する")
+            return
+        }
+        #expect(model.lockOrgFileInstructions(confirming: approval) == .finished)
         #expect(model.orgDocumentReading.optionsLine == "#+OPTIONS: ^:nil")
         #expect(
             !model.orgDocumentReading.allowsFileChanges
                 && model.orgReading.resolve(.tableOfContents, file: file).value == .levels(2))
         model.resetOrgValues()
         #expect(model.orgDocumentReading == .init())
+    }
+
+    @Test(
+        "上書きの破棄は確認した原稿世代・項目・保存値が一致したときだけ実行する", .timeLimit(.minutes(1)),
+        arguments: [false, true])
+    func orgDiscardAfterReload(initiallyLocksContents: Bool) async throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        let page = pdf("A")
+        let initial = initiallyLocksContents ? "num:nil toc:nil" : "num:nil"
+        let model = DocumentViewModel(
+            data: Data("#+OPTIONS: \(initial)\n* A".utf8), fileURL: nil, format: .org,
+            preferences: fixture.preferences, library: fixture.library,
+            renderer: DocumentRenderer(paginate: { _ in PDFDocument(data: page)! }), settingsStore: fixture.store)
+        defer { model.stop() }
+        try await open(model)
+        model.enableOrgFileChanges()
+        model.setOrgValue(.all, for: .sectionNumbers)
+        model.setOrgValue(.all, for: .tableOfContents)
+        model.setOrgValue(.all, for: .scripts)
+        func proposal(_ result: OrgFileLockResult) throws -> OrgDiscardConfirmation {
+            let confirmation: OrgDiscardConfirmation? =
+                if case .needsConfirmation(let approval) = result { approval } else { nil }
+            return try #require(confirmation)
+        }
+        let first = try proposal(model.lockOrgFileInstructions())
+        #expect(first.overrides.optionsLine == (initiallyLocksContents ? "#+OPTIONS: num:t toc:t" : "#+OPTIONS: num:t"))
+        model.replaceContent(Data("#+OPTIONS: ^:nil\n* A".utf8), format: .org)
+        #expect(model.lockOrgFileInstructions(confirming: first) == .awaitingInstructions)
+        try await waitUntil { model.orgFileInstructions != nil }
+        let second = try proposal(model.lockOrgFileInstructions(confirming: first))
+        #expect(second.overrides.optionsLine == "#+OPTIONS: ^:t")
+        #expect(model.orgDocumentReading.optionsLine == "#+OPTIONS: num:t toc:t ^:t")
+        model.setOrgValue(.braces, for: .scripts)
+        let third = try proposal(model.lockOrgFileInstructions(confirming: second))
+        #expect(third.overrides.optionsLine == "#+OPTIONS: ^:{}")
+        model.replaceContent(Data("#+OPTIONS: ^:t\n* A".utf8), format: .org)
+        try await waitUntil { model.orgFileInstructions != nil }
+        let fourth = try proposal(model.lockOrgFileInstructions(confirming: third))
+        #expect(fourth.overrides == third.overrides && fourth != third)
+        #expect(model.orgDocumentReading.allowsFileChanges)
+        model.setOrgValue(.levels(2), for: .sectionNumbers)
+        #expect(model.lockOrgFileInstructions(confirming: fourth) == .finished)
+        #expect(!model.orgDocumentReading.allowsFileChanges)
+        #expect(model.orgDocumentReading.optionsLine == "#+OPTIONS: num:2 toc:t")
     }
 
     @Test("プリセットは変更済みの値を実際に置き換える場合だけ確認する")

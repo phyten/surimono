@@ -70,8 +70,7 @@ public enum OrgConverter {
             body: html + (fonts.isEmpty ? "" : "<style>\n\(fonts)\n</style>\n"),
             title: parser.context.metadata["TITLE"], language: parser.context.metadata["LANGUAGE"],
             readingIssues: contents.omitted ? [OrgConverter.contentsLimitIssue] : [],
-            decidesHeadingNumbers: settings.resolve(.sectionNumbers, file: context.options.file).layer != .app
-                || context.reading.sectionNumbers != .off)
+            decidesHeadingNumbers: true)
         fragment.orgInstructions = context.options.file
         return fragment
     }
@@ -257,11 +256,11 @@ struct OrgParser {
                     let anchors = context.anchorsHeadings
                     let properties = context.propertiesByHeading[index] ?? [:]
                     let relative = heading[0].count - (context.outline.shallowest ?? 1) + 1
-                    var listed = true
+                    let unnumbered = context.outline.unnumberedValue(level: relative, properties: properties)
+                    let listed = unnumbered != "notoc"
+                    if !listed { context.options.file.excludedHeadingCount += 1 }
                     // A document without numbers and without a table of contents keeps no outline at all.
                     if numbers || anchors {
-                        let unnumbered = context.outline.unnumberedValue(level: relative, properties: properties)
-                        listed = unnumbered != "notoc"
                         if relative <= context.reading.sectionNumbers.limit, unnumbered == nil {
                             let next = context.outline.nextNumber(level: relative)
                             number = "<span class=\"section-number-\(level)\">\(next)</span> "
@@ -430,8 +429,10 @@ struct OrgParser {
             }
         }
         if let unnumbered {
-            context.options.file.note(unnumbered, for: .sectionNumbers)
-            if properties["UNNUMBERED"] == "notoc" { context.options.file.note(unnumbered, for: .tableOfContents) }
+            context.options.file.note(.unnumberedHeading, source: unnumbered)
+            if properties["UNNUMBERED"] == "notoc" {
+                context.options.file.note(.excludedFromContents, source: unnumbered)
+            }
         }
         return properties
     }
