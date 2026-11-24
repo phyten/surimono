@@ -196,7 +196,8 @@ struct ThemeSamplerTests {
     }
 
     private func firstLine(_ page: PDFPage) -> String {
-        (page.string ?? "").components(separatedBy: .newlines).first { !$0.isEmpty } ?? ""
+        (page.string ?? "").trimmingCharacters(in: .whitespacesAndNewlines).components(separatedBy: .newlines).first
+            ?? ""
     }
 
     @Test("見出しの箇所を指定すると、1 ページの量が違うテーマでも見本はその見出しから始まる", .timeLimit(.minutes(1)))
@@ -381,10 +382,15 @@ struct ThemeSamplerTests {
         let large = theme("large", css: "body { font-size: 30pt; }")
         let sampler = try sampler("文字の大きさ", theme: small)
         defer { sampler.close() }
-        func height(_ page: PDFPage) -> CGFloat { page.characterBounds(at: 0).height }
+        func height(_ page: PDFPage) throws -> CGFloat {
+            let text = try #require(page.string) as NSString
+            let index = text.range(of: "文字の大きさ").location
+            try #require(index != NSNotFound)
+            return page.characterBounds(at: index).height
+        }
         let smallPage = try await sampler.firstPage(for: small)
         let largePage = try await sampler.firstPage(for: large)
-        #expect(height(largePage) > height(smallPage) * 2.5)
+        #expect(try height(largePage) > height(smallPage) * 2.5)
         #expect(sampler.drawCount == 2)
         _ = try await sampler.firstPage(for: small)
         #expect(sampler.drawCount == 2)

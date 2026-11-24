@@ -260,14 +260,59 @@ enum FlowPageCapture {
     struct PrintedSlice {
         let page: PDFPage
         let transform: CGAffineTransform
+        private let search: GlyphSearch?
+
+        fileprivate init(document: PDFDocument, page: PDFPage, transform: CGAffineTransform) {
+            self.page = page
+            self.transform = transform
+            if #available(macOS 26, *) {
+                search = nil
+            } else {
+                search = GlyphSearch(document)
+            }
+        }
+
+        // PDFPage holds its document weakly. On Sequoia point-based selections can yield the
+        // advance and line height, while the attached document's search exposes the glyph ink.
+        final class GlyphSearch {
+            private let document: PDFDocument
+            private var hits: [String: [Int: CGRect]] = [:]
+
+            init(_ document: PDFDocument) { self.document = document }
+
+            func bounds(of text: String, on page: PDFPage, at point: CGPoint) -> CGRect? {
+                if hits[text] == nil {
+                    var byIndex: [Int: CGRect] = [:]
+                    let matches = document.findString(text)
+                    let characterCount = page.numberOfCharacters
+                    for hit in matches {
+                        // Search ranges include inferred newlines. Character geometry indexes the PDF glyphs.
+                        let box = hit.bounds(for: page)
+                        let index = page.characterIndex(at: CGPoint(x: box.midX, y: box.midY))
+                        if (0..<characterCount).contains(index) {
+                            byIndex[index] = page.characterBounds(at: index)
+                        }
+                    }
+                    hits[text] = byIndex
+                }
+                return hits[text]?[page.characterIndex(at: point)]
+            }
+        }
 
         func glyphBounds(of text: String, at point: CGPoint) -> CGRect? {
-            let index = page.characterIndex(at: point.applying(transform.inverted()))
-            let length = text.utf16.count
-            guard index >= 0, length > 0, index <= page.numberOfCharacters - length,
-                page.selection(for: NSRange(location: index, length: length))?.string == text
-            else { return nil }
-            let bounds = page.characterBounds(at: index).applying(transform)
+            let local = point.applying(transform.inverted())
+            let bounds: CGRect
+            if let search {
+                guard !text.isEmpty, let ink = search.bounds(of: text, on: page, at: local) else { return nil }
+                bounds = ink.applying(transform)
+            } else {
+                let index = page.characterIndex(at: local)
+                let length = text.utf16.count
+                guard index >= 0, length > 0, index <= page.numberOfCharacters - length,
+                    page.selection(for: NSRange(location: index, length: length))?.string == text
+                else { return nil }
+                bounds = page.characterBounds(at: index).applying(transform)
+            }
             // PDFKit can pick the nearest character in a neighbouring row for a blank label.
             guard bounds.width > 0, bounds.height > 0,
                 bounds.insetBy(dx: -bounds.width / 2, dy: -bounds.height / 2).contains(point)
@@ -310,6 +355,6 @@ enum FlowPageCapture {
                 if !area.isEmpty { context.setURL(url as CFURL, for: area.applying(transform)) }
             }
         }
-        return PrintedSlice(page: page, transform: transform)
+        return PrintedSlice(document: source, page: page, transform: transform)
     }
 }

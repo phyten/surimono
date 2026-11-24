@@ -5,19 +5,22 @@ import WebKit
 @main
 enum SurimonoMain {
     @MainActor static func main() {
-        // SwiftUI creates its own NSApplication singleton unless ours exists before App.main().
-        _ = ViewerApplication.shared
-        SurimonoApp.main()
+        #if DEBUG
+            DebugMenuDump.beginOwnershipTrace()
+        #endif
+        AppKitShell.run()
     }
 }
 
-struct SurimonoApp: App {
-    @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
-    @State private var preferences: AppPreferences
-    @State private var library = UserLibrary()
-    private let settingsStore: DocumentSettingsStore
-    /// Outlives the Settings window, which SwiftUI may build again.
-    private let arrangementEditor: BandArrangementEditorSession
+struct ViewerEnvironment {
+    let preferences: AppPreferences
+    let library: UserLibrary
+    let settingsStore: DocumentSettingsStore
+    let arrangementEditor: BandArrangementEditorSession
+
+    var settingsView: SettingsView {
+        SettingsView(preferences: preferences, library: library, arrangementEditor: arrangementEditor)
+    }
 
     init() {
         #if !APP_STORE
@@ -25,10 +28,8 @@ struct SurimonoApp: App {
                 WebPaginator.clearBackground = { $0.setValue(false, forKey: "drawsBackground") }
             }
         #endif
-        let preferences = AppPreferences.shared
-        _preferences = State(initialValue: preferences)
-        let library = UserLibrary()
-        _library = State(initialValue: library)
+        preferences = AppPreferences.shared
+        library = UserLibrary()
         settingsStore = DocumentSettingsStore(directory: library.root.appendingPathComponent("DocumentSettings"))
         arrangementEditor = BandArrangementEditorSession(preferences: preferences)
         BandArrangementEditorSession.app = arrangementEditor
@@ -48,28 +49,5 @@ struct SurimonoApp: App {
         ShortcutEnvironment.library = library
         // Sparkle keeps its schedule from launch, not from the first time the menu is opened.
         _ = AppUpdater.shared
-    }
-
-    var body: some Scene {
-        DocumentGroup(viewing: SurimonoDocument.self) { configuration in
-            DocumentViewer(
-                document: configuration.document, fileURL: configuration.fileURL,
-                preferences: preferences, library: library, settingsStore: settingsStore
-            )
-            #if DEBUG
-                .snapshotControlAppearance()
-            #endif
-        }
-        // The paper fills the window; the traffic lights appear with the overlay menu.
-        .windowStyle(.hiddenTitleBar)
-        .commands {
-            DocumentCommands(preferences: preferences, menuState: ShortcutDispatcher.shared.menus.menuState)
-        }
-        Settings {
-            SettingsView(preferences: preferences, library: library, arrangementEditor: arrangementEditor)
-                #if DEBUG
-                    .snapshotControlAppearance()
-                #endif
-        }
     }
 }

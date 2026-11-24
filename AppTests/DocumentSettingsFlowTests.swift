@@ -90,11 +90,16 @@ struct DocumentSettingsFlowTests {
 
         var settings = first.orgReading
         settings.set(.off, for: .sectionNumbers, file: .init())
+        settings.set(.notInContents, for: .tags, file: .init())
+        settings.set(true, for: .planning, file: .init())
+        settings.set(6, for: .headlineLevels, file: .init())
         first.orgDocumentReading = settings.document
         first.rememberedSettingsDidChange()
         first.flushPendingSettings()
         first.stop()
-        #expect(fixture.store.record(for: ContentHash.of(source).hex)?.orgReading?.optionsLine == "#+OPTIONS: num:nil")
+        #expect(
+            fixture.store.record(for: ContentHash.of(source).hex)?.orgReading?.optionsLine
+                == "#+OPTIONS: num:nil H:6 tags:not-in-toc p:t")
 
         let second = try await open()
         defer { second.stop() }
@@ -141,6 +146,51 @@ struct DocumentSettingsFlowTests {
         fixture.preferences.setOrgDefaults(.init(sectionNumbers: .off, tableOfContents: .off, scripts: .all))
         try await waitUntil { output.last == true && !model.isRendering }
         #expect(model.orgDocumentReading.changedCount == 0)
+    }
+
+    @Test("タスクと詳細の初期表示を原稿から決め、開閉は同じ窓だけで覚える", .timeLimit(.minutes(1)), arguments: [true, false])
+    func orgPanelGroups(hasTasks: Bool) async throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        let source = "#+OPTIONS: p:t f:nil tasks:nil\n" + (hasTasks ? "* TODO One" : "* One")
+        let page = pdf("One", pages: 1)
+        func document() async throws -> DocumentViewModel {
+            let model = DocumentViewModel(
+                data: Data(source.utf8), fileURL: nil, format: .org, preferences: fixture.preferences,
+                library: fixture.library, renderer: DocumentRenderer(paginate: { _ in PDFDocument(data: page)! }),
+                settingsStore: fixture.store)
+            try await open(model)
+            return model
+        }
+        let model = try await document()
+        defer { model.stop() }
+        // AppKit-backed controls may omit their SwiftUI accessibility identifier. Measure the
+        // actual rows at the panel width; a closed group contributes only its disclosure label.
+        func panelHeight(_ subject: DocumentViewModel) -> CGFloat {
+            let width = OrgReadingPanel.width - 24
+            let rows = OrgReadingRows(model: subject, preferences: fixture.preferences)
+                .frame(width: width).fixedSize(horizontal: false, vertical: true)
+            return NSHostingController(rootView: rows).sizeThatFits(in: CGSize(width: width, height: 2_400)).height
+        }
+        #expect(model.orgGroupExpanded(.tasks) == hasTasks && !model.orgGroupExpanded(.details))
+        let initial = panelHeight(model)
+        model.setOrgGroupExpanded(false, for: .tasks)
+        let closed = panelHeight(model)
+        model.setOrgGroupExpanded(true, for: .tasks)
+        let tasksOpen = panelHeight(model)
+        #expect(closed > 0 && tasksOpen > closed)
+        #expect(initial == (hasTasks ? tasksOpen : closed))
+        model.setOrgGroupExpanded(true, for: .details)
+        let bothOpen = panelHeight(model)
+        #expect(bothOpen > tasksOpen)
+        model.setOrgGroupExpanded(!hasTasks, for: .tasks)
+        let reopened = panelHeight(model)
+        #expect(hasTasks ? reopened < bothOpen : reopened == bothOpen)
+        #expect(model.orgGroupExpanded(.tasks) != hasTasks && model.orgGroupExpanded(.details))
+        let next = try await document()
+        defer { next.stop() }
+        #expect(next.orgGroupExpanded(.tasks) == hasTasks && !next.orgGroupExpanded(.details))
+        #expect(panelHeight(next) == initial)
     }
 
     @Test("Org の既定には変更した値だけを写し、上書きを切ってもファイルが指定しない項目は残る", .timeLimit(.minutes(1)))
@@ -231,7 +281,22 @@ struct DocumentSettingsFlowTests {
 
     @Test("プリセットは変更済みの値を実際に置き換える場合だけ確認する")
     func orgPresetConfirmation() {
-        let emacs = OrgReadingDefaults(sectionNumbers: .all, tableOfContents: .all, scripts: .all)
+        let emacs = OrgReadingDefaults.emacs
+        #expect(emacs.sectionNumbers == .all && emacs.tableOfContents == .all && emacs.scripts == .all)
+        #expect(
+            emacs.headlineLevels == 3 && emacs.todo && emacs.tags == .all && emacs.title && emacs.author && emacs.date)
+        #expect(!emacs.preserveBreaks && !emacs.planning && !emacs.priority && !emacs.clocks)
+        #expect(emacs.drawers == .excluding(["LOGBOOK"]) && emacs.properties == .off && emacs.archived == .headline)
+        #expect(emacs.emphasis && emacs.statistics && emacs.tables && emacs.fixedWidth && emacs.footnotes)
+        #expect(emacs.tasks == .all && emacs.timestamps == .all && emacs.math == .render)
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let preferences = AppPreferences(defaults: suite.defaults)
+        preferences.setOrgDefaults(emacs)
+        #expect(AppPreferences(defaults: suite.defaults).orgReadingDefaults == emacs)
+        var custom = OrgReadingDefaults.surimono
+        custom.headlineLevels = 5
+        #expect(OrgReadingDefaultsPane.overwritesChanges(custom, with: emacs))
         #expect(!OrgReadingDefaultsPane.overwritesChanges(.surimono, with: emacs))
         #expect(!OrgReadingDefaultsPane.overwritesChanges(emacs, with: emacs))
         #expect(

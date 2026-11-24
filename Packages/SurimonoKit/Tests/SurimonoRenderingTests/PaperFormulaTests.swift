@@ -98,8 +98,10 @@ struct PaperFormulaTests {
             }
             let reference = try printedInk(page, in: entry.rect)
             let ratio = Double(image.pixelsWide) / entry.pointSize.width
-            #expect(abs(ink.width / ratio - reference.width) < 0.65)
-            #expect(abs(ink.height / ratio - reference.height) < 0.65)
+            let geometry =
+                "\(glyph) PNG=\(image.pixelsWide)×\(image.pixelsHigh) ink=\(ink) px、倍率=\(ratio)、PDF ink=\(reference) pt、範囲=\(entry.rect)、SVG=\(entry.pointSize)"
+            #expect(abs(ink.width / ratio - reference.width) < 0.65, "\(geometry)")
+            #expect(abs(ink.height / ratio - reference.height) < 0.65, "\(geometry)")
             #expect(!ink.isNull)
             #expect(ink.minX >= 1 && ink.maxX < CGFloat(image.pixelsWide))
             #expect(ink.minY >= 1 && ink.maxY < CGFloat(image.pixelsHigh))

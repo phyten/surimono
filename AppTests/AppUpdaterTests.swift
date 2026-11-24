@@ -7,22 +7,25 @@ import Testing
 
 @MainActor
 struct AppUpdaterTests {
-    @Test("知らせるは自動ダウンロードを切り自動で入れるは入れる")
-    func installationSetting() {
-        let setting = FakeInstallationSetting()
-        AppUpdater.setInstallsAutomatically(true, on: setting)
-        #expect(setting.automaticallyDownloadsUpdates)
-        AppUpdater.setInstallsAutomatically(false, on: setting)
-        #expect(!setting.automaticallyDownloadsUpdates)
-    }
+    #if !APP_STORE
+        @Test("知らせるは自動ダウンロードを切り自動で入れるは入れる")
+        func installationSetting() {
+            let setting = FakeInstallationSetting()
+            AppUpdater.setInstallsAutomatically(true, on: setting)
+            #expect(setting.automaticallyDownloadsUpdates)
+            AppUpdater.setInstallsAutomatically(false, on: setting)
+            #expect(!setting.automaticallyDownloadsUpdates)
+        }
 
-    @Test("すぐ表示できない知らせるだけを独自の案内で補う")
-    func reminderDecision() {
-        #expect(!AppUpdater.shouldUseStandardReminder(installsAutomatically: false, immediateFocus: false))
-        #expect(AppUpdater.shouldUseStandardReminder(installsAutomatically: false, immediateFocus: true))
-        #expect(AppUpdater.shouldUseStandardReminder(installsAutomatically: true, immediateFocus: false))
-        #expect(AppUpdater.shouldUseStandardReminder(installsAutomatically: true, immediateFocus: true))
-    }
+        @Test("すぐ表示できない知らせるだけを独自の案内で補う")
+        func reminderDecision() {
+            #expect(!AppUpdater.shouldUseStandardReminder(installsAutomatically: false, immediateFocus: false))
+            #expect(AppUpdater.shouldUseStandardReminder(installsAutomatically: false, immediateFocus: true))
+            #expect(AppUpdater.shouldUseStandardReminder(installsAutomatically: true, immediateFocus: false))
+            #expect(AppUpdater.shouldUseStandardReminder(installsAutomatically: true, immediateFocus: true))
+        }
+
+    #endif
 
     @Test("更新案内はキー窓を奪わずボタンから更新を表示する")
     func reminderPanel() throws {
@@ -60,12 +63,15 @@ struct AppUpdaterTests {
         #expect(writes == 0)
     }
 
-    @Test("終了時に入れる更新の通知がデリゲートに接続されている")
-    func delegateCallbacks() {
-        #expect(
-            AppUpdater.shared.responds(
-                to: NSSelectorFromString("updater:willInstallUpdateOnQuit:immediateInstallationBlock:")))
-    }
+    #if !APP_STORE
+        @Test("終了時に入れる更新の通知がデリゲートに接続されている")
+        func delegateCallbacks() {
+            #expect(
+                AppUpdater.shared.responds(
+                    to: NSSelectorFromString("updater:willInstallUpdateOnQuit:immediateInstallationBlock:")))
+        }
+
+    #endif
 
     @Test("更新待ちがなければ言語の再起動を提案し通常経路だけを呼ぶ")
     func ordinaryRelaunch() async {
@@ -115,61 +121,73 @@ struct AppUpdaterTests {
         #expect(launches == 0)
     }
 
-    @Test("自動確認が許可されていれば、起動のたびに裏でアップデートを確認する")
-    func checksOnLaunchWhenAllowed() {
-        let updater = FakeUpdater(automaticallyChecksForUpdates: true)
-        AppUpdater.checkOnLaunch(updater)
-        #expect(updater.backgroundChecks == 1)
-    }
+    #if !APP_STORE
+        @Test("自動確認が許可されていれば、起動のたびに裏でアップデートを確認する")
+        func checksOnLaunchWhenAllowed() {
+            let updater = FakeUpdater(automaticallyChecksForUpdates: true)
+            AppUpdater.checkOnLaunch(updater)
+            #expect(updater.backgroundChecks == 1)
+        }
 
-    @Test("自動確認が許可されていなければ、起動しても通信しない")
-    func staysOfflineOnLaunchWithoutConsent() {
-        let updater = FakeUpdater(automaticallyChecksForUpdates: false)
-        AppUpdater.checkOnLaunch(updater)
-        #expect(updater.backgroundChecks == 0)
-    }
+        @Test("自動確認が許可されていなければ、起動しても通信しない")
+        func staysOfflineOnLaunchWithoutConsent() {
+            let updater = FakeUpdater(automaticallyChecksForUpdates: false)
+            AppUpdater.checkOnLaunch(updater)
+            #expect(updater.backgroundChecks == 0)
+        }
 
-    @Test("開発版は appcast を持たず、アップデーターを動かさない")
-    func developmentBuildHasNoUpdater() {
-        #expect(AppUpdater.feedURL(in: Bundle.main.infoDictionary) == nil)
-        #expect(!AppUpdater.shared.isAvailable)
-    }
+        @Test("開発版は appcast を持たず、アップデーターを動かさない")
+        func developmentBuildHasNoUpdater() {
+            #expect(AppUpdater.feedURL(in: Bundle.main.infoDictionary) == nil)
+            #expect(!AppUpdater.shared.isAvailable)
+        }
 
-    @Test("アプリに更新の署名を確かめる公開鍵が入っている")
-    func publicKeyIsEmbedded() {
-        let key = Bundle.main.object(forInfoDictionaryKey: "SUPublicEDKey") as? String
-        #expect(key == "J2DmT6aAkfRg6szOm5nH4hjIqVaCdeIso9phuWHieiA=")
-    }
+        @Test("アプリに更新の署名を確かめる公開鍵が入っている")
+        func publicKeyIsEmbedded() {
+            let key = Bundle.main.object(forInfoDictionaryKey: "SUPublicEDKey") as? String
+            #expect(key == "J2DmT6aAkfRg6szOm5nH4hjIqVaCdeIso9phuWHieiA=")
+        }
 
-    @Test("Info.plist の appcast の URL を読み取る")
-    func feedURLIsRead() {
-        let feed = "https://github.com/phyten/surimono/releases/latest/download/appcast.xml"
-        #expect(AppUpdater.feedURL(in: ["SUFeedURL": feed]) == URL(string: feed))
-    }
+        @Test("Info.plist の appcast の URL を読み取る")
+        func feedURLIsRead() {
+            let feed = "https://github.com/phyten/surimono/releases/latest/download/appcast.xml"
+            #expect(AppUpdater.feedURL(in: ["SUFeedURL": feed]) == URL(string: feed))
+        }
 
-    @Test("appcast の URL が空か無いときは、確認先なしとみなす")
-    func emptyFeedMeansNoUpdates() {
-        #expect(AppUpdater.feedURL(in: ["SUFeedURL": ""]) == nil)
-        #expect(AppUpdater.feedURL(in: [:]) == nil)
-        #expect(AppUpdater.feedURL(in: nil) == nil)
-    }
+        @Test("appcast の URL が空か無いときは、確認先なしとみなす")
+        func emptyFeedMeansNoUpdates() {
+            #expect(AppUpdater.feedURL(in: ["SUFeedURL": ""]) == nil)
+            #expect(AppUpdater.feedURL(in: [:]) == nil)
+            #expect(AppUpdater.feedURL(in: nil) == nil)
+        }
+    #else
+        @Test("App Store 版は更新先を持たずアップデートの確認をメニューに置かない")
+        func storeUsesSystemUpdates() {
+            #expect(!AppUpdater.shared.isAvailable)
+            #expect(Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") == nil)
+            #expect(
+                NSApp.mainMenu?.items.first?.submenu?.item(withTitle: String(localized: "Check for Updates…")) == nil)
+        }
+    #endif
 }
 
-@MainActor
-private final class FakeUpdater: LaunchUpdateChecking {
-    let automaticallyChecksForUpdates: Bool
-    private(set) var backgroundChecks = 0
+#if !APP_STORE
+    @MainActor
+    private final class FakeUpdater: LaunchUpdateChecking {
+        let automaticallyChecksForUpdates: Bool
+        private(set) var backgroundChecks = 0
 
-    init(automaticallyChecksForUpdates: Bool) {
-        self.automaticallyChecksForUpdates = automaticallyChecksForUpdates
+        init(automaticallyChecksForUpdates: Bool) {
+            self.automaticallyChecksForUpdates = automaticallyChecksForUpdates
+        }
+
+        func checkForUpdatesInBackground() {
+            backgroundChecks += 1
+        }
     }
 
-    func checkForUpdatesInBackground() {
-        backgroundChecks += 1
+    @MainActor
+    private final class FakeInstallationSetting: UpdateInstallationSetting {
+        var automaticallyDownloadsUpdates = false
     }
-}
-
-@MainActor
-private final class FakeInstallationSetting: UpdateInstallationSetting {
-    var automaticallyDownloadsUpdates = false
-}
+#endif

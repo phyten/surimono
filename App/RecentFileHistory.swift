@@ -1,24 +1,26 @@
 import AppKit
-import ObjectiveC
 import SurimonoCore
 
 @MainActor
 final class RecentFileHistory {
+    static let systemListChanged = Notification.Name("SurimonoRecentDocumentsChanged")
     static var shared: RecentFileHistory?
     let preferences: AppPreferences
     var systemURLs: () -> [URL] = { NSDocumentController.shared.recentDocumentURLs }
     var systemLimit: () -> Int = { Int(NSDocumentController.shared.maximumRecentDocumentCount) }
     var noteSystemURL: (URL) -> Void = { NSDocumentController.shared.noteNewRecentDocumentURL($0) }
     var locate: (RecentFile) -> URL? = { file in
+        file.bookmark.flatMap(RecentFileHistory.resolve) ?? URL(fileURLWithPath: file.path)
+    }
+
+    nonisolated private static func resolve(_ bookmark: Data) -> URL? {
         var stale = false
         #if APP_STORE
             let options: URL.BookmarkResolutionOptions = [.withSecurityScope, .withoutUI]
         #else
             let options: URL.BookmarkResolutionOptions = [.withoutUI]
         #endif
-        return file.bookmark.flatMap {
-            try? URL(resolvingBookmarkData: $0, options: options, bookmarkDataIsStale: &stale)
-        } ?? URL(fileURLWithPath: file.path)
+        return try? URL(resolvingBookmarkData: bookmark, options: options, bookmarkDataIsStale: &stale)
     }
     var exists: (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
     private var isRestoring = false
@@ -28,6 +30,15 @@ final class RecentFileHistory {
     func record(_ url: URL) {
         guard !isRestoring, url.isFileURL, !GettingStarted.isInsideApp(url) else { return }
         preferences.recentFiles.record(Self.entry(for: url), limit: systemLimit())
+    }
+
+    /// A URL from the system list can have the right path but no sandbox extension after relaunch.
+    /// Resolve just the chosen entry, preserving a URL granted by the system if its bookmark expired.
+    func urlForOpening(_ url: URL) -> URL {
+        guard let file = preferences.recentFiles.entries.first(where: { $0.path == url.standardizedFileURL.path }),
+            let bookmark = file.bookmark
+        else { return url }
+        return Self.resolve(bookmark) ?? url
     }
 
     func clear() { preferences.recentFiles.clear() }
@@ -91,42 +102,5 @@ final class RecentFileHistory {
 
     static func install(preferences: AppPreferences) {
         shared = RecentFileHistory(preferences: preferences)
-        _ = installHooks
-    }
-
-    // DocumentGroup owns its NSDocumentController subclass. Preserve it and intercept only the two public history
-    // methods, including calls made by AppKit when opening a document from the standard Recent Items menu.
-    private static let installHooks: Void = {
-        for (original, replacement) in [
-            (
-                #selector(NSDocumentController.noteNewRecentDocumentURL(_:)),
-                #selector(NSDocumentController.surimonoNoteRecent(_:))
-            ),
-            (
-                #selector(NSDocumentController.clearRecentDocuments(_:)),
-                #selector(NSDocumentController.surimonoClearRecent(_:))
-            ),
-        ] {
-            if let originalMethod = class_getInstanceMethod(NSDocumentController.self, original),
-                let replacementMethod = class_getInstanceMethod(NSDocumentController.self, replacement)
-            {
-                method_exchangeImplementations(originalMethod, replacementMethod)
-            }
-        }
-    }()
-}
-
-extension NSDocumentController {
-    /// The bundled guide opens as a document, and the document controller notes every document it opens. A file
-    /// inside the app is not the reader's, so neither the system's list nor the saved one takes it.
-    @objc fileprivate dynamic func surimonoNoteRecent(_ url: URL) {
-        guard !GettingStarted.isInsideApp(url) else { return }
-        surimonoNoteRecent(url)
-        RecentFileHistory.shared?.record(url)
-    }
-
-    @objc fileprivate dynamic func surimonoClearRecent(_ sender: Any?) {
-        surimonoClearRecent(sender)
-        RecentFileHistory.shared?.clear()
     }
 }

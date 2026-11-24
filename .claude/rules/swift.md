@@ -27,6 +27,7 @@ AGENTS.md の「コーディング規約」の補足。Swift ファイルを編�
 
 ## SwiftUI / AppKit
 
+- 起動・文書の窓・メニューバーは AppKit が管理する。SwiftUI のビューは窓内にホストし、メニューバーの追加は `ViewerMainMenu` と `DocumentMenuDescriptor` を通す。
 - 状態は `@Observable` で持つ（`ObservableObject` は使わない）。
 - AppKit のビュー（PDFView、WKWebView）は `NSViewRepresentable` で包む。
 - UI 文言は英語で書き、String Catalog（`App/Localizable.xcstrings`）に日本語訳を足す。

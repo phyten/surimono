@@ -2,13 +2,11 @@ import AppKit
 import SurimonoCore
 import SwiftUI
 
-struct DocumentViewer: View {
-    @State private var model: DocumentViewModel
-
-    init(
+enum DocumentViewer {
+    static func makeModel(
         document: SurimonoDocument, fileURL: URL?, preferences: AppPreferences, library: UserLibrary,
         settingsStore: DocumentSettingsStore?
-    ) {
+    ) -> DocumentViewModel {
         let format = document.format(at: fileURL)
         var bundle: ImageBundleModel?
         var failure: String?
@@ -19,11 +17,7 @@ struct DocumentViewer: View {
             data: document.data, fileURL: fileURL, format: format, preferences: preferences, library: library,
             imageBundle: bundle, settingsStore: settingsStore)
         if let failure { model.failToOpen(failure) }
-        _model = State(initialValue: model)
-    }
-
-    var body: some View {
-        DocumentContent(model: model)
+        return model
     }
 
     /// A ZIP opens as an image bundle of the images inside it, read from memory without extracting anything.

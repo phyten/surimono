@@ -28,6 +28,17 @@ struct LaTeXLatinLineTests {
         return js
     }
 
+    @Test("欧文段落は句読点と結合文字を許し、別の文字体系の文字を除く")
+    func scriptClassification() throws {
+        let js = try context()
+        let samples = ["A paper rail.", "Élan", "e\u{301}", "123 –", "aΩ", "漢", "𐐀"]
+        js.setObject(samples, forKeyedSubscript: "samples" as NSString)
+        let native = js.evaluateScript(#"samples.map(s => /[\p{L}&&[^\p{Script=Latin}]]/v.test(s))"#)?.toArray()
+        let used = js.evaluateScript("samples.map(s => latinNonLatinLetter.test(s))")?.toArray() as? [Bool]
+        print("latin script classification: native=\(native ?? []) selected=\(used ?? [])")
+        #expect(used == [false, false, false, false, true, true, true])
+    }
+
     @Test("英語六十語の分綴位置が実際の plain TeX の出力に一致する")
     func hyphenation() throws {
         let js = try context()

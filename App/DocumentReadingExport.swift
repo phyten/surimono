@@ -49,7 +49,7 @@ extension DocumentViewModel {
     @discardableResult
     func performReadingExport(
         _ kind: ReadingExportKind, destination: URL? = nil, dpi: Double? = nil,
-        pasteboard: NSPasteboard? = nil
+        pasteboard: NSPasteboard? = nil, deliverSharedFile: ((URL) -> Void)? = nil
     ) async -> Bool {
         if kind == .share { clearSharedExport() }
         let metadataTitle: String
@@ -86,6 +86,10 @@ extension DocumentViewModel {
                     throw CocoaError(.fileWriteNoPermission)
                 }
                 try bytes.write(to: file, options: .withoutOverwriting)
+                if let deliverSharedFile {
+                    deliverSharedFile(file)
+                    return true
+                }
                 let picker = NSSharingServicePicker(items: [file])
                 sharePicker = picker
                 picker.show(

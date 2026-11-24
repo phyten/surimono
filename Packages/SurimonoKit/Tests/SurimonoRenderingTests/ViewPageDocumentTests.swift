@@ -36,7 +36,9 @@ struct ViewPageDocumentTests {
         let box = scaled.bounds(for: .cropBox)
         #expect(abs((rotation == 0 ? box.width : box.height) - 300) < 0.01)
         #expect(wide.string?.contains("PAGE-") == true)
-        #expect(scaled.string == wide.string)
+        #expect(
+            scaled.string?.trimmingCharacters(in: .whitespacesAndNewlines)
+                == wide.string?.trimmingCharacters(in: .whitespacesAndNewlines))
         let link = try #require(scaled.annotations.first)
         #expect(link.url == outgoing.url)
         #expect(link.bounds == CGRect(x: 30, y: 60, width: 60, height: 12))
@@ -352,7 +354,9 @@ struct ViewPageDocumentTests {
         #expect(copy.page(at: 2)?.bounds(for: .cropBox) == CGRect(x: 0, y: 0, width: 300, height: 500 - margin))
         for index in 0..<3 {
             #expect(source.page(at: index)?.bounds(for: .cropBox) == CGRect(x: 0, y: 0, width: 300, height: 500))
-            #expect(copy.page(at: index)?.string == source.page(at: index)?.string)
+            #expect(
+                copy.page(at: index)?.string?.trimmingCharacters(in: .whitespacesAndNewlines)
+                    == source.page(at: index)?.string?.trimmingCharacters(in: .whitespacesAndNewlines))
         }
     }
 

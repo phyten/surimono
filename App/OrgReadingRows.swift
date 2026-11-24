@@ -4,6 +4,43 @@ import SwiftUI
 private protocol OrgReadingChoice: Hashable, Sendable {
     var title: String { get }
     var choices: [Self] { get }
+    associatedtype Control: View
+    @MainActor func control(_ label: LocalizedStringResource, selection: Binding<Self>, key: OrgSettingID) -> Control
+}
+
+extension OrgReadingChoice {
+    @MainActor fileprivate func control(_ label: LocalizedStringResource, selection: Binding<Self>, key: OrgSettingID)
+        -> some View
+    {
+        Picker(selection: selection) {
+            ForEach(choices, id: \.self) { Text(verbatim: $0.title).tag($0) }
+        } label: {
+            Text(label)
+        }
+        .labelsHidden().pickerStyle(.menu)
+    }
+}
+
+extension Bool: OrgReadingChoice {
+    fileprivate var title: String { self ? String(localized: "On") : String(localized: "Off") }
+    fileprivate var choices: [Self] { [false, true] }
+    @MainActor fileprivate func control(_ label: LocalizedStringResource, selection: Binding<Self>, key: OrgSettingID)
+        -> some View
+    {
+        Toggle(isOn: selection) { Text(label) }.labelsHidden().toggleStyle(.checkbox)
+    }
+}
+
+extension Int: OrgReadingChoice {
+    fileprivate var title: String {
+        self == .max
+            ? String(localized: "All Levels")
+            : (self == 0 ? String(localized: "None") : String(localized: "Up to Level \(self)"))
+    }
+    fileprivate var choices: [Int] {
+        let levels = Array(0...6) + [Int.max]
+        return levels.contains(self) ? levels : levels + [self]
+    }
 }
 
 extension OrgReadingDefaults.Depth: OrgReadingChoice {
@@ -26,13 +63,98 @@ extension OrgReadingDefaults.Depth: OrgReadingChoice {
 extension OrgReadingDefaults.Scripts: OrgReadingChoice {
     fileprivate var title: String {
         switch self {
-        case .braces: String(localized: "Only with { }")
+        case .braces: String(localized: "Only in { }")
         case .all: String(localized: "With or without Braces")
         case .off: String(localized: "Leave as Written")
         }
     }
 
     fileprivate var choices: [Self] { [.braces, .all, .off] }
+}
+
+extension OrgReadingDefaults.Tags: OrgReadingChoice {
+    fileprivate var title: String {
+        switch self {
+        case .all: String(localized: "On")
+        case .off: String(localized: "Off")
+        case .notInContents: String(localized: "Except in Contents")
+        }
+    }
+    fileprivate var choices: [Self] { Self.allCases }
+}
+
+extension OrgReadingDefaults.Math: OrgReadingChoice {
+    fileprivate var title: String {
+        switch self {
+        case .render: String(localized: "Typeset")
+        case .verbatim: String(localized: "Show Source")
+        case .off: String(localized: "None")
+        }
+    }
+    fileprivate var choices: [Self] { Self.allCases }
+}
+
+extension OrgReadingDefaults.Timestamps: OrgReadingChoice {
+    fileprivate var title: String {
+        switch self {
+        case .all: String(localized: "All")
+        case .active: String(localized: "Active Only")
+        case .inactive: String(localized: "Inactive Only")
+        case .off: String(localized: "None")
+        }
+    }
+    fileprivate var choices: [Self] { Self.allCases }
+}
+
+extension OrgReadingDefaults.Archived: OrgReadingChoice {
+    fileprivate var title: String {
+        switch self {
+        case .all: String(localized: "Entire Tree")
+        case .headline: String(localized: "Heading Only")
+        case .off: String(localized: "None")
+        }
+    }
+    fileprivate var choices: [Self] { Self.allCases }
+}
+
+extension OrgReadingDefaults.Tasks: OrgReadingChoice {
+    fileprivate var title: String {
+        switch self {
+        case .all: String(localized: "All")
+        case .todo: String(localized: "Unfinished Only")
+        case .done: String(localized: "Completed Only")
+        case .off: String(localized: "None")
+        case .keywords: token
+        }
+    }
+    fileprivate var choices: [Self] {
+        let values: [Self] = [.all, .todo, .done, .off]
+        return values.contains(self) ? values : values + [self]
+    }
+}
+
+extension OrgReadingDefaults.Names: OrgReadingChoice {
+    fileprivate var title: String {
+        switch self {
+        case .all: String(localized: "All")
+        case .off: String(localized: "None")
+        case .excluding(["LOGBOOK"]): String(localized: "Except LOGBOOK")
+        case .including, .excluding: token
+        }
+    }
+    fileprivate var choices: [Self] { [.off, .all] }
+    @MainActor fileprivate func control(_ label: LocalizedStringResource, selection: Binding<Self>, key: OrgSettingID)
+        -> some View
+    {
+        var values = choices
+        if key == .drawers { values.append(.excluding(["LOGBOOK"])) }
+        if !values.contains(self) { values.append(self) }
+        return Picker(selection: selection) {
+            ForEach(values, id: \.self) { Text(verbatim: $0.title).tag($0) }
+        } label: {
+            Text(label)
+        }.labelsHidden().pickerStyle(.menu)
+    }
 }
 
 extension AppPreferences {
@@ -50,16 +172,65 @@ struct OrgReadingRows: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            row("Heading Numbers", token: "num", key: .sectionNumbers, path: \.sectionNumbers)
-            row("Table of Contents at the Top", token: "toc", key: .tableOfContents, path: \.tableOfContents)
-            row("Subscripts and Superscripts", token: "^", key: .scripts, path: \.scripts)
+            let changed = preferences.orgReadingDefaults?.changedIDs(from: .surimono) ?? []
+            ForEach(OrgReadingGroup.allCases, id: \.self) { group in
+                let ids = group.settings.filter { !changedOnly || changed.contains($0) }
+                if !ids.isEmpty {
+                    let title = Text(group.title).font(.subheadline.bold()).accessibilityAddTraits(.isHeader)
+                    let rows = ForEach(ids, id: \.self) { row($0) }
+                    if let model, group == .tasks || group == .details {
+                        DisclosureGroup(
+                            isExpanded: Binding(
+                                get: { model.orgGroupExpanded(group) },
+                                set: { model.setOrgGroupExpanded($0, for: group) })
+                        ) {
+                            VStack(alignment: .leading, spacing: 16) { rows }.padding(.top, 8)
+                        } label: {
+                            title.frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .disclosureGroupStyle(PanelDisclosureStyle())
+                    } else {
+                        title
+                        rows
+                    }
+                }
+            }
         }
     }
 
-    @ViewBuilder private func row<Value: OrgReadingChoice>(
-        _ label: LocalizedStringResource, token: String,
-        key: OrgSetting<Value>, path: WritableKeyPath<OrgReadingDefaults, Value>
-    ) -> some View {
+    @ViewBuilder private func row(_ id: OrgSettingID) -> some View {
+        switch id {
+        case .sectionNumbers: setting(OrgSetting.sectionNumbers)
+        case .tableOfContents: setting(OrgSetting.tableOfContents)
+        case .headlineLevels: setting(OrgSetting.headlineLevels)
+        case .tags: setting(OrgSetting.tags)
+        case .scripts: setting(OrgSetting.scripts)
+        case .preserveBreaks: setting(OrgSetting.preserveBreaks)
+        case .emphasis: setting(OrgSetting.emphasis)
+        case .math: setting(OrgSetting.math)
+        case .planning: setting(OrgSetting.planning)
+        case .clocks: setting(OrgSetting.clocks)
+        case .priority: setting(OrgSetting.priority)
+        case .todo: setting(OrgSetting.todo)
+        case .statistics: setting(OrgSetting.statistics)
+        case .tasks: setting(OrgSetting.tasks)
+        case .title: setting(OrgSetting.title)
+        case .author: setting(OrgSetting.author)
+        case .date: setting(OrgSetting.date)
+        case .drawers: setting(OrgSetting.drawers)
+        case .properties: setting(OrgSetting.properties)
+        case .timestamps: setting(OrgSetting.timestamps)
+        case .footnotes: setting(OrgSetting.footnotes)
+        case .tables: setting(OrgSetting.tables)
+        case .fixedWidth: setting(OrgSetting.fixedWidth)
+        case .archived: setting(OrgSetting.archived)
+        }
+    }
+
+    @ViewBuilder private func setting<Value: OrgReadingChoice>(_ key: OrgSetting<Value>) -> some View {
+        let label = key.id.label
+        let token = key.id.token
+        let path = key.fallback
         let defaults = preferences.orgReadingDefaults ?? .surimono
         let resolved = model?.orgReading.resolve(key, file: file)
         let current = resolved?.value ?? defaults[keyPath: path]
@@ -78,12 +249,10 @@ struct OrgReadingRows: View {
         if !changedOnly || changed {
             let title = Text(label).fontWeight(changed ? .bold : .regular).foregroundStyle(
                 locked ? .secondary : .primary)
-            let picker = Picker(selection: Binding(get: { current }, set: set)) {
-                ForEach(current.choices, id: \.self) { Text(verbatim: $0.title).tag($0) }
-            } label: {
-                Text(label)
-            }
-            .labelsHidden().pickerStyle(.menu).disabled(locked)
+            let picker = current.control(label, selection: Binding(get: { current }, set: set), key: key.id).disabled(
+                locked
+            )
+            .accessibilityIdentifier(key.id.rawValue)
             let row = VStack(alignment: .leading, spacing: 4) {
                 OrgReadingChoiceRow(title: title, token: model == nil ? token : nil, picker: picker) {
                     if changed {
@@ -94,9 +263,13 @@ struct OrgReadingRows: View {
                                 ? String(localized: "Restore shipping value: \(inherited.title)")
                                 : String(localized: "Restore Org default: \(inherited.title)"))
                         OrgReadingResetButton(help: help) { set(inherited) }
-                    } else {
+                    } else if model == nil {
                         Color.clear.frame(width: 16, height: 1).accessibilityHidden(true)
                     }
+                }
+                if key.id == .headlineLevels {
+                    Text("Deeper headings become list items.")
+                        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
                 if let model, let source = resolved?.source {
                     OrgFileReason(model: model, source: source, changed: changed)
@@ -147,24 +320,26 @@ struct OrgReadingChoiceRow<Title: View, Choice: View, Reset: View>: View {
             }
         } else {
             let controls = HStack(alignment: .firstTextBaseline, spacing: 6) {
-                picker.fixedSize()
                 reset
+                picker.fixedSize()
             }
-            // Keep the full title and the selected value readable in longer translations.
             ViewThatFits(in: .horizontal) {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                HStack(alignment: .firstTextBaseline, spacing: 0) {
                     title.fixedSize()
-                    controls
+                    Spacer(minLength: 6)
+                    controls.fixedSize()
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     title.fixedSize(horizontal: false, vertical: true)
                     ViewThatFits(in: .horizontal) {
-                        controls
-                        // A file-specified depth can have many more digits than the standard choices.
+                        controls.fixedSize()
+                        // File-specified choices can themselves be wider than the panel.
                         ScrollView(.horizontal) { controls }
                     }
+                    .frame(maxWidth: .infinity, alignment: .trailing)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }
@@ -185,7 +360,7 @@ struct OrgReadingDefaultsPane: View {
                 Menu("Preset") {
                     Button("Surimono Defaults") { choose(.surimono) }
                     Button("Emacs Defaults") {
-                        choose(.init(sectionNumbers: .all, tableOfContents: .all, scripts: .all))
+                        choose(.emacs)
                     }
                 }.fixedSize()
             }
@@ -212,10 +387,6 @@ struct OrgReadingDefaultsPane: View {
     }
 
     static func overwritesChanges(_ current: OrgReadingDefaults, with preset: OrgReadingDefaults) -> Bool {
-        let shipping = OrgReadingDefaults.surimono
-        return (current.sectionNumbers != shipping.sectionNumbers && preset.sectionNumbers != current.sectionNumbers)
-            || (current.tableOfContents != shipping.tableOfContents
-                && preset.tableOfContents != current.tableOfContents)
-            || (current.scripts != shipping.scripts && preset.scripts != current.scripts)
+        preset.overwritesChanges(in: current)
     }
 }

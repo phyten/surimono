@@ -33,7 +33,7 @@ final class OpenRouter {
         hasOpenWindows: {
             !NSDocumentController.shared.documents.isEmpty || ImageBundleWindows.shared.hasWindows
                 || ClipboardWindows.shared.hasWindows || BinderWindows.shared.hasWindows
-                || StreamingPreviewWindows.shared.hasWindow
+                || StreamingPreviewWindows.shared.hasWindow || AppKitShell.current?.hasOpenSettings == true
         },
         showWelcome: { WelcomeController.shared.show() },
         openMemory: { data, format, title, printing in
@@ -154,7 +154,17 @@ final class OpenRouter {
     func open(
         _ urls: [URL], from window: NSWindow? = nil, printing: Bool = false, access: [FolderAccess.Lease] = []
     ) -> Bool {
-        let request = OpenRequest(urls: urls.filter(\.isFileURL))
+        // Take the extension on the URL supplied by the panel/Finder before OpenRequest normalizes paths.
+        // Drops and intents may already carry their own leases.
+        let files = urls.filter(\.isFileURL)
+        var access = access
+        var leased = Set(access.map { $0.url.standardizedFileURL })
+        for url in files where leased.insert(url.standardizedFileURL).inserted {
+            if url.startAccessingSecurityScopedResource() {
+                access.append(FolderAccess.Lease(url: url, release: { url.stopAccessingSecurityScopedResource() }))
+            }
+        }
+        let request = OpenRequest(urls: files)
         guard request != .empty else {
             for lease in access { lease.close() }
             return false
@@ -230,11 +240,9 @@ final class OpenRouter {
         openIncludes(plan)
     }
 
-    func openRecent(_ url: URL) {
-        let started = url.startAccessingSecurityScopedResource()
-        let leases =
-            started ? [FolderAccess.Lease(url: url, release: { url.stopAccessingSecurityScopedResource() })] : []
-        open([url], access: leases)
+    func openRecent(_ itemURL: URL) {
+        let url = RecentFileHistory.shared?.urlForOpening(itemURL) ?? itemURL
+        open([url])
     }
 
     /// A binder the reader closed, from the Recent Binders menu. The reader made these files a binder, so it stays one

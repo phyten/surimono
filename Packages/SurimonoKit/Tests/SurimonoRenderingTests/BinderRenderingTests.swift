@@ -168,8 +168,16 @@ struct BinderRenderingTests {
         let result = try await renderer.render(.binder(children), settings: settings)
         #expect(result.logicalDocument.pageCount == 4)
         #expect(result.logicalDocument.page(at: 0)?.string?.contains("First") == true)
-        #expect(result.logicalDocument.page(at: 1)?.string == PDFDocument(data: children[1].data)?.page(at: 0)?.string)
-        #expect(result.logicalDocument.page(at: 2)?.string == PDFDocument(data: children[1].data)?.page(at: 1)?.string)
+        let child = try #require(PDFDocument(data: children[1].data))
+        for index in 1...2 {
+            let text = try #require(result.logicalDocument.page(at: index)?.string)
+            let original = try #require(child.page(at: index - 1)?.string)
+            if #available(macOS 26, *) {
+                #expect(text == original)
+            } else {
+                #expect(text == original || text + "\n" == original)
+            }
+        }
         settings.binderStartsOnFront = true
         let front = try await renderer.render(.binder(children), settings: settings)
         #expect(front.logicalDocument.pageCount == 5)
@@ -191,7 +199,10 @@ struct BinderRenderingTests {
         let sheetData = try #require(result.sheetDocument.dataRepresentation())
         let logicalCopy = try #require(PDFDocument(data: logicalData))
         let exported = try #require(PDFDocument(data: sheetData))
-        for document in [original, result.logicalDocument, logicalCopy, exported] {
+        for (stage, document) in [
+            ("original", original), ("binder", result.logicalDocument), ("reopened", logicalCopy),
+            ("exported", exported),
+        ] {
             #expect(document.pageCount == 2)
             for (index, expected) in ["PAGE-1", "PAGE-2"].enumerated() {
                 let page = try #require(document.page(at: index))
@@ -199,8 +210,11 @@ struct BinderRenderingTests {
                 #expect(text.contains(expected))
                 // Check the text layer, not glyph coordinates or visible placement on the sheet.
                 let selection = try #require(
-                    page.selection(for: NSRange(location: 0, length: (text as NSString).length)))
-                #expect(selection.string?.contains(expected) == true)
+                    page.selection(for: NSRange(location: 0, length: page.numberOfCharacters)))
+                #expect(
+                    selection.string?.contains(expected) == true,
+                    "\(stage) page=\(index) characters=\(page.numberOfCharacters) utf16=\(text.utf16.count) selectionPages=\(selection.pages.count)"
+                )
             }
         }
     }

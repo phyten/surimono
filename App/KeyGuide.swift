@@ -144,7 +144,7 @@ final class KeyGuideWindow {
             window.makeKeyAndOrderFront(nil)
             return
         }
-        // A separate window works from both DocumentGroup and AppKit-hosted image bundles, even without a document.
+        // The guide can be opened without a document.
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 580, height: 560),
             styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)

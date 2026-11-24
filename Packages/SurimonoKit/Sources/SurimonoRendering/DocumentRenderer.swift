@@ -767,7 +767,10 @@ public final class DocumentRenderer {
                 if let children = source.children {
                     let output = try await binder(children, settings: settings)
                     binderOutput = output
-                    document = output.document
+                    guard let selectable = StandalonePage.selectableDocument(output.document) else {
+                        throw RenderingError.invalidPDF
+                    }
+                    document = selectable
                     unreadable = []
                     candidates = []
                     issues = output.issues

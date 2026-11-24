@@ -90,25 +90,19 @@ struct RecentBindersTests {
         let fixture = try Fixture()
         defer { fixture.remove() }
         let preferences = fixture.preferences
-        let state = MenuState()
-        let root = NSMenu()
-        let updates = MenuUpdates(
-            state: state, root: { root }, model: { nil }, preferences: { preferences },
-            lifecycle: NotificationCenter(), apply: { _ in })
-        updates.start()
-        defer { updates.stop() }
+        var snapshot: MenuSnapshot { .init(version: 0, content: .init(preferences: preferences)) }
         func recentMenus() -> [DocumentMenuDescriptor] {
-            DocumentMenuDescriptor.rows(for: .open, in: state.snapshot).filter { $0.id == .menu("Recent Binders") }
+            DocumentMenuDescriptor.rows(for: .open, in: snapshot).filter { $0.id == .menu("Recent Binders") }
         }
-        #expect(state.snapshot.content.recentBinders.isEmpty && recentMenus().isEmpty)
+        #expect(snapshot.content.recentBinders.isEmpty && recentMenus().isEmpty)
         let first = RecentBinder(files: [.init(path: "/docs/a.md"), .init(path: "/docs/b.md")])
         let second = RecentBinder(files: ["x.md", "y.md", "z.md"].map { .init(path: "/docs/" + $0) })
         preferences.recordRecentBinder(first)
         preferences.recordRecentBinder(second)
         await withCheckedContinuation { done in DispatchQueue.main.async { done.resume() } }
-        let entries = state.snapshot.content.recentBinders
+        let entries = snapshot.content.recentBinders
         let titles = [(first: "x.md", count: 3), (first: "a.md", count: 2)].map {
-            BinderModel.title(firstName: $0.first, count: $0.count, language: state.snapshot.content.language)
+            BinderModel.title(firstName: $0.first, count: $0.count, language: snapshot.content.language)
         }
         #expect(entries.map(\.id) == [second.id, first.id])
         #expect(entries.map(\.title) == titles)
@@ -135,7 +129,7 @@ struct RecentBindersTests {
         #expect(opened == [reordered])
         #expect(preferences.recentBinders.isEmpty)
         await withCheckedContinuation { done in DispatchQueue.main.async { done.resume() } }
-        #expect(state.snapshot.content.recentBinders.isEmpty && recentMenus().isEmpty)
+        #expect(snapshot.content.recentBinders.isEmpty && recentMenus().isEmpty)
     }
 
     // MARK: Closing a binder

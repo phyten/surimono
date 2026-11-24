@@ -157,6 +157,17 @@ final class DocumentViewModel {
     }
     private(set) var typeface: Typeface
     var isReadingPanelOpen = false
+    // Disclosure choices live with this window, including while its panel is closed.
+    private var orgGroupExpansion: [OrgReadingGroup: Bool] = [:]
+
+    func orgGroupExpanded(_ group: OrgReadingGroup) -> Bool {
+        orgGroupExpansion[group] ?? (group == .tasks && orgFileInstructions?.hasTaskElements == true)
+    }
+
+    func setOrgGroupExpanded(_ expanded: Bool, for group: OrgReadingGroup) {
+        orgGroupExpansion[group] = expanded
+    }
+
     var offersOrgReading: Bool { format == .org && binder == nil && imageBundle == nil }
     var showsReadingPanel: Bool { mode == .view && offersOrgReading && isReadingPanelOpen }
     private(set) var orgFileInstructions: OrgFileInstructions?
@@ -230,12 +241,34 @@ final class DocumentViewModel {
     var offersScrubber: Bool { menuArrangement == .split && canNavigateReading && paperPageCount > 1 }
     var thumbnailGeneration: Int? { isUpToDate && paperDocument === result?.viewDocument ? result?.id : nil }
     /// The selected half of a spread; PDFView reports only its first page.
-    var selectedReadingPage: Int?
+    var selectedReadingPage: Int? {
+        didSet {
+            if oldValue != selectedReadingPage, window?.isRestorable == true { window?.invalidateRestorableState() }
+        }
+    }
+
+    @ObservationIgnored private var pendingRestoredPage: Int?
+    var pageForWindowRestoration: Int { pendingRestoredPage ?? logicalReadingPage }
+
+    /// The frame was set by AppKit. Let normal page fitting keep its top edge and current height.
+    /// Pagination can finish after state decoding, and the source may have fewer pages now.
+    func restoreReadingPage(_ page: Int) {
+        hasSizedWindow = true
+        pendingRestoredPage = max(0, page)
+        applyRestoredPageIfReady()
+    }
+
+    private func applyRestoredPageIfReady() {
+        guard let page = pendingRestoredPage, contentHash != nil, isUpToDate, pageCount > 0 else { return }
+        pendingRestoredPage = nil
+        navigateReadingPage(min(page, pageCount - 1))
+    }
 
     /// The 0-based index of the first visible logical page.
     var currentPageIndex = 0 {
         didSet {
             if oldValue != currentPageIndex {
+                if window?.isRestorable == true { window?.invalidateRestorableState() }
                 selectedReadingPage = nil
                 if !proseMark.spans.isEmpty {
                     proseMark.update(presented: true, generation: proseGeneration, readingPage: currentPageIndex)
@@ -1909,7 +1942,7 @@ final class DocumentViewModel {
     }
 
     private func finishFirstRender(succeeded: Bool) {
-        if !succeeded { refreshPageUpdate() }
+        if succeeded { applyRestoredPageIfReady() } else { refreshPageUpdate() }
         if succeeded, !finishBinderRestorationIfReady() { return }
         let report = onFirstRender
         onFirstRender = nil
@@ -3071,6 +3104,7 @@ final class DocumentViewModel {
 
     private func didComputeHash(_ hash: ContentHash) {
         defer {
+            applyRestoredPageIfReady()
             if pendingBinderRestoration != nil, finishBinderRestorationIfReady() {
                 finishFirstRender(succeeded: true)
             }
