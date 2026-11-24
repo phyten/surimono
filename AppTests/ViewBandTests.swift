@@ -90,8 +90,10 @@ struct ViewBandTests {
         }
     }
 
-    @Test("自動リサイズが単独でも重なっても、最後の操作が終わったあとの利用者のリサイズだけを保存する", arguments: [1, 2])
-    func onlyUserResizeSavesWindowSize(operations: Int) async throws {
+    @Test(
+        "自動リサイズが単独でも重なっても、最後の操作が終わったあとの利用者のリサイズだけを保存する",
+        arguments: [[0.5], [0.5, 0.5], [0.75, 0.25]])
+    func onlyUserResizeSavesWindowSize(durations: [TimeInterval]) async throws {
         let environment = Environment()
         defer { environment.cleanUp() }
         let model = environment.model(TestFixtures.pdf("Resize"))
@@ -104,16 +106,18 @@ struct ViewBandTests {
         model.sizeWindowToPaper(initialOnly: true)
         let hash = try #require(model.contentHash).hex
         let clock = ResizeClock()
-        // With two operations the first alarm has fired just as the second reaches its midpoint.
-        for _ in 0..<operations {
-            ViewerWindow.markResizing(window, for: 0.5, schedule: clock.schedule)
+        // At 500 ms either alarm may have fired first; the other must still suppress the notification.
+        for duration in durations {
+            ViewerWindow.markResizing(window, for: duration, schedule: clock.schedule)
             clock.advance(by: .milliseconds(250))
         }
+        #expect(ViewerWindow.isResizingProgrammatically(window))
         model.windowDidEndLiveResize()
         model.flushPendingSettings()
         #expect(environment.store.record(for: hash) == nil)
 
         clock.advance(by: .milliseconds(250))
+        #expect(!ViewerWindow.isResizingProgrammatically(window))
         var frame = window.frame
         frame.size.width -= 40
         window.setFrame(frame, display: false)

@@ -47,7 +47,8 @@ enum ViewerWindow {
         return TrafficLights(window: window)?.centerY
     }
     private static let minimumPaperHeight: CGFloat = 280
-    private static let resizeTokens = NSMapTable<NSWindow, NSMutableSet>.weakToStrongObjects()
+    // Each pending completion retains its token set, so the table need not keep it alive.
+    private static let resizeTokens = NSMapTable<NSWindow, NSMutableSet>.weakToWeakObjects()
 
     static func isResizingProgrammatically(_ window: NSWindow) -> Bool {
         (resizeTokens.object(forKey: window)?.count ?? 0) > 0
