@@ -1,5 +1,4 @@
 import AppKit
-import SwiftUI
 
 final class AppKitShell: NSObject, NSMenuItemValidation {
     private(set) static var current: AppKitShell?
@@ -55,19 +54,13 @@ final class AppKitShell: NSObject, NSMenuItemValidation {
 
     func settingsController() -> SettingsWindowController {
         if let settings { return settings }
-        #if DEBUG
-            let host = NSHostingController(rootView: environment.settingsView.snapshotControlAppearance())
-        #else
-            let host = NSHostingController(rootView: environment.settingsView)
-        #endif
-        host.sceneBridgingOptions = [.toolbars]
-        let window = NSWindow(contentViewController: host)
-        window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-        window.title = ViewerMainMenu.standardTitle("Settings…").trimmingCharacters(
-            in: CharacterSet(charactersIn: "…."))
-        window.isReleasedWhenClosed = false
-        window.setContentSize(NSSize(width: 820, height: 540))
-        if !window.setFrameUsingName("SurimonoSettings") { window.center() }
+        let window = SettingsWindowController.makeWindow(for: environment.settingsView)
+        // Prefer the AppKit frame. Older installations saved the Settings scene under SwiftUI's name.
+        if !window.setFrameUsingName("SurimonoSettings"),
+            !window.setFrameUsingName("com_apple_SwiftUI_Settings_window")
+        {
+            window.center()
+        }
         window.setFrameAutosaveName("SurimonoSettings")
         let controller = SettingsWindowController(window: window, editor: environment.arrangementEditor)
         settings = controller

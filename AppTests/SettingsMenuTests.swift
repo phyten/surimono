@@ -10,6 +10,35 @@ struct SettingsMenuTests {
         Bundle.main.localizedString(forKey: key, value: key, table: nil)
     }
 
+    @Test("設定窓は最初に理想幅で開き、ペインを変えると窓の題名がその翻訳に変わる")
+    func paneWindow() async throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let preferences = AppPreferences(defaults: suite.defaults)
+        preferences.settingsSection = .printing
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let view = SettingsView(
+            preferences: preferences, library: UserLibrary(root: directory),
+            arrangementEditor: BandArrangementEditorSession(preferences: preferences))
+        let window = SettingsWindowController.makeWindow(for: view)
+        defer { window.close() }
+        window.orderBack(nil)
+        for (section, title) in [(SettingsSection.printing, "Printing"), (.general, "General")] {
+            preferences.settingsSection = section
+            let expected = localized(title)
+            let deadline = ContinuousClock.now + .seconds(5)
+            while window.title != expected && ContinuousClock.now < deadline {
+                window.contentView?.layoutSubtreeIfNeeded()
+                try await Task.sleep(for: .milliseconds(10))
+            }
+            #expect(window.title == expected)
+            #expect(window.frame.width == 860)
+            #expect(window.contentRect(forFrameRect: window.frame).height >= 540)
+            #expect(window.contentMinSize == NSSize(width: 820, height: 540))
+        }
+    }
+
     @Test("新しい表示・ウィンドウ・印刷の既定値は保存され再読み込みできる")
     func viewerDefaultsPersistence() {
         let suite = TestDefaultsSuite()

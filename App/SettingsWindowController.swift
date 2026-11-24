@@ -1,7 +1,29 @@
 import AppKit
+import SwiftUI
 
 final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSWindowRestoration {
     static let windowID = NSUserInterfaceItemIdentifier("surimono.settings.v1")
+
+    static func makeWindow(for view: SettingsView) -> NSWindow {
+        #if DEBUG
+            let host = NSHostingController(rootView: view.snapshotControlAppearance())
+        #else
+            let host = NSHostingController(rootView: view)
+        #endif
+        host.sceneBridgingOptions = [.title, .toolbars]
+        // `.minSize` keeps the window's minimum at the content's 820 × 540; other options let SwiftUI clear it.
+        host.sizingOptions = [.minSize]
+        let window = NSWindow(contentViewController: host)
+        window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
+        window.isReleasedWhenClosed = false
+        window.contentMinSize = SettingsView.minimumSize
+        // The Settings scene supplied an ideal width but no ideal height. Let the content choose its height.
+        window.setContentSize(
+            NSSize(
+                width: SettingsView.idealWidth,
+                height: max(SettingsView.minimumSize.height, host.view.fittingSize.height)))
+        return window
+    }
 
     static func restoreWindow(
         withIdentifier identifier: NSUserInterfaceItemIdentifier, state: NSCoder,

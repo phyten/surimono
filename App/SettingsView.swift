@@ -3,6 +3,9 @@ import SurimonoRendering
 import SwiftUI
 
 struct SettingsView: View {
+    static let minimumSize = NSSize(width: 820, height: 540)
+    static let idealWidth: CGFloat = 860
+
     @Bindable var preferences: AppPreferences
     @Bindable var library: UserLibrary
     let arrangementEditor: BandArrangementEditorSession
@@ -138,7 +141,16 @@ struct SettingsView: View {
                 if !visible.isEmpty { SettingSetRemovalNotice(preferences: preferences) }
             }
             .navigationTitle(
-                visible.isEmpty ? Text(verbatim: "") : Text(LocalizedStringKey(preferences.settingsSection.rawValue)))
+                visible.isEmpty ? Text(verbatim: "") : Text(LocalizedStringKey(preferences.settingsSection.rawValue))
+            )
+            // The hosting controller's title bridging leaves the AppKit window untitled for a title set inside
+            // the split view's detail, so the pane's name is also given to the window directly.
+            .background(
+                SettingsWindowTitle(
+                    title: visible.isEmpty
+                        ? ""
+                        : Bundle.main.localizedString(
+                            forKey: preferences.settingsSection.rawValue, value: nil, table: nil)))
         }
         .onChange(of: query) {
             guard !query.isEmpty, let best = results.bestSection(keeping: preferences.settingsSection) else { return }
@@ -169,7 +181,7 @@ struct SettingsView: View {
             initialTextWell.deactivate()
             query = ""
         }
-        .frame(minWidth: 820, idealWidth: 860, minHeight: 540)
+        .frame(minWidth: Self.minimumSize.width, idealWidth: Self.idealWidth, minHeight: Self.minimumSize.height)
         .background {
             WindowReader { window in
                 let editor = arrangementEditor
@@ -611,6 +623,40 @@ struct SettingsSidebar: View {
             }
             // Replacing the filtered list keeps AppKit from changing selection during an outline update.
             .id(visible)
+        }
+    }
+}
+
+/// Gives the Settings window the selected pane's name as its title.
+private struct SettingsWindowTitle: NSViewRepresentable {
+    let title: String
+
+    func makeNSView(context: Context) -> TitleView { TitleView(title: title) }
+    func updateNSView(_ view: TitleView, context: Context) {
+        view.title = title
+        view.apply()
+    }
+
+    final class TitleView: NSView {
+        var title: String
+        init(title: String) {
+            self.title = title
+            super.init(frame: .zero)
+        }
+        required init?(coder: NSCoder) { nil }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            apply()
+        }
+
+        /// SwiftUI observes the window while it updates its views; changing the title inside that update can
+        /// crash it, so the change waits until the update is done.
+        func apply() {
+            Task { @MainActor [weak self] in
+                guard let self, let window, window.title != title else { return }
+                window.title = title
+            }
         }
     }
 }
