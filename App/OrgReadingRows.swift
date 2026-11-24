@@ -63,7 +63,7 @@ extension OrgReadingDefaults.Depth: OrgReadingChoice {
 extension OrgReadingDefaults.Scripts: OrgReadingChoice {
     fileprivate var title: String {
         switch self {
-        case .braces: String(localized: "Only with { }")
+        case .braces: String(localized: "Only in { }")
         case .all: String(localized: "With or without Braces")
         case .off: String(localized: "Leave as Written")
         }
@@ -87,7 +87,7 @@ extension OrgReadingDefaults.Math: OrgReadingChoice {
     fileprivate var title: String {
         switch self {
         case .render: String(localized: "Typeset")
-        case .verbatim: String(localized: "Show Formula Source")
+        case .verbatim: String(localized: "Show Source")
         case .off: String(localized: "None")
         }
     }
@@ -176,8 +176,23 @@ struct OrgReadingRows: View {
             ForEach(OrgReadingGroup.allCases, id: \.self) { group in
                 let ids = group.settings.filter { !changedOnly || changed.contains($0) }
                 if !ids.isEmpty {
-                    Text(group.title).font(.subheadline.bold()).accessibilityAddTraits(.isHeader)
-                    ForEach(ids, id: \.self) { row($0) }
+                    let title = Text(group.title).font(.subheadline.bold()).accessibilityAddTraits(.isHeader)
+                    let rows = ForEach(ids, id: \.self) { row($0) }
+                    if let model, group == .tasks || group == .details {
+                        DisclosureGroup(
+                            isExpanded: Binding(
+                                get: { model.orgGroupExpanded(group) },
+                                set: { model.setOrgGroupExpanded($0, for: group) })
+                        ) {
+                            VStack(alignment: .leading, spacing: 16) { rows }.padding(.top, 8)
+                        } label: {
+                            title.frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .disclosureGroupStyle(PanelDisclosureStyle())
+                    } else {
+                        title
+                        rows
+                    }
                 }
             }
         }
@@ -235,7 +250,9 @@ struct OrgReadingRows: View {
             let title = Text(label).fontWeight(changed ? .bold : .regular).foregroundStyle(
                 locked ? .secondary : .primary)
             let picker = current.control(label, selection: Binding(get: { current }, set: set), key: key.id).disabled(
-                locked)
+                locked
+            )
+            .accessibilityIdentifier(key.id.rawValue)
             let row = VStack(alignment: .leading, spacing: 4) {
                 OrgReadingChoiceRow(title: title, token: model == nil ? token : nil, picker: picker) {
                     if changed {
@@ -246,9 +263,13 @@ struct OrgReadingRows: View {
                                 ? String(localized: "Restore shipping value: \(inherited.title)")
                                 : String(localized: "Restore Org default: \(inherited.title)"))
                         OrgReadingResetButton(help: help) { set(inherited) }
-                    } else {
+                    } else if model == nil {
                         Color.clear.frame(width: 16, height: 1).accessibilityHidden(true)
                     }
+                }
+                if key.id == .headlineLevels {
+                    Text("Deeper headings become list items.")
+                        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
                 if let model, let source = resolved?.source {
                     OrgFileReason(model: model, source: source, changed: changed)
@@ -299,24 +320,26 @@ struct OrgReadingChoiceRow<Title: View, Choice: View, Reset: View>: View {
             }
         } else {
             let controls = HStack(alignment: .firstTextBaseline, spacing: 6) {
-                picker.fixedSize()
                 reset
+                picker.fixedSize()
             }
-            // Keep the full title and the selected value readable in longer translations.
             ViewThatFits(in: .horizontal) {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                HStack(alignment: .firstTextBaseline, spacing: 0) {
                     title.fixedSize()
-                    controls
+                    Spacer(minLength: 6)
+                    controls.fixedSize()
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     title.fixedSize(horizontal: false, vertical: true)
                     ViewThatFits(in: .horizontal) {
-                        controls
-                        // A file-specified depth can have many more digits than the standard choices.
+                        controls.fixedSize()
+                        // File-specified choices can themselves be wider than the panel.
                         ScrollView(.horizontal) { controls }
                     }
+                    .frame(maxWidth: .infinity, alignment: .trailing)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }

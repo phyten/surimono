@@ -185,7 +185,10 @@ enum SettingsCatalogue {
         for group in OrgReadingGroup.allCases {
             rows += group.settings.map { id in
                 let token = id.token.lowercased()
-                return .init(.org, id.label.key, identifiers: [token, token + ":", ".org"], heading: group.title.key)
+                let aliases = orgSearchWords(for: id) + (group == .text ? formerOrgTextHeadings : [])
+                return .init(
+                    .org, id.label.key, words: aliases, identifiers: [token, token + ":", ".org"],
+                    heading: group.title.key)
             }
         }
         rows += ClipboardSettings.recognizable.map {
@@ -205,6 +208,81 @@ enum SettingsCatalogue {
         rows += ShortcutOperation.catalog.filter(\.isGlobal).map { shortcut($0) }
         return rows
     }()
+
+    // Keep retired translations searchable when the display catalog no longer contains their keys.
+    private static let formerOrgTextHeadings = [
+        "Text Formatting", "文字", "Text", "Texto", "Texte", "문자", "텍스트", "Formatierung des Fließtexts",
+        "Formato del cuerpo del texto", "Mise en forme du corps du texte",
+    ]
+
+    private static func orgSearchWords(for id: OrgSettingID) -> [String] {
+        switch id {
+        case .headlineLevels:
+            [
+                "Heading Depth", "見出しの深さ", "Gliederungstiefe", "Profundidad de los títulos", "Profondeur des titres",
+                "제목 깊이", "标题层级", "標題層級", "Profundidad de títulos", "Niveles que se muestran como títulos",
+                "Niveaux affichés comme titres",
+            ]
+        case .tags:
+            [
+                "Schlagwörter der Überschriften", "Etiquetas de los títulos", "Étiquettes des titres",
+                "Except in Contents", "Außer im Inhaltsverzeichnis", "Sauf dans le sommaire", "목차에서만 숨기기", "目录中隐藏",
+                "目錄中隱藏",
+            ]
+        case .scripts:
+            [
+                "Only with { }", "{ } があるときだけ", "Nur mit { }", "Solo con { }", "Seulement avec { }", "{ }가 있을 때만",
+                "仅在有 { } 时", "僅在有 { } 時", "Only in { }", "Only When Enclosed in { }", "{ } で囲んだときだけ",
+                "Nur in { } eingeschlossen", "Solo si se encierra entre { }", "仅当用 { } 括起时", "僅在以 { } 括住時",
+            ]
+        case .emphasis:
+            [
+                "Text Emphasis", "文字の強調", "Texthervorhebungen", "Énfasis del texto", "Mise en valeur du texte",
+                "텍스트 강조", "文字强调", "文字強調", "Fett, kursiv und weitere Hervorhebungen", "Negrita, cursiva y otros estilos",
+                "Gras, italique et autres mises en valeur", "粗体、斜体等文字修饰", "粗體、斜體等文字裝飾",
+            ]
+        case .statistics:
+            [
+                "Statistics Cookies", "進捗の割合と件数", "Fortschrittsangaben", "Indicadores de progreso",
+                "Indicateurs de progression", "진행률 및 개수", "进度与计数", "進度與計數", "Abschluss in Prozent und Anzahl",
+                "Porcentaje y número de tareas completadas", "Pourcentage et nombre de tâches terminées", "완료율과 완료 건수",
+                "完成率和计数",
+            ]
+        case .tasks:
+            [
+                "Include Tasks", "含めるタスク", "Einbezogene Aufgaben", "Tareas que se incluyen", "Tâches à inclure",
+                "포함할 작업", "包含的任务", "包含的任務", "Tareas que se muestran", "Completed Only", "Terminées uniquement",
+                "Unfinished Only", "Non terminées uniquement",
+            ]
+        case .title:
+            [
+                "Document Title", "文書の表題", "Dokumenttitel", "Título del documento", "Titre du document", "문서 제목",
+                "文档标题", "文件標題",
+            ]
+        case .date: ["Document Date"]
+        case .fixedWidth: ["Zeilen mit fester Zeichenbreite"]
+        case .math:
+            [
+                "Typeset", "Componer", "Composer", "排版", "Show Source", "Show Formula Source", "数式の原文",
+                "Código de la fórmula", "Source de la formule", "公式源码", "公式原始碼",
+            ]
+        case .drawers: ["서랍"]
+        case .properties: ["속성 서랍"]
+        case .archived:
+            [
+                "Arborescences archivées", "Entire Tree", "Toute l’arborescence", "본문 포함", "包含正文", "包含內文",
+                "Heading Only", "見出しだけ",
+            ]
+        case .timestamps:
+            [
+                "Alleinstehende Zeitstempel", "Active Only", "Actifs uniquement", "仅活动时间戳", "僅作用中時間戳記", "Inactive Only",
+                "Inactifs uniquement", "仅非活动时间戳", "僅非作用中時間戳記",
+            ]
+        case .clocks: ["Arbeitszeitprotokolle"]
+        case .preserveBreaks: ["Conservar los saltos de línea", "Conserver les sauts de ligne"]
+        default: []
+        }
+    }
 
     private static func shortcut(_ operation: ShortcutOperation) -> SettingsSearchRow {
         .init(

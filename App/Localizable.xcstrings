@@ -1,6 +1,430 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Body Text Formatting": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Body Text Formatting"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本文の書式"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fließtextformatierung"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Formato del texto"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mise en forme du texte"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "본문 서식"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正文格式"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "內文格式"
+          }
+        }
+      }
+    },
+    "Levels Shown as Headings": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Levels Shown as Headings"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "見出しにする深さ"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ebenen als Überschriften"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Niveles como títulos"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Niveaux de titres"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "제목으로 표시할 깊이"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "显示为标题的层级"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "顯示為標題的層級"
+          }
+        }
+      }
+    },
+    "Deeper headings become list items.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deeper headings become list items."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "これより深い見出しは箇条書きになります"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiefere Überschriften werden zu Listeneinträgen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los títulos más profundos pasan a ser una lista."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les titres plus profonds deviennent une liste."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이보다 깊은 제목은 목록 항목이 됩니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更深层级的标题将显示为列表项。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更深層級的標題會顯示為清單項目。"
+          }
+        }
+      }
+    },
+    "Only in { }": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only in { }"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{ } で囲んだときのみ"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nur in { }"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo entre { }"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seulement entre { }"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{ }로 감쌀 때만"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仅限 { } 内"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "僅限 { } 內"
+          }
+        }
+      }
+    },
+    "Bold, Italic, and Other Emphasis": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bold, Italic, and Other Emphasis"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "太字・斜体などの装飾"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fett, kursiv u. a."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Negrita, cursiva, etc."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gras, italique, etc."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "굵게, 기울임꼴 등 강조 서식"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "粗体、斜体等文字强调"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "粗體、斜體等文字強調"
+          }
+        }
+      }
+    },
+    "Completion Percentages and Counts": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Completion Percentages and Counts"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完了率と件数"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fortschritt in % und Anzahl"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Progreso (% y número)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Progression (% et nombre)"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "완료율 및 건수"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成率与计数"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成率與計數"
+          }
+        }
+      }
+    },
+    "Tasks to Show": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tasks to Show"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表示するタスク"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anzuzeigende Aufgaben"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar tareas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tâches à afficher"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "표시할 작업"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要显示的任务"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要顯示的任務"
+          }
+        }
+      }
+    },
+    "Org Title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Title"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表題"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titel"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Título"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titre"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "제목"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "标题"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "標題"
+          }
+        }
+      }
+    },
     "Structure": {
       "extractionState": "manual",
       "localizations": {
@@ -50,59 +474,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "結構"
-          }
-        }
-      }
-    },
-    "Text Formatting": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Text Formatting"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "文字"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Text"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Texto"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Texte"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "문자"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "文字"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "文字"
           }
         }
       }
@@ -266,59 +637,6 @@
         }
       }
     },
-    "Heading Depth": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Heading Depth"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "見出しの深さ"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gliederungstiefe"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Profundidad de los títulos"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Profondeur des titres"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "제목 깊이"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "标题层级"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "標題層級"
-          }
-        }
-      }
-    },
     "Heading Tags": {
       "extractionState": "manual",
       "localizations": {
@@ -337,19 +655,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Schlagwörter der Überschriften"
+            "value": "Überschriften-Tags"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Etiquetas de los títulos"
+            "value": "Etiquetas de títulos"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Étiquettes des titres"
+            "value": "Tags des titres"
           }
         },
         "ko": {
@@ -396,13 +714,13 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Conservar los saltos de línea"
+            "value": "Conservar saltos de línea"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Conserver les sauts de ligne"
+            "value": "Garder les sauts de ligne"
           }
         },
         "ko": {
@@ -421,59 +739,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "保留原文換行"
-          }
-        }
-      }
-    },
-    "Text Emphasis": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Text Emphasis"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "文字の強調"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Texthervorhebungen"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Énfasis del texto"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mise en valeur du texte"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "텍스트 강조"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "文字强调"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "文字強調"
           }
         }
       }
@@ -602,7 +867,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Arbeitszeitprotokolle"
+            "value": "Zeiterfassung"
           }
         },
         "es": {
@@ -739,165 +1004,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "TODO 關鍵字"
-          }
-        }
-      }
-    },
-    "Statistics Cookies": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Statistics Cookies"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "進捗の割合と件数"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fortschrittsangaben"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Indicadores de progreso"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Indicateurs de progression"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "진행률 및 개수"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "进度与计数"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "進度與計數"
-          }
-        }
-      }
-    },
-    "Include Tasks": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Include Tasks"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "含めるタスク"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Einbezogene Aufgaben"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tareas que se incluyen"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tâches à inclure"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "포함할 작업"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "包含的任务"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "包含的任務"
-          }
-        }
-      }
-    },
-    "Document Title": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Document Title"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "文書の表題"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dokumenttitel"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Título del documento"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Titre du document"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "문서 제목"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "文档标题"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "文件標題"
           }
         }
       }
@@ -1044,7 +1150,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "서랍"
+            "value": "드로어"
           }
         },
         "zh-Hans": {
@@ -1097,7 +1203,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "속성 서랍"
+            "value": "속성 드로어"
           }
         },
         "zh-Hans": {
@@ -1132,7 +1238,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Alleinstehende Zeitstempel"
+            "value": "Einzelne Zeitstempel"
           }
         },
         "es": {
@@ -1220,13 +1326,13 @@
         }
       }
     },
-    "Fixed-width Sections": {
+    "Fixed-Width Sections": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fixed-width Sections"
+            "value": "Fixed-Width Sections"
           }
         },
         "ja": {
@@ -1238,7 +1344,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zeilen mit fester Zeichenbreite"
+            "value": "Zeilen mit Festbreite"
           }
         },
         "es": {
@@ -1303,7 +1409,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Arborescences archivées"
+            "value": "Branches archivées"
           }
         },
         "ko": {
@@ -1344,7 +1450,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Außer im Inhaltsverzeichnis"
+            "value": "Außer im Inhalt"
           }
         },
         "es": {
@@ -1356,25 +1462,25 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sauf dans le sommaire"
+            "value": "Hors sommaire"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "목차에서만 숨기기"
+            "value": "목차 제외"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "目录中隐藏"
+            "value": "除目录外"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "目錄中隱藏"
+            "value": "除目錄外"
           }
         }
       }
@@ -1403,13 +1509,13 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Componer"
+            "value": "Con formato"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Composer"
+            "value": "Rendu"
           }
         },
         "ko": {
@@ -1421,30 +1527,30 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "排版"
+            "value": "排版显示"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "排版"
+            "value": "排版顯示"
           }
         }
       }
     },
-    "Show Formula Source": {
+    "Show Source": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Show Formula Source"
+            "value": "Show Source"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "数式の原文"
+            "value": "原文を表示"
           }
         },
         "de": {
@@ -1456,13 +1562,13 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Código de la fórmula"
+            "value": "Código fuente"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Source de la formule"
+            "value": "Code source"
           }
         },
         "ko": {
@@ -1474,13 +1580,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "公式源码"
+            "value": "显示源码"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "公式原始碼"
+            "value": "顯示原始碼"
           }
         }
       }
@@ -1515,7 +1621,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Actifs uniquement"
+            "value": "Actifs"
           }
         },
         "ko": {
@@ -1527,13 +1633,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "仅活动时间戳"
+            "value": "仅活动"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "僅作用中時間戳記"
+            "value": "僅作用中"
           }
         }
       }
@@ -1568,7 +1674,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Inactifs uniquement"
+            "value": "Inactifs"
           }
         },
         "ko": {
@@ -1580,13 +1686,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "仅非活动时间戳"
+            "value": "仅非活动"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "僅非作用中時間戳記"
+            "value": "僅非作用中"
           }
         }
       }
@@ -1621,25 +1727,25 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Toute l’arborescence"
+            "value": "Branche entière"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "본문 포함"
+            "value": "전체 하위 트리"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "包含正文"
+            "value": "整个子树"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "包含內文"
+            "value": "整個子樹"
           }
         }
       }
@@ -1656,7 +1762,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "見出しだけ"
+            "value": "見出しのみ"
           }
         },
         "de": {
@@ -1727,7 +1833,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Non terminées uniquement"
+            "value": "Non terminées"
           }
         },
         "ko": {
@@ -1780,7 +1886,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Terminées uniquement"
+            "value": "Terminées"
           }
         },
         "ko": {
@@ -2276,59 +2382,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "最多 %lld 層"
-          }
-        }
-      }
-    },
-    "Only with { }": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Only with { }"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "{ } があるときだけ"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nur mit { }"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Solo con { }"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Seulement avec { }"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "{ }가 있을 때만"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "仅在有 { } 时"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "僅在有 { } 時"
           }
         }
       }

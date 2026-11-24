@@ -157,6 +157,17 @@ final class DocumentViewModel {
     }
     private(set) var typeface: Typeface
     var isReadingPanelOpen = false
+    // Disclosure choices live with this window, including while its panel is closed.
+    private var orgGroupExpansion: [OrgReadingGroup: Bool] = [:]
+
+    func orgGroupExpanded(_ group: OrgReadingGroup) -> Bool {
+        orgGroupExpansion[group] ?? (group == .tasks && orgFileInstructions?.hasTaskElements == true)
+    }
+
+    func setOrgGroupExpanded(_ expanded: Bool, for group: OrgReadingGroup) {
+        orgGroupExpansion[group] = expanded
+    }
+
     var offersOrgReading: Bool { format == .org && binder == nil && imageBundle == nil }
     var showsReadingPanel: Bool { mode == .view && offersOrgReading && isReadingPanelOpen }
     private(set) var orgFileInstructions: OrgFileInstructions?
