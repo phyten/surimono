@@ -47,35 +47,48 @@ enum ViewerWindow {
         return TrafficLights(window: window)?.centerY
     }
     private static let minimumPaperHeight: CGFloat = 280
-    /// Animated frame changes post live-resize notifications; these windows are being resized by the app itself.
-    private static let resizingWindows = NSHashTable<NSWindow>.weakObjects()
+    private static let resizeTokens = NSMapTable<NSWindow, NSMutableSet>.weakToStrongObjects()
 
-    static func isResizingProgrammatically(_ window: NSWindow) -> Bool { resizingWindows.contains(window) }
+    static func isResizingProgrammatically(_ window: NSWindow) -> Bool {
+        (resizeTokens.object(forKey: window)?.count ?? 0) > 0
+    }
+
+    // A synchronous stage change can finish inside the grace period of an animated resize in the same window.
+    private static func beginResize(of window: NSWindow) -> @MainActor () -> Void {
+        let tokens = resizeTokens.object(forKey: window) ?? NSMutableSet()
+        resizeTokens.setObject(tokens, forKey: window)
+        let token = UUID()
+        tokens.add(token)
+        return { tokens.remove(token) }
+    }
+
+    private static func after(_ duration: TimeInterval, perform: @escaping @MainActor () -> Void) {
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(duration))
+            perform()
+        }
+    }
 
     /// Treats live-resize notifications of the next moments as the app's own, for frame changes made elsewhere.
-    static func markResizing(_ window: NSWindow, for duration: TimeInterval) {
-        resizingWindows.add(window)
-        Task { @MainActor [weak window] in
-            try? await Task.sleep(for: .seconds(duration))
-            if let window { resizingWindows.remove(window) }
-        }
+    static func markResizing(
+        _ window: NSWindow, for duration: TimeInterval,
+        schedule: @MainActor (TimeInterval, @escaping @MainActor () -> Void) -> Void = after
+    ) {
+        schedule(duration, beginResize(of: window))
     }
 
     static func setFrame(_ frame: NSRect, of window: NSWindow, animate: Bool) {
         guard frame.integral != window.frame.integral else { return }
-        resizingWindows.add(window)
+        let finish = beginResize(of: window)
         guard animate else {
             window.setFrame(frame, display: true, animate: false)
-            resizingWindows.remove(window)
+            finish()
             return
         }
         // The animation reports the end of its live resize after this call returns.
         let duration = window.animationResizeTime(frame)
         window.setFrame(frame, display: true, animate: true)
-        Task { @MainActor [weak window] in
-            try? await Task.sleep(for: .seconds(duration + 0.25))
-            if let window { resizingWindows.remove(window) }
-        }
+        after(duration + 0.25, perform: finish)
     }
 
     /// A stage takes its frame in one step, in the same update as the mode that comes with it. An animated frame laid
@@ -87,9 +100,9 @@ enum ViewerWindow {
         _ frame: NSRect, of window: NSWindow, display: Bool = true, completion: (() -> Void)? = nil
     ) {
         if frame != window.frame {
-            resizingWindows.add(window)
+            let finish = beginResize(of: window)
             window.setFrame(frame, display: display)
-            resizingWindows.remove(window)
+            finish()
         }
         completion?()
     }
