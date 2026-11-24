@@ -11,6 +11,16 @@ public struct OrgInstructionSource: Equatable, Sendable {
     public let lineNumber: Int
     public let rawText: String
 
+    /// The original lines are retained by the parser so revealing a reason never reopens a changed file.
+    public struct Excerpt: Equatable, Sendable {
+        public let previous: String?
+        public let line: String
+        public let next: String?
+        public let tokenOffset: Int
+    }
+
+    public internal(set) var excerpt: Excerpt?
+
     public init(fileName: String?, lineNumber: Int, rawText: String) {
         self.fileName = fileName
         self.lineNumber = lineNumber
@@ -86,6 +96,9 @@ public struct OrgDocumentReadingSettings: Codable, Equatable, Sendable {
     public var changedCount: Int {
         [values.sectionNumbers != nil, values.tableOfContents != nil, values.scripts != nil].count(where: { $0 })
     }
+
+    /// Reverting rows leaves the reader's permission to edit file instructions in place.
+    public mutating func resetValues() { values = OrgReadingValues() }
 
     /// An empty selection has no line to copy. Only deliberate choices belong in another file.
     public var optionsLine: String? {

@@ -3,6 +3,17 @@ import Testing
 @testable import SurimonoFormats
 
 struct OrgReadingSettingsTests {
+    @Test("すべての行を戻してもファイルの指定を変更する許可は残る")
+    func resetRowsKeepsPermission() {
+        var settings = OrgReadingSettings()
+        settings.setAllowsFileChanges(true, file: .init())
+        settings.set(.all, for: .sectionNumbers, file: .init())
+        var document = settings.document
+        document.resetValues()
+        #expect(document.changedCount == 0 && document.optionsLine == nil)
+        #expect(document.allowsFileChanges)
+    }
+
     @Test("原稿で最後に指定した値と行が勝ち、見本のブロックは設定にならない")
     func fileSource() throws {
         let source = """
@@ -18,9 +29,25 @@ struct OrgReadingSettingsTests {
         let toc = settings.resolve(.tableOfContents, file: file)
         #expect(toc.value == .levels(2))
         #expect(toc.layer == .file)
-        #expect(toc.source == OrgInstructionSource(fileName: "原稿.org", lineNumber: 5, rawText: "ToC:#x2"))
+        let location = try #require(toc.source)
+        #expect(location.fileName == "原稿.org" && location.lineNumber == 5 && location.rawText == "ToC:#x2")
+        let excerpt = try #require(location.excerpt)
+        #expect(excerpt.previous == "#+end_src" && excerpt.next == "* One")
+        #expect(excerpt.line.dropFirst(excerpt.tokenOffset).hasPrefix(location.rawText))
         #expect(settings.resolve(.scripts, file: file).layer == .app)
         #expect(settings.resolve(.sectionNumbers, file: file).value == .all)
+    }
+
+    @Test("出典はコピー用に前後の空白を保ち、引用に同じ語があっても実際の指定を強調する")
+    func excerptKeepsExactToken() throws {
+        let prefix = "  #+OpTiOnS:  x:\"前 toc:2\" "
+        let line = prefix + "toc:2 y:\"toc:2\"  "
+        let file = try #require(OrgConverter.convert(line + "\r\n* 次").orgInstructions)
+        let source = try #require(OrgReadingSettings().resolve(.tableOfContents, file: file).source)
+        let excerpt = try #require(source.excerpt)
+        #expect(source.lineNumber == 1 && source.fileName == nil)
+        #expect(excerpt.previous == nil && excerpt.line == line && excerpt.next == "* 次")
+        #expect(excerpt.tokenOffset == prefix.count && source.rawText == "toc:2")
     }
 
     @Test("見出しと本文位置の指定は注記になり、その項目を固定しない")

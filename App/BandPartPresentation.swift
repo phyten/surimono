@@ -12,6 +12,7 @@ extension BandLayout.Item {
         case .presentation: "Web or Paper"
         case .style: "Style"
         case .chapter: "Current Chapter"
+        case .readingSettings: "Reading Settings"
         case .outline: "Contents"
         case .layout: "View Type"
         case .transition: "Page Turn"
@@ -46,6 +47,7 @@ extension BandLayout.Item {
         case .presentation: String(localized: "Switches an HTML document between web and paper views.")
         case .style: String(localized: "Chooses a print style or an HTML cleanup preset.")
         case .chapter: String(localized: "Shows the chapter you are reading; opens Contents.")
+        case .readingSettings: String(localized: "Changes how this Org document is read.")
         case .outline: String(localized: "Opens the document’s contents and pages.")
         case .layout: String(localized: "Switches between a single page and a spread.")
         case .transition: String(localized: "Chooses scrolling or a page-turn effect.")
@@ -82,6 +84,7 @@ extension BandLayout.Item {
         case .presentation: String(localized: "Appears only for HTML documents.")
         case .style: String(localized: "Appears for documents that use a print style or an HTML preset.")
         case .chapter: String(localized: "Appears for documents with chapters.")
+        case .readingSettings: String(localized: "Appears for individual Org documents.")
         case .outline: String(localized: "Appears for documents with multiple pages, headings, or bookmarks.")
         case .layout, .transition: String(localized: "Appears on paper, not on a live web page.")
         case .zoom: String(localized: "Appears only while zoomed in.")
@@ -139,6 +142,7 @@ struct BandPartGlyph: View {
         case .presentation: Segments(symbols: ["globe", "doc.text"], selected: 1)
         case .style: WithChevron(symbol: "paintpalette")
         case .chapter: symbol("text.book.closed")
+        case .readingSettings: symbol("sidebar.right")
         case .outline: symbol("list.bullet")
         case .layout:
             Segments(

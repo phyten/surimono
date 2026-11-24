@@ -50,3 +50,4 @@
 | 同じ語が続いた箇所 | `Repeated Word` | Repeated Word | 続いた語 | Doppeltes Wort | Palabra duplicada | Mot doublé | 연달아 나온 같은 단어 | 连续重复的词 | 連續重複的詞 |
 | 近くで繰り返した語 | `Close Repetition` | Close Repetition | 近い繰り返し | Wiederholungen in kurzem Abstand | Repetición cercana | Répétition rapprochée | 가까이 쓰인 같은 단어 | 邻近重复 | 鄰近重複 |
 | 長さを確認する文 | `Long Sentence` | Long Sentence | 長い文 | Langer Satz | Oración larga | Phrase longue | 긴 문장 | 长句 | 長句 |
+| 文書の読み方を選ぶ設定 | `Reading Settings` | Reading Settings | 読み方の設定 | Leseeinstellungen | Ajustes de lectura | Réglages de lecture | 읽기 설정 | 阅读设置 | 閱讀設定 |

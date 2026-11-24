@@ -6,7 +6,7 @@ import Foundation
 /// Three keys are covered: `num`, `toc` and `^`. Everything else is read as before, whatever Emacs would do.
 public struct OrgReadingDefaults: Codable, Equatable, Sendable {
     /// How far down the outline something reaches.
-    public enum Depth: Codable, Equatable, Sendable {
+    public enum Depth: Codable, Hashable, Sendable {
         case off
         case all
         case levels(Int)
@@ -59,7 +59,11 @@ struct OrgExportOptions: Equatable {
     /// Reads the value of one `#+OPTIONS:` line. A later line overrides the keys it repeats.
     ///
     /// Consume the value even for unknown keys: spaces and colons inside a Lisp string or list belong to it.
-    mutating func read(_ line: String, fileName: String?, lineNumber: Int) {
+    mutating func read(_ line: String, fileName: String?, lineNumber: Int, lines: [String]) {
+        let original = lines[lineNumber - 1]
+        let afterColon = original.drop(while: { $0 != ":" }).dropFirst()
+        let firstToken = afterColon.drop(while: { $0.isWhitespace }).startIndex
+        let prefixLength = original.distance(from: original.startIndex, to: firstToken)
         let chars = Array(line)
         var cursor = 0
         while cursor < chars.count {
@@ -72,10 +76,12 @@ struct OrgExportOptions: Equatable {
             guard cursor < chars.count, !chars[cursor].isWhitespace else { continue }
             let valueStart = cursor
             cursor = Self.endOfValue(chars, from: cursor)
-            apply(
-                key: key, token: chars[valueStart..<cursor],
-                source: OrgInstructionSource(
-                    fileName: fileName, lineNumber: lineNumber, rawText: String(chars[start..<cursor])))
+            var source = OrgInstructionSource(
+                fileName: fileName, lineNumber: lineNumber, rawText: String(chars[start..<cursor]))
+            source.excerpt = .init(
+                previous: lineNumber > 1 ? lines[lineNumber - 2] : nil, line: original,
+                next: lineNumber < lines.count ? lines[lineNumber] : nil, tokenOffset: prefixLength + start)
+            apply(key: key, token: chars[valueStart..<cursor], source: source)
         }
     }
 

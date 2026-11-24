@@ -65,7 +65,7 @@ struct BandSeparatorTests {
             deleted.unused == [
                 .formatBadge, .pageIndicator, .presentation, .layout, .transition, .zoom, .thumbnails, .floatOnTop,
                 .showOnAllSpaces, .pageTurn,
-            ] + BandLayoutTests.addedItems + [.chapter])
+            ] + BandLayoutTests.addedItems + [.chapter, .readingSettings])
         #expect(
             try initial.movingEntry(at: 1, from: .zone(.topLeft), to: .zone(.topLeft), at: 1, for: .split) == initial)
         #expect(
@@ -88,7 +88,7 @@ struct BandSeparatorTests {
             try layout.insertingSeparator(at: 0, in: .bottomLeft, for: .top)
         }
         #expect(throws: BandArrangementMoveError.printIsRequired) {
-            try layout.movingEntry(at: 9, from: .zone(.topRight), to: .unused, at: 0, for: .top)
+            try layout.movingEntry(at: layout.topRight.count - 1, from: .zone(.topRight), to: .unused, at: 0, for: .top)
         }
     }
 
@@ -138,12 +138,12 @@ extension BandSeparatorTests {
                 "presentation", "@separator", "style", "outline", "@separator", "layout", "@separator",
                 "zoom", "thumbnails",
             ])
-        #expect(split.bottomRight == ["chapter", "pageIndicator", "pageTurn"])
+        #expect(split.bottomRight == ["chapter", "pageIndicator", "pageTurn", "readingSettings"])
         #expect(top.topLeft == ["formatBadge", "pageIndicator", "chapter"])
         #expect(
             top.topRight == [
                 "presentation", "@separator", "style", "outline", "@separator", "layout", "@separator",
-                "zoom", "thumbnails", "print",
+                "zoom", "thumbnails", "readingSettings", "print",
             ])
         let migrated = BandArrangementStore.previousArrangement(named: "Previous").activeLayouts
         #expect(

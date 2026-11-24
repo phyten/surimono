@@ -6,7 +6,7 @@ struct BandMenuContent {
     enum ID: String, Hashable {
         case outline, checkWriting, thumbnails, previousPage, nextPage, documentInfo
         case presentation, layout, transition, zoom
-        case readingDirection, scrollDirection, cover, selectText
+        case readingSettings, readingDirection, scrollDirection, cover, selectText
         case textFormat, composition, style, paperOrientation, paperSeries, margins, ignoreSlides
         case floatOnTop, showOnAllSpaces, alwaysShowToolbar, viewOptions
         case printSettings, beforePrinting, print, saveAsFile
@@ -20,7 +20,7 @@ struct BandMenuContent {
             switch self {
             case .navigation: [.outline, .checkWriting, .thumbnails, .previousPage, .nextPage, .documentInfo]
             case .display: [.presentation, .layout, .transition, .zoom]
-            case .reading: [.readingDirection, .scrollDirection, .cover, .selectText]
+            case .reading: [.readingSettings, .readingDirection, .scrollDirection, .cover, .selectText]
             case .paper: [.textFormat, .style, .composition, .paperOrientation, .paperSeries, .margins, .ignoreSlides]
             case .window: [.floatOnTop, .showOnAllSpaces, .alwaysShowToolbar, .viewOptions]
             case .output: [.printSettings, .beforePrinting, .print, .saveAsFile]
@@ -110,6 +110,7 @@ struct BandMenuContent {
         let parts = BandLayout.Item.applicable(for: model)
         switch id {
         case .checkWriting: return model.offersProse
+        case .readingSettings: return parts.contains(.readingSettings)
         case .outline: return parts.contains(.outline)
         case .thumbnails: return parts.contains(.thumbnails)
         case .previousPage, .nextPage: return parts.contains(.pageTurn)
@@ -143,6 +144,9 @@ struct BandMenuContent {
         var enabled = true
         switch id {
         case .checkWriting: title = String(localized: "Check Writing")
+        case .readingSettings:
+            title = String(localized: "Reading Settings")
+            checked = model.isReadingPanelOpen
         case .outline: title = String(localized: "Contents…")
         case .thumbnails:
             title = String(localized: "Show List")
@@ -230,6 +234,7 @@ struct BandMenuContent {
             .margins,
             .viewOptions, .printSettings, .beforePrinting, .print, .saveAsFile, .keysAndGestures:
             return
+        case .readingSettings: model.isReadingPanelOpen = checked
         case .thumbnails: model.setSideListOpen(checked)
         case .cover: model.viewOption(\.showsCoverAlone).wrappedValue = checked
         case .selectText: model.isSelectingText = checked
@@ -245,6 +250,7 @@ struct BandMenuContent {
         guard isApplicable(id), entry(id).isEnabled else { return }
         switch id {
         case .checkWriting: model.openProse()
+        case .readingSettings: model.isReadingPanelOpen.toggle()
         case .outline: model.toggleOutline()
         case .thumbnails: model.setSideListOpen(!model.isDrawerOpen)
         case .previousPage: model.paper.turnPage(forward: false)

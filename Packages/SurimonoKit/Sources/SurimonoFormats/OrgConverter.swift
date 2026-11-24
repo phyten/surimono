@@ -292,7 +292,7 @@ struct OrgParser {
                 flush()
                 let key = directive[0].uppercased()
                 if depth == 0, context.discovering {
-                    context.directive(key, value: directive[1], lineNumber: index + 1, line: trimmed)
+                    context.directive(key, value: directive[1], lineNumber: index + 1, line: trimmed, lines: lines)
                 }
                 if key == "TOC", depth == 0, !context.discovering, let request = contentsRequest(directive[1]) {
                     output += "<!--\(context.contentsToken)-\(context.outline.requests.count)-->\n"

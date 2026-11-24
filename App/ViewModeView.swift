@@ -47,6 +47,7 @@ struct ViewModeView: View {
                 }
                 // A page turn moves the pages past the paper's edge, where the panel beside it must stay in front.
                 PaperArea(model: model, menu: menu).clipped()
+                if model.showsReadingPanel { OrgReadingPanel(model: model) }
             }
             .padding(.top, model.currentBandRoom.top)
             .padding(.bottom, model.currentBandRoom.bottom)

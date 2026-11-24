@@ -50,9 +50,9 @@ final class OrgContext {
             ?? MathRenderer.fallback(source, display: display)
     }
 
-    func directive(_ key: String, value: String, lineNumber: Int, line: String) {
+    func directive(_ key: String, value: String, lineNumber: Int, line: String, lines: [String]) {
         if ["TITLE", "SUBTITLE", "AUTHOR", "DATE", "LANGUAGE"].contains(key) { metadata[key] = value }
-        if key == "OPTIONS" { options.read(value, fileName: fileName, lineNumber: lineNumber) }
+        if key == "OPTIONS" { options.read(value, fileName: fileName, lineNumber: lineNumber, lines: lines) }
         if key == "TOC", OrgOutline.keyword(value) != nil {
             hasContentsKeyword = true
             options.file.note(.init(fileName: fileName, lineNumber: lineNumber, rawText: line), for: .tableOfContents)

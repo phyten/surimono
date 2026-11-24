@@ -21,7 +21,7 @@ enum BandPaletteGroup: CaseIterable {
         switch item {
         case .chapter, .formatBadge, .pageIndicator, .outline, .thumbnails, .pageTurn: .movement
         case .presentation, .layout, .transition, .zoom: .display
-        case .readingDirection, .scrollDirection, .cover, .selectText: .reading
+        case .readingSettings, .readingDirection, .scrollDirection, .cover, .selectText: .reading
         case .style, .paperOrientation, .paperSeries, .margins, .ignoreSlides: .bodyAndPaper
         case .floatOnTop, .showOnAllSpaces, .alwaysShowToolbar, .viewOptions: .window
         case .printSettings, .beforePrinting, .print, .saveAsFile: .printingAndSaving

@@ -48,6 +48,7 @@ Surimono の開発ループ（ビルド → 起動 → テスト → 目視確�
      - 書き出し: `-SurimonoExport reading|png|html -SurimonoExportPath <絶対パス>`。最初の文書の組版後にパネルなしで実行する。reading / html はファイル、png は既存フォルダー（文書名の新規サブフォルダーを作成）。`-SurimonoExportDPI <n>` で PNG の解像度、`-SurimonoSnapshotQuit YES` で成功後に終了。開いた文書の上書きは拒否する。Release には含めない
      - リッチテキスト: `-SurimonoExport richtext -SurimonoExportPath <既存フォルダーの絶対パス> -SurimonoSnapshotQuit YES` で、ペーストボードを使わず `<文書名>.rtfd`・`.rtf`・`.html` を書き出し、成功後に終了する
      - スマート削除（HTML）: `-SurimonoSmartRemoval on|review`（オン / 確かめるパネルを開く）
+     - 読み方の設定（Org）: `-SurimonoReadingPanel YES`（文書ごとのパネルを開く）、`-SurimonoSettings org`（全体設定の Org を開く）
      - コード: `-SurimonoCodePalette <配色の id>`、`-SurimonoCodeFrame style|none|tint|rule|left`、`-SurimonoCodeNumbers none|all|everyFive`、`-SurimonoCodeLong wrap|shrink|cut`、`-SurimonoCodeLabel none|corner|band`、`-SurimonoTryCode <配色の id>`（パレットの行に乗せたように紙で試す）
      - ページ送り: `-SurimonoTurn forward|back`（アニメーションを 10 倍遅くして 1 ページ送り、途中で撮る。送りの向きの確認用）、`-SurimonoTurnAt <0〜1>`（`-SurimonoTurn` と合わせ、送りをその割合の時点で止めて撮る。0.15・0.35・0.55・0.75・0.92 などを順に撮ると、めくりの動きをこま送りで見られる）
      - ページ: `-SurimonoPage <n>`（撮る前に n ページ目へ移る。`-SurimonoMode roundtrip` と合わせると、印刷モードから戻っても同じページかを見られる）

@@ -93,7 +93,10 @@ final class DocumentViewModel {
     private var renderedSourceURLs: [URL] = []
     private(set) var format: DocumentFormat
     private(set) var data: Data {
-        didSet { dataGeneration += 1 }
+        didSet {
+            dataGeneration += 1
+            orgFileInstructions = nil
+        }
     }
     /// Counts the contents the window has held, so that what a layout read is only taken for the contents it read.
     @ObservationIgnored private var dataGeneration = 0
@@ -153,6 +156,10 @@ final class DocumentViewModel {
         set { chosenCodeBlock = newValue == defaultCodeBlock ? nil : newValue }
     }
     private(set) var typeface: Typeface
+    var isReadingPanelOpen = false
+    var offersOrgReading: Bool { format == .org && binder == nil && imageBundle == nil }
+    var showsReadingPanel: Bool { mode == .view && offersOrgReading && isReadingPanelOpen }
+    private(set) var orgFileInstructions: OrgFileInstructions?
     var orgDocumentReading = OrgDocumentReadingSettings()
     var orgReading: OrgReadingSettings {
         OrgReadingSettings(
@@ -278,6 +285,7 @@ final class DocumentViewModel {
     }
     var showsSideList: Bool { isDrawerOpen && (binder != nil || imageBundle != nil) }
     var sideInset: CGFloat {
+        if showsReadingPanel { return OrgReadingPanel.width }
         guard mode == .view, showsSideList else { return 0 }
         return imageBundle == nil ? SidePanelMetrics.width : contentsWidth
     }
@@ -1793,6 +1801,9 @@ final class DocumentViewModel {
                     settings.options.rotatesBackSides = mode == .print && printerRotation(for: prepared.layout)
                     renderingSettings = settings
                     result = prepared
+                    if offersOrgReading, source.format == .org, generation == dataGeneration {
+                        orgFileInstructions = prepared.facts?.orgInstructions
+                    }
                     // Only the layout of the contents shown now names their language.
                     if source.format == .plainText, !fromSnapshot, generation == dataGeneration,
                         let facts = prepared.facts, detectedSourceLanguage != facts.sourceLanguage
