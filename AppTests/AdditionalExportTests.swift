@@ -8,7 +8,7 @@ import Testing
 
 @MainActor
 struct AdditionalExportTests {
-    @Test("原本のない文書の共有先に読むためのPDFを一度だけ渡し、共有用の一時ファイルを片付ける")
+    @Test("原本のない文書の共有先が二度求めても同じ読むためのPDFを渡し、文書を閉じると一時ファイルを片付ける")
     func shareReadingFile() async throws {
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
@@ -17,23 +17,87 @@ struct AdditionalExportTests {
         let model = DocumentViewModel(
             data: TestFixtures.pdf("Example", pages: 2), fileURL: nil, format: .pdf,
             preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: root))
-        let window = NSWindow(contentRect: .zero, styleMask: [.titled], backing: .buffered, defer: false)
-        window.isReleasedWhenClosed = false
-        model.window = window
-        defer {
-            model.stop()
-            window.close()
-        }
+        defer { model.stop() }
         model.render()
         for _ in 0..<200 where model.isRendering { try await Task.sleep(for: .milliseconds(20)) }
-        var shared: [URL] = []
-        let delivered = await model.performReadingExport(.share, deliverSharedFile: { shared.append($0) })
-        try #require(delivered && shared.count == 1)
-        let file = try #require(shared.first)
-        #expect(PDFDocument(url: file)?.pageCount == 2)
-        #expect(model.sharePicker == nil)
-        model.clearSharedExport()
-        #expect(!FileManager.default.fileExists(atPath: file.path))
+        let share = try #require(model.makeReadingShare())
+        model.readingShare = share
+        var results: [Result<URL, Error>] = []
+        share.load(Progress(totalUnitCount: 1)) { results.append($0) }
+        share.load(Progress(totalUnitCount: 1)) { results.append($0) }
+        let deadline = ContinuousClock.now + .seconds(5)
+        while results.count < 2 && ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        try #require(results.count == 2)
+        let first = try results[0].get()
+        #expect(try results[1].get() == first)
+        #expect(PDFDocument(url: first)?.pageCount == 2)
+        model.stop()
+        #expect(!FileManager.default.fileExists(atPath: first.path))
+    }
+
+    @Test("遅れて共有用PDFを求められても、閉じた文書のモデルを保持せずデータを渡さない")
+    func lateShareRequestAfterClose() async throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        weak var released: DocumentViewModel?
+        let share: ReadingPDFShare
+        do {
+            let model = DocumentViewModel(
+                data: TestFixtures.pdf("Late request"), fileURL: nil, format: .pdf,
+                preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: root))
+            defer { model.stop() }
+            model.render()
+            try await ShortcutMenuBaselineTests.waitForMenu { model.canExportReadingPDF }
+            share = try #require(model.makeReadingShare())
+            released = model
+        }
+        try await ShortcutMenuBaselineTests.waitForMenu { released == nil }
+        // Keep the actual producer alive as a delayed service would, without opening a picker.
+        let result = await withCheckedContinuation { continuation in
+            share.load(Progress(totalUnitCount: 1)) { continuation.resume(returning: $0) }
+        }
+        #expect(throws: CancellationError.self) { try result.get() }
+    }
+
+    @Test("共有の取り消しと文書終了は生成中の作業を取り消し、それぞれの要求へ一度だけ答える", arguments: [true, false])
+    func cancelSharing(stoppingDocument: Bool) async throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let model = DocumentViewModel(
+            data: Data(), fileURL: nil, format: .plainText,
+            preferences: AppPreferences(defaults: suite.defaults),
+            library: UserLibrary(root: root))
+        var started = false
+        var cancelled = false
+        let share = ReadingPDFShare(name: "Cancel.pdf", protectedURLs: []) {
+            started = true
+            defer { cancelled = Task.isCancelled }
+            try await Task.sleep(for: .seconds(30))
+            return Data()
+        }
+        model.readingShare = share
+        let progress = Progress(totalUnitCount: 1)
+        var results: [Result<URL, Error>] = []
+        share.load(progress) { results.append($0) }
+        let deadline = ContinuousClock.now + .seconds(5)
+        while !started && ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        try #require(started)
+        if stoppingDocument { model.stop() } else { progress.cancel() }
+        while !cancelled && ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(cancelled)
+        model.stop()
+        try #require(results.count == 1)
+        #expect(throws: CancellationError.self) { try results[0].get() }
     }
 
     @Test("数式のコピーは展開前の原文だけをテキストとして渡す")

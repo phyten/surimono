@@ -1304,7 +1304,19 @@ final class DocumentViewModel {
         return PageIndicator.widestText(pageCount: pageCount, layout: viewOptions.layout)
     }
 
+    @ObservationIgnored private(set) var isWindowClosed = false
+
+    func closeWindow() {
+        guard !isWindowClosed else { return }
+        isWindowClosed = true
+        paper.disconnect()
+        stop()
+        onFirstRender = nil
+        textReopener = nil
+    }
+
     func start() {
+        guard !isWindowClosed else { return }
         if SandboxEnvironment.isSandboxed, folderLease == nil, let fileURL,
             let lease = FolderAccess.shared.acquire(for: fileURL)
         {
@@ -1370,7 +1382,6 @@ final class DocumentViewModel {
         pageUpdate = PageUpdateProgress()
         pageUpdateDisplay = .hidden
         cancelAdditionalExport()
-        clearSharedExport()
         binderExit.cancel()
         pendingBinderRestoration = nil
         binderExitTrayPage = nil
@@ -1751,6 +1762,7 @@ final class DocumentViewModel {
     func render() { render(reusing: nil) }
 
     private func render(reusing currentPages: PreparedRender?) {
+        guard !isWindowClosed else { return }
         if reloadedPages == .failed { reloadedPages = .unchanged }
         dismissProseMark()
         selectedReadingPage = nil
@@ -1791,8 +1803,8 @@ final class DocumentViewModel {
         let started = ContinuousClock.now
         let layoutsBefore = renderer.logicalRenderCount
         let generation = dataGeneration
-        renderTask = Task { [weak self] in
-            guard let self else { return }
+        renderTask = Task { [weak self, renderer, binder, imageBundle] in
+            guard !Task.isCancelled else { return }
             var settings = settings
             do {
                 let prepared: PreparedRender
@@ -1802,6 +1814,7 @@ final class DocumentViewModel {
                     let source: DocumentSource
                     if let binder {
                         source = try await binder.source()
+                        guard !Task.isCancelled, let self else { return }
                         if let hash = binder.setHash { didComputeHash(hash) }
                         if sourceURLs != self.sourceURLs || settings != renderSettings {
                             render()
@@ -1809,13 +1822,16 @@ final class DocumentViewModel {
                         }
                     } else if let imageBundle {
                         source = try await imageBundle.source()
+                        guard !Task.isCancelled, let self else { return }
                         // The digests and the key of their set change together, so nothing is saved under a mixed state.
                         if imageBundle.archiveURL == nil, let hash = imageBundle.setHash { didComputeHash(hash) }
                     } else {
+                        guard let self else { return }
                         source = withFolderAccess(singleSource)
                     }
                     prepared = try await renderer.prepare(source, settings: settings)
                     try Task.checkCancellation()
+                    guard let self else { return }
                     if renderer.logicalRenderCount != layoutsBefore {
                         lastLayoutDuration = ContinuousClock.now - started
                     }
@@ -1862,11 +1878,12 @@ final class DocumentViewModel {
                         }
                     }
                 }
-                if mode == .print || waitingOutput?.replacesReview == true {
-                    composingSheets = true
+                if self?.mode == .print || self?.waitingOutput?.replacesReview == true {
+                    self?.composingSheets = true
                     let output = try await renderer.composeSheet(
                         for: prepared, rotatesBackSides: settings.options.rotatesBackSides)
                     try Task.checkCancellation()
+                    guard let self else { return }
                     composingSheets = false
                     printResult = output
                     if mode == .print, settings == renderSettings {
@@ -1881,6 +1898,7 @@ final class DocumentViewModel {
                         sheetOrientations: output.sheetOrientations, blankPages: output.blankPages,
                         notePages: output.notePages)
                 }
+                guard let self else { return }
                 isRendering = false
                 resolveTrayRequest()
                 if mode == .print, let page = binderExitTrayPage, let printTray {
@@ -1902,15 +1920,17 @@ final class DocumentViewModel {
                 }
             } catch is CancellationError {
                 // A superseding request owns the progress indicator.
-            } catch DocumentRenderer.RenderingError.imageChanged where !retriedChangedImages && imageBundle != nil {
-                guard !Task.isCancelled else { return }
+            } catch DocumentRenderer.RenderingError.imageChanged
+                where self?.retriedChangedImages == false && imageBundle != nil
+            {
+                guard !Task.isCancelled, let self else { return }
                 // An image was edited after it was hashed: hash the images again, which carries the settings over to
                 // the new set, and draw again. A second change in a row is reported below instead of looping.
                 retriedChangedImages = true
                 imageBundle?.clearCache()
                 render()
             } catch {
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled, let self else { return }
                 if case DocumentRenderer.RenderingError.noReadableImages(let urls) = error {
                     unreadableImageURLs = urls
                 }
@@ -2491,13 +2511,13 @@ final class DocumentViewModel {
             return
         }
         guard source.format.isWebRendered else { return }
+        let proof = settings.finish.proof
+        let org = settings.orgReading
+        let known =
+            readStructure?.source == source && readStructure?.proof == proof && readStructure?.orgReading == org
+            ? readStructure : nil
+        let includesSourceContents = !finishAppliesToText || printFinish.toc.showsSourceContents
         structureTask = Task { [weak self] in
-            guard let self else { return }
-            let proof = settings.finish.proof
-            let org = settings.orgReading
-            let known =
-                readStructure?.source == source && readStructure?.proof == proof && readStructure?.orgReading == org
-                ? readStructure : nil
             let read:
                 (
                     headings: [DocumentHeading], statistics: DocumentStatistics,
@@ -2516,8 +2536,8 @@ final class DocumentViewModel {
                 }.value
             }
             guard !Task.isCancelled, let read else { return }
-            readStructure = (source, proof, org, read.headings, read.statistics, read.contents, read.title)
-            documentStatistics = read.statistics
+            self?.readStructure = (source, proof, org, read.headings, read.statistics, read.contents, read.title)
+            self?.documentStatistics = read.statistics
             var texts: [String] = []
             for index in 0..<(read.headings.isEmpty ? 0 : document.pageCount) {
                 texts.append(document.page(at: index)?.string ?? "")
@@ -2527,12 +2547,12 @@ final class DocumentViewModel {
             let headings = read.headings
             let pages = texts
             // A table the finish hides is not on the pages, and its lines would be taken from the real headings.
-            let contents = !finishAppliesToText || printFinish.toc.showsSourceContents ? read.contents : []
+            let contents = includesSourceContents ? read.contents : []
             let entries = await Task.detached(priority: .utility) {
                 DocumentOutline.entries(of: headings, inPageTexts: pages, contentsEntries: contents)
             }.value
             guard !Task.isCancelled else { return }
-            outlineEntries = entries
+            self?.outlineEntries = entries
         }
     }
 
@@ -4255,8 +4275,8 @@ final class DocumentViewModel {
 
     var additionalExportTask: Task<Void, Never>?
     @ObservationIgnored var exportPanel: NSSavePanel?
-    @ObservationIgnored var sharedExportDirectory: URL?
-    @ObservationIgnored var sharePicker: NSSharingServicePicker?
+    @ObservationIgnored var sourceSharePicker: NSSharingServicePicker?
+    @ObservationIgnored var readingShare: ReadingPDFShare?
     private var readingExportTask: Task<Void, Never>?
     @ObservationIgnored private var exportingSourceURLs: [URL] = []
 
@@ -4336,7 +4356,7 @@ final class DocumentViewModel {
 
     func beginReadingPDFExport() async -> Bool {
         await beginReadingPDFExport { current, settings in
-            try await readingPDFData(from: current, settings: settings)
+            try await readingPDFProducer(from: current, settings: settings)()
         }
     }
 
@@ -4374,59 +4394,99 @@ final class DocumentViewModel {
         }
     }
 
-    private func readingPDFData(from current: PreparedRender, settings: RenderSettings) async throws -> Data {
-        let prepared: PreparedRender
-        var entries = outlineEntries
-        var headings = readStructure?.headings ?? current.facts?.headings ?? []
-        var htmlTitle = format == .html ? readStructure?.title : nil
+    /// A share can be consumed after the picker has closed. Keep the render inputs, never the window or model,
+    /// in the work that runs across suspension points; recheck the selected revision before returning its bytes.
+    func makeReadingShare() -> ReadingPDFShare? {
+        guard canExportReadingPDF, let current = result, let settings = renderSettings(in: .view) else {
+            return nil
+        }
+        let generation = reloadGeneration
+        let originalSettings = renderSettings
+        let originalData = data
+        let originalURLs = protectedSourceURLs
+        let isCurrent = { [weak self] in
+            guard let self else { return false }
+            return !Task.isCancelled && reloadGeneration == generation && result?.id == current.id
+                && isUpToDate
+                && renderSettings == originalSettings && data == originalData
+                && protectedSourceURLs == originalURLs
+        }
+        return ReadingPDFShare(name: readingExportName, protectedURLs: originalURLs) {
+            [weak self, structureTask] in
+            await structureTask?.value
+            guard isCurrent(), let produce = self?.readingPDFProducer(from: current, settings: settings)
+            else {
+                throw CancellationError()
+            }
+            let bytes = try await produce()
+            guard isCurrent() else { throw CancellationError() }
+            return bytes
+        }
+    }
+
+    private func readingPDFProducer(from current: PreparedRender, settings: RenderSettings)
+        -> @MainActor () async throws -> Data
+    {
+        let singleSource = withFolderAccess(
+            usesHTMLPresentation && liveSnapshot != nil
+                ? DocumentSource.liveSnapshot(liveSnapshot?.html ?? "", of: fileURL)
+                : DocumentSource(data: data, fileURL: fileURL, format: format, htmlBaseURL: htmlBaseURL)
+                    .named(sourceFileName))
         var readingSettings = settings
         if format == .latex, binder == nil, imageBundle == nil {
-            let source = withFolderAccess(
-                DocumentSource(data: data, fileURL: fileURL, format: format).named(sourceFileName))
             readingSettings = settings.forReadingLaTeX(
-                renderer.latexClassInfo(for: source, composition: settings.latexComposition))
+                renderer.latexClassInfo(for: singleSource, composition: settings.latexComposition))
         }
-        if mode == .view && readingSettings == settings {
-            prepared = current
-        } else {
-            // Tray-only notes, ranges and slide selections must never enter a reading copy. Preparing with
-            // view settings leaves the window and its print choices untouched and does not impose sheets.
-            let source: DocumentSource
-            if let binder {
-                source = try await binder.source()
-            } else if let imageBundle {
-                source = try await imageBundle.source()
+        let usesCurrent = mode == .view && readingSettings == settings
+        let initialHeadings = readStructure?.headings ?? current.facts?.headings ?? []
+        let initialTitle = format == .html ? readStructure?.title : nil
+        let includesSourceContents = !finishAppliesToText || settings.finish.toc.showsSourceContents
+        let fallbackTitle = String(readingExportName.dropLast(4))
+        return { [outlineEntries, format, fileURL, binder, imageBundle, themeFormat, readingSettings] in
+            try Task.checkCancellation()
+            let prepared: PreparedRender
+            var entries = outlineEntries
+            var headings = initialHeadings
+            var htmlTitle = initialTitle
+            if usesCurrent {
+                prepared = current
             } else {
-                source = withFolderAccess(
-                    usesHTMLPresentation && liveSnapshot != nil
-                        ? DocumentSource.liveSnapshot(liveSnapshot?.html ?? "", of: fileURL)
-                        : DocumentSource(data: data, fileURL: fileURL, format: format, htmlBaseURL: htmlBaseURL)
-                            .named(sourceFileName))
+                // Tray notes, ranges and slide selections must never enter a reading copy.
+                let source: DocumentSource
+                if let binder {
+                    source = try await binder.source()
+                } else if let imageBundle {
+                    source = try await imageBundle.source()
+                } else {
+                    source = singleSource
+                }
+                prepared = try await DocumentRenderer().prepare(source, settings: readingSettings)
+                if binder == nil, imageBundle == nil, source.format.isWebRendered {
+                    let structure = await ReadingPDFExporter.outline(
+                        of: source, in: prepared.logicalDocument, proof: settings.finish.proof,
+                        includesSourceContents: includesSourceContents, facts: prepared.facts,
+                        orgReading: settings.orgReading)
+                    entries = structure.entries
+                    headings = structure.headings
+                    htmlTitle = structure.title
+                }
             }
-            prepared = try await DocumentRenderer().prepare(source, settings: readingSettings)
-            if binder == nil, imageBundle == nil, source.format.isWebRendered {
-                let structure = await ReadingPDFExporter.outline(
-                    of: source, in: prepared.logicalDocument, proof: settings.finish.proof,
-                    includesSourceContents: !finishAppliesToText || settings.finish.toc.showsSourceContents,
-                    facts: prepared.facts, orgReading: settings.orgReading)
-                entries = structure.entries
-                headings = structure.headings
-                htmlTitle = structure.title
-            }
+            try Task.checkCancellation()
+            let document = prepared.viewDocument
+            let candidates = [
+                prepared.facts?.title, htmlTitle,
+                format == .pdf
+                    ? document.documentAttributes?[PDFDocumentAttribute.titleAttribute] as? String : nil,
+                prepared.facts?.headings.first?.text, entries.first?.title,
+            ]
+            let metadataTitle =
+                candidates.compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .first { !$0.isEmpty } ?? fallbackTitle
+            return try await ReadingPDFExporter.data(
+                from: document, entries: entries, title: metadataTitle, preservesOutline: format == .pdf,
+                headings: headings, sourceURL: fileURL,
+                furniture: themeFormat == .latex ? prepared.viewFurniture : [:])
         }
-        try Task.checkCancellation()
-        let document = prepared.viewDocument
-        let candidates = [
-            prepared.facts?.title, htmlTitle,
-            format == .pdf ? document.documentAttributes?[PDFDocumentAttribute.titleAttribute] as? String : nil,
-            prepared.facts?.headings.first?.text, entries.first?.title,
-        ]
-        let metadataTitle =
-            candidates.compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .first { !$0.isEmpty } ?? String(readingExportName.dropLast(4))
-        return try await ReadingPDFExporter.data(
-            from: document, entries: entries, title: metadataTitle, preservesOutline: format == .pdf,
-            headings: headings, sourceURL: fileURL, furniture: themeFormat == .latex ? prepared.viewFurniture : [:])
     }
 
     func exportPDF() {

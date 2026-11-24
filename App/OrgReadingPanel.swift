@@ -127,14 +127,23 @@ struct OrgReadingPanel: View {
     }
 
     private func requestLock(confirming approval: OrgDiscardConfirmation? = nil) {
-        switch model.lockOrgFileInstructions(confirming: approval) {
-        case .finished: retryLock = false
-        case .awaitingInstructions: retryLock = true
+        Self.apply(
+            model.lockOrgFileInstructions(confirming: approval), confirming: approval, retry: $retryLock,
+            alert: $confirmation)
+    }
+
+    private static func apply(
+        _ result: OrgFileLockResult, confirming approval: OrgDiscardConfirmation? = nil,
+        retry: Binding<Bool>, alert: Binding<Confirmation?>
+    ) {
+        switch result {
+        case .finished: retry.wrappedValue = false
+        case .awaitingInstructions: retry.wrappedValue = true
         case .needsConfirmation(let current):
             if approval == nil {
-                confirmation = .discard(current)
+                alert.wrappedValue = .discard(current)
             } else {
-                retryLock = true
+                retry.wrappedValue = true
             }
         }
     }
@@ -145,10 +154,14 @@ struct OrgReadingPanel: View {
             VStack(alignment: .leading, spacing: 4) {
                 Toggle(
                     "Allow Changes to File Instructions",
-                    isOn: Binding(
-                        get: { model.orgDocumentReading.allowsFileChanges },
-                        set: { allow in
-                            if allow { model.enableOrgFileChanges() } else { requestLock() }
+                    isOn: model.controlBinding(
+                        get: { $0.orgDocumentReading.allowsFileChanges },
+                        set: { [retry = $retryLock, alert = $confirmation] model, allow in
+                            if allow {
+                                model.enableOrgFileChanges()
+                            } else {
+                                Self.apply(model.lockOrgFileInstructions(), retry: retry, alert: alert)
+                            }
                         })
                 ).toggleStyle(.checkbox).controlSize(.small).fixedSize(horizontal: false, vertical: true)
                 if model.orgDocumentReading.allowsFileChanges {

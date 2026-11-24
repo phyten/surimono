@@ -25,7 +25,7 @@ final class AppKitShell: NSObject, NSMenuItemValidation {
     func installMenu() { menu.install() }
 
     private var canToggleSettings: Bool {
-        NSApp.modalWindow == nil && NSApp.keyWindow?.attachedSheet == nil && NSApp.keyWindow?.sheetParent == nil
+        ShortcutDispatcher.shared.canPerform(.operation(.appSettings))
     }
 
     func validateMenuItem(_ item: NSMenuItem) -> Bool {

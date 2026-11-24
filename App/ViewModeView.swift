@@ -200,7 +200,10 @@ private struct PaperArea: View {
             if model.showsWeb, let fileURL = model.fileURL {
                 WebPageView(
                     controller: model.web, fileURL: fileURL, allowsJavaScript: model.allowsLiveJavaScript,
-                    onEscape: { menu.hideForEscape(alwaysVisible: model.isBandAlwaysVisible) })
+                    onEscape: { [weak model, menu] in
+                        guard let model else { return false }
+                        return menu.hideForEscape(alwaysVisible: model.isBandAlwaysVisible)
+                    })
             } else if let document = model.paperDocument, !model.isCapturingWeb {
                 PaperView(
                     document: document, initialPageIndex: model.currentPageIndex, options: model.viewOptions,
@@ -208,16 +211,17 @@ private struct PaperArea: View {
                     selectsText: model.isSelectingText, logicalMargin: model.viewLogicalMargin,
                     showsPageNumbers: model.preferences.viewPageNumbers, changeMarks: model.paperChangeMarks,
                     formulaIndex: model.paperFormulaIndex, diagrams: model.paperDiagrams,
-                    onDiagram: { model.exportDiagram($0, action: $1) }, furniture: model.paperFurniture,
+                    onDiagram: { [weak model] in model?.exportDiagram($0, action: $1) },
+                    furniture: model.paperFurniture,
                     narrowsLoneCover: model.loneCoverWidth == .onePage,
                     keepsSpotInPage: model.binder != nil || model.imageBundle != nil,
                     controller: model.paper,
-                    onZoomChange: { model.zoom = $0 },
-                    onPageChange: { model.paperDidChangePage($0) },
-                    onTurn: { menu.pageTurned() },
-                    onKey: handleKey,
-                    onShortcut: { model.performPaperShortcut($0, menu: menu) },
-                    allowsShortcutHandling: { !model.blocksSurfaceShortcuts }
+                    onZoomChange: { [weak model] in model?.zoom = $0 },
+                    onPageChange: { [weak model] in model?.paperDidChangePage($0) },
+                    onTurn: { [menu] in menu.pageTurned() },
+                    onKey: { [weak model, menu] in model?.handleFixedPaperKey($0, menu: menu) ?? false },
+                    onShortcut: { [weak model, menu] in model?.performPaperShortcut($0, menu: menu) },
+                    allowsShortcutHandling: { [weak model] in model?.blocksSurfaceShortcuts == false }
                 )
                 .paperFind(model)
             } else if model.error == nil {
@@ -270,9 +274,9 @@ private struct PaperArea: View {
         }
         .alert(
             "Output Failed",
-            isPresented: Binding(
-                get: { model.outputError != nil },
-                set: { if !$0 { model.outputError = nil } })
+            isPresented: model.controlBinding(
+                get: { $0.outputError != nil },
+                set: { if !$1 { $0.outputError = nil } })
         ) {
             Button("OK", role: .cancel) { model.outputError = nil }
         } message: {
@@ -280,9 +284,6 @@ private struct PaperArea: View {
         }
     }
 
-    private func handleKey(_ event: NSEvent) -> Bool {
-        model.handleFixedPaperKey(event, menu: menu)
-    }
 }
 
 extension PaperView {
@@ -295,9 +296,9 @@ extension PaperView {
         {
             view.proseSpans = mark.spans
         }
-        view.onPaperPress = { model.dismissProseMark() }
+        view.onPaperPress = { [weak model] in model?.dismissProseMark() }
         view.findQuery = model.find.query
-        view.onFindHits = { pages, query in model.paperFound(pages, for: query) }
+        view.onFindHits = { [weak model] pages, query in model?.paperFound(pages, for: query) }
         return view
     }
 }
@@ -474,9 +475,9 @@ struct ThemePaletteAnchor: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
             .allowsHitTesting(false)
             .popover(
-                isPresented: Binding(
-                    get: { model.isThemePalettePresented },
-                    set: { presented in
+                isPresented: model.controlBinding(
+                    get: { $0.isThemePalettePresented },
+                    set: { model, presented in
                         if presented { model.isThemePalettePresented = true } else { model.themePaletteDidClose() }
                     }),
                 arrowEdge: .trailing

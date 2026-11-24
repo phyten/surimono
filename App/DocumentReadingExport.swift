@@ -12,14 +12,16 @@ enum ReadingExportKind: Equatable {
 
 extension DocumentViewModel {
     func cancelAdditionalExport() {
+        clearSharedExport()
         additionalExportTask?.cancel()
         exportPanel?.cancel(nil)
     }
 
     func clearSharedExport() {
-        sharePicker = nil
-        if let sharedExportDirectory { try? FileManager.default.removeItem(at: sharedExportDirectory) }
-        sharedExportDirectory = nil
+        sourceSharePicker?.close()
+        sourceSharePicker = nil
+        readingShare?.cancel()
+        readingShare = nil
     }
 
     func canExportReading(_ kind: ReadingExportKind) -> Bool {
@@ -37,6 +39,16 @@ extension DocumentViewModel {
             if !isRendering { render() }
             return
         }
+        if kind == .share {
+            // A capture, review or layout may have deferred this command while the key window changed.
+            guard ShortcutDispatcher.shared.documentForMenuCommand === self,
+                let view = window?.contentView, let share = makeReadingShare()
+            else { return }
+            clearSharedExport()
+            readingShare = share
+            share.show(in: view)
+            return
+        }
         additionalExportTask = Task { [weak self] in
             guard let self else { return }
             defer { additionalExportTask = nil }
@@ -49,9 +61,9 @@ extension DocumentViewModel {
     @discardableResult
     func performReadingExport(
         _ kind: ReadingExportKind, destination: URL? = nil, dpi: Double? = nil,
-        pasteboard: NSPasteboard? = nil, deliverSharedFile: ((URL) -> Void)? = nil
+        pasteboard: NSPasteboard? = nil
     ) async -> Bool {
-        if kind == .share { clearSharedExport() }
+        guard kind != .share else { return false }
         let metadataTitle: String
         if kind.needsTheme {
             guard let title = await beginThemedExport() else { return false }
@@ -72,31 +84,6 @@ extension DocumentViewModel {
             guard data == originalData, protectedSourceURLs == originalSources else { throw CancellationError() }
         }
         do {
-            if kind == .share {
-                guard case .reading(let bytes) = pendingPDF, let view = window?.contentView else { return false }
-                clearSharedExport()
-                let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-                try FileManager.default.createDirectory(
-                    at: directory, withIntermediateDirectories: false,
-                    attributes: [.posixPermissions: 0o700])
-                sharedExportDirectory = directory
-                let file = directory.appendingPathComponent(readingExportName)
-                try checkCurrent()
-                guard Self.canExport(to: file, sourceURLs: originalSources) else {
-                    throw CocoaError(.fileWriteNoPermission)
-                }
-                try bytes.write(to: file, options: .withoutOverwriting)
-                if let deliverSharedFile {
-                    deliverSharedFile(file)
-                    return true
-                }
-                let picker = NSSharingServicePicker(items: [file])
-                sharePicker = picker
-                picker.show(
-                    relativeTo: CGRect(x: view.bounds.midX, y: view.bounds.maxY - 1, width: 1, height: 1),
-                    of: view, preferredEdge: .minY)
-                return true
-            }
             if kind == .png {
                 guard case .reading(let bytes) = pendingPDF, let document = PDFDocument(data: bytes) else {
                     throw CocoaError(.fileWriteUnknown)
@@ -191,7 +178,6 @@ extension DocumentViewModel {
             return false
         } catch {
             if Task.isCancelled { return false }
-            if kind == .share { clearSharedExport() }
             outputError = String(localized: "The document could not be exported.") + "\n" + error.localizedDescription
             return false
         }

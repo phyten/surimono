@@ -31,10 +31,11 @@ struct ClipboardWindowsTests {
         windows.library = UserLibrary(root: directory)
         let controller = try #require(windows.open(from: board, window: nil))
         defer { controller.window?.close() }
-        #expect(!controller.model.isPrintModeRequested)
+        let model = try #require(controller.model)
+        #expect(!model.isPrintModeRequested)
         let printing = windows.open(from: board, window: nil, printing: true)
         #expect(printing === controller)
-        #expect(controller.model.isPrintModeRequested || controller.model.mode == .print)
+        #expect(model.isPrintModeRequested || model.mode == .print)
     }
 
     @Test("専用ペーストボードの文字列をファイルなしのウィンドウで開き同じ内容は再利用する", .timeLimit(.minutes(1)))
@@ -59,11 +60,12 @@ struct ClipboardWindowsTests {
         let documents = NSDocumentController.shared.documents.count
         let first = try #require(windows.open(from: board))
         defer { first.window?.close() }
-        #expect(first.model.format == .markdown)
-        #expect(first.model.fileURL == nil)
-        #expect(first.model.sourceURLs.isEmpty)
-        #expect(first.model.displayName == first.window?.title)
-        #expect(first.model.exportName.hasPrefix(first.model.displayName.replacingOccurrences(of: ":", with: "-")))
+        let firstModel = try #require(first.model)
+        #expect(firstModel.format == .markdown)
+        #expect(firstModel.fileURL == nil)
+        #expect(firstModel.sourceURLs.isEmpty)
+        #expect(firstModel.displayName == first.window?.title)
+        #expect(firstModel.exportName.hasPrefix(firstModel.displayName.replacingOccurrences(of: ":", with: "-")))
         #expect(windows.hasWindows)
         let router = OpenRouter(
             openDocument: { _, _ in }, openBundle: { _, _ in nil },
@@ -209,28 +211,30 @@ struct ClipboardWindowsTests {
         windows.library = UserLibrary(root: directory.appendingPathComponent("Library"))
         let first = try #require(windows.open(from: board))
         defer { first.window?.close() }
-        first.model.start()
-        for _ in 0..<500 where first.model.contentHash == nil || first.model.result == nil || first.model.isRendering {
+        let firstModel = try #require(first.model)
+        firstModel.start()
+        for _ in 0..<500 where firstModel.contentHash == nil || firstModel.result == nil || firstModel.isRendering {
             try await Task.sleep(for: .milliseconds(20))
         }
-        #expect(first.model.contentHash == ContentHash.of(png))
-        #expect(first.model.result != nil)
-        first.model.layoutID = PrintLayout.a4Duplex.id
-        first.model.rememberedSettingsDidChange()
-        first.model.performPrintCommand()
-        #expect(first.model.mode == .print)
-        first.model.render()
-        for _ in 0..<500 where first.model.isRendering { try await Task.sleep(for: .milliseconds(20)) }
-        #expect(first.model.canOutput)
-        #expect(first.model.printResult?.sheetDocument.dataRepresentation() != nil)
+        #expect(firstModel.contentHash == ContentHash.of(png))
+        #expect(firstModel.result != nil)
+        firstModel.layoutID = PrintLayout.a4Duplex.id
+        firstModel.rememberedSettingsDidChange()
+        firstModel.performPrintCommand()
+        #expect(firstModel.mode == .print)
+        firstModel.render()
+        for _ in 0..<500 where firstModel.isRendering { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(firstModel.canOutput)
+        #expect(firstModel.printResult?.sheetDocument.dataRepresentation() != nil)
         first.window?.close()
         let reopened = try #require(windows.open(from: board))
         defer { reopened.window?.close() }
-        reopened.model.start()
-        for _ in 0..<500 where reopened.model.contentHash == nil { try await Task.sleep(for: .milliseconds(20)) }
-        #expect(reopened.model.settingsStore == nil)
-        #expect(reopened.model.hasSavedSettings)
-        #expect(reopened.model.layoutID == "a4Duplex")
+        let reopenedModel = try #require(reopened.model)
+        reopenedModel.start()
+        for _ in 0..<500 where reopenedModel.contentHash == nil { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(reopenedModel.settingsStore == nil)
+        #expect(reopenedModel.hasSavedSettings)
+        #expect(reopenedModel.layoutID == "a4Duplex")
     }
 
     @Test("閉じた URL 文書を元の表題・基準 URL・紙面設定で開き直し、既に開いていればその窓を使う")
@@ -248,9 +252,10 @@ struct ClipboardWindowsTests {
         let bytes = Data("<p>Article</p>".utf8)
         let base = URL(string: "https://fixture.invalid/news/article")!
         let first = windows.open(bytes, format: .html, title: "Article", baseURL: base)
-        first.model.setSmartRemoval(enabled: true)
-        first.model.layoutID = PrintLayout.a4Duplex.id
-        first.model.copies = 3
+        let firstModel = try #require(first.model)
+        firstModel.setSmartRemoval(enabled: true)
+        firstModel.layoutID = PrintLayout.a4Duplex.id
+        firstModel.copies = 3
         first.close()
         #expect(prefs.closedClipboardDocuments.entries.count == 1)
         #expect(AppPreferences(defaults: suite.defaults).closedClipboardDocuments.entries.isEmpty)
@@ -258,16 +263,17 @@ struct ClipboardWindowsTests {
         defer { reopened.close() }
         #expect(reopened !== first)
         #expect(prefs.closedClipboardDocuments.entries.isEmpty)
-        #expect(reopened.model.memoryContent == bytes)
-        #expect(reopened.model.settingsStore == nil)
-        #expect(reopened.model.displayName == "Article")
-        #expect(reopened.model.format == .html)
-        #expect(reopened.model.htmlPresentation == .paper)
-        #expect(!reopened.model.usesHTMLPresentation)
-        #expect(reopened.model.htmlBaseURL == base)
-        #expect(reopened.model.isSmartRemovalEnabled)
-        #expect(reopened.model.layoutID == PrintLayout.a4Duplex.id)
-        #expect(reopened.model.copies == 3)
+        let reopenedModel = try #require(reopened.model)
+        #expect(reopenedModel.memoryContent == bytes)
+        #expect(reopenedModel.settingsStore == nil)
+        #expect(reopenedModel.displayName == "Article")
+        #expect(reopenedModel.format == .html)
+        #expect(reopenedModel.htmlPresentation == .paper)
+        #expect(!reopenedModel.usesHTMLPresentation)
+        #expect(reopenedModel.htmlBaseURL == base)
+        #expect(reopenedModel.isSmartRemovalEnabled)
+        #expect(reopenedModel.layoutID == PrintLayout.a4Duplex.id)
+        #expect(reopenedModel.copies == 3)
         reopened.close()
         let open = windows.open(bytes, format: .html, title: "Already open", baseURL: base)
         defer { open.close() }
@@ -378,7 +384,7 @@ struct ClipboardWindowsTests {
         older.perform(preferences: prefs)
         let reopened = try #require(
             NSApp.windows.compactMap { $0.windowController as? MemoryDocumentWindowController }
-                .first { $0.model.memoryContent == first && $0.window?.isVisible == true })
+                .first { $0.model?.memoryContent == first && $0.window?.isVisible == true })
         defer { reopened.close() }
         await withCheckedContinuation { done in DispatchQueue.main.async { done.resume() } }
         #expect(state.snapshot.content.history.map(\.id) == [.of(second)])

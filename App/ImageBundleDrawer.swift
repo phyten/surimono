@@ -43,8 +43,11 @@ private struct ImageBundleList: View {
 
     var body: some View {
         ScrollViewReader { proxy in
-            List(selection: Binding(get: { bundle.selection }, set: { if let url = $0 { model.goToBundleImage(url) } }))
-            {
+            List(
+                selection: model.controlBinding(
+                    get: { $0.imageBundle?.selection }, set: { model, url in if let url { model.goToBundleImage(url) } }
+                )
+            ) {
                 ForEach(Array(bundle.items.enumerated()), id: \.element.id) { index, item in
                     HStack(spacing: 6) {
                         Text(verbatim: "\(index + 1)").font(.system(size: 11)).monospacedDigit()

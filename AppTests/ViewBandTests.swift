@@ -3,6 +3,7 @@ import Foundation
 import PDFKit
 import SurimonoCore
 import SurimonoRendering
+import SwiftUI
 import Testing
 
 @testable import Surimono
@@ -72,6 +73,29 @@ struct ViewBandTests {
     private func open(_ model: DocumentViewModel) async throws {
         model.start()
         try await waitUntil { model.contentHash != nil && model.result != nil && !model.isRendering }
+    }
+
+    @Test("表示の型の選択は生きている文書だけを更新し、選択が残ってもモデルは解放される")
+    func layoutSelectionDoesNotOwnDocument() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        weak var released: DocumentViewModel?
+        let selection: Binding<ViewOptions.Layout>
+        do {
+            let model = environment.model(Data())
+            released = model
+            model.setLayout(.single)
+            selection = model.viewOption(\.layout)
+            selection.wrappedValue = .spread
+            #expect(model.viewOptions.layout == .spread)
+            #expect(selection.wrappedValue == .spread)
+            model.closeWindow()
+            selection.wrappedValue = .single
+            #expect(model.viewOptions.layout == .spread)
+        }
+        #expect(released == nil)
+        selection.wrappedValue = .spread
+        #expect(selection.wrappedValue == .single)
     }
 
     @Test("新しい設定の既定は上と下に分ける・常に表示・ポップオーバー・ツールバーに目次・変更へ移動")

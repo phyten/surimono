@@ -97,16 +97,18 @@ struct MarginChoices: View {
         case uniform(Double)
     }
 
-    var selection: Selection? {
+    var selection: Selection? { Self.selection(in: model) }
+
+    private static func selection(in model: DocumentViewModel) -> Selection? {
         model.usesDocumentMargins ? .document : model.printOptions.margins.uniformValue.map { .uniform($0) }
     }
 
     var body: some View {
         Picker(
             "Margins",
-            selection: Binding(
-                get: { selection },
-                set: { choice in
+            selection: model.controlBinding(
+                get: { Self.selection(in: $0) },
+                set: { model, choice in
                     switch choice {
                     case .document: model.printOptions.latexMargins = .document
                     case .uniform(let value): model.setMargins(value)

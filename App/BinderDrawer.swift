@@ -36,7 +36,7 @@ struct BinderDrawer: View {
                 PanelFileIssues(names: binder.missingPaths, summary: "", status: "Not Found")
                 if !binder.isSortedByName { PanelSortButton { binder.sortByName() } }
                 if model.mode == .print, model.layout.hasFacingPages {
-                    Toggle("Start Each Document on an Odd Page", isOn: $model.binderStartsOnFront)
+                    Toggle("Start Each Document on an Odd Page", isOn: model.controlBinding(\.binderStartsOnFront))
                         .font(.system(size: 11))
                 }
             }
@@ -60,8 +60,8 @@ private struct BinderList: View {
     var body: some View {
         ScrollViewReader { proxy in
             List(
-                selection: Binding(
-                    get: { binder.selection }, set: { if let url = $0 { model.goToBinderDocument(url) } })
+                selection: model.controlBinding(
+                    get: { $0.binder?.selection }, set: { model, url in if let url { model.goToBinderDocument(url) } })
             ) {
                 ForEach(Array(binder.items.enumerated()), id: \.element.id) { index, item in
                     BinderRow(

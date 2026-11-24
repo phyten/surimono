@@ -325,13 +325,14 @@ struct PrintNoteSection: View {
     @ViewBuilder private var lineSettings: some View {
         VStack(spacing: 0) {
             slider(
-                "Thickness", value: $model.notes.style.weightInMillimeters, range: 0.1...1, step: 0.05,
+                "Thickness", value: model.controlBinding(\.notes.style.weightInMillimeters), range: 0.1...1, step: 0.05,
                 text: String(format: "%.2f mm", model.notes.style.weightInMillimeters))
             slider(
-                "Spacing", value: $model.notes.style.spacingInMillimeters, range: 3...15, step: 0.5,
+                "Spacing", value: model.controlBinding(\.notes.style.spacingInMillimeters), range: 3...15, step: 0.5,
                 text: String(format: "%.1f mm", model.notes.style.spacingInMillimeters))
             slider(
-                "Margin Around Lines", value: $model.notes.style.marginInMillimeters, range: 5...25, step: 1,
+                "Margin Around Lines", value: model.controlBinding(\.notes.style.marginInMillimeters), range: 5...25,
+                step: 1,
                 text: String(format: "%.0f mm", model.notes.style.marginInMillimeters))
             colors
         }
@@ -403,9 +404,9 @@ struct PrintNoteSection: View {
     @ViewBuilder private var headerChoices: some View {
         subheading("Header")
         HStack(spacing: 5) {
-            chip("Date Field", isOn: $model.notes.style.header.date)
-            chip("Title Field", isOn: $model.notes.style.header.title)
-            chip("Page Number", isOn: $model.notes.style.header.pageNumber)
+            chip("Date Field", isOn: model.controlBinding(\.notes.style.header.date))
+            chip("Title Field", isOn: model.controlBinding(\.notes.style.header.title))
+            chip("Page Number", isOn: model.controlBinding(\.notes.style.header.pageNumber))
         }
     }
 
