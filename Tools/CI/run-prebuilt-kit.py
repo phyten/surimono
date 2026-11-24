@@ -45,5 +45,9 @@ for case in cases:
             print(f"FAIL {case.get('classname')}/{case.get('name')} | {issue.get('message') or issue.text}")
     elif case.find("skipped") is not None:
         skipped += 1
-print(f"{target}: {len(cases) - failed - skipped} passed, {failed} failed, {skipped} skipped")
+passed = len(cases) - failed - skipped
+print(f"{target}: {passed} passed, {failed} failed, {skipped} skipped")
+# A run in which every test was skipped has checked nothing, so it must not count as a pass.
+if passed + failed == 0:
+    sys.exit(f"{target}: every test was skipped")
 sys.exit(1 if failed or result.returncode else 0)

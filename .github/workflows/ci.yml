@@ -132,7 +132,9 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Shorter than the job's limit, so that the report and the upload still run when rendering takes too long.
       - name: Render
+        timeout-minutes: 100
         env:
           ONLY: ${{ inputs.snapshots_only }}
         run: make snapshots
@@ -182,7 +184,8 @@ jobs:
           name: macos15-test-products-${{ github.run_attempt }}
           path: ${{ runner.temp }}/test-products.tar.gz
           compression-level: 0
-          retention-days: 1
+          # Kept a week, so that only the failed macOS 15 jobs can be run again within that time.
+          retention-days: 7
           if-no-files-found: error
 
   macos15-tests:
@@ -294,6 +297,7 @@ jobs:
           jq -e '.passedTests > 0 and .failedTests == 0 and .result == "Passed"' "$RUNNER_TEMP/app-summary.json" >/dev/null
       - name: Render snapshots
         if: matrix.suite == 'snapshots'
+        timeout-minutes: 100
         env:
           ONLY: ${{ inputs.snapshots_only }}
         run: |
