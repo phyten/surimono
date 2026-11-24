@@ -153,7 +153,7 @@ struct LaTeXFlowPrintingTests {
         let page = try #require(pdf.page(at: 0))
         let title = try #require(pdf.findString(heading).first { $0.pages.first == page }).bounds(for: page)
         try checkLeader(
-            page, title: title, startX: title.maxX + 1, count: report ? 45 : 39,
+            page, title: title, startX: title.maxX + 1, count: report ? 45 : nil,
             diameter: report ? 7...10 : 8...11, pitch: report ? 7.75 : 8.49, lastDistance: report ? 18.78 : 22.14)
     }
 
@@ -184,27 +184,37 @@ struct LaTeXFlowPrintingTests {
         #expect((0..<(crop.bytesPerRow * crop.height)).allSatisfy { pixels[$0] > 200 })
         // The KOMA dot centred at x = 250.42 pt crosses x = 250. Start in the gap to measure its full diameter.
         let titles = koma ? ["Cutting the slot", "Checking the edge"] : ["台の角", "台紙の裏"]
-        let rises = try titles.map { text in
-            let title = try #require(pdf.findString(text).first { $0.pages.first == page })
-            return try checkLeader(
-                page, title: title.bounds(for: page), startX: koma ? 247 : 223, count: 25,
-                diameter: koma ? 8...11 : 7...10, pitch: koma ? 8.49 : 7.75, lastDistance: koma ? 19.44 : 17.22)
+        let rows = try titles.map { text in
+            try #require(pdf.findString(text).first { $0.pages.first == page }).bounds(for: page)
+        }
+        // PDFKit's two text boxes can overlap (16.2 pt boxes on a 13.6 pt pitch in specimen 109).
+        // The neighbouring digit must not contribute ink to this row's baseline.
+        let divider = (rows[0].midY + rows[1].midY) / 2
+        let paper = page.bounds(for: .mediaBox)
+        let rises = try rows.enumerated().map { index, title in
+            try checkLeader(
+                page, title: title, startX: koma ? 247 : 223, count: 25,
+                diameter: koma ? 8...11 : 7...10, pitch: koma ? 8.49 : 7.75, lastDistance: koma ? 19.44 : 17.22,
+                row: index == 0 ? divider...paper.maxY : paper.minY...divider)
         }
         // Both rows have the same rise in the references. Allow one 600-dpi pixel for each sampled edge.
-        #expect(abs(rises[0] - rises[1]) <= 0.24)
+        #expect(abs(rises[0] - rises[1]) <= 0.24, "行ごとの基準線からの高さ(pt)=\(rises)")
     }
 
     @discardableResult
     private func checkLeader(
-        _ page: PDFPage, title: CGRect, startX: CGFloat, count: Int, diameter: ClosedRange<Int>,
-        pitch: Double, lastDistance: Double
+        _ page: PDFPage, title: CGRect, startX: CGFloat, count: Int?, diameter: ClosedRange<Int>,
+        pitch: Double, lastDistance: Double, row: ClosedRange<CGFloat>? = nil
     ) throws -> Double {
         // Sample one complete row at 600 dpi, including the ink of its final digit.
         let scale = 600.0 / 72
         let width = Int(ceil((page.bounds(for: .mediaBox).maxX - startX) * scale))
-        let height = Int(ceil((title.height + 4) * scale))
+        let bottomY = max(title.minY - 2, row?.lowerBound ?? -CGFloat.infinity)
+        let topY = min(title.maxY + 2, row?.upperBound ?? CGFloat.infinity)
+        try #require(topY > bottomY)
+        let height = Int(ceil((topY - bottomY) * scale))
         let ctx = try grayCrop(
-            page, origin: CGPoint(x: startX, y: title.minY - 2),
+            page, origin: CGPoint(x: startX, y: bottomY),
             width: width, height: height, scale: scale)
         let pixels = try #require(ctx.data).assumingMemoryBound(to: UInt8.self)
         let columns = (0..<width).filter { x in (0..<height).contains { y in pixels[y * width + x] < 32 } }
@@ -220,7 +230,18 @@ struct LaTeXFlowPrintingTests {
         let numberInk = runs.popLast()
         let digit = try #require(numberInk)
         let dot = try #require(runs.last)
-        #expect(runs.count == count)
+        if let count {
+            #expect(runs.count == count, "title=\(title) cropX=\(startX) last=\(dot) digit=\(digit)")
+        } else {
+            // TeX admits the first full leader box after the title. Its count can change when
+            // the title's advance crosses a pitch boundary. The other end is pinned to the folio below.
+            let first = try #require(runs.first)
+            let center = startX + CGFloat(first.lowerBound + first.upperBound) / (2 * scale)
+            let gap = center - pitch / 2 - title.maxX
+            #expect(
+                gap >= -1 / scale && gap < pitch + 1 / scale,
+                "titleEnd=\(title.maxX) firstBoxGap=\(gap) dots=\(runs.count)")
+        }
         #expect(runs.allSatisfy { diameter.contains($0.count) })
         for (a, b) in zip(runs, runs.dropFirst()) {
             #expect(abs(Double(b.lowerBound - a.lowerBound) / scale - pitch) < 0.3)
@@ -237,7 +258,9 @@ struct LaTeXFlowPrintingTests {
         let rise = Double(2 * baseline - top - bottom) / (2 * scale)
         // The references put the dot centre 0.54 pt (LuaTeX-ja classes) to 0.84 pt (KOMA) above the baseline. The
         // background that draws the dots lands on the device grid, which moves it by up to a third of a point.
-        #expect((0.1...1.2).contains(rise))
+        #expect(
+            (0.1...1.2).contains(rise),
+            "title=\(title) dot=\(dot) y=\(top)...\(bottom) digit=\(digit) baseline=\(baseline) rise=\(rise)pt")
         return rise
     }
 

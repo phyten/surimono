@@ -51,6 +51,7 @@ func compareBeamerReference(_ pdf: PDFDocument, to reference: PDFDocument, fixtu
     for (index, words) in anchors {
         let page = try #require(pdf.page(at: index))
         let tex = try #require(reference.page(at: index))
+        var embeddedFaces: [String]?
         if fixture == "specimen", index == 4 {
             // PDFKit may infer a column order from geometry even when both PDF streams paint the
             // columns first. Compare the two documents with the same version of that extractor.
@@ -61,14 +62,44 @@ func compareBeamerReference(_ pdf: PDFDocument, to reference: PDFDocument, fixtu
             try checkBeamerReadingOrder(in: page, words: words)
         }
         for word in words {
-            let actual = try printedInk(of: word, in: pdf, on: page)
-            let expected = try printedInk(of: word, in: reference, on: tex)
+            // A cut sheet can retain the original media box origin after PDFKit writes it.
+            func paperInk(in deck: PDFDocument, on sheet: PDFPage) throws -> CGRect {
+                let box = sheet.bounds(for: .mediaBox)
+                return try printedInk(of: word, in: deck, on: sheet).offsetBy(dx: -box.minX, dy: -box.minY)
+            }
+            let actual = try paperInk(in: pdf, on: page)
+            let expected = try paperInk(in: reference, on: tex)
             // TeX uses an optical 8-point sans face for the institute. The slide uses the same
             // size and centring with the bundled design, whose natural advances are narrower.
             let isInstitute = ["Harbour Workshop", "Paper Model Workshop"].contains(word)
             let x = isInstitute ? actual.midX - expected.midX : actual.minX - expected.minX
             #expect(abs(x) <= (isInstitute ? 1 : 2), "\(fixture) \(index + 1) \(word) 左端")
-            #expect(abs(actual.minY - expected.minY) <= 2, "\(fixture) \(index + 1) \(word) 縦位置")
+            // The footnote on this slide reaches into the selection's descent. Its ink
+            // does not overlap the leading capital, which sits on the same body baseline.
+            func inkBottom(_ ink: CGRect, in deck: PDFDocument, on sheet: PDFPage) throws -> CGFloat {
+                if fixture == "specimen", index == 4, word == "The tide turns" {
+                    return try leadingGlyphInk(of: word, in: deck, on: sheet).minY - sheet.bounds(for: .mediaBox).minY
+                }
+                return ink.minY
+            }
+            let y = try inkBottom(actual, in: pdf, on: page)
+            let texY = try inkBottom(expected, in: reference, on: tex)
+            func verticalPosition() -> String {
+                if embeddedFaces == nil {
+                    embeddedFaces = baseFonts(in: page.dataRepresentation ?? Data())
+                }
+                func face(in deck: PDFDocument, on sheet: PDFPage) -> String {
+                    guard let hit = deck.findString(word).first(where: { $0.pages.contains(sheet) }),
+                        let text = hit.attributedString, text.length > 0,
+                        let font = text.attribute(.font, at: 0, effectiveRange: nil) as? NSFont
+                    else { return "?" }
+                    return "\(font.fontName)@\(font.pointSize) rect=\(hit.bounds(for: sheet))"
+                }
+                return
+                    "\(fixture) p\(index + 1) \(word) inkY=\(y) TeX=\(texY) Δ=\(y - texY)pt (±2pt) "
+                    + "font=\(face(in: pdf, on: page))/\(face(in: reference, on: tex)) embedded=\(embeddedFaces ?? []) scale=\(NSScreen.main?.backingScaleFactor ?? 0)"
+            }
+            #expect(abs(y - texY) <= 2, "\(verticalPosition())")
         }
     }
     if fixture == "specimen" || fixture == "083" {
@@ -79,7 +110,7 @@ func compareBeamerReference(_ pdf: PDFDocument, to reference: PDFDocument, fixtu
             var bounds = CGRect.null
             var cream = 0
             var illustration = 0
-            for row in top * 4..<(top + 18) * 4 {
+            for row in (top - 4) * 4..<(top + 28) * 4 {
                 for col in 28 * 4..<44 * 4 {
                     let point = CGPoint(x: CGFloat(col) / 4, y: CGFloat(row) / 4)
                     let (r, g, b) = pixels.color(atX: point.x, y: point.y)
@@ -91,20 +122,35 @@ func compareBeamerReference(_ pdf: PDFDocument, to reference: PDFDocument, fixtu
                 }
             }
             #expect(cream > 20 && illustration > 5, "紙色と小さな挿絵が刷られる")
+            #expect(bounds.minY > CGFloat(top - 4) && bounds.maxY < CGFloat(top + 28), "アイコンの全高 \(bounds)")
             return bounds
         }
         let actual = try paperIcon(in: pdf)
         let expected = try paperIcon(in: reference)
+        let label = fixture == "083" ? "Model Rail Desk" : "Harbour Crew"
+        func labelTop(in deck: PDFDocument) throws -> CGFloat {
+            let sheet = try #require(deck.page(at: index))
+            return sheet.bounds(for: .cropBox).maxY - (try printedInk(of: label, in: deck, on: sheet)).maxY
+        }
+        let pdfLabel = try labelTop(in: pdf)
+        let texLabel = try labelTop(in: reference)
+        print(
+            String(
+                format: "Beamer %@ p%d PDF icon/label top=%.2f/%.2fpt TeX=%.2f/%.2fpt",
+                fixture, index + 1, actual.minY, pdfLabel, expected.minY, texLabel))
         #expect(abs(actual.minX - expected.minX) <= 1 && abs(actual.maxX - expected.maxX) <= 1)
-        #expect(abs(actual.minY - expected.minY) <= 1 && abs(actual.maxY - expected.maxY) <= 1)
+        #expect(
+            abs(actual.minY - expected.minY) <= 1 && abs(actual.maxY - expected.maxY) <= 1,
+            "\(fixture) p\(index + 1) icon=\(actual) TeX=\(expected)")
     }
     if fixture == "083" {
-        try checkSlideRules(in: pdf, against: reference, page: 1, top: 130, bottom: 146, x: 180)
+        try checkSlideRules(
+            in: pdf, against: reference, page: 1, top: 130, bottom: 146, x: 180, near: "The folded card")
         try checkBlockGap(in: pdf, against: reference, page: 1, title: "Observation", body: "The folded card")
     }
     guard fixture == "specimen" else { return }
-    try checkSlideRules(in: pdf, against: reference, page: 0, top: 197, bottom: 214, x: 180)
-    try checkSlideRules(in: pdf, against: reference, page: 4, top: 254, bottom: 261, x: 130)
+    try checkSlideRules(in: pdf, against: reference, page: 0, top: 197, bottom: 214, x: 180, near: "22 May")
+    try checkSlideRules(in: pdf, against: reference, page: 4, top: 254, bottom: 261, x: 130, near: "Logged at noon")
     for (title, body) in [("Reading", "Turn the brass"), ("Caution", "Keep the scale"), ("Example", "Seven marks")] {
         try checkBlockGap(in: pdf, against: reference, page: 3, title: title, body: body)
     }
@@ -123,8 +169,7 @@ func compareBeamerReference(_ pdf: PDFDocument, to reference: PDFDocument, fixtu
     // PDFKit substitutes display fonts when it exposes a selection as attributed text.
     // Read the embedded faces from the printed page that exercises both math and text.
     let pageData = try #require(math.dataRepresentation)
-    let faces = String(decoding: pageData, as: UTF8.self).matches(of: #/\/BaseFont\s*\/(?:[A-Z]{6}\+)?([^/\s<>]+)/#)
-        .map { String($0.output.1) }
+    let faces = baseFonts(in: pageData)
     for face in ["CMUSansSerif-Bold", "CMUSansSerif-Oblique", "SurimonoMathSans-Regular"] {
         #expect(faces.contains(face))
     }
@@ -134,8 +179,9 @@ func compareBeamerReference(_ pdf: PDFDocument, to reference: PDFDocument, fixtu
             let pixels = try PagePixels(page)
             func darkestRed(_ title: String) throws -> Int {
                 let selection = try #require(deck.findString(title).first { $0.pages.contains(page) })
-                let box = selection.bounds(for: page)
-                let top = page.bounds(for: .mediaBox).maxY - box.maxY
+                let crop = page.bounds(for: .cropBox)
+                let box = selection.bounds(for: page).offsetBy(dx: -crop.minX, dy: -crop.minY)
+                let top = crop.height - box.maxY
                 var minimum = 255
                 for row in Int(top * 4)..<Int((top + box.height) * 4) {
                     for col in Int(box.minX * 4)..<Int(box.maxX * 4) {
@@ -178,7 +224,9 @@ func compareBeamerReference(_ pdf: PDFDocument, to reference: PDFDocument, fixtu
     for (x, y) in [(36, 68), (58, 81), (81, 94)] {
         func marker(_ page: PagePixels) throws -> CGRect {
             var bounds = CGRect.null
-            for py in (y - 10) * 4..<(y + 4) * 4 {
+            // Each nesting level has its own x column. Leave room to measure a displaced
+            // triangle's full height before comparing its position to TeX.
+            for py in (y - 14) * 4..<(y + 12) * 4 {
                 for px in (x - 3) * 4..<(x + 12) * 4 {
                     let position = CGPoint(x: CGFloat(px) / 4, y: CGFloat(py) / 4)
                     let pixel = page.color(atX: position.x, y: position.y)
@@ -188,13 +236,25 @@ func compareBeamerReference(_ pdf: PDFDocument, to reference: PDFDocument, fixtu
                 }
             }
             try #require(!bounds.isNull)
+            #expect(bounds.minY > CGFloat(y - 14) && bounds.maxY < CGFloat(y + 12), "箇条書きの印の全高 \(bounds)")
             return bounds
         }
         let point = try marker(pixels)
         let target = try marker(refPixels)
+        if x == 58 {
+            func offset(_ mark: CGRect, in deck: PDFDocument, on sheet: PDFPage) throws -> CGFloat {
+                let ink = try leadingGlyphInk(of: "Copper sleeve", in: deck, on: sheet)
+                return mark.minY - (sheet.bounds(for: .cropBox).maxY - ink.maxY)
+            }
+            let actual = try offset(point, in: pdf, on: page)
+            let expected = try offset(target, in: reference, on: ref)
+            print(String(format: "Beamer specimen p3 marker top − C top=%.2fpt TeX=%.2fpt", actual, expected))
+        }
         #expect(abs(point.minX - target.minX) <= 1 && abs(point.maxX - target.maxX) <= 1, "箇条書きの印 \(x) の横位置")
-        #expect(abs(point.minY - target.minY) <= 1 && abs(point.maxY - target.maxY) <= 1, "箇条書きの印 \(x) の縦位置")
-        #expect(abs(point.height - target.height) <= 0.5, "箇条書きの印 \(x) の高さ")
+        #expect(
+            abs(point.minY - target.minY) <= 1 && abs(point.maxY - target.maxY) <= 1,
+            "箇条書きの印 \(x) の縦位置 \(point) TeX=\(target)")
+        #expect(abs(point.height - target.height) <= 0.5, "箇条書きの印 \(x) の高さ \(point.height) TeX=\(target.height)")
     }
     let listFonts = String(decoding: try #require(page.dataRepresentation), as: UTF8.self)
     #expect(listFonts.contains("SurimonoMathSymbols") && !listFonts.contains("LucidaGrande"))
@@ -205,6 +265,19 @@ func compareBeamerReference(_ pdf: PDFDocument, to reference: PDFDocument, fixtu
             (0..<Int(width)).allSatisfy { pixels.color(atX: CGFloat($0), y: CGFloat(y)).red > 245 }, "スライド下端に罫線や操作部品がない"
         )
     }
+}
+
+@MainActor
+private func leadingGlyphInk(of word: String, in deck: PDFDocument, on sheet: PDFPage) throws -> CGRect {
+    let hit = try #require(deck.findString(word).first { $0.pages.contains(sheet) })
+    try #require(hit.numberOfTextRanges(on: sheet) > 0)
+    let range = hit.range(at: 0, on: sheet)
+    try #require(range.location != NSNotFound && range.length > 0)
+    let glyph = try #require(sheet.selection(for: NSRange(location: range.location, length: 1)))
+    try #require(glyph.string == String(word.prefix(1)))
+    let box = glyph.bounds(for: sheet)
+    try #require(!box.isEmpty, "\(word) の先頭字 \(box)")
+    return try printedInk(in: box, on: sheet)
 }
 
 @MainActor
@@ -219,16 +292,27 @@ private func checkBeamerReadingOrder(in page: PDFPage, words: [String]) throws {
 
 @MainActor
 private func checkSlideRules(
-    in pdf: PDFDocument, against reference: PDFDocument, page index: Int, top: CGFloat, bottom: CGFloat, x: CGFloat
+    in pdf: PDFDocument, against reference: PDFDocument, page index: Int, top: CGFloat, bottom: CGFloat, x: CGFloat,
+    near word: String
 ) throws {
     func rule(in deck: PDFDocument) throws -> CGRect {
         let page = try #require(deck.page(at: index))
-        let y = page.bounds(for: .mediaBox).maxY - bottom
-        return try printedInk(in: CGRect(x: x, y: y, width: 2, height: bottom - top), on: page)
+        let box = page.bounds(for: .mediaBox)
+        let area = CGRect(x: box.minX + x, y: box.maxY - bottom, width: 2, height: bottom - top)
+        return try printedInk(in: area, on: page).offsetBy(dx: -box.minX, dy: -box.minY)
     }
     let actual = try rule(in: pdf)
     let tex = try rule(in: reference)
-    #expect(abs(actual.maxY - tex.maxY) <= 1, "スライドの横罫の上端")
+    func offset(in deck: PDFDocument, from rule: CGRect) -> String {
+        guard let page = deck.page(at: index), let ink = try? printedInk(of: word, in: deck, on: page) else {
+            return "?"
+        }
+        return String(format: "%.2f", ink.minY - page.bounds(for: .mediaBox).minY - rule.maxY)
+    }
+    #expect(
+        abs(actual.maxY - tex.maxY) <= 1,
+        "p\(index + 1) 横罫=\(actual) TeX=\(tex) 「\(word)」まで(pt)=\(offset(in: pdf, from: actual))/\(offset(in: reference, from: tex))"
+    )
     let thicknessTolerance: CGFloat = tex.height < 1 ? 0.15 : 0.5
     #expect(abs(actual.height - tex.height) <= thicknessTolerance, "スライドの横罫の太さ")
 }
@@ -239,11 +323,13 @@ private func checkBlockGap(
 ) throws {
     func gap(in deck: PDFDocument) throws -> CGFloat {
         let page = try #require(deck.page(at: index))
-        let titleInk = try printedInk(of: title, in: deck, on: page)
-        let bodyInk = try printedInk(of: body, in: deck, on: page)
+        // PDFKit selection boxes can overlap vertically. Measure the colored title and
+        // the black body separately so the title's descenders cannot count as body ink.
+        let titleInk = try printedInk(of: title, in: deck, on: page, color: .chromatic)
+        let bodyInk = try printedInk(of: body, in: deck, on: page, color: .black)
         return titleInk.maxY - bodyInk.maxY
     }
     let actual = try gap(in: pdf)
     let tex = try gap(in: reference)
-    #expect(abs(actual - tex) <= 1, "「\(title)」から本文までの間隔")
+    #expect(abs(actual - tex) <= 1, "p\(index + 1) 「\(title)」→「\(body)」 間隔=\(actual) TeX=\(tex)")
 }

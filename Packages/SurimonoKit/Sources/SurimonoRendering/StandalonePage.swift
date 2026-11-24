@@ -11,8 +11,18 @@ public enum StandalonePage {
     private static let documentKey = UnsafeRawPointer(UnsafeMutableRawPointer.allocate(byteCount: 1, alignment: 1))
 
     public static func copy(of page: PDFPage) -> PDFPage? {
+        let annotations = page.annotations
         guard let copy = page.copy() as? PDFPage else { return nil }
         retainSources(of: page, on: copy)
+        // A native page copy may reload annotations from its backing PDF instead of
+        // including annotations installed on the in-memory page after it was inserted.
+        if copy.annotations.count != annotations.count {
+            for old in copy.annotations { copy.removeAnnotation(old) }
+            for original in annotations {
+                guard let annotation = original.copy() as? PDFAnnotation else { return nil }
+                copy.addAnnotation(annotation)
+            }
+        }
         return copy
     }
 

@@ -37,6 +37,111 @@ function blockTitleDepth(title) {
 }
 for (const title of document.querySelectorAll('.beamer-block-title'))
     title.parentElement.style.setProperty('--beamer-title-depth', blockTitleDepth(title) + 'px');
+// TeX sets the distance between two ordinary lines from the receiving paragraph's
+// pitch (at its closing size) and the vertical skips between their baselines.
+function alignListBaselines(content) {
+    const nested = 'li > :is(ul,ol)';
+    const ordinary = 'ul:not([class],[style]),ol.latex-enumerate:not([style])';
+    const measured = [];
+    function marker() {
+        const span = document.createElement('span');
+        span.style.cssText = 'display:inline-block;position:relative;width:0;height:0;line-height:0;vertical-align:baseline';
+        return span;
+    }
+    // Tall boxes and local font-size changes can trigger TeX's minimum lineskip.
+    // Only ordinary paragraph text and its inline emphasis use this baseline distance.
+    function plain(el) {
+        if (!el.textContent.trim() || el.hasAttribute('style') || el.querySelector(':not(span,a,em,strong,i,b),[style]')) return false;
+        // A theme can change an inline font through a class without an inline style.
+        const size = getComputedStyle(el).fontSize;
+        return size === getComputedStyle(el.parentElement).fontSize &&
+            [...el.querySelectorAll('*')].every(run => getComputedStyle(run).fontSize === size);
+    }
+    function firstLine(item) {
+        return item?.firstElementChild?.matches('p') ? item.firstElementChild : item;
+    }
+    function measure(previous, first, block, skip, closing = []) {
+        if (!first || !previous || !plain(previous) || !plain(first) || block.hasAttribute('style')) return;
+        const item = first.closest('li'), parent = item?.parentElement.closest('li');
+        const level = parent ? (parent.parentElement.closest('li') ? 2 : 1) : 0;
+        const closesAt = level + (first.matches('p') && first.nextElementSibling?.hasAttribute('data-beamer-closes-paragraph') ? 1 : 0);
+        const pitch = ['var(--beamer-pitch, calc(13.6 * var(--tex-pt)))',
+            'var(--beamer-small-pitch, calc(12 * var(--tex-pt)))',
+            'var(--beamer-note-pitch, calc(11 * var(--tex-pt)))'][Math.min(closesAt, 2)];
+        const from = marker(), to = marker(), ruler = document.createElement('span');
+        ruler.style.cssText = 'position:absolute;display:block;height:0;width:calc('
+            + pitch + ' + ' + skip + ' * var(--tex-pt))';
+        from.append(ruler);
+        measured.push({block, previous, first, from, to, ruler, closing});
+    }
+    for (const list of content.querySelectorAll(ordinary)) {
+        const parent = list.parentElement, inside = parent.matches('li');
+        if (parent.closest('li') && (!inside || !parent.parentElement.matches(ordinary))) continue;
+        const nestedList = inside || list.querySelector(nested) !== null;
+        const topsep = inside ? 2 : 3;
+        if (nestedList && list.previousElementSibling?.matches('p')) {
+            measure(list.previousElementSibling, firstLine(list.firstElementChild), list, topsep);
+        }
+
+        const next = list.nextElementSibling || (inside && parent.nextElementSibling);
+        if (!next) continue;
+        let first, skip;
+        if (next.matches(ordinary) || (!inside && next.matches('dl.latex-description:not(.latex-nextline,[style])'))) {
+            if (next.matches('dl')) {
+                first = next.querySelector(':scope > div:first-child > dt');
+                const definition = first?.nextElementSibling;
+                if (!definition?.matches('dd') || !plain(firstLine(definition))) continue;
+            } else {
+                first = firstLine(next.firstElementChild);
+            }
+            // Consecutive lists each contribute their own topsep, once on exit and once on entry.
+            skip = 2 * topsep;
+        } else if (nestedList && next.matches('p')) {
+            first = next;
+            skip = topsep;
+        } else if (inside && next.matches('li')) {
+            first = firstLine(next);
+            // The enclosing item's itemsep coalesces with the child's closing topsep.
+            skip = Math.max(topsep, parent.parentElement.closest('li') ? 0 : 3);
+        } else {
+            continue;
+        }
+        // Consecutive list endings coalesce to the outer closing skip. Follow the
+        // last item to its actual last line, even when multiple lists end there.
+        const closing = [list];
+        let last = list.lastElementChild;
+        while (last?.lastElementChild?.matches(ordinary)) {
+            const child = last.lastElementChild;
+            closing.push(child);
+            last = child.lastElementChild;
+        }
+        if (last?.lastElementChild?.matches('p')) last = last.lastElementChild;
+        measure(last, first, next, skip, closing);
+    }
+    for (const {previous, first, from, to, closing} of measured) {
+        // Put the entire measured skip on the receiving block. A collapsed trailing
+        // margin on any list ending here would otherwise mask a smaller correction.
+        for (const list of closing) list.style.marginBlockEnd = '0px';
+        previous.append(from);
+        first.prepend(to);
+    }
+    // Read every distance before writing margins: moving an outer list carries both
+    // ends of an inner measurement together. The ruler shares the print view's zoom.
+    for (const entry of measured) {
+        const {block, from, to, ruler} = entry;
+        const span = ruler.getBoundingClientRect().width;
+        const pitch = parseFloat(getComputedStyle(ruler).width);
+        if (span > 0 && pitch > 0) {
+            const gap = to.getBoundingClientRect().bottom - from.getBoundingClientRect().bottom;
+            entry.margin = parseFloat(getComputedStyle(block).marginTop) + pitch * (1 - gap / span);
+        }
+    }
+    for (const {block, from, to, margin, closing} of measured) {
+        from.remove(); to.remove();
+        if (Number.isFinite(margin)) block.style.marginBlockStart = margin + 'px';
+        else for (const list of closing) list.style.removeProperty('margin-block-end');
+    }
+}
 function roman(value) {
     let result = '';
     for (const [n, letters] of [[1000,'M'],[900,'CM'],[500,'D'],[400,'CD'],[100,'C'],[90,'XC'],[50,'L'],
@@ -112,6 +217,7 @@ for (const frame of frames) {
     const ordinal = Number(frame.dataset.frame);
     const content = frame.querySelector(':scope > .beamer-frame-body');
     if (!content) continue;
+    alignListBaselines(content);
     let heading = frame.querySelector(':scope > .beamer-frame-heading');
     let notes = frame.querySelector(':scope > .beamer-footnotes');
     const frameHeight = frame.getBoundingClientRect().height;

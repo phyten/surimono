@@ -201,14 +201,35 @@ enum LaTeXFlowPaginator {
         let x, y, width, height, start: CGFloat
     }
 
-    private static func restoreLinks(
-        in pdf: PDFDocument, pages: [LaTeXFlowLayout.Page], origins: [Origin], textOrigin: CGPoint
-    ) {
-        var targets: [String: PDFDestination] = [:]
-        var links: [(page: PDFPage, rect: CGRect, href: String, pageTop: Bool)] = []
+    private struct PageLinks {
+        enum Link {
+            case named(String, CGRect)
+            case external(URL, CGRect)
+        }
+
+        var destinations: [String: CGPoint] = [:]
+        var links: [Link] = []
+
+        func write(to context: CGContext) {
+            for (name, point) in destinations { context.addDestination(name as CFString, at: point) }
+            for link in links {
+                switch link {
+                case .named(let name, let rect): context.setDestination(name as CFString, for: rect)
+                case .external(let url, let rect): context.setURL(url as CFURL, for: rect)
+                }
+            }
+        }
+    }
+
+    // Write destinations and links while Quartz owns the page tree. Attaching GoTo actions
+    // to PDFKit wrappers after drawing can leave them without a target page on serialization.
+    private static func pageLinks(
+        pages: [LaTeXFlowLayout.Page], origins: [Origin], textOrigin: CGPoint
+    ) -> [Int: PageLinks] {
+        var targets: [String: (page: Int, point: CGPoint, name: String)] = [:]
+        var links: [(page: Int, rect: CGRect, href: String, pageTop: Bool)] = []
         let grouped = origins.map { Dictionary(grouping: $0.linkMarks ?? [], by: \.start) }
         for (index, layout) in pages.enumerated() {
-            guard let page = pdf.page(at: index) else { continue }
             for piece in layout.pieces {
                 let ratio = WebPaginator.printPixelsPerPoint
                 let scale = piece.scale / ratio
@@ -216,36 +237,29 @@ enum LaTeXFlowPaginator {
                     let top = textOrigin.y - piece.y / ratio - (mark.y - piece.slice.start) * scale
                     let left = textOrigin.x + piece.x / ratio + mark.x * scale
                     if let id = mark.id, targets[id] == nil {
-                        targets[id] = PDFDestination(page: page, at: CGPoint(x: left, y: top))
+                        targets[id] = (index, CGPoint(x: left, y: top), "anchor-\(targets.count)")
                     }
                     if let href = mark.href {
                         let rect = CGRect(
                             x: left, y: top - mark.height * scale, width: mark.width * scale,
                             height: mark.height * scale)
-                        links.append((page, rect, href, mark.pageTop == true))
+                        links.append((index, rect, href, mark.pageTop == true))
                     }
                 }
             }
         }
-        let border = PDFBorder()
-        border.lineWidth = 0
+        var result: [Int: PageLinks] = [:]
         for link in links {
-            let annotation = PDFAnnotation(bounds: link.rect, forType: .link, withProperties: nil)
             if link.href.hasPrefix("#") {
-                guard let destination = targets[String(link.href.dropFirst())] else { continue }
-                if link.pageTop, let targetPage = destination.page {
-                    annotation.action = PDFActionGoTo(destination: PDFDestination(page: targetPage, at: textOrigin))
-                } else {
-                    annotation.action = PDFActionGoTo(destination: destination)
-                }
+                guard let target = targets[String(link.href.dropFirst())] else { continue }
+                let name = link.pageTop ? "page-\(target.page)" : target.name
+                result[target.page, default: PageLinks()].destinations[name] = link.pageTop ? textOrigin : target.point
+                result[link.page, default: PageLinks()].links.append(.named(name, link.rect))
             } else if let url = URL(string: link.href) {
-                annotation.action = PDFActionURL(url: url)
-            } else {
-                continue
+                result[link.page, default: PageLinks()].links.append(.external(url, link.rect))
             }
-            annotation.border = border
-            link.page.addAnnotation(annotation)
         }
+        return result
     }
 
     struct DistributedHeading: Decodable {
@@ -297,7 +311,7 @@ enum LaTeXFlowPaginator {
     }
 
     struct Pass {
-        var document: PDFDocument?
+        var data: Data?
         var blankPages: Set<Int> = []
         var pageCount: Int
         var locations: [Int: Int]
@@ -305,10 +319,12 @@ enum LaTeXFlowPaginator {
 
     typealias Evaluator = @MainActor (WKWebView, String, [String: Any], @escaping WebKitReply<Any>.Completion) -> Void
 
+    typealias PlanObserver = @MainActor (LaTeXFlowLayout.Measurement, [LaTeXFlowLayout.Page]) -> Void
+
     static func paginate(
         in view: WKWebView, pageSize: CGSize, margins: WebPaginator.Margins, timeout: Duration,
         referencesOnly: Bool = false, htmlComposition: WebPaginator.HTMLComposition? = nil, sample: Bool = false,
-        scriptTimeout: Duration? = nil, evaluator: Evaluator? = nil
+        scriptTimeout: Duration? = nil, evaluator: Evaluator? = nil, inspectPlan: PlanObserver? = nil
     ) async throws -> Pass {
         guard PDFDrawing.validGeometry(pageSize: pageSize, margins: margins) else {
             throw WebPaginator.PaginationError.printFailed
@@ -344,7 +360,9 @@ enum LaTeXFlowPaginator {
         if input.mathProof == true, try await rejectsMathSpacing(in: view, until: deadline) {
             input = try await measurement("surimonoRestoreFlow();\n" + measure)
         }
-        let (pages, locations, review) = try await plan(input, width: width, height: height, until: deadline)
+        let (pages, locations, review) = try await plan(
+            input, width: width, height: height, recordsBreaks: inspectPlan != nil, until: deadline)
+        inspectPlan?(input, pages)
         if let htmlComposition {
             let rows: [[String: Any]] = try pages.map { page in
                 [
@@ -383,7 +401,12 @@ enum LaTeXFlowPaginator {
         let origins = try JSONDecoder().decode([Origin].self, from: Data(positions.utf8))
         var index = 0
         var lineNumber = 1
-        let pdf = try await PDFDrawing.document(pageSize: pageSize) { context in
+        let links =
+            !sample && origins.contains { $0.linkMarks?.isEmpty == false }
+            ? pageLinks(
+                pages: pages, origins: origins, textOrigin: CGPoint(x: margins.left, y: pageSize.height - margins.top))
+            : [:]
+        let pdf = try await PDFDrawing.data(pageSize: pageSize) { context in
             for (pageIndex, page) in pages.enumerated() {
                 if sample && pageIndex != (locations[-1] ?? 0) {
                     index += page.pieces.count
@@ -392,6 +415,7 @@ enum LaTeXFlowPaginator {
                 }
                 context.beginPDFPage(nil)
                 defer { context.endPDFPage() }
+                links[pageIndex]?.write(to: context)
                 let edges = verticalEdges(of: page.pieces, width: width)
                 var position = 0
                 while position < page.pieces.count {
@@ -464,12 +488,7 @@ enum LaTeXFlowPaginator {
             }
         }
         _ = try await run("surimonoRestoreFlow()")
-        if !sample && origins.contains(where: { $0.linkMarks?.isEmpty == false }) {
-            restoreLinks(
-                in: pdf, pages: pages, origins: origins,
-                textOrigin: CGPoint(x: margins.left, y: pageSize.height - margins.top))
-        }
-        return Pass(document: pdf, pageCount: pages.count, locations: locations)
+        return Pass(data: pdf, pageCount: pages.count, locations: locations)
     }
 
     /// Candidate displacements, relative to the first source band. The DOM checks ink ownership
@@ -546,11 +565,13 @@ enum LaTeXFlowPaginator {
     }
 
     @concurrent private static func plan(
-        _ input: LaTeXFlowLayout.Measurement, width: CGFloat, height: CGFloat, until deadline: ContinuousClock.Instant
+        _ input: LaTeXFlowLayout.Measurement, width: CGFloat, height: CGFloat, recordsBreaks: Bool,
+        until deadline: ContinuousClock.Instant
     ) async throws -> (
         [LaTeXFlowLayout.Page], [Int: Int], ConferenceReviewDrawing?
     ) {
-        let pages = try LaTeXFlowLayout.pages(input, width: width, height: height, until: deadline)
+        let pages = try LaTeXFlowLayout.pages(
+            input, width: width, height: height, recordsBreaks: recordsBreaks, until: deadline)
         let review = input.review.map {
             ConferenceReviewDrawing(
                 style: $0, lines: input.reviewLines ?? [], banner: input.reviewBanner, corner: input.reviewCorner)

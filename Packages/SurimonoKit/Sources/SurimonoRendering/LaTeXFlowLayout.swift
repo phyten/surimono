@@ -127,7 +127,25 @@ struct LaTeXFlowLayout {
 
     }
 
+    struct CompressionTrial {
+        var naturalNext: Int
+        var fullNext: Int
+        var fullShortfall: CGFloat?
+        var naturalCost: CGFloat?
+        var compressedCost: CGFloat?
+    }
+
+    // Keep the fit operands from the chosen layout, before the column glue is stretched.
+    struct ColumnBreak {
+        var column: Int
+        var nextItem: Int
+        var remaining: CGFloat
+        var required: CGFloat
+        var trial: CompressionTrial?
+    }
+
     struct Page {
+        var columnBreaks: [ColumnBreak] = []
         var isBlankVersoOrRecto = false
         var pieces: [Piece] = []
         var rules: [CGRect] = []
@@ -357,8 +375,9 @@ struct LaTeXFlowLayout {
         var floatAfterMovedHeading: Int?
     }
 
-    private let input: Measurement
+    private var input: Measurement
     private let full: Lane
+    private let recordsBreaks: Bool
     private let normalHeight: CGFloat
     private var textFloatSep: CGFloat {
         max(0, input.textFloatSep - page.shrinkFraction * (input.glueShrink?.textFloat ?? 0))
@@ -382,7 +401,8 @@ struct LaTeXFlowLayout {
     private var top: CGFloat = 0
 
     static func pages(
-        _ input: Measurement, width: CGFloat, height: CGFloat, until deadline: ContinuousClock.Instant? = nil
+        _ input: Measurement, width: CGFloat, height: CGFloat, recordsBreaks: Bool = false,
+        until deadline: ContinuousClock.Instant? = nil
     ) throws -> [Page] {
         let spacing = [
             input.noteSkip, input.noteStrutDepth ?? 0, input.noteRuleWidth ?? 180, input.noteRuleThickness ?? 0.5,
@@ -394,7 +414,9 @@ struct LaTeXFlowLayout {
             input.glueStretch?.valid != false, input.glueShrink?.valid != false,
             input.columnNotice?.valid != false, input.firstNotice?.valid != false
         else { throw CannotFit() }
-        var layout = Self(input: input, full: Lane(x: 0, width: width), normalHeight: height, deadline: deadline)
+        var layout = Self(
+            input: input, full: Lane(x: 0, width: width), recordsBreaks: recordsBreaks, normalHeight: height,
+            deadline: deadline)
         let finalSegment = input.segments.lastIndex { !$0.items.isEmpty }
         for (index, source) in input.segments.enumerated() where !source.items.isEmpty {
             var segment = source
@@ -693,60 +715,17 @@ struct LaTeXFlowLayout {
         var deepest = base
         for index in 0..<segment.columns {
             let lane = Lane(x: CGFloat(index) * (width + segment.gap), width: width)
-            let initial = cursor
-            let initialPage = page
-            let natural = try fillColumn(
-                segment, lane: lane, index: index, base: base, cursor: &cursor, limit: limit,
-                shrinkFraction: shrinkFraction)
-            if natural.endPage { return height }
-            var y = natural.depth
-            // Each column has its own insertions and finite glue. Retrying both columns
-            // together could shrink the left even when only the right gains a line.
-            if shrinkColumns, segment.columns == 2, input.glueShrink != nil, !segment.pageNotes,
-                cursor.item < segment.items.count, cursor.item == 0 || segment.items[cursor.item - 1].forced == nil
-            {
-                let naturalCursor = cursor
-                let naturalPage = page
-                var fullCompression: (item: Int, space: CGFloat)?
-                y = try replayShrink(from: initialPage, initial: initial, cursor: &cursor, natural: y) {
-                    layout, trial, fraction in
-                    layout.page.shrinkFraction = fraction
-                    let result = try layout.fillColumn(
-                        segment, lane: lane, index: index, base: base, cursor: &trial,
-                        limit: limit, shrinkFraction: fraction
-                    )
-                    if fraction == 1,
-                        let space = layout.page.noteBreakSpace(in: lane, height: layout.height, full: layout.full)
-                    {
-                        fullCompression = (trial.item, space)
-                    }
-                    return result.depth
-                }
-                if cursor.item > naturalCursor.item, cursor.item < segment.items.count,
-                    naturalCursor.item > initial.item, let glue = input.glueStretch,
-                    input.comparesColumnBreakBadness == true
-                        || segment.items[cursor.item - 1].brokenAfter == true
-                            && segment.items[naturalCursor.item - 1].brokenAfter != true
-                {
-                    // TeX adds brokenpenalty (100) when a column ends mid-word.
-                    // Badness is 100 times the cube of the glue adjustment ratio.
-                    let stretch = naturalPage.stretchRatio(in: lane, height: height, full: full, glue: glue)
-                    let shrink = page.shrinkRatio(
-                        in: lane, height: height, full: full,
-                        fullyShrunkSpace: fullCompression?.item == cursor.item ? fullCompression?.space : nil)
-                    let naturalPenalty: CGFloat = segment.items[naturalCursor.item - 1].brokenAfter == true ? 1 : 0
-                    let compressedPenalty: CGFloat = segment.items[cursor.item - 1].brokenAfter == true ? 1 : 0
-                    if !shrink.isFinite
-                        || naturalPenalty + stretch * stretch * stretch < compressedPenalty + shrink * shrink * shrink
-                    {
-                        page = naturalPage
-                        cursor = naturalCursor
-                        y = natural.depth
-                    }
-                }
-                page.shrinkFraction = 0
+            let column: (depth: CGFloat, endPage: Bool)
+            if shrinkColumns, segment.columns == 2, input.comparesColumnBreakBadness == true {
+                column = try fillJournalColumn(
+                    segment, lane: lane, index: index, base: base, cursor: &cursor, limit: limit)
+            } else {
+                column = try chooseColumn(
+                    segment, lane: lane, index: index, base: base, cursor: &cursor, limit: limit,
+                    shrinkFraction: shrinkFraction, shrinkColumns: shrinkColumns)
             }
-            deepest = max(deepest, y)
+            if column.endPage { return height }
+            deepest = max(deepest, column.depth)
         }
         if segment.rule > 0 && deepest > base {
             for i in 1..<segment.columns {
@@ -758,9 +737,132 @@ struct LaTeXFlowLayout {
         return deepest
     }
 
+    // LaTeX's @flupdates subtracts the natural sizes of edge floats and their skips
+    // from the text column goal. Their glue participates only when @cflt or @cflb
+    // assembles the chosen column. In-text floats and footnotes belong to the body.
+    private mutating func fillJournalColumn(
+        _ segment: Segment, lane: Lane, index: Int, base: CGFloat, cursor: inout Cursor, limit: CGFloat
+    ) throws -> (depth: CGFloat, endPage: Bool) {
+        var builder = self
+        builder.input.glueStretch?.textFloat = 0
+        builder.input.glueStretch?.float = 0
+        builder.input.glueShrink?.textFloat = 0
+        builder.input.glueShrink?.float = 0
+        var chosen = cursor
+        let cut = try builder.chooseColumn(
+            segment, lane: lane, index: index, base: base, cursor: &chosen, limit: limit,
+            shrinkFraction: 0, shrinkColumns: true)
+        let usage = builder.page.floats[lane]
+        if (usage?.top ?? 0) + (usage?.bottom ?? 0) == 0, base == top, !pages.isEmpty || input.firstNotice == nil {
+            page = builder.page
+            cursor = chosen
+            return cut
+        }
+
+        let initial = cursor
+        let initialPage = page
+        let natural = try fillColumn(
+            segment, lane: lane, index: index, base: base, cursor: &cursor, limit: limit,
+            shrinkFraction: 0, before: chosen.item)
+        var depth = natural.depth
+        if cursor.item < chosen.item {
+            depth = try replayShrink(from: initialPage, initial: initial, cursor: &cursor, natural: depth) {
+                layout, trial, fraction in
+                layout.page.shrinkFraction = fraction
+                return try layout.fillColumn(
+                    segment, lane: lane, index: index, base: base, cursor: &trial, limit: limit,
+                    shrinkFraction: fraction, before: chosen.item
+                ).depth
+            }
+        }
+        if cursor.item != chosen.item || cursor.waiting.count != chosen.waiting.count {
+            // Replay must retain the cut and its deferred floats. Once a float is queued,
+            // subsequent movable floats join it in source order until the next column.
+            page = builder.page
+            cursor = chosen
+            return cut
+        }
+        cursor.floatAfterMovedHeading = chosen.floatAfterMovedHeading
+        if recordsBreaks { page.columnBreaks = builder.page.columnBreaks }
+        page.shrinkFraction = 0
+        return (depth, cut.endPage)
+    }
+
+    private mutating func chooseColumn(
+        _ segment: Segment, lane: Lane, index: Int, base: CGFloat, cursor: inout Cursor, limit: CGFloat,
+        shrinkFraction: CGFloat, shrinkColumns: Bool
+    ) throws -> (depth: CGFloat, endPage: Bool) {
+        let initial = cursor
+        let initialPage = page
+        let natural = try fillColumn(
+            segment, lane: lane, index: index, base: base, cursor: &cursor, limit: limit,
+            shrinkFraction: shrinkFraction)
+        if natural.endPage { return natural }
+        var y = natural.depth
+        // Each column has its own insertions and finite glue. Retrying both columns
+        // together could shrink the left even when only the right gains a line.
+        if shrinkColumns, segment.columns == 2, input.glueShrink != nil, !segment.pageNotes,
+            cursor.item < segment.items.count, cursor.item == 0 || segment.items[cursor.item - 1].forced == nil
+        {
+            let naturalCursor = cursor
+            let naturalPage = page
+            var trialFit: CompressionTrial?
+            var fullCompression: (item: Int, space: CGFloat)?
+            y = try replayShrink(from: initialPage, initial: initial, cursor: &cursor, natural: y) {
+                layout, trial, fraction in
+                layout.page.shrinkFraction = fraction
+                let result = try layout.fillColumn(
+                    segment, lane: lane, index: index, base: base, cursor: &trial,
+                    limit: limit, shrinkFraction: fraction
+                )
+                if fraction == 1, layout.recordsBreaks {
+                    let cut = layout.page.columnBreaks.dropFirst(initialPage.columnBreaks.count).last
+                    trialFit = CompressionTrial(
+                        naturalNext: naturalCursor.item, fullNext: trial.item,
+                        fullShortfall: cut.map { $0.required - $0.remaining })
+                }
+                if fraction == 1,
+                    let space = layout.page.noteBreakSpace(in: lane, height: layout.height, full: layout.full)
+                {
+                    fullCompression = (trial.item, space)
+                }
+                return result.depth
+            }
+            if cursor.item > naturalCursor.item, cursor.item < segment.items.count,
+                naturalCursor.item > initial.item, let glue = input.glueStretch,
+                input.comparesColumnBreakBadness == true
+                    || segment.items[cursor.item - 1].brokenAfter == true
+                        && segment.items[naturalCursor.item - 1].brokenAfter != true
+            {
+                // TeX adds brokenpenalty (100) when a column ends mid-word.
+                // Badness is 100 times the cube of the glue adjustment ratio.
+                let stretch = naturalPage.stretchRatio(in: lane, height: height, full: full, glue: glue)
+                let shrink = page.shrinkRatio(
+                    in: lane, height: height, full: full,
+                    fullyShrunkSpace: fullCompression?.item == cursor.item ? fullCompression?.space : nil)
+                let naturalPenalty: CGFloat = segment.items[naturalCursor.item - 1].brokenAfter == true ? 1 : 0
+                let compressedPenalty: CGFloat = segment.items[cursor.item - 1].brokenAfter == true ? 1 : 0
+                let naturalCost = naturalPenalty + stretch * stretch * stretch
+                let compressedCost = compressedPenalty + shrink * shrink * shrink
+                trialFit?.naturalCost = naturalCost
+                trialFit?.compressedCost = compressedCost
+                if !shrink.isFinite || naturalCost < compressedCost {
+                    page = naturalPage
+                    cursor = naturalCursor
+                    y = natural.depth
+                }
+            }
+            if let trialFit, page.columnBreaks.count > initialPage.columnBreaks.count {
+                page.columnBreaks[page.columnBreaks.count - 1].trial = trialFit
+            }
+            page.shrinkFraction = 0
+        }
+        return (y, false)
+    }
+
     private mutating func fillColumn(
         _ segment: Segment, lane: Lane, index: Int, base: CGFloat,
-        cursor: inout Cursor, limit: CGFloat, shrinkFraction: CGFloat
+        cursor: inout Cursor, limit: CGFloat, shrinkFraction: CGFloat, before itemLimit: Int = .max
     ) throws
         -> (depth: CGFloat, endPage: Bool)
     {
@@ -801,7 +903,7 @@ struct LaTeXFlowLayout {
         {
             cursor.waiting.removeFirst()
         }
-        while cursor.item < segment.items.count {
+        while cursor.item < min(itemLimit, segment.items.count) {
             if cursor.item.isMultiple(of: 128) { try checkBudget() }
             let item = segment.items[cursor.item]
             if let forced = item.forced {
@@ -955,6 +1057,12 @@ struct LaTeXFlowLayout {
                     footLane: segment.titleNoteWidth.map { Lane(x: 0, width: $0) } ?? (segment.pageNotes ? full : lane),
                     end: end + footHeight - depth - bodyDepth, limit: limit)
             else {
+                if recordsBreaks {
+                    page.columnBreaks.append(
+                        ColumnBreak(
+                            column: index, nextItem: cursor.item, remaining: room - y,
+                            required: end + footHeight - depth - bodyDepth - y))
+                }
                 if item.heading == true && end <= min(limit, height - page.reserved(lane, full: full)) {
                     cursor.floatAfterMovedHeading = cursor.item + 1
                 }

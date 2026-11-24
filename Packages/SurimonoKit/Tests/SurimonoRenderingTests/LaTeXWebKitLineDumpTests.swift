@@ -68,12 +68,12 @@ struct LaTeXWebKitLineDumpTests {
             let outline = await ReadingPDFExporter.outline(
                 of: source, in: prepared.logicalDocument, proof: settings.finish.proof,
                 includesSourceContents: settings.finish.toc.showsSourceContents, facts: prepared.facts)
-            let document = try ReadingPDFExporter.document(
+            let document = try await ReadingPDFExporter.document(
                 from: prepared.viewDocument, entries: outline.entries,
                 title: prepared.facts?.title ?? outline.title ?? directory.lastPathComponent,
                 headings: outline.headings, sourceURL: file, furniture: prepared.viewFurniture)
             let url = pdfs.appendingPathComponent(id + ".pdf")
-            try #require(document.write(to: url))
+            try await ReadingPDFExporter.data(from: document).write(to: url)
             // PDFKit infers a reading order on reopened pages, including their furniture.
             let saved = try #require(PDFDocument(url: url))
             savedPageText = try (0..<saved.pageCount).map { index in

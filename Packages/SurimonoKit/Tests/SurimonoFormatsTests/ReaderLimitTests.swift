@@ -6,7 +6,6 @@ import Testing
 
 /// The inputs that crashed or stalled a reader in `make robustness`, minimised. Each is read on a 512 KiB thread, as
 /// the app reads documents: the reader must finish, keep the rest of the document, and say that something was cut.
-// Under AddressSanitizer the ten-thousand-level LaTeX list alone took 100 seconds.
 @Suite(.timeLimit(.minutes(StackSpace.sanitizerFactor > 1 ? 10 : 1)))
 struct ReaderLimitTests {
     private func onSmallStack<Value: Sendable>(
@@ -70,15 +69,20 @@ struct ReaderLimitTests {
         #expect(!includes)
     }
 
-    @Test("一万重の itemize の LaTeX でも落ちず、後ろの本文を読み、展開の上限を知らせる")
+    @Test("展開上限を超えて入れ子になった itemize は深い部分を原文で残し、後ろの本文を読む")
     func deepLaTeXLists() async throws {
+        // Each list level scans the remaining body for its end and its items. Cross the actual reader limit;
+        // the 10,000-level input still runs as latex/nested-itemize in make robustness.
+        let depth = LaTeXDocument.maximumDepth + 2
         let tex =
             "\\documentclass{article}\\begin{document}"
-            + String(repeating: "\\begin{itemize}\\item ", count: 10_000) + "deep"
-            + String(repeating: "\\end{itemize}", count: 10_000) + "\n\nAfter the lists.\\end{document}"
-        let fragment = try await onSmallStack(limit: .seconds(30)) {
+            + String(repeating: "\\begin{itemize}\\item ", count: depth) + "deep"
+            + String(repeating: "\\end{itemize}", count: depth) + "\n\nAfter the lists.\\end{document}"
+        let fragment = try await onSmallStack {
             LaTeXConverter.convert(tex, fontIndex: InstalledFontIndex(faces: [:]))
         }
+        #expect(fragment.body.contains("<ul"))
+        #expect(fragment.body.contains(#"\begin{itemize}\item deep"#))
         #expect(fragment.body.contains("After the lists."))
         #expect(fragment.readingIssues.contains("LaTeX expansion limit reached"))
     }
@@ -579,38 +583,53 @@ struct SmallStackTests {
     @Test("取り消しハンドラーが待っていても、その解放前に期限切れが届く")
     func deadlineWithBlockedCancellation() async throws {
         let gate = DispatchSemaphore(value: 0)
-        let releasedByCaller = Locked(false)
-        let handlerEntered = AsyncStream<Void>.makeStream()
         let handlerDone = AsyncStream<Void>.makeStream()
         let workerDone = AsyncStream<Void>.makeStream()
         let work = AsyncStream<Void>.makeStream()
 
-        let waiting = Locked(false)
-        let outcome = try await SmallStack.withDeadline(limit: .milliseconds(500)) {
-            defer { workerDone.continuation.finish() }
-            await withTaskCancellationHandler {
-                // The handler is registered by now. A deadline that fired before this would cancel a task with no
-                // handler to block on, and the test would pass whatever the order of the deadline's two steps.
-                waiting.value = true
-                for await _ in work.stream {}
-            } onCancel: {
-                // Bound the wait so a regression fails without leaving a thread behind.
-                handlerEntered.continuation.finish()
-                releasedByCaller.value = gate.wait(timeout: .now() + 3) == .success
-                work.continuation.finish()
-                handlerDone.continuation.finish()
+        let registered = AsyncStream<SmallStack.DeadlineCallback>.makeStream()
+        let started = AsyncStream<Void>.makeStream()
+        let caller = Task {
+            try await SmallStack.withDeadline(
+                limit: .zero,
+                schedule: { _, fire in
+                    registered.continuation.yield(fire)
+                    registered.continuation.finish()
+                }
+            ) {
+                defer { workerDone.continuation.finish() }
+                await withTaskCancellationHandler {
+                    // The handler is registered by now. A deadline that fired before this would cancel a task with no
+                    // handler to block on, and the test would pass whatever the order of the deadline's two steps.
+                    started.continuation.finish()
+                    for await _ in work.stream {}
+                } onCancel: {
+                    gate.wait()
+                    work.continuation.finish()
+                    handlerDone.continuation.finish()
+                }
             }
         }
-        try #require(waiting.value, "期限より前に取り消しハンドラーを登録できなかった")
-        for await _ in handlerEntered.stream {}
-        gate.signal()
+        for await _ in started.stream {}
+        for await fire in registered.stream {
+            // cancel() runs the handler synchronously. Leave the caller free to observe the timeout.
+            DispatchQueue.global().async(execute: fire)
+        }
+        // Only observing the result releases a correctly ordered handler. If cancel() runs first, the
+        // suite timeout cancels this test and opens the gate so the failed run can still terminate.
+        let outcome = try await withTaskCancellationHandler {
+            let result = try await caller.value
+            gate.signal()
+            return result
+        } onCancel: {
+            gate.signal()
+        }
         for await _ in handlerDone.stream {}
         for await _ in workerDone.stream {}
         guard case .timedOut = outcome else {
             Issue.record("期限切れが届かなかった")
             return
         }
-        #expect(releasedByCaller.value)
     }
 }
 

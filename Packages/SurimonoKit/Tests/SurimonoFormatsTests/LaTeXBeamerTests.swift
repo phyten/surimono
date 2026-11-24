@@ -7,6 +7,25 @@ struct LaTeXBeamerTests {
             .body
     }
 
+    @Test("子リストが直前の段落を閉じるかを区別し、リスト後の本文は親項目に戻す")
+    func nestedListParagraph() throws {
+        for ending in ["", "\\par", "\n\n"] {
+            let html = document(
+                "\\begin{frame}\\begin{itemize}\\item Outer\(ending)\\begin{itemize}\\item Inner"
+                    + "\\end{itemize}Resume\\item Sibling\\end{itemize}\\begin{enumerate}\\item Next\\end{enumerate}\\end{frame}"
+            )
+            #expect(html.contains(" data-beamer-closes-paragraph") == ending.isEmpty)
+            let lists = html.components(separatedBy: "</ul>")
+            try #require(lists.count == 3)
+            #expect(lists[0].contains("Inner</li>"))
+            let items = lists[1].components(separatedBy: "</li>")
+            try #require(items.count == 3)
+            #expect(items[0].contains("Resume</p>"))
+            #expect(items[1].contains("Sibling"))
+            #expect(lists[2].contains("<ol") && lists[2].contains("Next</li>"))
+        }
+    }
+
     @Test(
         "フレーム内の表題命令で題名・著者・所属・日付を読む順に一度ずつ刷る",
         arguments: [#"\frame[plain]{\titlepage}"#, #"\begin{frame}\maketitle\end{frame}"#])

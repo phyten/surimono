@@ -531,25 +531,50 @@ struct WebPaginatorTests {
     @Test("応答のない画像とスタイルシートがあっても、期限で読み込みを打ち切って本文を組版する")
     func paginatesWhatLoadedWhenSubresourcesNeverAnswer() async throws {
         let server = try SilentServer()
+        defer { withExtendedLifetime(server) {} }
         let html = """
             <!doctype html><meta charset="utf-8">
             <link rel="stylesheet" href="http://127.0.0.1:\(server.port)/style.css">
             <body><p>BODY-MARKER</p><img src="http://127.0.0.1:\(server.port)/image.png"><p>AFTER-MARKER</p></body>
             """
         let paginator = WebPaginator()
-        let started = ContinuousClock.now
-        let document = try await paginator.paginate(
-            .html(html, baseURL: nil), pageSize: a4, margins: .uniform(millimeters: 15), allowsJavaScript: false,
-            timeout: .seconds(1))
+        var phase = "commit 待ち"
+        var expired: ContinuousClock.Instant?
+        paginator.expireNavigationAfterCommit = { view in
+            // A committed navigation may still be parsing. Fire only when the whole body exists
+            // and at least one silent subresource is demonstrably holding the load open.
+            phase = "commit 済み、解析待ち"
+            let value = try await view.evaluateForPrinting(
+                """
+                if (document.readyState === 'loading') {
+                    await new Promise(resolve => document.addEventListener('readystatechange', resolve, {once:true}));
+                }
+                return [document.readyState, document.body?.textContent.includes('AFTER-MARKER'),
+                    document.images[0]?.complete, document.querySelector('link[rel=stylesheet]')?.sheet === null].join('/');
+                """, until: .now + .seconds(15))
+            phase = value as? String ?? "nil"
+            try #require(phase == "interactive/true/false/true", "期限直前の状態 \(phase)")
+            expired = .now
+        }
+        let document: PDFDocument
+        do {
+            document = try await paginator.paginate(
+                .html(html, baseURL: nil), pageSize: a4, margins: .uniform(millimeters: 15), allowsJavaScript: false)
+        } catch {
+            Issue.record(error, "組版の失敗時点 \(phase)、印刷開始 \(paginator.printStartCount) 回")
+            return
+        }
+        let deadline = try #require(expired)
+        #expect(ContinuousClock.now - deadline < .seconds(10))
         #expect(text(of: document).contains("BODY-MARKER"))
         #expect(text(of: document).contains("AFTER-MARKER"))
-        #expect(ContinuousClock.now - started < .seconds(10))
         #expect(paginator.openSessionCount == 0)
     }
 
     @Test("応答のないスクリプトで本文の解析が終わらない文書は、期限で時間切れになる")
     func timesOutWhenTheDocumentIsNeverParsed() async throws {
         let server = try SilentServer()
+        defer { withExtendedLifetime(server) {} }
         // A classic script holds the parser, so the body after it never reaches the DOM.
         let html = """
             <!doctype html><meta charset="utf-8">

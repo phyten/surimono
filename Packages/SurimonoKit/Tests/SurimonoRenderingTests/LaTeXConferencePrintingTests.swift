@@ -98,7 +98,7 @@ struct LaTeXConferencePrintingTests {
             let header =
                 final
                 ? "Published as a conference paper at ICLR 2027" : "Under review as a conference paper at ICLR 2027"
-            let reading = try ReadingPDFExporter.document(
+            let reading = try await ReadingPDFExporter.document(
                 from: result.viewDocument, entries: [], title: "Spacing study", furniture: result.viewFurniture)
             for index in 0..<2 {
                 let printed = try #require(reading.page(at: index))
@@ -167,7 +167,7 @@ struct LaTeXConferencePrintingTests {
             #expect(abs(abstractEnd.midY - introduction.midY - referenceGap) < 1.2)
         }
         if name == "121-style-acl" {
-            let reading = try ReadingPDFExporter.document(
+            let reading = try await ReadingPDFExporter.document(
                 from: result.viewDocument, entries: [], title: "", furniture: result.viewFurniture)
             let page = try #require(reading.page(at: 0))
             let text = try #require(page.string)

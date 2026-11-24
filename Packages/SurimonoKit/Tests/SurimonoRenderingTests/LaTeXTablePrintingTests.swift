@@ -15,28 +15,86 @@ struct LaTeXTablePrintingTests {
         let file = corpus.appendingPathComponent("Snapshots/corpus/latex/\(folder)/main.tex")
         let source = DocumentSource(data: try Data(contentsOf: file), fileURL: file, format: .latex)
         let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
-        let result = try await DocumentRenderer().prepare(
+        let scaled = folder == "022-batch-grid"
+        let paginator = WebPaginator()
+        var dimensions = "?"
+        paginator.inspectPrintLayout = { view in
+            do {
+                let value = try await view.evaluateForPrinting(
+                    """
+                    const box = document.querySelector('.latex-graphic-box');
+                    if (!box) {
+                        const table = document.querySelector('figure.latex-table > table'), caption = table?.nextElementSibling;
+                        const cell = table?.rows[table.rows.length - 1]?.cells[0], title = caption?.querySelector('.latex-caption-label');
+                        if (!cell || !title || !caption.matches('figcaption')) return 'native caption missing';
+                        const mark = () => {
+                            const probe = document.createElement('span');
+                            probe.style.cssText = 'display:inline-block;vertical-align:baseline;width:0;height:0;padding:0';
+                            return probe;
+                        };
+                        const row = mark(), label = mark();
+                        cell.append(row); title.prepend(label);
+                        const gap = label.getBoundingClientRect().bottom-row.getBoundingClientRect().bottom;
+                        row.remove(); label.remove();
+                        return JSON.stringify({baselineGap:+gap.toFixed(3), padding:getComputedStyle(caption).paddingTop,
+                            integral:document.body.hasAttribute('data-latex-snaps-line-height')});
+                    }
+                    const ink = box.firstElementChild, table = ink.querySelector('table');
+                    if (!table) return 'table missing';
+                    const size = getComputedStyle(ink), shape = el => {
+                        const r = el.getBoundingClientRect();
+                        return [r.top, r.width, r.height].map(n => +n.toFixed(2));
+                    };
+                    return JSON.stringify({natural:[size.width,size.height], matrix:size.transform,
+                      rows:[...table.rows].slice(0,3).map(shape), struts:table.querySelectorAll('.latex-array-strut').length,
+                      firstCells:[...table.rows].slice(0,3).map(row =>
+                        !!row.cells[0]?.querySelector(':scope > .latex-array-strut')),
+                      size:getComputedStyle(table).fontSize, pitch:getComputedStyle(table).lineHeight,
+                      font:getComputedStyle(table).fontFamily, dpr:devicePixelRatio});
+                    """, until: .now + .seconds(3))
+                if let value = value as? String { dimensions = value }
+            } catch { dimensions = String(describing: error) }
+        }
+        let renderer = DocumentRenderer(paginateWithResult: { request in try await paginator.paginate(request) })
+        let result = try await renderer.prepare(
             source, settings: .init(layout: .a4Single, theme: theme, preset: .init(id: "none", name: "")))
         let pdf = result.logicalDocument
-        let page = try #require(pdf.page(at: 0))
-        let scaled = folder == "022-batch-grid"
         let referenceURL = corpus.appendingPathComponent("Snapshots/reference/latex/\(folder.prefix(3)).pdf")
         let reference = try #require(PDFDocument(url: referenceURL))
-        // Compare the same outlines in each PDF: rounded letters extend slightly below the baseline.
-        func rowToCaption(_ document: PDFDocument) throws -> CGFloat {
+        // Four sampled edges enter each comparison. A 0.025pt pixel keeps their combined
+        // quantization below the 0.3pt strut tolerance. PDFKit selection centres depend on font metrics.
+        func inkDistance(_ top: String, _ bottom: String, in document: PDFDocument) throws -> CGFloat {
             let first = try #require(document.page(at: 0))
-            let row = try printedInk(of: scaled ? "Slate" : "Firm", in: document, on: first)
-            let caption = try printedInk(of: scaled ? "Three" : "Schedule", in: document, on: first)
-            return row.minY - caption.minY
+            let upper = try printedInk(of: top, in: document, on: first, scale: 40)
+            let lower = try printedInk(of: bottom, in: document, on: first, scale: 40)
+            return upper.minY - lower.minY
         }
-        let distance = try rowToCaption(pdf)
-        let expected = try rowToCaption(reference)
-        #expect(abs(distance - expected) <= 0.3, "実測 \(distance) pt、参照 \(expected) pt")
+        let row = scaled ? "Slate" : "Firm"
+        let caption = scaled ? "Three" : "Schedule"
+        let distance = try inkDistance(row, caption, in: pdf)
+        let expected = try inkDistance(row, caption, in: reference)
+        if !scaled { print("Table 012 DOM CSS px \(dimensions) PDF Firm→Schedule=\(distance)pt TeX=\(expected)pt") }
+        #expect(abs(distance - expected) <= 0.3, "実測 \(distance) pt、参照 \(expected) pt DOM=\(dimensions)")
         guard scaled else { return }
-        let heading = try #require(pdf.findString("Batch comparison grid").first).bounds(for: page)
-        let row = try #require(pdf.findString("Amber").first).bounds(for: page)
-        // The real TeX heading-to-row baseline distance is 51pt; the selection centres differ by under 1pt.
-        #expect(abs(heading.midY - row.midY - 51) < 1)
+        let metrics = try #require(
+            (try? JSONSerialization.jsonObject(with: Data(dimensions.utf8))) as? [String: Any], "\(dimensions)")
+        #expect(metrics["firstCells"] as? [Bool] == [true, true, true], "\(dimensions)")
+        let heading = try inkDistance("Batch comparison grid", "Amber", in: pdf)
+        let texHeading = try inkDistance("Batch comparison grid", "Amber", in: reference)
+        print("Table 022 DOM \(dimensions) PDF heading→Amber=\(heading)pt TeX=\(texHeading)pt")
+        func anchors(_ deck: PDFDocument) -> String {
+            guard let sheet = deck.page(at: 0) else { return "page missing" }
+            let positions = ["Batch comparison grid", "Maximum deviation", "Amber", "Slate", "Three"].map { text in
+                guard let ink = try? printedInk(of: text, in: deck, on: sheet, scale: 40) else { return "\(text)=?" }
+                return String(
+                    format: "%.2f/%.2f/w%.2f", ink.minX, sheet.bounds(for: .mediaBox).maxY - ink.minY, ink.width)
+            }.joined(separator: ",")
+            return "\(positions) fonts=\(baseFonts(in: sheet.dataRepresentation ?? Data()))"
+        }
+        #expect(
+            abs(heading - texHeading) < 1,
+            "表題→Amber \(heading)pt、実 TeX \(texHeading)pt。表題/表見出し/Amber/Slate/Three の x/y/幅=\(anchors(pdf)) TeX=\(anchors(reference)) DOM=\(dimensions)"
+        )
     }
 
     @Test("伸縮表では太字の語を一行に収め、固定幅列と同行の基準線を実寸で刷る", .timeLimit(.minutes(1)))

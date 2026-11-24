@@ -23,7 +23,7 @@ struct PagePixels {
         context.setFillColor(ground)
         context.fill(CGRect(x: 0, y: 0, width: width, height: height))
         context.scaleBy(x: scale, y: scale)
-        context.translateBy(x: -box.minX, y: -box.minY)
+        // PDFPage.draw maps the crop box origin to the bitmap origin.
         page.draw(with: .cropBox, to: context)
         let data = try #require(context.data)
         // The first row in memory is the top of the image.
@@ -60,6 +60,28 @@ struct PagePixels {
 
 @MainActor
 struct PaperBackgroundRenderingTests {
+    @Test("用紙と切り抜きの原点がずれていても、墨の位置を各座標系で測れる")
+    func offsetPageInk() throws {
+        let data = NSMutableData()
+        var media = CGRect(x: 7, y: 4, width: 100, height: 100)
+        let consumer = try #require(CGDataConsumer(data: data))
+        let context = try #require(CGContext(consumer: consumer, mediaBox: &media, nil))
+        let ink = CGRect(x: 30, y: 40, width: 10, height: 5)
+        context.beginPDFPage(nil)
+        context.setFillColor(CGColor(gray: 0, alpha: 1))
+        context.fill(ink)
+        context.endPDFPage()
+        context.closePDF()
+        let document = try #require(PDFDocument(data: data as Data))
+        let page = try #require(document.page(at: 0))
+        let crop = CGRect(x: 12, y: 10, width: 85, height: 80)
+        page.setBounds(crop, for: .cropBox)
+        let absolute = try printedInk(in: ink.insetBy(dx: -3, dy: -3), on: page)
+        let local = try PagePixels(page).bounds { red, _, _ in red < 160 }
+        #expect(absolute == ink)
+        #expect(local == CGRect(x: ink.minX - crop.minX, y: crop.maxY - ink.maxY, width: ink.width, height: ink.height))
+    }
+
     private func render(
         _ markdown: String, theme: PrintTheme, margin: Double = 15, textScale: Double = 1
     ) async throws -> PDFDocument {

@@ -109,18 +109,12 @@ struct NotePagesRenderingTests {
 
     @Test("章の終わりは PDF のしおりで章を見分ける")
     func chapterEndOnPDF() async throws {
-        let document = try RenderingFixtures.pdf(count: 4)
-        let root = PDFOutline()
-        for (position, page) in [0, 2].enumerated() {
-            let item = PDFOutline()
-            item.label = "章 \(position + 1)"
-            item.destination = PDFDestination(page: try #require(document.page(at: page)), at: .zero)
-            root.insertChild(item, at: position)
-        }
-        document.outlineRoot = root
+        let bytes = try RenderingFixtures.pdfData(count: 4, bookmarks: [("章 1", 1), ("章 2", 3)])
+        let input = try #require(PDFDocument(data: bytes))
+        try #require(PDFOutlineReader.entries(of: input).map(\.pageIndex) == [0, 2], "入力PDFの章の位置")
         var settings = try settings(.a4Duplex)
         settings.notes = try notes(.chapterEnd)
-        let source = DocumentSource(data: try #require(document.dataRepresentation()), format: .pdf)
+        let source = DocumentSource(data: bytes, format: .pdf)
         let prepared = try await DocumentRenderer().prepare(source, settings: settings)
         #expect(texts(prepared.logicalDocument) == ["PAGE-1", "PAGE-2", "", "PAGE-3", "PAGE-4", ""])
     }

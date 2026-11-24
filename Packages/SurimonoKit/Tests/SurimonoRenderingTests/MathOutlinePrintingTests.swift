@@ -41,16 +41,20 @@ struct MathOutlinePrintingTests {
         let prepared = try await DocumentRenderer().prepare(
             DocumentSource(data: try Data(contentsOf: url), fileURL: url, format: .latex),
             settings: RenderSettings(layout: .letterSingle, theme: theme, preset: .init(id: "none", name: "")))
-        let reading = try ReadingPDFExporter.document(
+        let reading = try await ReadingPDFExporter.document(
             from: prepared.viewDocument, entries: [], title: "Math", furniture: prepared.viewFurniture)
-        let data = try #require(reading.dataRepresentation())
+        let data = try await ReadingPDFExporter.data(from: reading)
         let pdf = try #require(PDFDocument(data: data))
         let reference = try #require(PDFDocument(url: try fixture("math-outlines-reference", "pdf")))
         let expected = try JSONDecoder().decode(
             [String].self, from: Data(contentsOf: try fixture("math-outlines-search", "json")))
-        // PDFKit infers reading order from separate positioned glyphs. Preserve the exact
-        // strings of the exported KaTeX formula sheet, including its existing limitations.
-        #expect((0..<pdf.pageCount).compactMap { pdf.page(at: $0)?.string } == expected)
+        let extracted = (0..<pdf.pageCount).compactMap { pdf.page(at: $0)?.string }
+        // PDFKit may infer a space between the separately positioned f and its opening parenthesis.
+        // Keep the rest of each page exact, including line breaks, operators and reading order.
+        func caseFormula(_ page: String) -> String {
+            page.replacingOccurrences(of: "\nf (x) = {x", with: "\nf(x) = {x")
+        }
+        #expect(extracted.map { caseFormula($0) } == expected.map { caseFormula($0) })
         for (query, count) in [
             ("√", 3), ("∑", 1), ("(x)", 5), ("x + 1", 1), ("k=1", 1), ("a ≲ b", 1), ("R + L + g", 1),
         ] {

@@ -156,7 +156,7 @@ code, pre, .latex-url {
 code, pre, pre code { font-size: 1em; }
 /* The surrounding strut supplies leading. A mono face can otherwise deepen even a line of plain URL text. */
 .latex-url { font-size: 1em; line-height: 1; }
-.latex-verbatim pre { font-size: 1em; line-height: inherit; margin: 0.7em 0; padding: 0; border: none; background: none; }
+.latex-verbatim pre { font-size: 1em; line-height: inherit; margin: var(--latex-verbatim-skip, 0.7em) 0; padding: 0; border: none; background: none; }
 figure.latex-listing { margin-inline: 0; }
 /* listings numbers are sized from the document class, independently of the code's basicstyle. */
 .latex-numbered-listing {
@@ -249,9 +249,9 @@ figure.latex-table {
 figure.latex-table figcaption { margin-block: var(--latex-caption-table-gap) var(--latex-belowcaptionskip); }
 /* A caption below an array starts with the class skip, lineskip and a natural-height hbox. */
 @supports (text-box-trim: trim-start) {
-    /* WebKit snaps the native row and caption baselines to layout pixels. Keep
-       the full lineskip at their boundary; a transformed table retains its fractional depth. */
-    body[data-latex-natural-table-captions] figure.latex-table > table:has(.latex-array-strut) + figcaption {
+    /* When the engine truncates native line boxes, round up to preserve the full lineskip.
+       Subpixel layout and transformed arrays retain the class's exact one-point skip. */
+    body[data-latex-natural-table-captions][data-latex-snaps-line-height] figure.latex-table > table:has(.latex-array-strut) + figcaption {
         --latex-array-caption-lineskip: round(up, var(--tex-pt), 1px);
     }
     body[data-latex-natural-table-captions] figure.latex-table > :is(table,.latex-graphic-box):has(.latex-array-strut) + figcaption:not([data-latex-caption-style]) {

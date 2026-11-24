@@ -39,6 +39,12 @@ struct LaTeXSocietyGridTests {
             for key in ["body-size", "body-pitch", "parindent", "columnsep", "note-pitch"] {
                 #expect(info.styleVariables.contains("--latex-\(key): calc("))
             }
+            if name == "ieicej" {
+                // The reference leaves 53.15 PDF points for five Japanese byline cells.
+                let em = try #require(info.styleVariables.firstMatch(of: /--latex-author-zw: ([0-9.]+)em/))
+                let scale = try #require(Double(em.1))
+                #expect(abs(5 * 10.95 * scale * unit - 53.15) < 0.01)
+            }
         }
     }
 

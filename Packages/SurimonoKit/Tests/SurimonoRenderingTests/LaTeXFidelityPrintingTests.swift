@@ -61,7 +61,7 @@ struct LaTeXFidelityPrintingTests {
             (plain, inherited, PaperSize.a4.size), (custom, customReading, CGSize(width: 700, height: 500)),
         ] {
             let prepared = try await renderer.prepare(input, settings: settings)
-            let pdf = try ReadingPDFExporter.document(from: prepared.viewDocument, entries: [], title: "Gauge")
+            let pdf = try await ReadingPDFExporter.document(from: prepared.viewDocument, entries: [], title: "Gauge")
             let box = try #require(pdf.page(at: 0)).bounds(for: .mediaBox)
             #expect(abs(box.width - size.width) < 0.01)
             #expect(abs(box.height - size.height) < 0.01)
@@ -88,11 +88,11 @@ struct LaTeXFidelityPrintingTests {
         let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
         let settings = RenderSettings(layout: .letterSingle, theme: theme, preset: .init(id: "none", name: ""))
         let prepared = try await DocumentRenderer().prepare(source, settings: settings)
-        let reading = try ReadingPDFExporter.document(
+        let reading = try await ReadingPDFExporter.document(
             from: prepared.viewDocument, entries: [], title: "Gauge", furniture: prepared.viewFurniture)
         let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".pdf")
         defer { try? FileManager.default.removeItem(at: file) }
-        try #require(reading.write(to: file))
+        try await ReadingPDFExporter.data(from: reading).write(to: file)
         let pdf = try #require(PDFDocument(url: file))
         let words = [
             "MEASURING", "FOLDED", "CARD", "SPACERS", "FOR", "MODEL", "RAILS", "ABSTRACT",
@@ -161,6 +161,28 @@ struct LaTeXFidelityPrintingTests {
         #expect(abs(Double(actual.pixels) / Double(expected.pixels) - 1) < 0.06)
     }
 
+    // A destination can change when PDFKit serializes a decorated document. Keep source and target
+    // page numbers and coordinates for the same links at each boundary of the export.
+    private func destinations(in pdf: PDFDocument) -> String {
+        (0..<min(pdf.pageCount, 2)).map { source in
+            var backReferences: [String] = []
+            let links = (pdf.page(at: source)?.annotations ?? []).compactMap { annotation -> String? in
+                guard let target = (annotation.action as? PDFActionGoTo)?.destination ?? annotation.destination
+                else { return nil }
+                let page =
+                    target.page.map { page in
+                        let index = pdf.index(for: page)
+                        return index == NSNotFound ? "foreign" : String(index + 1)
+                    } ?? "released"
+                if source == 1, abs(target.point.y - 720) < 5 { backReferences.append(page) }
+                let point = String(format: "(%.1f,%.1f)", Double(target.point.x), Double(target.point.y))
+                return "\(page)@\(point)"
+            }
+            let back = backReferences.isEmpty ? "" : " back=[\(backReferences.joined(separator: ","))]"
+            return "p\(source + 1)→" + links.prefix(3).joined(separator: ",") + " (\(links.count))" + back
+        }.joined(separator: " ")
+    }
+
     @Test("学会原稿のURLと別ページの節を枠なしでリンクする", .timeLimit(.minutes(1)))
     func conferenceLinks() async throws {
         let url = try #require(
@@ -169,21 +191,34 @@ struct LaTeXFidelityPrintingTests {
         let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
         let settings = RenderSettings(layout: .letterSingle, theme: theme, preset: .init(id: "none", name: ""))
         let prepared = try await DocumentRenderer().prepare(source, settings: settings)
-        let reading = try ReadingPDFExporter.document(
+        let viewLinks = destinations(in: prepared.viewDocument)
+        let reading = try await ReadingPDFExporter.document(
             from: prepared.viewDocument, entries: [], title: "Register", furniture: prepared.viewFurniture)
-        let pdf = try #require(PDFDocument(data: reading.dataRepresentation() ?? Data()))
+        let exportLinks = destinations(in: reading)
+        let savedBytes = try await ReadingPDFExporter.data(from: reading)
+        let pdf = try #require(PDFDocument(data: savedBytes))
         let first = try #require(pdf.page(at: 0))
         let second = try #require(pdf.page(at: 1))
         #expect(
             first.annotations.contains {
                 ($0.action as? PDFActionURL)?.url?.absoluteString == "https://example.org/gauge"
             })
-        let targets = first.annotations.compactMap { ($0.action as? PDFActionGoTo)?.destination }
+        let targets = first.annotations.compactMap { ($0.action as? PDFActionGoTo)?.destination ?? $0.destination }
         let target = try #require(targets.first)
         let heading = try #require(
             pdf.findString("Checks", withOptions: .caseInsensitive).first { $0.pages.contains(second) }
         ).bounds(for: second)
-        #expect(target.page === second)
+        let stages =
+            "view[\(viewLinks)] export[\(exportLinks)] saved[\(destinations(in: pdf))]"
+        for stage in [prepared.viewDocument, reading] {
+            let sourcePage = try #require(stage.page(at: 0))
+            let targetPage = try #require(stage.page(at: 1))
+            let local = sourcePage.annotations.compactMap {
+                ($0.action as? PDFActionGoTo)?.destination ?? $0.destination
+            }
+            #expect(local.count == 1 && local.first?.page === targetPage, "\(stages)")
+        }
+        #expect(target.page === second, "\(stages)")
         #expect(abs(target.point.y - heading.maxY) < 10)
         #expect(first.annotations.allSatisfy { ($0.border?.lineWidth ?? 0) == 0 })
     }
@@ -199,9 +234,12 @@ struct LaTeXFidelityPrintingTests {
         let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
         let settings = RenderSettings(layout: .letterSingle, theme: theme, preset: .init(id: "none", name: ""))
         let prepared = try await renderer.prepare(source, settings: settings)
-        let decorated = try ReadingPDFExporter.document(
+        let viewLinks = destinations(in: prepared.viewDocument)
+        let decorated = try await ReadingPDFExporter.document(
             from: prepared.viewDocument, entries: [], title: "Links", furniture: prepared.viewFurniture)
-        let pdf = try #require(PDFDocument(data: decorated.dataRepresentation() ?? Data()))
+        let exportLinks = destinations(in: decorated)
+        let savedBytes = try await ReadingPDFExporter.data(from: decorated)
+        let pdf = try #require(PDFDocument(data: savedBytes))
         let first = try #require(pdf.page(at: 0))
         let last = try #require(pdf.page(at: 1))
         func destination(_ annotation: PDFAnnotation) -> PDFDestination? {
@@ -210,12 +248,14 @@ struct LaTeXFidelityPrintingTests {
         // A tight line must still provide the same searchable space after the minus sign.
         #expect(pdf.findString("c = h2− 2t").count == 1)
         #expect(first.string?.contains("c = h2− 2t") == true)
+        let stages =
+            "view[\(viewLinks)] export[\(exportLinks)] saved[\(destinations(in: pdf))]"
         let refs = try #require(pdf.findString("Spacer Card Register").first).bounds(for: last)
         #expect(
             first.annotations.contains { a in
                 guard let target = destination(a), target.page === last else { return false }
                 return abs(target.point.y - refs.maxY) < 6
-            })
+            }, "refsY=\(refs.maxY) \(stages)")
         let splitEntry = try #require(
             pdf.findString("A gauge block of folded").first ?? pdf.findString("A gauge block made of folded").first
         ).bounds(for: last)
@@ -223,18 +263,23 @@ struct LaTeXFidelityPrintingTests {
             first.annotations.contains { a in
                 guard let target = destination(a), target.page === last else { return false }
                 return abs(target.point.y - splitEntry.maxY) < 8 && abs(target.point.x - splitEntry.minX) < 150
-            })
-        let pages = last.annotations.compactMap { a -> Int? in
-            guard let target = destination(a), let page = target.page, abs(target.point.y - 720) < 5 else { return nil }
-            return pdf.index(for: page) + 1
+            }, "split=\(splitEntry) \(stages)")
+        for stage in [prepared.viewDocument, decorated, pdf] {
+            let references = try #require(stage.page(at: 1))
+            let pages = references.annotations.compactMap { a -> Int? in
+                guard let target = destination(a), abs(target.point.y - 720) < 5 else { return nil }
+                guard let page = target.page else { return -1 }
+                let index = stage.index(for: page)
+                return index == NSNotFound ? -1 : index + 1
+            }
+            #expect(pages == [1, 2, 1, 1, 2], "\(stages)")
         }
-        #expect(pages == [1, 2, 1, 1, 2])
         // The figure starts at the top of the left column. The caption package's
         // destination is half a baseline above it in the saved reference PDF.
         #expect(
             first.annotations.contains { a in
                 guard let target = destination(a), target.page === last else { return false }
                 return abs(target.point.x - 58.5) < 1 && abs(target.point.y - 725.978) < 2
-            })
+            }, "\(stages)")
     }
 }

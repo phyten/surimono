@@ -84,8 +84,10 @@ else
 endif
 
 # CI runs Formats and Core on one runner and Rendering on another.
+# A reader's wall-clock deadline includes time waiting for a CPU. On the hosted runner,
+# run the cases individually so that the rest of the suite cannot starve that reader.
 test-formats:
-	$(SWIFT_TEST) --filter SurimonoFormatsTests
+	$(SWIFT_TEST) --filter SurimonoFormatsTests $(if $(GITHUB_ACTIONS),--no-parallel)
 
 test-core:
 	$(SWIFT_TEST) --filter SurimonoCoreTests

@@ -456,7 +456,11 @@ package enum HostileInputs {
                 },
                 HostileCase(format, "self-substitution") { text(".. |a| replace:: |a| |a|\n\n|a|\n") },
                 HostileCase(format, "substitution-chain") {
-                    text((0..<2_000).map { ".. |a\($0)| replace:: |a\($0 + 1)| |a\($0 + 1)|\n" }.joined() + "\n|a0|\n")
+                    // Resolution stops descending at depth 32. Even the short chain doubles at every
+                    // reachable level and exhausts the same expansion budget as the long corpus input.
+                    let depth = quick ? 40 : 2_000
+                    return text(
+                        (0..<depth).map { ".. |a\($0)| replace:: |a\($0 + 1)| |a\($0 + 1)|\n" }.joined() + "\n|a0|\n")
                 },
                 HostileCase(format, "include-self") { text(".. include:: self.rst\n") },
                 HostileCase(format, "reference-cycle") { text("a_\n\n.. _a: b_\n.. _b: a_\n") },

@@ -120,6 +120,48 @@ struct LaTeXSocietyPrintingTests {
         #expect(abs(bounds.width - heading.width) < 1)
     }
 
+    // Record the same measured strips and break that Quartz will paint, before serialization.
+    private func ipsjColumnMetrics(_ input: LaTeXFlowLayout.Measurement, _ pages: [LaTeXFlowLayout.Page]) -> String {
+        guard pages.count >= 2 else { return "pages=\(pages.count)" }
+        let items = input.segments.flatMap(\.items)
+        let floats = items.compactMap { item -> String? in
+            guard let kind = item.floatKind, let box = item.slice else { return nil }
+            return kind + String(format: "=%.2f", box.height)
+        }
+        let pieces = pages[1].pieces.filter { $0.x == 0 }
+        let rows = items.compactMap { item -> (paragraph: String, top: CGFloat)? in
+            guard let para = item.paragraph, para > 0, let s = item.slice,
+                pieces.contains(where: {
+                    $0.slice.strip == s.strip && s.start < $0.slice.end - 0.1 && s.end > $0.slice.start + 0.1
+                })
+            else { return nil }
+            return ("\(s.strip).\(para)", s.start)
+        }
+        let paragraphs = Dictionary(grouping: rows, by: \.paragraph)
+        let lines = paragraphs.keys.sorted().map { key in
+            let starts = paragraphs[key, default: []].map(\.top)
+            let steps = zip(starts.dropFirst(), starts).map { $0 - $1 }.sorted()
+            let pitch = steps.isEmpty ? "–" : String(format: "%.2f", steps[steps.count / 2])
+            return "\(key):\(starts.count)@\(pitch)"
+        }
+        let breaks = pages.prefix(2).enumerated().flatMap { index, page in
+            page.columnBreaks.map { cut in
+                var message =
+                    "p\(index + 1)c\(cut.column + 1)#\(cut.nextItem)"
+                    + String(format: " %.2f/%.2f", cut.remaining, cut.required)
+                if index == 1, cut.column == 0, let trial = cut.trial {
+                    func value(_ number: CGFloat?) -> String { number.map { String(format: "%.3f", $0) } ?? "–" }
+                    message +=
+                        " natural/full=#\(trial.naturalNext)/#\(trial.fullNext)"
+                        + " fullShortfall=\(value(trial.fullShortfall))px"
+                        + " cost=\(value(trial.naturalCost))/\(value(trial.compressedCost))"
+                }
+                return message
+            }
+        }
+        return "floatHeight=\(floats) p2left[strip.paragraph:rows@pitch]=\(lines) break[remaining/next]=\(breaks)"
+    }
+
     @Test(
         "学会の原稿を指定判型で刷り、初頁の表題・本文・所属注と柱を検索する", .timeLimit(.minutes(1)),
         arguments: ["125-class-ipsj", "126-class-ieicej", "127-class-ieice"])
@@ -135,12 +177,35 @@ struct LaTeXSocietyPrintingTests {
         var settings = RenderSettings(layout: layout, theme: theme, preset: .init(id: "none", name: ""))
         settings.options.latexMargins = .style
         settings.options.latexFurniture = .style
-        let result = try await DocumentRenderer().prepare(.init(data: data, format: .latex), settings: settings)
-        let pdf = try ReadingPDFExporter.document(
+        let paginator = WebPaginator()
+        var metrics = "flow plan unavailable"
+        if !english && !supplement {
+            paginator.inspectFlowPlan = { measurement, pages in metrics = ipsjColumnMetrics(measurement, pages) }
+        }
+        let renderer = DocumentRenderer(paginateWithResult: { request in try await paginator.paginate(request) })
+        let result = try await renderer.prepare(.init(data: data, format: .latex), settings: settings)
+        if !english && !supplement { print("IPSJ 125 DOM/column CSS px \(metrics)") }
+        let pdf = try await ReadingPDFExporter.document(
             from: result.viewDocument, entries: [], title: "Specimen", furniture: result.viewFurniture)
         #expect(pdf.pageCount == (supplement ? 3 : 2))
         let first = try #require(pdf.page(at: 0))
         let size = first.bounds(for: .mediaBox).size
+        let referenceURL = corpus.deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("reference/latex/\(name.prefix(3)).pdf")
+        func reference() throws -> PDFDocument { try #require(PDFDocument(url: referenceURL)) }
+        func locations(_ word: String, in doc: PDFDocument, at index: Int) -> String {
+            guard let sheet = doc.page(at: index) else { return "page missing" }
+            return doc.findString(word).filter { $0.pages.contains(sheet) }.prefix(8).map { hit in
+                let box = hit.bounds(for: sheet)
+                let text = hit.attributedString
+                let font = text.flatMap {
+                    $0.length > 0 ? $0.attribute(.font, at: 0, effectiveRange: nil) as? NSFont : nil
+                }
+                return String(
+                    format: "%.1f/%.1f/w%.1f", box.minX, sheet.bounds(for: .mediaBox).maxY - box.midY, box.width)
+                    + "@\(font?.fontName ?? "?")"
+            }.joined(separator: ",")
+        }
         #expect(abs(size.width - (supplement ? 515.91 : 595.28)) < 0.5)
         #expect(abs(size.height - (english ? 793.70 : supplement ? 728.50 : 841.89)) < 0.5)
         func bounds(_ word: String, on page: PDFPage) throws -> CGRect {
@@ -164,7 +229,34 @@ struct LaTeXSocietyPrintingTests {
             #expect(abs(rightStart.maxY - leftStart.maxY - 29.72) < 1.5)
             let second = try #require(pdf.page(at: 1))
             let continuation = try bounds("では薄紙と中厚紙", on: second)
-            #expect(continuation.minX > size.width / 2 && abs(size.height - continuation.midY - 69) < 4)
+            let tex = try reference()
+            let texSecond = try #require(tex.page(at: 1))
+            let word = "では薄紙と中厚紙"
+            let texLine = try #require(tex.findString(word).first { $0.pages.contains(texSecond) }).bounds(
+                for: texSecond)
+            let top = size.height - continuation.midY
+            let texTop = texSecond.bounds(for: .mediaBox).height - texLine.midY
+            func columnStarts(_ sheet: PDFPage) -> String {
+                // Separate an extra line carried across the column break from a shifted top margin.
+                let box = sheet.bounds(for: .mediaBox)
+                return [box.minX, box.midX].map { x in
+                    let area = CGRect(x: x, y: box.maxY - 140, width: box.width / 2, height: 90)
+                    let lines = sheet.selection(for: area)?.selectionsByLine() ?? []
+                    let starts = lines.map { ($0, $0.bounds(for: sheet)) }.sorted { $0.1.midY > $1.1.midY }
+                    return starts.prefix(3).map { line, rect in
+                        String(format: "%.1f", box.maxY - rect.midY) + "@"
+                            + String((line.string ?? "").prefix(14)).debugDescription
+                    }.joined(separator: ",")
+                }.joined(separator: " / ")
+            }
+            func inkTop(_ deck: PDFDocument, on sheet: PDFPage) -> String {
+                guard let ink = try? printedInk(of: word, in: deck, on: sheet) else { return "?" }
+                return String(format: "%.2f", sheet.bounds(for: .mediaBox).maxY - ink.maxY)
+            }
+            #expect(
+                continuation.minX > size.width / 2 && abs(top - texTop) < 4,
+                "p2 続き view=\(locations(word, in: result.viewDocument, at: 1)) saved=\(locations(word, in: pdf, at: 1)) TeX=\(locations(word, in: tex, at: 1)) 段頭=\(columnStarts(second)) TeX段頭=\(columnStarts(texSecond)) 墨上端=\(inkTop(pdf, on: second))/\(inkTop(tex, on: texSecond))"
+            )
             let entry = try bounds("模型線路係", on: second)
             // An inline citation must not satisfy the check for the printed bibliography label.
             #expect(
@@ -183,12 +275,21 @@ struct LaTeXSocietyPrintingTests {
         }
         if supplement {
             // The translation and the notes repeat the daggers farther down the page.
+            let tex = try reference()
+            let texPage = try #require(tex.page(at: 0))
+            let marks = tex.findString("††").filter { $0.pages.contains(texPage) }.map { $0.bounds(for: texPage) }
+            let texMark = try #require(
+                marks.max { $0.midY < $1.midY }, "実 TeX の1ページ目の †=\(locations("†", in: tex, at: 0))")
+            let texTop = texPage.bounds(for: .mediaBox).height - texMark.midY
             #expect(
                 pdf.findString("††").contains { match in
                     guard match.pages.contains(first) else { return false }
                     let mark = match.bounds(for: first)
-                    return abs(mark.minX - 231.7) < 2 && abs(size.height - mark.midY - 118.1) < 4 && mark.width > 6
-                })
+                    return abs(mark.minX - texMark.minX) < 2 && abs(size.height - mark.midY - texTop) < 4
+                        && mark.width > 6
+                },
+                "p1 †† view=\(locations("††", in: result.viewDocument, at: 0)) saved=\(locations("††", in: pdf, at: 0)) singles=\(locations("†", in: pdf, at: 0)) TeX=\(locations("††", in: tex, at: 0))"
+            )
             #expect(try bounds("部品はすべて", on: first).minX > size.width / 2)
             let last = try #require(pdf.page(at: pdf.pageCount - 1))
             #expect(try bounds("A folded card", on: last).midY > size.height - 95)

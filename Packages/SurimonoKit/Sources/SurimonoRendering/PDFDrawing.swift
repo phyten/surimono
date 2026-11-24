@@ -12,6 +12,16 @@ enum PDFDrawing {
     static func document(
         pageSize: CGSize, draw: (CGContext) async throws -> Void
     ) async throws -> PDFDocument {
+        let bytes = try await data(pageSize: pageSize, draw: draw)
+        guard let document = PDFDocument(data: bytes), document.pageCount > 0 else {
+            throw DrawingError.invalidOutput
+        }
+        return document
+    }
+
+    static func data(
+        pageSize: CGSize, draw: (CGContext) async throws -> Void
+    ) async throws -> Data {
         let data = NSMutableData()
         var box = CGRect(origin: .zero, size: pageSize)
         guard let consumer = CGDataConsumer(data: data),
@@ -25,10 +35,7 @@ enum PDFDrawing {
         }
         context.closePDF()
         try Task.checkCancellation()
-        guard let document = PDFDocument(data: data as Data), document.pageCount > 0 else {
-            throw DrawingError.invalidOutput
-        }
-        return document
+        return data as Data
     }
 
     nonisolated static func validGeometry(pageSize: CGSize, margin: CGFloat) -> Bool {

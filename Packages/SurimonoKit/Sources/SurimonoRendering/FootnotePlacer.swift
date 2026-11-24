@@ -326,7 +326,7 @@ enum FootnotePlacer {
                         // The shift is looked up where the target is drawn, which lies `lift` below its destination.
                         point.y += layouts[index]?.geometry.shift(at: point.y - lift) ?? 0
                     }
-                    let moved = PDFDestination(page: newPage, at: point)
+                    let moved = output.destination(on: newPage, at: point)
                     if annotation.action is PDFActionGoTo {
                         copy.action = PDFActionGoTo(destination: moved)
                     } else {
