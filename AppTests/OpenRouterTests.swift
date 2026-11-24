@@ -483,8 +483,8 @@ struct OpenRouterTests {
             let diagnostic = "\(stage) File=\(visible.map(\.title))"
             try #require(shares.count == 1, "\(diagnostic)")
             let share = shares[0]
-            #expect(share.identifier?.rawValue == ViewerMainMenu.shareIdentifier && share.submenu == nil)
-            #expect(!controller.allowsAutomaticShareMenu && share.target is ViewerMainMenu && share.action != nil)
+            #expect(share.identifier?.rawValue == ViewerMainMenu.shareIdentifier && share.submenu != nil)
+            #expect(!controller.allowsAutomaticShareMenu && share.image == nil)
             #expect(!visible.contains { $0.title == "NSMenuItem" }, "\(diagnostic)")
             let index = try #require(visible.firstIndex(of: share))
             // Inspect raw adjacent rows: the dump formatter itself coalesces separators.

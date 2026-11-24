@@ -8,6 +8,34 @@ import Testing
 
 @MainActor
 struct AdditionalExportTests {
+    @Test("原本のない文書の共有先に読むためのPDFを一度だけ渡し、共有用の一時ファイルを片付ける")
+    func shareReadingFile() async throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let model = DocumentViewModel(
+            data: TestFixtures.pdf("Example", pages: 2), fileURL: nil, format: .pdf,
+            preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: root))
+        let window = NSWindow(contentRect: .zero, styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        model.window = window
+        defer {
+            model.stop()
+            window.close()
+        }
+        model.render()
+        for _ in 0..<200 where model.isRendering { try await Task.sleep(for: .milliseconds(20)) }
+        var shared: [URL] = []
+        let delivered = await model.performReadingExport(.share, deliverSharedFile: { shared.append($0) })
+        try #require(delivered && shared.count == 1)
+        let file = try #require(shared.first)
+        #expect(PDFDocument(url: file)?.pageCount == 2)
+        #expect(model.sharePicker == nil)
+        model.clearSharedExport()
+        #expect(!FileManager.default.fileExists(atPath: file.path))
+    }
+
     @Test("数式のコピーは展開前の原文だけをテキストとして渡す")
     func formulaSource() {
         let suite = TestDefaultsSuite()

@@ -20,7 +20,7 @@ struct DocumentEditMenuTests {
         #expect(edits.isDisjoint(with: actions))
         let shares = file.items.filter { $0.title == String(localized: "Share") }
         let share = try #require(shares.count == 1 ? shares.first : nil)
-        #expect(!share.isHidden && share.submenu == nil && share.action != nil && share.target is ViewerMainMenu)
+        #expect(!share.isHidden && share.submenu != nil && share.image == nil)
         #expect(!NSDocumentController.shared.allowsAutomaticShareMenu)
         #expect(file.items.allSatisfy { $0.title != "NSMenuItem" })
     }
@@ -87,8 +87,7 @@ struct DocumentEditMenuTests {
         #expect(NSApp.servicesMenu === menus[0].item(withTitle: native("Services"))?.submenu)
 
         // AppKit adds different Search, Services, input-method and window rows on each OS.
-        let share = try #require(menus[1].items.first { $0.identifier?.rawValue == ViewerMainMenu.shareIdentifier })
-        let owner = try #require(share.target as? ViewerMainMenu)
+        let owner = try #require(menus[1].delegate as? ViewerMainMenu)
         func visible(_ menu: NSMenu) -> [String] {
             menu.items.filter { !$0.isHidden && !$0.isSeparatorItem && owner.installedItems.contains($0) }.map(\.title)
         }

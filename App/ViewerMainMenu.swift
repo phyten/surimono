@@ -27,7 +27,7 @@ final class ViewerMainMenu: NSObject, NSMenuDelegate, NSMenuItemValidation {
     private var lastTextInput = false
     private weak var lastModel: DocumentViewModel?
 
-    private var picker: NSSharingServicePicker?
+    private let sharing = FileShareMenu()
     #if DEBUG
         // The host checks the actual rows we installed independently of OS-provided Services,
         // Help search, window-management and input-method rows on its particular macOS version.
@@ -107,9 +107,11 @@ final class ViewerMainMenu: NSObject, NSMenuDelegate, NSMenuItemValidation {
         let beforeShare = NSMenuItem.separator()
         file.addItem(beforeShare)
         sections.append((.save, Group(file, before: beforeShare)))
-        let share = native(file, String(localized: "Share"), #selector(share(_:)), target: self)
-        share.identifier = .init(Self.shareIdentifier)
-        share.image = NSImage(systemSymbolName: "square.and.arrow.up", accessibilityDescription: nil)
+        sharing.item.identifier = .init(Self.shareIdentifier)
+        file.addItem(sharing.item)
+        #if DEBUG
+            installedItems.add(sharing.item)
+        #endif
         file.addItem(.separator())
         sections.append((.printItems, Group(file)))
 
@@ -230,10 +232,12 @@ final class ViewerMainMenu: NSObject, NSMenuDelegate, NSMenuItemValidation {
     private func content() -> MenuSnapshot.Content {
         // Observe key-window transitions, including to a window without a model.
         _ = DocumentWindows.shared.activeModel
+        let model = DocumentWindows.shared.currentModel
+        let canShare = NSApp.modalWindow == nil && NSApp.keyWindow?.attachedSheet == nil
+        sharing.update(for: canShare ? model : nil)
         return .init(
-            model: DocumentWindows.shared.currentModel, preferences: shell.environment.preferences,
-            library: DocumentWindows.shared.currentModel?.library ?? ClipboardWindows.shared.library
-                ?? shell.environment.library,
+            model: model, preferences: shell.environment.preferences,
+            library: model?.library ?? ClipboardWindows.shared.library ?? shell.environment.library,
             textInput: ShortcutDispatcher.isTextInput(NSApp.keyWindow?.firstResponder))
     }
 
@@ -366,10 +370,6 @@ final class ViewerMainMenu: NSObject, NSMenuDelegate, NSMenuItemValidation {
 
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
         guard NSApp.modalWindow == nil, NSApp.keyWindow?.attachedSheet == nil else { return false }
-        if item.action == #selector(share(_:)) {
-            guard let model = DocumentWindows.shared.currentModel else { return false }
-            return model.fileURL != nil || !model.sourceURLs.isEmpty || model.canExportReading(.share)
-        }
         guard let row = item.representedObject as? DocumentMenuDescriptor, case .action(let action) = row.id else {
             return false
         }
@@ -399,22 +399,6 @@ final class ViewerMainMenu: NSObject, NSMenuDelegate, NSMenuItemValidation {
             case .action(let action) = row.id
         else { return }
         action.perform(preferences: shell.environment.preferences)
-    }
-
-    @objc private func share(_ sender: NSMenuItem) {
-        guard validateMenuItem(sender), let model = DocumentWindows.shared.currentModel,
-            let view = model.window?.contentView
-        else { return }
-        let urls = model.fileURL.map { [$0] } ?? model.sourceURLs
-        guard !urls.isEmpty else {
-            model.exportReading(.share)
-            return
-        }
-        let picker = NSSharingServicePicker(items: urls)
-        self.picker = picker
-        picker.show(
-            relativeTo: NSRect(x: view.bounds.midX, y: view.bounds.maxY - 1, width: 1, height: 1), of: view,
-            preferredEdge: .minY)
     }
 }
 
