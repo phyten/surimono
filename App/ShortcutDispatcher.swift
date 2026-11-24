@@ -29,9 +29,13 @@ final class ShortcutDispatcher {
 
     }
 
-    func start() {
+    private var nativeMenuTracking: (() -> Int)?
+    var trackingDepth: Int { nativeMenuTracking?() ?? menus.updates.trackingDepth }
+
+    func start(nativeMenuTracking: (() -> Int)? = nil) {
         guard monitor == nil else { return }
-        menus.start()
+        self.nativeMenuTracking = nativeMenuTracking
+        if nativeMenuTracking == nil { menus.start() }
         monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
             let handled = MainActor.assumeIsolated { self?.handle(event) == true }
             return handled ? nil : event
@@ -42,7 +46,8 @@ final class ShortcutDispatcher {
         if let monitor { NSEvent.removeMonitor(monitor) }
         monitor = nil
         held = []
-        menus.stop()
+        if nativeMenuTracking == nil { menus.stop() }
+        nativeMenuTracking = nil
     }
 
     func handle(_ event: NSEvent, fromMenu: Bool = false) -> Bool {
@@ -54,7 +59,7 @@ final class ShortcutDispatcher {
         // Menu tracking can report a windowless event to the monitor before invoking its item. Let the SwiftUI
         // action own that press; observing it here must not make its first invocation look like a hold.
         let window = keyWindow()
-        guard fromMenu || event.window != nil || window == nil || menus.updates.trackingDepth == 0 else { return false }
+        guard fromMenu || event.window != nil || window == nil || trackingDepth == 0 else { return false }
         // Track even keys received during recording, typing or a sheet. Neither menu synchronization nor a mode/
         // window change proves the physical key was released. A missed key-up costs one press, never a print job.
         let wasHeld = !held.insert(event.keyCode).inserted
@@ -255,7 +260,7 @@ final class ShortcutDispatcher {
     }
 
     private func isPresentedWhileTracking(_ operation: ShortcutOperationID) -> Bool {
-        menus.updates.trackingDepth == 0 || menus.menuState.snapshot.content.visibility.contains(operation)
+        trackingDepth == 0 || menus.menuState.snapshot.content.visibility.contains(operation)
     }
 
     private func modelForKeyWindow(_ window: NSWindow?) -> DocumentViewModel? {

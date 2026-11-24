@@ -220,7 +220,11 @@ final class BandArrangementEditorSession {
     }
     /// Opens Settings for the question when its window is not on screen; tests stand in for it.
     @ObservationIgnored var showSettings: @MainActor () -> Void = {
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        if let shell = AppKitShell.current {
+            shell.showSettings(nil)
+        } else {
+            NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        }
     }
 
     init(preferences: AppPreferences) {

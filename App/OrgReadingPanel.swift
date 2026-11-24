@@ -169,7 +169,7 @@ struct OrgReadingPanel: View {
             }.disabled(model.orgDocumentReading.optionsLine == nil)
             Button("Open Org Settings…") {
                 BandArrangementEditorSession.showSection(.org, preferences: model.preferences)
-                openSettings()
+                if let shell = AppKitShell.current { shell.showSettings(nil) } else { openSettings() }
             }
         } label: {
             Image(systemName: "ellipsis").font(.system(size: 12, weight: .semibold))

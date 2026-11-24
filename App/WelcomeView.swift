@@ -17,10 +17,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             appearanceKeeper = AppearanceKeeper(preferences: preferences)
             appearanceKeeper?.start()
         }
-        let controller = type(of: NSDocumentController.shared)
-        if controller != NSDocumentController.self { DocumentShareMenu.useExplicitPlacement(on: controller) }
-        // Observe assembly before SwiftUI installs the document group's File submenu.
-        ShortcutDispatcher.shared.menus.start()
+        if let shell = AppKitShell.current {
+            shell.installMenu()
+        } else {
+            let controller = type(of: NSDocumentController.shared)
+            if controller != NSDocumentController.self { DocumentShareMenu.useExplicitPlacement(on: controller) }
+            // Observe assembly before SwiftUI installs the document group's File submenu.
+            ShortcutDispatcher.shared.menus.start()
+        }
         RecentFileHistory.shared?.restoreOnLaunch()
         NSWindow.allowsAutomaticWindowTabbing = false
         // The document controller's launch-time open panel opens a multi-file selection one document at a time and
@@ -68,6 +72,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ShortcutDispatcher.shared.stop()
         GlobalHotKeys.shared.stop()
         DocumentWindows.shared.flushPendingSettings()
+        #if DEBUG
+            DebugMenuDump.flush()
+        #endif
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -79,8 +86,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DistributedNotificationCenter.default().addObserver(
             self, selector: #selector(keyboardInputSourceChanged),
             name: Notification.Name(kTISNotifySelectedKeyboardInputSourceChanged as String), object: nil)
-        ShortcutDispatcher.shared.start()
+        ShortcutDispatcher.shared.start(
+            nativeMenuTracking: AppKitShell.current.map { shell in { shell.menuTrackingDepth } })
         #if DEBUG
+            DebugMenuDump.didLaunch()
             DebugMenuDump.observeTestLaunch()
             // Screenshots of a clipboard window open a file's text through a private pasteboard, leaving the user's
             // clipboard alone.

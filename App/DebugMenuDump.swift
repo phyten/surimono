@@ -7,8 +7,31 @@
         private static let destination = DebugSnapshot.argument("SurimonoMenuDump").flatMap {
             $0.hasPrefix("/") ? URL(fileURLWithPath: $0) : nil
         }
+        static func beginOwnershipTrace() {
+            guard destination != nil else { return }
+            DebugMenuOwnership.shared.start { scheduleWrite() }
+        }
+
+        static func willSetMainMenu(from old: NSMenu?, to new: NSMenu?) {
+            guard destination != nil else { return }
+            DebugMenuOwnership.shared.setting(from: old, to: new)
+        }
+
+        static func didLaunch() {
+            guard let destination else { return }
+            DebugMenuOwnership.shared.didLaunch()
+            // Capture a no-document launch as well. An existing destination is only overwritten after
+            // document registration checks it against the viewer's source URLs.
+            DispatchQueue.main.async {
+                guard timedSamples.isEmpty, !FileManager.default.fileExists(atPath: destination.path) else { return }
+                timedSamples = describe("First turn after launch")
+                scheduleWrite()
+            }
+        }
+
         private static var started = false
         private static var fileOpening: String?
+        private static var firstRows: [String] = []
         private static var fileBeforeClose: String?
         private static var fileObserver: FileOpeningObserver?
         private static var timedSamples = ""
@@ -17,7 +40,8 @@
         private static var writeQueued = false
 
         private static var observations: String {
-            [fileTracking, fileOpening, fileBeforeClose, recentPresentation].compactMap { $0 }.map { $0 + "\n" }
+            DebugMenuOwnership.shared.transcript
+                + [fileTracking, fileOpening, fileBeforeClose, recentPresentation].compactMap { $0 }.map { $0 + "\n" }
                 .joined()
         }
 
@@ -28,6 +52,11 @@
                 writeQueued = false
                 _ = write(timedSamples + observations, to: destination)
             }
+        }
+
+        static func flush() {
+            guard let destination, !timedSamples.isEmpty else { return }
+            _ = write(timedSamples + observations, to: destination)
         }
 
         static func recordFileTracking(_ menu: NSMenu, main: NSMenu) {
@@ -58,27 +87,25 @@
             else { return }
             if let fileObserver, menu.delegate === fileObserver { return }
             fileObserver?.detach()
-            var firstRows: [String] = []
-            fileObserver = FileOpeningObserver(
-                menu,
-                didOpen: { file in
-                    guard fileOpening == nil else { return }
-                    firstRows = visibleLines(file)
-                    fileOpening =
-                        (["First File menu at menuWillOpen (visible rows)"] + printState() + firstRows)
-                        .joined(separator: "\n")
-                    if let destination { _ = write(timedSamples + observations, to: destination) }
-                },
-                beforeClose: { file in
-                    guard fileOpening != nil else { return }
-                    let rows = visibleLines(file)
-                    if rows != firstRows {
-                        fileBeforeClose =
-                            (["First File menu before forwarding menuDidClose (visible rows changed)"] + rows)
-                            .joined(separator: "\n")
-                        if let destination { _ = write(timedSamples + observations, to: destination) }
-                    }
-                })
+            fileObserver = FileOpeningObserver(menu, didOpen: fileWillOpen, beforeClose: fileDidClose)
+        }
+
+        static func fileWillOpen(_ file: NSMenu) {
+            guard let destination, fileOpening == nil else { return }
+            firstRows = visibleLines(file)
+            fileOpening = (["First File menu at menuWillOpen (visible rows)"] + printState() + firstRows)
+                .joined(separator: "\n")
+            _ = write(timedSamples + observations, to: destination)
+        }
+
+        static func fileDidClose(_ file: NSMenu) {
+            guard let destination, fileOpening != nil, fileBeforeClose == nil else { return }
+            let rows = visibleLines(file)
+            if rows != firstRows {
+                fileBeforeClose = (["First File menu before forwarding menuDidClose (visible rows changed)"] + rows)
+                    .joined(separator: "\n")
+                _ = write(timedSamples + observations, to: destination)
+            }
         }
 
         private static func visibleLines(_ file: NSMenu) -> [String] {
@@ -177,7 +204,7 @@
                 while !NSApp.windows.contains(where: { $0.isVisible && DocumentWindows.shared.model(for: $0) != nil }) {
                     guard (try? await Task.sleep(for: .milliseconds(20))) != nil else { return }
                 }
-                let first = describe("First visible document window")
+                let first = timedSamples + describe("First visible document window")
                 guard write(first + observations, to: destination) else { return }
                 timedSamples = first
                 guard (try? await Task.sleep(for: .seconds(3))) != nil else { return }
@@ -189,7 +216,9 @@
         private static func write(_ text: String, to url: URL) -> Bool {
             guard
                 DocumentViewModel.canExport(
-                    to: url, sourceURLs: DocumentWindows.shared.openModels.flatMap(\.sourceURLs))
+                    to: url,
+                    sourceURLs: NSDocumentController.shared.documents.compactMap(\.fileURL)
+                        + DocumentWindows.shared.openModels.flatMap(\.sourceURLs))
             else { return false }
             do {
                 try text.write(to: url, atomically: true, encoding: .utf8)
@@ -209,7 +238,7 @@
             let keyModel = DocumentWindows.shared.model(for: key)
             let visibility = MenuSnapshot.Visibility(model: keyModel, preferences: menus.preferences())
             var lines = [
-                "appActive=\(NSApp.isActive) keyWindow=\(key?.windowNumber ?? 0) mainWindow=\(mainWindow?.windowNumber ?? 0) snapshotVersion=\(state.version) trackingDepth=\(menus.updates.trackingDepth) allowsAutomaticShareMenu=\(NSDocumentController.shared.allowsAutomaticShareMenu)"
+                "appActive=\(NSApp.isActive) keyWindow=\(key?.windowNumber ?? 0) mainWindow=\(mainWindow?.windowNumber ?? 0) snapshotVersion=\(state.version) trackingDepth=\(ShortcutDispatcher.shared.trackingDepth) allowsAutomaticShareMenu=\(NSDocumentController.shared.allowsAutomaticShareMenu)"
             ]
             for window in NSApp.windows where window.isVisible {
                 if let model = DocumentWindows.shared.model(for: window) {
@@ -221,14 +250,19 @@
             for operation in [ShortcutOperationID.documentPrint, .documentPrintSystem] {
                 let live = ShortcutDispatcher.isAvailable(operation, model: keyModel, visibility: visibility)
                 lines.append(
-                    "\(operation.rawValue) SwiftUI.snapshotEnabled=\(state.content.enabled.contains(operation)) keyDocumentEnabled=\(live)"
+                    "\(operation.rawValue) \(AppKitShell.requested ? "AppKit" : "SwiftUI").snapshotEnabled=\(state.content.enabled.contains(operation)) keyDocumentEnabled=\(live)"
                 )
             }
             return lines
         }
 
         private static func describe(_ stage: String) -> String {
-            var lines = [stage] + printState()
+            let process = ProcessInfo.processInfo
+            var lines =
+                [
+                    stage,
+                    "macOS=\(process.operatingSystemVersionString) pid=\(process.processIdentifier) lifecycle=\(AppKitShell.requested ? "AppKit" : "SwiftUI")",
+                ] + printState()
             func append(_ rows: [Row], indent: String) {
                 for item in rows {
                     lines.append(item.line(indent: indent))

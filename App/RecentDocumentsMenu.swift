@@ -55,18 +55,30 @@ final class RecentDocumentsMenu: NSObject, NSMenuDelegate {
             return
         }
         menu.autoenablesItems = false
-        menu.removeAllItems()
-        for url in current {
-            let item = menu.addItem(withTitle: url.lastPathComponent, action: #selector(openFile), keyEquivalent: "")
+        var files: [URL: NSMenuItem] = [:]
+        for item in items where item.target === self {
+            if let url = item.representedObject as? URL { files[url] = item }
+        }
+        var desired = current.map { url -> NSMenuItem in
+            if let existing = files.removeValue(forKey: url) { return existing }
+            let item = NSMenuItem(title: url.lastPathComponent, action: #selector(openFile), keyEquivalent: "")
             item.target = self
             item.representedObject = url
             item.toolTip = url.path
+            return item
         }
-        if !current.isEmpty { menu.addItem(.separator()) }
-        let item = menu.addItem(
-            withTitle: String(localized: "Clear Menu"), action: #selector(clearMenu), keyEquivalent: "")
-        item.target = self
-        item.isEnabled = !current.isEmpty
+        if !current.isEmpty { desired.append(items.first(where: \.isSeparatorItem) ?? .separator()) }
+        let clear =
+            items.first { $0.target === self && $0.action == #selector(clearMenu) }
+            ?? NSMenuItem(title: String(localized: "Clear Menu"), action: #selector(clearMenu), keyEquivalent: "")
+        clear.target = self
+        clear.isEnabled = !current.isEmpty
+        desired.append(clear)
+        for item in items where !desired.contains(item) { menu.removeItem(item) }
+        for (index, item) in desired.enumerated() where menu.index(of: item) != index {
+            if item.menu === menu { menu.removeItem(item) }
+            menu.insertItem(item, at: index)
+        }
     }
 
     @objc private func openFile(_ sender: NSMenuItem) {

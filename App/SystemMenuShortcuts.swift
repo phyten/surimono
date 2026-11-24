@@ -147,8 +147,9 @@ final class SystemMenuShortcuts {
                 return false
             }
             if entry.operation == .appSettings {
-                return ["showSettingsWindow:", "showPreferencesWindow:"].contains(
-                    item.action.map(NSStringFromSelector) ?? "")
+                return item.action == #selector(AppKitShell.showSettings(_:))
+                    || ["showSettingsWindow:", "showPreferencesWindow:"].contains(
+                        item.action.map(NSStringFromSelector) ?? "")
                     || item.keyEquivalent == "," || item.title == localize("Settings") + "…"
             }
             guard titles.contains(item.title) else { return false }
@@ -157,7 +158,7 @@ final class SystemMenuShortcuts {
         }
     }
 
-    private func readKeys(in root: NSMenu) {
+    func readKeys(in root: NSMenu) {
         var ambiguous: Set<ShortcutOperationID> = []
         var external: [ShortcutOperationID: ShortcutCombination] = [:]
         var standard: [ShortcutOperationID: ShortcutCombination] = [:]

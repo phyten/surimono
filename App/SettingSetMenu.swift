@@ -30,7 +30,7 @@ struct SettingSetMenu<Label: View>: View {
                     if let current = model() { SettingSetDialogs.save(current) }
                 case .operation(.settingSetManage):
                     BandArrangementEditorSession.showSection(.settingSets, preferences: preferences)
-                    openSettings()
+                    if let shell = AppKitShell.current { shell.showSettings(nil) } else { openSettings() }
                 default: action.perform(preferences: preferences, model: model)
                 }
             }

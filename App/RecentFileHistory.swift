@@ -92,7 +92,7 @@ final class RecentFileHistory {
 
     static func install(preferences: AppPreferences) {
         shared = RecentFileHistory(preferences: preferences)
-        _ = installHooks
+        if !AppKitShell.requested { _ = installHooks }
     }
 
     // DocumentGroup owns its NSDocumentController subclass. Preserve it and intercept only the two public history
