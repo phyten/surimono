@@ -11,16 +11,13 @@ final class ViewerApplication: NSApplication {
         }
     #endif
 
-    override func sendAction(_ action: Selector, to target: Any?, from sender: Any?) -> Bool {
-        // AppKit can dispatch a hidden item's effective key directly, bypassing local event monitors.
-        if AppKitShell.current == nil, let item = sender as? NSMenuItem, item.action == action,
-            DocumentEditMenu.hiddenActions.contains(action),
-            item.isHidden || DocumentEditMenu.isInFileMenu(item.menu, of: mainMenu)
-        {
-            MenuTrace.record(
-                "blocked document edit action=\(NSStringFromSelector(action)) id=\(ObjectIdentifier(item).hashValue)")
-            return false
-        }
-        return super.sendAction(action, to: target, from: sender)
+    override func restoreWindow(
+        withIdentifier identifier: NSUserInterfaceItemIdentifier, state: NSCoder,
+        completionHandler: @escaping (NSWindow?, (any Error)?) -> Void
+    ) -> Bool {
+        // Older versions archived SwiftUI scene identifiers. Only current window identifiers can be decoded.
+        guard identifier == SettingsWindowController.windowID || ViewerFileDocument.recognizes(window: identifier)
+        else { return false }
+        return super.restoreWindow(withIdentifier: identifier, state: state, completionHandler: completionHandler)
     }
 }

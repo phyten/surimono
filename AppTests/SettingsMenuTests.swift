@@ -98,12 +98,8 @@ struct SettingsMenuTests {
         let menu = try #require(NSApp.mainMenu)
         let titles = menu.items.map(\.title)
         try #require(titles.count == 7)
-        // System menus use AppKit's translations rather than the application's string catalog.
-        for (index, names) in [
-            (1, ["File", "ファイル"]), (2, ["Edit", "編集"]), (3, ["View", "表示"]),
-            (5, ["Window", "ウインドウ"]), (6, ["Help", "ヘルプ"]),
-        ] {
-            #expect(names.contains(titles[index]))
+        for (index, key) in [(1, "File"), (2, "Edit"), (3, "View"), (5, "Window"), (6, "Help")] {
+            #expect(titles[index] == ViewerMainMenu.standardTitle(key))
         }
         #expect(titles[4] == localized("Document"))
         #expect(!titles.contains(localized("Settings")))
@@ -179,8 +175,6 @@ struct SettingsMenuTests {
         #expect(entries.count == 1)
     }
 
-    // The menu bar is declared from a snapshot that SwiftUI does not rebuild while another test's window is key,
-    // so availability is checked where the menu, the keys and the actions all read it.
     @Test("文書がないときは表示と文書の操作を選べず、設定セットは管理だけ選べる")
     func availabilityWithoutDocument() throws {
         let menu = try #require(NSApp.mainMenu?.items[4].submenu)
@@ -235,7 +229,7 @@ struct SettingsMenuTests {
         }
         #expect(owners.count == 1)
         #expect(owners.first?.menu === menu.items.first?.submenu)
-        #expect(["Settings…", "設定…"].contains(owners.first?.title ?? ""))
+        #expect(owners.first?.title == ViewerMainMenu.standardTitle("Settings…"))
         #expect(owners.first?.isEnabled == true)
     }
 }

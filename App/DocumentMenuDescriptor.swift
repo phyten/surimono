@@ -88,15 +88,6 @@ struct DocumentMenuDescriptor: Identifiable {
         return nil
     }
 
-    struct Modifiers {
-        let shortcut: KeyboardShortcut?
-        let disabled: Bool
-    }
-
-    func modifiers(inMenuBar: Bool) -> Modifiers {
-        Modifiers(shortcut: inMenuBar ? shortcut : nil, disabled: !isEnabled)
-    }
-
     private func resolved(in snapshot: MenuSnapshot) -> Self {
         var row = self
         row.children = children.map { $0.resolved(in: snapshot) }

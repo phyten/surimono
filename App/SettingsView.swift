@@ -174,13 +174,6 @@ struct SettingsView: View {
             WindowReader { window in
                 let editor = arrangementEditor
                 let preferences = preferences
-                editor.windowGuard = SettingsWindowGuard.install(
-                    on: window,
-                    shouldClose: {
-                        guard editor.isDirty else { return true }
-                        editor.pendingLeave = .closeWindow
-                        return false
-                    }, needsProtection: { editor.isDirty })
                 editor.undoRouter = SettingsUndoRouter.install(
                     on: window, history: { preferences.settingsSection == .toolbarArrangement ? editor.history : nil },
                     undo: { editor.undo() }, redo: { editor.redo() })

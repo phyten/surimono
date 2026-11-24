@@ -4,6 +4,13 @@ import SwiftUI
 
 /// Only descriptor-owned rows participate in reconciliation. AppKit keeps its Services, Help and Window entries.
 final class ViewerMainMenu: NSObject, NSMenuDelegate, NSMenuItemValidation {
+    static let shareIdentifier = "surimono.menu.documentShare"
+
+    /// The native row titles have their own catalog because several differ from labels inside the viewer.
+    static func standardTitle(_ key: String) -> String {
+        Bundle.main.localizedString(forKey: key, value: key, table: "MainMenu")
+    }
+
     private unowned let shell: AppKitShell
     private let main = NSMenu()
     private let recent = NSMenu()
@@ -15,8 +22,16 @@ final class ViewerMainMenu: NSObject, NSMenuDelegate, NSMenuItemValidation {
     private var installedRows = false
     private var observationArmed = false
     private var refreshing = false
+    private var userKeyEquivalents =
+        UserDefaults.standard.dictionary(forKey: "NSUserKeyEquivalents") as? [String: String]
+    private var lastTextInput = false
+    private weak var lastModel: DocumentViewModel?
+
     private var picker: NSSharingServicePicker?
     #if DEBUG
+        // The host checks the actual rows we installed independently of OS-provided Services,
+        // Help search, window-management and input-method rows on its particular macOS version.
+        let installedItems = NSHashTable<NSMenuItem>.weakObjects()
         private weak var fileMenu: NSMenu?
         private var recordingFileOpening = false
     #endif
@@ -36,6 +51,9 @@ final class ViewerMainMenu: NSObject, NSMenuDelegate, NSMenuItemValidation {
 
     private func submenu(_ title: String, in parent: NSMenu) -> NSMenu {
         let item = parent.addItem(withTitle: title, action: nil, keyEquivalent: "")
+        #if DEBUG
+            installedItems.add(item)
+        #endif
         let menu = NSMenu(title: title)
         item.submenu = menu
         menu.delegate = self
@@ -48,72 +66,83 @@ final class ViewerMainMenu: NSObject, NSMenuDelegate, NSMenuItemValidation {
         _ modifiers: NSEvent.ModifierFlags = .command, target: AnyObject? = nil
     ) -> NSMenuItem {
         let item = menu.addItem(withTitle: title, action: selector, keyEquivalent: key)
+        #if DEBUG
+            installedItems.add(item)
+        #endif
         item.keyEquivalentModifierMask = modifiers
         item.target = target
         return item
     }
 
     func install() {
-        let app = submenu("Surimono", in: main)
-        native(app, String(localized: "About Surimono"), #selector(NSApplication.orderFrontStandardAboutPanel(_:)))
+        guard !installedRows else { return }
+        NSMenuItem.usesUserKeyEquivalents = true
+        let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? "Surimono"
+        func appTitle(_ key: String) -> String { String(format: Self.standardTitle(key), appName) }
+        let app = submenu(appName, in: main)
+        native(app, appTitle("About %@"), #selector(NSApplication.orderFrontStandardAboutPanel(_:)))
         let afterInfo = NSMenuItem.separator()
         app.addItem(afterInfo)
         sections.append((.appInfo, Group(app, before: afterInfo)))
-        native(app, String(localized: "Settings…"), #selector(AppKitShell.showSettings(_:)), ",", target: shell)
+        let settings = native(
+            app, Self.standardTitle("Settings…"), #selector(AppKitShell.toggleSettings(_:)), ",", target: shell)
+        ShortcutDispatcher.shared.menus.register(settings, for: .appSettings)
         app.addItem(.separator())
-        let services = submenu(String(localized: "Services"), in: app)
+        let services = submenu(Self.standardTitle("Services"), in: app)
         services.delegate = nil
         app.addItem(.separator())
-        native(app, String(localized: "Hide Surimono"), #selector(NSApplication.hide(_:)), "h")
+        native(app, appTitle("Hide %@"), #selector(NSApplication.hide(_:)), "h")
         native(
-            app, String(localized: "Hide Others"), #selector(NSApplication.hideOtherApplications(_:)), "h",
+            app, Self.standardTitle("Hide Others"), #selector(NSApplication.hideOtherApplications(_:)), "h",
             [.option, .command])
-        native(app, String(localized: "Show All"), #selector(NSApplication.unhideAllApplications(_:)))
+        native(app, Self.standardTitle("Show All"), #selector(NSApplication.unhideAllApplications(_:)))
         app.addItem(.separator())
-        native(app, String(localized: "Quit Surimono"), #selector(NSApplication.terminate(_:)), "q")
+        native(app, appTitle("Quit %@"), #selector(NSApplication.terminate(_:)), "q")
 
-        let file = submenu(String(localized: "File"), in: main)
+        let file = submenu(Self.standardTitle("File"), in: main)
         let afterOpen = NSMenuItem.separator()
         file.addItem(afterOpen)
         sections.append((.open, Group(file, before: afterOpen)))
-        native(file, String(localized: "Close Window"), #selector(NSWindow.performClose(_:)), "w")
-        native(file, String(localized: "Share") + "…", #selector(share(_:)), target: self)
-            .identifier = .init(DocumentShareMenu.identifier)
+        native(file, Self.standardTitle("Close"), #selector(NSWindow.performClose(_:)), "w")
+        let beforeShare = NSMenuItem.separator()
+        file.addItem(beforeShare)
+        sections.append((.save, Group(file, before: beforeShare)))
+        let share = native(file, String(localized: "Share"), #selector(share(_:)), target: self)
+        share.identifier = .init(Self.shareIdentifier)
+        share.image = NSImage(systemSymbolName: "square.and.arrow.up", accessibilityDescription: nil)
         file.addItem(.separator())
         sections.append((.printItems, Group(file)))
 
-        let edit = submenu(String(localized: "Edit"), in: main)
-        native(edit, String(localized: "Undo"), Selector(("undo:")), "z")
-        native(edit, String(localized: "Redo"), Selector(("redo:")), "z", [.shift, .command])
+        let edit = submenu(Self.standardTitle("Edit"), in: main)
+        native(edit, Self.standardTitle("Undo"), #selector(SettingsUndoRouter.undo(_:)), "z")
+        native(edit, Self.standardTitle("Redo"), #selector(SettingsUndoRouter.redo(_:)), "z", [.shift, .command])
         edit.addItem(.separator())
-        native(edit, String(localized: "Cut"), #selector(NSText.cut(_:)), "x")
-        native(edit, String(localized: "Copy"), #selector(NSText.copy(_:)), "c")
-        native(edit, String(localized: "Paste"), #selector(NSText.paste(_:)), "v")
-        native(
-            edit, String(localized: "Paste and Match Style"), #selector(NSTextView.pasteAsPlainText(_:)), "v",
-            [.option, .shift, .command])
-        native(edit, String(localized: "Select All"), #selector(NSText.selectAll(_:)), "a")
+        native(edit, Self.standardTitle("Cut"), #selector(NSText.cut(_:)), "x")
+        native(edit, Self.standardTitle("Copy"), #selector(NSText.copy(_:)), "c")
+        native(edit, Self.standardTitle("Paste"), #selector(NSText.paste(_:)), "v")
+        native(edit, Self.standardTitle("Delete"), #selector(NSText.delete(_:)))
+        native(edit, Self.standardTitle("Select All"), #selector(NSText.selectAll(_:)), "a")
         sections.append((.edit, Group(edit)))
-        let view = submenu(String(localized: "View"), in: main)
-        let afterView = NSMenuItem.separator()
-        view.addItem(afterView)
-        sections.append((.view, Group(view, before: afterView)))
-        native(
-            view, String(localized: "Enter Full Screen"), #selector(NSWindow.toggleFullScreen(_:)), "f",
-            [.command, .control])
+        let view = submenu(Self.standardTitle("View"), in: main)
+        sections.append((.view, Group(view)))
         sections.append((.document, Group(submenu(String(localized: "Document"), in: main))))
-        let window = submenu(String(localized: "Window"), in: main)
-        native(window, String(localized: "Minimize"), #selector(NSWindow.performMiniaturize(_:)), "m")
-        native(window, String(localized: "Zoom"), #selector(NSWindow.performZoom(_:)))
+        let window = submenu(Self.standardTitle("Window"), in: main)
+        native(window, Self.standardTitle("Minimize"), #selector(NSWindow.performMiniaturize(_:)), "m")
+        native(window, Self.standardTitle("Zoom"), #selector(NSWindow.performZoom(_:)))
         window.addItem(.separator())
-        native(window, String(localized: "Bring All to Front"), #selector(NSApplication.arrangeInFront(_:)))
-        let help = submenu(String(localized: "Help"), in: main)
+        native(window, Self.standardTitle("Bring All to Front"), #selector(NSApplication.arrangeInFront(_:)))
+        let help = submenu(Self.standardTitle("Help"), in: main)
         sections.append((.help, Group(help)))
         recent.delegate = self
         for (name, selector) in [
             (NSMenu.didBeginTrackingNotification, #selector(began)),
             (NSMenu.didEndTrackingNotification, #selector(ended)),
-            (RecentFileHistory.systemListChanged, #selector(historyChanged(_:))),
+            (RecentFileHistory.systemListChanged, #selector(sourceChanged)),
+            (NSLocale.currentLocaleDidChangeNotification, #selector(sourceChanged)),
+            (ClipboardWindows.libraryDidChange, #selector(sourceChanged)),
+            (NSApplication.didBecomeActiveNotification, #selector(sourceChanged)),
+            (UserDefaults.didChangeNotification, #selector(defaultsChanged)),
+            (NSApplication.didUpdateNotification, #selector(focusChanged)),
         ] {
             NotificationCenter.default.addObserver(self, selector: selector, name: name, object: nil)
         }
@@ -122,12 +151,31 @@ final class ViewerMainMenu: NSObject, NSMenuDelegate, NSMenuItemValidation {
         NSApp.servicesMenu = services
         NSApp.windowsMenu = window
         NSApp.helpMenu = help
+        ShortcutDispatcher.shared.menus.readKeys(in: main)
         #if DEBUG
             fileMenu = file
         #endif
     }
 
-    @objc private func historyChanged(_ note: Notification) { refresh() }
+    @objc private func sourceChanged(_ note: Notification) {
+        if note.name == ClipboardWindows.libraryDidChange { observationArmed = false }
+        refresh()
+    }
+
+    @objc nonisolated private func defaultsChanged(_ note: Notification) {
+        // User defaults notifications may arrive on a writer's thread.
+        Task { @MainActor in
+            let keys = UserDefaults.standard.dictionary(forKey: "NSUserKeyEquivalents") as? [String: String]
+            guard keys != self.userKeyEquivalents else { return }
+            self.userKeyEquivalents = keys
+            self.refresh()
+        }
+    }
+
+    @objc private func focusChanged(_ note: Notification) {
+        let input = ShortcutDispatcher.isTextInput(NSApp.keyWindow?.firstResponder)
+        if lastModel !== DocumentWindows.shared.currentModel || input != lastTextInput { refresh() }
+    }
 
     @objc private func began(_ note: Notification) {
         guard let menu = note.object as? NSMenu else { return }
@@ -184,14 +232,19 @@ final class ViewerMainMenu: NSObject, NSMenuDelegate, NSMenuItemValidation {
         _ = DocumentWindows.shared.activeModel
         return .init(
             model: DocumentWindows.shared.currentModel, preferences: shell.environment.preferences,
-            library: shell.environment.library,
+            library: DocumentWindows.shared.currentModel?.library ?? ClipboardWindows.shared.library
+                ?? shell.environment.library,
             textInput: ShortcutDispatcher.isTextInput(NSApp.keyWindow?.firstResponder))
     }
 
     private func refresh() {
         guard tracked.isEmpty, !awaitingClose, !refreshing else { return }
+        lastModel = DocumentWindows.shared.currentModel
+        lastTextInput = ShortcutDispatcher.isTextInput(NSApp.keyWindow?.firstResponder)
         refreshing = true
         defer { refreshing = false }
+        let shortcuts = ShortcutDispatcher.shared.menus
+        if installedRows { shortcuts.readKeys(in: main) }
         let next: MenuSnapshot.Content
         if observationArmed {
             next = content()
@@ -207,8 +260,6 @@ final class ViewerMainMenu: NSObject, NSMenuDelegate, NSMenuItemValidation {
             }
         }
         recentSource.refresh(recent)
-        let shortcuts = ShortcutDispatcher.shared.menus
-        if installedRows { shortcuts.readKeys(in: main) }
         if installedRows, shortcuts.menuState.snapshot.content == next { return }
         shortcuts.menuState.publish(next)
         installedRows = true
@@ -216,6 +267,7 @@ final class ViewerMainMenu: NSObject, NSMenuDelegate, NSMenuItemValidation {
         for (section, group) in sections {
             reconcile(DocumentMenuDescriptor.rows(for: section, in: state), in: group)
         }
+        if NSApp.mainMenu === main { shortcuts.readKeys(in: main) }
     }
 
     /// Walk backwards so an insertion can use the next surviving owned row as its anchor.
@@ -234,6 +286,9 @@ final class ViewerMainMenu: NSObject, NSMenuDelegate, NSMenuItemValidation {
             } else {
                 if case .divider = row.id { item = .separator() } else { item = NSMenuItem() }
                 group.items[row.id] = item
+                #if DEBUG
+                    installedItems.add(item)
+                #endif
             }
             if !item.isSeparatorItem { configure(item, row: row, group: group) }
             var position = anchor.map { group.menu.index(of: $0) } ?? group.menu.numberOfItems
@@ -266,6 +321,7 @@ final class ViewerMainMenu: NSObject, NSMenuDelegate, NSMenuItemValidation {
                 item.target = self
                 item.action = #selector(invoke(_:))
                 if case .operation(let operation) = action {
+                    ShortcutDispatcher.shared.menus.register(item, for: operation)
                     let id = SystemMenuShortcuts.accessibilityID(operation)
                     item.identifier = .init(id)
                     item.setAccessibilityIdentifier(id)
@@ -284,12 +340,15 @@ final class ViewerMainMenu: NSObject, NSMenuDelegate, NSMenuItemValidation {
             if item.allowsAutomaticKeyEquivalentMirroring != automatic {
                 item.allowsAutomaticKeyEquivalentMirroring = automatic
             }
-            if item.keyEquivalent != key { item.keyEquivalent = key }
-            if item.keyEquivalentModifierMask != mask { item.keyEquivalentModifierMask = mask }
+            if item.userKeyEquivalent.isEmpty {
+                if item.keyEquivalent != key { item.keyEquivalent = key }
+                if item.keyEquivalentModifierMask != mask { item.keyEquivalentModifierMask = mask }
+            }
             if item.isEnabled != row.isEnabled { item.isEnabled = row.isEnabled }
         case .recentDocuments:
             if item.submenu == nil {
                 item.identifier = .init(RecentDocumentsMenu.identifier)
+                recent.title = title
                 item.submenu = recent
             }
         case .menu, .typefacePicker:
@@ -309,15 +368,30 @@ final class ViewerMainMenu: NSObject, NSMenuDelegate, NSMenuItemValidation {
         guard NSApp.modalWindow == nil, NSApp.keyWindow?.attachedSheet == nil else { return false }
         if item.action == #selector(share(_:)) {
             guard let model = DocumentWindows.shared.currentModel else { return false }
-            return !model.sourceURLs.isEmpty || model.canExportReading(.png)
+            return model.fileURL != nil || !model.sourceURLs.isEmpty || model.canExportReading(.share)
         }
-        guard let row = item.representedObject as? DocumentMenuDescriptor else { return false }
-        if let operation = row.operation {
-            let model = DocumentWindows.shared.currentModel
+        guard let row = item.representedObject as? DocumentMenuDescriptor, case .action(let action) = row.id else {
+            return false
+        }
+        let model = DocumentWindows.shared.currentModel
+        let preferences = shell.environment.preferences
+        switch action {
+        case .operation(let operation):
             return ShortcutDispatcher.isAvailable(
-                operation, model: model, visibility: .init(model: model, preferences: shell.environment.preferences))
+                operation, model: model, visibility: .init(model: model, preferences: preferences))
+        case .checkWriting: return model?.offersProse == true
+        case .composition: return model?.offersLaTeXComposition == true
+        case .typeface: return model?.offersTypeface == true
+        case .setting: return model != nil
+        case .replaceSetting(let id):
+            guard let set = preferences.printSettingSets.first(where: { $0.id == id }) else { return false }
+            return model?.matchesPrintSettingSet(set) == true
+        case .history(let id): return preferences.closedClipboardDocuments.entries.contains { $0.menuItem.id == id }
+        case .recentBinder(let id): return preferences.recentBinders.entries.contains { $0.id == id }
+        case .clearClipboard: return !preferences.closedClipboardDocuments.entries.isEmpty
+        case .clearBinders: return !preferences.recentBinders.entries.isEmpty
+        case .openSample: return true
         }
-        return row.isEnabled
     }
 
     @objc private func invoke(_ sender: NSMenuItem) {

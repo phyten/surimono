@@ -483,11 +483,8 @@ struct OpenRouterTests {
             let diagnostic = "\(stage) File=\(visible.map(\.title))"
             try #require(shares.count == 1, "\(diagnostic)")
             let share = shares[0]
-            #expect(
-                DocumentShareMenu.isInstalled(on: share) && share.submenu?.delegate != nil,
-                "\(diagnostic)")
-            #expect(
-                !controller.allowsAutomaticShareMenu && share.isEnabled && share.target === share.submenu)
+            #expect(share.identifier?.rawValue == ViewerMainMenu.shareIdentifier && share.submenu == nil)
+            #expect(!controller.allowsAutomaticShareMenu && share.target is ViewerMainMenu && share.action != nil)
             #expect(!visible.contains { $0.title == "NSMenuItem" }, "\(diagnostic)")
             let index = try #require(visible.firstIndex(of: share))
             // Inspect raw adjacent rows: the dump formatter itself coalesces separators.
@@ -499,50 +496,18 @@ struct OpenRouterTests {
                 "\(diagnostic)")
         }
 
-        func checkFileOpening(_ main: NSMenu, file: NSMenu, stage: String) throws {
-            let screen = try #require(NSScreen.main, "ファイルメニューを表示する画面が必要")
-            var opening: Result<Void, any Error>?
-            var closed = false
-            let observer = FileOpeningObserver(
-                file,
-                didOpen: { menu in
-                    trace("\(stage) File menuWillOpen")
-                    opening = Result { try checkShare(in: menu, main: main, stage: stage) }
-                },
-                beforeClose: { _ in closed = true })
-            defer { observer.detach() }
-            // Let AppKit drive the real File menu and balance its tracking callbacks. A timer
-            // in the tracking loop dismisses it without a click or a frontmost document.
-            let deadline = ContinuousClock.now.advanced(by: .seconds(3))
-            // The timer's block is Sendable; the menu only ever leaves and re-enters the main run loop here.
-            nonisolated(unsafe) let tracked = file
-            let dismiss = Timer(timeInterval: 0.05, repeats: true) { _ in
-                MainActor.assumeIsolated {
-                    if opening != nil || ContinuousClock.now >= deadline { tracked.cancelTrackingWithoutAnimation() }
-                }
-            }
-            RunLoop.main.add(dismiss, forMode: .eventTracking)
-            RunLoop.main.add(dismiss, forMode: .common)
-            defer { dismiss.invalidate() }
-            let frame = screen.visibleFrame
-            let point = NSPoint(x: frame.minX + 8, y: frame.maxY - 8)
-            trace("\(stage) presenting File")
-            _ = file.popUp(positioning: nil, at: point, in: nil)
-            trace("\(stage) File returned, willOpen=\(opening != nil) didClose=\(closed)")
-            try #require(opening, "\(stage) menuWillOpen").get()
-            #expect(closed, "\(stage) menuDidClose")
-        }
-
         func check(_ stage: String) throws {
             let main = try #require(NSApp.mainMenu)
             let file = try #require(main.items.dropFirst().first?.submenu)
-            if !controller.documents.isEmpty { try checkFileOpening(main, file: file, stage: stage) }
+            file.delegate?.menuNeedsUpdate?(file)
+            try checkShare(in: file, main: main, stage: stage)
             let recent = try #require(
                 file.items.first { !$0.isHidden && $0.title == String(localized: "Open Recent") }?.submenu)
-            try #require(recent.delegate as? RecentDocumentsMenu).refresh(recent)
+            recent.delegate?.menuNeedsUpdate?(recent)
             let items = file.items
             let index = try openIndex(
-                in: items.map(DebugMenuDump.Row.init), stage: stage, recents: controller.recentDocumentURLs)
+                in: items.map(DebugMenuDump.Row.init), stage: stage,
+                recents: RecentFileHistory.shared?.visibleURLs ?? controller.recentDocumentURLs)
             let item = items[index]
             let equivalents = ShortcutMenuBaselineTests.items(main).filter {
                 !$0.isHiddenOrHasHiddenAncestor && $0.keyEquivalent.lowercased() == "o"

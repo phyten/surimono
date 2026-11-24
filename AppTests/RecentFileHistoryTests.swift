@@ -14,18 +14,8 @@ struct RecentFileHistoryTests {
         var urls = [first]
         var opened: [URL] = []
         let source = RecentDocumentsMenu(urls: { urls }, open: { opened.append($0) }, clear: { urls.removeAll() })
-        // A plain AppKit menu shaped like the File menu's first two rows: a hosting menu fills its items later than
-        // this test can wait for, and the binding only looks at the header and the row before it.
-        let file = NSMenu()
-        let openItem = NSMenuItem(
-            title: String(localized: "Open…"), action: #selector(NSMenu.cancelTracking), keyEquivalent: "o")
-        file.addItem(openItem)
-        let header = NSMenuItem(title: String(localized: "Open Recent"), action: nil, keyEquivalent: "")
-        header.submenu = NSMenu()
-        file.addItem(header)
-        let index = 1
-        let menu = try #require(source.bind(in: file, at: index))
-        func display() { menu.delegate?.menuNeedsUpdate?(menu) }
+        let menu = NSMenu()
+        func display() { source.refresh(menu) }
 
         display()
         #expect(menu.items.compactMap { $0.representedObject as? URL } == [first])

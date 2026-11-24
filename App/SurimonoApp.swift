@@ -8,42 +8,7 @@ enum SurimonoMain {
         #if DEBUG
             DebugMenuDump.beginOwnershipTrace()
         #endif
-        if AppKitShell.requested {
-            AppKitShell.run()
-            return
-        }
-        DocumentShareMenu.useExplicitPlacement(on: NSDocumentController.self)
-        // SwiftUI creates its own NSApplication singleton unless ours exists before App.main().
-        _ = ViewerApplication.shared
-        SurimonoApp.main()
-    }
-}
-
-struct SurimonoApp: App {
-    @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
-    private let environment = ViewerEnvironment()
-    var body: some Scene {
-        DocumentGroup(viewing: SurimonoDocument.self) { configuration in
-            DocumentViewer(
-                document: configuration.document, fileURL: configuration.fileURL,
-                preferences: environment.preferences, library: environment.library,
-                settingsStore: environment.settingsStore
-            )
-            #if DEBUG
-                .snapshotControlAppearance()
-            #endif
-        }
-        // The paper fills the window; the traffic lights appear with the overlay menu.
-        .windowStyle(.hiddenTitleBar)
-        .commands {
-            DocumentCommands(preferences: environment.preferences, menuState: ShortcutDispatcher.shared.menus.menuState)
-        }
-        Settings {
-            environment.settingsView
-                #if DEBUG
-                    .snapshotControlAppearance()
-                #endif
-        }
+        AppKitShell.run()
     }
 }
 

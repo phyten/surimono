@@ -170,9 +170,6 @@ struct ShortcutMenuBaselineTests {
             "selectAll:": ("a", .command), "pasteAsPlainText:": ("v", [.option, .shift, .command]),
         ]
         for item in all {
-            if let action = item.action, DocumentEditMenu.hiddenActions.contains(action) {
-                #expect(item.isHidden && !item.allowsKeyEquivalentWhenHidden)
-            }
             if let action = item.action, let (key, flags) = platform[NSStringFromSelector(action)] {
                 #expect(item.keyEquivalent.lowercased() == key.lowercased())
                 let impliedShift: NSEvent.ModifierFlags =

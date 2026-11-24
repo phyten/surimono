@@ -33,7 +33,6 @@
         private static var fileOpening: String?
         private static var firstRows: [String] = []
         private static var fileBeforeClose: String?
-        private static var fileObserver: FileOpeningObserver?
         private static var timedSamples = ""
         private static var recentPresentation: String?
         private static var fileTracking: String?
@@ -81,15 +80,6 @@
             scheduleWrite()
         }
 
-        static func observeFileMenu(in main: NSMenu?) {
-            guard destination != nil, fileOpening == nil, let main, main === NSApp.mainMenu, main.numberOfItems > 1,
-                let menu = main.item(at: 1)?.submenu
-            else { return }
-            if let fileObserver, menu.delegate === fileObserver { return }
-            fileObserver?.detach()
-            fileObserver = FileOpeningObserver(menu, didOpen: fileWillOpen, beforeClose: fileDidClose)
-        }
-
         static func fileWillOpen(_ file: NSMenu) {
             guard let destination, fileOpening == nil else { return }
             firstRows = visibleLines(file)
@@ -102,7 +92,7 @@
             guard let destination, fileOpening != nil, fileBeforeClose == nil else { return }
             let rows = visibleLines(file)
             if rows != firstRows {
-                fileBeforeClose = (["First File menu before forwarding menuDidClose (visible rows changed)"] + rows)
+                fileBeforeClose = (["First File menu at menuDidClose (visible rows changed)"] + rows)
                     .joined(separator: "\n")
                 _ = write(timedSamples + observations, to: destination)
             }
@@ -143,7 +133,9 @@
             let delegate = item.submenu?.delegate.map { NSStringFromClass(type(of: $0)) } ?? "nil"
             let identifiers =
                 "identifier=\(item.identifier?.rawValue.debugDescription ?? "nil") submenuIdentifier=\(item.submenu?.identifier?.rawValue.debugDescription ?? "nil")"
-            let owner = DocumentShareMenu.isInstalled(on: item) ? " owner=\(DocumentShareMenu.identifier)" : ""
+            let owner =
+                item.identifier?.rawValue == ViewerMainMenu.shareIdentifier
+                ? " owner=\(ViewerMainMenu.shareIdentifier)" : ""
             return
                 "class=\(NSStringFromClass(type(of: item))) attributedTitle=\(attributed) submenuTitle=\(submenu) submenuDelegate=\(delegate) representedObject=\(represented) \(identifiers)\(owner)"
         }
@@ -250,7 +242,7 @@
             for operation in [ShortcutOperationID.documentPrint, .documentPrintSystem] {
                 let live = ShortcutDispatcher.isAvailable(operation, model: keyModel, visibility: visibility)
                 lines.append(
-                    "\(operation.rawValue) \(AppKitShell.requested ? "AppKit" : "SwiftUI").snapshotEnabled=\(state.content.enabled.contains(operation)) keyDocumentEnabled=\(live)"
+                    "\(operation.rawValue) AppKit.snapshotEnabled=\(state.content.enabled.contains(operation)) keyDocumentEnabled=\(live)"
                 )
             }
             return lines
@@ -261,7 +253,7 @@
             var lines =
                 [
                     stage,
-                    "macOS=\(process.operatingSystemVersionString) pid=\(process.processIdentifier) lifecycle=\(AppKitShell.requested ? "AppKit" : "SwiftUI")",
+                    "macOS=\(process.operatingSystemVersionString) pid=\(process.processIdentifier) lifecycle=AppKit",
                 ] + printState()
             func append(_ rows: [Row], indent: String) {
                 for item in rows {
@@ -283,47 +275,4 @@
         }
     }
 
-    /// Observe one File presentation without replacing SwiftUI's validation, incremental
-    /// population or key-equivalent handling. Optional selectors keep their original availability.
-    nonisolated final class FileOpeningObserver: NSObject, NSMenuDelegate {
-        private weak var menu: NSMenu?
-        private weak var original: (any NSMenuDelegate)?
-        private let didOpen: @MainActor (NSMenu) -> Void
-        private let beforeClose: @MainActor (NSMenu) -> Void
-
-        @MainActor init(
-            _ menu: NSMenu, didOpen: @escaping @MainActor (NSMenu) -> Void,
-            beforeClose: @escaping @MainActor (NSMenu) -> Void
-        ) {
-            self.menu = menu
-            self.original = menu.delegate
-            self.didOpen = didOpen
-            self.beforeClose = beforeClose
-            super.init()
-            menu.delegate = self
-        }
-
-        @MainActor func detach() {
-            if let menu, menu.delegate === self { menu.delegate = original }
-        }
-
-        @MainActor func menuWillOpen(_ menu: NSMenu) {
-            original?.menuWillOpen?(menu)
-            didOpen(menu)
-        }
-
-        @MainActor func menuDidClose(_ menu: NSMenu) {
-            beforeClose(menu)
-            original?.menuDidClose?(menu)
-            detach()
-        }
-
-        nonisolated override func responds(to selector: Selector!) -> Bool {
-            super.responds(to: selector) || original?.responds(to: selector) == true
-        }
-
-        nonisolated override func forwardingTarget(for selector: Selector!) -> Any? {
-            original
-        }
-    }
 #endif

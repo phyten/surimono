@@ -64,7 +64,6 @@ struct OrgReadingPanel: View {
     // Includes the panel insets and reset arrow with all three Japanese choices on one line.
     static let width: CGFloat = 286
     let model: DocumentViewModel
-    @Environment(\.openSettings) private var openSettings
     @State private var confirmation: Confirmation?
     @State private var retryLock = false
     private enum Confirmation: Identifiable {
@@ -169,7 +168,7 @@ struct OrgReadingPanel: View {
             }.disabled(model.orgDocumentReading.optionsLine == nil)
             Button("Open Org Settings…") {
                 BandArrangementEditorSession.showSection(.org, preferences: model.preferences)
-                if let shell = AppKitShell.current { shell.showSettings(nil) } else { openSettings() }
+                AppKitShell.current?.showSettings(nil)
             }
         } label: {
             Image(systemName: "ellipsis").font(.system(size: 12, weight: .semibold))

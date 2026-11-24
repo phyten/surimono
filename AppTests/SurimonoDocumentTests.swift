@@ -187,8 +187,8 @@ struct SurimonoDocumentTests {
     }
 
     @Test("保存可能な形式を公開しない")
-    func supportsViewingOnly() {
-        #expect(SurimonoDocument.writableContentTypes.isEmpty)
+    @MainActor func supportsViewingOnly() {
+        #expect(ViewerFileDocument.writableTypes.isEmpty)
     }
 
     @Test("Info plist の文書形式とコードの読み取り形式が一致する")

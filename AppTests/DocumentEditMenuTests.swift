@@ -5,315 +5,157 @@ import Testing
 
 @MainActor
 struct DocumentEditMenuTests {
-    /// Listed here rather than read from the implementation, so that an action dropped there fails the tests.
-    private static let documentEdits: [(String, Selector)] = [
-        ("Save", #selector(NSDocument.save(_:))), ("Save As…", #selector(NSDocument.saveAs(_:))),
-        ("Save To…", #selector(NSDocument.saveTo(_:))), ("Duplicate", #selector(NSDocument.duplicate(_:))),
-        ("Rename…", #selector(NSDocument.rename(_:))), ("Move To…", #selector(NSDocument.move(_:))),
-        ("Revert To Saved", #selector(NSDocument.revertToSaved(_:))),
-        ("Browse All Versions…", #selector(NSDocument.browseVersions(_:))),
-        ("Lock", #selector(NSDocument.lock(_:))), ("Unlock", #selector(NSDocument.unlock(_:))),
-    ]
-
-    private func item(_ title: String, _ action: Selector?) -> NSMenuItem {
-        NSMenuItem(title: title, action: action, keyEquivalent: "")
+    @Test("実際のファイルメニューは原本を変更する項目を作らず、共有を一つだけ持つ")
+    func readOnlyFileMenu() throws {
+        let main = try #require(NSApp.mainMenu)
+        let file = try #require(main.item(at: 1)?.submenu)
+        let edits: Set<Selector> = [
+            #selector(NSDocument.save(_:)), #selector(NSDocument.saveAs(_:)), #selector(NSDocument.saveTo(_:)),
+            #selector(NSDocument.duplicate(_:)), #selector(NSDocument.rename(_:)), #selector(NSDocument.move(_:)),
+            #selector(NSDocument.revertToSaved(_:)), #selector(NSDocument.browseVersions(_:)),
+            #selector(NSDocument.lock(_:)), #selector(NSDocument.unlock(_:)),
+        ]
+        // Include hidden rows: an invisible Save/Save As still owns an action and can acquire a shortcut.
+        let actions = ShortcutMenuBaselineTests.items(main).compactMap(\.action)
+        #expect(edits.isDisjoint(with: actions))
+        let shares = file.items.filter { $0.title == String(localized: "Share") }
+        let share = try #require(shares.count == 1 ? shares.first : nil)
+        #expect(!share.isHidden && share.submenu == nil && share.action != nil && share.target is ViewerMainMenu)
+        #expect(!NSDocumentController.shared.allowsAutomaticShareMenu)
+        #expect(file.items.allSatisfy { $0.title != "NSMenuItem" })
     }
 
-    @Test("文書を書き換える項目を隠してショートカットも止め、閉じると共有は残す")
-    func hidesDocumentEdits() {
-        let menu = NSMenu()
-        let edits = Self.documentEdits.map { item($0.0, $0.1) }
-        for edit in edits { edit.allowsKeyEquivalentWhenHidden = true }
-        let close = item("Close", #selector(NSWindow.performClose(_:)))
-        let share = item("Share", nil)
-        share.submenu = NSMenu()
-        for entry in [close] + edits + [.separator(), share] { menu.addItem(entry) }
-        DocumentEditMenu().hideItems(in: menu)
-        #expect(edits.allSatisfy { $0.isHidden && !$0.allowsKeyEquivalentWhenHidden })
-        #expect(!close.isHidden)
-        #expect(!share.isHidden)
-    }
-
-    @Test("保存・複製の代替表示を解除し、キー文字と閉じるの代替は保つ")
-    func hiddenEditsAreNotAlternates() {
-        let menu = NSMenu()
-        let saveAs = NSMenuItem(title: "Save As…", action: #selector(NSDocument.saveAs(_:)), keyEquivalent: "S")
-        saveAs.keyEquivalentModifierMask = [.command, .option, .shift]
-        let duplicate = NSMenuItem(title: "Duplicate", action: #selector(NSDocument.duplicate(_:)), keyEquivalent: "S")
-        duplicate.keyEquivalentModifierMask = [.command, .shift]
-        duplicate.isAlternate = true
-        let close = NSMenuItem(title: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
-        let closeAll = NSMenuItem(
-            title: "Close All", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "w")
-        closeAll.keyEquivalentModifierMask = [.command, .option]
-        closeAll.isAlternate = true
-        for entry in [close, closeAll, saveAs, duplicate] { menu.addItem(entry) }
-        DocumentEditMenu().hideItems(in: menu)
-        for edit in [saveAs, duplicate] {
-            #expect(edit.isHidden)
-            #expect(!edit.isAlternate)
-            #expect(!edit.allowsKeyEquivalentWhenHidden)
-            #expect(edit.keyEquivalent.lowercased() == "s")
+    @Test("追跡中は最近使った項目を入れ替えず、親を閉じた後で同じ行を移す")
+    func recentFilesWaitForEndOfTracking() async throws {
+        let main = try #require(NSApp.mainMenu)
+        let file = try #require(main.item(at: 1)?.submenu)
+        let recent = try #require(
+            file.items.first { $0.identifier?.rawValue == RecentDocumentsMenu.identifier }?.submenu)
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let history = RecentFileHistory(preferences: AppPreferences(defaults: suite.defaults))
+        let first = URL(fileURLWithPath: "/first/menu.md")
+        let second = URL(fileURLWithPath: "/second/menu.md")
+        var urls = [first]
+        history.systemURLs = { urls }
+        let previous = RecentFileHistory.shared
+        RecentFileHistory.shared = history
+        defer {
+            RecentFileHistory.shared = previous
+            recent.delegate?.menuNeedsUpdate?(recent)
         }
-        #expect(closeAll.isAlternate && !closeAll.isHidden && closeAll.keyEquivalent == "w")
-        #expect(close.keyEquivalent == "w")
-    }
+        recent.delegate?.menuNeedsUpdate?(recent)
+        let before = recent.items
+        try #require(before.first?.representedObject as? URL == first)
 
-    @Test("アプリのどのメニューにも、隠した項目の代わりに出る項目がない")
-    func appMenuLeavesNoWayToDocumentEdits() async {
-        // Include the initial pass over the assembled main menu.
-        await withCheckedContinuation { done in DispatchQueue.main.async { done.resume() } }
-        func all(_ menu: NSMenu?) -> [NSMenuItem] { (menu?.items ?? []).flatMap { [$0] + all($0.submenu) } }
-        let versionsTitle = Bundle(for: NSDocument.self).localizedString(
-            forKey: "Revert To", value: "Revert To", table: "MenuCommands")
-        func visit(_ menu: NSMenu?) {
-            var previous: NSMenuItem?
-            for item in menu?.items ?? [] {
-                // An open menu shows an alternate in place of a hidden primary.
-                if item.isAlternate, let previous { #expect(!previous.isHidden || item.isHidden, "\(item.title)") }
-                if previous?.action == #selector(NSDocument.revertToSaved(_:)), let submenu = item.submenu,
-                    [versionsTitle, "Revert To", "バージョンを戻す"].contains(item.title)
-                        || submenu.items.contains(where: { $0.action == #selector(NSDocument.browseVersions(_:)) })
-                {
-                    #expect(item.isHidden && !item.isAlternate)
-                    #expect(!item.allowsKeyEquivalentWhenHidden)
-                }
-                previous = item
-                visit(item.submenu)
-            }
-        }
-        let actions = Set(Self.documentEdits.map(\.1))
-        let edits = all(NSApp.mainMenu).filter { $0.action.map(actions.contains) == true }
-        #expect(!edits.isEmpty)
-        for edit in edits {
-            #expect(edit.isHidden, "\(edit.title)")
-            #expect(!edit.isAlternate, "\(edit.title)")
-            #expect(!edit.allowsKeyEquivalentWhenHidden, "\(edit.title)")
-        }
-        visit(NSApp.mainMenu)
-    }
-
-    @Test("追跡中に復帰のすぐ後ろに追加されたバージョンの小メニューだけを同期的に隠す", arguments: ["Revert To", "バージョンを戻す"])
-    func hidesRevertSubmenu(title: String) {
-        let main = NSMenu()
-        main.addItem(NSMenuItem())
-        let group = NSMenuItem()
-        let file = NSMenu()
-        group.submenu = file
-        main.addItem(group)
-        let updates = MenuUpdates(
-            state: MenuState(), root: { main }, model: { nil }, preferences: { nil },
-            lifecycle: NotificationCenter(), apply: { _ in })
-        updates.start()
-        defer { updates.stop() }
         let center = NotificationCenter.default
         center.post(name: NSMenu.didBeginTrackingNotification, object: main)
-        defer { center.post(name: NSMenu.didEndTrackingNotification, object: main) }
-        file.addItem(item("Revert To Saved", #selector(NSDocument.revertToSaved(_:))))
-        let revertTo = item(title, NSSelectorFromString("submenuAction:"))
-        revertTo.submenu = NSMenu()
-        file.addItem(revertTo)
-        #expect(revertTo.isHidden)
-        let writes = updates.hider.writes.counts
-        let export = item(String(localized: "Export"), nil)
-        export.submenu = NSMenu()
-        file.insertItem(export, at: 1)
-        #expect(!export.isHidden && updates.hider.writes.counts == writes)
+        center.post(name: NSMenu.didBeginTrackingNotification, object: file)
+        urls = [second, first]
+        center.post(name: RecentFileHistory.systemListChanged, object: nil)
+        recent.delegate?.menuNeedsUpdate?(recent)
+        #expect(recent.items == before)
+        center.post(name: NSMenu.didEndTrackingNotification, object: file)
+        recent.delegate?.menuNeedsUpdate?(recent)
+        #expect(recent.items == before)
+        // Some versions send only the root end after moving from File into its submenu.
+        center.post(name: NSMenu.didBeginTrackingNotification, object: recent)
+        center.post(name: NSMenu.didEndTrackingNotification, object: main)
+        try await ShortcutMenuBaselineTests.waitForMenu { recent.items.first?.representedObject as? URL == second }
+        #expect(recent.items.compactMap { $0.representedObject as? URL } == [second, first])
+        #expect(recent.item(at: 1) === before.first && recent.items.last === before.last)
     }
 
-    @Test("復帰のすぐ後ろの書き出すメニューは表示したままにする")
-    func preservesExportAfterRevert() {
-        let menu = NSMenu()
-        menu.addItem(item("Revert To Saved", #selector(NSDocument.revertToSaved(_:))))
-        let export = item(String(localized: "Export"), nil)
-        export.submenu = NSMenu()
-        menu.addItem(export)
-        DocumentEditMenu().hideItems(in: menu)
-        #expect(!export.isHidden)
-    }
+    @Test("実メニューバーの七つのメニューに従来の項目が同じ順序で並ぶ")
+    func installedMenuOrder() throws {
+        let main = try #require(NSApp.mainMenu)
+        let menus = main.items.compactMap(\.submenu)
+        let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? "Surimono"
+        func localized(_ key: String) -> String {
+            Bundle.main.localizedString(forKey: key, value: key, table: nil)
+        }
+        func native(_ key: String) -> String {
+            Bundle.main.localizedString(forKey: key, value: key, table: "MainMenu")
+        }
+        func named(_ key: String) -> String { String(format: native(key), appName) }
+        let expectedMenus = [
+            appName, native("File"), native("Edit"), native("View"), localized("Document"), native("Window"),
+            native("Help"),
+        ]
+        try #require(menus.map(\.title) == expectedMenus)
+        #expect(NSApp.windowsMenu === menus[5] && NSApp.helpMenu === menus[6])
+        #expect(NSApp.servicesMenu === menus[0].item(withTitle: native("Services"))?.submenu)
 
-    @Test("アプリのメニューでは文書を書き換える項目が隠れていて、閉じるは見える")
-    func appMenuHidesDocumentEdits() {
-        let items = (NSApp.mainMenu?.items ?? []).flatMap { $0.submenu?.items ?? [] }
-        let actions = Set(Self.documentEdits.map(\.1))
-        let edits = items.filter { $0.action.map(actions.contains) == true }
-        #expect(!edits.isEmpty)
-        #expect(edits.allSatisfy { $0.isHidden })
-        let close = items.first { $0.action == #selector(NSWindow.performClose(_:)) }
-        #expect(close?.isHidden == false)
-    }
-
-    @Test("組み上がったファイルメニューが追跡中に取り付けられても標準の開くと履歴を隠す")
-    func prebuiltFileMenu() {
-        let main = NSMenu()
-        main.addItem(NSMenuItem())
-        let file = NSMenu()
-        let own = file.addItem(withTitle: "Open…", action: nil, keyEquivalent: "o")
-        let system = file.addItem(
-            withTitle: "Open…", action: #selector(NSDocumentController.openDocument(_:)), keyEquivalent: "o")
-        let recent = NSMenuItem()
-        let children = NSMenu()
-        children.addItem(
-            withTitle: "Clear", action: #selector(NSDocumentController.clearRecentDocuments(_:)), keyEquivalent: "")
-        recent.submenu = children
-        file.addItem(recent)
-        let item = NSMenuItem()
-        item.submenu = file
-        main.addItem(item)
-        let note = Notification(name: NSMenu.didAddItemNotification, object: main, userInfo: ["NSMenuItemIndex": 1])
-        DocumentEditMenu(canScan: { false }, isTracking: { true }).hideNotifiedItem(note, in: main, main: main)
-        #expect(!own.isHidden && system.isHidden && recent.isHidden)
-    }
-
-    @Test("文書共有の小メニューは初回と組み直した後も標準の共有先を使い、仮の題名は隠さない")
-    func documentSharing() throws {
-        let share = DocumentShareMenu()
-        let file = NSMenu()
-        let row = file.addItem(withTitle: String(localized: "Share"), action: nil, keyEquivalent: "")
-        row.image = DocumentShareMenu.glyph
-        let standard = NSDocumentController.shared.standardShareMenuItem()
-        let expected = try #require(standard.submenu?.delegate)
-        for _ in 0..<2 {
-            let seed = NSMenu()
-            row.submenu = seed
-            share.bind(row)
-            let installed = try #require(row.submenu)
-            let delegate = try #require(installed.delegate)
-            #expect(installed !== seed && installed.supermenu === file)
-            #expect(type(of: delegate) == type(of: expected))
-            #expect(row.isEnabled && !row.isHidden && row.target === installed && row.action == standard.action)
-            share.bind(row)
-            #expect(row.submenu === installed && DocumentShareMenu.isInstalled(on: row))
+        // AppKit adds different Search, Services, input-method and window rows on each OS.
+        let share = try #require(menus[1].items.first { $0.identifier?.rawValue == ViewerMainMenu.shareIdentifier })
+        let owner = try #require(share.target as? ViewerMainMenu)
+        func visible(_ menu: NSMenu) -> [String] {
+            menu.items.filter { !$0.isHidden && !$0.isSeparatorItem && owner.installedItems.contains($0) }.map(\.title)
         }
 
-        let unfinished = NSMenuItem()
-        file.addItem(unfinished)
-        DocumentEditMenu().hideItems(in: file)
-        #expect(!unfinished.isHidden)
-    }
+        for menu in menus { menu.delegate?.menuNeedsUpdate?(menu) }
+        let content = ShortcutDispatcher.shared.menus.menuState.snapshot.content
+        var app = [named("About %@")]
+        if content.visibility.canCheckUpdates { app.append(localized("Check for Updates…")) }
+        app += [
+            native("Settings…"), native("Services"), named("Hide %@"), native("Hide Others"), native("Show All"),
+            named("Quit %@"),
+        ]
+        #expect(visible(menus[0]) == app)
 
-    @Test("追跡中に標準の共有が先に来ても後から来ても自前の共有と一区切りだけが残る", arguments: [true, false])
-    func sharesDuringOpening(systemFirst: Bool) throws {
-        let main = NSMenu()
-        main.addItem(NSMenuItem())
-        let file = NSMenu()
-        main.addItem(withTitle: "File", action: nil, keyEquivalent: "").submenu = file
-        let updates = MenuUpdates(
-            state: MenuState(), root: { main }, model: { nil }, preferences: { nil },
-            lifecycle: NotificationCenter(), apply: { _ in })
-        updates.start()
-        defer { updates.stop() }
-        let center = NotificationCenter.default
-        center.post(name: NSMenu.didBeginTrackingNotification, object: main)
-        defer { center.post(name: NSMenu.didEndTrackingNotification, object: main) }
-
-        let own = NSMenuItem(title: "自前", action: nil, keyEquivalent: "")
-        own.setAccessibilityIdentifier(DocumentShareMenu.identifier)
-        own.submenu = NSMenu()
-        let template = NSDocumentController.shared.standardShareMenuItem()
-        let native: NSMenuItem
-        if systemFirst {
-            native = template
-        } else {
-            // A new wrapper can arrive with only the factory's identifier, before its submenu.
-            native = NSMenuItem()
-            native.identifier = try #require(template.identifier)
+        var file = [
+            "Open…", "Open Recent", "Open from Clipboard", "Open Clipboard on the Print Screen", "Open from URL…",
+        ]
+        if content.visibility.hasHistory {
+            file += ["Reopen Closed Clipboard Document", "Recently Closed Clipboard Documents"]
         }
-        native.title = "標準"
-        let first = NSMenuItem.separator()
-        let second = NSMenuItem.separator()
-        let last = NSMenuItem.separator()
-        for row in [
-            NSMenuItem(title: "閉じる", action: nil, keyEquivalent: ""), first,
-            systemFirst ? native : own, second, systemFirst ? own : native, last,
-            NSMenuItem(title: "印刷", action: nil, keyEquivalent: ""),
-        ] {
-            file.addItem(row)
-            if row === native { #expect(native.isHidden) }
+        file += ["Streaming Preview"]
+        if !content.recentBinders.isEmpty { file += ["Recent Binders"] }
+        var fileTitles = file.map(localized) + [native("Close")]
+        if content.visibility.canSaveAsFile { fileTitles.append(localized("Save as File…")) }
+        fileTitles += ["Share", content.printing ? "Print" : "Print…", "Print with System Dialog…", "Export"].map(
+            localized)
+        #expect(visible(menus[1]) == fileTitles)
+        // File is the ownership regression: an unexpected system row must also fail this baseline.
+        let renderedFile = DebugMenuDump.visibleFileRows(menus[1], modifiers: [])
+            .map { $0.isSeparatorItem ? "|" : $0.title }
+        var fileWithDividers = file.map(localized) + ["|", native("Close")]
+        if content.visibility.canSaveAsFile { fileWithDividers.append(localized("Save as File…")) }
+        fileWithDividers += ["|", localized("Share"), "|"]
+        fileWithDividers += [content.printing ? "Print" : "Print…", "Print with System Dialog…", "Export"].map(
+            localized)
+        #expect(renderedFile == fileWithDividers)
+
+        let standardEdit = ["Undo", "Redo", "Cut", "Copy", "Paste", "Delete", "Select All"].map(native)
+        let edit = ["Copy as HTML", "Copy as Rich Text", "Find…", "Find Next", "Find Previous"].map(localized)
+        #expect(visible(menus[2]) == standardEdit + edit)
+        for title in standardEdit { #expect(menus[2].item(withTitle: title)?.target == nil) }
+        var view = [
+            content.showsPaper ? "Show as Web" : "Show as Paper", "Show as Slides", "Single Page", "Spread",
+            "View Options…", "Go to Page…", "Check Writing", "Back", "Forward", "Bookmark This Page",
+            "Next Bookmark", "Previous Bookmark", "Increase Text Size", "Decrease Text Size", "Original Text Size",
+        ]
+        if content.composition != nil { view.append("LaTeX Layout") }
+        if content.typeface != nil { view.append("Typeface") }
+        view += [
+            "Zoom In", "Zoom Out", "Fit to Window", "Select Text", "Always Show Toolbar", "Float on Top",
+            "Show on All Spaces",
+        ]
+        #expect(visible(menus[3]) == view.map(localized))
+
+        var document = ["Print Layout", "Setting Sets", "Print Settings…", "Choose Style…"]
+        if content.visibility.canOpenBinder { document.append("Open as Binder") }
+        document.append("Add Documents…")
+        if content.visibility.hasBinder {
+            document.append("Binder")
+        } else if content.visibility.hasImages {
+            document.append("Images")
         }
-        #expect(native.isHidden && !own.isHidden && DocumentShareMenu.isInstalled(on: own))
-        native.isHidden = false
-        #expect(native.isHidden)
-        let visible = file.items.filter { !$0.isHidden }
-        #expect(visible.count == 5 && visible[2] === own)
-        #expect(visible[1].isSeparatorItem && visible[3].isSeparatorItem)
-
-        // SwiftUI releases the external submenu before assigning it to its new header.
-        // Check before the setter: AppKit raises an Objective-C exception on a second parent.
-        let moving = try #require(own.submenu)
-        own.submenu = nil
-        try #require(moving.supermenu == nil, "共有の切り離し通知中に元の見出しへ接続し直した")
-        native.submenu = moving
-        #expect(native.submenu === moving && native.isHidden)
-        #expect(own.submenu !== moving && DocumentShareMenu.isInstalled(on: own) && !own.isHidden)
-
-        let unrelated = NSMenuItem(title: String(localized: "Share"), action: nil, keyEquivalent: "")
-        unrelated.submenu = NSMenu()
-        file.insertItem(unrelated, at: file.index(of: native))
-        #expect(!unrelated.isHidden && !DocumentShareMenu.isInstalled(on: unrelated))
-        #expect(!first.isHidden && !second.isHidden && !last.isHidden)
-    }
-
-    @Test("ファイルの表示直前の記録は元の委譲先の更新後に表示行だけを読む")
-    func openingDump() throws {
-        final class Delegate: NSObject, NSMenuDelegate {
-            var updates = 0
-            func menuNeedsUpdate(_ menu: NSMenu) { updates += 1 }
-            func menuWillOpen(_ menu: NSMenu) { menu.items[0].isEnabled = true }
-        }
-        let file = NSMenu()
-        let row = file.addItem(withTitle: "共有", action: nil, keyEquivalent: "")
-        row.isEnabled = false
-        file.addItem(.separator())
-        let hidden = file.addItem(withTitle: "保存", action: nil, keyEquivalent: "")
-        hidden.isHidden = true
-        let original = Delegate()
-        file.delegate = original
-        var visible: [NSMenuItem] = []
-        var beforeClose: [NSMenuItem] = []
-        let observer = FileOpeningObserver(
-            file,
-            didOpen: { menu in
-                visible = DebugMenuDump.visibleFileRows(menu, modifiers: [])
-                #expect(row.isEnabled)
-            },
-            beforeClose: { menu in beforeClose = DebugMenuDump.visibleFileRows(menu, modifiers: []) })
-        file.delegate?.menuNeedsUpdate?(file)
-        file.delegate?.menuWillOpen?(file)
-        #expect(original.updates == 1 && visible == [row])
-        hidden.isHidden = false
-        withExtendedLifetime(observer) { file.delegate?.menuDidClose?(file) }
-        #expect(beforeClose == file.items)
-        #expect(file.delegate === original)
-    }
-
-    @Test("標準の開くと後から履歴消去が付くサブメニューだけを追加時に隠す")
-    func systemOpenItems() throws {
-        let file = try #require(NSApp.mainMenu?.items.dropFirst().first?.submenu)
-        let open = NSMenuItem(
-            title: "System", action: #selector(NSDocumentController.openDocument(_:)), keyEquivalent: "o")
-        open.allowsKeyEquivalentWhenHidden = true
-        file.addItem(open)
-        defer { file.removeItem(open) }
-        #expect(open.isHidden && !open.allowsKeyEquivalentWhenHidden)
-        let recent = NSMenuItem(title: "System history", action: nil, keyEquivalent: "")
-        let children = NSMenu()
-        recent.submenu = children
-        file.addItem(recent)
-        defer { file.removeItem(recent) }
-        children.addItem(
-            withTitle: "Clear", action: #selector(NSDocumentController.clearRecentDocuments(_:)), keyEquivalent: "")
-        #expect(recent.isHidden && !recent.allowsKeyEquivalentWhenHidden)
-    }
-
-    @Test("実メニューにあとから足された編集項目や表示に戻された編集項目を同期的に隠す")
-    func hidesItemsAddedLater() throws {
-        let file = try #require(NSApp.mainMenu?.items.dropFirst().first?.submenu)
-        let move = item("Move To…", #selector(NSDocument.move(_:)))
-        file.addItem(move)
-        defer { file.removeItem(move) }
-        #expect(move.isHidden)
-        move.isHidden = false
-        #expect(move.isHidden)
+        document += ["Reset Document Settings", "Reload"]
+        #expect(visible(menus[4]) == document.map(localized))
+        #expect(visible(menus[5]) == ["Minimize", "Zoom", "Bring All to Front"].map(native))
+        #expect(
+            visible(menus[6])
+                == ["Getting Started with Surimono", "Open Sample Document", "Keys and Gestures"].map(localized))
     }
 }

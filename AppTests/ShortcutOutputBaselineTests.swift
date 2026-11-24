@@ -31,14 +31,12 @@ final class ShortcutOutputFixture {
     })
     lazy var controller = ShortcutController(
         hotKeys: hotKeys, reservations: { [] }, keyboardLayout: { ShortcutOutputFixture.keyboardLayout })
-    lazy var menus = SystemMenuShortcuts(
-        controller: controller, menu: { [unowned self] in menu },
-        keyWindow: { [unowned self] in activeWindow }, model: { [unowned self] in model },
-        localize: { $0 }, externalKey: { _ in "" })
+    lazy var menus = SystemMenuShortcuts(controller: controller, preferences: { [unowned self] in preferences })
     lazy var dispatcher = ShortcutDispatcher(
         controller: controller, menus: menus, keyWindow: { [unowned self] in activeWindow },
-        model: { [unowned self] in model }, firstResponder: { [unowned self] _ in responder })
-    let menu = NSMenu()
+        model: { [unowned self] in model }, firstResponder: { [unowned self] _ in responder },
+        menuTrackingDepth: { [unowned self] in trackingDepth })
+    var trackingDepth = 0
     var activeWindow: NSWindow?
     var responder: NSResponder? = NSView()
     var model: DocumentViewModel!

@@ -5,6 +5,9 @@ import SwiftUI
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var menuBarController: MenuBarController?
     private var appearanceKeeper: AppearanceKeeper?
+    private var finishedRestoring = false
+
+    func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool { true }
 
     func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool { false }
 
@@ -17,20 +20,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             appearanceKeeper = AppearanceKeeper(preferences: preferences)
             appearanceKeeper?.start()
         }
-        if let shell = AppKitShell.current {
-            shell.installMenu()
-        } else {
-            let controller = type(of: NSDocumentController.shared)
-            if controller != NSDocumentController.self { DocumentShareMenu.useExplicitPlacement(on: controller) }
-            // Observe assembly before SwiftUI installs the document group's File submenu.
-            ShortcutDispatcher.shared.menus.start()
-        }
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(didFinishRestoring), name: NSApplication.didFinishRestoringWindowsNotification,
+            object: NSApp)
+        AppKitShell.current?.installMenu()
         RecentFileHistory.shared?.restoreOnLaunch()
         NSWindow.allowsAutomaticWindowTabbing = false
         // The document controller's launch-time open panel opens a multi-file selection one document at a time and
         // bypasses OpenRouter. The welcome window offers Open… instead.
         UserDefaults.standard.register(defaults: ["NSShowAppCentricOpenPanelInsteadOfUntitledFile": false])
-        // DocumentGroup can consume document URLs before the delegate receives openURLs.
         // Intercept the complete Apple event to preserve the user's multi-file selection.
         NSAppleEventManager.shared().setEventHandler(
             self, andSelector: #selector(openDocuments(_:reply:)),
@@ -86,8 +84,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DistributedNotificationCenter.default().addObserver(
             self, selector: #selector(keyboardInputSourceChanged),
             name: Notification.Name(kTISNotifySelectedKeyboardInputSourceChanged as String), object: nil)
-        ShortcutDispatcher.shared.start(
-            nativeMenuTracking: AppKitShell.current.map { shell in { shell.menuTrackingDepth } })
+        ShortcutDispatcher.shared.start()
         #if DEBUG
             DebugMenuDump.didLaunch()
             DebugMenuDump.observeTestLaunch()
@@ -106,8 +103,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             DebugSnapshot.askClipboardQuestion()
             DebugSnapshot.openGettingStarted()
         #endif
-        // Restored windows appear shortly after launch; do not cover them with the welcome window. A rejected
-        // multi-file selection opens nothing, so the welcome window still follows its alert.
+    }
+
+    @objc private func didFinishRestoring(_ note: Notification) {
+        finishedRestoring = true
+        // A launch from Finder or a Service can still have an open request in flight.
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(300))
             OpenRouter.shared.showWelcomeAfterLaunch()
@@ -120,6 +120,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidBecomeActive(_ notification: Notification) {
         ShortcutController.shared.refresh()
+        guard finishedRestoring else { return }
         // What brought the app forward may be a file to open, which arrives right after.
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(300))
@@ -128,7 +129,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if !flag { WelcomeController.shared.show() }
+        if !flag, finishedRestoring { WelcomeController.shared.show() }
         return true
     }
 }
