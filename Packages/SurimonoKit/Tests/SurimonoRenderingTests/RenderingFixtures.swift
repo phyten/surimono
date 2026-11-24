@@ -3,9 +3,15 @@ import CoreText
 import ImageIO
 import PDFKit
 import Testing
+import WebKit
 
 @MainActor
 enum RenderingFixtures {
+    static func clearBackground() throws -> @MainActor (WKWebView) -> Void {
+        try #require(WKWebView.instancesRespond(to: NSSelectorFromString("_setDrawsBackground:")))
+        return { $0.setValue(false, forKey: "drawsBackground") }
+    }
+
     static func pdf(
         count: Int = 1, size: CGSize = CGSize(width: 612, height: 792), textPrefix: String = "PAGE-"
     ) throws -> PDFDocument {

@@ -233,20 +233,62 @@ jobs:
         run: python3 Tools/CI/run-prebuilt-kit.py SurimonoRenderingTests --no-parallel
       - name: Hosted app tests
         if: matrix.suite == 'app'
+        shell: bash
         run: |
           root="$RUNNER_TEMP/test-products"
           codesign --verify --deep --strict "$root/Debug/Surimono.app"
-          xcodebuild test-without-building -xctestrun "$root/Surimono.xctestrun" \
-            -destination 'platform=macOS,arch=arm64' -resultBundlePath "$RUNNER_TEMP/app.xcresult"
+          log="$RUNNER_TEMP/app-test.log"
+          : > "$log"
+          NSUnbufferedIO=YES xcodebuild test-without-building -xctestrun "$root/Surimono.xctestrun" \
+            -destination 'platform=macOS,arch=arm64' -resultBundlePath "$RUNNER_TEMP/app.xcresult" \
+            > "$log" 2>&1 &
+          controller=$!
+          # Keep the read position between polls so each test line reaches the Actions log once.
+          exec 3< "$log"
+          last_size=0
+          last_output=$SECONDS
+          while kill -0 "$controller" 2>/dev/null; do
+            size=$(wc -c < "$log")
+            if (( size > last_size )); then
+              cat <&3
+              last_size=$size
+              last_output=$SECONDS
+            elif (( SECONDS - last_output >= 300 )); then
+              echo "::error::Hosted tests produced no output for five minutes"
+              pids=()
+              for pid in $(pgrep -x Surimono || true); do pids+=("$pid"); done
+              if (( ${#pids[@]} == 0 )); then echo "No running Surimono test host found"; fi
+              pids+=("$controller")
+              for pid in "${pids[@]}"; do
+                echo "Sampling PID $pid"
+                report="$RUNNER_TEMP/sample-$pid.txt"
+                sample "$pid" 5 -file "$report" || true
+                if [[ -f "$report" ]]; then head -n 150 "$report"; fi
+              done
+              kill -TERM "${pids[@]}" 2>/dev/null || true
+              sleep 5
+              kill -KILL "${pids[@]}" 2>/dev/null || true
+              wait "$controller" || true
+              exit 1
+            fi
+            sleep 5
+          done
+          cat <&3
+          wait "$controller"
       - name: Hosted test results
         if: ${{ !cancelled() && matrix.suite == 'app' && steps.unpack.outcome == 'success' }}
         run: |
           bundle="$RUNNER_TEMP/app.xcresult"
-          test -d "$bundle" || { echo "::error::No xcresult; see the launcher output"; exit 1; }
-          xcrun xcresulttool get test-results summary --path "$bundle" > "$RUNNER_TEMP/app-summary.json"
+          # A killed controller may leave an unfinished bundle. The launcher log still names the tests that ran.
+          if [[ ! -d "$bundle" ]] ||
+            ! xcrun xcresulttool get test-results summary --path "$bundle" > "$RUNNER_TEMP/app-summary.json" ||
+            ! xcrun xcresulttool get test-results tests --path "$bundle" > "$RUNNER_TEMP/app-tests.json"; then
+            echo "::error::Cannot read hosted test results from $bundle"
+            if [[ -f "$RUNNER_TEMP/app-test.log" ]]; then cat "$RUNNER_TEMP/app-test.log"; fi
+            exit 1
+          fi
           jq -r '"Passed: \(.passedTests), failed: \(.failedTests), skipped: \(.skippedTests)",
             (.testFailures[]? | "FAIL \(.testName) | \(.failureText)")' "$RUNNER_TEMP/app-summary.json"
-          xcrun xcresulttool get test-results tests --path "$bundle" > "$RUNNER_TEMP/app-tests.json"
           jq -r '.. | objects | select(.nodeType == "Test Case") |
             "\(.result) \(.nodeIdentifier // .name)"' "$RUNNER_TEMP/app-tests.json"
           jq -e '.passedTests > 0 and .failedTests == 0 and .result == "Passed"' "$RUNNER_TEMP/app-summary.json" >/dev/null

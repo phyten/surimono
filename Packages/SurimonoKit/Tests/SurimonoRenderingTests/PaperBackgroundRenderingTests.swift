@@ -86,7 +86,7 @@ struct PaperBackgroundRenderingTests {
         _ markdown: String, theme: PrintTheme, margin: Double = 15, textScale: Double = 1
     ) async throws -> PDFDocument {
         let previous = WebPaginator.clearBackground
-        WebPaginator.clearBackground = { $0.setValue(false, forKey: "drawsBackground") }
+        WebPaginator.clearBackground = try RenderingFixtures.clearBackground()
         defer { WebPaginator.clearBackground = previous }
         _ = NSApplication.shared
         var settings = RenderSettings(
@@ -186,7 +186,7 @@ struct PaperBackgroundRenderingTests {
     @Test("下地を敷かない組版は、背景のないページを透明のまま描く", .timeLimit(.minutes(1)))
     func clearPagesStayClear() async throws {
         let previous = WebPaginator.clearBackground
-        WebPaginator.clearBackground = { $0.setValue(false, forKey: "drawsBackground") }
+        WebPaginator.clearBackground = try RenderingFixtures.clearBackground()
         defer { WebPaginator.clearBackground = previous }
         _ = NSApplication.shared
         #expect(WebPaginator.drawsClearPages)
@@ -218,7 +218,7 @@ struct PaperBackgroundRenderingTests {
 
     private func requests(answering answer: String) async throws -> Requests {
         let previous = WebPaginator.clearBackground
-        WebPaginator.clearBackground = { $0.setValue(false, forKey: "drawsBackground") }
+        WebPaginator.clearBackground = try RenderingFixtures.clearBackground()
         defer { WebPaginator.clearBackground = previous }
         _ = NSApplication.shared
         let requests = Requests()
@@ -250,7 +250,7 @@ struct PaperBackgroundRenderingTests {
 
     private func renderFailingPaper(with error: any Error) async throws -> PDFDocument {
         let previous = WebPaginator.clearBackground
-        WebPaginator.clearBackground = { $0.setValue(false, forKey: "drawsBackground") }
+        WebPaginator.clearBackground = try RenderingFixtures.clearBackground()
         defer { WebPaginator.clearBackground = previous }
         _ = NSApplication.shared
         let requests = Requests()
@@ -282,7 +282,7 @@ struct PaperBackgroundRenderingTests {
     @Test("ノートと内側・外側の余白があっても紙は用紙に固定し、本文だけが動く", .timeLimit(.minutes(1)))
     func paperStaysWithNotes() async throws {
         let previous = WebPaginator.clearBackground
-        WebPaginator.clearBackground = { $0.setValue(false, forKey: "drawsBackground") }
+        WebPaginator.clearBackground = try RenderingFixtures.clearBackground()
         defer { WebPaginator.clearBackground = previous }
         _ = NSApplication.shared
         var settings = RenderSettings(
