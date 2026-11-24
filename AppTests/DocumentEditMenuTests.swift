@@ -131,7 +131,7 @@ struct DocumentEditMenuTests {
         for title in standardEdit { #expect(menus[2].item(withTitle: title)?.target == nil) }
         var view = [
             content.showsPaper ? "Show as Web" : "Show as Paper", "Show as Slides", "Single Page", "Spread",
-            "View Options…", "Go to Page…", "Check Writing", "Back", "Forward", "Bookmark This Page",
+            "View Options…", "Go to Page…", "Go to Line…", "Check Writing", "Back", "Forward", "Bookmark This Page",
             "Next Bookmark", "Previous Bookmark", "Increase Text Size", "Decrease Text Size", "Original Text Size",
         ]
         if content.composition != nil { view.append("LaTeX Layout") }

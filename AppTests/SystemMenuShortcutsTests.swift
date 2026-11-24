@@ -238,6 +238,11 @@ struct SystemMenuShortcutsTests {
         let row = try #require(
             DocumentMenuDescriptor.rows(for: .view, in: snapshot).first { $0.operation == .documentGoToPage })
         #expect(row.isEnabled == (pages > 1))
+        let lineRow = try #require(
+            DocumentMenuDescriptor.rows(for: .view, in: snapshot).first { $0.operation == .documentGoToLine })
+        #expect(lineRow.isEnabled)
+        f.dispatcher.performFromMenu(.documentGoToLine, event: nil)
+        #expect(!f.model.isGoToPagePresented)
         f.dispatcher.performFromMenu(.documentGoToPage, event: nil)
         #expect(f.model.isGoToPagePresented == (pages == 2))
     }

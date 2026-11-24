@@ -342,7 +342,11 @@ final class DocumentViewModel {
     /// The find bar over the paper. It belongs to the window and is never saved.
     let find = PaperFind()
     var proseMark = ProsePaperMark()
-    var isGoToPagePresented = false
+    var goToTarget: GoToPage.Target?
+    var isGoToPagePresented: Bool {
+        get { goToTarget != nil }
+        set { goToTarget = newValue ? (goToTarget ?? .page) : nil }
+    }
     var isViewOptionsPresented = false
     var isOutlinePresented = false {
         didSet {
@@ -1161,7 +1165,7 @@ final class DocumentViewModel {
         if let settings = renderedSettings ?? renderSettings, showsReadingPages(settings, fromSnapshot: fromSnapshot) {
             pendingPrintIssue = nil
             currentPageIndex = max(0, page - 1)
-            pointOut(issue, onPage: max(0, page - 1))
+            pointOut(issue.rect, onPage: max(0, page - 1))
         } else {
             pendingPrintIssue = (issue, pageCount)
         }
@@ -1172,10 +1176,10 @@ final class DocumentViewModel {
     /// The window gives the print stage back and takes the paper's width again first, so the paper may not be there
     /// yet; a problem with no mark on its page gets no frame. The request is for the pages the problem was found on:
     /// once a reload or a new layout replaces them, it is dropped, not matched to whatever the paper shows next.
-    private func pointOut(_ issue: PrintIssue, onPage pageIndex: Int) {
+    func pointOut(_ anchor: CGRect?, onPage pageIndex: Int, framesLine: Bool = false) {
         dropSpot()
-        guard let anchor = issue.rect, let document = result?.viewDocument else { return }
-        let spot = PaperSpot(pageIndex: pageIndex, anchor: anchor, document: document)
+        guard let anchor, let document = result?.viewDocument else { return }
+        let spot = PaperSpot(pageIndex: pageIndex, anchor: anchor, document: document, framesLine: framesLine)
         spotTask = Task { @MainActor [weak self] in
             for _ in 0..<50 {
                 guard let self, !Task.isCancelled, result?.viewDocument === document else { return }
@@ -1261,7 +1265,7 @@ final class DocumentViewModel {
         currentPageIndex = index
         // SwiftUI may still show the old PDF. A newly attached paper uses currentPageIndex instead.
         paper.goToPage(index: index, in: result.viewDocument)
-        if let found { pointOut(found, onPage: index) }
+        if let found { pointOut(found.rect, onPage: index) }
     }
 
     func useLandscapeForPrintIssue() {

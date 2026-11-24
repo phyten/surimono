@@ -9,7 +9,7 @@ final class SystemMenuShortcuts {
         .documentExportPNG, .documentExportHTML, .documentCopyHTML, .documentCopyRichText, .documentShare,
         .printSettings, .appStreamingPreview, .documentSaveAsFile, .documentFind, .documentFindNext,
         .documentFindPrevious, .viewHtmlPresentation, .viewOptions, .viewSelectText, .listRemove,
-        .viewIgnoreSlides, .viewSingle, .viewSpread, .documentGoToPage, .readingBack,
+        .viewIgnoreSlides, .viewSingle, .viewSpread, .documentGoToPage, .documentGoToLine, .readingBack,
         .readingForward, .bookmarkToggle, .bookmarkNext, .bookmarkPrevious, .textIncrease,
         .textDecrease, .textReset, .viewZoomIn, .viewZoomOut, .viewZoomFit,
         .viewToolbarAlways, .viewFloatOnTop, .viewShowOnAllSpaces, .appGettingStarted, .appKeyGuide,

@@ -203,6 +203,11 @@ struct SurimonoDocumentTests {
             identifiers == readable,
             "plist のみ \(identifiers.subtracting(readable).sorted())、読み取り型のみ \(readable.subtracting(identifiers).sorted())"
         )
+        #expect(
+            Set(["public.text", "public.plain-text", "public.source-code", "public.script"])
+                .isSubset(of: readable))
+        #expect(!readable.contains("public.data"))
+        #expect(!readable.contains("public.unix-executable"))
         #expect(declarations.allSatisfy { $0["CFBundleTypeRole"] as? String == "Viewer" })
         #expect(declarations.allSatisfy { $0["LSHandlerRank"] as? String == "Alternate" })
         let imported = try #require(

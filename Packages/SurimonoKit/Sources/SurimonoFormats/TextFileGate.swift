@@ -13,7 +13,7 @@ public enum TextFileGate {
 
     /// What the gate says about the beginning of some bytes.
     public enum Verdict: Equatable, Sendable {
-        /// Not a kind the gate looks at, or text that nothing names a language for: the caller goes by the name and
+        /// Not a kind the gate looks at, or an unknown extension with no detected language: the caller goes by the name and
         /// type as it always did.
         case notConcerned
         /// Opens as plain text, in this language as far as the beginning tells.
@@ -59,6 +59,27 @@ public enum TextFileGate {
             return .transportStream
         }
         if suffix == "plist" || actual?.conforms(to: .propertyList) == true { return .propertyList }
+        if actual?.conforms(to: .unixExecutable) == true { return .untyped }
+        // Preserve dedicated readers and non-document media. Other extensionless files need their bytes
+        // checked even if another app registered a type for the name (such as LICENSE).
+        if !fileName.isEmpty, suffix.isEmpty {
+            if let actual {
+                if let format = DocumentFormat(contentType: actual) { return format == .plainText ? .untyped : nil }
+                if actual.conforms(to: .audiovisualContent) || actual.conforms(to: .archive)
+                    || actual.conforms(to: .directory)
+                {
+                    return nil
+                }
+            }
+            return .untyped
+        }
+        // A text UTI may come from the name alone, even for a fixed name with a suffix.
+        if let actual, DocumentFormat(fileExtension: suffix) == nil,
+            SourceLanguage.detect(fileName: fileName) != nil,
+            DocumentFormat(contentType: actual) == .plainText
+        {
+            return .untyped
+        }
         guard isGeneric(actual), DocumentFormat(fileExtension: suffix) == nil else { return nil }
         // An extension the system knows as something this app reads (an image format) is not untyped either.
         if let named, !isGeneric(named), DocumentFormat(contentType: named) != nil { return nil }
@@ -91,7 +112,13 @@ public enum TextFileGate {
         case .untyped:
             // A fixed name such as "Dockerfile" is no more a promise of text than an extension is.
             guard text else { return .binary }
-            return language().map { .text($0) } ?? .notConcerned
+            let detected = language()
+            if (fileName as NSString).pathExtension.isEmpty || type?.conforms(to: .unixExecutable) == true
+                || detected != nil
+            {
+                return .text(detected)
+            }
+            return .notConcerned
         }
     }
 
@@ -118,6 +145,13 @@ public enum TextFileGate {
     public static func inspection(of url: URL, within root: String? = nil) -> (verdict: FileVerdict, size: Int?) {
         guard url.isFileURL else { return (.decided(.notConcerned), nil) }
         let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType
+        return inspection(of: url, type: type, within: root)
+    }
+
+    public static func inspection(of url: URL, type: UTType?, within root: String? = nil) -> (
+        verdict: FileVerdict, size: Int?
+    ) {
+        guard url.isFileURL else { return (.decided(.notConcerned), nil) }
         guard concerns(fileName: url.lastPathComponent, type: type) else { return (.decided(.notConcerned), nil) }
         let descriptor: Int32
         do {

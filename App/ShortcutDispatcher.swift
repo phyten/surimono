@@ -325,6 +325,7 @@ final class ShortcutDispatcher {
         case .documentFind: model?.performFind()
         case .documentFindNext: model?.findStep(forward: true)
         case .documentFindPrevious: model?.findStep(forward: false)
+        case .documentGoToLine: model?.presentGoToLine()
         case .documentGoToPage: model?.presentGoToPage()
         case .readingBack: model?.goBack()
         case .readingForward: model?.goForward()

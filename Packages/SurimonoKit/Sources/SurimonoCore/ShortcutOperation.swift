@@ -89,6 +89,7 @@ public enum ShortcutOperationID: String, CaseIterable, Codable, Sendable {
     case documentCopyRichText = "document.copyRichText"
     case appOpenURL = "app.openURL"
     case clipboardReopen = "clipboard.reopen"
+    case documentGoToLine = "document.goToLine"
 }
 
 public enum ShortcutRegion: String, CaseIterable, Codable, Sendable {
@@ -111,6 +112,7 @@ public enum ShortcutSafety: String, Codable, Sendable {
 
 public enum ShortcutApplicability: String, Codable, Sendable {
     case application, document, paper, paperWithPages, html, themedText, selectableText, memoryDocument
+    case sourceCode
     case addDocuments, includePlan, binderOrImages, binder, booklet, updater, outline, documentInfo
 }
 
@@ -196,6 +198,10 @@ public struct ShortcutOperation: Equatable, Sendable {
         case .documentFindPrevious:
             return Self(
                 id: id, group: .documentAndPrinting, applicability: .paper, safety: .ordinary,
+                regions: [.paperReading, .paperSelection, .editableControl], allowsBareKeys: false)
+        case .documentGoToLine:
+            return Self(
+                id: id, group: .documentAndPrinting, applicability: .sourceCode, safety: .ordinary,
                 regions: [.paperReading, .paperSelection, .editableControl], allowsBareKeys: false)
         case .documentGoToPage:
             return Self(

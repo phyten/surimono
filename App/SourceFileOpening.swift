@@ -16,8 +16,7 @@ enum SourceFileOpening {
     enum Route: Equatable {
         /// The document controller opens it by its own type, as it opens any other file.
         case document
-        /// Text that macOS gives no type the app reads (`Dockerfile`, `.env`, a script named only by its `#!`
-        /// line): read as plain text. Declaring `public.data` for these would offer this app for every file.
+        /// Open inspected text explicitly when its name has no extension or macOS has no suitable document type.
         case asText
         /// Not text under a text file's name. Its contents are never loaded.
         case refuse
@@ -26,13 +25,19 @@ enum SourceFileOpening {
     }
 
     nonisolated static func route(for url: URL) -> Route {
-        let inspection = TextFileGate.inspection(of: url)
+        guard url.isFileURL else { return .document }
+        return route(for: url, type: try? url.resourceValues(forKeys: [.contentTypeKey]).contentType)
+    }
+
+    nonisolated static func route(for url: URL, type: UTType?) -> Route {
+        let inspection = TextFileGate.inspection(of: url, type: type)
         switch inspection.verdict {
         case .decided(.binary), .refused: return .refuse
         case .decided(.text):
             if let size = inspection.size, size > PageLayoutLimits.plainTextBytes { return .tooLarge(size) }
-            let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType
-            return type.map(reads) == true ? .document : .asText
+            // Once the bytes establish text, an extensionless name must take the same route on every Mac.
+            if url.pathExtension.isEmpty { return .asText }
+            return type?.conforms(to: .unixExecutable) != true && type.map(reads) == true ? .document : .asText
         // A file that is missing or may not be read yet is the document controller's to report or to be given.
         case .decided(.notConcerned), .missing, .undecided: return .document
         }

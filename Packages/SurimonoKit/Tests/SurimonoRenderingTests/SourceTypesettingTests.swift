@@ -20,6 +20,46 @@ struct SourceTypesettingTests {
         DocumentSource(data: Data(text.utf8), format: .plainText).named("source.swift")
     }
 
+    @Test("原稿の行の位置をPDFから取り出し、書き出す本文には位置を示すリンクを残さない")
+    func takeLineLocations() throws {
+        let doc = try RenderingFixtures.pdf(count: 2)
+        let page = try #require(doc.page(at: 1))
+        let rect = CGRect(x: 40, y: 60, width: 230, height: 12)
+        for target in ["surimono-source-line:120", "https://example.com/"] {
+            let link = PDFAnnotation(bounds: rect, forType: .link, withProperties: nil)
+            link.url = URL(string: target)
+            page.addAnnotation(link)
+        }
+        let lines = SourceLineLocation.take(from: doc)
+        #expect(lines[120]?.pageIndex == 1)
+        #expect(lines[120]?.rect == rect)
+        let saved = try #require(doc.dataRepresentation().flatMap(PDFDocument.init(data:)))
+        #expect(saved.page(at: 1)?.annotations.map { $0.url?.absoluteString } == ["https://example.com/"])
+    }
+
+    @Test("行番号を隠しても、折り返し・空行・重複行の位置が組版後の紙面に一致する")
+    func sourceLineLocations() async throws {
+        _ = NSApplication.shared
+        var block = CodeBlockOptions.sourcePage
+        block.lineNumbers = .none
+        let text =
+            String(repeating: "same\r\n", count: 120) + String(repeating: "wrap ", count: 55) + "\r\n\r\nTARGET\r\n"
+        let result = try await DocumentRenderer().prepare(file(text), settings: settings(block))
+        #expect(result.sourceLines.count == 123)
+        let last = try #require(result.sourceLines[123])
+        let blank = try #require(result.sourceLines[122])
+        let doc = result.viewDocument
+        let hit = try #require(doc.findString("TARGET").first)
+        let page = try #require(hit.pages.first)
+        #expect(last.pageIndex == doc.index(for: page))
+        #expect(last.pageIndex > 0)
+        #expect(last.rect.intersects(hit.bounds(for: page)))
+        #expect(blank.pageIndex < last.pageIndex || blank.rect.midY > last.rect.midY)
+        for i in 0..<doc.pageCount {
+            #expect(doc.page(at: i)?.annotations.isEmpty == true)
+        }
+    }
+
     @Test("字幅は一定で、行頭と行中のタブは四桁の位置、折り返しは字下げに二桁を足した位置に置く")
     func alignment() async throws {
         _ = NSApplication.shared

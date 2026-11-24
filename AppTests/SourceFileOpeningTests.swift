@@ -174,14 +174,35 @@ struct SourceFileOpeningTests {
     // MARK: The way a single file takes
 
     @Test(
-        "型のないテキストは、名前か shebang で言語が分かればテキストとして開く道を選ぶ",
+        "型のないテキストは、拡張子がないか名前・先頭行から言語が分かればテキストとして開く道を選ぶ",
         arguments: [
             ("Dockerfile", "FROM scratch\n"), ("Gemfile", "source \"https://example.com\"\n"), (".env", "A=1\n"),
             (".env.local", "A=1\n"), ("tool", "#!/usr/bin/env python3\nprint(1)\n"), ("Cargo.lock", "version = 3\n"),
+            ("LICENSE", "Permission is granted.\n"), ("Makefile", "all:\n"),
         ])
     func routesAsText(name: String, text: String) async throws {
         try await withFile(name, Data(text.utf8)) { url in
             #expect(SourceFileOpening.route(for: url) == .asText)
+        }
+    }
+
+    @Test("拡張子のない原稿は、テキスト・汎用・未知の型でも先頭がテキストなら開き、バイナリは断る")
+    func extensionlessContentDecides() async throws {
+        let types: [UTType?] = [
+            nil, .data, .plainText, .text, .sourceCode, .script, .unixExecutable,
+            UTType(importedAs: "app.surimono.tests.license", conformingTo: .data),
+            UTType(tag: "surimono-test-source", tagClass: .filenameExtension, conformingTo: .text),
+        ]
+        for name in ["LICENSE", "Makefile", "untitled"] {
+            try await withFile(name, Data("words\n".utf8)) { url in
+                for type in types { #expect(SourceFileOpening.route(for: url, type: type) == .asText) }
+            }
+            try await withFile(name, Data([0x7F, 0x00])) { url in
+                for type in types { #expect(SourceFileOpening.route(for: url, type: type) == .refuse) }
+            }
+        }
+        try await withFile("scan", Data("%PDF-1.4".utf8)) { url in
+            #expect(SourceFileOpening.route(for: url, type: .pdf) == .document)
         }
     }
 
@@ -198,7 +219,7 @@ struct SourceFileOpeningTests {
         arguments: [
             ("main.ts", "let a = 1\n"), ("module.mts", "export const a = 1\n"),
             ("Info.plist", "<plist/>\n"), ("main.swift", "let a = 1\n"),
-            ("notes.md", "# a\n"), ("Makefile", "all:\n"), ("LICENSE", "Permission is granted.\n"),
+            ("notes.md", "# a\n"),
             ("archive.zip", "#!/bin/sh\n"), ("clip.txt", "words\n"),
         ])
     func routesToDocument(name: String, text: String) async throws {
@@ -480,7 +501,7 @@ struct SourceFileOpeningTests {
         #expect(format("Info.plist", try xmlPropertyList(), .propertyList) == .plainText)
         #expect(format("notes.md", Data("# a".utf8), .surimonoMarkdown) == .markdown)
         #expect(format("clip.mp4", Data("#!/bin/sh\n".utf8), .mpeg4Movie) == nil)
-        #expect(format("LICENSE", Data("Free.\n".utf8), .data) == nil)
+        #expect(format("LICENSE", Data("Free.\n".utf8), .data) == .plainText)
         #expect(format("tool", Data([0xCF, 0xFA, 0xED, 0xFE, 0x00]), .data) == nil)
     }
 

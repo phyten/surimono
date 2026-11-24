@@ -199,6 +199,7 @@ struct DocumentMenuDescriptor: Identifiable {
         }
         rows += [
             command("View Options…", .viewOptions), command("Go to Page…", .documentGoToPage),
+            command("Go to Line…", .documentGoToLine),
             button("Check Writing", .checkWriting),
             command("Back", .readingBack), command("Forward", .readingForward), divider("bookmark"),
             command("Bookmark This Page", .bookmarkToggle, checked: state.bookmarked),
