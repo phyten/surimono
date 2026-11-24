@@ -20,6 +20,7 @@ public enum ShortcutDefaults: Sendable {
         case .documentFind: [character("f", .command)]
         case .documentFindNext: [character("g", .command)]
         case .documentFindPrevious: [character("g", [.shift, .command])]
+        case .documentGoToLine: [character("g", .control)]
         case .documentGoToPage: [character("g", [.option, .command])]
         case .documentReload: [character("r", .command)]
         case .viewHtmlPresentation: [character("p", [.control, .command])]

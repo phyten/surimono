@@ -42,7 +42,26 @@ extension DocumentViewModel {
     /// View › Go to Page….
     func presentGoToPage() {
         guard canGoToPage else { return }
-        isGoToPagePresented = true
+        goToTarget = .page
+    }
+
+    var sourceLineCount: Int {
+        guard hasPaperToSearch, sourceLanguage != nil, let result else { return 0 }
+        return result.sourceLineCount
+    }
+
+    func presentGoToLine() {
+        guard sourceLineCount > 0 else { return }
+        goToTarget = .line
+    }
+
+    func goToLine(entered text: String) {
+        guard let number = GoToPage.line(for: text, count: sourceLineCount),
+            let line = result?.sourceLines[number]
+        else { return }
+        goToTarget = nil
+        jumpToReadingPage(line.pageIndex)
+        pointOut(line.rect, onPage: line.pageIndex, framesLine: true)
     }
 
     /// Turns to the page typed into Go to Page, by the numbers the page indicator shows.

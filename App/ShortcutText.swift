@@ -39,6 +39,7 @@ enum ShortcutText {
         case .documentFind: "Find…"
         case .documentFindNext: "Find Next"
         case .documentFindPrevious: "Find Previous"
+        case .documentGoToLine: "Go to Line…"
         case .documentGoToPage: "Go to Page…"
         case .documentReload: "Reload"
         case .viewHtmlPresentation: "Web or Paper"
@@ -126,6 +127,7 @@ enum ShortcutText {
         case .application: String(localized: "In any Surimono window")
         case .document: String(localized: "In a document window")
         case .paper: String(localized: "On the paper in view mode")
+        case .sourceCode: String(localized: "In source code documents")
         case .paperWithPages: String(localized: "On paper with pages")
         case .html: String(localized: "In HTML documents")
         case .themedText: String(localized: "In documents that use styles")

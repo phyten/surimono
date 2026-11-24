@@ -310,6 +310,8 @@ public struct PreparedRender {
     public let issues: [PrintIssue]
     public let changeMarks: [ChangeMark]
     public var diagrams: [RenderedDiagram] = []
+    public let sourceLines: [Int: SourceLineLocation]
+    public let sourceLineCount: Int
     public var formulaIndex: PaperFormulaIndex?
     public var unreadableDocumentURLs: [URL] = []
     public var binderDocuments: [URL: PDFDocument] = [:]
@@ -470,6 +472,7 @@ public final class DocumentRenderer {
         var binderPageSizes: [CGSize] = []
         var issues: [PrintIssue] = []
         var changeMarks: [ChangeMark] = []
+        var sourceLines: (locations: [Int: SourceLineLocation], lastNumber: Int) = ([:], 0)
         var diagrams: [RenderedDiagram] = []
         var markRequests: [MarkdownMarkRequest] = []
         var hasFormulas = false
@@ -816,6 +819,9 @@ public final class DocumentRenderer {
                 logical.binderPageStarts = binderOutput?.pageStarts ?? [:]
                 logical.binderPageSizes = binderOutput?.pageSizes ?? []
                 if let text = finishing.sourceText {
+                    // Paper backgrounds and mirrored margins move link annotations with the ink. Read the final
+                    // positions once, before any binder, preview or export receives the cached document.
+                    logical.sourceLines = SourceLineLocation.take(from: document)
                     SourcePaperText.attach(
                         text, to: document, options: settings.code.sourceBlock,
                         language: finishing.facts?.sourceLanguage)
@@ -859,7 +865,9 @@ public final class DocumentRenderer {
                 summary: PrintSummary(plan: plan),
                 requiredFolderAccess: pages.requiredFolderAccess, unreadableImageURLs: pages.unreadable,
                 smartRemovalCandidates: pages.candidates, issues: pages.issues,
-                changeMarks: marks, diagrams: pages.diagrams, formulaIndex: pages.formulaIndex,
+                changeMarks: marks, diagrams: pages.diagrams, sourceLines: pages.sourceLines.locations,
+                sourceLineCount: pages.sourceLines.lastNumber,
+                formulaIndex: pages.formulaIndex,
                 unreadableDocumentURLs: pages.unreadableDocuments, binderDocuments: pages.binderDocuments,
                 binderPageStarts: pages.binderPageStarts,
                 facts: pages.finishing.facts, addedContentsPages: pages.finishing.contentsPageCount,
@@ -1018,6 +1026,15 @@ public final class DocumentRenderer {
                 return issue
             }
         noted.finishing = logical.finishing
+        noted.sourceLines.lastNumber = logical.sourceLines.lastNumber
+        noted.sourceLines.locations = logical.sourceLines.locations.mapValues { line in
+            let page = places[line.pageIndex]
+            let offset = settings.layout.swapsSides(onPage: page) ? shift : 0
+            let rect =
+                output === document
+                ? line.rect : DiagramGeometry.redrawn(line.rect, on: document.page(at: page), shift: offset)
+            return SourceLineLocation(pageIndex: page, rect: rect)
+        }
         noted.finishing.blankPages = plan.blankPages
         noted.finishing.notePages = plan.notePages
         logical.noted = (key, noted)
@@ -1372,7 +1389,8 @@ public final class DocumentRenderer {
             let preparation: String?
             if settings.markdownChanges.isEmpty {
                 // The theme's part goes last: its answer whether the theme has paper is the result of the whole.
-                let parts = [graphicScript, codeScript, themeScript].filter { !$0.isEmpty }
+                let locations = fragment.sourceLanguage == nil ? "" : SourceLineLocation.preparation
+                let parts = [graphicScript, codeScript, locations, themeScript].filter { !$0.isEmpty }
                 preparation = parts.isEmpty ? nil : parts.joined(separator: "\n")
             } else {
                 // Cleanup catches script errors. Only an explicit success may replace the background-only drawing.

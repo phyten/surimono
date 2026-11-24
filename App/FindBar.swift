@@ -116,29 +116,35 @@ final class FocusingTextField: NSTextField {
     }
 }
 
-/// View › Go to Page…: asks for a page by the number the page indicator shows.
+/// Both navigation commands share the focused field, Return and Escape.
 struct GoToPageSheet: View {
     @Bindable var model: DocumentViewModel
     @State private var text = ""
     @FocusState private var isFocused: Bool
 
+    private var asksForLine: Bool { model.goToTarget == .line }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Go to Page").font(.headline)
+            Text(asksForLine ? LocalizedStringKey("Go to Line") : "Go to Page").font(.headline)
             HStack(spacing: 8) {
-                TextField(String(model.paperPageIndex + 1), text: $text)
+                TextField(asksForLine ? "120:8" : String(model.paperPageIndex + 1), text: $text)
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 80)
                     .focused($isFocused)
-                    .accessibilityLabel("Page number")
-                Text(verbatim: "1 – \(model.paperPageCount)").foregroundStyle(PrintPalette.ink2).monospacedDigit()
+                    .accessibilityLabel(asksForLine ? Text("Line number") : Text("Page number"))
+                Text(verbatim: "1 – \(asksForLine ? model.sourceLineCount : model.paperPageCount)").foregroundStyle(
+                    PrintPalette.ink2
+                ).monospacedDigit()
             }
             HStack {
                 Spacer()
                 Button("Cancel", role: .cancel) { model.isGoToPagePresented = false }
                     .keyboardShortcut(.cancelAction)
-                Button("Go") { model.goToPage(entered: text) }
-                    .keyboardShortcut(.defaultAction)
+                Button("Go") {
+                    if asksForLine { model.goToLine(entered: text) } else { model.goToPage(entered: text) }
+                }
+                .keyboardShortcut(.defaultAction)
             }
         }
         .padding(20)

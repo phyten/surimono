@@ -32,14 +32,17 @@ struct ShortcutTests {
                 "reading.back", "reading.forward", "bookmark.toggle", "bookmark.next", "bookmark.previous",
                 "document.exportReadingPDF", "document.exportPNG", "document.exportHTML",
                 "document.copyHTML", "document.share", "document.copyRichText", "app.openURL", "clipboard.reopen",
+                "document.goToLine",
             ])
-        #expect(ShortcutOperation.catalog.count == 90)
-        #expect(Set(ShortcutOperation.catalog.map(\.id)).count == 90)
+        #expect(ShortcutOperation.catalog.count == 91)
+        #expect(Set(ShortcutOperation.catalog.map(\.id)).count == 91)
     }
 
     @Test("既定の印刷と別名と未割当を明示する")
     func defaults() {
         let configuration = ShortcutConfiguration()
+        let goToLine = ShortcutCombination(key: .character("g"), modifiers: .control)
+        #expect(ShortcutOperation.catalog.filter { $0.defaults.contains(goToLine) }.map(\.id) == [.documentGoToLine])
         #expect(configuration.keys(for: .documentExportReadingPDF).isEmpty)
         #expect(configuration.keys(for: .viewShowOnAllSpaces).isEmpty)
         for operation: ShortcutOperationID in [
@@ -446,7 +449,7 @@ struct ShortcutContractTests {
                 #"fold.left=leftArrow[]"#, #"fold.right=rightArrow[]"#,
                 #"reading.back=[["command"]"#, #"reading.forward=]["command"]"#,
                 #"bookmark.toggle=b[]"#, #"bookmark.next=][]"#, #"bookmark.previous=[[]"#,
-                #"clipboard.reopen=t["shift","command"]"#,
+                #"clipboard.reopen=t["shift","command"]"#, #"document.goToLine=g["control"]"#,
             ])
     }
 

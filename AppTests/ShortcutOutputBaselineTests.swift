@@ -45,7 +45,8 @@ final class ShortcutOutputFixture {
     var allowsPrint = false
     var allowsExport = false
 
-    init(format: DocumentFormat = .pdf, renderer: DocumentRenderer = DocumentRenderer()) {
+    init(format: DocumentFormat = .pdf, renderer: DocumentRenderer = DocumentRenderer(), sourceFileName: String? = nil)
+    {
         window.isReleasedWhenClosed = false
         activeWindow = window
         preferences.layoutID = "a4Single"
@@ -54,7 +55,8 @@ final class ShortcutOutputFixture {
             data: format == .pdf ? TestFixtures.pdf("Shortcuts", pages: 4) : Data("# Heading\n\nBody".utf8),
             fileURL: nil, format: format, preferences: preferences, library: UserLibrary(root: directory),
             renderer: renderer,
-            settingsStore: DocumentSettingsStore(directory: directory.appendingPathComponent("Settings")))
+            settingsStore: DocumentSettingsStore(directory: directory.appendingPathComponent("Settings")),
+            sourceFileName: sourceFileName)
         if format == .html { model.setHTMLPresentation(.paper, capturesWeb: false) }
         model.window = window
         model.printerListSource = { .init(names: ["Test Printer"], defaultName: "Test Printer") }
