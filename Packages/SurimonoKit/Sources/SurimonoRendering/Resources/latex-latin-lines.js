@@ -3,6 +3,17 @@ const latinEnglishHyphens = latinHyphenator(globalThis.surimonoEnglishPatterns);
 
 // The native paginator installs an equivalent Unicode predicate for Sequoia's JavaScriptCore.
 let latinNonLatinLetter = /[\p{L}&&[^\p{Script=Latin}]]/v;
+let latinMeasureDescriptionGap = false;
+
+// Older WebKit includes CSS transforms but omits CSS zoom from client rects.
+// A ruler in the text's coordinate system measures their combined effect.
+function latinCSSPixelsPerRect(body) {
+    const ruler = document.createElement('div');
+    ruler.style.cssText = 'position:absolute;width:100px!important;box-sizing:content-box;padding:0;border:0';
+    body.append(ruler);
+    try { return 100 / ruler.getBoundingClientRect().width; }
+    finally { ruler.remove(); }
+}
 
 // All cached values are numbers, strings or plans. Never retain a flow clone, a DOM
 // Range or a computed style across the paginator's reference-filling passes.
@@ -797,6 +808,12 @@ function latinCompose(body, rectToCSS = 1, restorations) {
                     const left = (headRect.left-rect.left)*rectToCSS;
                     indent = left - (parseFloat(blockStyle.paddingInlineStart) || 0);
                     runIn = {block,rise:(first.top-headRect.top)*rectToCSS, left, skip};
+                    // The first DD fragment starts after the native inline margin. Sequoia
+                    // snaps that fragment edge even when the computed margin is fractional.
+                    if (definition && latinMeasureDescriptionGap) {
+                        runIn.specifiedSkip = skip;
+                        runIn.skip = (definition.getClientRects()[0].left - heading.getBoundingClientRect().right) * rectToCSS;
+                    }
                 }
                 const planIndent = indent + gutterAdvance;
                 if (!(width > 0 && Number.isFinite(planIndent) && Math.abs(planIndent) < width)) throw Error('invalid measure');
@@ -1001,9 +1018,12 @@ function latinCompose(body, rectToCSS = 1, restorations) {
                     trial.heading.getBoundingClientRect().right)*rectToCSS-trial.runIn.skip;
                 const riseError = head && first ? (first.top-head.top)*rectToCSS - trial.runIn.rise : Infinity;
                 const leftError = head ? (head.left-block.left)*rectToCSS - trial.runIn.left : Infinity;
-                if (trial.boxDiagnostics) trial.runInGeometry = {gapError,riseError,leftError,afterSkip:trial.runIn.skip,
-                    glyphGap:runInGap(trial.p,trial.heading)};
-                if (Math.max(Math.abs(riseError),Math.abs(leftError),Math.abs(gapError)) > .1 || !first || !head) {
+                const misaligned = Math.max(Math.abs(riseError),Math.abs(leftError),Math.abs(gapError)) > .1 || !first || !head;
+                if (trial.boxDiagnostics || (diagnostics && misaligned)) {
+                    trial.runInGeometry = {gapError,riseError,leftError,afterSkip:trial.runIn.specifiedSkip ?? trial.runIn.skip,
+                        nativeSkip:trial.runIn.skip,rectToCSS,glyphGap:runInGap(trial.p,trial.heading)};
+                }
+                if (misaligned) {
                     trial.reason = 'run-in baseline'; return;
                 }
             }

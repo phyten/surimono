@@ -39,10 +39,11 @@ struct LaTeXLatinPrintingTests {
                 const original=ps[3].innerHTML, nodes=[...ps[3].childNodes];
                 document.body.getBoundingClientRect(); await document.fonts.ready;
                 globalThis.surimonoLatinDiagnostics=globalThis.surimonoLatinBoxDiagnostics=true;
+                const rectToCSS = latinCSSPixelsPerRect(document.body);
                 const rigid=ps[2].querySelector('svg').outerHTML;
-                const summary=latinCompose(document.body);
+                const summary=latinCompose(document.body,rectToCSS);
                 if (summary.paragraphs[3]?.fallback !== 'math width' || ps[3].innerHTML !== original ||
-                    nodes.some((n,i)=>n!==ps[3].childNodes[i])) return 'formula rollback failed: '+JSON.stringify(summary.paragraphs[3]);
+                    nodes.some((n,i)=>n!==ps[3].childNodes[i])) return 'formula rollback failed: '+JSON.stringify({rectToCSS, paragraph:summary.paragraphs[3]});
                 for (const p of ps.slice(0,2)) {
                     const svgs = p.querySelector('.latex-line')?.querySelectorAll('svg');
                     if (svgs?.length !== 2) return JSON.stringify(summary.paragraphs);
@@ -94,14 +95,15 @@ struct LaTeXLatinPrintingTests {
                 document.body.style.transformOrigin = 'top left';
                 document.body.getBoundingClientRect(); await document.fonts.ready;
                 globalThis.surimonoLatinDiagnostics = globalThis.surimonoLatinBoxDiagnostics = true;
+                const rectToCSS = latinCSSPixelsPerRect(document.body);
                 const p = document.querySelector('p'), text = p.textContent;
-                const paragraph = latinCompose(document.body).paragraphs[0];
-                if (paragraph.fallback) return paragraph.fallback;
+                const paragraph = latinCompose(document.body,rectToCSS).paragraphs[0];
+                if (paragraph.fallback) return JSON.stringify({rectToCSS, paragraph});
                 const words = paragraph.boxDiagnostics.words;
                 const kern = p.querySelector('.latex-line [data-latex-thin-space]');
                 if (!kern) return p.outerHTML;
                 const em = parseFloat(getComputedStyle(p).fontSize);
-                return JSON.stringify([kern?.getBoundingClientRect().width/em,
+                return JSON.stringify([kern?.getBoundingClientRect().width*rectToCSS/em,
                     (words[4].width-words[2].width)/em, Number(text === p.textContent)]);
                 """#
         let result = try await WebPaginator().paginateWithResult(
@@ -363,6 +365,7 @@ struct LaTeXLatinPrintingTests {
                 wrapper.style.width = '223px';
                 wrapper.getBoundingClientRect(); await document.fonts.ready;
                 const bounds = el => {const r = document.createRange(); r.selectNodeContents(el); return r.getBoundingClientRect();};
+                const rectToCSS = latinCSSPixelsPerRect(document.body);
                 const h = wrapper.firstElementChild, before = bounds(h);
                 const ordinary = document.createRange(); ordinary.setStart(p.firstChild,0); ordinary.setEnd(p.firstChild,1);
                 const rise = ordinary.getBoundingClientRect().top-before.top;
@@ -376,7 +379,7 @@ struct LaTeXLatinPrintingTests {
                 document.body.append(wrapped);
                 const wrappedHTML = wrapped.outerHTML, wrappedTitle = longHead.firstChild;
                 globalThis.surimonoLatinDiagnostics=true;
-                const summary=latinCompose(document.body,1,undo), line=p.querySelector('.latex-line');
+                const summary=latinCompose(document.body,rectToCSS,undo), line=p.querySelector('.latex-line');
                 const word=document.createRange();
                 if (line) {word.setStart(line.firstChild,0); word.setEnd(line.firstChild,1);}
                 const after=bounds(h), first=word.getBoundingClientRect();
@@ -385,10 +388,11 @@ struct LaTeXLatinPrintingTests {
                     range.setStart(node,left-1); range.setEnd(node,left);
                     const end = range.getBoundingClientRect().right;
                     range.setStart(node,right); range.setEnd(node,right+1);
-                    return range.getBoundingClientRect().left-end;
+                    return (range.getBoundingClientRect().left-end)*rectToCSS;
                 };
-                const result = {reason:summary.paragraphs[0]?.fallback, lines:p.children.length,
-                    gap:first.left-after.right, expectedGap, baselineError:first.top-after.top-rise,
+                const result = {reason:summary.paragraphs[0]?.fallback, runIn:summary.paragraphs[0]?.runInGeometry, lines:p.children.length,
+                    rectToCSS, gap:(first.left-after.right)*rectToCSS, expectedGap:expectedGap*rectToCSS,
+                    baselineError:(first.top-after.top-rise)*rectToCSS,
                     headingSpace:line && space(h.firstChild,4,5), bodySpace:line && space(line.firstChild,2,3),
                     natural:.25 * parseFloat(getComputedStyle(p).fontSize)};
                 result.wrapped = summary.paragraphs[1]?.fallback === 'wrapped run-in heading' &&
@@ -396,7 +400,7 @@ struct LaTeXLatinPrintingTests {
                 wrapped.remove();
                 for (const restore of undo.reverse()) restore();
                 result.restored = wrapper.outerHTML === original && titleText === h.firstChild && bodyText === p.firstChild;
-                latinCompose(document.body);
+                latinCompose(document.body,rectToCSS);
                 return JSON.stringify(result);
                 """#
         let result = try await WebPaginator().paginateWithResult(

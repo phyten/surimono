@@ -16,6 +16,7 @@ struct LaTeXLatinContextPrintingTests {
             let category, text: String
             let lines: [Line]
             let fallback: String?
+            let runInGeometry: [String: Double?]?
         }
         let paragraphs: [Paragraph]
     }
@@ -70,7 +71,7 @@ struct LaTeXLatinContextPrintingTests {
             let row = try #require(
                 rows.first { $0.category == category && $0.text.contains(prefix) },
                 "\(prefix) \(RenderingFixtures.latinSummary(json))")
-            try #require(row.fallback == nil, "\(prefix) — \(row.fallback ?? "")")
+            try #require(row.fallback == nil, "\(prefix) — \(row.fallback ?? "") \(row.runInGeometry ?? [:])")
             #expect(row.lines.count >= 2, "\(prefix)")
             for line in row.lines {
                 #expect(abs(line.height - line.pitch) <= 0.1)

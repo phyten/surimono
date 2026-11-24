@@ -50,7 +50,7 @@ struct LaTeXTablePrintingTests {
                       firstCells:[...table.rows].slice(0,3).map(row =>
                         !!row.cells[0]?.querySelector(':scope > .latex-array-strut')),
                       size:getComputedStyle(table).fontSize, pitch:getComputedStyle(table).lineHeight,
-                      font:getComputedStyle(table).fontFamily, dpr:devicePixelRatio});
+                      font:getComputedStyle(table).fontFamily, dpr:devicePixelRatio, scaleY:new DOMMatrix(size.transform).d});
                     """, until: .now + .seconds(3))
                 if let value = value as? String { dimensions = value }
             } catch { dimensions = String(describing: error) }
@@ -73,11 +73,22 @@ struct LaTeXTablePrintingTests {
         let caption = scaled ? "Three" : "Schedule"
         let distance = try inkDistance(row, caption, in: pdf)
         let expected = try inkDistance(row, caption, in: reference)
-        if !scaled { print("Table 012 DOM CSS px \(dimensions) PDF Firm→Schedule=\(distance)pt TeX=\(expected)pt") }
-        #expect(abs(distance - expected) <= 0.3, "実測 \(distance) pt、参照 \(expected) pt DOM=\(dimensions)")
-        guard scaled else { return }
+        if !scaled {
+            print("Table 012 DOM CSS px \(dimensions) PDF Firm→Schedule=\(distance)pt TeX=\(expected)pt")
+            #expect(abs(distance - expected) <= 0.3, "実測 \(distance) pt、参照 \(expected) pt DOM=\(dimensions)")
+            return
+        }
         let metrics = try #require(
             (try? JSONSerialization.jsonObject(with: Data(dimensions.utf8))) as? [String: Any], "\(dimensions)")
+        let dpr = try #require(metrics["dpr"] as? Double)
+        let scaleY = try #require(metrics["scaleY"] as? Double)
+        // TextBoxPainter rounds each baseline to the device grid before the graphic's transform.
+        // Only the row is magnified. The caption contributes its unscaled half pixel.
+        let rounding = (scaleY + 1) / (2 * dpr * WebPaginator.printPixelsPerPoint)
+        let tolerance = dpr > 1 ? max(0.3, rounding) : 0.3
+        #expect(
+            abs(distance - expected) <= tolerance,
+            "実測 \(distance) pt、参照 \(expected) pt、許容 \(tolerance) pt DOM=\(dimensions)")
         #expect(metrics["firstCells"] as? [Bool] == [true, true, true], "\(dimensions)")
         let heading = try inkDistance("Batch comparison grid", "Amber", in: pdf)
         let texHeading = try inkDistance("Batch comparison grid", "Amber", in: reference)

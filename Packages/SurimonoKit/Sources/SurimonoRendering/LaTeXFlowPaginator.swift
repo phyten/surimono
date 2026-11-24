@@ -99,7 +99,11 @@ enum LaTeXFlowPaginator {
             + script("latex-badness") + "\n" + script("latex-latin-plan") + "\n" + script("latex-latin-lines")
         if #available(macOS 26, *) { return source }
         // Earlier JavaScriptCore accepts the v flag but can treat Latin letters as members of that intersection.
-        return source + "\n" + #"latinNonLatinLetter = /(?!\p{Script=Latin})\p{L}/u;"#
+        return source + "\n" + #"""
+            latinNonLatinLetter = /(?!\p{Script=Latin})\p{L}/u;
+            latinMeasureDescriptionGap = true;
+            globalThis.surimonoLatinCSSPixelsPerRect = latinCSSPixelsPerRect;
+            """#
     }
 
     static func latinLineScript() throws -> String { try latinSource.get() }
@@ -124,6 +128,12 @@ enum LaTeXFlowPaginator {
         let media = view.mediaType
         view.mediaType = "print"
         defer { view.mediaType = media }
+        let rectToCSS: String
+        if #available(macOS 26, *) {
+            rectToCSS = "1 / zoom"
+        } else {
+            rectToCSS = "zoom === 1 ? 1 : surimonoLatinCSSPixelsPerRect(document.body)"
+        }
         let prepare = """
             const root = document.documentElement, saved = root.style.cssText;
             const zoom = parseFloat(getComputedStyle(root).zoom) || 1;
@@ -136,7 +146,7 @@ enum LaTeXFlowPaginator {
               root.style.width = width / zoom + 'px';
               root.getBoundingClientRect();
               await document.fonts.ready;
-              globalThis.surimonoLatinLast = surimonoComposeLatin(document.body, 1 / zoom, undo);
+              globalThis.surimonoLatinLast = surimonoComposeLatin(document.body, \(rectToCSS), undo);
             } finally { root.style.cssText = saved; }
             return !!globalThis.surimonoMathProofs?.length;
             """
@@ -350,10 +360,11 @@ enum LaTeXFlowPaginator {
         }
         // Failed passes are discarded with their session. Successful passes restore the exact preparation DOM.
         let measure = try japaneseLineScript() + "\n" + script("latex-flow")
-        let dimensions: [String: Any] = [
+        var dimensions: [String: Any] = [
             "width": width, "leftMargin": margins.left * ratio, "rightMargin": margins.right * ratio,
             "paperHeight": pageSize.height * ratio, "bodyHeight": height,
         ]
+        if #unavailable(macOS 26) { dimensions["checksNestedZoom"] = true }
         func measurement(_ script: String) async throws -> LaTeXFlowLayout.Measurement {
             guard let json = try await run(script, dimensions) as? String else {
                 throw WebPaginator.PaginationError.printFailed
