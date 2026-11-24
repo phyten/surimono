@@ -169,7 +169,7 @@ struct ProsePanel: View {
             }
             .contentShape(Rectangle())
         }
-        .disclosureGroupStyle(ProseDisclosureStyle())
+        .disclosureGroupStyle(PanelDisclosureStyle())
     }
 
     private func finding(_ row: ProsePanelReport.Row, group: ProsePanelReport.Group, generation: Int) -> some View {
@@ -259,34 +259,5 @@ struct ProsePanel: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(label))
         .accessibilityValue(Text(verbatim: value))
-    }
-}
-
-private struct ProseDisclosureStyle: DisclosureGroupStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Button {
-                configuration.isExpanded.toggle()
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: configuration.isExpanded ? "chevron.down" : "chevron.forward")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(PrintPalette.ink2)
-                        .frame(width: 10)
-                    configuration.label
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityRepresentation {
-                DisclosureGroup(isExpanded: configuration.$isExpanded) {
-                    EmptyView()
-                } label: {
-                    configuration.label
-                }
-                .disclosureGroupStyle(.automatic)
-            }
-            if configuration.isExpanded { configuration.content }
-        }
     }
 }

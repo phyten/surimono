@@ -48,20 +48,12 @@ extension DocumentViewModel {
     /// A document can promote only its own edits. A file instruction belongs to its author.
     func makeOrgDefaults() {
         guard offersOrgReading, let file = orgFileInstructions else { return }
-        let settings = orgReading
-        var defaults = settings.defaults
-        let numbers = settings.resolve(.sectionNumbers, file: file)
-        let contents = settings.resolve(.tableOfContents, file: file)
-        let scripts = settings.resolve(.scripts, file: file)
-        if numbers.layer == .document { defaults.sectionNumbers = numbers.value }
-        if contents.layer == .document { defaults.tableOfContents = contents.value }
-        if scripts.layer == .document { defaults.scripts = scripts.value }
-        preferences.setOrgDefaults(defaults)
+        preferences.setOrgDefaults(orgReading.effectiveDefaults(file: file, documentOnly: true))
     }
 }
 
 struct OrgReadingPanel: View {
-    // Includes the panel insets and reset arrow with all three Japanese choices on one line.
+    // Includes both side insets. Longer rows place their control below the label.
     static let width: CGFloat = 286
     let model: DocumentViewModel
     @State private var confirmation: Confirmation?
