@@ -141,6 +141,9 @@ struct PrintFinishSheet: View {
             section("Printer Adjustments") { PrintPrinterOptions(model: model) }.id(PrintFinishSection.printer)
             newDocumentsDefault
         }
+        #if DEBUG
+            .reportPrintFinishFrame(.content)
+        #endif
         // A wide control in one section must not shift the leading edge of every other section.
         .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
         .padding(16)
@@ -198,8 +201,18 @@ struct PrintFinishSheet: View {
         _ title: LocalizedStringKey, isFirst: Bool = false, @ViewBuilder content: () -> Content
     ) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            if !isFirst { Rectangle().fill(PrintPalette.line).frame(height: 1).padding(.bottom, 11) }
-            Text(title).font(.system(size: 13, weight: .semibold)).padding(.bottom, 7)
+            if !isFirst {
+                Rectangle().fill(PrintPalette.line).frame(height: 1)
+                    #if DEBUG
+                        .reportPrintFinishFrame(.divider(title))
+                    #endif
+                    .padding(.bottom, 11)
+            }
+            Text(title).font(.system(size: 13, weight: .semibold))
+                #if DEBUG
+                    .reportPrintFinishFrame(.heading(title))
+                #endif
+                .padding(.bottom, 7)
             content()
         }
         .padding(.bottom, 11)
@@ -411,7 +424,7 @@ struct PrintFinishSheet: View {
                     count: PrintModeText.format(
                         "%lld places", language: model.language, facts?.thematicBreakCount ?? 0))
                 subheading("Your Own Syntax")
-                TextField("Your Own Syntax", text: $customLine, prompt: Text(verbatim: "＝＝改ページ＝＝"))
+                TextField("Your Own Syntax", text: $customLine, prompt: Text("==page break=="))
                     .labelsHidden()
                     .textFieldStyle(.roundedBorder)
                     .controlSize(.small)
@@ -500,6 +513,42 @@ struct PrintFinishSheet: View {
         }
     }
 }
+
+#if DEBUG
+    // SwiftUI headings and decorative rules need not have AppKit views. Report their unclipped layout bounds.
+    struct PrintFinishFrame: Equatable {
+        enum Element: Equatable {
+            case content
+            case heading(LocalizedStringKey)
+            case divider(LocalizedStringKey)
+            case segment(LocalizedStringKey)
+        }
+
+        let element: Element
+        let rect: CGRect
+    }
+
+    struct PrintFinishFrames: PreferenceKey {
+        static var defaultValue: [PrintFinishFrame] { [] }
+        static func reduce(value: inout [PrintFinishFrame], nextValue: () -> [PrintFinishFrame]) {
+            value += nextValue()
+        }
+    }
+
+    extension View {
+        func reportPrintFinishFrame(_ element: PrintFinishFrame.Element) -> some View {
+            background {
+                GeometryReader { geometry in
+                    Color.clear.preference(
+                        key: PrintFinishFrames.self,
+                        value: [
+                            PrintFinishFrame(element: element, rect: geometry.frame(in: .named("printFinishPanel")))
+                        ])
+                }
+            }
+        }
+    }
+#endif
 
 /// A switch with its name beside it, on the left edge of its section like the other controls. At the far end of the
 /// row, the switch sent the eye to the right for the control and back to the left for its name.

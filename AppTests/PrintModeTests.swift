@@ -489,36 +489,116 @@ struct PrintModeTests {
         #expect(width(ideal.width + 2) >= ideal.width)
     }
 
-    @Test("改ページと目次の三択は幅に応じて縦に並び、両端がパネル内に収まる", arguments: ["en", "de", "ja"], [428, 560])
-    func finishSegmentsFit(language: String, width: CGFloat) async throws {
-        func check<Value>(_ label: LocalizedStringKey, _ choices: [PrintChoice<Value>]) async throws {
-            let segments = PrintSegments(label: label, options: choices, selection: choices.first?.value) { _ in }
-                .environment(\.locale, Locale(identifier: language))
-            let controller = NSHostingController(rootView: segments)
-            let wide = controller.sizeThatFits(in: CGSize(width: 1_000, height: 200))
-            let size = controller.sizeThatFits(in: CGSize(width: width, height: 200))
-            let detail = "language=\(language) available=\(width) wide=\(wide) size=\(size)"
-            #expect(size.width <= width, "\(detail)")
-            #expect(wide.height < 32, "\(detail)")
-            #expect((size.height > wide.height) == (wide.width > width), "\(detail)")
-            if language == "ja" { #expect(size.height == wide.height, "\(detail)") }
+    private func popUp(in host: NSView) -> (any NSAccessibilityProtocol)? {
+        OrgReadingTestWindow.elements(in: host).first { $0.accessibilityRole() == .popUpButton }
+    }
 
-            var frame = CGRect.zero
-            let screen = OrgReadingTestWindow(width: width, height: 200) {
-                segments
-                    .onGeometryChange(for: CGRect.self) {
-                        $0.frame(in: .global)
-                    } action: {
-                        frame = $0
-                    }
-                    .frame(width: width)
+    @Test("改ページと目次は収まる幅で横一列になり、狭くするとメニューに同じ選択値が出る", arguments: ["en", "de", "ja"])
+    func finishSegmentsFit(language: String) throws {
+        let url = try #require(Bundle.main.url(forResource: language, withExtension: "lproj"))
+        let strings = try #require(Bundle(url: url))
+        func check<Value>(_ label: LocalizedStringKey, _ choices: [PrintChoice<Value>], selected: Value, title: String)
+        {
+            let segments = PrintSegments(label: label, options: choices, selection: selected) { _ in
+                Issue.record("幅の変更で選択が書き換わった")
             }
-            defer { screen.window.close() }
-            try await screen.wait(detail) { !frame.isEmpty }
-            #expect(frame.minX >= 0 && frame.maxX <= width, "\(detail) frame=\(frame)")
+            .environment(\.locale, Locale(identifier: language))
+            .environment(\.accessibilityEnabled, true)
+            let controller = NSHostingController(rootView: segments)
+            let host = controller.view
+            let rowWidth = controller.sizeThatFits(in: CGSize(width: 560, height: 100)).width
+            for width: CGFloat in [560, 428, 411, 560] {
+                let available = CGSize(width: width, height: 100)
+                #expect(controller.sizeThatFits(in: available).width <= width)
+                host.setFrameSize(available)
+                host.layoutSubtreeIfNeeded()
+                let popup = popUp(in: host)
+                let usesRow = rowWidth <= width
+                #expect((popup == nil) == usesRow, "language=\(language) width=\(width)")
+                if !usesRow {
+                    let value = strings.localizedString(forKey: title, value: nil, table: nil)
+                    #expect(popup?.accessibilityValue() as? String == value)
+                }
+            }
         }
-        try await check("Page Breaks", PrintChapterBreakChoice.choices)
-        try await check("Contents Page", PrintContentsChoice.choices)
+        check(
+            "Page Breaks", PrintChapterBreakChoice.choices, selected: .page, title: "New Page for Each Chapter")
+        check("Contents Page", PrintContentsChoice.choices, selected: .front, title: "Add Contents to Front")
+    }
+
+    @Test("幅428ptの印刷設定では英独の改ページと目次がメニューになり、日本語は横一列を保つ", arguments: ["en", "de", "ja"])
+    func finishChoicesInPanel(language: String) throws {
+        let fixture = Fixture()
+        let model = fixture.model(format: .markdown)
+        model.printFinish.breaks.h1 = .page
+        model.printFinish.toc.mode = .front
+        let size = CGSize(width: 428, height: 720)
+        let panel = PrintFinishSheet(model: model)
+            .environment(\.locale, Locale(identifier: language))
+            .environment(\.accessibilityEnabled, true)
+        let host = NSHostingView(rootView: panel.frame(width: size.width, height: size.height))
+        host.setFrameSize(size)
+        host.layoutSubtreeIfNeeded()
+        let values = OrgReadingTestWindow.elements(in: host)
+            .filter { $0.accessibilityRole() == .popUpButton }
+            .compactMap { $0.accessibilityValue() as? String }
+        let url = try #require(Bundle.main.url(forResource: language, withExtension: "lproj"))
+        let strings = try #require(Bundle(url: url))
+        for key in ["New Page for Each Chapter", "Add Contents to Front"] {
+            let selected = strings.localizedString(forKey: key, value: nil, table: nil)
+            #expect(values.contains(selected) == (language != "ja"), "language=\(language) values=\(values)")
+        }
+    }
+
+    @Test("幅460ptの印刷設定は左右両方向で本文・見出し・区切り線・選択欄が両端に収まる", arguments: ["en", "fr"], [false, true])
+    func finishPanelFrames(language: String, rightToLeft: Bool) throws {
+        let fixture = Fixture()
+        fixture.preferences.layoutID = PrintLayout.a4Single.id
+        let model = fixture.model(format: .markdown)
+        model.printFinish.breaks.h1 = .page
+        var frames: [PrintFinishFrame] = []
+        let size = CGSize(width: 460, height: 720)
+        let panel = PrintFinishSheet(model: model)
+            .environment(\.locale, Locale(identifier: language))
+            .environment(\.layoutDirection, rightToLeft ? .rightToLeft : .leftToRight)
+            .environment(\.accessibilityEnabled, true)
+            .frame(width: size.width, height: size.height)
+            .coordinateSpace(name: "printFinishPanel")
+            .onPreferenceChange(PrintFinishFrames.self) { frames = $0 }
+        let host = NSHostingView(rootView: panel)
+        host.setFrameSize(size)
+        host.layoutSubtreeIfNeeded()
+
+        func check(_ rect: CGRect, _ item: String) {
+            let detail = "language=\(language) rtl=\(rightToLeft) item=\(item) frame=\(rect) panel=\(host.bounds)"
+            #expect(!rect.isEmpty && rect.minX >= host.bounds.minX && rect.maxX <= host.bounds.maxX, "\(detail)")
+        }
+        let sections: [LocalizedStringKey] = [
+            "Paper & Margins", "Header & Footer", "Page Breaks", "Contents Page", "Proof Marks", "Footnotes",
+            "Links on Paper", "Note Pages", "Printer Adjustments",
+        ]
+        let elements = frames.map(\.element)
+        #expect(elements.contains(.content))
+        for (index, title) in sections.enumerated() {
+            #expect(elements.contains(.heading(title)))
+            if index > 0 { #expect(elements.contains(.divider(title))) }
+        }
+        // Depth stays inline in both languages, even when the chapter break choices use a popup.
+        #expect(elements.contains(.segment("Chapters")))
+        #expect(elements.contains(.segment("Sections")))
+        for frame in frames { check(frame.rect, String(describing: frame.element)) }
+
+        let url = try #require(Bundle.main.url(forResource: language, withExtension: "lproj"))
+        let strings = try #require(Bundle(url: url))
+        let selected = strings.localizedString(forKey: "New Page for Each Chapter", value: nil, table: nil)
+        let pickers = OrgReadingTestWindow.elements(in: host).compactMap { $0 as? NSControl }.filter {
+            $0.cell?.accessibilityRole() == .popUpButton || $0 is NSSegmentedControl
+        }
+        #expect(pickers.contains { $0.cell?.accessibilityValue() as? String == selected })
+        for picker in pickers {
+            // A visible rect would already have discarded the part that extends past the scroll view.
+            check(picker.convert(picker.bounds, to: host), String(describing: picker.cell?.accessibilityValue()))
+        }
     }
 
     @Test("英語の見出し別の三択はスクロールバーのある設定行でも一列に収まる", arguments: HeadingBreak.allCases)
@@ -528,22 +608,41 @@ struct PrintModeTests {
         let row = sheet.levelRow(level: 1, rule: .constant(rule)).environment(\.locale, Locale(identifier: "en"))
         // The captured 460 pt panel leaves 411 pt for this row and 256 pt after its label and gap.
         let available = CGSize(width: 411, height: 200)
-        let size = NSHostingController(rootView: row).sizeThatFits(in: available)
+        let host = NSHostingController(rootView: row.environment(\.accessibilityEnabled, true))
+        let size = host.sizeThatFits(in: available)
         #expect(size.width <= available.width)
         #expect(size.height == 32)
+        host.view.setFrameSize(available)
+        host.view.layoutSubtreeIfNeeded()
+        #expect(popUp(in: host.view) == nil)
     }
 
-    @Test("フランス語の出力順はプリンター未選択でも右列に収まる", arguments: PrintPageOrder.allCases)
-    func frenchPrinterOrderFits(order: PrintPageOrder) {
+    @Test("フランス語の出力順はプリンターの有無にかかわらず右列に収まる", arguments: PrintPageOrder.allCases, [false, true])
+    func frenchPrinterOrderFits(order: PrintPageOrder, hasPrinter: Bool) throws {
         let fixture = Fixture()
         fixture.preferences.printPageOrder = order
         let model = fixture.model()
-        #expect(model.selectedPrinterName == nil)
+        model.printerListSource = {
+            hasPrinter ? PrinterList(names: ["Test Printer"], defaultName: "Test Printer") : .empty
+        }
+        model.printerCapabilitiesSource = { _ in nil }
+        model.refreshPrinters()
+        #expect(model.selectedPrinterName == (hasPrinter ? "Test Printer" : nil))
         let picker = PrintPrinterOptions(model: model).outputOrderPicker.environment(\.locale, Locale(identifier: "fr"))
-        let host = NSHostingController(rootView: picker)
         for width: CGFloat in [256, 273] {
-            let size = host.sizeThatFits(in: CGSize(width: width, height: 100))
-            #expect(size.width > 0 && size.width <= width)
+            let size = CGSize(width: width, height: 100)
+            let controller = NSHostingController(rootView: picker.environment(\.accessibilityEnabled, true))
+            #expect(controller.sizeThatFits(in: size).width <= width)
+            let host = controller.view
+            host.setFrameSize(size)
+            host.layoutSubtreeIfNeeded()
+            let control = try #require(
+                OrgReadingTestWindow.elements(in: host).compactMap { $0 as? NSControl }.first {
+                    $0.cell?.accessibilityRole() == .popUpButton
+                })
+            let frame = control.convert(control.bounds, to: host)
+            #expect(control.isEnabled == hasPrinter)
+            #expect(!frame.isEmpty && frame.minX >= 0 && frame.maxX <= width)
         }
     }
 

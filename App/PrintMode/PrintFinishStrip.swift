@@ -64,50 +64,33 @@ struct PrintChoice<Value: Hashable> {
     }
 }
 
-/// Moving the same buttons into a column keeps keyboard focus when the available width changes.
-private struct PrintSegmentLayout: Layout {
-    private func frames(width: CGFloat?, subviews: Subviews) -> [CGRect] {
-        let sizes = subviews.map { $0.sizeThatFits(.unspecified) }
-        let rowWidth = sizes.reduce(0) { $0 + $1.width }
-        let available = width ?? rowWidth
-        let stacked = rowWidth > available
-        let columnWidth = min(available, sizes.map(\.width).max() ?? 0)
-        var origin = CGPoint.zero
-        return sizes.map { size in
-            let frame = CGRect(
-                origin: origin, size: CGSize(width: stacked ? columnWidth : size.width, height: size.height))
-            if stacked { origin.y = frame.maxY } else { origin.x = frame.maxX }
-            return frame
-        }
-    }
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        frames(width: proposal.width, subviews: subviews).reduce(CGRect.zero) { $0.union($1) }.size
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        for (button, frame) in zip(subviews, frames(width: proposal.width, subviews: subviews)) {
-            button.place(
-                at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY),
-                anchor: .topLeading, proposal: ProposedViewSize(frame.size))
-        }
-    }
-}
-
 /// A group of choices in the tray's own colors; the chosen one is drawn in ai.
 struct PrintSegments<Value: Hashable>: View {
     let label: LocalizedStringKey
     let options: [PrintChoice<Value>]
-    let selection: Value?
-    var help: LocalizedStringKey?
+    let selection: Value
     let choose: (Value) -> Void
     @Environment(\.printAccent) private var accent
     @Environment(\.printAccentInk) private var accentInk
 
     var body: some View {
-        PrintSegmentLayout {
-            ForEach(options.indices, id: \.self) { index in
-                let option = options[index]
+        ViewThatFits(in: .horizontal) {
+            row.fixedSize()
+            Picker(label, selection: Binding(get: { selection }, set: { choose($0) })) {
+                ForEach(options, id: \.value) { option in
+                    Text(option.title).tag(option.value)
+                }
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+            .accessibilityLabel(Text(label))
+        }
+        .help(Text(label))
+    }
+
+    private var row: some View {
+        HStack(spacing: 0) {
+            ForEach(options, id: \.value) { option in
                 let isOn = option.value == selection
                 Button {
                     choose(option.value)
@@ -117,20 +100,22 @@ struct PrintSegments<Value: Hashable>: View {
                         .foregroundStyle(isOn ? accentInk : PrintPalette.ink2)
                         .lineLimit(1)
                         .padding(.horizontal, 9)
-                        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
                         .frame(height: 24)
                         .background(CornerRole.smallControl.shape.fill(isOn ? accent : .clear))
                         .contentShape(CornerRole.smallControl.shape)
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(isOn ? .isSelected : [])
+                #if DEBUG
+                    .reportPrintFinishFrame(.segment(option.title))
+                #endif
             }
         }
         .padding(2)
         .background(CornerRole.largeControl.shape.fill(PrintPalette.hover))
-        .help(help.map { Text($0) } ?? Text(label))
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text(label))
+        .accessibilityValue(options.first { $0.value == selection }.map { Text($0.title) } ?? Text(verbatim: ""))
     }
 }
 
