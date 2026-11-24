@@ -11,8 +11,15 @@ struct SourceSelectionBoundaryTests {
         var extracted = ""
         /// PDFKit leaves the line break at the end of a selection out of its text.
         var dropsTrailingBreak = false
+        var selectable: String?
+        override var numberOfCharacters: Int { selectable?.utf16.count ?? extracted.utf16.count }
         override var string: String? { extracted }
         override func selection(for range: NSRange) -> PDFSelection? {
+            if let selectable {
+                let part = Text(document: PDFDocument())
+                part.text = (selectable as NSString).substring(with: range)
+                return part
+            }
             guard dropsTrailingBreak else { return super.selection(for: range) }
             var text = (extracted as NSString).substring(with: range)
             if text.hasSuffix("\n") { text.removeLast() }
@@ -37,19 +44,34 @@ struct SourceSelectionBoundaryTests {
     }
 
     private func copy(
-        _ source: String, pages: [String], selecting: [Int: Range<Int>], dropsTrailingBreak: Bool = false
+        _ source: String, pages: [String], selecting: [Int: Range<Int>], dropsTrailingBreak: Bool = false,
+        selectable: String? = nil
     ) -> String? {
         let pdf = PDFDocument()
         let selection = Selection(document: pdf)
         for (i, text) in pages.enumerated() {
             let page = Page()
             page.extracted = text
+            page.selectable = selectable
             page.dropsTrailingBreak = dropsTrailingBreak
             pdf.insert(page, at: i)
             if let range = selecting[i] { selection.spans.append((page, NSRange(range))) }
         }
         SourcePaperText.attach(source, to: pdf, options: .sourcePage, language: nil)
         return SourcePaperText.selected(selection, in: pdf, logicalIndex: { pdf.index(for: $0) })
+    }
+
+    @Test("ページ文字列だけに加わった外周の空白を除いて選択し、原文のタブと末尾の改行は保つ")
+    func extractionPadding() {
+        let source = "\tA😀B\r\n\r\n"
+        for page in ["A😀B\n", " A😀B\n", " A😀B"] {
+            #expect(copy(source, pages: [page], selecting: [0: 0..<4], selectable: "A😀B") == source)
+            #expect(copy(source, pages: [page], selecting: [0: 1..<3], selectable: "A😀B") == "😀")
+            #expect(copy(source, pages: [page], selecting: [0: 3..<4], selectable: "A😀B") == "B")
+        }
+        #expect(copy(source, pages: ["A😀B!"], selecting: [0: 0..<4], selectable: "A😀B") == nil)
+        #expect(copy("\t\r\n", pages: [" \n"], selecting: [0: 0..<1], selectable: " ") == "\t\r\n")
+        #expect(copy("X", pages: [" \n"], selecting: [0: 0..<1], selectable: "X") == nil)
     }
 
     @Test("PDF が漢字と康熙部首を取り違えても選択した原文を保ち、別の字は照合しない")

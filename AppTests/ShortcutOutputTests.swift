@@ -511,9 +511,7 @@ extension ShortcutOutputTests {
         #expect(f.model.isPrintFinishPresented)
         let key = f.event("p", inWindow: false)
         try #require(key.window == nil)
-        f.menus.start()
-        NotificationCenter.default.post(name: NSMenu.didBeginTrackingNotification, object: f.menu)
-        defer { NotificationCenter.default.post(name: NSMenu.didEndTrackingNotification, object: f.menu) }
+        f.trackingDepth = 1
         #expect(!f.dispatcher.handle(key))
         f.dispatcher.performFromMenu(.documentPrint, event: key)
         #expect(f.model.mode == .print)

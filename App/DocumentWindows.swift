@@ -1,11 +1,12 @@
 import AppKit
 import Observation
 
-/// AppKit-hosted windows do not participate in SwiftUI's scene focus propagation.
+/// Maps the current key window to its document. Utility windows intentionally resolve to nil.
 @Observable
 final class DocumentWindows: NSObject {
     static let shared = DocumentWindows()
-    private(set) weak var activeModel: DocumentViewModel?
+    // Keep the last observed value until the next key-window notification, including the final close.
+    private(set) var activeModel: DocumentViewModel?
     @ObservationIgnored private let models = NSMapTable<NSWindow, DocumentViewModel>.weakToWeakObjects()
     var currentModel: DocumentViewModel? {
         model(for: NSApp.keyWindow)
@@ -23,8 +24,10 @@ final class DocumentWindows: NSObject {
 
     override private init() {
         super.init()
-        for name in [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification] {
-            NotificationCenter.default.addObserver(self, selector: #selector(updateActive), name: name, object: nil)
+        for name in [
+            NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification, NSWindow.willCloseNotification,
+        ] {
+            NotificationCenter.default.addObserver(self, selector: #selector(keyWindowChanged), name: name, object: nil)
         }
     }
 
@@ -36,12 +39,21 @@ final class DocumentWindows: NSObject {
 
     func register(_ model: DocumentViewModel, for window: NSWindow) {
         models.setObject(model, forKey: window)
+        #if DEBUG
+            DebugMenuDump.documentRegistered()
+        #endif
         // The file may have finished opening before its window existed.
         router.handAccess(to: model)
         updateActive()
     }
 
-    @objc private func updateActive() {
-        activeModel = NSApp.keyWindow.flatMap { models.object(forKey: $0) }
+    @objc private func keyWindowChanged() {
+        // AppKit can still return the old key window during resign/close notification delivery.
+        DispatchQueue.main.async { self.updateActive() }
+    }
+
+    private func updateActive() {
+        let current = currentModel
+        if activeModel !== current { activeModel = current }
     }
 }

@@ -69,7 +69,7 @@ struct SourcePaperCopyTests {
         }
         let page = selection.pages.first
         let index = page.flatMap { view.document?.index(for: $0) }
-        let originalPage = index.flatMap { (0..<logical.pageCount).contains($0) ? logical.page(at: $0) : nil }
+        let originalPage = logical.page(at: index ?? 0)
         func ranges(_ selection: PDFSelection?) -> [NSRange] {
             guard let selection, let first = selection.pages.first else { return [] }
             return (0..<min(6, selection.numberOfTextRanges(on: first))).map { selection.range(at: $0, on: first) }
@@ -89,7 +89,8 @@ struct SourcePaperCopyTests {
         return
             "page=\(index ?? -1) ranges=\(ranges(selection))/\(ranges(view.currentSelection)) selected=\(excerpt(selection.string ?? "nil")) "
             + "current=\(excerpt(view.currentSelection?.string ?? "nil")) mapped=\(excerpt(mapped ?? "nil")) wholeLogical=\(excerpt(wholeLogicalPage ?? "nil")) source=\(excerpt(source)) "
-            + "logical=\(extraction(originalPage)) shown=\(extraction(page)) "
+            + "logical=\(extraction(originalPage)) shown=\(extraction(page ?? view.document?.page(at: 0))) "
+            + "selectionPages=\(selection.pages.count)/\(view.currentSelection?.pages.count ?? 0) displayedPages=\(view.document?.pageCount ?? 0) "
             + "fonts=\(fonts.sorted()) scale=\(NSScreen.main?.backingScaleFactor ?? 0) locale=\(Locale.current.identifier)"
     }
 

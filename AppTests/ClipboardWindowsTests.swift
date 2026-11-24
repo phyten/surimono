@@ -344,14 +344,14 @@ struct ClipboardWindowsTests {
             ShortcutMenuBaselineTests.trackingTurn {
                 let version = state.snapshot.version
                 center.post(name: NSMenu.didBeginTrackingNotification, object: main)
-                let hides = menus.updates.hider.writes.counts
+                let rows = file.items
                 windows.open(first, format: .plainText, title: "Menu sample").close()
                 windows.open(second, format: .plainText, title: "Second sample").close()
                 center.post(name: NSMenu.didChangeItemNotification, object: main)
                 #expect(state.snapshot.version == version)
                 #expect(state.snapshot.content.history.isEmpty)
                 #expect(!openRows().contains { $0.id == history || $0.id == reopen })
-                #expect(menus.updates.hider.writes.counts == hides)
+                #expect(file.items == rows)
             }
         }
         await withCheckedContinuation { done in DispatchQueue.main.async { done.resume() } }

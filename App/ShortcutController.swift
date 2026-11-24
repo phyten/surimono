@@ -21,8 +21,8 @@ final class ShortcutController {
     private(set) var unavailableBindings: [ShortcutValidationIssue] = []
     private(set) var loadError = false
     private(set) var migrationError: String?
-    var menuAmbiguities: Set<ShortcutOperationID> = []
     private(set) var standardMenuKeys: [ShortcutOperationID: ShortcutCombination] = [:]
+    private(set) var nativeUserKeys: Set<ShortcutCombination> = []
     private(set) var externalMenuKeys: [ShortcutOperationID: ShortcutCombination] = [:]
     private var localizedDefaults: [ShortcutOperationID: ShortcutCombination] = [:]
     private var preferences: AppPreferences?
@@ -51,7 +51,8 @@ final class ShortcutController {
             if layout.projection != currentLayout.projection { localizedDefaults = [:] }
             layout = currentLayout
         }
-        let combined = (reserved ?? []) + externalMenuKeys.values.map { ShortcutSystemReservation(combination: $0) }
+        let menuKeys = Array(externalMenuKeys.values) + nativeUserKeys
+        let combined = (reserved ?? []) + menuKeys.map { ShortcutSystemReservation(combination: $0) }
         guard
             environment.reservations != combined || environment.reservationsAvailable != (reserved != nil)
                 || environment.projection != layout.projection || environment.projectionAvailable != layout.available
@@ -159,7 +160,6 @@ final class ShortcutController {
     ) throws -> ShortcutChangePlan {
         guard isConnected(operation) else { throw EditError.localEditingUnavailable }
         guard externalMenuKeys[operation] == nil else { throw EditError.externalMenuAssignment }
-        guard !menuAmbiguities.contains(operation) else { throw EditError.localEditingUnavailable }
         guard preferences != nil, !loadError else { throw EditError.savedDataUnavailable }
         // A dialog may have been open while macOS reservations or the input source changed.
         refreshEnvironment()
@@ -193,7 +193,7 @@ final class ShortcutController {
 
     func importBlockedOperations(_ review: ShortcutImportReview) -> [ShortcutOperationID] {
         review.changed.filter { operation in
-            externalMenuKeys[operation] != nil || menuAmbiguities.contains(operation) || !isConnected(operation)
+            externalMenuKeys[operation] != nil || !isConnected(operation)
                 || (operation == .appCheckUpdates && !AppUpdater.shared.isAvailable)
                 || review.configuration.keys(for: operation).contains { reservedByStandardMenu($0, for: operation) }
         }
@@ -247,13 +247,16 @@ final class ShortcutController {
     }
 
     private func reservedByStandardMenu(_ key: ShortcutCombination, for operation: ShortcutOperationID) -> Bool {
-        standardMenuKeys.contains { $0.key != operation && environment.matches($0.value, key) }
+        nativeUserKeys.contains { environment.matches($0, key) }
+            || standardMenuKeys.contains { $0.key != operation && environment.matches($0.value, key) }
     }
 
     func setExternalMenuKeys(
-        _ keys: [ShortcutOperationID: ShortcutCombination], standard: [ShortcutOperationID: ShortcutCombination] = [:]
+        _ keys: [ShortcutOperationID: ShortcutCombination], standard: [ShortcutOperationID: ShortcutCombination] = [:],
+        native: Set<ShortcutCombination> = []
     ) {
-        guard externalMenuKeys != keys || standardMenuKeys != standard else { return }
+        guard externalMenuKeys != keys || standardMenuKeys != standard || nativeUserKeys != native else { return }
+        nativeUserKeys = native
         standardMenuKeys = standard
         externalMenuKeys = keys
         refreshEnvironment()
@@ -289,7 +292,7 @@ final class ShortcutController {
             !base.modifiers.intersection([.command, .control]).isEmpty,
             translatedDefault(base, for: operation) == effective
         else { return nil }
-        // SwiftUI localizes the base key. Feeding it the already translated key would mirror it twice.
+        // AppKit localizes the base key. Feeding it the already translated key would mirror it twice.
         return base
     }
 
@@ -300,7 +303,6 @@ final class ShortcutController {
     }
 
     private func resolvedKeys(for operation: ShortcutOperationID) -> [ShortcutCombination] {
-        guard !menuAmbiguities.contains(operation) else { return [] }
         if let key = externalMenuKeys[operation] {
             if reservedByStandardMenu(key, for: operation) { return [] }
             let conflict = externalMenuKeys.contains { owner, other in
@@ -368,7 +370,6 @@ final class ShortcutController {
         let snapshot: ShortcutConfiguration
         let environment: ShortcutValidationContext
         let unavailable: [ShortcutValidationIssue]
-        let ambiguous: Set<ShortcutOperationID>
         let external: [ShortcutOperationID: ShortcutCombination]
         let standard: [ShortcutOperationID: ShortcutCombination]
         let loadError: Bool
@@ -382,7 +383,7 @@ final class ShortcutController {
             hotKeys.isRegistered($0) && !hotKeys.failed.contains($0)
         }
         let inputs = StatusInputs(
-            snapshot: snapshot, environment: environment, unavailable: unavailableBindings, ambiguous: menuAmbiguities,
+            snapshot: snapshot, environment: environment, unavailable: unavailableBindings,
             external: externalMenuKeys, standard: standardMenuKeys, loadError: loadError,
             registered: Set(registered.map(\.operation)))
         if let cachedStatuses, cachedStatuses.0 == inputs { return cachedStatuses.1 }
@@ -394,9 +395,7 @@ final class ShortcutController {
         for operation in ShortcutOperation.catalog {
             let id = operation.id
             let keys = snapshot.keys(for: id)
-            if menuAmbiguities.contains(id) {
-                result[id] = .note(String(localized: "This menu command could not be identified uniquely."))
-            } else if externalMenuKeys[id] != nil {
+            if externalMenuKeys[id] != nil {
                 result[id] = .inline(String(localized: "Managed in macOS"))
             } else if loadError {
                 result[id] = .note(Self.message(EditError.savedDataUnavailable))

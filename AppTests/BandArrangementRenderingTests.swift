@@ -280,10 +280,15 @@ struct BandArrangementRenderingTests {
         try await waitUntil { popoverCount(window) == base + 1 }
 
         let wide = window.contentRect(forFrameRect: window.frame).size
-        window.setContentSize(NSSize(width: 260, height: wide.height))
-        #expect(window.contentRect(forFrameRect: window.frame).width == 260)
+        let minimum = ceil(ViewerWindow.bandMinimumWidth(of: window))
+        try #require(minimum > 0 && minimum < wide.width)
+        window.setContentSize(NSSize(width: minimum, height: wide.height))
+        #expect(window.contentRect(forFrameRect: window.frame).width == minimum)
         try await waitUntil { anchors.plan != nil && anchors.plan?.band(of: folding) == nil }
-        #expect(anchors.plan?.overflow.contains(folding) == true)
+        #expect(
+            anchors.plan?.overflow.contains(folding) == true,
+            "部品 \(folding)、指定幅 \(minimum)、実幅 \(window.frame.width)、描画計画 \(String(describing: anchors.plan))"
+        )
         #expect(isPresented(popover, in: model))
         #expect(popoverCount(window) == base + 1)
 

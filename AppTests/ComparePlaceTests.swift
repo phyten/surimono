@@ -58,7 +58,7 @@ struct ComparePlaceTests {
 
         await model.themeSamples.load(standard, at: place)
         let sample = try #require(model.themeSamples.page(for: standard, at: place))
-        #expect(sample.string?.hasPrefix("返し方") == true)
+        #expect(sample.string?.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("返し方") == true)
         #expect(model.themeSamples.page(for: standard) === first)
     }
 

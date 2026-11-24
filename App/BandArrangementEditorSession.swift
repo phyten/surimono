@@ -220,7 +220,7 @@ final class BandArrangementEditorSession {
     }
     /// Opens Settings for the question when its window is not on screen; tests stand in for it.
     @ObservationIgnored var showSettings: @MainActor () -> Void = {
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        AppKitShell.current?.showSettings(nil)
     }
 
     init(preferences: AppPreferences) {
@@ -331,7 +331,6 @@ final class BandArrangementEditorSession {
         draft = baseLayouts
         selection = nil
         revision += 1
-        windowGuard?.refreshProtection()
     }
 
     // MARK: - Editing the draft
@@ -581,7 +580,7 @@ final class BandArrangementEditorSession {
     }
 
     /// The Settings window's guard, which closes the window once the reader has answered.
-    @ObservationIgnored weak var windowGuard: SettingsWindowGuard?
+    @ObservationIgnored weak var settingsController: SettingsWindowController?
     /// Routes the Settings window's Undo and Redo here while the editor shows.
     @ObservationIgnored weak var undoRouter: SettingsUndoRouter?
 
@@ -590,7 +589,6 @@ final class BandArrangementEditorSession {
     func didAppear() {
         refresh()
         undoRouter?.insertIntoChain()
-        windowGuard?.reinstallIfNeeded()
     }
 
     /// Every change of the Settings section goes here: leaving the editor with unsaved changes asks first.
@@ -659,7 +657,7 @@ final class BandArrangementEditorSession {
             // After the question has gone: one sheet at a time.
             Task { @MainActor in self.dialog = .new }
         case .section(let section): preferences.settingsSection = section
-        case .closeWindow: windowGuard?.closeWithoutAsking()
+        case .closeWindow: settingsController?.window?.close()
         case .quit: replyToTermination(true)
         }
     }
@@ -677,7 +675,7 @@ final class BandArrangementEditorSession {
         dialog = nil
         preferences.settingsSection = .toolbarArrangement
         pendingLeave = .quit
-        if let window = windowGuard?.window, window.isVisible {
+        if let window = settingsController?.window, window.isVisible {
             window.makeKeyAndOrderFront(nil)
         } else {
             // The question is asked in Settings.
@@ -780,8 +778,6 @@ final class BandArrangementEditorSession {
         history.setActionName(action)
         history.endUndoGrouping()
         refreshHistory()
-        // Unsaved work now depends on the close guard.
-        windowGuard?.reinstallIfNeeded()
     }
 
     private func restore(_ snapshot: Snapshot, action: String) {
@@ -819,7 +815,6 @@ final class BandArrangementEditorSession {
             MainActor.assumeIsolated { session.restore(current, action: action) }
         }
         history.setActionName(action)
-        windowGuard?.refreshProtection()
     }
 
     private func refreshHistory() {

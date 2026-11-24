@@ -106,11 +106,11 @@ struct ViewModeView: View {
         .onChange(of: model.latexBadge == nil) { _, hidden in
             if hidden { model.isLaTeXRecognitionPresented = false }
         }
-        .onChange(of: plans.resolved, initial: true) { _, plan in
-            model.bandAnchors.plan = plan
+        .recordingBandPlan(plans.resolved, in: model.bandAnchors)
+        .onChange(of: plans.band(of: .thumbnails) == nil, initial: true) { _, hidden in
             // The list button's place is a drop target only while the list is on a band: a fold or another arrangement
             // leaves its last place behind, where a resting drag would open the list.
-            if plan.band(of: .thumbnails) == nil { model.drop.listButtonFrame = nil }
+            if hidden { model.drop.listButtonFrame = nil }
         }
         .onChange(of: bandVisible) { _, visible in
             if let window = model.window { ViewerWindow.setTrafficLightsVisible(visible, in: window) }

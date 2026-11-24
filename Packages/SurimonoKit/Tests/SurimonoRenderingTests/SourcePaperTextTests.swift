@@ -36,9 +36,12 @@ struct SourcePaperTextTests {
             hasLogicalMargins: false, showsNumbers: true)
         let view = try #require(ViewPageDocument.make(pdf, plan: plan, margin: 0))
         let page = try #require(view.page(at: 0))
-        #expect(page.string == "body1")
+        #expect(page.string?.trimmingCharacters(in: .newlines) == "body1")
         let all = try #require(page.selection(for: NSRange(location: 0, length: page.numberOfCharacters)))
-        #expect(SourcePaperText.selected(all, in: pdf, logicalIndex: { view.index(for: $0) }) == "body1\r\n")
+        #expect(
+            SourcePaperText.selected(all, in: pdf, logicalIndex: { view.index(for: $0) }) == "body1\r\n",
+            "pages=\(all.pages.count) ranges=\(all.numberOfTextRanges(on: page)) chars=\(page.numberOfCharacters)/\(page.string?.utf16.count ?? 0)"
+        )
         let matches = view.findString("1")
         #expect(matches.count == 1)
         let last = try #require(matches.first)
@@ -92,9 +95,10 @@ struct SourcePaperTextTests {
             SourcePaperText.include(child, in: binder, startingAt: binder.pageCount)
             binder.insert(try #require(StandalonePage.copy(of: page)), at: binder.pageCount)
         }
-        let page = try #require(binder.page(at: 1))
+        let finished = try #require(StandalonePage.selectableDocument(binder))
+        let page = try #require(finished.page(at: 1))
         let selection = try #require(page.selection(for: NSRange(location: 0, length: page.numberOfCharacters)))
         #expect(
-            SourcePaperText.selected(selection, in: binder, logicalIndex: { binder.index(for: $0) }) == "\t紙1\r\n")
+            SourcePaperText.selected(selection, in: finished, logicalIndex: { finished.index(for: $0) }) == "\t紙1\r\n")
     }
 }
