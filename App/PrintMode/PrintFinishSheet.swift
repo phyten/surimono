@@ -253,8 +253,9 @@ struct PrintFinishSheet: View {
     ) -> some View {
         HStack(spacing: 10) {
             name().frame(width: Self.nameColumnWidth, alignment: .leading)
+            // The choices need the entire remaining column to decide whether one row fits.
             choice()
-            Spacer(minLength: 0)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(minHeight: 32)
     }
@@ -428,7 +429,7 @@ struct PrintFinishSheet: View {
         }
     }
 
-    private func levelRow(level: Int, rule: Binding<HeadingBreak>) -> some View {
+    func levelRow(level: Int, rule: Binding<HeadingBreak>) -> some View {
         let count = facts?.headings.filter { $0.level == level }.count ?? 0
         return choiceRow {
             VStack(alignment: .leading, spacing: 0) {
@@ -675,11 +676,7 @@ struct PrintPrinterOptions: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             row("Output Order", hint: printerOrderHint) {
-                PrintPageOrderPicker(order: model.controlBinding(\.printPageOrder))
-                    .disabled(model.selectedPrinterName == nil)
-                    .labelsHidden()
-                    .controlSize(.small)
-                    .fixedSize()
+                outputOrderPicker
             }
             row(
                 "Rotate Back Sides 180°",
@@ -692,6 +689,17 @@ struct PrintPrinterOptions: View {
                     .disabled(!isDuplex || model.selectedPrinterName == nil || !model.canOutput)
             }
         }
+    }
+
+    var outputOrderPicker: some View {
+        let picker = PrintPageOrderPicker(order: model.controlBinding(\.printPageOrder))
+        return ViewThatFits(in: .horizontal) {
+            picker.pickerStyle(.segmented).fixedSize()
+            picker.pickerStyle(.menu)
+        }
+        .labelsHidden()
+        .controlSize(.small)
+        .disabled(model.selectedPrinterName == nil)
     }
 
     private var printerOrderHint: LocalizedStringKey {
@@ -716,11 +724,9 @@ struct PrintPrinterOptions: View {
         VStack(alignment: .leading, spacing: 0) {
             Rectangle().fill(PrintPalette.line).frame(height: 1)
             HStack(alignment: .top, spacing: 10) {
-                // Reserve the usual label column unless the printer's native picker needs some of it.
                 Text(title)
                     .font(.system(size: 12.5))
-                    .frame(minWidth: 0, idealWidth: 145, maxWidth: 145, alignment: .leading)
-                    .layoutPriority(1)
+                    .frame(width: 145, alignment: .leading)
                     .padding(.top, 3)
                 VStack(alignment: .leading, spacing: 5) {
                     control()
@@ -731,7 +737,7 @@ struct PrintPrinterOptions: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
             }
             .padding(.vertical, 9)
         }

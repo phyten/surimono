@@ -521,6 +521,32 @@ struct PrintModeTests {
         try await check("Contents Page", PrintContentsChoice.choices)
     }
 
+    @Test("英語の見出し別の三択はスクロールバーのある設定行でも一列に収まる", arguments: HeadingBreak.allCases)
+    func englishHeadingChoicesFit(rule: HeadingBreak) {
+        let fixture = Fixture()
+        let sheet = PrintFinishSheet(model: fixture.model(format: .markdown))
+        let row = sheet.levelRow(level: 1, rule: .constant(rule)).environment(\.locale, Locale(identifier: "en"))
+        // The captured 460 pt panel leaves 411 pt for this row and 256 pt after its label and gap.
+        let available = CGSize(width: 411, height: 200)
+        let size = NSHostingController(rootView: row).sizeThatFits(in: available)
+        #expect(size.width <= available.width)
+        #expect(size.height == 32)
+    }
+
+    @Test("フランス語の出力順はプリンター未選択でも右列に収まる", arguments: PrintPageOrder.allCases)
+    func frenchPrinterOrderFits(order: PrintPageOrder) {
+        let fixture = Fixture()
+        fixture.preferences.printPageOrder = order
+        let model = fixture.model()
+        #expect(model.selectedPrinterName == nil)
+        let picker = PrintPrinterOptions(model: model).outputOrderPicker.environment(\.locale, Locale(identifier: "fr"))
+        let host = NSHostingController(rootView: picker)
+        for width: CGFloat in [256, 273] {
+            let size = host.sizeThatFits(in: CGSize(width: width, height: 100))
+            #expect(size.width > 0 && size.width <= width)
+        }
+    }
+
     @Test("印刷の帯は幅0で大きさを聞かれても低いままで、刷り台の窓を縦に縮められる")
     func pressBarStaysLowAtZeroWidth() {
         let fixture = Fixture()
