@@ -237,10 +237,11 @@ struct OrgReadingRows: View {
         let inherited = resolved?.inherited ?? OrgReadingDefaults.surimono[keyPath: path]
         let changed = resolved.map { $0.layer == .document } ?? (current != inherited)
         let locked = resolved?.source != nil && model?.orgDocumentReading.allowsFileChanges == false
-        let set: @MainActor @Sendable (Value) -> Void = { value in
+        let editsDefaults = model == nil
+        let set: @MainActor @Sendable (Value) -> Void = { [weak model, preferences] value in
             if let model {
-                model.setOrgValue(value, for: key)
-            } else {
+                if !model.isWindowClosed { model.setOrgValue(value, for: key) }
+            } else if editsDefaults {
                 var updated = preferences.orgReadingDefaults ?? .surimono
                 updated[keyPath: path] = value
                 preferences.setOrgDefaults(updated)

@@ -680,6 +680,12 @@ final class AppPreferences {
         #endif
     }
 
+    func printSettingSet(id: UUID) -> PrintSettingSet? {
+        let language = Bundle.main.preferredLocalizations.first ?? "en"
+        return PrintSettingSet.builtIns(language: language).first { $0.id == id }
+            ?? printSettingSets.first { $0.id == id }
+    }
+
     /// Confirmation belongs to the caller; replacing a name keeps its original place and identity.
     func savePrintSettingSet(_ set: PrintSettingSet) {
         var set = set

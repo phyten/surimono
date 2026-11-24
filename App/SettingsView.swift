@@ -143,8 +143,7 @@ struct SettingsView: View {
             .navigationTitle(
                 visible.isEmpty ? Text(verbatim: "") : Text(LocalizedStringKey(preferences.settingsSection.rawValue))
             )
-            // The hosting controller's title bridging leaves the AppKit window untitled for a title set inside
-            // the split view's detail, so the pane's name is also given to the window directly.
+            // The split view uses navigationTitle internally. SettingsWindowTitle owns the AppKit window title.
             .background(
                 SettingsWindowTitle(
                     title: visible.isEmpty

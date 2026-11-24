@@ -258,8 +258,9 @@
                     try await OpenURLPanel.openDocument(
                         at: url,
                         didOpen: { controller in
-                            firstDocument = controller.model
-                            captureIfReady(controller.model)
+                            guard let model = controller.model else { return }
+                            firstDocument = model
+                            captureIfReady(model)
                         })
                 } catch {
                     logger.error("Snapshot URL could not be opened")

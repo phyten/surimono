@@ -217,7 +217,7 @@ final class ClipboardWindows {
     private func show(_ controller: MemoryDocumentWindowController, printing: Bool) {
         presentWindow(controller)
         closeWelcome()
-        if printing { controller.model.requestPrintMode() }
+        if printing { controller.model?.requestPrintMode() }
     }
 
     private func makeController(

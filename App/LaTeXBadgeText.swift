@@ -94,12 +94,12 @@ struct LaTeXCompositionPicker: View {
     var body: some View {
         // A closure, not the method reference: Swift 6.3 (Xcode 26.6) crashes in IR generation
         // on the thunk it makes for a main-actor method passed as the setter.
-        Picker(selection: Binding(get: { model.latexComposition }, set: { model.selectComposition($0) })) {
-            ForEach(LaTeXComposition.allCases, id: \.self) { choice in
-                Text(verbatim: PrintModeText.string(choice.titleKey, language: model.language)).tag(choice)
+        Picker(selection: model.controlBinding(get: \.latexComposition, set: { $0.selectComposition($1) })) {
+            ForEach(LaTeXComposition.allCases, id: \.self) { [language = model.language] choice in
+                Text(verbatim: PrintModeText.string(choice.titleKey, language: language)).tag(choice)
             }
-        } label: {
-            Text(verbatim: PrintModeText.string("LaTeX Layout", language: model.language))
+        } label: { [language = model.language] in
+            Text(verbatim: PrintModeText.string("LaTeX Layout", language: language))
         }
     }
 }

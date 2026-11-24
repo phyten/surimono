@@ -23,7 +23,7 @@ struct SettingSetMenu<Label: View>: View {
                     builtIns: entries(PrintSettingSet.builtIns(language: language)),
                     saved: entries(preferences.printSettingSets)
                 )
-            ) { action in
+            ) { [model, preferences] action in
                 switch action {
                 case .operation(.settingSetSave):
                     if let current = model() { SettingSetDialogs.save(current) }

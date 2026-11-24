@@ -9,7 +9,7 @@ final class ImageBundleWindows {
     private var controllers: [UUID: MemoryDocumentWindowController] = [:]
     private var cascadePoint = NSPoint.zero
 
-    var sourceURLs: [URL] { controllers.values.flatMap { $0.model.sourceURLs } }
+    var sourceURLs: [URL] { controllers.values.flatMap { $0.model?.sourceURLs ?? [] } }
     var hasWindows: Bool { !controllers.isEmpty }
 
     @discardableResult

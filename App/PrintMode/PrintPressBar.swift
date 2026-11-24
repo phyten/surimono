@@ -266,10 +266,15 @@ private struct PrinterPicker: View {
             } else {
                 Picker(
                     "Printer",
-                    selection: Binding(get: { model.selectedPrinterName ?? "" }, set: { model.selectPrinter($0) })
+                    selection: model.controlBinding(
+                        get: { $0.selectedPrinterName ?? "" }, set: { $0.selectPrinter($1) })
                 ) {
-                    ForEach(model.printers.names, id: \.self) { name in
-                        Text(verbatim: title(for: name)).tag(name)
+                    ForEach(model.printers.names, id: \.self) {
+                        [defaultName = model.printers.defaultName, language = model.language] name in
+                        Text(
+                            verbatim: name == defaultName
+                                ? PrintModeText.format("%@ (Default)", language: language, name) : name
+                        ).tag(name)
                     }
                 }
                 .pickerStyle(.inline)
@@ -316,10 +321,6 @@ private struct PrinterPicker: View {
                     ?? PrintModeText.string("No Printer", language: model.language)))
     }
 
-    private func title(for name: String) -> String {
-        name == model.printers.defaultName
-            ? PrintModeText.format("%@ (Default)", language: model.language, name) : name
-    }
 }
 
 /// The series of paper the cards are made from: A4 and A3, B5 and B4, or Letter and Tabloid. Closed, it names the
@@ -333,8 +334,7 @@ private struct PaperSeriesMenu: View {
             Section("Paper Size Series") {
                 Picker(
                     "Paper Size Series",
-                    selection: Binding(
-                        get: { model.trayPaperSeries }, set: { model.choosePaperSeries($0) })
+                    selection: model.controlBinding(get: \.trayPaperSeries, set: { $0.choosePaperSeries($1) })
                 ) {
                     ForEach(PaperSeries.allCases, id: \.self) { series in
                         Text(series.menuTitle).tag(series)
@@ -482,10 +482,10 @@ private struct LayoutCard: View {
         Menu {
             Picker(
                 "Paper & Pages",
-                selection: Binding(get: { model.layoutID }, set: { model.chooseLayout($0) })
+                selection: model.controlBinding(get: \.layoutID, set: { $0.chooseLayout($1) })
             ) {
-                ForEach(variants) { option in
-                    Text(verbatim: option.displayName(language: model.language)).tag(option.id)
+                ForEach(variants) { [language = model.language] option in
+                    Text(verbatim: option.displayName(language: language)).tag(option.id)
                 }
             }
             .pickerStyle(.inline)

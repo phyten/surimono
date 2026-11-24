@@ -75,10 +75,10 @@ struct ManualDuplexPresentation: ViewModifier {
 
     func body(content: Content) -> some View {
         content.sheet(
-            isPresented: Binding(
-                get: { model.manualDuplexSession?.showsReload == true },
+            isPresented: model.controlBinding(
+                get: { $0.manualDuplexSession?.showsReload == true },
                 // Only a dismissal from outside ends the session; the sheet closing for the backs must not.
-                set: { if !$0, model.manualDuplexSession?.showsReload == true { model.cancelManualDuplex() } }
+                set: { if !$1, $0.manualDuplexSession?.showsReload == true { $0.cancelManualDuplex() } }
             )
         ) {
             if let session = model.manualDuplexSession {

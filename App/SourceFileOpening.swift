@@ -1,4 +1,4 @@
-import AppKit
+import Foundation
 import SurimonoCore
 import SurimonoRendering
 import UniformTypeIdentifiers
@@ -43,7 +43,7 @@ enum SourceFileOpening {
         SurimonoDocument.readableContentTypes.contains { type.conforms(to: $0) }
     }
 
-    /// The contents of a file a window or a binder shows, read again after the first time. A file of a kind the
+    /// The contents of a file a window or a binder shows, on open and reload. A file of a kind the
     /// gate looks at is checked and read through one descriptor, so a video put in a `.ts` file's place is turned
     /// away before it is loaded, and what was checked is what is read. With `root`, the file must lie under it.
     nonisolated static func read(_ url: URL, format: DocumentFormat, within root: String? = nil) throws -> Data {
@@ -67,24 +67,5 @@ enum SourceFileOpening {
         guard format == .plainText else { return false }
         let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType
         return TextFileGate.refuses(fileName: url.lastPathComponent, type: type, data: data)
-    }
-
-    /// The document for `url` read as plain text, not yet shown; the one already open for it if there is one.
-    @MainActor
-    static func document(for url: URL) throws -> (document: NSDocument, isNew: Bool) {
-        let controller = NSDocumentController.shared
-        if let open = controller.document(for: url) { return (open, false) }
-        return (try controller.makeDocument(withContentsOf: url, ofType: UTType.plainText.identifier), true)
-    }
-
-    @MainActor
-    static func open(_ url: URL) throws {
-        let (document, isNew) = try document(for: url)
-        if isNew {
-            NSDocumentController.shared.addDocument(document)
-            document.makeWindowControllers()
-            NSDocumentController.shared.noteNewRecentDocumentURL(url)
-        }
-        document.showWindows()
     }
 }

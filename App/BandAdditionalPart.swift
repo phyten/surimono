@@ -73,9 +73,7 @@ struct BandAdditionalPart: View {
             .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden)
         } else if entry.isChecked != nil {
             Toggle(
-                isOn: Binding(
-                    get: { BandMenuContent(model: model).entry(entry.id).isChecked ?? false },
-                    set: { BandMenuContent(model: model).setChecked($0, for: entry.id) })
+                isOn: BandMenuContent(model: model).checkedBinding(for: entry.id)
             ) {
                 label(entry)
             }

@@ -30,13 +30,8 @@ enum DocumentMenuAction: Hashable {
         case .typeface(let value):
             if let current = model(), current.offersTypeface { current.setTypeface(value) }
         case .setting(let id):
-            guard let current = model() else { return }
-            let language = Bundle.main.preferredLocalizations.first ?? "en"
-            if let set = (PrintSettingSet.builtIns(language: language) + preferences.printSettingSets)
-                .first(where: { $0.id == id })
-            {
-                current.applyPrintSettingSet(set)
-            }
+            guard let current = model(), let set = preferences.printSettingSet(id: id) else { return }
+            current.applyPrintSettingSet(set)
         case .replaceSetting(let id):
             guard let current = model(), let set = preferences.printSettingSets.first(where: { $0.id == id }),
                 current.matchesPrintSettingSet(set)

@@ -319,7 +319,7 @@ struct ServiceProviderTests {
         let recent = NSDocumentController.shared.recentDocumentURLs
         let controller = windows.open(Data("本文".utf8), format: .plainText, title: "Selected Text", printing: true)
         defer { controller.window?.close() }
-        let model = controller.model
+        let model = try #require(controller.model)
         #expect(model.mode == .view)
         #expect(model.isPrintModeRequested)
         #expect(model.result == nil)
