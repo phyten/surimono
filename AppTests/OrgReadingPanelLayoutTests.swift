@@ -78,7 +78,7 @@ struct OrgReadingPanelLayoutTests {
         }
     }
 
-    @Test("読み方の三項目は八言語で選択値と戻す矢印が収まり、横に収まる行は一列を保つ", arguments: UILanguage.supported)
+    @Test("読み方の全項目は八言語で選択値と戻す矢印が収まり、横に収まる行は一列を保つ", arguments: UILanguage.supported)
     func choicesFit(language: String) throws {
         let path = try #require(Bundle.main.path(forResource: language, ofType: "lproj"))
         let bundle = try #require(Bundle(path: path))
@@ -93,15 +93,34 @@ struct OrgReadingPanelLayoutTests {
         let scripts = ["Only with { }", "With or without Braces", "Leave as Written"].map(translated)
         // The two 12 pt insets belong to SidePanel, outside the rows' proposal.
         let available = CGSize(width: OrgReadingPanel.width - 24, height: 1_000)
-        for (label, choices) in [
-            ("Heading Numbers", depths), ("Table of Contents at the Top", depths),
-            ("Subscripts and Superscripts", scripts),
-        ] {
+        for id in OrgReadingGroup.allCases.flatMap(\.settings) {
+            let label = id.label.key
+            let choices: [String]
+            let checkbox: Bool
+            switch id {
+            case .sectionNumbers, .tableOfContents, .headlineLevels: choices = depths
+            case .scripts: choices = scripts
+            case .tags: choices = ["On", "Off", "Except in Contents"].map(translated)
+            case .math: choices = ["Typeset", "None", "Show Formula Source"].map(translated)
+            case .tasks: choices = ["All", "None", "Unfinished Only", "Completed Only"].map(translated)
+            case .drawers: choices = ["None", "All", "Except LOGBOOK"].map(translated)
+            case .properties: choices = ["None", "All"].map(translated)
+            case .archived: choices = ["Entire Tree", "Heading Only", "None"].map(translated)
+            case .timestamps: choices = ["All", "None", "Active Only", "Inactive Only"].map(translated)
+            default: choices = []
+            }
+            checkbox = choices.isEmpty
             let title = Text(verbatim: translated(label)).bold()
-            for selection in choices {
-                let picker = Picker("", selection: .constant(selection)) {
-                    ForEach(choices, id: \.self) { Text(verbatim: $0).tag($0) }
-                }.labelsHidden().pickerStyle(.menu)
+            for selection in checkbox ? [""] : choices {
+                let picker = Group {
+                    if checkbox {
+                        Toggle("", isOn: .constant(true)).labelsHidden().toggleStyle(.checkbox)
+                    } else {
+                        Picker("", selection: .constant(selection)) {
+                            ForEach(choices, id: \.self) { Text(verbatim: $0).tag($0) }
+                        }.labelsHidden().pickerStyle(.menu)
+                    }
+                }
                 let reset = OrgReadingResetButton(help: "Reset", action: {})
                 let row = OrgReadingChoiceRow(title: title, picker: picker) { reset }
                 let inline = HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -119,7 +138,9 @@ struct OrgReadingPanelLayoutTests {
                         + OrgReadingTestWindow.diagnostic(in: host.view)
                 }
                 #expect(size.width <= available.width, "\(detail())")
-                if language == "ja", ProcessInfo.processInfo.operatingSystemVersion.majorVersion == 26 {
+                if [.sectionNumbers, .tableOfContents, .scripts].contains(id), language == "ja",
+                    ProcessInfo.processInfo.operatingSystemVersion.majorVersion == 26
+                {
                     #expect(ideal.width <= available.width, "\(detail())")
                 }
                 // Both systems must use one line when it fits and keep both controls intact below it otherwise.

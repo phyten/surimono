@@ -152,9 +152,6 @@ enum SettingsCatalogue {
             .init(.styles, "Default Typeface", words: ["LaTeX Typeface", "As the Style"]),
             .init(.styles, "Open Styles Folder"),
             .init(.styles, "Reload", anchor: "Open Styles Folder"),
-            .init(.org, "Heading Numbers", identifiers: ["num", ".org"]),
-            .init(.org, "Table of Contents at the Top", identifiers: ["toc", ".org"]),
-            .init(.org, "Subscripts and Superscripts", identifiers: ["^", ".org"]),
             .init(.html, "Default HTML Preset"),
             .init(.html, "Allow JavaScript in HTML"),
             .init(.html, "Open Presets Folder"),
@@ -184,6 +181,12 @@ enum SettingsCatalogue {
         ]
         rows += BandLayout.Item.allCases.map {
             .init(.toolbarArrangement, $0.editorNameResource.key, anchor: $0.rawValue)
+        }
+        for group in OrgReadingGroup.allCases {
+            rows += group.settings.map { id in
+                let token = id.token.lowercased()
+                return .init(.org, id.label.key, identifiers: [token, token + ":", ".org"], heading: group.title.key)
+            }
         }
         rows += ClipboardSettings.recognizable.map {
             .init(

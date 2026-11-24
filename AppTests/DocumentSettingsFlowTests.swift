@@ -90,11 +90,16 @@ struct DocumentSettingsFlowTests {
 
         var settings = first.orgReading
         settings.set(.off, for: .sectionNumbers, file: .init())
+        settings.set(.notInContents, for: .tags, file: .init())
+        settings.set(true, for: .planning, file: .init())
+        settings.set(6, for: .headlineLevels, file: .init())
         first.orgDocumentReading = settings.document
         first.rememberedSettingsDidChange()
         first.flushPendingSettings()
         first.stop()
-        #expect(fixture.store.record(for: ContentHash.of(source).hex)?.orgReading?.optionsLine == "#+OPTIONS: num:nil")
+        #expect(
+            fixture.store.record(for: ContentHash.of(source).hex)?.orgReading?.optionsLine
+                == "#+OPTIONS: num:nil H:6 tags:not-in-toc p:t")
 
         let second = try await open()
         defer { second.stop() }
@@ -231,7 +236,22 @@ struct DocumentSettingsFlowTests {
 
     @Test("プリセットは変更済みの値を実際に置き換える場合だけ確認する")
     func orgPresetConfirmation() {
-        let emacs = OrgReadingDefaults(sectionNumbers: .all, tableOfContents: .all, scripts: .all)
+        let emacs = OrgReadingDefaults.emacs
+        #expect(emacs.sectionNumbers == .all && emacs.tableOfContents == .all && emacs.scripts == .all)
+        #expect(
+            emacs.headlineLevels == 3 && emacs.todo && emacs.tags == .all && emacs.title && emacs.author && emacs.date)
+        #expect(!emacs.preserveBreaks && !emacs.planning && !emacs.priority && !emacs.clocks)
+        #expect(emacs.drawers == .excluding(["LOGBOOK"]) && emacs.properties == .off && emacs.archived == .headline)
+        #expect(emacs.emphasis && emacs.statistics && emacs.tables && emacs.fixedWidth && emacs.footnotes)
+        #expect(emacs.tasks == .all && emacs.timestamps == .all && emacs.math == .render)
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let preferences = AppPreferences(defaults: suite.defaults)
+        preferences.setOrgDefaults(emacs)
+        #expect(AppPreferences(defaults: suite.defaults).orgReadingDefaults == emacs)
+        var custom = OrgReadingDefaults.surimono
+        custom.headlineLevels = 5
+        #expect(OrgReadingDefaultsPane.overwritesChanges(custom, with: emacs))
         #expect(!OrgReadingDefaultsPane.overwritesChanges(.surimono, with: emacs))
         #expect(!OrgReadingDefaultsPane.overwritesChanges(emacs, with: emacs))
         #expect(

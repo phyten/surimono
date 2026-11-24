@@ -14,6 +14,18 @@ struct SettingsSearchTests {
         if query == "num" { #expect(results.rows.contains { $0.section == .org && $0.anchor == "Heading Numbers" }) }
     }
 
+    @Test("読み方の全行に表示名と区切り付きの Org キーの両方で移動できる")
+    func allOrgRows() {
+        let ids = OrgReadingGroup.allCases.flatMap(\.settings)
+        #expect(ids.count == 24 && Set(ids).count == ids.count)
+        for id in ids {
+            for query in [id.label.key, id.token, id.token + ":"] {
+                let hits = SettingsCatalogue.search(query, in: SettingsCatalogue.rows)
+                #expect(hits.rows.contains { $0.section == .org && $0.anchor == id.label.key }, "query=\(query)")
+            }
+        }
+    }
+
     @Test("アイコンと部品の表示を検索するとツールバーの配置の先頭行が見つかる", arguments: ["icon", "アイコン", "Parts", "部品の表示"])
     func bandNames(query: String) {
         let labels = ["Parts": "部品の表示", "Icons and Names": "アイコンと名前", "Icons Only": "アイコンのみ"]
