@@ -40,7 +40,7 @@ struct BandAdditionalPartsTests {
 
         init(
             parts: [BandLayout.Item], compact: Bool = false, measurementsOnly: Bool = false,
-            documentContent: Bool = false, width: CGFloat = 1800
+            documentContent: Bool = false, width: CGFloat = 1800, accessibilityEnabled: Bool = false
         ) throws {
             preferences = AppPreferences(defaults: defaults.defaults)
             preferences.menuArrangement = .split
@@ -85,6 +85,9 @@ struct BandAdditionalPartsTests {
                     rootView: BandMeasurements(model: model, items: BandTestCatalog.addedItems, menu: menu))
             } else if documentContent {
                 window.contentView = NSHostingView(rootView: DocumentContent(model: model, bandMenu: menu))
+            } else if accessibilityEnabled {
+                window.contentView = NSHostingView(
+                    rootView: TestBands(model: model, menu: menu).environment(\.accessibilityEnabled, true))
             } else {
                 window.contentView = NSHostingView(rootView: TestBands(model: model, menu: menu))
             }
@@ -304,14 +307,41 @@ struct BandAdditionalPartsTests {
 
     @Test("ファイル保存チップは注入した保存先選択だけを呼ぶ")
     func saveThroughChip() async throws {
-        let fixture = try Fixture(parts: [.saveAsFile], width: min(NSScreen.main?.visibleFrame.width ?? 800, 1000) - 40)
+        let fixture = try Fixture(
+            parts: [.saveAsFile], width: min(NSScreen.main?.visibleFrame.width ?? 800, 1000) - 40,
+            accessibilityEnabled: true)
         defer { fixture.close() }
         #expect(fixture.model.canSaveAsFile)
         #expect(BandPlans(model: fixture.model, menu: fixture.menu).band(of: .saveAsFile) == .top)
         try await waitUntil("帯が保存チップの位置を記録する", fixture: fixture) {
             chipFrame(.saveAsFile, in: fixture) != nil
         }
-        try click(.saveAsFile, in: fixture)
+        if #available(macOS 26, *) {
+            try click(.saveAsFile, in: fixture)
+        } else {
+            // On the Sequoia runner the synthetic down reaches the hosting view but does not activate its
+            // SwiftUI button. Press the actual visible control through its public accessibility action.
+            let host = try #require(fixture.window.contentView)
+            let frame = try #require(chipFrame(.saveAsFile, in: fixture))
+            func controls() -> [any NSAccessibilityProtocol] {
+                let buttons = elements(host).filter {
+                    $0.isAccessibilityEnabled()
+                        && fixture.window.convertFromScreen($0.accessibilityFrame()).contains(
+                            CGPoint(x: frame.midX, y: frame.midY))
+                }
+                let marked = buttons.filter { $0.accessibilityIdentifier() == "band.part.saveAsFile" }
+                if !marked.isEmpty { return marked }
+                return buttons.filter {
+                    $0.accessibilityRole() == .button
+                        && [$0.accessibilityTitle(), $0.accessibilityLabel()].contains(
+                            BandLayout.Item.saveAsFile.editorName)
+                }
+            }
+            try await waitUntil("表示中の保存ボタンがアクセシビリティ操作を公開する", fixture: fixture) { !controls().isEmpty }
+            let matches = controls()
+            try #require(matches.count == 1, "\(OrgReadingTestWindow.diagnostic(in: host))")
+            try #require(matches[0].accessibilityPerformPress(), "保存チップが押下を受理する")
+        }
         try await waitUntil("実保存チップから注入した保存先選択を1回呼ぶ", fixture: fixture) {
             fixture.saveDestinationRequests == 1
         }

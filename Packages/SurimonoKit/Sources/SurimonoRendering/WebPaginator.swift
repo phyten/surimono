@@ -291,10 +291,19 @@ public final class WebPaginator: NSObject {
         }
         didStartWaitingForResources?()
         // The stopped resources never report back, so the full wait would only be spent a second time.
-        try await Self.waitForResources(
-            in: session.webView, timeout: stoppedResources ? min(timeout, .seconds(1)) : timeout)
-        if #unavailable(macOS 26), !stoppedResources, Self.followsOtherDocuments(source) {
+        if session.requiresStableDestination, !stoppedResources {
+            let generation = session.localGeneration
+            try await Self.waitForResources(in: session.webView, timeout: timeout)
             try await session.waitForLocalDestination(timeout: timeout)
+            if session.localGeneration != generation {
+                // A refresh committed while we were waiting on the old document's resources.
+                try await Self.waitForResources(in: session.webView, timeout: timeout)
+            }
+            session.webView.stopLoading()
+            try session.checkPrintNavigation()
+        } else {
+            try await Self.waitForResources(
+                in: session.webView, timeout: stoppedResources ? min(timeout, .seconds(1)) : timeout)
         }
         let pageRules: [PageRule]
         let preparationResult: String?
@@ -386,6 +395,7 @@ public final class WebPaginator: NSObject {
                     ],
                     // Given the print's time: the export takes the place of the print.
                     until: .now + printTimeout)
+            try session.checkPrintNavigation()
             var result = Result(document: PDFDocument())
             if adjusted { result.issues = [Self.verticalWritingIssue] }
             if richText, let fields = serialized as? [String: Any], let html = fields["html"] as? String,
@@ -422,7 +432,7 @@ public final class WebPaginator: NSObject {
             if indexesFormulas { try await installFormulaIndex() }
             let document = try await VerticalPaginator.pages(
                 in: session.webView, pageSize: pageSize, margins: margins, timeout: printTimeout)
-            try session.checkRefreshOutput(document)
+            try session.checkPrintNavigation()
             if session.localHandler != nil { LocalResourceSchemeHandler.restoreFileLinks(in: document) }
             var result = Result(
                 document: document, preparationResult: preparationResult, pageRules: pageRules,
@@ -627,7 +637,7 @@ public final class WebPaginator: NSObject {
             let pageData = try await pageDataForPass(indexFormulas: indexesFormulas)
             try await recordLines(final: true)
             guard let document = PDFDocument(data: pageData) else { throw PaginationError.emptyDocument }
-            try session.checkRefreshOutput(document)
+            try session.checkPrintNavigation()
             if session.localHandler != nil { LocalResourceSchemeHandler.restoreFileLinks(in: document) }
             var result = Result(
                 document: document,
@@ -966,21 +976,23 @@ private final class PaginationSession {
     private var closeRequested = false
     private var isClosed = false
 
+    var requiresStableDestination: Bool { navigationTracker.localNavigation == .settleBeforePrinting }
+    var localGeneration: Int { navigationTracker.localGeneration }
     var navigationState: NavigationTracker.State { navigationTracker.state }
     /// Why the page's process ended, once it has.
     var terminationError: String? { navigationTracker.terminationError }
-    func checkRefreshOutput(_ document: PDFDocument) throws {
-        guard #unavailable(macOS 26), navigationTracker.stoppedRefreshCycle else { return }
-        for index in 0..<document.pageCount {
-            if document.page(at: index)?.string?.contains(where: { !$0.isWhitespace }) == true { return }
-        }
-        throw WebPaginator.PaginationError.loadFailed(URLError(.httpTooManyRedirects).localizedDescription)
+    func checkPrintNavigation() throws {
+        guard requiresStableDestination else { return }
+        try navigationTracker.checkPrintNavigation(at: webView.url)
     }
     var hasCommitted: Bool { navigationTracker.hasCommitted }
 
     /// Gives up on the resources still loading; the document counts as loaded with what has arrived.
-    func stopLoadingResources() {
+    func stopLoadingResources() throws {
         navigationTracker.finishStopped()
+        if requiresStableDestination {
+            try navigationTracker.selectForPrinting(at: webView.url)
+        }
         webView.stopLoading()
     }
 
@@ -1024,7 +1036,13 @@ private final class PaginationSession {
         window.isReleasedWhenClosed = false
         window.contentView = webView
         navigationTracker.keepsFirstDocument = true
-        navigationTracker.followsOtherDocuments = WebPaginator.followsOtherDocuments(source)
+        if WebPaginator.followsOtherDocuments(source) {
+            if #available(macOS 26, *) {
+                navigationTracker.localNavigation = .follow
+            } else {
+                navigationTracker.localNavigation = .settleBeforePrinting
+            }
+        }
         webView.navigationDelegate = navigationTracker
     }
 
@@ -1087,6 +1105,7 @@ private final class PaginationSession {
             return !navigationTracker.pendingLocalDocument && navigationState == .finished
         }
         if case .failed(let reason) = navigationState { throw WebPaginator.PaginationError.loadFailed(reason) }
+        try navigationTracker.selectForPrinting(at: webView.url)
     }
 
     func loadForPrinting(
@@ -1116,7 +1135,7 @@ private final class PaginationSession {
                 try await webView.evaluateForPrinting(
                     "return document.readyState", until: .now + min(timeout, .seconds(2))) as? String
             guard state == "complete" || state == "interactive" else { throw WebPaginator.PaginationError.timedOut }
-            stopLoadingResources()
+            try stopLoadingResources()
             return true
         }
         if let message = navigationTracker.terminationError { throw WebPaginator.PaginationError.loadFailed(message) }
@@ -1130,6 +1149,7 @@ private final class PaginationSession {
         checkingBelowPaper: Bool, latexMarginInk: Bool = false, deadline: ContinuousClock.Instant? = nil
     ) async throws -> Data {
         let deadline = deadline ?? .now + printTimeout
+        try checkPrintNavigation()
         let outputURL = temporaryURL(extension: "pdf")
         let printInfo = NSPrintInfo()
         printInfo.paperSize = CGSize(width: pageSize.width, height: pageSize.height + Self.pageHeightAllowance)
@@ -1349,7 +1369,8 @@ final class NavigationTracker: NSObject, WKNavigationDelegate {
     var keepsFirstDocument = false
     /// Set for a document opened from a file: it may go on to another document within its read access (an
     /// `index.html` that refreshes to `chapter.html`), as it always could. Reloading itself is still refused.
-    var followsOtherDocuments = false
+    enum LocalNavigation { case disabled, follow, settleBeforePrinting }
+    var localNavigation = LocalNavigation.disabled
     private var allowedDownloadedPage = false
     private var committedLocalPages = Set<String>()
     private var lastCommittedLocalPage: String?
@@ -1358,10 +1379,33 @@ final class NavigationTracker: NSObject, WKNavigationDelegate {
     var isOnFirstLocalDocument: Bool { committedLocalPages.count == 1 && !pendingLocalDocument && !stoppedRefreshCycle }
     private(set) var stoppedRefreshCycle = false
 
+    private(set) var localGeneration = 0
+    private var selectedGeneration: Int?
+
+    func selectForPrinting(at url: URL?) throws {
+        selectedGeneration = localGeneration
+        try checkPrintNavigation(at: url)
+    }
+
+    func checkPrintNavigation(at url: @autoclosure () -> URL?) throws {
+        guard let selectedGeneration else { return }
+        if let terminationError { throw WebPaginator.PaginationError.loadFailed(terminationError) }
+        if case .failed(let reason) = state { throw WebPaginator.PaginationError.loadFailed(reason) }
+        guard hasCommitted, state == .finished, !pendingLocalDocument, selectedGeneration == localGeneration,
+            let url = url(), Self.page(url).page == lastCommittedLocalPage
+        else {
+            throw WebPaginator.PaginationError.loadFailed(URLError(.resourceUnavailable).localizedDescription)
+        }
+    }
+
     func webView(
         _ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
         decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void
     ) {
+        if selectedGeneration != nil, navigationAction.targetFrame?.isMainFrame != false {
+            decisionHandler(.cancel)
+            return
+        }
         if isDownloadedPage || keepsFirstDocument, navigationAction.targetFrame?.isMainFrame != false,
             !staysInDocument(navigationAction, current: webView.url)
         {
@@ -1370,7 +1414,7 @@ final class NavigationTracker: NSObject, WKNavigationDelegate {
                 decisionHandler(.cancel)
                 return
             }
-            if #unavailable(macOS 26), followsOtherDocuments, !isDownloadedPage, let url = navigationAction.request.url,
+            if localNavigation == .settleBeforePrinting, !isDownloadedPage, let url = navigationAction.request.url,
                 url.isFileURL || url.scheme == LocalResourceSchemeHandler.scheme
             {
                 // A custom-scheme request may be offered more than once before it commits. Only a return to a
@@ -1384,7 +1428,7 @@ final class NavigationTracker: NSObject, WKNavigationDelegate {
                 pendingLocalPage = destination
             } else if allowedDownloadedPage {
                 let leaves =
-                    followsOtherDocuments && !isDownloadedPage && navigationAction.navigationType != .reload
+                    localNavigation != .disabled && !isDownloadedPage && navigationAction.navigationType != .reload
                     && !Self.isSameDocument(navigationAction.request.url, webView.url)
                 guard leaves else {
                     decisionHandler(.cancel)
@@ -1456,7 +1500,9 @@ final class NavigationTracker: NSObject, WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-        guard !isStopped else { return }
+        // A new provisional load after selection invalidates the paper, including after a resource timeout.
+        guard !isStopped || selectedGeneration != nil else { return }
+        isStopped = false
         activeNavigation = navigation
         hasCommitted = false
         state = .loading
@@ -1468,9 +1514,15 @@ final class NavigationTracker: NSObject, WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
-        guard accepts(navigation) else { return }
+        // Even a late commit whose cancellation we otherwise ignore supersedes the selected document.
+        guard accepts(navigation) || selectedGeneration != nil else { return }
         hasCommitted = true
-        if #unavailable(macOS 26), followsOtherDocuments, let url = webView.url {
+        if localNavigation == .settleBeforePrinting {
+            localGeneration += 1
+            guard let url = webView.url else {
+                lastCommittedLocalPage = nil
+                return
+            }
             let destination = Self.page(url).page
             committedLocalPages.insert(destination)
             lastCommittedLocalPage = destination

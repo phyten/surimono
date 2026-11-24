@@ -152,24 +152,59 @@ struct WebRecoveryTests {
 
     @Test("開いた HTML が二つの文書のあいだを行き来しても、時間内にどちらかを刷る", .timeLimit(.minutes(1)), arguments: [false, true])
     func fileDocumentsThatRefreshEachOther(sandboxed: Bool) async throws {
-        var atPrint = "印刷開始前"
-        do {
-            let text = try await WebRobustness.printedText(
-                files: [
-                    "index.html": "<meta http-equiv='refresh' content='0;url=chapter.html'><p>ENTRANCE</p>",
-                    "chapter.html": "<meta http-equiv='refresh' content='0;url=index.html'><p>CHAPTER</p>",
-                ], sandboxed: sandboxed,
-                didStartPrinting: { view in
-                    atPrint = "\(view.url?.lastPathComponent ?? "nil") loading=\(view.isLoading)"
-                })
-            print("robustness-rendering refresh-each-other: \(text.prefix(40))")
-            #expect(
-                text.contains("CHAPTER") || text.contains("ENTRANCE"),
-                "印刷開始 \(atPrint)、抽出 \(text.debugDescription)")
-        } catch DocumentRenderer.RenderingError.pagination(.loadFailed(let reason)) {
-            if #available(macOS 26, *) { throw DocumentRenderer.RenderingError.pagination(.loadFailed(reason)) }
-            print("robustness-rendering refresh-each-other: \(reason)")
-            #expect(reason == URLError(.httpTooManyRedirects).localizedDescription)
+        var destination: URL?
+        let text = try await WebRobustness.printedText(
+            files: [
+                "index.html": "<meta http-equiv='refresh' content='0;url=chapter.html'><p>ENTRANCE</p>",
+                "chapter.html": "<meta http-equiv='refresh' content='0;url=index.html'><p>CHAPTER</p>",
+            ], sandboxed: sandboxed, didStartPrinting: { destination = $0.url })
+        let name = try #require(destination?.lastPathComponent)
+        try #require(["index.html", "chapter.html"].contains(name))
+        let expected = name == "chapter.html" ? "CHAPTER" : "ENTRANCE"
+        #expect(
+            text.trimmingCharacters(in: .whitespacesAndNewlines) == expected, "印刷対象 \(String(describing: destination))")
+    }
+
+    @Test("文字のない SVG だけの HTML が相互に遷移しても選んだ文書の図形を刷る", .timeLimit(.minutes(1)), arguments: [false, true])
+    func graphicRefreshCycle(sandboxed: Bool) async throws {
+        func page(next: String, width: Int) -> String {
+            "<meta http-equiv='refresh' content='0;url=\(next)'><svg width='\(width)' height='80'><rect width='100%' height='100%'/></svg>"
+        }
+        var destination: URL?
+        let pages = try await WebRobustness.printedPages(
+            files: [
+                "index.html": page(next: "chapter.html", width: 24),
+                "chapter.html": page(next: "index.html", width: 320),
+            ],
+            sandboxed: sandboxed, didStartPrinting: { destination = $0.url })
+        let first = try #require(pages.page(at: 0))
+        let ink = try RenderingFixtures.inkColumns(first)
+        let name = try #require(destination?.lastPathComponent)
+        try #require(["index.html", "chapter.html"].contains(name))
+        // Distinguish the two drawings without depending on WebKit's CSS-to-paper scale.
+        let expectedWidth = name == "chapter.html" ? 180...350 : 12...35
+        #expect(expectedWidth.contains(ink.count), "印刷対象 \(String(describing: destination)), 図の幅 \(ink.count)")
+    }
+
+    @Test("印刷対象を決めた後に同じ URL の別文書が確定したら、その PDF を採用しない")
+    func replacedPrintGeneration() throws {
+        final class Page: WKWebView {
+            override var url: URL? { URL(fileURLWithPath: "/fixture/index.html") }
+        }
+        let view = Page(frame: .zero, configuration: WKWebViewConfiguration())
+        let tracker = NavigationTracker()
+        tracker.localNavigation = .settleBeforePrinting
+        tracker.webView(view, didStartProvisionalNavigation: nil)
+        tracker.webView(view, didCommit: nil)
+        tracker.webView(view, didFinish: nil)
+        try tracker.selectForPrinting(at: view.url)
+        try tracker.checkPrintNavigation(at: view.url)
+        tracker.webView(view, didStartProvisionalNavigation: nil)
+        tracker.webView(view, didCommit: nil)
+        tracker.webView(view, didFinish: nil)
+        #expect(tracker.hasCommitted && tracker.state == .finished)
+        #expect(throws: WebPaginator.PaginationError.loadFailed(URLError(.resourceUnavailable).localizedDescription)) {
+            try tracker.checkPrintNavigation(at: view.url)
         }
     }
 
@@ -330,6 +365,15 @@ enum WebRobustness {
         files: [String: String], opened: String = "index.html", format: DocumentFormat = .html, sandboxed: Bool = false,
         didStartPrinting: (@MainActor (WKWebView) -> Void)? = nil
     ) async throws -> String {
+        let pages = try await printedPages(
+            files: files, opened: opened, format: format, sandboxed: sandboxed, didStartPrinting: didStartPrinting)
+        return pages.string ?? ""
+    }
+
+    static func printedPages(
+        files: [String: String], opened: String = "index.html", format: DocumentFormat = .html, sandboxed: Bool = false,
+        didStartPrinting: (@MainActor (WKWebView) -> Void)? = nil
+    ) async throws -> PDFDocument {
         _ = NSApplication.shared
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(
             "surimono-navigation-\(UUID().uuidString)", isDirectory: true)
@@ -349,8 +393,7 @@ enum WebRobustness {
                 paginator.didStartPrinting = didStartPrinting
                 return try await paginator.paginate(request)
             })
-        let pages = try await renderer.prepare(source, settings: settings(javaScript: false)).logicalDocument
-        return pages.string ?? ""
+        return try await renderer.prepare(source, settings: settings(javaScript: false)).logicalDocument
     }
 
     static func settings(javaScript: Bool) -> RenderSettings {
