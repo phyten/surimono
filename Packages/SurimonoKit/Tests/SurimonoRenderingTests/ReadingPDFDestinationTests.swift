@@ -59,8 +59,9 @@ struct ReadingPDFDestinationTests {
         let original = file()
         let expected = try #require(PDFDocument(data: original))
         let snapshot = try await ReadingPDFNavigation(expected)
-        let clean = try await snapshot.verified(original, pageCount: 1, stage: "clean")
-        #expect(clean == original)
+        let readable = file(link: "/Dest [3 0 R /FitH null]", bookmark: "/Dest [3 0 R /FitR 21 32 104 205]")
+        let clean = try await snapshot.verified(readable, pageCount: 1, stage: "clean")
+        #expect(clean == readable)
         let damaged = file(
             link: "/Dest [3 0 R /FitV null]", bookmark: "/Dest [3 0 R /FitR 22 32 104 205]")
         let fixed = try await snapshot.verified(damaged, pageCount: 1, stage: "damaged")
@@ -95,14 +96,14 @@ struct ReadingPDFDestinationTests {
         #expect(arguments == [21, 32, 104, 205])
     }
 
-    @Test("辞書の表示指定が一致していても、読み手が追えなくなったリンクとしおりを修復する")
-    func readerReadback() async throws {
+    @Test("辞書の表示指定が一致していても、読み手が追えなくなったリンクとしおりを修復する", arguments: [false, true])
+    func readerReadback(namedSource: Bool) async throws {
         let explicit = "/Dest [3 0 R /FitH null]"
-        let view = try #require(PDFDocument(data: file(link: explicit, bookmark: explicit)))
-        let expected = try await ReadingPDFNavigation(view)
         // The legacy name has the same FitH and null as the explicit destination. Quartz
         // resolves it even on systems where PDFKit reports a destination without a page.
         let named = file(link: "/Dest /left", bookmark: "/Dest /left")
+        let view = try #require(PDFDocument(data: namedSource ? named : file(link: explicit, bookmark: explicit)))
+        let expected = try await ReadingPDFNavigation(view)
         func pages(in document: PDFDocument) -> [Int?] {
             let annotation = document.page(at: 0)?.annotations.first
             let leaf = document.outlineRoot?.child(at: 0)?.child(at: 0)?.child(at: 0)
@@ -111,13 +112,48 @@ struct ReadingPDFDestinationTests {
                 leaf?.destination ?? (leaf?.action as? PDFActionGoTo)?.destination,
             ].map { dest in dest?.page.map { document.index(for: $0) } }
         }
-        try #require(pages(in: view) == [0, 0], "view: link, bookmark")
+        if !namedSource { try #require(pages(in: view) == [0, 0], "view: link, bookmark") }
+        let target = ReadingPDFNavigationWriter.Destination(page: 0, mode: "FitH", arguments: [nil])
+        #expect(expected.links.first?.action.target == target, "view: link")
+        #expect(expected.outline.first { $0.title == "Leaf" }?.action.target == target, "view: bookmark")
         let saved = try #require(PDFDocument(data: named))
         let before = pages(in: saved)
         let bytes = try await expected.verified(named, pageCount: 1, stage: "saved")
         let reopened = try #require(PDFDocument(data: bytes))
-        #expect(pages(in: reopened) == [0, 0], "view=[0,0] saved=\(before) repaired=\(pages(in: reopened))")
-        if before == [0, 0] { #expect(bytes == named) }
+        #expect(
+            pages(in: reopened) == [0, 0], "view=\(pages(in: view)) saved=\(before) repaired=\(pages(in: reopened))")
+        if before == [0, 0] {
+            #expect(bytes == named)
+        } else {
+            let raw = try await ReadingPDFRawNavigation.read(bytes)
+            if before[0] == nil { #expect(raw.links.first?.action == .internalDestination(target), "repaired: link") }
+            if before[1] == nil {
+                #expect(
+                    raw.outline.first { $0.title == "Leaf" }?.action == .internalDestination(target),
+                    "repaired: bookmark")
+            }
+        }
+    }
+
+    @Test("明示的な宛先に修復しても読み手がページを返さなければ書き出しを断る", arguments: [false, true])
+    func unreadableAfterRepair(bookmark: Bool) async throws {
+        let named = file(link: "/Dest /left", bookmark: "/Dest /left")
+        let view = try #require(PDFDocument(data: named))
+        let expected = try await ReadingPDFNavigation(view)
+        let explicit = "/Dest [3 0 R /FitH null]"
+        // Model a reader that loses just one destination on both opens. Quartz still reads
+        // the actual saved and incrementally repaired bytes, including their destination operands.
+        let unreadable = file(link: bookmark ? explicit : "", bookmark: bookmark ? "" : explicit)
+        let item = bookmark ? "bookmark=3" : "p1 annotation=0"
+        do {
+            _ = try await expected.verified(named, pageCount: 1, stage: "export") { _ in
+                PDFDocument(data: unreadable)
+            }
+            Issue.record("repaired \(item): accepted a destination without a readable page")
+        } catch ReadingPDFExporter.ExportError.navigation(let detail) {
+            #expect(detail.contains("saved \(item)"), "\(detail)")
+            #expect(detail.contains("repaired \(item)"), "\(detail)")
+        }
     }
 
     @Test("元の XYZ 辞書でページだけが欠けても、表示中の有効な行先を保存する")

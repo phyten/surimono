@@ -251,34 +251,24 @@ struct ReadingPDFNavigation: Sendable {
         return pending.reversed().map { $0.node }
     }
 
-    // The dictionary decides the exact Fit/XYZ operands. PDFKit independently tells us
-    // whether a reader can follow the link. A legacy named destination which was already
-    // dictionary-only in the source may pass through in that form without a pointless rewrite.
+    // Quartz preserves the exact view operands. PDFKit must also be able to follow the saved destination.
     private func matches(_ expected: Raw.Action, dictionary: Raw.Action, reader: Raw.Action?) -> Bool {
         guard let target = expected.target else { return expected == dictionary }
-        guard dictionary.target == target else { return false }
-        if let actual = reader?.target {
-            guard actual.page == target.page else { return false }
-            guard target.mode == "XYZ" else { return true }
-            // PDFKit exposes XYZ coordinates and scale, but projects zero zoom as unspecified.
-            // The dictionary comparison above still requires every operand to match exactly.
-            for i in target.arguments.indices {
-                let wanted = target.arguments[i]
-                let got = actual.arguments[i]
-                if wanted == got || (i == 2 && (wanted ?? 0) == (got ?? 0)) { continue }
-                guard let wanted, let got, abs(wanted - got) < 0.001 else { return false }
-            }
-            return true
+        guard dictionary.target == target, let actual = reader?.target, actual.page == target.page else { return false }
+        guard target.mode == "XYZ" else { return true }
+        // PDFKit exposes XYZ coordinates and scale, but projects zero zoom as unspecified.
+        // The dictionary comparison above still requires every operand to match exactly.
+        for i in target.arguments.indices {
+            let wanted = target.arguments[i]
+            let got = actual.arguments[i]
+            if wanted == got || (i == 2 && (wanted ?? 0) == (got ?? 0)) { continue }
+            guard let wanted, let got, abs(wanted - got) < 0.001 else { return false }
         }
-        if case .namedDestination = expected, case .namedDestination = dictionary,
-            reader == .releasedPage || reader == Raw.Action.none
-        {
-            return true
-        }
-        return false
+        return true
     }
 
-    private func changes(in bytes: Data, pageCount: Int, stage: String) async throws
+    private func changes(in bytes: Data, pageCount: Int, stage: String, reopen: @Sendable (Data) -> PDFDocument?)
+        async throws
         -> (links: [Writer.Link], outlineDiffers: Bool, firstDifference: String?)
     {
         let saved: Raw
@@ -289,7 +279,7 @@ struct ReadingPDFNavigation: Sendable {
         } catch {
             throw ReadingPDFExporter.ExportError.navigation("\(stage): cannot read PDF dictionaries (\(error)).")
         }
-        guard saved.pageCount == pageCount, let document = PDFDocument(data: bytes), document.pageCount == pageCount
+        guard saved.pageCount == pageCount, let document = reopen(bytes), document.pageCount == pageCount
         else {
             throw ReadingPDFExporter.ExportError.navigation("\(stage): cannot reopen \(pageCount) pages.")
         }
@@ -357,9 +347,12 @@ struct ReadingPDFNavigation: Sendable {
     }
 
     @concurrent
-    func verified(_ data: Data, pageCount: Int, stage: String) async throws -> Data {
+    func verified(
+        _ data: Data, pageCount: Int, stage: String,
+        reopen: @Sendable (Data) -> PDFDocument? = { PDFDocument(data: $0) }
+    ) async throws -> Data {
         do {
-            let changes = try await changes(in: data, pageCount: pageCount, stage: "saved")
+            let changes = try await changes(in: data, pageCount: pageCount, stage: "saved", reopen: reopen)
             if changes.links.isEmpty && !changes.outlineDiffers { return data }
             let difference = changes.firstDifference ?? "saved navigation differs"
             let patched: Data
@@ -369,7 +362,7 @@ struct ReadingPDFNavigation: Sendable {
             } catch is CancellationError { throw CancellationError() } catch {
                 throw ReadingPDFExporter.ExportError.navigation("\(difference); repair: \(error.localizedDescription)")
             }
-            let remaining = try await self.changes(in: patched, pageCount: pageCount, stage: "repaired")
+            let remaining = try await self.changes(in: patched, pageCount: pageCount, stage: "repaired", reopen: reopen)
             if !remaining.links.isEmpty || remaining.outlineDiffers {
                 throw ReadingPDFExporter.ExportError.navigation(
                     "\(difference); \(remaining.firstDifference ?? "repaired navigation differs")")
