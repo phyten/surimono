@@ -55,3 +55,14 @@
 | 見出しの階層の上限 | `Up to Level %lld` | Up to Level %lld | %lld 階層まで | Bis Ebene %lld | Hasta el nivel %lld | Jusqu’au niveau %lld | 수준 %lld까지 | 最多 %lld 层 | 最多 %lld 層 |
 | 下付き・上付きの条件 | `Only with { }` | Only with { } | { } があるときだけ | Nur mit { } | Solo con { } | Seulement avec { } | { }가 있을 때만 | 仅在有 { } 时 | 僅在有 { } 時 |
 | 文書内の変更をすべて戻す | `Revert All` | Revert All | すべて戻す | Alles zurücksetzen | Revertir todo | Tout rétablir | 모두 되돌리기 | 全部还原 | 全部還原 |
+| Org で見出しとして扱う階層 | `Heading Depth` | Heading Depth | 見出しの深さ | Gliederungstiefe | Profundidad de los títulos | Profondeur des titres | 제목 깊이 | 标题层级 | 標題層級 |
+| Org の見出し末尾のタグ | `Heading Tags` | Heading Tags | 見出しのタグ | Schlagwörter der Überschriften | Etiquetas de los títulos | Étiquettes des titres | 제목 태그 | 标题标签 | 標題標籤 |
+| Org の予定・締め切り・完了の日時 | `Planning Lines` | Planning Lines | 予定と締め切り | Planungszeilen | Líneas de planificación | Lignes de planification | 일정 및 마감 | 计划与截止日期 | 排程與截止日期 |
+| Org の作業時間を計った行 | `Clock Lines` | Clock Lines | 作業時間の記録 | Arbeitszeitprotokolle | Registros de tiempo | Relevés de temps | 작업 시간 기록 | 工时记录 | 工時紀錄 |
+| Org の見出しのタスク状態を表す語 | `TODO Keywords` | TODO Keywords | TODO キーワード | TODO-Schlüsselwörter | Palabras clave TODO | Mots-clés TODO | TODO 키워드 | TODO 关键字 | TODO 關鍵字 |
+| Org の見出しやリストに書く進捗 | `Statistics Cookies` | Statistics Cookies | 進捗の割合と件数 | Fortschrittsangaben | Indicadores de progreso | Indicateurs de progression | 진행률 및 개수 | 进度与计数 | 進度與計數 |
+| Org の名前付きドロワー | `Drawers` | Drawers | ドロワー | Drawer | Cajones | Tiroirs | 서랍 | 抽屉 | 抽屜 |
+| Org のプロパティを収めるドロワー | `Property Drawers` | Property Drawers | プロパティドロワー | Eigenschaften-Drawer | Cajones de propiedades | Tiroirs de propriétés | 속성 서랍 | 属性抽屉 | 屬性抽屜 |
+| Org で日時だけの段落にある日時 | `Standalone Timestamps` | Standalone Timestamps | 単独の日時 | Alleinstehende Zeitstempel | Marcas de tiempo aisladas | Horodatages isolés | 단독 타임스탬프 | 独立时间戳 | 獨立時間戳記 |
+| Org のコロンで始める等幅の行 | `Fixed-width Sections` | Fixed-width Sections | 等幅の行 | Zeilen mit fester Zeichenbreite | Líneas de ancho fijo | Lignes à chasse fixe | 고정폭 행 | 等宽行 | 等寬行 |
+| Org で ARCHIVE タグを付けた部分木 | `Archived Trees` | Archived Trees | アーカイブした項目 | Archivierte Teilbäume | Subárboles archivados | Arborescences archivées | 보관된 하위 트리 | 已归档的子树 | 已封存的子樹 |

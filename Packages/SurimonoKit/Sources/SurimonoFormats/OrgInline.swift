@@ -6,6 +6,26 @@ enum OrgInline {
     static let timestampPattern =
         #"(?:<[0-9]{4}-[0-9]{2}-[0-9]{2}(?: [^<>\[\]\n]*)?>|\[[0-9]{4}-[0-9]{2}-[0-9]{2}(?: [^<>\[\]\n]*)?\])"#
 
+    /// Org filters dates only in paragraphs made entirely of timestamps; prose and planning dates stay intact.
+    static func filterIsolatedTimestamps(_ text: String, mode: OrgReadingDefaults.Timestamps) -> String? {
+        let range = timestampPattern + "(?:--" + timestampPattern + ")?"
+        guard let expression = orgExpression(range) else { return nil }
+        var end = text.startIndex
+        var result = ""
+        for match in expression.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
+            guard let span = Range(match.range, in: text) else { return nil }
+            let gap = text[end..<span.lowerBound]
+            guard gap.allSatisfy(\.isWhitespace) else { return nil }
+            let stamp = text[span]
+            if mode.includes(stamp) {
+                if !result.isEmpty { result += gap }
+                result += stamp
+            }
+            end = span.upperBound
+        }
+        return end != text.startIndex && text[end...].allSatisfy(\.isWhitespace) ? result : nil
+    }
+
     static func timestamp(_ source: String) -> String {
         let inactive = source.hasPrefix("[") ? " org-timestamp-inactive" : ""
         return "<time class=\"org-timestamp\(inactive)\">\(HTML.escape(String(source.dropFirst().dropLast())))</time>"
@@ -236,6 +256,10 @@ enum OrgInline {
                 let source = token.source
                 var html: String?
                 if source.hasPrefix("[fn:") {
+                    if !context.reading.footnotes && !context.discovering {
+                        index = token.end
+                        continue
+                    }
                     let inner = String(source.dropFirst(4).dropLast())
                     var label = inner
                     if let colon = inner.firstIndex(of: ":") {
@@ -259,7 +283,7 @@ enum OrgInline {
                 {
                     html = timestamp(source)
                 } else if cookies == .all || cookies == .edges && (index == 0 || token.end == characters.count) {
-                    html = "<span class=\"org-cookie\">\(HTML.escape(source))</span>"
+                    html = context.reading.statistics ? "<span class=\"org-cookie\">\(HTML.escape(source))</span>" : ""
                 }
                 output += html ?? HTML.escape(source)
                 index = token.end
@@ -278,6 +302,7 @@ enum OrgInline {
             {
                 output += "<br>"
                 index += 2
+                if context.reading.preserveBreaks, index < characters.count { index += 1 }
                 continue
             }
             var linkEnd: Int?
@@ -316,7 +341,14 @@ enum OrgInline {
                 index = end
                 continue
             }
-            if let tag = tags[character], opensEmphasis(index), let end = emphasisEnd(index) {
+            if character == "\n", context.reading.preserveBreaks {
+                output += "<br>\n"
+                index += 1
+                continue
+            }
+            if let tag = tags[character], context.reading.emphasis || tag == "code", opensEmphasis(index),
+                let end = emphasisEnd(index)
+            {
                 let inner = String(characters[(index + 1)..<end])
                 output +=
                     "<\(tag)>\(tag == "code" ? HTML.escape(inner) : render(inner, context: context, depth: depth + 1, cookies: cookies))</\(tag)>"

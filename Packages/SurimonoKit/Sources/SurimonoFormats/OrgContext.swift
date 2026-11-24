@@ -26,6 +26,9 @@ final class OrgContext {
     /// The options over the defaults; the discovery pass reads with the defaults alone.
     var reading: OrgReadingDefaults
     var outline = OrgOutline()
+    var subtrees = OrgSubtrees()
+    var omissions: [Int: Int] = [:]
+    var repeatingDiscovery = false
     /// Whether a `#+TOC: headlines` line asks for a table of contents somewhere in the text.
     var hasContentsKeyword = false
     /// Marks where a table of contents goes until every heading is known. Random, so no document can write it.
@@ -51,12 +54,19 @@ final class OrgContext {
     }
 
     func directive(_ key: String, value: String, lineNumber: Int, line: String, lines: [String]) {
-        if ["TITLE", "SUBTITLE", "AUTHOR", "DATE", "LANGUAGE"].contains(key) { metadata[key] = value }
-        if key == "OPTIONS" { options.read(value, fileName: fileName, lineNumber: lineNumber, lines: lines) }
         if key == "TOC", OrgOutline.keyword(value) != nil {
             hasContentsKeyword = true
             options.file.note(.bodyContents, source: .init(fileName: fileName, lineNumber: lineNumber, rawText: line))
         }
+        guard !repeatingDiscovery else { return }
+        if key == "SELECT_TAGS" {
+            subtrees.select.formUnion(value.split(whereSeparator: \.isWhitespace).map(String.init))
+        }
+        if key == "EXCLUDE_TAGS" {
+            subtrees.exclude.formUnion(value.split(whereSeparator: \.isWhitespace).map(String.init))
+        }
+        if ["TITLE", "SUBTITLE", "AUTHOR", "DATE", "LANGUAGE"].contains(key) { metadata[key] = value }
+        if key == "OPTIONS" { options.read(value, fileName: fileName, lineNumber: lineNumber, lines: lines) }
         if key == "LATEX_HEADER" || key == "LATEX_HEADER_EXTRA",
             let definition = OrgMath.definition(value, after: mathDefinitions)
         {

@@ -24,7 +24,7 @@ struct OrgPrintContractTests {
     @Test("優先度とタグと統計を契約どおり包む")
     func headingDecorations() {
         #expect(
-            OrgConverter.convert("* TODO [#A] 作業 [2/5] :a:b:").body
+            OrgConverter.convert("#+OPTIONS: pri:t\n* TODO [#A] 作業 [2/5] :a:b:").body
                 == "<h1><span class=\"org-todo\">TODO</span> <span class=\"org-priority\">#A</span> 作業 <span class=\"org-cookie\">[2/5]</span> <span class=\"org-tags\"><span class=\"org-tag\">a</span> <span class=\"org-tag\">b</span></span></h1>\n"
         )
     }
@@ -50,7 +50,7 @@ struct OrgPrintContractTests {
     @Test("予定行はラベル別のクラスを持ち通常文を巻き込まない")
     func planning() {
         #expect(
-            OrgConverter.convert("SCHEDULED: <2026-11-18 Wed> CLOSED: [2026-11-19 Thu]").body
+            OrgConverter.convert("#+OPTIONS: p:t\nSCHEDULED: <2026-11-18 Wed> CLOSED: [2026-11-19 Thu]").body
                 == "<p class=\"org-planning\"><span class=\"org-planning-item org-scheduled\"><span class=\"org-planning-label\">SCHEDULED</span> <time class=\"org-timestamp\">2026-11-18 Wed</time></span> <span class=\"org-planning-item org-closed\"><span class=\"org-planning-label\">CLOSED</span> <time class=\"org-timestamp org-timestamp-inactive\">2026-11-19 Thu</time></span></p>\n"
         )
         #expect(OrgConverter.convert("SCHEDULED: 明日").body == "<p>SCHEDULED: 明日</p>\n")
