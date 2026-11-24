@@ -24,6 +24,52 @@ struct FlowPageCutsTests {
         #expect(FlowPageCuts.pages(for: bands, capacity: 26) == [Band(start: 0, end: 12), Band(start: 16, end: 38)])
     }
 
+    @Test("縦書きは見出しと本文二行を同じ段に置き、冊子の章は次のページを開く")
+    func verticalHeadings() {
+        let lines = [
+            Band(start: 0, end: 10), Band(start: 11, end: 17, keepNext: true),
+            Band(start: 18, end: 24), Band(start: 25, end: 31),
+            Band(start: 32, end: 36, keepNext: true, chapter: true), Band(start: 37, end: 40),
+        ]
+        let pages = VerticalPaginator.rows(for: lines, capacity: 26, rowsPerPage: 2)
+        #expect(pages == [[Band(start: 0, end: 10), Band(start: 11, end: 31)], [Band(start: 32, end: 40)]])
+        #expect(
+            VerticalPaginator.rows(for: lines, capacity: 100, rowsPerPage: 2) == [
+                [Band(start: 0, end: 31)], [Band(start: 32, end: 40)],
+            ])
+    }
+
+    @Test("論理 A4 は上下に同寸の版面と三字分の段間を取り、A5 は一段になる")
+    func rowFrames() {
+        let margins = WebPaginator.Margins(top: 36, left: 45, bottom: 54, right: 36)
+        let a4 = VerticalPaginator.Frame(pageSize: PaperSize.a4.size, margins: margins, textScale: 1)
+        #expect(a4.rows == 2 && a4.font == 10.5)
+        #expect(a4.width == 441 && a4.height == 315)
+        let extraTop = PaperSize.a4.size.height - a4.top(of: 0) - margins.top
+        let extraBottom = a4.top(of: 1) - a4.height - margins.bottom
+        #expect(abs(extraTop - extraBottom) < 0.001)
+        #expect(extraTop > a4.font)
+        let scaled = VerticalPaginator.Frame(pageSize: PaperSize.a4.size, margins: margins, textScale: 1.25)
+        #expect(scaled.width == 436.40625 && scaled.height == 315)
+        #expect(scaled.top(of: 0) - scaled.height - scaled.top(of: 1) == 39.375)
+        #expect(a4.top(of: 0) - a4.height - a4.top(of: 1) == 31.5)
+        let a5 = VerticalPaginator.Frame(pageSize: PaperSize.a5.size, margins: margins, textScale: 1)
+        #expect(a5.rows == 1 && a5.font == 10.5)
+        #expect(a5.width == 330.75 && a5.height == 441)
+        let narrow = VerticalPaginator.Frame(
+            pageSize: PaperSize.a5.size, margins: .init(top: 90, left: 76, bottom: 90, right: 76), textScale: 1)
+        #expect(narrow.width == 257.25 && narrow.height == 409.5)
+    }
+
+    @Test("切片の割当は小数の配置幅で決め、重なる傍点とルビの描画範囲だけを広げる")
+    func overlappingInk() {
+        let first = Band(start: 0.25, end: 10.25, ink: .init(start: -3.5, end: 13.75, top: -0.5, bottom: 21))
+        let second = Band(start: 11.25, end: 20.75, ink: .init(start: 8, end: 23.125, top: 0, bottom: 23.5))
+        #expect(VerticalPaginator.rows(for: [first, second], capacity: 20, rowsPerPage: 2) == [[first, second]])
+        let merged = Band(start: 0.25, end: 20.75, ink: .init(start: -3.5, end: 23.125, top: -0.5, bottom: 23.5))
+        #expect(VerticalPaginator.rows(for: [first, second], capacity: 20.5, rowsPerPage: 2) == [[merged]])
+    }
+
     @Test("用紙より広い箱は分けずに単独のページに取り、空の帯は空のまま返す")
     func oversizeBox() {
         let bands = [Band(start: 0, end: 4), Band(start: 7, end: 77), Band(start: 85, end: 95)]
@@ -78,18 +124,51 @@ struct FlowPageCaptureTests {
 
 @MainActor
 struct VerticalPaginatorTests {
-    @Test("本文は余白いっぱいまで縦に流れ、数字の向きと表・コードの独立した行を保つ", .timeLimit(.minutes(1)), arguments: [PaperSize.a4, .a5])
-    func typography(paper: PaperSize) async throws {
+    @Test("同じ A5 の二ページ配置から右とじ冊子に替えると、章の前で改ページする指定で組み直す", .timeLimit(.minutes(1)))
+    func bookletChapterCache() async throws {
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "tategaki" })
+        var settings = RenderSettings(
+            layout: .a4TwoUp, theme: theme, preset: HTMLCleanupPreset(id: "none", name: "None"))
+        let source = DocumentSource(data: Data("# 春\n\n本文\n\n# 秋\n\n本文".utf8), format: .markdown)
+        var bookletRequests: [Bool] = []
+        let renderer = DocumentRenderer(paginate: { request in
+            bookletRequests.append(request.verticalBooklet)
+            return try RenderingFixtures.pdf(size: request.pageSize)
+        })
+        _ = try await renderer.prepare(source, settings: settings)
+        settings.layout = PrintLayout.a4BookletA5.bound(.right)
+        _ = try await renderer.prepare(source, settings: settings)
+        #expect(bookletRequests == [false, true])
+    }
+
+    @Test(
+        "A4・A5 の行長と横組みの箱を保ち、冊子では次の章を新しいページから始める", .timeLimit(.minutes(1)),
+        arguments: [PrintLayout.a4Single, .a4TwoUp, .a4BookletA5])
+    func typography(layout: PrintLayout) async throws {
         _ = NSApplication.shared
         let theme = try #require(PrintThemeLibrary.load().first { $0.id == "tategaki" })
+        // Enough prose on A4 makes the horizontal boxes follow the upper row.
+        let count = layout.kind == .normal ? 770 : 80
+        let heading = #"<h1 style="color: #008000">新章</h1><p>本文</p>"#
+        let cells = ["本", "11", "25", "12", "50", "!?"].map {
+            #"<span class="cell" style="white-space: nowrap"><span>本</span>\#($0)<span>本</span></span>"#
+        }.joined()
+        let a5Probe = layout.kind != .normal
+        let indent = a5Probe ? " style=\"text-indent:0.5em\"" : ""
         let body = """
-            <p id="prose">\(String(repeating: "本", count: 180))</p>
-            <p id="numbers">2026年11月19日、A4 で 12 ページ。ABC12 Surimono</p>
-            <table><tr><td>表</td></tr></table><pre><code>let a = 1</code></pre><p id="next">次</p>
+            <p id="prose"\(indent)>\(String(repeating: "本", count: count))\(a5Probe ? "<br>本本" : "")</p>
+            <p id="numbers">2026年11月25日、12段落、50%、本当か!?　1段落目、10kg、3.14、1,234円。</p>
+            <p>\(cells)</p>
+            <table><tr><td style="color: blue">表</td></tr></table>
+            <pre><code style="color: red">let a = 1</code></pre><p id="next">次</p>
             """
-        let size = paper.size
+        let booklet = layout.kind == .booklet
+        let paper: PaperSize = layout.kind == .normal ? .a4 : .a5
+        let size = layout.logicalPageSize
         let margins = WebPaginator.Margins(top: 36, left: 45, bottom: 54, right: 36)
-        let html = HTMLDocumentBuilder.build(fragment: HTMLFragment(body: body), format: .markdown, theme: theme)
+        let html = HTMLDocumentBuilder.build(
+            fragment: HTMLFragment(body: paper == .a4 ? heading + body : body + heading),
+            format: .markdown, theme: theme)
         let view = WKWebView(frame: CGRect(origin: .zero, size: size))
         let navigation = NavigationTracker()
         view.navigationDelegate = navigation
@@ -97,49 +176,136 @@ struct VerticalPaginatorTests {
         try await WebPaginator.waitUntil(timeout: .seconds(10)) { navigation.state != .loading }
         try #require(navigation.state == .finished)
         let document = try await VerticalPaginator.pages(
-            in: view, pageSize: size, margins: margins, timeout: .seconds(10))
-        #expect(document.pageCount == 1)
-        let page = try #require(document.page(at: 0))
-        let twelves = document.findString("12", withOptions: [])
-        try #require(twelves.count == 2)
-        for selection in twelves {
-            let range = selection.range(at: 0, on: page)
-            try #require(range.length >= 2)
-            let one = try #require(page.selection(for: NSRange(location: range.location, length: 1)))
-            let two = try #require(page.selection(for: NSRange(location: range.location + 1, length: 1)))
-            #expect(one.string == "1" && two.string == "2")
-            let left = one.bounds(for: page)
-            let right = two.bounds(for: page)
-            #expect(abs(left.midY - right.midY) < 1 && left.midX < right.minX)
-        }
-
+            in: view, pageSize: size, margins: margins, timeout: .seconds(10), booklet: booklet)
+        #expect(document.pageCount == (booklet ? 2 : 1))
+        let rowWidth = paper == .a4 ? 441.0 : 330.75
+        let rowHeight: CGFloat = paper == .a4 ? 315 : 441
         let script = """
             const range = document.createRange();
-            range.selectNodeContents(document.querySelector('#prose'));
+            const prose = document.querySelector('#prose');
+            const firstText = document.createTreeWalker(prose, NodeFilter.SHOW_TEXT).nextNode();
+            range.selectNodeContents(firstText);
             const firstLine = range.getClientRects()[0];
             const numbers = document.querySelector('#numbers');
             const short = [...numbers.querySelectorAll('.tcy')];
-            const year = numbers.querySelector('.upright-digits');
-            const table = document.querySelector('table').getBoundingClientRect();
+            // Identical surrounding glyphs isolate the advance from font side bearings.
+            const advances = [...document.querySelectorAll('.cell')].map(cell => {
+                const first = cell.firstElementChild.getBoundingClientRect();
+                const last = cell.lastElementChild.getBoundingClientRect();
+                return Math.abs(first.left - last.left) < 1 ? last.top - first.top : -1;
+            });
+            const em = parseFloat(getComputedStyle(numbers).fontSize);
+            const strip = document.querySelector('.surimono-vertical').getBoundingClientRect();
+            const rowHeight = strip.height;
+            const tableBox = document.querySelector('table');
+            const codeBox = document.querySelector('pre');
+            const table = tableBox.getBoundingClientRect();
             const code = document.querySelector('pre').getBoundingClientRect();
             const next = document.querySelector('#next').getBoundingClientRect();
+            let a5 = [];
+            if (prose.querySelector('br')) {
+                // Half a cell of indent forces inter-character justification even on a whole-cell grid.
+                const origin = prose.getBoundingClientRect().top;
+                const lines = [];
+                const walker = document.createTreeWalker(prose, NodeFilter.SHOW_TEXT);
+                for (let n=walker.nextNode(); n; n=walker.nextNode()) {
+                    for (let i=0; i<n.length; ++i) {
+                        range.setStart(n,i); range.setEnd(n,i+1);
+                        const r=range.getBoundingClientRect();
+                        if (!lines.length || Math.abs(lines.at(-1).x-r.left)>em/2) lines.push({x:r.left, y:[]});
+                        lines.at(-1).y.push((r.top-origin)/em);
+                    }
+                }
+                a5 = lines.map(l => l.y);
+            }
             return {
-                fullHeight: firstLine.height > contentHeight - 16 && firstLine.height <= contentHeight + 1,
+                a5, fontSizeCSSPx:em, lineLengthCSSPx:rowHeight,
+                fullHeight: firstLine.bottom > strip.bottom - em - 1 && firstLine.bottom <= strip.bottom + 1
+                    && Math.abs(rowHeight - contentHeight) < 1,
+                containedBoxes: [tableBox, codeBox].every(box => {
+                    const rect = box.getBoundingClientRect();
+                    return getComputedStyle(box).writingMode === 'horizontal-tb'
+                        && rect.top >= strip.top-1 && rect.bottom <= strip.bottom + 1
+                        && rect.width <= parseFloat(getComputedStyle(box).maxInlineSize) + 1;
+                }),
                 separateBoxes: table.left > code.right && code.left > next.right,
-                alignedTops: table.top > 0 && Math.abs(table.top - code.top) < 1,
-                shortDigits: short.map(e => e.textContent).join(',') === '11,19,4,12,12'
-                    && short.every(e => getComputedStyle(e).textCombineUpright === 'all'),
-                uprightYear: year.textContent === '2026' && getComputedStyle(year).textOrientation === 'upright',
+                alignedTops: Math.abs(table.top - prose.getBoundingClientRect().top) < 1 && Math.abs(table.top - code.top) < 1,
+                shortDigits: short.map(e => e.textContent).join(',') === '11,25,12,!?'
+                    && short.every(e => {
+                        const style = getComputedStyle(e);
+                        return style.display === 'inline' && (style.textCombineUpright === 'all'
+                            || style.getPropertyValue('-webkit-text-combine') === 'horizontal');
+                    }),
+                advances, em,
+                mixedYear: numbers.querySelector('.v-latin')?.textContent === '2026',
                 mixedProse: getComputedStyle(numbers).textOrientation === 'mixed'
             };
             """
-        let contentHeight = (size.height - margins.top - margins.bottom) * 96 / 72
+        let contentHeight = rowHeight * 96 / 72
         let measured = try #require(
             try await view.callAsyncJavaScript(
                 script, arguments: ["contentHeight": contentHeight], in: nil,
-                contentWorld: WebPaginator.preparationWorld) as? [String: Bool])
-        for property in ["fullHeight", "separateBoxes", "alignedTops", "shortDigits", "uprightYear", "mixedProse"] {
-            #expect(measured[property] == true, "\(property)")
+                contentWorld: WebPaginator.preparationWorld) as? [String: Any])
+        for property in [
+            "fullHeight", "containedBoxes", "separateBoxes", "alignedTops", "shortDigits", "mixedYear", "mixedProse",
+        ] {
+            #expect(measured[property] as? Bool == true, "\(property)")
+        }
+        let advances = try #require(measured["advances"] as? [Double])
+        let em = try #require(measured["em"] as? Double)
+        if a5Probe {
+            let lines = try #require(measured["a5"] as? [[Double]])
+            try #require(lines.count == 3)
+            let width = contentHeight / em
+            let rows = lines.map { ($0.last ?? 0) + 1 }
+            #expect(abs(rows[0] - width) < 0.12)
+            #expect(abs((lines[0].first ?? 0) - 0.5) < 0.12)
+            for line in lines.suffix(2) {
+                #expect(abs(line.first ?? 0) < 0.12)
+                #expect(abs((line.last ?? 0) - Double(line.count - 1)) < 0.12)
+            }
+            let data = try JSONSerialization.data(withJSONObject: measured, options: [.prettyPrinted, .sortedKeys])
+            Attachment.record(String(decoding: data, as: UTF8.self), named: "vertical-spacing-\(layout.id).json")
+        }
+        let labels = ["本", "11", "25", "12", "50", "!?"]
+        try #require(advances.count == labels.count)
+        #expect(abs(advances[0] - 2 * em) < 1.5, "本文の字送り \(advances[0]) px、2 字分 \(2 * em) px")
+        for (label, advance) in zip(labels.dropFirst(), advances.dropFirst()) {
+            #expect(abs(advance - advances[0]) < 1.5, "「本\(label)本」の字送り \(advance) px、基準 \(advances[0]) px")
+        }
+        let right = (margins.left + size.width - margins.right + rowWidth) / 2
+        let font = 10.5
+        let page = try #require(document.page(at: 0))
+        let first = try PagePixels(page)
+        let isChapter: (Int, Int, Int) -> Bool = { r, g, b in g > r + 55 && g > b + 55 }
+        let chapterPage: PagePixels
+        if booklet {
+            #expect(first.bounds(where: isChapter) == nil)
+            chapterPage = try PagePixels(#require(document.page(at: 1)))
+            let following = try #require(
+                chapterPage.bounds { r, g, b in max(r, g, b) < 128 && max(r, g, b) - min(r, g, b) < 24 })
+            #expect(following.maxX < right - font)
+        } else {
+            chapterPage = first
+        }
+        let chapter = try #require(chapterPage.bounds(where: isChapter))
+        if layout.kind == .twoUp {
+            #expect(chapter.maxX < right - 2 * font)
+        } else {
+            #expect(abs(chapter.maxX - right) < font)
+        }
+        if paper == .a4 {
+            // Ink on the finished page includes the translation that places the second capture below the first.
+            let code = try #require(first.bounds { r, g, b in r > g + 80 && r > b + 80 })
+            let table = try #require(first.bounds { r, g, b in b > r + 80 && b > g + 80 })
+            let extra = (size.height - margins.top - margins.bottom - 2 * rowHeight - 31.5) / 2
+            let lowerTop = margins.top + extra + rowHeight + 31.5
+            let lower = CGRect(x: 0, y: margins.bottom + extra, width: size.width, height: rowHeight)
+            let lowerInk = try printedInk(in: lower, on: page, scale: 2)
+            #expect(abs(lowerInk.maxX - chapter.maxX) < font / 2)
+            #expect(code.minY >= lowerTop && code.maxY <= size.height - margins.bottom)
+            #expect(table.maxY <= margins.top + extra + rowHeight || table.minY >= lowerTop)
+            #expect([code, table].allSatisfy { $0.minX >= right - rowWidth && $0.maxX <= right + 1 })
         }
     }
 
@@ -194,7 +360,8 @@ struct VerticalPaginatorTests {
         Logger(subsystem: "app.surimono.Surimono", category: "VerticalPaginatorTests")
             .notice("\(metrics, privacy: .public)")
         #expect(elapsed < .seconds(8), "\(metrics)")
-        try #require((90...150).contains(document.pageCount), "\(metrics)")
+        // Each explicit source line needs at least one column, even before longer paragraphs wrap.
+        try #require(document.pageCount >= 60, "\(metrics)")
 
         let margins = WebPaginator.Margins(settings.layout.logicalMargins(options: settings.options))
         let size = settings.layout.logicalPageSize(options: settings.options)
@@ -212,19 +379,26 @@ struct VerticalPaginatorTests {
             // A short final page can be returned in left-to-right column order by a whole-page selection.
             let glyphs = (0..<page.numberOfCharacters).map(page.characterBounds(at:)).filter { !$0.isEmpty }
             let ink = glyphs.reduce(CGRect.null) { $0.union($1) }
-            var columns: [CGRect] = []
-            for glyph in glyphs.sorted(by: { $0.maxX > $1.maxX }) {
-                if let last = columns.indices.last, glyph.maxX > columns[last].minX {
-                    columns[last] = columns[last].union(glyph)
-                } else {
-                    columns.append(glyph)
-                }
-            }
             var pageText = ""
-            for column in columns {
-                let strip = CGRect(x: column.minX - 1, y: 0, width: column.width + 2, height: size.height)
-                let selection = try #require(page.selection(for: strip))
-                pageText += (selection.string ?? "").filter { !$0.isWhitespace }
+            for upper in [true, false] {
+                let middle = content.midY
+                let band = CGRect(
+                    x: content.minX, y: upper ? middle : content.minY, width: content.width, height: content.height / 2)
+                let row = glyphs.filter { band.contains(CGPoint(x: $0.midX, y: $0.midY)) }
+                if index == 0 { #expect(!row.isEmpty) }
+                var columns: [CGRect] = []
+                for glyph in row.sorted(by: { $0.maxX > $1.maxX }) {
+                    if let last = columns.indices.last, glyph.maxX > columns[last].minX {
+                        columns[last] = columns[last].union(glyph)
+                    } else {
+                        columns.append(glyph)
+                    }
+                }
+                for column in columns {
+                    let strip = CGRect(x: column.minX - 1, y: band.minY, width: column.width + 2, height: band.height)
+                    let selection = try #require(page.selection(for: strip))
+                    pageText += (selection.string ?? "").filter { !$0.isWhitespace }
+                }
             }
             #expect(glyphs.count == pageText.count)
             #expect(pageText.count == text.filter { !$0.isWhitespace }.count)

@@ -13,13 +13,14 @@ public enum HTMLDocumentBuilder {
         build(
             fragment: fragment, format: format, theme: theme, baseURL: baseURL, language: language,
             textScale: textScale, typeface: typeface, removesPaper: removesPaper, finish: finish, code: code,
-            checkSourceBytes: { _ in })
+            verticalMarkup: { (try? VerticalText.marked($0)) ?? $0 }, checkSourceBytes: { _ in })
     }
 
     package static func build(
         fragment: HTMLFragment, format: DocumentFormat, theme: PrintTheme, baseURL: URL? = nil, language: String = "ja",
         textScale: Double = 1, typeface: Typeface = .style, removesPaper: Bool = false, finish: String = "",
-        code: CodeStyle = CodeStyle(), checkSourceBytes: (Int) throws -> Void
+        code: CodeStyle = CodeStyle(), verticalMarkup: (String) throws -> String = VerticalText.marked,
+        checkSourceBytes: (Int) throws -> Void
     ) rethrows -> String {
         let language = Self.language(for: fragment, fallback: language)
         let info = format == .latex ? fragment.latexClass : nil
@@ -69,6 +70,12 @@ public enum HTMLDocumentBuilder {
         let marked = try CodeBlockMarkup.apply(
             code, to: fragment.body, language: sourcePage ? fragment.sourceLanguage : nil,
             checkSourceBytes: checkSourceBytes)
+        var body = marked
+        if !sourcePage, theme.flow == .vertical, theme.supports(format) {
+            body = try verticalMarkup(body)
+            try checkSourceBytes(body.utf8.count)
+        }
+        if !sourcePage { body = LongTokenMarks.marked(body) }
         let sheet = styleSheet(
             theme: theme, textScale: textScale, typeface: format.usesPrintTheme ? typeface : .style,
             code: code, language: language.code, sourcePage: sourcePage)
@@ -94,7 +101,7 @@ public enum HTMLDocumentBuilder {
             </style>\(sourceStyle)\(fontStyle)\(format == .rst ? rstStyle : "")\(finishStyle)\(slideStyle)\(removesPaper ? "\n" + PaperBackground.removalStyle : "")
             </head>
             <body class="surimono format-\(format.rawValue)\(ownNumbers)"\(latex)>
-            \(sourcePage ? marked : LongTokenMarks.marked(marked))
+            \(body)
             </body>
             </html>
             """

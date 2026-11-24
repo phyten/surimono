@@ -250,6 +250,8 @@ public struct PaginationRequest: Sendable {
     public var latexFlow = false
     public var latexMarginInk = false
     public var checksVerticalLaTeXInk = false
+    var verticalBooklet = false
+    var verticalTextScale: Double = 1
     public var flow = PrintFlow.horizontal
 }
 
@@ -266,7 +268,7 @@ extension WebPaginator {
             composesLaTeXParagraphs: request.composesLaTeXParagraphs,
             latexFlow: request.latexFlow,
             latexMarginInk: request.latexMarginInk, checksVerticalLaTeXInk: request.checksVerticalLaTeXInk,
-            flow: request.flow)
+            verticalBooklet: request.verticalBooklet, verticalTextScale: request.verticalTextScale, flow: request.flow)
     }
 }
 
@@ -503,6 +505,7 @@ public final class DocumentRenderer {
     private struct CacheKey: Equatable {
         let source: DocumentSource
         let pageSize: CGSize
+        let verticalBooklet: Bool
         let mixesImagePages: Bool
         let theme: PrintTheme?
         let typeface: Typeface?
@@ -710,6 +713,8 @@ public final class DocumentRenderer {
             let isPlainPDF = source.format == .pdf && source.children == nil
             let key = CacheKey(
                 source: source, pageSize: isPlainPDF ? .zero : pageSize,
+                verticalBooklet: settings.theme.flow == .vertical && settings.theme.supports(source.format)
+                    && settings.layout.kind == .booklet,
                 mixesImagePages: source.format == .image && settings.usesPerPageOrientation
                     && Set(sourcePageSizes?.sizes.map { $0.width > $0.height } ?? []).count > 1,
                 theme: source.children != nil || source.format.usesPrintTheme ? settings.theme : nil,
@@ -1351,7 +1356,8 @@ public final class DocumentRenderer {
             let latexFlow =
                 source.format == .latex && settings.theme.formats == [.latex]
                 && page.needsLaTeXFlow
-            let codeScript = CodeFitScript.javaScript(for: settings.code, layoutWidth: layoutWidth) ?? ""
+            let codeScript =
+                flow == .vertical ? "" : CodeFitScript.javaScript(for: settings.code, layoutWidth: layoutWidth) ?? ""
             let graphicScript =
                 source.format == .latex
                 ? LaTeXGraphicPreparation.script(
@@ -1400,7 +1406,9 @@ public final class DocumentRenderer {
                         latexFlow: latexFlow,
                         latexMarginInk: source.format == .latex && settings.theme.formats == [.latex]
                             && (checksVerticalLaTeXInk || LaTeXFlowPaginator.hasMarginInk(in: fragment.body)),
-                        checksVerticalLaTeXInk: checksVerticalLaTeXInk, flow: flow),
+                        checksVerticalLaTeXInk: checksVerticalLaTeXInk,
+                        verticalBooklet: settings.layout.kind == .booklet,
+                        verticalTextScale: settings.textScale, flow: flow),
                     source: source
                 )
             }
@@ -1743,7 +1751,9 @@ public final class DocumentRenderer {
                 pageSize: settings.logicalPageSize,
                 margins: WebPaginator.Margins(settings.layout.logicalMargins(options: settings.options)),
                 allowsJavaScript: false, preparationScript: script?.isEmpty == false ? script : nil,
-                readsPageRules: false, drawsBackground: !separatesPaper, flow: flow)
+                readsPageRules: false, drawsBackground: !separatesPaper,
+                verticalBooklet: settings.layout.kind == .booklet,
+                verticalTextScale: settings.textScale, flow: flow)
         ).document
     }
 
@@ -1967,7 +1977,7 @@ public final class DocumentRenderer {
             composesLaTeXParagraphs: source.format == .latex,
             latexFlow: request.latexFlow,
             latexMarginInk: request.latexMarginInk, checksVerticalLaTeXInk: request.checksVerticalLaTeXInk,
-            flow: request.flow)
+            verticalBooklet: request.verticalBooklet, verticalTextScale: request.verticalTextScale, flow: request.flow)
         let output = try await paginate(wrapped)
         let preparation = output.preparationResult.flatMap {
             try? JSONDecoder().decode(PrintIssueAnchors.Preparation.self, from: Data($0.utf8))
