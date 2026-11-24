@@ -9,10 +9,28 @@ struct DocumentCommands: Commands {
         DocumentMenuSection(section: section, preferences: preferences, state: menuState)
     }
 
+    private var shareLabel: some View {
+        Label {
+            Text("Share")
+        } icon: {
+            Image(nsImage: DocumentShareMenu.glyph)
+        }
+    }
+
     var body: some Commands {
         let _ = MenuTrace.commandsBody("DocumentCommands", version: menuState.snapshot.version)
         CommandGroup(replacing: .newItem) { items(.open) }
         CommandGroup(after: .saveItem) { items(.save) }
+        CommandGroup(after: .importExport) {
+            // The nonempty declaration keeps the row in SwiftUI's tree. DocumentShareMenu
+            // attaches AppKit's document-sharing submenu before it is used.
+            Menu {
+                shareLabel
+            } label: {
+                shareLabel
+            }
+            .accessibilityIdentifier(DocumentShareMenu.identifier)
+        }
         CommandGroup(replacing: .printItem) { items(.printItems) }
         CommandGroup(after: .pasteboard) { items(.edit) }
         CommandGroup(after: .toolbar) { items(.view) }

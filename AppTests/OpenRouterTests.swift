@@ -472,6 +472,39 @@ struct OpenRouterTests {
             return open[0]
         }
 
+        func checkFileOpening(_ main: NSMenu, file: NSMenu, stage: String) throws {
+            // Drive the attached File delegate in a tracking session without taking keyboard focus.
+            let center = NotificationCenter.default
+            center.post(name: NSMenu.didBeginTrackingNotification, object: main)
+            defer { center.post(name: NSMenu.didEndTrackingNotification, object: main) }
+            var openingRows: [NSMenuItem]?
+            let observer = FileOpeningObserver(
+                file, didOpen: { openingRows = $0.items.filter { !$0.isHiddenOrHasHiddenAncestor } },
+                beforeClose: { _ in })
+            defer { observer.detach() }
+            let delegate = try #require(file.delegate)
+            delegate.menuNeedsUpdate?(file)
+            file.update()
+            delegate.menuWillOpen?(file)
+            defer { delegate.menuDidClose?(file) }
+
+            let visible = try #require(openingRows, "\(stage) menuWillOpen")
+            let shares = visible.filter { $0.title == String(localized: "Share") }
+            let diagnostic = "\(stage) File=\(visible.map(\.title))"
+            try #require(shares.count == 1, "\(diagnostic)")
+            let share = shares[0]
+            let native = try #require(controller.standardShareMenuItem().submenu?.delegate)
+            let installed = try #require(share.submenu?.delegate)
+            #expect(
+                DocumentShareMenu.isInstalled(on: share) && type(of: installed) == type(of: native), "\(diagnostic)")
+            #expect(!controller.allowsAutomaticShareMenu && share.isEnabled && share.target === share.submenu)
+            #expect(!visible.contains { $0.title == "NSMenuItem" }, "\(diagnostic)")
+            let index = try #require(visible.firstIndex(of: share))
+            // Inspect raw adjacent rows: the dump formatter itself coalesces separators.
+            #expect(visible[..<index].reversed().prefix(while: { $0.isSeparatorItem }).count <= 1, "\(diagnostic)")
+            #expect(visible.dropFirst(index + 1).prefix(while: { $0.isSeparatorItem }).count <= 1, "\(diagnostic)")
+        }
+
         func check(_ stage: String) throws {
             let main = try #require(NSApp.mainMenu)
             let file = try #require(main.items.dropFirst().first?.submenu)
@@ -480,6 +513,7 @@ struct OpenRouterTests {
             let delegate = try #require(recent.delegate)
             try #require(delegate is RecentDocumentsMenu)
             delegate.menuNeedsUpdate?(recent)
+            if !controller.documents.isEmpty { try checkFileOpening(main, file: file, stage: stage) }
             let items = file.items
             let index = try openIndex(
                 in: items.map(DebugMenuDump.Row.init), stage: stage, recents: controller.recentDocumentURLs)

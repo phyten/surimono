@@ -165,27 +165,116 @@ struct DocumentEditMenuTests {
         #expect(!own.isHidden && system.isHidden && recent.isHidden)
     }
 
-    @Test("ファイル直下の仮項目は題名が入ると見え、同じ名の子項目と元から非表示の項目はそのままになる")
-    func placeholderBecomesShare() throws {
-        let file = try #require(NSApp.mainMenu?.items.dropFirst().first?.submenu)
-        let placeholder = NSMenuItem()
-        file.addItem(placeholder)
-        defer { file.removeItem(placeholder) }
-        #expect(placeholder.isHidden)
-        let children = NSMenu()
-        placeholder.submenu = children
-        placeholder.title = "Share"
-        #expect(!placeholder.isHidden)
-        let named = NSMenuItem(title: "NSMenuItem", action: nil, keyEquivalent: "")
-        children.addItem(named)
-        #expect(!named.isHidden)
+    @Test("文書共有の小メニューは初回と組み直した後も標準の共有先を使い、仮の題名は隠さない")
+    func documentSharing() throws {
+        let share = DocumentShareMenu()
+        let file = NSMenu()
+        let row = file.addItem(withTitle: String(localized: "Share"), action: nil, keyEquivalent: "")
+        row.image = DocumentShareMenu.glyph
+        let standard = NSDocumentController.shared.standardShareMenuItem()
+        let expected = try #require(standard.submenu?.delegate)
+        for _ in 0..<2 {
+            let seed = NSMenu()
+            row.submenu = seed
+            share.bind(row)
+            let installed = try #require(row.submenu)
+            let delegate = try #require(installed.delegate)
+            #expect(installed !== seed && installed.supermenu === file)
+            #expect(type(of: delegate) == type(of: expected))
+            #expect(row.isEnabled && !row.isHidden && row.target === installed && row.action == standard.action)
+            share.bind(row)
+            #expect(row.submenu === installed && DocumentShareMenu.isInstalled(on: row))
+        }
 
-        let hidden = NSMenuItem()
+        let unfinished = NSMenuItem()
+        file.addItem(unfinished)
+        DocumentEditMenu().hideItems(in: file)
+        #expect(!unfinished.isHidden)
+    }
+
+    @Test("追跡中に標準の共有が先に来ても後から来ても自前の共有と一区切りだけが残る", arguments: [true, false])
+    func sharesDuringOpening(systemFirst: Bool) throws {
+        let main = NSMenu()
+        main.addItem(NSMenuItem())
+        let file = NSMenu()
+        main.addItem(withTitle: "File", action: nil, keyEquivalent: "").submenu = file
+        let updates = MenuUpdates(
+            state: MenuState(), root: { main }, model: { nil }, preferences: { nil },
+            lifecycle: NotificationCenter(), apply: { _ in })
+        updates.start()
+        defer { updates.stop() }
+        let center = NotificationCenter.default
+        center.post(name: NSMenu.didBeginTrackingNotification, object: main)
+        defer { center.post(name: NSMenu.didEndTrackingNotification, object: main) }
+
+        let own = NSMenuItem(title: "自前", action: nil, keyEquivalent: "")
+        own.setAccessibilityIdentifier(DocumentShareMenu.identifier)
+        own.submenu = NSMenu()
+        let template = NSDocumentController.shared.standardShareMenuItem()
+        let native: NSMenuItem
+        if systemFirst {
+            native = template
+        } else {
+            // A new wrapper can arrive with only the factory's identifier, before its submenu.
+            native = NSMenuItem()
+            native.identifier = try #require(template.identifier)
+        }
+        native.title = "標準"
+        let first = NSMenuItem.separator()
+        let second = NSMenuItem.separator()
+        let last = NSMenuItem.separator()
+        for row in [
+            NSMenuItem(title: "閉じる", action: nil, keyEquivalent: ""), first,
+            systemFirst ? native : own, second, systemFirst ? own : native, last,
+            NSMenuItem(title: "印刷", action: nil, keyEquivalent: ""),
+        ] {
+            file.addItem(row)
+            if row === native { #expect(native.isHidden) }
+        }
+        #expect(native.isHidden && !own.isHidden && DocumentShareMenu.isInstalled(on: own))
+        native.isHidden = false
+        #expect(native.isHidden)
+        let visible = file.items.filter { !$0.isHidden }
+        #expect(visible.count == 5 && visible[2] === own)
+        #expect(visible[1].isSeparatorItem && visible[3].isSeparatorItem)
+        let unrelated = NSMenuItem(title: String(localized: "Share"), action: nil, keyEquivalent: "")
+        unrelated.submenu = NSMenu()
+        file.insertItem(unrelated, at: file.index(of: native))
+        #expect(!unrelated.isHidden && !DocumentShareMenu.isInstalled(on: unrelated))
+        #expect(!first.isHidden && !second.isHidden && !last.isHidden)
+    }
+
+    @Test("ファイルの表示直前の記録は元の委譲先の更新後に表示行だけを読む")
+    func openingDump() throws {
+        final class Delegate: NSObject, NSMenuDelegate {
+            var updates = 0
+            func menuNeedsUpdate(_ menu: NSMenu) { updates += 1 }
+            func menuWillOpen(_ menu: NSMenu) { menu.items[0].isEnabled = true }
+        }
+        let file = NSMenu()
+        let row = file.addItem(withTitle: "共有", action: nil, keyEquivalent: "")
+        row.isEnabled = false
+        file.addItem(.separator())
+        let hidden = file.addItem(withTitle: "保存", action: nil, keyEquivalent: "")
         hidden.isHidden = true
-        file.addItem(hidden)
-        defer { file.removeItem(hidden) }
-        hidden.title = "Share"
-        #expect(hidden.isHidden)
+        let original = Delegate()
+        file.delegate = original
+        var visible: [NSMenuItem] = []
+        var beforeClose: [NSMenuItem] = []
+        let observer = FileOpeningObserver(
+            file,
+            didOpen: { menu in
+                visible = DebugMenuDump.visibleFileRows(menu, modifiers: [])
+                #expect(row.isEnabled)
+            },
+            beforeClose: { menu in beforeClose = DebugMenuDump.visibleFileRows(menu, modifiers: []) })
+        file.delegate?.menuNeedsUpdate?(file)
+        file.delegate?.menuWillOpen?(file)
+        #expect(original.updates == 1 && visible == [row])
+        hidden.isHidden = false
+        withExtendedLifetime(observer) { file.delegate?.menuDidClose?(file) }
+        #expect(beforeClose == file.items)
+        #expect(file.delegate === original)
     }
 
     @Test("標準の開くと後から履歴消去が付くサブメニューだけを追加時に隠す")

@@ -17,6 +17,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             appearanceKeeper = AppearanceKeeper(preferences: preferences)
             appearanceKeeper?.start()
         }
+        let controller = type(of: NSDocumentController.shared)
+        if controller != NSDocumentController.self { DocumentShareMenu.useExplicitPlacement(on: controller) }
         // Observe assembly before SwiftUI installs the document group's File submenu.
         ShortcutDispatcher.shared.menus.start()
         RecentFileHistory.shared?.restoreOnLaunch()

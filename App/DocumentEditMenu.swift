@@ -1,14 +1,13 @@
 import AppKit
 
 /// SwiftUI's document group adds the document's Save, Duplicate, Rename, Move To, Revert and Lock items. A viewer never
-/// changes the reader's file, and Rename and Move To would rename or move it even though writes are refused. Keep the
-/// native group for Share, and leave key-equivalent setters out of item notifications.
+/// changes the reader's file, and Rename and Move To would rename or move it even though writes are refused.
+/// Leave key-equivalent setters out of item notifications.
 final class DocumentEditMenu {
     private let canScan: () -> Bool
     private let isTracking: () -> Bool
     private var notifiedItem: NSMenuItem?
     private weak var installedFileMenu: NSMenu?
-    private let hiddenPlaceholders = NSHashTable<NSMenuItem>.weakObjects()
     private(set) lazy var writes = MenuWrites(
         canWrite: { [weak self] in self?.notifiedItem != nil || self?.canScan() == true },
         isTracking: isTracking)
@@ -87,7 +86,7 @@ final class DocumentEditMenu {
             installedFileMenu = file
             var previous: NSMenuItem?
             for item in file.items {
-                if Self.protects(item, after: previous) { concealNotified(item) } else { updatePlaceholder(item) }
+                if Self.protects(item, after: previous) { concealNotified(item) }
                 previous = item
             }
             return
@@ -100,10 +99,7 @@ final class DocumentEditMenu {
             // A submenu can be attached before AppKit installs its Clear Menu child.
             item = owner
         } else {
-            guard Self.protects(changed, after: index > 0 ? menu.item(at: index - 1) : nil) else {
-                if main.numberOfItems > 1, main.item(at: 1)?.submenu === menu { updatePlaceholder(changed) }
-                return
-            }
+            guard Self.protects(changed, after: index > 0 ? menu.item(at: index - 1) : nil) else { return }
             item = changed
         }
         guard Self.isInFileMenu(menu, of: main) else { return }
@@ -119,40 +115,15 @@ final class DocumentEditMenu {
         conceal(item)
     }
 
-    // A newly allocated NSMenuItem has this literal title. Only File's top level has exclusively
-    // command names; a recent document or a user-defined preset can legitimately have the same name.
-    private func updatePlaceholder(_ item: NSMenuItem) {
-        guard item !== notifiedItem else { return }
-        let placeholder =
-            item.title == "NSMenuItem"
-            && (item.attributedTitle?.string.isEmpty != false || item.attributedTitle?.string == "NSMenuItem")
-        if placeholder {
-            guard !item.isHidden else { return }
-            hiddenPlaceholders.add(item)
-        } else {
-            guard hiddenPlaceholders.contains(item) else { return }
-            hiddenPlaceholders.remove(item)
-        }
-        let previous = notifiedItem
-        notifiedItem = item
-        defer { notifiedItem = previous }
-        #if DEBUG
-            DebugMenuDump.recordPlaceholder(item, hidden: placeholder)
-        #endif
-        writes.set(item, \.isHidden, "isHidden", placeholder)
-    }
-
-    func hideItems(in menu: NSMenu?, fileLevel: Bool = true) {
+    func hideItems(in menu: NSMenu?) {
         guard !MenuTrace.noHider, notifiedItem == nil, canScan() else { return }
         var previous: NSMenuItem?
         for item in menu?.items ?? [] {
             if Self.protects(item, after: previous) {
                 conceal(item)
-            } else if fileLevel {
-                updatePlaceholder(item)
             }
             if let submenu = item.submenu, !(submenu.delegate is RecentDocumentsMenu) {
-                hideItems(in: submenu, fileLevel: false)
+                hideItems(in: submenu)
             }
             previous = item
         }

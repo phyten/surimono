@@ -8,14 +8,17 @@
             $0.hasPrefix("/") ? URL(fileURLWithPath: $0) : nil
         }
         private static var started = false
-        private static var placeholderEvents: [String] = []
+        private static var fileOpening: String?
+        private static var fileBeforeClose: String?
+        private static var fileObserver: FileOpeningObserver?
         private static var timedSamples = ""
         private static var recentPresentation: String?
         private static var fileTracking: String?
         private static var writeQueued = false
 
         private static var observations: String {
-            (placeholderEvents + [fileTracking, recentPresentation].compactMap { $0 }).map { $0 + "\n" }.joined()
+            [fileTracking, fileOpening, fileBeforeClose, recentPresentation].compactMap { $0 }.map { $0 + "\n" }
+                .joined()
         }
 
         private static func scheduleWrite() {
@@ -49,12 +52,60 @@
             scheduleWrite()
         }
 
-        static func recordPlaceholder(_ item: NSMenuItem, hidden: Bool) {
-            guard destination != nil, placeholderEvents.count < 32 else { return }
-            placeholderEvents.append(
-                "placeholder id=\(ObjectIdentifier(item)) title=\(item.title.debugDescription) hidden=\(hidden) \(identity(item))"
-            )
-            scheduleWrite()
+        static func observeFileMenu(in main: NSMenu?) {
+            guard destination != nil, fileOpening == nil, let main, main === NSApp.mainMenu, main.numberOfItems > 1,
+                let menu = main.item(at: 1)?.submenu
+            else { return }
+            if let fileObserver, menu.delegate === fileObserver { return }
+            fileObserver?.detach()
+            var firstRows: [String] = []
+            fileObserver = FileOpeningObserver(
+                menu,
+                didOpen: { file in
+                    guard fileOpening == nil else { return }
+                    firstRows = visibleLines(file)
+                    fileOpening =
+                        (["First File menu at menuWillOpen (visible rows)"] + printState() + firstRows)
+                        .joined(separator: "\n")
+                    if let destination { _ = write(timedSamples + observations, to: destination) }
+                },
+                beforeClose: { file in
+                    guard fileOpening != nil else { return }
+                    let rows = visibleLines(file)
+                    if rows != firstRows {
+                        fileBeforeClose =
+                            (["First File menu before forwarding menuDidClose (visible rows changed)"] + rows)
+                            .joined(separator: "\n")
+                        if let destination { _ = write(timedSamples + observations, to: destination) }
+                    }
+                })
+        }
+
+        private static func visibleLines(_ file: NSMenu) -> [String] {
+            visibleFileRows(file, modifiers: NSEvent.modifierFlags).map {
+                Row($0, includeChildren: false).line(indent: "  ")
+            }
+        }
+
+        /// Read only the displayed level. AppKit coalesces separators and swaps alternates
+        /// for their primary item when the additional modifier (usually Option) is held.
+        static func visibleFileRows(_ menu: NSMenu, modifiers: NSEvent.ModifierFlags) -> [NSMenuItem] {
+            var rows: [NSMenuItem] = []
+            var primary: NSMenuItem?
+            for item in menu.items where !item.isHiddenOrHasHiddenAncestor {
+                if item.isAlternate {
+                    if let primary, !rows.isEmpty {
+                        let additional = item.keyEquivalentModifierMask.subtracting(primary.keyEquivalentModifierMask)
+                        if !additional.isEmpty && modifiers.isSuperset(of: additional) { rows[rows.count - 1] = item }
+                    }
+                } else {
+                    primary = item.isSeparatorItem ? nil : item
+                    if item.isSeparatorItem && rows.last?.isSeparatorItem != false { continue }
+                    rows.append(item)
+                }
+            }
+            if rows.last?.isSeparatorItem == true { rows.removeLast() }
+            return rows
         }
 
         private static func identity(_ item: NSMenuItem) -> String {
@@ -62,8 +113,12 @@
                 item.representedObject.map { String(String(describing: $0).prefix(256)).debugDescription } ?? "nil"
             let attributed = item.attributedTitle?.string.debugDescription ?? "nil"
             let submenu = item.submenu?.title.debugDescription ?? "nil"
+            let delegate = item.submenu?.delegate.map { NSStringFromClass(type(of: $0)) } ?? "nil"
+            let identifiers =
+                "identifier=\(item.identifier?.rawValue.debugDescription ?? "nil") submenuIdentifier=\(item.submenu?.identifier?.rawValue.debugDescription ?? "nil")"
+            let owner = DocumentShareMenu.isInstalled(on: item) ? " owner=\(DocumentShareMenu.identifier)" : ""
             return
-                "class=\(NSStringFromClass(type(of: item))) attributedTitle=\(attributed) submenuTitle=\(submenu) representedObject=\(represented)"
+                "class=\(NSStringFromClass(type(of: item))) attributedTitle=\(attributed) submenuTitle=\(submenu) submenuDelegate=\(delegate) representedObject=\(represented) \(identifiers)\(owner)"
         }
 
         struct Row {
@@ -77,7 +132,7 @@
             let separator: Bool
             let children: [Row]
 
-            init(_ item: NSMenuItem) {
+            init(_ item: NSMenuItem, includeChildren: Bool) {
                 identity = DebugMenuDump.identity(item)
                 title = item.title
                 key = item.keyEquivalent
@@ -86,7 +141,22 @@
                 enabled = item.isEnabled
                 hidden = item.isHiddenOrHasHiddenAncestor
                 separator = item.isSeparatorItem
-                children = item.submenu?.items.map(Row.init) ?? []
+                children = includeChildren ? item.submenu?.items.map(Row.init) ?? [] : []
+            }
+            init(_ item: NSMenuItem) { self.init(item, includeChildren: true) }
+
+            func line(indent: String) -> String {
+                let mask = modifiers
+                let symbols = [
+                    (NSEvent.ModifierFlags.control, "⌃"), (.option, "⌥"), (.shift, "⇧"), (.command, "⌘"),
+                    (.function, "fn"),
+                ]
+                .filter { mask.contains($0.0) }.map(\.1).joined()
+                let marker = hidden ? "[hidden] " : ""
+                let label = separator ? "---" : title.debugDescription
+                let selector = action.map(NSStringFromSelector) ?? "nil"
+                return
+                    "\(indent)\(marker)\(label) key=\(key.debugDescription) modifiers=\(symbols)(\(mask.rawValue)) action=\(selector) enabled=\(enabled) \(identity)"
             }
         }
 
@@ -139,7 +209,7 @@
             let keyModel = DocumentWindows.shared.model(for: key)
             let visibility = MenuSnapshot.Visibility(model: keyModel, preferences: menus.preferences())
             var lines = [
-                "appActive=\(NSApp.isActive) keyWindow=\(key?.windowNumber ?? 0) mainWindow=\(mainWindow?.windowNumber ?? 0) snapshotVersion=\(state.version) trackingDepth=\(menus.updates.trackingDepth)"
+                "appActive=\(NSApp.isActive) keyWindow=\(key?.windowNumber ?? 0) mainWindow=\(mainWindow?.windowNumber ?? 0) snapshotVersion=\(state.version) trackingDepth=\(menus.updates.trackingDepth) allowsAutomaticShareMenu=\(NSDocumentController.shared.allowsAutomaticShareMenu)"
             ]
             for window in NSApp.windows where window.isVisible {
                 if let model = DocumentWindows.shared.model(for: window) {
@@ -161,18 +231,7 @@
             var lines = [stage] + printState()
             func append(_ rows: [Row], indent: String) {
                 for item in rows {
-                    let mask = item.modifiers
-                    let symbols = [
-                        (NSEvent.ModifierFlags.control, "⌃"), (.option, "⌥"), (.shift, "⇧"), (.command, "⌘"),
-                        (.function, "fn"),
-                    ]
-                    .filter { mask.contains($0.0) }.map(\.1).joined()
-                    let marker = item.hidden ? "[hidden] " : ""
-                    let title = item.separator ? "---" : item.title.debugDescription
-                    let action = item.action.map(NSStringFromSelector) ?? "nil"
-                    lines.append(
-                        "\(indent)\(marker)\(title) key=\(item.key.debugDescription) modifiers=\(symbols)(\(mask.rawValue)) action=\(action) enabled=\(item.enabled) \(item.identity)"
-                    )
+                    lines.append(item.line(indent: indent))
                     append(item.children, indent: indent + "  ")
                 }
             }
@@ -187,6 +246,50 @@
                 lines.append("[no main menu]")
             }
             return lines.joined(separator: "\n") + "\n"
+        }
+    }
+
+    /// Observe one File presentation without replacing SwiftUI's validation, incremental
+    /// population or key-equivalent handling. Optional selectors keep their original availability.
+    nonisolated final class FileOpeningObserver: NSObject, NSMenuDelegate {
+        private weak var menu: NSMenu?
+        private weak var original: (any NSMenuDelegate)?
+        private let didOpen: @MainActor (NSMenu) -> Void
+        private let beforeClose: @MainActor (NSMenu) -> Void
+
+        @MainActor init(
+            _ menu: NSMenu, didOpen: @escaping @MainActor (NSMenu) -> Void,
+            beforeClose: @escaping @MainActor (NSMenu) -> Void
+        ) {
+            self.menu = menu
+            self.original = menu.delegate
+            self.didOpen = didOpen
+            self.beforeClose = beforeClose
+            super.init()
+            menu.delegate = self
+        }
+
+        @MainActor func detach() {
+            if let menu, menu.delegate === self { menu.delegate = original }
+        }
+
+        @MainActor func menuWillOpen(_ menu: NSMenu) {
+            original?.menuWillOpen?(menu)
+            didOpen(menu)
+        }
+
+        @MainActor func menuDidClose(_ menu: NSMenu) {
+            beforeClose(menu)
+            original?.menuDidClose?(menu)
+            detach()
+        }
+
+        nonisolated override func responds(to selector: Selector!) -> Bool {
+            super.responds(to: selector) || original?.responds(to: selector) == true
+        }
+
+        nonisolated override func forwardingTarget(for selector: Selector!) -> Any? {
+            original
         }
     }
 #endif

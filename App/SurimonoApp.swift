@@ -5,6 +5,7 @@ import WebKit
 @main
 enum SurimonoMain {
     @MainActor static func main() {
+        DocumentShareMenu.useExplicitPlacement(on: NSDocumentController.self)
         // SwiftUI creates its own NSApplication singleton unless ours exists before App.main().
         _ = ViewerApplication.shared
         SurimonoApp.main()

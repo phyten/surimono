@@ -34,6 +34,8 @@ final class MenuUpdates: NSObject {
     private weak var observedLibrary: UserLibrary?
     private var localeObserver: NSObjectProtocol?
     private var observation = 0
+    private let share = DocumentShareMenu()
+    private weak var preparedFile: NSMenu?
     private let recentDocuments = RecentDocumentsMenu()
     private weak var recentSubmenu: NSMenu?
     private var recentMenuNeedsUpdate = true
@@ -62,6 +64,7 @@ final class MenuUpdates: NSObject {
         pendingStop = false
         guard !started else { return }
         started = true
+        preparedFile = nil
         recentMenuNeedsUpdate = true
         snapshotDirty = true
         MenuTrace.start()
@@ -121,6 +124,9 @@ final class MenuUpdates: NSObject {
         }
         let main = root()
         if note.name == NSApplication.didUpdateNotification {
+            #if DEBUG
+                DebugMenuDump.observeFileMenu(in: main)
+            #endif
             // A focus handoff can finish after its notifications. Inspect the settled identity on the next turn.
             if sourcesChanged { invalidateSnapshot("focus") }
             guard !applying, main !== lastMenu || (allowsWrites && hider.hasExposedFileItems(in: main)) else { return }
@@ -199,6 +205,9 @@ final class MenuUpdates: NSObject {
             MenuTrace.record(
                 "begin menu=\(MenuTrace.menuName(menu, root: main)) depth=\(trackingDepth) version=\(state.snapshot.version)"
             )
+            if main.numberOfItems > 1, let file = main.item(at: 1)?.submenu, menu === main || menu === file {
+                prepareFileMenu(file, rebuilt: true)
+            }
             #if DEBUG
                 DebugMenuDump.recordFileTracking(menu, main: main)
             #endif
@@ -211,14 +220,22 @@ final class MenuUpdates: NSObject {
             }
             // Record the incoming instance before its synchronous repair emits nested change notifications.
             hider.hideNotifiedItem(note, in: menu, main: main)
-            if note.name != NSMenu.didRemoveItemNotification, main.numberOfItems > 1,
+            if main.numberOfItems > 1,
                 let file = main.item(at: 1)?.submenu, let index = note.userInfo?["NSMenuItemIndex"] as? Int
             {
                 if menu === file {
-                    bindRecentMenu(in: file, at: index)
-                    bindRecentMenu(in: file, at: index + 1)
+                    share.fileChanged(file, at: index, notification: note.name)
+                    if note.name != NSMenu.didRemoveItemNotification {
+                        bindRecentMenu(in: file, at: index)
+                        bindRecentMenu(in: file, at: index + 1)
+                    }
                 } else if menu === main && index == 1 {
-                    findRecentMenu(in: file)
+                    prepareFileMenu(file, rebuilt: true)
+                } else if menu.supermenu === file, menu.delegate == nil, menu.numberOfItems == 1,
+                    note.name == NSMenu.didAddItemNotification, let owner = menu.item(at: 0)?.parent
+                {
+                    // On older systems the seed's child can be assembled after its header.
+                    share.bind(owner)
                 }
             }
             // Our setters post changes too. A structural edit, even during a pass, requires another look.
@@ -235,6 +252,20 @@ final class MenuUpdates: NSObject {
 
     private func findRecentMenu(in file: NSMenu) {
         for index in 0..<file.numberOfItems { bindRecentMenu(in: file, at: index) }
+    }
+
+    private func prepareFileMenu(_ file: NSMenu, rebuilt: Bool = false) {
+        #if DEBUG
+            DebugMenuDump.observeFileMenu(in: file.supermenu)
+        #endif
+        if rebuilt || preparedFile !== file {
+            preparedFile = file
+            for item in file.items { share.bind(item) }
+            share.updateSeparators(in: file)
+        }
+        if recentSubmenu?.supermenu !== file || recentSubmenu?.delegate !== recentDocuments {
+            findRecentMenu(in: file)
+        }
     }
 
     private func schedule() {
@@ -268,11 +299,7 @@ final class MenuUpdates: NSObject {
         }
         dirty = false
         if let menu = root() {
-            if menu.numberOfItems > 1, let file = menu.item(at: 1)?.submenu,
-                recentSubmenu?.supermenu !== file || recentSubmenu?.delegate !== recentDocuments
-            {
-                findRecentMenu(in: file)
-            }
+            if menu.numberOfItems > 1, let file = menu.item(at: 1)?.submenu { prepareFileMenu(file) }
             lastMenu = menu
             apply(menu)
             if allowsWrites, menu.numberOfItems > 1 { hider.hideItems(in: menu.item(at: 1)?.submenu) }
