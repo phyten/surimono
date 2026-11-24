@@ -160,6 +160,7 @@ public struct RenderSettings: Equatable, Sendable {
         return reading
     }
 
+    public var orgReading = OrgReadingSettings()
     public var latexComposition = LaTeXComposition.document
     /// The colors and blocks of the document's code; the print theme's own by default.
     public var code = CodeStyle()
@@ -509,6 +510,7 @@ public final class DocumentRenderer {
         let code: CodeStyle?
         let preset: HTMLCleanupPreset?
         let margins: PageMargins
+        let orgReading: OrgReadingSettings?
         let latexComposition: LaTeXComposition
         let usesDocumentWidth: Bool
         let allowsJavaScript: Bool
@@ -716,6 +718,7 @@ public final class DocumentRenderer {
                 code: source.children != nil || source.format.usesPrintTheme ? settings.code : nil,
                 preset: source.children != nil || source.format.usesHTMLPreset ? settings.preset : nil,
                 margins: isPlainPDF ? .zero : margins,
+                orgReading: source.format == .org || source.children != nil ? settings.orgReading : nil,
                 latexComposition: settings.latexComposition,
                 usesDocumentWidth: source.format == .latex
                     && (settings.theme.formats == [.latex]
@@ -1517,6 +1520,7 @@ public final class DocumentRenderer {
         guard
             let fragment = try Self.themedFragment(
                 source, pageBreakLine: settings.finish.breaks.customLine, proof: settings.finish.proof,
+                orgReading: settings.orgReading,
                 composition: settings.latexComposition, textWidthPoints: settings.textWidthPoints(in: settings.layout),
                 mapsMarkdownSource: !settings.markdownChanges.isEmpty, access: access,
                 onDenied: { needsFolderAccess.set() },
@@ -2033,13 +2037,17 @@ public final class DocumentRenderer {
 
     /// The HTML a document's headings and amount of text are read from, or nil for formats without one. It converts
     /// the whole source, so it is meant to run away from the main actor.
-    public nonisolated static func structureHTML(of source: DocumentSource, proof: ProofMarks = .shown) -> String? {
+    public nonisolated static func structureHTML(
+        of source: DocumentSource, proof: ProofMarks = .shown, orgReading: OrgReadingSettings = .init()
+    ) -> String? {
         if source.format == .html { return TextDecoding.decode(source.data).text }
-        return (try? themedFragment(source, proof: proof))??.body
+        return (try? themedFragment(source, proof: proof, orgReading: orgReading))??.body
     }
 
     /// Compare the last successful layout's source with this save off the UI actor, using the same converter options.
-    public func changeRequests(from old: DocumentSource, to new: DocumentSource, finish: PrintFinish) async
+    public func changeRequests(
+        from old: DocumentSource, to new: DocumentSource, finish: PrintFinish, orgReading: OrgReadingSettings = .init()
+    ) async
         -> [MarkdownMarkRequest]
     {
         guard old.format == new.format, new.format.supportsChangeMarks, old.data != new.data else { return [] }
@@ -2051,7 +2059,8 @@ public final class DocumentRenderer {
             }
             func body(_ source: DocumentSource) -> String? {
                 (try? Self.themedFragment(
-                    source, pageBreakLine: finish.breaks.customLine, proof: finish.proof, access: access,
+                    source, pageBreakLine: finish.breaks.customLine, proof: finish.proof, orgReading: orgReading,
+                    access: access,
                     imageExists: { url in
                         (access?.permits(url) ?? true) && FileManager.default.fileExists(atPath: url.path)
                     }))?.body
@@ -2069,6 +2078,7 @@ public final class DocumentRenderer {
     /// The HTML of a format that prints with a theme, or nil for the formats that print as they are.
     nonisolated static func themedFragment(
         _ source: DocumentSource, pageBreakLine: String = "", proof: ProofMarks = .shown,
+        orgReading: OrgReadingSettings = .init(),
         composition: LaTeXComposition = .document, textWidthPoints: Double? = nil, mapsMarkdownSource: Bool = false,
         access: LocalResourceAccess? = nil,
         onDenied: @escaping @Sendable () -> Void = {},
@@ -2114,7 +2124,10 @@ public final class DocumentRenderer {
             try latexFragment(
                 source, composition: composition, textWidthPoints: textWidthPoints, access: access, onDenied: onDenied,
                 imageExists: imageExists)
-        case .org: OrgConverter.convert(try decodedText(source.data))
+        case .org:
+            OrgConverter.convert(
+                try decodedText(source.data), settings: orgReading,
+                fileName: source.fileURL?.lastPathComponent ?? source.name)
         case .plainText:
             try plainFragment(source)
         case .csv:

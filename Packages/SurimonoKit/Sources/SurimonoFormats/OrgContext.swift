@@ -31,7 +31,10 @@ final class OrgContext {
     /// Marks where a table of contents goes until every heading is known. Random, so no document can write it.
     let contentsToken = UUID().uuidString
 
-    init(defaults: OrgReadingDefaults = .surimono) {
+    let fileName: String?
+
+    init(defaults: OrgReadingDefaults = .surimono, fileName: String? = nil) {
+        self.fileName = fileName
         reading = defaults
     }
 
@@ -47,10 +50,13 @@ final class OrgContext {
             ?? MathRenderer.fallback(source, display: display)
     }
 
-    func directive(_ key: String, value: String) {
+    func directive(_ key: String, value: String, lineNumber: Int, line: String) {
         if ["TITLE", "SUBTITLE", "AUTHOR", "DATE", "LANGUAGE"].contains(key) { metadata[key] = value }
-        if key == "OPTIONS" { options.read(value) }
-        if key == "TOC", OrgOutline.keyword(value) != nil { hasContentsKeyword = true }
+        if key == "OPTIONS" { options.read(value, fileName: fileName, lineNumber: lineNumber) }
+        if key == "TOC", OrgOutline.keyword(value) != nil {
+            hasContentsKeyword = true
+            options.file.note(.init(fileName: fileName, lineNumber: lineNumber, rawText: line), for: .tableOfContents)
+        }
         if key == "LATEX_HEADER" || key == "LATEX_HEADER_EXTRA",
             let definition = OrgMath.definition(value, after: mathDefinitions)
         {

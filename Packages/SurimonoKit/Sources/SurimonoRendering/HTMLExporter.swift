@@ -38,6 +38,7 @@ public enum HTMLExporter {
                     operation: {
                         try DocumentRenderer.themedFragment(
                             source, pageBreakLine: input.finish.breaks.customLine, proof: input.finish.proof,
+                            orgReading: input.orgReading,
                             composition: input.latexComposition,
                             textWidthPoints: input.textWidthPoints(in: input.layout))
                     }

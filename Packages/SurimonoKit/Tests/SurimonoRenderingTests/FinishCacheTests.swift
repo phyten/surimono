@@ -19,6 +19,23 @@ struct FinishCacheTests {
         DocumentRenderer(paginate: { _ in try RenderingFixtures.pdf(count: 2) })
     }
 
+    @Test("同じ Org 原稿でも読み方が変われば本文・目次・見出しを更新する")
+    func orgReadingCache() async throws {
+        var settings = try settings()
+        let renderer = renderer()
+        let source = DocumentSource(data: Data("#+OPTIONS: toc:nil\n* A".utf8), format: .org).named("sample.org")
+        let first = try await renderer.prepare(source, settings: settings)
+        let file = try #require(first.facts?.orgInstructions)
+        #expect(settings.orgReading.resolve(.tableOfContents, file: file).source?.fileName == "sample.org")
+        settings.orgReading.defaults.sectionNumbers = .all
+        settings.orgReading.setAllowsFileChanges(true, file: file)
+        settings.orgReading.set(.levels(1), for: .tableOfContents, file: file)
+        let second = try await renderer.prepare(source, settings: settings)
+        #expect(renderer.logicalRenderCount == 2)
+        #expect(first.facts?.hasSourceContents == false && second.facts?.hasSourceContents == true)
+        #expect(second.facts?.headings.map(\.text) == ["1. A"])
+    }
+
     @Test("冊子のとじ方だけなら本文を組み直さず面付けを変える")
     func bindingComposesOnly() async throws {
         var settings = try settings(.a4BookletA5)

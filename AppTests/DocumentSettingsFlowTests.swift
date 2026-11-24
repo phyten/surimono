@@ -65,6 +65,43 @@ struct DocumentSettingsFlowTests {
         try await waitUntil { model.contentHash != nil && model.result != nil && !model.isRendering }
     }
 
+    @Test("Org の全体既定は文書に保存せず、変更した項目だけを内容ハッシュから復元する", .timeLimit(.minutes(1)))
+    func orgReadingPreferences() async throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        #expect(fixture.preferences.orgReadingDefaults == nil)
+        fixture.preferences.orgReadingDefaults = .init(sectionNumbers: .all, tableOfContents: .off, scripts: .braces)
+        let prefs = AppPreferences(defaults: fixture.suite.defaults)
+        let source = Data("* A".utf8)
+        let page = pdf("A", pages: 1)
+        func open() async throws -> DocumentViewModel {
+            let model = DocumentViewModel(
+                data: source, fileURL: nil, format: .org, preferences: prefs, library: fixture.library,
+                renderer: DocumentRenderer(paginate: { _ in PDFDocument(data: page)! }), settingsStore: fixture.store)
+            try await self.open(model)
+            return model
+        }
+        let first = try await open()
+        #expect(first.renderSettings?.orgReading.defaults.sectionNumbers == .all)
+        first.rememberedSettingsDidChange()
+        first.flushPendingSettings()
+        #expect(fixture.store.keys().isEmpty)
+
+        var settings = first.orgReading
+        settings.set(.off, for: .sectionNumbers, file: .init())
+        first.orgDocumentReading = settings.document
+        first.rememberedSettingsDidChange()
+        first.flushPendingSettings()
+        first.stop()
+        #expect(fixture.store.record(for: ContentHash.of(source).hex)?.orgReading?.optionsLine == "#+OPTIONS: num:nil")
+
+        let second = try await open()
+        defer { second.stop() }
+        #expect(second.renderSettings?.orgReading.document == settings.document)
+        prefs.orgReadingDefaults = nil
+        #expect(AppPreferences(defaults: fixture.suite.defaults).orgReadingDefaults == nil)
+    }
+
     @Test("縦書きの右から左へのページ送りと冊子の右とじは既定で、文書に保存した向きととじ側を優先する")
     func verticalReadingOrder() throws {
         let fixture = try environment()

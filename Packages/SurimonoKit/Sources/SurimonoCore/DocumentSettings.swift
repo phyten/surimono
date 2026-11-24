@@ -32,6 +32,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         public init() {}
     }
 
+    public var orgReading: OrgDocumentReadingSettings?
     public var contentsPanel: ContentsPanel?
     public var view: ViewOptions?
     /// Magnification relative to fitting the current page or spread into the window.
@@ -81,8 +82,9 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         codePaletteID: String? = nil, codeBlock: CodeBlockOptions? = nil, bandVisibility: BandVisibility? = nil,
         notes: NotePages? = nil, bookletBinding: BookletBinding? = nil,
         pageRange: PageRange? = nil, bookmarks: Bookmarks? = nil, latexComposition: LaTeXComposition? = nil,
-        contentsPanel: ContentsPanel? = nil
+        contentsPanel: ContentsPanel? = nil, orgReading: OrgDocumentReadingSettings? = nil
     ) {
+        self.orgReading = orgReading
         self.contentsPanel = contentsPanel
         self.view = view
         self.zoom = zoom
@@ -112,7 +114,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case contentsPanel
+        case contentsPanel, orgReading
         case view, zoom, windowSize, paperOrientation, layoutID, themeID, textScale, typeface, presetID, smartRemoval,
             printOptions, printFinish, imageOrder
         case htmlPresentation, ignoresSlides, binderOrder, binderStartsOnFront, codePaletteID, codeBlock
@@ -137,6 +139,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
 
     public func encode(to encoder: any Encoder) throws {
         var values = encoder.container(keyedBy: CodingKeys.self)
+        if let orgReading, orgReading != .init() { try values.encode(orgReading, forKey: .orgReading) }
         try values.encodeIfPresent(contentsPanel, forKey: .contentsPanel)
         try values.encodeIfPresent(view, forKey: .view)
         try values.encodeIfPresent(zoom, forKey: .zoom)
@@ -172,6 +175,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         func field<Value: Decodable>(_ type: Value.Type, _ key: CodingKeys) -> Value? {
             try? values.decodeIfPresent(type, forKey: key)
         }
+        orgReading = field(OrgDocumentReadingSettings.self, .orgReading)
         contentsPanel = field(ContentsPanel.self, .contentsPanel)
         view = field(ViewOptions.self, .view)
         zoom = field(Double.self, .zoom)

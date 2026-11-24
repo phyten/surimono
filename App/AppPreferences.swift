@@ -248,6 +248,11 @@ final class AppPreferences {
     var changeFollowing: ChangeFollowing {
         didSet { defaults.set(changeFollowing.rawValue, forKey: "changeFollowing") }
     }
+    var orgReadingDefaults: OrgReadingDefaults? {
+        didSet {
+            defaults.set(orgReadingDefaults.flatMap { try? JSONEncoder().encode($0) }, forKey: "orgReadingDefaults")
+        }
+    }
     var defaultTypeface: Typeface {
         didSet { defaults.set(defaultTypeface.rawValue, forKey: "defaultTypeface") }
     }
@@ -578,6 +583,9 @@ final class AppPreferences {
         changeFollowing =
             Self.screenshotChoice("SurimonoChanges")
             ?? ChangeFollowing(rawValue: defaults.string(forKey: "changeFollowing") ?? "") ?? .jump
+        orgReadingDefaults = defaults.data(forKey: "orgReadingDefaults").flatMap {
+            try? JSONDecoder().decode(OrgReadingDefaults.self, from: $0)
+        }
         defaultTypeface = defaults.string(forKey: "defaultTypeface").flatMap(Typeface.init(rawValue:)) ?? .style
         // Any whole percent of the range, as the Settings field takes it; earlier versions kept one of the steps.
         let scale = defaults.double(forKey: "defaultTextScale")

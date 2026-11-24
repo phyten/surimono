@@ -4,6 +4,28 @@ import SurimonoCore
 import Testing
 
 struct DocumentSettingsTests {
+    @Test("Org の選択が空なら旧形式を保ち、変更と上書き許可は読み戻せる")
+    func orgSettingsStorage() throws {
+        let decoder = JSONDecoder()
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        let old = try decoder.decode(DocumentSettings.self, from: Data(#"{"zoom":1.5}"#.utf8))
+        #expect(old.orgReading == nil)
+        var empty = old
+        empty.orgReading = .init()
+        #expect(try encoder.encode(empty) == encoder.encode(old))
+        var org = OrgReadingSettings()
+        org.setAllowsFileChanges(true, file: .init())
+        for changes in [false, true] {
+            if changes { org.set(.all, for: .scripts, file: .init()) }
+            let saved = DocumentSettings(orgReading: org.document)
+            #expect(try decoder.decode(DocumentSettings.self, from: encoder.encode(saved)) == saved)
+        }
+        org.setAllowsFileChanges(false, file: .init())
+        let fields = try #require(JSONSerialization.jsonObject(with: encoder.encode(org.document)) as? [String: String])
+        #expect(fields == ["scripts": "all"])
+    }
+
     @Test("古い表示用の判を無視し、印刷レイアウトを保って再保存では判を除く")
     func ignoresLegacyViewPaperSeries() throws {
         let data = Data(#"{"layoutID":"a4BookletA5","paperSeries":"b"}"#.utf8)

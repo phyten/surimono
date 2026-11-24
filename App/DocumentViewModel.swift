@@ -153,6 +153,13 @@ final class DocumentViewModel {
         set { chosenCodeBlock = newValue == defaultCodeBlock ? nil : newValue }
     }
     private(set) var typeface: Typeface
+    var orgDocumentReading = OrgDocumentReadingSettings()
+    var orgReading: OrgReadingSettings {
+        OrgReadingSettings(
+            defaults: preferences.orgReadingDefaults ?? .surimono,
+            document: binder == nil && format == .org ? orgDocumentReading : .init())
+    }
+
     private var savedComposition = LaTeXComposition.document {
         didSet { if oldValue != savedComposition { renderer.clearCache() } }
     }
@@ -673,7 +680,8 @@ final class DocumentViewModel {
     @ObservationIgnored private var structureTask: Task<Void, Never>?
     @ObservationIgnored private var readStructure:
         (
-            source: DocumentSource, proof: ProofMarks, headings: [DocumentHeading], statistics: DocumentStatistics,
+            source: DocumentSource, proof: ProofMarks, orgReading: OrgReadingSettings, headings: [DocumentHeading],
+            statistics: DocumentStatistics,
             contents: [String], title: String?
         )?
     @ObservationIgnored private var structureDocument: PDFDocument?
@@ -959,6 +967,7 @@ final class DocumentViewModel {
             slides: (usesHTMLPresentation || (mode == .print && printsCurrentSlideOnly) ? slideDeck : nil).map {
                 SlidePrintRequest(deck: $0, printsCurrentOnly: mode == .print && printsCurrentSlideOnly)
             }, markdownChanges: mode == .view ? markdownChanges : [])
+        if binder?.items.contains(where: { $0.format == .org }) ?? (format == .org) { settings.orgReading = orgReading }
         if !settings.markdownChanges.isEmpty, let hex = preferences.changeTextHex {
             settings.changeTextHex = hex
         }
@@ -1467,7 +1476,8 @@ final class DocumentViewModel {
                 {
                     let current = withFolderAccess(
                         DocumentSource(data: bytes, fileURL: fileURL, format: format).named(sourceFileName))
-                    changes = await renderer.changeRequests(from: previous, to: current, finish: printFinish)
+                    changes = await renderer.changeRequests(
+                        from: previous, to: current, finish: printFinish, orgReading: orgReading)
                     guard !Task.isCancelled, reloadGeneration == generation else { return }
                 }
                 // A reader can turn off watching while the file or its diff is being read.
@@ -1794,7 +1804,7 @@ final class DocumentViewModel {
                     // Pages laid out on the tray are the ones read unless the tray added or changed some, so the outline
                     // and the place read follow them there too and stay right on the way back, where nothing renders.
                     let forReading = mode == .view || showsReadingPages(settings, fromSnapshot: fromSnapshot)
-                    refreshStructure(of: source, in: prepared, forReading: forReading)
+                    refreshStructure(of: source, in: prepared, forReading: forReading, settings: settings)
                     announceChanges(in: prepared)
                     renderedSettings = settings
                     renderedSourceURLs = sourceURLs
@@ -2430,7 +2440,9 @@ final class DocumentViewModel {
     /// Reads the headings of the pages just laid out for reading, and how much text the document holds. Only the
     /// pages' text is read on the main actor, a page at a time; the conversion runs elsewhere and only when the source
     /// changed.
-    private func refreshStructure(of source: DocumentSource, in prepared: PreparedRender, forReading: Bool) {
+    private func refreshStructure(
+        of source: DocumentSource, in prepared: PreparedRender, forReading: Bool, settings: RenderSettings
+    ) {
         guard forReading, structureDocument !== prepared.logicalDocument else { return }
         structureDocument = prepared.logicalDocument
         structureTask?.cancel()
@@ -2448,8 +2460,11 @@ final class DocumentViewModel {
         guard source.format.isWebRendered else { return }
         structureTask = Task { [weak self] in
             guard let self else { return }
-            let proof = printFinish.proof
-            let known = readStructure?.source == source && readStructure?.proof == proof ? readStructure : nil
+            let proof = settings.finish.proof
+            let org = settings.orgReading
+            let known =
+                readStructure?.source == source && readStructure?.proof == proof && readStructure?.orgReading == org
+                ? readStructure : nil
             let read:
                 (
                     headings: [DocumentHeading], statistics: DocumentStatistics,
@@ -2459,7 +2474,7 @@ final class DocumentViewModel {
                 read = (known.headings, known.statistics, known.contents, known.title)
             } else {
                 read = await Task.detached(priority: .utility) {
-                    DocumentRenderer.structureHTML(of: source, proof: proof).map {
+                    DocumentRenderer.structureHTML(of: source, proof: proof, orgReading: org).map {
                         (
                             DocumentOutline.headings(inHTML: $0), DocumentStatistics(html: $0),
                             DocumentOutline.sourceContentsEntries(inHTML: $0), DocumentOutline.title(ofHTML: $0)
@@ -2468,7 +2483,7 @@ final class DocumentViewModel {
                 }.value
             }
             guard !Task.isCancelled, let read else { return }
-            readStructure = (source, proof, read.headings, read.statistics, read.contents, read.title)
+            readStructure = (source, proof, org, read.headings, read.statistics, read.contents, read.title)
             documentStatistics = read.statistics
             var texts: [String] = []
             for index in 0..<(read.headings.isEmpty ? 0 : document.pageCount) {
@@ -2839,7 +2854,8 @@ final class DocumentViewModel {
             notes: offersNotes && notes != NotePages() ? notes : nil, bookletBinding: bookletBinding,
             pageRange: pageRange.isAll ? nil : pageRange, bookmarks: bookmarks.isEmpty ? nil : bookmarks,
             latexComposition: format == .latex && savedComposition != .document ? savedComposition : nil,
-            contentsPanel: contentsPanel == .init() ? nil : contentsPanel)
+            contentsPanel: contentsPanel == .init() ? nil : contentsPanel,
+            orgReading: format == .org && binder == nil && orgDocumentReading != .init() ? orgDocumentReading : nil)
     }
 
     var currentPrintSettingSet: PrintSettingSet {
@@ -3163,6 +3179,7 @@ final class DocumentViewModel {
         binderStartsOnFront = saved.binderStartsOnFront ?? false
         bandVisibility = saved.bandVisibility ?? defaultBandVisibility
         if let order = saved.binderOrder { binder?.applyOrder(order) }
+        orgDocumentReading = saved.orgReading ?? .init()
         savedComposition = saved.latexComposition ?? .document
         setTypeface(saved.typeface ?? .style)
         if let scale = saved.textScale { setTextScale(scale) }
@@ -3379,6 +3396,7 @@ final class DocumentViewModel {
         defaultPaperOrientation = preferences.defaultPaperOrientation
         defaultBandVisibility = preferences.defaultBandVisibility
         bandVisibility = defaultBandVisibility
+        orgDocumentReading = .init()
         savedComposition = .document
         typeface = usesPrintTheme ? defaultTypeface : .style
         textScale = usesPrintTheme ? defaultTextScale : 1
@@ -4356,7 +4374,7 @@ final class DocumentViewModel {
                 let structure = await ReadingPDFExporter.outline(
                     of: source, in: prepared.logicalDocument, proof: settings.finish.proof,
                     includesSourceContents: !finishAppliesToText || settings.finish.toc.showsSourceContents,
-                    facts: prepared.facts)
+                    facts: prepared.facts, orgReading: settings.orgReading)
                 entries = structure.entries
                 headings = structure.headings
                 htmlTitle = structure.title
