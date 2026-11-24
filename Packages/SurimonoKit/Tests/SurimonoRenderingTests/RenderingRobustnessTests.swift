@@ -148,13 +148,25 @@ struct WebRecoveryTests {
 
     @Test("開いた HTML が二つの文書のあいだを行き来しても、時間内にどちらかを刷る", .timeLimit(.minutes(1)))
     func fileDocumentsThatRefreshEachOther() async throws {
-        let text = try await WebRobustness.printedText(
-            files: [
-                "index.html": "<meta http-equiv='refresh' content='0;url=chapter.html'><p>ENTRANCE</p>",
-                "chapter.html": "<meta http-equiv='refresh' content='0;url=index.html'><p>CHAPTER</p>",
-            ])
-        print("robustness-rendering refresh-each-other: \(text.prefix(40))")
-        #expect(text.contains("CHAPTER") || text.contains("ENTRANCE"))
+        var atPrint = "印刷開始前"
+        do {
+            let text = try await WebRobustness.printedText(
+                files: [
+                    "index.html": "<meta http-equiv='refresh' content='0;url=chapter.html'><p>ENTRANCE</p>",
+                    "chapter.html": "<meta http-equiv='refresh' content='0;url=index.html'><p>CHAPTER</p>",
+                ],
+                didStartPrinting: { view in
+                    atPrint = "\(view.url?.lastPathComponent ?? "nil") loading=\(view.isLoading)"
+                })
+            print("robustness-rendering refresh-each-other: \(text.prefix(40))")
+            #expect(
+                text.contains("CHAPTER") || text.contains("ENTRANCE"),
+                "印刷開始 \(atPrint)、抽出 \(text.debugDescription)")
+        } catch DocumentRenderer.RenderingError.pagination(.loadFailed(let reason)) {
+            if #available(macOS 26, *) { throw DocumentRenderer.RenderingError.pagination(.loadFailed(reason)) }
+            print("robustness-rendering refresh-each-other: \(reason)")
+            #expect(reason == URLError(.httpTooManyRedirects).localizedDescription)
+        }
     }
 
     @Test("メモリから組む文書は、別の文書へ移ろうとしても最初の文書を刷る", .timeLimit(.minutes(1)))
@@ -311,7 +323,8 @@ enum WebRobustness {
     /// Writes `files` to a new folder, opens `opened` from that file as the app opens it (in the sandbox with the
     /// folder granted, or not), and returns the text of the pages.
     static func printedText(
-        files: [String: String], opened: String = "index.html", format: DocumentFormat = .html, sandboxed: Bool = false
+        files: [String: String], opened: String = "index.html", format: DocumentFormat = .html, sandboxed: Bool = false,
+        didStartPrinting: (@MainActor (WKWebView) -> Void)? = nil
     ) async throws -> String {
         _ = NSApplication.shared
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(
@@ -325,8 +338,14 @@ enum WebRobustness {
         let url = folder.appendingPathComponent(opened)
         var source = DocumentSource(data: try Data(contentsOf: url), fileURL: url, format: format)
         source.allowedResourceFolders = [folder]
-        let pages = try await DocumentRenderer(isSandboxed: { sandboxed })
-            .prepare(source, settings: settings(javaScript: false)).logicalDocument
+        let renderer = DocumentRenderer(
+            isSandboxed: { sandboxed },
+            paginateWithResult: { request in
+                let paginator = WebPaginator()
+                paginator.didStartPrinting = didStartPrinting
+                return try await paginator.paginate(request)
+            })
+        let pages = try await renderer.prepare(source, settings: settings(javaScript: false)).logicalDocument
         return pages.string ?? ""
     }
 

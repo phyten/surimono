@@ -396,6 +396,7 @@ public final class WebPaginator: NSObject {
             if indexesFormulas { try await installFormulaIndex() }
             let document = try await VerticalPaginator.pages(
                 in: session.webView, pageSize: pageSize, margins: margins, timeout: printTimeout)
+            try session.checkRefreshOutput(document)
             if session.localHandler != nil { LocalResourceSchemeHandler.restoreFileLinks(in: document) }
             var result = Result(
                 document: document, preparationResult: preparationResult, pageRules: pageRules,
@@ -600,6 +601,7 @@ public final class WebPaginator: NSObject {
             let pageData = try await pageDataForPass(indexFormulas: indexesFormulas)
             try await recordLines(final: true)
             guard let document = PDFDocument(data: pageData) else { throw PaginationError.emptyDocument }
+            try session.checkRefreshOutput(document)
             if session.localHandler != nil { LocalResourceSchemeHandler.restoreFileLinks(in: document) }
             var result = Result(
                 document: document,
@@ -941,6 +943,13 @@ private final class PaginationSession {
     var navigationState: NavigationTracker.State { navigationTracker.state }
     /// Why the page's process ended, once it has.
     var terminationError: String? { navigationTracker.terminationError }
+    func checkRefreshOutput(_ document: PDFDocument) throws {
+        guard #unavailable(macOS 26), navigationTracker.stoppedRefreshCycle else { return }
+        for index in 0..<document.pageCount {
+            if document.page(at: index)?.string?.contains(where: { !$0.isWhitespace }) == true { return }
+        }
+        throw WebPaginator.PaginationError.loadFailed(URLError(.httpTooManyRedirects).localizedDescription)
+    }
     var hasCommitted: Bool { navigationTracker.hasCommitted }
 
     /// Gives up on the resources still loading; the document counts as loaded with what has arrived.
@@ -1280,6 +1289,9 @@ final class NavigationTracker: NSObject, WKNavigationDelegate {
     /// `index.html` that refreshes to `chapter.html`), as it always could. Reloading itself is still refused.
     var followsOtherDocuments = false
     private var allowedDownloadedPage = false
+    private var firstLocalRequest: URL?
+    private var followedPages = Set<String>()
+    private(set) var stoppedRefreshCycle = false
 
     func webView(
         _ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
@@ -1300,6 +1312,20 @@ final class NavigationTracker: NSObject, WKNavigationDelegate {
                 guard leaves else {
                     decisionHandler(.cancel)
                     return
+                }
+            }
+            // On Sequoia, two immediate cross-document refreshes can replace the DOM during printing.
+            // Leave the current document in place on a return trip. Ordinary opens do not build a URL set.
+            if #unavailable(macOS 26), followsOtherDocuments, let url = navigationAction.request.url {
+                if let firstLocalRequest {
+                    let destination = Self.page(url).page
+                    if destination == Self.page(firstLocalRequest).page || !followedPages.insert(destination).inserted {
+                        stoppedRefreshCycle = true
+                        decisionHandler(.cancel)
+                        return
+                    }
+                } else {
+                    firstLocalRequest = url
                 }
             }
             allowedDownloadedPage = true

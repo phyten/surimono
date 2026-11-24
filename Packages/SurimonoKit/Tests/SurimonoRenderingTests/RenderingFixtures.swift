@@ -12,6 +12,19 @@ enum RenderingFixtures {
         return { $0.setValue(false, forKey: "drawsBackground") }
     }
 
+    static func latinSummary(_ json: String) -> String {
+        guard let report = (try? JSONSerialization.jsonObject(with: Data(json.utf8))) as? [String: Any] else {
+            return json
+        }
+        let skipped = (report["skipped"] as? [[String: Any]] ?? []).compactMap { $0["reason"] as? String }
+        let fallbacks = (report["paragraphs"] as? [[String: Any]] ?? []).compactMap { $0["fallback"] as? String }
+        let style = (report["firstSkippedStyle"] as? [String: String] ?? [:]).sorted { $0.key < $1.key }
+            .map { "\($0.key)=\($0.value)" }.joined(separator: ", ")
+        return
+            "qualifying=\(report["qualifying"] ?? "?") composed=\(report["composed"] ?? "?") fallbacks=\(report["fallbacks"] ?? "?") \(Set(fallbacks).sorted()) skipped=\(Set(skipped).sorted()) firstException=\(report["firstException"] ?? "none")"
+            + (style.isEmpty ? "" : " CSS[\(style)]")
+    }
+
     static func pdf(
         count: Int = 1, size: CGSize = CGSize(width: 612, height: 792), textPrefix: String = "PAGE-"
     ) throws -> PDFDocument {

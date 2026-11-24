@@ -10,7 +10,12 @@ function latinCompose(body, rectToCSS = 1, restorations) {
     const start = performance.now(), deadline = start + 4000;
     const summary = {qualifying:0, composed:0, fallbacks:0, paragraphs:[], milliseconds:0};
     const family = body.dataset.latexLineBreaking;
-    if (!['cm','times'].includes(family) || !body.matches('.format-latex')) return summary;
+    if (!['cm','times'].includes(family) || !body.matches('.format-latex')) {
+        if (globalThis.surimonoLatinDiagnostics) {
+            summary.skipped = [{reason:'body class or line-breaking family', family, className:body.className}];
+        }
+        return summary;
+    }
     const bodyStyle = getComputedStyle(body);
     const bodySize = parseFloat(bodyStyle.fontSize);
     const texPointsPerPixel = (parseFloat(bodyStyle.getPropertyValue('--tex-body')) || 10) / bodySize;
@@ -170,8 +175,15 @@ function latinCompose(body, rectToCSS = 1, restorations) {
         return faceFamily(css) === family ? null : 'body font';
     }
     function noteSkip(p,reason,category) {
-        if (diagnostics) summary.skipped.push({reason, category, text:p.textContent.trim().slice(0,160),
+        if (!diagnostics) return;
+        summary.skipped.push({reason, category, text:p.textContent.trim().slice(0,160),
             parent:p.parentElement.tagName.toLowerCase(), parentClass:p.parentElement.className});
+        if (!summary.firstSkippedStyle && ['paragraph layout','paragraph text style','body font'].includes(reason)) {
+            const css = getComputedStyle(p);
+            summary.firstSkippedStyle = {reason,display:css.display,direction:css.direction,writingMode:css.writingMode,
+                textAlign:css.textAlign,whiteSpace:css.whiteSpace,textTransform:css.textTransform,
+                letterSpacing:css.letterSpacing,fontFamily:css.fontFamily};
+        }
     }
     // MathRenderer records boundaries in paint order and em units. The final
     // field encodes TeX's medium (4 +2 -4 mu) or thick (5 +5 mu) skip.
@@ -686,13 +698,18 @@ function latinCompose(body, rectToCSS = 1, restorations) {
             } finally { sample.remove(); }
         };
     }
+    function recordException(error) {
+        if (diagnostics && !summary.firstException) {
+            summary.firstException = String(error) + (error?.stack ? '\n' + error.stack : '');
+        }
+    }
     function eachTrial(perform) {
         for (const trial of pending) {
             if (trial.reason) continue;
             try {
                 if (performance.now() > deadline) throw Error('composition budget');
                 perform(trial);
-            } catch (error) { trial.reason = error.message || 'DOM measurement'; }
+            } catch (error) { recordException(error); trial.reason = error.message || 'DOM measurement'; }
         }
     }
     try {
@@ -700,7 +717,10 @@ function latinCompose(body, rectToCSS = 1, restorations) {
         for (const p of body.querySelectorAll(paragraphSelector)) {
             const mathIndex = ordinal++, allowMath = !rigidMath?.has(mathIndex);
             const category = contextOf(p);
-            if (!category) continue;
+            if (!category) {
+                if (diagnostics) noteSkip(p,'unclassified paragraph',null);
+                continue;
+            }
             const definition = category === 'description' ? p.closest('dd') : null;
             const term = definition?.previousElementSibling;
             const heading = term && (p === definition || p === definition.firstElementChild) &&
@@ -890,6 +910,7 @@ function latinCompose(body, rectToCSS = 1, restorations) {
                     oldHeadingStyle:heading?.getAttribute('style'),rows,fragment,boxDiagnostics,original:[...p.childNodes],oldStyle:p.getAttribute('style'),
                     trim:first !== null, trimBoth:firstPitch !== undefined && !!css.getPropertyValue('--cm-strut-ascent'), first, firstInset, initialPadding, finalInset});
             } catch (error) {
+                recordException(error);
                 if (unsupported.has(error.message)) { summary.qualifying--; noteSkip(p,error.message,category); }
                 else finish({index,p,category,block,gutter,heading,boxDiagnostics},text,String(error.message));
             }
@@ -1017,6 +1038,7 @@ function latinCompose(body, rectToCSS = 1, restorations) {
             }
         });
     } catch (error) {
+        recordException(error);
         for (const trial of pending) trial.reason ??= 'DOM measurement';
     } finally {
         for (const trial of pending) {

@@ -25,7 +25,7 @@ struct LaTeXConferencePrintingTests {
             allowsJavaScript: false, composesLaTeXParagraphs: true, latexFlow: true, timeout: .seconds(15))
         let json = try #require(paginator.latinLineDiagnostics)
         let diagnostic = try #require(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
-        try #require(diagnostic["composed"] as? Int == 2)
+        try #require(diagnostic["composed"] as? Int == 2, "\(RenderingFixtures.latinSummary(json))")
 
         let data = try #require(result.document.dataRepresentation())
         let pdf = try #require(PDFDocument(data: data))

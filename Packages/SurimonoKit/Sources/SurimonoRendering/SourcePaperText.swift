@@ -59,15 +59,12 @@ public enum SourcePaperText {
             while boundaries.count <= local {
                 let prior = boundaries.count - 1
                 guard let page = document.page(at: start + prior),
-                    let scanned = scan(page.string ?? "", at: prior, ranges: [], visibleText: { _ in nil })
+                    let scanned = scan(page, at: prior, ranges: [])
                 else { return nil }
                 boundaries.append(scanned.end)
             }
             // PDFKit ranges belong to the displayed page. Redrawing a logical PDF can change its extracted whitespace.
-            guard
-                let scanned = scan(
-                    page.string ?? "", at: local, ranges: ranges, visibleText: { page.selection(for: $0)?.string })
-            else { return nil }
+            guard let scanned = scan(page, at: local, ranges: ranges) else { return nil }
             if boundaries.count == local + 1 {
                 boundaries.append(scanned.end)
             } else if boundaries[local + 1] != scanned.end {
@@ -98,10 +95,37 @@ public enum SourcePaperText {
             return .exact(end)
         }
 
-        private func scan(_ pdf: String, at page: Int, ranges: [NSRange], visibleText: (NSRange) -> String?)
+        private func selectableGlyphs(on sheet: PDFPage, at page: Int, ranges: [NSRange]) -> [UInt16]? {
+            let glyphs = Array((sheet.string ?? "").utf16)
+            // Scanning earlier pages only needs the ink, except when locating a label or a cut line.
+            guard !ranges.isEmpty || cut || (page == 0 && label != nil),
+                !(ranges.count == 1 && ranges[0] == NSRange(glyphs.indices)),
+                let first = glyphs.first, let last = glyphs.last, white(first) || white(last)
+            else { return glyphs }
+            let count = sheet.numberOfCharacters
+            guard count > 0, count < glyphs.count else { return glyphs }
+            // Only discard extraction padding outside PDFKit's selectable UTF-16 coordinate space.
+            // Anchor both strings at their first ink and verify every selectable unit and both margins.
+            guard let text = sheet.selection(for: NSRange(location: 0, length: count))?.string else { return nil }
+            let selectable = Array(text.utf16)
+            guard selectable.count == count else { return nil }
+            guard let ink = glyphs.firstIndex(where: { !white($0) }) else {
+                return glyphs.starts(with: selectable) || glyphs.suffix(count).elementsEqual(selectable)
+                    ? selectable : nil
+            }
+            guard let selectedInk = selectable.firstIndex(where: { !white($0) }) else { return nil }
+            let offset = ink - selectedInk
+            guard offset >= 0, offset <= glyphs.count - count,
+                glyphs[offset..<(offset + count)].elementsEqual(selectable),
+                glyphs[(offset + count)...].allSatisfy(white)
+            else { return nil }
+            return selectable
+        }
+
+        private func scan(_ sheet: PDFPage, at page: Int, ranges: [NSRange])
             -> (end: Boundary, selected: [Piece])?
         {
-            let glyphs = Array(pdf.utf16)
+            guard let glyphs = selectableGlyphs(on: sheet, at: page, ranges: ranges) else { return nil }
             let start = boundaries[page]
             var cursor = start.cursor
             var i = 0
@@ -126,7 +150,7 @@ public enum SourcePaperText {
                 var stop = range.upperBound - 1
                 guard newline(glyphs[stop]) else { continue }
                 if glyphs[stop] == 10, stop > range.lowerBound, glyphs[stop - 1] == 13 { stop -= 1 }
-                if let visible = visibleText(NSRange(range)),
+                if let visible = sheet.selection(for: NSRange(range))?.string,
                     glyphs[range.lowerBound..<stop].elementsEqual(visible.utf16)
                 {
                     groups[index] = range.lowerBound..<stop
@@ -159,7 +183,7 @@ public enum SourcePaperText {
                 }
                 return true
             }
-            if page == 0, let label, pdf.hasPrefix(label) {
+            if page == 0, let label, glyphs.starts(with: label.utf16) {
                 i = label.utf16.count
                 while i < glyphs.count, newline(glyphs[i]) { i += 1 }
             }

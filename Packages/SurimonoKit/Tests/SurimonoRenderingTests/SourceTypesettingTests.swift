@@ -193,7 +193,16 @@ struct SourceTypesettingTests {
                 let page = try #require(paper.page(at: i))
                 all.add(try #require(page.selection(for: NSRange(location: 0, length: page.numberOfCharacters))))
             }
-            #expect(copied(all) == text)
+            let restored = copied(all)
+            if restored != text {
+                let details = (0..<paper.pageCount).compactMap { index -> String? in
+                    guard let page = paper.page(at: index) else { return nil }
+                    let ranges = (0..<all.numberOfTextRanges(on: page)).map { all.range(at: $0, on: page) }
+                    return
+                        "\(index): chars=\(page.numberOfCharacters)/\(page.string?.utf16.count ?? 0) ranges=\(ranges) last=\(escaped(page.string.map { String($0.suffix(12)) }))"
+                }
+                Issue.record("\(paper === logical ? "logical" : "displayed") pages=\(all.pages.count) \(details)")
+            }
         }
     }
 

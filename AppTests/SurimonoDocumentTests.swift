@@ -198,7 +198,11 @@ struct SurimonoDocumentTests {
         var identifiers = Set(declarations.flatMap { $0["LSItemContentTypes"] as? [String] ?? [] })
         // The plist can advertise a viewer for public.toml even on a Mac whose registry lacks that type.
         if UTType("public.toml") == nil { identifiers.remove("public.toml") }
-        #expect(identifiers == Set(SurimonoDocument.readableContentTypes.map(\.identifier)))
+        let readable = Set(SurimonoDocument.readableContentTypes.map(\.identifier))
+        #expect(
+            identifiers == readable,
+            "plist のみ \(identifiers.subtracting(readable).sorted())、読み取り型のみ \(readable.subtracting(identifiers).sorted())"
+        )
         #expect(declarations.allSatisfy { $0["CFBundleTypeRole"] as? String == "Viewer" })
         #expect(declarations.allSatisfy { $0["LSHandlerRank"] as? String == "Alternate" })
         let imported = try #require(

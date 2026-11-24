@@ -132,7 +132,9 @@ struct FootnotePlacerTests {
             groups: [.init(firstReference: 0, notes: [1], heightPixels: 40)],
             margins: .init(top: 40, left: 40, bottom: 40, right: 40))
         #expect(output.pageCount == 2)
-        #expect(output.page(at: 0)?.string == document.page(at: 0)?.string)
+        #expect(
+            output.page(at: 0)?.string?.trimmingCharacters(in: .whitespacesAndNewlines)
+                == document.page(at: 0)?.string?.trimmingCharacters(in: .whitespacesAndNewlines))
         #expect(output.page(at: 1)?.annotations.contains { $0.url?.scheme == "surimono-issue" } == true)
     }
 

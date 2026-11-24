@@ -37,11 +37,11 @@ struct FlowPageCaptureTests {
     @Test("移動・縮小した PDF 片ではノンブルの同じ字形だけを仕上がり座標で照合する")
     func printedDigit() async throws {
         let slice = try RenderingFixtures.pdf(size: CGSize(width: 240, height: 120))
-        let page = try #require(slice.page(at: 0))
-        let digit = page.numberOfCharacters - 1
-        try #require(digit >= 0)
-        let ink = page.characterBounds(at: digit)
         let data = try #require(slice.dataRepresentation())
+        let reopened = try #require(PDFDocument(data: data))
+        let page = try #require(reopened.page(at: 0))
+        let digit = try #require(reopened.findString("1").first)
+        let ink = page.characterBounds(at: digit.range(at: 0, on: page).location)
         let target = CGRect(x: 30, y: 12, width: 120, height: 60)
         let point = CGPoint(x: 30 + ink.midX / 2, y: 12 + ink.midY / 2)
         _ = try await PDFDrawing.document(pageSize: CGSize(width: 160, height: 90)) { context in

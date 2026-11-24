@@ -90,11 +90,14 @@ struct PrintTopBarHitTests {
         // The toolbar stays: it keeps the title bar as tall as the bar, with the traffic lights in its middle.
         #expect(window.toolbar != nil)
         let lights = try #require(TrafficLights(window: window))
-        #expect(lights.centerY == PrintTopBar.height / 2)
         let buttons = [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton]
             .compactMap { window.standardWindowButton($0) }
             .map { $0.convert($0.bounds, to: nil) }
         let height = try #require(root(of: window)).bounds.height
+        #expect(
+            lights.centerY == PrintTopBar.height / 2,
+            "centerY=\(lights.centerY), barHeight=\(PrintTopBar.height), buttons=\(buttons), rootHeight=\(height), contentLayout=\(window.contentLayoutRect), toolbarStyle=\(window.toolbarStyle.rawValue)"
+        )
         var taken: [NSPoint] = []
         for y in stride(from: height - PrintTopBar.height + 1, to: height, by: 3) {
             for x in stride(from: 1.0, to: window.frame.width, by: 2) {

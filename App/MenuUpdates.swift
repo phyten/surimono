@@ -229,10 +229,32 @@ final class MenuUpdates: NSObject {
         dirty = false
         if let menu = root() {
             lastMenu = menu
+            if #unavailable(macOS 26), menu === NSApp.mainMenu, menu.numberOfItems > 1,
+                let file = menu.item(at: 1)?.submenu
+            {
+                Self.restoreOpenItem(in: file)
+            }
             apply(menu)
             if allowsWrites, menu.numberOfItems > 1 { hider.hideItems(in: menu.item(at: 1)?.submenu) }
         }
         if allowsWrites { refreshState() }
+    }
+
+    // Replacing .newItem also removes Open from a viewing DocumentGroup on Sequoia. Wait for
+    // our File commands to arrive, and prefer the native action if SwiftUI subsequently installs it.
+    static func restoreOpenItem(in file: NSMenu) {
+        let action = #selector(NSDocumentController.openDocument(_:))
+        let fallbackID = NSUserInterfaceItemIdentifier("surimono.openFallback")
+        if file.items.contains(where: { $0.action == action && $0.identifier != fallbackID }) {
+            if let fallback = file.items.first(where: { $0.identifier == fallbackID }) { file.removeItem(fallback) }
+        } else if !file.items.contains(where: { $0.identifier == fallbackID }),
+            file.item(withTitle: String(localized: "Open from URL…")) != nil
+        {
+            let item = NSMenuItem(title: String(localized: "Open…"), action: action, keyEquivalent: "o")
+            item.identifier = fallbackID
+            item.keyEquivalentModifierMask = .command
+            file.insertItem(item, at: 0)
+        }
     }
 
     private func refreshState() {

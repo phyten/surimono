@@ -17,6 +17,7 @@ struct BandMeasurementAgreementTests {
     private struct TestBands: View {
         @Bindable var model: DocumentViewModel
         let menu: OverlayMenuState
+        let labels: BandLabelMeasurements
 
         var body: some View {
             let plans = BandPlans(model: model, menu: menu)
@@ -25,6 +26,7 @@ struct BandMeasurementAgreementTests {
                 Spacer()
                 if let row = plans.bottom { BottomBand(model: model, row: row) }
             }
+            .environment(\.bandLabelMeasurements, labels)
             .background { BandMeasurements(model: model, items: BandLayout.Item.applicable(for: model), menu: menu) }
             .coordinateSpace(name: BandAnchors.coordinateSpace)
             .onGeometryChange(for: CGFloat.self) {
@@ -41,6 +43,7 @@ struct BandMeasurementAgreementTests {
         let defaults = BandTestDefaultsSuite()
         let model: DocumentViewModel
         let menu = OverlayMenuState()
+        let labels = BandLabelMeasurements()
         let controller: NSWindowController
         let window: NSWindow
 
@@ -79,7 +82,7 @@ struct BandMeasurementAgreementTests {
                 backing: .buffered, defer: false)
             window.isReleasedWhenClosed = false
             controller = NSWindowController(window: window)
-            let host = NSHostingView(rootView: TestBands(model: model, menu: menu))
+            let host = NSHostingView(rootView: TestBands(model: model, menu: menu, labels: labels))
             // As the view mode's window: the band never widens the window to fit what the plan folded away.
             host.sizingOptions = []
             window.contentView = host
@@ -257,8 +260,19 @@ struct BandMeasurementAgreementTests {
                 // slack. Narrower only leaves room: a native segmented control draws two points narrower than its
                 // hidden copy measures on a Retina screen (56 against 54), and as wide as it on a 1x screen.
                 let excess = drawn.width - measured
+                let label = fixture.labels.drawn[item]
+                if [.selectText, .viewOptions].contains(item) {
+                    // Both controls add only a three-point gap and the title to their compact symbol.
+                    let compact = try #require(fixture.menu.bandWidths[.item(item, .compact)])
+                    let minimum = form == .full ? max(1, measured - compact - 3 - 2) : 1
+                    #expect(
+                        label?.form == form && (label?.width ?? 0) >= minimum,
+                        "\(item): 計画 \(form)、実際の文字またはアイコン \(String(describing: label))、必要幅 \(minimum)")
+                }
                 #expect(
-                    excess <= 1 && excess >= -2, "\(item) \(form): 測った \(measured)、描いた \(drawn.width)")
+                    excess <= 1 && excess >= -2,
+                    "\(item) \(form): 測った \(measured)、アンカー \(drawn)、文字またはアイコン \(String(describing: label))、帯 \(row.requiredWidth)/\(width)"
+                )
                 compared += 1
             }
         }

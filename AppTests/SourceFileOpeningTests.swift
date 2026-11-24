@@ -50,13 +50,10 @@ struct SourceFileOpeningTests {
 
     @Test(
         "ソースコードの拡張子の型は、どれも読み取れる型に準拠する",
-        arguments: [
-            "swift", "py", "rb", "js", "ts", "tsx", "go", "rs", "kt", "cs", "lua", "jl", "hs", "vue", "plist", "css",
-            "ini", "java", "c", "h", "cpp", "m", "php", "sh", "sql", "diff", "mk", "scss", "jsx", "sty",
-        ])
+        arguments: DocumentFormat.sourceCodeExtensions.sorted())
     func readableTypes(suffix: String) throws {
         let type = try #require(UTType(filenameExtension: suffix))
-        #expect(SourceFileOpening.reads(type), "\(type.identifier)")
+        #expect(SourceFileOpening.reads(type), ".\(suffix): \(type.identifier), supertypes=\(type.supertypes)")
     }
 
     @Test("macOS が型を持たない拡張子は、取り込みの宣言でソースコードの型になる")

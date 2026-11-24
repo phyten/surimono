@@ -436,11 +436,31 @@ struct OpenRouterTests {
         #expect(item.title.contains("3枚＋メモ") || item.title.contains("3-up + Notes"))
     }
 
+    @Test("標準の開くが遅れて追加されても補ったメニューは一つだけになる")
+    func lateOpenMenu() {
+        let file = NSMenu()
+        file.addItem(withTitle: String(localized: "Open from URL…"), action: nil, keyEquivalent: "")
+        let action = #selector(NSDocumentController.openDocument(_:))
+        MenuUpdates.restoreOpenItem(in: file)
+        MenuUpdates.restoreOpenItem(in: file)
+        let opens = file.items.filter { $0.action == action }
+        #expect(opens.count == 1)
+        #expect(opens.first?.keyEquivalent == "o")
+        #expect(opens.first?.keyEquivalentModifierMask == .command)
+        let native = file.addItem(withTitle: "Open…", action: action, keyEquivalent: "o")
+        MenuUpdates.restoreOpenItem(in: file)
+        #expect(file.items.filter { $0.action == action } == [native])
+    }
+
     @Test("ファイルメニューの開く…は1つだけで、選ぶと振り分けの開くパネルが出る")
     func openMenu() throws {
         let items = (NSApp.mainMenu?.items ?? []).flatMap { $0.submenu?.items ?? [] }
         let openItems = items.filter { $0.action == #selector(NSDocumentController.openDocument(_:)) }
-        #expect(openItems.count == 1)
+        if openItems.count != 1 {
+            let file = NSApp.mainMenu?.items.dropFirst().first?.submenu
+            let entries = file?.items.map { "\($0.title) [\($0.keyEquivalent)] \($0.action?.description ?? "nil")" }
+            Issue.record("「開く…」が \(openItems.count) 件。ファイルメニュー \(entries ?? [])")
+        }
         #expect(items.filter { $0.keyEquivalent == "o" && $0.keyEquivalentModifierMask == .command }.count == 1)
         #expect(!items.contains { $0.action == #selector(NSDocumentController.newDocument(_:)) })
         let item = try #require(openItems.first)

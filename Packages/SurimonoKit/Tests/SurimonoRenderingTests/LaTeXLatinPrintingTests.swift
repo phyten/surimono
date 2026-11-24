@@ -189,7 +189,9 @@ struct LaTeXLatinPrintingTests {
         #expect(result.issues.isEmpty)
         let json = try #require(paginator.latinLineDiagnostics)
         let measurement = try JSONDecoder().decode(Measurement.self, from: Data(json.utf8))
-        let paragraph = try #require(measurement.paragraphs.first { $0.text.hasPrefix("A paper rail") })
+        let paragraph = try #require(
+            measurement.paragraphs.first { $0.text.hasPrefix("A paper rail") },
+            "\(RenderingFixtures.latinSummary(json))")
         try #require(paragraph.fallback == nil, "段落の復元理由 \(paragraph.fallback ?? "")")
         try #require(paragraph.lines.count >= 2)
         #expect(paragraph.text.contains(linked + (rich ? "1" : "") + " before"))
