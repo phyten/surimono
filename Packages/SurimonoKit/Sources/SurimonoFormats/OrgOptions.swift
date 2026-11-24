@@ -2,8 +2,6 @@ import Foundation
 
 /// How an Org document is read where its own `#+OPTIONS:` lines say nothing. File options win unless the reader
 /// explicitly overrides them for that document.
-///
-/// Three keys are covered: `num`, `toc` and `^`. Everything else is read as before, whatever Emacs would do.
 public struct OrgReadingDefaults: Codable, Equatable, Sendable {
     /// How far down the outline something reaches.
     public enum Depth: Codable, Hashable, Sendable {
@@ -34,11 +32,35 @@ public struct OrgReadingDefaults: Codable, Equatable, Sendable {
     public var tableOfContents: Depth
     /// `^`
     public var scripts: Scripts
-    /// `H`, which only the document can set. Here it limits the table of contents and nothing else: deeper
-    /// headlines still print as headings, where Emacs turns them into list items.
-    var headlineLevels = 3
+    public var headlineLevels: Int = 3
+    public var tags: Tags = .all
+    public var preserveBreaks: Bool = false
+    public var emphasis: Bool = true
+    public var math: Math = .render
+    public var clocks: Bool = true
+    public var planning: Bool = false
+    public var priority: Bool = false
+    public var todo: Bool = true
+    public var statistics: Bool = true
+    public var tasks: Tasks = .all
+    public var title: Bool = true
+    public var author: Bool = true
+    public var date: Bool = true
+    public var drawers: Names = .off
+    public var properties: Names = .off
+    public var timestamps: Timestamps = .all
+    public var footnotes: Bool = true
+    public var tables: Bool = true
+    public var fixedWidth: Bool = true
+    public var archived: Archived = .all
 
-    private enum CodingKeys: String, CodingKey { case sectionNumbers, tableOfContents, scripts }
+    public static let emacs: Self = {
+        var preset = Self(sectionNumbers: .all, tableOfContents: .all, scripts: .all)
+        preset.drawers = .excluding(["LOGBOOK"])
+        preset.clocks = false
+        preset.archived = .headline
+        return preset
+    }()
 
     public init(sectionNumbers: Depth, tableOfContents: Depth, scripts: Scripts) {
         self.sectionNumbers = sectionNumbers
@@ -54,7 +76,6 @@ public struct OrgReadingDefaults: Codable, Equatable, Sendable {
 /// value, so a reading setting can fill in only what the document did not decide.
 struct OrgExportOptions: Equatable {
     var file = OrgFileInstructions()
-    var headlineLevels: Int?
 
     /// Reads the value of one `#+OPTIONS:` line. A later line overrides the keys it repeats.
     ///
@@ -71,6 +92,8 @@ struct OrgExportOptions: Equatable {
             let start = cursor
             while cursor < chars.count, chars[cursor] != ":" { cursor += 1 }
             guard cursor < chars.count else { break }
+            // The fixed-width option uses a colon as both its key and its separator.
+            if cursor == start, cursor + 1 < chars.count, chars[cursor + 1] == ":" { cursor += 1 }
             let key = String(chars[start..<cursor]).lowercased()
             cursor += 1
             guard cursor < chars.count, !chars[cursor].isWhitespace else { continue }
@@ -92,7 +115,10 @@ struct OrgExportOptions: Equatable {
         switch key {
         case "num": file.record(Self.depth(value), for: .sectionNumbers, source: source)
         case "toc": file.record(Self.depth(value), for: .tableOfContents, source: source)
-        case "h": if let levels = Self.integer(value), levels >= 0 { headlineLevels = levels }
+        case "h":
+            if let levels = Self.integer(value), levels >= 0 {
+                file.record(levels, for: .headlineLevels, source: source)
+            }
         case "^":
             let scripts: OrgReadingDefaults.Scripts =
                 switch value {
@@ -101,6 +127,47 @@ struct OrgExportOptions: Equatable {
                 default: .all
                 }
             file.record(scripts, for: .scripts, source: source)
+        case "tags":
+            if let selection = OrgReadingDefaults.Tags(rawValue: value) {
+                file.record(selection, for: .tags, source: source)
+            }
+        case "\\n": file.record(value != "nil", for: .preserveBreaks, source: source)
+        case "*": file.record(value != "nil", for: .emphasis, source: source)
+        case "tex":
+            if let selection = OrgReadingDefaults.Math(rawValue: value) {
+                file.record(selection, for: .math, source: source)
+            }
+        case "c": file.record(value != "nil", for: .clocks, source: source)
+        case "p": file.record(value != "nil", for: .planning, source: source)
+        case "pri": file.record(value != "nil", for: .priority, source: source)
+        case "todo": file.record(value != "nil", for: .todo, source: source)
+        case "stat": file.record(value != "nil", for: .statistics, source: source)
+        case "tasks":
+            if let selection = OrgReadingDefaults.Tasks(token: value) {
+                file.record(selection, for: .tasks, source: source)
+            }
+        case "title": file.record(value != "nil", for: .title, source: source)
+        case "author": file.record(value != "nil", for: .author, source: source)
+        case "date": file.record(value != "nil", for: .date, source: source)
+        case "d":
+            if let selection = OrgReadingDefaults.Names(token: value, allowsExclusion: true) {
+                file.record(selection, for: .drawers, source: source)
+            }
+        case "prop":
+            if let selection = OrgReadingDefaults.Names(token: value, allowsExclusion: false) {
+                file.record(selection, for: .properties, source: source)
+            }
+        case "<":
+            if let selection = OrgReadingDefaults.Timestamps(rawValue: value) {
+                file.record(selection, for: .timestamps, source: source)
+            }
+        case "f": file.record(value != "nil", for: .footnotes, source: source)
+        case "|": file.record(value != "nil", for: .tables, source: source)
+        case ":": file.record(value != "nil", for: .fixedWidth, source: source)
+        case "arch":
+            if let selection = OrgReadingDefaults.Archived(rawValue: value) {
+                file.record(selection, for: .archived, source: source)
+            }
         default: break
         }
     }
@@ -205,12 +272,7 @@ struct OrgExportOptions: Equatable {
     }
 
     func resolved(over settings: OrgReadingSettings) -> OrgReadingDefaults {
-        var reading = settings.defaults
-        reading.sectionNumbers = settings.resolve(.sectionNumbers, file: file).value
-        reading.tableOfContents = settings.resolve(.tableOfContents, file: file).value
-        reading.scripts = settings.resolve(.scripts, file: file).value
-        reading.headlineLevels = headlineLevels ?? settings.defaults.headlineLevels
-        return reading
+        settings.effectiveDefaults(file: file)
     }
 }
 

@@ -208,3 +208,32 @@ struct PanelSortButton: View {
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
+
+struct PanelDisclosureStyle: DisclosureGroupStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Button {
+                configuration.isExpanded.toggle()
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: configuration.isExpanded ? "chevron.down" : "chevron.forward")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(PrintPalette.ink2)
+                        .frame(width: 10)
+                    configuration.label
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityRepresentation {
+                DisclosureGroup(isExpanded: configuration.$isExpanded) {
+                    EmptyView()
+                } label: {
+                    configuration.label
+                }
+                .disclosureGroupStyle(.automatic)
+            }
+            if configuration.isExpanded { configuration.content }
+        }
+    }
+}

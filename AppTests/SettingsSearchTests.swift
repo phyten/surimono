@@ -1,3 +1,5 @@
+import Foundation
+import SurimonoCore
 import Testing
 
 @testable import Surimono
@@ -12,6 +14,103 @@ struct SettingsSearchTests {
         let results = SettingsCatalogue.search(query, in: SettingsCatalogue.rows, localize: { names[$0] ?? $0 })
         #expect(results.bestSection(keeping: .pageNumbers) == .org)
         if query == "num" { #expect(results.rows.contains { $0.section == .org && $0.anchor == "Heading Numbers" }) }
+    }
+
+    @Test("読み方の全行に表示名と区切り付きの Org キーの両方で移動できる")
+    func allOrgRows() {
+        let ids = OrgReadingGroup.allCases.flatMap(\.settings)
+        #expect(ids.count == 24 && Set(ids).count == ids.count)
+        for id in ids {
+            for query in [id.label.key, id.token, id.token + ":"] {
+                let hits = SettingsCatalogue.search(query, in: SettingsCatalogue.rows)
+                #expect(hits.rows.contains { $0.section == .org && $0.anchor == id.label.key }, "query=\(query)")
+            }
+        }
+    }
+
+    @Test("読み方の新旧の項目名・区分名・中括弧の選択肢を八言語で検索できる", arguments: UILanguage.supported)
+    func orgSearchAliases(language: String) throws {
+        let path = try #require(Bundle.main.path(forResource: language, ofType: "lproj"))
+        let strings = try #require(Bundle(path: path))
+        func translate(_ key: String) -> String { strings.localizedString(forKey: key, value: nil, table: nil) }
+        let rows = SettingsCatalogue.rows
+        let languages = ["en", "ja", "de", "es", "fr", "ko", "zh-Hans", "zh-Hant"]
+        let index = try #require(languages.firstIndex(of: language))
+        for (anchor, new, oldNames) in [
+            (
+                "Levels Shown as Headings", "Levels Shown as Headings",
+                [
+                    "Heading Depth", "見出しの深さ", "Gliederungstiefe", "Profundidad de los títulos",
+                    "Profondeur des titres", "제목 깊이", "标题层级", "標題層級",
+                ]
+            ),
+            (
+                "Bold, Italic, and Other Emphasis", "Bold, Italic, and Other Emphasis",
+                [
+                    "Text Emphasis", "文字の強調", "Texthervorhebungen", "Énfasis del texto", "Mise en valeur du texte",
+                    "텍스트 강조", "文字强调", "文字強調",
+                ]
+            ),
+            (
+                "Completion Percentages and Counts", "Completion Percentages and Counts",
+                [
+                    "Statistics Cookies", "進捗の割合と件数", "Fortschrittsangaben", "Indicadores de progreso",
+                    "Indicateurs de progression", "진행률 및 개수", "进度与计数", "進度與計數",
+                ]
+            ),
+            (
+                "Tasks to Show", "Tasks to Show",
+                [
+                    "Include Tasks", "含めるタスク", "Einbezogene Aufgaben", "Tareas que se incluyen", "Tâches à inclure",
+                    "포함할 작업", "包含的任务", "包含的任務",
+                ]
+            ),
+            (
+                "Org Title", "Org Title",
+                [
+                    "Document Title", "文書の表題", "Dokumenttitel", "Título del documento", "Titre du document", "문서 제목",
+                    "文档标题", "文件標題",
+                ]
+            ),
+            (
+                "Date", "Date",
+                [
+                    "Document Date", "文書の日付", "Dokumentdatum", "Fecha del documento", "Date du document", "문서 날짜",
+                    "文档日期", "文件日期",
+                ]
+            ),
+            (
+                "Subscripts and Superscripts", "Only in { }",
+                [
+                    "Only with { }", "{ } があるときだけ", "Nur mit { }", "Solo con { }", "Seulement avec { }", "{ }가 있을 때만",
+                    "仅在有 { } 时", "僅在有 { } 時",
+                ]
+            ),
+            (
+                "Subscripts and Superscripts", "Only in { }",
+                [
+                    "Only When Enclosed in { }", "{ } で囲んだときだけ", "Nur in { } eingeschlossen",
+                    "Solo si se encierra entre { }", "Seulement entre { }", "{ }로 감쌀 때만", "仅当用 { } 括起时", "僅在以 { } 括住時",
+                ]
+            ),
+            (
+                "Preserve Line Breaks", "Body Text Formatting",
+                ["Text Formatting", "文字", "Text", "Texto", "Texte", "문자", "文字", "文字"]
+            ),
+            (
+                "LaTeX Formulas", "Show Source",
+                [
+                    "Show Formula Source", "数式の原文", "Formelquelltext", "Código de la fórmula", "Source de la formule",
+                    "수식 원문", "公式源码", "公式原始碼",
+                ]
+            ),
+        ] {
+            for query in [oldNames[index], translate(new)] {
+                let hits = SettingsCatalogue.search(query, in: rows, localize: translate)
+                #expect(hits.rows.contains { $0.section == .org && $0.anchor == anchor }, "\(language) \(query)")
+            }
+        }
+        #expect(OrgReadingGroup.allCases == [.structure, .information, .text, .tasks, .details])
     }
 
     @Test("アイコンと部品の表示を検索するとツールバーの配置の先頭行が見つかる", arguments: ["icon", "アイコン", "Parts", "部品の表示"])
