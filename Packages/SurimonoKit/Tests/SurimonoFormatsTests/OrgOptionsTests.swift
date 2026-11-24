@@ -307,7 +307,7 @@ struct OrgOptionsTests {
                 <p>intro</p>
                 <h2 id="a">A</h2>
                 """))
-        #expect(html.contains("<h5 id=\"d\">D</h5>"))
+        #expect(html.contains("<ul><li id=\"d\">D\n</li></ul>"))
     }
 
     @Test("toc:2 は 2 階層目までを並べる")

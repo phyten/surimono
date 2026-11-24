@@ -14,6 +14,11 @@ enum OrgMath {
 
     /// A fragment with its delimiters, as matched by `inlinePattern`.
     static func inline(_ source: String, context: OrgContext) -> String {
+        switch context.reading.math {
+        case .off: return ""
+        case .verbatim: return "<code>\(HTML.escape(source))</code>"
+        case .render: break
+        }
         let display = source.hasPrefix("$$") || source.hasPrefix("\\[")
         let width = source.hasPrefix("$") && !display ? 1 : 2
         return context.formula(String(source.dropFirst(width).dropLast(width)), display: display, source: source)
@@ -28,6 +33,8 @@ enum OrgMath {
             text.hasPrefix("\\[") && text.hasSuffix("\\]") && !inner.contains("\\]")
             || text.hasPrefix("$$") && text.hasSuffix("$$") && !inner.contains("$")
         guard whole else { return nil }
+        if context.reading.math == .off { return "" }
+        if context.reading.math == .verbatim { return "<pre>\(HTML.escape(text))</pre>\n" }
         return "<div class=\"math-block\">\(context.formula(inner, display: true, source: text))</div>\n"
     }
 

@@ -26,17 +26,41 @@ public enum OrgConverter {
             lines: TextDecoding.normalizeNewlines(text).components(separatedBy: "\n"),
             context: OrgContext(defaults: settings.defaults, fileName: fileName))
         // Discover forward declarations before rendering headings or numbering any references.
+        parser.context.commentEnds = parser.commentRanges()
         parser.context.discovering = true
         _ = parser.render()
-        for key in ["TITLE", "SUBTITLE", "AUTHOR", "DATE"] {
-            if let value = parser.context.metadata[key] { _ = OrgInline.render(value, context: parser.context) }
+        let context = parser.context
+        context.reading = context.options.resolved(over: settings)
+        context.omissions = context.subtrees.omissions(context: context, lineCount: parser.lines.count)
+        if !context.omissions.isEmpty {
+            // Filtered headings never reach the rendering pass. Use the complete keyword vocabulary for them too.
+            if !context.options.file.hasTaskElements {
+                context.options.file.hasTaskElements = context.subtrees.headings.contains {
+                    context.taskKeywords.contains($0.headline.keyword)
+                }
+            }
+            // Rediscover the visible outline. Named footnotes remain available across subtree boundaries.
+            context.repeatingDiscovery = true
+            context.propertiesByHeading.removeAll()
+            context.outline = OrgOutline()
+            context.options.file.clearOutlineNotes()
+            context.hasContentsKeyword = false
+            context.anonymous = 0
+            parser.index = 0
+            _ = parser.render()
         }
-        parser.context.discovering = false
-        parser.context.anonymous = 0
-        parser.context.reading = parser.context.options.resolved(over: settings)
+        var fields: [(String, String)] = []
+        if context.reading.title { fields += [("TITLE", "h1"), ("SUBTITLE", "p")] }
+        if context.reading.author { fields.append(("AUTHOR", "p")) }
+        if context.reading.date { fields.append(("DATE", "p")) }
+        for (key, _) in fields {
+            if let value = context.metadata[key] { _ = OrgInline.render(value, context: context) }
+        }
+        context.discovering = false
+        context.anonymous = 0
         parser.index = 0
         var titleBlock = ""
-        for (key, tag) in [("TITLE", "h1"), ("SUBTITLE", "p"), ("AUTHOR", "p"), ("DATE", "p")] {
+        for (key, tag) in fields {
             if let value = parser.context.metadata[key] {
                 titleBlock +=
                     "<\(tag) class=\"org-\(key.lowercased())\">\(OrgInline.render(value, context: parser.context))</\(tag)>"
@@ -44,7 +68,6 @@ public enum OrgConverter {
         }
         if !titleBlock.isEmpty { titleBlock = "<header class=\"org-title-block\">\(titleBlock)</header>\n" }
         let content = parser.render()
-        let context = parser.context
         let japanese = context.metadata["LANGUAGE"]?.lowercased().hasPrefix("ja") == true
         var contents = OrgContents(
             entries: context.outline.entries, headlineLevels: context.reading.headlineLevels,
@@ -79,9 +102,12 @@ public enum OrgConverter {
 struct OrgParser {
     let lines: [String]
     let depth: Int
+    private let headlines: [Int: OrgHeadline]
     private let regionEnds: [Int: Int]
     var index = 0
     let context: OrgContext
+    private var deepHeadings: [(level: Int, tag: String)] = []
+    private var planningLine: Int?
     private var openList: (indent: Int, tag: String)?
     /// For each environment name, the lines last searched without finding a closing line; an opener among them
     /// need not search again.
@@ -92,9 +118,16 @@ struct OrgParser {
         self.depth = depth
         self.context = context
         // Pair blocks once, respecting literal regions and same-name nesting.
+        var outline: [Int: OrgHeadline] = [:]
         var ends: [Int: Int] = [:]
         var stack: [(start: Int, region: DelimitedRegion)] = []
         for (index, line) in lines.enumerated() {
+            // A physical headline starts a section even when a preceding block has no closing marker.
+            if depth == 0, let headline = OrgHeadline(line) {
+                outline[index] = headline
+                stack.removeAll(keepingCapacity: true)
+                continue
+            }
             let marker = line.trimmingCharacters(in: .whitespaces).uppercased()
             if let last = stack.last, marker == last.region.endMarker {
                 ends[last.start] = index
@@ -103,7 +136,32 @@ struct OrgParser {
                 stack.append((index, region))
             }
         }
+        headlines = outline
         regionEnds = ends
+    }
+
+    /// Resolve commented subtrees before reading any export settings, including forward workflow declarations.
+    fileprivate mutating func commentRanges() -> [Int: Int] {
+        guard headlines.values.contains(where: { $0.title.contains("COMMENT") }) else { return [:] }
+        var outline = OrgCommentOutline()
+        defer { index = 0 }
+        while index < lines.count {
+            let line = lines[index]
+            if let end = regionEnds[index] {
+                index = end + 1
+            } else if let item = listItem(line) {
+                index += 1
+                _ = collectListItemContinuation(indent: item.indent)
+            } else {
+                if let heading = headlines[index] {
+                    outline.heading(line: index, headline: heading)
+                } else if let declaration = orgCaptures(#"^\s*#\+(?:TODO|SEQ_TODO|TYP_TODO):\s*(.*)$"#, line) {
+                    outline.workflow(declaration[0])
+                }
+                index += 1
+            }
+        }
+        return outline.ranges(end: lines.count)
     }
 
     private struct Child {
@@ -154,6 +212,14 @@ struct OrgParser {
                     paragraph = []
                     return
                 }
+                if context.reading.timestamps != .all,
+                    let filtered = OrgInline.filterIsolatedTimestamps(text, mode: context.reading.timestamps)
+                {
+                    if !filtered.isEmpty { output += "<p>\(inline(filtered))</p>\n" }
+                    paragraph = []
+                    caption = nil
+                    return
+                }
                 let body = isListItem ? renderListContent(text) : inline(text)
                 if let caption, paragraph.count == 1, body.hasPrefix("<img "), body.hasSuffix(">"),
                     body.filter({ $0 == "<" }).count == 1
@@ -178,6 +244,12 @@ struct OrgParser {
                 openList = nil
                 continue
             }
+            if depth == 0, let end = context.omissions[index] ?? context.commentEnds[index] {
+                flush()
+                caption = nil
+                index = end
+                continue
+            }
             let line = lines[index]
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if trimmed.isEmpty {
@@ -190,7 +262,7 @@ struct OrgParser {
                 index += 1
                 while index < lines.count, !lines[index].trimmingCharacters(in: .whitespaces).isEmpty,
                     orgCaptures(#"^\[fn:([^]:\s]+)\]\s+(.*)$"#, lines[index]) == nil,
-                    orgCaptures(#"^(\*+)\s+(.+)$"#, lines[index]) == nil
+                    headlines[index] == nil
                 {
                     definition.append(lines[index])
                     index += 1
@@ -206,7 +278,14 @@ struct OrgParser {
                     caption = nil
                     let start = index + 1
                     index = end + 1
-                    if case .block(let kind, let arguments) = region {
+                    if case .drawer = region {
+                        let name = String(trimmed.dropFirst().dropLast())
+                        if name.uppercased() == "PROPERTIES" {
+                            output += propertyDrawer(lines[start..<end])
+                        } else if context.discovering || context.drawerNames.includes(name) {
+                            return Child(lines: Array(lines[start..<end]), closing: "")
+                        }
+                    } else if case .block(let kind, let arguments) = region {
                         let content = Array(lines[start..<end])
                         if region.isLiteral {
                             output += literalBlock(kind: kind, arguments: arguments, content: content)
@@ -232,39 +311,47 @@ struct OrgParser {
                 caption = nil
                 let source = lines[index...end].joined(separator: "\n").trimmingCharacters(in: .whitespaces)
                 let body = String(source.dropFirst("\\begin{\(name)}".count).dropLast("\\end{\(name)}".count))
-                output += OrgMath.environment(name, body: body, context: context)
+                switch context.reading.math {
+                case .render: output += OrgMath.environment(name, body: body, context: context)
+                case .verbatim: output += "<pre>\(HTML.escape(source))</pre>\n"
+                case .off: break
+                }
                 index = end + 1
-            } else if let heading = orgCaptures(#"^(\*+)\s+(.+)$"#, line) {
+            } else if let heading = headlines[index] {
                 flush()
                 caption = nil
-                let level = min(6, heading[0].count + (context.metadata["TITLE"] == nil ? 0 : 1))
-                let done = context.done.contains(
-                    heading[1].split(whereSeparator: \.isWhitespace).first.map(String.init) ?? "")
+                planningLine = index + 1
+                let level = min(
+                    6, heading.level + (context.metadata["TITLE"] == nil || !context.reading.title ? 0 : 1))
+                let done =
+                    context.done.contains(heading.keyword)
+                    && (context.reading.todo || context.taskKeywords.contains(heading.keyword))
                 var attribute = done ? " class=\"org-done-heading\"" : ""
-                let parts = renderHeading(heading[1])
+                let parts = renderHeading(heading)
                 var number = ""
-                // Only the document's own outline is numbered and listed; a starred line inside a block or a
-                // list item is not part of it.
-                if depth == 0, context.discovering {
-                    context.outline.shallowest = min(context.outline.shallowest ?? Int.max, heading[0].count)
+                var listTag = "ul"
+                let relative = heading.level - (context.outline.shallowest ?? 1) + 1
+                let low = !context.discovering && relative > context.reading.headlineLevels
+                if context.discovering {
+                    if !context.repeatingDiscovery {
+                        context.subtrees.headings.append((line: index, headline: heading))
+                    }
+                    context.outline.shallowest = min(context.outline.shallowest ?? Int.max, heading.level)
                     // Known before any id is made, so a made id never takes one the document wrote further down.
                     let properties = headingProperties(after: index)
                     if !properties.isEmpty { context.propertiesByHeading[index] = properties }
                     if let custom = properties["CUSTOM_ID"], !custom.isEmpty { context.outline.reserve(custom) }
-                } else if depth == 0 {
-                    let numbers = context.reading.sectionNumbers.limit > 0
+                } else {
                     let anchors = context.anchorsHeadings
                     let properties = context.propertiesByHeading[index] ?? [:]
-                    let relative = heading[0].count - (context.outline.shallowest ?? 1) + 1
                     let unnumbered = context.outline.unnumberedValue(level: relative, properties: properties)
                     let listed = unnumbered != "notoc"
                     if !listed { context.options.file.excludedHeadingCount += 1 }
-                    // A document without numbers and without a table of contents keeps no outline at all.
-                    if numbers || anchors {
-                        if relative <= context.reading.sectionNumbers.limit, unnumbered == nil {
-                            let next = context.outline.nextNumber(level: relative)
-                            number = "<span class=\"section-number-\(level)\">\(next)</span> "
-                        }
+                    let numbered = relative <= context.reading.sectionNumbers.limit && unnumbered == nil
+                    listTag = numbered ? "ol" : "ul"
+                    if numbered && !low {
+                        let next = context.outline.nextNumber(level: relative)
+                        number = "<span class=\"section-number-\(level)\">\(next)</span> "
                     }
                     // The id the document wrote is a link target with or without a table of contents.
                     let custom = properties["CUSTOM_ID"].flatMap { $0.isEmpty ? nil : context.outline.customID($0) }
@@ -280,12 +367,28 @@ struct OrgParser {
                                 OrgOutline.Entry(
                                     level: relative, escapedID: escapedID,
                                     html: Self.withoutLinks(
-                                        Self.withoutNotes(Self.withoutTags(number) + parts.html)),
+                                        Self.withoutNotes(Self.withoutTags(number) + parts.contents)),
                                     listed: listed))
                         }
                     }
                 }
-                output += "<h\(level)\(attribute)>\(number)\(parts.html)</h\(level)>\n"
+                while let last = deepHeadings.last,
+                    !low || last.level > relative || (last.level == relative && last.tag != listTag)
+                {
+                    output += "</li></\(last.tag)>\n"
+                    deepHeadings.removeLast()
+                }
+                if low {
+                    if deepHeadings.last?.level == relative {
+                        output += "</li>\n"
+                    } else {
+                        output += "<\(listTag)>"
+                        deepHeadings.append((relative, listTag))
+                    }
+                    output += "<li\(attribute)>\(parts.html)\n"
+                } else {
+                    output += "<h\(level)\(attribute)>\(number)\(parts.html)</h\(level)>\n"
+                }
                 index += 1
             } else if let directive = orgCaptures(#"^#\+([A-Za-z_]+):\s*(.*)$"#, trimmed) {
                 flush()
@@ -303,6 +406,10 @@ struct OrgParser {
                     caption = nil
                 }
                 index += 1
+            } else if trimmed.hasPrefix("#+") && trimmed.prefix(6).uppercased() == "#+END_" {
+                // A closing marker reached on its own belongs to the paragraph after an interrupted block.
+                paragraph.append(line)
+                index += 1
             } else if trimmed.hasPrefix("#+") || trimmed.hasPrefix("# ") {
                 flush()
                 caption = nil
@@ -312,10 +419,15 @@ struct OrgParser {
                 caption = nil
                 output += "<hr>\n"
                 index += 1
-            } else if let planning = OrgInline.planning(trimmed) {
+            } else if Self.isClock(trimmed) {
+                context.options.file.hasTaskElements = true
+                if context.reading.clocks { paragraph.append(line) }
+                index += 1
+            } else if index == planningLine, let planning = OrgInline.planning(trimmed) {
+                context.options.file.hasTaskElements = true
                 flush()
                 caption = nil
-                output += planning
+                if context.reading.planning { output += planning }
                 index += 1
             } else if trimmed == ":" || trimmed.hasPrefix(": ") {
                 flush()
@@ -327,9 +439,16 @@ struct OrgParser {
                     fixed.append(value == ":" ? "" : String(value.dropFirst(2)))
                     index += 1
                 }
-                output += "<pre>\(HTML.escape(fixed.joined(separator: "\n")))</pre>\n"
+                if context.reading.fixedWidth { output += "<pre>\(HTML.escape(fixed.joined(separator: "\n")))</pre>\n" }
             } else if trimmed.hasPrefix("|") {
                 flush()
+                guard context.discovering || context.reading.tables else {
+                    while index < lines.count, lines[index].trimmingCharacters(in: .whitespaces).hasPrefix("|") {
+                        index += 1
+                    }
+                    caption = nil
+                    continue
+                }
                 let captionHTML = caption.map { inline($0) }
                 let table = renderTable()
                 if let captionHTML {
@@ -354,13 +473,33 @@ struct OrgParser {
             }
         }
         flush()
+        while let last = deepHeadings.popLast() { output += "</li></\(last.tag)>\n" }
         return nil
     }
 
+    private static func isClock(_ line: String) -> Bool {
+        guard line.prefix(6).uppercased() == "CLOCK:" else { return false }
+        let stamp = OrgInline.inactiveTimestampPattern
+        let duration = #"=>[ \t]+[0-9]+:[0-9]{2}"#
+        let rangeEnd = #"--\#(stamp)(?:[ \t]+\#(duration))?"#
+        let pattern = #"^CLOCK:[ \t]+(?:\#(stamp)(?:\#(rangeEnd))?|\#(duration))$"#
+        return orgCaptures(pattern, line) != nil
+    }
+
+    private func propertyDrawer(_ content: ArraySlice<String>) -> String {
+        guard !context.discovering, context.reading.properties != .off else { return "" }
+        let visible = content.filter { line in
+            guard let property = orgCaptures(#"^\s*:([^\s:]+):"#, line) else { return false }
+            return context.propertyNames.includes(property[0])
+        }
+        guard !visible.isEmpty else { return "" }
+        return "<pre class=\"org-drawer\">\(HTML.escape(visible.joined(separator: "\n")))</pre>\n"
+    }
+
     private func literalBlock(kind: String, arguments: String, content: [String]) -> String {
-        let text = content.joined(separator: "\n")
         switch kind {
         case "SRC":
+            let text = content.map(Self.unquoteLiteralLine).joined(separator: "\n")
             let language = arguments.split(whereSeparator: \.isWhitespace).first.map(String.init)
             if language?.lowercased() == "mermaid" { return MermaidBlock.html(text) }
             if let format = DiagramConverter.format(language: language) {
@@ -372,10 +511,20 @@ struct OrgParser {
             return "<pre><code\(attribute)>\(highlighted ?? HTML.escape(text))</code></pre>\n"
         case "COMMENT", "EXPORT": return ""
         // A bare `pre`, as `CodeBlockMarkup` expects of a code block: the code options then reach it too.
-        case "EXAMPLE": return "<pre>\(HTML.escape(text))</pre>\n"
-        case "VERSE": return "<div class=\"org-verse\">\(inline(text))</div>\n"
+        case "EXAMPLE":
+            return "<pre>\(HTML.escape(content.map(Self.unquoteLiteralLine).joined(separator: "\n")))</pre>\n"
+        case "VERSE": return "<div class=\"org-verse\">\(inline(content.joined(separator: "\n")))</div>\n"
         default: return ""
         }
+    }
+
+    /// Strip exactly one quoting comma before stars and keywords, preserving indentation and literal commas.
+    private static func unquoteLiteralLine(_ line: String) -> String {
+        let content = line.drop { $0 == " " || $0 == "\t" }
+        guard content.first == "," else { return line }
+        let rest = content.drop { $0 == "," }
+        guard rest.first == "*" || rest.hasPrefix("#+") else { return line }
+        return String(line[..<content.startIndex]) + content.dropFirst()
     }
 
     private func blockWrapper(_ kind: String) -> (opening: String, closing: String) {
@@ -450,29 +599,41 @@ struct OrgParser {
         html.replacingOccurrences(of: #"<[^>]*>"#, with: "", options: .regularExpression)
     }
 
-    private func renderHeading(_ source: String) -> (html: String, title: String) {
-        var text = source
+    private func renderHeading(_ headline: OrgHeadline) -> (html: String, title: String, contents: String) {
+        var text = headline.title
         var prefix = ""
         var tags = ""
-        let keyword = text.split(whereSeparator: \.isWhitespace).first.map(String.init) ?? ""
-        if context.active.contains(keyword) || context.done.contains(keyword) {
-            prefix +=
-                "<span class=\"org-\(context.done.contains(keyword) ? "done" : "todo")\">\(HTML.escape(keyword))</span> "
-            text = String(text.dropFirst(keyword.count)).trimmingCharacters(in: .whitespaces)
+        let keyword = headline.keyword
+        let isTask = context.taskKeywords.contains(keyword)
+        if isTask || context.reading.todo && (context.active.contains(keyword) || context.done.contains(keyword)) {
+            if !context.discovering && isTask { context.options.file.hasTaskElements = true }
+            if context.reading.todo {
+                prefix +=
+                    "<span class=\"org-\(context.done.contains(keyword) ? "done" : "todo")\">\(HTML.escape(keyword))</span> "
+            }
+            text = text.dropFirst(keyword.count).drop(while: \.isWhitespace)
         }
-        if let match = orgCaptures(#"^(\[#[A-Za-z0-9]\])\s+(.*)$"#, text) {
-            prefix += "<span class=\"org-priority\">\(HTML.escape(String(match[0].dropFirst().dropLast())))</span> "
-            text = match[1]
+        let cookie = text.prefix { !$0.isWhitespace }
+        if OrgHeadline.isPriority(cookie) {
+            // A later directive may redefine a keyword stripped in the first discovery pass.
+            if !context.discovering || headline.title.hasPrefix("[#") { context.options.file.hasTaskElements = true }
+            if context.reading.priority {
+                prefix += "<span class=\"org-priority\">\(HTML.escape(String(cookie.dropFirst().dropLast())))</span> "
+            }
+            text = text[cookie.endIndex...].drop(while: \.isWhitespace)
         }
-        if let match = orgCaptures(#"^(.*?)\s+(:[^\s:]+(?::[^\s:]+)*:)$"#, text) {
-            text = match[0]
+        if !headline.tags.isEmpty {
             tags =
                 " <span class=\"org-tags\">"
-                + match[1].split(separator: ":").map { "<span class=\"org-tag\">\(HTML.escape(String($0)))</span>" }
+                + headline.tags.map { "<span class=\"org-tag\">\(HTML.escape(String($0)))</span>" }
                 .joined(separator: " ") + "</span>"
         }
-        let title = inline(text, cookies: .all)
-        return (prefix + title + tags, title)
+        let title = inline(String(text), cookies: .all)
+        let heading = prefix + title
+        return (
+            heading + (context.reading.tags == .off ? "" : tags), title,
+            heading + (context.reading.tags == .all ? tags : "")
+        )
     }
 
     private mutating func renderTable() -> String {
@@ -609,7 +770,7 @@ struct OrgParser {
         let closing = "\\end{\(name)}"
         for position in start..<lines.count {
             let line = lines[position].trimmingCharacters(in: .whitespaces)
-            if line.isEmpty || position > start && orgCaptures(#"^\*+\s"#, lines[position]) != nil {
+            if line.isEmpty || position > start && headlines[position] != nil {
                 unclosedEnvironments[name] = start..<position
                 return nil
             }

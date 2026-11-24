@@ -74,6 +74,75 @@ struct ViewBandTests {
         try await waitUntil { model.contentHash != nil && model.result != nil && !model.isRendering }
     }
 
+    @MainActor private final class ResizeClock {
+        private var now = Duration.zero
+        private var alarms: [(deadline: Duration, fire: @MainActor () -> Void)] = []
+
+        func schedule(after seconds: TimeInterval, fire: @escaping @MainActor () -> Void) {
+            alarms.append((now + .seconds(seconds), fire))
+        }
+
+        func advance(by interval: Duration) {
+            now += interval
+            let due = alarms.filter { $0.deadline <= now }
+            alarms.removeAll { $0.deadline <= now }
+            for alarm in due { alarm.fire() }
+        }
+    }
+
+    @Test(
+        "自動リサイズが単独でも重なっても、最後の操作が終わったあとの利用者のリサイズだけを保存する",
+        arguments: [[0.5], [0.5, 0.5], [0.75, 0.25]])
+    func onlyUserResizeSavesWindowSize(durations: [TimeInterval]) async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = environment.model(TestFixtures.pdf("Resize"))
+        defer { model.stop() }
+        let window = NSWindow(
+            contentRect: NSRect(x: 100, y: 100, width: 500, height: 400),
+            styleMask: [.titled, .resizable, .fullSizeContentView], backing: .buffered, defer: true)
+        model.window = window
+        try await open(model)
+        model.sizeWindowToPaper(initialOnly: true)
+        let hash = try #require(model.contentHash).hex
+        let clock = ResizeClock()
+        // At 500 ms either alarm may have fired first; the other must still suppress the notification.
+        for duration in durations {
+            ViewerWindow.markResizing(window, for: duration, schedule: clock.schedule)
+            clock.advance(by: .milliseconds(250))
+        }
+        #expect(ViewerWindow.isResizingProgrammatically(window))
+        model.windowDidEndLiveResize()
+        model.flushPendingSettings()
+        #expect(environment.store.record(for: hash) == nil)
+
+        clock.advance(by: .milliseconds(250))
+        #expect(!ViewerWindow.isResizingProgrammatically(window))
+        var frame = window.frame
+        frame.size.width -= 40
+        window.setFrame(frame, display: false)
+        model.windowDidEndLiveResize()
+        model.flushPendingSettings()
+        let size = try #require(environment.store.record(for: hash)?.windowSize)
+        #expect(size == model.currentPaperSize)
+    }
+
+    @Test("即時の枠変更と刷り台の出入りを挟んでも、元の自動リサイズの期限まで印が残る")
+    func immediateFramesPreserveTimedResize() {
+        let window = NSWindow(
+            contentRect: NSRect(x: 100, y: 100, width: 500, height: 400),
+            styleMask: [.titled, .resizable, .fullSizeContentView], backing: .buffered, defer: true)
+        let clock = ResizeClock()
+        ViewerWindow.markResizing(window, for: 0.5, schedule: clock.schedule)
+        PrintModeWindow.enter(window)
+        PrintModeWindow.exit(window) {}
+        #expect(ViewerWindow.isResizingProgrammatically(window))
+        ViewerWindow.setFrame(window.frame.insetBy(dx: -10, dy: -10), of: window, animate: false)
+        #expect(ViewerWindow.isResizingProgrammatically(window))
+        clock.advance(by: .milliseconds(500))
+        #expect(!ViewerWindow.isResizingProgrammatically(window))
+    }
+
     @Test("新しい設定の既定は上と下に分ける・常に表示・ポップオーバー・ツールバーに目次・変更へ移動")
     func defaults() {
         let environment = Environment()
