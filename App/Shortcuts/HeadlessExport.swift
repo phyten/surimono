@@ -78,6 +78,7 @@ struct HeadlessExport {
             textScale: format.usesPrintTheme ? preferences.defaultTextScale : 1,
             typeface: format.usesPrintTheme ? preferences.defaultTypeface : .style,
             paperOrientation: preferences.defaultPaperOrientation)
+        if format == .org { settings.orgReading.defaults = preferences.orgReadingDefaults ?? .surimono }
         settings.documentName = name
         settings.pageLanguage = language
         if format.usesPrintTheme {

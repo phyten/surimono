@@ -19,14 +19,14 @@ public enum ReadingPDFExporter {
     /// Uses the same HTML and forward-only page matching as the Contents popover, when no reading outline is cached.
     public static func outline(
         of source: DocumentSource, in document: PDFDocument, proof: ProofMarks, includesSourceContents: Bool,
-        facts: DocumentFacts? = nil
+        facts: DocumentFacts? = nil, orgReading: OrgReadingSettings = .init()
     ) async -> (entries: [OutlineEntry], title: String?, headings: [DocumentHeading]) {
         if let facts, let entries = facts.beamerOutline {
             // Section names need not appear on any painted slide.
             return (entries, facts.title, facts.headings)
         }
         let structure = await Task.detached(priority: .utility) {
-            let html = DocumentRenderer.structureHTML(of: source, proof: proof) ?? ""
+            let html = DocumentRenderer.structureHTML(of: source, proof: proof, orgReading: orgReading) ?? ""
             return (
                 DocumentOutline.headings(inHTML: html),
                 includesSourceContents ? DocumentOutline.sourceContentsEntries(inHTML: html) : [],

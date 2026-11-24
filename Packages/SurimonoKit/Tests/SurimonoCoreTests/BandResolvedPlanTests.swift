@@ -63,11 +63,11 @@ struct BandResolvedPlanTests {
         let metrics = BandMetrics(topFixed: 150, bottomFixed: 28, separator: 9)
         let top = BandLayout.resolve(
             arrangement: layouts.top, mode: .top,
-            availableItems: Set(BandLayout.Item.allCases.filter { $0 != .chapter }),
+            availableItems: Set(BandLayout.Item.allCases.filter { $0 != .chapter && $0 != .readingSettings }),
             measurements: .init(items: BandLayoutTests.workedWidths, name: 120), metrics: metrics, availableWidth: 2000)
         let split = BandLayout.resolve(
             arrangement: layouts.split, mode: .split,
-            availableItems: Set(BandLayout.Item.allCases.filter { $0 != .chapter }),
+            availableItems: Set(BandLayout.Item.allCases.filter { $0 != .chapter && $0 != .readingSettings }),
             measurements: .init(items: BandLayoutTests.workedWidths, name: 120), metrics: metrics, availableWidth: 2000)
         #expect(top.top.geometry.usesStandardSpacing && split.bottom?.geometry.usesStandardSpacing == true)
         #expect(top.top.requiredWidth == 1002 && split.bottom?.requiredWidth == 679)
@@ -82,7 +82,8 @@ struct BandResolvedPlanTests {
     private func resolve(_ layout: BandArrangement, mode: MenuArrangement = .split, width: CGFloat) -> BandResolvedPlan
     {
         BandLayout.resolve(
-            arrangement: layout, mode: mode, availableItems: Set(BandLayout.Item.allCases.filter { $0 != .chapter }),
+            arrangement: layout, mode: mode,
+            availableItems: Set(BandLayout.Item.allCases.filter { $0 != .chapter && $0 != .readingSettings }),
             measurements: BandMeasurementsValue(items: BandLayoutTests.workedWidths, name: 120),
             metrics: metrics, availableWidth: width)
     }
@@ -154,7 +155,7 @@ struct BandResolvedPlanTests {
         for width in 0...1200 {
             let result = BandLayout.resolve(
                 arrangement: layout, mode: mode,
-                availableItems: Set(BandLayout.Item.allCases.filter { $0 != .chapter }),
+                availableItems: Set(BandLayout.Item.allCases.filter { $0 != .chapter && $0 != .readingSettings }),
                 measurements: .init(items: BandLayoutTests.workedWidths, name: 120), metrics: numeric,
                 availableWidth: CGFloat(width))
             let legacyTop = BandLayout.plan(
@@ -169,7 +170,8 @@ struct BandResolvedPlanTests {
             }
         }
         let full = BandLayout.resolve(
-            arrangement: layout, mode: mode, availableItems: Set(BandLayout.Item.allCases.filter { $0 != .chapter }),
+            arrangement: layout, mode: mode,
+            availableItems: Set(BandLayout.Item.allCases.filter { $0 != .chapter && $0 != .readingSettings }),
             measurements: .init(items: BandLayoutTests.workedWidths, name: 120), metrics: numeric, availableWidth: 2000)
         #expect(full.top.geometry.usesStandardSpacing)
         #expect(full.top.geometry.gapsBefore[.formatBadge] == 6)
@@ -205,7 +207,8 @@ struct BandResolvedPlanTests {
         let layout = BandArrangement(
             topRight: [], bottomLeft: [.style, .print], bottomRight: [.floatOnTop, .pageIndicator])
         let plan = BandLayout.resolve(
-            arrangement: layout, mode: .split, availableItems: Set(BandLayout.Item.allCases.filter { $0 != .chapter }),
+            arrangement: layout, mode: .split,
+            availableItems: Set(BandLayout.Item.allCases.filter { $0 != .chapter && $0 != .readingSettings }),
             measurements: .init(items: BandLayoutTests.workedWidths, name: 120),
             metrics: .init(topFixed: 150, bottomFixed: 30, separator: 0, titleGap: 0, toolGap: 0, outerGap: 0),
             availableWidth: CGFloat(width))

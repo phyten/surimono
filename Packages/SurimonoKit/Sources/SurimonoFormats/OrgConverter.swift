@@ -5,17 +5,26 @@ public enum OrgConverter {
 
     /// On a stack of known size, so a document reads the same on every thread.
     /// `defaults` decide what the document's own `#+OPTIONS:` lines leave open.
-    public static func convert(_ text: String, defaults: OrgReadingDefaults = .surimono) -> HTMLFragment {
+    public static func convert(_ text: String, defaults: OrgReadingDefaults) -> HTMLFragment {
+        convert(text, settings: OrgReadingSettings(defaults: defaults))
+    }
+
+    public static func convert(_ text: String, settings: OrgReadingSettings = .init(), fileName: String? = nil)
+        -> HTMLFragment
+    {
         StackSpace.onLargeStack {
-            let (fragment, reachedLimit) = StackSpace.collectingLimit { convertInPlace(text, defaults: defaults) }
+            let (fragment, reachedLimit) = StackSpace.collectingLimit {
+                convertInPlace(text, settings: settings, fileName: fileName)
+            }
             return fragment.notingLimit(reachedLimit)
         }
     }
 
-    private static func convertInPlace(_ text: String, defaults: OrgReadingDefaults) -> HTMLFragment {
+    private static func convertInPlace(_ text: String, settings: OrgReadingSettings, fileName: String?) -> HTMLFragment
+    {
         var parser = OrgParser(
             lines: TextDecoding.normalizeNewlines(text).components(separatedBy: "\n"),
-            context: OrgContext(defaults: defaults))
+            context: OrgContext(defaults: settings.defaults, fileName: fileName))
         // Discover forward declarations before rendering headings or numbering any references.
         parser.context.discovering = true
         _ = parser.render()
@@ -24,7 +33,7 @@ public enum OrgConverter {
         }
         parser.context.discovering = false
         parser.context.anonymous = 0
-        parser.context.reading = parser.context.options.resolved(over: defaults)
+        parser.context.reading = parser.context.options.resolved(over: settings)
         parser.index = 0
         var titleBlock = ""
         for (key, tag) in [("TITLE", "h1"), ("SUBTITLE", "p"), ("AUTHOR", "p"), ("DATE", "p")] {
@@ -57,11 +66,13 @@ public enum OrgConverter {
         let html = pieces.joined()
         // At the end of the body, so the theme's rules for the first block still find the document's first block.
         let fonts = MathRenderer.fontFaces(for: html)
-        return HTMLFragment(
+        var fragment = HTMLFragment(
             body: html + (fonts.isEmpty ? "" : "<style>\n\(fonts)\n</style>\n"),
             title: parser.context.metadata["TITLE"], language: parser.context.metadata["LANGUAGE"],
             readingIssues: contents.omitted ? [OrgConverter.contentsLimitIssue] : [],
-            decidesHeadingNumbers: context.options.sectionNumbers != nil || context.reading.sectionNumbers != .off)
+            decidesHeadingNumbers: true)
+        fragment.orgInstructions = context.options.file
+        return fragment
     }
 }
 
@@ -245,11 +256,11 @@ struct OrgParser {
                     let anchors = context.anchorsHeadings
                     let properties = context.propertiesByHeading[index] ?? [:]
                     let relative = heading[0].count - (context.outline.shallowest ?? 1) + 1
-                    var listed = true
+                    let unnumbered = context.outline.unnumberedValue(level: relative, properties: properties)
+                    let listed = unnumbered != "notoc"
+                    if !listed { context.options.file.excludedHeadingCount += 1 }
                     // A document without numbers and without a table of contents keeps no outline at all.
                     if numbers || anchors {
-                        let unnumbered = context.outline.unnumberedValue(level: relative, properties: properties)
-                        listed = unnumbered != "notoc"
                         if relative <= context.reading.sectionNumbers.limit, unnumbered == nil {
                             let next = context.outline.nextNumber(level: relative)
                             number = "<span class=\"section-number-\(level)\">\(next)</span> "
@@ -279,7 +290,9 @@ struct OrgParser {
             } else if let directive = orgCaptures(#"^#\+([A-Za-z_]+):\s*(.*)$"#, trimmed) {
                 flush()
                 let key = directive[0].uppercased()
-                if depth == 0, context.discovering { context.directive(key, value: directive[1]) }
+                if depth == 0, context.discovering {
+                    context.directive(key, value: directive[1], lineNumber: index + 1, line: trimmed, lines: lines)
+                }
                 if key == "TOC", depth == 0, !context.discovering, let request = contentsRequest(directive[1]) {
                     output += "<!--\(context.contentsToken)-\(context.outline.requests.count)-->\n"
                     context.outline.requests.append(request)
@@ -402,9 +415,23 @@ struct OrgParser {
             let end = regionEnds[next]
         else { return [:] }
         var properties: [String: String] = [:]
-        for line in lines[(next + 1)..<end] {
+        var unnumbered: OrgInstructionSource?
+        for i in (next + 1)..<end {
+            let line = lines[i]
             if let property = orgCaptures(#"^\s*:([^\s:]+):\s*(.*?)\s*$"#, line) {
-                properties[property[0].uppercased()] = property[1]
+                let key = property[0].uppercased()
+                properties[key] = property[1]
+                if key == "UNNUMBERED" {
+                    unnumbered = .init(
+                        fileName: context.fileName, lineNumber: i + 1,
+                        rawText: line.trimmingCharacters(in: .whitespaces))
+                }
+            }
+        }
+        if let unnumbered {
+            context.options.file.note(.unnumberedHeading, source: unnumbered)
+            if properties["UNNUMBERED"] == "notoc" {
+                context.options.file.note(.excludedFromContents, source: unnumbered)
             }
         }
         return properties

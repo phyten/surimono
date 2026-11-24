@@ -635,6 +635,7 @@ extension DocumentRenderer {
         guard source.format.usesPrintTheme,
             let fragment = try themedFragment(
                 source, pageBreakLine: settings.finish.breaks.customLine, proof: settings.finish.proof,
+                orgReading: settings.orgReading,
                 composition: settings.theme.formats == [.latex] ? settings.latexComposition : .document,
                 textWidthPoints: settings.textWidthPoints(in: layout), access: access,
                 imageExists: { url in

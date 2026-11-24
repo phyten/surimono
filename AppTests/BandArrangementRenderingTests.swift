@@ -589,7 +589,7 @@ struct BandArrangementRenderingTests {
         preferences.showsOutlineOnBand = false
         #expect(
             preferences.activeBandArrangement.unused == [.showOnAllSpaces] + BandTestCatalog.addedItems + [
-                .outline, .chapter,
+                .readingSettings, .outline, .chapter,
             ])
         #expect(!preferences.activeBandArrangement.bottomLeft.contains(.outline))
         #expect(suite.defaults.data(forKey: "bandArrangementStore") == nil)

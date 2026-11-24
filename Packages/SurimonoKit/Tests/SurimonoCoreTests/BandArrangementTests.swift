@@ -113,7 +113,7 @@ struct BandArrangementTests {
             result.arrangement.unused == [
                 .outline, .formatBadge, .pageIndicator, .presentation, .layout,
                 .transition, .thumbnails, .floatOnTop, .showOnAllSpaces, .pageTurn,
-            ] + BandLayoutTests.addedItems + [.chapter])
+            ] + BandLayoutTests.addedItems + [.chapter, .readingSettings])
         #expect(result.notices.contains(.restoredPrint))
     }
 

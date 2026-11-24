@@ -99,6 +99,7 @@ struct LaTeXPageDetailStyleTests {
     func otherFormats() {
         let theme = PrintTheme(id: "test", name: "Test", css: "body { color: black; }")
         // SHA-256 of each complete UTF-8 document at 35c0c6f, including the head and style sheets.
+        // The Org baseline also includes the body class that suppresses theme numbering at every layer.
         let samples: [(DocumentFormat, HTMLFragment, String)] = [
             (
                 .markdown, MarkdownConverter.convert("# Report\n\nFirst **line**.\n"),
@@ -106,7 +107,7 @@ struct LaTeXPageDetailStyleTests {
             ),
             (
                 .org, OrgConverter.convert("#+TITLE: Report\n* Section\nFirst /line/.\n"),
-                "0ceb60ce4f1eb4e2996ad92ff6e7515137ae980016a78547c14a483f3d4ac209"
+                "f16fd7e1aefe08f5965afa352e05c5f9f888991d4f85af1d9944f44e793b5fb5"
             ),
             (
                 .plainText, PlainTextConverter.convert("Report\nFirst line.\n"),

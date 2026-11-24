@@ -11,7 +11,7 @@ struct BandNamesTests {
     func wide() {
         let named: [Item] =
             [
-                .presentation, .style, .outline, .transition, .thumbnails, .print,
+                .presentation, .style, .outline, .transition, .thumbnails, .print, .readingSettings,
             ] + BandLayoutTests.addedItems
         let values: [Item] = [.formatBadge, .pageIndicator, .zoom, .chapter]
         let icons: [Item] = [.layout, .floatOnTop, .showOnAllSpaces, .pageTurn]
@@ -27,7 +27,7 @@ struct BandNamesTests {
         for item in named { #expect(plan.top.forms[item] == .compact) }
         for item in values + icons { #expect(plan.top.forms[item] == .full) }
         #expect(plan.top.nameWidth == 140)
-        #expect(plan.top.requiredWidth == 580)
+        #expect(plan.top.requiredWidth == 590)
     }
 
     @Test("形式の詳しい値とファイル名はアイコンの設定によらず同じ幅で縮む")
