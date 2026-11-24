@@ -506,6 +506,7 @@ extension LaTeXReader {
         "Roman", "fnsymbol", "counterwithin", "counterwithout", "refstepcounter", "ensuremath", "endgraf",
         "texorpdfstring", "foreignlanguage", "parbox", "rule", "raisebox", "resizebox", "scalebox", "rotatebox",
         "subfloat", "subfigure", "subcaption", "subcaptionbox", "tcbox", "newtcolorbox", "newtcbtheorem", "makecell",
+        "tatechuyoko", "rensuji", "ruby", "jruby",
         "BooleanTrue", "BooleanFalse", "lstset", "lstdefinestyle",
     ]
 }

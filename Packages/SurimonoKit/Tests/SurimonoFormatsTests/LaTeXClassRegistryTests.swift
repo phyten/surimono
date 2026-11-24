@@ -81,12 +81,12 @@ struct LaTeXClassRegistryTests {
             traditionalNames: true, paper: .a4, boxSides: true, fieldSides: true, numberSides: true,
             running: .markedBook(numberInHead: true, ruled: false)),
         .init(
-            names: ["ujarticle", "utarticle", "tarticle"], language: "ja",
+            names: ["ujarticle", "utarticle", "tarticle", "ltjtarticle"], language: "ja",
             nativeHeadings: true, traditionalNames: true, paper: .a4),
         .init(
             names: [
                 "jreport", "ltjreport", "ujreport", "utreport", "treport", "ujbook", "utbook",
-                "tbook",
+                "tbook", "ltjtreport", "ltjtbook",
             ],
             chapters: true, language: "ja", nativeHeadings: true, traditionalNames: true, paper: .a4),
         .init(names: ["ctexart"], language: "zh-Hans", nativeHeadings: true),

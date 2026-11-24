@@ -76,6 +76,7 @@ package enum LaTeXSymbols {
         "rotatebox": ("", "", 1), "foreignlanguage": ("", "", 1),
         "textbf": ("<strong>", "</strong>", nil), "textit": ("<em>", "</em>", nil), "emph": ("<em>", "</em>", nil),
         "textsl": ("<span class=\"latex-sl\">", "</span>", nil), "texttt": ("<code>", "</code>", nil),
+        "kenten": ("<span class=\"kenten\">", "</span>", nil), "bou": ("<span class=\"bousen\">", "</span>", nil),
         "underline": ("<u>", "</u>", nil),
         "uline": ("<u>", "</u>", nil), "sout": ("<del>", "</del>", nil), "st": ("<del>", "</del>", nil),
         "hl": ("<mark>", "</mark>", nil), "textsc": ("<span class=\"latex-sc\">", "</span>", nil),

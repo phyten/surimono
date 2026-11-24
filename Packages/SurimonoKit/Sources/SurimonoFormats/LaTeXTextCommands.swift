@@ -1,6 +1,32 @@
 import Foundation
 
 extension LaTeXDocument {
+    static let combinedTextOpening = #"<span class="tcy">"#
+
+    // Forward references and citations acquire their link markup at the end of conversion.
+    // Keep only the resolved text inside an explicit horizontal run, even when the author nests two runs.
+    func flattenCombinedText(in html: String) -> String {
+        guard hasCombinedText else { return html }
+        var spanDepth = 0
+        var result = ""
+        for token in HTMLScanner.tokens(html) {
+            switch token {
+            case .text(let text): result += text
+            case .opaque(let source):
+                if spanDepth == 0 { result += source }
+            case .tag(let tag):
+                if spanDepth == 0 {
+                    result += tag.source
+                    if tag.source == Self.combinedTextOpening { spanDepth = 1 }
+                } else if tag.name == "span", !tag.isSelfClosing {
+                    spanDepth += tag.isClosing ? -1 : 1
+                    if spanDepth == 0 { result += tag.source }
+                }
+            }
+        }
+        return result
+    }
+
     /// Keep the printed number separate from the link ID because explicit numbers can repeat.
     struct Footnote {
         let id: String
@@ -90,6 +116,15 @@ extension LaTeXReader {
             appendHTML(
                 document.emphasisDepth.isMultiple(of: 2)
                     ? "<span style=\"font-style:normal\">\(text)</span>" : "<em>\(text)</em>")
+        case "rensuji", "tatechuyoko":
+            if name == "rensuji" { _ = optional() }
+            document.hasCombinedText = true
+            appendHTML(LaTeXDocument.combinedTextOpening + inline(argument() ?? "") + "</span>")
+        case "ruby", "jruby":
+            _ = optional()
+            let base = inline(argument() ?? "")
+            let reading = inline((argument() ?? "").replacingOccurrences(of: "|", with: ""))
+            appendHTML("<ruby>\(base)<rt>\(reading)</rt></ruby>")
         case "sethlcolor": document.highlightColor = color()
         case "hl":
             let style = document.highlightColor.map { " style=\"background-color:\($0)\"" } ?? ""
