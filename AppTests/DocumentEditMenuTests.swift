@@ -237,6 +237,16 @@ struct DocumentEditMenuTests {
         let visible = file.items.filter { !$0.isHidden }
         #expect(visible.count == 5 && visible[2] === own)
         #expect(visible[1].isSeparatorItem && visible[3].isSeparatorItem)
+
+        // SwiftUI releases the external submenu before assigning it to its new header.
+        // Check before the setter: AppKit raises an Objective-C exception on a second parent.
+        let moving = try #require(own.submenu)
+        own.submenu = nil
+        try #require(moving.supermenu == nil, "共有の切り離し通知中に元の見出しへ接続し直した")
+        native.submenu = moving
+        #expect(native.submenu === moving && native.isHidden)
+        #expect(own.submenu !== moving && DocumentShareMenu.isInstalled(on: own) && !own.isHidden)
+
         let unrelated = NSMenuItem(title: String(localized: "Share"), action: nil, keyEquivalent: "")
         unrelated.submenu = NSMenu()
         file.insertItem(unrelated, at: file.index(of: native))

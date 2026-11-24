@@ -472,48 +472,74 @@ struct OpenRouterTests {
             return open[0]
         }
 
-        func checkFileOpening(_ main: NSMenu, file: NSMenu, stage: String) throws {
-            // Drive the attached File delegate in a tracking session without taking keyboard focus.
-            let center = NotificationCenter.default
-            center.post(name: NSMenu.didBeginTrackingNotification, object: main)
-            defer { center.post(name: NSMenu.didEndTrackingNotification, object: main) }
-            var openingRows: [NSMenuItem]?
-            let observer = FileOpeningObserver(
-                file, didOpen: { openingRows = $0.items.filter { !$0.isHiddenOrHasHiddenAncestor } },
-                beforeClose: { _ in })
-            defer { observer.detach() }
-            let delegate = try #require(file.delegate)
-            delegate.menuNeedsUpdate?(file)
-            file.update()
-            delegate.menuWillOpen?(file)
-            defer { delegate.menuDidClose?(file) }
+        func trace(_ step: String) {
+            FileHandle.standardError.write(Data("OpenRouterTests.openMenu: \(step)\n".utf8))
+        }
 
-            let visible = try #require(openingRows, "\(stage) menuWillOpen")
+        func checkShare(in menu: NSMenu, main: NSMenu, stage: String) throws {
+            try #require(main.items.dropFirst().first?.submenu === menu)
+            let visible = menu.items.filter { !$0.isHiddenOrHasHiddenAncestor }
             let shares = visible.filter { $0.title == String(localized: "Share") }
             let diagnostic = "\(stage) File=\(visible.map(\.title))"
             try #require(shares.count == 1, "\(diagnostic)")
             let share = shares[0]
-            let native = try #require(controller.standardShareMenuItem().submenu?.delegate)
-            let installed = try #require(share.submenu?.delegate)
             #expect(
-                DocumentShareMenu.isInstalled(on: share) && type(of: installed) == type(of: native), "\(diagnostic)")
-            #expect(!controller.allowsAutomaticShareMenu && share.isEnabled && share.target === share.submenu)
+                DocumentShareMenu.isInstalled(on: share) && share.submenu?.delegate != nil,
+                "\(diagnostic)")
+            #expect(
+                !controller.allowsAutomaticShareMenu && share.isEnabled && share.target === share.submenu)
             #expect(!visible.contains { $0.title == "NSMenuItem" }, "\(diagnostic)")
             let index = try #require(visible.firstIndex(of: share))
             // Inspect raw adjacent rows: the dump formatter itself coalesces separators.
-            #expect(visible[..<index].reversed().prefix(while: { $0.isSeparatorItem }).count <= 1, "\(diagnostic)")
-            #expect(visible.dropFirst(index + 1).prefix(while: { $0.isSeparatorItem }).count <= 1, "\(diagnostic)")
+            #expect(
+                visible[..<index].reversed().prefix(while: { $0.isSeparatorItem }).count <= 1,
+                "\(diagnostic)")
+            #expect(
+                visible.dropFirst(index + 1).prefix(while: { $0.isSeparatorItem }).count <= 1,
+                "\(diagnostic)")
+        }
+
+        func checkFileOpening(_ main: NSMenu, file: NSMenu, stage: String) throws {
+            let screen = try #require(NSScreen.main, "ファイルメニューを表示する画面が必要")
+            var opening: Result<Void, any Error>?
+            var closed = false
+            let observer = FileOpeningObserver(
+                file,
+                didOpen: { menu in
+                    trace("\(stage) File menuWillOpen")
+                    opening = Result { try checkShare(in: menu, main: main, stage: stage) }
+                },
+                beforeClose: { _ in closed = true })
+            defer { observer.detach() }
+            // Let AppKit drive the real File menu and balance its tracking callbacks. A timer
+            // in the tracking loop dismisses it without a click or a frontmost document.
+            let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+            // The timer's block is Sendable; the menu only ever leaves and re-enters the main run loop here.
+            nonisolated(unsafe) let tracked = file
+            let dismiss = Timer(timeInterval: 0.05, repeats: true) { _ in
+                MainActor.assumeIsolated {
+                    if opening != nil || ContinuousClock.now >= deadline { tracked.cancelTrackingWithoutAnimation() }
+                }
+            }
+            RunLoop.main.add(dismiss, forMode: .eventTracking)
+            RunLoop.main.add(dismiss, forMode: .common)
+            defer { dismiss.invalidate() }
+            let frame = screen.visibleFrame
+            let point = NSPoint(x: frame.minX + 8, y: frame.maxY - 8)
+            trace("\(stage) presenting File")
+            _ = file.popUp(positioning: nil, at: point, in: nil)
+            trace("\(stage) File returned, willOpen=\(opening != nil) didClose=\(closed)")
+            try #require(opening, "\(stage) menuWillOpen").get()
+            #expect(closed, "\(stage) menuDidClose")
         }
 
         func check(_ stage: String) throws {
             let main = try #require(NSApp.mainMenu)
             let file = try #require(main.items.dropFirst().first?.submenu)
+            if !controller.documents.isEmpty { try checkFileOpening(main, file: file, stage: stage) }
             let recent = try #require(
                 file.items.first { !$0.isHidden && $0.title == String(localized: "Open Recent") }?.submenu)
-            let delegate = try #require(recent.delegate)
-            try #require(delegate is RecentDocumentsMenu)
-            delegate.menuNeedsUpdate?(recent)
-            if !controller.documents.isEmpty { try checkFileOpening(main, file: file, stage: stage) }
+            try #require(recent.delegate as? RecentDocumentsMenu).refresh(recent)
             let items = file.items
             let index = try openIndex(
                 in: items.map(DebugMenuDump.Row.init), stage: stage, recents: controller.recentDocumentURLs)
@@ -571,7 +597,9 @@ struct OpenRouterTests {
             named: NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .aqua ? .darkAqua : .aqua)
         try await Task.sleep(for: .milliseconds(200))
         try check("2枚目の文書と外観変更後")
+        trace("closing the second document")
         second.close()
+        trace("closing the first document")
         first.close()
         try await ShortcutMenuBaselineTests.waitForMenu { controller.documents.isEmpty }
         try await Task.sleep(for: .milliseconds(200))

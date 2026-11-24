@@ -44,9 +44,9 @@ final class DocumentShareMenu {
         let standard: NSMenuItem
         let submenu: NSMenu
 
-        init?() {
+        init?(replacing previous: NSMenu?) {
             standard = NSDocumentController.shared.standardShareMenuItem()
-            guard let submenu = standard.submenu else { return nil }
+            guard let submenu = standard.submenu, submenu !== previous, submenu.supermenu == nil else { return nil }
             self.submenu = submenu
             standard.submenu = nil
         }
@@ -77,18 +77,17 @@ final class DocumentShareMenu {
 
         // A system row may have the same title, action, SwiftUI class and even the same
         // AppKit delegate. Only an identifier from the declaration can claim a new header.
-        if let binding = existing {
-            if binding.submenu !== item.submenu { item.submenu = binding.submenu }
-            return
-        }
+        if let existing, item.submenu === existing.submenu { return }
         let native =
             item.identifier == Self.systemIdentifier || item.submenu?.identifier == Self.systemIdentifier
             || item.submenu?.delegate.map { $0 === Self.standardDelegate || Self.factoryDelegates.contains($0) } == true
         let marked =
-            item.accessibilityIdentifier() == Self.identifier || hasDeclaredGlyph(item)
+            existing != nil || item.accessibilityIdentifier() == Self.identifier || hasDeclaredGlyph(item)
             || (!native && item.submenu?.numberOfItems == 1 && item.submenu?.item(at: 0).map(hasDeclaredGlyph) == true)
         if marked {
-            guard let binding = Binding() else { return }
+            // SwiftUI detaches a named submenu before moving it to a new header. The
+            // detach notifies synchronously. Leave that instance free for its new owner.
+            guard let binding = Binding(replacing: existing?.submenu) else { return }
             objc_setAssociatedObject(item, &Self.bindingKey, binding, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
             item.submenu = binding.submenu
             if suppressed.contains(item) {
