@@ -86,6 +86,9 @@ struct PrintFinishSheet: View {
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
+                    #if DEBUG
+                        .reportPrintFinishFrame(.picker("Booklet Binding"))
+                    #endif
                 }
             }
             if model.marginsAffectPrinting {
@@ -117,6 +120,9 @@ struct PrintFinishSheet: View {
                             Text("Print as Original").tag(ProofMarks.original)
                         }
                         .labelsHidden()
+                        #if DEBUG
+                            .reportPrintFinishFrame(.picker("Proof Marks"))
+                        #endif
                     }
                 }
                 section("Footnotes") {
@@ -125,6 +131,9 @@ struct PrintFinishSheet: View {
                         Text("At the Bottom of the Page (Beta)").tag(FootnotePlacement.pageBottom)
                     }
                     .labelsHidden()
+                    #if DEBUG
+                        .reportPrintFinishFrame(.picker("Footnotes"))
+                    #endif
                 }
                 section("Links on Paper") {
                     Picker("Links on Paper", selection: model.controlBinding(\.printFinish.links)) {
@@ -133,6 +142,9 @@ struct PrintFinishSheet: View {
                         Text("After the Text").tag(PaperLinks.inline)
                     }
                     .labelsHidden()
+                    #if DEBUG
+                        .reportPrintFinishFrame(.picker("Links on Paper"))
+                    #endif
                 }
             }
             if model.offersNotes {
@@ -315,6 +327,9 @@ struct PrintFinishSheet: View {
                         Text("Write Your Own").tag("")
                     }
                     .labelsHidden()
+                    #if DEBUG
+                        .reportPrintFinishFrame(.picker("Date Format"))
+                    #endif
                     .controlSize(.small)
                     .fixedSize()
                     PrintTextField(
@@ -515,16 +530,21 @@ struct PrintFinishSheet: View {
 }
 
 #if DEBUG
-    // SwiftUI headings and decorative rules need not have AppKit views. Report their unclipped layout bounds.
+    // SwiftUI can draw a picker without an AppKit control. Read unclipped bounds from the branch it places.
     struct PrintFinishFrame: Equatable {
         enum Element: Equatable {
             case content
             case heading(LocalizedStringKey)
             case divider(LocalizedStringKey)
             case segment(LocalizedStringKey)
+            case row(LocalizedStringKey)
+            case menu(LocalizedStringKey)
+            case picker(LocalizedStringKey)
         }
 
         let element: Element
+        let selected: LocalizedStringKey?
+        let isEnabled: Bool
         let rect: CGRect
     }
 
@@ -535,17 +555,29 @@ struct PrintFinishSheet: View {
         }
     }
 
-    extension View {
-        func reportPrintFinishFrame(_ element: PrintFinishFrame.Element) -> some View {
-            background {
-                GeometryReader { geometry in
-                    Color.clear.preference(
-                        key: PrintFinishFrames.self,
-                        value: [
-                            PrintFinishFrame(element: element, rect: geometry.frame(in: .named("printFinishPanel")))
-                        ])
-                }
+    private struct PrintFinishFrameReader: View {
+        let element: PrintFinishFrame.Element
+        let selected: LocalizedStringKey?
+        @Environment(\.isEnabled) private var isEnabled
+
+        var body: some View {
+            GeometryReader { geometry in
+                Color.clear.preference(
+                    key: PrintFinishFrames.self,
+                    value: [
+                        PrintFinishFrame(
+                            element: element, selected: selected, isEnabled: isEnabled,
+                            rect: geometry.frame(in: .named("printFinishPanel")))
+                    ])
             }
+        }
+    }
+
+    extension View {
+        func reportPrintFinishFrame(_ element: PrintFinishFrame.Element, selected: LocalizedStringKey? = nil)
+            -> some View
+        {
+            background { PrintFinishFrameReader(element: element, selected: selected) }
         }
     }
 #endif
@@ -744,7 +776,13 @@ struct PrintPrinterOptions: View {
         let picker = PrintPageOrderPicker(order: model.controlBinding(\.printPageOrder))
         return ViewThatFits(in: .horizontal) {
             picker.pickerStyle(.segmented).fixedSize()
+                #if DEBUG
+                    .reportPrintFinishFrame(.row("Output Order"))
+                #endif
             picker.pickerStyle(.menu)
+                #if DEBUG
+                    .reportPrintFinishFrame(.menu("Output Order"))
+                #endif
         }
         .labelsHidden()
         .controlSize(.small)

@@ -76,6 +76,9 @@ struct PrintSegments<Value: Hashable>: View {
     var body: some View {
         ViewThatFits(in: .horizontal) {
             row.fixedSize()
+                #if DEBUG
+                    .reportPrintFinishFrame(.row(label), selected: selectedTitle)
+                #endif
             Picker(label, selection: Binding(get: { selection }, set: { choose($0) })) {
                 ForEach(options, id: \.value) { option in
                     Text(option.title).tag(option.value)
@@ -84,8 +87,15 @@ struct PrintSegments<Value: Hashable>: View {
             .pickerStyle(.menu)
             .labelsHidden()
             .accessibilityLabel(Text(label))
+            #if DEBUG
+                .reportPrintFinishFrame(.menu(label), selected: selectedTitle)
+            #endif
         }
         .help(Text(label))
+    }
+
+    private var selectedTitle: LocalizedStringKey? {
+        options.first { $0.value == selection }?.title
     }
 
     private var row: some View {
@@ -115,7 +125,7 @@ struct PrintSegments<Value: Hashable>: View {
         .background(CornerRole.largeControl.shape.fill(PrintPalette.hover))
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text(label))
-        .accessibilityValue(options.first { $0.value == selection }.map { Text($0.title) } ?? Text(verbatim: ""))
+        .accessibilityValue(selectedTitle.map { Text($0) } ?? Text(verbatim: ""))
     }
 }
 
