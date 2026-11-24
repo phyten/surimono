@@ -645,7 +645,15 @@
                     }
                     model.flushPendingSettings()
                 }
-                if let value = argument("SurimonoPage"), let page = Int(value) {
+                let requestedPage = argument("SurimonoPage").flatMap(Int.init)
+                let trialID = argument("SurimonoTryCode").map(DocumentViewModel.codeTrialID) ?? argument("SurimonoTry")
+                let previewsPaper =
+                    model.mode == .view && argument("SurimonoMode") != "print"
+                    && argument("SurimonoMode") != "compare" && argument("SurimonoPopover") != "issues"
+                let pageTrialID =
+                    requestedPage != nil && previewsPaper && trialID != model.themeID
+                        && trialID != DocumentViewModel.codeTrialID(model.codePaletteID) ? trialID : nil
+                if let page = requestedPage, pageTrialID == nil {
                     model.paper.goToPage(index: page - 1)
                     try? await Task.sleep(for: .milliseconds(300))
                 }
@@ -828,12 +836,20 @@
                 if let theme = argument("SurimonoTry") {
                     // As if the pointer rested on the theme in the palette.
                     model.hoverPaletteTheme(theme)
-                    try? await Task.sleep(for: .milliseconds(2500))
+                    if pageTrialID == nil { try? await Task.sleep(for: .milliseconds(2500)) }
                 }
                 if let palette = argument("SurimonoTryCode") {
                     // As if the pointer rested on the palette's row.
                     model.tryCodePalette(palette)
-                    try? await Task.sleep(for: .milliseconds(2500))
+                    if pageTrialID == nil { try? await Task.sleep(for: .milliseconds(2500)) }
+                }
+                if let pageTrialID, let page = requestedPage {
+                    do {
+                        try await showTrialPage(page, of: pageTrialID, in: model)
+                    } catch {
+                        DebugSnapshotProgress.failed(error)
+                        return
+                    }
                 }
                 if argument("SurimonoMode") == "roundtrip" {
                     // Into the print mode and back, to check that the view mode returns as it was.
@@ -1211,6 +1227,21 @@
                 lines.append(row)
             }
             return lines.joined(separator: "\n") + "\n"
+        }
+
+        static func showTrialPage(_ number: Int, of trialID: String, in model: DocumentViewModel) async throws {
+            let deadline = ContinuousClock.now + .seconds(35)
+            let stage = "Waiting for trial PDF page " + String(number)
+            DebugSnapshotProgress.report(stage)
+            // SwiftUI may still have the original PDF installed after the trial renderer publishes its result.
+            repeat {
+                if model.themeTrial.themeID == trialID, let source = model.themeTrial.document {
+                    guard number > 0, number <= source.pageCount else { break }
+                    if model.paper.showSnapshotPage(number - 1, in: source) { return }
+                }
+                try await Task.sleep(for: .milliseconds(50))
+            } while ContinuousClock.now < deadline
+            throw SnapshotDeadline(stage: stage)
         }
 
         private static func capturePNG(

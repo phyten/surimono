@@ -227,7 +227,7 @@ final class DocumentViewModel {
     var pageHistory = PageHistory()
     var bookmarks = Bookmarks()
     let scrubber = PageScrubSession()
-    var offersScrubber: Bool { menuArrangement == .split && canNavigateReading && pageCount > 1 }
+    var offersScrubber: Bool { menuArrangement == .split && canNavigateReading && paperPageCount > 1 }
     var thumbnailGeneration: Int? { isUpToDate && paperDocument === result?.viewDocument ? result?.id : nil }
     /// The selected half of a spread; PDFView reports only its first page.
     var selectedReadingPage: Int?
@@ -1253,9 +1253,11 @@ final class DocumentViewModel {
 
     var smartRemovalCandidates: [SmartRemovalCandidate] { result?.smartRemovalCandidates ?? [] }
     var removedPartCount: Int { smartRemovalCandidates.filter { !smartRemovalKeptIDs.contains($0.id) }.count }
-    var displayUnits: [DisplayUnit] {
+    var displayUnits: [DisplayUnit] { displayUnits(for: pageCount) }
+
+    private func displayUnits(for count: Int) -> [DisplayUnit] {
         SpreadLayout.units(
-            pageCount: pageCount, layout: viewOptions.layout, showsCoverAlone: viewOptions.showsCoverAlone,
+            pageCount: count, layout: viewOptions.layout, showsCoverAlone: viewOptions.showsCoverAlone,
             direction: viewOptions.direction)
     }
     /// "3 / 12" for a page, "2–3 / 12" for a spread; "Slide 3 of 6" for a slide deck on the web.
@@ -1264,12 +1266,12 @@ final class DocumentViewModel {
             guard let slideDeck else { return nil }
             return Self.slideIndicator(slideDeck.currentIndex + 1, of: slideDeck.count)
         }
-        guard pageCount > 0 else { return nil }
-        let units = displayUnits
-        let pages =
-            SpreadLayout.unitIndex(containing: currentPageIndex + 1, in: units).map { units[$0].pages }
-            ?? [currentPageIndex + 1]
-        return PageIndicator.text(pages: pages, pageCount: pageCount)
+        let count = paperPageCount
+        let index = paperPageIndex
+        guard count > 0 else { return nil }
+        let units = displayUnits(for: count)
+        let pages = SpreadLayout.unitIndex(containing: index + 1, in: units).map { units[$0].pages } ?? [index + 1]
+        return PageIndicator.text(pages: pages, pageCount: count)
     }
 
     /// The widest page indicator of this document, whose width the band keeps for the indicator.
@@ -1278,8 +1280,8 @@ final class DocumentViewModel {
             guard let slideDeck else { return nil }
             return Self.slideIndicator(slideDeck.count, of: slideDeck.count)
         }
-        guard pageCount > 0 else { return nil }
-        return PageIndicator.widestText(pageCount: pageCount, layout: viewOptions.layout)
+        guard paperPageCount > 0 else { return nil }
+        return PageIndicator.widestText(pageCount: paperPageCount, layout: viewOptions.layout)
     }
 
     func start() {

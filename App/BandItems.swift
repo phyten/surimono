@@ -50,7 +50,7 @@ extension BandLayout.Item {
             case .chapter: paper && model.hasOutline && model.chapterEntries.contains { $0.pageIndex != nil }
             case .readingSettings: model.offersOrgReading
             case .outline: model.hasContents && model.imageBundle == nil
-            case .pageTurn: paper && model.pageCount > 1
+            case .pageTurn: paper && model.paperPageCount > 1
             case .zoom: paper ? model.zoom > 1.001 : abs(model.webZoom - 1) > 0.001
             case .thumbnails: model.imageBundle != nil || model.binder != nil
             }

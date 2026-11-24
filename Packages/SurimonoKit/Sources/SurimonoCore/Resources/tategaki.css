@@ -126,7 +126,8 @@ body { font-family: "Hiragino Mincho ProN", serif; font-size: 10.5pt; line-heigh
     writing-mode: horizontal-tb; position: absolute; top: 50%; left: 50%;
     transform-origin: center; transform: translate(-50%, -50%) rotate(90deg);
 }
-.surimono-vertical .vertical-note-base { position: relative; white-space: nowrap; }
+/* Anchor the shoulder to a single glyph box even on a line enlarged by nearby ruby. */
+.surimono-vertical .vertical-note-base { display: inline-block; line-height: 1; position: relative; white-space: nowrap; }
 .surimono-vertical .footnote-ref:not(.horizontal-box *) {
     font-size: 0.5em; line-height: 1; text-indent: 0; vertical-align: baseline; position: relative; left: 1em; top: -1em;
 }

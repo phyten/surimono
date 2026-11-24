@@ -34,11 +34,11 @@ struct PageScrubber: View {
     var body: some View {
         let session = model.scrubber
         let track = model.pageTrack
-        let page = model.logicalReadingPage
+        let page = model.scrubPage
         let sections = model.scrubSections
         let ticks = track.ticks(
             chapters: sections.compactMap { $0.title == nil ? nil : $0.pages.lowerBound }, width: session.frame.width)
-        let value = PageIndicator.text(pages: [page + 1], pageCount: model.pageCount)
+        let value = PageIndicator.text(pages: [page + 1], pageCount: model.paperPageCount)
         ScrubMarks(session: session, current: track.fraction(for: page), ticks: ticks)
             // The input area spans the band's full height, where the system ring would be cut off by the window's
             // edge, so the ring is drawn around the track instead.
@@ -69,8 +69,8 @@ struct PageScrubber: View {
             )
             .accessibilityAdjustableAction { direction in
                 switch direction {
-                case .increment: model.scrubToPage(model.logicalReadingPage + 1)
-                case .decrement: model.scrubToPage(model.logicalReadingPage - 1)
+                case .increment: model.scrubToPage(model.scrubPage + 1)
+                case .decrement: model.scrubToPage(model.scrubPage - 1)
                 @unknown default: break
                 }
             }

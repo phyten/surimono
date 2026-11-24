@@ -135,7 +135,7 @@ struct VerticalTextTests {
     func textNodes() throws {
         let untouched = """
             <code>12</code><pre>12</pre><svg><text>12</text></svg><table><tr><td>12</td></tr></table>
-            <section class="footnotes"><p>12</p></section><!-- 12 -->&#39;
+            <section class="footnotes"><ol><li><p>「注」（末尾）。和文PDFと12日。</p></li></ol></section><!-- 12 -->&#39;
             """
         let source =
             untouched + " https://example.org/12?q=5&amp;n=23 https://例.jp/25"

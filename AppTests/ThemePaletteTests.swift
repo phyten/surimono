@@ -2,6 +2,7 @@ import Foundation
 import PDFKit
 import SurimonoCore
 import SurimonoRendering
+import SwiftUI
 import Testing
 
 @testable import Surimono
@@ -143,6 +144,59 @@ struct ThemePaletteTests {
         model.tryTheme("standard")
         #expect(model.themeTrial.themeID == nil)
         #expect(model.paperDocument === own)
+    }
+
+    #if DEBUG
+        @Test("二枚目を指定した撮影は一枚の元文書から試しの PDF に切り替わり、指定ページが見えるまで待つ", .timeLimit(.minutes(1)))
+        func snapshotTrialPage() async throws {
+            let suite = TestDefaultsSuite()
+            defer { suite.remove() }
+            let model = model(suite)
+            let controller = MemoryDocumentWindowController(model: model, onClose: {})
+            defer { controller.close() }
+            model.viewOptions.layout = .single
+            model.render()
+            try await waitUntil { model.result != nil && !model.isRendering && model.paper.isConnected }
+            model.tryTheme("tategaki")
+            try await DebugSnapshot.showTrialPage(2, of: "tategaki", in: model)
+            try await waitUntil { model.pageIndicator == "2 / 3" }
+            #expect(model.currentPageIndex == 0)
+        }
+    #endif
+
+    @Test("元の一枚を縦書きで試すと帯から試しの最終ページに移れ、試しを終えると元の一枚に戻る", .timeLimit(.minutes(1)))
+    func verticalTrialPageTurns() async throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let model = model(suite)
+        model.viewOptions.layout = .single
+        model.render()
+        try await waitUntil { model.result != nil && !model.isRendering }
+        model.tryTheme("tategaki")
+        try await waitUntil { model.themeTrial.document != nil }
+        let document = try #require(model.paperDocument)
+        let host = NSHostingView(
+            rootView: PaperView(
+                document: document, initialPageIndex: 0, options: model.viewOptions, zoom: 1, controller: model.paper,
+                onZoomChange: { _ in }, onPageChange: model.paperDidChangePage, onTurn: {}, onKey: { _ in false }))
+        let window = NSWindow(
+            contentRect: CGRect(x: 0, y: 0, width: 420, height: 594), styleMask: [.titled], backing: .buffered,
+            defer: true)
+        window.isReleasedWhenClosed = false
+        window.contentView = host
+        defer { window.close() }
+        host.layoutSubtreeIfNeeded()
+        try await waitUntil { model.paper.isConnected }
+        #expect(model.pageIndicator == "1 / 3")
+        #expect(BandLayout.Item.applicable(for: model).contains(.pageTurn))
+        model.paper.turnPage(forward: true)
+        try await waitUntil { model.pageIndicator == "2 / 3" }
+        model.goToPage(entered: "3")
+        try await waitUntil { model.pageIndicator == "3 / 3" }
+        #expect(model.currentPageIndex == 0)
+        model.endThemeTrial()
+        #expect(model.pageIndicator == "1 / 1")
+        #expect(!BandLayout.Item.applicable(for: model).contains(.pageTurn))
     }
 
     @Test("試しているテーマを選ぶと、文書のページがそのテーマで組み上がるまで試しのページを出し続ける", .timeLimit(.minutes(1)))
