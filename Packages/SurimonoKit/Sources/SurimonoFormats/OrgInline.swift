@@ -3,8 +3,9 @@ import Foundation
 enum OrgInline {
     enum Cookies { case none, all, edges }
 
+    static let inactiveTimestampPattern = #"\[[0-9]{4}-[0-9]{2}-[0-9]{2}(?: [^<>\[\]\n]*)?\]"#
     static let timestampPattern =
-        #"(?:<[0-9]{4}-[0-9]{2}-[0-9]{2}(?: [^<>\[\]\n]*)?>|\[[0-9]{4}-[0-9]{2}-[0-9]{2}(?: [^<>\[\]\n]*)?\])"#
+        #"(?:<[0-9]{4}-[0-9]{2}-[0-9]{2}(?: [^<>\[\]\n]*)?>|"# + inactiveTimestampPattern + ")"
 
     /// Org filters dates only in paragraphs made entirely of timestamps; prose and planning dates stay intact.
     static func filterIsolatedTimestamps(_ text: String, mode: OrgReadingDefaults.Timestamps) -> String? {

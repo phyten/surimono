@@ -10,7 +10,7 @@ struct OrgPrintSettingsTests {
             "* TODO A", "* DONE A", "* [#B] A", "* A [1/2]", "- A [50%]",
             "* A\nSCHEDULED: <2026-11-23 Mon>", "* A\nDEADLINE: <2026-11-23 Mon>", "* A\nCLOSED: [2026-11-23 Mon]",
             "CLOCK: [2026-11-23 Mon]", ":LOGBOOK:\nCLOCK: [2026-11-23 Mon]\n:END:",
-            "* LATER A\n#+TODO: LATER | FIN",
+            "* LATER A\n#+TODO: LATER | FIN", "#+begin_src org\n* TODO A\n#+end_src",
         ])
     func taskElements(source: String) {
         let options = "#+OPTIONS: todo:nil tasks:nil pri:nil p:nil stat:nil c:nil d:nil\n"
@@ -21,7 +21,7 @@ struct OrgPrintSettingsTests {
         "設定やコード例や普通の語だけではタスクを含む文書にしない",
         arguments: [
             "#+OPTIONS: todo:t p:t pri:t stat:t c:t", "* A\nTODO text", "* =code [50%]=",
-            "#+begin_src org\n* TODO A\nCLOCK: [2026-11-23 Mon]\n#+end_src",
+            "#+begin_src org\n,* TODO A\nCLOCK: [2026-11-23 Mon]\n#+end_src",
             "* TODO ordinary word\n#+TODO: OPEN | FIN", "* TODO [#A] ordinary text\n#+TODO: OPEN | FIN",
             "#+TODO: OPEN | FIN",
         ])
@@ -206,10 +206,10 @@ struct OrgPrintSettingsTests {
                 && html.contains("hidden definition") && !html.contains("unused definition"))
     }
 
-    @Test("独自の完了語とアーカイブで木を選び、コード中の星印は見出しにしない")
+    @Test("独自の完了語とアーカイブで木を選び、コード中のエスケープした星印は見出しにしない")
     func subtrees() {
         let raw =
-            "#+OPTIONS: tasks:done arch:headline\n#+TODO: OPEN | FIN\n* FIN done\n* OPEN unfinished\n#+begin_example\n* Literal\n#+end_example\n* Old :ARCHIVE:\nold body\n** child\n* End"
+            "#+OPTIONS: tasks:done arch:headline\n#+TODO: OPEN | FIN\n* FIN done\n* OPEN unfinished\n#+begin_example\n,* Literal\n#+end_example\n* Old :ARCHIVE:\nold body\n** child\n* End"
         let html = OrgConverter.convert(raw).body
         #expect(html.contains("done") && html.contains("Old") && html.contains("End"))
         #expect(

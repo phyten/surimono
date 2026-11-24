@@ -97,7 +97,7 @@ struct OrgConverterTests {
 
     @Test("ソースブロックは言語を付け本文を解釈しない")
     func source() {
-        let body = OrgConverter.convert("#+BEGIN_SRC swift\nlet x = \"<&>\"\n* text\n#+END_SRC").body
+        let body = OrgConverter.convert("#+BEGIN_SRC swift\nlet x = \"<&>\"\n,* text\n#+END_SRC").body
         #expect(
             body.contains(
                 "<pre><code class=\"language-swift hl\"><span class=\"hl-keyword\">let</span> x = <span class=\"hl-string\">&quot;&lt;&amp;&gt;&quot;</span>\n* text</code></pre>"

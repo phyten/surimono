@@ -1,20 +1,58 @@
 import Foundation
 
-/// Filter only headlines recognized at the document root. A star in an example or quote never starts a subtree.
-struct OrgSubtrees {
-    struct Heading {
-        let line: Int
-        let level: Int
+/// The physical headline and its trailing tags, shared by selection, metadata discovery, and rendering.
+struct OrgHeadline {
+    let level: Int
+    let title: Substring
+    let tags: [Substring]
+    var keyword: String { String(title.prefix { !$0.isWhitespace }) }
+
+    init?(_ line: String) {
+        guard line.first == "*" else { return nil }
+        let stars = line.prefix { $0 == "*" }
+        guard line[stars.endIndex...].first == " " else { return nil }
+        level = stars.count
+
+        let source = line[stars.endIndex...].trimmingCharacters(in: .whitespaces)[...]
+        if source.last == ":" {
+            // Scan the last word only. Searching from each space in a long title can take quadratic time.
+            let start = source.lastIndex(where: \.isWhitespace).map { source.index(after: $0) } ?? source.startIndex
+            let word = source[start...]
+            let names = word.split(separator: ":")
+            if word.first == ":", !names.isEmpty, names.allSatisfy(Self.isTag) {
+                let before = source[..<start]
+                title = before.lastIndex(where: { !$0.isWhitespace }).map { before[...$0] } ?? ""
+                tags = names
+                return
+            }
+        }
+        title = source
+        tags = []
     }
-    var headings: [Heading] = []
+
+    private static func isTag(_ name: Substring) -> Bool {
+        name.allSatisfy {
+            $0.isLetter || $0.unicodeScalars.first?.properties.generalCategory == .decimalNumber || "_@#%".contains($0)
+        }
+    }
+
+    static func isPriority(_ word: Substring) -> Bool {
+        guard word.hasPrefix("[#"), word.last == "]" else { return false }
+        let value = word.dropFirst(2).dropLast()
+        if value.count == 1, let letter = value.first?.asciiValue, (65...90).contains(letter) { return true }
+        guard value.utf8.allSatisfy({ (48...57).contains($0) }), let number = Int(value) else { return false }
+        return (0...64).contains(number)
+    }
+}
+
+struct OrgSubtrees {
+    var headings: [(line: Int, headline: OrgHeadline)] = []
     var select: Set<String>?
     var exclude: Set<String>?
     var fileTags: Set<String> = []
 
-    static let tagPattern = #"^(?:(.*?)\s+)?(:[^\s:]+(?::[^\s:]+)*:)\s*$"#
-
     /// End-exclusive ranges, paired with the first omitted line. Ancestors of selected trees keep their own text.
-    func omissions(context: OrgContext, lines: [String]) -> [Int: Int] {
+    func omissions(context: OrgContext, lineCount: Int) -> [Int: Int] {
         let reading = context.reading
         let select = select ?? ["export"]
         let exclude = exclude ?? ["noexport"]
@@ -32,13 +70,11 @@ struct OrgSubtrees {
         var headingOnly = [Bool]()
         var anySelection = false
         for (index, heading) in headings.enumerated() {
-            while let last = path.last, headings[last].level >= heading.level { path.removeLast() }
+            while let last = path.last, headings[last].headline.level >= heading.headline.level { path.removeLast() }
             let parent = path.last
             parents.append(parent)
-            let source = lines[heading.line].dropFirst(heading.level).drop(while: \.isWhitespace)
-            let tail = orgCaptures(Self.tagPattern, String(source))?[1] ?? ""
-            let tags = Set(tail.split(separator: ":").map(String.init))
-            let keyword = String(source.prefix { !$0.isWhitespace })
+            let tags = Set(heading.headline.tags.map(String.init))
+            let keyword = heading.headline.keyword
             let archive = tags.contains("ARCHIVE")
             let omit =
                 parent.map { blocked[$0] || headingOnly[$0] } == true
@@ -59,7 +95,7 @@ struct OrgSubtrees {
         var result: [Int: Int] = [:]
         if anySelection, headings[0].line > 0 { result[0] = headings[0].line }
         for index in headings.indices {
-            let end = index + 1 < headings.count ? headings[index + 1].line : lines.count
+            let end = index + 1 < headings.count ? headings[index + 1].line : lineCount
             let start = headings[index].line
             if blocked[index] || (anySelection && !included[index]) {
                 result[start] = end
@@ -97,20 +133,16 @@ struct OrgCommentOutline {
         sourceKeywords.declare(declaration)
     }
 
-    mutating func heading(line: Int, level: Int, title: String) {
+    mutating func heading(line: Int, headline: OrgHeadline) {
         var required: String?
-        let words = title.split(maxSplits: 3, whereSeparator: \.isWhitespace)
+        let words = headline.title.split(maxSplits: 3, whereSeparator: \.isWhitespace)
         switch words.prefix(3).firstIndex(of: "COMMENT") {
         case 0: required = ""
-        case 1: required = Self.isPriority(words[0]) ? "" : String(words[0])
-        case 2 where Self.isPriority(words[1]): required = String(words[0])
+        case 1: required = OrgHeadline.isPriority(words[0]) ? "" : String(words[0])
+        case 2 where OrgHeadline.isPriority(words[1]): required = String(words[0])
         default: break
         }
-        events.append(.heading(line: line, level: level, requiredKeyword: required))
-    }
-
-    private static func isPriority(_ word: Substring) -> Bool {
-        word.first == "[" && orgCaptures(#"^\[#[A-Za-z0-9]\]$"#, String(word)) != nil
+        events.append(.heading(line: line, level: headline.level, requiredKeyword: required))
     }
 
     func ranges(end: Int) -> [Int: Int] {
