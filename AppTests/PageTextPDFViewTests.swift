@@ -17,8 +17,16 @@ struct PageTextPDFViewTests {
     }
 
     @Test("テストの中では PDFKit のページ解析を止める（CI でスレッドを使い切って本体が固まるため）")
-    func analysisStopsInTests() {
-        #expect(PageTextPDFView().value(forKey: "documentAnalysisEnabled") as? Bool == false)
+    func analysisStopsInTests() throws {
+        let view = PageTextPDFView()
+        guard view.responds(to: NSSelectorFromString("setDocumentAnalysisEnabled:")) else {
+            #expect(view.document == nil)
+            return
+        }
+        try #require(
+            view.responds(to: NSSelectorFromString("isDocumentAnalysisEnabled"))
+                || view.responds(to: NSSelectorFromString("documentAnalysisEnabled")))
+        #expect(view.value(forKey: "documentAnalysisEnabled") as? Bool == false)
     }
 
     @Test("ページの要素は、そのページの文字を読める")

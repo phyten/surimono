@@ -6,30 +6,51 @@ on:
   pull_request:
     # labeled: adding the ci:test label starts the tests on a pull request that is already open.
     types: [opened, synchronize, reopened, labeled]
+  # Started by hand, the workflow runs everything on any branch. `os` picks the runner, to see how the tests do on
+  # another macOS; `snapshots` also renders the snapshot cases there and keeps the pictures as an artifact.
   workflow_dispatch:
+    inputs:
+      os:
+        description: "Runner (xcode-27 is macOS 27)"
+        type: choice
+        default: xcode-27
+        options: [xcode-27, macos-26, macos-15]
+      snapshots:
+        description: "Render the snapshot cases and keep the pictures"
+        type: boolean
+        default: false
+      snapshots_only:
+        description: "Snapshot cases to render (ONLY of make snapshots; the default is the UI cases, empty renders all)"
+        type: string
+        default: "tag:light tag:dark"
 
 permissions:
   contents: read
 
+# macOS 15 consumes Xcode 27.2 products. Only its test controller uses Xcode 26.3.
+env:
+  DEVELOPER_DIR: >-
+    ${{ inputs.os == 'macos-26' && '/Applications/Xcode_26.6.app/Contents/Developer'
+    || '/Applications/Xcode_27.2.app/Contents/Developer' }}
+
+# Hand-started runs on different runners are different groups, so that one branch can be tested on several at once.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ inputs.os }}
   cancel-in-progress: true
 
 # macOS runner minutes go to the build. Every run builds the package; the tests and the App Store check run only on a
 # pull request that carries the label ci:test, or when the workflow is started by hand (which runs everything on any
 # branch). Authors run lint and the tests locally (make lint, make test).
-# The jobs run on runners of their own, so they run at the same time. GitHub runs at most five macOS jobs of the
-# account at once, so keep five or fewer macOS jobs here. The job build-and-test is the required status check of the
+# The account runs five macOS jobs at once. The normal jobs and the macOS 15 test matrix use separate paths.
+# The job build-and-test is the required status check of the
 # master ruleset: it waits for all of them and passes only when the package was built and no other job failed.
 # A job stopped by its time limit fails that check, so each limit leaves a slow runner room: at least three times what
 # the job takes on a typical runner, and 45 minutes for the hosted app tests, which took 12 minutes on a slow one.
 jobs:
   lint-and-core:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ci:test'))
-    runs-on: xcode-27
+    runs-on: ${{ inputs.os == 'macos-26' && 'macos-26' || 'xcode-27' }}
     timeout-minutes: 25
-    env:
-      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Show toolchain
@@ -37,28 +58,28 @@ jobs:
           xcodebuild -version
           swift --version
       - run: make lint
+      # Each step runs even when an earlier one failed, so that one run shows everything that fails on its runner.
       - run: make test-tools
+        if: ${{ !cancelled() }}
       - run: make test-formats
+        if: ${{ !cancelled() && inputs.os != 'macos-15' }}
       - run: make test-core
+        if: ${{ !cancelled() && inputs.os != 'macos-15' }}
 
   # The Rendering tests drive WebKit against timeouts, so they get a runner of their own and run one at a time on it
   # (see test-kit in the Makefile).
   rendering:
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ci:test'))
-    runs-on: xcode-27
+    if: (github.event_name == 'workflow_dispatch' && inputs.os != 'macos-15') || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ci:test'))
+    runs-on: ${{ inputs.os || 'xcode-27' }}
     timeout-minutes: 30
-    env:
-      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: make test-rendering
 
   app-tests:
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ci:test'))
-    runs-on: xcode-27
+    if: (github.event_name == 'workflow_dispatch' && inputs.os != 'macos-15') || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ci:test'))
+    runs-on: ${{ inputs.os || 'xcode-27' }}
     timeout-minutes: 45
-    env:
-      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: make test-app
@@ -75,19 +96,15 @@ jobs:
 
   appstore:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ci:test'))
-    runs-on: xcode-27
+    runs-on: ${{ inputs.os == 'macos-26' && 'macos-26' || 'xcode-27' }}
     timeout-minutes: 25
-    env:
-      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: make check-appstore
 
   package:
-    runs-on: xcode-27
+    runs-on: ${{ inputs.os == 'macos-26' && 'macos-26' || 'xcode-27' }}
     timeout-minutes: 25
-    env:
-      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Package
@@ -104,12 +121,208 @@ jobs:
           retention-days: 14
           if-no-files-found: error
 
+  # Only when started by hand with `snapshots`. Nobody looks at real windows on the runner's macOS, so this renders the
+  # snapshot cases there and keeps the run (pictures, PDFs and the report against the approved numbers and texts) as an
+  # artifact. The report's result does not fail the job: the approved baseline comes from another macOS. All 360 cases
+  # took more than 90 minutes on a runner (about five seconds a document), so the default renders the UI cases only,
+  # and what was rendered is kept even when the time limit stops the job.
+  snapshots:
+    if: github.event_name == 'workflow_dispatch' && inputs.snapshots && inputs.os != 'macos-15'
+    runs-on: ${{ inputs.os || 'xcode-27' }}
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Shorter than the job's limit, so that the report and the upload still run when rendering takes too long.
+      - name: Render
+        timeout-minutes: 100
+        env:
+          ONLY: ${{ inputs.snapshots_only }}
+        run: make snapshots
+      - name: Report
+        if: ${{ !cancelled() }}
+        env:
+          ONLY: ${{ inputs.snapshots_only }}
+        run: make snapshots-report || true
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: snapshots-${{ inputs.os }}
+          path: Snapshots/.runs
+          include-hidden-files: true
+          retention-days: 14
+          if-no-files-found: error
+
+  build-macos15-tests:
+    if: github.event_name == 'workflow_dispatch' && inputs.os == 'macos-15'
+    runs-on: xcode-27
+    timeout-minutes: 45
+    outputs:
+      artifact: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build arm64 test products
+        run: |
+          xcodebuild -version
+          test "$(uname -m)" = arm64
+          swift build --package-path Packages/SurimonoKit --build-system swiftbuild --build-tests
+          xcodebuild -quiet -project Surimono.xcodeproj -scheme Surimono -configuration Debug \
+            -destination 'platform=macOS,arch=arm64' -derivedDataPath build/DerivedData build-for-testing
+      - name: Pack tests and Xcode 27.2 runtime
+        env:
+          SNAPSHOTS: ${{ inputs.snapshots }}
+        run: |
+          kit=$(swift build --package-path Packages/SurimonoKit --build-system swiftbuild --show-bin-path)
+          args=("$kit" build/DerivedData/Build/Products)
+          if [[ "$SNAPSHOTS" == true ]]; then
+            swift build --package-path Tools/Snapshots -c release -debug-info-format none --product surimono-snapshots
+            args+=("$(swift build --package-path Tools/Snapshots -c release --show-bin-path)")
+          fi
+          Tools/CI/archive-tests.sh "${args[@]}"
+      - id: upload
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: macos15-test-products-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/test-products.tar.gz
+          compression-level: 0
+          # Kept a week, so that only the failed macOS 15 jobs can be run again within that time.
+          retention-days: 7
+          if-no-files-found: error
+
+  macos15-tests:
+    needs: build-macos15-tests
+    runs-on: macos-15
+    permissions:
+      contents: read
+      actions: read
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+    strategy:
+      fail-fast: false
+      # lint-and-core, appstore and package may still be on build runners.
+      max-parallel: 2
+      matrix:
+        suite: ${{ fromJSON(inputs.snapshots && '["formats-core","rendering","app","snapshots"]' || '["formats-core","rendering","app"]') }}
+    timeout-minutes: ${{ matrix.suite == 'snapshots' && 120 || 60 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # TODO(pin): actions/download-artifact@REPLACE_WITH_REVIEWED_COMMIT_SHA
+      # No existing repository pin. Use the runner's gh and the producer's exact
+      # artifact ID, including when only failed consumers are rerun.
+      - name: Download and unpack test products
+        id: unpack
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: ${{ needs.build-macos15-tests.outputs.artifact }}
+        run: |
+          sw_vers
+          uname -m
+          xcodebuild -version
+          root="$RUNNER_TEMP/test-products"
+          mkdir "$root"
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" > "$RUNNER_TEMP/download.zip"
+          unzip -p "$RUNNER_TEMP/download.zip" test-products.tar.gz | tar -xz -C "$root"
+          # #filePath is baked into the tests. Every runner needs the same absolute checkout.
+          expected=$(cat "$root/checkout-path")
+          [[ "$expected" == "$(pwd -P)" ]] || { echo "::error::Fixtures require checkout at $expected"; exit 1; }
+      - name: Formats
+        if: matrix.suite == 'formats-core'
+        run: python3 Tools/CI/run-prebuilt-kit.py SurimonoFormatsTests --no-parallel
+      - name: Core
+        if: ${{ !cancelled() && steps.unpack.outcome == 'success' && matrix.suite == 'formats-core' }}
+        run: python3 Tools/CI/run-prebuilt-kit.py SurimonoCoreTests --no-parallel
+      - name: Rendering (serial)
+        if: matrix.suite == 'rendering'
+        run: python3 Tools/CI/run-prebuilt-kit.py SurimonoRenderingTests --no-parallel
+      - name: Hosted app tests
+        if: matrix.suite == 'app'
+        shell: bash
+        run: |
+          root="$RUNNER_TEMP/test-products"
+          codesign --verify --deep --strict "$root/Debug/Surimono.app"
+          log="$RUNNER_TEMP/app-test.log"
+          : > "$log"
+          NSUnbufferedIO=YES xcodebuild test-without-building -xctestrun "$root/Surimono.xctestrun" \
+            -destination 'platform=macOS,arch=arm64' -resultBundlePath "$RUNNER_TEMP/app.xcresult" \
+            > "$log" 2>&1 &
+          controller=$!
+          # Keep the read position between polls so each test line reaches the Actions log once.
+          exec 3< "$log"
+          last_size=0
+          last_output=$SECONDS
+          while kill -0 "$controller" 2>/dev/null; do
+            size=$(wc -c < "$log")
+            if (( size > last_size )); then
+              cat <&3
+              last_size=$size
+              last_output=$SECONDS
+            elif (( SECONDS - last_output >= 300 )); then
+              echo "::error::Hosted tests produced no output for five minutes"
+              pids=()
+              for pid in $(pgrep -x Surimono || true); do pids+=("$pid"); done
+              if (( ${#pids[@]} == 0 )); then echo "No running Surimono test host found"; fi
+              pids+=("$controller")
+              for pid in "${pids[@]}"; do
+                echo "Sampling PID $pid"
+                report="$RUNNER_TEMP/sample-$pid.txt"
+                sample "$pid" 5 -file "$report" || true
+                if [[ -f "$report" ]]; then head -n 150 "$report"; fi
+              done
+              kill -TERM "${pids[@]}" 2>/dev/null || true
+              sleep 5
+              kill -KILL "${pids[@]}" 2>/dev/null || true
+              wait "$controller" || true
+              exit 1
+            fi
+            sleep 5
+          done
+          cat <&3
+          wait "$controller"
+      - name: Hosted test results
+        if: ${{ !cancelled() && matrix.suite == 'app' && steps.unpack.outcome == 'success' }}
+        run: |
+          bundle="$RUNNER_TEMP/app.xcresult"
+          # A killed controller may leave an unfinished bundle. The launcher log still names the tests that ran.
+          if [[ ! -d "$bundle" ]] ||
+            ! xcrun xcresulttool get test-results summary --path "$bundle" > "$RUNNER_TEMP/app-summary.json" ||
+            ! xcrun xcresulttool get test-results tests --path "$bundle" > "$RUNNER_TEMP/app-tests.json"; then
+            echo "::error::Cannot read hosted test results from $bundle"
+            if [[ -f "$RUNNER_TEMP/app-test.log" ]]; then cat "$RUNNER_TEMP/app-test.log"; fi
+            exit 1
+          fi
+          jq -r '"Passed: \(.passedTests), failed: \(.failedTests), skipped: \(.skippedTests)",
+            (.testFailures[]? | "FAIL \(.testName) | \(.failureText)")' "$RUNNER_TEMP/app-summary.json"
+          jq -r '.. | objects | select(.nodeType == "Test Case") |
+            "\(.result) \(.nodeIdentifier // .name)"' "$RUNNER_TEMP/app-tests.json"
+          jq -e '.passedTests > 0 and .failedTests == 0 and .result == "Passed"' "$RUNNER_TEMP/app-summary.json" >/dev/null
+      - name: Render snapshots
+        if: matrix.suite == 'snapshots'
+        timeout-minutes: 100
+        env:
+          ONLY: ${{ inputs.snapshots_only }}
+        run: |
+          root="$RUNNER_TEMP/test-products"
+          "$root/Snapshots/surimono-snapshots" render "$root/Debug/Surimono.app" "$(date -u +%Y%m%d-%H%M%S)-ci"
+      - name: Report snapshots
+        if: ${{ !cancelled() && matrix.suite == 'snapshots' && steps.unpack.outcome == 'success' }}
+        env:
+          ONLY: ${{ inputs.snapshots_only }}
+        run: '"$RUNNER_TEMP/test-products/Snapshots/surimono-snapshots" report || true'
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always() && matrix.suite == 'snapshots'
+        with:
+          name: snapshots-macos-15
+          path: Snapshots/.runs
+          include-hidden-files: true
+          retention-days: 14
+          if-no-files-found: error
+
   # A job whose needs fail is skipped, and a skipped required check counts as passing, so this job always runs.
   # always() rather than !cancelled() for the same reason: a cancelled run must not leave a skipped, and so passing,
   # check behind. The package must have been built. The optional jobs may be skipped (no ci:test label), but one that
   # ran and failed or was cancelled fails the check.
   build-and-test:
-    needs: [lint-and-core, rendering, app-tests, appstore, package]
+    needs: [lint-and-core, rendering, app-tests, appstore, snapshots, package, build-macos15-tests, macos15-tests]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5

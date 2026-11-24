@@ -726,7 +726,8 @@ enum MarkdownPageBreaks {
             if isInBlock || protection.spans[index] != nil || html.coveredLines.contains(index) { continue }
             // The indent keeps the marker in the list item it continues, which the next paragraph then stays in too.
             let indent = lines[index].prefix { $0 == " " }
-            result[index] = indent + markerPrefix + candidate.syntax.rawValue + "-->"
+            // A String here: Swift 6.2 (Xcode 26.3, the newest on macOS 15) finds Substring + String ambiguous.
+            result[index] = String(indent) + markerPrefix + candidate.syntax.rawValue + "-->"
         }
         return result
     }

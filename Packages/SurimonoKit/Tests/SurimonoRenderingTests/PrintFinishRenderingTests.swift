@@ -327,7 +327,7 @@ struct PrintFinishRenderingTests {
     @Test("紙のあるテーマでは足した白紙と目次にも紙を敷き、動かした本文の下の紙は動かない", .timeLimit(.minutes(1)))
     func paperUnderFinishedPages() async throws {
         let previous = WebPaginator.clearBackground
-        WebPaginator.clearBackground = { $0.setValue(false, forKey: "drawsBackground") }
+        WebPaginator.clearBackground = try RenderingFixtures.clearBackground()
         defer { WebPaginator.clearBackground = previous }
         _ = NSApplication.shared
         var settings = try settings(.a4Duplex)
