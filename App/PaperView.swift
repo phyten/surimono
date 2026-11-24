@@ -44,6 +44,13 @@ final class PaperController {
     func isProsePageVisible(_ page: Int) -> Bool { view?.isLogicalPageVisible(page) == true }
 
     #if DEBUG
+        var attachedProbeView: PaperPDFView? { view?.window == nil ? nil : view }
+
+        func probeShows(_ source: PDFDocument?) -> Bool {
+            guard let source, let view, view.window != nil else { return false }
+            return view.isMade(of: source) && !view.visiblePages.isEmpty
+        }
+
         var showsProseMark: Bool { view?.drawnProseSpans.isEmpty == false }
     #endif
 
@@ -241,7 +248,23 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
         let marks: [ChangeMark]
         let furniture: [Int: FurniturePlacement]
         let document: PDFDocument
+        #if DEBUG
+            var serializedBytes: Int?
+        #endif
     }
+    #if DEBUG
+        private(set) lazy var probeID = UUID()
+        var shownDocumentCount: Int { shownDocuments.count }
+        var probeSample: ShownDocumentsProbe.ViewSample {
+            .init(
+                id: probeID, attached: window != nil, shownDocumentCount: shownDocumentCount,
+                generations: shownDocuments.map {
+                    .init(
+                        sourcePages: $0.source.pageCount, displayedPages: $0.document.pageCount,
+                        sharesSource: $0.source === $0.document, serializedBytes: $0.serializedBytes)
+                })
+        }
+    #endif
     private var shownDocuments: [ShownDocument] = []
     private var logicalMargin: CGFloat?
     private var showsPageNumbers = false
@@ -432,6 +455,9 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
+        #if DEBUG
+            if ShownDocumentsProbe.path != nil { ShownDocumentsProbe.views.add(self) }
+        #endif
         linkDelegate.view = self
         delegate = linkDelegate
         pageOverlayViewProvider = proseUnderlines
@@ -551,6 +577,14 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
                     source: source, key: copy != nil ? key : nil, marks: copy != nil ? changeMarks : [],
                     furniture: copy != nil ? furniture : [:],
                     document: document))
+            #if DEBUG
+                // Serializing every previous PDF at every sample would distort the footprint under observation.
+                if ShownDocumentsProbe.path != nil {
+                    shownDocuments[shownDocuments.count - 1].serializedBytes = autoreleasepool {
+                        document.dataRepresentation()?.count
+                    }
+                }
+            #endif
         }
         drawProse([])
         self.document = document
