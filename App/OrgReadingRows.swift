@@ -93,12 +93,7 @@ struct OrgReadingRows: View {
                             : (model == nil
                                 ? String(localized: "Restore shipping value: \(inherited.title)")
                                 : String(localized: "Restore Org default: \(inherited.title)"))
-                        Button {
-                            set(inherited)
-                        } label: {
-                            Image(systemName: "arrow.counterclockwise")
-                        }
-                        .buttonStyle(.plain).help(help).accessibilityLabel(Text(verbatim: help)).frame(width: 16)
+                        OrgReadingResetButton(help: help) { set(inherited) }
                     } else {
                         Color.clear.frame(width: 16, height: 1).accessibilityHidden(true)
                     }
@@ -125,6 +120,16 @@ struct OrgReadingRows: View {
     }
 }
 
+struct OrgReadingResetButton: View {
+    let help: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) { Image(systemName: "arrow.counterclockwise") }
+            .buttonStyle(.plain).help(help).accessibilityLabel(Text(verbatim: help)).frame(width: 16)
+    }
+}
+
 struct OrgReadingChoiceRow<Title: View, Choice: View, Reset: View>: View {
     let title: Title
     var token: String?
@@ -137,8 +142,8 @@ struct OrgReadingChoiceRow<Title: View, Choice: View, Reset: View>: View {
                 title
                 Text(verbatim: token).font(.caption.monospaced()).foregroundStyle(.secondary)
                 Spacer(minLength: 2)
-                picker.frame(maxWidth: 230)
                 reset
+                picker.fixedSize()
             }
         } else {
             let controls = HStack(alignment: .firstTextBaseline, spacing: 6) {

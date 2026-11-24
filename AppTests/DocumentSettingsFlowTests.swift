@@ -229,6 +229,106 @@ struct DocumentSettingsFlowTests {
         #expect(model.orgDocumentReading.optionsLine == "#+OPTIONS: num:2 toc:t")
     }
 
+    @Test("破棄確認中に読み直すとパネルが新しい対象を一度だけ示し、キャンセル後も再度確認してから破棄する", .timeLimit(.minutes(1)))
+    func orgPanelRetriesDiscard() async throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        let page = pdf("A")
+        let (gate, release) = AsyncStream<Void>.makeStream()
+        defer { release.finish() }
+        var readingReplacement = false
+        let model = DocumentViewModel(
+            data: Data("#+OPTIONS: num:nil\n* Original".utf8), fileURL: nil, format: .org,
+            preferences: fixture.preferences, library: fixture.library,
+            renderer: DocumentRenderer(paginate: { request in
+                if case .html(let html, _) = request.source, html.contains("Replacement") {
+                    readingReplacement = true
+                    for await _ in gate {}
+                }
+                return try #require(PDFDocument(data: page))
+            }), settingsStore: fixture.store)
+        defer { model.stop() }
+        try await open(model)
+        model.enableOrgFileChanges()
+        model.setOrgValue(.all, for: .sectionNumbers)
+        model.setOrgValue(.all, for: .scripts)
+
+        let screen = OrgReadingTestWindow(width: OrgReadingPanel.width, height: 600) { OrgReadingPanel(model: model) }
+        screen.window.orderBack(nil)
+        defer { screen.window.close() }
+        func turnOff() throws {
+            screen.host.layoutSubtreeIfNeeded()
+            // The file override is the panel's only checked checkbox. Send the click to this window alone.
+            let checked = screen.views(NSButton.self).filter {
+                !($0 is NSPopUpButton) && $0.state == .on && $0.isEnabled
+            }
+            try #require(checked.count == 1)
+            let button = checked[0]
+            let center = button.convert(CGPoint(x: button.bounds.midX, y: button.bounds.midY), to: nil)
+            for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+                let event = try #require(
+                    NSEvent.mouseEvent(
+                        with: type, location: center, modifierFlags: [],
+                        timestamp: ProcessInfo.processInfo.systemUptime,
+                        windowNumber: screen.window.windowNumber, context: nil, eventNumber: 0, clickCount: 1,
+                        pressure: 1))
+                screen.window.sendEvent(event)
+            }
+        }
+        var previousSheet: NSWindow?
+        var shown: [String] = []
+        func sheet() -> NSWindow? {
+            let visible = NSApp.windows.filter { $0.isVisible && $0.sheetParent === screen.window }
+            #expect(visible.count <= 1)
+            guard let sheet = visible.first, let content = sheet.contentView else {
+                previousSheet = nil
+                return nil
+            }
+            if sheet !== previousSheet,
+                let line = screen.views(NSTextField.self, in: content).map(\.stringValue).first(where: {
+                    $0.hasPrefix("#+OPTIONS:")
+                })
+            {
+                shown.append(line)
+                previousSheet = sheet
+            }
+            return sheet
+        }
+        func press(discard: Bool) throws {
+            let content = try #require(sheet()?.contentView)
+            let button = try #require(
+                screen.views(NSButton.self, in: content).first {
+                    discard ? $0.title == String(localized: "Discard") : $0.keyEquivalent == "\u{1B}"
+                })
+            button.performClick(nil)
+        }
+        try turnOff()
+        try await waitUntil { sheet() != nil && shown == ["#+OPTIONS: num:t"] }
+        model.replaceContent(Data("#+OPTIONS: ^:nil\n* Replacement".utf8), format: .org)
+        try await waitUntil { readingReplacement }
+        try #require(model.orgFileInstructions == nil)
+        try press(discard: true)
+        try await waitUntil { sheet() == nil }
+        #expect(model.orgFileInstructions == nil && model.orgDocumentReading.allowsFileChanges)
+        #expect(model.orgDocumentReading.optionsLine == "#+OPTIONS: num:t ^:t")
+        release.finish()
+        try await waitUntil { sheet() != nil && shown.last == "#+OPTIONS: ^:t" }
+        try press(discard: false)
+        try await waitUntil { sheet() == nil }
+        #expect(model.orgDocumentReading.optionsLine == "#+OPTIONS: num:t ^:t")
+        // Force another completed layout while unlocked. Cancellation must leave the retry consumed.
+        model.render()
+        try await waitUntil { sheet() == nil && !model.isRendering }
+        #expect(shown == ["#+OPTIONS: num:t", "#+OPTIONS: ^:t"])
+        model.setOrgValue(.braces, for: .scripts)
+        try turnOff()
+        try await waitUntil { sheet() != nil && shown.last == "#+OPTIONS: ^:{}" }
+        try press(discard: true)
+        try await waitUntil { sheet() == nil && !model.orgDocumentReading.allowsFileChanges }
+        #expect(shown == ["#+OPTIONS: num:t", "#+OPTIONS: ^:t", "#+OPTIONS: ^:{}"])
+        #expect(model.orgDocumentReading.optionsLine == "#+OPTIONS: num:t")
+    }
+
     @Test("プリセットは変更済みの値を実際に置き換える場合だけ確認する")
     func orgPresetConfirmation() {
         let emacs = OrgReadingDefaults(sectionNumbers: .all, tableOfContents: .all, scripts: .all)
