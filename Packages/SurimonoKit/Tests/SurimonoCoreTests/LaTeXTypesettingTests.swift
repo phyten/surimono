@@ -245,6 +245,22 @@ extension LaTeXTypesettingTests {
         }
     }
 
+    @Test("前置きの縦組みクラスと jlreq の tate だけが縦書きを既定にする")
+    func verticalClassStyle() {
+        for declaration in [
+            "[tate, uplatex]{jlreq}", "{tarticle}", "{treport}", "{tbook}", "{utarticle}", "{utreport}",
+            "{utbook}", "{ltjtarticle}", "{ltjtreport}", "{ltjtbook}",
+        ] {
+            let info = LaTeXConverter.documentClassInfo("\\documentclass\(declaration)")
+            #expect(PrintThemeLibrary.defaultLaTeXStyle(for: info) == "tategaki", "\(declaration)")
+        }
+        for declaration in ["[uplatex]{jlreq}", "[tate]{ltjarticle}", "[tatefoo]{jlreq}"] {
+            let info = LaTeXConverter.documentClassInfo(
+                "% \\documentclass{tbook}\n\\documentclass\(declaration)\\begin{document}{\\tate 本文}")
+            #expect(PrintThemeLibrary.defaultLaTeXStyle(for: info) == "latex-plain-ja", "\(declaration)")
+        }
+    }
+
     @Test("中韓の専用スタイルと欧文の多言語フォールバックを紙に渡す")
     func scriptsAndDirection() throws {
         let themes = try PrintThemeLibrary.load()

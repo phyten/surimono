@@ -114,6 +114,7 @@ public enum PrintThemeLibrary {
     /// Japanese prose in a Western class uses that class's measure and its mincho fallback.
     public static func defaultLaTeXStyle(for info: LaTeXDocumentClassInfo) -> String {
         if info.beamerPageSize != nil { return slideStyleID }
+        if info.isVertical { return "tategaki" }
         if info.mainLanguage.hasPrefix("zh") { return "latex-plain-zh" }
         if info.mainLanguage == "ko" { return "latex-plain-ko" }
         switch info.profile.defaultStyle {

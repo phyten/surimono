@@ -25,7 +25,9 @@ enum LongTokenMarks {
                     guard tag.name == current.name, !tag.isSelfClosing else { continue }
                     let depth = current.depth + (tag.isClosing ? -1 : 1)
                     skipped = depth == 0 ? nil : (current.name, depth)
-                } else if skippedElements.contains(tag.name), !tag.isClosing, !tag.isSelfClosing {
+                } else if skippedElements.contains(tag.name) || tag.source == #"<span class="tcy">"#,
+                    !tag.isClosing, !tag.isSelfClosing
+                {
                     skipped = (tag.name, 1)
                 }
             }

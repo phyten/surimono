@@ -10,7 +10,7 @@ struct LaTeXCompositionTests {
             """
             article report book jsarticle jsreport jsbook ltjsarticle ltjsreport ltjsbook bxjsarticle bxjsreport bxjsbook
             jarticle jreport jbook ltjarticle ltjreport ltjbook ujarticle ujreport ujbook utarticle utreport utbook
-            tarticle treport tbook jlreq ctexart ctexrep ctexbook oblivoir scrartcl scrreprt scrbook memoir
+            tarticle treport tbook ltjtarticle ltjtreport ltjtbook jlreq ctexart ctexrep ctexbook oblivoir scrartcl scrreprt scrbook memoir
             """.split(whereSeparator: \.isWhitespace).map(String.init))
         #expect(eligible.isSubset(of: Set(LaTeXClassRegistry.registeredNames)))
         for name in LaTeXClassRegistry.registeredNames + ["custom"] {

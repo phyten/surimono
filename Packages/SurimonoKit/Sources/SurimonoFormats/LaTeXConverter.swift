@@ -90,6 +90,7 @@ public enum LaTeXConverter {
                     "numpoints": LaTeXExam.number(document.exam.total),
                 ]
             }
+            html = document.flattenCombinedText(in: html)
             if document.pictureIndex > 0 { html += "<style>\n\(LaTeXReader.pictureCSS)\n</style>\n" }
             if let css = document.initialHyperref.styleSheet(hasLocalColors: document.hasLocalLinkColors) {
                 html += "<style>\n\(css)\n</style>\n"
@@ -160,6 +161,7 @@ final class LaTeXDocument {
         let after: String?
     }
 
+    var hasCombinedText = false
     var requestedComposition = LaTeXComposition.document
     var classOffersComposition = false
     var hasAuthoredColumns = false
