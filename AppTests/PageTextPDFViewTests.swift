@@ -93,6 +93,58 @@ struct PageTextPDFViewTests {
         #expect(element.accessibilityFrame() == .zero)
     }
 
+    @Test("ページと元のPDFを解放した後も、公開済みの要素だけで本文・範囲・行と位置に答える")
+    func snapshotOutlivesPDF() throws {
+        weak var source: PDFDocument?
+        weak var originalPage: PDFPage?
+        weak var parent: PageTextPDFView?
+        let leaf = try autoreleasepool {
+            let document = try #require(PDFDocument(data: textPDF(["first page"])))
+            let page = try #require(document.page(at: 0))
+            // Keep PDFKit's window and analysis caches outside this ownership assertion.
+            let paper = PageTextPDFView()
+            source = document
+            originalPage = page
+            parent = paper
+            return PageTextElement(page: page, index: 0, parent: paper)
+        }
+        try #require(source == nil && originalPage == nil && parent == nil)
+        let text = try #require(leaf.accessibilityValue() as? String)
+        let range = (text as NSString).range(of: "first")
+        try #require(range.location != NSNotFound)
+        #expect(leaf.accessibilityRole() == .staticText)
+        #expect(leaf.accessibilityLabel() == String(localized: "Page \(1)"))
+        #expect(leaf.accessibilityNumberOfCharacters() == text.utf16.count)
+        #expect(leaf.accessibilityString(for: range) == "first")
+        #expect(leaf.accessibilityAttributedString(for: range)?.string == "first")
+        #expect(leaf.accessibilityLine(for: range.location) == 0)
+        #expect(leaf.accessibilityRange(forLine: 0) == (text as NSString).lineRange(for: range))
+        #expect(leaf.accessibilityRange(for: range.location) == NSRange(location: range.location, length: 1))
+        #expect(leaf.accessibilityFrame() == .zero)
+        #expect(leaf.accessibilityFrame(for: range) == .zero)
+        #expect(leaf.accessibilityRange(for: NSPoint.zero).location == NSNotFound)
+        #expect(leaf.accessibilityParent() == nil)
+        #expect(leaf.accessibilityChildren()?.isEmpty != false)
+        #expect(leaf.accessibilityString(for: NSRange(location: NSNotFound, length: 1)) == nil)
+    }
+
+    @Test("公開した文字の矩形は紙の上を指し、同じビューが別の文書に替わると消える")
+    func snapshotRangeGeometry() throws {
+        let (view, window) = try makePaper(pages: ["first page"])
+        let leaf = try #require(view.accessibilityChildren()?.first as? PageTextElement)
+        let page = try #require(view.document?.page(at: 0))
+        let box = window.convertToScreen(view.convert(view.convert(page.characterBounds(at: 0), from: page), to: nil))
+        let range = NSRange(location: 0, length: 1)
+        let frame = leaf.accessibilityFrame(for: range)
+        #expect(!frame.isEmpty && abs(box.midX - frame.midX) < 0.1 && abs(box.midY - frame.midY) < 0.1)
+        #expect(leaf.accessibilityRange(for: CGPoint(x: frame.midX, y: frame.midY)) == range)
+        let replacement: PDFDocument = try #require(PDFDocument(data: textPDF(["second page"])))
+        view.document = replacement
+        #expect(leaf.accessibilityFrame() == .zero)
+        #expect(leaf.accessibilityFrame(for: range) == .zero)
+        #expect(leaf.accessibilityString(for: range) == "f")
+    }
+
     private func makePaper(pages: [String]) throws -> (PageTextPDFView, NSWindow) {
         let document = try #require(PDFDocument(data: textPDF(pages)))
         let window = NSWindow(

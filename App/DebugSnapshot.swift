@@ -597,6 +597,23 @@
         }
 
         static func captureIfReady(_ model: DocumentViewModel) {
+            if let session = DebugPageAXSession.current {
+                guard !scheduled, !captured, model.window != nil,
+                    model.fileURL?.resolvingSymlinksInPath() == session.fixture.resolvingSymlinksInPath()
+                else { return }
+                scheduled = true
+                Task {
+                    do {
+                        try await DebugPageAXSession.run(model, session: session)
+                        captured = true
+                        quitAfterCapture()
+                    } catch {
+                        DebugSnapshotProgress.failed(error)
+                        exit(EXIT_FAILURE)
+                    }
+                }
+                return
+            }
             // A restored window can finish rendering before the requested download.
             if openURLArgument != nil, firstDocument !== model { return }
             if firstDocument == nil { firstDocument = model }

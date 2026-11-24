@@ -21,7 +21,7 @@ FIXED ?=
 
 XCODEBUILD = xcodebuild -quiet -project Surimono.xcodeproj -scheme Surimono -derivedDataPath "$(DERIVED_DATA)" -destination 'platform=macOS'
 SWIFT_TEST = swift test --package-path Packages/SurimonoKit
-SWIFT_PATHS = Tools/Snapshots/Package.swift Tools/Snapshots/Sources Tools/Snapshots/Tests App AppTests Packages/SurimonoKit/Sources Packages/SurimonoKit/Tests
+SWIFT_PATHS = Tools/PageAX/Package.swift Tools/PageAX/Sources Tools/Snapshots/Package.swift Tools/Snapshots/Sources Tools/Snapshots/Tests App AppTests Packages/SurimonoKit/Sources Packages/SurimonoKit/Tests
 APP = $(DERIVED_DATA)/Build/Products/$(CONFIGURATION)/Surimono.app
 RELEASE_APP = $(DERIVED_DATA)/Build/Products/Release/Surimono.app
 # Both app targets make Surimono.app (the menu bar shows PRODUCT_NAME), so the App Store app gets derived data of its own.

@@ -120,7 +120,12 @@ struct PaperView: NSViewRepresentable {
         return view
     }
 
-    static func dismantleNSView(_ view: PaperPDFView, coordinator: ()) { view.retire() }
+    static func dismantleNSView(_ view: PaperPDFView, coordinator: ()) {
+        #if DEBUG
+            ShownDocumentsProbe.lifetimes[view.probeID]?.dismantled = ProcessInfo.processInfo.systemUptime
+        #endif
+        view.retire()
+    }
 
     func updateNSView(_ view: PaperPDFView, context: Context) {
         guard !controller.isClosed, !view.isRetired else { return }
@@ -268,7 +273,8 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
         #endif
     }
     #if DEBUG
-        private(set) lazy var probeID = UUID()
+        var probeLayout: ViewOptions.Layout? { options?.layout }
+        let probeID = UUID()
         var shownDocumentCount: Int { shownDocuments.count }
         var probeSample: ShownDocumentsProbe.ViewSample {
             .init(
@@ -471,7 +477,10 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         #if DEBUG
-            if ShownDocumentsProbe.path != nil { ShownDocumentsProbe.views.add(self) }
+            if ShownDocumentsProbe.path != nil {
+                ShownDocumentsProbe.views.add(self)
+                ShownDocumentsProbe.lifetimes[probeID] = .init(created: ProcessInfo.processInfo.systemUptime)
+            }
         #endif
         linkDelegate.view = self
         delegate = linkDelegate
@@ -521,6 +530,9 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
     }
 
     isolated deinit {
+        #if DEBUG
+            ShownDocumentsProbe.lifetimes[probeID]?.deinitialized = ProcessInfo.processInfo.systemUptime
+        #endif
         if let magnifyMonitor { NSEvent.removeMonitor(magnifyMonitor) }
         if let wheelMonitor { NSEvent.removeMonitor(wheelMonitor) }
         zoomDisplayLink?.invalidate()
@@ -625,7 +637,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
                     document: document))
             #if DEBUG
                 // Serializing every previous PDF at every sample would distort the footprint under observation.
-                if ShownDocumentsProbe.path != nil {
+                if ShownDocumentsProbe.measuresBytes {
                     shownDocuments[shownDocuments.count - 1].serializedBytes = autoreleasepool {
                         document.dataRepresentation()?.count
                     }

@@ -98,6 +98,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 board.setString(text, forType: .string)
                 ClipboardWindows.shared.open(from: board)
             }
+            do { try DebugPageAXSession.start() } catch {
+                DebugSnapshotProgress.failed(error)
+                exit(EXIT_FAILURE)
+            }
             DebugSnapshot.openURL()
             DebugSnapshot.openFeeds()
             DebugSnapshot.askClipboardQuestion()

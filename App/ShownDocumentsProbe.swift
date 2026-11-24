@@ -7,6 +7,21 @@
         // A detached paper can still own generations. Observing it must not extend its life.
         static let views = NSHashTable<PaperPDFView>.weakObjects()
 
+        static let measuresBytes = path != nil && !DebugSnapshot.flag("SurimonoShownDocumentsProbeNoBytes")
+        struct Lifetime: Encodable {
+            let created: Double
+            var dismantled: Double?
+            var deinitialized: Double?
+        }
+        // A final sample must include the IDs of papers that have already gone away.
+        static var lifetimes: [UUID: Lifetime] = [:]
+        static let elements = NSHashTable<PageTextElement>.weakObjects()
+        static var measuresElements: Bool { path != nil || DebugPageAXSession.current != nil }
+        static var firstTextSeconds: Double?
+        static var textSeconds = 0.0
+        static var extractedCount = 0
+        static var extractionSeconds = 0.0
+
         struct Generation: Encodable {
             let sourcePages: Int
             let displayedPages: Int
@@ -21,12 +36,45 @@
             let generations: [Generation]
         }
 
+        struct ElementMetrics: Encodable {
+            struct Leaf: Encodable {
+                let pageIndex: Int
+                let firstReadSeconds: Double?
+                let estimatedBytes: Int
+            }
+            let leaves: [Leaf]
+            let firstTextSeconds: Double?
+            let totalTextSeconds: Double
+            let totalSnapshotSeconds: Double
+            let extractedCount: Int
+            let liveCount: Int
+            let liveEstimatedBytes: Int
+        }
+
+        static var elementMetrics: ElementMetrics {
+            let live = elements.allObjects
+            let leaves = live.map {
+                ElementMetrics.Leaf(
+                    pageIndex: $0.index, firstReadSeconds: $0.firstReadSeconds, estimatedBytes: $0.estimatedBytes)
+            }
+            return .init(
+                leaves: leaves.sorted { $0.pageIndex < $1.pageIndex }, firstTextSeconds: firstTextSeconds,
+                totalTextSeconds: textSeconds,
+                totalSnapshotSeconds: extractionSeconds,
+                extractedCount: extractedCount, liveCount: live.count,
+                liveEstimatedBytes: live.reduce(0) { $0 + $1.estimatedBytes })
+        }
+
         private struct Sample: Encodable {
             let phase: String
             let iteration: Int
             let activeViewID: UUID?
             let liveViewCount: Int
             let views: [ViewSample]
+            let uptime: Double
+            let lifetimes: [String: Lifetime]
+            let measuresBytes: Bool
+            let axElements: ElementMetrics
             let physFootprintBytes: UInt64
         }
 
@@ -46,7 +94,9 @@
                 let samples = views.allObjects.map(\.probeSample).sorted { $0.id.uuidString < $1.id.uuidString }
                 let sample = Sample(
                     phase: phase, iteration: iteration, activeViewID: model.paper.attachedProbeView?.probeID,
-                    liveViewCount: samples.count, views: samples, physFootprintBytes: footprint)
+                    liveViewCount: samples.count, views: samples, uptime: ProcessInfo.processInfo.systemUptime,
+                    lifetimes: Dictionary(uniqueKeysWithValues: lifetimes.map { ($0.key.uuidString, $0.value) }),
+                    measuresBytes: measuresBytes, axElements: elementMetrics, physFootprintBytes: footprint)
                 var line = try JSONEncoder().encode(sample)
                 line.append(0x0A)
                 try file.write(contentsOf: line)
@@ -84,6 +134,8 @@
             model.exitPrintMode()
             try await wait("new paper") { paperIsReady() && model.paper.attachedProbeView?.probeID != oldViewID }
             try record("afterTray", count)
+            try await Task.sleep(for: .seconds(5))
+            try record("afterTraySettled", count)
             try file.close()
         }
 
