@@ -3,22 +3,22 @@ import SurimonoCore
 import UniformTypeIdentifiers
 
 nonisolated struct SurimonoDocument: Sendable {
-    nonisolated static var readableContentTypes: [UTType] {
+    nonisolated static let readableContentTypes: [UTType] =
         [
             .surimonoMarkdown, .surimonoOrg, .surimonoAsciiDoc, .surimonoQuarto, .surimonoRMarkdown, .surimonoDjot,
             .surimonoTextile, .surimonoMediaWiki, .surimonoRST, .surimonoLaTeX,
             .surimonoNotebook, .surimonoGraphviz,
             .surimonoPlantUML,
-            .plainText, .sourceCode, .surimonoSourceCode, .propertyList, .mpeg2TransportStream,
+            .plainText, .sourceCode, .script, .surimonoSourceCode, .propertyList,
+            .mpeg2TransportStream,
             .json, .yaml, .xml, .surimonoJSONLines, .surimonoTOML, .html, .pdf, .image,
             .commaSeparatedText,
             .tabSeparatedText, .zip,
         ]
-            + ["com.apple.log", "public.ndjson", "public.toml", "public.css", "com.microsoft.ini"].compactMap {
-                UTType($0)
-            } + wordTemplate
-            + [UTType("org.openxmlformats.wordprocessingml.document")].compactMap { $0 }
-    }
+        + ["com.apple.log", "public.ndjson", "public.toml", "public.css", "com.microsoft.ini"].compactMap {
+            UTType($0)
+        } + wordTemplate
+        + [UTType("org.openxmlformats.wordprocessingml.document")].compactMap { $0 }
 
     /// macOS gives the `.dot` extension to Word templates, so a Graphviz file arrives with that type. The initializer
     /// goes by the file name and reads it as Graphviz.

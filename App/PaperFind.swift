@@ -109,8 +109,25 @@ final class PaperFind {
     }
 }
 
-/// The page a reader asked for by its number.
+/// A number entered in the navigation sheet uses the same digits as the paper.
 enum GoToPage {
+    enum Target { case page, line }
+
+    static func line(for text: String, count: Int) -> Int? {
+        let input = (text.applyingTransform(.fullwidthToHalfwidth, reverse: false) ?? text)
+            .trimmingCharacters(in: .whitespaces)
+        let parts = input.split(separator: ":", omittingEmptySubsequences: false)
+        func digits(_ part: Substring) -> Bool {
+            !part.isEmpty && part.utf8.allSatisfy { (48...57).contains($0) }
+        }
+        guard count > 0, let head = parts.first, parts.count <= 2,
+            parts.dropFirst().allSatisfy(digits)
+        else { return nil }
+        if head.first == "-" { return digits(head.dropFirst()) ? 1 : nil }
+        guard digits(head) else { return nil }
+        return min(max(Int(head) ?? Int.max, 1), count)
+    }
+
     /// The 0-based page for what was typed, held within the document's pages; nil when it is no number.
     static func index(for text: String, pageCount: Int) -> Int? {
         let digits =

@@ -1672,9 +1672,11 @@ struct PaperSpot: Equatable {
     let pageIndex: Int
     let anchor: CGRect
     let document: PDFDocument
+    var framesLine = false
 
     static func == (left: Self, right: Self) -> Bool {
         left.pageIndex == right.pageIndex && left.anchor == right.anchor && left.document === right.document
+            && left.framesLine == right.framesLine
     }
 }
 
@@ -1718,7 +1720,11 @@ extension PaperPDFView {
         // A page that the continuous layout scales carries its marks with it.
         let scale = pagePlan.scale(at: viewIndex)
         let anchor = spot.anchor.applying(CGAffineTransform(scaleX: scale, y: scale))
-        return convert(PrintIssue.spotFrame(around: anchor, in: page.bounds(for: .cropBox)), from: page)
+        let box = page.bounds(for: .cropBox)
+        let frame =
+            spot.framesLine
+            ? anchor.insetBy(dx: -2, dy: 0).intersection(box) : PrintIssue.spotFrame(around: anchor, in: box)
+        return convert(frame, from: page)
     }
 
     /// Scrolls a magnified paper, when the frame would lie out of sight, until the frame's whole height and the end

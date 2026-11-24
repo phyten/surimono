@@ -101,7 +101,8 @@ final class OpenRouter {
     /// Replaceable so that tests can follow the menu action without presenting a panel.
     var presentOpenPanel: (@escaping ([URL]) -> Void) -> Void = { completion in
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = SurimonoDocument.readableContentTypes
+        // A type restriction would disable untyped files before the delegate can offer them.
+        panel.delegate = OpenPanelFileFilter.shared
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
         panel.begin { response in
@@ -377,5 +378,24 @@ final class OpenRouter {
         }
         // A document that fails to open, for example at launch, must not leave the app without any window.
         if !opened { showWelcomeIfIdle() }
+    }
+}
+
+@MainActor
+final class OpenPanelFileFilter: NSObject, NSOpenSavePanelDelegate {
+    static let shared = OpenPanelFileFilter()
+
+    func panel(_ sender: Any, shouldEnable url: URL) -> Bool { Self.allows(url) }
+
+    static func allows(_ url: URL) -> Bool {
+        guard url.isFileURL else { return false }
+        let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .contentTypeKey])
+        if url.hasDirectoryPath || values?.isDirectory == true { return true }
+        if let type = values?.contentType, SourceFileOpening.reads(type) { return true }
+        // The sandbox grants read access after selection. Listing a directory must never read every file's bytes.
+        if values?.contentType == nil, DocumentFormat(fileExtension: url.pathExtension) != nil { return true }
+        let name = url.lastPathComponent
+        return (url.pathExtension.isEmpty || SourceLanguage.detect(fileName: name) != nil)
+            && TextFileGate.concerns(fileName: name, type: values?.contentType)
     }
 }
