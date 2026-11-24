@@ -109,11 +109,17 @@ struct PrintTopBarHitTests {
         try #require(content.hitTest(parent.convert(center, from: nil)) === probe, "本文側で押下を記録できる検査窓")
         var taken: [NSPoint] = []
         // Probe the usable interior, including the space on both sides of the traffic lights and between
-        // controls. The top and side resize borders and the rounded window corners aren't content buttons.
-        for y in stride(from: bar.minY + 3, through: bar.maxY - 5, by: 3) {
-            for x in stride(from: 3.0, through: bar.maxX - 3, by: 2) {
+        // controls. The top and side resize borders and the rounded window corners aren't content buttons:
+        // macOS 26 keeps a few points at the top and up to 8pt at the sides (more along the corner arcs) for
+        // resizing, and no control of the bar reaches that close to the window's edge.
+        for y in stride(from: bar.minY + 3, through: bar.maxY - 8, by: 3) {
+            for x in stride(from: 10.0, through: bar.maxX - 10, by: 2) {
                 let point = NSPoint(x: x, y: y)
                 guard !buttons.contains(where: { $0.insetBy(dx: -1, dy: -1).contains(point) }) else { continue }
+                // The frame keeps a band along the rounded top corners for corner resizing.
+                let radius = 32.0
+                let centerX = x < radius ? radius : (x > bar.maxX - radius ? bar.maxX - radius : x)
+                if y > height - radius, hypot(x - centerX, y - (height - radius)) > radius - 10 { continue }
                 // On the newer systems the frame already returns the content responder across the bar.
                 // Reserve event tracking for points whose raw hit doesn't establish that.
                 if #available(macOS 26, *), frameView.hitTest(point) === probe { continue }
