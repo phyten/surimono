@@ -6,10 +6,35 @@ on:
   pull_request:
     # labeled: adding the ci:test label starts the tests on a pull request that is already open.
     types: [opened, synchronize, reopened, labeled]
+  # Started by hand, the workflow runs everything on any branch. `os` picks the runner, to see how the tests do on
+  # another macOS; `snapshots` also renders the snapshot cases there and keeps the pictures as an artifact.
   workflow_dispatch:
+    inputs:
+      os:
+        description: "Runner (xcode-27 is macOS 27)"
+        type: choice
+        default: xcode-27
+        options: [xcode-27, macos-26, macos-15]
+      snapshots:
+        description: "Render the snapshot cases and keep the pictures"
+        type: boolean
+        default: false
+      snapshots_only:
+        description: "Snapshot cases to render (ONLY of make snapshots, e.g. tag:light; empty renders all)"
+        type: string
+        default: ""
 
 permissions:
   contents: read
+
+# Every run but a hand-started one with another `os` uses the xcode-27 runner (macOS 27) and Xcode 27.2, the Xcode the
+# shipped app is built with. The macOS 26 and macOS 15 images carry no Xcode 27, so there the newest Xcode they have
+# builds the tests: that run says how the tests do on that macOS, and also whether that older Xcode still builds them.
+env:
+  DEVELOPER_DIR: >-
+    ${{ inputs.os == 'macos-15' && '/Applications/Xcode_26.3.app/Contents/Developer'
+    || inputs.os == 'macos-26' && '/Applications/Xcode_26.6.app/Contents/Developer'
+    || '/Applications/Xcode_27.2.app/Contents/Developer' }}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -19,17 +44,16 @@ concurrency:
 # pull request that carries the label ci:test, or when the workflow is started by hand (which runs everything on any
 # branch). Authors run lint and the tests locally (make lint, make test).
 # The jobs run on runners of their own, so they run at the same time. GitHub runs at most five macOS jobs of the
-# account at once, so keep five or fewer macOS jobs here. The job build-and-test is the required status check of the
+# account at once, so keep five or fewer macOS jobs here (the snapshots job, a sixth, runs only when asked for by hand).
+# The job build-and-test is the required status check of the
 # master ruleset: it waits for all of them and passes only when the package was built and no other job failed.
 # A job stopped by its time limit fails that check, so each limit leaves a slow runner room: at least three times what
 # the job takes on a typical runner, and 45 minutes for the hosted app tests, which took 12 minutes on a slow one.
 jobs:
   lint-and-core:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ci:test'))
-    runs-on: xcode-27
+    runs-on: ${{ inputs.os || 'xcode-27' }}
     timeout-minutes: 25
-    env:
-      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Show toolchain
@@ -37,28 +61,28 @@ jobs:
           xcodebuild -version
           swift --version
       - run: make lint
+      # Each step runs even when an earlier one failed, so that one run shows everything that fails on its runner.
       - run: make test-tools
+        if: ${{ !cancelled() }}
       - run: make test-formats
+        if: ${{ !cancelled() }}
       - run: make test-core
+        if: ${{ !cancelled() }}
 
   # The Rendering tests drive WebKit against timeouts, so they get a runner of their own and run one at a time on it
   # (see test-kit in the Makefile).
   rendering:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ci:test'))
-    runs-on: xcode-27
+    runs-on: ${{ inputs.os || 'xcode-27' }}
     timeout-minutes: 30
-    env:
-      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: make test-rendering
 
   app-tests:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ci:test'))
-    runs-on: xcode-27
+    runs-on: ${{ inputs.os || 'xcode-27' }}
     timeout-minutes: 45
-    env:
-      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: make test-app
@@ -75,19 +99,15 @@ jobs:
 
   appstore:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ci:test'))
-    runs-on: xcode-27
+    runs-on: ${{ inputs.os || 'xcode-27' }}
     timeout-minutes: 25
-    env:
-      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: make check-appstore
 
   package:
-    runs-on: xcode-27
+    runs-on: ${{ inputs.os || 'xcode-27' }}
     timeout-minutes: 25
-    env:
-      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Package
@@ -104,12 +124,39 @@ jobs:
           retention-days: 14
           if-no-files-found: error
 
+  # Only when started by hand with `snapshots`. Nobody looks at real windows on the runner's macOS, so this renders the
+  # snapshot cases there and keeps the run (pictures, PDFs and the report against the approved numbers and texts) as an
+  # artifact. The report's result does not fail the job: the approved baseline comes from another macOS.
+  snapshots:
+    if: github.event_name == 'workflow_dispatch' && inputs.snapshots
+    runs-on: ${{ inputs.os || 'xcode-27' }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Render
+        env:
+          ONLY: ${{ inputs.snapshots_only }}
+        run: make snapshots
+      - name: Report
+        if: ${{ !cancelled() }}
+        env:
+          ONLY: ${{ inputs.snapshots_only }}
+        run: make snapshots-report || true
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: snapshots-${{ inputs.os }}
+          path: Snapshots/.runs
+          include-hidden-files: true
+          retention-days: 14
+          if-no-files-found: error
+
   # A job whose needs fail is skipped, and a skipped required check counts as passing, so this job always runs.
   # always() rather than !cancelled() for the same reason: a cancelled run must not leave a skipped, and so passing,
   # check behind. The package must have been built. The optional jobs may be skipped (no ci:test label), but one that
   # ran and failed or was cancelled fails the check.
   build-and-test:
-    needs: [lint-and-core, rendering, app-tests, appstore, package]
+    needs: [lint-and-core, rendering, app-tests, appstore, snapshots, package]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
