@@ -36,8 +36,9 @@ env:
     || inputs.os == 'macos-26' && '/Applications/Xcode_26.6.app/Contents/Developer'
     || '/Applications/Xcode_27.2.app/Contents/Developer' }}
 
+# Hand-started runs on different runners are different groups, so that one branch can be tested on several at once.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ inputs.os }}
   cancel-in-progress: true
 
 # macOS runner minutes go to the build. Every run builds the package; the tests and the App Store check run only on a
