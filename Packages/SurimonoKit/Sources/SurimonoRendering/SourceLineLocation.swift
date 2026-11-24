@@ -28,8 +28,9 @@ public struct SourceLineLocation {
         """
 
     @MainActor
-    static func take(from document: PDFDocument) -> [Int: Self] {
+    static func take(from document: PDFDocument) -> (locations: [Int: Self], lastNumber: Int) {
         var lines: [Int: Self] = [:]
+        var lastNumber = 0
         for index in 0..<document.pageCount {
             guard let page = document.page(at: index) else { continue }
             for annotation in page.annotations {
@@ -41,10 +42,11 @@ public struct SourceLineLocation {
                     !rect.isNull, !rect.isEmpty, lines[number] == nil
                 {
                     lines[number] = Self(pageIndex: index, rect: rect)
+                    lastNumber = max(lastNumber, number)
                 }
                 page.removeAnnotation(annotation)
             }
         }
-        return lines
+        return (lines, lastNumber)
     }
 }

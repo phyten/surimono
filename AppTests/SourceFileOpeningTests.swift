@@ -313,14 +313,29 @@ struct SourceFileOpeningTests {
         }
     }
 
-    @Test("拡張子のない Dockerfile から、文書の仕組みでテキストの文書を作れる")
+    @Test("拡張子のない Dockerfile をテキストとして開いて閉じても、原稿のハッシュ・更新日時・隣のファイルは変わらない")
     func makesDocument() async throws {
         try await withFile("Dockerfile", Data("FROM scratch\n".utf8)) { url in
-            let (document, isNew) = try SourceFileOpening.document(for: url)
-            defer { document.close() }
-            #expect(isNew)
-            #expect(document.fileURL?.standardizedFileURL == url.standardizedFileURL)
-            #expect(document.fileType == UTType.plainText.identifier)
+            let directory = url.deletingLastPathComponent()
+            let files = FileManager.default
+            // A rewrite of the same bytes must also be visible on filesystems with coarse timestamps.
+            try files.setAttributes(
+                [.modificationDate: Date(timeIntervalSince1970: 1_600_000_000)], ofItemAtPath: url.path)
+            let before = try ContentHash.ofFile(at: url)
+            let modified = try #require(files.attributesOfItem(atPath: url.path)[.modificationDate] as? Date)
+            let neighbors = try files.contentsOfDirectory(atPath: directory.path).sorted()
+            try #require(SourceFileOpening.route(for: url) == .asText)
+            do {
+                let (document, isNew) = try SourceFileOpening.document(for: url)
+                defer { document.close() }
+                #expect(isNew)
+                #expect(document.fileURL?.standardizedFileURL == url.standardizedFileURL)
+                #expect(document.fileType == UTType.plainText.identifier)
+                #expect(try files.contentsOfDirectory(atPath: directory.path).sorted() == neighbors)
+            }
+            #expect(try ContentHash.ofFile(at: url) == before)
+            #expect(try files.attributesOfItem(atPath: url.path)[.modificationDate] as? Date == modified)
+            #expect(try files.contentsOfDirectory(atPath: directory.path).sorted() == neighbors)
         }
     }
 

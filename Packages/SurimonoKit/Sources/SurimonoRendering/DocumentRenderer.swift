@@ -308,8 +308,8 @@ public struct PreparedRender {
     public let issues: [PrintIssue]
     public let changeMarks: [ChangeMark]
     public var diagrams: [RenderedDiagram] = []
-    public var sourceLines: [Int: SourceLineLocation] = [:]
-    public var sourceLineCount: Int { sourceLines.keys.max() ?? 0 }
+    public let sourceLines: [Int: SourceLineLocation]
+    public let sourceLineCount: Int
     public var formulaIndex: PaperFormulaIndex?
     public var unreadableDocumentURLs: [URL] = []
     public var binderDocuments: [URL: PDFDocument] = [:]
@@ -470,7 +470,7 @@ public final class DocumentRenderer {
         var binderPageSizes: [CGSize] = []
         var issues: [PrintIssue] = []
         var changeMarks: [ChangeMark] = []
-        var sourceLines: [Int: SourceLineLocation] = [:]
+        var sourceLines: (locations: [Int: SourceLineLocation], lastNumber: Int) = ([:], 0)
         var diagrams: [RenderedDiagram] = []
         var markRequests: [MarkdownMarkRequest] = []
         var hasFormulas = false
@@ -860,7 +860,8 @@ public final class DocumentRenderer {
                 summary: PrintSummary(plan: plan),
                 requiredFolderAccess: pages.requiredFolderAccess, unreadableImageURLs: pages.unreadable,
                 smartRemovalCandidates: pages.candidates, issues: pages.issues,
-                changeMarks: marks, diagrams: pages.diagrams, sourceLines: pages.sourceLines,
+                changeMarks: marks, diagrams: pages.diagrams, sourceLines: pages.sourceLines.locations,
+                sourceLineCount: pages.sourceLines.lastNumber,
                 formulaIndex: pages.formulaIndex,
                 unreadableDocumentURLs: pages.unreadableDocuments, binderDocuments: pages.binderDocuments,
                 binderPageStarts: pages.binderPageStarts,
@@ -1020,7 +1021,8 @@ public final class DocumentRenderer {
                 return issue
             }
         noted.finishing = logical.finishing
-        noted.sourceLines = logical.sourceLines.mapValues { line in
+        noted.sourceLines.lastNumber = logical.sourceLines.lastNumber
+        noted.sourceLines.locations = logical.sourceLines.locations.mapValues { line in
             let page = places[line.pageIndex]
             let offset = settings.layout.swapsSides(onPage: page) ? shift : 0
             let rect =

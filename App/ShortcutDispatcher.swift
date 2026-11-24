@@ -213,6 +213,7 @@ final class ShortcutDispatcher {
         case .documentExportHTML, .documentCopyHTML, .documentCopyRichText: return model.canExportReading(.html)
         case .documentExportPNG, .documentShare: return model.canExportReading(.png)
         case .documentGoToPage: return model.canGoToPage
+        case .documentGoToLine: return model.sourceLineCount > 0
         case .documentFind, .documentFindNext, .documentFindPrevious: return model.hasPaperToSearch
         case .viewHtmlPresentation: return model.mode == .view && model.usesHTMLPresentation
         case .viewIgnoreSlides: return model.detectedSlideDeck != nil

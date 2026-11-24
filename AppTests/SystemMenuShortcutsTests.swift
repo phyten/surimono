@@ -1,5 +1,6 @@
 import AppKit
 import Observation
+import PDFKit
 import SurimonoCore
 import Testing
 
@@ -240,11 +241,60 @@ struct SystemMenuShortcutsTests {
         #expect(row.isEnabled == (pages > 1))
         let lineRow = try #require(
             DocumentMenuDescriptor.rows(for: .view, in: snapshot).first { $0.operation == .documentGoToLine })
-        #expect(lineRow.isEnabled)
+        #expect(!lineRow.isEnabled)
         f.dispatcher.performFromMenu(.documentGoToLine, event: nil)
         #expect(!f.model.isGoToPagePresented)
         f.dispatcher.performFromMenu(.documentGoToPage, event: nil)
         #expect(f.model.isGoToPagePresented == (pages == 2))
+    }
+
+    @Test("行へ移動はソースの組版後に有効になり、文字サイズを変えても複数ページにまたがる行の先頭へ移る", .timeLimit(.minutes(1)))
+    func goToWrappedLineAfterReflow() async throws {
+        let f = ShortcutOutputFixture(format: .plainText, sourceFileName: "wrap.swift")
+        defer { f.close() }
+        func lineMenuEnabled() throws -> Bool {
+            let snapshot = MenuSnapshot(
+                version: 1, content: .init(model: f.model, preferences: f.preferences, controller: f.controller))
+            return try #require(
+                DocumentMenuDescriptor.rows(for: .view, in: snapshot).first {
+                    $0.operation == .documentGoToLine
+                }
+            ).isEnabled
+        }
+        #expect(try !lineMenuEnabled())
+        let source =
+            String(repeating: "short\n", count: 140) + "BEGIN " + String(repeating: "wrap ", count: 2000) + "END"
+        f.model.replaceContent(Data(source.utf8), format: .plainText)
+        var destinations: [Int] = []
+        var spot: PaperSpot?
+        f.model.spotPresenter = {
+            spot = $0
+            return true
+        }
+        for scale in [1.0, 2.0] {
+            f.model.setTextScale(scale)
+            try await f.render()
+            let pdf = try #require(f.model.result?.viewDocument)
+            // Printed words establish both ends independently of the navigation index.
+            let begin = try #require(pdf.findString("BEGIN").first)
+            let first = try #require(begin.pages.first)
+            let end = try #require(pdf.findString("END").first?.pages.first)
+            let target = pdf.index(for: first)
+            try #require(pdf.index(for: end) > target)
+            #expect(try lineMenuEnabled())
+            f.model.jumpToReadingPage(pdf.index(for: end))
+            f.dispatcher.performFromMenu(.documentGoToLine, event: nil)
+            try #require(f.model.goToTarget == .line)
+            spot = nil
+            f.model.goToLine(entered: "141:8")
+            try await f.wait { spot != nil }
+            #expect(f.model.logicalReadingPage == target)
+            #expect(spot?.document === pdf)
+            #expect(spot?.pageIndex == target)
+            #expect(spot?.anchor.intersects(begin.bounds(for: first)) == true)
+            destinations.append(target)
+        }
+        #expect(destinations[1] > destinations[0])
     }
 
     @Test("HTMLの書き出しとコピーは単独のテーマ文書だけで有効", arguments: ["document", "images", "binder", "clipboard"])

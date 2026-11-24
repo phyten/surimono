@@ -9,7 +9,7 @@ nonisolated struct SurimonoDocument: Sendable {
             .surimonoTextile, .surimonoMediaWiki, .surimonoRST, .surimonoLaTeX,
             .surimonoNotebook, .surimonoGraphviz,
             .surimonoPlantUML,
-            .plainText, .text, .sourceCode, .script, .surimonoSourceCode, .propertyList,
+            .plainText, .sourceCode, .script, .surimonoSourceCode, .propertyList,
             .mpeg2TransportStream,
             .json, .yaml, .xml, .surimonoJSONLines, .surimonoTOML, .html, .pdf, .image,
             .commaSeparatedText,
