@@ -48,12 +48,14 @@ struct SourceFileOpeningTests {
 
     // MARK: Declared types
 
-    @Test(
-        "ソースコードの拡張子の型は、どれも読み取れる型に準拠する",
-        arguments: DocumentFormat.sourceCodeExtensions.sorted())
-    func readableTypes(suffix: String) throws {
-        let type = try #require(UTType(filenameExtension: suffix))
-        #expect(SourceFileOpening.reads(type), ".\(suffix): \(type.identifier), supertypes=\(type.supertypes)")
+    @Test("ソースコードの拡張子の型は、どれも読み取れる型に準拠する")
+    func readableTypes() {
+        let unreadable = DocumentFormat.sourceCodeExtensions.sorted().compactMap { suffix -> String? in
+            guard let type = UTType(filenameExtension: suffix) else { return ".\(suffix): 型なし" }
+            guard !SourceFileOpening.reads(type) else { return nil }
+            return ".\(suffix): \(type.identifier), supertypes=\(type.supertypes)"
+        }
+        #expect(unreadable.isEmpty, "\(unreadable)")
     }
 
     @Test("macOS が型を持たない拡張子は、取り込みの宣言でソースコードの型になる")

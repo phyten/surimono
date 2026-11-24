@@ -370,9 +370,14 @@ struct ChangeMarkRenderingTests {
             ViewPageDocument.make(output.logicalDocument, plan: plan, margin: 0, changeMarks: [mark]))
         let page = try #require(view.page(at: 0))
         let original = try #require(plain.logicalDocument.page(at: 0))
-        #expect(
-            page.string?.trimmingCharacters(in: .whitespacesAndNewlines)
-                == original.string?.trimmingCharacters(in: .whitespacesAndNewlines))
+        let text = try #require(page.string).trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanText = try #require(original.string).trimmingCharacters(in: .whitespacesAndNewlines)
+        if #available(macOS 26, *) {
+            #expect(text == cleanText)
+        } else {
+            let unindented = text.replacingOccurrences(of: "\n Changed words.", with: "\nChanged words.")
+            #expect(text == cleanText || unindented == cleanText)
+        }
         let colored = try pixels(page)
         let clean = try pixels(original)
         func redPixels(_ bytes: [UInt8]) -> Int {

@@ -218,8 +218,8 @@ struct SurimonoDocumentTests {
                     UTType.surimonoNotebook.identifier, UTType.surimonoJSONLines.identifier,
                     UTType.surimonoTOML.identifier, UTType.surimonoSourceCode.identifier,
                     UTType.surimonoGraphviz.identifier, UTType.surimonoPlantUML.identifier,
-                    // Imported so that .ini opens on macOS 15, which does not declare the type itself.
-                    "com.microsoft.ini",
+                    // Some macOS 15 installations declare neither the INI nor the SQL type.
+                    "com.microsoft.ini", "org.iso.sql",
                 ]))
     }
 }

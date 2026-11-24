@@ -36,8 +36,9 @@ struct FlowPageCutsTests {
 struct FlowPageCaptureTests {
     @Test("移動・縮小した PDF 片ではノンブルの同じ字形だけを仕上がり座標で照合する")
     func printedDigit() async throws {
-        let slice = try RenderingFixtures.pdf(size: CGSize(width: 240, height: 120))
-        let data = try #require(slice.dataRepresentation())
+        // Private system UI font names can resolve to a substitute after PDF serialization on Sequoia.
+        let font = try #require(NSFont(name: "Helvetica", size: 20))
+        let data = try RenderingFixtures.pdfData(pages: [["PAGE-1"]], size: CGSize(width: 240, height: 120), font: font)
         let reopened = try #require(PDFDocument(data: data))
         let page = try #require(reopened.page(at: 0))
         let digit = try #require(reopened.findString("1").first)
@@ -49,8 +50,12 @@ struct FlowPageCaptureTests {
             defer { context.endPDFPage() }
             let printed = try FlowPageCapture.draw(data, into: target, in: context)
             let bounds = try #require(printed.glyphBounds(of: "1", at: point))
-            #expect(abs(bounds.minY - (12 + ink.minY / 2)) < 0.01)
-            #expect(abs(bounds.height - ink.height / 2) < 0.01)
+            let expected = CGRect(
+                x: 30 + ink.minX / 2, y: 12 + ink.minY / 2, width: ink.width / 2, height: ink.height / 2)
+            #expect(abs(bounds.minX - expected.minX) < 0.01 && abs(bounds.width - expected.width) < 0.01)
+            #expect(
+                abs(bounds.minY - expected.minY) < 0.01 && abs(bounds.height - expected.height) < 0.01,
+                "原寸 \(ink)、変換後 \(bounds)、期待 \(expected)")
             #expect(printed.glyphBounds(of: "2", at: point) == nil)
         }
     }

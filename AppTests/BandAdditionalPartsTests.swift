@@ -24,7 +24,7 @@ struct BandAdditionalPartsTests {
             .background { BandMeasurements(model: model, items: BandLayout.Item.applicable(for: model), menu: menu) }
             .overlay { BandPresentationHost(model: model, plans: plans) }
             .coordinateSpace(name: BandAnchors.coordinateSpace)
-            .onChange(of: plans.resolved, initial: true) { _, plan in model.bandAnchors.plan = plan }
+            .recordingBandPlan(plans.resolved, in: model.bandAnchors)
         }
     }
 
@@ -128,7 +128,7 @@ struct BandAdditionalPartsTests {
             Comment(
                 rawValue: "待機: \(reason); visible=\(fixture.window.isVisible), key=\(fixture.window.isKeyWindow), "
                     + "applicable=\(BandLayout.Item.applicable(for: fixture.model)), top=\(plan.top.forms), "
-                    + "drawnPlan=\(String(describing: fixture.model.bandAnchors.plan)), width=\(fixture.menu.bandWidth), AX=\((fixture.window.contentView.map(elements) ?? []).compactMap { $0.accessibilityIdentifier() })"
+                    + "drawnPlan=\(String(describing: fixture.model.bandAnchors.plan)), width=\(fixture.menu.bandWidth), saveRequests=\(fixture.saveDestinationRequests), AX=\((fixture.window.contentView.map(elements) ?? []).compactMap { $0.accessibilityIdentifier() })"
             ),
             sourceLocation: sourceLocation)
     }
@@ -156,27 +156,15 @@ struct BandAdditionalPartsTests {
             let frame = fixture.model.bandAnchors.frames[.item(item)], !frame.isEmpty,
             let content = fixture.window.contentView
         else { return nil }
-        // The named space starts at the content's top-left corner; AppKit's window space starts at the bottom-left.
-        return CGRect(x: frame.minX, y: content.bounds.height - frame.maxY, width: frame.width, height: frame.height)
+        let y = content.isFlipped ? content.bounds.minY + frame.minY : content.bounds.maxY - frame.maxY
+        let rect = CGRect(x: content.bounds.minX + frame.minX, y: y, width: frame.width, height: frame.height)
+        return content.convert(rect, to: nil)
     }
 
     /// A click as AppKit delivers it, at the middle of the chip.
     private func click(_ item: BandLayout.Item, in fixture: Fixture) throws {
         let frame = try #require(chipFrame(item, in: fixture))
-        // An AppKit-backed button tracks the mouse in its own event loop and would wait for a mouse-up that a test
-        // cannot deliver in time, so the real control at the chip's place is clicked through its own action.
-        if let button = fixture.window.contentView?.hitTest(NSPoint(x: frame.midX, y: frame.midY)) as? NSButton {
-            button.performClick(nil)
-            return
-        }
-        for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
-            let event = try #require(
-                NSEvent.mouseEvent(
-                    with: type, location: NSPoint(x: frame.midX, y: frame.midY), modifierFlags: [],
-                    timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: fixture.window.windowNumber,
-                    context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
-            NSApp.sendEvent(event)
-        }
+        try TestWindowMouse.click(at: NSPoint(x: frame.midX, y: frame.midY), in: fixture.window)
     }
 
     @Test(
@@ -310,7 +298,7 @@ struct BandAdditionalPartsTests {
 
     @Test("ファイル保存チップは注入した保存先選択だけを呼ぶ")
     func saveThroughChip() async throws {
-        let fixture = try Fixture(parts: [.saveAsFile])
+        let fixture = try Fixture(parts: [.saveAsFile], width: min(NSScreen.main?.visibleFrame.width ?? 800, 1000) - 40)
         defer { fixture.close() }
         #expect(fixture.model.canSaveAsFile)
         #expect(BandPlans(model: fixture.model, menu: fixture.menu).band(of: .saveAsFile) == .top)

@@ -94,8 +94,12 @@ enum LaTeXFlowPaginator {
         }
         let patterns = try String(contentsOf: url, encoding: .utf8)
         let literal = String(decoding: try JSONEncoder().encode(patterns), as: UTF8.self)
-        return try "globalThis.surimonoEnglishPatterns = " + literal + ";\n"
+        let source =
+            try "globalThis.surimonoEnglishPatterns = " + literal + ";\n"
             + script("latex-badness") + "\n" + script("latex-latin-plan") + "\n" + script("latex-latin-lines")
+        if #available(macOS 26, *) { return source }
+        // Earlier JavaScriptCore accepts the v flag but can treat Latin letters as members of that intersection.
+        return source + "\n" + #"latinNonLatinLetter = /(?!\p{Script=Latin})\p{L}/u;"#
     }
 
     static func latinLineScript() throws -> String { try latinSource.get() }

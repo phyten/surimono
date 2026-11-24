@@ -130,7 +130,10 @@ struct PrintModeView: View {
 struct PrintTopBar: View {
     @Bindable var model: DocumentViewModel
     /// The bar's height. The toolbar the stage keeps makes the title bar as tall, with the buttons in its middle.
-    static let height: CGFloat = 52
+    static let height: CGFloat = {
+        if #available(macOS 26, *) { return 52 }
+        return 38
+    }()
     /// The room the file name keeps at every width, or less for a shorter name.
     static let nameMinimum: CGFloat = 120
     @State private var lights: TrafficLights?

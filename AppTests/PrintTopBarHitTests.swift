@@ -106,7 +106,10 @@ struct PrintTopBarHitTests {
                 if titleBarTakesClick(at: point, in: window) { taken.append(point) }
             }
         }
-        #expect(taken.isEmpty, "The title bar takes \(taken.count) points, first \(String(describing: taken.first))")
+        if let point = taken.first {
+            let hit = root(of: window)?.hitTest(point)
+            Issue.record("タイトルバーが受けた点は \(taken.count) 個、最初の点 \(point)、ビュー \(String(describing: hit))")
+        }
     }
 
     @Test("「表示に戻る」は、ツールバーの項目が覆っていた左寄りの場所を押しても表示へ戻る", arguments: [false, true])
@@ -120,13 +123,7 @@ struct PrintTopBarHitTests {
         // left edge, over the button's left part.
         let point = NSPoint(x: lights.titleLeading + 20, y: height - lights.centerY)
         #expect(point.x > 92 && point.x < 136)
-        for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
-            let event = try #require(
-                NSEvent.mouseEvent(
-                    with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
-                    windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
-            NSApp.sendEvent(event)
-        }
+        try TestWindowMouse.click(at: point, in: window)
         try await waitUntil { screen.model.mode == .view }
     }
 }

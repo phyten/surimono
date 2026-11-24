@@ -34,7 +34,7 @@ struct BandMeasurementAgreementTests {
             } action: { width in
                 if menu.bandWidth != width { menu.bandWidth = width }
             }
-            .onChange(of: plans.resolved, initial: true) { _, plan in model.bandAnchors.plan = plan }
+            .recordingBandPlan(plans.resolved, in: model.bandAnchors)
         }
     }
 
@@ -248,7 +248,8 @@ struct BandMeasurementAgreementTests {
         let fixture = try Fixture(parts: BandTestCatalog.addedItems, width: width, corners: corners)
         defer { fixture.close() }
         try await settle(fixture, width: width)
-        let plan = try #require(fixture.plan)
+        let plan = BandPlans(model: fixture.model, menu: fixture.menu).resolved
+        #expect(fixture.plan == plan, "描いた計画 \(String(describing: fixture.plan))、現在の計画 \(plan)")
         let rows = [plan.top] + (plan.bottom.map { [$0] } ?? [])
         var compared = 0
         for row in rows {

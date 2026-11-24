@@ -270,6 +270,9 @@ public final class WebPaginator: NSObject {
         // The stopped resources never report back, so the full wait would only be spent a second time.
         try await Self.waitForResources(
             in: session.webView, timeout: stoppedResources ? min(timeout, .seconds(1)) : timeout)
+        if #unavailable(macOS 26), !stoppedResources, Self.followsOtherDocuments(source) {
+            try await session.waitForLocalDestination(timeout: timeout)
+        }
         let pageRules: [PageRule]
         let preparationResult: String?
         do {
@@ -1027,6 +1030,42 @@ private final class PaginationSession {
         }
     }
 
+    // A zero-delay refresh may have started during the first document's resource wait.
+    func waitForLocalDestination(timeout: Duration) async throws {
+        let deadline = ContinuousClock.now + timeout
+        if localHandler != nil, let first = webView.url, navigationTracker.isOnFirstLocalDocument {
+            // A custom-scheme load can finish before WebKit offers its zero-delay refresh. Give that navigation
+            // a chance to start without issuing it ourselves or waiting on ordinary pages and delayed refreshes.
+            let probe = #"""
+                const meta = document.querySelector('meta[http-equiv="refresh" i]');
+                const match = meta?.content.match(/^\s*0(?:\.0+)?\s*;\s*(?:url\s*=\s*)?(.+?)\s*$/i);
+                if (!match) return false;
+                const target = new URL(match[1].replace(/^(['"])(.*)\1$/, '$2'), document.baseURI);
+                const current = new URL(location.href);
+                target.hash = current.hash = '';
+                return target.protocol === current.protocol && target.host === current.host && target.href !== current.href;
+                """#
+            if (try? await webView.evaluateForPrinting(probe, until: deadline)) as? Bool == true {
+                do {
+                    try await WebPaginator.waitUntil(
+                        timeout: min(ContinuousClock.now.duration(to: deadline), .seconds(2))
+                    ) {
+                        !navigationTracker.isOnFirstLocalDocument || webView.url != first
+                            || navigationState != .finished
+                    }
+                } catch WebPaginator.PaginationError.timedOut {
+                    // WebKit may suppress a refresh. Its current, finished document can still print.
+                }
+            }
+        }
+        try Task.checkCancellation()
+        try await WebPaginator.waitUntil(timeout: ContinuousClock.now.duration(to: deadline)) {
+            if case .failed = navigationState { return true }
+            return !navigationTracker.pendingLocalDocument && navigationState == .finished
+        }
+        if case .failed(let reason) = navigationState { throw WebPaginator.PaginationError.loadFailed(reason) }
+    }
+
     func loadForPrinting(
         _ source: WebPaginator.Source, timeout: Duration,
         expireAfterCommit: (@MainActor (WKWebView) async throws -> Void)?
@@ -1289,8 +1328,11 @@ final class NavigationTracker: NSObject, WKNavigationDelegate {
     /// `index.html` that refreshes to `chapter.html`), as it always could. Reloading itself is still refused.
     var followsOtherDocuments = false
     private var allowedDownloadedPage = false
-    private var firstLocalRequest: URL?
-    private var followedPages = Set<String>()
+    private var committedLocalPages = Set<String>()
+    private var lastCommittedLocalPage: String?
+    private var pendingLocalPage: String?
+    var pendingLocalDocument: Bool { pendingLocalPage != nil }
+    var isOnFirstLocalDocument: Bool { committedLocalPages.count == 1 && !pendingLocalDocument && !stoppedRefreshCycle }
     private(set) var stoppedRefreshCycle = false
 
     func webView(
@@ -1305,27 +1347,25 @@ final class NavigationTracker: NSObject, WKNavigationDelegate {
                 decisionHandler(.cancel)
                 return
             }
-            if allowedDownloadedPage {
+            if #unavailable(macOS 26), followsOtherDocuments, !isDownloadedPage, let url = navigationAction.request.url,
+                url.isFileURL || url.scheme == LocalResourceSchemeHandler.scheme
+            {
+                // A custom-scheme request may be offered more than once before it commits. Only a return to a
+                // committed page is a cycle. webView.url can already name the provisional destination.
+                let destination = Self.page(url).page
+                if committedLocalPages.contains(destination) {
+                    if destination != lastCommittedLocalPage { stoppedRefreshCycle = true }
+                    decisionHandler(.cancel)
+                    return
+                }
+                pendingLocalPage = destination
+            } else if allowedDownloadedPage {
                 let leaves =
                     followsOtherDocuments && !isDownloadedPage && navigationAction.navigationType != .reload
                     && !Self.isSameDocument(navigationAction.request.url, webView.url)
                 guard leaves else {
                     decisionHandler(.cancel)
                     return
-                }
-            }
-            // On Sequoia, two immediate cross-document refreshes can replace the DOM during printing.
-            // Leave the current document in place on a return trip. Ordinary opens do not build a URL set.
-            if #unavailable(macOS 26), followsOtherDocuments, let url = navigationAction.request.url {
-                if let firstLocalRequest {
-                    let destination = Self.page(url).page
-                    if destination == Self.page(firstLocalRequest).page || !followedPages.insert(destination).inserted {
-                        stoppedRefreshCycle = true
-                        decisionHandler(.cancel)
-                        return
-                    }
-                } else {
-                    firstLocalRequest = url
                 }
             }
             allowedDownloadedPage = true
@@ -1407,6 +1447,12 @@ final class NavigationTracker: NSObject, WKNavigationDelegate {
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
         guard accepts(navigation) else { return }
         hasCommitted = true
+        if #unavailable(macOS 26), followsOtherDocuments, let url = webView.url {
+            let destination = Self.page(url).page
+            committedLocalPages.insert(destination)
+            lastCommittedLocalPage = destination
+            if destination == pendingLocalPage { pendingLocalPage = nil }
+        }
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {

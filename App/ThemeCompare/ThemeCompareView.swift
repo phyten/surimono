@@ -161,7 +161,7 @@ struct ThemeCompareView: View {
 private struct CompareTopBar: View {
     @Bindable var model: DocumentViewModel
     /// The bar's height. The toolbar the stage keeps makes the title bar as tall, with the buttons in its middle.
-    static let height: CGFloat = 52
+    static let height = PrintTopBar.height
     @State private var lights: TrafficLights?
     let onShuffle: () -> Void
 

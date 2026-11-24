@@ -238,8 +238,21 @@ final class BandAnchors {
     nonisolated static let coordinateSpace = "viewMode"
 
     var frames: [Anchor: CGRect] = [:]
-    /// The plan the window's bands drew last. A part's recorded place counts only while this has it on a band.
-    @ObservationIgnored var plan: BandResolvedPlan?
+    #if DEBUG
+        /// The plan supplied to the band's views, for snapshots and hosted layout tests.
+        @ObservationIgnored var plan: BandResolvedPlan?
+    #endif
+}
+
+extension View {
+    func recordingBandPlan(_ plan: BandResolvedPlan, in anchors: BandAnchors) -> Self {
+        #if DEBUG
+            // Sequoia can drop onChange deliveries when measurement produces several plans in one frame.
+            // This debug-only sink is not observed by SwiftUI. Rendering and popovers use the plan directly.
+            anchors.plan = plan
+        #endif
+        return self
+    }
 }
 
 extension BandResolvedPlan {

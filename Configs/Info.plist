@@ -189,6 +189,14 @@
 	<key>UTImportedTypeDeclarations</key>
 	<array>
         <dict>
+            <key>UTTypeIdentifier</key><string>org.iso.sql</string>
+            <key>UTTypeDescription</key><string>SQL Source</string>
+            <key>UTTypeConformsTo</key><array><string>public.source-code</string></array>
+            <key>UTTypeTagSpecification</key><dict>
+                <key>public.filename-extension</key><array><string>sql</string></array>
+            </dict>
+        </dict>
+        <dict>
             <key>UTTypeIdentifier</key><string>com.microsoft.ini</string>
             <key>UTTypeDescription</key><string>MS Windows initialization file</string>
             <key>UTTypeConformsTo</key><array><string>public.text</string></array>

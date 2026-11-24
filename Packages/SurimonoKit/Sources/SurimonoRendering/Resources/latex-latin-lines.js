@@ -1,6 +1,9 @@
 // Build the default trie once when the typography scripts enter this document's isolated world.
 const latinEnglishHyphens = latinHyphenator(globalThis.surimonoEnglishPatterns);
 
+// The native paginator installs an equivalent Unicode predicate for Sequoia's JavaScriptCore.
+let latinNonLatinLetter = /[\p{L}&&[^\p{Script=Latin}]]/v;
+
 // All cached values are numbers, strings or plans. Never retain a flow clone, a DOM
 // Range or a computed style across the paginator's reference-filling passes.
 function latinCompose(body, rectToCSS = 1, restorations) {
@@ -286,8 +289,8 @@ function latinCompose(body, rectToCSS = 1, restorations) {
             const el = node.parentElement;
             if (node.nodeType === Node.TEXT_NODE) {
                 const face = faceFor(el);
-                if (/[\p{L}&&[^\p{Script=Latin}]]/v.test(node.data) ||
-                    /[\u202a-\u202e\u2066-\u2069]/u.test(node.data)) throw Error('mixed script');
+                if (latinNonLatinLetter.test(node.data) ||
+                    /[\u202a-\u202e\u2066-\u2069]/u.test(node.data)) throw mixedScript(node.data);
                 for (const token of node.data.matchAll(/[ \n\t\r\f]+|\u00a0|[^ \n\t\r\f\u00a0]+/g)) {
                     const piece = {owners,face,text:token[0]};
                     if (/^[ \n\t\r\f]/.test(token[0])) pending.push(piece);
@@ -333,7 +336,7 @@ function latinCompose(body, rectToCSS = 1, restorations) {
                 if (++count > 2048 || --remainingNodes < 0) throw Error('node budget');
                 if (child.nodeType === Node.TEXT_NODE) {
                     if (!child.parentElement.closest('.math-inline') &&
-                        /[\p{L}&&[^\p{Script=Latin}]]/v.test(child.data)) throw Error('mixed script');
+                        latinNonLatinLetter.test(child.data)) throw mixedScript(child.data);
                 } else if (!child.matches(inline) && !child.closest('.math-inline svg') ||
                     child.lang && !/^en(?:-|$)/i.test(child.lang)) throw Error('unsupported object');
             }
@@ -698,9 +701,19 @@ function latinCompose(body, rectToCSS = 1, restorations) {
             } finally { sample.remove(); }
         };
     }
+    function mixedScript(text) {
+        const error = Error('mixed script');
+        if (diagnostics) {
+            const letter = latinNonLatinLetter.exec(text)?.[0];
+            const match = letter ?? /[\u202a-\u202e\u2066-\u2069]/u.exec(text)?.[0];
+            if (match) error.cause = (letter ? 'letter' : 'bidi') + ' U+' + match.codePointAt(0).toString(16);
+        }
+        return error;
+    }
     function recordException(error) {
         if (diagnostics && !summary.firstException) {
-            summary.firstException = String(error) + (error?.stack ? '\n' + error.stack : '');
+            summary.firstException = String(error) + (error?.cause ? ' (' + error.cause + ')' : '')
+                + (error?.stack ? '\n' + error.stack : '');
         }
     }
     function eachTrial(perform) {

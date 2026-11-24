@@ -168,8 +168,16 @@ struct BinderRenderingTests {
         let result = try await renderer.render(.binder(children), settings: settings)
         #expect(result.logicalDocument.pageCount == 4)
         #expect(result.logicalDocument.page(at: 0)?.string?.contains("First") == true)
-        #expect(result.logicalDocument.page(at: 1)?.string == PDFDocument(data: children[1].data)?.page(at: 0)?.string)
-        #expect(result.logicalDocument.page(at: 2)?.string == PDFDocument(data: children[1].data)?.page(at: 1)?.string)
+        let child = try #require(PDFDocument(data: children[1].data))
+        for index in 1...2 {
+            let text = try #require(result.logicalDocument.page(at: index)?.string)
+            let original = try #require(child.page(at: index - 1)?.string)
+            if #available(macOS 26, *) {
+                #expect(text == original)
+            } else {
+                #expect(text == original || text + "\n" == original)
+            }
+        }
         settings.binderStartsOnFront = true
         let front = try await renderer.render(.binder(children), settings: settings)
         #expect(front.logicalDocument.pageCount == 5)

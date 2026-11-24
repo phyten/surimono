@@ -18,13 +18,12 @@ struct PopoverCloseControlTests {
         let host = TestPopoverHost.open()
         defer { host.close() }
         let popoverWindow = try await host.popoverWindow()
-        try await waitUntil { host.state.closeFrame != nil }
-        let frame = try #require(host.state.closeFrame)
-        let content = try #require(popoverWindow.contentView)
-        // SwiftUI's frame runs down from the top; the window's points run up from the bottom.
-        let point = NSPoint(x: frame.midX, y: content.bounds.height - frame.midY)
-
-        Self.click(at: point, in: popoverWindow)
+        try await waitUntil {
+            host.state.closeProbe?.window === popoverWindow && host.state.closeProbe?.bounds.isEmpty == false
+        }
+        let probe = try #require(host.state.closeProbe)
+        let rect = probe.convert(probe.bounds, to: nil)
+        try TestWindowMouse.click(at: CGPoint(x: rect.midX, y: rect.midY), in: popoverWindow)
         try await waitUntil { !host.state.isPresented }
     }
 
@@ -125,7 +124,7 @@ struct PopoverCloseControlTests {
         let point = NSPoint(
             x: popoverWindow.frame.width - margin - 6 - 11, y: popoverWindow.frame.height - margin - 6 - 15)
 
-        Self.click(at: point, in: popoverWindow)
+        try TestWindowMouse.click(at: point, in: popoverWindow)
         try await waitUntil { !screen.isPresented() }
         #expect(screen.model.comparePlace == place)
         #expect(screen.model.mode == .compare)
@@ -154,24 +153,37 @@ struct PopoverCloseControlTests {
         NSApp.sendEvent(escape)
     }
 
-    /// A click as AppKit delivers it, at a point of the window (bottom-left origin).
-    static func click(at point: NSPoint, in window: NSWindow) {
-        for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
-            guard
-                let event = NSEvent.mouseEvent(
-                    with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
-                    windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)
-            else { continue }
-            NSApp.sendEvent(event)
-        }
-    }
-
     private func waitUntil(_ condition: () -> Bool) async throws {
         let deadline = ContinuousClock.now + .seconds(15)
         while !condition() {
             try #require(ContinuousClock.now < deadline)
             try await Task.sleep(for: .milliseconds(20))
         }
+    }
+}
+
+/// A native button can run its own mouse-tracking loop synchronously inside mouseDown.
+@MainActor
+enum TestWindowMouse {
+    static func click(at point: NSPoint, in window: NSWindow) throws {
+        func event(_ type: NSEvent.EventType) throws -> NSEvent {
+            try #require(
+                NSEvent.mouseEvent(
+                    with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                    windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1,
+                    pressure: type == .leftMouseDown ? 1 : 0))
+        }
+        let down = try event(.leftMouseDown)
+        let up = try event(.leftMouseUp)
+        var root = window.contentView
+        while let parent = root?.superview { root = parent }
+        let hit = root.flatMap { $0.hitTest($0.convert(point, from: nil)) }
+        print(
+            "test click: window=\(window.windowNumber) point=\(point) hit=\(String(describing: hit.map { type(of: $0) }))"
+        )
+        window.postEvent(up, atStart: true)
+        window.sendEvent(down)
+        print("test click: mouseDown returned")
     }
 }
 
@@ -297,8 +309,19 @@ extension DocumentViewModel {
 private final class TestPopoverState {
     var isPresented = true
     var text = ""
-    /// The ×'s frame in the popover, from its top-left corner.
-    var closeFrame: CGRect?
+    @ObservationIgnored weak var closeProbe: NSView?
+}
+
+private struct CloseButtonProbe: NSViewRepresentable {
+    let state: TestPopoverState
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView(frame: .zero)
+        state.closeProbe = view
+        return view
+    }
+
+    func updateNSView(_ view: NSView, context: Context) {}
 }
 
 /// A heading row with the ×, and a text field under it, as the view options and the style palette have.
@@ -313,11 +336,7 @@ private struct TestPopoverRoot: View {
                         Text(verbatim: "Popover")
                         Spacer(minLength: 0)
                         PopoverCloseButton()
-                            .onGeometryChange(for: CGRect.self) {
-                                $0.frame(in: .global)
-                            } action: {
-                                state.closeFrame = $0
-                            }
+                            .background { CloseButtonProbe(state: state).allowsHitTesting(false) }
                     }
                     TextField(text: $state.text) { Text(verbatim: "Field") }
                 }

@@ -138,23 +138,27 @@ struct WebRecoveryTests {
 
     @Test("sandbox でも、開いた HTML は許可したフォルダーの別の文書へ移る", .timeLimit(.minutes(1)))
     func sandboxedFileDocumentFollowsRefresh() async throws {
+        var atPrint = "印刷開始前"
         let text = try await WebRobustness.printedText(
             files: [
                 "index.html": "<meta http-equiv='refresh' content='0;url=chapter.html'><p>ENTRANCE</p>",
                 "chapter.html": "<p>CHAPTER</p>",
-            ], sandboxed: true)
-        #expect(text.contains("CHAPTER"))
+            ], sandboxed: true,
+            didStartPrinting: { view in
+                atPrint = "\(view.url?.lastPathComponent ?? "nil") loading=\(view.isLoading)"
+            })
+        #expect(text.contains("CHAPTER") && !text.contains("ENTRANCE"), "印刷開始 \(atPrint)、本文 \(text.debugDescription)")
     }
 
-    @Test("開いた HTML が二つの文書のあいだを行き来しても、時間内にどちらかを刷る", .timeLimit(.minutes(1)))
-    func fileDocumentsThatRefreshEachOther() async throws {
+    @Test("開いた HTML が二つの文書のあいだを行き来しても、時間内にどちらかを刷る", .timeLimit(.minutes(1)), arguments: [false, true])
+    func fileDocumentsThatRefreshEachOther(sandboxed: Bool) async throws {
         var atPrint = "印刷開始前"
         do {
             let text = try await WebRobustness.printedText(
                 files: [
                     "index.html": "<meta http-equiv='refresh' content='0;url=chapter.html'><p>ENTRANCE</p>",
                     "chapter.html": "<meta http-equiv='refresh' content='0;url=index.html'><p>CHAPTER</p>",
-                ],
+                ], sandboxed: sandboxed,
                 didStartPrinting: { view in
                     atPrint = "\(view.url?.lastPathComponent ?? "nil") loading=\(view.isLoading)"
                 })
