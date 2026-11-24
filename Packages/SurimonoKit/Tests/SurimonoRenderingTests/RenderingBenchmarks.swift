@@ -59,6 +59,28 @@ struct RenderingBenchmarks {
                 return result.logicalDocument.pageCount
             }
         }
+        let code = (0..<1000).map { "\tlet value = \($0)\r\n" }.joined()
+        let source = DocumentSource(data: Data(code.utf8), format: .plainText).named("example.swift")
+        let logical = try await DocumentRenderer().prepare(source, settings: settings).viewDocument
+        let plan = ViewPageLayout(
+            pageCount: logical.pageCount,
+            options: .init(layout: .single, scrollAxis: .vertical, transition: .instant, showsCoverAlone: false),
+            hasLogicalMargins: false, showsNumbers: true)
+        let shown = try #require(ViewPageDocument.make(logical, plan: plan, margin: 0))
+        let all = PDFSelection(document: shown)
+        for index in 0..<shown.pageCount {
+            let page = try #require(shown.page(at: index))
+            all.add(try #require(page.selection(for: NSRange(location: 0, length: page.numberOfCharacters))))
+        }
+        let partial = try #require(shown.findString("999", withOptions: []).first)
+        for (id, selection, expected) in [("copy/source-1000", all, code), ("copy/source-range", partial, "999")] {
+            var copied: String?
+            try await recorder.measure(id) {
+                copied = SourcePaperText.selected(selection, in: logical, logicalIndex: { shown.index(for: $0) })
+                return selection === all ? shown.pageCount : 1
+            }
+            try #require(copied == expected)
+        }
         let prepared = try await DocumentRenderer().prepare(booklet, settings: settings)
         for (name, layout) in [
             ("a4Single", PrintLayout.a4Single), ("a4Duplex", .a4Duplex),

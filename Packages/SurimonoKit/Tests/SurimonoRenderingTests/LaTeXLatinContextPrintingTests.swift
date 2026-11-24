@@ -16,6 +16,7 @@ struct LaTeXLatinContextPrintingTests {
             let category, text: String
             let lines: [Line]
             let fallback: String?
+            let runInGeometry: [String: Double?]?
         }
         let paragraphs: [Paragraph]
     }
@@ -67,8 +68,10 @@ struct LaTeXLatinContextPrintingTests {
         let pdf = result.document
         let text = try #require(pdf.string).filter { !$0.isWhitespace && $0 != "-" }
         for (category, prefix) in cases {
-            let row = try #require(rows.first { $0.category == category && $0.text.contains(prefix) }, "\(prefix)")
-            try #require(row.fallback == nil, "\(prefix) — \(row.fallback ?? "")")
+            let row = try #require(
+                rows.first { $0.category == category && $0.text.contains(prefix) },
+                "\(prefix) \(RenderingFixtures.latinSummary(json))")
+            try #require(row.fallback == nil, "\(prefix) — \(row.fallback ?? "") \(row.runInGeometry ?? [:])")
             #expect(row.lines.count >= 2, "\(prefix)")
             for line in row.lines {
                 #expect(abs(line.height - line.pitch) <= 0.1)

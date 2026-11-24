@@ -33,7 +33,7 @@ final class OpenRouter {
         hasOpenWindows: {
             !NSDocumentController.shared.documents.isEmpty || ImageBundleWindows.shared.hasWindows
                 || ClipboardWindows.shared.hasWindows || BinderWindows.shared.hasWindows
-                || StreamingPreviewWindows.shared.hasWindow
+                || StreamingPreviewWindows.shared.hasWindow || AppKitShell.current?.hasOpenSettings == true
         },
         showWelcome: { WelcomeController.shared.show() },
         openMemory: { data, format, title, printing in
@@ -50,15 +50,6 @@ final class OpenRouter {
                 text: text, hints: hints, title: title ?? String(localized: "Selected Text"), source: .selection,
                 window: NSApp.keyWindow, printing: printing)
         },
-        openAsText: { url, completion in
-            do {
-                try SourceFileOpening.open(url)
-                completion(true)
-            } catch {
-                NSApp.presentError(error)
-                completion(false)
-            }
-        },
         refuse: { error in
             // The words the window itself uses for the same refusal.
             NSApp.presentError(
@@ -71,7 +62,6 @@ final class OpenRouter {
     var route: (URL) -> SourceFileOpening.Route = SourceFileOpening.route(for:)
 
     private let openDocument: (URL, @escaping (Bool) -> Void) -> Void
-    private let openAsText: (URL, @escaping (Bool) -> Void) -> Void
     private let refuse: (any Error) -> Void
     private let openBundle: ([URL], [URL]) -> DocumentViewModel?
     private let openBinder: ([URL], [URL]) -> DocumentViewModel?
@@ -129,10 +119,8 @@ final class OpenRouter {
         openIncludes: @escaping (MarkdownIncludes.Plan) -> Void = { _ in },
         openWindows: @escaping () -> [DocumentViewModel] = { [] }, isActive: @escaping () -> Bool = { true },
         openText: @escaping (String, ClipboardFormatHints, String?, Bool) -> Void = { _, _, _, _ in },
-        openAsText: @escaping (URL, @escaping (Bool) -> Void) -> Void = { _, completion in completion(false) },
         refuse: @escaping (any Error) -> Void = { _ in }
     ) {
-        self.openAsText = openAsText
         self.refuse = refuse
         self.isActive = isActive
         self.openText = openText
@@ -154,7 +142,17 @@ final class OpenRouter {
     func open(
         _ urls: [URL], from window: NSWindow? = nil, printing: Bool = false, access: [FolderAccess.Lease] = []
     ) -> Bool {
-        let request = OpenRequest(urls: urls.filter(\.isFileURL))
+        // Take the extension on the URL supplied by the panel/Finder before OpenRequest normalizes paths.
+        // Drops and intents may already carry their own leases.
+        let files = urls.filter(\.isFileURL)
+        var access = access
+        var leased = Set(access.map { $0.url.standardizedFileURL })
+        for url in files where leased.insert(url.standardizedFileURL).inserted {
+            if url.startAccessingSecurityScopedResource() {
+                access.append(FolderAccess.Lease(url: url, release: { url.stopAccessingSecurityScopedResource() }))
+            }
+        }
+        let request = OpenRequest(urls: files)
         guard request != .empty else {
             for lease in access { lease.close() }
             return false
@@ -230,11 +228,9 @@ final class OpenRouter {
         openIncludes(plan)
     }
 
-    func openRecent(_ url: URL) {
-        let started = url.startAccessingSecurityScopedResource()
-        let leases =
-            started ? [FolderAccess.Lease(url: url, release: { url.stopAccessingSecurityScopedResource() })] : []
-        open([url], access: leases)
+    func openRecent(_ itemURL: URL) {
+        let url = RecentFileHistory.shared?.urlForOpening(itemURL) ?? itemURL
+        open([url])
     }
 
     /// A binder the reader closed, from the Recent Binders menu. The reader made these files a binder, so it stays one
@@ -274,8 +270,8 @@ final class OpenRouter {
     /// controller would load all of it to find out.
     private func openSingle(_ url: URL, completion: @escaping (Bool) -> Void) {
         switch route(url) {
-        case .document: openDocument(url, completion)
-        case .asText: openAsText(url, completion)
+        // The document controller resolves extensionless text to public.plain-text before reading.
+        case .document, .asText: openDocument(url, completion)
         case .refuse:
             refuse(SourceFileError.notText)
             completion(false)

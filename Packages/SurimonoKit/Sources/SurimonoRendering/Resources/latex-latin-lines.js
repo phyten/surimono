@@ -1,6 +1,20 @@
 // Build the default trie once when the typography scripts enter this document's isolated world.
 const latinEnglishHyphens = latinHyphenator(globalThis.surimonoEnglishPatterns);
 
+// The native paginator installs an equivalent Unicode predicate for Sequoia's JavaScriptCore.
+let latinNonLatinLetter = /[\p{L}&&[^\p{Script=Latin}]]/v;
+let latinMeasureDescriptionGap = false;
+
+// Older WebKit includes CSS transforms but omits CSS zoom from client rects.
+// A ruler in the text's coordinate system measures their combined effect.
+function latinCSSPixelsPerRect(body) {
+    const ruler = document.createElement('div');
+    ruler.style.cssText = 'position:absolute;width:100px!important;box-sizing:content-box;padding:0;border:0';
+    body.append(ruler);
+    try { return 100 / ruler.getBoundingClientRect().width; }
+    finally { ruler.remove(); }
+}
+
 // All cached values are numbers, strings or plans. Never retain a flow clone, a DOM
 // Range or a computed style across the paginator's reference-filling passes.
 function latinCompose(body, rectToCSS = 1, restorations) {
@@ -10,7 +24,12 @@ function latinCompose(body, rectToCSS = 1, restorations) {
     const start = performance.now(), deadline = start + 4000;
     const summary = {qualifying:0, composed:0, fallbacks:0, paragraphs:[], milliseconds:0};
     const family = body.dataset.latexLineBreaking;
-    if (!['cm','times'].includes(family) || !body.matches('.format-latex')) return summary;
+    if (!['cm','times'].includes(family) || !body.matches('.format-latex')) {
+        if (globalThis.surimonoLatinDiagnostics) {
+            summary.skipped = [{reason:'body class or line-breaking family', family, className:body.className}];
+        }
+        return summary;
+    }
     const bodyStyle = getComputedStyle(body);
     const bodySize = parseFloat(bodyStyle.fontSize);
     const texPointsPerPixel = (parseFloat(bodyStyle.getPropertyValue('--tex-body')) || 10) / bodySize;
@@ -170,8 +189,15 @@ function latinCompose(body, rectToCSS = 1, restorations) {
         return faceFamily(css) === family ? null : 'body font';
     }
     function noteSkip(p,reason,category) {
-        if (diagnostics) summary.skipped.push({reason, category, text:p.textContent.trim().slice(0,160),
+        if (!diagnostics) return;
+        summary.skipped.push({reason, category, text:p.textContent.trim().slice(0,160),
             parent:p.parentElement.tagName.toLowerCase(), parentClass:p.parentElement.className});
+        if (!summary.firstSkippedStyle && ['paragraph layout','paragraph text style','body font'].includes(reason)) {
+            const css = getComputedStyle(p);
+            summary.firstSkippedStyle = {reason,display:css.display,direction:css.direction,writingMode:css.writingMode,
+                textAlign:css.textAlign,whiteSpace:css.whiteSpace,textTransform:css.textTransform,
+                letterSpacing:css.letterSpacing,fontFamily:css.fontFamily};
+        }
     }
     // MathRenderer records boundaries in paint order and em units. The final
     // field encodes TeX's medium (4 +2 -4 mu) or thick (5 +5 mu) skip.
@@ -274,8 +300,8 @@ function latinCompose(body, rectToCSS = 1, restorations) {
             const el = node.parentElement;
             if (node.nodeType === Node.TEXT_NODE) {
                 const face = faceFor(el);
-                if (/[\p{L}&&[^\p{Script=Latin}]]/v.test(node.data) ||
-                    /[\u202a-\u202e\u2066-\u2069]/u.test(node.data)) throw Error('mixed script');
+                if (latinNonLatinLetter.test(node.data) ||
+                    /[\u202a-\u202e\u2066-\u2069]/u.test(node.data)) throw mixedScript(node.data);
                 for (const token of node.data.matchAll(/[ \n\t\r\f]+|\u00a0|[^ \n\t\r\f\u00a0]+/g)) {
                     const piece = {owners,face,text:token[0]};
                     if (/^[ \n\t\r\f]/.test(token[0])) pending.push(piece);
@@ -321,7 +347,7 @@ function latinCompose(body, rectToCSS = 1, restorations) {
                 if (++count > 2048 || --remainingNodes < 0) throw Error('node budget');
                 if (child.nodeType === Node.TEXT_NODE) {
                     if (!child.parentElement.closest('.math-inline') &&
-                        /[\p{L}&&[^\p{Script=Latin}]]/v.test(child.data)) throw Error('mixed script');
+                        latinNonLatinLetter.test(child.data)) throw mixedScript(child.data);
                 } else if (!child.matches(inline) && !child.closest('.math-inline svg') ||
                     child.lang && !/^en(?:-|$)/i.test(child.lang)) throw Error('unsupported object');
             }
@@ -652,15 +678,27 @@ function latinCompose(body, rectToCSS = 1, restorations) {
             else trial.p.setAttribute('style',trial.oldStyle);
         }
     }
-    function geometry(row) {
+    function geometry(row, naturalTrial) {
         if (row.runIn) {
             // The first row shares its native inline formatting context with the
             // heading and the class's horizontal afterskip. Its line box extends
             // from the wrapper's top to the next block line, including its leading.
             const block = row.runIn.block.getBoundingClientRect();
             const bottom = row.line.nextElementSibling?.getBoundingClientRect().top ?? block.bottom;
-            return {height:(bottom-block.top)*rectToCSS, measure:block.width*rectToCSS-row.runIn.left,
-                width:(row.end.getBoundingClientRect().left-block.left)*rectToCSS-row.runIn.left};
+            let width = (row.end.getBoundingClientRect().left-block.left)*rectToCSS-row.runIn.left;
+            if (naturalTrial && row.runIn.headingMargin != null) {
+                // On Sequoia the first glyph of a hanging term can move when the DD gains explicit lines.
+                // Fit the glue to the restored position, then check the final layout against the native one.
+                const head = firstGlyphRect(naturalTrial.heading);
+                if (head) {
+                    const offset = row.runIn.left - (head.left-block.left)*rectToCSS;
+                    if (Math.abs(offset) > .1 && Math.abs(offset) <= 1) {
+                        naturalTrial.headingOffset = offset;
+                        width += offset;
+                    }
+                }
+            }
+            return {height:(bottom-block.top)*rectToCSS, measure:block.width*rectToCSS-row.runIn.left,width};
         }
         const r = row.line.getBoundingClientRect();
         const indent = parseFloat(row.line.style.paddingInlineStart) || 0;
@@ -686,13 +724,28 @@ function latinCompose(body, rectToCSS = 1, restorations) {
             } finally { sample.remove(); }
         };
     }
+    function mixedScript(text) {
+        const error = Error('mixed script');
+        if (diagnostics) {
+            const letter = latinNonLatinLetter.exec(text)?.[0];
+            const match = letter ?? /[\u202a-\u202e\u2066-\u2069]/u.exec(text)?.[0];
+            if (match) error.cause = (letter ? 'letter' : 'bidi') + ' U+' + match.codePointAt(0).toString(16);
+        }
+        return error;
+    }
+    function recordException(error) {
+        if (diagnostics && !summary.firstException) {
+            summary.firstException = String(error) + (error?.cause ? ' (' + error.cause + ')' : '')
+                + (error?.stack ? '\n' + error.stack : '');
+        }
+    }
     function eachTrial(perform) {
         for (const trial of pending) {
             if (trial.reason) continue;
             try {
                 if (performance.now() > deadline) throw Error('composition budget');
                 perform(trial);
-            } catch (error) { trial.reason = error.message || 'DOM measurement'; }
+            } catch (error) { recordException(error); trial.reason = error.message || 'DOM measurement'; }
         }
     }
     try {
@@ -700,7 +753,10 @@ function latinCompose(body, rectToCSS = 1, restorations) {
         for (const p of body.querySelectorAll(paragraphSelector)) {
             const mathIndex = ordinal++, allowMath = !rigidMath?.has(mathIndex);
             const category = contextOf(p);
-            if (!category) continue;
+            if (!category) {
+                if (diagnostics) noteSkip(p,'unclassified paragraph',null);
+                continue;
+            }
             const definition = category === 'description' ? p.closest('dd') : null;
             const term = definition?.previousElementSibling;
             const heading = term && (p === definition || p === definition.firstElementChild) &&
@@ -764,6 +820,13 @@ function latinCompose(body, rectToCSS = 1, restorations) {
                     const left = (headRect.left-rect.left)*rectToCSS;
                     indent = left - (parseFloat(blockStyle.paddingInlineStart) || 0);
                     runIn = {block,rise:(first.top-headRect.top)*rectToCSS, left, skip};
+                    // The first DD fragment starts after the native inline margin. Sequoia
+                    // snaps that fragment edge even when the computed margin is fractional.
+                    if (definition && latinMeasureDescriptionGap) {
+                        runIn.specifiedSkip = skip;
+                        runIn.headingMargin = parseFloat(getComputedStyle(heading).marginInlineStart) || 0;
+                        runIn.skip = (definition.getClientRects()[0].left - heading.getBoundingClientRect().right) * rectToCSS;
+                    }
                 }
                 const planIndent = indent + gutterAdvance;
                 if (!(width > 0 && Number.isFinite(planIndent) && Math.abs(planIndent) < width)) throw Error('invalid measure');
@@ -890,6 +953,7 @@ function latinCompose(body, rectToCSS = 1, restorations) {
                     oldHeadingStyle:heading?.getAttribute('style'),rows,fragment,boxDiagnostics,original:[...p.childNodes],oldStyle:p.getAttribute('style'),
                     trim:first !== null, trimBoth:firstPitch !== undefined && !!css.getPropertyValue('--cm-strut-ascent'), first, firstInset, initialPadding, finalInset});
             } catch (error) {
+                recordException(error);
                 if (unsupported.has(error.message)) { summary.qualifying--; noteSkip(p,error.message,category); }
                 else finish({index,p,category,block,gutter,heading,boxDiagnostics},text,String(error.message));
             }
@@ -922,7 +986,7 @@ function latinCompose(body, rectToCSS = 1, restorations) {
                 trial.padding = padding;
             }
             for (const row of trial.rows) {
-                const {width,measure} = geometry(row);
+                const {width,measure} = geometry(row,trial);
                 const last = row === trial.rows.at(-1);
                 row.delta = last && width <= measure ? 0 : measure-width;
                 row.axis = row.delta < 0 ? 2 : 1;
@@ -935,6 +999,7 @@ function latinCompose(body, rectToCSS = 1, restorations) {
             }
         });
         eachTrial(trial => {
+            if (trial.headingOffset) trial.heading.style.marginInlineStart = (trial.runIn.headingMargin + trial.headingOffset) + 'px';
             if (trial.trim) trial.p.style.setProperty('padding-block-start',trial.padding+'px','important');
             for (const row of trial.rows) {
                 for (const formula of row.formulas) setMathWidth(formula,row.ratio);
@@ -967,9 +1032,19 @@ function latinCompose(body, rectToCSS = 1, restorations) {
                     trial.heading.getBoundingClientRect().right)*rectToCSS-trial.runIn.skip;
                 const riseError = head && first ? (first.top-head.top)*rectToCSS - trial.runIn.rise : Infinity;
                 const leftError = head ? (head.left-block.left)*rectToCSS - trial.runIn.left : Infinity;
-                if (trial.boxDiagnostics) trial.runInGeometry = {gapError,riseError,leftError,afterSkip:trial.runIn.skip,
-                    glyphGap:runInGap(trial.p,trial.heading)};
-                if (Math.max(Math.abs(riseError),Math.abs(leftError),Math.abs(gapError)) > .1 || !first || !head) {
+                // Sequoia can apply a fractional hanging-term correction on a whole CSS pixel.
+                // Accept only the measured nearest step; the baseline and afterskip still have to match.
+                const offset = trial.headingOffset;
+                const snappedLeft = offset && Math.round(offset) !== 0 && Math.abs(leftError) <= .5
+                    && Math.abs(offset + leftError - Math.round(offset)) <= 1/64;
+                const misaligned = !first || !head || Math.abs(riseError) > .1 || Math.abs(gapError) > .1
+                    || (Math.abs(leftError) > .1 && !snappedLeft);
+                if (trial.boxDiagnostics || (diagnostics && misaligned)) {
+                    trial.runInGeometry = {gapError,riseError,leftError,afterSkip:trial.runIn.specifiedSkip ?? trial.runIn.skip,
+                        nativeSkip:trial.runIn.skip,rectToCSS,glyphGap:runInGap(trial.p,trial.heading)};
+                    if (trial.runIn.headingMargin != null) trial.runInGeometry.headingOffset = trial.headingOffset ?? 0;
+                }
+                if (misaligned) {
                     trial.reason = 'run-in baseline'; return;
                 }
             }
@@ -1017,6 +1092,7 @@ function latinCompose(body, rectToCSS = 1, restorations) {
             }
         });
     } catch (error) {
+        recordException(error);
         for (const trial of pending) trial.reason ??= 'DOM measurement';
     } finally {
         for (const trial of pending) {

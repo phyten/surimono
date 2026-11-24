@@ -106,11 +106,11 @@ struct ViewModeView: View {
         .onChange(of: model.latexBadge == nil) { _, hidden in
             if hidden { model.isLaTeXRecognitionPresented = false }
         }
-        .onChange(of: plans.resolved, initial: true) { _, plan in
-            model.bandAnchors.plan = plan
+        .recordingBandPlan(plans.resolved, in: model.bandAnchors)
+        .onChange(of: plans.band(of: .thumbnails) == nil, initial: true) { _, hidden in
             // The list button's place is a drop target only while the list is on a band: a fold or another arrangement
             // leaves its last place behind, where a resting drag would open the list.
-            if plan.band(of: .thumbnails) == nil { model.drop.listButtonFrame = nil }
+            if hidden { model.drop.listButtonFrame = nil }
         }
         .onChange(of: bandVisible) { _, visible in
             if let window = model.window { ViewerWindow.setTrafficLightsVisible(visible, in: window) }
@@ -200,7 +200,10 @@ private struct PaperArea: View {
             if model.showsWeb, let fileURL = model.fileURL {
                 WebPageView(
                     controller: model.web, fileURL: fileURL, allowsJavaScript: model.allowsLiveJavaScript,
-                    onEscape: { menu.hideForEscape(alwaysVisible: model.isBandAlwaysVisible) })
+                    onEscape: { [weak model, menu] in
+                        guard let model, !model.isWindowClosed else { return false }
+                        return menu.hideForEscape(alwaysVisible: model.isBandAlwaysVisible)
+                    })
             } else if let document = model.paperDocument, !model.isCapturingWeb {
                 PaperView(
                     document: document, initialPageIndex: model.currentPageIndex, options: model.viewOptions,
@@ -208,16 +211,26 @@ private struct PaperArea: View {
                     selectsText: model.isSelectingText, logicalMargin: model.viewLogicalMargin,
                     showsPageNumbers: model.preferences.viewPageNumbers, changeMarks: model.paperChangeMarks,
                     formulaIndex: model.paperFormulaIndex, diagrams: model.paperDiagrams,
-                    onDiagram: { model.exportDiagram($0, action: $1) }, furniture: model.paperFurniture,
+                    onDiagram: { [weak model] diagram, action in
+                        guard let model, !model.isWindowClosed else { return }
+                        model.exportDiagram(diagram, action: action)
+                    },
+                    furniture: model.paperFurniture,
                     narrowsLoneCover: model.loneCoverWidth == .onePage,
                     keepsSpotInPage: model.binder != nil || model.imageBundle != nil,
                     controller: model.paper,
-                    onZoomChange: { model.zoom = $0 },
-                    onPageChange: { model.paperDidChangePage($0) },
-                    onTurn: { menu.pageTurned() },
-                    onKey: handleKey,
-                    onShortcut: { model.performPaperShortcut($0, menu: menu) },
-                    allowsShortcutHandling: { !model.blocksSurfaceShortcuts }
+                    onZoomChange: model.windowAction { $0.zoom = $1 },
+                    onPageChange: model.windowAction { $0.paperDidChangePage($1) },
+                    onTurn: { [menu] in menu.pageTurned() },
+                    onKey: { [weak model, menu] event in
+                        guard let model, !model.isWindowClosed else { return false }
+                        return model.handleFixedPaperKey(event, menu: menu)
+                    },
+                    onShortcut: model.windowAction { [menu] in $0.performPaperShortcut($1, menu: menu) },
+                    allowsShortcutHandling: { [weak model] in
+                        guard let model, !model.isWindowClosed else { return false }
+                        return !model.blocksSurfaceShortcuts
+                    }
                 )
                 .paperFind(model)
             } else if model.error == nil {
@@ -270,9 +283,9 @@ private struct PaperArea: View {
         }
         .alert(
             "Output Failed",
-            isPresented: Binding(
-                get: { model.outputError != nil },
-                set: { if !$0 { model.outputError = nil } })
+            isPresented: model.controlBinding(
+                get: { $0.outputError != nil },
+                set: { if !$1 { $0.outputError = nil } })
         ) {
             Button("OK", role: .cancel) { model.outputError = nil }
         } message: {
@@ -280,9 +293,6 @@ private struct PaperArea: View {
         }
     }
 
-    private func handleKey(_ event: NSEvent) -> Bool {
-        model.handleFixedPaperKey(event, menu: menu)
-    }
 }
 
 extension PaperView {
@@ -295,9 +305,15 @@ extension PaperView {
         {
             view.proseSpans = mark.spans
         }
-        view.onPaperPress = { model.dismissProseMark() }
+        view.onPaperPress = { [weak model] in
+            guard let model, !model.isWindowClosed else { return }
+            model.dismissProseMark()
+        }
         view.findQuery = model.find.query
-        view.onFindHits = { pages, query in model.paperFound(pages, for: query) }
+        view.onFindHits = { [weak model] pages, query in
+            guard let model, !model.isWindowClosed else { return }
+            model.paperFound(pages, for: query)
+        }
         return view
     }
 }
@@ -474,9 +490,9 @@ struct ThemePaletteAnchor: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
             .allowsHitTesting(false)
             .popover(
-                isPresented: Binding(
-                    get: { model.isThemePalettePresented },
-                    set: { presented in
+                isPresented: model.controlBinding(
+                    get: { $0.isThemePalettePresented },
+                    set: { model, presented in
                         if presented { model.isThemePalettePresented = true } else { model.themePaletteDidClose() }
                     }),
                 arrowEdge: .trailing

@@ -81,7 +81,7 @@ struct ViewOptionsPopover: View {
                         CornerSwitch(title: "Join Pages", isOn: option(\.joinsPages), preset: model.preferences.corners)
                     }
                 }
-                row("Toolbar") { visibilityPicker($model.bandVisibility) }
+                row("Toolbar") { visibilityPicker(model.controlBinding(\.bandVisibility)) }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
@@ -216,7 +216,8 @@ struct PaperSeriesPicker: View {
     @Bindable var model: DocumentViewModel
 
     var body: some View {
-        Picker("Paper Series", selection: Binding(get: { model.layout.series }, set: { model.choosePaperSeries($0) })) {
+        Picker("Paper Series", selection: model.controlBinding(get: \.layout.series, set: { $0.choosePaperSeries($1) }))
+        {
             ForEach(PaperSeries.allCases, id: \.self) { series in
                 Text(series.title).tag(series)
             }

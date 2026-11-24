@@ -24,7 +24,7 @@ struct BandAdditionalPartsTests {
             .background { BandMeasurements(model: model, items: BandLayout.Item.applicable(for: model), menu: menu) }
             .overlay { BandPresentationHost(model: model, plans: plans) }
             .coordinateSpace(name: BandAnchors.coordinateSpace)
-            .onChange(of: plans.resolved, initial: true) { _, plan in model.bandAnchors.plan = plan }
+            .recordingBandPlan(plans.resolved, in: model.bandAnchors)
         }
     }
 
@@ -40,7 +40,7 @@ struct BandAdditionalPartsTests {
 
         init(
             parts: [BandLayout.Item], compact: Bool = false, measurementsOnly: Bool = false,
-            documentContent: Bool = false, width: CGFloat = 1800
+            documentContent: Bool = false, width: CGFloat = 1800, accessibilityEnabled: Bool = false
         ) throws {
             preferences = AppPreferences(defaults: defaults.defaults)
             preferences.menuArrangement = .split
@@ -85,6 +85,9 @@ struct BandAdditionalPartsTests {
                     rootView: BandMeasurements(model: model, items: BandTestCatalog.addedItems, menu: menu))
             } else if documentContent {
                 window.contentView = NSHostingView(rootView: DocumentContent(model: model, bandMenu: menu))
+            } else if accessibilityEnabled {
+                window.contentView = NSHostingView(
+                    rootView: TestBands(model: model, menu: menu).environment(\.accessibilityEnabled, true))
             } else {
                 window.contentView = NSHostingView(rootView: TestBands(model: model, menu: menu))
             }
@@ -128,7 +131,7 @@ struct BandAdditionalPartsTests {
             Comment(
                 rawValue: "待機: \(reason); visible=\(fixture.window.isVisible), key=\(fixture.window.isKeyWindow), "
                     + "applicable=\(BandLayout.Item.applicable(for: fixture.model)), top=\(plan.top.forms), "
-                    + "drawnPlan=\(String(describing: fixture.model.bandAnchors.plan)), width=\(fixture.menu.bandWidth), AX=\((fixture.window.contentView.map(elements) ?? []).compactMap { $0.accessibilityIdentifier() })"
+                    + "drawnPlan=\(String(describing: fixture.model.bandAnchors.plan)), width=\(fixture.menu.bandWidth), saveRequests=\(fixture.saveDestinationRequests), AX=\((fixture.window.contentView.map(elements) ?? []).compactMap { $0.accessibilityIdentifier() })"
             ),
             sourceLocation: sourceLocation)
     }
@@ -156,27 +159,21 @@ struct BandAdditionalPartsTests {
             let frame = fixture.model.bandAnchors.frames[.item(item)], !frame.isEmpty,
             let content = fixture.window.contentView
         else { return nil }
-        // The named space starts at the content's top-left corner; AppKit's window space starts at the bottom-left.
-        return CGRect(x: frame.minX, y: content.bounds.height - frame.maxY, width: frame.width, height: frame.height)
+        let y = content.isFlipped ? content.bounds.minY + frame.minY : content.bounds.maxY - frame.maxY
+        let rect = CGRect(x: content.bounds.minX + frame.minX, y: y, width: frame.width, height: frame.height)
+        return content.convert(rect, to: nil)
     }
 
     /// A click as AppKit delivers it, at the middle of the chip.
     private func click(_ item: BandLayout.Item, in fixture: Fixture) throws {
         let frame = try #require(chipFrame(item, in: fixture))
-        // An AppKit-backed button tracks the mouse in its own event loop and would wait for a mouse-up that a test
-        // cannot deliver in time, so the real control at the chip's place is clicked through its own action.
-        if let button = fixture.window.contentView?.hitTest(NSPoint(x: frame.midX, y: frame.midY)) as? NSButton {
+        let point = NSPoint(x: frame.midX, y: frame.midY)
+        if let button = fixture.window.contentView?.hitTest(point) as? NSButton {
+            // The native button tracks synchronously. Exercise the action of the control actually hit at the chip.
             button.performClick(nil)
             return
         }
-        for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
-            let event = try #require(
-                NSEvent.mouseEvent(
-                    with: type, location: NSPoint(x: frame.midX, y: frame.midY), modifierFlags: [],
-                    timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: fixture.window.windowNumber,
-                    context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
-            NSApp.sendEvent(event)
-        }
+        try TestWindowMouse.click(at: point, in: fixture.window)
     }
 
     @Test(
@@ -310,14 +307,41 @@ struct BandAdditionalPartsTests {
 
     @Test("ファイル保存チップは注入した保存先選択だけを呼ぶ")
     func saveThroughChip() async throws {
-        let fixture = try Fixture(parts: [.saveAsFile])
+        let fixture = try Fixture(
+            parts: [.saveAsFile], width: min(NSScreen.main?.visibleFrame.width ?? 800, 1000) - 40,
+            accessibilityEnabled: true)
         defer { fixture.close() }
         #expect(fixture.model.canSaveAsFile)
         #expect(BandPlans(model: fixture.model, menu: fixture.menu).band(of: .saveAsFile) == .top)
         try await waitUntil("帯が保存チップの位置を記録する", fixture: fixture) {
             chipFrame(.saveAsFile, in: fixture) != nil
         }
-        try click(.saveAsFile, in: fixture)
+        if #available(macOS 26, *) {
+            try click(.saveAsFile, in: fixture)
+        } else {
+            // On the Sequoia runner the synthetic down reaches the hosting view but does not activate its
+            // SwiftUI button. Press the actual visible control through its public accessibility action.
+            let host = try #require(fixture.window.contentView)
+            let frame = try #require(chipFrame(.saveAsFile, in: fixture))
+            func controls() -> [any NSAccessibilityProtocol] {
+                let buttons = elements(host).filter {
+                    $0.isAccessibilityEnabled()
+                        && fixture.window.convertFromScreen($0.accessibilityFrame()).contains(
+                            CGPoint(x: frame.midX, y: frame.midY))
+                }
+                let marked = buttons.filter { $0.accessibilityIdentifier() == "band.part.saveAsFile" }
+                if !marked.isEmpty { return marked }
+                return buttons.filter {
+                    $0.accessibilityRole() == .button
+                        && [$0.accessibilityTitle(), $0.accessibilityLabel()].contains(
+                            BandLayout.Item.saveAsFile.editorName)
+                }
+            }
+            try await waitUntil("表示中の保存ボタンがアクセシビリティ操作を公開する", fixture: fixture) { !controls().isEmpty }
+            let matches = controls()
+            try #require(matches.count == 1, "\(OrgReadingTestWindow.diagnostic(in: host))")
+            try #require(matches[0].accessibilityPerformPress(), "保存チップが押下を受理する")
+        }
         try await waitUntil("実保存チップから注入した保存先選択を1回呼ぶ", fixture: fixture) {
             fixture.saveDestinationRequests == 1
         }

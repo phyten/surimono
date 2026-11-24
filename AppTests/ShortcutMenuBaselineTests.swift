@@ -33,7 +33,7 @@ struct ShortcutMenuBaselineTests {
 
     // Captured from DocumentCommands before shortcut customization: independent of ShortcutDefaults.
     static let documentKeys: [(String, String, NSEvent.ModifierFlags)] = [
-        ("Open from Clipboard", "n", .command),
+        ("Open…", "o", .command), ("Open from Clipboard", "n", .command),
         ("Print…", "p", .command), ("Print with System Dialog…", "p", [.option, .command]),
         ("PDF of Sheets…", "e", [.shift, .command]),
         ("Find…", "f", .command), ("Find Next", "g", .command),
@@ -115,7 +115,7 @@ struct ShortcutMenuBaselineTests {
         #expect(exports.items[1].keyEquivalentModifierMask == [.shift, .command])
     }
 
-    @Test("既定の全メニューバーは従来のキーを保持し標準の開くと設定を一つずつ残す")
+    @Test("既定の全メニューバーは従来のキーを保持し開くと設定を一つずつ残す")
     func defaultMenuKeys() throws {
         let menu = try #require(NSApp.mainMenu)
         let all = Self.items(menu)
@@ -127,7 +127,7 @@ struct ShortcutMenuBaselineTests {
                 title == "Print…"
                 ? ["Print…", "Print"]
                 : title == "Show as Paper" ? ["Show as Paper", "Show as Web"] : [title]
-            let matches = all.filter { variants.map { localized($0) }.contains($0.title) }
+            let matches = all.filter { !$0.isHidden && variants.map { localized($0) }.contains($0.title) }
             let item = try #require(matches.count == 1 ? matches.first : nil, "\(title)")
             #expect(item.keyEquivalent == key, "\(title)")
             #expect(item.keyEquivalentModifierMask == modifiers, "\(title)")
@@ -152,10 +152,7 @@ struct ShortcutMenuBaselineTests {
         let edit = try #require(menu.item(at: 2)?.submenu)
         let copyIndex = try #require(edit.items.firstIndex { $0.title == localized("Copy as HTML") })
         #expect(edit.items.dropFirst(copyIndex + 1).first?.title == localized("Copy as Rich Text"))
-        let opens = all.filter {
-            $0.action == NSSelectorFromString("openDocument:")
-                || $0.identifier?.rawValue == "surimono.shortcut.app.open"
-        }
+        let opens = file.items.filter { !$0.isHidden && $0.title == localized("Open…") }
         #expect(opens.count == 1)
         #expect(opens.first?.keyEquivalent == "o")
         let appMenu = try #require(menu.items.first?.submenu)
@@ -164,7 +161,7 @@ struct ShortcutMenuBaselineTests {
         #expect(settings.first?.keyEquivalentModifierMask == .command)
         // Platform commands are pinned by selector, independently of the machine's menu language.
         let platform: [String: (String, NSEvent.ModifierFlags)] = [
-            "openDocument:": ("o", .command), "terminate:": ("q", .command),
+            "terminate:": ("q", .command),
             "hide:": ("h", .command), "hideOtherApplications:": ("h", [.option, .command]),
             "performClose:": ("w", .command), "performMiniaturize:": ("m", .command),
             "toggleFullScreen:": ("f", [.control, .command]),
@@ -173,9 +170,6 @@ struct ShortcutMenuBaselineTests {
             "selectAll:": ("a", .command), "pasteAsPlainText:": ("v", [.option, .shift, .command]),
         ]
         for item in all {
-            if let action = item.action, DocumentEditMenu.hiddenActions.contains(action) {
-                #expect(item.isHidden && !item.allowsKeyEquivalentWhenHidden)
-            }
             if let action = item.action, let (key, flags) = platform[NSStringFromSelector(action)] {
                 #expect(item.keyEquivalent.lowercased() == key.lowercased())
                 let impliedShift: NSEvent.ModifierFlags =

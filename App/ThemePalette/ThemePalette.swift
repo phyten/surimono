@@ -26,7 +26,10 @@ struct ThemePalette: View {
 
     private var isPrinting: Bool { model.mode == .print }
     private var isCodeColumnShown: Bool {
-        showsCodeColumn ?? (!isPrinting && (model.sourceLanguage != nil || model.themeSamples.containsCode))
+        showsCodeColumn ?? Self.showsCodeByDefault(for: model)
+    }
+    private static func showsCodeByDefault(for model: DocumentViewModel) -> Bool {
+        model.mode != .print && (model.sourceLanguage != nil || model.themeSamples.containsCode)
     }
     private var hasSideColumn: Bool { isPrinting || isCodeColumnShown }
 
@@ -105,8 +108,8 @@ struct ThemePalette: View {
                 Text("Sample From").font(.system(size: 11.5)).foregroundStyle(PrintPalette.ink2).fixedSize()
                 CornerSegments(
                     title: "Sample From",
-                    selection: Binding(
-                        get: { model.preferences.themeSampleSource }, set: { model.preferences.themeSampleSource = $0 }),
+                    selection: model.controlBinding(
+                        get: \.preferences.themeSampleSource, set: { $0.preferences.themeSampleSource = $1 }),
                     values: [ThemeSampleSource.document, .specimen], preset: model.preferences.corners
                 ) { source in
                     Text(source == .document ? LocalizedStringKey("This Document") : "Sample Document")
@@ -280,7 +283,11 @@ struct ThemePalette: View {
                 Button("Open Styles Folder") { model.library.openFolder("Styles") }
                     .cornerButton(model.preferences.corners)
             } else {
-                Toggle(isOn: Binding(get: { isCodeColumnShown }, set: { showsCodeColumn = $0 })) {
+                Toggle(
+                    isOn: model.controlBinding(
+                        get: { [shown = $showsCodeColumn] in shown.wrappedValue ?? Self.showsCodeByDefault(for: $0) },
+                        set: { [shown = $showsCodeColumn] _, value in shown.wrappedValue = value })
+                ) {
                     Text("Code Appearance")
                 }
                 .toggleStyle(.button)
@@ -289,14 +296,18 @@ struct ThemePalette: View {
         }
     }
 
+    var textSizeField: TextSizeField {
+        TextSizeField(
+            title: "Text Size", scale: model.textScale, corners: model.preferences.corners,
+            onChange: model.windowAction { $0.setTextScale($1) })
+    }
+
     private var textSize: some View {
         HStack(spacing: 8) {
             // The same name as in the view options, for the same setting.
             Text("Text Size").font(.system(size: 11.5)).foregroundStyle(PrintPalette.ink2).fixedSize()
             // Any percent typed or stepped by 1%; the buttons beside it move to the next step, from an in-between size too.
-            TextSizeField(title: "Text Size", scale: model.textScale, corners: model.preferences.corners) {
-                model.setTextScale($0)
-            }
+            textSizeField
             let smaller = Image(systemName: "textformat.size.smaller")
             let larger = Image(systemName: "textformat.size.larger")
             ControlGroup {

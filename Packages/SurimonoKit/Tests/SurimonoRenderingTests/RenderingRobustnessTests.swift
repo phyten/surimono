@@ -138,23 +138,81 @@ struct WebRecoveryTests {
 
     @Test("sandbox でも、開いた HTML は許可したフォルダーの別の文書へ移る", .timeLimit(.minutes(1)))
     func sandboxedFileDocumentFollowsRefresh() async throws {
-        let text = try await WebRobustness.printedText(
+        let (pages, accepted) = try await WebRobustness.printedPages(
             files: [
                 "index.html": "<meta http-equiv='refresh' content='0;url=chapter.html'><p>ENTRANCE</p>",
                 "chapter.html": "<p>CHAPTER</p>",
             ], sandboxed: true)
-        #expect(text.contains("CHAPTER"))
+        let target = try #require(accepted)
+        let text = pages.string ?? ""
+        #expect(target.url.lastPathComponent == "chapter.html", "印刷対象 \(target.url)、世代 \(target.generation)")
+        #expect(
+            text.contains("CHAPTER") && !text.contains("ENTRANCE"),
+            "印刷対象 \(target.url)、世代 \(target.generation)、本文 \(text.debugDescription)")
     }
 
-    @Test("開いた HTML が二つの文書のあいだを行き来しても、時間内にどちらかを刷る", .timeLimit(.minutes(1)))
-    func fileDocumentsThatRefreshEachOther() async throws {
-        let text = try await WebRobustness.printedText(
+    @Test("開いた HTML が二つの文書のあいだを行き来しても、時間内にどちらかを刷る", .timeLimit(.minutes(1)), arguments: [false, true])
+    func fileDocumentsThatRefreshEachOther(sandboxed: Bool) async throws {
+        let (pages, accepted) = try await WebRobustness.printedPages(
             files: [
                 "index.html": "<meta http-equiv='refresh' content='0;url=chapter.html'><p>ENTRANCE</p>",
                 "chapter.html": "<meta http-equiv='refresh' content='0;url=index.html'><p>CHAPTER</p>",
-            ])
-        print("robustness-rendering refresh-each-other: \(text.prefix(40))")
-        #expect(text.contains("CHAPTER") || text.contains("ENTRANCE"))
+            ], sandboxed: sandboxed)
+        let target = try #require(accepted)
+        let text = (pages.string ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let detail = "印刷対象 \(target.url)、世代 \(target.generation)、本文 \(text.debugDescription)"
+        let expected = try #require(
+            ["chapter.html": "CHAPTER", "index.html": "ENTRANCE"][target.url.lastPathComponent], "\(detail)")
+        #expect(text == expected, "\(detail)")
+    }
+
+    @Test("文字のない SVG だけの HTML が相互に遷移しても選んだ文書の図形を刷る", .timeLimit(.minutes(1)), arguments: [false, true])
+    func graphicRefreshCycle(sandboxed: Bool) async throws {
+        func page(next: String, width: Int) -> String {
+            "<meta http-equiv='refresh' content='0;url=\(next)'><svg width='\(width)' height='80'><rect width='100%' height='100%'/></svg>"
+        }
+        let (pages, accepted) = try await WebRobustness.printedPages(
+            files: [
+                "index.html": page(next: "chapter.html", width: 24),
+                "chapter.html": page(next: "index.html", width: 320),
+            ], sandboxed: sandboxed)
+        let target = try #require(accepted)
+        let targetInfo = "印刷対象 \(target.url)、世代 \(target.generation)"
+        let first = try #require(pages.page(at: 0), "\(targetInfo)、1ページ目なし")
+        let ink = try #require(try RenderingFixtures.inkBounds(first), "\(targetInfo)、図の幅 0（白紙）")
+        let detail = "\(targetInfo)、図の幅 \(ink.width) pt、高さ \(ink.height) pt"
+        let cssWidth = try #require(
+            ["chapter.html": 320.0, "index.html": 24.0][target.url.lastPathComponent], "\(detail)")
+        // A single speck cannot distinguish the shapes. For measurable ink, either dimension may round by
+        // one bitmap pixel; uniform scaling preserves the ratio.
+        let aspect = cssWidth / 80
+        #expect(
+            min(ink.width, ink.height) > 2 && abs(ink.width - ink.height * aspect) <= 1 + aspect,
+            "\(detail)、期待する縦横比 \(aspect)")
+    }
+
+    @Test("印刷対象を決めた後に同じ URL の別文書が確定したら、その PDF を採用しない")
+    func replacedPrintGeneration() throws {
+        final class Page: WKWebView {
+            override var url: URL? { URL(fileURLWithPath: "/fixture/index.html") }
+        }
+        let view = Page(frame: .zero, configuration: WKWebViewConfiguration())
+        let tracker = NavigationTracker()
+        tracker.followsLocalDocuments = true
+        tracker.webView(view, didStartProvisionalNavigation: nil)
+        tracker.webView(view, didCommit: nil)
+        tracker.webView(view, didFinish: nil)
+        try tracker.selectForPrinting(at: view.url)
+        let first = try tracker.checkPrintNavigation(at: view.url)
+        #expect(first.url == view.url && first.generation == 1)
+        tracker.webView(view, didStartProvisionalNavigation: nil)
+        tracker.webView(view, didCommit: nil)
+        tracker.webView(view, didFinish: nil)
+        #expect(tracker.hasCommitted && tracker.state == .finished)
+        #expect(tracker.localGeneration == first.generation + 1)
+        #expect(throws: WebPaginator.PaginationError.loadFailed(URLError(.resourceUnavailable).localizedDescription)) {
+            try tracker.checkPrintNavigation(at: view.url)
+        }
     }
 
     @Test("メモリから組む文書は、別の文書へ移ろうとしても最初の文書を刷る", .timeLimit(.minutes(1)))
@@ -313,6 +371,13 @@ enum WebRobustness {
     static func printedText(
         files: [String: String], opened: String = "index.html", format: DocumentFormat = .html, sandboxed: Bool = false
     ) async throws -> String {
+        let (pages, _) = try await printedPages(files: files, opened: opened, format: format, sandboxed: sandboxed)
+        return pages.string ?? ""
+    }
+
+    static func printedPages(
+        files: [String: String], opened: String = "index.html", format: DocumentFormat = .html, sandboxed: Bool = false
+    ) async throws -> (PDFDocument, NavigationTracker.PrintDestination?) {
         _ = NSApplication.shared
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(
             "surimono-navigation-\(UUID().uuidString)", isDirectory: true)
@@ -325,9 +390,16 @@ enum WebRobustness {
         let url = folder.appendingPathComponent(opened)
         var source = DocumentSource(data: try Data(contentsOf: url), fileURL: url, format: format)
         source.allowedResourceFolders = [folder]
-        let pages = try await DocumentRenderer(isSandboxed: { sandboxed })
-            .prepare(source, settings: settings(javaScript: false)).logicalDocument
-        return pages.string ?? ""
+        var accepted: NavigationTracker.PrintDestination?
+        let renderer = DocumentRenderer(
+            isSandboxed: { sandboxed },
+            paginateWithResult: { request in
+                let result = try await WebPaginator().paginate(request)
+                accepted = result.printDestination
+                return result
+            })
+        let pages = try await renderer.prepare(source, settings: settings(javaScript: false)).logicalDocument
+        return (pages, accepted)
     }
 
     static func settings(javaScript: Bool) -> RenderSettings {

@@ -27,7 +27,7 @@ final class BinderExit {
         }
     }
     var router: OpenRouter = .shared
-    var openMemory: (Data, DocumentFormat, String) -> DocumentViewModel = {
+    var openMemory: (Data, DocumentFormat, String) -> DocumentViewModel? = {
         ClipboardWindows.shared.open($0, format: $1, title: $2).model
     }
     var bringForward: (NSWindow) -> Void = {
@@ -97,7 +97,7 @@ final class BinderExit {
             contents: .document(item.url), frame: window.frame, pageIndex: page,
             wasPrinting: model.mode == .print, leavingBinder: true)
         if let memory = item.memory {
-            let target = openMemory(memory.data, item.format, memory.title)
+            guard let target = openMemory(memory.data, item.format, memory.title) else { return }
             target.restoreAfterLeavingBinder(origin)
             window.windowController?.close()
         } else {

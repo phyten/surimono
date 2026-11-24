@@ -40,7 +40,7 @@ struct StreamingPreviewTests {
         let controller = windows.open(from: board)
         controller.window?.orderOut(nil)
         defer { controller.window?.close() }
-        let model = controller.model
+        let model = try #require(controller.model)
         model.start()
         #expect(model.memoryContent == Data("# 一".utf8))
         #expect(model.fileURL == nil)
@@ -74,7 +74,7 @@ struct StreamingPreviewTests {
         let controller = windows.open(from: board)
         controller.window?.orderOut(nil)
         defer { controller.window?.close() }
-        let model = controller.model
+        let model = try #require(controller.model)
         model.start()
         #expect(model.isRendering)
         board.clearContents()
@@ -98,7 +98,7 @@ struct StreamingPreviewTests {
         let controller = windows.open(from: board)
         controller.window?.orderOut(nil)
         defer { controller.window?.close() }
-        let model = controller.model
+        let model = try #require(controller.model)
         #expect(model.toast != nil)
         #expect(!model.canSaveAsFile)
         try await settle(model)
@@ -126,7 +126,7 @@ struct StreamingPreviewTests {
         let controller = windows.open(from: board)
         controller.window?.orderOut(nil)
         defer { controller.window?.close() }
-        let model = controller.model
+        let model = try #require(controller.model)
         try await settle(model)
         board.clearContents()
         windows.poll()
@@ -152,12 +152,15 @@ struct StreamingPreviewTests {
         #expect(windows.isWatching)
         #expect(windows.hasWindow)
         #expect(windows.open(from: board) === controller)
+        let model = try #require(controller.model)
+        let beforeClose = try #require(model.memoryContent)
         controller.window?.close()
+        #expect(controller.model == nil)
         #expect(!windows.isWatching)
         #expect(!windows.hasWindow)
         board.setString("閉じたあと", forType: .string)
         windows.poll()
-        #expect(controller.model.memoryContent?.isEmpty == true)
+        #expect(model.memoryContent == beforeClose)
     }
 
     @Test("ファイルから開いた文書の中身は差し替えない")
@@ -198,9 +201,10 @@ struct StreamingPreviewTests {
         defer { controller.close() }
         // Writing after clearing does not change the count again.
         board.setString("# 後から書いた本文", forType: .string)
-        try await settle(controller.model)
+        let model = try #require(controller.model)
+        try await settle(model)
         windows.poll()
-        try await settle(controller.model)
-        #expect(controller.model.memoryContent == Data("# 後から書いた本文".utf8))
+        try await settle(model)
+        #expect(model.memoryContent == Data("# 後から書いた本文".utf8))
     }
 }

@@ -101,7 +101,7 @@ public enum ViewPageDocument {
                 annotation.destination = target
             }
         }
-        return result
+        return sourcePages.isEmpty ? result : StandalonePage.selectableDocument(result)
     }
 
     private static func annotationCopy(_ original: PDFAnnotation, scale: CGFloat) -> PDFAnnotation? {

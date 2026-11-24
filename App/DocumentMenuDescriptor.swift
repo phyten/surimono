@@ -30,13 +30,8 @@ enum DocumentMenuAction: Hashable {
         case .typeface(let value):
             if let current = model(), current.offersTypeface { current.setTypeface(value) }
         case .setting(let id):
-            guard let current = model() else { return }
-            let language = Bundle.main.preferredLocalizations.first ?? "en"
-            if let set = (PrintSettingSet.builtIns(language: language) + preferences.printSettingSets)
-                .first(where: { $0.id == id })
-            {
-                current.applyPrintSettingSet(set)
-            }
+            guard let current = model(), let set = preferences.printSettingSet(id: id) else { return }
+            current.applyPrintSettingSet(set)
         case .replaceSetting(let id):
             guard let current = model(), let set = preferences.printSettingSets.first(where: { $0.id == id }),
                 current.matchesPrintSettingSet(set)
@@ -51,6 +46,7 @@ struct DocumentMenuDescriptor: Identifiable {
         case action(DocumentMenuAction)
         case menu(String)
         case divider(String)
+        case recentDocuments
         case typefacePicker
     }
 
@@ -87,21 +83,14 @@ struct DocumentMenuDescriptor: Identifiable {
         return nil
     }
 
-    struct Modifiers {
-        let shortcut: KeyboardShortcut?
-        let disabled: Bool
-    }
-
-    func modifiers(inMenuBar: Bool) -> Modifiers {
-        Modifiers(shortcut: inMenuBar ? shortcut : nil, disabled: !isEnabled)
-    }
-
     private func resolved(in snapshot: MenuSnapshot) -> Self {
         var row = self
         row.children = children.map { $0.resolved(in: snapshot) }
         switch id {
         case .action(.operation(let operation)):
-            row.shortcut = snapshot.shortcut(for: operation)
+            // Open keeps its platform equivalent (and System Settings overrides); in-app bindings are aliases.
+            row.shortcut =
+                operation == .appOpen ? KeyboardShortcut("o", modifiers: .command) : snapshot.shortcut(for: operation)
             row.isEnabled = snapshot.content.enabled.contains(operation)
         case .action(.checkWriting): row.isEnabled = snapshot.content.offersProse
         case .action(.setting), .action(.replaceSetting): row.isEnabled = snapshot.content.region != nil
@@ -137,6 +126,8 @@ struct DocumentMenuDescriptor: Identifiable {
         switch section {
         case .open:
             var rows: [Self] = [
+                command("Open…", .appOpen),
+                Self(id: .recentDocuments, title: "Open Recent"),
                 command("Open from Clipboard", .clipboardOpen),
                 command("Open Clipboard on the Print Screen", .clipboardOpenPrintScreen),
                 command("Open from URL…", .appOpenURL),

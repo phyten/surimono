@@ -362,7 +362,7 @@ struct TrayZoomerTests {
         let text = (1...400).map { "行 \($0) の本文です。" }.joined(separator: "\n")
         let controller = windows.open(Data(text.utf8), format: .plainText, title: "Long Text", printing: true)
         defer { controller.window?.close() }
-        let model = controller.model
+        let model = try #require(controller.model)
         func settle() async throws {
             for _ in 0..<1500 where model.mode != .print || model.isRendering || model.trayZoomer?.context == nil {
                 try await Task.sleep(for: .milliseconds(20))

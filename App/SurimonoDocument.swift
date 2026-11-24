@@ -1,9 +1,8 @@
 import Foundation
 import SurimonoCore
-import SwiftUI
 import UniformTypeIdentifiers
 
-struct SurimonoDocument: FileDocument {
+nonisolated struct SurimonoDocument: Sendable {
     nonisolated static var readableContentTypes: [UTType] {
         [
             .surimonoMarkdown, .surimonoOrg, .surimonoAsciiDoc, .surimonoQuarto, .surimonoRMarkdown, .surimonoDjot,
@@ -27,8 +26,6 @@ struct SurimonoDocument: FileDocument {
         UTType("com.microsoft.word.dot").map { [$0] } ?? []
     }
 
-    nonisolated static var writableContentTypes: [UTType] { [] }
-
     let data: Data
     let contentType: UTType
     /// The gate looked at the bytes and found text. The document is then plain text, whatever its name says.
@@ -47,22 +44,14 @@ struct SurimonoDocument: FileDocument {
         return fileURL.flatMap { DocumentFormat(fileExtension: $0.pathExtension) } ?? format ?? .plainText
     }
 
-    nonisolated init(configuration: ReadConfiguration) throws {
-        try self.init(file: configuration.file, contentType: configuration.contentType)
-    }
-
     nonisolated init(file: FileWrapper, contentType: UTType) throws {
         // regularFileContents raises an Objective-C exception for directory wrappers, so check the kind first.
         guard file.isRegularFile, let data = file.regularFileContents else {
             throw CocoaError(.fileReadCorruptFile)
         }
-        // The router turns a video under `.ts` away before its contents are loaded. This entry obtains the whole
-        // content before deciding, so for the Recent menu and a restored window, which do not pass the router,
-        // this check on the bytes that would be shown is all there is. It is also what holds when a file changes
-        // between the router's look and this read.
-        //
-        // Plain text is the type the router asks for when it opens a file with no type of its own (`Dockerfile`)
-        // as text. It says nothing about the file, and taking it for the file's own would end the look here.
+        // Recheck the bytes that will be displayed: a file can change after its URL was inspected.
+        // The controller uses plain text for files such as Dockerfile that have no specific content type.
+        // That routing decision must not bypass validation of the actual bytes.
         let name = file.preferredFilename ?? file.filename ?? ""
         let decision = TextFileGate.verdict(
             fileName: name, type: contentType == .plainText ? nil : contentType, data: data)
@@ -92,10 +81,5 @@ struct SurimonoDocument: FileDocument {
             case .plantuml: .surimonoPlantUML
             default: contentType
             }
-    }
-
-    nonisolated func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        // A viewer must reject writes even if a caller bypasses DocumentGroup(viewing:).
-        throw CocoaError(.fileWriteNoPermission)
     }
 }

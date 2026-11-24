@@ -10,6 +10,35 @@ struct SettingsMenuTests {
         Bundle.main.localizedString(forKey: key, value: key, table: nil)
     }
 
+    @Test("設定窓は最初に理想幅で開き、ペインを変えると窓の題名がその翻訳に変わる")
+    func paneWindow() async throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let preferences = AppPreferences(defaults: suite.defaults)
+        preferences.settingsSection = .printing
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let view = SettingsView(
+            preferences: preferences, library: UserLibrary(root: directory),
+            arrangementEditor: BandArrangementEditorSession(preferences: preferences))
+        let window = SettingsWindowController.makeWindow(for: view)
+        defer { window.close() }
+        window.orderBack(nil)
+        for (section, title) in [(SettingsSection.printing, "Printing"), (.general, "General")] {
+            preferences.settingsSection = section
+            let expected = localized(title)
+            let deadline = ContinuousClock.now + .seconds(5)
+            while window.title != expected && ContinuousClock.now < deadline {
+                window.contentView?.layoutSubtreeIfNeeded()
+                try await Task.sleep(for: .milliseconds(10))
+            }
+            #expect(window.title == expected)
+            #expect(window.frame.width == 860)
+            #expect(window.contentRect(forFrameRect: window.frame).height >= 540)
+            #expect(window.contentMinSize == NSSize(width: 820, height: 540))
+        }
+    }
+
     @Test("新しい表示・ウィンドウ・印刷の既定値は保存され再読み込みできる")
     func viewerDefaultsPersistence() {
         let suite = TestDefaultsSuite()
@@ -98,12 +127,8 @@ struct SettingsMenuTests {
         let menu = try #require(NSApp.mainMenu)
         let titles = menu.items.map(\.title)
         try #require(titles.count == 7)
-        // System menus use AppKit's translations rather than the application's string catalog.
-        for (index, names) in [
-            (1, ["File", "ファイル"]), (2, ["Edit", "編集"]), (3, ["View", "表示"]),
-            (5, ["Window", "ウインドウ"]), (6, ["Help", "ヘルプ"]),
-        ] {
-            #expect(names.contains(titles[index]))
+        for (index, key) in [(1, "File"), (2, "Edit"), (3, "View"), (5, "Window"), (6, "Help")] {
+            #expect(titles[index] == ViewerMainMenu.standardTitle(key))
         }
         #expect(titles[4] == localized("Document"))
         #expect(!titles.contains(localized("Settings")))
@@ -179,8 +204,6 @@ struct SettingsMenuTests {
         #expect(entries.count == 1)
     }
 
-    // The menu bar is declared from a snapshot that SwiftUI does not rebuild while another test's window is key,
-    // so availability is checked where the menu, the keys and the actions all read it.
     @Test("文書がないときは表示と文書の操作を選べず、設定セットは管理だけ選べる")
     func availabilityWithoutDocument() throws {
         let menu = try #require(NSApp.mainMenu?.items[4].submenu)
@@ -235,7 +258,7 @@ struct SettingsMenuTests {
         }
         #expect(owners.count == 1)
         #expect(owners.first?.menu === menu.items.first?.submenu)
-        #expect(["Settings…", "設定…"].contains(owners.first?.title ?? ""))
+        #expect(owners.first?.title == ViewerMainMenu.standardTitle("Settings…"))
         #expect(owners.first?.isEnabled == true)
     }
 }

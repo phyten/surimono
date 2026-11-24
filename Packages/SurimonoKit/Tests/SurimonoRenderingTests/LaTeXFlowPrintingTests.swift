@@ -3,6 +3,7 @@ import PDFKit
 import SurimonoCore
 import SurimonoFormats
 import Testing
+import WebKit
 
 @testable import SurimonoRendering
 
@@ -147,14 +148,14 @@ struct LaTeXFlowPrintingTests {
         let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-plain-ja" })
         var settings = RenderSettings(layout: .a4Single, theme: theme, preset: .init(id: "none", name: ""))
         settings.options.latexMargins = .style
-        let pdf = try await DocumentRenderer().prepare(
-            DocumentSource(data: Data(tex.utf8), format: .latex), settings: settings
-        ).logicalDocument
+        let (pdf, route) = try await renderContents(
+            DocumentSource(data: Data(tex.utf8), format: .latex), settings: settings)
         let page = try #require(pdf.page(at: 0))
         let title = try #require(pdf.findString(heading).first { $0.pages.first == page }).bounds(for: page)
         try checkLeader(
             page, title: title, startX: title.maxX + 1, count: report ? 45 : nil,
-            diameter: report ? 7...10 : 8...11, pitch: report ? 7.75 : 8.49, lastDistance: report ? 18.78 : 22.14)
+            diameter: report ? 7...10 : 8...11, pitch: report ? 7.75 : 8.49, lastDistance: report ? 18.78 : 22.14,
+            route: route)
     }
 
     @Test("伝統的和文書籍と KOMA の目次は本文幅を基準に黒い丸を並べ番号箱の手前で止める", .timeLimit(.minutes(1)), arguments: [false, true])
@@ -165,16 +166,18 @@ struct LaTeXFlowPrintingTests {
         let theme = try #require(PrintThemeLibrary.load().first { $0.id == (koma ? "latex-report" : "latex-plain-ja") })
         var settings = RenderSettings(layout: .a4Single, theme: theme, preset: .init(id: "none", name: ""))
         settings.options.latexMargins = .style
-        let pdf = try await DocumentRenderer().prepare(
-            DocumentSource(data: try Data(contentsOf: file), format: .latex), settings: settings
-        ).logicalDocument
+        let (pdf, route) = try await renderContents(
+            DocumentSource(data: try Data(contentsOf: file), format: .latex), settings: settings)
         let page = try #require(pdf.page(at: 2))
         if !koma {
             // Reference 112 repeats the searchable label on the contents page and chapter opener.
             let pages = pdf.findString("第 1 章", withOptions: []).compactMap { $0.pages.first }.map {
                 pdf.index(for: $0)
             }
-            #expect(pages.contains(2) && pages.contains(4))
+            #expect(
+                pages.contains(2) && pages.contains(4),
+                "\(route)、検索ページ(0始まり)=\(pages)、第5ページ先頭=\(String((pdf.page(at: 4)?.string ?? "").prefix(180)).debugDescription)"
+            )
         }
         let chapter = try #require(pdf.findString(koma ? "The sliding strip" : "基壇").first { $0.pages.first == page })
         let bounds = chapter.bounds(for: page)
@@ -195,16 +198,37 @@ struct LaTeXFlowPrintingTests {
             try checkLeader(
                 page, title: title, startX: koma ? 247 : 223, count: 25,
                 diameter: koma ? 8...11 : 7...10, pitch: koma ? 8.49 : 7.75, lastDistance: koma ? 19.44 : 17.22,
-                row: index == 0 ? divider...paper.maxY : paper.minY...divider)
+                route: route, row: index == 0 ? divider...paper.maxY : paper.minY...divider)
         }
         // Both rows have the same rise in the references. Allow one 600-dpi pixel for each sampled edge.
         #expect(abs(rises[0] - rises[1]) <= 0.24, "行ごとの基準線からの高さ(pt)=\(rises)")
     }
 
+    private func renderContents(_ source: DocumentSource, settings: RenderSettings) async throws -> (
+        PDFDocument, String
+    ) {
+        let paginator = WebPaginator()
+        var plans: [String] = []
+        // Record the actual rows handed to Quartz, including the DOM point used to find each folio.
+        paginator.flowEvaluator = { view, script, arguments, reply in
+            view.callAsyncJavaScript(script, arguments: arguments, in: nil, in: WebPaginator.preparationWorld) {
+                result in
+                if arguments["offsets"] != nil, case .success(let rows as String) = result { plans.append(rows) }
+                reply(result)
+            }
+        }
+        let renderer = DocumentRenderer(paginateWithResult: { request in try await paginator.paginate(request) })
+        let result = try await renderer.prepare(source, settings: settings)
+        let pdf = result.logicalDocument
+        let route = "PDF=\(pdf.pageCount)ページ、問題=\(result.issues.map(\.id))、点と番号の描画計画=\(plans.joined())"
+        #expect(!result.issues.contains { $0.id == "latex-flow-fallback" }, "\(route)")
+        return (pdf, route)
+    }
+
     @discardableResult
     private func checkLeader(
         _ page: PDFPage, title: CGRect, startX: CGFloat, count: Int?, diameter: ClosedRange<Int>,
-        pitch: Double, lastDistance: Double, row: ClosedRange<CGFloat>? = nil
+        pitch: Double, lastDistance: Double, route: String, row: ClosedRange<CGFloat>? = nil
     ) throws -> Double {
         // Sample one complete row at 600 dpi, including the ink of its final digit.
         let scale = 600.0 / 72
@@ -231,7 +255,7 @@ struct LaTeXFlowPrintingTests {
         let digit = try #require(numberInk)
         let dot = try #require(runs.last)
         if let count {
-            #expect(runs.count == count, "title=\(title) cropX=\(startX) last=\(dot) digit=\(digit)")
+            #expect(runs.count == count, "title=\(title) cropX=\(startX) last=\(dot) digit=\(digit) \(route)")
         } else {
             // TeX admits the first full leader box after the title. Its count can change when
             // the title's advance crosses a pitch boundary. The other end is pinned to the folio below.
@@ -242,12 +266,14 @@ struct LaTeXFlowPrintingTests {
                 gap >= -1 / scale && gap < pitch + 1 / scale,
                 "titleEnd=\(title.maxX) firstBoxGap=\(gap) dots=\(runs.count)")
         }
-        #expect(runs.allSatisfy { diameter.contains($0.count) })
+        #expect(
+            runs.allSatisfy { diameter.contains($0.count) },
+            "点の幅(px)=\(runs.map(\.count))、先頭=\(String(describing: runs.first))、切り出し x=\(startX) pt")
         for (a, b) in zip(runs, runs.dropFirst()) {
             #expect(abs(Double(b.lowerBound - a.lowerBound) / scale - pitch) < 0.3)
         }
         let distance = Double(digit.lowerBound + digit.upperBound - dot.lowerBound - dot.upperBound) / (2 * scale)
-        #expect(abs(distance - lastDistance) < 0.6)
+        #expect(abs(distance - lastDistance) < 0.6, "最後の点から番号まで=\(distance) pt、期待=\(lastDistance) pt")
         func inkRows(_ span: Range<Int>) -> [Int] {
             (0..<height).filter { y in span.contains { x in pixels[y * width + x] < 64 } }
         }
@@ -260,7 +286,8 @@ struct LaTeXFlowPrintingTests {
         // background that draws the dots lands on the device grid, which moves it by up to a third of a point.
         #expect(
             (0.1...1.2).contains(rise),
-            "title=\(title) dot=\(dot) y=\(top)...\(bottom) digit=\(digit) baseline=\(baseline) rise=\(rise)pt")
+            "title=\(title) dot=\(dot) y=\(top)...\(bottom) digit=\(digit) baseline=\(baseline) rise=\(rise)pt \(route)"
+        )
         return rise
     }
 
@@ -524,7 +551,10 @@ struct LaTeXFlowPrintingTests {
             """#)
         let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
         let html = HTMLDocumentBuilder.build(fragment: fragment, format: .latex, theme: theme)
-        let result = try await WebPaginator().paginateWithResult(
+        let paginator = WebPaginator()
+        var backingScale: CGFloat?
+        paginator.inspectPrintLayout = { view in backingScale = view.window?.backingScaleFactor }
+        let result = try await paginator.paginateWithResult(
             .html(html, baseURL: nil), pageSize: PaperSize.a4.size, margins: .uniform(millimeters: 20),
             allowsJavaScript: false, latexFlow: true)
         #expect(result.issues.isEmpty)
@@ -536,6 +566,10 @@ struct LaTeXFlowPrintingTests {
             return match.bounds(for: page)
         }
         let upperGap = try bounds("UPPER").minY - bounds("ALPHA").maxY
+        let scale = try #require(backingScale)
+        // WebKit snaps each painted baseline to half a device pixel on either side.
+        // Retain the original 1x limits; on Retina the two endpoints can move by one pixel in total.
+        let rounding = scale > 1 ? 1 / (scale * WebPaginator.printPixelsPerPoint) : 0
         let ieee = declaration.contains("IEEEtran")
         // The IEEE caption number is its own line, immediately below the table.
         let lowerCaption = try bounds(ieee ? "TABLE II" : "LOWER")
@@ -545,7 +579,7 @@ struct LaTeXFlowPrintingTests {
             let rowPitch = try bounds("ROWONE").midY - lastRow.midY
             #expect(abs(rowPitch - (ieee ? 8.97 : 10.96)) < 1)
             #expect(abs(lastRow.midY - lowerCaption.midY - (ieee ? 8.01 : 10.51)) < 2)
-            #expect(upperGap > (ieee ? 3 : 7))
+            #expect(upperGap > (ieee ? 3 : 7 - rounding), "上の間隔=\(upperGap) pt、倍率=\(scale)、丸め幅=\(rounding) pt")
             if ieee {
                 let labelPitch = try lowerCaption.midY - bounds("LOWER").midY
                 #expect((7.5...11.5).contains(labelPitch))
@@ -553,7 +587,7 @@ struct LaTeXFlowPrintingTests {
         } else {
             let lowerGap = lastRow.minY - lowerCaption.maxY
             for gap in [upperGap, lowerGap] {
-                #expect((9...20).contains(gap))
+                #expect(((9 - rounding)...20).contains(gap), "間隔=\(gap) pt、倍率=\(scale)、丸め幅=\(rounding) pt")
             }
         }
     }

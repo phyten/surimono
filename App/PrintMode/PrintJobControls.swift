@@ -30,7 +30,7 @@ struct PrintJobControls: View {
                 .monospacedDigit()
                 .frame(minWidth: 16, alignment: .trailing)
                 .accessibilityHidden(true)
-            Stepper("Copies", value: $model.copies, in: PrintJobFactory.copiesRange)
+            Stepper("Copies", value: model.controlBinding(\.copies), in: PrintJobFactory.copiesRange)
                 .labelsHidden()
                 .controlSize(.small)
                 .accessibilityValue(Text(verbatim: "\(model.copies)"))
@@ -43,7 +43,7 @@ struct PrintJobControls: View {
             Text("Page Range").font(.system(size: 11)).foregroundStyle(PrintPalette.ink2)
                 .accessibilityHidden(true)
             TextField(
-                "Page Range", text: Binding(get: { model.pageRangeText }, set: { model.setPageRangeText($0) }),
+                "Page Range", text: model.controlBinding(get: \.pageRangeText, set: { $0.setPageRangeText($1) }),
                 prompt: Text("All")
             )
             .modifier(PageRangeFieldStyle(isMarked: model.pageRangeProblem != nil))

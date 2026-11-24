@@ -577,8 +577,16 @@ if (contentsZoom > 1) {
             }
         }
     }
-    const heights = lists.map(({list, baseline}) => {
-        const rect = list.getBoundingClientRect();
+    const heights = lists.map(({list, baseline, width}) => {
+        let rect = list.getBoundingClientRect();
+        // On older WebKit the inverse transform shrinks client rects even though zoom
+        // restores the painted width. All anchors and slices need the enclosing strip's
+        // coordinates. Use ordinary layout only when the measured width lost that zoom.
+        if (typeof checksNestedZoom !== 'undefined' && width > 1 && Math.abs(rect.width * unit / zoom * contentsZoom - width) < 1) {
+            list.style.zoom = '1';
+            list.style.transform = 'none';
+            rect = list.getBoundingClientRect();
+        }
         return (baseline ? baseline.getBoundingClientRect().bottom - rect.top : rect.height) * unit / zoom;
     });
     lists.forEach(({frame, baseline}, i) => {

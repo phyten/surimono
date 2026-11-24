@@ -1,11 +1,42 @@
 import AppKit
 import SurimonoCore
+import SwiftUI
 import Testing
 
 @testable import Surimono
 
 @MainActor
 struct RecentFileHistoryTests {
+    @Test("履歴の通知がなくても開くたびに最新の順序とURLを使い、消去した次の表示では消去を無効にする")
+    func recentSubmenu() throws {
+        let first = URL(fileURLWithPath: "/one/sample.md")
+        let second = URL(fileURLWithPath: "/two/sample.md")
+        var urls = [first]
+        var opened: [URL] = []
+        let source = RecentDocumentsMenu(urls: { urls }, open: { opened.append($0) }, clear: { urls.removeAll() })
+        let menu = NSMenu()
+        func display() { source.refresh(menu) }
+
+        display()
+        #expect(menu.items.compactMap { $0.representedObject as? URL } == [first])
+        let original = menu.items[0]
+        display()
+        #expect(menu.items[0] === original)
+        urls = [second, first]
+        display()
+        #expect(menu.items.compactMap { $0.representedObject as? URL } == [second, first])
+        #expect(menu.items.map(\.title) == ["sample.md", "sample.md", "", String(localized: "Clear Menu")])
+        #expect(menu.items.last?.isEnabled == true)
+        menu.performActionForItem(at: 0)
+        menu.performActionForItem(at: 1)
+        #expect(opened == [second, first])
+        menu.performActionForItem(at: menu.numberOfItems - 1)
+        display()
+        #expect(urls.isEmpty)
+        #expect(menu.items.map(\.title) == [String(localized: "Clear Menu")])
+        #expect(menu.items.last?.isEnabled == false)
+    }
+
     @Test("古い設定は空で読み込めて保存したパスとブックマークと消去が再起動後も残る")
     func persistence() {
         let suite = TestDefaultsSuite()

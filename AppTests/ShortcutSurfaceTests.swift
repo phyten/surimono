@@ -33,10 +33,7 @@ final class ShortcutSurfaceFixture {
                 }
             }
         })
-    lazy var menus = SystemMenuShortcuts(
-        controller: controller, menu: { NSMenu() },
-        keyWindow: { [unowned self] in activeWindow },
-        model: { [unowned self] in model })
+    lazy var menus = SystemMenuShortcuts(controller: controller, preferences: { [unowned self] in preferences })
     lazy var dispatcher = ShortcutDispatcher(
         controller: controller, menus: menus,
         keyWindow: { [unowned self] in activeWindow },

@@ -53,7 +53,7 @@ extension DocumentViewModel {
         navigateReadingPage(page)
     }
 
-    private func navigateReadingPage(_ page: Int) {
+    func navigateReadingPage(_ page: Int) {
         // The model also owns the position while SwiftUI is replacing the paper after a reflow.
         currentPageIndex = visibleStart(of: page)
         selectedReadingPage = page
