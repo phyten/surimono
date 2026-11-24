@@ -201,7 +201,7 @@ private struct PaperArea: View {
                 WebPageView(
                     controller: model.web, fileURL: fileURL, allowsJavaScript: model.allowsLiveJavaScript,
                     onEscape: { [weak model, menu] in
-                        guard let model else { return false }
+                        guard let model, !model.isWindowClosed else { return false }
                         return menu.hideForEscape(alwaysVisible: model.isBandAlwaysVisible)
                     })
             } else if let document = model.paperDocument, !model.isCapturingWeb {
@@ -211,17 +211,26 @@ private struct PaperArea: View {
                     selectsText: model.isSelectingText, logicalMargin: model.viewLogicalMargin,
                     showsPageNumbers: model.preferences.viewPageNumbers, changeMarks: model.paperChangeMarks,
                     formulaIndex: model.paperFormulaIndex, diagrams: model.paperDiagrams,
-                    onDiagram: { [weak model] in model?.exportDiagram($0, action: $1) },
+                    onDiagram: { [weak model] diagram, action in
+                        guard let model, !model.isWindowClosed else { return }
+                        model.exportDiagram(diagram, action: action)
+                    },
                     furniture: model.paperFurniture,
                     narrowsLoneCover: model.loneCoverWidth == .onePage,
                     keepsSpotInPage: model.binder != nil || model.imageBundle != nil,
                     controller: model.paper,
-                    onZoomChange: { [weak model] in model?.zoom = $0 },
-                    onPageChange: { [weak model] in model?.paperDidChangePage($0) },
+                    onZoomChange: model.windowAction { $0.zoom = $1 },
+                    onPageChange: model.windowAction { $0.paperDidChangePage($1) },
                     onTurn: { [menu] in menu.pageTurned() },
-                    onKey: { [weak model, menu] in model?.handleFixedPaperKey($0, menu: menu) ?? false },
-                    onShortcut: { [weak model, menu] in model?.performPaperShortcut($0, menu: menu) },
-                    allowsShortcutHandling: { [weak model] in model?.blocksSurfaceShortcuts == false }
+                    onKey: { [weak model, menu] event in
+                        guard let model, !model.isWindowClosed else { return false }
+                        return model.handleFixedPaperKey(event, menu: menu)
+                    },
+                    onShortcut: model.windowAction { [menu] in $0.performPaperShortcut($1, menu: menu) },
+                    allowsShortcutHandling: { [weak model] in
+                        guard let model, !model.isWindowClosed else { return false }
+                        return !model.blocksSurfaceShortcuts
+                    }
                 )
                 .paperFind(model)
             } else if model.error == nil {
@@ -296,9 +305,15 @@ extension PaperView {
         {
             view.proseSpans = mark.spans
         }
-        view.onPaperPress = { [weak model] in model?.dismissProseMark() }
+        view.onPaperPress = { [weak model] in
+            guard let model, !model.isWindowClosed else { return }
+            model.dismissProseMark()
+        }
         view.findQuery = model.find.query
-        view.onFindHits = { [weak model] pages, query in model?.paperFound(pages, for: query) }
+        view.onFindHits = { [weak model] pages, query in
+            guard let model, !model.isWindowClosed else { return }
+            model.paperFound(pages, for: query)
+        }
         return view
     }
 }

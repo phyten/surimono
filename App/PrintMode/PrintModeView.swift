@@ -323,7 +323,13 @@ struct PrintTopBar: View {
 
     /// Drawn like the style menu beside it, so the tray's top bar keeps one kind of control.
     private func setsMenu(_ form: SetsForm) -> some View {
-        SettingSetMenu(preferences: model.preferences, library: model.library, model: { [weak model] in model }) {
+        SettingSetMenu(
+            preferences: model.preferences, library: model.library,
+            model: { [weak model] in
+                guard let model, !model.isWindowClosed else { return nil }
+                return model
+            }
+        ) {
             HStack(spacing: 7) {
                 if form == .icon {
                     Image(systemName: "square.stack.3d.up").foregroundStyle(PrintPalette.ink2)

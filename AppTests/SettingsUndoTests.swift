@@ -82,6 +82,39 @@ struct SettingsUndoTests {
         undo.endUndoGrouping()
     }
 
+    @Test("閉じた窓に文字サイズの確定と印刷完了が届いても、保存済み設定とトーストは変わらない")
+    func callbacksAfterWindowClose() async throws {
+        let fixture = Fixture()
+        let model = fixture.markdown()
+        let controller = MemoryDocumentWindowController(model: model) {}
+        defer { controller.close() }
+        try await open(model)
+        let key = try #require(model.contentHash?.hex)
+        let changeSize = ThemePalette(model: model).textSizeField.onChange
+        changeSize(1.25)
+        try #require(model.textScale == 1.25)
+        model.rememberedSettingsDidChange()
+        let complete = model.beginSheetPrint(quickPrinter: "Test")
+        try #require(model.isPrinting)
+        controller.close()
+        try #require(model.isWindowClosed)
+        let record = try #require(fixture.store.record(for: key))
+        let token = try #require(fixture.store.token(for: key))
+        let settings = model.rememberedSettings
+        let toast = model.toast?.id
+
+        changeSize(1.5)
+        complete(true)
+        model.flushPendingSettings()
+        #expect(!model.isPrinting)
+        #expect(model.textScale == 1.25)
+        #expect(model.rememberedSettings == settings)
+        // Reading a record refreshes its modification time for eviction. Check the token first.
+        #expect(fixture.store.token(for: key) == token)
+        #expect(fixture.store.record(for: key) == record)
+        #expect(model.toast?.id == toast)
+    }
+
     @Test("文書の設定を戻して取り消すと、戻す前の設定がすべて戻り、保存した記録も元に戻る", .timeLimit(.minutes(1)))
     func undoRestoresEverything() async throws {
         let fixture = Fixture()

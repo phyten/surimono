@@ -83,6 +83,47 @@ struct ViewerFileDocumentTests {
         #expect(NSDocumentController.shared.document(for: url) == nil)
     }
 
+    @Test("共有用PDFの生成中に文書の窓を閉じると、遅れて戻る生成処理を待たずにモデルを解放する", .timeLimit(.minutes(1)))
+    func closeDuringReadingShare() async throws {
+        let url = try fixtureURL()
+        defer { NSDocumentController.shared.document(for: url)?.close() }
+        weak var released: DocumentViewModel?
+        let share: ReadingPDFShare
+        var resume: CheckedContinuation<Void, Never>?
+        defer { resume?.resume() }
+        var producerWasCancelled: Bool?
+        var results: [Result<URL, Error>] = []
+        do {
+            let (document, _) = try await open(url)
+            let window = try #require(document.windowControllers.first?.window)
+            let model = try #require(DocumentWindows.shared.model(for: window))
+            try await ShortcutMenuBaselineTests.waitForMenu { model.canExportReadingPDF }
+            share = try #require(
+                model.makeReadingShare { produce in
+                    await withCheckedContinuation { resume = $0 }
+                    producerWasCancelled = Task.isCancelled
+                    return try await produce()
+                })
+            model.readingShare = share
+            released = model
+            share.load(Progress(totalUnitCount: 1)) { results.append($0) }
+            try await ShortcutMenuBaselineTests.waitForMenu { resume != nil }
+            window.performClose(nil)
+        }
+        try await ShortcutMenuBaselineTests.waitForMenu { released == nil }
+        try #require(results.count == 1)
+        #expect(throws: CancellationError.self) { try results[0].get() }
+        resume?.resume()
+        resume = nil
+        try await ShortcutMenuBaselineTests.waitForMenu { producerWasCancelled != nil }
+        #expect(producerWasCancelled == true)
+        #expect(results.count == 1)
+        var late: Result<URL, Error>?
+        share.load(Progress(totalUnitCount: 1)) { late = $0 }
+        let response = try #require(late)
+        #expect(throws: CancellationError.self) { try response.get() }
+    }
+
     @Test("画像の束を閉じると窓とホストが残っていても表示モデル・描画器・紙面・PDFが解放される", .timeLimit(.minutes(1)))
     func closingImageBundleReleasesContent() async throws {
         let suite = TestDefaultsSuite()
@@ -107,12 +148,13 @@ struct ViewerFileDocumentTests {
         }
         try await content.waitForRelease()
         #expect(content.paper == nil, "paper view still alive")
-        // The image bundle's model, renderer and trial renderer still outlive the window on macOS 26 (the file
-        // document's are released). Something other than the hosting view holds the bundle's model; tracked
-        // as an open bug.
         withKnownIssue("画像の束の表示モデルが、窓を閉じたあとも残る") {
             #expect(content.model == nil, "model still alive")
+        }
+        withKnownIssue("画像の束の描画器が、窓を閉じたあとも残る") {
             #expect(content.renderer == nil, "renderer still alive")
+        }
+        withKnownIssue("画像の束の試し刷り用描画器が、窓を閉じたあとも残る") {
             #expect(content.trialRenderer == nil, "trial renderer still alive")
         }
         #expect(content.pdf == nil, "PDF still alive")

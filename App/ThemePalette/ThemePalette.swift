@@ -296,15 +296,18 @@ struct ThemePalette: View {
         }
     }
 
+    var textSizeField: TextSizeField {
+        TextSizeField(
+            title: "Text Size", scale: model.textScale, corners: model.preferences.corners,
+            onChange: model.windowAction { $0.setTextScale($1) })
+    }
+
     private var textSize: some View {
         HStack(spacing: 8) {
             // The same name as in the view options, for the same setting.
             Text("Text Size").font(.system(size: 11.5)).foregroundStyle(PrintPalette.ink2).fixedSize()
             // Any percent typed or stepped by 1%; the buttons beside it move to the next step, from an in-between size too.
-            TextSizeField(title: "Text Size", scale: model.textScale, corners: model.preferences.corners) {
-                [weak model] in
-                model?.setTextScale($0)
-            }
+            textSizeField
             let smaller = Image(systemName: "textformat.size.smaller")
             let larger = Image(systemName: "textformat.size.larger")
             ControlGroup {

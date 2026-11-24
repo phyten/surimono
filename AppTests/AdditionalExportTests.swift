@@ -37,6 +37,44 @@ struct AdditionalExportTests {
         #expect(!FileManager.default.fileExists(atPath: first.path))
     }
 
+    @Test("共有用PDFの要求を片方だけ取り消しても、もう片方に同じ生成処理からPDFが届く")
+    func cancelOneShareRequest() async throws {
+        let bytes = TestFixtures.pdf("Remaining request")
+        var resume: CheckedContinuation<Void, Never>?
+        var starts = 0
+        let share = ReadingPDFShare(name: "Remaining.pdf", protectedURLs: []) {
+            starts += 1
+            await withCheckedContinuation { resume = $0 }
+            try Task.checkCancellation()
+            return bytes
+        }
+        defer {
+            share.cancel()
+            resume?.resume()
+        }
+        let first = Progress(totalUnitCount: 1)
+        let second = Progress(totalUnitCount: 1)
+        var cancelled: [Result<URL, Error>] = []
+        var remaining: [Result<URL, Error>] = []
+        share.load(first) { cancelled.append($0) }
+        share.load(second) { remaining.append($0) }
+        try await ShortcutMenuBaselineTests.waitForMenu { resume != nil }
+        first.cancel()
+        try await ShortcutMenuBaselineTests.waitForMenu { !cancelled.isEmpty }
+        #expect(remaining.isEmpty)
+        resume?.resume()
+        resume = nil
+        try await ShortcutMenuBaselineTests.waitForMenu { !remaining.isEmpty }
+        #expect(starts == 1)
+        try #require(cancelled.count == 1 && remaining.count == 1)
+        #expect(throws: CancellationError.self) { try cancelled[0].get() }
+        let file = try remaining[0].get()
+        #expect(try Data(contentsOf: file) == bytes)
+        #expect(second.completedUnitCount == 1)
+        share.cancel()
+        #expect(!FileManager.default.fileExists(atPath: file.path))
+    }
+
     @Test("遅れて共有用PDFを求められても、閉じた文書のモデルを保持せずデータを渡さない")
     func lateShareRequestAfterClose() async throws {
         let suite = TestDefaultsSuite()

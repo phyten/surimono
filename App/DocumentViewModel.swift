@@ -716,8 +716,6 @@ final class DocumentViewModel {
         )?
     @ObservationIgnored private var structureDocument: PDFDocument?
     var shortcutListFocused = false
-    private var printCompletion: PrintCompletion?
-    private var printOperation: NSPrintOperation?
     enum PendingPDF {
         case reading(Data)
         case sheets(PDFDocument)
@@ -821,9 +819,9 @@ final class DocumentViewModel {
                 settings
             )
         }
-        paper.onReadingJump = { [weak self] page in self?.recordReadingJump(to: page) }
-        paper.onToast = { [weak self] toast in self?.showToast(toast) }
-        web.onFolderAccessRequired = { [weak self] _ in self?.requestFolderAccess() }
+        paper.onReadingJump = windowAction { $0.recordReadingJump(to: $1) }
+        paper.onToast = windowAction { $0.showToast($1) }
+        web.onFolderAccessRequired = windowAction { model, _ in model.requestFolderAccess() }
         #if DEBUG
             DebugSnapshot.configure(self)
         #endif
@@ -899,7 +897,7 @@ final class DocumentViewModel {
 
     /// The user picked a print theme, so it also becomes the most recent one in every window's menu.
     func selectTheme(_ id: String) {
-        guard theme(id) != nil else { return }
+        guard !isWindowClosed, theme(id) != nil else { return }
         // The pages of a trial of the same theme stay on the paper until the document's own are laid out.
         if id != themeID, themeTrial.themeID == id, let document = themeTrial.document {
             chosenTrial = (
@@ -915,6 +913,7 @@ final class DocumentViewModel {
 
     /// The user picked a code palette. The pages of a trial of it stay on the paper as they do for a theme.
     func selectCodePalette(_ id: String) {
+        guard !isWindowClosed else { return }
         if id != codePaletteID, themeTrial.themeID == Self.codeTrialID(id), let document = themeTrial.document {
             chosenTrial = (
                 themeID, id, themeTrial.requestedSettings, document, themeTrial.changeMarks, themeTrial.furniture,
@@ -1323,11 +1322,14 @@ final class DocumentViewModel {
             useDocumentFolder(lease)
             web.reload()
         }
-        web.onZoomChange = { [weak self] zoom in self?.webZoom = zoom }
-        web.onPrintRequest = { [weak self] in self?.pageDidRequestPrint() }
-        web.onSlideDeckChange = { [weak self] deck in self?.slideDeckDidChange(deck) }
+        web.onZoomChange = windowAction { $0.webZoom = $1 }
+        web.onPrintRequest = { [weak self] in
+            guard let self, !isWindowClosed else { return }
+            pageDidRequestPrint()
+        }
+        web.onSlideDeckChange = windowAction { $0.slideDeckDidChange($1) }
         web.onRestart = { [weak self] in
-            guard let self else { return }
+            guard let self, !isWindowClosed else { return }
             cancelCapture()
             liveSnapshot = nil
             slideDeckDidChange(nil)
@@ -2065,7 +2067,7 @@ final class DocumentViewModel {
 
     /// Any whole percent of the range; a value between two percents takes the nearer one.
     func setTextScale(_ value: Double) {
-        guard usesPrintTheme, value.isFinite, TextScale.range.contains(value) else { return }
+        guard !isWindowClosed, usesPrintTheme, value.isFinite, TextScale.range.contains(value) else { return }
         textScale = TextScale.clamped(value)
     }
 
@@ -2247,6 +2249,7 @@ final class DocumentViewModel {
     var compareFilterID = "featured"
 
     func enterCompareMode() {
+        guard !isWindowClosed else { return }
         guard mode == .view, usesPrintTheme else { return }
         pendingPrintIssue = nil
         dropSpot()
@@ -3278,6 +3281,7 @@ final class DocumentViewModel {
 
     /// Saves shortly after the user changes something remembered for this document.
     func rememberedSettingsDidChange() {
+        guard !isWindowClosed else { return }
         if let binder, binder.setHash != contentHash { return }
         guard contentHash != nil, let settingsBaseline, rememberedSettings != settingsBaseline else { return }
         didCustomizeSinceLoad = true
@@ -4060,8 +4064,9 @@ final class DocumentViewModel {
                 let document = try await renderer.document(sheet: layout.sheet, labels: labels)
                 try Task.checkCancellation()
                 let complete: (DuplexTestResult?) -> Void = { [weak self] result in
-                    self?.isPrinting = false
-                    self?.duplexTestResult = result
+                    guard let self else { return }
+                    isPrinting = false
+                    if !isWindowClosed { duplexTestResult = result }
                 }
                 if let duplexTestSubmit {
                     duplexTestSubmit(document, testLayout, request, complete)
@@ -4070,7 +4075,7 @@ final class DocumentViewModel {
                 }
             } catch {
                 isPrinting = false
-                if !(error is CancellationError) {
+                if !isWindowClosed, !(error is CancellationError) {
                     outputError = String(localized: "The print job could not be created.")
                 }
             }
@@ -4102,11 +4107,9 @@ final class DocumentViewModel {
         let info = operation.printInfo
         info.dictionary()[NSPrintInfo.AttributeKey.copies] = 1
         info.dictionary()[NSPrintInfo.AttributeKey.allPages] = true
-        let completion = PrintCompletion { [weak self] success in
+        PrintCompletion.run(operation, in: window) { [weak self] success in
             guard let self else { return }
-            printOperation = nil
-            printCompletion = nil
-            guard success, info.jobDisposition == .spool else {
+            guard !isWindowClosed, success, info.jobDisposition == .spool else {
                 complete(nil)
                 return
             }
@@ -4125,11 +4128,6 @@ final class DocumentViewModel {
             // The system dialog can select another printer. Save only the printer that actually received the job.
             complete(DuplexTestResult(printerName: info.printer.name, duplex: layout.sentDuplex))
         }
-        printCompletion = completion
-        printOperation = operation
-        operation.runModal(
-            for: window, delegate: completion,
-            didRun: #selector(PrintCompletion.didRun(_:success:context:)), contextInfo: nil)
     }
 
     /// Prints the sheets: right away to the selected printer when `quick`, otherwise through the system dialog,
@@ -4238,27 +4236,24 @@ final class DocumentViewModel {
         }
         // The sheets are already the pages asked for, so a page range left over from another job must not cut them.
         operation.printInfo.dictionary()[NSPrintInfo.AttributeKey.allPages] = true
+        PrintCompletion.run(
+            operation, in: window,
+            completion: beginSheetPrint(quickPrinter: quick ? operation.printInfo.printer.name : nil))
+    }
+
+    func beginSheetPrint(quickPrinter: String?) -> (Bool) -> Void {
         isPrinting = true
-        let printer = operation.printInfo.printer.name
-        let completion = PrintCompletion { [weak self] success in
+        return { [weak self] success in
             guard let self else { return }
             isPrinting = false
-            printOperation = nil
-            printCompletion = nil
-            if quick {
-                showToast(
-                    Toast(
-                        systemImage: success ? "printer" : "exclamationmark.triangle",
-                        title: success
-                            ? String(format: String(localized: "Sent to %@"), printer)
-                            : String(localized: "The print job was cancelled or could not be sent.")))
-            }
+            guard !isWindowClosed, let quickPrinter else { return }
+            showToast(
+                Toast(
+                    systemImage: success ? "printer" : "exclamationmark.triangle",
+                    title: success
+                        ? String(format: String(localized: "Sent to %@"), quickPrinter)
+                        : String(localized: "The print job was cancelled or could not be sent.")))
         }
-        printCompletion = completion
-        printOperation = operation
-        operation.runModal(
-            for: window, delegate: completion,
-            didRun: #selector(PrintCompletion.didRun(_:success:context:)), contextInfo: nil)
     }
 
     /// Made apart from running it, so that what would be sent can be read without a printer.
@@ -4396,7 +4391,11 @@ final class DocumentViewModel {
 
     /// A share can be consumed after the picker has closed. Keep the render inputs, never the window or model,
     /// in the work that runs across suspension points; recheck the selected revision before returning its bytes.
-    func makeReadingShare() -> ReadingPDFShare? {
+    func makeReadingShare(
+        prepare: @escaping @MainActor (_ produce: @MainActor () async throws -> Data) async throws -> Data = {
+            try await $0()
+        }
+    ) -> ReadingPDFShare? {
         guard canExportReadingPDF, let current = result, let settings = renderSettings(in: .view) else {
             return nil
         }
@@ -4418,7 +4417,7 @@ final class DocumentViewModel {
             else {
                 throw CancellationError()
             }
-            let bytes = try await produce()
+            let bytes = try await prepare(produce)
             guard isCurrent() else { throw CancellationError() }
             return bytes
         }
@@ -4601,10 +4600,25 @@ final class DocumentViewModel {
 }
 
 private final class PrintCompletion: NSObject {
-    let completion: (Bool) -> Void
-    init(completion: @escaping (Bool) -> Void) { self.completion = completion }
+    private let operation: NSPrintOperation
+    private let completion: (Bool) -> Void
+    private var lifetime: PrintCompletion?
+
+    private init(_ operation: NSPrintOperation, completion: @escaping (Bool) -> Void) {
+        self.operation = operation
+        self.completion = completion
+    }
+
+    static func run(_ operation: NSPrintOperation, in window: NSWindow, completion: @escaping (Bool) -> Void) {
+        // The window and its model can disappear while the print system still needs the job and delegate.
+        let delegate = PrintCompletion(operation, completion: completion)
+        delegate.lifetime = delegate
+        operation.runModal(
+            for: window, delegate: delegate, didRun: #selector(didRun(_:success:context:)), contextInfo: nil)
+    }
 
     @objc func didRun(_ operation: NSPrintOperation, success: Bool, context: UnsafeMutableRawPointer?) {
+        defer { lifetime = nil }
         completion(success)
     }
 }
