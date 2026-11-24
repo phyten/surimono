@@ -61,9 +61,9 @@ private func inkPages(in document: PDFDocument) throws -> (equations: [Int], not
         if var bounds = pixels.bounds(where: { r, g, b in g > r + 75 && g > b + 50 }) {
             notes.append(index)
             bounds.origin.y = page.bounds(for: .cropBox).maxY - bounds.maxY
-            // A horizontal full stop paints in the first part of its cell. PDFKit's rectangle selection
-            // needs the rest of that advance even when every pixel of the glyph is already inside.
-            let line = bounds.insetBy(dx: -bounds.height, dy: -1)
+            // The upright stop only inks the top of its vertical cell. Include the complete
+            // advance when selecting the note, independently of a preceding separator.
+            let line = bounds.insetBy(dx: -1, dy: -12)
             noteText += page.selection(for: line)?.string ?? ""
         }
     }
@@ -228,7 +228,7 @@ struct VerticalMixedContentTests {
             };
             globalThis.literal = document.body.textContent;
             globalThis.original = units(document.body).map(([n,i]) => n.data[i]).join('');
-            globalThis.boxes = [...document.querySelectorAll('table,pre,.math-inline > svg,.math-display > svg,figure,section.footnotes')];
+            globalThis.boxes = [...document.querySelectorAll('table,pre,.math-inline > svg,.math-display > svg,figure,section.footnotes li p')];
             return boxes.length;
             """#
         let count = try await view.evaluateForPrinting(setup, arguments: [:], until: .now + .seconds(10))
@@ -281,7 +281,9 @@ struct VerticalMixedContentTests {
                     else if (missed.length < 10) missed.push([rows,i,n.data[offset],r.left,r.right,left,right]);
                 }
                 boxes.forEach((el,i) => {
-                    if (getComputedStyle(el).visibility === 'visible' && inside(box(el),cut)) which[i].push(rows);
+                    range.selectNodeContents(el);
+                    const r = el.matches('li p') ? range.getBoundingClientRect() : box(el);
+                    if (getComputedStyle(el).visibility === 'visible' && inside(r,cut)) which[i].push(rows);
                 });
             }
             return {
@@ -291,8 +293,11 @@ struct VerticalMixedContentTests {
                     [...gap.getClientRects()].reduce((sum,r) => sum+r.height,0)/parseFloat(getComputedStyle(strip).fontSize)),
                 indexed: parseFloat(getComputedStyle(document.querySelector('#slice-probe > span')).paddingTop)>0,
                 fullColumns: [...strip.querySelectorAll('.horizontal-box-line')].every(line => {
-                    const r = box(line), content = box(line.firstElementChild), stage = box(strip);
-                    return Math.abs(r.top-stage.top)<1 && Math.abs(r.bottom-stage.bottom)<1 && Math.abs(content.top-r.top)<1;
+                    const r = box(line), element = line.firstElementChild, stage = box(strip);
+                    const math = element.matches('.math-block,.math-display');
+                    const content = box(math ? element.querySelector('svg') : element);
+                    const alignment = math ? (content.top+content.bottom-r.top-r.bottom)/2 : content.top-r.top;
+                    return Math.abs(r.top-stage.top)<1 && Math.abs(r.bottom-stage.bottom)<1 && Math.abs(alignment)<1;
                 }),
                 listStart: (() => {
                     const line = document.querySelector('pre').parentElement, list = line.nextElementSibling;
@@ -432,10 +437,9 @@ extension VerticalPaginatorTests {
             for (let cut; (cut=surimonoCaptureSlice(rows)); ++rows) {
                 if (!rows) leading = cut[0]-surimonoVerticalX(q('h1'));
                 boxes.forEach((el,i) => {
-                    if (getComputedStyle(el).visibility !== 'visible' || !contains(cut,rect(el))) return;
+                    if (getComputedStyle(el).visibility !== 'visible' || (el!==foot && !contains(cut,rect(el)))) return;
                     if (el===formula && !contains(cut,rect(formula.closest('.math-block')))) return;
                     if (el===foot) {
-                        if (!contains(cut,rect(foot.closest('section.footnotes')))) return;
                         range.selectNodeContents(foot);
                         if (![...range.getClientRects()].every(r=>contains(cut,r))) return;
                     }
@@ -446,8 +450,11 @@ extension VerticalPaginatorTests {
             const glyph=range.getBoundingClientRect(), note=rect(mark);
             const width=parseFloat(getComputedStyle(q('.surimono-vertical')).getPropertyValue('--content-width'));
             return {rows, owners, note:foot.textContent, formula:formula.getAttribute('aria-label'), leading,
-                horizontalNotes:getComputedStyle(foot).writingMode==='horizontal-tb'
-                    && !foot.closest('section.footnotes').querySelector('.aki,.v-half,.v-close,.v-before-open'),
+                verticalNotes:getComputedStyle(foot).writingMode==='vertical-rl',
+                noteSize:parseFloat(getComputedStyle(foot).fontSize)/parseFloat(getComputedStyle(base).fontSize),
+                markSize:parseFloat(getComputedStyle(mark).fontSize)/parseFloat(getComputedStyle(base).fontSize),
+                rule:rect(q('.vertical-note-rule')).height/rect(q('.surimono-vertical')).height,
+                label:q('.vertical-note-number').dataset.number,
                 remaining:width-(surimonoVerticalX(q('h1'))-rect(code).right), codeWidth:rect(code).width,
                 base:base.firstChild.textContent, after:base.nextSibling.textContent, gap:note.left-glyph.right,
                 top:note.top-glyph.top, em:parseFloat(getComputedStyle(base).fontSize)};
@@ -469,7 +476,10 @@ extension VerticalPaginatorTests {
         #expect(stop.width >= 1 && stop.height >= 1 && stop.width < 6 && stop.height < 6)
         #expect(owners[2][0] >= owners[1][0] && owners[3][0] >= owners[2][0])
         #expect(info["note"] as? String == "脚注は文書の終わりに置く。")
-        #expect(info["horizontalNotes"] as? Bool == true)
+        #expect(info["verticalNotes"] as? Bool == true && info["label"] as? String == "1")
+        #expect(abs(try #require(info["noteSize"] as? Double) - 0.85) < 0.01)
+        #expect(abs(try #require(info["markSize"] as? Double) - 0.6) < 0.01)
+        #expect(abs(try #require(info["rule"] as? Double) - 1.0 / 3) < 0.01)
         #expect(info["formula"] as? String == #"\int_0^1 x^2\,dx=\frac13"#)
         let remaining = try #require(info["remaining"] as? Double)
         let codeWidth = try #require(info["codeWidth"] as? Double)

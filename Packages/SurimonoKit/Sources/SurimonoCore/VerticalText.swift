@@ -2,6 +2,9 @@ import Foundation
 
 /// The compositor receives finished HTML. Only prose text is eligible for vertical glyph treatment.
 package enum VerticalText {
+    package static let openingMarks = "「『（〔［｛〈《【〖〘〚"
+    package static let closingMarks = "」』）〕］｝〉》】〗〙〛、。，．"
+
     package enum MarkupError: Error { case tooManySpans }
 
     package static func marked(_ html: String, latex: Bool = false) throws -> String {
@@ -113,7 +116,7 @@ package enum VerticalText {
     private static func protectedEdge(_ tag: HTMLScanner.Tag, classes: [Substring], latex: Bool) -> Edge? {
         if ["table", "pre", "figure", "head", "script", "style", "textarea"].contains(tag.name)
             || classes.contains(where: {
-                ["footnotes", "math-block", "math-display", "mermaid-block", "graphviz-block", "plantuml-block"]
+                ["math-block", "math-display", "mermaid-block", "graphviz-block", "plantuml-block"]
                     .contains($0)
             })
         {
@@ -126,7 +129,7 @@ package enum VerticalText {
         }
         if ["rt", "rp"].contains(tag.name) || (latex && classes.contains { $0 == "kenten" || $0 == "bousen" })
             || classes.contains(where: {
-                ["tcy", "upright-digit", "aki", "v-half", "v-close", "v-before-open"].contains($0)
+                ["tcy", "upright-digit", "aki", "v-half", "v-close", "v-before-open", "v-pair-space"].contains($0)
             })
         {
             return .other
@@ -203,10 +206,11 @@ package enum VerticalText {
             last = next
         }
 
-        private mutating func span(_ name: String, _ source: String) throws -> String {
+        private mutating func span(_ name: String, _ source: String, pair: String? = nil) throws -> String {
             guard remaining > 0 else { throw MarkupError.tooManySpans }
             remaining -= 1
-            return "<span class=\"\(name)\">\(source)</span>"
+            let marks = pair.map { " data-pair=\"\($0)\"" } ?? ""
+            return "<span class=\"\(name)\"\(marks)>\(source)</span>"
         }
 
         mutating func text(
@@ -311,15 +315,17 @@ package enum VerticalText {
 
         private mutating func glyphs(_ raw: Substring) throws {
             guard let first = raw.first else { return }
-            if "「『（〔［｛〈《【〖〘〚".contains(first) {
+            if VerticalText.openingMarks.contains(first) {
                 let atParagraph = last == .paragraph
+                let pair = hasSpace ? nil : closing.map { $0 + raw }
                 let trim = !hasSpace && [.start, .paragraph, .opening, .closing].contains(last)
                 try begin(.opening)
                 // A break can fall after the collapsible half space. Keep the negative margin
                 // on the glyph itself so it follows the bracket onto its new line.
                 if !trim { output += try span("v-before-open", "") }
+                if let pair { output += try span("v-pair-space", "", pair: pair) }
                 output += try span(atParagraph ? "v-half v-initial" : "v-half", String(raw))
-            } else if "」』）〕］｝〉》】〗〙〛、。，．".contains(first) {
+            } else if VerticalText.closingMarks.contains(first) {
                 try begin(.closing)
                 closing = String(raw)
             } else if raw.utf8.count == 2 && (first == "!" || first == "?") {

@@ -32,7 +32,7 @@ function wrapper(tag, className) {
 }
 
 // The pre holding a plain-text document inherits the body's type and remains in vertical flow.
-const horizontal = 'pre:not(.surimono-plain),table,figure,img,.math-block,.math-display,section.footnotes,'
+const horizontal = 'pre:not(.surimono-plain),table,figure,img,.math-block,.math-display,'
     + '.mermaid-block,.graphviz-block,.plantuml-block';
 for (const box of strip.querySelectorAll(horizontal)) {
     if (box.localName === 'pre') box.classList.add('vertical-code');
@@ -41,6 +41,26 @@ for (const box of strip.querySelectorAll(horizontal)) {
     box.replaceWith(line);
     line.appendChild(box);
     box.classList.add('horizontal-box');
+}
+// Real separator and label boxes give the capture pass measurable ink. Their generated
+// labels keep list numbering out of copied text, just like the original native markers.
+for (const list of strip.querySelectorAll('section.footnotes > ol')) {
+    const rule = wrapper('hr', 'vertical-note-rule');
+    list.before(rule);
+    let number = list.start;
+    for (const item of list.children) {
+        if (item.localName !== 'li') continue;
+        if (item.hasAttribute('value')) number = item.value;
+        if (item.style.listStyleType !== 'none') {
+            const label = wrapper('span', 'vertical-note-number');
+            label.dataset.number = String(number);
+            item.classList.add('vertical-numbered-note');
+            const leading = [...item.childNodes].find(n => n.nodeType === Node.ELEMENT_NODE || n.textContent.trim());
+            if (leading?.localName === 'p') leading.prepend(label);
+            else item.prepend(label);
+        }
+        ++number;
+    }
 }
 // A shoulder mark belongs to its base even at a line break. Take one whole grapheme
 // so that combining marks and variation selectors stay on the same piece of paper.
@@ -106,7 +126,7 @@ formulas.forEach((svg, i) => {
     svg.style.width = svg.parentElement.style.height = (w * scale) + 'px';
     svg.style.height = (h * scale) + 'px';
 });
-const atomic = '.horizontal-box,.vertical-inline-formula,.vertical-note-base,ruby,.tcy,svg,canvas,input,hr';
+const atomic = '.horizontal-box,.vertical-inline-formula,.vertical-note-base,.vertical-note-number,ruby,.tcy,svg,canvas,input,hr';
 const excluded = 'style,script,template,noscript';
 const heading = 'h1,h2,h3,h4,h5,h6';
 // LaTeX titles and sections also use heading tags. Only the reader knows which command opened a chapter.
@@ -148,7 +168,16 @@ boxes.forEach((box, i) => box.parentElement.style.blockSize = widths[i] + 'px');
 // A collapsible space usually already has zero advance at a soft break. Preserve that
 // break opportunity if a WebKit version leaves a residual advance. Work in batches so a
 // changed break can restore a gap that has moved back into the middle of the next line.
-const gaps = [...strip.querySelectorAll('.aki,.v-before-open')];
+const gaps = [...strip.querySelectorAll('.aki,.v-before-open,.v-pair-space')];
+const pairs = [];
+for (const gap of gaps) {
+    if (!gap.dataset.pair || !gap.nextElementSibling?.matches('.v-half')) continue;
+    const [close, open] = gap.dataset.pair;
+    if (inkEdges[close] === undefined || inkEdges[open] === undefined) continue;
+    const kern = inkEdges[close] - inkEdges[open];
+    gap.style.setProperty('--pair-kern', kern + 'em');
+    pairs.push({gap, opener:gap.nextElementSibling, advance:0.5+kern});
+}
 function neighboringUnit(gap, forward) {
     const root = gap.closest('p,pre,li,h1,h2,h3,h4,h5,h6,blockquote') || strip;
     let n = gap;
@@ -211,6 +240,21 @@ function stabilizeEdges() {
     }
 }
 
+// Justification may stretch the boundary between two full-width punctuation glyphs.
+// Keep the half-cell ink gap on the same line without suppressing a legal break between them.
+function positionPairedOpeners() {
+    for (const {opener} of pairs) opener.style.top = '';
+    const offsets = pairs.map(({gap,opener,advance}) => {
+        const previous = neighboringUnit(gap, false)?.();
+        range.selectNodeContents(opener);
+        const current = range.getBoundingClientRect();
+        if (!previous || current.left >= previous.right || previous.left >= current.right) return 0;
+        const em = parseFloat(getComputedStyle(opener).fontSize);
+        return Math.min(0, em * advance - (current.top - previous.top) * unit / zoom);
+    });
+    pairs.forEach(({opener},i) => { if (offsets[i] < -0.01) opener.style.top = offsets[i] + 'px'; });
+}
+
 function layoutRect(el) {
     if (el.matches('ruby,.vertical-note-base')) {
         let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity;
@@ -245,6 +289,7 @@ function measureLayout() {
     strip.style.left = '';
     strip.style.top = '';
     stabilizeEdges();
+    positionPairedOpeners();
     const bands = [];
     originX = window.scrollX;
     const stripTop = strip.getBoundingClientRect().top;
@@ -296,7 +341,7 @@ function measureLayout() {
             const paint = paintBounds(n);
             const layout = layoutRect(n);
             const emphasis = n.closest(annotations) || n.querySelector(latex ? 'em:not([data-vertical-latin]),.kenten,.bousen' : 'em:not([data-vertical-latin])');
-            add(layout.width && layout.height ? layout : paint, !!n.closest(heading), paint, emphasisInk(emphasis));
+            add(layout.width && layout.height ? layout : paint, n.matches('.vertical-note-rule') || !!n.closest(heading), paint, emphasisInk(emphasis));
         }
     }
     // A vertical-rl child can overflow the intrinsic strip to the left of the document.

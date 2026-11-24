@@ -28,12 +28,18 @@ public enum HTMLDocumentBuilder {
         let latex =
             info.map { info in
                 let attributes = " data-latex-size=\"\(info.pointSize)\" data-latex-chapters=\"\(info.hasChapters)\""
-                let rows =
-                    theme.flow == .vertical || preparesThemeSampler
-                    ? " data-latex-vertical-rows=\"\(info.columns)\"" : ""
+                let verticalGrid: String
+                if theme.flow == .vertical || preparesThemeSampler {
+                    let box = info.pageBox
+                    verticalGrid =
+                        " data-latex-vertical-rows=\"\(info.columns)\" data-latex-text-width=\"\(box.textWidth)\""
+                        + " data-latex-text-height=\"\(box.textHeight)\""
+                } else {
+                    verticalGrid = ""
+                }
                 let title = info.hasSeparateTitlePage.map { $0 ? "separate" : "inline" }
                 let localMain = info.mainFontName.map { $0 != "Surimono Computer Modern" } == true
-                return attributes + rows + " data-latex-class=\"\(HTML.escape(info.name))\""
+                return attributes + verticalGrid + " data-latex-class=\"\(HTML.escape(info.name))\""
                     + (info.composition == .proof ? " data-latex-review=\"proofPageLines\"" : "")
                     + (info.linksReferences ? " data-latex-hyperref" : "")
                     + (info.pageBackReferences ? " data-latex-page-backrefs" : "")

@@ -1,3 +1,4 @@
+import CoreText
 import PDFKit
 import SurimonoCore
 import WebKit
@@ -6,6 +7,34 @@ import WebKit
 enum VerticalPaginator {
     private static let measurement = Bundle.module.url(forResource: "vertical-lines", withExtension: "js")
         .flatMap { try? String(contentsOf: $0, encoding: .utf8) }
+
+    // Full-width cells include white inside the font. Shape the theme's vertical alternates
+    // so the gap is measured between their outlines, including for asymmetric brackets.
+    private static let punctuationEdges: [String: Double] = {
+        let size: CGFloat = 1000
+        let font = CTFontCreateWithName("Hiragino Mincho ProN" as CFString, size, nil)
+        var edges: [String: Double] = [:]
+        for mark in VerticalText.openingMarks + VerticalText.closingMarks {
+            let sample = NSAttributedString(
+                string: String(mark), attributes: [.font: font, .verticalGlyphForm: true])
+            let runs = CTLineGetGlyphRuns(CTLineCreateWithAttributedString(sample)) as NSArray
+            guard let run = (runs as? [CTRun])?.first, CTRunGetGlyphCount(run) == 1,
+                let face = (CTRunGetAttributes(run) as NSDictionary)[kCTFontAttributeName] as? NSFont
+            else { continue }
+            var glyph = CGGlyph()
+            CTRunGetGlyphs(run, CFRange(location: 0, length: 1), &glyph)
+            let ink = CTFontGetBoundingRectsForGlyphs(face as CTFont, .vertical, &glyph, nil, 1)
+            guard ink.width > 0, ink.minX >= 0, ink.maxX <= size else { continue }
+            edges[String(mark)] = (VerticalText.openingMarks.contains(mark) ? ink.minX : ink.maxX) / size
+        }
+        return edges
+    }()
+
+    nonisolated struct Manuscript {
+        let rows: Int
+        let font: CGFloat
+        let textArea: CGSize
+    }
 
     /// All measurements are physical points. Zoom changes how many glyphs fit, while the grid stays on the paper.
     nonisolated struct Frame {
@@ -17,7 +46,7 @@ enum VerticalPaginator {
         private let firstTop: CGFloat
         private let gap: CGFloat
 
-        init(pageSize: CGSize, margins: WebPaginator.Margins, textScale: Double, latexRows: Int? = nil) {
+        init(pageSize: CGSize, margins: WebPaginator.Margins, textScale: Double, manuscript: Manuscript? = nil) {
             let availableWidth = pageSize.width - margins.left - margins.right
             let availableHeight = pageSize.height - margins.top - margins.bottom
             func matches(_ paper: PaperSize) -> Bool {
@@ -25,35 +54,39 @@ enum VerticalPaginator {
                     && abs(max(pageSize.width, pageSize.height) - paper.size.height) < 0.5
             }
             let a4 = matches(.a4)
-            let twoRows = latexRows.map { $0 == 2 } ?? a4
+            let twoRows = manuscript.map { $0.rows == 2 } ?? a4
             rows = twoRows ? 2 : 1
-            let singleA4 = a4 && !twoRows
-            font = singleA4 ? 11 : 10.5
+            font = manuscript?.font ?? 10.5
             let scale = textScale.isFinite && textScale > 0 ? textScale : 1
             // Even extreme custom margins leave each row some printable height.
-            gap = twoRows ? min(3 * font * scale, availableHeight / 3) : 0
-            let maxHeight = (availableHeight - gap) / CGFloat(rows)
+            let textHeight = min(availableHeight, manuscript?.textArea.height ?? availableHeight)
+            gap = twoRows ? min(3 * font * scale, textHeight / 3) : 0
+            let maxHeight = (textHeight - gap) / CGFloat(rows)
             let a5 = matches(.a5)
-            let usesGrid = twoRows || a4 || a5
+            let usesGrid = a4 || a5
             // Snap in physical points after zoom. If even one cell cannot fit, keep the available
             // length so that extreme reader margins still produce a nonempty capture.
             func fitted(_ available: CGFloat, step: CGFloat) -> CGFloat {
                 available >= step ? available - available.truncatingRemainder(dividingBy: step) : available
             }
             let cell = font * scale
-            let maxWidth = usesGrid ? min(availableWidth, font * 1.75 * (a5 ? 18 : 24)) : availableWidth
+            let preferredWidth =
+                manuscript?.textArea.width ?? (usesGrid ? font * 1.75 * (a5 ? 18 : 24) : availableWidth)
+            let maxWidth = min(availableWidth, preferredWidth)
             let preferredHeight: CGFloat
-            if twoRows {
+            if manuscript != nil {
+                preferredHeight = maxHeight
+            } else if twoRows {
                 preferredHeight = 30 * font
-            } else if a4 || a5 {
-                preferredHeight = (a4 ? 40 : 42) * font
+            } else if a5 {
+                preferredHeight = 42 * font
             } else {
                 preferredHeight = maxHeight
             }
             height = fitted(min(maxHeight, preferredHeight), step: cell)
             width = fitted(maxWidth, step: 1.75 * cell)
             right = pageSize.width - margins.right - (availableWidth - width) / 2
-            firstTop = pageSize.height - margins.top - CGFloat(rows) * (maxHeight - height) / 2
+            firstTop = pageSize.height - margins.top - (availableHeight - CGFloat(rows) * height - gap) / 2
         }
 
         func top(of row: Int) -> CGFloat { firstTop - CGFloat(row) * (height + gap) }
@@ -87,10 +120,25 @@ enum VerticalPaginator {
         var result: Result<PDFDocument, any Error>?
         let capture = Task { @MainActor in
             do {
-                let latexRows =
+                let values =
                     try await webView.evaluateForPrinting(
-                        "return Number(document.body.dataset.latexVerticalRows) || null", until: deadline) as? Int
-                let frame = Frame(pageSize: pageSize, margins: margins, textScale: textScale, latexRows: latexRows)
+                        """
+                        const d = document.body.dataset;
+                        return d.latexVerticalRows ? [d.latexVerticalRows, d.latexSize, d.latexTextWidth, d.latexTextHeight].map(Number) : null;
+                        """, until: deadline) as? [Double]
+                let manuscript: Manuscript?
+                if let values, values.count == 4, values[1].isFinite, values[1] > 0 {
+                    // A contradictory geometry override may leave one dimension empty. Keep the
+                    // declared font and columns and fit that axis to the available paper.
+                    let textWidth = values[2] > 0 ? values[2] : pageSize.width
+                    let textHeight = values[3] > 0 ? values[3] : pageSize.height
+                    manuscript = Manuscript(
+                        rows: values[0] == 2 ? 2 : 1, font: values[1],
+                        textArea: CGSize(width: textWidth, height: textHeight))
+                } else {
+                    manuscript = nil
+                }
+                let frame = Frame(pageSize: pageSize, margins: margins, textScale: textScale, manuscript: manuscript)
                 let width = frame.width * pixelsPerPoint
                 let height = frame.height * pixelsPerPoint
                 let (pages, originY) = try await measure(
@@ -152,7 +200,11 @@ enum VerticalPaginator {
         rowCount: Int, booklet: Bool, until deadline: ContinuousClock.Instant
     ) async throws -> ([[FlowPageCuts.Band]], CGFloat) {
         let value = try await webView.evaluateForPrinting(
-            script, arguments: ["width": width, "height": height, "font": font, "booklet": booklet], until: deadline)
+            script,
+            arguments: [
+                "width": width, "height": height, "font": font, "booklet": booklet, "inkEdges": punctuationEdges,
+            ],
+            until: deadline)
         try Task.checkCancellation()
         guard var json = value as? String else { throw WebPaginator.PaginationError.printFailed }
         while true {

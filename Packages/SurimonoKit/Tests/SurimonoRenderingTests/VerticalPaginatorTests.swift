@@ -61,14 +61,23 @@ struct FlowPageCutsTests {
         #expect(narrow.width == 257.25 && narrow.height == 409.5)
     }
 
-    @Test("LaTeX の一段 A4 は十一ポイント四十字、二段指定は A5 でも上下に組む")
-    func latexFrames() {
+    @Test("縦組み LaTeX はクラスの字の大きさと版面に合わせ、倍率を一度だけ掛ける", arguments: [10.0, 11.0, 12.0])
+    func latexFrames(font: Double) {
         let margins = WebPaginator.Margins(top: 36, left: 36, bottom: 36, right: 36)
-        let one = VerticalPaginator.Frame(pageSize: PaperSize.a4.size, margins: margins, textScale: 1, latexRows: 1)
-        #expect(one.rows == 1 && one.font == 11 && one.height == 440 && one.width == 462)
-        let two = VerticalPaginator.Frame(pageSize: PaperSize.a5.size, margins: margins, textScale: 1, latexRows: 2)
-        #expect(two.rows == 2 && two.font == 10.5 && two.height == 241.5)
-        #expect(two.top(of: 0) - two.top(of: 1) == 273)
+        for rows in [1, 2] {
+            let area = CGSize(width: 438, height: 625)
+            let manuscript = VerticalPaginator.Manuscript(rows: rows, font: font, textArea: area)
+            for scale in [1.0, 1.25] {
+                let frame = VerticalPaginator.Frame(
+                    pageSize: PaperSize.a4.size, margins: margins, textScale: scale, manuscript: manuscript)
+                let cell = font * scale
+                let pitch = 1.75 * cell
+                let gap = rows == 2 ? 3 * cell : 0
+                #expect(frame.rows == rows && frame.font == font)
+                #expect(abs(frame.width - floor(area.width / pitch) * pitch) < 0.001)
+                #expect(abs(frame.height - floor((area.height - gap) / Double(rows) / cell) * cell) < 0.001)
+            }
+        }
     }
 
     @Test("切片の割当は小数の配置幅で決め、重なる傍点とルビの描画範囲だけを広げる")

@@ -37,10 +37,11 @@ struct VerticalTextTests {
         let start = #"<span class="v-before-open"></span><span class="v-half">"#
         #expect(try VerticalText.marked("<p>（注）。</p>") == "<p>" + initial + "（</span>注" + close("）") + "。</p>")
         #expect(
-            try VerticalText.marked("本文「」「」") == "本文" + start + "「</span>」" + #"<span class="v-half">「</span>"# + "」")
+            try VerticalText.marked("本文「」「」") == "本文" + start + "「</span>」"
+                + #"<span class="v-pair-space" data-pair="」「"></span><span class="v-half">「</span>"# + "」")
         #expect(
             try VerticalText.marked("本。<em>」</em>、（注）") == "本" + close("。") + "<em>" + close("」") + "</em>、"
-                + #"<span class="v-half">（</span>"#
+                + #"<span class="v-pair-space" data-pair="、（"></span><span class="v-half">（</span>"#
                 + "注）")
     }
 
@@ -105,6 +106,25 @@ struct VerticalTextTests {
             #expect(!HTMLDocumentBuilder.build(fragment: prose, format: format, theme: standard).contains(span))
         }
         #expect(!HTMLDocumentBuilder.build(fragment: code, format: .plainText, theme: vertical).contains(span))
+    }
+
+    @Test("縦組み LaTeX の版面にクラスの文字サイズと本文領域を渡す")
+    func latexGrid() throws {
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "tategaki" })
+        for (declaration, font, rows) in [
+            ("[tate]{jlreq}", 10, 1), ("[tate,11pt,twocolumn]{jlreq}", 11, 2), ("[12pt]{tbook}", 12, 1),
+        ] {
+            let source = #"\documentclass\#(declaration)\begin{document}本文。\end{document}"#
+            let fragment = LaTeXConverter.convert(source)
+            let box = try #require(fragment.latexClass).pageBox
+            let html = HTMLDocumentBuilder.build(fragment: fragment, format: .latex, theme: theme)
+            for (key, value) in [
+                ("size", String(font)), ("vertical-rows", String(rows)),
+                ("text-width", String(box.textWidth)), ("text-height", String(box.textHeight)),
+            ] {
+                #expect(html.contains(#"data-latex-\#(key)="\#(value)""#))
+            }
+        }
     }
 
     @Test("縦組み LaTeX の本文と見出し番号を組み、命令で指定した書式とコードを保つ")
@@ -183,7 +203,7 @@ struct VerticalTextTests {
     func textNodes() throws {
         let untouched = """
             <code>12</code><pre>12</pre><svg><text>12</text></svg><table><tr><td>12</td></tr></table>
-            <section class="footnotes"><ol><li><p>「注」（末尾）。和文PDFと12日。</p></li></ol></section><!-- 12 -->&#39;
+            <!-- 12 -->&#39;
             """
         let source =
             untouched + " https://example.org/12?q=5&amp;n=23 https://例.jp/25"
@@ -192,6 +212,9 @@ struct VerticalTextTests {
             untouched + " " + url("https:/<wbr>/<wbr>example.<wbr>org/<wbr>12?<wbr>q=<wbr>5&amp;<wbr>n=<wbr>23") + " "
             + url("https:/<wbr>/<wbr>例.<wbr>jp/<wbr>25")
             + #"<ruby><span class="tcy">25</span><rt>12</rt></ruby><a href="a>12"><span class="upright-digit">5</span>日</a><pre class="surimono-plain"><span class="tcy">12</span>日</pre>"#
+        let note = #"<section class="footnotes"><ol><li><p>文PDFと12日。</p></li></ol></section>"#
+        #expect(
+            try VerticalText.marked(note).contains("文" + aki + latin("PDF") + aki + #"と<span class="tcy">12</span>日。"#))
         let actual = try VerticalText.marked(source)
         #expect(actual == expected)
     }
