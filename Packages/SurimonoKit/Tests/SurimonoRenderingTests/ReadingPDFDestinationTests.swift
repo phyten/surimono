@@ -45,6 +45,7 @@ struct ReadingPDFDestinationTests {
             file(bookmark: "/Dest [null /Fit]"),
             file(bookmark: "/A << /S /GoTo >>"),
             file(link: "/Dest [3 0 R /Unknown 2]"),
+            file(link: "/A << /S /GoTo /D [3 0 R /XYZ 0 100] >>"),
         ] {
             let document = try #require(PDFDocument(data: damaged))
             await #expect(throws: ReadingPDFExporter.ExportError.self) {

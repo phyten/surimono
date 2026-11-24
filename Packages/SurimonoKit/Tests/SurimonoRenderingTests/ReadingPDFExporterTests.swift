@@ -208,38 +208,54 @@ struct ReadingPDFExporterTests {
 
     @Test("元PDFのしおりとページ間リンクを保ち元文書の属性を変更しない")
     func originalPDF() async throws {
-        let fixture = try RenderingFixtures.pdfData(count: 2, bookmarks: [("Original", 2)])
-        let source = try #require(PDFDocument(data: fixture))
-        let first = try #require(source.page(at: 0))
-        let last = try #require(source.page(at: 1))
-        let root = try #require(source.outlineRoot, "入力PDF \(exportState(source))")
-        source.documentAttributes = [
-            PDFDocumentAttribute.titleAttribute: "Before", PDFDocumentAttribute.authorAttribute: "Private author",
-        ]
-        let link = PDFAnnotation(
-            bounds: CGRect(x: 10, y: 10, width: 50, height: 20), forType: .link, withProperties: nil)
-        link.action = PDFActionGoTo(destination: source.destination(on: last, at: CGPoint(x: 0, y: 100)))
-        first.addAnnotation(link)
+        let point = CGPoint(x: 0, y: 100)
+        func checkNavigation(_ document: PDFDocument, stage: String) throws {
+            let detail = "\(stage) expected bookmark to p2 and p1 link to p2@\(point); \(exportState(document))"
+            let bookmark = try #require(document.outlineRoot?.child(at: 0), "\(detail)")
+            #expect(bookmark.label == "Original", "\(detail)")
+            let page = try #require(bookmark.destination?.page, "\(detail)")
+            #expect(document.index(for: page) == 1, "\(detail)")
+            let link = try #require(document.page(at: 0)?.annotations.first, "\(detail)")
+            let target = try #require((link.action as? PDFActionGoTo)?.destination ?? link.destination, "\(detail)")
+            #expect(document.index(for: try #require(target.page, "\(detail)")) == 1, "\(detail)")
+            #expect(target.point == point, "\(detail)")
+        }
+        let source = try #require(PDFDocument(data: try originalPDFData(linkTarget: point)))
+        try checkNavigation(source, stage: "view")
+        let root = try #require(source.outlineRoot)
+
         let output = try await ReadingPDFExporter.document(
             from: source, entries: [], title: "After", preservesOutline: true)
-        let before = exportState(output)
+        try checkNavigation(output, stage: "export")
         let bytes = try await ReadingPDFExporter.data(from: output)
-        let reread = try #require(PDFDocument(data: bytes))
-        let bookmark = try #require(
-            reread.outlineRoot?.child(at: 0),
-            "source[\(exportState(source))] export[\(before)] saved[\(exportState(reread))]")
-        #expect(bookmark.label == "Original")
-        #expect(reread.index(for: try #require(bookmark.destination?.page)) == 1)
-        for stage in [source, output, reread] {
-            let detail = "source[\(exportState(source))] export[\(before)] saved[\(exportState(reread))]"
-            let link = try #require(stage.page(at: 0)?.annotations.first, "\(detail)")
-            let target = try #require((link.action as? PDFActionGoTo)?.destination ?? link.destination, "\(detail)")
-            #expect(stage.index(for: try #require(target.page, "\(detail)")) == 1, "\(detail)")
-            #expect(target.point == CGPoint(x: 0, y: 100), "\(detail)")
-        }
+        let reread = try #require(PDFDocument(data: bytes), "saved")
+        try checkNavigation(reread, stage: "saved")
+        #expect(reread.documentAttributes?[PDFDocumentAttribute.titleAttribute] as? String == "After")
         #expect(reread.documentAttributes?[PDFDocumentAttribute.authorAttribute] == nil)
+
+        try checkNavigation(source, stage: "view after export")
         #expect(source.documentAttributes?[PDFDocumentAttribute.titleAttribute] as? String == "Before")
+        #expect(source.documentAttributes?[PDFDocumentAttribute.authorAttribute] as? String == "Private author")
         #expect(source.outlineRoot === root)
+    }
+
+    // Author the link in the input bytes: a PDFKit action added later can disagree with its backing dictionary.
+    private func originalPDFData(linkTarget: CGPoint) throws -> Data {
+        let data = NSMutableData()
+        let consumer = try #require(CGDataConsumer(data: data))
+        var box = CGRect(x: 0, y: 0, width: 612, height: 792)
+        let info = [kCGPDFContextTitle as String: "Before", kCGPDFContextAuthor as String: "Private author"]
+        let context = try #require(CGContext(consumer: consumer, mediaBox: &box, info as CFDictionary))
+        context.beginPDFPage(nil)
+        context.setDestination("section" as CFString, for: CGRect(x: 10, y: 10, width: 50, height: 20))
+        context.endPDFPage()
+        context.beginPDFPage(nil)
+        context.addDestination("section" as CFString, at: linkTarget)
+        context.endPDFPage()
+        let bookmark: [String: Any] = [kCGPDFOutlineTitle as String: "Original", kCGPDFOutlineDestination as String: 2]
+        CGPDFContextSetOutline(context, [kCGPDFOutlineChildren as String: [bookmark]] as CFDictionary)
+        context.closePDF()
+        return data as Data
     }
 
     @Test("Quartz の別ページへのリンクは柱を足した読む PDF でも同じ座標を指す")
