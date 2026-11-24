@@ -23,7 +23,7 @@ probe.remove();
 
 // Keep additions bounded even if a short source produces a very large DOM.
 const limit = 250000;
-let wrappers = strip.querySelectorAll('.tcy,.upright-digit').length;
+let wrappers = strip.querySelectorAll('.explicit-tcy,.tcy,.upright-digit').length;
 function wrapper(tag, className) {
     if (++wrappers > limit) throw new Error('Vertical layout exceeds the fragment limit');
     const element = document.createElement(tag);
@@ -35,6 +35,7 @@ function wrapper(tag, className) {
 const horizontal = 'pre:not(.surimono-plain),table,figure,img,.math-block,.math-display,'
     + '.mermaid-block,.graphviz-block,.plantuml-block';
 for (const box of strip.querySelectorAll(horizontal)) {
+    if (box.closest('.explicit-tcy')) continue;
     if (box.localName === 'pre') box.classList.add('vertical-code');
     if (box.parentElement.closest('.horizontal-box')) continue;
     const line = wrapper('div', 'horizontal-box-line');
@@ -75,9 +76,9 @@ for (const list of strip.querySelectorAll('section.footnotes > ol')) {
 // so that combining marks and variation selectors stay on the same piece of paper.
 const segments = new Intl.Segmenter('ja', {granularity: 'grapheme'});
 for (const note of strip.querySelectorAll('sup.footnote-ref')) {
-    if (note.closest('.horizontal-box')) continue;
+    if (note.closest('.horizontal-box,.explicit-tcy')) continue;
     let base = note.previousSibling;
-    const whole = '.tcy,.upright-digit,ruby,.math-inline,img,svg';
+    const whole = '.explicit-tcy,.tcy,.upright-digit,ruby,.math-inline,img,svg';
     while (base?.matches?.('a,b,code,del,em,i,mark,s,small,span,strong,sub,sup,u') && !base.matches(whole)) {
         base = base.lastChild;
     }
@@ -108,7 +109,7 @@ for (const note of strip.querySelectorAll('sup.footnote-ref')) {
 
 // Shape horizontally, include ink outside the nominal math box (e.g. subscripts), then
 // turn the entire SVG once. Reserve one body cell across the line, including for tall formulas.
-const formulas = [...strip.querySelectorAll('.math-inline > svg')].filter(svg => !svg.closest('.horizontal-box'));
+const formulas = [...strip.querySelectorAll('.math-inline > svg')].filter(svg => !svg.closest('.horizontal-box,.explicit-tcy'));
 for (const svg of formulas) svg.parentElement.classList.add('vertical-inline-formula');
 // Request the vertical glyphs and math faces before measuring their final advances.
 strip.getBoundingClientRect();
@@ -135,7 +136,7 @@ formulas.forEach((svg, i) => {
     svg.style.width = svg.parentElement.style.height = (w * scale) + 'px';
     svg.style.height = (h * scale) + 'px';
 });
-const atomic = '.horizontal-box,.vertical-inline-formula,.vertical-note-base,.vertical-note-number,ruby,.tcy,svg,canvas,input,hr';
+const atomic = '.explicit-tcy,.horizontal-box,.vertical-inline-formula,.vertical-note-base,.vertical-note-number,ruby,.tcy,svg,canvas,input,hr';
 const excluded = 'style,script,template,noscript';
 const heading = 'h1,h2,h3,h4,h5,h6';
 // LaTeX titles and sections also use heading tags. Only the reader knows which command opened a chapter.
@@ -157,6 +158,9 @@ function paintBounds(element, box = element.getBoundingClientRect()) {
 
 // Measure first and then change zoom together. Interleaving reads and writes lays out the entire novel for each box.
 const fits = [];
+const readableBoxes = new WeakSet();
+const retryAtFloor = [];
+const bodyFont = parseFloat(getComputedStyle(strip).fontSize);
 for (const box of strip.querySelectorAll(atomic)) {
     if (box.parentElement.closest(atomic)) continue;
     const rect = paintBounds(box);
@@ -164,9 +168,35 @@ for (const box of strip.querySelectorAll(atomic)) {
     const line = box.closest('.horizontal-box-line');
     const padding = line ? 2 * parseFloat(getComputedStyle(line).paddingTop) * zoom : 0;
     const scale = Math.min(width / (rect.width * unit), Math.max(1, height - padding) / (rect.height * unit));
-    if (scale < 1) fits.push([box, scale * (parseFloat(getComputedStyle(box).zoom) || 1)]);
+    if (scale >= 1) continue;
+    const textBoxes = box.matches('table,pre') ? [box] : [...box.querySelectorAll('table,pre')];
+    if (line && textBoxes.length) {
+        // Sequoia can report a zoomed descendant's DOMRect in its own coordinate system.
+        // Reduce the actual type size instead, then measure the reflowed rows on the strip.
+        const floors = [];
+        for (const textBox of textBoxes) {
+            const natural = parseFloat(getComputedStyle(textBox).fontSize);
+            const floor = Math.min(natural, bodyFont * 0.7);
+            const size = Math.max(floor, natural * scale);
+            fits.push([textBox, 'fontSize', size + 'px']);
+            if (size > floor) floors.push([textBox, floor]);
+        }
+        if (floors.length) retryAtFloor.push([box, floors]);
+        readableBoxes.add(box);
+    } else {
+        fits.push([box, 'zoom', scale * (parseFloat(getComputedStyle(box).zoom) || 1)]);
+    }
 }
-for (const [box, scale] of fits) box.style.zoom = scale;
+for (const [box, property, value] of fits) box.style[property] = value;
+// Borders and authored cell sizes need not shrink with the font. Try the floor
+// before reserving a continuation row for a box that could still fit in one.
+function overflowsRow(rect) {
+    return rect.height * unit > height || rect.width * unit > width;
+}
+const retries = retryAtFloor.filter(([box]) => overflowsRow(paintBounds(box)));
+for (const [, floors] of retries) {
+    for (const [box, floor] of floors) box.style.fontSize = floor + 'px';
+}
 
 // The parent flows right to left. Its block advance is the horizontal box's
 // physical width, irrespective of the box's height or an orthogonal intrinsic size.
@@ -294,6 +324,31 @@ globalThis.surimonoVerticalX = element => {
     return (right + window.scrollX) * unit;
 };
 let originX, originY;
+// Measure rows on the intact table so column widths, captions and spanning cells
+// keep their original positions. Code may have syntax spans across a printed line.
+function horizontalBreaks(box, stripTop) {
+    const intervals = [];
+    function include(rect) {
+        if (rect.height <= 0 || rect.width <= 0) return;
+        if (intervals.length >= limit) throw new Error('Vertical layout exceeds the fragment limit');
+        intervals.push([rect.top, rect.bottom]);
+    }
+    for (const el of box.querySelectorAll('tr,td[rowspan],th[rowspan],img,svg,br')) include(el.getBoundingClientRect());
+    const text = document.createTreeWalker(box, NodeFilter.SHOW_TEXT);
+    for (let n = text.nextNode(); n; n = text.nextNode()) {
+        if (n.parentElement.closest('tr,svg,style,script')) continue;
+        range.selectNodeContents(n);
+        for (const rect of range.getClientRects()) include(rect);
+    }
+    intervals.sort((a,b) => a[0]-b[0]);
+    const cuts = [];
+    let bottom;
+    for (const [top,end] of intervals) {
+        if (bottom !== undefined && top >= bottom - 0.01) cuts.push(((bottom + top)/2 - stripTop) * unit);
+        bottom = Math.max(bottom ?? end, end);
+    }
+    return cuts;
+}
 function measureLayout() {
     strip.style.left = '';
     strip.style.top = '';
@@ -302,13 +357,13 @@ function measureLayout() {
     const bands = [];
     originX = window.scrollX;
     const stripTop = strip.getBoundingClientRect().top;
-    function add(rect, keepNext, paint = rect, rightInk = 0, chapter = false) {
+    function add(rect, keepNext, paint = rect, rightInk = 0, chapter = false, continuation) {
         if (!rect.width || !rect.height) return;
         if (bands.length >= limit) throw new Error('Vertical layout exceeds the fragment limit');
         // Keep the line advance independent of the ink allowance, even when two neighboring
         // lines' ruby or emphasis marks overlap. Both use the same fractional CSS coordinates.
         bands.push({start: -(rect.right + originX) * unit, end: -(rect.left + originX) * unit,
-            keepNext, chapter, ink: {start: -(paint.right + originX) * unit - rightInk - 1,
+            keepNext, chapter, continuation, ink: {start: -(paint.right + originX) * unit - rightInk - 1,
                 end: -(paint.left + originX) * unit + 1, top: (paint.top - stripTop) * unit,
                 bottom: (paint.bottom - stripTop) * unit}});
     }
@@ -350,7 +405,16 @@ function measureLayout() {
             const paint = paintBounds(n);
             const layout = layoutRect(n);
             const emphasis = n.closest(annotations) || n.querySelector(latex ? 'em:not([data-vertical-latin]),.kenten,.bousen' : 'em:not([data-vertical-latin])');
-            add(layout.width && layout.height ? layout : paint, n.matches('.vertical-note-rule') || !!n.closest(heading), paint, emphasisInk(emphasis));
+            const split = readableBoxes.has(n) && overflowsRow(paint);
+            // Collapsed cell borders can paint beyond the measured bottom edge. Extend only
+            // the last capture, so internal row boundaries and the measured type size stay intact.
+            const continuation = split ? {
+                breaks: horizontalBreaks(n, stripTop),
+                gap: Math.max(0, parseFloat(getComputedStyle(n.parentElement).marginBlockStart) || 0) * zoom,
+                bottomBleed: n.matches('table') || n.querySelector('table') ? 2 : 0
+            } : undefined;
+            add(layout.width && layout.height ? layout : paint, n.matches('.vertical-note-rule') || !!n.closest(heading), paint, emphasisInk(emphasis), false,
+                continuation);
         }
     }
     // A vertical-rl child can overflow the intrinsic strip to the left of the document.

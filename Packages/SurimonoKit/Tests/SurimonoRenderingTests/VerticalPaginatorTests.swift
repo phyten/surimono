@@ -25,18 +25,21 @@ struct FlowPageCutsTests {
     }
 
     @Test("縦書きは見出しと本文二行を同じ段に置き、冊子の章は次のページを開く")
-    func verticalHeadings() {
+    func verticalHeadings() throws {
         let lines = [
             Band(start: 0, end: 10), Band(start: 11, end: 17, keepNext: true),
             Band(start: 18, end: 24), Band(start: 25, end: 31),
             Band(start: 32, end: 36, keepNext: true, chapter: true), Band(start: 37, end: 40),
         ]
-        let pages = VerticalPaginator.rows(for: lines, capacity: 26, rowsPerPage: 2)
-        #expect(pages == [[Band(start: 0, end: 10), Band(start: 11, end: 31)], [Band(start: 32, end: 40)]])
-        #expect(
-            VerticalPaginator.rows(for: lines, capacity: 100, rowsPerPage: 2) == [
-                [Band(start: 0, end: 31)], [Band(start: 32, end: 40)],
-            ])
+        let groups = VerticalPaginator.chapterGroups(for: lines, capacity: 26)
+        let plan = try VerticalCapturePlan(chapters: groups, width: 26, height: 60, rows: 2)
+        #expect(plan.pages.map { $0.map(\.index) } == [[0, 1], [2]])
+        #expect(plan.sources == [Band(start: 0, end: 10), Band(start: 11, end: 31), Band(start: 32, end: 40)])
+        let wide = try VerticalCapturePlan(
+            chapters: VerticalPaginator.chapterGroups(for: lines, capacity: 100),
+            width: 100, height: 60, rows: 2)
+        #expect(wide.pages.map { $0.map(\.index) } == [[0], [1]])
+        #expect(wide.sources == [Band(start: 0, end: 31), Band(start: 32, end: 40)])
     }
 
     @Test("論理 A4 は上下に同寸の版面と三字分の段間を取り、A5 は一段になる")
@@ -81,12 +84,71 @@ struct FlowPageCutsTests {
     }
 
     @Test("切片の割当は小数の配置幅で決め、重なる傍点とルビの描画範囲だけを広げる")
-    func overlappingInk() {
+    func overlappingInk() throws {
         let first = Band(start: 0.25, end: 10.25, ink: .init(start: -3.5, end: 13.75, top: -0.5, bottom: 21))
         let second = Band(start: 11.25, end: 20.75, ink: .init(start: 8, end: 23.125, top: 0, bottom: 23.5))
-        #expect(VerticalPaginator.rows(for: [first, second], capacity: 20, rowsPerPage: 2) == [[first, second]])
+        #expect(
+            try VerticalCapturePlan(chapters: [[first, second]], width: 20, height: 30, rows: 1).sources == [
+                first, second,
+            ])
         let merged = Band(start: 0.25, end: 20.75, ink: .init(start: -3.5, end: 23.125, top: -0.5, bottom: 23.5))
-        #expect(VerticalPaginator.rows(for: [first, second], capacity: 20.5, rowsPerPage: 2) == [[merged]])
+        #expect(
+            try VerticalCapturePlan(chapters: [[first, second]], width: 20.5, height: 30, rows: 1).sources == [merged])
+    }
+
+    @Test("本文の左に表の切片を並べ、次段では最後の切片の左に収まる本文だけを続ける")
+    func packedContinuations() throws {
+        let prose = Band(start: 0, end: 19)
+        let table = Band(
+            start: 22, end: 50, ink: .init(start: 22, end: 50, top: 0, bottom: 100),
+            continuation: .init(breaks: [25, 50, 75]))
+        let after = [Band(start: 53, end: 65), Band(start: 67, end: 85), Band(start: 89, end: 119)]
+        let plan = try VerticalCapturePlan(chapters: [[prose, table] + after], width: 82, height: 30, rows: 2)
+        #expect(plan.pages.map { $0.map(\.row) } == [[0, 0, 0, 1, 1, 1], [0]])
+        #expect(plan.pages[0].map(\.index) == [0, 1, 1, 1, 1, 2])
+        #expect(plan.pages[0].map(\.offset.x) == [-19, -50, -78, -28, -56, -71])
+        #expect(plan.sources.last?.end == 119)
+    }
+
+    @Test("罫線の描画余白は段の幅を消費せず、末尾だけに下罫の余白を残す")
+    func tableBorderBleed() throws {
+        let table = Band(
+            start: 22, end: 50, ink: .init(start: 21, end: 51, top: 0, bottom: 80),
+            continuation: .init(breaks: [40], gap: 2, bottomBleed: 2))
+        let plan = try VerticalCapturePlan(
+            chapters: [[Band(start: 0, end: 20), table, Band(start: 52, end: 62)]],
+            width: 80, height: 40, rows: 2)
+        try #require(plan.pages.count == 1)
+        #expect(plan.pages[0].map(\.row) == [0, 0, 0, 1])
+        let pieces = plan.pages[0].filter { $0.index == 1 }
+        #expect(pieces.map(\.offset.x) == [-51, -81])
+        #expect(pieces.map(\.rect.height) == [40, 42])
+    }
+
+    @Test("横組みの長い箱を行境界で送り、単一の巨大な行も同じ倍率で隙間なく紙に載せる")
+    func readableFragments() throws {
+        let table = Band(
+            start: -80, end: 0, ink: .init(start: -80, end: 0, top: 0, bottom: 150),
+            continuation: .init(breaks: [29, 58, 87, 116]))
+        let cell = Band(
+            start: 10, end: 110, ink: .init(start: 10, end: 110, top: 0, bottom: 130),
+            continuation: .init(breaks: []))
+        let pages = try VerticalCapturePlan(chapters: [[table, cell]], width: 80, height: 60, rows: 2).pages
+        let rows = pages.flatMap { $0 }
+        #expect(pages.map(\.count) == [2, 2, 2, 2, 1])
+        #expect(rows.allSatisfy { $0.fit == 1 })
+        #expect(
+            rows.filter { $0.index == 0 }.map(\.rect) == [
+                CGRect(x: 0, y: 0, width: 80, height: 58), CGRect(x: 0, y: 58, width: 80, height: 58),
+                CGRect(x: 0, y: 116, width: 80, height: 34),
+            ])
+        let pieces = rows.filter { $0.index == 1 }.map(\.rect)
+        #expect(pieces.count == 6)
+        #expect(pieces.reduce(CGRect.null) { $0.union($1) } == CGRect(x: -110, y: 0, width: 100, height: 130))
+        #expect(pieces.reduce(CGFloat(0)) { $0 + $1.width * $1.height } == 13_000)
+        for i in pieces.indices {
+            #expect(pieces.dropFirst(i + 1).allSatisfy { pieces[i].intersection($0).isEmpty })
+        }
     }
 
     @Test("用紙より広い箱は分けずに単独のページに取り、空の帯は空のまま返す")

@@ -109,7 +109,7 @@ Surimono works offline and has no telemetry. It connects when you press **Open**
 | Source code and configuration (colored by language; shown as written) | `.swift`, `.py`, `.rb`, `.js`, `.ts`, `.tsx`, `.go`, `.rs`, `.java`, `.kt`, `.c`, `.h`, `.cpp`, `.cs`, `.m`, `.php`, `.sh`, `.sql`, `.lua`, `.r`, `.jl`, `.hs`, `.vue`, `.css`, `.scss`, `.json`, `.jsonl`, `.ndjson`, `.yaml`, `.yml`, `.toml`, `.ini`, `.xml`, `.plist`, `.diff`, `.patch`, `.mk`, `Makefile`, … |
 | HTML | `.html`, `.htm` |
 | CSV / TSV | `.csv`, `.tsv` |
-| LaTeX<br>Opens vertically for `jlreq` with `tate`, or for `tarticle`, `treport`, `tbook`, `utarticle`, `utreport`, `utbook`, `ltjtarticle`, `ltjtreport` and `ltjtbook`. Both writing directions support `\tatechuyoko` and `\rensuji` (horizontal text in a vertical line), `\ruby` and `\jruby` (ruby), `\kenten` (emphasis dots) and `\bou` (underlining). | `.tex`, `.latex`, `.ltx` |
+| LaTeX<br>Opens vertically for `jlreq` with `tate`, or for `tarticle`, `treport`, `tbook`, `utarticle`, `utreport`, `utbook`, `ltjtarticle`, `ltjtreport` and `ltjtbook`. Both writing directions support `\tatechuyoko` and `\rensuji` (horizontal text in a vertical line), `\ruby` and `\jruby` (ruby), `\kenten` and `\bou` (emphasis dots), and `\kasen` (underlining). | `.tex`, `.latex`, `.ltx` |
 | Quarto (code is shown as configured; results are not generated) | `.qmd` |
 | R Markdown (code is shown as configured; results are not generated) | `.Rmd`, `.rmd`, `.Rmarkdown` |
 | Word | `.docx` |

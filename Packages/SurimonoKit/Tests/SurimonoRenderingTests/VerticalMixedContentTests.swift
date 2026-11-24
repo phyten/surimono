@@ -70,8 +70,317 @@ private func inkPages(in document: PDFDocument) throws -> (equations: [Int], not
     return (equations, notes, noteText)
 }
 
+// Opposite saturated red and blue channels distinguish solid ink from any blend with the neutral paper or rules.
+private struct MarkerColor {
+    let red: Int
+    let green: Int
+    let blue: Int
+
+    init(_ id: Int) {
+        red = id.isMultiple(of: 2) ? 0 : 255
+        green = 8 + 10 * (id / 2)
+        blue = 255 - red
+    }
+
+    static func id(red: Int, green: Int, blue: Int) -> Int? {
+        guard min(red, blue) <= 2 && max(red, blue) >= 253 else { return nil }
+        let pair = (green - 8 + 5) / 10
+        guard (0..<25).contains(pair), abs(green - (8 + 10 * pair)) <= 2 else { return nil }
+        return 2 * pair + (red > blue ? 1 : 0)
+    }
+
+    var cgColor: CGColor {
+        CGColor(srgbRed: CGFloat(red) / 255, green: CGFloat(green) / 255, blue: CGFloat(blue) / 255, alpha: 1)
+    }
+}
+
+private func marker(_ id: Int) -> String {
+    let ink = MarkerColor(id)
+    let color = "rgb(\(ink.red),\(ink.green),\(ink.blue))"
+    return
+        #"<svg data-marker="\#(id)" width="1em" height="1em"><rect width="100%" height="100%" fill="\#(color)"/></svg>"#
+}
+
+// Keep separate deposits of the same ink, including an isolated native pixel at a slice edge.
+@MainActor
+private func markerBounds(on page: PDFPage) throws -> [Int: [CGRect]] {
+    let rgb = try #require(CGColorSpace(name: CGColorSpace.sRGB))
+    let pixels = try PagePixels(page, colorSpace: rgb)
+    let step = 1 / pixels.scale
+    var locations = [Int: Set<Int>]()
+    for y in 0..<pixels.height {
+        for x in 0..<pixels.width {
+            let (r, g, b) = pixels.color(atX: CGFloat(x) * step, y: CGFloat(y) * step)
+            if let id = MarkerColor.id(red: r, green: g, blue: b) {
+                locations[id, default: []].insert(y * pixels.width + x)
+            }
+        }
+    }
+    return locations.mapValues { points in
+        var remaining = points
+        var components = [CGRect]()
+        while let seed = remaining.popFirst() {
+            var stack = [seed]
+            var bounds = CGRect.null
+            while let point = stack.popLast() {
+                let x = point % pixels.width
+                bounds = bounds.union(CGRect(x: x, y: point / pixels.width, width: 1, height: 1))
+                func visit(_ neighbor: Int) {
+                    if remaining.remove(neighbor) != nil { stack.append(neighbor) }
+                }
+                if x > 0 { visit(point - 1) }
+                if x + 1 < pixels.width { visit(point + 1) }
+                visit(point - pixels.width)
+                visit(point + pixels.width)
+            }
+            components.append(bounds.applying(CGAffineTransform(scaleX: step, y: step)))
+        }
+        return components.sorted { ($0.minY, $0.minX) < ($1.minY, $1.minX) }
+    }
+}
+
+private func singleMarker(
+    _ id: Int, in marks: [Int: [CGRect]], sourceLocation: SourceLocation = #_sourceLocation
+) throws -> CGRect {
+    let hits = marks[id] ?? []
+    try #require(hits.count == 1, "印 \(id): \(hits)", sourceLocation: sourceLocation)
+    return hits[0]
+}
+
+// Each edge may lose part of one antialiased pixel in the solid-color scan at four pixels per point.
+private func matchesMarkerSize(_ ink: CGRect, _ reference: CGRect) -> Bool {
+    abs(ink.width - reference.width) <= 0.5 && abs(ink.height - reference.height) <= 0.5
+}
+
 @MainActor
 struct VerticalMixedContentTests {
+    @Test("長い表とコードは行ごとに送り、段を超す単一セルも本文七割のまま末尾まで印刷する", .timeLimit(.minutes(1)))
+    func readableBoxes() async throws {
+        _ = NSApplication.shared
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "tategaki" })
+        // Each line has its own one-em square. Measuring it on the final paper catches a
+        // second scale in PDF composition as well as missing or repeated lines.
+        let rows = (0..<24).map { "<tr><td>\(marker($0))表\($0)</td></tr>" }.joined()
+        let code = (24..<48).map { marker($0) + "line\($0)" }.joined(separator: "\n")
+        let emphasis = #"<em>Latin</em><em>和文</em><span class="kenten">点</span><span class="bousen">線</span>"#
+        let body = """
+            <p>\(emphasis)</p><figure><figcaption>\(emphasis)</figcaption></figure>
+            <p><span class="explicit-tcy"><span class="math-inline"><svg width="32" height="18"></svg></span><ruby>親<rt>おや</rt></ruby></span></p>
+            <table><tbody><tr><td>\(emphasis)</td></tr>\(rows)</tbody></table><pre>\(code)</pre>
+            <table><tr><td>\(marker(48))<div style="height:480px"></div>\(marker(49))</td></tr></table>
+            """
+        let html = HTMLDocumentBuilder.build(fragment: HTMLFragment(body: body), format: .latex, theme: theme)
+        let paper = CGSize(width: 195, height: 195)
+        let view = WKWebView(frame: CGRect(origin: .zero, size: paper))
+        let navigation = NavigationTracker()
+        view.navigationDelegate = navigation
+        view.loadHTMLString(html, baseURL: nil)
+        try await WebPaginator.waitUntil(timeout: .seconds(10)) { navigation.state != .loading }
+        try #require(navigation.state == .finished)
+        let horizontal = try await view.evaluateForPrinting(
+            """
+            return getComputedStyle(document.querySelector('.kenten')).textEmphasisStyle.includes('sesame') &&
+                getComputedStyle(document.querySelector('.bousen')).textDecorationLine.includes('underline');
+            """, until: .now + .seconds(5))
+        #expect(horizontal as? Bool == true)
+        let pdf = try await VerticalPaginator.pages(
+            in: view, pageSize: paper, margins: .init(top: 14, left: 14, bottom: 14, right: 14), timeout: .seconds(30))
+        #expect(pdf.pageCount > 1)
+        let styles = try await view.evaluateForPrinting(
+            """
+            const run = document.querySelector('.explicit-tcy'), svg = run.querySelector('svg');
+            if (getComputedStyle(run).writingMode !== 'horizontal-tb' || run.querySelector('.vertical-inline-formula') ||
+                run.getBoundingClientRect().width < 32 || svg.getBoundingClientRect().height !== 18) return false;
+            return ['p','figcaption','td'].every((selector,i) => {
+                const base = document.querySelector('.surimono-vertical ' + selector);
+                const [latin, japanese, explicit] = [...base.children].map(el => getComputedStyle(el));
+                return latin.fontStyle === 'italic' && latin.textEmphasisStyle === 'none' &&
+                    (i === 0 ? japanese.textEmphasisStyle.includes('sesame') :
+                        japanese.fontStyle === 'italic' && japanese.textEmphasisStyle === 'none') &&
+                    explicit.textEmphasisStyle.includes('sesame');
+            });
+            """, until: .now + .seconds(5))
+        #expect(styles as? Bool == true)
+        // Capture the same laid-out SVGs once without any row boundaries. This separates
+        // WebKit's own SVG edge snapping from ink lost while cutting or composing the pages.
+        let positions = try #require(
+            try await view.evaluateForPrinting(
+                """
+                document.querySelectorAll('.surimono-off-page').forEach(el => el.classList.remove('surimono-off-page'));
+                return [...document.querySelectorAll('svg[data-marker]')].map(el => {
+                    const r = el.getBoundingClientRect();
+                    return [Number(el.dataset.marker), r.left + scrollX, r.top + scrollY, r.width, r.height];
+                });
+                """, until: .now + .seconds(5)) as? [[Double]])
+        var dom = [Int: CGRect]()
+        for entry in positions {
+            try #require(entry.count == 5)
+            dom[Int(entry[0])] = CGRect(x: entry[1], y: entry[2], width: entry[3], height: entry[4])
+        }
+        try #require(dom.count == 50)
+        let config = WKPDFConfiguration()
+        config.rect = dom.values.reduce(CGRect.null) { $0.union($1) }.insetBy(dx: -2, dy: -2).integral
+        let data = try await view.pdfForPrinting(configuration: config, until: .now + .seconds(10))
+        let reference = try #require(PDFDocument(data: data))
+        try #require(reference.pageCount == 1)
+        let uncut = try markerBounds(on: #require(reference.page(at: 0)))
+        let paperScale = CGAffineTransform(scaleX: 0.75, y: 0.75)
+        var seen = [Int: [(page: Int, rect: CGRect)]]()
+        for pageIndex in 0..<pdf.pageCount {
+            let page = try #require(pdf.page(at: pageIndex))
+            for (id, hits) in try markerBounds(on: page) {
+                seen[id, default: []].append(contentsOf: hits.map { (pageIndex + 1, $0) })
+            }
+        }
+        for id in 0..<50 {
+            let layout = try #require(dom[id], "印 \(id) DOM")
+            let full = try singleMarker(id, in: uncut).applying(paperScale)
+            let hits = seen[id] ?? []
+            let info: Comment = "印 \(id): DOM (CSS px) \(layout), 分割前 (pt) \(full), 紙面 (頁, pt) \(hits)"
+            let nominal = layout.applying(paperScale)
+            #expect(abs(nominal.width - 7.35) < 0.05 && abs(nominal.height - 7.35) < 0.05, info)
+            // Allow the renderer to snap an SVG viewport to CSS pixels. The cut itself must
+            // preserve even that snapped ink, independently of the nominal font-size check.
+            #expect(abs(full.width - 7.35) <= 1.1 && abs(full.height - 7.35) <= 1.1, info)
+            #expect(hits.count == 1, info)
+            if let hit = hits.first {
+                #expect(matchesMarkerSize(hit.rect, full), info)
+            }
+        }
+    }
+
+    @Test("長い表の全行を本文と同じ段に右から並べ、末行の下罫と後続段落を印刷する", .timeLimit(.minutes(1)))
+    func tableContinuesAcrossRow() async throws {
+        _ = NSApplication.shared
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "tategaki" })
+        let rows = (0..<40).map { "| \(marker($0)) 行\($0) |" }.joined(separator: "\n")
+        let source = """
+            \(marker(40))導入。
+
+            | 項目 |
+            | --- |
+            \(rows)
+
+            \(marker(41))表の続き。
+            """
+        // Give only the existing bottom border a distinct ink. Adding a test border would mask its loss.
+        let html = HTMLDocumentBuilder.build(
+            fragment: MarkdownConverter.convert(source), format: .markdown, theme: theme,
+            finish: "table.horizontal-box {width:100px} tbody tr:last-child td {border-bottom-color:#009070}")
+        let paper = PaperSize.a4.size
+        let view = WKWebView(frame: CGRect(origin: .zero, size: paper))
+        let navigation = NavigationTracker()
+        view.navigationDelegate = navigation
+        view.loadHTMLString(html, baseURL: nil)
+        try await WebPaginator.waitUntil(timeout: .seconds(10)) { navigation.state != .loading }
+        try #require(navigation.state == .finished)
+        let document = try await VerticalPaginator.pages(
+            in: view, pageSize: paper, margins: .init(top: 36, left: 36, bottom: 36, right: 36), timeout: .seconds(30))
+        try #require(document.pageCount == 1)
+        let page = try #require(document.page(at: 0))
+        let marks = try markerBounds(on: page)
+        let prefix = try singleMarker(40, in: marks)
+        let suffix = try singleMarker(41, in: marks)
+        var previous = prefix
+        var columns = 0
+        for id in 0..<40 {
+            let rect = try singleMarker(id, in: marks)
+            #expect(abs(rect.width - 7.35) <= 1.1 && abs(rect.height - 7.35) <= 1.1, "印 \(id): \(rect)")
+            #expect(rect.maxY < paper.height / 2)
+            if abs(rect.midX - previous.midX) > 1 {
+                #expect(rect.maxX < previous.minX)
+                columns += 1
+            } else {
+                #expect(rect.minY > previous.maxY)
+            }
+            previous = rect
+        }
+        #expect(columns >= 2 && suffix.maxX < previous.minX)
+        #expect(abs(prefix.minY - suffix.minY) < 2)
+        let pixels = try PagePixels(page)
+        func border(_ r: Int, _ g: Int, _ b: Int) -> Bool { g > r + 45 && b > r + 30 && g > b }
+        let rule = try #require(pixels.bounds(where: border))
+        for x in stride(from: rule.minX + 1, to: rule.maxX - 1, by: 1 / pixels.scale) {
+            let color = pixels.color(atX: x, y: rule.midY)
+            try #require(border(color.red, color.green, color.blue), "下罫 x=\(x) pt")
+        }
+        #expect(rule.width > 72 && rule.height < 2)
+        #expect(rule.minX < previous.midX && previous.midX < rule.maxX && rule.minY >= previous.maxY)
+        #expect(rule.minY - previous.maxY < 15)
+    }
+
+    @Test("画素の境目をずらしても完全な印は合格し、上端か下端を 1 pt 切った印は欠けとして検出する")
+    func markerClipping() async throws {
+        let side = 7.35
+        let document = try await PDFDrawing.document(pageSize: CGSize(width: 180, height: 36)) { context in
+            context.beginPDFPage(nil)
+            for id in 0..<48 {
+                let phase = CGFloat(id % 16) / 16
+                let mark = CGRect(
+                    x: 1 + 11 * CGFloat(id % 16) + phase, y: 1 + 11 * CGFloat(id / 16) + phase,
+                    width: side, height: side)
+                context.saveGState()
+                if id >= 16 {
+                    context.clip(
+                        to: CGRect(
+                            x: mark.minX, y: mark.minY + (id < 32 ? 1 : 0),
+                            width: side, height: side - 1))
+                }
+                context.setFillColor(MarkerColor(id).cgColor)
+                context.fill(mark)
+                context.restoreGState()
+            }
+            context.endPDFPage()
+        }
+        let bounds = try markerBounds(on: #require(document.page(at: 0)))
+        for phase in 0..<16 {
+            let full = try singleMarker(15 - phase, in: bounds)
+            let intact = try singleMarker(phase, in: bounds)
+            let nominal = CGRect(x: 0, y: 0, width: side, height: side)
+            #expect(matchesMarkerSize(intact, nominal) && matchesMarkerSize(intact, full), "位相 \(phase)/16: \(intact)")
+            for id in [16 + phase, 32 + phase] {
+                let cut = try singleMarker(id, in: bounds)
+                #expect(!matchesMarkerSize(cut, full), "印 \(id): 全体 \(full)、切り抜き \(cut)")
+            }
+        }
+    }
+
+    @Test("半透明の縁を別の印に数えず、同じ頁に離れて描いた一画素の欠片も検出する")
+    func markerEdges() async throws {
+        let paper = CGSize(width: 100, height: 50)
+        let document = try await PDFDrawing.document(pageSize: paper) { context in
+            context.beginPDFPage(nil)
+            for id in 0..<50 {
+                let x = 10 * (id % 10) + 1
+                let y = 8 * (id / 10) + 1
+                context.setFillColor(MarkerColor(id).cgColor)
+                context.setAlpha(1)
+                context.fill(CGRect(x: x, y: y, width: 3, height: 3))
+                // This coverage on white made the old palette match a different row's ink.
+                context.setAlpha(0.875)
+                context.fill(CGRect(x: x + 4, y: y, width: 1, height: 1))
+            }
+            context.setAlpha(1)
+            context.setFillColor(MarkerColor(24).cgColor)
+            context.fill(CGRect(x: 2, y: 40, width: 3, height: 3))
+            context.fill(CGRect(x: 8, y: 40, width: 0.25, height: 0.25))
+            context.endPDFPage()
+        }
+        let hits = try markerBounds(on: #require(document.page(at: 0)))
+        for id in 0..<50 {
+            let x = CGFloat(10 * (id % 10) + 1)
+            let y = paper.height - CGFloat(8 * (id / 10) + 1) - 3
+            let original = CGRect(x: x, y: y, width: 3, height: 3)
+            if id == 24 {
+                let duplicate = CGRect(x: 2, y: 7, width: 3, height: 3)
+                let speck = CGRect(x: 8, y: 9.75, width: 0.25, height: 0.25)
+                #expect(hits[id] == [duplicate, speck, original])
+            } else {
+                #expect(hits[id] == [original], "印 \(id)")
+            }
+        }
+    }
+
     @Test("実機の混植原稿を通常の組版経路で開くと別行数式と文末脚注のインクが紙に載る", .timeLimit(.minutes(1)))
     func manuscript() async throws {
         _ = NSApplication.shared
@@ -94,7 +403,7 @@ struct VerticalMixedContentTests {
             \documentclass[tate,book,openright,twocolumn]{jlreq}
             \begin{document}
             \chapter{春}\section{庭}
-            本文\tatechuyoko{25}\ruby{花}{はな}\kenten{桜}\bou{線}。
+            本文\tatechuyoko{25}\ruby{花}{はな}\kenten{桜}\kasen{線}。
             \[x=12\]
             \begin{tabular}{c}表\end{tabular}
             \chapter*{秋}

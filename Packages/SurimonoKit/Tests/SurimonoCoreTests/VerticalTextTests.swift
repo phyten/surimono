@@ -93,6 +93,67 @@ struct VerticalTextTests {
         #expect(try VerticalText.marked(LongTokenMarks.opening + label + "</span>").contains(expected))
     }
 
+    @Test("符号・指数・日時・識別子・単位の中では一部の数字だけを縦中横にしない")
+    func compoundNumbers() throws {
+        for token in ["-12", "+12", "1e-3", "12:30", "12/25", "2026-11-25", "foo_12"] {
+            #expect(try VerticalText.marked(token) == latin(token))
+        }
+        #expect(try VerticalText.marked("12 kg") == latin("12 kg"))
+        #expect(try VerticalText.marked("12 apples").hasPrefix(#"<span class="tcy">12</span>"#))
+        for unit in ["12 <em>kg</em>", "<b>12</b> <em>kg</em>"] {
+            let result = try VerticalText.marked(unit)
+            #expect(result.contains(latin("12")) && result.contains(latin("kg")))
+        }
+        #expect(try VerticalText.marked("12人") == #"<span class="tcy">12</span>人"#)
+        #expect(
+            try VerticalText.marked("2026年11月25日") == latin("2026") + aki
+                + #"年<span class="tcy">11</span>月<span class="tcy">25</span>日"#)
+    }
+
+    @Test("文字参照の原綴りと表示文字を保ち、同じ表示なら同じ和欧境界と縦中横を付ける")
+    func references() throws {
+        // Decode the fixture's references within each node, as an HTML reader would.
+        // Joining first would mask a span inserted halfway through a reference.
+        let references = [
+            ("&#x65e5", "日"), ("&#49", "1"), ("&#50", "2"), ("&#80;", "P"), ("&Aacute;", "Á"), ("&amp", "&"),
+        ]
+        func visible(_ html: String) -> String {
+            HTMLScanner.tokens(html).compactMap { token in
+                guard case .text(let text) = token else { return nil }
+                return references.reduce(text) { $0.replacingOccurrences(of: $1.0, with: $1.1) }
+            }.joined()
+        }
+        for source in ["&#x65e5", "&amp 文", "&#49&#50", "和&#80;DF文", "和&Aacute;文", "和PDF文", "和Á文"] {
+            let result = try VerticalText.marked(source)
+            #expect(visible(result) == visible(source))
+            if source.hasPrefix("和") {
+                #expect(result.components(separatedBy: aki).count == 3)
+            }
+        }
+        #expect(try VerticalText.marked("&#49&#50") == #"<span class="tcy">&#49&#50</span>"#)
+    }
+
+    @Test("縦書き前処理の前後で本文・リンク先・数式・ルビの親文字と読みを保つ")
+    func protectedContents() throws {
+        let fragment = LaTeXConverter.convert(
+            #"\documentclass{tarticle}\begin{document}庭25日。\tatechuyoko{$\frac{1}{2}$}\rensuji{\ruby{親}{おや}}\tatechuyoko{\href{https://example.org/12}{参照}}\end{document}"#
+        )
+        let before = fragment.body + "<p>葛󠄀 e\u{301} 👩‍🔬</p>"
+        let after = try VerticalText.marked(before, latex: true)
+        func text(_ html: String) -> String {
+            HTMLScanner.tokens(html).compactMap { if case .text(let t) = $0 { t } else { nil } }.joined()
+        }
+        let explicit = #"<span class="explicit-tcy"><b>99</b></span>"#
+        #expect(
+            try VerticalText.marked("25" + explicit + "12", latex: true)
+                == #"<span class="tcy">25</span>"# + explicit + #"<span class="tcy">12</span>"#)
+        #expect(text(before) == text(after))
+        let protected = try #require(before.firstMatch(of: /(?s)<span class="explicit-tcy">.*<\/span>/)?.output)
+        #expect(protected.contains("<svg") && protected.contains("<ruby>親<rt>おや</rt></ruby>"))
+        #expect(protected.contains(#"href="https://example.org/12""#))
+        #expect(after.contains(protected))
+    }
+
     @Test("縦書きを選んだ本文にだけ前処理を適用し、ソースコードの数字を保つ")
     func themedHTML() throws {
         let themes = try PrintThemeLibrary.load()
@@ -134,9 +195,9 @@ struct VerticalTextTests {
             \begin{document}
             \chapter{春}\section{朝5時}
             和25日と5日。和PDF文（注）。和\tatechuyoko{12}文\rensuji{34}日。
-            \ruby{親}{読25}\kenten{点25}\bou{線25}。
+            \ruby{親}{読25}\kenten{点25}\kasen{線25}。
             \url{https://example.jp/a_b/25}
-            \kenten{folder/abcdefghijklmnop25}\bou{folder/abcdefghijklmnop25}
+            \kenten{folder/abcdefghijklmnop25}\kasen{folder/abcdefghijklmnop25}
             文中式 $x=12$。
             \[x=12\]
             \begin{verbatim}
@@ -153,7 +214,7 @@ struct VerticalTextTests {
         for expected in [
             #"和<span class="tcy">25</span>日と<span class="upright-digit">5</span>日。和"# + aki + latin("PDF") + aki + "文",
             close("）") + "。",
-            #"和<span class="tcy">12</span>文<span class="tcy">34</span>日"#,
+            #"和<span class="explicit-tcy">12</span>文<span class="explicit-tcy">34</span>日"#,
             #"<ruby>親<rt>読25</rt></ruby><span class="kenten">点25</span><span class="bousen">線25</span>"#,
             #"<span class="secnum">第<span class="tcy">1</span>章</span>春"#,
             #"<span class="secnum">"# + latin("1.1") + #"</span>朝<span class="tcy">5</span>時"#,

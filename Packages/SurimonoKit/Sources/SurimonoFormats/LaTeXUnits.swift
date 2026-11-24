@@ -5,7 +5,7 @@ import Foundation
 /// Numbers follow siunitx 3's defaults: digits in groups of three once a part has five or more, `e` as `× 10^n`,
 /// and a true minus. Units written with macros (`\kilo\metre\per\second`) print as powers (`km s⁻¹`); units written
 /// literally (`km/s`) print as written, with `.` and `~` as the space between units.
-enum LaTeXUnits {
+package enum LaTeXUnits {
     struct Number {
         var sign = ""
         var integer = ""
@@ -143,6 +143,11 @@ enum LaTeXUnits {
         "GPa": "GPa", "K": "K", "mol": "mol", "mmol": "mmol", "L": "L", "mL": "mL", "uL": "µL", "eV": "eV",
         "keV": "keV", "MeV": "MeV", "GeV": "GeV", "TeV": "TeV", "kWh": "kWh", "dB": "dB",
     ]
+
+    // Plain prose also uses these symbols without the siunitx command spelling.
+    package static let printedSymbols = Set(units.values).union(
+        prefixes.values.flatMap { prefix in units.values.map { prefix + $0 } }
+    ).union(["px", "pt", "pc", "em", "rem", "dpi", "fps", "in", "ft", "lb", "oz", "mph", "rpm", "%"])
 
     /// A unit as pieces: units with their powers, or text written literally.
     static func pieces(_ source: String) -> [Piece] {

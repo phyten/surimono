@@ -108,7 +108,7 @@ Surimono はオフラインで使えます。通信するのは「URL から開�
 | ソースコードと設定ファイル（言語に合わせて色を付け、書かれたとおりに表示） | `.swift`、`.py`、`.rb`、`.js`、`.ts`、`.tsx`、`.go`、`.rs`、`.java`、`.kt`、`.c`、`.h`、`.cpp`、`.cs`、`.m`、`.php`、`.sh`、`.sql`、`.lua`、`.r`、`.jl`、`.hs`、`.vue`、`.css`、`.scss`、`.json`、`.jsonl`、`.ndjson`、`.yaml`、`.yml`、`.toml`、`.ini`、`.xml`、`.plist`、`.diff`、`.patch`、`.mk`、`Makefile` など |
 | HTML | `.html`, `.htm` |
 | CSV / TSV | `.csv`, `.tsv` |
-| LaTeX<br>縦書きで開くクラスは `jlreq`（`tate` オプション）、`tarticle`・`treport`・`tbook`、`utarticle`・`utreport`・`utbook`、`ltjtarticle`・`ltjtreport`・`ltjtbook`。縦横とも `\tatechuyoko`・`\rensuji`（縦中横）、`\ruby`・`\jruby`（ルビ）、`\kenten`（傍点）、`\bou`（傍線）に対応。 | `.tex`, `.latex`, `.ltx` |
+| LaTeX<br>縦書きで開くクラスは `jlreq`（`tate` オプション）、`tarticle`・`treport`・`tbook`、`utarticle`・`utreport`・`utbook`、`ltjtarticle`・`ltjtreport`・`ltjtbook`。縦横とも `\tatechuyoko`・`\rensuji`（縦中横）、`\ruby`・`\jruby`（ルビ）、`\kenten`・`\bou`（傍点）、`\kasen`（傍線）に対応。 | `.tex`, `.latex`, `.ltx` |
 | Quarto（指定に従いコードを表示。実行結果は生成しません） | `.qmd` |
 | R Markdown（同上） | `.Rmd`, `.rmd`, `.Rmarkdown` |
 | Word | `.docx` |

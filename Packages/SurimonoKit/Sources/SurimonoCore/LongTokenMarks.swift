@@ -36,7 +36,11 @@ enum LongTokenMarks {
     }
 
     private static func skips(_ tag: HTMLScanner.Tag, verticalLaTeX: Bool) -> Bool {
-        if skippedElements.contains(tag.name) || tag.source == #"<span class="tcy">"# { return true }
+        if skippedElements.contains(tag.name) || tag.source == #"<span class="tcy">"#
+            || tag.source == #"<span class="explicit-tcy">"#
+        {
+            return true
+        }
         guard verticalLaTeX else { return false }
         if tag.name == "rt" || tag.name == "code" { return true }
         let classes = tag.attribute("class")?.split(whereSeparator: \.isWhitespace) ?? []

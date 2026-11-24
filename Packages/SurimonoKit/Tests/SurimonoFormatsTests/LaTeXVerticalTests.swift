@@ -52,32 +52,48 @@ struct LaTeXVerticalTests {
         #expect(abs(small.width - 148 * 72 / 25.4) < 0.01)
     }
 
-    @Test("縦中横は書式や入れ子を取り除いた文字だけを含み、数式とは独立する", arguments: ["tarticle", "article"])
-    func inlineNumbers(name: String) {
-        let body = LaTeXConverter.convert(
-            #"\documentclass{\#(name)}\begin{document}\tatechuyoko{12}\rensuji[ignored]{\textbf{3}\rensuji{4}}\rensuji{<\&>}$56$\end{document}"#
-        ).body
-        #expect(
-            body.contains(
-                #"<span class="tcy">12</span><span class="tcy">34</span><span class="tcy">&lt;&amp;&gt;</span>"#))
-        #expect(body.components(separatedBy: #"class="tcy""#).count == 4)
-        #expect(body.contains("<svg"))
+    @Test("明示の縦中横は分数・ルビ・リンクの構造を保ち、横書きでは引数をそのまま組む", arguments: ["tarticle", "article"])
+    func explicitRuns(name: String) throws {
+        func convert(_ body: String) -> String {
+            LaTeXConverter.convert(#"\documentclass{\#(name)}\begin{document}\#(body)\end{document}"#).body
+        }
+        for (command, content) in [
+            ("tatechuyoko", #"$\frac{1}{2}$"#), ("rensuji", #"\ruby{親}{おや}"#),
+            ("rensuji", #"\href{https://example.org/12}{参照}"#),
+            ("rensuji[ignored]", #"\textbf{3}\rensuji{4}"#), ("tatechuyoko", #"<\&>"#),
+        ] {
+            let reference = convert(content)
+            let actual = convert("\\" + command + "{" + content + "}")
+            let inner = try #require(reference.firstMatch(of: /(?s)<p>(.*?)<\/p>/)?.1)
+            #expect(!inner.isEmpty)
+            #expect(
+                actual
+                    == (name == "article"
+                        ? reference
+                        : reference.replacingOccurrences(
+                            of: "<p>\(inner)</p>", with: #"<p><span class="explicit-tcy">\#(inner)</span></p>"#)))
+        }
     }
 
-    @Test("縦中横の前方参照はリンクを入れずに解決後の番号を残す")
-    func combinedReference() {
-        let fragment = LaTeXConverter.convert(
-            #"\documentclass{article}\usepackage{hyperref}\begin{document}\rensuji{\ref{later}}\section{節}\label{later}\end{document}"#
-        )
-        #expect(fragment.body.contains(#"<span class="tcy">1</span>"#))
+    @Test("縦中横の中でも前方参照の番号とリンク先が解決される", arguments: ["article", "tarticle"])
+    func combinedReference(name: String) {
+        let source =
+            #"\documentclass{\#(name)}\usepackage{hyperref}\begin{document}\rensuji{\ref{later}}\section{節}\label{later}\end{document}"#
+        let actual = LaTeXConverter.convert(source).body
+        let plain = LaTeXConverter.convert(
+            source.replacingOccurrences(of: #"\rensuji{\ref{later}}"#, with: #"\ref{later}"#)
+        ).body
+        let link = plain.firstMatch(of: /<a [^>]*href="#[^"]+"[^>]*>1<\/a>/)?.output
+        #expect(link != nil && link.map { actual.contains($0) } == true)
     }
 
     @Test("縦横どちらでもルビの読みをまとめ、傍点と傍線を区別する", arguments: ["tarticle", "article"])
     func annotations(name: String) {
         let body = LaTeXConverter.convert(
-            #"\documentclass{\#(name)}\begin{document}\ruby{山}{やま}\jruby[g]{青空}{あお|ぞら}\ruby[m]{海}{うみ}\kenten{点}\bou{線}\end{document}"#
+            #"\documentclass{\#(name)}\begin{document}\ruby{山}{やま}\jruby[g]{青空}{あお|ぞら}\ruby[m]{海}{うみ}\kenten{点}\bou{粒}\kasen{線}\end{document}"#
         ).body
         #expect(body.contains("<ruby>山<rt>やま</rt></ruby><ruby>青空<rt>あおぞら</rt></ruby><ruby>海<rt>うみ</rt></ruby>"))
-        #expect(body.contains(#"<span class="kenten">点</span><span class="bousen">線</span>"#))
+        #expect(
+            body.contains(#"<span class="kenten">点</span><span class="kenten">粒</span><span class="bousen">線</span>"#))
     }
 }

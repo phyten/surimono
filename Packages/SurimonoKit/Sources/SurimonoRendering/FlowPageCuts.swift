@@ -16,14 +16,22 @@ enum FlowPageCuts {
         }
     }
 
+    struct Continuation: Decodable, Equatable {
+        var breaks: [CGFloat]
+        var gap: CGFloat = 0
+        var bottomBleed: CGFloat = 0
+    }
+
     struct Band: Decodable, Equatable {
         var start: CGFloat
         var end: CGFloat
         var keepNext: Bool = false
         var chapter: Bool?
         var ink: Ink?
+        var continuation: Continuation?
 
         mutating func includeInk(of other: Self) {
+            if let continuation = other.continuation { self.continuation = continuation }
             if let otherInk = other.ink { ink = ink?.union(otherInk) ?? otherInk }
         }
     }
@@ -58,12 +66,16 @@ enum FlowPageCuts {
                 && i + 1 < lines.endIndex && !lines[i + 1].keepNext
                 && lines[i + 1].end - lines[i - 1].start <= capacity
             if line.keepNext || followsHeading, let next = groups.indices.last,
+                line.continuation == nil, groups[next].continuation == nil,
                 groups[next].end - line.start <= capacity
             {
                 groups[next].includeInk(of: line)
                 groups[next].start = line.start
             } else {
-                groups.append(Band(start: line.start, end: line.end, ink: line.ink))
+                var group = line
+                group.keepNext = false
+                group.chapter = nil
+                groups.append(group)
             }
         }
         return groups.reversed()
@@ -76,7 +88,9 @@ enum FlowPageCuts {
     static func pages(forGroups groups: [Band], capacity: CGFloat) -> [Band] {
         var pages: [Band] = []
         for group in groups {
-            if let last = pages.indices.last, group.end - pages[last].start <= capacity {
+            if let last = pages.indices.last, group.continuation == nil, pages[last].continuation == nil,
+                group.end - pages[last].start <= capacity
+            {
                 pages[last].includeInk(of: group)
                 pages[last].end = group.end
             } else {

@@ -92,14 +92,6 @@ enum VerticalPaginator {
         func top(of row: Int) -> CGFloat { firstTop - CGFloat(row) * (height + gap) }
     }
 
-    private static func captureRect(_ band: FlowPageCuts.Band, height: CGFloat) -> CGRect {
-        let left = max(band.end, band.ink?.end ?? band.end)
-        let right = min(band.start, band.ink?.start ?? band.start)
-        let top = min(0, band.ink?.top ?? 0)
-        let bottom = max(height, band.ink?.bottom ?? height)
-        return CGRect(x: -left, y: top, width: left - right, height: bottom - top)
-    }
-
     /// The optional sample position is an x coordinate in the prepared strip, measured after the theme took effect.
     /// Only that page needs a PDF capture in the palette. It receives the deadline of the whole call, so that looking
     /// the position up spends what is left of the budget instead of starting one of its own.
@@ -141,15 +133,21 @@ enum VerticalPaginator {
                 let frame = Frame(pageSize: pageSize, margins: margins, textScale: textScale, manuscript: manuscript)
                 let width = frame.width * pixelsPerPoint
                 let height = frame.height * pixelsPerPoint
-                let (pages, originY) = try await measure(
+                let (plan, originY) = try await measure(
                     in: webView, script: measurement, width: width, height: height, font: frame.font,
-                    rowCount: frame.rows, booklet: booklet, until: deadline)
+                    booklet: booklet, rows: frame.rows, until: deadline)
                 try Task.checkCancellation()
-                let multipleSlices = pages.count > 1 || (pages.first?.count ?? 0) > 1
+                let pages = plan.pages
                 var selected = pages.startIndex..<pages.endIndex
                 if let samplePosition, !pages.isEmpty {
                     let position = try await samplePosition(deadline)
-                    let index = position.flatMap { x in pages.firstIndex { ($0.last?.end ?? 0) >= -x } } ?? 0
+                    let index =
+                        position.flatMap { x in
+                            pages.firstIndex { page in
+                                guard let last = page.last else { return false }
+                                return plan.sources[last.index].end >= -x
+                            }
+                        } ?? 0
                     selected = index..<(index + 1)
                 }
                 let document = try await PDFDrawing.document(pageSize: pageSize) { context in
@@ -157,24 +155,21 @@ enum VerticalPaginator {
                         context.beginPDFPage(nil)
                         context.endPDFPage()
                     }
-                    var index = pages.prefix(selected.lowerBound).reduce(0) { $0 + $1.count }
                     for page in selected {
                         context.beginPDFPage(nil)
                         defer { context.endPDFPage() }
-                        for (row, slice) in pages[page].enumerated() {
+                        for slice in pages[page] {
                             try Task.checkCancellation()
-                            if multipleSlices {
+                            if plan.sources.count > 1 {
                                 _ = try await webView.evaluateForPrinting(
-                                    "surimonoCaptureSlice(index)", arguments: ["index": index], until: deadline)
+                                    "surimonoCaptureSlice(index)", arguments: ["index": slice.index], until: deadline)
                             }
-                            index += 1
                             // Assign rows by their layout width, then keep annotation overhang at its natural scale.
-                            let ink = captureRect(slice, height: height)
-                            let rect = ink.offsetBy(dx: 0, dy: originY)
-                            let scale = min(1, width / (slice.end - slice.start)) / pixelsPerPoint
+                            let rect = slice.rect.offsetBy(dx: 0, dy: originY)
+                            let scale = slice.fit / pixelsPerPoint
                             let target = CGRect(
-                                x: frame.right + (ink.minX + slice.start) * scale,
-                                y: frame.top(of: row) - ink.maxY * scale,
+                                x: frame.right + slice.offset.x / pixelsPerPoint,
+                                y: frame.top(of: slice.row) - slice.offset.y / pixelsPerPoint,
                                 width: rect.width * scale, height: rect.height * scale)
                             try await FlowPageCapture.draw(
                                 rect, from: webView, into: target, in: context, deadline: deadline)
@@ -197,8 +192,8 @@ enum VerticalPaginator {
 
     private static func measure(
         in webView: WKWebView, script: String, width: CGFloat, height: CGFloat, font: CGFloat,
-        rowCount: Int, booklet: Bool, until deadline: ContinuousClock.Instant
-    ) async throws -> ([[FlowPageCuts.Band]], CGFloat) {
+        booklet: Bool, rows: Int, until deadline: ContinuousClock.Instant
+    ) async throws -> (VerticalCapturePlan, CGFloat) {
         let value = try await webView.evaluateForPrinting(
             script,
             arguments: [
@@ -208,12 +203,10 @@ enum VerticalPaginator {
         try Task.checkCancellation()
         guard var json = value as? String else { throw WebPaginator.PaginationError.printFailed }
         while true {
-            let result = try await cuts(from: json, capacity: width, rowsPerPage: rowCount)
-            let slices = result.0.flatMap {
-                $0.map { band in
-                    let rect = captureRect(band, height: height)
-                    return [band.start, band.end, rect.maxX, rect.minX, rect.minY, rect.maxY]
-                }
+            let result = try await cuts(from: json, width: width, height: height, rows: rows)
+            let slices = result.0.sources.map { band in
+                let rect = VerticalCapturePlan.captureRect(band, height: height)
+                return [band.start, band.end, rect.maxX, rect.minX, rect.minY, rect.maxY]
             }
             guard slices.count > 1 else { return result }
             let update = try await webView.evaluateForPrinting(
@@ -223,8 +216,8 @@ enum VerticalPaginator {
         }
     }
 
-    @concurrent private static func cuts(from json: String, capacity: CGFloat, rowsPerPage: Int) async throws
-        -> ([[FlowPageCuts.Band]], CGFloat)
+    @concurrent private static func cuts(from json: String, width: CGFloat, height: CGFloat, rows: Int) async throws
+        -> (VerticalCapturePlan, CGFloat)
     {
         struct Measurement: Decodable {
             let bands: [FlowPageCuts.Band]
@@ -232,25 +225,25 @@ enum VerticalPaginator {
         }
         let measurement = try JSONDecoder().decode(Measurement.self, from: Data(json.utf8))
         try Task.checkCancellation()
-        return (rows(for: measurement.bands, capacity: capacity, rowsPerPage: rowsPerPage), measurement.originY)
+        let chapters = chapterGroups(for: measurement.bands, capacity: width)
+        return (
+            try VerticalCapturePlan(chapters: chapters, width: width, height: height, rows: rows), measurement.originY
+        )
     }
 
-    nonisolated static func rows(for fragments: [FlowPageCuts.Band], capacity: CGFloat, rowsPerPage: Int)
+    nonisolated static func chapterGroups(for fragments: [FlowPageCuts.Band], capacity: CGFloat)
         -> [[FlowPageCuts.Band]]
     {
         let lines = FlowPageCuts.lines(for: fragments)
-        var pages: [[FlowPageCuts.Band]] = []
+        var chapters: [[FlowPageCuts.Band]] = []
         var start = 0
         // Chapter boundaries start a fresh sheet of logical paper even when its preceding lower row is empty.
         for end in lines.indices.dropFirst().filter({ lines[$0].chapter == true }) + [lines.endIndex] {
             let groups = FlowPageCuts.groups(of: lines[start..<end], capacity: capacity, keepsTwoLines: true)
-            let rows = FlowPageCuts.pages(forGroups: groups, capacity: capacity)
-            for first in stride(from: 0, to: rows.count, by: rowsPerPage) {
-                pages.append(Array(rows[first..<min(first + rowsPerPage, rows.count)]))
-            }
+            if !groups.isEmpty { chapters.append(groups) }
             start = end
         }
-        return pages
+        return chapters
     }
 }
 

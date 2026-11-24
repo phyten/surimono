@@ -32,13 +32,17 @@ body { font-family: "Hiragino Mincho ProN", serif; font-size: 10.5pt; line-heigh
 .format-latex[data-latex-chapters="true"] .surimono-vertical :is(h3, h4)[id^="sec-"] { padding-inline-start: var(--body-size); }
 .format-latex .surimono-vertical .secnum { margin-inline-end: 1em; }
 .format-latex .surimono-vertical .secnum .latex-xkanjiskip { font-size: 0; }
-.format-latex .surimono-vertical .bousen:not(.horizontal-box *) { text-decoration: underline; text-underline-position: right; }
-.surimono-vertical em, .format-latex .surimono-vertical .kenten:not(.horizontal-box *) { font-style: normal; text-emphasis-style: filled sesame; text-emphasis-position: over right; }
-.surimono-vertical em[data-vertical-latin] { font-style: italic; text-emphasis-style: none; }
+.format-latex .surimono-vertical .bousen:not(:where(.horizontal-box *, .explicit-tcy *)) { text-decoration: underline; text-underline-position: right; }
+.surimono-vertical em:not(:where(.horizontal-box *, .explicit-tcy *)), .surimono-vertical .kenten { font-style: normal; text-emphasis-style: filled sesame; text-emphasis-position: over right; }
+.surimono-vertical em[data-vertical-latin]:not(:where(.horizontal-box *, .explicit-tcy *, .kenten)) { font-style: italic; text-emphasis-style: none; }
 .surimono-vertical ruby { -webkit-ruby-position: before; ruby-position: over; }
 .surimono-vertical rt { font-size: 0.5em; }
 .surimono-vertical a { color: inherit; text-decoration: none; border: 0; overflow-wrap: anywhere; }
 .surimono-vertical .tcy { -webkit-text-combine: horizontal; text-combine-upright: all; letter-spacing: 0; }
+.surimono-vertical .explicit-tcy {
+    display: inline-block; writing-mode: horizontal-tb; width: max-content; white-space: nowrap;
+    text-indent: 0; vertical-align: middle; font-kerning: auto; font-feature-settings: normal;
+}
 .surimono-vertical .upright-digit { text-orientation: upright; }
 /* Generated space has no DOM text. A regular breakable space collapses at either line edge,
    including before an opening bracket that moved to the next line. Times' space advances 1/4 em. */

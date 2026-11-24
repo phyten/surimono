@@ -15,7 +15,7 @@ package enum VerticalText {
         var note = false
         var heading = false
         var numberDepth = 0
-        var numberEnd: Int?
+        var runBoundary: Int?
         var afterURL = 0
         var linkedURL: String?
         let tokens = HTMLScanner.tokens(html)
@@ -30,20 +30,25 @@ package enum VerticalText {
                     try writer.url(text)
                 } else {
                     try writer.text(text, plain: plain, note: note, headingNumber: heading) { direction in
-                        // A section number and its title are separate runs even without intervening HTML text.
-                        if numberDepth > 0 { return nil }
                         var i = index + direction
-                        while tokens.indices.contains(i) {
-                            if i == numberEnd { return nil }
-                            switch tokens[i] {
-                            case .text(let neighbor): return direction < 0 ? neighbor.last : neighbor.first
-                            case .tag(let tag)
-                            where !inlineElements.contains(tag.name) || tag.name == "ruby" || tag.name == "sup":
-                                return nil
-                            default: i += direction
+                        return AnyIterator<Substring> {
+                            // A section number and its title are separate runs even without intervening HTML text.
+                            while numberDepth == 0 && tokens.indices.contains(i) && i != runBoundary {
+                                let token = tokens[i]
+                                i += direction
+                                switch token {
+                                case .text(let neighbor): return VerticalTextSource(neighbor).text[...]
+                                case .tag(let tag)
+                                where !inlineElements.contains(tag.name) || tag.name == "ruby" || tag.name == "sup":
+                                    return nil
+                                case .tag(let tag) where !tag.isClosing && tag.name == "span":
+                                    let classes = tag.attribute("class")?.split(whereSeparator: \.isWhitespace) ?? []
+                                    if classes.contains("explicit-tcy") || classes.contains("tcy") { return nil }
+                                default: continue
+                                }
                             }
+                            return nil
                         }
-                        return nil
                     }
                 }
             case .tag(let tag):
@@ -52,6 +57,7 @@ package enum VerticalText {
                     if current.name == tag.name && !tag.isSelfClosing {
                         let depth = current.depth + (tag.isClosing ? -1 : 1)
                         skipped = depth == 0 ? nil : (current.name, depth)
+                        if depth == 0 && current.name == "span" { runBoundary = index }
                     }
                     continue
                 }
@@ -89,7 +95,7 @@ package enum VerticalText {
                         numberDepth += tag.isClosing ? -1 : 1
                         if numberDepth == 0 {
                             try writer.begin(.start)
-                            numberEnd = index
+                            runBoundary = index
                         }
                     } else if classes.contains("secnum") && !tag.isClosing {
                         try writer.begin(.start)
@@ -134,7 +140,8 @@ package enum VerticalText {
         }
         if ["rt", "rp"].contains(tag.name) || (latex && classes.contains { $0 == "kenten" || $0 == "bousen" })
             || classes.contains(where: {
-                ["tcy", "upright-digit", "aki", "v-half", "v-close", "v-before-open", "v-pair-space"].contains($0)
+                ["explicit-tcy", "tcy", "upright-digit", "aki", "v-half", "v-close", "v-before-open", "v-pair-space"]
+                    .contains($0)
             })
         {
             return .other
@@ -163,7 +170,7 @@ package enum VerticalText {
         for token in following {
             switch token {
             case .text(let source):
-                let text = HTMLScanner.decodingEntities(source)
+                let text = VerticalTextSource(source).text
                 if text.contains(/[^\p{sc=Latin}\p{Common}\p{Inherited}]/) { return false }
                 hasLetter = hasLetter || text.contains(/\p{sc=Latin}/)
             case .tag(let tag):
@@ -189,6 +196,7 @@ package enum VerticalText {
         // Closing punctuation needs the next visible character. Spaces and intervening inline tags must
         // stay in their original order even when that character belongs to another link or emphasis.
         private var closing: String?
+        private var closingMark: Character?
         private var pending: [(text: String, space: Bool)] = []
         private var hasSpace = false
 
@@ -219,13 +227,13 @@ package enum VerticalText {
         }
 
         mutating func text(
-            _ source: String, plain: Bool, note: Bool, headingNumber: Bool, neighbor: (Int) -> Character?
+            _ html: String, plain: Bool, note: Bool, headingNumber: Bool, neighbor: (Int) -> AnyIterator<Substring>
         ) throws {
-            // Matching complete words, URLs, numbers and entities keeps their punctuation and digits together.
+            let node = VerticalTextSource(html)
+            let source = node.text
             let token =
                 #/
-                &(?:\x23[xX][a-fA-F0-9]+|\x23[0-9]+|[a-zA-Z][a-zA-Z0-9]*);
-                | [\p{sc=Latin}0-9]+(?:[.,][0-9]+[\p{sc=Latin}0-9]*)* %? | \.[0-9]+ %?
+                [+-]?[\p{sc=Latin}0-9_]+(?:[.,:/+\-][0-9][\p{sc=Latin}0-9_]*)* %? | \.[0-9]+ %?
                 | [!?]+ | [\x20]+ | \R+ | [\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}ー０-９]+ | .
                 /#
             // Searching for a scheme from every short word in a dotted identifier would repeatedly
@@ -241,7 +249,7 @@ package enum VerticalText {
                 }
                 if start < delimiter.lowerBound && source[start].isLetter { hosts[start] = delimiter.upperBound }
             }
-            let address = #/(?:[\p{L}\p{N}\-]+\.)*[A-Za-z0-9%._~:/?#\[\]@!$&'()*+,;=\-]+/#
+            let address = #/(?:[\p{L}\p{N}\-]+\.)*[A-Za-z0-9\u{fffc}%._~:/?#\[\]@!$&'()*+,;=\-]+/#
             var rest = source[...]
             while !rest.isEmpty {
                 var host = hosts[rest.startIndex]
@@ -249,66 +257,103 @@ package enum VerticalText {
                     host = rest.prefixMatch(of: /(?i:www\.|mailto:)/)?.range.upperBound
                 }
                 if let host, let match = rest[host...].prefixMatch(of: address) {
-                    try url(String(rest[..<match.range.upperBound]))
+                    try url(rest[..<match.range.upperBound], in: node)
                     rest = rest[match.range.upperBound...]
                     continue
                 }
-                guard let match = rest.prefixMatch(of: token) else {
-                    // Preserve any grapheme the running OS's regex engine cannot classify.
-                    try begin(.other)
-                    output.append(rest.removeFirst())
-                    continue
+                // Short ASCII words and standalone punctuation are common in source-like prose.
+                // Avoid starting a Unicode regex VM (and two script lookups) for every period.
+                let prefix = rest.prefix { $0.isASCII && $0.isLetter }
+                let tail = rest[prefix.endIndex...]
+                var raw: Substring
+                if !prefix.isEmpty, tail.first.map({ $0.isASCII && !$0.isNumber && !"_%,:/+-".contains($0) }) ?? true,
+                    !(tail.first == "." && tail.dropFirst().first?.isNumber == true)
+                {
+                    raw = prefix
+                } else if rest.first == ".", rest.dropFirst().first?.isNumber != true {
+                    raw = rest.prefix(1)
+                } else {
+                    raw = rest.prefixMatch(of: token)?.output ?? rest.prefix(1)
                 }
-                let raw = match.output
+                var hasUnit = false
+                if raw.last?.isASCII == true, raw.last?.isNumber == true, !note {
+                    let suffix = source[raw.endIndex...]
+                    let after = suffix.first ?? neighbor(1).next()?.first
+                    if after?.isHorizontalSpace == true {
+                        let symbol = Self.followingUnit(in: suffix, neighbors: neighbor(1))
+                        hasUnit = symbol != nil
+                        if let symbol, suffix.first?.isHorizontalSpace == true {
+                            let local = suffix.drop(while: \.isHorizontalSpace).prefix { $0.isUnitLetter }
+                            if local == symbol { raw = rest[..<local.endIndex] }
+                        }
+                    }
+                }
+                let original = node.original(raw)
                 if plain && raw.first?.isNewline == true {
                     try begin(.paragraph)
-                    output += raw
+                    output += original
                 } else if raw.first == " " || raw.first?.isNewline == true {
-                    pending.append((String(raw), true))
+                    pending.append((original, true))
                     hasSpace = true
                 } else {
                     let digits = raw.utf8.count <= 2 && raw.utf8.allSatisfy { (48...57).contains($0) }
                     if digits {
                         let before =
                             raw.startIndex == source.startIndex
-                            ? neighbor(-1) : source[source.index(before: raw.startIndex)]
+                            ? neighbor(-1).next()?.last : source[source.index(before: raw.startIndex)]
                         let after =
-                            raw.endIndex == source.endIndex ? neighbor(1) : source[raw.endIndex]
+                            raw.endIndex == source.endIndex ? neighbor(1).next()?.first : source[raw.endIndex]
                         let touchesWord = [before, after].compactMap { $0 }.contains {
-                            $0.isASCII && ($0.isLetter || $0.isNumber || "%.,".contains($0))
+                            $0.isASCII && ($0.isLetter || $0.isNumber || "%.,_+/-:".contains($0))
                         }
-                        if note || !touchesWord {
+                        if note || (!touchesWord && !hasUnit) {
                             try begin(.other)
                             output += try span(
-                                headingNumber || raw.count == 2 ? "tcy" : "upright-digit", String(raw))
+                                headingNumber || raw.count == 2 ? "tcy" : "upright-digit", original)
                         } else {
-                            try western(String(raw))
+                            try western(original)
                         }
                     } else {
-                        try glyphs(raw)
+                        try glyphs(raw, original: original)
                     }
                 }
-                rest = rest[match.range.upperBound...]
+                rest = rest[raw.endIndex...]
             }
         }
 
+        // A unit can start in the next emphasis or link. Stop at the end of its symbol,
+        // so a space followed by ordinary English prose leaves the integer independent.
+        private static func followingUnit(in suffix: Substring, neighbors: AnyIterator<Substring>) -> String? {
+            var part = suffix
+            var symbol = ""
+            while true {
+                if symbol.isEmpty { part = part.drop(while: \.isHorizontalSpace) }
+                let letters = part.prefix(17).prefix { $0.isUnitLetter }
+                guard letters.utf8.count + symbol.utf8.count <= 16 else { return nil }
+                symbol += letters
+                guard letters.endIndex == part.endIndex, let next = neighbors.next() else { break }
+                part = next
+            }
+            return LaTeXUnits.printedSymbols.contains(symbol) ? symbol : nil
+        }
+
         mutating func url(_ source: String) throws {
-            // Keep the source spelling of HTML entities. A break inside &amp; would change the URL on copy.
+            let node = VerticalTextSource(source)
+            try url(node.text[...], in: node)
+        }
+
+        private mutating func url(_ label: Substring, in node: VerticalTextSource) throws {
             var body = ""
-            var start = source.startIndex
-            let separator = #/&(?:[a-zA-Z][a-zA-Z0-9]*|\x23[0-9]+|\x23[xX][a-fA-F0-9]+);|[/.\-_?&=\x23]/#
-            while let match = source[start...].firstMatch(of: separator) {
-                let end = match.range.upperBound
-                body += source[start..<end]
-                let character = HTMLScanner.decodingEntities(String(match.output))
-                if character.count == 1 && "/.-_?&=#".contains(character) {
-                    guard remaining > 0 else { throw MarkupError.tooManySpans }
-                    remaining -= 1
-                    body += "<wbr>"
-                }
+            var start = label.startIndex
+            for index in label.indices where "/.-_?&=#".contains(label[index]) {
+                let end = label.index(after: index)
+                body += node.original(label[start..<end])
+                guard remaining > 0 else { throw MarkupError.tooManySpans }
+                remaining -= 1
+                body += "<wbr>"
                 start = end
             }
-            body += source[start...]
+            body += node.original(label[start...])
             try begin(.western)
             output += try span("v-latin v-url", body)
         }
@@ -318,33 +363,42 @@ package enum VerticalText {
             output += try span("v-latin", source)
         }
 
-        private mutating func glyphs(_ raw: Substring) throws {
+        private mutating func glyphs(_ raw: Substring, original: String) throws {
             guard let first = raw.first else { return }
             if VerticalText.openingMarks.contains(first) {
                 let atParagraph = last == .paragraph
-                let pair = hasSpace ? nil : closing.map { $0 + raw }
+                let pair = hasSpace || closing == nil ? nil : closingMark.map { String($0) + String(first) }
                 let trim = !hasSpace && [.start, .paragraph, .opening, .closing].contains(last)
                 try begin(.opening)
                 // A break can fall after the collapsible half space. Keep the negative margin
                 // on the glyph itself so it follows the bracket onto its new line.
                 if !trim { output += try span("v-before-open", "") }
                 if let pair { output += try span("v-pair-space", "", pair: pair) }
-                output += try span(atParagraph ? "v-half v-initial" : "v-half", String(raw))
+                output += try span(atParagraph ? "v-half v-initial" : "v-half", original)
             } else if VerticalText.closingMarks.contains(first) {
                 try begin(.closing)
-                closing = String(raw)
+                closing = original
+                closingMark = first
             } else if raw.utf8.count == 2 && (first == "!" || first == "?") {
                 try begin(.other)
-                output += try span("tcy", String(raw))
-            } else if first.isASCII && (first.isLetter || first.isNumber || (first == "." && raw.count > 1))
-                || raw.prefix(1).wholeMatch(of: /\p{sc=Latin}/) != nil
+                output += try span("tcy", original)
+            } else if first.isASCII
+                && (first.isLetter || first.isNumber || ("+-._".contains(first) && raw.utf8.count > 1))
+                || !first.isASCII && raw.prefix(1).wholeMatch(of: /\p{sc=Latin}/) != nil
             {
-                try western(String(raw))
+                try western(original)
             } else {
-                let japanese = raw.prefix(1).wholeMatch(of: /[\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}ー０-９]/) != nil
+                let japanese =
+                    !first.isASCII
+                    && raw.prefix(1).wholeMatch(of: /[\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}ー０-９]/) != nil
                 try begin(japanese ? .japanese : .other)
-                output += raw
+                output += original
             }
         }
     }
+}
+
+extension Character {
+    fileprivate var isUnitLetter: Bool { isASCII && isLetter || "%µΩ°Å".contains(self) }
+    fileprivate var isHorizontalSpace: Bool { self == " " || self == "\t" || self == "\u{00a0}" }
 }
