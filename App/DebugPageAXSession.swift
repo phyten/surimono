@@ -14,6 +14,11 @@
             let count: Int
         }
 
+        struct ReaderStopped: LocalizedError {
+            let reason: String
+            var errorDescription: String? { reason }
+        }
+
         private struct Stage: Encodable {
             let pid: Int32
             let token: String
@@ -22,6 +27,7 @@
             let sequence: Int
             let phase: String
             let generation: Int
+            let hitPoint: CGPoint?
             let axElements: ShownDocumentsProbe.ElementMetrics
         }
 
@@ -50,8 +56,8 @@
         }
 
         @discardableResult private static func writeFixture(_ session: Session, generation: Int) throws -> Data {
-            let marker = "世代 \(generation)。"
-            let source = "# \(marker)\n\n" + Array(repeating: "\(marker) 紙面の本文です。\n\n", count: 90).joined()
+            let marker = "世代 \(generation)。 R01-\(session.token.prefix(8))"
+            let source = "# 紙面の検査\n\n" + Array(repeating: "\(marker) 紙面の本文です。\n\n", count: 90).joined()
             let data = Data(source.utf8)
             try data.write(to: session.fixture, options: .atomic)
             return data
@@ -63,13 +69,16 @@
                 try? FileManager.default.removeItem(at: session.fixture.deletingLastPathComponent())
             }
             var sequence = 0
-            func wait(_ stage: String, for ready: () -> Bool) async throws {
+            func wait(_ stage: String, forReader: Bool = false, for ready: () -> Bool) async throws {
                 let deadline = ContinuousClock.now + .seconds(90)
                 while !ready() {
                     if (try? String(contentsOf: session.directory.appending(path: "abort"), encoding: .utf8))
                         == session.token
                     {
-                        throw CancellationError()
+                        throw ReaderStopped(reason: "Reader aborted while waiting for " + stage)
+                    }
+                    if forReader && ContinuousClock.now >= deadline {
+                        throw ReaderStopped(reason: "Reader did not acknowledge " + stage)
                     }
                     guard model.window != nil, model.error == nil, ContinuousClock.now < deadline else {
                         throw SnapshotDeadline(stage: stage)
@@ -78,16 +87,32 @@
                 }
             }
 
+            func visiblePagePoint() -> CGPoint? {
+                guard let view = model.paper.attachedProbeView, let window = view.window,
+                    let primary = NSScreen.screens.first
+                else { return nil }
+                for page in view.visiblePages {
+                    let rect = view.convert(page.bounds(for: view.displayBox), from: page).intersection(
+                        view.visibleRect)
+                    guard !rect.isEmpty else { continue }
+                    let center = view.convert(CGPoint(x: rect.midX, y: rect.midY), to: nil)
+                    let screen = window.convertPoint(toScreen: center)
+                    // AX hit testing uses a top-left origin on the primary screen, including on secondary displays.
+                    return CGPoint(x: screen.x, y: primary.frame.maxY - screen.y)
+                }
+                return nil
+            }
+
             func publish(_ phase: String, generation: Int) async throws {
                 let stage = Stage(
                     pid: getpid(), token: session.token, operation: session.operation, count: session.count,
                     sequence: sequence, phase: phase, generation: generation,
-                    axElements: ShownDocumentsProbe.elementMetrics)
+                    hitPoint: visiblePagePoint(), axElements: ShownDocumentsProbe.elementMetrics)
                 let file = session.directory.appending(path: "stage-\(sequence).json")
                 try JSONEncoder().encode(stage).write(to: file, options: .atomic)
                 // No UI action is sent by the AX client. It only confirms that this precise stage was read.
                 let ack = session.directory.appending(path: "ack-\(sequence)")
-                try await wait("AX reader at " + phase) {
+                try await wait("AX reader at " + phase, forReader: true) {
                     (try? String(contentsOf: ack, encoding: .utf8)) == session.token
                 }
                 sequence += 1
@@ -95,7 +120,8 @@
             }
 
             func paperReady() -> Bool {
-                model.mode == .view && model.isUpToDate && model.paper.probeShows(model.paperDocument)
+                model.window?.isVisible == true && model.mode == .view && model.isUpToDate
+                    && model.paper.probeShows(model.paperDocument)
             }
             func focusPaper() {
                 model.paper.attachedProbeView?.identifyProbePaper(session.token)
@@ -105,9 +131,6 @@
             model.zoom = 1
             model.setLayout(.single)
             try await wait("single page") { paperReady() && model.paper.attachedProbeView?.probeLayout == .single }
-            NSApp.activate()
-            model.window?.makeKeyAndOrderFront(nil)
-            try await wait("fixture window focus") { NSApp.isActive && model.window?.isKeyWindow == true }
             focusPaper()
             try await publish("initial", generation: 0)
             for iteration in 1...session.count {

@@ -27,6 +27,30 @@ struct PageTextPDFViewTests {
             view.responds(to: NSSelectorFromString("isDocumentAnalysisEnabled"))
                 || view.responds(to: NSSelectorFromString("documentAnalysisEnabled")))
         #expect(view.value(forKey: "documentAnalysisEnabled") as? Bool == false)
+        let document: PDFDocument = try #require(PDFDocument(data: textPDF(["analysis setting"])))
+        view.document = document
+        #expect(view.value(forKey: "documentAnalysisEnabled") as? Bool == false)
+    }
+
+    @Test("PDFKit がメインスレッド以外から document を読むと、紙に入れた文書が返る")
+    func documentIsReadableFromTheAnalysisQueue() async throws {
+        let view = PageTextPDFView()
+        let document = try #require(PDFDocument(data: textPDF(["first page"])))
+        view.document = document
+        let getter = #selector(getter: PDFView.document)
+        // An isolated override would trap the entire test host on the background message below.
+        let inherited = try #require(class_getInstanceMethod(PDFView.self, getter))
+        try #require(class_getInstanceMethod(PageTextPDFView.self, getter) == inherited)
+        // The worker sends only the inherited getter; the test retains the view and leaves its document in place.
+        nonisolated(unsafe) let receiver: NSObject = view
+        let identity: ObjectIdentifier? = await withCheckedContinuation { continuation in
+            DispatchQueue.global().async { @Sendable in
+                #expect(!Thread.isMainThread)
+                let result = receiver.perform(getter)?.takeUnretainedValue()
+                continuation.resume(returning: result.map(ObjectIdentifier.init))
+            }
+        }
+        #expect(identity == ObjectIdentifier(document))
     }
 
     @Test("ページの要素は、そのページの文字を読める")

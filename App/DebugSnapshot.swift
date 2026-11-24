@@ -607,6 +607,9 @@
                         try await DebugPageAXSession.run(model, session: session)
                         captured = true
                         quitAfterCapture()
+                    } catch let stopped as DebugPageAXSession.ReaderStopped {
+                        logger.error("\(stopped.reason, privacy: .public)")
+                        exit(4)
                     } catch {
                         DebugSnapshotProgress.failed(error)
                         exit(EXIT_FAILURE)

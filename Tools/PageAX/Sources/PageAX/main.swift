@@ -9,6 +9,7 @@ struct Stage: Decodable {
     let sequence: Int
     let phase: String
     let generation: Int
+    let hitPoint: CGPoint?
 }
 
 struct Observation: Encodable {
@@ -27,7 +28,16 @@ struct Report: Encodable {
     var attributes: [String: [String]] = [:]
     var parameterizedAttributes: [String: [String]] = [:]
     var observations: [Observation] = []
+    var tree: [TreeNode]?
+    var treeSequence: Int?
+    var optionalAttributeErrors: [String: Int] = [:]
     var status: Int32 = 0
+
+    mutating func captureTree(_ reader: AXReader, sequence: Int) {
+        guard tree == nil else { return }
+        treeSequence = sequence
+        tree = reader.treeSummary()
+    }
 
     mutating func record(_ outcome: String, sequence: Int, phase: String, route: String, detail: String? = nil) {
         totals[outcome, default: 0] += 1
@@ -41,7 +51,9 @@ struct Report: Encodable {
     }
 }
 
-struct Deadline: Error {}
+struct Deadline: Error, CustomStringConvertible {
+    var description: String { "Timed out waiting for the stage or its AX tree" }
+}
 struct ProcessExited: Error {}
 
 func requireAlive(_ pid: Int32) throws {
@@ -51,11 +63,52 @@ func requireAlive(_ pid: Int32) throws {
 func waitForFile(_ url: URL, pid: Int32) throws {
     let deadline = ContinuousClock.now + .seconds(100)
     while !FileManager.default.fileExists(atPath: url.path) {
-        try requireAlive(pid)
+        if kill(pid, 0) != 0 {
+            // The app can publish completion and quit between the existence check and the PID check.
+            if FileManager.default.fileExists(atPath: url.path) { return }
+            throw ProcessExited()
+        }
         guard ContinuousClock.now < deadline else { throw Deadline() }
         Thread.sleep(forTimeInterval: 0.05)
     }
+}
 
+// The current page proves the generation changed. Only the handles acquired at stage zero are retained.
+func discover<Page>(_ stage: Stage, report: inout Report, acquire: (Route) throws -> Page) throws -> [Route: Page] {
+    let deadline = ContinuousClock.now + .seconds(5)
+    var pages: [Route: Page] = [:]
+    var missing: [Route: String] = [:]
+    repeat {
+        for route in Route.allCases {
+            do {
+                pages[route] = try acquire(route)
+                missing.removeValue(forKey: route)
+                if stage.sequence != 0 { break }
+            } catch let failure as AXFailure where failure.error == .apiDisabled {
+                throw failure
+            } catch {
+                missing[route] = String(describing: error)
+                if (error as? AXFailure)?.error == .cannotComplete || error is Deadline {
+                    report.record(
+                        error is Deadline ? "timeout" : "cannotComplete", sequence: stage.sequence, phase: stage.phase,
+                        route: route.rawValue, detail: String(describing: error))
+                }
+            }
+        }
+        if !pages.isEmpty || ContinuousClock.now >= deadline { break }
+        try requireAlive(stage.pid)
+        Thread.sleep(forTimeInterval: 0.15)
+    } while true
+    for route in Route.allCases {
+        if let reason = missing[route] {
+            report.record(
+                "unavailable", sequence: stage.sequence, phase: stage.phase, route: route.rawValue, detail: reason)
+        }
+    }
+    guard !pages.isEmpty else {
+        throw ProbeFailure("All three routes unavailable for generation " + String(stage.generation))
+    }
+    return pages
 }
 
 func run(_ report: inout Report, directory: URL) {
@@ -65,14 +118,14 @@ func run(_ report: inout Report, directory: URL) {
     var phase = "initial"
     var token: String?
     var held: [String: HeldPage] = [:]
+    var readerForDiagnostics: AXReader?
     do {
         guard AXIsProcessTrusted() else {
             report.record("permissionDenied", sequence: index, phase: phase, route: "reader")
             return
         }
-        guard AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), 2) == .success else {
-            throw ProbeFailure("Could not set AX messaging timeout")
-        }
+        // Setting the client's default timeout covers the individual page handles as well as the application.
+        try checked(AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), 2), "setMessagingTimeout")
         let app = AXUIElementCreateApplication(pid)
         while true {
             let url = directory.appending(path: "stage-\(index).json")
@@ -86,14 +139,19 @@ func run(_ report: inout Report, directory: URL) {
             else { throw ProbeFailure("Unexpected process or stage") }
             token = stage.token
             let reader = AXReader(app: app, token: stage.token)
+            readerForDiagnostics = reader
+            defer { report.optionalAttributeErrors.merge(reader.optionalErrors, uniquingKeysWith: +) }
             if index == 0 {
-                held = try reader.initialPages().mapValues { try HeldPage($0) }
+                let initial = try discover(stage, report: &report) { route in
+                    try HeldPage(reader.page(via: route, stage: stage), token: stage.token)
+                }
+                held = Dictionary(uniqueKeysWithValues: initial.map { ($0.key.rawValue, $0.value) })
                 report.attributes = held.mapValues(\.attributes)
                 report.parameterizedAttributes = held.mapValues(\.parameters)
             }
             if phase == "reload" {
                 // A stale handle returning old text is meaningful only once the user can see the new text.
-                _ = try reader.currentPage(generation: generation)
+                _ = try discover(stage, report: &report) { try reader.page(via: $0, stage: stage) }
             }
             for (route, page) in held.sorted(by: { $0.key < $1.key }) {
                 do {
@@ -107,13 +165,14 @@ func run(_ report: inout Report, directory: URL) {
                     case .apiDisabled: outcome = "permissionDenied"
                     default: outcome = "failure"
                     }
-                    report.record(outcome, sequence: index, phase: phase, route: route, detail: error.api)
+                    report.record(outcome, sequence: index, phase: phase, route: route, detail: error.description)
                 } catch {
                     report.record(
                         "failure", sequence: index, phase: phase, route: route, detail: String(describing: error))
                 }
             }
             try requireAlive(pid)
+            if report.status != 0 { report.captureTree(reader, sequence: index) }
             try Data(stage.token.utf8).write(
                 to: directory.appending(path: "ack-\(index)"), options: .withoutOverwriting)
             if phase == "finished" {
@@ -151,6 +210,9 @@ func run(_ report: inout Report, directory: URL) {
             outcome = "failure"
         }
         report.record(outcome, sequence: index, phase: phase, route: "reader", detail: String(describing: error))
+        if let readerForDiagnostics, outcome != "processExited", outcome != "permissionDenied" {
+            report.captureTree(readerForDiagnostics, sequence: index)
+        }
         if let token {
             try? Data(token.utf8).write(to: directory.appending(path: "abort"), options: .withoutOverwriting)
         }

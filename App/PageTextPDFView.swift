@@ -12,9 +12,6 @@ import PDFKit
 class PageTextPDFView: PDFView {
     private var elements: [ObjectIdentifier: PageTextElement] = [:]
     private weak var elementsDocument: PDFDocument?
-    override var document: PDFDocument? {
-        didSet { discardReplacedElements() }
-    }
 
     private func discardReplacedElements() {
         guard elementsDocument !== document || (document == nil && !elements.isEmpty) else { return }
@@ -78,7 +75,6 @@ class PageTextPDFView: PDFView {
         guard let documentView, let scrollView = documentView.enclosingScrollView else { return }
         Self.closeNodes(documentView: type(of: documentView), scrollView: type(of: scrollView))
         refreshElementPositions()
-
     }
 
     /// PDFKit's document view hands out the nodes, and it is the first responder once the paper was clicked, so the
@@ -132,18 +128,30 @@ class PageTextPDFView: PDFView {
     // Scroll and window movement are handled by AppKit's coordinate conversion. Only a changed PDF layout needs
     // a new page transform; a late AX request must never ask PDFKit to locate an outgoing page.
     private func observePageLayout() {
+        // PDFKit reads its document getter from its analysis queue. Observe replacements without overriding it.
         for name: Notification.Name in [
-            .PDFViewScaleChanged, .PDFViewDisplayModeChanged, .PDFViewDisplayBoxChanged, .PDFViewPageChanged,
+            .PDFViewDocumentChanged, .PDFViewScaleChanged, .PDFViewDisplayModeChanged, .PDFViewDisplayBoxChanged,
+            .PDFViewPageChanged,
         ] {
             NotificationCenter.default.addObserver(
-                self, selector: #selector(refreshElementPositions(_:)), name: name, object: self)
+                self, selector: #selector(pageLayoutChanged(_:)), name: name, object: self)
+        }
+    }
+
+    @objc private nonisolated func pageLayoutChanged(_ notification: Notification) {
+        // Invalidate synchronously during a UI replacement. A notification from another queue can use the latest layout.
+        if Thread.isMainThread {
+            MainActor.assumeIsolated { refreshElementPositions() }
+        } else {
+            Task { @MainActor [weak self] in self?.refreshElementPositions() }
         }
     }
 
     private var isPositioningElements = false
 
-    @objc private func refreshElementPositions(_ notification: Notification? = nil) {
+    private func refreshElementPositions() {
         guard !elements.isEmpty, !isPositioningElements else { return }
+        discardReplacedElements()
         isPositioningElements = true
         defer { isPositioningElements = false }
         for element in elements.values {
