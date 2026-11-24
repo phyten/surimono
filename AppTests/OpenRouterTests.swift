@@ -108,21 +108,17 @@ struct OpenRouterTests {
         #expect(opened == [url("a.md"), url("b.pdf")])
     }
 
-    /// A router whose three ways for one file are told apart, with the choice between them left real.
+    /// Keep the real content gate and capture the files it passes to the document controller.
     private func routed(
-        _ record: @escaping (String, URL) -> Void, refused: @escaping (any Error) -> Void = { _ in }
+        _ record: @escaping (URL) -> Void, refused: @escaping (any Error) -> Void = { _ in }
     ) -> OpenRouter {
         OpenRouter(
             openDocument: { url, completion in
-                record("document", url)
+                record(url)
                 completion(true)
             },
             openBundle: { _, _ in nil }, openBinder: { _, _ in nil }, warn: { _ in Issue.record("警告しない") },
             hasOpenWindows: { true }, showWelcome: {},
-            openAsText: { url, completion in
-                record("text", url)
-                completion(true)
-            },
             refuse: refused)
     }
 
@@ -147,7 +143,7 @@ struct OpenRouterTests {
             }
             var opened: [String] = []
             var refused = 0
-            let router = routed({ _, url in opened.append(url.lastPathComponent) }, refused: { _ in refused += 1 })
+            let router = routed({ opened.append($0.lastPathComponent) }, refused: { _ in refused += 1 })
             for name in names + ["tool"] {
                 let url = directory.appendingPathComponent(name)
                 #expect(OpenPanelFileFilter.allows(url))
@@ -166,7 +162,7 @@ struct OpenRouterTests {
         return data
     }
 
-    @Test("1 つのファイルは、型のある文書なら文書を開く処理へ、型のないテキストならテキストとして開く処理へ渡す")
+    @Test("型のある文書も型のないテキストも文書コントローラに一度ずつ渡す")
     func singleFileWays() throws {
         let files = [
             "main.ts": Data("let a = 1\n".utf8), "main.go": Data("package main\n".utf8), "notes.md": Data("# a".utf8),
@@ -174,14 +170,10 @@ struct OpenRouterTests {
             ".env": Data("A=1\n".utf8), "LICENSE": Data("Free.\n".utf8), "Makefile": Data("all:\n".utf8),
         ]
         try withFiles(files) { directory in
-            var ways: [String: String] = [:]
-            let router = routed({ way, url in ways[url.lastPathComponent] = way })
+            var opened: [String] = []
+            let router = routed({ opened.append($0.lastPathComponent) })
             for name in files.keys { router.open([directory.appendingPathComponent(name)]) }
-            #expect(
-                ways == [
-                    "main.ts": "document", "main.go": "document", "notes.md": "document", "LICENSE": "text",
-                    "Dockerfile": "text", "tool": "text", ".env": "text", "Makefile": "text",
-                ])
+            #expect(opened.sorted() == files.keys.sorted())
         }
     }
 
@@ -192,7 +184,7 @@ struct OpenRouterTests {
             var opened: [URL] = []
             var refusals: [SourceFileError] = []
             let router = routed(
-                { _, url in opened.append(url) }, refused: { refusals.append($0 as? SourceFileError ?? .notText) })
+                { opened.append($0) }, refused: { refusals.append($0 as? SourceFileError ?? .notText) })
             for name in ["clip.ts", "clip.mts", "Info.plist"] {
                 router.open([directory.appendingPathComponent(name)], printing: true)
             }
@@ -204,15 +196,15 @@ struct OpenRouterTests {
     @Test("合本を解いて文書を開き直すときも、同じ道の選び方を通る")
     func reopenTakesTheSameWay() throws {
         try withFiles(["Dockerfile": Data("FROM scratch\n".utf8), "clip.ts": video]) { directory in
-            var ways: [String] = []
-            let router = routed({ way, _ in ways.append(way) })
+            var opened: [String] = []
+            let router = routed({ opened.append($0.lastPathComponent) })
             var results: [Bool] = []
             for name in ["Dockerfile", "clip.ts"] {
                 let url = directory.appendingPathComponent(name)
                 let origin = BinderOrigin(contents: .document(url), frame: .zero, pageIndex: 0, wasPrinting: false)
                 router.reopen(url, restoring: origin) { results.append($0) }
             }
-            #expect(ways == ["text"])
+            #expect(opened == ["Dockerfile"])
             #expect(results == [true, false])
         }
     }
@@ -505,11 +497,13 @@ struct OpenRouterTests {
         func checkShare(in menu: NSMenu, main: NSMenu, stage: String) throws {
             try #require(main.items.dropFirst().first?.submenu === menu)
             let visible = menu.items.filter { !$0.isHiddenOrHasHiddenAncestor }
-            let shares = visible.filter { $0.title == String(localized: "Share") }
+            let shares = visible.filter { $0.title == String(localized: "Share…") }
             let diagnostic = "\(stage) File=\(visible.map(\.title))"
             try #require(shares.count == 1, "\(diagnostic)")
             let share = shares[0]
-            #expect(share.identifier?.rawValue == ViewerMainMenu.shareIdentifier && share.submenu != nil)
+            #expect(
+                share.identifier?.rawValue == ViewerMainMenu.shareIdentifier && share.submenu == nil
+                    && share.target is FileShareMenu)
             #expect(!controller.allowsAutomaticShareMenu && share.image == nil)
             #expect(!visible.contains { $0.title == "NSMenuItem" }, "\(diagnostic)")
             let index = try #require(visible.firstIndex(of: share))

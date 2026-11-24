@@ -58,15 +58,6 @@ extension BandLayout.Item {
     }
 }
 
-extension DocumentViewModel {
-    /// A binding to one view option that records the change as the user's own.
-    func viewOption<Value>(_ keyPath: WritableKeyPath<ViewOptions, Value>) -> Binding<Value> {
-        Binding(
-            get: { self.viewOptions[keyPath: keyPath] },
-            set: { value in self.updateViewOptions { $0[keyPath: keyPath] = value } })
-    }
-}
-
 /// One item of the band in the given form.
 struct BandItemView: View {
     @Bindable var model: DocumentViewModel
@@ -120,7 +111,7 @@ struct BandItemView: View {
             .help(ShortcutHints.help(String(localized: "Fit to Window"), [.viewZoomFit]))
         case .thumbnails:
             if let binder = model.binder {
-                Toggle(isOn: Binding(get: { model.isDrawerOpen }, set: { model.setSideListOpen($0) })) {
+                Toggle(isOn: model.controlBinding(get: \.isDrawerOpen, set: { $0.setSideListOpen($1) })) {
                     Text("Documents \(binder.items.count)")
                 }
                 .toggleStyle(.button).help(ShortcutHints.help(String(localized: "List"), [.listToggle]))
@@ -133,7 +124,7 @@ struct BandItemView: View {
             }
         case .floatOnTop: FloatOnTopButton(model: model)
         case .showOnAllSpaces:
-            Toggle(isOn: $model.showsOnAllSpaces) {
+            Toggle(isOn: model.controlBinding(\.showsOnAllSpaces)) {
                 Label("Show on All Spaces", systemImage: "rectangle.on.rectangle")
                     .labelStyle(.iconOnly)
                     .selectionRule(model.showsOnAllSpaces)

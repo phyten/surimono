@@ -10,7 +10,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSWi
         #else
             let host = NSHostingController(rootView: view)
         #endif
-        host.sceneBridgingOptions = [.title, .toolbars]
+        host.sceneBridgingOptions = [.toolbars]
         // `.minSize` keeps the window's minimum at the content's 820 × 540; other options let SwiftUI clear it.
         host.sizingOptions = [.minSize]
         let window = NSWindow(contentViewController: host)

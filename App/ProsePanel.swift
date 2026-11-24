@@ -149,8 +149,10 @@ struct ProsePanel: View {
     private func findings(_ rows: [ProsePanelReport.Row], group: ProsePanelReport.Group, generation: Int) -> some View {
         DisclosureGroup(
             isExpanded: Binding(
-                get: { expanded.contains(group) },
-                set: { if $0 { expanded.insert(group) } else { expanded.remove(group) } }
+                get: { [expanded = $expanded] in expanded.wrappedValue.contains(group) },
+                set: { [expanded = $expanded] in
+                    if $0 { expanded.wrappedValue.insert(group) } else { expanded.wrappedValue.remove(group) }
+                }
             )
         ) {
             LazyVStack(alignment: .leading, spacing: 6) {

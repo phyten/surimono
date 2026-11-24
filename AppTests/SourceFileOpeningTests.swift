@@ -264,7 +264,6 @@ struct SourceFileOpeningTests {
             let router = OpenRouter(
                 openDocument: { _, _ in opened += 1 }, openBundle: { _, _ in nil }, openBinder: { _, _ in nil },
                 warn: { _ in }, hasOpenWindows: { true }, showWelcome: {},
-                openAsText: { _, _ in opened += 1 },
                 refuse: { if let error = $0 as? DocumentRenderer.RenderingError { refusals.append(error) } })
             router.open([url])
             #expect(opened == 0)
@@ -324,11 +323,12 @@ struct SourceFileOpeningTests {
             let before = try ContentHash.ofFile(at: url)
             let modified = try #require(files.attributesOfItem(atPath: url.path)[.modificationDate] as? Date)
             let neighbors = try files.contentsOfDirectory(atPath: directory.path).sorted()
-            try #require(SourceFileOpening.route(for: url) == .asText)
             do {
-                let (document, isNew) = try SourceFileOpening.document(for: url)
+                let controller = NSDocumentController.shared
+                let type = try controller.typeForContents(of: url)
+                #expect(type == UTType.plainText.identifier)
+                let document = try controller.makeDocument(withContentsOf: url, ofType: type)
                 defer { document.close() }
-                #expect(isNew)
                 #expect(document.fileURL?.standardizedFileURL == url.standardizedFileURL)
                 #expect(document.fileType == UTType.plainText.identifier)
                 #expect(try files.contentsOfDirectory(atPath: directory.path).sorted() == neighbors)
@@ -597,12 +597,15 @@ struct SourceFileOpeningTests {
         #expect(clipboard !== typeScript)
         #expect(typeScript !== swift)
         #expect(clipboard !== swift)
-        #expect(typeScript.model.sourceFileName == "a.ts")
-        #expect(swift.model.sourceFileName == "a.swift")
-        #expect(clipboard.model.sourceFileName == nil)
-        #expect(typeScript.model.shortFormatBadge == "TypeScript")
-        #expect(swift.model.shortFormatBadge == "Swift")
-        #expect(clipboard.model.shortFormatBadge == "TXT")
+        let typeScriptModel = try #require(typeScript.model)
+        #expect(typeScriptModel.sourceFileName == "a.ts")
+        let swiftModel = try #require(swift.model)
+        #expect(swiftModel.sourceFileName == "a.swift")
+        let clipboardModel = try #require(clipboard.model)
+        #expect(clipboardModel.sourceFileName == nil)
+        #expect(typeScriptModel.shortFormatBadge == "TypeScript")
+        #expect(swiftModel.shortFormatBadge == "Swift")
+        #expect(clipboardModel.shortFormatBadge == "TXT")
         // The same file again comes back to its own window.
         #expect(windows.open(data, format: .plainText, title: "a.ts", fileName: "a.ts") === typeScript)
         #expect(windows.open(data, format: .plainText, title: "Clipboard") === clipboard)
@@ -611,15 +614,15 @@ struct SourceFileOpeningTests {
             ClipboardWindows.key(data, format: .plainText, fileName: "a.ts")
                 != ClipboardWindows.key(data, format: .markdown, fileName: "a.ts"))
         // Each is laid out in its own language.
-        for controller in [typeScript, swift, clipboard] {
-            try await wait("組版が終わる") { controller.model.result != nil && !controller.model.isRendering }
+        for model in [typeScriptModel, swiftModel, clipboardModel] {
+            try await wait("組版が終わる") { model.result != nil && !model.isRendering }
         }
-        #expect(typeScript.model.result?.facts?.sourceLanguage?.id == "typescript")
-        #expect(swift.model.result?.facts?.sourceLanguage?.id == "swift")
-        #expect(clipboard.model.result?.facts?.sourceLanguage == nil)
+        #expect(typeScriptModel.result?.facts?.sourceLanguage?.id == "typescript")
+        #expect(swiftModel.result?.facts?.sourceLanguage?.id == "swift")
+        #expect(clipboardModel.result?.facts?.sourceLanguage == nil)
         // A closed window remembers the name it was shown under.
         let closed = ClosedClipboardDocuments.Entry(
-            model: swift.model, hash: ClipboardWindows.key(data, format: .plainText, fileName: "a.swift"), data: data,
+            model: swiftModel, hash: ClipboardWindows.key(data, format: .plainText, fileName: "a.swift"), data: data,
             date: Date())
         #expect(closed.fileName == "a.swift")
         let decoded = try JSONDecoder().decode(

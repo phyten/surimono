@@ -18,9 +18,9 @@ struct DocumentEditMenuTests {
         // Include hidden rows: an invisible Save/Save As still owns an action and can acquire a shortcut.
         let actions = ShortcutMenuBaselineTests.items(main).compactMap(\.action)
         #expect(edits.isDisjoint(with: actions))
-        let shares = file.items.filter { $0.title == String(localized: "Share") }
+        let shares = file.items.filter { $0.title == String(localized: "Share…") }
         let share = try #require(shares.count == 1 ? shares.first : nil)
-        #expect(!share.isHidden && share.submenu != nil && share.image == nil)
+        #expect(!share.isHidden && share.submenu == nil && share.target is FileShareMenu && share.image == nil)
         #expect(!NSDocumentController.shared.allowsAutomaticShareMenu)
         #expect(file.items.allSatisfy { $0.title != "NSMenuItem" })
     }
@@ -112,7 +112,7 @@ struct DocumentEditMenuTests {
         if !content.recentBinders.isEmpty { file += ["Recent Binders"] }
         var fileTitles = file.map(localized) + [native("Close")]
         if content.visibility.canSaveAsFile { fileTitles.append(localized("Save as File…")) }
-        fileTitles += ["Share", content.printing ? "Print" : "Print…", "Print with System Dialog…", "Export"].map(
+        fileTitles += ["Share…", content.printing ? "Print" : "Print…", "Print with System Dialog…", "Export"].map(
             localized)
         #expect(visible(menus[1]) == fileTitles)
         // File is the ownership regression: an unexpected system row must also fail this baseline.
@@ -120,7 +120,7 @@ struct DocumentEditMenuTests {
             .map { $0.isSeparatorItem ? "|" : $0.title }
         var fileWithDividers = file.map(localized) + ["|", native("Close")]
         if content.visibility.canSaveAsFile { fileWithDividers.append(localized("Save as File…")) }
-        fileWithDividers += ["|", localized("Share"), "|"]
+        fileWithDividers += ["|", localized("Share…"), "|"]
         fileWithDividers += [content.printing ? "Print" : "Print…", "Print with System Dialog…", "Export"].map(
             localized)
         #expect(renderedFile == fileWithDividers)

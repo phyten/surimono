@@ -8,8 +8,8 @@ import os
 @objc(SurimonoViewerDocumentController)
 final class ViewerDocumentController: NSDocumentController {
     override var allowsAutomaticShareMenu: Bool { false }
-    override var documentClassNames: [String] { [NSStringFromClass(ViewerFileDocument.self)] }
-    override func documentClass(forType typeName: String) -> AnyClass? {
+    nonisolated override var documentClassNames: [String] { [NSStringFromClass(ViewerFileDocument.self)] }
+    nonisolated override func documentClass(forType typeName: String) -> AnyClass? {
         guard let type = UTType(typeName), SourceFileOpening.reads(type) else { return nil }
         return ViewerFileDocument.self
     }
@@ -60,14 +60,18 @@ final class ViewerFileDocument: NSDocument {
     }
     private let contents = OSAllocatedUnfairLock(
         initialState: (input: Optional<SurimonoDocument>.none, access: Optional<Access>.none))
-    override class var readableTypes: [String] { SurimonoDocument.readableContentTypes.map(\.identifier) }
-    override class var writableTypes: [String] { [] }
+    nonisolated override class var readableTypes: [String] { SurimonoDocument.readableContentTypes.map(\.identifier) }
+    nonisolated override class var writableTypes: [String] { [] }
     nonisolated override class var autosavesInPlace: Bool { false }
-    override class var autosavesDrafts: Bool { false }
+    nonisolated override class var autosavesDrafts: Bool { false }
     // Undoable reading and print settings never change the source.
     override var isDocumentEdited: Bool { false }
     override var hasUnautosavedChanges: Bool { false }
     nonisolated override var autosavingFileType: String? { nil }
+
+    // Concurrent reading stays off: with it AppKit also creates the document on a background queue, and the
+    // document's initializer and stored state belong to the main actor (it trapped in `init()` when enabled).
+    // The read itself is bounded by `SourceFileOpening.read`.
 
     nonisolated override func read(from url: URL, ofType typeName: String) throws {
         let access = Access(url)
@@ -106,7 +110,10 @@ final class ViewerFileDocument: NSDocument {
         completionHandler?(CocoaError(.fileWriteNoPermission))
     }
 
+    private var presentation: DocumentWindowContent?
+
     override func close() {
+        presentation?.close()
         super.close()
         contents.withLock { $0 = (nil, nil) }
     }
@@ -132,21 +139,17 @@ final class ViewerFileDocument: NSDocument {
         let model = DocumentViewer.makeModel(
             document: input, fileURL: fileURL, preferences: environment.preferences,
             library: environment.library, settingsStore: environment.settingsStore)
-        let viewer = DocumentContent(model: model)
-        #if DEBUG
-            let host = NSHostingController(rootView: viewer.snapshotControlAppearance())
-        #else
-            let host = NSHostingController(rootView: viewer)
-        #endif
-        host.sizingOptions = []
-        host.sceneBridgingOptions = [.toolbars]
         let window = FileWindow(
             contentRect: NSRect(x: 0, y: 0, width: 760, height: 760),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView], backing: .buffered,
             defer: false)
         window.model = model
         ViewerWindow.configure(window)
-        window.contentViewController = host
+        presentation = DocumentWindowContent(model: model, in: window, usesSnapshotAppearance: true) {
+            [weak window, weak model] _ in
+            // AppKit can still encode the window during termination after the model has gone.
+            window?.lastReadingPage = model?.pageForWindowRestoration
+        }
         window.representedURL = fileURL
         window.title = displayName
         window.center()
@@ -162,11 +165,12 @@ final class ViewerFileDocument: NSDocument {
 // belongs to this open window (closing it and explicitly reopening the file still starts at page one).
 private final class FileWindow: NSWindow {
     weak var model: DocumentViewModel?
+    var lastReadingPage: Int?
     private static let pageKey = "SurimonoReadingPage"
 
     override func encodeRestorableState(with coder: NSCoder) {
         super.encodeRestorableState(with: coder)
-        if let model { coder.encode(model.pageForWindowRestoration, forKey: Self.pageKey) }
+        if let page = model?.pageForWindowRestoration ?? lastReadingPage { coder.encode(page, forKey: Self.pageKey) }
     }
 
     override func restoreState(with coder: NSCoder) {

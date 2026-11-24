@@ -13,7 +13,7 @@ final class BinderWindows {
     /// Binders being laid out before their windows open.
     private(set) var pending: [DocumentViewModel] = []
 
-    var sourceURLs: [URL] { controllers.values.flatMap { $0.model.sourceURLs } }
+    var sourceURLs: [URL] { controllers.values.flatMap { $0.model?.sourceURLs ?? [] } }
     var hasWindows: Bool { !controllers.isEmpty }
 
     @discardableResult
@@ -36,9 +36,9 @@ final class BinderWindows {
         // parent's plan names its binder, in its order: the window may since have been rearranged by hand, and stays
         // the one to come back to until the parent itself changes.
         controllers.values.first {
-            guard $0.model.binder?.origin == origin else { return false }
+            guard let model = $0.model, model.binder?.origin == origin else { return false }
             if case .parent = origin { return true }
-            return Set($0.model.sourceURLs) == Set(urls)
+            return Set(model.sourceURLs) == Set(urls)
         }
     }
 
@@ -76,10 +76,10 @@ final class BinderWindows {
     }
 
     private func open(_ urls: [URL], origin: BinderModel.Origin, binder: () -> BinderModel) -> DocumentViewModel {
-        if let existing = existing(urls, origin: origin) {
+        if let existing = existing(urls, origin: origin), let model = existing.model {
             existing.showWindow(nil)
             existing.window?.makeKeyAndOrderFront(nil)
-            return existing.model
+            return model
         }
         let model = makeModel(binder())
         let controller = makeController(for: model)

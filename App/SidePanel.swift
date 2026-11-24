@@ -64,6 +64,10 @@ struct SelectedRowClicks: NSViewRepresentable {
         view.onClick = onClick
     }
 
+    static func dismantleNSView(_ view: Watcher, coordinator: ()) {
+        view.dismantle()
+    }
+
     final class Watcher: NSView {
         var pointedRow: URL?
         var selection: URL?
@@ -84,8 +88,14 @@ struct SelectedRowClicks: NSViewRepresentable {
             }
         }
 
+        func dismantle() {
+            stop()
+            onClick = nil
+        }
+
         private func stop() {
             pressTask?.cancel()
+            pressTask = nil
             if let monitor { NSEvent.removeMonitor(monitor) }
             monitor = nil
         }

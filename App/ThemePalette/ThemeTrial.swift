@@ -21,7 +21,7 @@ final class ThemeTrial {
     private(set) var changeMarks: [ChangeMark] = []
     /// The header and footer of its pages, as the sheets would draw them.
     private(set) var furniture: [Int: FurniturePlacement] = [:]
-    @ObservationIgnored private let renderer: DocumentRenderer
+    @ObservationIgnored let renderer: DocumentRenderer
     @ObservationIgnored private var task: Task<Void, Never>?
     /// Recent trials, so going back to a theme just tried shows it at once.
     @ObservationIgnored private var recent:

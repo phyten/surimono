@@ -114,6 +114,7 @@ extension DocumentViewModel {
 
     /// Shows the code in `id` on the paper until the pointer moves on; the current palette ends the trial.
     func tryCodePalette(_ id: String) {
+        guard !isWindowClosed else { return }
         guard mode == .view, canTryThemesOnHover, id != codePaletteID, let source = themedSource,
             var settings = renderSettings
         else {
@@ -130,10 +131,14 @@ extension DocumentViewModel {
 
     func isFavoriteTheme(_ id: String) -> Bool { preferences.favoriteThemeIDs.contains(id) }
 
-    func toggleFavoriteTheme(_ id: String) { preferences.toggleFavoriteTheme(id) }
+    func toggleFavoriteTheme(_ id: String) {
+        guard !isWindowClosed else { return }
+        preferences.toggleFavoriteTheme(id)
+    }
 
     /// Shows `id` on the paper until the pointer moves on; the current theme ends the trial.
     func tryTheme(_ id: String) {
+        guard !isWindowClosed else { return }
         guard mode == .view, canTryThemesOnHover, id != themeID, let source = themedSource,
             var settings = renderSettings, let theme = theme(id)
         else {
@@ -144,7 +149,10 @@ extension DocumentViewModel {
         themeTrial.begin(source: source, settings: settings, isBusy: { [weak self] in self?.isRendering ?? false })
     }
 
-    func endThemeTrial() { themeTrial.end() }
+    func endThemeTrial() {
+        guard !isWindowClosed else { return }
+        themeTrial.end()
+    }
 
     /// Opens the palette from the band's style button or from "…" when the band has folded the style into it.
     func openThemePalette() {
@@ -159,6 +167,7 @@ extension DocumentViewModel {
 
     /// Called as the palette closes, however it was closed.
     func themePaletteDidClose() {
+        guard !isWindowClosed else { return }
         isThemePalettePresented = false
         palettePreviewThemeID = nil
         themeTrial.end()
@@ -166,6 +175,7 @@ extension DocumentViewModel {
 
     /// Keeps the samples in step with the document and its layout while the palette or the stage shows them.
     func followThemeSamples() {
+        guard !isWindowClosed else { return }
         themeSamples.refresh()
         if preferences.themeSampleSource == .specimen { specimenSamples.refresh() }
     }
@@ -175,6 +185,7 @@ extension DocumentViewModel {
     }
 
     func hoverPaletteTheme(_ id: String) {
+        guard !isWindowClosed else { return }
         if mode == .print {
             palettePreviewThemeID = id
         } else {

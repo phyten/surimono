@@ -224,6 +224,12 @@ struct BandMenuContent {
             isEnabled: enabled)
     }
 
+    func checkedBinding(for id: ID) -> Binding<Bool> {
+        model.controlBinding(
+            get: { BandMenuContent(model: $0).entry(id).isChecked ?? false },
+            set: { BandMenuContent(model: $0).setChecked($1, for: id) })
+    }
+
     /// Bindings must apply the requested value, including repeated writes during control synchronization.
     func setChecked(_ checked: Bool, for id: ID) {
         guard isApplicable(id), entry(id).isEnabled, entry(id).isChecked != checked else { return }
@@ -335,9 +341,7 @@ private struct BandMenuItem: View {
         if entry.isChecked != nil {
             Toggle(
                 entry.title,
-                isOn: Binding(
-                    get: { BandMenuContent(model: model).entry(entry.id).isChecked ?? false },
-                    set: { BandMenuContent(model: model).setChecked($0, for: entry.id) }))
+                isOn: BandMenuContent(model: model).checkedBinding(for: entry.id))
         } else {
             item
         }
@@ -375,7 +379,7 @@ private struct BandDisplayMenuChoice: View {
             Menu {
                 Picker(
                     "Web or Paper",
-                    selection: Binding(get: { model.htmlPresentation }, set: { model.setHTMLPresentation($0) })
+                    selection: model.controlBinding(get: \.htmlPresentation, set: { $0.setHTMLPresentation($1) })
                 ) {
                     ForEach(HTMLPresentation.allCases, id: \.self) { presentation in
                         Label(presentation.title, systemImage: presentation.symbol).tag(presentation)
@@ -397,7 +401,7 @@ private struct BandDisplayMenuChoice: View {
             }
         case .layout:
             Menu {
-                Picker("View", selection: Binding(get: { model.viewOptions.layout }, set: { model.setLayout($0) })) {
+                Picker("View", selection: model.viewOption(\.layout)) {
                     ForEach(ViewOptions.Layout.displayOrder, id: \.self) { layout in
                         Label(layout.title, systemImage: layout.symbol).tag(layout)
                     }

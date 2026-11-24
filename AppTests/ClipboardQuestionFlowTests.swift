@@ -104,10 +104,11 @@ struct ClipboardQuestionFlowTests {
         fixture.copy(Self.markdown)
         let controller = try #require(fixture.windows.open(from: fixture.board, window: nil))
         #expect(fixture.questions.isEmpty)
-        #expect(controller.model.format == .markdown)
-        #expect(controller.model.textFormatOrigin == .automatic)
-        #expect(controller.model.textKind == .markdown)
-        #expect(controller.model.memoryContent == Data(Self.markdown.utf8))
+        let model = try #require(controller.model)
+        #expect(model.format == .markdown)
+        #expect(model.textFormatOrigin == .automatic)
+        #expect(model.textKind == .markdown)
+        #expect(model.memoryContent == Data(Self.markdown.utf8))
     }
 
     @Test("迷う文字は質問に答えた形式で開き、手で選んだと覚える", .timeLimit(.minutes(1)))
@@ -122,8 +123,9 @@ struct ClipboardQuestionFlowTests {
         #expect(window == nil)
         #expect(question.preferred == .plainText)
         #expect(question.options.map(\.kind).contains(.markdown))
-        #expect(controller.model.format == .org)
-        #expect(controller.model.textFormatOrigin == .chosen)
+        let model = try #require(controller.model)
+        #expect(model.format == .org)
+        #expect(model.textFormatOrigin == .chosen)
         #expect(!fixture.windows.isAsking)
     }
 
@@ -148,8 +150,9 @@ struct ClipboardQuestionFlowTests {
         let answer = try #require(fixture.pending)
         answer(.markdown)
         let controller = try #require(fixture.windows.open(from: fixture.board, window: nil))
-        #expect(controller.model.format == .markdown)
-        #expect(controller.model.isPrintModeRequested || controller.model.mode == .print)
+        let model = try #require(controller.model)
+        #expect(model.format == .markdown)
+        #expect(model.isPrintModeRequested || model.mode == .print)
     }
 
     @Test("質問が出ている間にもう一度呼ばれても質問を重ねず、出ている質問を前に出す")
@@ -186,8 +189,9 @@ struct ClipboardQuestionFlowTests {
         fixture.copy(Self.unsure)
         let controller = try #require(fixture.windows.open(from: fixture.board, window: nil))
         #expect(fixture.questions.isEmpty)
-        #expect(controller.model.format == .plainText)
-        #expect(controller.model.textFormatOrigin == .automatic)
+        let model = try #require(controller.model)
+        #expect(model.format == .plainText)
+        #expect(model.textFormatOrigin == .automatic)
     }
 
     @Test("毎回聞く設定では、確かな Markdown でも聞く")
@@ -210,8 +214,9 @@ struct ClipboardQuestionFlowTests {
         fixture.copy(Self.markdown)
         let controller = try #require(fixture.windows.open(from: fixture.board, window: nil))
         #expect(fixture.questions.isEmpty)
-        #expect(controller.model.format == .org)
-        #expect(controller.model.textFormatOrigin == .settings)
+        let model = try #require(controller.model)
+        #expect(model.format == .org)
+        #expect(model.textFormatOrigin == .settings)
     }
 
     @Test("自動の判定から外した形式は、確かでも自動では開かず、質問では選べる", .timeLimit(.minutes(1)))
@@ -221,7 +226,7 @@ struct ClipboardQuestionFlowTests {
         fixture.preferences.clipboardFormat.automaticKinds.remove(.markdown)
         fixture.copy(Self.markdown)
         let opened = fixture.windows.open(from: fixture.board, window: nil)
-        #expect(opened.map { $0.model.format != .markdown } ?? true)
+        #expect(opened?.model?.format != .markdown)
         opened?.window?.close()
         fixture.answer = .some(.markdown)
         fixture.preferences.clipboardFormat.mode = .alwaysAsk
@@ -229,7 +234,8 @@ struct ClipboardQuestionFlowTests {
         let chosen = try #require(fixture.windows.open(from: fixture.board, window: nil))
         let question = try #require(fixture.questions.last?.0)
         #expect((question.options + question.others).contains { $0.kind == .markdown })
-        #expect(chosen.model.format == .markdown)
+        let chosenModel = try #require(chosen.model)
+        #expect(chosenModel.format == .markdown)
     }
 
     @Test("URL と判定された文字はテキストで開く", .timeLimit(.minutes(1)))
@@ -241,8 +247,9 @@ struct ClipboardQuestionFlowTests {
         fixture.board.setString("https://example.com/page", forType: .URL)
         let controller = try #require(fixture.windows.open(from: fixture.board, window: nil))
         #expect(fixture.questions.isEmpty)
-        #expect(controller.model.format == .plainText)
-        #expect(controller.model.textKind == .plainText)
+        let model = try #require(controller.model)
+        #expect(model.format == .plainText)
+        #expect(model.textKind == .plainText)
     }
 
     @Test("表計算からのタブ区切りは表として開き、欄に分かれる", .timeLimit(.minutes(1)))
@@ -254,7 +261,8 @@ struct ClipboardQuestionFlowTests {
         fixture.board.setString(text, forType: .string)
         fixture.board.setString(text, forType: .tabularText)
         let controller = try #require(fixture.windows.open(from: fixture.board, window: nil))
-        #expect(controller.model.format == .csv)
+        let model = try #require(controller.model)
+        #expect(model.format == .csv)
         let html = try #require(
             DocumentRenderer.structureHTML(of: DocumentSource(data: Data(text.utf8), fileURL: nil, format: .csv)))
         #expect(html.contains("<td>apple</td><td>3</td><td>120</td>"))
@@ -278,31 +286,34 @@ struct ClipboardQuestionFlowTests {
         let visible = try #require(firstWindow.screen ?? NSScreen.main).visibleFrame
         firstWindow.setFrameTopLeftPoint(NSPoint(x: visible.minX + 37, y: visible.maxY))
         let topLeft = NSPoint(x: firstWindow.frame.minX, y: firstWindow.frame.maxY)
-        first.model.reopenText(as: .plainText)
+        let firstModel = try #require(first.model)
+        firstModel.reopenText(as: .plainText)
         #expect(!firstWindow.isVisible)
         #expect(fixture.preferences.closedClipboardDocuments.entries.isEmpty)
         #expect(fixture.windows.hasWindows)
         let second = try #require(fixture.windows.open(from: fixture.board, window: nil))
         #expect(second !== first)
         #expect(fixture.questions.isEmpty)
-        #expect(second.model.format == .plainText)
-        #expect(second.model.memoryContent == Data(Self.markdown.utf8))
-        #expect(second.model.textFormatOrigin == .chosen)
-        #expect(second.model.displayName == first.model.displayName)
+        let secondModel = try #require(second.model)
+        #expect(secondModel.format == .plainText)
+        #expect(secondModel.memoryContent == Data(Self.markdown.utf8))
+        #expect(secondModel.textFormatOrigin == .chosen)
+        #expect(secondModel.displayName == firstModel.displayName)
         let window = try #require(second.window)
         #expect(NSPoint(x: window.frame.minX, y: window.frame.maxY) == topLeft)
         // The window fits its paper once the pages are laid out, from the same top left.
-        for _ in 0..<1500 where !second.model.hasSizedWindow { try await Task.sleep(for: .milliseconds(20)) }
-        #expect(second.model.hasSizedWindow)
+        for _ in 0..<1500 where !secondModel.hasSizedWindow { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(secondModel.hasSizedWindow)
         #expect(abs(window.frame.minX - topLeft.x) < 1)
         #expect(abs(window.frame.maxY - topLeft.y) < 1)
         // Choosing the format it already has does nothing.
-        second.model.reopenText(as: .plainText)
+        secondModel.reopenText(as: .plainText)
         #expect(try #require(fixture.windows.open(from: fixture.board, window: nil)) === second)
         second.close()
         let restored = try #require(fixture.windows.reopenClosed())
-        #expect(restored.model.textFormatOrigin == .chosen)
-        #expect(restored.model.textKind == .plainText)
+        let restoredModel = try #require(restored.model)
+        #expect(restoredModel.textFormatOrigin == .chosen)
+        #expect(restoredModel.textKind == .plainText)
         #expect(fixture.questions.isEmpty)
     }
 
@@ -312,7 +323,8 @@ struct ClipboardQuestionFlowTests {
         defer { fixture.cleanUp() }
         fixture.copy(Self.markdown)
         let controller = try #require(fixture.windows.open(from: fixture.board, window: nil))
-        let content = BandMenuContent(model: controller.model)
+        let model = try #require(controller.model)
+        let content = BandMenuContent(model: model)
         let paper = try #require(content.groups.first { $0.id == .paper })
         #expect(paper.entries.first?.id == .textFormat)
         #expect(content.entry(.textFormat).value == String(format: String(localized: "%@ (Automatic)"), "Markdown"))
@@ -323,7 +335,8 @@ struct ClipboardQuestionFlowTests {
         #expect(file.textKind == nil)
         #expect(!BandMenuContent(model: file).groups.flatMap(\.entries).contains { $0.id == .textFormat })
         let image = fixture.windows.open(TestFixtures.png(red: 0.3), format: .image, title: "Image")
-        #expect(image.model.textKind == nil)
+        let imageModel = try #require(image.model)
+        #expect(imageModel.textKind == nil)
     }
 
     @Test("サービスの文字は同じ判定を通り、選んだ文字として聞かれ、刷る指定が答えのあとも残る", .timeLimit(.minutes(1)))
@@ -348,9 +361,10 @@ struct ClipboardQuestionFlowTests {
         let answer = try #require(fixture.pending)
         answer(.markdown)
         let controller = try #require(windows.open(from: fixture.board, window: nil))
-        #expect(controller.model.format == .markdown)
-        #expect(controller.model.displayName == "Selected Text")
-        #expect(controller.model.isPrintModeRequested || controller.model.mode == .print)
+        let model = try #require(controller.model)
+        #expect(model.format == .markdown)
+        #expect(model.displayName == "Selected Text")
+        #expect(model.isPrintModeRequested || model.mode == .print)
     }
 
     /// The real question as a sheet on a real clipboard window, answered nowhere yet.

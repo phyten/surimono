@@ -19,7 +19,7 @@ final class DocumentWindows: NSObject {
     /// Where access to a file from outside the app waits for the file's window. Replaceable for tests.
     @ObservationIgnored var router: OpenRouter = .shared
 
-    /// The windows' models that are still open; a window can only leave this table by going away.
+    /// The models whose windows are still open.
     var openModels: [DocumentViewModel] { models.objectEnumerator()?.allObjects as? [DocumentViewModel] ?? [] }
 
     override private init() {
@@ -38,12 +38,18 @@ final class DocumentWindows: NSObject {
     }
 
     func register(_ model: DocumentViewModel, for window: NSWindow) {
+        guard !model.isWindowClosed else { return }
         models.setObject(model, forKey: window)
         #if DEBUG
             DebugMenuDump.documentRegistered()
         #endif
         // The file may have finished opening before its window existed.
         router.handAccess(to: model)
+        updateActive()
+    }
+
+    func unregister(_ window: NSWindow) {
+        models.removeObject(forKey: window)
         updateActive()
     }
 

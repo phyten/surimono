@@ -677,9 +677,9 @@ struct StyleMenuItems: View {
             TextSizeMenuItems(model: model)
         }
         if model.usesHTMLPreset {
-            Picker("HTML Preset", selection: $model.presetID) {
-                ForEach(model.library.presets) { preset in
-                    Text(verbatim: preset.displayName(language: model.language)).tag(preset.id)
+            Picker("HTML Preset", selection: model.controlBinding(\.presetID)) {
+                ForEach(model.library.presets) { [language = model.language] preset in
+                    Text(verbatim: preset.displayName(language: language)).tag(preset.id)
                 }
             }
             .pickerStyle(.inline)
@@ -694,7 +694,7 @@ struct ThemeMenuContent: View {
     let model: DocumentViewModel
 
     var body: some View {
-        let selection = Binding(get: { model.themeID }, set: { model.selectTheme($0) })
+        let selection = model.controlBinding(get: \.themeID, set: { $0.selectTheme($1) })
         ForEach(model.themeMenu.sections, id: \.id) { section in
             switch section.kind {
             case .recent:
@@ -726,8 +726,8 @@ struct ThemeMenuContent: View {
     @ViewBuilder
     private func picker(_ title: LocalizedStringKey?, _ themes: [PrintTheme], selection: Binding<String>) -> some View {
         Picker(selection: selection) {
-            ForEach(themes) { theme in
-                Text(verbatim: theme.displayName(language: model.language)).tag(theme.id)
+            ForEach(themes) { [language = model.language] theme in
+                Text(verbatim: theme.displayName(language: language)).tag(theme.id)
             }
         } label: {
             if let title { Text(title) }
@@ -741,11 +741,11 @@ struct CodePaletteMenuContent: View {
     let model: DocumentViewModel
 
     var body: some View {
-        Picker(selection: Binding(get: { model.codePaletteID }, set: { model.selectCodePalette($0) })) {
+        Picker(selection: model.controlBinding(get: \.codePaletteID, set: { $0.selectCodePalette($1) })) {
             Text("Match Style").tag(CodePalette.matchesStyleID)
             Divider()
-            ForEach(model.library.codePalettes) { palette in
-                Text(verbatim: palette.displayName(language: model.language)).tag(palette.id)
+            ForEach(model.library.codePalettes) { [language = model.language] palette in
+                Text(verbatim: palette.displayName(language: language)).tag(palette.id)
             }
         } label: {
             EmptyView()
@@ -760,7 +760,7 @@ struct TextSizeMenuItems: View {
 
     var body: some View {
         Divider()
-        Picker("Text Size", selection: Binding(get: { model.textScale }, set: { model.setTextScale($0) })) {
+        Picker("Text Size", selection: model.controlBinding(get: \.textScale, set: { $0.setTextScale($1) })) {
             ForEach(TextScale.choices(including: model.textScale), id: \.self) { scale in
                 Text(verbatim: "\(Int((scale * 100).rounded()))%").tag(scale)
             }
@@ -781,7 +781,7 @@ struct SmartRemovalMenuItems: View {
         Divider()
         Toggle(
             "Smart Removal (Beta)",
-            isOn: Binding(get: { model.isSmartRemovalEnabled }, set: { model.setSmartRemoval(enabled: $0) }))
+            isOn: model.controlBinding(get: \.isSmartRemovalEnabled, set: { $0.setSmartRemoval(enabled: $1) }))
         Button("Review Removed Parts…") { model.reviewSmartRemoval() }
             .disabled(!model.isSmartRemovalEnabled)
     }
@@ -792,7 +792,7 @@ struct LayoutPicker: View {
 
     var body: some View {
         CornerSegments(
-            title: "View Type", selection: Binding(get: { model.viewOptions.layout }, set: { model.setLayout($0) }),
+            title: "View Type", selection: model.viewOption(\.layout),
             values: ViewOptions.Layout.displayOrder, preset: model.preferences.corners
         ) { layout in
             Label(layout.title, systemImage: layout.symbol)
