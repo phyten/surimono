@@ -110,8 +110,9 @@ struct VerticalSpacingTests {
             const copiedAddress = selection.toString();
             selection.removeAllRanges();
             const noteCells = [...el('notes').querySelectorAll('a')].map(a => {
-                const mark = a.querySelector('.tcy');
-                return mark && (getComputedStyle(mark).textCombineUpright === 'all'
+                const mark = a.firstElementChild;
+                return mark && (getComputedStyle(mark).textOrientation === 'upright'
+                    || getComputedStyle(mark).textCombineUpright === 'all'
                     || getComputedStyle(mark).getPropertyValue('-webkit-text-combine') === 'horizontal')
                     ? a.getBoundingClientRect().height / parseFloat(getComputedStyle(a).fontSize) : 0;
             });
@@ -259,6 +260,75 @@ struct VerticalSpacingTests {
             let space = (after.minY - before.maxY) / 24
             #expect(abs(space - 0.5) < 0.08, "「\(pair)」のインクの間隔 \(space) 字")
         }
+    }
+
+    @Test("字下げした段落の合印は文字を送らず、文末注の番号は一・二桁だけが正立する", .timeLimit(.minutes(1)))
+    func footnoteNumbers() async throws {
+        _ = NSApplication.shared
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "tategaki" })
+        let body = """
+            <h2>見出し</h2><p id="without">本文脚注も付けるところを改めて確かめる。</p>
+            <p id="with">本文脚注<sup class="footnote-ref"><a>1</a></sup>も付けるところを改めて確かめる。</p>
+            <section class="footnotes"><ol><li><p>甲</p></li><li value="11"><p>乙</p></li><li value="111"><p>丙</p></li></ol></section>
+            """
+        let css = """
+            #with,#without {inline-size:9.5em}
+            .surimono-vertical section.footnotes {font-size:20pt}
+            li:nth-child(1) .vertical-note-number {color:#f00}
+            li:nth-child(2) .vertical-note-number {color:#00f}
+            li:nth-child(3) .vertical-note-number {color:#008000}
+            """
+        let html = HTMLDocumentBuilder.build(
+            fragment: HTMLFragment(body: body), format: .markdown, theme: theme, finish: css)
+        let size = CGSize(width: 480, height: 330)
+        let view = WKWebView(frame: CGRect(origin: .zero, size: size))
+        let navigation = NavigationTracker()
+        view.navigationDelegate = navigation
+        view.loadHTMLString(html, baseURL: nil)
+        try await WebPaginator.waitUntil(timeout: .seconds(10)) { navigation.state != .loading }
+        try #require(navigation.state == .finished)
+        let document = try await VerticalPaginator.pages(
+            in: view, pageSize: size, margins: .init(top: 12, left: 12, bottom: 12, right: 12), timeout: .seconds(10))
+        let script = """
+            const range = document.createRange();
+            function steps(id) {
+                const p = document.getElementById(id), em = parseFloat(getComputedStyle(p).fontSize);
+                const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT), center = {};
+                for (let n; n=walker.nextNode();) for (let i=0; i<n.length; ++i) {
+                    if (!'脚注も'.includes(n.data[i])) continue;
+                    range.setStart(n,i); range.setEnd(n,i+1);
+                    const cell = range.getBoundingClientRect();
+                    center[n.data[i]] = cell.top + cell.height / 2;
+                }
+                return [(center.注-center.脚)/em, (center.も-center.注)/em];
+            }
+            const a = steps('with'), b = steps('without');
+            const gaps = [...document.querySelectorAll('.vertical-note-number')].map(label => {
+                range.selectNodeContents(label.nextSibling);
+                return (range.getBoundingClientRect().top - label.getBoundingClientRect().bottom)
+                    / parseFloat(getComputedStyle(label).fontSize);
+            });
+            const base = document.querySelector('#with .vertical-note-base');
+            const em = parseFloat(getComputedStyle(base).fontSize);
+            const digits = document.querySelector('.vertical-note-number > .tcy');
+            if (digits?.textContent !== '11') return [];
+            return [a, b, gaps, [base.getBoundingClientRect().height/em]];
+            """
+        let values = try #require(try await view.evaluateForPrinting(script, until: .now + .seconds(10)) as? [[Double]])
+        try #require(values.count == 4 && values[0].count == 2 && values[1].count == 2 && values[2].count == 3)
+        #expect(abs(try #require(values[3].first) - 1) <= 0.1)
+        for (marked, plain) in zip(values[0], values[1]) {
+            #expect(plain >= 1 && abs(marked - plain) <= 0.1, "合印あり \(marked) 字、なし \(plain) 字")
+        }
+        #expect(values[2].allSatisfy { abs($0 - 1) < 0.1 }, "番号の後の空き \(values[2]) 字")
+        // The border box is a square for either short label. Only the printed ink exposes a rotated digit.
+        let pixels = try PagePixels(try #require(document.page(at: 0)))
+        let one = try #require(pixels.bounds { r, g, b in r > 200 && g < 50 && b < 50 })
+        let two = try #require(pixels.bounds { r, g, b in b > 200 && r < 50 && g < 50 })
+        let three = try #require(pixels.bounds { r, g, b in g > 90 && g < 160 && r < 50 && b < 50 })
+        #expect(one.height > one.width)
+        #expect(two.width > two.height)
+        #expect(three.height > three.width && abs(three.width - one.height) < 2)
     }
 
     @Test("A5 一段の混植本文は四十二字でそろい、縦組みの文末注は番号の後ろで折り返す", .timeLimit(.minutes(1)))

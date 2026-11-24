@@ -101,23 +101,34 @@ struct FlowPageCutsTests {
 struct FlowPageCaptureTests {
     @Test("移動・縮小した PDF 片ではノンブルの同じ字形だけを仕上がり座標で照合する")
     func printedDigit() async throws {
-        let slice = try RenderingFixtures.pdf(size: CGSize(width: 240, height: 120))
-        let page = try #require(slice.page(at: 0))
-        let digit = page.numberOfCharacters - 1
-        try #require(digit >= 0)
-        let ink = page.characterBounds(at: digit)
-        let data = try #require(slice.dataRepresentation())
+        let data = try await PDFDrawing.data(pageSize: CGSize(width: 240, height: 120)) { context in
+            context.beginPDFPage(nil)
+            let label = NSAttributedString(string: "1", attributes: [.font: NSFont.systemFont(ofSize: 24)])
+            context.textPosition = CGPoint(x: 72, y: 48)
+            CTLineDraw(CTLineCreateWithAttributedString(label), context)
+            context.endPDFPage()
+        }
+        let source = try PagePixels(try #require(PDFDocument(data: data)?.page(at: 0)))
+        let ink = try #require(source.bounds { r, g, b in max(r, g, b) < 128 })
+        let size = CGSize(width: 160, height: 90)
         let target = CGRect(x: 30, y: 12, width: 120, height: 60)
-        let point = CGPoint(x: 30 + ink.midX / 2, y: 12 + ink.midY / 2)
-        _ = try await PDFDrawing.document(pageSize: CGSize(width: 160, height: 90)) { context in
+        // Bitmap coordinates start at the top; glyph lookup takes a point from the bottom of the finished sheet.
+        let expected = CGRect(
+            x: target.minX + ink.minX / 2, y: size.height - target.maxY + ink.minY / 2,
+            width: ink.width / 2, height: ink.height / 2)
+        let point = CGPoint(x: expected.midX, y: size.height - expected.midY)
+        let output = try await PDFDrawing.document(pageSize: size) { context in
             context.beginPDFPage(nil)
             defer { context.endPDFPage() }
             let printed = try FlowPageCapture.draw(data, into: target, in: context)
-            let bounds = try #require(printed.glyphBounds(of: "1", at: point))
-            #expect(abs(bounds.minY - (12 + ink.minY / 2)) < 0.01)
-            #expect(abs(bounds.height - ink.height / 2) < 0.01)
+            #expect(printed.glyphBounds(of: "1", at: point) != nil)
             #expect(printed.glyphBounds(of: "2", at: point) == nil)
         }
+        let pixels = try PagePixels(try #require(output.page(at: 0)))
+        let actual = try #require(pixels.bounds { r, g, b in max(r, g, b) < 128 })
+        let tolerance = 2 / pixels.scale
+        #expect(abs(actual.minX - expected.minX) <= tolerance && abs(actual.maxX - expected.maxX) <= tolerance)
+        #expect(abs(actual.minY - expected.minY) <= tolerance && abs(actual.maxY - expected.maxY) <= tolerance)
     }
 
     @Test("切り出したベクトル文字を余白の内側に置き、右とじの用紙でも文字とノンブルを読める")

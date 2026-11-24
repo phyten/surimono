@@ -42,8 +42,7 @@ for (const box of strip.querySelectorAll(horizontal)) {
     line.appendChild(box);
     box.classList.add('horizontal-box');
 }
-// Real separator and label boxes give the capture pass measurable ink. Their generated
-// labels keep list numbering out of copied text, just like the original native markers.
+// Real separator and label boxes give the capture pass measurable ink.
 for (const list of strip.querySelectorAll('section.footnotes > ol')) {
     const rule = wrapper('hr', 'vertical-note-rule');
     list.before(rule);
@@ -54,6 +53,16 @@ for (const list of strip.querySelectorAll('section.footnotes > ol')) {
         if (item.style.listStyleType !== 'none') {
             const label = wrapper('span', 'vertical-note-number');
             label.dataset.number = String(number);
+            if (number >= 10 && number < 100) {
+                // WebKit can stack the digits of generated content when printing. Use the same inline run as prose.
+                const digits = wrapper('span', 'tcy');
+                digits.textContent = label.dataset.number;
+                label.append(digits);
+            } else if (number >= 0 && number < 10) {
+                label.classList.add('vertical-single-number');
+            } else {
+                item.style.setProperty('--note-label-width', label.dataset.number.length + 'ch');
+            }
             item.classList.add('vertical-numbered-note');
             const leading = [...item.childNodes].find(n => n.nodeType === Node.ELEMENT_NODE || n.textContent.trim());
             if (leading?.localName === 'p') leading.prepend(label);

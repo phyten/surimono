@@ -79,11 +79,11 @@ struct VerticalTextTests {
             #expect(try !VerticalText.marked(quantity).contains("tcy"))
         }
         for date in ["25日", "12段落", "11月"] { #expect(try VerticalText.marked(date).contains("tcy")) }
-        for digits in ["1", "12"] {
+        for (digits, style) in [("1", "upright-digit"), ("12", "tcy"), ("123", "v-latin")] {
             let mark = ##"<sup class="footnote-ref"><a href="#fn">"##
             #expect(
-                try VerticalText.marked(mark + digits + "</a></sup>") == mark + #"<span class="tcy">"# + digits
-                    + "</span></a></sup>")
+                try VerticalText.marked("脚注" + mark + digits + "</a></sup>も")
+                    == "脚注" + mark + "<span class=\"\(style)\">" + digits + "</span></a></sup>も")
         }
         let label = "https://example.org/a-b_c?q=1&amp;x=2#top"
         let expected = url(

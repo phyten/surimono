@@ -66,7 +66,12 @@ package enum VerticalText {
                     continue
                 }
                 if latex && ["h1", "h2", "h3", "h4", "h5", "h6"].contains(tag.name) { heading = !tag.isClosing }
-                if tag.name == "sup" { note = !tag.isClosing && classes.contains("footnote-ref") }
+                if tag.name == "sup" {
+                    let isReference = !tag.isClosing && classes.contains("footnote-ref")
+                    // A shoulder annotation contributes no inter-script spacing to the surrounding prose.
+                    if isReference || note { try writer.begin(.other) }
+                    note = isReference
+                }
                 if tag.name == "a" {
                     let href = tag.attribute("href")
                     linkedURL = href.flatMap { value in
@@ -275,7 +280,7 @@ package enum VerticalText {
                         if note || !touchesWord {
                             try begin(.other)
                             output += try span(
-                                note || headingNumber || raw.count == 2 ? "tcy" : "upright-digit", String(raw))
+                                headingNumber || raw.count == 2 ? "tcy" : "upright-digit", String(raw))
                         } else {
                             try western(String(raw))
                         }

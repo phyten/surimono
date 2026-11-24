@@ -123,16 +123,21 @@ body { font-family: "Hiragino Mincho ProN", serif; font-size: 10.5pt; line-heigh
 .surimono-vertical .footnotes > ol { list-style: none; padding: 0; margin: 0; }
 .surimono-vertical .footnotes > ol > li { margin: 0; }
 .surimono-vertical .footnotes li > p { margin: 0; }
-.surimono-vertical .footnotes .vertical-numbered-note { padding-inline-start: 2em; }
+.surimono-vertical .footnotes .vertical-numbered-note { padding-inline-start: calc(var(--note-label-width, 1em) + 1em); }
 .surimono-vertical .vertical-numbered-note,
-.surimono-vertical .vertical-numbered-note > p:first-child { text-indent: -2em; }
+.surimono-vertical .vertical-numbered-note > p:first-child { text-indent: calc(-1em - var(--note-label-width, 1em)); }
 .surimono-vertical .vertical-numbered-note > :not(:first-child) { text-indent: 0; }
 .surimono-vertical .vertical-note-number {
-    display: inline-block; inline-size: 1em; block-size: 1em; margin-inline-end: 1em;
+    display: inline-block; inline-size: var(--note-label-width, 1em); block-size: 1em; margin-inline-end: 1em;
     line-height: 1; text-indent: 0; text-align: start; vertical-align: middle;
+    white-space: nowrap; -webkit-user-select: none; user-select: none;
 }
-.surimono-vertical .vertical-note-number::before {
-    content: attr(data-number); -webkit-text-combine: horizontal; text-combine-upright: all; letter-spacing: 0;
+.surimono-vertical .vertical-note-number:empty::before {
+    content: attr(data-number); text-orientation: sideways; letter-spacing: 0;
+}
+/* A single generated digit stays upright in its own horizontal cell. */
+.surimono-vertical .vertical-single-number::before {
+    display: inline-block; writing-mode: horizontal-tb; width: 1em; height: 1em; text-align: center;
 }
 .surimono-vertical .vertical-code .code-src { white-space: pre-wrap; }
 .surimono-vertical .vertical-code .code-line { padding-left: 0; }
@@ -149,6 +154,7 @@ body { font-family: "Hiragino Mincho ProN", serif; font-size: 10.5pt; line-heigh
 .surimono-vertical table thead > tr > :is(th, td),
 .surimono-vertical table tr:not(:has(> td)) > th { background-color: #f0f0f0; }
 .surimono-vertical .footnote-ref a { display: inline-block; writing-mode: vertical-rl; text-orientation: upright; }
+.surimono-vertical .footnote-ref .v-latin { text-orientation: sideways; }
 .surimono-vertical .vertical-inline-formula {
     display: inline-block; position: relative; vertical-align: baseline;
     writing-mode: horizontal-tb; direction: ltr; line-height: 0; width: 1em;
@@ -158,8 +164,8 @@ body { font-family: "Hiragino Mincho ProN", serif; font-size: 10.5pt; line-heigh
     writing-mode: horizontal-tb; position: absolute; top: 50%; left: 50%;
     transform-origin: center; transform: translate(-50%, -50%) rotate(90deg);
 }
-/* Anchor the shoulder to a single glyph box even on a line enlarged by nearby ruby. */
-.surimono-vertical .vertical-note-base { display: inline-block; line-height: 1; position: relative; white-space: nowrap; }
+/* Only the paragraph gets a first-line indent. The shoulder anchor must advance by its base glyph alone. */
+.surimono-vertical .vertical-note-base { display: inline-block; text-indent: 0; line-height: 1; position: relative; white-space: nowrap; }
 .surimono-vertical .footnote-ref:not(.horizontal-box *) {
     font-size: 0.6em; line-height: 1; text-indent: 0; vertical-align: baseline; position: relative; left: 1em; top: -1em;
 }
