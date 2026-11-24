@@ -22,13 +22,12 @@ struct ShortcutImportView: View {
         let review: ShortcutImportReview
         let environment: ShortcutValidationContext
         let externalKeys: [ShortcutOperationID: ShortcutCombination]
-        let ambiguities: Set<ShortcutOperationID>
     }
 
     private var input: ReviewInput {
         .init(
             review: review, environment: controller.environment,
-            externalKeys: controller.externalMenuKeys, ambiguities: controller.menuAmbiguities)
+            externalKeys: controller.externalMenuKeys)
     }
 
     private func updateValidation() {

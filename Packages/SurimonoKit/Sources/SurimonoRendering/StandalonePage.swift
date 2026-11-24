@@ -10,6 +10,17 @@ import PDFKit
 public enum StandalonePage {
     private static let documentKey = UnsafeRawPointer(UnsafeMutableRawPointer.allocate(byteCount: 1, alignment: 1))
 
+    /// Sequoia can return a PDFSelection with no pages for a range on a page inserted into an
+    /// in-memory document. Reopen the finished page tree once, after all links and boxes are installed.
+    static func selectableDocument(_ assembled: PDFDocument) -> PDFDocument? {
+        if #available(macOS 26, *) { return assembled }
+        guard let data = assembled.dataRepresentation(), let copy = PDFDocument(data: data),
+            copy.pageCount == assembled.pageCount
+        else { return nil }
+        SourcePaperText.include(assembled, in: copy, startingAt: 0)
+        return copy
+    }
+
     public static func copy(of page: PDFPage) -> PDFPage? {
         let annotations = page.annotations
         guard let copy = page.copy() as? PDFPage else { return nil }

@@ -892,17 +892,13 @@
                     model.preferences.settingsSection =
                         SettingsSection.allCases.first { String(describing: $0) == name } ?? .general
                     configureArrangementEditor()
-                    DebugSnapshotProgress.report("Opening Settings scene: " + name)
-                    if let menu = NSApp.mainMenu?.items.first?.submenu,
-                        let index = menu.items.firstIndex(where: { $0.keyEquivalent == "," })
-                    {
-                        menu.performActionForItem(at: index)
-                    }
+                    DebugSnapshotProgress.report("Opening Settings: " + name)
+                    AppKitShell.current?.showSettings(nil)
                     let deadline = ContinuousClock.now + .seconds(8)
                     DebugSnapshotProgress.report("Waiting for visible Settings window: " + name)
                     repeat {
                         settingsWindow = NSApp.windows.first {
-                            $0.isVisible && $0.identifier?.rawValue.contains("Settings") == true
+                            $0.isVisible && $0.identifier == SettingsWindowController.windowID
                         }
                         if settingsWindow != nil { break }
                         try? await Task.sleep(for: .milliseconds(50))

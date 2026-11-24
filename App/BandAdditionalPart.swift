@@ -28,11 +28,26 @@ struct BandPartChoices: View {
     }
 }
 
+#if DEBUG
+    /// A hosted test measures the visible text or compact symbol independently of the button's anchor.
+    final class BandLabelMeasurements {
+        var drawn: [BandLayout.Item: (form: BandLayout.Form, width: CGFloat)] = [:]
+    }
+
+    extension EnvironmentValues {
+        @Entry var bandLabelMeasurements: BandLabelMeasurements? = nil
+    }
+#endif
+
 /// The model supplies values and actions; the catalog supplies the chip's stable accessible name and symbol.
 struct BandAdditionalPart: View {
     @Bindable var model: DocumentViewModel
     let item: BandLayout.Item
     let form: BandLayout.Form
+
+    #if DEBUG
+        @Environment(\.bandLabelMeasurements) private var measurements
+    #endif
 
     var body: some View {
         if let id = BandMenuContent.ID(rawValue: item.rawValue) {
@@ -75,17 +90,42 @@ struct BandAdditionalPart: View {
         }
     }
 
-    private func label(_ entry: BandMenuContent.Entry) -> some View {
-        HStack(spacing: 3) {
-            Image(systemName: symbol)
+    @ViewBuilder private func label(_ entry: BandMenuContent.Entry) -> some View {
+        let content = HStack(spacing: 3) {
+            let icon = Image(systemName: symbol)
             if form == .full {
-                Text(verbatim: labelText(entry)).lineLimit(1)
-                    .monospacedDigit()
-            } else if item == .beforePrinting {
+                icon
+                inspected(Text(verbatim: labelText(entry)).lineLimit(1).monospacedDigit())
+            } else {
+                inspected(icon)
+            }
+            if form != .full, item == .beforePrinting {
                 Text(verbatim: String(model.printIssueCount)).monospacedDigit()
             }
             if item.isBandChoice { BandMenuChevron() }
         }
+        if #available(macOS 26, *) {
+            content
+        } else {
+            // Keep the native button, but replace its label when the planner switches between icon and text.
+            content.fixedSize(horizontal: true, vertical: false).id(form)
+        }
+    }
+
+    @ViewBuilder private func inspected<Content: View>(_ content: Content) -> some View {
+        #if DEBUG
+            if let measurements {
+                content.onGeometryChange(for: CGFloat.self) {
+                    $0.size.width
+                } action: {
+                    measurements.drawn[item] = (form, $0)
+                }
+            } else {
+                content
+            }
+        #else
+            content
+        #endif
     }
 
     func labelText(_ entry: BandMenuContent.Entry) -> String {

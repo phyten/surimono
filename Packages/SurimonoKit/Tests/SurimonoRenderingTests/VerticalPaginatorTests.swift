@@ -36,22 +36,48 @@ struct FlowPageCutsTests {
 struct FlowPageCaptureTests {
     @Test("移動・縮小した PDF 片ではノンブルの同じ字形だけを仕上がり座標で照合する")
     func printedDigit() async throws {
-        let slice = try RenderingFixtures.pdf(size: CGSize(width: 240, height: 120))
-        let page = try #require(slice.page(at: 0))
-        let digit = page.numberOfCharacters - 1
-        try #require(digit >= 0)
-        let ink = page.characterBounds(at: digit)
-        let data = try #require(slice.dataRepresentation())
+        // Private system UI font names can resolve to a substitute after PDF serialization on Sequoia.
+        let font = try #require(NSFont(name: "Helvetica", size: 20))
+        let data = try RenderingFixtures.pdfData(
+            pages: [["PAGE-1", "1 OTHER 2"]], size: CGSize(width: 240, height: 120), font: font)
+        let reopened = try #require(PDFDocument(data: data))
+        let page = try #require(reopened.page(at: 0))
+        let digits = reopened.findString("1")
+        try #require(digits.count == 2)
+        // Locate each digit on the two known Quartz baselines, independently of search-string offsets.
+        let prefix = NSAttributedString(string: "PAGE-", attributes: [.font: font]).size().width
+        let advances = [CGPoint(x: 30 + prefix + 5, y: 77), CGPoint(x: 35, y: 47)]
+        let inks = try advances.map { point in
+            let index = page.characterIndex(at: point)
+            try #require((0..<page.numberOfCharacters).contains(index), "照合点 \(point)、字形位置 \(index)")
+            return page.characterBounds(at: index)
+        }
+        try #require(inks.allSatisfy { $0.height > 10 && $0.height < font.pointSize }, "原寸の字形 \(inks)")
+        let searchDocument = try #require(PDFDocument(data: data))
+        let searchPage = try #require(searchDocument.page(at: 0))
+        let search = FlowPageCapture.PrintedSlice.GlyphSearch(searchDocument)
+        for ink in inks {
+            let center = CGPoint(x: ink.midX, y: ink.midY)
+            #expect(search.bounds(of: "1", on: searchPage, at: center) == ink)
+            #expect(search.bounds(of: "2", on: searchPage, at: center) == nil)
+        }
         let target = CGRect(x: 30, y: 12, width: 120, height: 60)
-        let point = CGPoint(x: 30 + ink.midX / 2, y: 12 + ink.midY / 2)
         _ = try await PDFDrawing.document(pageSize: CGSize(width: 160, height: 90)) { context in
             context.beginPDFPage(nil)
             defer { context.endPDFPage() }
             let printed = try FlowPageCapture.draw(data, into: target, in: context)
-            let bounds = try #require(printed.glyphBounds(of: "1", at: point))
-            #expect(abs(bounds.minY - (12 + ink.minY / 2)) < 0.01)
-            #expect(abs(bounds.height - ink.height / 2) < 0.01)
-            #expect(printed.glyphBounds(of: "2", at: point) == nil)
+            for ink in inks {
+                let point = CGPoint(x: 30 + ink.midX / 2, y: 12 + ink.midY / 2)
+                let bounds = try #require(printed.glyphBounds(of: "1", at: point), "原寸 \(ink)、照合点 \(point)")
+                let expected = CGRect(
+                    x: 30 + ink.minX / 2, y: 12 + ink.minY / 2, width: ink.width / 2, height: ink.height / 2)
+                #expect(
+                    abs(bounds.minX - expected.minX) < 0.01 && abs(bounds.width - expected.width) < 0.01
+                        && abs(bounds.minY - expected.minY) < 0.01 && abs(bounds.height - expected.height) < 0.01,
+                    "原寸 \(ink)、変換後 \(bounds)、期待 \(expected)")
+                #expect(printed.glyphBounds(of: "2", at: point) == nil)
+            }
+            #expect(printed.glyphBounds(of: "1", at: CGPoint(x: target.maxX - 1, y: target.minY + 1)) == nil)
         }
     }
 

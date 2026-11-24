@@ -176,21 +176,17 @@ struct BandArrangementEditorTests {
         }
         let before = session.draft
         let window = settingsWindow()
-        let windowGuard = SettingsWindowGuard.install(on: window) {
-            guard session.isDirty else { return true }
-            session.pendingLeave = .closeWindow
-            return false
-        }
-        #expect(!windowGuard.windowShouldClose(window))
+        let controller = SettingsWindowController(window: window, editor: session)
+        #expect(!controller.windowShouldClose(window))
         #expect(session.pendingLeave == .closeWindow)
         session.cancelLeave()
         session.backToStandard()
         #expect(session.draft.top.unused == [.pageTurn] + BandTestCatalog.standardUnused)
         #expect(session.draft.split.unused == BandTestCatalog.standardUnused)
-        #expect(!session.isDirty && windowGuard.windowShouldClose(window))
+        #expect(!session.isDirty && controller.windowShouldClose(window))
         session.undo()
         #expect(session.draft == before)
-        #expect(!windowGuard.windowShouldClose(window) && session.pendingLeave == .closeWindow)
+        #expect(!controller.windowShouldClose(window) && session.pendingLeave == .closeWindow)
         session.redo()
         #expect(session.draft == BandArrangementVariants())
     }
@@ -901,51 +897,20 @@ struct BandArrangementEditorTests {
         #expect(session.canUndo)
     }
 
-    @Test("SwiftUI が窓の代理を替えても閉じる前の確認は戻る")
-    func guardSurvivesDelegateReassignment() async throws {
+    @Test("設定の窓は編集中のセッションに閉じる判断を委ねる")
+    func settingsWindowOwnsClose() {
         let environment = Environment()
         defer { environment.cleanUp() }
-        let session = environment.session
         let window = settingsWindow()
-        let first = DelegateProbe()
-        window.delegate = first
-        let windowGuard = SettingsWindowGuard.install(on: window) {
-            guard session.isDirty else { return true }
-            session.pendingLeave = .closeWindow
-            return false
-        }
-        #expect(window.delegate === windowGuard && windowGuard.original === first)
-        let second = DelegateProbe()
-        window.delegate = second
-        try await Task.sleep(for: .milliseconds(100))
-        #expect(window.delegate === windowGuard && windowGuard.original === second)
-        session.insertSeparator(in: .topLeft, at: 0)
-        #expect(!windowGuard.windowShouldClose(window))
-        #expect(session.pendingLeave == .closeWindow && second.closes == 0)
-        // Everything else still reaches the delegate SwiftUI set last.
-        #expect(windowGuard.responds(to: #selector(NSWindowDelegate.windowDidResize(_:))))
-        NotificationCenter.default.post(name: NSWindow.didResizeNotification, object: window)
-        #expect(second.resized >= 1 && first.resized == 0)
-    }
-
-    @Test("作り直された設定の窓にはそれぞれの確認が付く")
-    func guardOnRecreatedWindow() {
-        let environment = Environment()
-        defer { environment.cleanUp() }
         let session = environment.session
-        let ask: @MainActor () -> Bool = {
-            guard session.isDirty else { return true }
-            session.pendingLeave = .closeWindow
-            return false
-        }
-        let old = settingsWindow()
-        let oldGuard = SettingsWindowGuard.install(on: old, shouldClose: ask)
-        let new = settingsWindow()
-        let newGuard = SettingsWindowGuard.install(on: new, shouldClose: ask)
-        #expect(oldGuard !== newGuard && new.delegate === newGuard)
-        #expect(SettingsWindowGuard.install(on: new, shouldClose: ask) === newGuard)
+        let controller = SettingsWindowController(window: window, editor: session)
+        #expect(window.delegate === controller && session.settingsController === controller)
         session.insertSeparator(in: .topLeft, at: 0)
-        #expect(!newGuard.windowShouldClose(new))
+        #expect(!controller.windowShouldClose(window) && session.pendingLeave == .closeWindow)
+        session.cancelLeave()
+        #expect(session.isDirty && session.pendingLeave == nil)
+        session.discardChanges()
+        #expect(controller.windowShouldClose(window))
     }
 
     // MARK: - Quitting
@@ -1034,39 +999,6 @@ struct BandArrangementEditorTests {
     }
 
     // MARK: - Follow-ups
-
-    @Test("代理を立て続けに替えられても静まると閉じる前の確認が戻りその間は閉じるボタンを止める")
-    func guardRetriesAfterRapidReassignments() async throws {
-        let environment = Environment()
-        defer { environment.cleanUp() }
-        let session = environment.session
-        let window = settingsWindow()
-        let windowGuard = SettingsWindowGuard.install(
-            on: window,
-            shouldClose: {
-                guard session.isDirty else { return true }
-                session.pendingLeave = .closeWindow
-                return false
-            }, needsProtection: { session.isDirty })
-        session.windowGuard = windowGuard
-        session.insertSeparator(in: .topLeft, at: 0)
-        let closeButton = try #require(window.standardWindowButton(.closeButton))
-        #expect(closeButton.isEnabled)
-        var delegates: [DelegateProbe] = []
-        for _ in 0..<4 {
-            delegates.append(DelegateProbe())
-            window.delegate = delegates.last
-            try await Task.sleep(for: .milliseconds(30))
-        }
-        // Past the limit the guard waits; the draft is protected by the close button meanwhile.
-        #expect(window.delegate === delegates.last)
-        #expect(!closeButton.isEnabled)
-        try await Task.sleep(for: .milliseconds(1500))
-        #expect(window.delegate === windowGuard && windowGuard.original === delegates.last)
-        #expect(closeButton.isEnabled)
-        #expect(!windowGuard.windowShouldClose(window))
-        #expect(session.pendingLeave == .closeWindow)
-    }
 
     @MainActor private final class Relaunch {
         var asked = 0
@@ -1204,19 +1136,6 @@ struct BandArrangementEditorTests {
         }
         history.endUndoGrouping()
     }
-}
-
-/// The delegate SwiftUI gives the Settings window, as far as the guard can tell.
-@MainActor private final class DelegateProbe: NSObject, NSWindowDelegate {
-    var closes = 0
-    var resized = 0
-
-    func windowShouldClose(_ sender: NSWindow) -> Bool {
-        closes += 1
-        return true
-    }
-
-    func windowDidResize(_ notification: Notification) { resized += 1 }
 }
 
 /// Whether the arrangement editor is the Settings section on screen.

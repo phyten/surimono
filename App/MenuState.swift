@@ -159,6 +159,5 @@ final class MenuState {
     func publish(_ content: MenuSnapshot.Content) {
         guard content != snapshot.content else { return }
         snapshot = MenuSnapshot(version: snapshot.version + 1, content: content)
-        MenuTrace.record("publish version=\(snapshot.version)")
     }
 }

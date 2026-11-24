@@ -187,8 +187,8 @@ struct SurimonoDocumentTests {
     }
 
     @Test("保存可能な形式を公開しない")
-    func supportsViewingOnly() {
-        #expect(SurimonoDocument.writableContentTypes.isEmpty)
+    @MainActor func supportsViewingOnly() {
+        #expect(ViewerFileDocument.writableTypes.isEmpty)
     }
 
     @Test("Info plist の文書形式とコードの読み取り形式が一致する")
@@ -198,7 +198,11 @@ struct SurimonoDocumentTests {
         var identifiers = Set(declarations.flatMap { $0["LSItemContentTypes"] as? [String] ?? [] })
         // The plist can advertise a viewer for public.toml even on a Mac whose registry lacks that type.
         if UTType("public.toml") == nil { identifiers.remove("public.toml") }
-        #expect(identifiers == Set(SurimonoDocument.readableContentTypes.map(\.identifier)))
+        let readable = Set(SurimonoDocument.readableContentTypes.map(\.identifier))
+        #expect(
+            identifiers == readable,
+            "plist のみ \(identifiers.subtracting(readable).sorted())、読み取り型のみ \(readable.subtracting(identifiers).sorted())"
+        )
         #expect(declarations.allSatisfy { $0["CFBundleTypeRole"] as? String == "Viewer" })
         #expect(declarations.allSatisfy { $0["LSHandlerRank"] as? String == "Alternate" })
         let imported = try #require(
@@ -214,6 +218,8 @@ struct SurimonoDocumentTests {
                     UTType.surimonoNotebook.identifier, UTType.surimonoJSONLines.identifier,
                     UTType.surimonoTOML.identifier, UTType.surimonoSourceCode.identifier,
                     UTType.surimonoGraphviz.identifier, UTType.surimonoPlantUML.identifier,
+                    // Some macOS 15 installations declare neither the INI nor the SQL type.
+                    "com.microsoft.ini", "org.iso.sql",
                 ]))
     }
 }

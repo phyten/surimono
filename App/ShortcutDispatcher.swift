@@ -18,20 +18,23 @@ final class ShortcutDispatcher {
         controller: ShortcutController, menus: SystemMenuShortcuts? = nil,
         keyWindow: @escaping () -> NSWindow? = { NSApp.keyWindow },
         model: (() -> DocumentViewModel?)? = nil,
-        firstResponder: @escaping (NSWindow) -> NSResponder? = { $0.firstResponder }
+        firstResponder: @escaping (NSWindow) -> NSResponder? = { $0.firstResponder },
+        menuTrackingDepth: @escaping () -> Int = { AppKitShell.current?.menuTrackingDepth ?? 0 }
     ) {
         let resolveModel = model ?? { DocumentWindows.shared.model(for: keyWindow()) }
         self.controller = controller
-        self.menus = menus ?? SystemMenuShortcuts(controller: controller, keyWindow: keyWindow, model: resolveModel)
+        self.menus = menus ?? SystemMenuShortcuts(controller: controller)
         self.keyWindow = keyWindow
         self.firstResponder = firstResponder
+        self.menuTrackingDepth = menuTrackingDepth
         currentModel = resolveModel
-
     }
+
+    private let menuTrackingDepth: () -> Int
+    var trackingDepth: Int { menuTrackingDepth() }
 
     func start() {
         guard monitor == nil else { return }
-        menus.start()
         monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
             let handled = MainActor.assumeIsolated { self?.handle(event) == true }
             return handled ? nil : event
@@ -42,7 +45,6 @@ final class ShortcutDispatcher {
         if let monitor { NSEvent.removeMonitor(monitor) }
         monitor = nil
         held = []
-        menus.stop()
     }
 
     func handle(_ event: NSEvent, fromMenu: Bool = false) -> Bool {
@@ -51,18 +53,19 @@ final class ShortcutDispatcher {
             return false
         }
         guard event.type == .keyDown else { return false }
-        // Menu tracking can report a windowless event to the monitor before invoking its item. Let the SwiftUI
+        // Menu tracking can report a windowless event to the monitor before invoking its item. Let the menu
         // action own that press; observing it here must not make its first invocation look like a hold.
         let window = keyWindow()
-        guard fromMenu || event.window != nil || window == nil || menus.updates.trackingDepth == 0 else { return false }
+        guard fromMenu || event.window != nil || window == nil || trackingDepth == 0 else { return false }
         // Track even keys received during recording, typing or a sheet. Neither menu synchronization nor a mode/
         // window change proves the physical key was released. A missed key-up costs one press, never a print job.
         let wasHeld = !held.insert(event.keyCode).inserted
         guard !controller.hotKeys.isRecording else { return false }
         guard event.window === window || event.window == nil,
-            window?.attachedSheet == nil, NSApp.modalWindow == nil,
+            window?.attachedSheet == nil, window?.sheetParent == nil, NSApp.modalWindow == nil,
             let combination = Self.combination(event, allowsBareKeys: true)
         else { return false }
+        if controller.nativeUserKeys.contains(combination) { return false }
         let responder = window.flatMap { firstResponder($0) }
         let model = modelForKeyWindow(window)
         let textInput = Self.isTextInput(responder)
@@ -129,6 +132,8 @@ final class ShortcutDispatcher {
         }
         if window == nil && !matches.contains(where: { Self.isActive($0, model: nil) }) { return false }
         let activeMatches = matches.filter { canPerform($0, model: model) }
+        // A field editor can handle its own Find / editing commands in Settings or the welcome window.
+        if textInput && activeMatches.isEmpty { return false }
         guard activeMatches.count == 1, let operation = activeMatches.first
         else {
             return true
@@ -243,7 +248,7 @@ final class ShortcutDispatcher {
     static let operations = SystemMenuShortcuts.operations.union(ShortcutCommands.operations)
 
     /// Menu tracking may bypass a local monitor. Recheck the event through the same key-up gate; mouse clicks
-    /// remain ordinary commands. A stale SwiftUI equivalent can never resurrect a cleared output binding.
+    /// remain ordinary commands. A stale menu equivalent can never resurrect a cleared output binding.
     func performFromMenu(_ operation: ShortcutOperationID, event: NSEvent?) {
         if let event, event.type == .keyDown, let key = Self.combination(event) {
             guard controller.localKeys(for: operation).contains(key) else { return }
@@ -255,7 +260,7 @@ final class ShortcutDispatcher {
     }
 
     private func isPresentedWhileTracking(_ operation: ShortcutOperationID) -> Bool {
-        menus.updates.trackingDepth == 0 || menus.menuState.snapshot.content.visibility.contains(operation)
+        trackingDepth == 0 || menus.menuState.snapshot.content.visibility.contains(operation)
     }
 
     private func modelForKeyWindow(_ window: NSWindow?) -> DocumentViewModel? {
@@ -265,7 +270,7 @@ final class ShortcutDispatcher {
 
     private func canPerform(_ operation: ShortcutOperationID, model: DocumentViewModel?) -> Bool {
         guard Self.operations.contains(operation), !controller.hotKeys.isRecording,
-            NSApp.modalWindow == nil, keyWindow()?.attachedSheet == nil
+            NSApp.modalWindow == nil, keyWindow()?.attachedSheet == nil, keyWindow()?.sheetParent == nil
         else { return false }
         if let window = keyWindow(), let input = firstResponder(window) as? NSTextInputClient, input.hasMarkedText() {
             return false
@@ -302,8 +307,8 @@ final class ShortcutDispatcher {
         case .documentShare: model?.exportReading(.share)
         case .printSettings: model?.presentPrintSettings()
         case .clipboardOpenPrintScreen: openClipboardPrintScreen()
-        case .appOpen: menus.invokeStandard(.appOpen)
-        case .appSettings: menus.invokeStandard(.appSettings)
+        case .appOpen: OpenRouter.shared.showOpenPanel()
+        case .appSettings: AppKitShell.current?.toggleSettings(nil)
         case .appOpenURL: OpenURLPanel.present()
         case .clipboardReopen: ClipboardWindows.shared.reopenClosed()
         case .clipboardOpen: ClipboardWindows.shared.open()
@@ -316,7 +321,7 @@ final class ShortcutDispatcher {
             if let preferences = WelcomeController.shared.preferences {
                 BandArrangementEditorSession.showSection(.settingSets, preferences: preferences)
             }
-            menus.invokeStandard(.appSettings)
+            AppKitShell.current?.showSettings(nil)
         case .documentFind: model?.performFind()
         case .documentFindNext: model?.findStep(forward: true)
         case .documentFindPrevious: model?.findStep(forward: false)

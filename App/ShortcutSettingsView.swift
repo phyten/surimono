@@ -385,9 +385,7 @@ private struct EditableShortcutRow: View {
                     // The key chip keeps its size and hit area but reaches into the row's own margins, so a row with
                     // nothing under its name is as high as a row in the other sections.
                     .padding(.vertical, hasNote ? 0 : -Self.chipOverhang)
-                    .disabled(
-                        controller.loadError || controller.externalMenuKeys[operation] != nil
-                            || controller.menuAmbiguities.contains(operation))
+                    .disabled(controller.loadError || controller.externalMenuKeys[operation] != nil)
             }
             if let candidate = previousCandidate {
                 Text(

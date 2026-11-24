@@ -10,19 +10,8 @@ import SwiftUI
 /// is in front of the content, so that viewer took the clicks over the left part of "Back to View" (other placements
 /// only move it onto other controls). A hidden item keeps the toolbar, and with it the title bar's height and the
 /// traffic lights' place, but has no viewer, so the toolbar lets every click through to the top bar.
-///
-/// That a toolbar whose only item is hidden stays in place was seen on macOS 26.6. Earlier systems were not checked, so
-/// they keep the visible item: its worst case there is the strip that takes clicks, not a missing toolbar.
 struct PrintModeToolbarPlaceholder: ToolbarContent {
     var body: some ToolbarContent {
-        if #available(macOS 26, *) {
-            ToolbarItem { placeholder }.hidden()
-        } else {
-            ToolbarItem { placeholder }
-        }
-    }
-
-    private var placeholder: some View {
-        Color.clear.frame(width: 1, height: 1).accessibilityHidden(true)
+        ToolbarItem { Color.clear.frame(width: 1, height: 1).accessibilityHidden(true) }.hidden()
     }
 }

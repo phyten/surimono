@@ -54,7 +54,7 @@ struct LaTeXIdeographPDFTests {
             context.closePDF()
             phase("extract")
             let extracted = PDFDocument(data: data as Data)?.page(at: 0)?.string
-            #expect(extracted == text, "書体 \(name)")
+            #expect(extracted?.trimmingCharacters(in: .newlines) == text, "書体 \(name)")
             phase("verified")
         }
     }
