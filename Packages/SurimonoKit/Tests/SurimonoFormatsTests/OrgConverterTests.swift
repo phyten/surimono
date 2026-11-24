@@ -4,7 +4,7 @@ import Testing
 struct OrgConverterTests {
     @Test("見出しは最大H6にしTODOと優先度とタグを装飾する")
     func headings() {
-        let body = OrgConverter.convert("* TODO [#A] 見出し :work:print:\n******* DONE 深い").body
+        let body = OrgConverter.convert("#+OPTIONS: H:7 pri:t\n* TODO [#A] 見出し :work:print:\n******* DONE 深い").body
         #expect(body.contains("<h1>"))
         #expect(body.contains("class=\"org-todo\">TODO"))
         #expect(body.contains("class=\"org-priority\">#A"))
@@ -97,7 +97,7 @@ struct OrgConverterTests {
 
     @Test("ソースブロックは言語を付け本文を解釈しない")
     func source() {
-        let body = OrgConverter.convert("#+BEGIN_SRC swift\nlet x = \"<&>\"\n* text\n#+END_SRC").body
+        let body = OrgConverter.convert("#+BEGIN_SRC swift\nlet x = \"<&>\"\n,* text\n#+END_SRC").body
         #expect(
             body.contains(
                 "<pre><code class=\"language-swift hl\"><span class=\"hl-keyword\">let</span> x = <span class=\"hl-string\">&quot;&lt;&amp;&gt;&quot;</span>\n* text</code></pre>"
@@ -152,7 +152,9 @@ struct OrgConverterTests {
 
     @Test("予定と期限を注記として出す")
     func planning() {
-        let body = OrgConverter.convert("SCHEDULED: <2026-10-28 Wed> DEADLINE: <2026-10-29 Thu>").body
+        let body = OrgConverter.convert(
+            "#+OPTIONS: p:t\n* Task\nSCHEDULED: <2026-10-28 Wed> DEADLINE: <2026-10-29 Thu>"
+        ).body
         #expect(body.contains("<p class=\"org-planning\">"))
         #expect(body.contains("<time class=\"org-timestamp\">2026-10-28 Wed</time>"))
     }

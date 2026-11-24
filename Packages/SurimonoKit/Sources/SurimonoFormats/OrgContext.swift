@@ -1,11 +1,35 @@
 import Foundation
 
+struct OrgTaskKeywords: Equatable {
+    static let directives: Set<String> = ["TODO", "SEQ_TODO", "TYP_TODO"]
+    private(set) var active: Set<String> = ["TODO"]
+    private(set) var done: Set<String> = ["DONE"]
+    private(set) var declared = false
+
+    mutating func declare(_ value: String) {
+        if !declared {
+            active = []
+            done = []
+            declared = true
+        }
+        let words = value.split(whereSeparator: \.isWhitespace).map { String($0.prefix(while: { $0 != "(" })) }
+        let divider = words.firstIndex(of: "|") ?? max(0, words.count - 1)
+        active.formUnion(words.prefix(divider).filter { !$0.isEmpty })
+        done.formUnion(words.dropFirst(divider).filter { !$0.isEmpty && $0 != "|" })
+    }
+
+    func contains(_ word: String) -> Bool { active.contains(word) || done.contains(word) }
+}
+
 // A conversion owns this state; nested parsers share numbering without sharing it across documents.
 final class OrgContext {
     var metadata: [String: String] = [:]
-    var active: Set<String> = ["TODO", "NEXT", "WAITING", "WAIT", "HOLD"]
-    var done: Set<String> = ["DONE", "CANCELLED", "CANCELED"]
-    var customKeywords = false
+    var taskKeywords = OrgTaskKeywords()
+    // Additional familiar states are styled in files without a workflow declaration.
+    static let styledActive: Set<String> = ["TODO", "NEXT", "WAITING", "WAIT", "HOLD"]
+    static let styledDone: Set<String> = ["DONE", "CANCELLED", "CANCELED"]
+    var active: Set<String> { taskKeywords.declared ? taskKeywords.active : Self.styledActive }
+    var done: Set<String> { taskKeywords.declared ? taskKeywords.done : Self.styledDone }
     var discovering = false
     var definitions: [String: String] = [:]
     var anonymous = 0
@@ -25,7 +49,13 @@ final class OrgContext {
     var options = OrgExportOptions()
     /// The options over the defaults; the discovery pass reads with the defaults alone.
     var reading: OrgReadingDefaults
+    lazy var drawerNames = OrgNameFilter(reading.drawers)
+    lazy var propertyNames = OrgNameFilter(reading.properties)
     var outline = OrgOutline()
+    var subtrees = OrgSubtrees()
+    var commentEnds: [Int: Int] = [:]
+    var omissions: [Int: Int] = [:]
+    var repeatingDiscovery = false
     /// Whether a `#+TOC: headlines` line asks for a table of contents somewhere in the text.
     var hasContentsKeyword = false
     /// Marks where a table of contents goes until every heading is known. Random, so no document can write it.
@@ -51,27 +81,30 @@ final class OrgContext {
     }
 
     func directive(_ key: String, value: String, lineNumber: Int, line: String, lines: [String]) {
-        if ["TITLE", "SUBTITLE", "AUTHOR", "DATE", "LANGUAGE"].contains(key) { metadata[key] = value }
-        if key == "OPTIONS" { options.read(value, fileName: fileName, lineNumber: lineNumber, lines: lines) }
         if key == "TOC", OrgOutline.keyword(value) != nil {
             hasContentsKeyword = true
             options.file.note(.bodyContents, source: .init(fileName: fileName, lineNumber: lineNumber, rawText: line))
         }
+        guard !repeatingDiscovery else { return }
+        if key == "FILETAGS" {
+            subtrees.fileTags.formUnion(value.split { $0 == ":" || $0.isWhitespace }.map(String.init))
+        }
+        if key == "SELECT_TAGS" {
+            if subtrees.select == nil { subtrees.select = [] }
+            subtrees.select?.formUnion(value.split(whereSeparator: \.isWhitespace).map(String.init))
+        }
+        if key == "EXCLUDE_TAGS" {
+            if subtrees.exclude == nil { subtrees.exclude = [] }
+            subtrees.exclude?.formUnion(value.split(whereSeparator: \.isWhitespace).map(String.init))
+        }
+        if ["TITLE", "SUBTITLE", "AUTHOR", "DATE", "LANGUAGE"].contains(key) { metadata[key] = value }
+        if key == "OPTIONS" { options.read(value, fileName: fileName, lineNumber: lineNumber, lines: lines) }
         if key == "LATEX_HEADER" || key == "LATEX_HEADER_EXTRA",
             let definition = OrgMath.definition(value, after: mathDefinitions)
         {
             mathDefinitions += definition
         }
-        guard ["TODO", "SEQ_TODO", "TYP_TODO"].contains(key) else { return }
-        if !customKeywords {
-            active = []
-            done = []
-            customKeywords = true
-        }
-        let words = value.split(whereSeparator: \.isWhitespace).map { String($0.prefix(while: { $0 != "(" })) }
-        let divider = words.firstIndex(of: "|") ?? max(0, words.count - 1)
-        active.formUnion(words.prefix(divider).filter { !$0.isEmpty })
-        done.formUnion(words.dropFirst(divider).filter { !$0.isEmpty && $0 != "|" })
+        if OrgTaskKeywords.directives.contains(key) { taskKeywords.declare(value) }
     }
 
     func reference(_ label: String, depth: Int) -> String? {
