@@ -109,6 +109,11 @@ formulas.forEach((svg, i) => {
 const atomic = '.horizontal-box,.vertical-inline-formula,.vertical-note-base,ruby,.tcy,svg,canvas,input,hr';
 const excluded = 'style,script,template,noscript';
 const heading = 'h1,h2,h3,h4,h5,h6';
+// LaTeX titles and sections also use heading tags. Only the reader knows which command opened a chapter.
+const latex = body.classList.contains('format-latex');
+const chapter = latex ? '[data-latex-heading="chapter"],template[data-latex-break] + h2[id^="sec-"]' : 'h1';
+const annotations = latex ? 'em,.kenten,.bousen' : 'em';
+const breaksChapters = latex ? body.dataset.latexChapters === 'true' : booklet;
 
 const range = document.createRange();
 function paintBounds(element, box = element.getBoundingClientRect()) {
@@ -268,7 +273,7 @@ function measureLayout() {
         if (n.nodeType === Node.TEXT_NODE) {
             const parent = n.parentElement;
             const keep = !!parent.closest(heading);
-            const extra = emphasisInk(parent.closest('em'));
+            const extra = emphasisInk(parent.closest(annotations));
             // A plain-text book can be a single text node. Bound each temporary DOMRectList.
             for (let offset = 0; offset < n.length; offset += 32768) {
                 range.setStart(n, offset);
@@ -280,7 +285,7 @@ function measureLayout() {
             const rect = n.getBoundingClientRect();
             const right = headingRight(n, rect);
             const layout = new DOMRect(rect.left, rect.top, right - rect.left, rect.height);
-            add(layout, true, layout, 0, booklet && n.localName === 'h1');
+            add(layout, true, layout, 0, breaksChapters && n.matches(chapter));
         } else if (n.matches('blockquote')) {
             const rect = n.getBoundingClientRect();
             const style = getComputedStyle(n);
@@ -290,7 +295,7 @@ function measureLayout() {
         } else if (n.matches(atomic)) {
             const paint = paintBounds(n);
             const layout = layoutRect(n);
-            const emphasis = n.closest('em') || n.querySelector('em:not([data-vertical-latin])');
+            const emphasis = n.closest(annotations) || n.querySelector(latex ? 'em:not([data-vertical-latin]),.kenten,.bousen' : 'em:not([data-vertical-latin])');
             add(layout.width && layout.height ? layout : paint, !!n.closest(heading), paint, emphasisInk(emphasis));
         }
     }

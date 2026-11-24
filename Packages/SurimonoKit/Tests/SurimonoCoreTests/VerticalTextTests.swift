@@ -100,12 +100,60 @@ struct VerticalTextTests {
         let prose = PlainTextConverter.convert("25日")
         let code = PlainTextConverter.convert("let n = 25", fileName: "sample.swift")
         let span = #"<span class="tcy">25</span>"#
-        for format in [DocumentFormat.markdown, .org, .plainText] {
+        for format in [DocumentFormat.markdown, .org, .plainText, .latex] {
             #expect(HTMLDocumentBuilder.build(fragment: prose, format: format, theme: vertical).contains(span))
             #expect(!HTMLDocumentBuilder.build(fragment: prose, format: format, theme: standard).contains(span))
         }
         #expect(!HTMLDocumentBuilder.build(fragment: code, format: .plainText, theme: vertical).contains(span))
-        #expect(!HTMLDocumentBuilder.build(fragment: prose, format: .latex, theme: vertical).contains(span))
+    }
+
+    @Test("縦組み LaTeX の本文と見出し番号を組み、命令で指定した書式とコードを保つ")
+    func latexProse() throws {
+        let source = #"""
+            \documentclass{tbook}
+            \begin{document}
+            \chapter{春}\section{朝5時}
+            和25日と5日。和PDF文（注）。和\tatechuyoko{12}文\rensuji{34}日。
+            \ruby{親}{読25}\kenten{点25}\bou{線25}。
+            \url{https://example.jp/a_b/25}
+            \kenten{folder/abcdefghijklmnop25}\bou{folder/abcdefghijklmnop25}
+            文中式 $x=12$。
+            \[x=12\]
+            \begin{verbatim}
+            x = 25
+            \end{verbatim}
+            \begin{lstlisting}
+            y = 25
+            \end{lstlisting}
+            \end{document}
+            """#
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "tategaki" })
+        let fragment = LaTeXConverter.convert(source)
+        let html = HTMLDocumentBuilder.build(fragment: fragment, format: .latex, theme: theme)
+        for expected in [
+            #"和<span class="tcy">25</span>日と<span class="upright-digit">5</span>日。和"# + aki + latin("PDF") + aki + "文",
+            close("）") + "。",
+            #"和<span class="tcy">12</span>文<span class="tcy">34</span>日"#,
+            #"<ruby>親<rt>読25</rt></ruby><span class="kenten">点25</span><span class="bousen">線25</span>"#,
+            #"<span class="secnum">第<span class="tcy">1</span>章</span>春"#,
+            #"<span class="secnum">"# + latin("1.1") + #"</span>朝<span class="tcy">5</span>時"#,
+            url("https:/<wbr>/<wbr>example.<wbr>jp/<wbr>a_<wbr>b/<wbr>25"),
+            #"<span class="kenten">folder/abcdefghijklmnop25</span><span class="bousen">folder/abcdefghijklmnop25</span>"#,
+        ] {
+            #expect(html.contains(expected), "\(expected)")
+        }
+        // Compare with the same code decoration and SVG from the horizontal rendering.
+        let reference = HTMLDocumentBuilder.build(
+            fragment: fragment, format: .latex,
+            theme: try #require(PrintThemeLibrary.load().first { $0.id == "standard" }))
+        #expect(!reference.contains(#"<span class="tcy">25</span>"#))
+        #expect(!reference.contains("data-latex-vertical-rows="))
+        let protected = reference.matches(
+            of:
+                /(?s)<span class="math math-inline".*?<\/svg><\/span>|<pre\b.*?<\/pre>|<div class="math-block".*?<\/div>/
+        )
+        #expect(protected.count == 4)
+        for match in protected { #expect(html.contains(match.output)) }
     }
 
     @Test("Markdown の日付・割合・約物は縦書きの完成 HTML で一字分の span に入る")

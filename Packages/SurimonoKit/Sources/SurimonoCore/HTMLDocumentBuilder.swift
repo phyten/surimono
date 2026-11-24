@@ -13,13 +13,14 @@ public enum HTMLDocumentBuilder {
         build(
             fragment: fragment, format: format, theme: theme, baseURL: baseURL, language: language,
             textScale: textScale, typeface: typeface, removesPaper: removesPaper, finish: finish, code: code,
-            verticalMarkup: { (try? VerticalText.marked($0)) ?? $0 }, checkSourceBytes: { _ in })
+            verticalMarkup: { (try? VerticalText.marked($0, latex: $1)) ?? $0 }, checkSourceBytes: { _ in })
     }
 
     package static func build(
         fragment: HTMLFragment, format: DocumentFormat, theme: PrintTheme, baseURL: URL? = nil, language: String = "ja",
         textScale: Double = 1, typeface: Typeface = .style, removesPaper: Bool = false, finish: String = "",
-        code: CodeStyle = CodeStyle(), verticalMarkup: (String) throws -> String = VerticalText.marked,
+        code: CodeStyle = CodeStyle(), preparesThemeSampler: Bool = false,
+        verticalMarkup: (String, Bool) throws -> String = VerticalText.marked,
         checkSourceBytes: (Int) throws -> Void
     ) rethrows -> String {
         let language = Self.language(for: fragment, fallback: language)
@@ -27,9 +28,12 @@ public enum HTMLDocumentBuilder {
         let latex =
             info.map { info in
                 let attributes = " data-latex-size=\"\(info.pointSize)\" data-latex-chapters=\"\(info.hasChapters)\""
+                let rows =
+                    theme.flow == .vertical || preparesThemeSampler
+                    ? " data-latex-vertical-rows=\"\(info.columns)\"" : ""
                 let title = info.hasSeparateTitlePage.map { $0 ? "separate" : "inline" }
                 let localMain = info.mainFontName.map { $0 != "Surimono Computer Modern" } == true
-                return attributes + " data-latex-class=\"\(HTML.escape(info.name))\""
+                return attributes + rows + " data-latex-class=\"\(HTML.escape(info.name))\""
                     + (info.composition == .proof ? " data-latex-review=\"proofPageLines\"" : "")
                     + (info.linksReferences ? " data-latex-hyperref" : "")
                     + (info.pageBackReferences ? " data-latex-page-backrefs" : "")
@@ -71,11 +75,13 @@ public enum HTMLDocumentBuilder {
             code, to: fragment.body, language: sourcePage ? fragment.sourceLanguage : nil,
             checkSourceBytes: checkSourceBytes)
         var body = marked
-        if !sourcePage, theme.flow == .vertical, theme.supports(format) {
-            body = try verticalMarkup(body)
+        if !preparesThemeSampler, !sourcePage, theme.flow == .vertical, theme.supports(format) {
+            body = try verticalMarkup(body, format == .latex)
             try checkSourceBytes(body.utf8.count)
         }
-        if !sourcePage { body = LongTokenMarks.marked(body) }
+        if !sourcePage {
+            body = LongTokenMarks.marked(body, verticalLaTeX: format == .latex && theme.flow == .vertical)
+        }
         let sheet = styleSheet(
             theme: theme, textScale: textScale, typeface: format.usesPrintTheme ? typeface : .style,
             code: code, language: language.code, sourcePage: sourcePage)

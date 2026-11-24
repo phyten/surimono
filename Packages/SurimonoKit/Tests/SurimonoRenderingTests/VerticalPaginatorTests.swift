@@ -61,6 +61,16 @@ struct FlowPageCutsTests {
         #expect(narrow.width == 257.25 && narrow.height == 409.5)
     }
 
+    @Test("LaTeX の一段 A4 は十一ポイント四十字、二段指定は A5 でも上下に組む")
+    func latexFrames() {
+        let margins = WebPaginator.Margins(top: 36, left: 36, bottom: 36, right: 36)
+        let one = VerticalPaginator.Frame(pageSize: PaperSize.a4.size, margins: margins, textScale: 1, latexRows: 1)
+        #expect(one.rows == 1 && one.font == 11 && one.height == 440 && one.width == 462)
+        let two = VerticalPaginator.Frame(pageSize: PaperSize.a5.size, margins: margins, textScale: 1, latexRows: 2)
+        #expect(two.rows == 2 && two.font == 10.5 && two.height == 241.5)
+        #expect(two.top(of: 0) - two.top(of: 1) == 273)
+    }
+
     @Test("切片の割当は小数の配置幅で決め、重なる傍点とルビの描画範囲だけを広げる")
     func overlappingInk() {
         let first = Band(start: 0.25, end: 10.25, ink: .init(start: -3.5, end: 13.75, top: -0.5, bottom: 21))

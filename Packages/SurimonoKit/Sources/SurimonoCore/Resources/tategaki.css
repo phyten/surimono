@@ -20,11 +20,18 @@ body { font-family: "Hiragino Mincho ProN", serif; font-size: 10.5pt; line-heigh
 .surimono-vertical p + p { text-indent: 1em; }
 .surimono-vertical strong { font-family: "Hiragino Sans", sans-serif; }
 .surimono-vertical :is(h1, h2, h3, h4, h5, h6) { margin: 0; font-size: 1em; font-weight: bold; text-align: start; }
-.surimono-vertical h1 { font-size: 1.4em; padding-inline-start: calc(2 * var(--body-size)); padding-block: calc(3.5 * var(--body-size)) calc(1.75 * var(--body-size)); }
-.surimono-vertical h2 { font-size: 1.2em; padding-block: calc(2.625 * var(--body-size)) calc(0.875 * var(--body-size)); }
-.surimono-vertical h3 { font-size: 1.05em; padding-block: calc(1.75 * var(--body-size)) 0; }
-.surimono-vertical :is(h2, h3) { padding-inline-start: var(--body-size); }
-.surimono-vertical em { font-style: normal; text-emphasis-style: filled sesame; text-emphasis-position: over right; }
+.surimono-vertical h1,
+.format-latex[data-latex-chapters="true"] .surimono-vertical h2[id^="sec-"] { font-size: 1.4em; padding-inline-start: calc(2 * var(--body-size)); padding-block: calc(3.5 * var(--body-size)) calc(1.75 * var(--body-size)); }
+.surimono-vertical h2,
+.format-latex[data-latex-chapters="true"] .surimono-vertical h3[id^="sec-"] { font-size: 1.2em; padding-block: calc(2.625 * var(--body-size)) calc(0.875 * var(--body-size)); }
+.surimono-vertical h3,
+.format-latex[data-latex-chapters="true"] .surimono-vertical h4[id^="sec-"] { font-size: 1.05em; padding-block: calc(1.75 * var(--body-size)) 0; }
+.surimono-vertical :is(h2, h3),
+.format-latex[data-latex-chapters="true"] .surimono-vertical :is(h3, h4)[id^="sec-"] { padding-inline-start: var(--body-size); }
+.format-latex .surimono-vertical .secnum { margin-inline-end: 1em; }
+.format-latex .surimono-vertical .secnum .latex-xkanjiskip { font-size: 0; }
+.format-latex .surimono-vertical .bousen:not(.horizontal-box *) { text-decoration: underline; text-underline-position: right; }
+.surimono-vertical em, .format-latex .surimono-vertical .kenten:not(.horizontal-box *) { font-style: normal; text-emphasis-style: filled sesame; text-emphasis-position: over right; }
 .surimono-vertical em[data-vertical-latin] { font-style: italic; text-emphasis-style: none; }
 .surimono-vertical ruby { -webkit-ruby-position: before; ruby-position: over; }
 .surimono-vertical rt { font-size: 0.5em; }

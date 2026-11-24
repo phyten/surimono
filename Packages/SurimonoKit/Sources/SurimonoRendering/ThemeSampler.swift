@@ -164,7 +164,9 @@ public final class ThemeSampler {
         }
         var session: Session
         var hasPaper: Bool
-        let checksFlow = format == .latex && (theme.formats == [.latex] || marginMode?.applies(to: theme) == true)
+        let checksFlow =
+            theme.flow == .horizontal && format == .latex
+            && (theme.formats == [.latex] || marginMode?.applies(to: theme) == true)
         do {
             let vertical = theme.flow == .vertical && !isSourcePage
             if vertical { resetSessions() }
@@ -389,9 +391,9 @@ public final class ThemeSampler {
         appliedHasPaper = nil
     }
 
-    @concurrent private static func verticalHTML(_ html: String) async throws -> String {
+    @concurrent private static func verticalHTML(_ html: String, latex: Bool) async throws -> String {
         try Task.checkCancellation()
-        let marked = try VerticalText.marked(html)
+        let marked = try VerticalText.marked(html, latex: latex)
         try PageLayoutLimits.checkHTML(bytes: marked.utf8.count, sourceBytes: html.utf8.count)
         return marked
     }
@@ -405,7 +407,7 @@ public final class ThemeSampler {
         appliedTheme = nil
         appliedHasPaper = nil
         // Clear, so that the paper drawn by the other web view shows through around the text.
-        let html = vertical ? try await Self.verticalHTML(self.html) : self.html
+        let html = vertical ? try await Self.verticalHTML(self.html, latex: format == .latex) : self.html
         try Task.checkCancellation()
         guard !isClosed else { throw SamplingError.closed }
         let session = Session(size: printableSize, drawsBackground: false, resourceAccess: resourceAccess, html: html)
@@ -667,7 +669,7 @@ extension DocumentRenderer {
             fragment: fragment, format: source.format, theme: settings.theme, baseURL: directory,
             language: settings.pageLanguage,
             textScale: settings.textScale, typeface: settings.typeface, removesPaper: removesPaper,
-            finish: settings.finish.styleSheet, code: settings.code, verticalMarkup: { $0 },
+            finish: settings.finish.styleSheet, code: settings.code, preparesThemeSampler: true,
             checkSourceBytes: { try PageLayoutLimits.checkHTML(bytes: $0, sourceBytes: source.data.count) })
         try PageLayoutLimits.checkHTML(bytes: html.utf8.count, sourceBytes: source.data.count)
         // A slide specimen already carries its own paper and text margins, just like the printed deck.

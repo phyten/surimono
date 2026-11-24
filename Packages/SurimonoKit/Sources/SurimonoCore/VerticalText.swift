@@ -4,15 +4,20 @@ import Foundation
 package enum VerticalText {
     package enum MarkupError: Error { case tooManySpans }
 
-    package static func marked(_ html: String) throws -> String {
+    package static func marked(_ html: String, latex: Bool = false) throws -> String {
         var writer = Writer()
         writer.output.reserveCapacity(html.utf8.count)
         var skipped: (name: String, depth: Int)?
         var plain = false
         var note = false
+        var heading = false
+        var numberDepth = 0
+        var numberEnd: Int?
+        var afterURL = 0
         var linkedURL: String?
         let tokens = HTMLScanner.tokens(html)
         for (index, token) in tokens.enumerated() {
+            if index < afterURL { continue }
             switch token {
             case .opaque(let source): writer.markup(source)
             case .text(let text):
@@ -21,9 +26,12 @@ package enum VerticalText {
                 } else if let linkedURL, HTMLScanner.decodingEntities(text) == linkedURL {
                     try writer.url(text)
                 } else {
-                    try writer.text(text, plain: plain, note: note) { direction in
+                    try writer.text(text, plain: plain, note: note, headingNumber: heading) { direction in
+                        // A section number and its title are separate runs even without intervening HTML text.
+                        if numberDepth > 0 { return nil }
                         var i = index + direction
                         while tokens.indices.contains(i) {
+                            if i == numberEnd { return nil }
                             switch tokens[i] {
                             case .text(let neighbor): return direction < 0 ? neighbor.last : neighbor.first
                             case .tag(let tag)
@@ -45,6 +53,16 @@ package enum VerticalText {
                     continue
                 }
                 let classes = tag.attribute("class")?.split(whereSeparator: \.isWhitespace) ?? []
+                if latex, tag.name == "a", classes.contains("latex-url"), !tag.isClosing, !tag.isSelfClosing,
+                    let url = latexURL(in: tokens[(index + 1)...])
+                {
+                    writer.markup(tag.source)
+                    try writer.url(url.label)
+                    writer.markup(url.close)
+                    afterURL = url.next
+                    continue
+                }
+                if latex && ["h1", "h2", "h3", "h4", "h5", "h6"].contains(tag.name) { heading = !tag.isClosing }
                 if tag.name == "sup" { note = !tag.isClosing && classes.contains("footnote-ref") }
                 if tag.name == "a" {
                     let href = tag.attribute("href")
@@ -54,10 +72,21 @@ package enum VerticalText {
                     }
                 }
                 let plainPre = tag.name == "pre" && classes.contains("surimono-plain")
-                if let edge = protectedEdge(tag, classes: classes), !plainPre, !tag.isClosing {
+                if let edge = protectedEdge(tag, classes: classes, latex: latex), !plainPre, !tag.isClosing {
                     // Ruby annotations are transparent to the boundary on either side of their base.
                     if tag.name != "rt" && tag.name != "rp" { try writer.begin(edge) }
                     if !tag.isSelfClosing { skipped = (tag.name, 1) }
+                } else if latex && tag.name == "span" && !tag.isSelfClosing {
+                    if numberDepth > 0 {
+                        numberDepth += tag.isClosing ? -1 : 1
+                        if numberDepth == 0 {
+                            try writer.begin(.start)
+                            numberEnd = index
+                        }
+                    } else if classes.contains("secnum") && !tag.isClosing {
+                        try writer.begin(.start)
+                        numberDepth = 1
+                    }
                 } else if !inlineElements.contains(tag.name) {
                     let paragraph = !tag.isClosing && (tag.name == "p" || plainPre)
                     try writer.begin(paragraph ? .paragraph : .start)
@@ -81,7 +110,7 @@ package enum VerticalText {
         "small", "span", "strong", "sub", "sup", "time", "u", "wbr",
     ]
 
-    private static func protectedEdge(_ tag: HTMLScanner.Tag, classes: [Substring]) -> Edge? {
+    private static func protectedEdge(_ tag: HTMLScanner.Tag, classes: [Substring], latex: Bool) -> Edge? {
         if ["table", "pre", "figure", "head", "script", "style", "textarea"].contains(tag.name)
             || classes.contains(where: {
                 ["footnotes", "math-block", "math-display", "mermaid-block", "graphviz-block", "plantuml-block"]
@@ -95,12 +124,28 @@ package enum VerticalText {
         {
             return .western
         }
-        if ["rt", "rp"].contains(tag.name)
+        if ["rt", "rp"].contains(tag.name) || (latex && classes.contains { $0 == "kenten" || $0 == "bousen" })
             || classes.contains(where: {
                 ["tcy", "upright-digit", "aki", "v-half", "v-close", "v-before-open"].contains($0)
             })
         {
             return .other
+        }
+        return nil
+    }
+
+    // The reader emits a URL as breakable spans. Rejoin just that label before applying
+    // vertical breakpoints, so a numeric path component stays sideways and the href stays intact.
+    private static func latexURL(in tokens: ArraySlice<HTMLScanner.Token>) -> (label: String, close: String, next: Int)?
+    {
+        var label = ""
+        for index in tokens.indices {
+            switch tokens[index] {
+            case .text(let source): label += source
+            case .tag(let tag) where tag.name == "a" && tag.isClosing: return (label, tag.source, index + 1)
+            case .tag(let tag) where tag.name == "span" || tag.name == "wbr": continue
+            default: return nil
+            }
         }
         return nil
     }
@@ -164,7 +209,9 @@ package enum VerticalText {
             return "<span class=\"\(name)\">\(source)</span>"
         }
 
-        mutating func text(_ source: String, plain: Bool, note: Bool, neighbor: (Int) -> Character?) throws {
+        mutating func text(
+            _ source: String, plain: Bool, note: Bool, headingNumber: Bool, neighbor: (Int) -> Character?
+        ) throws {
             // Matching complete words, URLs, numbers and entities keeps their punctuation and digits together.
             let token =
                 #/
@@ -216,13 +263,15 @@ package enum VerticalText {
                         let before =
                             raw.startIndex == source.startIndex
                             ? neighbor(-1) : source[source.index(before: raw.startIndex)]
-                        let after = raw.endIndex == source.endIndex ? neighbor(1) : source[raw.endIndex]
+                        let after =
+                            raw.endIndex == source.endIndex ? neighbor(1) : source[raw.endIndex]
                         let touchesWord = [before, after].compactMap { $0 }.contains {
                             $0.isASCII && ($0.isLetter || $0.isNumber || "%.,".contains($0))
                         }
                         if note || !touchesWord {
                             try begin(.other)
-                            output += try span(note || raw.count == 2 ? "tcy" : "upright-digit", String(raw))
+                            output += try span(
+                                note || headingNumber || raw.count == 2 ? "tcy" : "upright-digit", String(raw))
                         } else {
                             try western(String(raw))
                         }

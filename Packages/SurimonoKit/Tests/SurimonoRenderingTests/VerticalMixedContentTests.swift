@@ -87,6 +87,80 @@ struct VerticalMixedContentTests {
         #expect(ink.noteText.filter { !$0.isWhitespace }.contains("脚注は文書の終わりに置く。"))
     }
 
+    @Test("縦組みの本は章ごとに改ページし、番号・ルビ・傍点・右傍線・別行式・表・脚注を印刷する", .timeLimit(.minutes(1)))
+    func latexBook() async throws {
+        _ = NSApplication.shared
+        let source = #"""
+            \documentclass[tate,book,openright,twocolumn]{jlreq}
+            \begin{document}
+            \chapter{春}\section{庭}
+            本文\tatechuyoko{25}\ruby{花}{はな}\kenten{桜}\bou{線}。
+            \[x=12\]
+            \begin{tabular}{c}表\end{tabular}
+            \chapter*{秋}
+            月\footnote{秋の注。}
+            \end{document}
+            """#
+        let style = try #require(PrintThemeLibrary.load().first { $0.id == "tategaki" })
+        let inks = """
+            .surimono-vertical .bousen { color: blue; text-decoration-color: red !important; }
+            .surimono-vertical .kenten { text-emphasis-color: #00baba !important; }
+            """
+        let theme = PrintTheme(
+            id: style.id, name: style.name, css: style.css + "\n" + manuscriptInkColors + inks, formats: style.formats,
+            flow: style.flow)
+        let result = try await DocumentRenderer().prepare(
+            DocumentSource(data: Data(source.utf8), format: .latex),
+            settings: .init(layout: .a4Single, theme: theme, preset: .init(id: "none", name: "")))
+        let pdf = result.logicalDocument
+        try #require(pdf.pageCount == 2)
+        let first = try #require(pdf.page(at: 0))
+        // PDF extraction may reorder vertical lines or separate the two combined digits.
+        // Distinct glyphs identify the blocks; raster ink independently locates the formula and annotations.
+        let text = first.string ?? ""
+        for glyph in "春庭本文25花はな桜線表" { #expect(text.contains(glyph), "一ページ目の「\(glyph)」") }
+        #expect(!text.contains("秋"))
+        let second = try #require(pdf.page(at: 1)?.string)
+        #expect(second.contains("秋") && second.contains("月"))
+        let ink = try inkPages(in: pdf)
+        #expect(ink.equations == [0] && ink.notes == [1])
+        #expect(ink.noteText.filter { !$0.isWhitespace }.contains("秋の注。"))
+        let pixels = try PagePixels(first)
+        let line = try #require(pixels.bounds { r, g, b in r > max(g, b) + 100 })
+        let glyph = try #require(pixels.bounds { r, g, b in b > max(r, g) + 100 })
+        #expect(line.height > line.width && line.midX > glyph.maxX && abs(line.midY - glyph.midY) < 4)
+        #expect(pixels.bounds { r, g, b in min(g, b) > r + 75 && abs(g - b) < 20 } != nil)
+    }
+
+    @Test(
+        "縦組みの article は A4 で指定なしなら次ページ、二段指定なら同じ紙の下段に続く", .timeLimit(.minutes(1)),
+        arguments: [false, true])
+    func latexArticle(twoRows: Bool) async throws {
+        _ = NSApplication.shared
+        let rows = Array(repeating: "本文。", count: 27).joined(separator: "\n\n")
+        let source = #"""
+            \documentclass[tate\#(twoRows ? ",twocolumn" : "")]{jlreq}
+            \begin{document}
+            \section{始}\#(rows)
+
+            \section{終}末尾。
+            \end{document}
+            """#
+        let style = try #require(PrintThemeLibrary.load().first { $0.id == "tategaki" })
+        let theme = PrintTheme(
+            id: style.id, name: style.name, css: style.css + "\n.surimono-vertical h2:last-of-type { color: red; }",
+            formats: style.formats, flow: style.flow)
+        let result = try await DocumentRenderer().prepare(
+            DocumentSource(data: Data(source.utf8), format: .latex),
+            settings: .init(layout: .a3BookletA4, theme: theme, preset: .init(id: "none", name: "")))
+        let pdf = result.logicalDocument
+        try #require(pdf.pageCount == (twoRows ? 1 : 2))
+        let last = try #require(pdf.page(at: pdf.pageCount - 1))
+        let ink = try #require(try PagePixels(last).bounds { r, g, b in r > max(g, b) + 100 })
+        let middle = last.bounds(for: .cropBox).midY
+        #expect(twoRows ? ink.minY > middle : ink.maxY < middle)
+    }
+
     @Test("混植原稿の各文字と各箱が一つの切片に収まり、末尾の数式と脚注まで印刷される", .timeLimit(.minutes(1)))
     func slices() async throws {
         _ = NSApplication.shared

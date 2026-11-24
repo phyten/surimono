@@ -15,6 +15,16 @@ struct LaTeXVerticalTests {
         #expect(vertical.profile.bookOpeningSide == nil)
     }
 
+    @Test("縦組みの章と無番号章には改ページ標識が付き、節には付かない", arguments: ["tbook", "treport", "jlreq"])
+    func chapterBoundaries(name: String) {
+        let body = LaTeXConverter.convert(
+            #"\documentclass[tate,report,openany]{\#(name)}\begin{document}\chapter{春}\section{梅}本文\chapter*{秋}\end{document}"#
+        ).body
+        let chapters = body.matches(of: /<template data-latex-break="[^"]+"><\/template>\s*<h2[^>]* id="sec-[^"]+">/)
+        #expect(chapters.count == 2)
+        #expect(body.contains(#"<span class="secnum">1.1</span>梅"#))
+    }
+
     @Test("局所的な組み方向・割注・字取りでは引数の文字を残す")
     func localCommands() {
         let fragment = LaTeXConverter.convert(

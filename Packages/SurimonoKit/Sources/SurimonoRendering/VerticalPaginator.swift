@@ -17,30 +17,39 @@ enum VerticalPaginator {
         private let firstTop: CGFloat
         private let gap: CGFloat
 
-        init(pageSize: CGSize, margins: WebPaginator.Margins, textScale: Double) {
+        init(pageSize: CGSize, margins: WebPaginator.Margins, textScale: Double, latexRows: Int? = nil) {
             let availableWidth = pageSize.width - margins.left - margins.right
             let availableHeight = pageSize.height - margins.top - margins.bottom
             func matches(_ paper: PaperSize) -> Bool {
                 abs(min(pageSize.width, pageSize.height) - paper.size.width) < 0.5
                     && abs(max(pageSize.width, pageSize.height) - paper.size.height) < 0.5
             }
-            let twoRows = matches(.a4)
+            let a4 = matches(.a4)
+            let twoRows = latexRows.map { $0 == 2 } ?? a4
             rows = twoRows ? 2 : 1
-            font = 10.5
+            let singleA4 = a4 && !twoRows
+            font = singleA4 ? 11 : 10.5
             let scale = textScale.isFinite && textScale > 0 ? textScale : 1
             // Even extreme custom margins leave each row some printable height.
             gap = twoRows ? min(3 * font * scale, availableHeight / 3) : 0
             let maxHeight = (availableHeight - gap) / CGFloat(rows)
             let a5 = matches(.a5)
-            let usesGrid = twoRows || a5
+            let usesGrid = twoRows || a4 || a5
             // Snap in physical points after zoom. If even one cell cannot fit, keep the available
             // length so that extreme reader margins still produce a nonempty capture.
             func fitted(_ available: CGFloat, step: CGFloat) -> CGFloat {
                 available >= step ? available - available.truncatingRemainder(dividingBy: step) : available
             }
             let cell = font * scale
-            let maxWidth = usesGrid ? min(availableWidth, font * 1.75 * (twoRows ? 24 : 18)) : availableWidth
-            let preferredHeight = twoRows ? 30 * font : (a5 ? 42 * font : maxHeight)
+            let maxWidth = usesGrid ? min(availableWidth, font * 1.75 * (a5 ? 18 : 24)) : availableWidth
+            let preferredHeight: CGFloat
+            if twoRows {
+                preferredHeight = 30 * font
+            } else if a4 || a5 {
+                preferredHeight = (a4 ? 40 : 42) * font
+            } else {
+                preferredHeight = maxHeight
+            }
             height = fitted(min(maxHeight, preferredHeight), step: cell)
             width = fitted(maxWidth, step: 1.75 * cell)
             right = pageSize.width - margins.right - (availableWidth - width) / 2
@@ -72,15 +81,18 @@ enum VerticalPaginator {
         }
         // A PDF capture is in screen coordinates. 96 CSS pixels occupy 72 physical points on the logical paper.
         let pixelsPerPoint: CGFloat = 96.0 / 72
-        let frame = Frame(pageSize: pageSize, margins: margins, textScale: textScale)
-        let width = frame.width * pixelsPerPoint
-        let height = frame.height * pixelsPerPoint
         // Each WebKit reply below is awaited only until this deadline, and fails at once when the page's process
         // has ended: awaiting WebKit's own async calls left the capture task (and its session) waiting for good.
         let deadline = ContinuousClock.now + timeout
         var result: Result<PDFDocument, any Error>?
         let capture = Task { @MainActor in
             do {
+                let latexRows =
+                    try await webView.evaluateForPrinting(
+                        "return Number(document.body.dataset.latexVerticalRows) || null", until: deadline) as? Int
+                let frame = Frame(pageSize: pageSize, margins: margins, textScale: textScale, latexRows: latexRows)
+                let width = frame.width * pixelsPerPoint
+                let height = frame.height * pixelsPerPoint
                 let (pages, originY) = try await measure(
                     in: webView, script: measurement, width: width, height: height, font: frame.font,
                     rowCount: frame.rows, booklet: booklet, until: deadline)
