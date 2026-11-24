@@ -489,6 +489,38 @@ struct PrintModeTests {
         #expect(width(ideal.width + 2) >= ideal.width)
     }
 
+    @Test("改ページと目次の三択は幅に応じて縦に並び、両端がパネル内に収まる", arguments: ["en", "de", "ja"], [428, 560])
+    func finishSegmentsFit(language: String, width: CGFloat) async throws {
+        func check<Value>(_ label: LocalizedStringKey, _ choices: [PrintChoice<Value>]) async throws {
+            let segments = PrintSegments(label: label, options: choices, selection: choices.first?.value) { _ in }
+                .environment(\.locale, Locale(identifier: language))
+            let controller = NSHostingController(rootView: segments)
+            let wide = controller.sizeThatFits(in: CGSize(width: 1_000, height: 200))
+            let size = controller.sizeThatFits(in: CGSize(width: width, height: 200))
+            let detail = "language=\(language) available=\(width) wide=\(wide) size=\(size)"
+            #expect(size.width <= width, "\(detail)")
+            #expect(wide.height < 32, "\(detail)")
+            #expect((size.height > wide.height) == (wide.width > width), "\(detail)")
+            if language == "ja" { #expect(size.height == wide.height, "\(detail)") }
+
+            var frame = CGRect.zero
+            let screen = OrgReadingTestWindow(width: width, height: 200) {
+                segments
+                    .onGeometryChange(for: CGRect.self) {
+                        $0.frame(in: .global)
+                    } action: {
+                        frame = $0
+                    }
+                    .frame(width: width)
+            }
+            defer { screen.window.close() }
+            try await screen.wait(detail) { !frame.isEmpty }
+            #expect(frame.minX >= 0 && frame.maxX <= width, "\(detail) frame=\(frame)")
+        }
+        try await check("Page Breaks", PrintChapterBreakChoice.choices)
+        try await check("Contents Page", PrintContentsChoice.choices)
+    }
+
     @Test("印刷の帯は幅0で大きさを聞かれても低いままで、刷り台の窓を縦に縮められる")
     func pressBarStaysLowAtZeroWidth() {
         let fixture = Fixture()

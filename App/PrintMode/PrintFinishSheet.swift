@@ -141,6 +141,8 @@ struct PrintFinishSheet: View {
             section("Printer Adjustments") { PrintPrinterOptions(model: model) }.id(PrintFinishSection.printer)
             newDocumentsDefault
         }
+        // A wide control in one section must not shift the leading edge of every other section.
+        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
         .padding(16)
     }
 
@@ -714,7 +716,12 @@ struct PrintPrinterOptions: View {
         VStack(alignment: .leading, spacing: 0) {
             Rectangle().fill(PrintPalette.line).frame(height: 1)
             HStack(alignment: .top, spacing: 10) {
-                Text(title).font(.system(size: 12.5)).frame(width: 145, alignment: .leading).padding(.top, 3)
+                // Reserve the usual label column unless the printer's native picker needs some of it.
+                Text(title)
+                    .font(.system(size: 12.5))
+                    .frame(minWidth: 0, idealWidth: 145, maxWidth: 145, alignment: .leading)
+                    .layoutPriority(1)
+                    .padding(.top, 3)
                 VStack(alignment: .leading, spacing: 5) {
                     control()
                     if let hint {
