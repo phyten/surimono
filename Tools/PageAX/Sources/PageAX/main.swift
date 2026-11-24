@@ -1,7 +1,7 @@
 import AppKit
 import ApplicationServices
 
-struct Stage: Decodable {
+struct Stage: Codable {
     let pid: Int32
     let token: String
     let operation: String
@@ -10,6 +10,32 @@ struct Stage: Decodable {
     let phase: String
     let generation: Int
     let hitPoint: CGPoint?
+}
+
+struct ExpectedStage: Encodable {
+    let pid: Int32
+    let operation: String
+    let count: Int
+    let sequence: Int
+    let phase: String
+    let generation: Int
+    let token: String?
+    let bundleIdentifier = "app.surimono.Surimono.debug"
+
+    func matches(_ stage: Stage, bundle: String?) -> Bool {
+        stage.pid == pid && stage.operation == operation && stage.count == count && stage.sequence == sequence
+            && stage.phase == phase && stage.generation == generation && UUID(uuidString: stage.token) != nil
+            && (token == nil || stage.token == token) && bundle == bundleIdentifier
+    }
+}
+
+struct StageMismatch: Encodable {
+    let file: String
+    let expected: ExpectedStage
+    let observed: Stage
+    let runningApplicationFound: Bool
+    let runningApplicationPID: Int32?
+    let runningBundleIdentifier: String?
 }
 
 struct Observation: Encodable {
@@ -30,6 +56,7 @@ struct Report: Encodable {
     var observations: [Observation] = []
     var tree: [TreeNode]?
     var treeSequence: Int?
+    var stageMismatch: StageMismatch?
     var optionalAttributeErrors: [String: Int] = [:]
     var status: Int32 = 0
 
@@ -127,16 +154,27 @@ func run(_ report: inout Report, directory: URL) {
         // Setting the client's default timeout covers the individual page handles as well as the application.
         try checked(AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), 2), "setMessagingTimeout")
         let app = AXUIElementCreateApplication(pid)
+        var knownBundle: String?
         while true {
             let url = directory.appending(path: "stage-\(index).json")
             try waitForFile(url, pid: pid)
             try requireAlive(pid)
             let stage = try JSONDecoder().decode(Stage.self, from: Data(contentsOf: url))
-            guard stage.pid == pid, stage.sequence == index, stage.operation == report.operation,
-                stage.count == report.count, stage.phase == phase, stage.generation == generation,
-                UUID(uuidString: stage.token) != nil, token == nil || stage.token == token,
-                NSRunningApplication(processIdentifier: pid)?.bundleIdentifier == "app.surimono.Surimono.debug"
-            else { throw ProbeFailure("Unexpected process or stage") }
+            let expected = ExpectedStage(
+                pid: pid, operation: report.operation, count: report.count, sequence: index, phase: phase,
+                generation: generation, token: token)
+            // The lookup can transiently return nil for a live process; the identity checked once stays valid
+            // while `requireAlive` holds, so a later miss must not fail the stage.
+            let running = NSRunningApplication(processIdentifier: pid)
+            if let found = running?.bundleIdentifier { knownBundle = found }
+            let bundle = knownBundle
+            guard expected.matches(stage, bundle: bundle) else {
+                report.stageMismatch = StageMismatch(
+                    file: url.lastPathComponent, expected: expected, observed: stage,
+                    runningApplicationFound: running != nil, runningApplicationPID: running?.processIdentifier,
+                    runningBundleIdentifier: bundle)
+                throw ProbeFailure("Unexpected process or stage")
+            }
             token = stage.token
             let reader = AXReader(app: app, token: stage.token)
             readerForDiagnostics = reader

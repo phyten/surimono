@@ -69,6 +69,7 @@
             let phase: String
             let iteration: Int
             let activeViewID: UUID?
+            let peakRerenderShownDocumentCount: Int?
             let liveViewCount: Int
             let views: [ViewSample]
             let uptime: Double
@@ -89,11 +90,17 @@
             guard descriptor >= 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
             let file = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
 
+            var peakRerenderCount: Int?
             func record(_ phase: String, _ iteration: Int) throws {
                 let footprint = try footprintBytes()
                 let samples = views.allObjects.map(\.probeSample).sorted { $0.id.uuidString < $1.id.uuidString }
+                let activePaper = model.paper.attachedProbeView
+                if phase == "rerender", let activePaper {
+                    peakRerenderCount = max(peakRerenderCount ?? 0, activePaper.shownDocumentCount)
+                }
                 let sample = Sample(
-                    phase: phase, iteration: iteration, activeViewID: model.paper.attachedProbeView?.probeID,
+                    phase: phase, iteration: iteration, activeViewID: activePaper?.probeID,
+                    peakRerenderShownDocumentCount: peakRerenderCount,
                     liveViewCount: samples.count, views: samples, uptime: ProcessInfo.processInfo.systemUptime,
                     lifetimes: Dictionary(uniqueKeysWithValues: lifetimes.map { ($0.key.uuidString, $0.value) }),
                     measuresBytes: measuresBytes, axElements: elementMetrics, physFootprintBytes: footprint)

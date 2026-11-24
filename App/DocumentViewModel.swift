@@ -530,7 +530,7 @@ final class DocumentViewModel {
     /// The logical pages the paper shows. They are published before the sheets are composed.
     private(set) var result: PreparedRender? { didSet { followViewFurniture(after: oldValue) } }
     /// The header and footer the paper draws. They follow the pages' own at once, except while the custom header is
-    /// being typed, when they wait for a pause: the paper keeps every copy of its pages it has shown.
+    /// being typed, when they wait for a pause to avoid rebuilding the decorated pages at each keystroke.
     private(set) var shownFurniture: [Int: FurniturePlacement] = [:]
     @ObservationIgnored private var furnitureTask: Task<Void, Never>?
     /// How often the paper's header and footer changed, for tests.

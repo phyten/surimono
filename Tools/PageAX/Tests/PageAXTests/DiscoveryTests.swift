@@ -49,6 +49,21 @@ struct DiscoveryTests {
         #expect(report.observations.first?.detail == "hitTest: kAXErrorCannotComplete (-25204)")
     }
 
+    @Test("見開き検査の第18段は同じアプリとセッションの9回目の再読み込みに一致する")
+    func layoutReloadStage() {
+        let expected = ExpectedStage(
+            pid: 123, operation: "layout", count: 10, sequence: 18, phase: "reload", generation: 9, token: token)
+        let reload = Stage(
+            pid: 123, token: token, operation: "layout", count: 10, sequence: 18, phase: "reload", generation: 9,
+            hitPoint: nil)
+        let layout = Stage(
+            pid: 123, token: token, operation: "layout", count: 10, sequence: 17, phase: "layout", generation: 8,
+            hitPoint: nil)
+        #expect(expected.matches(reload, bundle: expected.bundleIdentifier))
+        #expect(!expected.matches(reload, bundle: nil))
+        #expect(!expected.matches(layout, bundle: expected.bundleIdentifier))
+    }
+
     @Test("世代と実行の目印は改行されても同じ原稿だけに一致する")
     func fixtureMarker() {
         let text = "世代 10。 R01-1122\n3344 紙面の本文です。"
