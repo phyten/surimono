@@ -50,8 +50,8 @@ struct OrgPrintContractTests {
     @Test("予定行はラベル別のクラスを持ち通常文を巻き込まない")
     func planning() {
         #expect(
-            OrgConverter.convert("#+OPTIONS: p:t\nSCHEDULED: <2026-11-18 Wed> CLOSED: [2026-11-19 Thu]").body
-                == "<p class=\"org-planning\"><span class=\"org-planning-item org-scheduled\"><span class=\"org-planning-label\">SCHEDULED</span> <time class=\"org-timestamp\">2026-11-18 Wed</time></span> <span class=\"org-planning-item org-closed\"><span class=\"org-planning-label\">CLOSED</span> <time class=\"org-timestamp org-timestamp-inactive\">2026-11-19 Thu</time></span></p>\n"
+            OrgConverter.convert("#+OPTIONS: p:t\n* Task\nSCHEDULED: <2026-11-18 Wed> CLOSED: [2026-11-19 Thu]").body
+                == "<h1>Task</h1>\n<p class=\"org-planning\"><span class=\"org-planning-item org-scheduled\"><span class=\"org-planning-label\">SCHEDULED</span> <time class=\"org-timestamp\">2026-11-18 Wed</time></span> <span class=\"org-planning-item org-closed\"><span class=\"org-planning-label\">CLOSED</span> <time class=\"org-timestamp org-timestamp-inactive\">2026-11-19 Thu</time></span></p>\n"
         )
         #expect(OrgConverter.convert("SCHEDULED: 明日").body == "<p>SCHEDULED: 明日</p>\n")
     }

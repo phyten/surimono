@@ -1,3 +1,5 @@
+import OSLog
+
 /// Stable identifiers shared by the document panel and the defaults pane.
 public enum OrgSettingID: String, CaseIterable, Sendable {
     case sectionNumbers = "org.num"
@@ -105,6 +107,49 @@ private struct OrgReadingValues: Codable, Equatable, Sendable {
     var fixedWidth: Bool?
     var archived: OrgReadingDefaults.Archived?
 
+    init() {}
+
+    init(from decoder: any Decoder) throws {
+        let fields = try decoder.container(keyedBy: CodingKeys.self)
+        sectionNumbers = fields.orgValue(for: .sectionNumbers)
+        tableOfContents = fields.orgValue(for: .tableOfContents)
+        scripts = fields.orgValue(for: .scripts)
+        headlineLevels = fields.orgValue(for: .headlineLevels)
+        tags = fields.orgValue(for: .tags)
+        preserveBreaks = fields.orgValue(for: .preserveBreaks)
+        emphasis = fields.orgValue(for: .emphasis)
+        math = fields.orgValue(for: .math)
+        clocks = fields.orgValue(for: .clocks)
+        planning = fields.orgValue(for: .planning)
+        priority = fields.orgValue(for: .priority)
+        todo = fields.orgValue(for: .todo)
+        statistics = fields.orgValue(for: .statistics)
+        tasks = fields.orgValue(for: .tasks)
+        title = fields.orgValue(for: .title)
+        author = fields.orgValue(for: .author)
+        date = fields.orgValue(for: .date)
+        drawers = fields.orgValue(for: .drawers)
+        properties = fields.orgValue(for: .properties)
+        timestamps = fields.orgValue(for: .timestamps)
+        footnotes = fields.orgValue(for: .footnotes)
+        tables = fields.orgValue(for: .tables)
+        fixedWidth = fields.orgValue(for: .fixedWidth)
+        archived = fields.orgValue(for: .archived)
+    }
+
+}
+
+extension KeyedDecodingContainer {
+    fileprivate func orgValue<Value: Decodable>(for key: Key) -> Value? {
+        do {
+            return try decodeIfPresent(Value.self, forKey: key)
+        } catch {
+            // Log only the schema field, never the contents of a user's settings.
+            Logger(subsystem: "app.surimono.Surimono", category: "OrgReading")
+                .warning("Ignoring incompatible saved field: \(key.stringValue, privacy: .public)")
+            return nil
+        }
+    }
 }
 
 /// Couples each row to its typed storage in all three layers.
@@ -186,6 +231,8 @@ public struct OrgInstructionNote: Equatable, Sendable {
 }
 
 public struct OrgFileInstructions: Equatable, Sendable {
+    /// Source syntax, including task elements hidden by reading settings.
+    public internal(set) var hasTaskElements = false
     fileprivate var values = OrgReadingValues()
     fileprivate var sources: [OrgSettingID: OrgInstructionSource] = [:]
     fileprivate var notes: [OrgSettingID: [OrgInstructionNote]] = [:]
@@ -223,7 +270,7 @@ public struct OrgDocumentReadingSettings: Codable, Equatable, Sendable {
     public init(from decoder: any Decoder) throws {
         values = try OrgReadingValues(from: decoder)
         let fields = try decoder.container(keyedBy: CodingKeys.self)
-        allowsFileChanges = try fields.decodeIfPresent(Bool.self, forKey: .allowsFileChanges) ?? false
+        allowsFileChanges = fields.orgValue(for: .allowsFileChanges) ?? false
     }
 
     public func encode(to encoder: any Encoder) throws {

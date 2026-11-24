@@ -282,8 +282,13 @@ enum OrgInline {
                     || source.dropFirst().prefix(4).allSatisfy(\.isNumber) && source.dropFirst(5).hasPrefix("-")
                 {
                     html = timestamp(source)
-                } else if cookies == .all || cookies == .edges && (index == 0 || token.end == characters.count) {
-                    html = context.reading.statistics ? "<span class=\"org-cookie\">\(HTML.escape(source))</span>" : ""
+                } else {
+                    context.options.file.hasTaskElements = true
+                    if !context.reading.statistics {
+                        html = ""
+                    } else if cookies == .all || cookies == .edges && (index == 0 || token.end == characters.count) {
+                        html = "<span class=\"org-cookie\">\(HTML.escape(source))</span>"
+                    }
                 }
                 output += html ?? HTML.escape(source)
                 index = token.end

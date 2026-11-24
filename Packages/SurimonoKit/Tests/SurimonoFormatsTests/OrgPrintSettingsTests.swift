@@ -4,6 +4,31 @@ import Testing
 @testable import SurimonoFormats
 
 struct OrgPrintSettingsTests {
+    @Test(
+        "表示設定で隠したタスクも原稿の要素として数える",
+        arguments: [
+            "* TODO A", "* DONE A", "* [#B] A", "* A [1/2]", "- A [50%]",
+            "* A\nSCHEDULED: <2026-11-23 Mon>", "* A\nDEADLINE: <2026-11-23 Mon>", "* A\nCLOSED: [2026-11-23 Mon]",
+            "CLOCK: [2026-11-23 Mon]", ":LOGBOOK:\nCLOCK: [2026-11-23 Mon]\n:END:",
+            "* LATER A\n#+TODO: LATER | FIN",
+        ])
+    func taskElements(source: String) {
+        let options = "#+OPTIONS: todo:nil tasks:nil pri:nil p:nil stat:nil c:nil d:nil\n"
+        #expect(OrgConverter.convert(options + source).orgInstructions?.hasTaskElements == true)
+    }
+
+    @Test(
+        "設定やコード例や普通の語だけではタスクを含む文書にしない",
+        arguments: [
+            "#+OPTIONS: todo:t p:t pri:t stat:t c:t", "* A\nTODO text", "* =code [50%]=",
+            "#+begin_src org\n* TODO A\nCLOCK: [2026-11-23 Mon]\n#+end_src",
+            "* TODO ordinary word\n#+TODO: OPEN | FIN", "* TODO [#A] ordinary text\n#+TODO: OPEN | FIN",
+            "#+TODO: OPEN | FIN",
+        ])
+    func noTaskElements(source: String) {
+        #expect(OrgConverter.convert(source).orgInstructions?.hasTaskElements == false)
+    }
+
     @Test("追加項目の継承・原稿による固定・個別解除・保存・コピーが往復する")
     func layers() throws {
         func check<Value>(_ key: OrgSetting<Value>, shipping: Value, choice: Value, option: String) throws {
@@ -157,7 +182,7 @@ struct OrgPrintSettingsTests {
         #expect(!html.contains(":CUSTOM_ID:") && !html.contains("private") && !html.contains("CLOCK:"))
     }
 
-    @Test("タグ選択は親・子を保ち、除外した木の本文・目次・脚注定義を取り込まない")
+    @Test("タグ選択は親・子を保ち、除外した木から参照された脚注定義だけを取り込む")
     func tagSelection() {
         let raw = """
             #+SELECT_TAGS: paper
@@ -170,13 +195,15 @@ struct OrgPrintSettingsTests {
             ** No
             ** Both :paper:skip:
             [fn:hidden] hidden definition
+
+            [fn:unused] unused definition
             """
         let html = OrgConverter.convert(raw).body
         #expect(
-            html.contains("Parent") && html.contains("Yes") && html.contains("Child") && html.contains("[fn:hidden]"))
+            html.contains("Parent") && html.contains("Yes") && html.contains("Child") && html.contains("footnote-ref"))
         #expect(
             !html.contains("preamble") && !html.contains("No") && !html.contains("Both")
-                && !html.contains("hidden definition"))
+                && html.contains("hidden definition") && !html.contains("unused definition"))
     }
 
     @Test("独自の完了語とアーカイブで木を選び、コード中の星印は見出しにしない")

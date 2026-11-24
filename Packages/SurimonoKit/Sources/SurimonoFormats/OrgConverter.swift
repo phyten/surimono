@@ -26,15 +26,23 @@ public enum OrgConverter {
             lines: TextDecoding.normalizeNewlines(text).components(separatedBy: "\n"),
             context: OrgContext(defaults: settings.defaults, fileName: fileName))
         // Discover forward declarations before rendering headings or numbering any references.
+        parser.context.commentEnds = parser.commentRanges()
         parser.context.discovering = true
         _ = parser.render()
         let context = parser.context
         context.reading = context.options.resolved(over: settings)
         context.omissions = context.subtrees.omissions(context: context, lines: parser.lines)
         if !context.omissions.isEmpty {
-            // Rediscover anchors and note definitions in the retained sections, keeping original source locations.
+            // Filtered headings never reach the rendering pass. Use the complete keyword vocabulary for them too.
+            if !context.options.file.hasTaskElements {
+                context.options.file.hasTaskElements = context.subtrees.headings.contains { heading in
+                    let source = parser.lines[heading.line].dropFirst(heading.level).drop(while: \.isWhitespace)
+                    let keyword = String(source.prefix { !$0.isWhitespace })
+                    return context.taskKeywords.contains(keyword)
+                }
+            }
+            // Rediscover the visible outline. Named footnotes remain available across subtree boundaries.
             context.repeatingDiscovery = true
-            context.definitions.removeAll()
             context.propertiesByHeading.removeAll()
             context.outline = OrgOutline()
             context.options.file.clearOutlineNotes()
@@ -100,6 +108,7 @@ struct OrgParser {
     var index = 0
     let context: OrgContext
     private var deepHeadings: [(level: Int, tag: String)] = []
+    private var planningLine: Int?
     private var openList: (indent: Int, tag: String)?
     /// For each environment name, the lines last searched without finding a closing line; an opener among them
     /// need not search again.
@@ -122,6 +131,30 @@ struct OrgParser {
             }
         }
         regionEnds = ends
+    }
+
+    /// Resolve commented subtrees before reading any export settings, including forward workflow declarations.
+    fileprivate mutating func commentRanges() -> [Int: Int] {
+        guard lines.contains(where: { $0.first == "*" && $0.contains("COMMENT") }) else { return [:] }
+        var outline = OrgCommentOutline()
+        defer { index = 0 }
+        while index < lines.count {
+            let line = lines[index]
+            if let end = regionEnds[index] {
+                index = end + 1
+            } else if let item = listItem(line) {
+                index += 1
+                _ = collectListItemContinuation(indent: item.indent)
+            } else {
+                if line.first == "*", let heading = orgCaptures(#"^(\*+)\s+(.+)$"#, line) {
+                    outline.heading(line: index, level: heading[0].count, title: heading[1])
+                } else if let declaration = orgCaptures(#"^\s*#\+(?:TODO|SEQ_TODO|TYP_TODO):\s*(.*)$"#, line) {
+                    outline.workflow(declaration[0])
+                }
+                index += 1
+            }
+        }
+        return outline.ranges(end: lines.count)
     }
 
     private struct Child {
@@ -204,7 +237,7 @@ struct OrgParser {
                 openList = nil
                 continue
             }
-            if depth == 0, let end = context.omissions[index] {
+            if depth == 0, let end = context.omissions[index] ?? context.commentEnds[index] {
                 flush()
                 caption = nil
                 index = end
@@ -239,7 +272,12 @@ struct OrgParser {
                     let start = index + 1
                     index = end + 1
                     if case .drawer = region {
-                        output += drawer(name: String(trimmed.dropFirst().dropLast()), content: lines[start..<end])
+                        let name = String(trimmed.dropFirst().dropLast())
+                        if name.uppercased() == "PROPERTIES" {
+                            output += propertyDrawer(lines[start..<end])
+                        } else if context.discovering || context.drawerNames.includes(name) {
+                            return Child(lines: Array(lines[start..<end]), closing: "")
+                        }
                     } else if case .block(let kind, let arguments) = region {
                         let content = Array(lines[start..<end])
                         if region.isLiteral {
@@ -275,6 +313,7 @@ struct OrgParser {
             } else if let heading = orgCaptures(#"^(\*+)\s+(.+)$"#, line) {
                 flush()
                 caption = nil
+                if depth == 0 { planningLine = index + 1 }
                 let level = min(
                     6, heading[0].count + (context.metadata["TITLE"] == nil || !context.reading.title ? 0 : 1))
                 let done = context.done.contains(
@@ -370,9 +409,12 @@ struct OrgParser {
                 caption = nil
                 output += "<hr>\n"
                 index += 1
-            } else if !context.reading.clocks, Self.isClock(trimmed) {
+            } else if Self.isClock(trimmed) {
+                context.options.file.hasTaskElements = true
+                if context.reading.clocks { paragraph.append(line) }
                 index += 1
-            } else if let planning = OrgInline.planning(trimmed) {
+            } else if index == planningLine, let planning = OrgInline.planning(trimmed) {
+                context.options.file.hasTaskElements = true
                 flush()
                 caption = nil
                 if context.reading.planning { output += planning }
@@ -426,23 +468,17 @@ struct OrgParser {
     }
 
     private static func isClock(_ line: String) -> Bool {
-        orgCaptures(
+        guard line.drop(while: \.isWhitespace).prefix(6).uppercased() == "CLOCK:" else { return false }
+        return orgCaptures(
             #"^\s*CLOCK:\s*"# + OrgInline.timestampPattern + "(?:--" + OrgInline.timestampPattern
                 + #")?(?:\s*=>\s*\d+:\d+)?\s*$"#, line) != nil
     }
 
-    private func drawer(name: String, content: ArraySlice<String>) -> String {
-        guard !context.discovering else { return "" }
-        let visible: [String]
-        if name.uppercased() == "PROPERTIES" {
-            guard context.reading.properties != .off else { return "" }
-            visible = content.filter { line in
-                guard let property = orgCaptures(#"^\s*:([^\s:]+):"#, line) else { return false }
-                return context.reading.properties.includes(property[0])
-            }
-        } else {
-            guard context.reading.drawers.includes(name) else { return "" }
-            visible = context.reading.clocks ? Array(content) : content.filter { !Self.isClock($0) }
+    private func propertyDrawer(_ content: ArraySlice<String>) -> String {
+        guard !context.discovering, context.reading.properties != .off else { return "" }
+        let visible = content.filter { line in
+            guard let property = orgCaptures(#"^\s*:([^\s:]+):"#, line) else { return false }
+            return context.propertyNames.includes(property[0])
         }
         guard !visible.isEmpty else { return "" }
         return "<pre class=\"org-drawer\">\(HTML.escape(visible.joined(separator: "\n")))</pre>\n"
@@ -547,6 +583,9 @@ struct OrgParser {
         var tags = ""
         let keyword = text.split(whereSeparator: \.isWhitespace).first.map(String.init) ?? ""
         if context.active.contains(keyword) || context.done.contains(keyword) {
+            if !context.discovering && context.taskKeywords.contains(keyword) {
+                context.options.file.hasTaskElements = true
+            }
             if context.reading.todo {
                 prefix +=
                     "<span class=\"org-\(context.done.contains(keyword) ? "done" : "todo")\">\(HTML.escape(keyword))</span> "
@@ -554,6 +593,8 @@ struct OrgParser {
             text = String(text.dropFirst(keyword.count)).trimmingCharacters(in: .whitespaces)
         }
         if let match = orgCaptures(#"^(\[#[A-Za-z0-9]\])(?:\s+(.*))?$"#, text) {
+            // A later directive may redefine a keyword stripped in the first discovery pass.
+            if !context.discovering || source.hasPrefix("[#") { context.options.file.hasTaskElements = true }
             if context.reading.priority {
                 prefix += "<span class=\"org-priority\">\(HTML.escape(String(match[0].dropFirst().dropLast())))</span> "
             }

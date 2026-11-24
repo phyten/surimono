@@ -152,7 +152,9 @@ struct OrgConverterTests {
 
     @Test("予定と期限を注記として出す")
     func planning() {
-        let body = OrgConverter.convert("#+OPTIONS: p:t\nSCHEDULED: <2026-10-28 Wed> DEADLINE: <2026-10-29 Thu>").body
+        let body = OrgConverter.convert(
+            "#+OPTIONS: p:t\n* Task\nSCHEDULED: <2026-10-28 Wed> DEADLINE: <2026-10-29 Thu>"
+        ).body
         #expect(body.contains("<p class=\"org-planning\">"))
         #expect(body.contains("<time class=\"org-timestamp\">2026-10-28 Wed</time>"))
     }

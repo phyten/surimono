@@ -41,14 +41,6 @@ extension OrgReadingDefaults {
             }
         }
 
-        func includes(_ name: String) -> Bool {
-            switch self {
-            case .off: false
-            case .all: true
-            case .including(let names): names.contains { $0.caseInsensitiveCompare(name) == .orderedSame }
-            case .excluding(let names): !names.contains { $0.caseInsensitiveCompare(name) == .orderedSame }
-            }
-        }
     }
 
     public enum Tasks: Codable, Hashable, Sendable {
@@ -66,6 +58,27 @@ extension OrgReadingDefaults {
                 self = .keywords(names)
             }
         }
+    }
+}
+
+/// Names retain their spelling and order for copying, but matching shares one folded set per conversion.
+struct OrgNameFilter {
+    private let names: Set<String>
+    private let excluding: Bool
+
+    init(_ choice: OrgReadingDefaults.Names) {
+        switch choice {
+        case .all: (names, excluding) = ([], true)
+        case .off: (names, excluding) = ([], false)
+        case .including(let list): (names, excluding) = (Set(list.map(Self.fold)), false)
+        case .excluding(let list): (names, excluding) = (Set(list.map(Self.fold)), true)
+        }
+    }
+
+    private static func fold(_ name: String) -> String { name.folding(options: .caseInsensitive, locale: nil) }
+    func includes(_ name: String) -> Bool {
+        if names.isEmpty { return excluding }
+        return names.contains(Self.fold(name)) != excluding
     }
 }
 
@@ -103,7 +116,7 @@ private enum OrgNameList {
     static func read(_ token: String) -> (Bool, [String])? {
         guard token.first == "(", token.last == ")" else { return nil }
         var rest = token.dropFirst().dropLast().drop(while: \.isWhitespace)
-        let excluding = rest.hasPrefix("not") && (rest.dropFirst(3).first?.isWhitespace == true)
+        let excluding = rest == "not" || rest.hasPrefix("not") && rest.dropFirst(3).first?.isWhitespace == true
         if excluding { rest = rest.dropFirst(3).drop(while: \.isWhitespace) }
         var names: [String] = []
         while !rest.isEmpty {
