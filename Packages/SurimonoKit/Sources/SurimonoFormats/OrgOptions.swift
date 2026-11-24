@@ -1,11 +1,12 @@
 import Foundation
 
-/// How an Org document is read where its own `#+OPTIONS:` lines say nothing. The document's options always win.
+/// How an Org document is read where its own `#+OPTIONS:` lines say nothing. File options win unless the reader
+/// explicitly overrides them for that document.
 ///
 /// Three keys are covered: `num`, `toc` and `^`. Everything else is read as before, whatever Emacs would do.
-public struct OrgReadingDefaults: Equatable, Sendable {
+public struct OrgReadingDefaults: Codable, Equatable, Sendable {
     /// How far down the outline something reaches.
-    public enum Depth: Equatable, Sendable {
+    public enum Depth: Codable, Hashable, Sendable {
         case off
         case all
         case levels(Int)
@@ -20,7 +21,7 @@ public struct OrgReadingDefaults: Equatable, Sendable {
     }
 
     /// Which `a_b` and `a^b` become subscripts and superscripts.
-    public enum Scripts: Equatable, Sendable {
+    public enum Scripts: String, Codable, Equatable, Sendable {
         case off
         /// Only `a_{b}` and `a^{b}`: file and variable names keep their underscores.
         case braces
@@ -37,6 +38,8 @@ public struct OrgReadingDefaults: Equatable, Sendable {
     /// headlines still print as headings, where Emacs turns them into list items.
     var headlineLevels = 3
 
+    private enum CodingKeys: String, CodingKey { case sectionNumbers, tableOfContents, scripts }
+
     public init(sectionNumbers: Depth, tableOfContents: Depth, scripts: Scripts) {
         self.sectionNumbers = sectionNumbers
         self.tableOfContents = tableOfContents
@@ -50,15 +53,17 @@ public struct OrgReadingDefaults: Equatable, Sendable {
 /// What the document's `#+OPTIONS:` lines set. A key they leave out stays `nil`, apart from an explicit `nil`
 /// value, so a reading setting can fill in only what the document did not decide.
 struct OrgExportOptions: Equatable {
-    var sectionNumbers: OrgReadingDefaults.Depth?
-    var tableOfContents: OrgReadingDefaults.Depth?
-    var scripts: OrgReadingDefaults.Scripts?
+    var file = OrgFileInstructions()
     var headlineLevels: Int?
 
     /// Reads the value of one `#+OPTIONS:` line. A later line overrides the keys it repeats.
     ///
     /// Consume the value even for unknown keys: spaces and colons inside a Lisp string or list belong to it.
-    mutating func read(_ line: String) {
+    mutating func read(_ line: String, fileName: String?, lineNumber: Int, lines: [String]) {
+        let original = lines[lineNumber - 1]
+        let afterColon = original.drop(while: { $0 != ":" }).dropFirst()
+        let firstToken = afterColon.drop(while: { $0.isWhitespace }).startIndex
+        let prefixLength = original.distance(from: original.startIndex, to: firstToken)
         let chars = Array(line)
         var cursor = 0
         while cursor < chars.count {
@@ -71,25 +76,31 @@ struct OrgExportOptions: Equatable {
             guard cursor < chars.count, !chars[cursor].isWhitespace else { continue }
             let valueStart = cursor
             cursor = Self.endOfValue(chars, from: cursor)
-            apply(key: key, token: chars[valueStart..<cursor])
+            var source = OrgInstructionSource(
+                fileName: fileName, lineNumber: lineNumber, rawText: String(chars[start..<cursor]))
+            source.excerpt = .init(
+                previous: lineNumber > 1 ? lines[lineNumber - 2] : nil, line: original,
+                next: lineNumber < lines.count ? lines[lineNumber] : nil, tokenOffset: prefixLength + start)
+            apply(key: key, token: chars[valueStart..<cursor], source: source)
         }
     }
 
-    private mutating func apply(key: String, token: ArraySlice<Character>) {
+    private mutating func apply(key: String, token: ArraySlice<Character>, source: OrgInstructionSource) {
         let emptyList =
             token.first == "(" && token.last == ")" && token.dropFirst().dropLast().allSatisfy(\.isWhitespace)
         let value = emptyList ? "nil" : String(token)
         switch key {
-        case "num": sectionNumbers = Self.depth(value)
-        case "toc": tableOfContents = Self.depth(value)
+        case "num": file.record(Self.depth(value), for: .sectionNumbers, source: source)
+        case "toc": file.record(Self.depth(value), for: .tableOfContents, source: source)
         case "h": if let levels = Self.integer(value), levels >= 0 { headlineLevels = levels }
         case "^":
-            scripts =
+            let scripts: OrgReadingDefaults.Scripts =
                 switch value {
                 case "nil", "()": OrgReadingDefaults.Scripts.off
                 case "{}": .braces
                 default: .all
                 }
+            file.record(scripts, for: .scripts, source: source)
         default: break
         }
     }
@@ -193,12 +204,12 @@ struct OrgExportOptions: Equatable {
         return negative ? -magnitude : magnitude
     }
 
-    func resolved(over defaults: OrgReadingDefaults) -> OrgReadingDefaults {
-        var reading = defaults
-        reading.sectionNumbers = sectionNumbers ?? defaults.sectionNumbers
-        reading.tableOfContents = tableOfContents ?? defaults.tableOfContents
-        reading.scripts = scripts ?? defaults.scripts
-        reading.headlineLevels = headlineLevels ?? defaults.headlineLevels
+    func resolved(over settings: OrgReadingSettings) -> OrgReadingDefaults {
+        var reading = settings.defaults
+        reading.sectionNumbers = settings.resolve(.sectionNumbers, file: file).value
+        reading.tableOfContents = settings.resolve(.tableOfContents, file: file).value
+        reading.scripts = settings.resolve(.scripts, file: file).value
+        reading.headlineLevels = headlineLevels ?? settings.defaults.headlineLevels
         return reading
     }
 }

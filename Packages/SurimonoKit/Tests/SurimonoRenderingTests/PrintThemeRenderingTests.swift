@@ -24,6 +24,29 @@ struct PrintThemeRenderingTests {
         return result.logicalDocument
     }
 
+    @Test("番号付きテーマで刷った Org の見出しは出荷時は番号なし、全階層では番号が一つだけになる", .timeLimit(.minutes(1)))
+    func orgHeadingNumbersOnPaper() async throws {
+        _ = NSApplication.shared
+        let academic = try #require(PrintThemeLibrary.load().first { $0.id == "academic" })
+        var settings = RenderSettings(
+            layout: .a4Single, theme: academic, preset: HTMLCleanupPreset(id: "none", name: "None"))
+        // A title moves the first Org heading to h2, where this theme would generate a counter.
+        let source = DocumentSource(data: Data("#+TITLE: Example\n* Heading".utf8), format: .org)
+        let renderer = DocumentRenderer()
+        let plain = try await renderer.prepare(source, settings: settings)
+        let plainText = try #require(plain.logicalDocument.page(at: 0)?.string)
+        // PDFKit does not promise the order of the title and the heading in the page's string, so each is checked
+        // on its own.
+        #expect(plainText.contains("Heading"))
+        #expect(!plainText.contains { $0.isNumber })
+        settings.orgReading.defaults.sectionNumbers = .all
+        let numbered = try await renderer.prepare(source, settings: settings)
+        let numberedText = try #require(numbered.logicalDocument.page(at: 0)?.string)
+        let compact = numberedText.filter { !$0.isWhitespace }
+        #expect(compact.contains("1.Heading"))
+        #expect(compact.filter(\.isNumber) == "1")
+    }
+
     /// The page drawn on white at twice its size, as RGB rows from the top.
     private func pixels(of page: PDFPage) throws -> (width: Int, height: Int, data: [UInt8]) {
         let bounds = page.bounds(for: .mediaBox)

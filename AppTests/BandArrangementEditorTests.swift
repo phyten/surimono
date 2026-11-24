@@ -52,12 +52,13 @@ struct BandArrangementEditorTests {
         #expect(session.active == .standard && environment.preferences.bandNames == .hidden)
     }
 
-    @Test("未使用の分類は全28部品を正しい群に一度ずつ元の順と添字で投影する")
+    @Test("未使用の分類は全29部品を正しい群に一度ずつ元の順と添字で投影する")
     func paletteProjection() {
         let unused: [BandLayout.Item] = [
             .keysAndGestures, .saveAsFile, .viewOptions, .ignoreSlides, .beforePrinting,
             .margins, .alwaysShowToolbar, .selectText, .cover, .paperSeries, .paperOrientation,
-            .scrollDirection, .readingDirection, .printSettings, .print, .pageTurn, .floatOnTop, .showOnAllSpaces,
+            .readingSettings, .scrollDirection, .readingDirection, .printSettings, .print, .pageTurn, .floatOnTop,
+            .showOnAllSpaces,
             .thumbnails, .zoom, .transition, .layout, .outline, .style, .presentation,
             .pageIndicator, .formatBadge, .chapter,
         ]
@@ -67,13 +68,13 @@ struct BandArrangementEditorTests {
             groups.map { $0.parts.map(\.id) } == [
                 [.pageTurn, .thumbnails, .outline, .pageIndicator, .formatBadge, .chapter],
                 [.zoom, .transition, .layout, .presentation],
-                [.selectText, .cover, .scrollDirection, .readingDirection],
+                [.selectText, .cover, .readingSettings, .scrollDirection, .readingDirection],
                 [.ignoreSlides, .margins, .paperSeries, .paperOrientation, .style],
                 [.viewOptions, .alwaysShowToolbar, .floatOnTop, .showOnAllSpaces],
                 [.saveAsFile, .beforePrinting, .printSettings, .print], [.keysAndGestures],
             ])
         let parts = groups.flatMap(\.parts)
-        #expect(parts.count == 28 && Set(parts.map(\.id)).count == 28)
+        #expect(parts.count == 29 && Set(parts.map(\.id)).count == 29)
         for part in parts {
             #expect(part.location.destination == .unused)
             #expect(unused[part.location.index] == part.id)
@@ -247,15 +248,27 @@ struct BandArrangementEditorTests {
         let session = environment.session
         session.select(.part(.pageTurn))
         session.moveSelection(by: -1)
-        #expect(session.draft.split.bottomRight == [.part(.chapter), .part(.pageTurn), .part(.pageIndicator)])
+        #expect(
+            session.draft.split.bottomRight == [
+                .part(.chapter), .part(.pageTurn), .part(.pageIndicator), .part(.readingSettings),
+            ])
         #expect(!session.canMove(location(.zone(.bottomRight), 0), by: -1))
         session.moveSelection(by: -1)
-        #expect(session.draft.split.bottomRight == [.part(.pageTurn), .part(.chapter), .part(.pageIndicator)])
+        #expect(
+            session.draft.split.bottomRight == [
+                .part(.pageTurn), .part(.chapter), .part(.pageIndicator), .part(.readingSettings),
+            ])
         session.moveSelection(by: -1)
-        #expect(session.draft.split.bottomRight == [.part(.pageTurn), .part(.chapter), .part(.pageIndicator)])
+        #expect(
+            session.draft.split.bottomRight == [
+                .part(.pageTurn), .part(.chapter), .part(.pageIndicator), .part(.readingSettings),
+            ])
         session.moveSelection(by: 1)
         session.moveSelection(by: 1)
-        #expect(session.draft.split.bottomRight == [.part(.chapter), .part(.pageIndicator), .part(.pageTurn)])
+        #expect(
+            session.draft.split.bottomRight == [
+                .part(.chapter), .part(.pageIndicator), .part(.pageTurn), .part(.readingSettings),
+            ])
         session.moveSelection(to: .zone(.topLeft))
         #expect(session.draft.split.topLeft == [.part(.formatBadge), .part(.pageTurn)])
         session.insertSeparatorAfterSelection()
@@ -275,7 +288,7 @@ struct BandArrangementEditorTests {
         session.moveSelection(to: .zone(.bottomRight))
         #expect(
             session.draft.split.bottomRight == [
-                .part(.chapter), .part(.pageIndicator), .part(.pageTurn), .part(.print),
+                .part(.chapter), .part(.pageIndicator), .part(.pageTurn), .part(.readingSettings), .part(.print),
             ])
     }
 
@@ -570,16 +583,19 @@ struct BandArrangementEditorTests {
         #expect(session.proposal(for: .zone(.bottomRight, index: 2)) == .copy)
         #expect(session.proposal(for: .unused) == .forbidden)
         #expect(session.drop(payload, on: .zone(.bottomRight, index: 2)))
-        #expect(session.draft.split.bottomRight == [.part(.chapter), .part(.pageIndicator), .separator])
+        #expect(
+            session.draft.split.bottomRight == [
+                .part(.chapter), .part(.pageIndicator), .separator, .part(.readingSettings),
+            ])
         // A separator dragged off the zones is taken away; a part dragged there stays.
         payload = session.beginDrag(.entry(location(.zone(.bottomRight), 2), .separator))
         #expect(session.proposal(for: .outside) == .move)
         #expect(session.drop(payload, on: .outside))
-        #expect(session.draft.split.bottomRight == [.part(.chapter), .part(.pageIndicator)])
+        #expect(session.draft.split.bottomRight == [.part(.chapter), .part(.pageIndicator), .part(.readingSettings)])
         payload = session.beginDrag(.entry(location(.zone(.bottomRight), 1), .part(.pageIndicator)))
         #expect(session.proposal(for: .outside) == .forbidden)
         #expect(!session.drop(payload, on: .outside))
-        #expect(session.draft.split.bottomRight == [.part(.chapter), .part(.pageIndicator)])
+        #expect(session.draft.split.bottomRight == [.part(.chapter), .part(.pageIndicator), .part(.readingSettings)])
     }
 
     @Test("印刷を使わない部品へ落とすと断って理由を伝える")

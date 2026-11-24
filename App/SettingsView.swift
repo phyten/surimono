@@ -507,6 +507,7 @@ struct SettingsView: View {
                     .settingSearchRow("Open Styles Folder")
                     libraryError
                 }
+            case .org: OrgReadingDefaultsPane(preferences: preferences)
             case .html:
                 Section {
                     Picker("Default HTML Preset", selection: $preferences.presetID) {

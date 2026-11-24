@@ -12,6 +12,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     case settingSets = "Setting Sets"
     case clipboard = "Clipboard"
     case html = "HTML"
+    case org = "Org"
 
     var id: String { rawValue }
     var symbol: String {
@@ -25,6 +26,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .settingSets: "slider.horizontal.3"
         // "textformat" is drawn as kana in Japanese, beside line icons; the band's palette is the same in every language.
         case .styles: "paintpalette"
+        case .org: "doc.text"
         case .html: "globe"
         case .clipboard: "doc.on.clipboard"
         }
@@ -42,7 +44,7 @@ enum SettingsGroup: String, CaseIterable {
         case .general: [.general, .keyboardShortcuts]
         case .viewing: [.view, .toolbarArrangement, .styles]
         case .printing: [.printing, .pageNumbers, .settingSets]
-        case .opening: [.clipboard, .html]
+        case .opening: [.clipboard, .org, .html]
         }
     }
 }
@@ -52,14 +54,17 @@ struct SettingsSearchRow {
     let label: String
     let anchor: String
     let words: [String]
+    let identifiers: [String]
     let heading: String?
 
     init(
-        _ section: SettingsSection, _ label: String, anchor: String? = nil, words: [String] = [], heading: String? = nil
+        _ section: SettingsSection, _ label: String, anchor: String? = nil, words: [String] = [],
+        identifiers: [String] = [], heading: String? = nil
     ) {
         self.section = section
         self.label = label
         self.anchor = anchor ?? label
+        self.identifiers = identifiers
         self.words = words
         self.heading = heading
     }
@@ -82,7 +87,7 @@ struct SettingsSearchResults {
     fileprivate var ranks: [SettingsSection: Rank] = [:]
 
     fileprivate struct Rank: Comparable {
-        enum Source: Int { case section, setting, command }
+        enum Source: Int { case identifier, section, setting, command }
         enum Match: Int, Comparable {
             case exact, prefix, substring, keyword
             static func < (lhs: Self, rhs: Self) -> Bool { lhs.rawValue < rhs.rawValue }
@@ -147,6 +152,9 @@ enum SettingsCatalogue {
             .init(.styles, "Default Typeface", words: ["LaTeX Typeface", "As the Style"]),
             .init(.styles, "Open Styles Folder"),
             .init(.styles, "Reload", anchor: "Open Styles Folder"),
+            .init(.org, "Heading Numbers", identifiers: ["num", ".org"]),
+            .init(.org, "Table of Contents at the Top", identifiers: ["toc", ".org"]),
+            .init(.org, "Subscripts and Superscripts", identifiers: ["^", ".org"]),
             .init(.html, "Default HTML Preset"),
             .init(.html, "Allow JavaScript in HTML"),
             .init(.html, "Open Presets Folder"),
@@ -232,7 +240,9 @@ enum SettingsCatalogue {
         var results = SettingsSearchResults()
         for row in rows {
             let rank: Rank
-            if match(row.section.rawValue) != nil {
+            if row.identifiers.contains(needle) {
+                rank = Rank(source: .identifier, match: .exact)
+            } else if match(row.section.rawValue) != nil {
                 rank = Rank(source: .section, match: .exact)
             } else {
                 let isCommand = row.section == .keyboardShortcuts || row.section == .toolbarArrangement

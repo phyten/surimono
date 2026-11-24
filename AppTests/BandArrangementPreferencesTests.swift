@@ -80,14 +80,16 @@ struct BandArrangementPreferencesTests {
                 .presentation, .style, .layout, .transition, .zoom, .thumbnails,
             ])
         #expect(
-            migrated.layouts.split.unused == [.showOnAllSpaces] + BandTestCatalog.addedItems + [.outline, .chapter])
+            migrated.layouts.split.unused == [.showOnAllSpaces] + BandTestCatalog.addedItems + [
+                .readingSettings, .outline, .chapter,
+            ])
         #expect(
             migrated.layouts.top.topRight.compactMap(\.item) == [
                 .presentation, .style, .layout, .transition, .zoom, .thumbnails, .floatOnTop, .print,
             ])
         #expect(
             migrated.layouts.top.unused == [.pageTurn] + [.showOnAllSpaces] + BandTestCatalog.addedItems + [
-                .outline, .chapter,
+                .readingSettings, .outline, .chapter,
             ])
         #expect(!preferences.showsOutlineOnBand)
         #expect(defaults.data(forKey: "bandArrangementStore") == nil)

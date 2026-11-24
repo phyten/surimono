@@ -34,9 +34,10 @@ struct OrgOptionsTests {
             #"foo:"a num:t b""#, #"foo:((x) num:t y)"#, #"foo:"a \" num:t b""#,
             #"foo:(("x)" "a\"b") num:t y)"#,
         ])
-    func compoundOptionValue(option: String) {
+    func compoundOptionValue(option: String) throws {
         let result = OrgConverter.convert("#+OPTIONS: \(option) ^:t\n* A\na_b")
-        #expect(!result.decidesHeadingNumbers)
+        let file = try #require(result.orgInstructions)
+        #expect(OrgReadingSettings().resolve(.sectionNumbers, file: file).layer == .app)
         #expect(result.body == "<h1>A</h1>\n<p>a<sub>b</sub></p>\n")
     }
 
@@ -190,9 +191,10 @@ struct OrgOptionsTests {
     }
 
     @Test("値のないキーは何も決めない")
-    func emptyValue() {
+    func emptyValue() throws {
         #expect(body("#+OPTIONS: num: toc:nil\n* A", defaults: Self.likeEmacs).hasPrefix("<h1><span"))
-        #expect(!OrgConverter.convert("#+OPTIONS: num: toc:nil\n* A").decidesHeadingNumbers)
+        let file = try #require(OrgConverter.convert("#+OPTIONS: num: toc:nil\n* A").orgInstructions)
+        #expect(OrgReadingSettings().resolve(.sectionNumbers, file: file).layer == .app)
     }
 
     @Test("ほかのキーの括弧の中にある num は指定に数えず、括弧のあとのキーは読む")
@@ -281,9 +283,9 @@ struct OrgOptionsTests {
         #expect(html.contains("<span class=\"section-number-1\">1.</span> <span class=\"org-todo\">TODO</span> A</h1>"))
     }
 
-    @Test("番号について文書が決めたかどうかを断片が伝える")
+    @Test("Org は番号が全体既定の「なし」でもテーマに番号を任せない")
     func fragmentTellsWhoDecides() {
-        #expect(!OrgConverter.convert("* A").decidesHeadingNumbers)
+        #expect(OrgConverter.convert("* A").decidesHeadingNumbers)
         #expect(OrgConverter.convert("#+OPTIONS: num:nil\n* A").decidesHeadingNumbers)
         #expect(OrgConverter.convert("#+OPTIONS: NUM:nil\n* A").decidesHeadingNumbers)
         #expect(OrgConverter.convert("#+OPTIONS: num:t\n* A").decidesHeadingNumbers)

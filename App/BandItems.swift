@@ -16,7 +16,7 @@ extension BandLayout.Item {
 
     var hasCompactForm: Bool {
         switch self {
-        case .presentation, .style, .outline, .transition, .print,
+        case .presentation, .style, .outline, .readingSettings, .transition, .print,
             .readingDirection, .scrollDirection, .paperOrientation, .paperSeries, .cover, .selectText,
             .alwaysShowToolbar, .margins, .printSettings, .ignoreSlides, .beforePrinting, .viewOptions,
             .saveAsFile, .keysAndGestures:
@@ -48,6 +48,7 @@ extension BandLayout.Item {
             case .style: paper && (model.usesPrintTheme || model.usesHTMLPreset)
             // Whether the band shows them is the arrangement's business; these say only what the document allows.
             case .chapter: paper && model.hasOutline && model.chapterEntries.contains { $0.pageIndex != nil }
+            case .readingSettings: model.offersOrgReading
             case .outline: model.hasContents && model.imageBundle == nil
             case .pageTurn: paper && model.pageCount > 1
             case .zoom: paper ? model.zoom > 1.001 : abs(model.webZoom - 1) > 0.001
@@ -90,6 +91,14 @@ struct BandItemView: View {
             } else {
                 FormatBadge(text: model.formatBadge)
             }
+        case .readingSettings:
+            BandDrawerButton(
+                title: "Reading Settings", symbol: "sidebar.right", showsName: form == .full,
+                selected: model.isReadingPanelOpen, showsDot: model.orgDocumentReading.changedCount > 0
+            ) {
+                model.isReadingPanelOpen.toggle()
+            }.help("Reading Settings")
+                .accessibilityValue(Text("Changed in This Document: \(model.orgDocumentReading.changedCount)"))
         case .chapter: CurrentChapterButton(model: model, trailing: trailing)
         case .pageIndicator: PageIndicatorButton(model: model)
         case .pageTurn: PageTurnButtons(model: model)
@@ -272,14 +281,16 @@ private struct BandDrawerButton: View {
     let symbol: String
     let showsName: Bool
     let selected: Bool
+    var showsDot = false
     let action: () -> Void
     @State private var hovered = false
 
     var body: some View {
         Button(action: action) {
             let label = Label(title, systemImage: symbol)
-            Group {
+            HStack(spacing: 3) {
                 if showsName { label.labelStyle(.titleAndIcon) } else { label.labelStyle(.iconOnly) }
+                if showsDot { Circle().frame(width: 4, height: 4).accessibilityHidden(true) }
             }
             .padding(.horizontal, 6)
             .padding(.vertical, 3)

@@ -79,7 +79,9 @@ struct BandArrangementStoreTests {
         #expect(store.active == .user(id))
         #expect(store.sets.first?.id == id && store.sets.first?.name == "Book")
         #expect(
-            store.activeLayouts.split.bottomRight.compactMap(\.item) == [.chapter, .pageIndicator, .pageTurn, .print])
+            store.activeLayouts.split.bottomRight.compactMap(\.item) == [
+                .chapter, .pageIndicator, .pageTurn, .readingSettings, .print,
+            ])
         #expect(throws: BandArrangementStoreError.duplicateIdentity) {
             try store.insert(BandArrangementSet(id: id, name: "Other"))
         }

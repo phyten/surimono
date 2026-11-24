@@ -34,6 +34,7 @@ public enum BandLayout {
         case saveAsFile = "saveAsFile"
         case keysAndGestures = "keysAndGestures"
         case chapter = "chapter"
+        case readingSettings = "readingSettings"
 
         /// Tools of one group sit together, and a thin separator divides neighbouring groups. The title's parts and
         /// Print stand outside the groups.
@@ -41,7 +42,7 @@ public enum BandLayout {
             switch self {
             case .formatBadge, .pageIndicator, .pageTurn, .print, .chapter: nil
             case .presentation, .ignoreSlides: 0
-            case .style, .outline: 1
+            case .style, .outline, .readingSettings: 1
             case .layout, .transition, .readingDirection, .scrollDirection, .cover: 2
             case .zoom, .thumbnails, .selectText: 3
             case .floatOnTop, .showOnAllSpaces, .alwaysShowToolbar, .viewOptions: 4
@@ -105,8 +106,9 @@ public enum BandLayout {
     /// are small icons whose state shows at a glance, so they stay until only Print is left.
     public static let steps: [Step] = [
         .compact(.formatBadge), .compact(.style), .compact(.transition), .compact(.presentation), .compact(.outline),
-        .compact(.thumbnails),
-        .remove(.chapter), .remove(.formatBadge), .remove(.pageIndicator), .remove(.style), .remove(.transition),
+        .compact(.thumbnails), .compact(.readingSettings),
+        .remove(.chapter), .remove(.readingSettings), .remove(.formatBadge), .remove(.pageIndicator), .remove(.style),
+        .remove(.transition),
         .remove(.layout), .remove(.outline), .remove(.presentation), .remove(.thumbnails), .remove(.zoom),
         .remove(.floatOnTop), .remove(.showOnAllSpaces), .compact(.print),
     ]
@@ -114,8 +116,9 @@ public enum BandLayout {
     /// The bottom band gives way the same way, but the page indicator is its reason to be there, so it stays last.
     public static let bottomSteps: [Step] = [
         .compact(.formatBadge), .compact(.style), .compact(.transition), .compact(.presentation), .compact(.outline),
-        .compact(.thumbnails),
-        .remove(.chapter), .remove(.transition), .remove(.layout), .remove(.pageTurn), .remove(.style),
+        .compact(.thumbnails), .compact(.readingSettings),
+        .remove(.chapter), .remove(.readingSettings), .remove(.transition), .remove(.layout), .remove(.pageTurn),
+        .remove(.style),
         .remove(.outline),
         .remove(.presentation), .remove(.thumbnails), .remove(.zoom), .remove(.pageIndicator),
     ]
@@ -249,10 +252,12 @@ public enum BandLayout {
             return availableItems.contains(.thumbnails) && !availableItems.contains(.outline)
                 && expected.withBundleEntryAtContents == entries
         }
+        let current = BandArrangement.standard(for: mode)
+        let currentTrailing = position == .top ? current.topRight : current.bottomRight
         let standardSpacing =
             follows(leading, order: standardLeading)
             && (follows(trailing, order: standardTrailing)
-                || (mode == .top && follows(trailing, order: BandArrangement.standard(for: .top).topRight)))
+                || follows(trailing, order: currentTrailing))
         let widths = Dictionary(
             uniqueKeysWithValues: (leading + trailing).compactMap(\.item).filter(availableItems.contains).map {
                 ($0, measurements.items[$0] ?? Widths(full: 0))
@@ -325,7 +330,7 @@ public enum BandLayout {
     }
 
     private static let additionalCompactOrder: [Item] = [
-        .keysAndGestures, .saveAsFile, .ignoreSlides, .printSettings, .margins, .paperSeries,
+        .readingSettings, .keysAndGestures, .saveAsFile, .ignoreSlides, .printSettings, .margins, .paperSeries,
         .paperOrientation, .cover, .readingDirection, .scrollDirection, .alwaysShowToolbar,
         .viewOptions, .beforePrinting, .selectText,
     ]

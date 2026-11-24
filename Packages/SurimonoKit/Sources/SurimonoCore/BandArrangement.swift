@@ -121,6 +121,12 @@ public struct BandArrangement: Codable, Equatable, Sendable {
                     .topRight: tools + [.part(.print)],
                 ], unused: [.pageTurn])
         }
+        if !includesLegacyParts {
+            switch mode {
+            case .split: arrangement.bottomRight.append(.part(.readingSettings))
+            case .top: arrangement.topRight.insert(.part(.readingSettings), at: arrangement.topRight.count - 1)
+            }
+        }
         let known = Set(knownItems).union([.print])
         for zone in BandZoneID.allCases {
             arrangement[zone].removeAll { entry in entry.item.map { !known.contains($0) } ?? false }

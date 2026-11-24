@@ -4,6 +4,7 @@ import Foundation
 import PDFKit
 import SurimonoCore
 import SurimonoRendering
+import SwiftUI
 import Testing
 
 @testable import Surimono
@@ -63,6 +64,280 @@ struct DocumentSettingsFlowTests {
     private func open(_ model: DocumentViewModel) async throws {
         model.start()
         try await waitUntil { model.contentHash != nil && model.result != nil && !model.isRendering }
+    }
+
+    @Test("Org の全体既定は文書に保存せず、変更した項目だけを内容ハッシュから復元する", .timeLimit(.minutes(1)))
+    func orgReadingPreferences() async throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        #expect(fixture.preferences.orgReadingDefaults == nil)
+        fixture.preferences.orgReadingDefaults = .init(sectionNumbers: .all, tableOfContents: .off, scripts: .braces)
+        let prefs = AppPreferences(defaults: fixture.suite.defaults)
+        let source = Data("* A".utf8)
+        let page = pdf("A", pages: 1)
+        func open() async throws -> DocumentViewModel {
+            let model = DocumentViewModel(
+                data: source, fileURL: nil, format: .org, preferences: prefs, library: fixture.library,
+                renderer: DocumentRenderer(paginate: { _ in PDFDocument(data: page)! }), settingsStore: fixture.store)
+            try await self.open(model)
+            return model
+        }
+        let first = try await open()
+        #expect(first.renderSettings?.orgReading.defaults.sectionNumbers == .all)
+        first.rememberedSettingsDidChange()
+        first.flushPendingSettings()
+        #expect(fixture.store.keys().isEmpty)
+
+        var settings = first.orgReading
+        settings.set(.off, for: .sectionNumbers, file: .init())
+        first.orgDocumentReading = settings.document
+        first.rememberedSettingsDidChange()
+        first.flushPendingSettings()
+        first.stop()
+        #expect(fixture.store.record(for: ContentHash.of(source).hex)?.orgReading?.optionsLine == "#+OPTIONS: num:nil")
+
+        let second = try await open()
+        defer { second.stop() }
+        #expect(second.renderSettings?.orgReading.document == settings.document)
+        prefs.orgReadingDefaults = nil
+        #expect(AppPreferences(defaults: fixture.suite.defaults).orgReadingDefaults == nil)
+    }
+
+    @Test("Org のパネルで変えると保存して組み直し、既定に戻すと継承して開いたまま全体設定に追従する", .timeLimit(.minutes(1)))
+    func orgPanelEdits() async throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        let data = Data("* One\nA_1".utf8)
+        let key = ContentHash.of(data).hex
+        let page = pdf("One", pages: 1)
+        var output: [Bool] = []
+        let model = DocumentViewModel(
+            data: data, fileURL: try fixture.file(data, named: "one.org"), format: .org,
+            preferences: fixture.preferences, library: fixture.library,
+            renderer: DocumentRenderer(paginate: { request in
+                if case .html(let html, _) = request.source { output.append(html.contains("A<sub>1</sub>")) }
+                return PDFDocument(data: page)!
+            }), settingsStore: fixture.store)
+        let window = NSWindow(
+            contentRect: NSRect(x: 40, y: 40, width: 900, height: 640),
+            styleMask: [.titled, .resizable], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        defer {
+            window.close()
+            model.stop()
+        }
+        window.contentView = NSHostingView(rootView: DocumentContent(model: model))
+        window.orderBack(nil)
+        try await waitUntil { model.orgFileInstructions != nil && model.contentHash != nil && !model.isRendering }
+        model.isReadingPanelOpen = true
+        #expect(model.showsReadingPanel)
+        #expect(fixture.store.keys().isEmpty && output.last == false)
+        model.setOrgValue(.all, for: .scripts)
+        try await waitUntil {
+            output.last == true && fixture.store.record(for: key)?.orgReading?.optionsLine == "#+OPTIONS: ^:t"
+        }
+        model.setOrgValue(.braces, for: .scripts)
+        try await waitUntil { output.last == false && fixture.store.record(for: key)?.orgReading == nil }
+        fixture.preferences.setOrgDefaults(.init(sectionNumbers: .off, tableOfContents: .off, scripts: .all))
+        try await waitUntil { output.last == true && !model.isRendering }
+        #expect(model.orgDocumentReading.changedCount == 0)
+    }
+
+    @Test("Org の既定には変更した値だけを写し、上書きを切ってもファイルが指定しない項目は残る", .timeLimit(.minutes(1)))
+    func promoteOrgChanges() async throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        let page = pdf("One", pages: 1)
+        let model = DocumentViewModel(
+            data: Data("#+OPTIONS: toc:2 num:t\n* One".utf8), fileURL: nil, format: .org,
+            preferences: fixture.preferences, library: fixture.library,
+            renderer: DocumentRenderer(paginate: { _ in PDFDocument(data: page)! }), settingsStore: fixture.store)
+        defer { model.stop() }
+        try await open(model)
+        let file = try #require(model.orgFileInstructions)
+        model.setOrgValue(.levels(1), for: .tableOfContents)
+        #expect(model.orgDocumentReading.changedCount == 0)
+        model.enableOrgFileChanges()
+        #expect(model.orgReading.fileOverrideCount(file: file) == 0)
+        model.setOrgValue(.levels(1), for: .tableOfContents)
+        model.setOrgValue(.off, for: .scripts)
+        #expect(model.orgReading.fileOverrideCount(file: file) == 1)
+        model.makeOrgDefaults()
+        #expect(
+            fixture.preferences.orgReadingDefaults
+                == .init(sectionNumbers: .off, tableOfContents: .levels(1), scripts: .off))
+        #expect(model.orgDocumentReading.changedCount == 2)
+        model.setOrgValue(.levels(2), for: .tableOfContents)
+        #expect(model.orgReading.fileOverrideCount(file: file) == 0)
+        model.setOrgValue(.off, for: .tableOfContents)
+        let lock = model.lockOrgFileInstructions()
+        guard case .needsConfirmation(let approval) = lock else {
+            Issue.record("ファイル指定の上書きを破棄する前に確認する")
+            return
+        }
+        #expect(model.lockOrgFileInstructions(confirming: approval) == .finished)
+        #expect(model.orgDocumentReading.optionsLine == "#+OPTIONS: ^:nil")
+        #expect(
+            !model.orgDocumentReading.allowsFileChanges
+                && model.orgReading.resolve(.tableOfContents, file: file).value == .levels(2))
+        model.resetOrgValues()
+        #expect(model.orgDocumentReading == .init())
+    }
+
+    @Test(
+        "上書きの破棄は確認した原稿世代・項目・保存値が一致したときだけ実行する", .timeLimit(.minutes(1)),
+        arguments: [false, true])
+    func orgDiscardAfterReload(initiallyLocksContents: Bool) async throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        let page = pdf("A")
+        let initial = initiallyLocksContents ? "num:nil toc:nil" : "num:nil"
+        let model = DocumentViewModel(
+            data: Data("#+OPTIONS: \(initial)\n* A".utf8), fileURL: nil, format: .org,
+            preferences: fixture.preferences, library: fixture.library,
+            renderer: DocumentRenderer(paginate: { _ in PDFDocument(data: page)! }), settingsStore: fixture.store)
+        defer { model.stop() }
+        try await open(model)
+        model.enableOrgFileChanges()
+        model.setOrgValue(.all, for: .sectionNumbers)
+        model.setOrgValue(.all, for: .tableOfContents)
+        model.setOrgValue(.all, for: .scripts)
+        func proposal(_ result: OrgFileLockResult) throws -> OrgDiscardConfirmation {
+            let confirmation: OrgDiscardConfirmation? =
+                if case .needsConfirmation(let approval) = result { approval } else { nil }
+            return try #require(confirmation)
+        }
+        let first = try proposal(model.lockOrgFileInstructions())
+        #expect(first.overrides.optionsLine == (initiallyLocksContents ? "#+OPTIONS: num:t toc:t" : "#+OPTIONS: num:t"))
+        model.replaceContent(Data("#+OPTIONS: ^:nil\n* A".utf8), format: .org)
+        #expect(model.lockOrgFileInstructions(confirming: first) == .awaitingInstructions)
+        try await waitUntil { model.orgFileInstructions != nil }
+        let second = try proposal(model.lockOrgFileInstructions(confirming: first))
+        #expect(second.overrides.optionsLine == "#+OPTIONS: ^:t")
+        #expect(model.orgDocumentReading.optionsLine == "#+OPTIONS: num:t toc:t ^:t")
+        model.setOrgValue(.braces, for: .scripts)
+        let third = try proposal(model.lockOrgFileInstructions(confirming: second))
+        #expect(third.overrides.optionsLine == "#+OPTIONS: ^:{}")
+        model.replaceContent(Data("#+OPTIONS: ^:t\n* A".utf8), format: .org)
+        try await waitUntil { model.orgFileInstructions != nil }
+        let fourth = try proposal(model.lockOrgFileInstructions(confirming: third))
+        #expect(fourth.overrides == third.overrides && fourth != third)
+        #expect(model.orgDocumentReading.allowsFileChanges)
+        model.setOrgValue(.levels(2), for: .sectionNumbers)
+        #expect(model.lockOrgFileInstructions(confirming: fourth) == .finished)
+        #expect(!model.orgDocumentReading.allowsFileChanges)
+        #expect(model.orgDocumentReading.optionsLine == "#+OPTIONS: num:2 toc:t")
+    }
+
+    @Test("破棄確認中に読み直すとパネルが新しい対象を一度だけ示し、キャンセル後も再度確認してから破棄する", .timeLimit(.minutes(1)))
+    func orgPanelRetriesDiscard() async throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        let page = pdf("A")
+        let (gate, release) = AsyncStream<Void>.makeStream()
+        defer { release.finish() }
+        var readingReplacement = false
+        let model = DocumentViewModel(
+            data: Data("#+OPTIONS: num:nil\n* Original".utf8), fileURL: nil, format: .org,
+            preferences: fixture.preferences, library: fixture.library,
+            renderer: DocumentRenderer(paginate: { request in
+                if case .html(let html, _) = request.source, html.contains("Replacement") {
+                    readingReplacement = true
+                    for await _ in gate {}
+                }
+                return try #require(PDFDocument(data: page))
+            }), settingsStore: fixture.store)
+        defer { model.stop() }
+        try await open(model)
+        model.enableOrgFileChanges()
+        model.setOrgValue(.all, for: .sectionNumbers)
+        model.setOrgValue(.all, for: .scripts)
+
+        let screen = OrgReadingTestWindow(width: OrgReadingPanel.width, height: 600) { OrgReadingPanel(model: model) }
+        screen.window.orderBack(nil)
+        defer { screen.window.close() }
+        func turnOff() throws {
+            screen.host.layoutSubtreeIfNeeded()
+            // The file override is the panel's only checked checkbox. Send the click to this window alone.
+            let checked = screen.views(NSButton.self).filter {
+                !($0 is NSPopUpButton) && $0.state == .on && $0.isEnabled
+            }
+            try #require(checked.count == 1)
+            let button = checked[0]
+            let center = button.convert(CGPoint(x: button.bounds.midX, y: button.bounds.midY), to: nil)
+            for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+                let event = try #require(
+                    NSEvent.mouseEvent(
+                        with: type, location: center, modifierFlags: [],
+                        timestamp: ProcessInfo.processInfo.systemUptime,
+                        windowNumber: screen.window.windowNumber, context: nil, eventNumber: 0, clickCount: 1,
+                        pressure: 1))
+                screen.window.sendEvent(event)
+            }
+        }
+        var previousSheet: NSWindow?
+        var shown: [String] = []
+        func sheet() -> NSWindow? {
+            let visible = NSApp.windows.filter { $0.isVisible && $0.sheetParent === screen.window }
+            #expect(visible.count <= 1)
+            guard let sheet = visible.first, let content = sheet.contentView else {
+                previousSheet = nil
+                return nil
+            }
+            if sheet !== previousSheet,
+                let line = screen.views(NSTextField.self, in: content).map(\.stringValue).first(where: {
+                    $0.hasPrefix("#+OPTIONS:")
+                })
+            {
+                shown.append(line)
+                previousSheet = sheet
+            }
+            return sheet
+        }
+        func press(discard: Bool) throws {
+            let content = try #require(sheet()?.contentView)
+            let button = try #require(
+                screen.views(NSButton.self, in: content).first {
+                    discard ? $0.title == String(localized: "Discard") : $0.keyEquivalent == "\u{1B}"
+                })
+            button.performClick(nil)
+        }
+        try turnOff()
+        try await waitUntil { sheet() != nil && shown == ["#+OPTIONS: num:t"] }
+        model.replaceContent(Data("#+OPTIONS: ^:nil\n* Replacement".utf8), format: .org)
+        try await waitUntil { readingReplacement }
+        try #require(model.orgFileInstructions == nil)
+        try press(discard: true)
+        try await waitUntil { sheet() == nil }
+        #expect(model.orgFileInstructions == nil && model.orgDocumentReading.allowsFileChanges)
+        #expect(model.orgDocumentReading.optionsLine == "#+OPTIONS: num:t ^:t")
+        release.finish()
+        try await waitUntil { sheet() != nil && shown.last == "#+OPTIONS: ^:t" }
+        try press(discard: false)
+        try await waitUntil { sheet() == nil }
+        #expect(model.orgDocumentReading.optionsLine == "#+OPTIONS: num:t ^:t")
+        // Force another completed layout while unlocked. Cancellation must leave the retry consumed.
+        model.render()
+        try await waitUntil { sheet() == nil && !model.isRendering }
+        #expect(shown == ["#+OPTIONS: num:t", "#+OPTIONS: ^:t"])
+        model.setOrgValue(.braces, for: .scripts)
+        try turnOff()
+        try await waitUntil { sheet() != nil && shown.last == "#+OPTIONS: ^:{}" }
+        try press(discard: true)
+        try await waitUntil { sheet() == nil && !model.orgDocumentReading.allowsFileChanges }
+        #expect(shown == ["#+OPTIONS: num:t", "#+OPTIONS: ^:t", "#+OPTIONS: ^:{}"])
+        #expect(model.orgDocumentReading.optionsLine == "#+OPTIONS: num:t")
+    }
+
+    @Test("プリセットは変更済みの値を実際に置き換える場合だけ確認する")
+    func orgPresetConfirmation() {
+        let emacs = OrgReadingDefaults(sectionNumbers: .all, tableOfContents: .all, scripts: .all)
+        #expect(!OrgReadingDefaultsPane.overwritesChanges(.surimono, with: emacs))
+        #expect(!OrgReadingDefaultsPane.overwritesChanges(emacs, with: emacs))
+        #expect(
+            !OrgReadingDefaultsPane.overwritesChanges(
+                .init(sectionNumbers: .all, tableOfContents: .off, scripts: .braces), with: emacs))
+        #expect(OrgReadingDefaultsPane.overwritesChanges(emacs, with: .surimono))
     }
 
     @Test("縦書きの右から左へのページ送りと冊子の右とじは既定で、文書に保存した向きととじ側を優先する")

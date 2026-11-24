@@ -12,11 +12,11 @@ struct BandLayoutTests {
     static let standardSplit: [[BandLayout.Item]] = [
         [.formatBadge], [.print],
         [.presentation, .style, .outline, .layout, .zoom, .thumbnails],
-        [.chapter, .pageIndicator, .pageTurn], standardUnused,
+        [.chapter, .pageIndicator, .pageTurn, .readingSettings], standardUnused,
     ]
     static let standardTop: [[BandLayout.Item]] = [
         [.formatBadge, .pageIndicator, .chapter],
-        [.presentation, .style, .outline, .layout, .zoom, .thumbnails, .print],
+        [.presentation, .style, .outline, .layout, .zoom, .thumbnails, .readingSettings, .print],
         [], [], [.pageTurn] + standardUnused,
     ]
     static let workedWidths: [BandLayout.Item: BandLayout.Widths] = [
@@ -121,7 +121,7 @@ struct BandLayoutTests {
             BandLayout.Item.allCases == [
                 .formatBadge, .pageIndicator, .presentation, .style, .outline, .layout, .transition, .zoom,
                 .thumbnails, .floatOnTop, .showOnAllSpaces, .pageTurn, .print,
-            ] + Self.addedItems + [.chapter])
+            ] + Self.addedItems + [.chapter, .readingSettings])
     }
 
     @Test("名前を先に省き、タイトルと操作を畳み、最前面に固定は最後まで残してから印刷をアイコンにする")
@@ -129,8 +129,9 @@ struct BandLayoutTests {
         #expect(
             BandLayout.steps == [
                 .compact(.formatBadge), .compact(.style), .compact(.transition), .compact(.presentation),
-                .compact(.outline), .compact(.thumbnails),
-                .remove(.chapter), .remove(.formatBadge), .remove(.pageIndicator), .remove(.style),
+                .compact(.outline), .compact(.thumbnails), .compact(.readingSettings),
+                .remove(.chapter), .remove(.readingSettings), .remove(.formatBadge), .remove(.pageIndicator),
+                .remove(.style),
                 .remove(.transition),
                 .remove(.layout), .remove(.outline), .remove(.presentation), .remove(.thumbnails), .remove(.zoom),
                 .remove(.floatOnTop), .remove(.showOnAllSpaces), .compact(.print),
@@ -171,8 +172,9 @@ struct BandLayoutTests {
         #expect(
             BandLayout.bottomSteps == [
                 .compact(.formatBadge), .compact(.style), .compact(.transition), .compact(.presentation),
-                .compact(.outline), .compact(.thumbnails),
-                .remove(.chapter), .remove(.transition), .remove(.layout), .remove(.pageTurn), .remove(.style),
+                .compact(.outline), .compact(.thumbnails), .compact(.readingSettings),
+                .remove(.chapter), .remove(.readingSettings), .remove(.transition), .remove(.layout),
+                .remove(.pageTurn), .remove(.style),
                 .remove(.outline),
                 .remove(.presentation), .remove(.thumbnails), .remove(.zoom), .remove(.pageIndicator),
             ])

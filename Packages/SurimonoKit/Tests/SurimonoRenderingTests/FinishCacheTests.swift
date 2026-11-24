@@ -19,6 +19,52 @@ struct FinishCacheTests {
         DocumentRenderer(paginate: { _ in try RenderingFixtures.pdf(count: 2) })
     }
 
+    private let orgSource = DocumentSource(data: Data("#+OPTIONS: toc:nil\n* A\nA_1".utf8), format: .org).named(
+        "sample.org")
+
+    @Test("Org の全体既定だけを変えると、再組版した本文に番号と下付きが反映される")
+    func orgDefaultsInvalidateCache() async throws {
+        var settings = try settings()
+        var pages: [String] = []
+        let renderer = DocumentRenderer(paginate: { request in
+            if case .html(let html, _) = request.source { pages.append(html) }
+            return try RenderingFixtures.pdf(count: 2)
+        })
+        _ = try await renderer.prepare(orgSource, settings: settings)
+        settings.orgReading.defaults.sectionNumbers = .all
+        let numbered = try await renderer.prepare(orgSource, settings: settings)
+        settings.orgReading.defaults.scripts = .all
+        _ = try await renderer.prepare(orgSource, settings: settings)
+        #expect(renderer.logicalRenderCount == 3)
+        try #require(pages.count == 3)
+        #expect(!pages[0].contains("<span class=\"section-number-") && pages[0].contains("A_1"))
+        #expect(pages[1].contains("<span class=\"section-number-1\">1.</span> A") && pages[1].contains("A_1"))
+        #expect(pages[2].contains("A<sub>1</sub>"))
+        #expect(numbered.facts?.headings.map(\.text) == ["1. A"])
+    }
+
+    @Test("Org の文書設定の目次だけを変えると、再組版した本文と見出し情報が更新される")
+    func orgDocumentValueInvalidatesCache() async throws {
+        var settings = try settings()
+        settings.orgReading.setAllowsFileChanges(true, file: .init())
+        var pages: [String] = []
+        let renderer = DocumentRenderer(paginate: { request in
+            if case .html(let html, _) = request.source { pages.append(html) }
+            return try RenderingFixtures.pdf(count: 2)
+        })
+        let first = try await renderer.prepare(orgSource, settings: settings)
+        let file = try #require(first.facts?.orgInstructions)
+        #expect(settings.orgReading.resolve(.tableOfContents, file: file).source?.fileName == "sample.org")
+        settings.orgReading.set(.levels(1), for: .tableOfContents, file: file)
+        let second = try await renderer.prepare(orgSource, settings: settings)
+        #expect(renderer.logicalRenderCount == 2)
+        try #require(pages.count == 2)
+        #expect(!pages[0].contains("<nav class=\"toc\""))
+        #expect(pages[1].contains("<nav class=\"toc\"") && pages[1].contains("<a href=\"#a\">A</a>"))
+        #expect(first.facts?.hasSourceContents == false && second.facts?.hasSourceContents == true)
+        #expect(second.facts?.headings.map(\.text) == ["A"])
+    }
+
     @Test("冊子のとじ方だけなら本文を組み直さず面付けを変える")
     func bindingComposesOnly() async throws {
         var settings = try settings(.a4BookletA5)
