@@ -185,7 +185,7 @@ private struct ContentsTabPicker: View {
     let model: DocumentViewModel
 
     var body: some View {
-        Picker("Contents", selection: Binding(get: { model.contentsTab }, set: { model.selectContentsTab($0) })) {
+        Picker("Contents", selection: model.controlBinding(get: \.contentsTab, set: { $0.selectContentsTab($1) })) {
             Text("Contents").tag(DocumentSettings.ContentsPanel.Tab.contents)
             Text("Pages Tab").tag(DocumentSettings.ContentsPanel.Tab.pages)
             if model.offersProse { Text("Writing").tag(DocumentSettings.ContentsPanel.Tab.prose) }

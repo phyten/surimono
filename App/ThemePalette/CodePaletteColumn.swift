@@ -219,7 +219,7 @@ private struct CodeBlockControls: View {
     var body: some View {
         Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
             row(
-                "Frame", selection: $model.codeBlock.frame,
+                "Frame", selection: model.controlBinding(\.codeBlock.frame),
                 options: [
                     .init(.style, "Match Style"),
                     .init(.none, "No Frame"),
@@ -228,21 +228,21 @@ private struct CodeBlockControls: View {
                     .init(.left, "Left Line"),
                 ])
             row(
-                "Line Numbers", selection: $model.codeBlock.lineNumbers,
+                "Line Numbers", selection: model.controlBinding(\.codeBlock.lineNumbers),
                 options: [
                     .init(.none, "No Numbers"),
                     .init(.all, "Every Line"),
                     .init(.everyFive, "Every 5 Lines"),
                 ])
             row(
-                "Long Lines", selection: $model.codeBlock.longLines,
+                "Long Lines", selection: model.controlBinding(\.codeBlock.longLines),
                 options: [
                     .init(.wrap, "Wrap"),
                     .init(.shrink, "Shrink the Text"),
                     .init(.cut, "Cut with a Mark"),
                 ])
             row(
-                "Language Name", selection: $model.codeBlock.languageLabel,
+                "Language Name", selection: model.controlBinding(\.codeBlock.languageLabel),
                 options: [
                     .init(.none, "No Label"),
                     .init(.corner, "Top Right"),

@@ -50,8 +50,8 @@ nonisolated struct SurimonoDocument: Sendable {
             throw CocoaError(.fileReadCorruptFile)
         }
         // Recheck the bytes that will be displayed: a file can change after its URL was inspected.
-        // Plain text is the type the router asks for when it opens a file with no type of its own (`Dockerfile`)
-        // as text. It says nothing about the file, and taking it for the file's own would end the look here.
+        // The controller uses plain text for files such as Dockerfile that have no specific content type.
+        // That routing decision must not bypass validation of the actual bytes.
         let name = file.preferredFilename ?? file.filename ?? ""
         let decision = TextFileGate.verdict(
             fileName: name, type: contentType == .plainText ? nil : contentType, data: data)

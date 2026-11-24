@@ -6,7 +6,15 @@ import SwiftUI
 
 /// Lets menus and the overlay drive the paper view of one window.
 final class PaperController {
-    fileprivate weak var view: PaperPDFView?
+    fileprivate(set) weak var view: PaperPDFView?
+    fileprivate private(set) var isClosed = false
+
+    func disconnect() {
+        isClosed = true
+        pendingChange = nil
+        view?.retire()
+        view = nil
+    }
     var onReadingJump: ((Int) -> Void)?
     var onToast: ((Toast) -> Void)?
 
@@ -100,13 +108,20 @@ struct PaperView: NSViewRepresentable {
 
     func makeNSView(context: Context) -> PaperPDFView {
         let view = PaperPDFView()
+        guard !controller.isClosed else {
+            view.retire()
+            return view
+        }
         controller.view = view
         view.onToast = controller.onToast
         view.onReadingJump = controller.onReadingJump
         return view
     }
 
+    static func dismantleNSView(_ view: PaperPDFView, coordinator: ()) { view.retire() }
+
     func updateNSView(_ view: PaperPDFView, context: Context) {
+        guard !controller.isClosed, !view.isRetired else { return }
         controller.view = view
         view.changeController = nil
         defer {
@@ -455,6 +470,35 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
 
     required init?(coder: NSCoder) { nil }
 
+    fileprivate private(set) var isRetired = false
+
+    fileprivate func retire() {
+        guard !isRetired else { return }
+        isRetired = true
+        if changeController?.view === self { changeController?.view = nil }
+        changeController = nil
+        onFindHits = nil
+        onPaperPress = nil
+        onPageChange = nil
+        onZoomChange = nil
+        onTurn = nil
+        onKey = nil
+        onShortcut = nil
+        allowsShortcutHandling = { false }
+        onReadingJump = nil
+        onToast = nil
+        onDiagram = nil
+        pendingMenu?.cancel()
+        findSearch?.cancel()
+        findSearch = nil
+        stopZoomReturn()
+        updateMagnifyMonitor()
+        updateWheelMonitor()
+        NotificationCenter.default.removeObserver(self)
+        // A gesture recognizer can retain its closed container. Unhook it from the discarded view.
+        gestureRecognizers = []
+    }
+
     isolated deinit {
         if let magnifyMonitor { NSEvent.removeMonitor(magnifyMonitor) }
         if let wheelMonitor { NSEvent.removeMonitor(wheelMonitor) }
@@ -463,6 +507,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        guard !isRetired else { return }
         updateMagnifyMonitor()
         updateWheelMonitor()
         if window == nil {
@@ -472,7 +517,8 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
         }
         // Arrow keys and the menu keys should work as soon as the window opens, without clicking the paper first.
         Task { @MainActor [weak self] in
-            guard let self, let window, window.firstResponder === window || window.firstResponder == nil else { return }
+            guard let self, !isRetired, let window, window.firstResponder === window || window.firstResponder == nil
+            else { return }
             window.makeFirstResponder(self)
         }
     }
@@ -708,7 +754,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
     /// PDFKit's scroll view takes pinches before this view sees them and rescales by itself, which the fit then undid,
     /// so a pinch snapped back. Taking the gestures before PDFKit makes every zoom this view's own.
     private func updateMagnifyMonitor() {
-        guard window != nil else {
+        guard !isRetired, window != nil else {
             if let magnifyMonitor { NSEvent.removeMonitor(magnifyMonitor) }
             magnifyMonitor = nil
             return
@@ -1095,7 +1141,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { false }
 
     private func updateWheelMonitor() {
-        guard window != nil else {
+        guard !isRetired, window != nil else {
             if let wheelMonitor { NSEvent.removeMonitor(wheelMonitor) }
             wheelMonitor = nil
             wheelSequence = WheelSequence()

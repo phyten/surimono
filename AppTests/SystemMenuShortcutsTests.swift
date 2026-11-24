@@ -389,9 +389,15 @@ struct SystemMenuShortcutsTests {
             "あ", selectedRange: NSRange(location: 0, length: 1),
             replacementRange: NSRange(location: NSNotFound, length: 0))
         #expect(editor.hasMarkedText())
+        #expect(!fixture.dispatcher.canPerform(.operation(.appOpen)))
+        #expect(!fixture.dispatcher.canPerform(.operation(.documentReload)))
         #expect(fixture.dispatcher.handle(fixture.event("r", code: 15)))
         #expect(fixture.calls.isEmpty)
         editor.unmarkText()
+        #expect(fixture.dispatcher.canPerform(.operation(.documentReload)))
+        #expect(!fixture.dispatcher.canPerform(.operation(.viewOptions)))
+        fixture.dispatcher.perform(.viewOptions)
+        #expect(fixture.calls.isEmpty)
         #expect(!editor.hasMarkedText())
         #expect(fixture.dispatcher.handle(fixture.event("r", code: 15)))
         #expect(fixture.calls == [.documentReload])
@@ -403,11 +409,86 @@ struct SystemMenuShortcutsTests {
         #expect(fixture.calls.isEmpty)
         try fixture.controller.edit(.documentReload, keys: nil)
         fixture.hotKeys.beginRecording()
+        #expect(!fixture.dispatcher.canPerform(.operation(.appSettings)))
+        #expect(!fixture.dispatcher.canPerform(.operation(.documentReload)))
         #expect(!fixture.dispatcher.handle(fixture.event("r", code: 15)))
         fixture.hotKeys.endRecording()
+        #expect(fixture.dispatcher.canPerform(.operation(.appSettings)))
         #expect(fixture.calls.isEmpty)
         #expect(fixture.dispatcher.handle(fixture.event("r", code: 15)))
         #expect(fixture.calls == [.documentReload])
+    }
+
+    @Test("実メニューを更新すると文書・設定・シートで開く・設定・再読み込みの有効状態が切り替わる")
+    func installedMenuValidation() throws {
+        let fixture = Fixture()
+        defer { fixture.close() }
+        let model = fixture.document(kind: "clipboard")
+        let documentController = MemoryDocumentWindowController(model: model) {}
+        let document = try #require(documentController.window)
+        defer { documentController.close() }
+        let settings = SettingsWindowController.makeWindow(
+            for: SettingsView(
+                preferences: fixture.preferences, library: model.library,
+                arrangementEditor: BandArrangementEditorSession(preferences: fixture.preferences)))
+        defer { settings.close() }
+        let main = try #require(NSApp.mainMenu)
+        let app = try #require(main.item(at: 0)?.submenu)
+        let file = try #require(main.item(at: 1)?.submenu)
+        let documentMenu = try #require(main.item(at: 4)?.submenu)
+        let toggle = try #require(app.items.first { $0.action == #selector(AppKitShell.toggleSettings(_:)) })
+        let open = try #require(
+            file.items.first { $0.identifier?.rawValue == SystemMenuShortcuts.accessibilityID(.appOpen) })
+        let reload = try #require(
+            documentMenu.items.first { $0.identifier?.rawValue == SystemMenuShortcuts.accessibilityID(.documentReload) }
+        )
+        let dispatcher = ShortcutDispatcher.shared
+        let systemKeyWindow = dispatcher.keyWindow
+        // An inactive CI host cannot acquire a key window. Inject only that value, keeping the
+        // production document registry, responders, sheets, installed menu and AppKit validation.
+        var selected: NSWindow?
+        dispatcher.keyWindow = { NSApp.isActive ? systemKeyWindow() : selected }
+        defer { dispatcher.keyWindow = systemKeyWindow }
+
+        func update(_ window: NSWindow, canOpen: Bool, canReload: Bool) throws {
+            selected = window
+            window.makeKeyAndOrderFront(nil)
+            try #require(dispatcher.keyWindow() === window)
+            app.update()
+            file.update()
+            documentMenu.update()
+            #expect(toggle.isEnabled == canOpen)
+            #expect(open.isEnabled == canOpen)
+            #expect(reload.isEnabled == canReload)
+        }
+        try update(document, canOpen: true, canReload: true)
+        try update(settings, canOpen: true, canReload: false)
+        try update(document, canOpen: true, canReload: true)
+
+        let sheet = NSWindow(contentRect: .zero, styleMask: [.titled], backing: .buffered, defer: false)
+        sheet.isReleasedWhenClosed = false
+        document.beginSheet(sheet)
+        defer {
+            document.endSheet(sheet)
+            sheet.orderOut(nil)
+        }
+        try #require(sheet.sheetParent === document && document.attachedSheet === sheet)
+        try update(sheet, canOpen: false, canReload: false)
+    }
+
+    @Test("適用する設定セットが消えたら実行できず、組み込みの設定セットは選べる")
+    func removedSettingSet() throws {
+        let fixture = Fixture()
+        defer { fixture.close() }
+        _ = fixture.document()
+        let set = PrintSettingSet(name: "Test", settings: DocumentSettings())
+        #expect(!fixture.dispatcher.canPerform(.setting(set.id)))
+        fixture.preferences.savePrintSettingSet(set)
+        #expect(fixture.dispatcher.canPerform(.setting(set.id)))
+        _ = fixture.preferences.removePrintSettingSet(set.id)
+        #expect(!fixture.dispatcher.canPerform(.setting(set.id)))
+        let builtIn = try #require(PrintSettingSet.builtIns(language: "en").first)
+        #expect(fixture.dispatcher.canPerform(.setting(builtIn.id)))
     }
 
     @Test("macOSが上書きした実効キーを保護し他の割当との衝突を停止する")

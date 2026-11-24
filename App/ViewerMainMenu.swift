@@ -233,8 +233,6 @@ final class ViewerMainMenu: NSObject, NSMenuDelegate, NSMenuItemValidation {
         // Observe key-window transitions, including to a window without a model.
         _ = DocumentWindows.shared.activeModel
         let model = DocumentWindows.shared.currentModel
-        let canShare = NSApp.modalWindow == nil && NSApp.keyWindow?.attachedSheet == nil
-        sharing.update(for: canShare ? model : nil)
         return .init(
             model: model, preferences: shell.environment.preferences,
             library: model?.library ?? ClipboardWindows.shared.library ?? shell.environment.library,
@@ -369,29 +367,10 @@ final class ViewerMainMenu: NSObject, NSMenuDelegate, NSMenuItemValidation {
     }
 
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
-        guard NSApp.modalWindow == nil, NSApp.keyWindow?.attachedSheet == nil else { return false }
         guard let row = item.representedObject as? DocumentMenuDescriptor, case .action(let action) = row.id else {
             return false
         }
-        let model = DocumentWindows.shared.currentModel
-        let preferences = shell.environment.preferences
-        switch action {
-        case .operation(let operation):
-            return ShortcutDispatcher.isAvailable(
-                operation, model: model, visibility: .init(model: model, preferences: preferences))
-        case .checkWriting: return model?.offersProse == true
-        case .composition: return model?.offersLaTeXComposition == true
-        case .typeface: return model?.offersTypeface == true
-        case .setting: return model != nil
-        case .replaceSetting(let id):
-            guard let set = preferences.printSettingSets.first(where: { $0.id == id }) else { return false }
-            return model?.matchesPrintSettingSet(set) == true
-        case .history(let id): return preferences.closedClipboardDocuments.entries.contains { $0.menuItem.id == id }
-        case .recentBinder(let id): return preferences.recentBinders.entries.contains { $0.id == id }
-        case .clearClipboard: return !preferences.closedClipboardDocuments.entries.isEmpty
-        case .clearBinders: return !preferences.recentBinders.entries.isEmpty
-        case .openSample: return true
-        }
+        return ShortcutDispatcher.shared.canPerform(action)
     }
 
     @objc private func invoke(_ sender: NSMenuItem) {

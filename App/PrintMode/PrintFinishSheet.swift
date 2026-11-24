@@ -79,7 +79,7 @@ struct PrintFinishSheet: View {
                 section("Booklet Binding", isFirst: true) {
                     Picker(
                         "Booklet Binding",
-                        selection: Binding(get: { model.effectiveBookletBinding }, set: { model.bookletBinding = $0 })
+                        selection: model.controlBinding(get: \.effectiveBookletBinding, set: { $0.bookletBinding = $1 })
                     ) {
                         Text("Left Binding").tag(BookletBinding.left)
                         Text("Right Binding").tag(BookletBinding.right)
@@ -111,7 +111,7 @@ struct PrintFinishSheet: View {
                 .id(PrintFinishSection.contents)
                 if model.format == .markdown, model.binder == nil {
                     section("Proof Marks") {
-                        Picker("Proof Marks", selection: $model.printFinish.proof) {
+                        Picker("Proof Marks", selection: model.controlBinding(\.printFinish.proof)) {
                             Text("Show Marks").tag(ProofMarks.shown)
                             Text("Print as Accepted").tag(ProofMarks.accepted)
                             Text("Print as Original").tag(ProofMarks.original)
@@ -120,14 +120,14 @@ struct PrintFinishSheet: View {
                     }
                 }
                 section("Footnotes") {
-                    Picker("Footnotes", selection: $model.printFinish.footnotes) {
+                    Picker("Footnotes", selection: model.controlBinding(\.printFinish.footnotes)) {
                         Text("At the End").tag(FootnotePlacement.end)
                         Text("At the Bottom of the Page (Beta)").tag(FootnotePlacement.pageBottom)
                     }
                     .labelsHidden()
                 }
                 section("Links on Paper") {
-                    Picker("Links on Paper", selection: $model.printFinish.links) {
+                    Picker("Links on Paper", selection: model.controlBinding(\.printFinish.links)) {
                         Text("As They Are").tag(PaperLinks.asIs)
                         Text("List at the End").tag(PaperLinks.endnotes)
                         Text("After the Text").tag(PaperLinks.inline)
@@ -301,14 +301,20 @@ struct PrintFinishSheet: View {
                     .labelsHidden()
                     .controlSize(.small)
                     .fixedSize()
-                    PrintTextField(title: "Date Format", text: $model.printOptions.furniture.dateFormat)
+                    PrintTextField(
+                        title: "Date Format", text: model.controlBinding(\.printOptions.furniture.dateFormat))
                 }
             }
             if choice != .none && !model.usesDocumentFurniture {
-                switchRow("Leave Out of the First Page", isOn: $model.printOptions.furniture.skipsFirstPage)
-                    .padding(.top, 8)
-                switchRow("Swap Left and Right on Spreads", isOn: $model.printOptions.furniture.swapsOnSpreads)
-                    .disabled(!model.layout.hasFacingPages)
+                switchRow(
+                    "Leave Out of the First Page", isOn: model.controlBinding(\.printOptions.furniture.skipsFirstPage)
+                )
+                .padding(.top, 8)
+                switchRow(
+                    "Swap Left and Right on Spreads",
+                    isOn: model.controlBinding(\.printOptions.furniture.swapsOnSpreads)
+                )
+                .disabled(!model.layout.hasFacingPages)
             }
         }
     }
@@ -363,12 +369,12 @@ struct PrintFinishSheet: View {
     }
 
     private var dateChoice: Binding<String> {
-        Binding(
-            get: {
+        model.controlBinding(
+            get: { model in
                 let format = model.printOptions.furniture.dateFormat
                 return Self.dateFormats.contains(format) ? format : ""
             },
-            set: { if !$0.isEmpty { model.printOptions.furniture.dateFormat = $0 } })
+            set: { if !$1.isEmpty { $0.printOptions.furniture.dateFormat = $1 } })
     }
 
     // MARK: Page breaks
@@ -388,9 +394,9 @@ struct PrintFinishSheet: View {
     private var breakDetails: some View {
         VStack(alignment: .leading, spacing: 0) {
             subheading("By Heading")
-            levelRow(level: 1, rule: $model.printFinish.breaks.h1)
-            levelRow(level: 2, rule: $model.printFinish.breaks.h2)
-            levelRow(level: 3, rule: $model.printFinish.breaks.h3)
+            levelRow(level: 1, rule: model.controlBinding(\.printFinish.breaks.h1))
+            levelRow(level: 2, rule: model.controlBinding(\.printFinish.breaks.h2))
+            levelRow(level: 3, rule: model.controlBinding(\.printFinish.breaks.h3))
             if model.format == .markdown {
                 subheading("Syntax in the Text")
                 codeRow("<!--BREAK-->", isOn: syntax(.comment), count: facts?.pageBreakCounts[.comment] ?? 0)
@@ -398,7 +404,7 @@ struct PrintFinishSheet: View {
                 codeRow("\\newpage", isOn: syntax(.newpage), count: facts?.pageBreakCounts[.newpage] ?? 0)
                 codeRow("{::pagebreak /}", isOn: syntax(.kramdown), count: facts?.pageBreakCounts[.kramdown] ?? 0)
                 switchRow(
-                    "Break at ---", isOn: $model.printFinish.breaks.breaksAtThematicBreaks,
+                    "Break at ---", isOn: model.controlBinding(\.printFinish.breaks.breaksAtThematicBreaks),
                     count: PrintModeText.format(
                         "%lld places", language: model.language, facts?.thematicBreakCount ?? 0))
                 subheading("Your Own Syntax")
@@ -414,8 +420,9 @@ struct PrintFinishSheet: View {
                     }
             }
             subheading("Paper Rules")
-            switchRow("Keep Headings with Their Text", isOn: $model.printFinish.breaks.keepsHeadingsWithText)
-            switchRow("Do Not Split Tables", isOn: $model.printFinish.breaks.keepsTablesWhole)
+            switchRow(
+                "Keep Headings with Their Text", isOn: model.controlBinding(\.printFinish.breaks.keepsHeadingsWithText))
+            switchRow("Do Not Split Tables", isOn: model.controlBinding(\.printFinish.breaks.keepsTablesWhole))
         }
     }
 
@@ -441,9 +448,9 @@ struct PrintFinishSheet: View {
     }
 
     private func syntax(_ syntax: PageBreakSyntax) -> Binding<Bool> {
-        Binding(
-            get: { !model.printFinish.breaks.ignoredSyntaxes.contains(syntax) },
-            set: { isOn in
+        model.controlBinding(
+            get: { !$0.printFinish.breaks.ignoredSyntaxes.contains(syntax) },
+            set: { model, isOn in
                 if isOn {
                     model.printFinish.breaks.ignoredSyntaxes.remove(syntax)
                 } else {
@@ -486,7 +493,7 @@ struct PrintFinishSheet: View {
             ) { model.printFinish.toc.look = $0 }
         }
         if model.printFinish.toc.mode == .front, facts?.hasSourceContents == true {
-            switchRow("Keep the Text's [TOC] as Well", isOn: $model.printFinish.toc.keepsSourceTOC)
+            switchRow("Keep the Text's [TOC] as Well", isOn: model.controlBinding(\.printFinish.toc.keepsSourceTOC))
         }
     }
 }
@@ -564,9 +571,9 @@ struct PrintMarginEditor: View {
             if model.themeFormat == .latex {
                 toggle(
                     "As the Document",
-                    isOn: Binding(
-                        get: { model.usesDocumentMargins },
-                        set: { model.printOptions.latexMargins = $0 ? .document : nil }))
+                    isOn: model.controlBinding(
+                        get: { $0.usesDocumentMargins },
+                        set: { $0.printOptions.latexMargins = $1 ? .document : nil }))
             }
             if !model.usesDocumentMargins {
                 Grid(horizontalSpacing: 6, verticalSpacing: 6) {
@@ -590,9 +597,11 @@ struct PrintMarginEditor: View {
                 .padding(.bottom, 8)
                 toggle(
                     "Keep All Four Sides Even",
-                    isOn: Binding(get: { model.printOptions.linksMargins }, set: { model.setMarginsLinked($0) }))
+                    isOn: model.controlBinding(get: \.printOptions.linksMargins, set: { $0.setMarginsLinked($1) }))
                 if model.layout.hasFacingPages, model.binder == nil {
-                    toggle("Treat Left and Right as Inside and Outside", isOn: $model.printOptions.mirrorsMargins)
+                    toggle(
+                        "Treat Left and Right as Inside and Outside",
+                        isOn: model.controlBinding(\.printOptions.mirrorsMargins))
                 }
             }
             Text("PDFs keep their own margins.")
@@ -617,9 +626,9 @@ struct PrintMarginEditor: View {
             Text(title).font(.system(size: 11)).foregroundStyle(PrintPalette.ink2)
             TextField(
                 title,
-                value: Binding(
-                    get: { unit.value(fromMillimeters: model.printOptions.margins[keyPath: side]) },
-                    set: { value in
+                value: model.controlBinding(
+                    get: { [unit] in unit.value(fromMillimeters: $0.printOptions.margins[keyPath: side]) },
+                    set: { [unit] model, value in
                         let current = model.printOptions.margins[keyPath: side]
                         if let millimeters = unit.millimeters(from: value, replacing: current) {
                             model.setMargin(side, to: millimeters)
@@ -664,7 +673,7 @@ struct PrintPrinterOptions: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             row("Output Order", hint: printerOrderHint) {
-                PrintPageOrderPicker(order: $model.printPageOrder)
+                PrintPageOrderPicker(order: model.controlBinding(\.printPageOrder))
                     .disabled(model.selectedPrinterName == nil)
                     .labelsHidden()
                     .controlSize(.small)
@@ -674,7 +683,7 @@ struct PrintPrinterOptions: View {
                 "Rotate Back Sides 180°",
                 hint: rotationHint
             ) {
-                Toggle("Rotate Back Sides 180°", isOn: $model.rotatesBackSides)
+                Toggle("Rotate Back Sides 180°", isOn: model.controlBinding(\.rotatesBackSides))
                     .toggleStyle(.switch)
                     .controlSize(.small)
                     .labelsHidden()

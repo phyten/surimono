@@ -50,15 +50,6 @@ final class OpenRouter {
                 text: text, hints: hints, title: title ?? String(localized: "Selected Text"), source: .selection,
                 window: NSApp.keyWindow, printing: printing)
         },
-        openAsText: { url, completion in
-            do {
-                try SourceFileOpening.open(url)
-                completion(true)
-            } catch {
-                NSApp.presentError(error)
-                completion(false)
-            }
-        },
         refuse: { error in
             // The words the window itself uses for the same refusal.
             NSApp.presentError(
@@ -71,7 +62,6 @@ final class OpenRouter {
     var route: (URL) -> SourceFileOpening.Route = SourceFileOpening.route(for:)
 
     private let openDocument: (URL, @escaping (Bool) -> Void) -> Void
-    private let openAsText: (URL, @escaping (Bool) -> Void) -> Void
     private let refuse: (any Error) -> Void
     private let openBundle: ([URL], [URL]) -> DocumentViewModel?
     private let openBinder: ([URL], [URL]) -> DocumentViewModel?
@@ -129,10 +119,8 @@ final class OpenRouter {
         openIncludes: @escaping (MarkdownIncludes.Plan) -> Void = { _ in },
         openWindows: @escaping () -> [DocumentViewModel] = { [] }, isActive: @escaping () -> Bool = { true },
         openText: @escaping (String, ClipboardFormatHints, String?, Bool) -> Void = { _, _, _, _ in },
-        openAsText: @escaping (URL, @escaping (Bool) -> Void) -> Void = { _, completion in completion(false) },
         refuse: @escaping (any Error) -> Void = { _ in }
     ) {
-        self.openAsText = openAsText
         self.refuse = refuse
         self.isActive = isActive
         self.openText = openText
@@ -282,8 +270,8 @@ final class OpenRouter {
     /// controller would load all of it to find out.
     private func openSingle(_ url: URL, completion: @escaping (Bool) -> Void) {
         switch route(url) {
-        case .document: openDocument(url, completion)
-        case .asText: openAsText(url, completion)
+        // The document controller resolves extensionless text to public.plain-text before reading.
+        case .document, .asText: openDocument(url, completion)
         case .refuse:
             refuse(SourceFileError.notText)
             completion(false)

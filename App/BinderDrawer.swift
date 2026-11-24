@@ -8,19 +8,31 @@ struct BinderDrawer: View {
         if let binder = model.binder {
             SidePanel("Binder", subtitle: summary(binder)) {
                 Menu {
-                    Button("Sort by Name") { binder.sortByName() }
-                        .disabled(binder.isSortedByName)
+                    Button("Sort by Name") { [weak model] in
+                        guard let model, !model.isWindowClosed else { return }
+                        model.binder?.sortByName()
+                    }
+                    .disabled(binder.isSortedByName)
                     Divider()
-                    Button("Leave Binder Mode") { model.binderExit.leave(model) }
-                        .disabled(!model.binderExit.canLeave(model))
+                    Button("Leave Binder Mode") { [weak model] in
+                        guard let model, !model.isWindowClosed else { return }
+                        model.binderExit.leave(model)
+                    }
+                    .disabled(!model.binderExit.canLeave(model))
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
                 .menuStyle(.borderlessButton)
                 .fixedSize()
-                PanelIconButton("plus", label: "Add Documents…") { model.chooseDocumentsToAdd() }
+                PanelIconButton("plus", label: "Add Documents…") { [weak model] in
+                    guard let model, !model.isWindowClosed else { return }
+                    model.chooseDocumentsToAdd()
+                }
                 if model.mode == .view {
-                    PanelIconButton("xmark", label: "Close") { model.isDrawerOpen = false }
+                    PanelIconButton("xmark", label: "Close") { [weak model] in
+                        guard let model, !model.isWindowClosed else { return }
+                        model.isDrawerOpen = false
+                    }
                 }
             } content: {
                 BinderList(model: model, binder: binder)
@@ -34,9 +46,14 @@ struct BinderDrawer: View {
                     summary: String(
                         format: String(localized: "%lld unsupported files excluded"), binder.excludedURLs.count))
                 PanelFileIssues(names: binder.missingPaths, summary: "", status: "Not Found")
-                if !binder.isSortedByName { PanelSortButton { binder.sortByName() } }
+                if !binder.isSortedByName {
+                    PanelSortButton { [weak model] in
+                        guard let model, !model.isWindowClosed else { return }
+                        model.binder?.sortByName()
+                    }
+                }
                 if model.mode == .print, model.layout.hasFacingPages {
-                    Toggle("Start Each Document on an Odd Page", isOn: $model.binderStartsOnFront)
+                    Toggle("Start Each Document on an Odd Page", isOn: model.controlBinding(\.binderStartsOnFront))
                         .font(.system(size: 11))
                 }
             }
@@ -58,19 +75,23 @@ private struct BinderList: View {
     @FocusState private var hasKeyboardFocus: Bool
 
     var body: some View {
-        ScrollViewReader { proxy in
-            List(
-                selection: Binding(
-                    get: { binder.selection }, set: { if let url = $0 { model.goToBinderDocument(url) } })
-            ) {
+        let select = model.windowAction { $0.goToBinderDocument($1) }
+        let selection = model.controlBinding(
+            get: { $0.binder?.selection }, set: { model, url in if let url { model.goToBinderDocument(url) } })
+        return ScrollViewReader { [weak model, binder, pointedRow = $pointedRow, focus = $hasKeyboardFocus] proxy in
+            List(selection: selection) {
                 ForEach(Array(binder.items.enumerated()), id: \.element.id) { index, item in
                     BinderRow(
-                        binder: binder, item: item, index: index, onRemove: { model.removeFromBinder(item.url) },
+                        binder: binder, item: item, index: index,
+                        onRemove: { [weak model] in
+                            guard let model, !model.isWindowClosed else { return }
+                            model.removeFromBinder(item.url)
+                        },
                         onPoint: { isOver in
                             if isOver {
-                                pointedRow = item.url
-                            } else if pointedRow == item.url {
-                                pointedRow = nil
+                                pointedRow.wrappedValue = item.url
+                            } else if pointedRow.wrappedValue == item.url {
+                                pointedRow.wrappedValue = nil
                             }
                         }
                     )
@@ -83,34 +104,49 @@ private struct BinderList: View {
                     }
                     .onGeometryChange(for: CGRect.self) {
                         $0.frame(in: .global)
-                    } action: { frame in
+                    } action: { [weak model] frame in
+                        guard let model, !model.isWindowClosed else { return }
                         model.drop.rowFrames[item.url] = frame
                     }
                     .contextMenu {
-                        if binder.items.count > 1 { Button("Remove from List") { model.removeFromBinder(item.url) } }
+                        if binder.items.count > 1 {
+                            Button("Remove from List") { [weak model] in
+                                guard let model, !model.isWindowClosed else { return }
+                                model.removeFromBinder(item.url)
+                            }
+                        }
                     }
                 }
-                .onMove { binder.move(fromOffsets: $0, toOffset: $1) }
+                .onMove { [weak model] offsets, destination in
+                    guard let model, !model.isWindowClosed else { return }
+                    binder.move(fromOffsets: offsets, toOffset: destination)
+                }
             }
             .listStyle(.sidebar)
             // The sidebar style insets its rows; here the panel's own padding does that.
             .padding(.horizontal, -10)
             .scrollContentBackground(.hidden)
             .background(
-                SelectedRowClicks(pointedRow: pointedRow, selection: binder.selection) { model.goToBinderDocument($0) }
+                SelectedRowClicks(
+                    pointedRow: pointedRow.wrappedValue, selection: binder.selection, onClick: select)
             )
-            .focused($hasKeyboardFocus)
-            .onChange(of: hasKeyboardFocus) { _, focused in model.shortcutListFocused = focused }
+            .focused(focus)
+            .onChange(of: focus.wrappedValue) { [weak model] _, focused in
+                guard let model, !model.isWindowClosed else { return }
+                model.shortcutListFocused = focused
+            }
             .onChange(of: binder.selection) { _, url in
                 if let url { proxy.scrollTo(url) }
             }
             .animation(.easeOut(duration: 0.2), value: binder.flashedURLs)
             .onGeometryChange(for: CGRect.self) {
                 $0.frame(in: .global)
-            } action: { frame in
+            } action: { [weak model] frame in
+                guard let model, !model.isWindowClosed else { return }
                 model.drop.listFrame = frame
             }
-            .onDisappear {
+            .onDisappear { [weak model] in
+                guard let model, !model.isWindowClosed else { return }
                 model.drop.listFrame = nil
                 model.shortcutListFocused = false
             }

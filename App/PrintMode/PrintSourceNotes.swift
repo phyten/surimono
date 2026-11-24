@@ -63,8 +63,8 @@ struct PrintSourceNotes: View {
             .fixedSize(horizontal: false, vertical: true)
             Picker(
                 "Slides to Print",
-                selection: Binding(
-                    get: { model.printsCurrentSlideOnly }, set: { model.setPrintsCurrentSlideOnly($0) })
+                selection: model.controlBinding(
+                    get: \.printsCurrentSlideOnly, set: { $0.setPrintsCurrentSlideOnly($1) })
             ) {
                 Text("All Slides").tag(false)
                 Text("Current Slide").tag(true)

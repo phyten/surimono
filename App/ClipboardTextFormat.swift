@@ -126,8 +126,7 @@ struct TextFormatPicker: View {
     var body: some View {
         Picker(
             "Open As",
-            selection: Binding(
-                get: { model.textKind ?? .plainText }, set: { model.reopenText(as: $0) })
+            selection: model.controlBinding(get: { $0.textKind ?? .plainText }, set: { $0.reopenText(as: $1) })
         ) {
             ForEach(ClipboardTextKind.choosable, id: \.self) { kind in
                 Text(verbatim: ClipboardFormatText.name(kind)).tag(kind)

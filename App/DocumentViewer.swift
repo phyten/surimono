@@ -68,7 +68,8 @@ struct DocumentContent: View {
             if model.mode != .view { PrintModeToolbarPlaceholder() }
         }
         .background(
-            WindowReader { window in
+            WindowReader { [weak model] window in
+                guard let model, !model.isWindowClosed else { return }
                 ViewerWindow.configure(window)
                 model.window = window
                 DocumentWindows.shared.register(model, for: window)
@@ -92,10 +93,11 @@ struct DocumentContent: View {
             .ignoresSafeArea()
         }
         .onAppear {
+            guard !model.isWindowClosed else { return }
             WelcomeController.shared.close()
             model.start()
         }
-        .onDisappear { model.stop() }
+        .onDisappear { if !model.isWindowClosed { model.stop() } }
         .sheet(item: $model.duplexTestResult) { test in
             DuplexTestSheet(model: model, test: test)
         }
@@ -193,8 +195,10 @@ struct WindowReader: NSViewRepresentable {
     func makeNSView(context: Context) -> ReaderView { ReaderView(onWindow: onWindow) }
     func updateNSView(_ view: ReaderView, context: Context) {}
 
+    static func dismantleNSView(_ view: ReaderView, coordinator: ()) { view.onWindow = nil }
+
     final class ReaderView: NSView {
-        let onWindow: (NSWindow) -> Void
+        var onWindow: ((NSWindow) -> Void)?
         init(onWindow: @escaping (NSWindow) -> Void) {
             self.onWindow = onWindow
             super.init(frame: .zero)
@@ -208,7 +212,7 @@ struct WindowReader: NSViewRepresentable {
             // window from inside that update can crash it, so wait until the update is done.
             Task { @MainActor [weak self] in
                 guard let self, let window else { return }
-                onWindow(window)
+                onWindow?(window)
             }
         }
     }

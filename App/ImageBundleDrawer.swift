@@ -9,10 +9,16 @@ struct ImageBundleDrawer: View {
         if let bundle = model.imageBundle {
             SidePanel("Image Order", subtitle: String(format: String(localized: "%lld images"), bundle.items.count)) {
                 if bundle.archiveURL == nil {
-                    PanelIconButton("plus", label: "Add Documents…") { model.chooseDocumentsToAdd() }
+                    PanelIconButton("plus", label: "Add Documents…") { [weak model] in
+                        guard let model, !model.isWindowClosed else { return }
+                        model.chooseDocumentsToAdd()
+                    }
                 }
                 if model.mode == .view {
-                    PanelIconButton("xmark", label: "Close") { model.setSideListOpen(false) }
+                    PanelIconButton("xmark", label: "Close") { [weak model] in
+                        guard let model, !model.isWindowClosed else { return }
+                        model.setSideListOpen(false)
+                    }
                 }
             } content: {
                 ImageBundleList(model: model, bundle: bundle)
@@ -32,7 +38,12 @@ struct BundlePageActions: View {
             names: bundle.excludedSummary,
             summary: String(
                 format: String(localized: "%lld non-image files excluded"), bundle.excludedPaths.count))
-        if !bundle.isSortedByName { PanelSortButton { bundle.sortByName() } }
+        if !bundle.isSortedByName {
+            PanelSortButton { [weak model] in
+                guard let model, !model.isWindowClosed else { return }
+                model.imageBundle?.sortByName()
+            }
+        }
     }
 }
 
@@ -42,9 +53,11 @@ private struct ImageBundleList: View {
     @State private var pointedRow: URL?
 
     var body: some View {
-        ScrollViewReader { proxy in
-            List(selection: Binding(get: { bundle.selection }, set: { if let url = $0 { model.goToBundleImage(url) } }))
-            {
+        let select = model.windowAction { $0.goToBundleImage($1) }
+        let selection = model.controlBinding(
+            get: { $0.imageBundle?.selection }, set: { model, url in if let url { model.goToBundleImage(url) } })
+        return ScrollViewReader { [weak model, bundle, pointedRow = $pointedRow] proxy in
+            List(selection: selection) {
                 ForEach(Array(bundle.items.enumerated()), id: \.element.id) { index, item in
                     HStack(spacing: 6) {
                         Text(verbatim: "\(index + 1)").font(.system(size: 11)).monospacedDigit()
@@ -59,9 +72,9 @@ private struct ImageBundleList: View {
                     .contentShape(Rectangle())
                     .onHover { isOver in
                         if isOver {
-                            pointedRow = item.url
-                        } else if pointedRow == item.url {
-                            pointedRow = nil
+                            pointedRow.wrappedValue = item.url
+                        } else if pointedRow.wrappedValue == item.url {
+                            pointedRow.wrappedValue = nil
                         }
                     }
                     .tag(item.url).id(item.url).help(item.name)
@@ -72,27 +85,36 @@ private struct ImageBundleList: View {
                     }
                     .onGeometryChange(for: CGRect.self) {
                         $0.frame(in: .global)
-                    } action: { frame in
+                    } action: { [weak model] frame in
+                        guard let model, !model.isWindowClosed else { return }
                         model.drop.rowFrames[item.url] = frame
                     }
                 }
-                .onMove { bundle.move(fromOffsets: $0, toOffset: $1) }
+                .onMove { [weak model] offsets, destination in
+                    guard let model, !model.isWindowClosed else { return }
+                    bundle.move(fromOffsets: offsets, toOffset: destination)
+                }
             }
             .listStyle(.sidebar)
             // The sidebar style insets its rows; here the panel's own padding does that.
             .padding(.horizontal, -10)
             .scrollContentBackground(.hidden)
             .background(
-                SelectedRowClicks(pointedRow: pointedRow, selection: bundle.selection) { model.goToBundleImage($0) }
+                SelectedRowClicks(
+                    pointedRow: pointedRow.wrappedValue, selection: bundle.selection, onClick: select)
             )
             .onChange(of: bundle.selection) { _, url in if let url { proxy.scrollTo(url) } }
             .animation(.easeOut(duration: 0.2), value: bundle.flashedURLs)
             .onGeometryChange(for: CGRect.self) {
                 $0.frame(in: .global)
-            } action: { frame in
+            } action: { [weak model] frame in
+                guard let model, !model.isWindowClosed else { return }
                 model.drop.listFrame = frame
             }
-            .onDisappear { model.drop.listFrame = nil }
+            .onDisappear { [weak model] in
+                guard let model, !model.isWindowClosed else { return }
+                model.drop.listFrame = nil
+            }
             .accessibilityLabel("Images")
         }
     }

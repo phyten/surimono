@@ -76633,55 +76633,55 @@
         }
       }
     },
-    "Share": {
+    "Share…": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Share"
+            "value": "Share…"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "共有"
+            "value": "共有…"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "共享"
+            "value": "共享…"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "分享"
+            "value": "分享…"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "공유"
+            "value": "공유…"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Partager"
+            "value": "Partager…"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Teilen"
+            "value": "Teilen …"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Compartir"
+            "value": "Compartir…"
           }
         }
       }

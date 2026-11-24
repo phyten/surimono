@@ -368,6 +368,33 @@ struct PrinterProfileFlowTests {
         #expect(preferences.printerProfile(for: "C").pageOrder == .firstSheetFirst)
     }
 
+    @Test("窓を閉じたあとの両面テストの完了はジョブを片付け、結果を表示せずプリンター設定を保つ")
+    func duplexCompletionAfterClose() async throws {
+        let fixture = Fixture()
+        defer { fixture.cleanUp() }
+        let model = fixture.model()
+        let controller = MemoryDocumentWindowController(model: model) {}
+        defer { controller.close() }
+        model.enterPrintMode()
+        model.start()
+        try await waitForRender(model)
+        var finish: ((DocumentViewModel.DuplexTestResult?) -> Void)?
+        model.duplexTestSubmit = { _, _, _, complete in finish = complete }
+        model.printDuplexTest()
+        try await ShortcutMenuBaselineTests.waitForMenu { finish != nil }
+        try #require(model.isPrinting)
+        controller.close()
+        try #require(model.isWindowClosed)
+        let profiles = fixture.preferences.printerProfiles
+        let toast = model.toast?.id
+        finish?(.init(printerName: "A", duplex: .shortEdge))
+        #expect(!model.isPrinting)
+        #expect(model.duplexTestResult == nil)
+        #expect(model.outputError == nil)
+        #expect(model.toast?.id == toast)
+        #expect(fixture.preferences.printerProfiles == profiles)
+    }
+
     @Test("テスト印刷の答えは開始時のプリンターと綴じ方へ保存する", arguments: [false, true])
     func testAnswer(rotates: Bool) async throws {
         let fixture = Fixture()
