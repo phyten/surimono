@@ -143,6 +143,47 @@ struct DocumentEditMenuTests {
         #expect(close?.isHidden == false)
     }
 
+    @Test("組み上がったファイルメニューが追跡中に取り付けられても標準の開くと履歴を隠す")
+    func prebuiltFileMenu() {
+        let main = NSMenu()
+        main.addItem(NSMenuItem())
+        let file = NSMenu()
+        let own = file.addItem(withTitle: "Open…", action: nil, keyEquivalent: "o")
+        let system = file.addItem(
+            withTitle: "Open…", action: #selector(NSDocumentController.openDocument(_:)), keyEquivalent: "o")
+        let recent = NSMenuItem()
+        let children = NSMenu()
+        children.addItem(
+            withTitle: "Clear", action: #selector(NSDocumentController.clearRecentDocuments(_:)), keyEquivalent: "")
+        recent.submenu = children
+        file.addItem(recent)
+        let item = NSMenuItem()
+        item.submenu = file
+        main.addItem(item)
+        let note = Notification(name: NSMenu.didAddItemNotification, object: main, userInfo: ["NSMenuItemIndex": 1])
+        DocumentEditMenu(canScan: { false }, isTracking: { true }).hideNotifiedItem(note, in: main, main: main)
+        #expect(!own.isHidden && system.isHidden && recent.isHidden)
+    }
+
+    @Test("標準の開くと後から履歴消去が付くサブメニューだけを追加時に隠す")
+    func systemOpenItems() throws {
+        let file = try #require(NSApp.mainMenu?.items.dropFirst().first?.submenu)
+        let open = NSMenuItem(
+            title: "System", action: #selector(NSDocumentController.openDocument(_:)), keyEquivalent: "o")
+        open.allowsKeyEquivalentWhenHidden = true
+        file.addItem(open)
+        defer { file.removeItem(open) }
+        #expect(open.isHidden && !open.allowsKeyEquivalentWhenHidden)
+        let recent = NSMenuItem(title: "System history", action: nil, keyEquivalent: "")
+        let children = NSMenu()
+        recent.submenu = children
+        file.addItem(recent)
+        defer { file.removeItem(recent) }
+        children.addItem(
+            withTitle: "Clear", action: #selector(NSDocumentController.clearRecentDocuments(_:)), keyEquivalent: "")
+        #expect(recent.isHidden && !recent.allowsKeyEquivalentWhenHidden)
+    }
+
     @Test("実メニューにあとから足された編集項目や表示に戻された編集項目を同期的に隠す")
     func hidesItemsAddedLater() throws {
         let file = try #require(NSApp.mainMenu?.items.dropFirst().first?.submenu)

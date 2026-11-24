@@ -166,23 +166,29 @@ struct PopoverCloseControlTests {
 @MainActor
 enum TestWindowMouse {
     static func click(at point: NSPoint, in window: NSWindow) throws {
-        func event(_ type: NSEvent.EventType) throws -> NSEvent {
+        func event(_ type: NSEvent.EventType, pressure: Float) throws -> NSEvent {
             try #require(
                 NSEvent.mouseEvent(
                     with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
                     windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1,
-                    pressure: type == .leftMouseDown ? 1 : 0))
+                    pressure: pressure))
         }
-        let down = try event(.leftMouseDown)
-        let up = try event(.leftMouseUp)
+        if #available(macOS 26, *) {
+            // Application dispatch delivers the pair to the numbered window even while the test host is inactive.
+            NSApp.sendEvent(try event(.leftMouseDown, pressure: 1))
+            NSApp.sendEvent(try event(.leftMouseUp, pressure: 1))
+            return
+        }
+        // Sequoia can enter a synchronous tracking loop in mouseDown and needs the matching up already queued.
         var root = window.contentView
         while let parent = root?.superview { root = parent }
         let hit = root.flatMap { $0.hitTest($0.convert(point, from: nil)) }
         print(
             "test click: window=\(window.windowNumber) point=\(point) hit=\(String(describing: hit.map { type(of: $0) }))"
         )
-        window.postEvent(up, atStart: true)
-        window.sendEvent(down)
+        let down = try event(.leftMouseDown, pressure: 1)
+        window.postEvent(try event(.leftMouseUp, pressure: 0), atStart: true)
+        NSApp.sendEvent(down)
         print("test click: mouseDown returned")
     }
 }

@@ -302,8 +302,8 @@ final class ShortcutDispatcher {
         case .documentShare: model?.exportReading(.share)
         case .printSettings: model?.presentPrintSettings()
         case .clipboardOpenPrintScreen: openClipboardPrintScreen()
-        case .appOpen: menus.invokeStandard(.appOpen)
-        case .appSettings: menus.invokeStandard(.appSettings)
+        case .appOpen: OpenRouter.shared.showOpenPanel()
+        case .appSettings: menus.showSettings()
         case .appOpenURL: OpenURLPanel.present()
         case .clipboardReopen: ClipboardWindows.shared.reopenClosed()
         case .clipboardOpen: ClipboardWindows.shared.open()
@@ -316,7 +316,7 @@ final class ShortcutDispatcher {
             if let preferences = WelcomeController.shared.preferences {
                 BandArrangementEditorSession.showSection(.settingSets, preferences: preferences)
             }
-            menus.invokeStandard(.appSettings)
+            menus.showSettings()
         case .documentFind: model?.performFind()
         case .documentFindNext: model?.findStep(forward: true)
         case .documentFindPrevious: model?.findStep(forward: false)

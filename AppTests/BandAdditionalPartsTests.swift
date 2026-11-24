@@ -164,7 +164,13 @@ struct BandAdditionalPartsTests {
     /// A click as AppKit delivers it, at the middle of the chip.
     private func click(_ item: BandLayout.Item, in fixture: Fixture) throws {
         let frame = try #require(chipFrame(item, in: fixture))
-        try TestWindowMouse.click(at: NSPoint(x: frame.midX, y: frame.midY), in: fixture.window)
+        let point = NSPoint(x: frame.midX, y: frame.midY)
+        if let button = fixture.window.contentView?.hitTest(point) as? NSButton {
+            // The native button tracks synchronously. Exercise the action of the control actually hit at the chip.
+            button.performClick(nil)
+            return
+        }
+        try TestWindowMouse.click(at: point, in: fixture.window)
     }
 
     @Test(

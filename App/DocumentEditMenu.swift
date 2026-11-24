@@ -2,11 +2,12 @@ import AppKit
 
 /// SwiftUI's document group adds the document's Save, Duplicate, Rename, Move To, Revert and Lock items. A viewer never
 /// changes the reader's file, and Rename and Move To would rename or move it even though writes are refused. Keep the
-/// native group so Share and Open Recent still work, and leave key-equivalent setters out of item notifications.
+/// native group for Share, and leave key-equivalent setters out of item notifications.
 final class DocumentEditMenu {
     private let canScan: () -> Bool
     private let isTracking: () -> Bool
     private var notifiedItem: NSMenuItem?
+    private weak var installedFileMenu: NSMenu?
     private(set) lazy var writes = MenuWrites(
         canWrite: { [weak self] in self?.notifiedItem != nil || self?.canScan() == true },
         isTracking: isTracking)
@@ -17,6 +18,7 @@ final class DocumentEditMenu {
     }
 
     static let hiddenActions: Set<Selector> = [
+        #selector(NSDocumentController.openDocument(_:)),
         #selector(NSDocument.save(_:)), #selector(NSDocument.saveAs(_:)), #selector(NSDocument.saveTo(_:)),
         #selector(NSDocument.duplicate(_:)), #selector(NSDocument.rename(_:)), #selector(NSDocument.move(_:)),
         #selector(NSDocument.revertToSaved(_:)), #selector(NSDocument.browseVersions(_:)),
@@ -28,6 +30,7 @@ final class DocumentEditMenu {
 
     static func protects(_ item: NSMenuItem, after previous: NSMenuItem?) -> Bool {
         if let action = item.action, hiddenActions.contains(action) { return true }
+        if let submenu = item.submenu, isSystemRecentMenu(submenu) { return true }
         // An empty versions submenu has no browseVersions: child until AppKit fills it.
         return item.submenu != nil && previous?.action == #selector(NSDocument.revertToSaved(_:))
             && (item.action == nil || item.action == NSSelectorFromString("submenuAction:"))
@@ -37,14 +40,23 @@ final class DocumentEditMenu {
                     == true)
     }
 
+    // AppKit owns the Clear Menu selector even when the recent list is empty. The
+    // app's identically titled command is a SwiftUI button and never sends this selector.
+    private static let clearRecent = #selector(NSDocumentController.clearRecentDocuments(_:))
+
+    private static func isSystemRecentMenu(_ menu: NSMenu) -> Bool {
+        menu.identifier?.rawValue == "_NSRecentDocumentsMenuName"
+            || (menu.numberOfItems > 0 && menu.item(at: menu.numberOfItems - 1)?.action == clearRecent)
+    }
+
     func hasExposedFileItems(in main: NSMenu?) -> Bool {
         guard !MenuTrace.noHider, let main, main.numberOfItems > 1, let file = main.item(at: 1)?.submenu else {
             return false
         }
         var previous: NSMenuItem?
         for item in file.items {
-            if Self.protects(item, after: previous),
-                !item.isHidden || item.isAlternate || item.allowsKeyEquivalentWhenHidden
+            if !item.isHidden || item.isAlternate || item.allowsKeyEquivalentWhenHidden,
+                Self.protects(item, after: previous)
             {
                 return true
             }
@@ -67,10 +79,35 @@ final class DocumentEditMenu {
         guard !MenuTrace.noHider,
             note.name == NSMenu.didAddItemNotification || note.name == NSMenu.didChangeItemNotification,
             let index = note.userInfo?["NSMenuItemIndex"] as? Int, (0..<menu.numberOfItems).contains(index),
-            let item = menu.item(at: index), item !== notifiedItem,
-            Self.protects(item, after: index > 0 ? menu.item(at: index - 1) : nil),
-            Self.isInFileMenu(menu, of: main)
+            let changed = menu.item(at: index)
         else { return }
+        if menu === main, index == 1, let file = changed.submenu, file !== installedFileMenu {
+            // SwiftUI can attach a fully built File menu. Its earlier child notifications had no main-menu ancestor.
+            installedFileMenu = file
+            var previous: NSMenuItem?
+            for item in file.items {
+                if Self.protects(item, after: previous) { concealNotified(item) }
+                previous = item
+            }
+            return
+        }
+        let item: NSMenuItem
+        if changed.action == Self.clearRecent, let parent = menu.supermenu,
+            main.numberOfItems > 1, parent === main.item(at: 1)?.submenu,
+            let owner = parent.items.first(where: { $0.submenu === menu })
+        {
+            // A submenu can be attached before AppKit installs its Clear Menu child.
+            item = owner
+        } else {
+            guard Self.protects(changed, after: index > 0 ? menu.item(at: index - 1) : nil) else { return }
+            item = changed
+        }
+        guard Self.isInFileMenu(menu, of: main) else { return }
+        concealNotified(item)
+    }
+
+    private func concealNotified(_ item: NSMenuItem) {
+        guard item !== notifiedItem else { return }
         // Each setter can notify recursively. A different item added during the repair still needs its own pass.
         let previous = notifiedItem
         notifiedItem = item

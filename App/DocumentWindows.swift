@@ -36,6 +36,9 @@ final class DocumentWindows: NSObject {
 
     func register(_ model: DocumentViewModel, for window: NSWindow) {
         models.setObject(model, forKey: window)
+        #if DEBUG
+            DebugMenuDump.documentRegistered()
+        #endif
         // The file may have finished opening before its window existed.
         router.handAccess(to: model)
         updateActive()

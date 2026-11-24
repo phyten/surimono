@@ -37,8 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         OpenRouter.shared.open(urls)
     }
 
-    /// File > Open… sends this action along the responder chain. Answering it before the document controller keeps a
-    /// multi-file selection together instead of opening every file as its own document.
+    /// Route external senders of the AppKit action through the same multi-selection panel as the File menu.
     @objc func openDocument(_ sender: Any?) {
         OpenRouter.shared.showOpenPanel()
     }
@@ -80,6 +79,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             name: Notification.Name(kTISNotifySelectedKeyboardInputSourceChanged as String), object: nil)
         ShortcutDispatcher.shared.start()
         #if DEBUG
+            DebugMenuDump.observeTestLaunch()
             // Screenshots of a clipboard window open a file's text through a private pasteboard, leaving the user's
             // clipboard alone.
             if let path = DebugSnapshot.argument("SurimonoOpenClipboard"),

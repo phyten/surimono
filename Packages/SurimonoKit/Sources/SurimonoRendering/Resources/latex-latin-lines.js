@@ -678,15 +678,27 @@ function latinCompose(body, rectToCSS = 1, restorations) {
             else trial.p.setAttribute('style',trial.oldStyle);
         }
     }
-    function geometry(row) {
+    function geometry(row, naturalTrial) {
         if (row.runIn) {
             // The first row shares its native inline formatting context with the
             // heading and the class's horizontal afterskip. Its line box extends
             // from the wrapper's top to the next block line, including its leading.
             const block = row.runIn.block.getBoundingClientRect();
             const bottom = row.line.nextElementSibling?.getBoundingClientRect().top ?? block.bottom;
-            return {height:(bottom-block.top)*rectToCSS, measure:block.width*rectToCSS-row.runIn.left,
-                width:(row.end.getBoundingClientRect().left-block.left)*rectToCSS-row.runIn.left};
+            let width = (row.end.getBoundingClientRect().left-block.left)*rectToCSS-row.runIn.left;
+            if (naturalTrial && row.runIn.headingMargin != null) {
+                // On Sequoia the first glyph of a hanging term can move when the DD gains explicit lines.
+                // Fit the glue to the restored position, then check the final layout against the native one.
+                const head = firstGlyphRect(naturalTrial.heading);
+                if (head) {
+                    const offset = row.runIn.left - (head.left-block.left)*rectToCSS;
+                    if (Math.abs(offset) > .1 && Math.abs(offset) <= 1) {
+                        naturalTrial.headingOffset = offset;
+                        width += offset;
+                    }
+                }
+            }
+            return {height:(bottom-block.top)*rectToCSS, measure:block.width*rectToCSS-row.runIn.left,width};
         }
         const r = row.line.getBoundingClientRect();
         const indent = parseFloat(row.line.style.paddingInlineStart) || 0;
@@ -812,6 +824,7 @@ function latinCompose(body, rectToCSS = 1, restorations) {
                     // snaps that fragment edge even when the computed margin is fractional.
                     if (definition && latinMeasureDescriptionGap) {
                         runIn.specifiedSkip = skip;
+                        runIn.headingMargin = parseFloat(getComputedStyle(heading).marginInlineStart) || 0;
                         runIn.skip = (definition.getClientRects()[0].left - heading.getBoundingClientRect().right) * rectToCSS;
                     }
                 }
@@ -973,7 +986,7 @@ function latinCompose(body, rectToCSS = 1, restorations) {
                 trial.padding = padding;
             }
             for (const row of trial.rows) {
-                const {width,measure} = geometry(row);
+                const {width,measure} = geometry(row,trial);
                 const last = row === trial.rows.at(-1);
                 row.delta = last && width <= measure ? 0 : measure-width;
                 row.axis = row.delta < 0 ? 2 : 1;
@@ -986,6 +999,7 @@ function latinCompose(body, rectToCSS = 1, restorations) {
             }
         });
         eachTrial(trial => {
+            if (trial.headingOffset) trial.heading.style.marginInlineStart = (trial.runIn.headingMargin + trial.headingOffset) + 'px';
             if (trial.trim) trial.p.style.setProperty('padding-block-start',trial.padding+'px','important');
             for (const row of trial.rows) {
                 for (const formula of row.formulas) setMathWidth(formula,row.ratio);
@@ -1022,6 +1036,7 @@ function latinCompose(body, rectToCSS = 1, restorations) {
                 if (trial.boxDiagnostics || (diagnostics && misaligned)) {
                     trial.runInGeometry = {gapError,riseError,leftError,afterSkip:trial.runIn.specifiedSkip ?? trial.runIn.skip,
                         nativeSkip:trial.runIn.skip,rectToCSS,glyphGap:runInGap(trial.p,trial.heading)};
+                    if (trial.runIn.headingMargin != null) trial.runInGeometry.headingOffset = trial.headingOffset ?? 0;
                 }
                 if (misaligned) {
                     trial.reason = 'run-in baseline'; return;

@@ -261,7 +261,7 @@ WebKit の文書組版もメインディスプレイの倍率に影響される�
   - 2 つ以上で画像以外を含む → ファイル名の自然順の合本（Markdown / Org / テキスト / CSV / LaTeX / HTML / PDF / 画像）。ZIP・フォルダー・未対応形式は除き、引き出しで知らせる。除外後に画像だけが残れば画像の束で開き、既存のトーストと引き出しで除外を知らせる。対応する文書が 1 つもなければ警告（ドロップならその窓のシート）
 - 経路ごとの入口:
   - Finder / Dock / 「このアプリケーションで開く」: `AppDelegate` が open-documents の Apple Event を受ける（`applicationWillFinishLaunching` で登録）
-  - ファイル > 開く…: 標準の項目が送る `openDocument:` を `AppDelegate` が受ける（SwiftUI の AppDelegate が応答チェーンで転送する）。独自の「開く…」をメニューに足さない（標準の項目と重複し、標準の側は文書コントローラが 1 つずつ開いてしまう）
+  - ファイル > 開く…・最近使った項目を開く: `DocumentMenuDescriptor` の `.open` が全対応 OS で両方を宣言する。開く…と ⌘O は文書の窓がなくても `OpenRouter.showOpenPanel()` を呼び、複数選択を一度に振り分ける。最近使った項目は `NSDocumentController.shared.recentDocumentURLs` の順に並べ、ウェルカム画面と同じ `openRecent` で開く。履歴の消去も文書コントローラに渡す。DocumentGroup が組み直す標準の `openDocument:` と最近使った項目は保存項目と同じ仕組みで隠す。標準項目が到着する順序に依存せず、メニューを後付けで挿入しない。
   - ドロップ: 文書・画像の束・合本の窓は `DropCatcher`（足す入口とドロップ）、ウェルカム画面は `.dropDestination`
   - 最近使った項目: 標準メニューの項目は文書コントローラが 1 ファイルを開く（規則と同じ結果になるので、ルーターを通さないままでよい）。ウェルカム画面の最近使ったファイルは `OpenRouter` を通す。閉じた合本は標準の項目に載らないので、「ファイル > 最近使った合本」から `OpenRouter.open(recentBinder:)` で開く（合本の項目）
 - 同梱の案内（`GettingStarted`）: 初めての人が見本を開き、刷り、自分の文書を開くまでの Markdown を、`App/GettingStarted/` の `Surimono の使い方.md`（日本語）と `Getting Started with Surimono.md`（英語）に置く（synchronized folder なのでアプリの Resources に平らに入る。ファイル名が窓の題名になる）。表示の言語（`Bundle.main.preferredLocalizations` の先頭）が日本語なら日本語版、それ以外は英語版（`GettingStarted.edition(for:)`。2 番目以降の言語は見ない。案内の語がメニューの語と合うように）。入口はウェルカム画面（2 つのボタンの下の藍の文字のボタン）と「ヘルプ > Surimono の使い方」で、どちらも `OpenRouter.openGettingStarted()` から 1 つのファイルとして開く（2 度目は窓を前面に出す）。アプリの中のファイルは利用者のファイルではないので、`RecentFileHistory` が `noteNewRecentDocumentURL` のフックで、システムの最近使った項目にも `AppPreferences.recentFiles` にも載せない（`GettingStarted.isInsideApp`）。案内を含む合本も、閉じたときに最近使った合本へ覚えない（`BinderWindows.remember` が、ブックマークを作る前に組ごと外す）。文書ごとの設定は他の単独ファイルと同じく、内容と場所から復元する。案内に書く項目名・ボタン名は `Localizable.xcstrings` とコードの実際の語に合わせ、UI の語を変えたら案内も直す。印刷の練習は手元の用紙の半分の冊子（A4 なら A5、B5 なら B6、Letter なら Half Letter）を選ばせ、A4 だけを前提にした書き方をしない。どちらの版も A5 冊子と Half Letter 冊子で 8 ページ（本文 7・裏表紙が白紙）に収まる長さにしている。
@@ -308,7 +308,7 @@ WebKit の文書組版もメインディスプレイの倍率に影響される�
 ## キーボードショートカットのメニュー・紙面接続
 
 - SwiftUI はアプリ独自の項目をすべて所有する。`DocumentMenuDescriptor` が不変の `MenuSnapshot` から項目・題名・チェック・有効状態・キーを決める。実行時は `ShortcutDispatcher` がその時点のキー窓と操作条件を確認する。履歴・合本・設定セットは ID で引き直す。
-- メニューとキー配送は `ShortcutController.localKeys(for:)` の実効キーを共有する。既定キーは SwiftUI に元のキーを渡し、入力配列・左右方向に応じた実メニューの表示キーを追跡外に読み取って配送する。利用者が指定したキーはそのまま使う。裸キーは従来どおり紙面・一覧などの対象に限定する。`SystemMenuShortcuts` は追跡外に macOS のユーザー割り当てを読み、標準の「開く」「設定」は macOS の表示キーと元のアクションを保つ。この2項目のアプリ内割り当ては追加キーになり、表示キーの変更は macOS の「アプリのショートカット」で行う。
+- メニューとキー配送は `ShortcutController.localKeys(for:)` の実効キーを共有する。既定キーは SwiftUI に元のキーを渡し、入力配列・左右方向に応じた実メニューの表示キーを追跡外に読み取って配送する。利用者が指定したキーはそのまま使う。裸キーは従来どおり紙面・一覧などの対象に限定する。`SystemMenuShortcuts` は追跡外に macOS のユーザー割り当てを読み、アプリの「開く」と標準の「設定」は macOS の表示キーを保つ。この2項目のアプリ内割り当ては追加キーになり、表示キーの変更は macOS の「アプリのショートカット」で行う。
 - 実画面では SwiftUI が追跡開始の約23 ms後に「ファイル」の標準文書編集項目を新しいインスタンスで組み直した。
 - `DocumentEditMenu` は追加・変更された標準編集項目だけをその場で隠す。補正は非表示・代替表示・非表示時のキー許可の3属性に限る。非表示の「保存」もキーで実行されたため、`ViewerApplication.sendAction` でメニュー由来の標準文書編集アクションを止める。
 - この macOS では `CommandGroup(replacing: .saveItem)` にすると「共有」が消え、「最近使った項目」が無効な「NSMenuItem」になる。
@@ -317,6 +317,7 @@ WebKit の文書組版もメインディスプレイの倍率に影響される�
   1. **表示**　保存・複製・名称変更・移動・復帰が見えず、共有と最近使った項目が残る。履歴と「ファイルとして保存…」が現在の文書に合い、文書なしでは印刷が無効になる。
   2. **キー実行**　⌘S・⇧⌘S・名称変更／移動に割り当てたキーでシートが開かず、元ファイルの名前・場所・内容が変わらない。変更したアプリのキーは、メニューを開く前から新しい割り当てで一度だけ動く。
   3. **追跡**　開いたまま「閉じる」「共有」「プリント」の間を往復し、選べる行のハイライトが追従する。行の出入り・字下げの変化・停止がない。
+- DEBUG の `-SurimonoMenuDump <絶対パス>` は最初の文書ウインドウが表示された時点で実際のメインメニューを指定先へ書き出し、3 秒後に同じファイルに 2 回目の内容を加える。項目名、キー、修飾キー、アクション、使用可否、非表示項目（`[hidden]`）を階層順に読める。例: `open -na /path/to/Surimono.app /path/to/sample.md --args -SurimonoMenuDump /tmp/surimono-menu.txt`。最近使ったファイル名も含む。
 - 起動時に `SurimonoMenuTrace` を有効にすると、OSLog の `menu` と `~/Library/Logs/Surimono/menu-trace.log` に項目 ID・チェック・字下げ・書き手・追跡深さ・公開版を記録する。画像は getter 自体が変更通知を発生させるため `unobserved`。補正は `exposed-edit`、拒否した編集操作は `blocked document edit` で追える。起動時にログを空にし、上限は 1 MB。比較用の `SurimonoMenuNoHider` は起動時に読む。
 - ローカル記録は現在の配列で論理キーへ変換する。単一の `ShortcutDispatcher` が実際のキー窓と first responder を読み、IME変換中・記録中・シート／モーダルを保護する。`ShortcutSurfaceKeys` は紙面・折り見本の明示的なレスポンダと、合本リストの `FocusState` にだけ裸キーを配送する。Web・入力欄・コントロール・ポップオーバーには配送しない。紙面と折り見本の矢印は同じキーを共有できる。
 - M/V/T の Shift 別名はカタログに明記し、変更・解除で一緒に外す。Tab/Shift-Tab は固定で、Full Keyboard Access が有効なら帯に使わない。文字選択中の矢印はPDFKitへ渡し、明示的に割り当てたCommand付きページ送りだけ実行する。連続表示・拡大中の上下とSpaceは従来のPDFKit処理へ渡す。Page Up/Down・Home/Endも `reading.pageUp/pageDown/first/last` として編集できる。既定イベントはそのままPDFKitへ渡し、変更したキーでは対応する名前のナビゲーションだけをPDFKitへ直接渡す（アプリへキーを送信しない）。文字選択中の標準ナビゲーションは固定で残す。

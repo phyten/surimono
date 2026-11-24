@@ -18,7 +18,7 @@ final class SystemMenuShortcuts {
 
     static let entries: [Entry] =
         [
-            .init(.appOpen, 1, []), .init(.appSettings, 0, []),
+            .init(.appOpen, 1, ["Open…"]), .init(.appSettings, 0, []),
             .init(.appOpenURL, 1, ["Open from URL…"]),
             .init(.clipboardReopen, 1, ["Reopen Closed Clipboard Document"]),
             .init(.clipboardOpen, 1, ["Open from Clipboard"]),
@@ -141,7 +141,11 @@ final class SystemMenuShortcuts {
                 if let ax, ax.hasPrefix("surimono.shortcut.") { return ax == identifier }
                 return layouts.contains(item.title)
             }
-            if entry.operation == .appOpen { return item.action == NSSelectorFromString("openDocument:") }
+            if entry.operation == .appOpen,
+                item.isHidden || item.action == #selector(NSDocumentController.openDocument(_:))
+            {
+                return false
+            }
             if entry.operation == .appSettings {
                 return ["showSettingsWindow:", "showPreferencesWindow:"].contains(
                     item.action.map(NSStringFromSelector) ?? "")
@@ -180,9 +184,9 @@ final class SystemMenuShortcuts {
         controller.setExternalMenuKeys(external, standard: standard)
     }
 
-    func invokeStandard(_ operation: ShortcutOperationID) {
-        guard operation == .appSettings || operation == .appOpen, let root = menu(),
-            let entry = Self.entries.first(where: { $0.operation == operation })
+    func showSettings() {
+        guard let root = menu(),
+            let entry = Self.entries.first(where: { $0.operation == .appSettings })
         else { return }
         let items = matchingItems(entry, in: root)
         guard items.count == 1, let item = items.first, let action = item.action else { return }

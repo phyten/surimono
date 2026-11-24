@@ -159,12 +159,36 @@ public final class WebPaginator: NSObject {
         guard size.width.isFinite, size.height.isFinite, size.width > 0, size.height > 0,
             (size.width * scale).rounded(.up) * (size.height * scale).rounded(.up) <= 12_000 * 12_000
         else { throw PaginationError.emptyDocument }
-        let image = Data(exportSVG(diagram).utf8).base64EncodedString()
-        let html = """
-            <!doctype html><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; font-src data:; style-src 'unsafe-inline'">
-            <style>*{margin:0}body{background:white}img{display:block;width:\(size.width)px;height:\(size.height)px}</style>
-            <img src="data:image/svg+xml;base64,\(image)">
-            """
+        let svg = exportSVG(diagram)
+        let html: String
+        let prepare: String
+        var arguments: [String: Any] = [:]
+        if #unavailable(macOS 26), diagram.formulaSource != nil {
+            // SVG image.decode() does not wait for fonts inside the image. Keep the formula
+            // in the document's font set so that Sequoia paints the same faces as the PDF.
+            html = """
+                <!doctype html><meta http-equiv="Content-Security-Policy" content="default-src 'none'; font-src data:; style-src 'unsafe-inline'">
+                <style>*{margin:0}body{background:white}body>svg{display:block;width:\(size.width)px;height:\(size.height)px}</style><body></body>
+                """
+            arguments["svg"] = svg
+            prepare = """
+                const root = new DOMParser().parseFromString(svg, 'image/svg+xml').documentElement;
+                if (root.localName !== 'svg') return false;
+                document.body.append(document.importNode(root, true));
+                document.body.getBoundingClientRect();
+                await Promise.all([...document.fonts].map(font => font.load()));
+                await document.fonts.ready;
+                return true;
+                """
+        } else {
+            let image = Data(svg.utf8).base64EncodedString()
+            html = """
+                <!doctype html><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; font-src data:; style-src 'unsafe-inline'">
+                <style>*{margin:0}body{background:white}img{display:block;width:\(size.width)px;height:\(size.height)px}</style>
+                <img src="data:image/svg+xml;base64,\(image)">
+                """
+            prepare = "const image = document.images[0]; await image.decode(); return image.naturalWidth > 0;"
+        }
         let source = Source.html(html, baseURL: nil)
         let session = PaginationSession(
             source: source, pageSize: size, margins: .uniform(millimeters: 0), allowsJavaScript: false,
@@ -177,8 +201,7 @@ public final class WebPaginator: NSObject {
         if let message = session.terminationError { throw PaginationError.loadFailed(message) }
         guard session.navigationState == .finished,
             try await session.webView.evaluateForPrinting(
-                "const image = document.images[0]; await image.decode(); return image.naturalWidth > 0;",
-                until: .now + .seconds(15)) as? Bool == true
+                prepare, arguments: arguments, until: .now + .seconds(15)) as? Bool == true
         else { throw PaginationError.emptyDocument }
         try Task.checkCancellation()
         let bounds = CGRect(origin: .zero, size: size)

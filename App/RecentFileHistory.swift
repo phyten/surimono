@@ -4,6 +4,7 @@ import SurimonoCore
 
 @MainActor
 final class RecentFileHistory {
+    static let systemListChanged = Notification.Name("SurimonoRecentDocumentsChanged")
     static var shared: RecentFileHistory?
     let preferences: AppPreferences
     var systemURLs: () -> [URL] = { NSDocumentController.shared.recentDocumentURLs }
@@ -123,10 +124,12 @@ extension NSDocumentController {
         guard !GettingStarted.isInsideApp(url) else { return }
         surimonoNoteRecent(url)
         RecentFileHistory.shared?.record(url)
+        NotificationCenter.default.post(name: RecentFileHistory.systemListChanged, object: self)
     }
 
     @objc fileprivate dynamic func surimonoClearRecent(_ sender: Any?) {
         surimonoClearRecent(sender)
         RecentFileHistory.shared?.clear()
+        NotificationCenter.default.post(name: RecentFileHistory.systemListChanged, object: self)
     }
 }

@@ -436,42 +436,107 @@ struct OpenRouterTests {
         #expect(item.title.contains("3枚＋メモ") || item.title.contains("3-up + Notes"))
     }
 
-    @Test("標準の開くが遅れて追加されても補ったメニューは一つだけになる")
-    func lateOpenMenu() {
-        let file = NSMenu()
-        file.addItem(withTitle: String(localized: "Open from URL…"), action: nil, keyEquivalent: "")
-        let action = #selector(NSDocumentController.openDocument(_:))
-        MenuUpdates.restoreOpenItem(in: file)
-        MenuUpdates.restoreOpenItem(in: file)
-        let opens = file.items.filter { $0.action == action }
-        #expect(opens.count == 1)
-        #expect(opens.first?.keyEquivalent == "o")
-        #expect(opens.first?.keyEquivalentModifierMask == .command)
-        let native = file.addItem(withTitle: "Open…", action: action, keyEquivalent: "o")
-        MenuUpdates.restoreOpenItem(in: file)
-        #expect(file.items.filter { $0.action == action } == [native])
-    }
-
-    @Test("ファイルメニューの開く…は1つだけで、選ぶと振り分けの開くパネルが出る")
-    func openMenu() throws {
-        let items = (NSApp.mainMenu?.items ?? []).flatMap { $0.submenu?.items ?? [] }
-        let openItems = items.filter { $0.action == #selector(NSDocumentController.openDocument(_:)) }
-        if openItems.count != 1 {
-            let file = NSApp.mainMenu?.items.dropFirst().first?.submenu
-            let entries = file?.items.map { "\($0.title) [\($0.keyEquivalent)] \($0.action?.description ?? "nil")" }
-            Issue.record("「開く…」が \(openItems.count) 件。ファイルメニュー \(entries ?? [])")
-        }
-        #expect(items.filter { $0.keyEquivalent == "o" && $0.keyEquivalentModifierMask == .command }.count == 1)
-        #expect(!items.contains { $0.action == #selector(NSDocumentController.newDocument(_:)) })
-        let item = try #require(openItems.first)
-        let action = try #require(item.action)
+    @Test("文書のない起動時・文書の開閉・外観変更後にも実メニューから開くと最近使った項目を一つずつ使える", .timeLimit(.minutes(1)))
+    func openMenu() async throws {
+        let controller = NSDocumentController.shared
         var panels = 0
         let original = OpenRouter.shared.presentOpenPanel
         OpenRouter.shared.presentOpenPanel = { _ in panels += 1 }
         defer { OpenRouter.shared.presentOpenPanel = original }
-        let handled = NSApp.sendAction(action, to: item.target, from: item)
-        #expect(handled)
-        #expect(panels == 1)
+
+        func openIndex(in rows: [DebugMenuDump.Row], stage: String, recents: [URL]? = nil) throws -> Int {
+            let visible = rows.indices.filter { !rows[$0].hidden }
+            let open = visible.filter {
+                let row = rows[$0]
+                return row.title == String(localized: "Open…")
+                    || row.action == #selector(NSDocumentController.openDocument(_:))
+                    || (row.key.lowercased() == "o" && row.modifiers == .command)
+            }
+            let nativeRecent = Bundle(for: NSDocument.self).localizedString(
+                forKey: "Open Recent", value: nil, table: "MenuCommands")
+            let recent = visible.map { rows[$0] }.filter {
+                $0.title == String(localized: "Open Recent") || $0.title == nativeRecent
+                    || $0.children.contains { $0.action == #selector(NSDocumentController.clearRecentDocuments(_:)) }
+            }
+            let diagnostic = "\(stage) File=\(rows.map { ($0.title, $0.hidden, $0.key) })"
+            try #require(open.count == 1 && recent.count == 1, "\(diagnostic)")
+            let item = rows[open[0]]
+            #expect(item.enabled && item.key == "o" && item.modifiers == .command, "\(diagnostic)")
+            #expect(item.action != #selector(NSDocumentController.openDocument(_:)), "\(diagnostic)")
+            let children = recent[0].children.filter { !$0.hidden && !$0.separator }
+            #expect(children.last?.title == String(localized: "Clear Menu"), "\(diagnostic)")
+            if let recents {
+                #expect(children.dropLast().map(\.title) == recents.map(\.lastPathComponent), "\(diagnostic)")
+                #expect(children.last?.enabled == !recents.isEmpty, "\(diagnostic)")
+            }
+            return open[0]
+        }
+
+        func check(_ stage: String) throws {
+            let main = try #require(NSApp.mainMenu)
+            let file = try #require(main.items.dropFirst().first?.submenu)
+            let items = file.items
+            let index = try openIndex(
+                in: items.map(DebugMenuDump.Row.init), stage: stage, recents: controller.recentDocumentURLs)
+            let item = items[index]
+            let equivalents = ShortcutMenuBaselineTests.items(main).filter {
+                !$0.isHiddenOrHasHiddenAncestor && $0.keyEquivalent.lowercased() == "o"
+                    && $0.keyEquivalentModifierMask == .command
+            }
+            #expect(equivalents == [item], "\(stage)")
+            let before = panels
+            #expect(NSApp.sendAction(try #require(item.action), to: item.target, from: item))
+            #expect(panels == before + 1, "\(stage)")
+            let key = try #require(
+                NSEvent.keyEvent(
+                    with: .keyDown, location: .zero, modifierFlags: .command,
+                    timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: NSApp.keyWindow?.windowNumber ?? 0,
+                    context: nil, characters: "o", charactersIgnoringModifiers: "o", isARepeat: false, keyCode: 31))
+            #expect(main.performKeyEquivalent(with: key), "\(stage)")
+            #expect(panels == before + 2, "\(stage)")
+        }
+
+        func open(_ url: URL) async throws -> NSDocument {
+            try #require(controller.document(for: url) == nil)
+            let doc: NSDocument = try await withCheckedThrowingContinuation { continuation in
+                controller.openDocument(withContentsOf: url, display: true) { doc, _, error in
+                    if let doc {
+                        continuation.resume(returning: doc)
+                    } else {
+                        continuation.resume(throwing: error ?? CocoaError(.fileReadUnknown))
+                    }
+                }
+            }
+            return doc
+        }
+
+        _ = try openIndex(in: #require(DebugMenuDump.testLaunchFile), stage: "ホストの起動完了時")
+        try #require(controller.documents.isEmpty)
+        try check("文書を開く前")
+        let first = try await open(try #require(GettingStarted.sampleURL()))
+        defer { if controller.documents.contains(first) { first.close() } }
+        try await ShortcutMenuBaselineTests.waitForMenu {
+            first.windowControllers.contains { $0.window?.isVisible == true }
+        }
+        try check("最初の文書ウインドウの表示直後")
+        try await Task.sleep(for: .seconds(3))
+        try check("最初の文書ウインドウを表示して3秒後")
+        let second = try await open(try #require(GettingStarted.url()))
+        defer { if controller.documents.contains(second) { second.close() } }
+        try await ShortcutMenuBaselineTests.waitForMenu {
+            second.windowControllers.contains { $0.window?.isVisible == true }
+        }
+        let appearance = NSApp.appearance
+        defer { NSApp.appearance = appearance }
+        NSApp.appearance = NSAppearance(
+            named: NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .aqua ? .darkAqua : .aqua)
+        try await Task.sleep(for: .milliseconds(200))
+        try check("2枚目の文書と外観変更後")
+        second.close()
+        first.close()
+        try await ShortcutMenuBaselineTests.waitForMenu { controller.documents.isEmpty }
+        try await Task.sleep(for: .milliseconds(200))
+        try check("文書をすべて閉じた後")
     }
 
     @Test("open-documentsイベントの複数URLを分割せず取り出す")

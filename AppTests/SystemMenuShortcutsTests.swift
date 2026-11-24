@@ -891,7 +891,9 @@ struct SystemMenuShortcutsTests {
         f.activeWindow = nil
         let file = try #require(f.menu.item(at: 1)?.submenu)
         let app = try #require(f.menu.item(at: 0)?.submenu)
-        let open = file.addItem(withTitle: "Open…", action: NSSelectorFromString("openDocument:"), keyEquivalent: "o")
+        file.addItem(withTitle: "test:Open…", action: NSSelectorFromString("openDocument:"), keyEquivalent: "o")
+        let open = file.addItem(
+            withTitle: "test:Open…", action: NSSelectorFromString("swiftUIAction:"), keyEquivalent: "o")
         let settings = app.addItem(
             withTitle: "Settings…", action: NSSelectorFromString("showSettingsWindow:"), keyEquivalent: ",")
         f.menus.start()
@@ -1058,7 +1060,7 @@ struct SystemMenuShortcutsTests {
                 rows.first { $0.operation == .listMoveDown }?.title
                     == (binder ? "Move Document Down" : "Move Image Down"))
         }
-        var absent: Set<ShortcutOperationID> = [.appOpen, .appSettings, .documentOpenBinder]
+        var absent: Set<ShortcutOperationID> = [.appSettings, .documentOpenBinder]
         if !facts.visibility.canCheckUpdates { absent.insert(.appCheckUpdates) }
         if !clipboard { absent.insert(.documentSaveAsFile) }
         if !binder { absent.formUnion([.binderOddPageStarts, .listRemove]) }
