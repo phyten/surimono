@@ -155,6 +155,20 @@ enum VerticalPaginator {
                         context.beginPDFPage(nil)
                         context.endPDFPage()
                     }
+                    // The original header stays selectable. Repeated furniture is ink only, including any links.
+                    var headerImage: (CGRect, CGImage)?
+                    @MainActor func repeatedHeader(_ source: CGRect) async throws -> CGImage {
+                        if let headerImage, headerImage.0 == source { return headerImage.1 }
+                        let config = WKPDFConfiguration()
+                        config.rect = source
+                        let data = try await webView.pdfForPrinting(configuration: config, until: deadline)
+                        guard let doc = PDFDocument(data: data), let page = doc.page(at: 0) else {
+                            throw WebPaginator.PaginationError.printFailed
+                        }
+                        let image = try PageImageExporter.image(page, dpi: 288)
+                        headerImage = (source, image)
+                        return image
+                    }
                     for page in selected {
                         context.beginPDFPage(nil)
                         defer { context.endPDFPage() }
@@ -173,6 +187,25 @@ enum VerticalPaginator {
                                 width: rect.width * scale, height: rect.height * scale)
                             try await FlowPageCapture.draw(
                                 rect, from: webView, into: target, in: context, deadline: deadline)
+                            if let header = slice.header {
+                                let image = try await repeatedHeader(header.offsetBy(dx: 0, dy: originY))
+                                context.draw(
+                                    image,
+                                    in: CGRect(
+                                        x: target.minX + (header.minX - rect.minX) * scale, y: target.maxY,
+                                        width: header.width * scale, height: header.height * scale))
+                            }
+                            if let rule = slice.bottomRule, rule.color.count == 4 {
+                                context.setFillColor(
+                                    CGColor(
+                                        srgbRed: rule.color[0], green: rule.color[1],
+                                        blue: rule.color[2], alpha: rule.color[3]))
+                                context.fill(
+                                    CGRect(
+                                        x: target.minX + (rule.rect.minX - rect.minX) * scale,
+                                        y: target.minY - rule.rect.height * scale, width: rule.rect.width * scale,
+                                        height: rule.rect.height * scale))
+                            }
                         }
                     }
                 }

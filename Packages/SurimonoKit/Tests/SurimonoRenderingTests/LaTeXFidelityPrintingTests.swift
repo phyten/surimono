@@ -32,6 +32,24 @@ struct LaTeXFidelityPrintingTests {
         #expect(outside.allSatisfy { $0 > 245 })
     }
 
+    @Test("縦横どちらの jlreq も選択した A4 に表示し、読む PDF は原稿の A5 にする")
+    func jlreqStockAndReadingTrim() throws {
+        for direction in ["tate,", ""] {
+            let info = LaTeXConverter.documentClassInfo("\\documentclass[\(direction)a5paper,10.5pt]{jlreq}")
+            #expect(PrintLayout.defaultLaTeXLayout(for: info) == nil)
+            let style = PrintThemeLibrary.defaultLaTeXStyle(for: info)
+            let theme = try #require(PrintThemeLibrary.load().first { $0.id == style })
+            var settings = RenderSettings(
+                layout: .a4Single, theme: theme, preset: .init(id: "none", name: ""),
+                options: PrintOptions().defaults(for: .latex))
+            settings.applyLaTeXPage(info)
+            #expect(settings.logicalPageSize == PaperSize.a4.size)
+            let trim = settings.forReadingLaTeX(info).logicalPageSize
+            #expect(abs(trim.width - PaperSize.a5.size.width) < 0.1)
+            #expect(abs(trim.height - PaperSize.a5.size.height) < 0.1)
+        }
+    }
+
     @Test("A4を選んだままでも読むPDFには原稿の用紙を使う", .timeLimit(.minutes(1)))
     func readingTrim() async throws {
         let url = try #require(

@@ -30,6 +30,17 @@ struct MarkdownExtensionTests {
         #expect(html.hasSuffix("</ol>\n</section>\n"))
     }
 
+    @Test("末尾の HTML コメントを閉じてから脚注を追加し、閉じたコメントやコードは保つ")
+    func commentBeforeEndnotes() {
+        let input = "本文[^a]。\n\n[^a]: 文末注。\n\n"
+        let open = body(input + "<!-- capture")
+        let closed = body(input + "<!-- capture-->")
+        #expect(open.replacingOccurrences(of: "\n-->", with: "-->") == closed)
+        #expect(closed.contains("<!-- capture-->"))
+        #expect(closed.contains("<section class=\"footnotes\""))
+        #expect(body(input + "`<!-- capture`").contains("<code>&lt;!-- capture</code>"))
+    }
+
     @Test("同じ脚注を二度参照すると番号は同じで、二度目の参照には別の id を付ける")
     func repeatedFootnote() {
         let html = body("一[^n] 二[^N]\n\n[^n]: 注")

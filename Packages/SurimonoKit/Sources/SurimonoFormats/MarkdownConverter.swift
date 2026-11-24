@@ -340,7 +340,16 @@ public enum MarkdownConverter {
         case is ThematicBreak: return "<hr>\n"
         case is LineBreak: return "<br>\n"
         case is SoftBreak: return "\n"
-        case let html as HTMLBlock: return MarkdownPageBreaks.html(forBlock: html.rawHTML) ?? html.rawHTML
+        case let html as HTMLBlock:
+            let raw = html.rawHTML
+            // CommonMark ends a comment block at EOF. In the assembled document the generated notes follow it.
+            let comment = raw.drop(while: { $0.isWhitespace })
+            if comment.hasPrefix("<!--"), !comment.hasPrefix("<!-->"), !comment.hasPrefix("<!--->"),
+                !raw.contains("-->"), !raw.contains("--!>")
+            {
+                return raw + "-->\n"
+            }
+            return MarkdownPageBreaks.html(forBlock: raw) ?? raw
         case let html as InlineHTML: return html.rawHTML
         case let link as Link:
             let title = link.title.map { " title=\"\(HTML.escape($0))\"" } ?? ""

@@ -41,7 +41,7 @@ body { font-family: "Hiragino Mincho ProN", serif; font-size: 10.5pt; line-heigh
 .surimono-vertical .tcy { -webkit-text-combine: horizontal; text-combine-upright: all; letter-spacing: 0; }
 .surimono-vertical .explicit-tcy {
     display: inline-block; writing-mode: horizontal-tb; width: max-content; white-space: nowrap;
-    text-indent: 0; vertical-align: middle; font-kerning: auto; font-feature-settings: normal;
+    text-indent: 0; vertical-align: baseline; font-kerning: auto; font-feature-settings: normal;
 }
 .surimono-vertical .upright-digit { text-orientation: upright; }
 /* Generated space has no DOM text. A regular breakable space collapses at either line edge,

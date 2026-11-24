@@ -125,6 +125,29 @@ struct FlowPageCutsTests {
         #expect(pieces.map(\.rect.height) == [40, 42])
     }
 
+    @Test("表の見出しの高さを続きの段から引き、本文行の区間は重ならず各段に下罫を置く")
+    func repeatedHeaderGeometry() throws {
+        let table = Band(
+            start: -40, end: 0, ink: .init(start: -41, end: 1, top: 0, bottom: 95),
+            continuation: .init(
+                breaks: [5, 20, 35, 50, 65, 80], gap: 2, bottomBleed: 2,
+                tables: [
+                    .init(
+                        leftInset: 1, width: 40, top: 0, bottom: 95, headTop: 0, headHeight: 5, ruleWidth: 1,
+                        color: [0, 0, 0, 1])
+                ]))
+        let slices = try VerticalCapturePlan(chapters: [[table]], width: 100, height: 36, rows: 2).pages.flatMap { $0 }
+        #expect(slices.map(\.rect.minY) == [0, 35, 65])
+        #expect(slices.map(\.rect.maxY) == [35, 65, 97])
+        let header = CGRect(x: 0, y: 0, width: 40, height: 5)
+        #expect(slices.map(\.header) == [nil, header, header])
+        #expect(
+            slices.map { $0.bottomRule?.rect } == [
+                CGRect(x: 0, y: 35, width: 40, height: 1), CGRect(x: 0, y: 65, width: 40, height: 1), nil,
+            ])
+        #expect(slices.map(\.offset.y) == [35, 35, 37])
+    }
+
     @Test("横組みの長い箱を行境界で送り、単一の巨大な行も同じ倍率で隙間なく紙に載せる")
     func readableFragments() throws {
         let table = Band(

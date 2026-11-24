@@ -165,7 +165,8 @@ struct VerticalMixedContentTests {
         let emphasis = #"<em>Latin</em><em>和文</em><span class="kenten">点</span><span class="bousen">線</span>"#
         let body = """
             <p>\(emphasis)</p><figure><figcaption>\(emphasis)</figcaption></figure>
-            <p><span class="explicit-tcy"><span class="math-inline"><svg width="32" height="18"></svg></span><ruby>親<rt>おや</rt></ruby></span></p>
+            <p style="inline-size:9.5em;text-indent:0"><span id="short-runs">日11月<span class="explicit-tcy">25</span>日<span class="explicit-tcy">AB</span>人<span class="explicit-tcy">!?</span>文</span>続き。</p>
+            <p>和<span class="explicit-tcy"><span class="math-inline"><svg width="32" height="18"></svg></span><ruby>親<rt>おや</rt></ruby></span>文</p>
             <table><tbody><tr><td>\(emphasis)</td></tr>\(rows)</tbody></table><pre>\(code)</pre>
             <table><tr><td>\(marker(48))<div style="height:480px"></div>\(marker(49))</td></tr></table>
             """
@@ -191,6 +192,21 @@ struct VerticalMixedContentTests {
             const run = document.querySelector('.explicit-tcy'), svg = run.querySelector('svg');
             if (getComputedStyle(run).writingMode !== 'horizontal-tb' || run.querySelector('.vertical-inline-formula') ||
                 run.getBoundingClientRect().width < 32 || svg.getBoundingClientRect().height !== 18) return false;
+            const base = document.createRange();
+            base.selectNodeContents(run.previousSibling);
+            const center = r => (r.left + r.right) / 2;
+            if (Math.abs(center(run.getBoundingClientRect()) - center(base.getBoundingClientRect())) > 1.5) return false;
+            const shorts = [...document.querySelectorAll('#short-runs span')];
+            if (shorts.length !== 4 || !shorts.every(el => el.matches('.tcy') &&
+                Math.abs(el.getBoundingClientRect().height - parseFloat(getComputedStyle(el).fontSize)) < 1)) return false;
+            const advances = shorts.map(el => {
+                const r = document.createRange();
+                r.selectNodeContents(el.previousSibling);
+                const before = r.getBoundingClientRect();
+                r.selectNodeContents(el.nextSibling);
+                return r.getBoundingClientRect().top - before.bottom;
+            });
+            if (Math.max(...advances) - Math.min(...advances) > 1) return false;
             return ['p','figcaption','td'].every((selector,i) => {
                 const base = document.querySelector('.surimono-vertical ' + selector);
                 const [latin, japanese, explicit] = [...base.children].map(el => getComputedStyle(el));
@@ -249,7 +265,7 @@ struct VerticalMixedContentTests {
         }
     }
 
-    @Test("長い表の全行を本文と同じ段に右から並べ、末行の下罫と後続段落を印刷する", .timeLimit(.minutes(1)))
+    @Test("長い表の本文行は一度ずつ、見出しと下罫は各切片に印刷し、同じ段に段落を続ける", .timeLimit(.minutes(1)))
     func tableContinuesAcrossRow() async throws {
         _ = NSApplication.shared
         let theme = try #require(PrintThemeLibrary.load().first { $0.id == "tategaki" })
@@ -266,7 +282,12 @@ struct VerticalMixedContentTests {
         // Give only the existing bottom border a distinct ink. Adding a test border would mask its loss.
         let html = HTMLDocumentBuilder.build(
             fragment: MarkdownConverter.convert(source), format: .markdown, theme: theme,
-            finish: "table.horizontal-box {width:100px} tbody tr:last-child td {border-bottom-color:#009070}")
+            finish: """
+                table.horizontal-box {width:100px}
+                .surimono-vertical table thead th {background:#f0b020!important}
+                tbody tr:last-child td {border-bottom-color:#009070}
+                """
+        )
         let paper = PaperSize.a4.size
         let view = WKWebView(frame: CGRect(origin: .zero, size: paper))
         let navigation = NavigationTracker()
@@ -276,37 +297,55 @@ struct VerticalMixedContentTests {
         try #require(navigation.state == .finished)
         let document = try await VerticalPaginator.pages(
             in: view, pageSize: paper, margins: .init(top: 36, left: 36, bottom: 36, right: 36), timeout: .seconds(30))
+        let headings = try await view.evaluateForPrinting(
+            "return [...document.querySelectorAll('thead')].map(el => el.textContent.trim());",
+            until: .now + .seconds(5))
+        #expect(headings as? [String] == ["項目"])
         try #require(document.pageCount == 1)
         let page = try #require(document.page(at: 0))
         let marks = try markerBounds(on: page)
         let prefix = try singleMarker(40, in: marks)
         let suffix = try singleMarker(41, in: marks)
         var previous = prefix
-        var columns = 0
+        var columnEnds: [CGRect] = []
+        var columnStarts: [CGRect] = []
         for id in 0..<40 {
             let rect = try singleMarker(id, in: marks)
             #expect(abs(rect.width - 7.35) <= 1.1 && abs(rect.height - 7.35) <= 1.1, "印 \(id): \(rect)")
             #expect(rect.maxY < paper.height / 2)
             if abs(rect.midX - previous.midX) > 1 {
                 #expect(rect.maxX < previous.minX)
-                columns += 1
+                if id > 0 { columnEnds.append(previous) }
+                columnStarts.append(rect)
             } else {
                 #expect(rect.minY > previous.maxY)
             }
             previous = rect
         }
-        #expect(columns >= 2 && suffix.maxX < previous.minX)
+        columnEnds.append(previous)
+        #expect(columnStarts.count >= 2 && suffix.maxX < previous.minX)
         #expect(abs(prefix.minY - suffix.minY) < 2)
         let pixels = try PagePixels(page)
         func border(_ r: Int, _ g: Int, _ b: Int) -> Bool { g > r + 45 && b > r + 30 && g > b }
-        let rule = try #require(pixels.bounds(where: border))
-        for x in stride(from: rule.minX + 1, to: rule.maxX - 1, by: 1 / pixels.scale) {
-            let color = pixels.color(atX: x, y: rule.midY)
-            try #require(border(color.red, color.green, color.blue), "下罫 x=\(x) pt")
+        for (first, last) in zip(columnStarts, columnEnds) {
+            let header = stride(from: first.minY - 30, to: first.minY, by: 0.25).contains { y in
+                let c = pixels.color(atX: first.midX, y: y)
+                guard c.red > 180 && c.green > 110 && c.blue < 100 else { return false }
+                return stride(from: first.minX, to: first.minX + 60, by: 0.25).contains { x in
+                    let ink = pixels.color(atX: x, y: y)
+                    return max(ink.red, ink.green, ink.blue) < 100
+                }
+            }
+            #expect(header, "先頭行の上の見出し \(first)")
+            let closed = stride(from: last.maxY, through: last.maxY + 15, by: 0.25).contains { y in
+                // Scan across the cell interior; a side rule or a single tinted pixel cannot close a fragment.
+                stride(from: last.minX, through: last.minX + 60, by: 1).allSatisfy { x in
+                    let c = pixels.color(atX: x, y: y)
+                    return border(c.red, c.green, c.blue)
+                }
+            }
+            #expect(closed, "末行の下の罫 \(last)")
         }
-        #expect(rule.width > 72 && rule.height < 2)
-        #expect(rule.minX < previous.midX && previous.midX < rule.maxX && rule.minY >= previous.maxY)
-        #expect(rule.minY - previous.maxY < 15)
     }
 
     @Test("画素の境目をずらしても完全な印は合格し、上端か下端を 1 pt 切った印は欠けとして検出する")
@@ -384,7 +423,7 @@ struct VerticalMixedContentTests {
     @Test("実機の混植原稿を通常の組版経路で開くと別行数式と文末脚注のインクが紙に載る", .timeLimit(.minutes(1)))
     func manuscript() async throws {
         _ = NSApplication.shared
-        let source = DocumentSource(data: Data(mixManuscript.utf8), format: .markdown)
+        let source = DocumentSource(data: Data((mixManuscript + "<!-- r7 26078\n").utf8), format: .markdown)
         let style = try #require(PrintThemeLibrary.load().first { $0.id == "tategaki" })
         let theme = PrintTheme(
             id: style.id, name: style.name, css: style.css + "\n" + manuscriptInkColors, flow: style.flow)

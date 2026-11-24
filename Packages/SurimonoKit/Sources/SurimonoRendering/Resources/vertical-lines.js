@@ -43,6 +43,11 @@ for (const box of strip.querySelectorAll(horizontal)) {
     line.appendChild(box);
     box.classList.add('horizontal-box');
 }
+// Keep structured runs atomic. Plain short labels share the surrounding prose's one-cell advance.
+for (const run of strip.querySelectorAll('.explicit-tcy')) {
+    if (!run.parentElement.closest('.explicit-tcy,.horizontal-box') && !run.childElementCount &&
+        /^(?:[A-Za-z0-9]{1,3}|[!?]{2})$/u.test(run.textContent)) run.classList.replace('explicit-tcy', 'tcy');
+}
 // Real separator and label boxes give the capture pass measurable ink.
 for (const list of strip.querySelectorAll('section.footnotes > ol')) {
     const rule = wrapper('hr', 'vertical-note-rule');
@@ -349,6 +354,26 @@ function horizontalBreaks(box, stripTop) {
     }
     return cuts;
 }
+// The closing rule follows the table's own ink. Sampling the CSS color also resolves non-sRGB CSS notation.
+let swatch;
+function tableRegion(table, paint, stripTop) {
+    const r = table.getBoundingClientRect(), head = table.tHead?.getBoundingClientRect();
+    const cell = table.rows[table.rows.length - 1]?.cells[0];
+    const style = getComputedStyle(cell || table);
+    if (!swatch) {
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = 1;
+        swatch = canvas.getContext('2d');
+    }
+    swatch.clearRect(0, 0, 1, 1);
+    swatch.fillStyle = style.borderBottomColor;
+    swatch.fillRect(0, 0, 1, 1);
+    const color = Array.from(swatch.getImageData(0, 0, 1, 1).data, c => c / 255);
+    return {leftInset: (r.left - paint.left) * unit + 1, width: r.width * unit,
+        top: (r.top - stripTop) * unit, bottom: (r.bottom - stripTop) * unit,
+        headTop: head && (head.top - stripTop) * unit, headHeight: head && head.height * unit,
+        ruleWidth: (parseFloat(style.borderBottomWidth) || 2/3) * zoom, color};
+}
 function measureLayout() {
     strip.style.left = '';
     strip.style.top = '';
@@ -411,7 +436,9 @@ function measureLayout() {
             const continuation = split ? {
                 breaks: horizontalBreaks(n, stripTop),
                 gap: Math.max(0, parseFloat(getComputedStyle(n.parentElement).marginBlockStart) || 0) * zoom,
-                bottomBleed: n.matches('table') || n.querySelector('table') ? 2 : 0
+                bottomBleed: n.matches('table') || n.querySelector('table') ? 2 : 0,
+                tables: (n.matches('table') ? [n] : [...n.querySelectorAll('table')].filter(t => !t.parentElement.closest('table')))
+                    .map(table => tableRegion(table, paint, stripTop))
             } : undefined;
             add(layout.width && layout.height ? layout : paint, n.matches('.vertical-note-rule') || !!n.closest(heading), paint, emphasisInk(emphasis), false,
                 continuation);

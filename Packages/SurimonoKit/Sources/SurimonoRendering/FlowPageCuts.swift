@@ -16,10 +16,22 @@ enum FlowPageCuts {
         }
     }
 
+    struct TableRegion: Decodable, Equatable {
+        var leftInset: CGFloat
+        var width: CGFloat
+        var top: CGFloat
+        var bottom: CGFloat
+        var headTop: CGFloat?
+        var headHeight: CGFloat?
+        var ruleWidth: CGFloat
+        var color: [CGFloat]
+    }
+
     struct Continuation: Decodable, Equatable {
         var breaks: [CGFloat]
         var gap: CGFloat = 0
         var bottomBleed: CGFloat = 0
+        var tables: [TableRegion]?
     }
 
     struct Band: Decodable, Equatable {
