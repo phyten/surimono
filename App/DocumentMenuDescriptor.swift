@@ -5,8 +5,6 @@ import SwiftUI
 enum DocumentMenuAction: Hashable {
     case operation(ShortcutOperationID)
     case history(ContentHash)
-    case recentDocument(URL)
-    case clearRecentDocuments
     case recentBinder(RecentBinder.ID)
     case clearClipboard, clearBinders, openSample, checkWriting
     case composition(LaTeXComposition)
@@ -21,8 +19,6 @@ enum DocumentMenuAction: Hashable {
         switch self {
         case .operation(let operation):
             ShortcutDispatcher.shared.performFromMenu(operation, event: NSApp.currentEvent)
-        case .recentDocument(let url): OpenRouter.shared.openRecent(url)
-        case .clearRecentDocuments: NSDocumentController.shared.clearRecentDocuments(nil)
         case .history(let id): ClipboardWindows.shared.reopenClosed(id)
         case .recentBinder(let id):
             if let current = preferences.recentBinders.entries.first(where: { $0.id == id }) { openBinder(current) }
@@ -55,6 +51,7 @@ struct DocumentMenuDescriptor: Identifiable {
         case action(DocumentMenuAction)
         case menu(String)
         case divider(String)
+        case recentDocuments
         case typefacePicker
     }
 
@@ -109,10 +106,8 @@ struct DocumentMenuDescriptor: Identifiable {
             row.shortcut =
                 operation == .appOpen ? KeyboardShortcut("o", modifiers: .command) : snapshot.shortcut(for: operation)
             row.isEnabled = snapshot.content.enabled.contains(operation)
-        case .action(.clearRecentDocuments): row.isEnabled = !snapshot.content.recentURLs.isEmpty
         case .action(.checkWriting): row.isEnabled = snapshot.content.offersProse
         case .action(.setting), .action(.replaceSetting): row.isEnabled = snapshot.content.region != nil
-        case .menu("Open Recent"): break
         case .menu, .typefacePicker:
             row.isEnabled = row.children.contains { child in
                 if case .divider = child.id { return false }
@@ -146,12 +141,7 @@ struct DocumentMenuDescriptor: Identifiable {
         case .open:
             var rows: [Self] = [
                 command("Open…", .appOpen),
-                menu(
-                    "Open Recent",
-                    state.recentURLs.map { button(.verbatim($0.lastPathComponent), .recentDocument($0)) }
-                        + (state.recentURLs.isEmpty ? [] : [divider("clear")]) + [
-                            button("Clear Menu", .clearRecentDocuments)
-                        ]),
+                Self(id: .recentDocuments, title: "Open Recent"),
                 command("Open from Clipboard", .clipboardOpen),
                 command("Open Clipboard on the Print Screen", .clipboardOpenPrintScreen),
                 command("Open from URL…", .appOpenURL),

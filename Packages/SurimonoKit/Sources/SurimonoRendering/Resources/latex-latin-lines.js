@@ -1032,7 +1032,13 @@ function latinCompose(body, rectToCSS = 1, restorations) {
                     trial.heading.getBoundingClientRect().right)*rectToCSS-trial.runIn.skip;
                 const riseError = head && first ? (first.top-head.top)*rectToCSS - trial.runIn.rise : Infinity;
                 const leftError = head ? (head.left-block.left)*rectToCSS - trial.runIn.left : Infinity;
-                const misaligned = Math.max(Math.abs(riseError),Math.abs(leftError),Math.abs(gapError)) > .1 || !first || !head;
+                // Sequoia can apply a fractional hanging-term correction on a whole CSS pixel.
+                // Accept only the measured nearest step; the baseline and afterskip still have to match.
+                const offset = trial.headingOffset;
+                const snappedLeft = offset && Math.round(offset) !== 0 && Math.abs(leftError) <= .5
+                    && Math.abs(offset + leftError - Math.round(offset)) <= 1/64;
+                const misaligned = !first || !head || Math.abs(riseError) > .1 || Math.abs(gapError) > .1
+                    || (Math.abs(leftError) > .1 && !snappedLeft);
                 if (trial.boxDiagnostics || (diagnostics && misaligned)) {
                     trial.runInGeometry = {gapError,riseError,leftError,afterSkip:trial.runIn.specifiedSkip ?? trial.runIn.skip,
                         nativeSkip:trial.runIn.skip,rectToCSS,glyphGap:runInGap(trial.p,trial.heading)};

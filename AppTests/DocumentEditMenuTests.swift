@@ -165,6 +165,29 @@ struct DocumentEditMenuTests {
         #expect(!own.isHidden && system.isHidden && recent.isHidden)
     }
 
+    @Test("ファイル直下の仮項目は題名が入ると見え、同じ名の子項目と元から非表示の項目はそのままになる")
+    func placeholderBecomesShare() throws {
+        let file = try #require(NSApp.mainMenu?.items.dropFirst().first?.submenu)
+        let placeholder = NSMenuItem()
+        file.addItem(placeholder)
+        defer { file.removeItem(placeholder) }
+        #expect(placeholder.isHidden)
+        let children = NSMenu()
+        placeholder.submenu = children
+        placeholder.title = "Share"
+        #expect(!placeholder.isHidden)
+        let named = NSMenuItem(title: "NSMenuItem", action: nil, keyEquivalent: "")
+        children.addItem(named)
+        #expect(!named.isHidden)
+
+        let hidden = NSMenuItem()
+        hidden.isHidden = true
+        file.addItem(hidden)
+        defer { file.removeItem(hidden) }
+        hidden.title = "Share"
+        #expect(hidden.isHidden)
+    }
+
     @Test("標準の開くと後から履歴消去が付くサブメニューだけを追加時に隠す")
     func systemOpenItems() throws {
         let file = try #require(NSApp.mainMenu?.items.dropFirst().first?.submenu)

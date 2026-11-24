@@ -66,7 +66,6 @@ struct MenuSnapshot: Equatable {
         let typeface: Typeface?
         let selectingText: Bool
         let history: [Entry]
-        let recentURLs: [URL]
         let recentBinders: [BinderEntry]
         let visibility: Visibility
         let region: ShortcutRegion?
@@ -85,12 +84,10 @@ struct MenuSnapshot: Equatable {
 
         init(
             model: DocumentViewModel? = nil, preferences: AppPreferences? = nil, library: UserLibrary? = nil,
-            marginUnit: MarginUnit = .current, controller: ShortcutController = .shared, textInput: Bool = false,
-            recentURLs: [URL] = []
+            marginUnit: MarginUnit = .current, controller: ShortcutController = .shared, textInput: Bool = false
         ) {
             let language = model?.language ?? Bundle.main.preferredLocalizations.first ?? "en"
             self.language = language
-            self.recentURLs = recentURLs
             let summary = SettingSetSummary(
                 themes: library?.themes ?? [], presets: library?.presets ?? [], language: language, unit: marginUnit)
             builtInSets = PrintSettingSet.builtIns(language: language).map {

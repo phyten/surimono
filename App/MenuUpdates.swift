@@ -34,8 +34,9 @@ final class MenuUpdates: NSObject {
     private weak var observedLibrary: UserLibrary?
     private var localeObserver: NSObjectProtocol?
     private var observation = 0
-    private var recentURLs: [URL] = []
-    private var recentURLsDirty = true
+    private let recentDocuments = RecentDocumentsMenu()
+    private weak var recentSubmenu: NSMenu?
+    private var recentMenuNeedsUpdate = true
     private var snapshotDirty = true
     private var observationArmed = false
 
@@ -61,7 +62,7 @@ final class MenuUpdates: NSObject {
         pendingStop = false
         guard !started else { return }
         started = true
-        recentURLsDirty = true
+        recentMenuNeedsUpdate = true
         snapshotDirty = true
         MenuTrace.start()
         if MenuTrace.enabled, let menu = root() { inventory.seed(menu) }
@@ -116,7 +117,7 @@ final class MenuUpdates: NSObject {
         if note.name == NSApplication.didFinishLaunchingNotification
             || note.name == NSApplication.didBecomeActiveNotification
         {
-            recentURLsDirty = true
+            recentMenuNeedsUpdate = true
         }
         let main = root()
         if note.name == NSApplication.didUpdateNotification {
@@ -132,8 +133,8 @@ final class MenuUpdates: NSObject {
     }
 
     @objc private func recentDocumentsChanged(_ notification: Notification) {
-        recentURLsDirty = true
-        invalidateSnapshot("recent documents")
+        recentMenuNeedsUpdate = true
+        schedule()
     }
 
     @objc private func historyChanged(_ note: Notification) {
@@ -198,6 +199,9 @@ final class MenuUpdates: NSObject {
             MenuTrace.record(
                 "begin menu=\(MenuTrace.menuName(menu, root: main)) depth=\(trackingDepth) version=\(state.snapshot.version)"
             )
+            #if DEBUG
+                DebugMenuDump.recordFileTracking(menu, main: main)
+            #endif
             if MenuTrace.enabled { inventory.seed(menu, reportVisibleEditsAt: state.snapshot.version) }
         } else {
             if MenuTrace.enabled {
@@ -207,9 +211,30 @@ final class MenuUpdates: NSObject {
             }
             // Record the incoming instance before its synchronous repair emits nested change notifications.
             hider.hideNotifiedItem(note, in: menu, main: main)
+            if note.name != NSMenu.didRemoveItemNotification, main.numberOfItems > 1,
+                let file = main.item(at: 1)?.submenu, let index = note.userInfo?["NSMenuItemIndex"] as? Int
+            {
+                if menu === file {
+                    bindRecentMenu(in: file, at: index)
+                    bindRecentMenu(in: file, at: index + 1)
+                } else if menu === main && index == 1 {
+                    findRecentMenu(in: file)
+                }
+            }
             // Our setters post changes too. A structural edit, even during a pass, requires another look.
             if !applying || note.name != NSMenu.didChangeItemNotification { schedule() }
         }
+    }
+
+    private func bindRecentMenu(in file: NSMenu, at index: Int) {
+        if let menu = recentDocuments.bind(in: file, at: index), menu !== recentSubmenu {
+            recentSubmenu = menu
+            recentMenuNeedsUpdate = true
+        }
+    }
+
+    private func findRecentMenu(in file: NSMenu) {
+        for index in 0..<file.numberOfItems { bindRecentMenu(in: file, at: index) }
     }
 
     private func schedule() {
@@ -243,9 +268,18 @@ final class MenuUpdates: NSObject {
         }
         dirty = false
         if let menu = root() {
+            if menu.numberOfItems > 1, let file = menu.item(at: 1)?.submenu,
+                recentSubmenu?.supermenu !== file || recentSubmenu?.delegate !== recentDocuments
+            {
+                findRecentMenu(in: file)
+            }
             lastMenu = menu
             apply(menu)
             if allowsWrites, menu.numberOfItems > 1 { hider.hideItems(in: menu.item(at: 1)?.submenu) }
+        }
+        if allowsWrites, recentMenuNeedsUpdate, let recentSubmenu {
+            recentMenuNeedsUpdate = false
+            recentDocuments.refresh(recentSubmenu)
         }
         if allowsWrites { refreshState() }
     }
@@ -253,10 +287,6 @@ final class MenuUpdates: NSObject {
     private func refreshState() {
         guard snapshotDirty || sourcesChanged else { return }
         snapshotDirty = false
-        if recentURLsDirty {
-            recentURLsDirty = false
-            recentURLs = NSDocumentController.shared.recentDocumentURLs
-        }
         func read() -> MenuSnapshot.Content {
             // Registration can finish after the key-window notification for this same window.
             _ = DocumentWindows.shared.activeModel
@@ -264,7 +294,7 @@ final class MenuUpdates: NSObject {
             return MenuSnapshot.Content(
                 model: current, preferences: preferences(),
                 library: current?.library ?? ClipboardWindows.shared.library, marginUnit: marginUnit(),
-                controller: controller, textInput: textInput(), recentURLs: recentURLs
+                controller: controller, textInput: textInput()
             )
         }
         // Repeated key/main notifications for the same sources should not accumulate one-shot observers.

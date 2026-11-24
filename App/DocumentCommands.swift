@@ -47,6 +47,14 @@ struct DocumentMenuRows: View {
             let modifiers = row.modifiers(inMenuBar: inMenuBar)
             switch row.id {
             case .divider: Divider()
+            case .recentDocuments:
+                // A nonempty declarative menu keeps the header present even before there is any history.
+                Menu {
+                    Text("Clear Menu")
+                } label: {
+                    row.title.text
+                }
+                .accessibilityIdentifier(RecentDocumentsMenu.identifier)
             case .menu:
                 Menu {
                     DocumentMenuRows(rows: row.children, inMenuBar: inMenuBar, perform: perform)

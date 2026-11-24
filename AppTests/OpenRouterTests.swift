@@ -475,6 +475,11 @@ struct OpenRouterTests {
         func check(_ stage: String) throws {
             let main = try #require(NSApp.mainMenu)
             let file = try #require(main.items.dropFirst().first?.submenu)
+            let recent = try #require(
+                file.items.first { !$0.isHidden && $0.title == String(localized: "Open Recent") }?.submenu)
+            let delegate = try #require(recent.delegate)
+            try #require(delegate is RecentDocumentsMenu)
+            delegate.menuNeedsUpdate?(recent)
             let items = file.items
             let index = try openIndex(
                 in: items.map(DebugMenuDump.Row.init), stage: stage, recents: controller.recentDocumentURLs)
