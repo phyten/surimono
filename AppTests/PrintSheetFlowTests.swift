@@ -11,7 +11,7 @@ import Testing
 /// Holds or fails the sheet composition of a renderer, so a test sees the time between the logical pages and their
 /// sheets.
 @MainActor
-private final class CompositionGate {
+final class CompositionGate {
     var isHeld = false
     var failure: (any Error)?
     private(set) var waiting = 0

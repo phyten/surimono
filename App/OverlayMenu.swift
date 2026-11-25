@@ -39,7 +39,10 @@ final class OverlayMenuState {
         didSet { updateHideTimer() }
     }
 
-    init() {
+    init() { startTrackingMenus() }
+
+    func startTrackingMenus() {
+        guard observers.isEmpty else { return }
         // Pop-up tracking takes the pointer away from the band until the menu closes.
         let center = NotificationCenter.default
         observers = [
@@ -59,12 +62,17 @@ final class OverlayMenuState {
                 }
             },
         ]
+        updateHideTimer()
     }
 
-    isolated deinit {
+    func stopTrackingMenus() {
         for observer in observers { NotificationCenter.default.removeObserver(observer) }
-        hideTask?.cancel()
+        observers = []
+        menuTracking = 0
+        cancelHide()
     }
+
+    isolated deinit { stopTrackingMenus() }
 
     private var isHeld: Bool { isHolding || scrubberHeld || menuTracking > 0 }
     /// The edge of the paper under a hidden band, and the band's room with that edge while it shows. A band that makes
@@ -117,7 +125,7 @@ final class OverlayMenuState {
     }
 
     private func updateHideTimer() {
-        guard !isHeld, !isPointerOverBand else {
+        guard !observers.isEmpty, !isHeld, !isPointerOverBand else {
             cancelHide()
             return
         }
@@ -304,10 +312,10 @@ struct BandPresentationHost: View {
             let outline = placement(.outline)
             let badge = placement(.formatBadge)
             Color.clear.popover(
-                isPresented: $model.isLaTeXRecognitionPresented, attachmentAnchor: anchor(badge),
+                isPresented: model.controlBinding(\.isLaTeXRecognitionPresented), attachmentAnchor: anchor(badge),
                 arrowEdge: badge.arrowEdge
-            ) {
-                if let recognition = model.latexBadge {
+            ) { [weak model] in
+                if let model, let recognition = model.latexBadge {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(verbatim: recognition.explanation)
                             .lineLimit(2)
@@ -339,22 +347,22 @@ struct BandPresentationHost: View {
             let figures = placement(.pageIndicator)
             let more = placement(.viewOptions)
             Color.clear.popover(
-                isPresented: $model.isOutlinePresented, attachmentAnchor: anchor(outline),
+                isPresented: model.controlBinding(\.isOutlinePresented), attachmentAnchor: anchor(outline),
                 arrowEdge: outline.arrowEdge
-            ) {
-                OutlinePopover(model: model)
+            ) { [weak model] in
+                if let model { OutlinePopover(model: model) }
             }
             Color.clear.popover(
-                isPresented: $model.isFiguresPresented, attachmentAnchor: anchor(figures),
+                isPresented: model.controlBinding(\.isFiguresPresented), attachmentAnchor: anchor(figures),
                 arrowEdge: figures.arrowEdge
-            ) {
-                DocumentFiguresPopover(model: model)
+            ) { [weak model] in
+                if let model { DocumentFiguresPopover(model: model) }
             }
             Color.clear.popover(
-                isPresented: $model.isViewOptionsPresented, attachmentAnchor: anchor(more),
+                isPresented: model.controlBinding(\.isViewOptionsPresented), attachmentAnchor: anchor(more),
                 arrowEdge: more.arrowEdge
-            ) {
-                ViewOptionsPopover(model: model)
+            ) { [weak model] in
+                if let model { ViewOptionsPopover(model: model) }
             }
         }
         .allowsHitTesting(false)

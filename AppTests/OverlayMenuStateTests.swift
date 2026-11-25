@@ -173,6 +173,24 @@ struct OverlayMenuStateTests {
         #expect(menu.stage == .hidden)
     }
 
+    @Test("表示を離れた帯はメニューの通知を受けず、表示に戻ると再び受ける")
+    func trackingFollowsPresentation() {
+        let menu = OverlayMenuState()
+        let popup = NSMenu()
+        func turnDuringTracking() {
+            menu.showFull()
+            NotificationCenter.default.post(name: NSMenu.didBeginTrackingNotification, object: popup)
+            defer { NotificationCenter.default.post(name: NSMenu.didEndTrackingNotification, object: popup) }
+            menu.pageTurned()
+        }
+        menu.stopTrackingMenus()
+        turnDuringTracking()
+        #expect(menu.stage == .hidden)
+        menu.startTrackingMenus()
+        turnDuringTracking()
+        #expect(menu.stage == .full)
+    }
+
     @Test("メニューを開いている間は隠れず閉じてから1秒待つ", .timeLimit(.minutes(1)))
     func trackingHoldsUntilClosed() async throws {
         let menu = OverlayMenuState()

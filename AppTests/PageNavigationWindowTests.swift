@@ -29,7 +29,7 @@ struct PageNavigationWindowTests {
         }
 
         func close() {
-            controller.close()
+            if !model.isWindowClosed { controller.close() }
             defaults.remove()
             try? FileManager.default.removeItem(at: directory)
         }
@@ -125,6 +125,74 @@ struct PageNavigationWindowTests {
             return responder === paper || responder?.isDescendant(of: paper) == true
         }
         if background { #expect(!window.isKeyWindow) }
+    }
+
+    #if DEBUG
+        @Test("ページ送りの途中で印刷画面へ移り表示に戻ると、古い紙面を切り離して新しい紙面で読める")
+        func roundTripDuringPageTurn() async throws {
+            let fixture = try Fixture()
+            defer { fixture.close() }
+            let model = fixture.model
+            try await Self.wait { model.isUpToDate && model.paper.view?.document != nil }
+            let outgoing = try #require(model.paper.view)
+            // Exercise PDFKit's normal analysis on one paper without changing the rest of the host process.
+            if outgoing.responds(to: NSSelectorFromString("setDocumentAnalysisEnabled:")) {
+                outgoing.setValue(true, forKey: "documentAnalysisEnabled")
+            }
+            model.updateViewOptions {
+                $0.layout = .single
+                $0.transition = .fade
+            }
+            outgoing.apply(model.viewOptions)
+            outgoing.goToPage(index: 0)
+            outgoing.shouldReduceMotion = { false }
+            let progress = PaperPDFView.frozenTurnProgress
+            do {
+                defer { PaperPDFView.frozenTurnProgress = progress }
+                PaperPDFView.frozenTurnProgress = 0.5
+                outgoing.turnPage(forward: true)
+            }
+            try #require(outgoing.layer?.animation(forKey: "transition")?.speed == 0)
+
+            model.enterPrintMode()
+            try await Self.wait { model.hasCurrentPrintPreview && outgoing.document == nil }
+            #expect(outgoing.layer?.animation(forKey: "transition") == nil)
+            model.exitPrintMode()
+            try await Self.wait {
+                model.mode == .view && model.paper.view?.window === fixture.window && model.paper.view?.document != nil
+            }
+            let incoming = try #require(model.paper.view)
+            #expect(incoming !== outgoing)
+            incoming.goToPage(index: 2)
+            #expect(incoming.currentPageIndex == 2)
+            #expect(outgoing.document == nil)
+        }
+    #endif
+
+    @Test("用紙の面付け待ちの印刷は、文書の窓を閉じてから面付けを再開しても送信しない")
+    func closeDuringPrintPreparation() async throws {
+        let fixture = try Fixture()
+        defer { fixture.close() }
+        let model = fixture.model
+        model.printerListSource = { PrinterList(names: ["Test"], defaultName: "Test") }
+        var submissions = 0
+        model.printSubmit = { _, _, _ in submissions += 1 }
+        try await Self.wait { model.isUpToDate && model.paper.view?.document != nil }
+        let gate = CompositionGate()
+        gate.isHeld = true
+        defer { gate.release() }
+        model.renderer.willComposeSheet = { try await gate.pass() }
+        model.printDocument(quick: true)
+        try await Self.wait { gate.waiting > 0 }
+        try #require(model.hasWaitingOutput)
+        let render = try #require(model.renderTask)
+        fixture.window.performClose(nil)
+        #expect(model.isWindowClosed && render.isCancelled)
+        gate.release()
+        await render.value
+        #expect(!model.hasWaitingOutput && !model.isRendering && !model.isPrinting)
+        #expect(model.printResult == nil && model.renderer.sheetCompositionCount == 0)
+        #expect(submissions == 0)
     }
 
     @Test("入力欄からスクラバーを押すと編集を離れ、Escと解放でページも履歴も変わらない")

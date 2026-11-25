@@ -1,6 +1,7 @@
 import AppKit
 import ObjectiveC
 import PDFKit
+import Synchronization
 
 /// A PDFView that shows screen readers its pages' text through elements of its own, in place of PDFKit's.
 ///
@@ -12,16 +13,33 @@ import PDFKit
 class PageTextPDFView: PDFView {
     private var elements: [ObjectIdentifier: PageTextElement] = [:]
     private weak var elementsDocument: PDFDocument?
+    // AppKit can ask for the focused AX element on a background queue while the main thread is closing the window.
+    private let retired = Atomic(false)
+    nonisolated var isRetired: Bool { retired.load(ordering: .relaxed) }
+
+    func retire() {
+        guard !isRetired else { return }
+        retired.store(true, ordering: .relaxed)
+        clearElements()
+        elementsDocument = nil
+        NSAccessibility.post(element: self, notification: .uiElementDestroyed)
+    }
 
     private func discardReplacedElements() {
         guard elementsDocument !== document || (document == nil && !elements.isEmpty) else { return }
-        clearElements()
         elementsDocument = document
+        clearElements()
     }
 
     private func clearElements() {
-        for element in elements.values { element.position.anchor = nil }
+        let discarded = elements.values
         elements.removeAll()
+        // A reader can still have the previous leaf when it asks for its parent or frame again.
+        for element in discarded {
+            element.position.anchor = nil
+            element.setAccessibilityParent(nil)
+            NSAccessibility.post(element: element, notification: .uiElementDestroyed)
+        }
     }
 
     override init(frame frameRect: NSRect) {
@@ -59,7 +77,7 @@ class PageTextPDFView: PDFView {
         }
     #endif
 
-    override func isAccessibilityElement() -> Bool { true }
+    nonisolated override func isAccessibilityElement() -> Bool { !isRetired }
 
     override func accessibilityRole() -> NSAccessibility.Role? { .group }
 
@@ -70,11 +88,13 @@ class PageTextPDFView: PDFView {
     // The synchronous main-thread read finishes before this local result crosses back to its caller.
     nonisolated override func accessibilityHitTest(_ point: NSPoint) -> Any? {
         nonisolated(unsafe) var element: Any?
-        onPaperAccessibilityMain { element = visibleElements.first { $0.accessibilityFrame().contains(point) } }
-        return element ?? self
+        onPaperAccessibilityMain {
+            if !isRetired { element = visibleElements.first { $0.accessibilityFrame().contains(point) } ?? self }
+        }
+        return element
     }
 
-    nonisolated override var accessibilityFocusedUIElement: Any? { self }
+    nonisolated override var accessibilityFocusedUIElement: Any? { isRetired ? nil : self }
 
     override func layout() {
         super.layout()
@@ -126,6 +146,7 @@ class PageTextPDFView: PDFView {
     }
 
     private var visibleElements: [PageTextElement] {
+        guard !isRetired else { return [] }
         discardReplacedElements()
         guard let document else { return [] }
         return visiblePages.map { page in
@@ -152,14 +173,23 @@ class PageTextPDFView: PDFView {
 
     // Scroll and window movement are handled by AppKit's coordinate conversion. Only a changed PDF layout needs
     // a new page transform; a late AX request must never ask PDFKit to locate an outgoing page.
+    private static let pageLayoutNotifications: [Notification.Name] = [
+        .PDFViewDocumentChanged, .PDFViewScaleChanged, .PDFViewDisplayModeChanged, .PDFViewDisplayBoxChanged,
+        .PDFViewPageChanged,
+    ]
+
     private func observePageLayout() {
         // PDFKit reads its document getter from its analysis queue. Observe replacements without overriding it.
-        for name: Notification.Name in [
-            .PDFViewDocumentChanged, .PDFViewScaleChanged, .PDFViewDisplayModeChanged, .PDFViewDisplayBoxChanged,
-            .PDFViewPageChanged,
-        ] {
+        for name in Self.pageLayoutNotifications {
             NotificationCenter.default.addObserver(
                 self, selector: #selector(pageLayoutChanged(_:)), name: name, object: self)
+        }
+    }
+
+    func stopObservingPageLayout() {
+        // The paper also observes scale and page changes from this same sender.
+        for name in Self.pageLayoutNotifications {
+            NotificationCenter.default.removeObserver(self, name: name, object: self)
         }
     }
 

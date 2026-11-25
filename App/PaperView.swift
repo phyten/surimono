@@ -29,6 +29,7 @@ final class PaperController {
 
     func followChange(on pageIndex: Int, in source: PDFDocument, pinnedBandHeight: CGFloat) {
         // A save announces its changes before SwiftUI installs the new PDF. Never scroll the outgoing pages.
+        guard !isClosed else { return }
         pendingChange = (source, pageIndex, pinnedBandHeight)
         revealPendingChange()
     }
@@ -296,7 +297,8 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
     private var shownDocuments: [ShownDocument] = []
     private static let tileDrawingGrace: Duration = .seconds(1)
     private var displayRevision: UInt = 0
-    private var tileRetirement: Task<Void, Never>?
+    var tileClock = PaperTileClock()
+    private var cancelTileRetirement: PaperTileClock.Action?
     // Core Animation retains its delegate on the installed animation, including a paused page turn.
     private final class PageTurnDocuments: NSObject, CAAnimationDelegate {
         let displayed: PDFDocument
@@ -524,11 +526,9 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
 
     required init?(coder: NSCoder) { nil }
 
-    fileprivate private(set) var isRetired = false
-
-    fileprivate func retire() {
+    override func retire() {
         guard !isRetired else { return }
-        isRetired = true
+        super.retire()
         if changeController?.view === self { changeController?.view = nil }
         changeController = nil
         onFindHits = nil
@@ -543,18 +543,46 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
         onToast = nil
         onDiagram = nil
         pendingMenu?.cancel()
+        pendingMenu = nil
+        cancelTileRetirement?()
+        cancelTileRetirement = nil
         findSearch?.cancel()
         findSearch = nil
         stopZoomReturn()
         updateMagnifyMonitor()
         updateWheelMonitor()
-        NotificationCenter.default.removeObserver(self)
+        let turning = shownDocuments.count > 2 ? turningDocument : nil
+        // PDFKit's focused page view still belongs to this paper until its document is detached.
+        if let window {
+            if let initial = window.initialFirstResponder, initial === self || initial.isDescendant(of: self) {
+                window.initialFirstResponder = nil
+            }
+            if let current = window.firstResponder as? NSView, current === self || current.isDescendant(of: self) {
+                window.makeFirstResponder(nil)
+            }
+        }
+        subviews.compactMap { $0 as? PaperSpotFrameView }.first?.dismiss()
+        findHits = []
+        highlightedSelections = nil
+        clearSelection()
+        proseUnderlines.show([])
+        formulaIndex = nil
+        // PDFKit notifies the installed provider and delegate as its page views leave the document.
+        document = nil
+        pageOverlayViewProvider = nil
+        delegate = nil
+        sourceDocument = nil
         // A gesture recognizer can retain its closed container. Unhook it from the discarded view.
         gestureRecognizers = []
+        layer?.removeAllAnimations()
+        nextKeyView = nil
+        stopObservingPageLayout()
+        holdDocumentsForRetiredTiles(turning: turning)
+        shownDocuments.removeAll()
     }
 
     isolated deinit {
-        tileRetirement?.cancel()
+        cancelTileRetirement?()
         #if DEBUG
             ShownDocumentsProbe.lifetimes[probeID]?.deinitialized = ProcessInfo.processInfo.systemUptime
         #endif
@@ -672,7 +700,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
     }
 
     private func rememberShownDocument(_ displayed: PDFDocument, source: PDFDocument, changesLayout: Bool) {
-        let until = ContinuousClock.now + Self.tileDrawingGrace
+        let until = tileClock.now + Self.tileDrawingGrace
         if let current = shownDocuments.indices.last, shownDocuments[current].document === displayed {
             if changesLayout { shownDocuments[current].keepLayoutTilesUntil = until }
             return
@@ -704,23 +732,46 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
         retireUnusedDocuments()
     }
 
+    private var turningDocument: PDFDocument? {
+        let transition = layer?.animation(forKey: "transition") ?? layer?.animation(forKey: "pageTurn")
+        return (transition?.delegate as? PageTurnDocuments)?.displayed
+    }
+
+    private func holdDocumentsForRetiredTiles(turning: PDFDocument?) {
+        let now = tileClock.now
+        var batches: [ContinuousClock.Instant: [PDFDocument]] = [:]
+        for (index, generation) in shownDocuments.enumerated() {
+            var deadline = generation.keepLayoutTilesUntil ?? now
+            if index >= shownDocuments.count - 2 || generation.document === turning {
+                deadline = max(deadline, now + Self.tileDrawingGrace)
+            }
+            if deadline > now {
+                batches[deadline, default: []].append(contentsOf: [generation.document, generation.source])
+            }
+        }
+        // Detaching PDFView does not drain PDFKit's tile draws. Only the PDFs cross this boundary,
+        // so the window, paper and renderers can go away while each batch waits out its own grace.
+        for (deadline, documents) in batches {
+            tileClock.schedule(at: deadline) { withExtendedLifetime(documents) {} }
+        }
+    }
+
     private func retireUnusedDocuments() {
-        tileRetirement?.cancel()
-        tileRetirement = nil
+        cancelTileRetirement?()
+        cancelTileRetirement = nil
         guard shownDocuments.count > 2 else { return }
 
         // Keep both sides of the last swap. Alternating single and spread can then reuse both PDFs indefinitely.
         // PDFKit has no public tile-drained callback. A rapid reload after a layout change can evict a third
         // PDF while its pages are still being drawn. Age each such copy independently so a busy window still drains.
-        let now = ContinuousClock.now
-        let transition = layer?.animation(forKey: "transition") ?? layer?.animation(forKey: "pageTurn")
-        let turning = (transition?.delegate as? PageTurnDocuments)?.displayed
+        let now = tileClock.now
+        let turning = turningDocument
         var nextCheck: ContinuousClock.Instant?
         for index in shownDocuments.indices.dropLast(2).reversed() {
             var deadline = shownDocuments[index].keepLayoutTilesUntil
             if turning === shownDocuments[index].document {
                 // A slowed or paused page turn can outlive the tile grace period.
-                deadline = max(deadline ?? now, now + .seconds(1))
+                deadline = max(deadline ?? now, now + Self.tileDrawingGrace)
             }
             if let until = deadline, until > now {
                 nextCheck = min(nextCheck ?? until, until)
@@ -729,8 +780,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
             }
         }
         if let nextCheck {
-            tileRetirement = Task { @MainActor [weak self] in
-                do { try await ContinuousClock().sleep(until: nextCheck) } catch { return }
+            cancelTileRetirement = tileClock.schedule(at: nextCheck) { [weak self] in
                 self?.retireUnusedDocuments()
             }
         }
@@ -765,7 +815,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
         guard self[keyPath: key] != value else { return }
         // PDFKit can keep drawing displaced tiles even when the same document stays installed.
         if let last = shownDocuments.indices.last, shownDocuments[last].document === document {
-            shownDocuments[last].keepLayoutTilesUntil = .now + Self.tileDrawingGrace
+            shownDocuments[last].keepLayoutTilesUntil = tileClock.now + Self.tileDrawingGrace
         }
         if document != nil { displayRevision &+= 1 }
         self[keyPath: key] = value
@@ -800,6 +850,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
 
     override func layout() {
         super.layout()
+        guard !isRetired else { return }
         hideScrollersAndInsets()
         // Fit again when the window changes size; the zoom the user chose is relative to the fit.
         if bounds.size != fittedSize { refit() }
@@ -960,12 +1011,12 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
 
     @objc private func scaleDidChange() {
         // PDFKit also rescales on its own, for example when the display mode changes; the zoom stays the user's.
-        guard !isSettingScale, fitScale > 0 else { return }
+        guard !isRetired, !isSettingScale, fitScale > 0 else { return }
         refit()
     }
 
     @objc private func pageDidChange() {
-        guard !isMeasuringFit, !isUpdatingDocument, !isSettingScale, !isSwitchingSpreadMode else { return }
+        guard !isRetired, !isMeasuringFit, !isUpdatingDocument, !isSettingScale, !isSwitchingSpreadMode else { return }
         // PDFKit may turn pages itself, such as onto the blank before the cover or past the cover while showing one
         // page; show what the reader expects there.
         if let document, let page = currentPage, options?.layout == .spread, options?.isContinuous != true {
@@ -1944,6 +1995,13 @@ final class PaperSpotFrameView: NSView {
         layer?.borderWidth = options.increasedContrast ? 3 : 2
         layer?.backgroundColor =
             options.reduceTransparency ? nil : NSColor(PrintPalette.paperAi).withAlphaComponent(0.08).cgColor
+    }
+
+    fileprivate func dismiss() {
+        task?.cancel()
+        task = nil
+        spot = nil
+        removeFromSuperview()
     }
 
     func show(_ spot: PaperSpot, lifetime: Duration) {

@@ -1333,6 +1333,20 @@ final class DocumentViewModel {
         isWindowClosed = true
         paper.disconnect()
         stop()
+        // A native control may still hold the closed presentation while AppKit finishes dismissal.
+        window?.undoManager?.removeAllActions(withTarget: self)
+        drop.end()
+        imageBundle?.stopFlashing()
+        renderTask = nil
+        isRendering = false
+        composingSheets = false
+        pendingPDF = nil
+        printResult = nil
+        result = nil
+        structureDocument = nil
+        chosenTrial = nil
+        themeTrial.clear()
+        renderer.clearCache()
         onFirstRender = nil
         textReopener = nil
     }
@@ -1845,7 +1859,7 @@ final class DocumentViewModel {
         let showsLeadingPages =
             result == nil && mode == .view && binder == nil && imageBundle == nil
             && (format == .plainText || format == .csv)
-        renderTask = Task { [weak self, renderer, binder, imageBundle] in
+        renderTask = Task { [weak self, binder, imageBundle] in
             guard !Task.isCancelled else { return }
             var settings = settings
             do {
@@ -1871,6 +1885,8 @@ final class DocumentViewModel {
                         guard let self else { return }
                         source = withFolderAccess(singleSource)
                     }
+                    // Reading a bundle can outlast cancellation while a file read is in progress.
+                    guard let renderer = self?.renderer else { return }
                     if showsLeadingPages {
                         prepared = try await renderer.prepare(source, settings: settings) { [weak self] preview in
                             guard let self, !Task.isCancelled, mode == .view, generation == dataGeneration,
@@ -1943,6 +1959,7 @@ final class DocumentViewModel {
                     }
                 }
                 if self?.mode == .print || self?.waitingOutput?.replacesReview == true {
+                    guard let renderer = self?.renderer else { return }
                     self?.composingSheets = true
                     let output = try await renderer.composeSheet(
                         for: prepared, rotatesBackSides: settings.options.rotatesBackSides)

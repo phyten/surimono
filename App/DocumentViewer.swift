@@ -64,8 +64,8 @@ struct DocumentContent: View {
             }
         }
         // The tray's and the stage's top bars need the taller title bar of a window with a toolbar.
-        .toolbar {
-            if model.mode != .view { PrintModeToolbarPlaceholder() }
+        .toolbar { [mode = model.mode] in
+            if mode != .view { PrintModeToolbarPlaceholder() }
         }
         .background(
             WindowReader { [weak model] window in
@@ -87,8 +87,7 @@ struct DocumentContent: View {
         .overlay {
             ZStack {
                 DropOverlay(model: model)
-                DropCatcher(
-                    session: model.drop, onEnter: { model.dragEntered($0, at: $1) }, onPerform: { model.performDrop() })
+                DropCatcher(model: model)
             }
             .ignoresSafeArea()
         }
@@ -98,8 +97,8 @@ struct DocumentContent: View {
             model.start()
         }
         .onDisappear { if !model.isWindowClosed { model.stop() } }
-        .sheet(item: $model.duplexTestResult) { test in
-            DuplexTestSheet(model: model, test: test)
+        .sheet(item: model.controlBinding(\.duplexTestResult)) { [weak model] test in
+            if let model { DuplexTestSheet(model: model, test: test) }
         }
         .modifier(ManualDuplexPresentation(model: model))
         .modifier(DocumentContentChanges(model: model))
@@ -143,6 +142,7 @@ private struct DocumentWindowChanges: ViewModifier {
                 if document != nil { model.sizeWindowToPaper() }
             }
             .onChange(of: model.isRendering) { _, rendering in
+                guard !model.isWindowClosed else { return }
                 if !rendering {
                     model.sizeWindowToPaper()
                     OpenRouter.shared.printIfRequested(model)
@@ -164,14 +164,23 @@ private struct DocumentWindowChanges: ViewModifier {
                 if let window = model.window { ViewerWindow.setAlwaysOnTop(onTop, in: window) }
             }
             .onChange(of: model.showsOnAllSpaces) { model.applyWindowSpacesAfterUpdate() }
-            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEndLiveResizeNotification)) { note in
-                if let window = note.object as? NSWindow, window === model.window { model.windowDidEndLiveResize() }
+            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEndLiveResizeNotification)) {
+                [weak model] note in
+                guard let model, !model.isWindowClosed, let window = note.object as? NSWindow, window === model.window
+                else { return }
+                model.windowDidEndLiveResize()
             }
-            .onReceive(NotificationCenter.default.publisher(for: NSWindow.willEnterFullScreenNotification)) { note in
-                if let window = note.object as? NSWindow, window === model.window { model.windowWillEnterFullScreen() }
+            .onReceive(NotificationCenter.default.publisher(for: NSWindow.willEnterFullScreenNotification)) {
+                [weak model] note in
+                guard let model, !model.isWindowClosed, let window = note.object as? NSWindow, window === model.window
+                else { return }
+                model.windowWillEnterFullScreen()
             }
-            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didExitFullScreenNotification)) { note in
-                if let window = note.object as? NSWindow, window === model.window { model.windowDidExitFullScreen() }
+            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didExitFullScreenNotification)) {
+                [weak model] note in
+                guard let model, !model.isWindowClosed, let window = note.object as? NSWindow, window === model.window
+                else { return }
+                model.windowDidExitFullScreen()
             }
     }
 }
