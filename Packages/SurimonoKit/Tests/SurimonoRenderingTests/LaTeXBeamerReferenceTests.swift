@@ -2,11 +2,11 @@ import AppKit
 import PDFKit
 import Testing
 
-// WebKit snaps each printed line to a device pixel, and the snapping differs between systems: on macOS 27.2.1
-// several lines of fixture 083 sit 0.4 pt higher or lower than on macOS 26.6.2 (measured in both, 2026-11-25).
-// The affiliation line of the title page is 1.7 pt below real TeX on 26.6.2 and 2.1 pt below on 27.2.1, so a
-// 2 pt limit left no room for that half-pixel. 2.5 pt still fails a line that is off by a third of its height.
-private let beamerVerticalTolerance = 2.5
+// Measured on 2026-11-25: the ink bottom of the affiliation line on the title page is 1.7 pt below real TeX on
+// macOS 26.6.2 and 2.1 pt below on macOS 27.2.1. Between the two systems, lines of fixture 083 move by about
+// 0.4 pt. Only the affiliation line gets the wider limit; every other anchor keeps 2 pt.
+private let beamerVerticalTolerance: CGFloat = 2
+private let beamerInstituteVerticalTolerance: CGFloat = 2.5
 
 // Called from the timed print test to inspect the same physical pages that the reader exports.
 @MainActor
@@ -103,15 +103,16 @@ func compareBeamerReference(_ pdf: PDFDocument, to reference: PDFDocument, fixtu
             let selectedTeX = try inkBottom(expected, in: reference, on: tex)
             let y = try isInstitute ? instituteInkBottom(on: page) : selectedY
             let texY = try isInstitute ? instituteInkBottom(on: tex) : selectedTeX
+            let tolerance = isInstitute ? beamerInstituteVerticalTolerance : beamerVerticalTolerance
             var position =
-                "\(fixture) p\(index + 1) \(word) inkY=\(y) TeX=\(texY) Δ=\(y - texY)pt (±\(beamerVerticalTolerance)pt) "
+                "\(fixture) p\(index + 1) \(word) inkY=\(y) TeX=\(texY) Δ=\(y - texY)pt (±\(tolerance)pt) "
                 + "font=\(face(in: pdf, on: page))/\(face(in: reference, on: tex)) embedded=\(embeddedFaces) scale=\(NSScreen.main?.backingScaleFactor ?? 0)"
             if isInstitute {
                 position +=
                     " selectionInkY=\(selectedY) selectionTeX=\(selectedTeX) selectionΔ=\(selectedY - selectedTeX)pt"
             }
             positions.append(position)
-            #expect(abs(y - texY) <= beamerVerticalTolerance, "\(position)")
+            #expect(abs(y - texY) <= tolerance, "\(position)")
         }
     }
     if fixture == "specimen" || fixture == "083" {
