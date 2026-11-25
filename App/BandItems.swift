@@ -60,6 +60,7 @@ extension BandLayout.Item {
 
 /// One item of the band in the given form.
 struct BandItemView: View {
+    @Environment(\.locale) private var locale
     @Bindable var model: DocumentViewModel
     let item: BandLayout.Item
     let form: BandLayout.Form
@@ -112,7 +113,7 @@ struct BandItemView: View {
                 Text(verbatim: model.zoomPercentage).monospacedDigit()
             }
             .accessibilityLabel(Text(item.bandAccessibilityName))
-            .accessibilityValue(Text(verbatim: model.zoomPercentage))
+            .accessibilityValue(Text(verbatim: BandAccessibility.zoomValue(model.displayedZoom, locale: locale)))
             .help(ShortcutHints.help(String(localized: "Fit to Window"), [.viewZoomFit]))
         case .thumbnails:
             if let binder = model.binder {

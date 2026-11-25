@@ -37,6 +37,10 @@ enum BandAccessibility {
 
     static func zoomPercentage(_ zoom: Double) -> String { "\(Int((zoom * 100).rounded()))%" }
 
+    static func zoomValue(_ zoom: Double, locale: Locale) -> String {
+        zoom.formatted(.percent.precision(.fractionLength(0)).locale(locale))
+    }
+
     static func pageIndicator(_ indicator: String?, bookmarked: Bool) -> String {
         [indicator, bookmarked ? String(localized: "Bookmarked") : nil].compactMap { $0 }.joined(separator: ", ")
     }

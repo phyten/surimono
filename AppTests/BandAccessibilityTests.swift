@@ -65,7 +65,6 @@ struct BandAccessibilityTests {
         let changes = BandAccessibility.readingChanges(2)
         #expect(changes.key == "Changed in This Document: %lld")
         #expect(String(localized: changes) == String(format: String(localized: "Changed in This Document: %lld"), 2))
-        #expect(BandAccessibility.zoomPercentage(1.25) == "125%")
         #expect(BandAccessibility.pageIndicator("3 / 5", bookmarked: false) == "3 / 5")
         #expect(
             BandAccessibility.pageIndicator("3 / 5", bookmarked: true) == "3 / 5, " + String(localized: "Bookmarked"))
@@ -75,6 +74,15 @@ struct BandAccessibilityTests {
         ] {
             #expect(transition.title == LocalizedStringKey(key))
         }
+    }
+
+    @Test("帯のズーム率は画面では空白なし、読み上げでは地域に合う整数のパーセントになる")
+    func zoomPercentages() {
+        let zoom = 1.246
+        #expect(BandAccessibility.zoomPercentage(zoom) == "125%")
+        #expect(BandAccessibility.zoomValue(zoom, locale: Locale(identifier: "en_US")) == "125%")
+        let french = BandAccessibility.zoomValue(zoom, locale: Locale(identifier: "fr_FR"))
+        #expect(["125\u{00A0}%", "125\u{202F}%"].contains(french))
     }
 
     @Test("スタイルと HTML プリセットでは現在の選択を読み上げ、見つからなければその旨を伝える")

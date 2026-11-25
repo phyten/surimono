@@ -60,6 +60,7 @@ struct TextSizeField: View {
     private var field: some View {
         TextField(title, value: percent, format: .number.grouping(.never))
             .labelsHidden().multilineTextAlignment(.trailing).monospacedDigit()
+            .accessibilityLabel(Text("\(Text(title)) (percent)"))
     }
 
     private var percent: Binding<Int> {

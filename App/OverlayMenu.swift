@@ -683,7 +683,9 @@ extension DocumentViewModel {
 
     var textScalePercentage: String { "\(TextScale.percent(textScale))%" }
 
-    var zoomPercentage: String { BandAccessibility.zoomPercentage(showsWeb ? webZoom : zoom) }
+    var displayedZoom: Double { showsWeb ? webZoom : zoom }
+
+    var zoomPercentage: String { BandAccessibility.zoomPercentage(displayedZoom) }
 }
 
 struct StyleMenuItems: View {

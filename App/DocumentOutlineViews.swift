@@ -292,7 +292,7 @@ struct OutlineDrawer: View {
     }
 }
 
-private struct ContentsDivider: View {
+struct ContentsDivider: View {
     let model: DocumentViewModel
     let displayedWidth: CGFloat
     @State private var initialWidth: CGFloat?
@@ -313,12 +313,22 @@ private struct ContentsDivider: View {
             .accessibilityLabel("Contents Panel Width")
             .accessibilityValue(Text("\(Int(displayedWidth)) pt"))
             .accessibilityAdjustableAction { direction in
-                switch direction {
-                case .increment: resize(to: displayedWidth + 10)
-                case .decrement: resize(to: displayedWidth - 10)
-                @unknown default: break
+                if let width = Self.adjustedWidth(displayedWidth, direction: direction, initialWidth: initialWidth) {
+                    resize(to: width)
                 }
             }
+    }
+
+    static func adjustedWidth(
+        _ displayedWidth: CGFloat, direction: AccessibilityAdjustmentDirection, initialWidth: CGFloat?
+    ) -> CGFloat? {
+        // The next drag event still measures its translation from the original width.
+        guard initialWidth == nil else { return nil }
+        switch direction {
+        case .increment: return displayedWidth + 10
+        case .decrement: return displayedWidth - 10
+        @unknown default: return nil
+        }
     }
 
     private func resize(to width: CGFloat) {
