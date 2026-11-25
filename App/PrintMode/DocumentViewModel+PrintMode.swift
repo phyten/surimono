@@ -6,12 +6,19 @@ extension DocumentViewModel {
 
     /// ⌘P and the Print button: the view mode opens the print tray, and the tray prints right away to the printer
     /// chosen on it. The system dialog stays one step away (⌥⌘P).
-    var printCommand: PrintCommand { mode == .print ? .printNow : .enterPrintMode }
+    var printCommand: PrintCommand {
+        switch mode {
+        case .view, .compare: .enterPrintMode
+        case .print: .printNow
+        }
+    }
 
     var canPerformPrintCommand: Bool {
-        manualDuplexSession == nil && (readingPreview == nil || isPreparingWholeDocument)
+        !isWindowClosed && manualDuplexSession == nil && (readingPreview == nil || isPreparingWholeDocument)
             && (mode != .print || canStartPrint)
     }
+
+    var canRequestPrintTray: Bool { printCommand == .enterPrintMode && canPerformPrintCommand }
 
     func performPrintCommand() {
         guard canPerformPrintCommand else { return }

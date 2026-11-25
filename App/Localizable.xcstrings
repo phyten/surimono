@@ -32487,13 +32487,13 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Imprimer dès que prêt"
+            "value": "Imprimer après préparation"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Drucken, sobald bereit"
+            "value": "Nach Vorbereitung drucken"
           }
         },
         "es": {

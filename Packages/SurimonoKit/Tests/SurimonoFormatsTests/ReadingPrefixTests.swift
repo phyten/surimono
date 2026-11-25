@@ -216,4 +216,56 @@ struct ReadingPrefixTests {
         #expect(shares[0] == 20 && shares[25] == 20)
         #expect(shares[1..<25].allSatisfy { $0 == 2.5 })
     }
+
+    @Test("途中で四千九十六列になる不揃いな表は列指定をまとめ、和文・右から左に読む文字・空セルを元の順で組む", .timeLimit(.minutes(1)))
+    func raggedWideTableHTML() throws {
+        let header = ["列", "שם", ""]
+        let emptyRows = Array(repeating: [""], count: 5_000)
+        let wide = ["漢字", "אב<&"] + Array(repeating: "", count: 4_093) + ["آخر"]
+        let rows = [header] + emptyRows + [wide]
+        let group = try #require(ReadingPrefix.csvColumnGroup(in: rows))
+        // Four 1,000-column spans and the remainder cover the late row without padding every earlier row.
+        let width = " style=\"width:0.0244140625%\">"
+        let expectedGroup =
+            "<colgroup>" + String(repeating: "<col span=\"1000\"" + width, count: 4)
+            + "<col span=\"96\"" + width + "</colgroup>"
+        #expect(group == expectedGroup)
+        let head = "<tr><th>列</th><th>שם</th><th></th></tr>"
+        let blank = "<tr><td></td></tr>"
+        let last =
+            "<tr><td>漢字</td><td>אב&lt;&amp;</td>" + String(repeating: "<td></td>", count: 4_093)
+            + "<td>آخر</td></tr>"
+        let prefix = try #require(ReadingPrefix.csv(rows[...]))
+        expectTable(prefix, group: group, head: head, body: String(repeating: blank, count: 999))
+        expectTable(rows[...], group: group, head: head, body: String(repeating: blank, count: 5_000) + last)
+    }
+
+    @Test("百万バイトのセルは列幅を膨らませず、先頭の紙では行ごと待ち、全文ではエスケープして一度だけ出す", .timeLimit(.minutes(1)))
+    func megabyteCellHTML() throws {
+        let text = String(repeating: "x", count: 999_997)
+        let rows = [["id", "note"], ["1", ""], ["2", "<" + text + "&>"]] + Array(repeating: ["3"], count: 5_000)
+        let group = try #require(ReadingPrefix.csvColumnGroup(in: rows))
+        var capped = rows
+        capped[2][1] = String(repeating: "x", count: 16)
+        #expect(ReadingPrefix.csvColumnGroup(in: capped) == group)
+        #expect(group.utf8.count < 128)
+        let head = "<tr><th>id</th><th>note</th></tr>"
+        let first = "<tr><td>1</td><td></td></tr>"
+        let prefix = try #require(ReadingPrefix.csv(rows[...]))
+        try #require(prefix.count == 2)
+        expectTable(prefix, group: group, head: head, body: first)
+        let large = "<tr><td>2</td><td>&lt;" + text + "&amp;&gt;</td></tr>"
+        expectTable(
+            rows[...], group: group, head: head,
+            body: first + large + String(repeating: "<tr><td>3</td></tr>", count: 5_000))
+    }
+
+    private func expectTable(_ rows: ArraySlice<[String]>, group: String, head: String, body: String) {
+        let html = CSVConverter.table(rows, columnGroup: group).body
+        let opening = "<table class=\"surimono-csv\" style=\"width:100%;table-layout:fixed;overflow-wrap:anywhere\">"
+        let expected = opening + group + "<thead>" + head + "</thead><tbody>" + body + "</tbody></table>"
+        // Compare all markup but keep megabytes of cell text out of a failing test's diagnostics.
+        let matches = html == expected
+        #expect(matches)
+    }
 }

@@ -1897,7 +1897,7 @@ final class DocumentViewModel {
                             readingPreview = preview
                             if isPrintModeRequested {
                                 isPrintModeRequested = false
-                                if previewPrintRequest.destination == nil { previewPrintRequest.press(.currentLayout) }
+                                requestPrintMode()
                             }
                             sizeWindowToPaper(initialOnly: true)
                         }
@@ -1999,9 +1999,8 @@ final class DocumentViewModel {
                     outputAfterReview = nil
                     run(output)
                 }
-                if previewPrintRequest.destination != nil, mode == .view, isUpToDate,
-                    let destination = previewPrintRequest.take()
-                {
+                // Consume the reservation even if the reader has moved on; a later render must not open the tray.
+                if let destination = previewPrintRequest.take(), canRequestPrintTray, isUpToDate {
                     enterPrintMode(destination)
                 }
             } catch is CancellationError {
@@ -2249,6 +2248,7 @@ final class DocumentViewModel {
 
     func enterPrintMode(_ destination: PreviewPrintRequest.Destination = .currentLayout) {
         if isPreparingWholeDocument || previewPrintRequest.destination != nil {
+            guard canRequestPrintTray else { return }
             previewPrintRequest.press(destination)
             return
         }
@@ -2289,10 +2289,9 @@ final class DocumentViewModel {
     /// The tray keeps the window's frame for the way back, so a new window goes there only after it has taken the
     /// paper's shape; until then the request waits for `enterRequestedPrintMode()`.
     func requestPrintMode() {
+        guard canRequestPrintTray else { return }
         if readingPreview != nil {
-            if isPreparingWholeDocument, previewPrintRequest.destination == nil {
-                previewPrintRequest.press(.currentLayout)
-            }
+            if previewPrintRequest.destination == nil { previewPrintRequest.press(.currentLayout) }
             return
         }
         isPrintModeRequested = true

@@ -276,12 +276,10 @@ struct PrintSheetFlowTests {
         #expect(completePasses == [false, true, true])
     }
 
-    enum PreviewOutcome: CaseIterable { case success, failure, close }
-
-    @Test(
-        "全文の完成で刷り台を開き、失敗時は先頭の紙を残し、閉じた窓は開かない",
-        .timeLimit(.minutes(1)), arguments: PreviewOutcome.allCases)
-    func pendingTray(outcome: PreviewOutcome) async throws {
+    private func withHeldPreview(
+        fails: Bool = false,
+        _ check: @MainActor (DocumentViewModel, _ complete: @MainActor () async -> Void) async throws -> Void
+    ) async throws {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let suite = TestDefaultsSuite()
@@ -293,7 +291,7 @@ struct PrintSheetFlowTests {
             passes += 1
             if passes == 2 {
                 try await gate.pass()
-                if outcome == .failure { throw CocoaError(.fileReadCorruptFile) }
+                if fails { throw CocoaError(.fileReadCorruptFile) }
             }
             return try #require(PDFDocument(data: TestFixtures.pdf("paper", pages: 3)))
         })
@@ -301,30 +299,94 @@ struct PrintSheetFlowTests {
             data: Data(String(repeating: "name,value\n", count: 5_001).utf8), fileURL: nil, format: .csv,
             preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: directory),
             renderer: renderer)
+        model.printerListSource = { .empty }
+        model.outputOverride = { _, _ in Issue.record("印刷画面への移動で出力が呼ばれた") }
+        model.layoutID = PrintLayout.a4Single.id
         defer {
             gate.release()
             model.stop()
         }
-        model.printerListSource = { .empty }
         model.render()
         let rendering = try #require(model.renderTask)
         try await waitUntil { gate.waiting == 1 }
-        let prefix = try #require(model.readingPreview?.document)
-        model.chooseLayout(PrintLayout.a4Single.id)
-        #expect(model.previewPrintRequest.destination == .layout(PrintLayout.a4Single.id))
-        if outcome == .close { model.closeWindow() }
-        gate.release()
-        await rendering.value
-        #expect(model.previewPrintRequest.destination == nil && !model.isPreparingWholeDocument)
-        switch outcome {
-        case .success:
-            #expect(model.mode == .print && model.layoutID == PrintLayout.a4Single.id)
-        case .failure:
-            #expect(model.mode == .view && model.paperDocument === prefix && model.error != nil)
-            #expect(!model.canRequestPrint && !model.canExportReading(.png))
-            model.performPrintCommand()
+        try #require(model.isPreparingWholeDocument)
+        try await check(model) {
+            gate.release()
+            await rendering.value
             #expect(model.previewPrintRequest.destination == nil)
-        case .close: #expect(model.mode == .view && model.isWindowClosed)
+        }
+    }
+
+    enum PreviewOutcome: CaseIterable { case success, failure, close }
+
+    @Test(
+        "全文の完成で刷り台を開き、失敗時は先頭の紙を残し、閉じた窓は開かない",
+        .timeLimit(.minutes(1)), arguments: PreviewOutcome.allCases)
+    func pendingTray(outcome: PreviewOutcome) async throws {
+        try await withHeldPreview(fails: outcome == .failure) { model, complete in
+            let prefix = try #require(model.readingPreview?.document)
+            model.chooseLayout(PrintLayout.a4Single.id)
+            #expect(model.previewPrintRequest.destination == .layout(PrintLayout.a4Single.id))
+            if outcome == .close { model.closeWindow() }
+            await complete()
+            #expect(!model.isPreparingWholeDocument)
+            switch outcome {
+            case .success:
+                #expect(model.mode == .print && model.layoutID == PrintLayout.a4Single.id)
+            case .failure:
+                #expect(model.mode == .view && model.paperDocument === prefix && model.error != nil)
+                #expect(!model.canRequestPrint && !model.canExportReading(.png))
+                model.performPrintCommand()
+                #expect(model.previewPrintRequest.destination == nil)
+            case .close: #expect(model.mode == .view && model.isWindowClosed)
+            }
+        }
+    }
+
+    @Test("見比べ画面の印刷予約は全文の完成で印刷画面を開き、再度押して取り消すと見比べに留まる", .timeLimit(.minutes(1)), arguments: [false, true])
+    func reservedPrintFromCompare(cancel: Bool) async throws {
+        try await withHeldPreview { model, complete in
+            model.enterCompareMode()
+            try #require(model.mode == .compare && model.canPerformPrintCommand)
+            model.performPrintCommand()
+            try #require(model.previewPrintRequest.destination == .currentLayout)
+            if cancel {
+                model.performPrintCommand()
+                #expect(model.previewPrintRequest.destination == nil)
+            }
+            #expect(model.mode == .compare)
+            await complete()
+            try #require(model.result != nil)
+            #expect(model.mode == (cancel ? .compare : .print))
+            if cancel {
+                model.exitCompareMode()
+                model.increaseTextSize()
+                model.renderForChangedSettings()
+                await model.renderTask?.value
+                #expect(model.isUpToDate && model.mode == .view && model.previewPrintRequest.destination == nil)
+            }
+        }
+    }
+
+    @Test("既に印刷画面なら先頭表示中に予約できず、画面移動前の予約も全文の完成で破棄する", .timeLimit(.minutes(1)), arguments: [false, true])
+    func completedRenderDropsIneligibleRequest(reserved: Bool) async throws {
+        try await withHeldPreview { model, complete in
+            let otherLayout = PrintLayout.a4BookletA5.id
+            if reserved {
+                model.chooseLayout(otherLayout)
+                try #require(model.previewPrintRequest.destination == .layout(otherLayout))
+            }
+            model.mode = .print
+            if !reserved {
+                #expect(!model.canPerformPrintCommand)
+                model.chooseLayout(otherLayout)
+                #expect(model.previewPrintRequest.destination == nil)
+                model.requestPrintMode()
+                #expect(model.previewPrintRequest.destination == nil)
+            }
+            await complete()
+            #expect(model.result != nil)
+            #expect(model.mode == .print && model.layoutID == PrintLayout.a4Single.id)
         }
     }
 
