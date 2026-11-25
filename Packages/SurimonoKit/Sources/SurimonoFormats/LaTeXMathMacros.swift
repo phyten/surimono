@@ -26,7 +26,7 @@ extension LaTeXReader {
     /// SwaTex already expands ordinary definitions; keep its input (including the accessible label) intact unless a
     /// token actually needs the reader. This pass never treats a math character or an unknown math command as prose.
     func expandMathCommands(_ latex: String, includingCounters: Bool = true) -> String {
-        guard latex.contains("\\"),
+        guard !PreviewConversion.isActive, latex.contains("\\"),
             document.hasExtendedMathDefinitions || (includingCounters && Self.mayUseMathCounter(latex))
                 || latex.contains("\\If")
                 || latex.contains("\\csname")

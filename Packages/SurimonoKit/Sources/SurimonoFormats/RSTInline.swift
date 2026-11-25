@@ -14,7 +14,12 @@ private struct RSTInlineScanner {
         chars = Array(source)
         var i = 0
         var previousBar: Int?
+        var nextCheck = 0
         while i < chars.count {
+            if i >= nextCheck {
+                if PreviewConversion.expired { return }
+                nextCheck = i + 256
+            }
             let char = chars[i]
             if char == "\\" {
                 i += 2
@@ -97,7 +102,12 @@ private struct RSTInlineScanner {
         var result = ""
         var start = 0
         var i = 0
+        var nextCheck = 0
         while i < chars.count {
+            if i >= nextCheck {
+                if PreviewConversion.expired { return "" }
+                nextCheck = i + 256
+            }
             let char = chars[i]
             var end = i + 1
             var html: String?
@@ -308,7 +318,9 @@ extension RSTDocument {
         case "sub", "subscript": tag = "sub"
         case "sup", "superscript": tag = "sup"
         case "title-reference", "title", "t": tag = "cite"
-        case "math": return MathRenderer.html(raw, display: false) ?? escaped
+        case "math":
+            return MathRenderer.html(raw, display: false)
+                ?? (PreviewConversion.isActive ? MathRenderer.fallback(raw, display: false) : escaped)
         case "pep", "pep-reference", "rfc", "rfc-reference":
             guard let n = Int(text), n >= 0 else {
                 issueCount += 1

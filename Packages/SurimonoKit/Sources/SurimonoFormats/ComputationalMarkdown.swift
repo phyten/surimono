@@ -10,7 +10,9 @@ public enum ComputationalMarkdown {
         metadata.japanese = DocumentLanguage.primary(language) == "ja"
         var document = ComputationalBody(metadata: metadata)
         let source = document.prepare(lines)
+        if PreviewConversion.expired { return HTMLFragment(body: "") }
         let fragment = MarkdownConverter.convert(source, pageBreakLine: pageBreakLine, proof: proof)
+        if PreviewConversion.expired { return HTMLFragment(body: "") }
         let fallback = metadata.unreadable.map { MarkupHTML.listing($0, language: "yaml") } ?? ""
         return HTMLFragment(
             body: fallback + metadata.header + document.contents + document.resolve(fragment.body),
@@ -96,6 +98,7 @@ struct ComputationalBody {
         }
         var index = 0
         while index < lines.count {
+            if PreviewConversion.expired { return "" }
             let line = lines[index]
             index += 1
             if let fence = ComputationalFence(line) {

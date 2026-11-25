@@ -123,6 +123,7 @@ enum MarkdownCallouts {
         var stack: [(length: Int, input: Int, output: Int)] = []
         let source = SourceContext(lines: lines)
         for (index, line) in lines.enumerated() {
+            if PreviewConversion.expired { return output }
             guard let content = source.lines[index].fenceContent(line) else {
                 output.append(line, from: mapped.origins[index])
                 continue

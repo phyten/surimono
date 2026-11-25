@@ -1,10 +1,13 @@
 import Foundation
+import SurimonoCore
 
 public enum PageLayoutLimits {
-    public static let plainTextBytes = 30_000_000
+    public static let plainTextBytes = DocumentSizeLimits.textBytes
     static let csvRows = 60_000
     static func checkHTML(bytes: Int, sourceBytes: Int) throws {
-        guard bytes <= 60_000_000 else { throw DocumentRenderer.RenderingError.tooLarge(bytes: sourceBytes) }
+        guard bytes <= DocumentSizeLimits.htmlBytes else {
+            throw DocumentRenderer.RenderingError.tooLarge(bytes: sourceBytes)
+        }
     }
 
     static func timeout(bytes: Int, baseSeconds: Int) -> Duration {

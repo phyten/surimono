@@ -2291,19 +2291,9 @@ public final class DocumentRenderer {
     }
 
     nonisolated static func decodedText(_ data: Data, preservingLineEndings: Bool = false) throws -> String {
-        let decoded = TextDecoding.decode(data, preservingLineEndings: preservingLineEndings)
-        // Core deliberately tolerates invalid byte sequences; printing must surface that data loss.
-        guard String(data: data, encoding: decoded.encoding) != nil else { throw RenderingError.textDecodingFailed }
-        let signatures: [([UInt8], String.Encoding)] = [
-            ([0xFF, 0xFE, 0, 0], .utf32LittleEndian), ([0, 0, 0xFE, 0xFF], .utf32BigEndian),
-            ([0xEF, 0xBB, 0xBF], .utf8), ([0xFF, 0xFE], .utf16LittleEndian), ([0xFE, 0xFF], .utf16BigEndian),
-        ]
-        if let (signature, encoding) = signatures.first(where: { data.starts(with: $0.0) }) {
-            let payload = data.dropFirst(signature.count)
-            guard let text = String(data: payload, encoding: encoding), text.data(using: encoding) == payload else {
-                throw RenderingError.textDecodingFailed
-            }
+        guard let text = TextDecoding.losslessText(data, preservingLineEndings: preservingLineEndings) else {
+            throw RenderingError.textDecodingFailed
         }
-        return decoded.text
+        return text
     }
 }

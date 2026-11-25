@@ -14,7 +14,7 @@ public enum MediaWikiConverter {
     private static func convertInPlace(_ source: String, directory: URL?, imageExists: @escaping (URL) -> Bool)
         -> HTMLFragment
     {
-        guard source.utf8.count <= 5_000_000 else {
+        guard source.utf8.count <= DocumentSizeLimits.markupReaderBytes else {
             let message = String(localized: "MediaWiki exceeds 5 MB. Showing the original text.")
             return HTMLFragment(body: "<p>\(HTML.escape(message))</p>" + PlainTextConverter.convert(source).body)
         }

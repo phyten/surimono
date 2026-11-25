@@ -171,7 +171,11 @@ final class LaTeXReader {
         }
         let outer = groups
         groups = []
-        while !document.endedDocument, let character = peek() { step(character) }
+        let preview = PreviewConversion.isActive
+        while !document.endedDocument, let character = peek() {
+            if preview, PreviewConversion.expired { break }
+            step(character)
+        }
         while !groups.isEmpty { endGroup() }
         groups = outer
     }
@@ -407,6 +411,7 @@ final class LaTeXReader {
             document.macros, document.environments, document.mathDefinitions, document.highlightColor,
             document.referenceNames
         )
+        document.mathDefinitions.preview?.insideGroup = true
         let outer = declarations.count
         let previousRowHeight = document.pageSettings.extraRowHeight
         let tableRegisters = document.pageSettings.tableSpacing
@@ -1217,6 +1222,7 @@ final class LaTeXReader {
         inPreamble = true
         defer { inPreamble = previous }
         while !document.startedDocument, let character = peek() {
+            if PreviewConversion.expired { return }
             retireFileFrames()
             if let end = opaqueEnd() {
                 index = end
@@ -1360,6 +1366,10 @@ final class LaTeXReader {
         let limits = star()
         guard let name = argument()?.trimmingCharacters(in: .whitespaces), name.hasPrefix("\\") else { return }
         let text = argument() ?? ""
+        if document.mathDefinitions.preview != nil {
+            addMathDefinition("\\DeclareMathOperator\(limits ? "*" : ""){\(name)}{\\mathrm{\(text)}}")
+            return
+        }
         // SwaTex uses a separate operator-base layout for display limits. That path does not
         // give bare letters the roman font of the standalone operator-name layout.
         addMathDefinition("\\def\(name){\\operatorname\(limits ? "*" : ""){\\mathrm{\(text)}}}")
@@ -1784,14 +1794,16 @@ final class LaTeXReader {
         if math.contains("\\ref") || math.contains("\\eqref") {
             document.deferredMath.append(
                 .init(
-                    latex: math, display: display, fallback: source, macros: document.mathDefinitions.source,
+                    latex: math, display: display, fallback: source,
+                    macros: document.mathDefinitions.preamble(for: math),
                     numbers: numbers)
             )
             return anchor + document.placeholder("M", document.deferredMath.count - 1)
         }
         return anchor
             + document.mathHTML(
-                math, display: display, macros: document.mathDefinitions.source, source: source, numbers: numbers)
+                math, display: display, macros: document.mathDefinitions.preamble(for: math), source: source,
+                numbers: numbers)
     }
 
     private func inlineMath(closing: String) {
@@ -1885,7 +1897,8 @@ final class LaTeXReader {
         if value.contains(where: { "\\{}$".contains($0) }) {
             let source = "\\tag" + (tag.starred ? "*" : "") + "{" + value + "}"
             return document.mathHTML(
-                source, display: false, macros: document.mathDefinitions.source, source: source, numbers: [])
+                source, display: false, macros: document.mathDefinitions.preamble(for: source), source: source,
+                numbers: [])
         }
         return HTML.escape(tag.starred ? value : "(" + value + ")")
     }

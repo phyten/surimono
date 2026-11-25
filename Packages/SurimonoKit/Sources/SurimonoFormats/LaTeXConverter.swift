@@ -61,12 +61,14 @@ public enum LaTeXConverter {
             // actually reached by the reader starts or ends the body. A fragment can quote both boundaries.
             if source.range(of: #"\\begin\s*\{document\}"#, options: .regularExpression) != nil {
                 reader.readPreamble()
+                if PreviewConversion.expired { return HTMLFragment(body: "") }
                 if !reader.document.startedDocument { reader = makeReader(choice) }
             }
             let document = reader.document
             document.initialHyperref = document.hyperref
             let prefix = document.classInfo.columns > 1 ? document.columnMarker(document.classInfo.columns) : ""
             var html = prefix + document.preambleFileNotes + reader.read()
+            if PreviewConversion.expired { return HTMLFragment(body: "") }
             document.endedDocument = false
             if document.titleHTML == nil, let title = document.frontMatter.title {
                 // Without \maketitle the title still names the window and the exported PDF.
@@ -279,14 +281,8 @@ final class LaTeXDocument {
     var macros: [String: Macro] = [:]
     var hasExtendedMathDefinitions = false
     var environments: [String: (begin: Macro, end: String)] = [:]
-    /// Definitions given to every formula, so commands defined in the preamble work in math too.
-    // In a formula TeX is already in math mode. This identity also works inside nested
-    // ordinary macros that SwaTex expands itself, without changing the accessible source.
-    struct MathDefinitions {
-        var source = "\\def\\ensuremath#1{#1}"
-        var containsOnlyPrimitiveDefinitions = true
-    }
-    var mathDefinitions = MathDefinitions()
+    // Formulas already run in math mode, including inside macros that expand through SwaTex.
+    var mathDefinitions = MathDefinitions(source: #"\def\ensuremath#1{#1}"#)
     var booleans: [String: Bool] = [:]
     var toggles: [String: Bool] = [:]
     var loopMathNames: Set<String> = []

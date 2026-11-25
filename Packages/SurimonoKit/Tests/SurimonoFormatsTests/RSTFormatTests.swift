@@ -1,10 +1,31 @@
 import Foundation
+import Synchronization
 import Testing
 import UniformTypeIdentifiers
 
 @testable import SurimonoFormats
 
 struct RSTFormatTests {
+    @Test("エスケープで奇数位置だけを通っても区切りの索引作成と本文変換の両方が期限を見る")
+    func escapedInlineDeadline() {
+        let start = ContinuousClock.now
+        let deadline = start + .seconds(1)
+        let checks = Mutex(0)
+        let request = PreviewConversion(deadline: deadline) {
+            checks.withLock {
+                $0 += 1
+                // Each scan crosses four intervals. Skipping either scan's checks would miss this deadline.
+                return $0 >= 6 ? deadline : start
+            }
+        }
+        let document = RSTDocument(directory: nil, permitsFile: { _ in false })
+        let html = PreviewConversion.$current.withValue(request) {
+            document.inline("a" + String(repeating: #"\x"#, count: 512))
+        }
+        #expect(html.isEmpty)
+        #expect(checks.withLock { $0 } >= 6)
+    }
+
     @Test("両方の拡張子と読み取り用の型が同じ形式を開く")
     func fileTypes() {
         for suffix in ["rst", "Rest", "RST"] {

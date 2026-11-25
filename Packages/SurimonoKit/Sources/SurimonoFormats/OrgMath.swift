@@ -99,15 +99,13 @@ enum OrgMath {
             + "<span class=\"eqno\">(\(context.equationCount))</span></div>\n"
     }
 
-    /// A `#+LATEX_HEADER:` line as a definition for every formula, or nil for a line that defines nothing
-    /// (`\usepackage`) or that SwaTex cannot read, so it cannot break the formulas.
-    static func definition(_ header: String, after definitions: String) -> String? {
+    /// Normalize a math declaration and skip unrelated headers such as package imports.
+    static func definition(_ header: String) -> String? {
         var definition = header.trimmingCharacters(in: .whitespaces)
         if let match = orgCaptures(#"^\\DeclareMathOperator(\*?)\s*\{\s*(\\[A-Za-z]+)\s*\}\s*\{(.*)\}$"#, definition) {
             definition = "\\def\(match[1]){\\operatorname\(match[0]){\(match[2])}}"
         }
-        guard orgCaptures(#"^\\(?:newcommand|renewcommand|providecommand|def)(?![A-Za-z])"#, definition) != nil,
-            MathRenderer.html("x", display: false, macros: definitions + definition) != nil
+        guard orgCaptures(#"^\\(?:newcommand|renewcommand|providecommand|def)(?![A-Za-z])"#, definition) != nil
         else { return nil }
         return definition
     }

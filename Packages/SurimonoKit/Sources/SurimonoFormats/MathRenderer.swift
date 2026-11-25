@@ -60,13 +60,35 @@ public enum MathRenderer {
         _ latex: String, display: Bool, macros: String, rowNumberHTML: [String?], measureRows: Bool = false,
         reportTruncation: Bool = true, sansMathAlphabet: Bool = false, originalSource: String? = nil
     ) -> String? {
+        let preview = PreviewConversion.current
+        if let preview,
+            !preview.reserveFormula(bodyBytes: latex.utf8.count, macroBytes: macros.utf8.count)
+        {
+            return nil
+        }
+        let start = preview?.now()
+        defer { if let start { preview?.recordMathTime(since: start) } }
         let source = latex.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !source.isEmpty, let parsed = try? parseLaTeX(macros + source) else { return nil }
+        let input: String
+        if preview != nil {
+            var expansion = PreviewMathExpansion()
+            guard let expanded = try? expansion.expand(source, definitions: macros) else { return nil }
+            input = expanded
+        } else {
+            input = macros + source
+        }
+        guard !PreviewConversion.expired, !source.isEmpty,
+            let parsed = try? parseLaTeX(input)
+        else {
+            return nil
+        }
         let nodes = sansMathAlphabet ? parsed.map { sansLetter($0, depth: 0) } : parsed
         let options = LayoutOptions(style: display ? .display : .text)
-        let box = layout(nodes, options: options)
+        guard let box = checkedLayout(nodes, options: options) else { return nil }
+        guard !PreviewConversion.expired else { return nil }
         let list = toDisplayList(box)
         guard !reportTruncation || !list.truncated else { return nil }
+        if preview != nil, list.items.count > PreviewConversion.maximumExpandedTokens { return nil }
         let rows = rowNumberHTML.isEmpty ? [] : rowBaselines(in: box)
         let labels = zip(rowNumberHTML, rows).compactMap { number, baseline in
             number.map {
@@ -79,6 +101,7 @@ public enum MathRenderer {
         }
         let renderer = SVGRenderer(options: SVGOptions(fontSize: fontSize, padding: 0))
         let svg = renderer.render(list)
+        if preview != nil, svg.utf8.count > PreviewConversion.maximumFormulaOutput { return nil }
         let nsSVG = svg as NSString
         guard let viewBox, let size,
             let bounds = viewBox.firstMatch(in: svg, range: NSRange(location: 0, length: nsSVG.length)),
@@ -92,20 +115,29 @@ public enum MathRenderer {
         // end a list item; keep the original UTF-8 bytes outside Markdown's grammar.
         let original = originalSource ?? latex
         let savedSource =
-            original == source ? "" : " data-formula-source=\"\(Data(original.utf8).base64EncodedString())\""
+            preview != nil || original == source
+            ? "" : " data-formula-source=\"\(Data(original.utf8).base64EncodedString())\""
         let attributes =
             " width=\"\(em(width / fontSize))\" height=\"\(em(height / fontSize))\""
             + " style=\"vertical-align: -\(em(list.depth)); overflow: visible\""
             + " role=\"img\" aria-label=\"\(HTML.escape(source))\""
             + savedSource
-            + tagAttribute(nodes: nodes, options: options, renderer: renderer, svg: svg)
-            + (display ? "" : inlineGlue(nodes: nodes, box: box, list: list))
+            + (preview == nil ? tagAttribute(nodes: nodes, options: options, renderer: renderer, svg: svg) : "")
+            + (display || preview != nil ? "" : inlineGlue(nodes: nodes, box: box, list: list))
         // Only the root element's size: the rules of fractions and radicals are rects with sizes of their own.
         guard let root = size.firstMatch(in: svg, range: NSRange(location: 0, length: nsSVG.length)) else { return nil }
         var html = nsSVG.replacingCharacters(in: root.range, with: attributes)
         // Formulas take the theme's text color unless they set a color of their own.
         html = html.replacingOccurrences(of: "\"rgba(0,0,0,1)\"", with: "\"currentColor\"")
-        return "<span class=\"math math-\(display ? "display" : "inline")\"\(metrics)>\(html)\(labels)</span>"
+        let result = "<span class=\"math math-\(display ? "display" : "inline")\"\(metrics)>\(html)\(labels)</span>"
+        if let preview, !preview.retainMathOutput(bytes: max(svg.utf8.count, result.utf8.count)) { return nil }
+        return result
+    }
+
+    private static func checkedLayout(_ nodes: [ParseNode], options: LayoutOptions) -> LayoutBox? {
+        guard MathLayoutLimits.accepts(nodes), !PreviewConversion.expired else { return nil }
+        let box = layout(nodes, options: options)
+        return MathDisplayLimits.accepts(box) ? box : nil
     }
 
     /// Some formats leave tags inside SwaTex's SVG. A phantom keeps the tag column's
@@ -138,7 +170,8 @@ public enum MathRenderer {
             })
         else { return "" }
         let masked = nodes.map(mask)
-        let clean = renderer.render(toDisplayList(layout(masked, options: options)))
+        guard let box = checkedLayout(masked, options: options) else { return "" }
+        let clean = renderer.render(toDisplayList(box))
         // The renderer emits a flat sequence of self-closing shapes and text elements.
         // Include each item's closing tag when comparing, including the glyph's text.
         let shapes = clean.components(separatedBy: "><").dropFirst().dropLast()
@@ -229,6 +262,7 @@ public enum MathRenderer {
                 cut += 1
             }
             if case .kern = child.content { continue }
+            guard MathDisplayLimits.accepts(child) else { return "" }
             items += toDisplayList(child).items.count
         }
         guard items == list.items.count else { return "" }
@@ -281,7 +315,7 @@ public enum MathRenderer {
     /// `@font-face` rules for the bundled fonts the formulas use, as data URLs, so the paper renders them without
     /// reading any file next to the document.
     public static func fontFaces(for html: String, includesAMSMarkers: Bool = false) -> String {
-        guard includesAMSMarkers || html.contains("KaTeX_"), let face else { return "" }
+        guard !PreviewConversion.expired, includesAMSMarkers || html.contains("KaTeX_"), let face else { return "" }
         let nsHTML = html as NSString
         var fonts = face.matches(in: html, range: NSRange(location: 0, length: nsHTML.length)).map { match in
             (
@@ -293,6 +327,7 @@ public enum MathRenderer {
         var seen = Set<String>()
         var rules: [String] = []
         for (family, weight, style) in fonts {
+            if PreviewConversion.expired { return "" }
             let key = "\(family) \(weight) \(style)"
             guard seen.insert(key).inserted, let data = fontData(family: family, weight: weight, style: style) else {
                 continue

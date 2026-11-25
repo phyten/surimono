@@ -22,7 +22,7 @@ enum MarkdownExtensions {
         /// Rendering a note may discover another. Both the printed section and the prose reader consume this order.
         func forEachReferenced(_ visit: (Int, String) -> Void) {
             var index = 0
-            while index < order.count {
+            while index < order.count, !PreviewConversion.expired {
                 visit(index, order[index])
                 index += 1
             }
@@ -130,6 +130,7 @@ enum MarkdownExtensions {
     static func protection(_ lines: [String]) -> Protection {
         var result = Protection(lines: Array(repeating: false, count: lines.count))
         func visit(_ node: any Markup) {
+            if PreviewConversion.expired { return }
             guard let range = node.range else {
                 for child in node.children { visit(child) }
                 return
@@ -262,6 +263,7 @@ enum MarkdownExtensions {
         var definitions: [String: MarkdownSourceLines] = [:]
         var index = 0
         while index < lines.count {
+            if PreviewConversion.expired { return (output, definitions) }
             let line = lines[index]
             guard !protection.protectsStart(of: index),
                 let match = regex.firstMatch(in: line, range: NSRange(line.startIndex..., in: line)),
@@ -345,6 +347,7 @@ enum MarkdownExtensions {
         let remembers = Thread.current.threadDictionary[searchesEveryLineKey] == nil
         let count = Thread.current.threadDictionary[countsScannedLinesKey] as? LineCount
         while index < lines.count {
+            if PreviewConversion.expired { return output }
             let line = lines[index]
             if protection.lines[index] || line.drop(while: { $0 == " " }).hasPrefix(":::") {
                 output.append(line, from: source.origins[index])
@@ -574,6 +577,7 @@ enum MarkdownExtensions {
                 lastWalked = nil
             }
             while cursor < length {
+                if PreviewConversion.expired { return false }
                 guard let step = nextInline(in: nsText, from: cursor, scanner: &scanner) else {
                     count?.value += self.line(of: length - 1) - self.line(of: cursor) + 1
                     break
@@ -1182,6 +1186,7 @@ enum MarkdownExtensions {
         var anchors: [HeadingAnchor] = []
         var used: [String: Int] = [:]
         func visit(_ node: any Markup) {
+            if PreviewConversion.expired { return }
             if let heading = node as? Heading {
                 let (text, custom) = splitCustomID(plainText(heading, formulas: formulas))
                 let base = custom ?? (slug(text).isEmpty ? "section" : slug(text))

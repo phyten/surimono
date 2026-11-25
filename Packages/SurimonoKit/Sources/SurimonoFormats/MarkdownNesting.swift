@@ -18,8 +18,10 @@ package enum MarkdownNesting {
     /// place that hands text to swift-markdown goes through here: a footnote's body, re-read without its indent, can
     /// nest deeper than it did inside the document. A flattened block is noted for the document's reading issues.
     package static func document(parsing text: String, options: ParseOptions = []) -> Document {
+        if PreviewConversion.expired { return Document() }
         let lines = text.components(separatedBy: "\n")
         let flat = flattened(lines)
+        if PreviewConversion.expired { return Document() }
         guard flat.changed else { return Document(parsing: text, options: options) }
         StackSpace.noteLimitReached()
         return Document(parsing: flat.lines.joined(separator: "\n"), options: options)
@@ -56,7 +58,9 @@ package enum MarkdownNesting {
         // limit cannot nest that deep, and needs no second parse.
         var delimiters = 0
         let enough = (maximumDepth - 2) / 2 + 1
-        for byte in text.utf8 where !(97...122).contains(byte) && !(65...90).contains(byte) && byte != 10 {
+        for (index, byte) in text.utf8.enumerated() {
+            if index.isMultiple(of: 4096), PreviewConversion.expired { return [] }
+            guard !(97...122).contains(byte), !(65...90).contains(byte), byte != 10 else { continue }
             delimiters += 1
             if delimiters >= enough { break }
         }
@@ -81,6 +85,7 @@ package enum MarkdownNesting {
         defer { cmark_iter_free(iterator) }
         var ranges: [ClosedRange<Int>] = []
         while true {
+            if PreviewConversion.expired { return [] }
             let event = cmark_iter_next(iterator)
             if event == CMARK_EVENT_DONE { break }
             guard event == CMARK_EVENT_ENTER, let node = cmark_iter_get_node(iterator) else { continue }

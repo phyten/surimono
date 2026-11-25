@@ -157,6 +157,8 @@ final class ScriptConverterHost: @unchecked Sendable {
         deadline: Duration,
         _ work: @escaping @Sendable (JSContext, _ isCancelled: () -> Bool, _ begin: () throws -> Void) throws -> Value
     ) throws -> Value {
+        // Finder must finish every worker before it replies, including any future optional conversion paths.
+        guard !PreviewConversion.isActive else { throw ScriptError.unavailable }
         let end = ContinuousClock.now + deadline
         // The waits below last 50 ms at most and never past the deadline.
         func step() -> Double {
@@ -325,7 +327,7 @@ final class ScriptConverterHost: @unchecked Sendable {
         rewrite: (ScriptDocument) throws -> HTMLFragment
     ) throws -> HTMLFragment {
         // Check bytes before entering the VM; a document that fits but converts too slowly is shown as text too.
-        guard source.utf8.count <= 5_000_000 else {
+        guard source.utf8.count <= DocumentSizeLimits.markupReaderBytes else {
             return HTMLFragment(body: "<p>\(HTML.escape(notice()))</p>" + PlainTextConverter.convert(source).body)
         }
         let document: ScriptDocument

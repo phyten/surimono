@@ -19,12 +19,13 @@ public enum HTMLDocumentBuilder {
     package static func build(
         fragment: HTMLFragment, format: DocumentFormat, theme: PrintTheme, baseURL: URL? = nil, language: String = "ja",
         textScale: Double = 1, typeface: Typeface = .style, removesPaper: Bool = false, finish: String = "",
-        code: CodeStyle = CodeStyle(), preparesThemeSampler: Bool = false,
+        code: CodeStyle = CodeStyle(), preparesThemeSampler: Bool = false, previewPolicy: String? = nil,
         verticalMarkup: (String, Bool) throws -> String = VerticalText.marked,
         checkSourceBytes: (Int) throws -> Void
     ) rethrows -> String {
         let language = Self.language(for: fragment, fallback: language)
-        let info = format == .latex ? fragment.latexClass : nil
+        // The scrolling preview uses the standard style without document-selected fonts or slide geometry.
+        let info = format == .latex && previewPolicy == nil ? fragment.latexClass : nil
         let latex =
             info.map { info in
                 let attributes = " data-latex-size=\"\(info.pointSize)\" data-latex-chapters=\"\(info.hasChapters)\""
@@ -102,21 +103,23 @@ public enum HTMLDocumentBuilder {
         let ownNumbers = fragment.decidesHeadingNumbers ? " own-heading-numbers" : ""
         let base = baseURL.map { "<base href=\"\(HTML.escape($0.absoluteString))\">\n" } ?? ""
         let finishStyle = finish.isEmpty ? "" : "\n<style id=\"surimono-finish\">\n\(finish)\n</style>"
-        return """
+        let head = """
             <!doctype html>
             <html lang="\(HTML.escape(language.code))"\(direction)>
             <head>
-            <meta charset="utf-8">\(offlinePolicy(for: format))
+            <meta charset="utf-8">\(previewPolicy ?? offlinePolicy(for: format))
             <title>\(HTML.escape(fragment.title ?? ""))</title>
             \(base)<style>
             \(sheet)
             </style>\(sourceStyle)\(fontStyle)\(format == .rst ? rstStyle : "")\(finishStyle)\(slideStyle)\(removesPaper ? "\n" + PaperBackground.removalStyle : "")
             </head>
             <body class="surimono format-\(format.rawValue)\(ownNumbers)"\(latex)>
-            \(body)
-            </body>
-            </html>
             """
+        let end = "\n</body>\n</html>"
+        if previewPolicy != nil {
+            try checkSourceBytes(head.utf8.count + 1 + body.utf8.count + end.utf8.count)
+        }
+        return head + "\n" + body + end
     }
 
     private static let sourcePageCSS: String = {

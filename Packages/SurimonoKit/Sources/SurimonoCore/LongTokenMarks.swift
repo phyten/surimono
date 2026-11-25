@@ -20,6 +20,7 @@ enum LongTokenMarks {
         output.reserveCapacity(html.utf8.count)
         var skipped: (name: String, depth: Int)?
         for token in HTMLScanner.tokens(html) {
+            if PreviewConversion.expired { return "" }
             switch token {
             case .opaque(let source): output += source
             case .text(let text): output += skipped == nil ? markedText(text[...]) : text
@@ -59,7 +60,8 @@ enum LongTokenMarks {
             }
             run = ""
         }
-        for character in text {
+        for (index, character) in text.enumerated() {
+            if index.isMultiple(of: 1024), PreviewConversion.expired { return "" }
             if character.isASCII, !character.isWhitespace {
                 run.append(character)
             } else {

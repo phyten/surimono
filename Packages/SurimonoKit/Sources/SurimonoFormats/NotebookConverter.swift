@@ -41,6 +41,7 @@ public enum NotebookConverter {
         var skipFrom: Int?
         var copiedTo = 0
         for (offset, byte) in bytes.enumerated() {
+            if offset.isMultiple(of: 4096), PreviewConversion.expired { return (Data(), true) }
             if inString {
                 if escaped {
                     escaped = false
@@ -104,6 +105,7 @@ public enum NotebookConverter {
         var title = metadata["title"] as? String
         var pieces: [String] = []
         for cell in cells {
+            try PreviewConversion.check()
             guard let type = cell["cell_type"] as? String,
                 cell["source"] is String || cell["source"] is [String]
             else { throw NotebookError.invalidStructure }
@@ -142,7 +144,10 @@ public enum NotebookConverter {
                 if !hidden("output"), jupyter["outputs_hidden"] as? Bool != true, metadata["collapsed"] as? Bool != true
                 {
                     if let outputs = cell["outputs"] as? [[String: Any]] {
-                        for output in outputs { pieces.append(context.output(output)) }
+                        for output in outputs {
+                            try PreviewConversion.check()
+                            pieces.append(context.output(output))
+                        }
                     } else if cell["outputs"] != nil {
                         throw NotebookError.invalidStructure
                     }
