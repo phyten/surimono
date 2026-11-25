@@ -131,13 +131,13 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Los títulos más profundos pasan a ser una lista."
+            "value": "Los títulos de niveles inferiores se muestran como elementos de lista."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les titres plus profonds deviennent une liste."
+            "value": "Les titres de niveau inférieur deviennent des éléments de liste."
           }
         },
         "ko": {
@@ -249,19 +249,19 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "굵게, 기울임꼴 등 강조 서식"
+            "value": "볼드체, 이탤릭체 등 강조 서식"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "粗体、斜体等文字强调"
+            "value": "粗体、斜体等格式"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "粗體、斜體等文字強調"
+            "value": "粗體、斜體等格式"
           }
         }
       }
@@ -343,7 +343,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mostrar tareas"
+            "value": "Tareas mostradas"
           }
         },
         "fr": {
@@ -620,7 +620,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "세부 사항"
+            "value": "세부사항"
           }
         },
         "zh-Hans": {
@@ -720,7 +720,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Garder les sauts de ligne"
+            "value": "Conserver les sauts de ligne"
           }
         },
         "ko": {
@@ -1344,7 +1344,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zeilen mit Festbreite"
+            "value": "Zeilen in Festbreitenschrift"
           }
         },
         "es": {
@@ -1362,7 +1362,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "고정폭 행"
+            "value": "고정폭 줄"
           }
         },
         "zh-Hans": {
@@ -1450,7 +1450,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Außer im Inhalt"
+            "value": "Außer im Inhaltsverzeichnis"
           }
         },
         "es": {
@@ -1580,7 +1580,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "显示源码"
+            "value": "显示源代码"
           }
         },
         "zh-Hant": {
@@ -2057,7 +2057,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "更改本文档的 Org 阅读设置。"
+            "value": "更改此 Org 文档的阅读方式。"
           }
         },
         "zh-Hant": {
@@ -2404,7 +2404,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mit oder ohne Klammern"
+            "value": "Mit oder ohne { }"
           }
         },
         "es": {
@@ -2428,7 +2428,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "总是"
+            "value": "一律应用"
           }
         },
         "zh-Hant": {
@@ -2469,7 +2469,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Conserver le texte d’origine"
+            "value": "Laisser tel quel"
           }
         },
         "ko": {
@@ -2528,7 +2528,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "파일 값 ‘%@’ 복원"
+            "value": "파일 값으로 복원: %@"
           }
         },
         "zh-Hans": {
@@ -2581,7 +2581,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Org 기본값 ‘%@’ 복원"
+            "value": "Org 기본값으로 복원: %@"
           }
         },
         "zh-Hans": {
@@ -2634,7 +2634,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "초기값 ‘%@’ 복원"
+            "value": "초깃값으로 복원: %@"
           }
         },
         "zh-Hans": {
@@ -2681,13 +2681,13 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Titres sans numéro : %lld"
+            "value": "Titres marqués « :UNNUMBERED: » : %lld"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": ":UNNUMBERED: 표시가 있는 제목 %lld개"
+            "value": ":UNNUMBERED: 표시가 있는 제목: %lld개"
           }
         },
         "zh-Hans": {
@@ -2787,7 +2787,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un sommaire apparaît à la directive #+TOC dans le texte."
+            "value": "Un sommaire apparaît à l’emplacement de #+TOC: dans le texte."
           }
         },
         "ko": {
@@ -2881,7 +2881,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dateivorgabe beibehalten: %@"
+            "value": "Dateivorgabe wird beibehalten: %@"
           }
         },
         "es": {
@@ -3064,7 +3064,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "复制该行"
+            "value": "拷贝该行"
           }
         },
         "zh-Hant": {
@@ -3111,7 +3111,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "파일의 지정 값 변경 허용"
+            "value": "파일에서 지정한 값 변경 허용"
           }
         },
         "zh-Hans": {
@@ -3164,19 +3164,19 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "변경한 설정만 우선합니다. 원본 파일은 그대로 유지됩니다."
+            "value": "변경한 설정만 우선 적용됩니다. 원본 파일은 수정되지 않습니다."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "仅更改的设置优先。原文件保持不变。"
+            "value": "仅已更改的设置优先。原文件不会被修改。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "只有更改的設定優先。原始檔案會保持原樣。"
+            "value": "只有已更改的設定優先。原始檔案不會被修改。"
           }
         }
       }
@@ -3185,9 +3185,21 @@
       "extractionState": "manual",
       "localizations": {
         "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Discard changes to %lld file-specified settings? Other changes will be kept."
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Discard changes to %lld file-specified setting? Other changes will be kept."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Discard changes to %lld file-specified settings? Other changes will be kept."
+                }
+              }
+            }
           }
         },
         "ja": {
@@ -3197,21 +3209,57 @@
           }
         },
         "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Änderungen an %lld Dateivorgaben verwerfen? Andere Änderungen bleiben erhalten."
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Änderungen an %lld Dateivorgabe verwerfen? Andere Änderungen bleiben erhalten."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Änderungen an %lld Dateivorgaben verwerfen? Andere Änderungen bleiben erhalten."
+                }
+              }
+            }
           }
         },
         "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "¿Descartar los cambios en %lld ajustes definidos por el archivo? Los demás cambios se conservarán."
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "¿Descartar los cambios en %lld ajuste definido por el archivo? Los demás cambios se conservarán."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "¿Descartar los cambios en %lld ajustes definidos por el archivo? Los demás cambios se conservarán."
+                }
+              }
+            }
           }
         },
         "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Abandonner les modifications de %lld réglages spécifiés dans le fichier ? Les autres modifications seront conservées."
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Abandonner les modifications de %lld réglage spécifié dans le fichier ? Les autres modifications seront conservées."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Abandonner les modifications de %lld réglages spécifiés dans le fichier ? Les autres modifications seront conservées."
+                }
+              }
+            }
           }
         },
         "ko": {
@@ -3276,13 +3324,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "本文档已更改：%lld 项"
+            "value": "本文档中已更改的设置：%lld 项"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這份文件已更改：%lld 項"
+            "value": "這份文件中已更改的設定：%lld 項"
           }
         }
       }
@@ -3364,7 +3412,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Usar como ajustes predeterminados de Org…"
+            "value": "Usar como predeterminados de Org…"
           }
         },
         "fr": {
@@ -3417,7 +3465,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "¿Usar los cambios de este documento como ajustes predeterminados de Org?"
+            "value": "¿Usar los cambios de este documento como valores predeterminados de Org?"
           }
         },
         "fr": {
@@ -3435,13 +3483,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "要将本文档更改的设置用作 Org 默认值吗？"
+            "value": "要将本文档中已更改的设置用作 Org 默认值吗？"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "要將這份文件更改的設定用作 Org 預設值嗎？"
+            "value": "要將這份文件中已更改的設定用作 Org 預設值嗎？"
           }
         }
       }
@@ -3488,13 +3536,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "复制为 #+OPTIONS 行"
+            "value": "拷贝为 #+OPTIONS 行"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "以 #+OPTIONS 行拷貝"
+            "value": "拷貝為 #+OPTIONS 行"
           }
         }
       }
@@ -3641,7 +3689,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Surimono 초기값"
+            "value": "Surimono 초깃값"
           }
         },
         "zh-Hans": {
@@ -3694,7 +3742,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Emacs 초기값"
+            "value": "Emacs 초깃값"
           }
         },
         "zh-Hans": {
@@ -54268,13 +54316,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "==分页=="
+            "value": "==分页符=="
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "==分頁=="
+            "value": "==分頁標記=="
           }
         },
         "ko": {
@@ -54292,7 +54340,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "==Umbruch=="
+            "value": "==Seitenumbruch=="
           }
         },
         "es": {
