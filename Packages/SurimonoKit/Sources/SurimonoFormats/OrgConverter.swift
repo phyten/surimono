@@ -29,6 +29,7 @@ public enum OrgConverter {
         parser.context.commentEnds = parser.commentRanges()
         parser.context.discovering = true
         _ = parser.render()
+        if PreviewConversion.expired { return HTMLFragment(body: "") }
         let context = parser.context
         context.reading = context.options.resolved(over: settings)
         context.omissions = context.subtrees.omissions(context: context, lineCount: parser.lines.count)
@@ -234,6 +235,7 @@ struct OrgParser {
             }
         }
         while index < lines.count || openList != nil {
+            if PreviewConversion.expired { return nil }
             if let list = openList {
                 if index < lines.count, let item = listItem(lines[index]), item.indent == list.indent,
                     item.tag == list.tag

@@ -171,7 +171,11 @@ final class LaTeXReader {
         }
         let outer = groups
         groups = []
-        while !document.endedDocument, let character = peek() { step(character) }
+        let deadline = PreviewConversion.deadline
+        while !document.endedDocument, let character = peek() {
+            if deadline != nil, PreviewConversion.expired { break }
+            step(character)
+        }
         while !groups.isEmpty { endGroup() }
         groups = outer
     }
@@ -1217,6 +1221,7 @@ final class LaTeXReader {
         inPreamble = true
         defer { inPreamble = previous }
         while !document.startedDocument, let character = peek() {
+            if PreviewConversion.expired { return }
             retireFileFrames()
             if let end = opaqueEnd() {
                 index = end

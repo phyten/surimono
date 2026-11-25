@@ -37,6 +37,7 @@ package struct HTMLScanner {
         func string(_ range: Range<Int>) -> String { String(decoding: bytes[range], as: UTF8.self) }
         var tagEnds = TagEnds(bytes)
         while index < bytes.count {
+            if index.isMultiple(of: 4096), PreviewConversion.expired { return }
             guard bytes[index] == UInt8(ascii: "<"), let end = markupEnd(in: bytes, at: index, tagEnds: &tagEnds)
             else {
                 index += 1
@@ -100,6 +101,7 @@ package struct HTMLScanner {
                 var quote: UInt8 = 0
                 var index = start
                 while index < buffer.count {
+                    if index.isMultiple(of: 4096), PreviewConversion.expired { return nil }
                     let byte = buffer[index]
                     if quote != 0 {
                         if byte == quote { quote = 0 }
@@ -118,6 +120,7 @@ package struct HTMLScanner {
             var quote: UInt8 = 0
             var index = start
             while index < bytes.count {
+                if index.isMultiple(of: 4096), PreviewConversion.expired { return nil }
                 if !failed.isEmpty, index >= base {
                     let bit: UInt8 = quote == 0 ? 1 : quote == UInt8(ascii: "\"") ? 2 : 4
                     if failed[index - base] & bit != 0 { return nil }
@@ -164,6 +167,7 @@ package struct HTMLScanner {
         let wanted = Array("</\(name)".utf8)
         var index = start
         while index + wanted.count <= bytes.count {
+            if index.isMultiple(of: 4096), PreviewConversion.expired { return bytes.count }
             if bytes[index] == UInt8(ascii: "<"),
                 wanted.indices.allSatisfy({ lowercased(bytes[index + $0]) == wanted[$0] }),
                 index + wanted.count == bytes.count || endsTagName(bytes[index + wanted.count])
@@ -183,6 +187,7 @@ package struct HTMLScanner {
         let count = text.utf8.count
         var index = start
         while index + count <= bytes.count {
+            if index.isMultiple(of: 4096), PreviewConversion.expired { return nil }
             if matches(text, in: bytes, at: index) { return index + count }
             index += 1
         }
@@ -217,6 +222,7 @@ package struct HTMLScanner {
     package static func visitAttributes(in source: String, visit: (String, String) -> Bool) {
         var rest = source.drop { !$0.isWhitespace && $0 != ">" }
         while true {
+            if PreviewConversion.expired { return }
             rest = rest.drop { $0.isWhitespace || $0 == "/" }
             guard let first = rest.first, first != ">" else { return }
             let name = rest.prefix { !$0.isWhitespace && $0 != "=" && $0 != ">" && $0 != "/" }

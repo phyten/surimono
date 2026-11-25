@@ -157,6 +157,8 @@ final class ScriptConverterHost: @unchecked Sendable {
         deadline: Duration,
         _ work: @escaping @Sendable (JSContext, _ isCancelled: () -> Bool, _ begin: () throws -> Void) throws -> Value
     ) throws -> Value {
+        // Finder must finish every worker before it replies, including any future optional conversion paths.
+        guard !PreviewConversion.isActive else { throw ScriptError.unavailable }
         let end = ContinuousClock.now + deadline
         // The waits below last 50 ms at most and never past the deadline.
         func step() -> Double {
@@ -321,19 +323,17 @@ final class ScriptConverterHost: @unchecked Sendable {
     }
 
     func fragment(
-        _ source: String, fallsBackToSource: Bool = true, notice: @autoclosure () -> String,
+        _ source: String, notice: @autoclosure () -> String,
         rewrite: (ScriptDocument) throws -> HTMLFragment
     ) throws -> HTMLFragment {
         // Check bytes before entering the VM; a document that fits but converts too slowly is shown as text too.
         guard source.utf8.count <= DocumentSizeLimits.markupReaderBytes else {
-            guard fallsBackToSource else { throw CocoaError(.fileReadTooLarge) }
             return HTMLFragment(body: "<p>\(HTML.escape(notice()))</p>" + PlainTextConverter.convert(source).body)
         }
         let document: ScriptDocument
         do {
             document = try parts(source)
         } catch ScriptError.timedOut {
-            guard fallsBackToSource else { throw ScriptError.timedOut }
             let message = String(localized: "This document took too long to read. Showing the original text.")
             return HTMLFragment(body: "<p>\(HTML.escape(message))</p>" + PlainTextConverter.convert(source).body)
         }

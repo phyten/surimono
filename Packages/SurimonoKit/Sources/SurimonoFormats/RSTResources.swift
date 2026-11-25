@@ -38,14 +38,21 @@ extension RSTDocument {
     }
 
     func rstImage(_ path: String, options: [String: String]) -> String {
-        let alt = HTML.escape(options["alt"] ?? path)
-        guard let file = rstFile(path.removingPercentEncoding ?? path), let directory,
-            (try? file.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true
-        else {
-            issueCount += 1
-            return "<span>\(alt)</span>"
+        let preview = PreviewConversion.isActive
+        let alt = HTML.escape(options["alt"] ?? (preview ? "" : path))
+        let src: String
+        if preview {
+            // Finder resolves every image through its confined attachment reader and supplies the missing-image box.
+            src = path
+        } else {
+            guard let file = rstFile(path.removingPercentEncoding ?? path), let directory,
+                (try? file.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true
+            else {
+                issueCount += 1
+                return "<span>\(alt)</span>"
+            }
+            src = rstRelativeURL(file, root: directory)
         }
-        let src = rstRelativeURL(file, root: directory)
         var style = ""
         for key in ["width", "height"] {
             if let raw = options[key],

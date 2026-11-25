@@ -61,10 +61,14 @@ public enum MathRenderer {
         reportTruncation: Bool = true, sansMathAlphabet: Bool = false, originalSource: String? = nil
     ) -> String? {
         let source = latex.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !source.isEmpty, let parsed = try? parseLaTeX(macros + source) else { return nil }
+        guard !PreviewConversion.expired, !source.isEmpty, let parsed = try? parseLaTeX(macros + source) else {
+            return nil
+        }
         let nodes = sansMathAlphabet ? parsed.map { sansLetter($0, depth: 0) } : parsed
         let options = LayoutOptions(style: display ? .display : .text)
+        guard !PreviewConversion.expired else { return nil }
         let box = layout(nodes, options: options)
+        guard !PreviewConversion.expired else { return nil }
         let list = toDisplayList(box)
         guard !reportTruncation || !list.truncated else { return nil }
         let rows = rowNumberHTML.isEmpty ? [] : rowBaselines(in: box)
@@ -281,7 +285,7 @@ public enum MathRenderer {
     /// `@font-face` rules for the bundled fonts the formulas use, as data URLs, so the paper renders them without
     /// reading any file next to the document.
     public static func fontFaces(for html: String, includesAMSMarkers: Bool = false) -> String {
-        guard includesAMSMarkers || html.contains("KaTeX_"), let face else { return "" }
+        guard !PreviewConversion.expired, includesAMSMarkers || html.contains("KaTeX_"), let face else { return "" }
         let nsHTML = html as NSString
         var fonts = face.matches(in: html, range: NSRange(location: 0, length: nsHTML.length)).map { match in
             (
@@ -293,6 +297,7 @@ public enum MathRenderer {
         var seen = Set<String>()
         var rules: [String] = []
         for (family, weight, style) in fonts {
+            if PreviewConversion.expired { return "" }
             let key = "\(family) \(weight) \(style)"
             guard seen.insert(key).inserted, let data = fontData(family: family, weight: weight, style: style) else {
                 continue

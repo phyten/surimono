@@ -15,19 +15,15 @@ struct QuickLookBundleTests {
         let attributes = try #require(info["NSExtensionAttributes"] as? [String: Any])
         #expect(attributes["QLIsDataBasedPreview"] as? Bool == true)
         let identifiers = try #require(attributes["QLSupportedContentTypes"] as? [String])
-        #expect(
-            Set(identifiers) == [
-                "net.daringfireball.markdown", "org.orgmode.org", "org.asciidoc.asciidoc",
-                "app.surimono.restructuredtext",
-                "org.tug.tex", "net.djot.djot", "org.textile-lang.textile", "org.mediawiki.wikitext",
-                "org.jupyter.ipynb",
-                "org.quarto.qmarkdown", "org.rstudio.rmarkdown",
-            ])
+        let expected: Set<String> = [
+            "net.daringfireball.markdown", "org.orgmode.org", "app.surimono.restructuredtext", "org.tug.tex",
+            "org.jupyter.ipynb", "org.quarto.qmarkdown", "org.rstudio.rmarkdown",
+        ]
+        #expect(Set(identifiers) == expected && identifiers.count == expected.count)
         // Bundle.module in the provider resolves resources relative to the extension.
         for (name, resource, suffix) in [
             ("SurimonoKit_SurimonoCore", "standard", "css"),
             ("SurimonoKit_SurimonoFormats", "SurimonoMathMain-Regular", "otf"),
-            ("SurimonoKit_SurimonoFormats", "djot-0.3.2", "js"),
         ] {
             let resourceURL = try #require(bundle.url(forResource: name, withExtension: "bundle"))
             let resources = try #require(Bundle(url: resourceURL))

@@ -186,6 +186,7 @@ extension LaTeXReader {
     func expandPictureTokens(into expansion: PictureExpansion) {
         var groups: [[String: LaTeXDocument.Macro]] = []
         while let ch = peek(), expansion.failure == nil, !document.stopsExpanding {
+            if PreviewConversion.expired { return }
             if ch == "%" {
                 skipComment()
             } else if ch != "\\" {

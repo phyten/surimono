@@ -82,6 +82,7 @@ public enum ConfinedFile {
         data.reserveCapacity(size)
         var buffer = [UInt8](repeating: 0, count: 64 * 1024)
         while true {
+            try PreviewConversion.check()
             // A file can grow after fstat, so enforce the limit while reading as well.
             let count = Darwin.read(descriptor, &buffer, min(buffer.count, maximumSize - data.count + 1))
             if count < 0 {

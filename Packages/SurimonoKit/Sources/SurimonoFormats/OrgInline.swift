@@ -242,6 +242,7 @@ enum OrgInline {
             return nil
         }
         while index < characters.count {
+            if PreviewConversion.expired { return "" }
             if let end = formulaEnd(index) {
                 output += OrgMath.inline(String(characters[index..<end]), context: context)
                 index = end
@@ -330,7 +331,8 @@ enum OrgInline {
                 let path = destination.components(separatedBy: "?")[0].components(separatedBy: "#")[0]
                 let suffix = (path as NSString).pathExtension.lowercased()
                 if ["png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "tif", "tiff", "heic"].contains(suffix) {
-                    output += "<img src=\"\(HTML.escape(destination))\" alt=\"\(HTML.escape(label))\">"
+                    let alt = parts.count == 1 && PreviewConversion.isActive ? "" : label
+                    output += "<img src=\"\(HTML.escape(destination))\" alt=\"\(HTML.escape(alt))\">"
                 } else {
                     let labelHTML =
                         parts.count > 1 ? render(label, context: context, depth: depth + 1) : HTML.escape(label)

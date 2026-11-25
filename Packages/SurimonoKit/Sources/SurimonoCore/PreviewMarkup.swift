@@ -26,15 +26,31 @@ enum PreviewMarkup {
     static func clean(_ body: String, svgOnly: Bool = false, imageSource: (String) -> String?) throws -> String {
         var output = ""
         var tagCount = 0
+        var excluded: (name: String, depth: Int)?
         try HTMLScanner.forEachToken(body) { token in
+            try PreviewConversion.check()
+            if case .tag = token {
+                tagCount += 1
+                guard tagCount <= 250_000 else { throw FinderPreview.Failure.complexity }
+            }
+            if var element = excluded {
+                if case .tag(let tag) = token, tag.name == element.name {
+                    if tag.isClosing { element.depth -= 1 } else if !tag.isSelfClosing { element.depth += 1 }
+                    excluded = element.depth == 0 ? nil : element
+                }
+                return
+            }
             switch token {
             case .opaque: break
             case .text(let text):
                 // Unrecognized '<' must stay text when surrounding markup is removed.
                 output += text.replacingOccurrences(of: "<", with: "&lt;")
             case .tag(let tag):
-                tagCount += 1
-                guard tagCount <= 250_000 else { throw CocoaError(.fileReadTooLarge) }
+                if ["foreignobject", "object", "iframe", "form"].contains(tag.name), !tag.isClosing, !tag.isSelfClosing
+                {
+                    excluded = (tag.name, 1)
+                    return
+                }
                 if !svgOnly, tag.name == "input", !tag.isClosing, tag.attribute("type") == "checkbox" {
                     output +=
                         tag.attribute("checked") == nil
@@ -50,7 +66,10 @@ enum PreviewMarkup {
                 if tag.name == "img" {
                     image = tag.attribute("src").flatMap(imageSource)
                     guard image != nil else {
-                        output += HTML.escape(tag.attribute("alt") ?? "")
+                        let alt = tag.attribute("alt") ?? ""
+                        output +=
+                            alt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            ? "<span class=\"preview-missing-image\" aria-hidden=\"true\"></span>" : HTML.escape(alt)
                         return
                     }
                 }
@@ -82,8 +101,10 @@ enum PreviewMarkup {
                 }
                 output += tag.isSelfClosing ? "/>" : ">"
             }
-            guard output.utf8.count <= DocumentSizeLimits.htmlBytes else { throw CocoaError(.fileReadTooLarge) }
+            guard output.utf8.count <= DocumentSizeLimits.htmlBytes else { throw FinderPreview.Failure.complexity }
         }
+        try PreviewConversion.check()
+        guard output.utf8.count <= DocumentSizeLimits.htmlBytes else { throw FinderPreview.Failure.complexity }
         return output
     }
 

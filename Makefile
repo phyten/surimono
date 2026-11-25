@@ -233,7 +233,16 @@ build-appstore:
 # The App Store build must be sandboxed and must not carry or load Sparkle: the App Store updates the app.
 check-appstore: build-appstore
 	test -x "$(APP_STORE_APP)/Contents/PlugIns/SurimonoQuickLook.appex/Contents/MacOS/SurimonoQuickLook"
-	codesign -d --entitlements - --xml "$(APP_STORE_APP)/Contents/PlugIns/SurimonoQuickLook.appex" 2>/dev/null | plutil -convert json -o - - | jq -e '.["com.apple.security.app-sandbox"] == true and .["com.apple.security.files.user-selected.read-only"] == true and (.["com.apple.security.network.client"] != true) and (.["com.apple.security.network.server"] != true)' >/dev/null
+	@set -eu; app="$(APP_STORE_APP)/Contents/Info.plist"; ext="$(APP_STORE_APP)/Contents/PlugIns/SurimonoQuickLook.appex/Contents/Info.plist"; \
+	for key in CFBundleShortVersionString CFBundleVersion; do \
+		parent="$$(plutil -extract "$$key" raw "$$app")"; child="$$(plutil -extract "$$key" raw "$$ext")"; \
+		test -n "$$parent" && test "$$child" = "$$parent" || { echo "Quick Look: $$key mismatch"; exit 1; }; \
+	done; \
+	parent="$$(plutil -extract CFBundleIdentifier raw "$$app")"; child="$$(plutil -extract CFBundleIdentifier raw "$$ext")"; \
+	test "$$child" = "$$parent.QuickLook"
+	@set -eu; signed="$$(codesign -d --entitlements - --xml "$(APP_STORE_APP)/Contents/PlugIns/SurimonoQuickLook.appex")"; \
+	entitlements="$$(printf '%s' "$$signed" | plutil -convert json -o - -)"; \
+	printf '%s' "$$entitlements" | jq -e 'type == "object" and .["com.apple.security.app-sandbox"] == true and .["com.apple.security.files.user-selected.read-only"] == true and (.["com.apple.security.network.client"] != true) and (.["com.apple.security.network.server"] != true) and all(keys[]; startswith("com.apple.security.temporary-exception") | not)' >/dev/null
 	codesign -d --entitlements - --xml "$(APP_STORE_APP)" 2>/dev/null | grep -q '<key>com.apple.security.app-sandbox</key><true/>'
 	frameworks="$$(find "$(APP_STORE_APP)" -name Sparkle.framework -print)" && test -z "$$frameworks"
 	libraries="$$(otool -L "$(APP_STORE_APP)/Contents/MacOS/Surimono")" && ! printf '%s\n' "$$libraries" | grep -q Sparkle

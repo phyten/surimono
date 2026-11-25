@@ -61,12 +61,14 @@ public enum LaTeXConverter {
             // actually reached by the reader starts or ends the body. A fragment can quote both boundaries.
             if source.range(of: #"\\begin\s*\{document\}"#, options: .regularExpression) != nil {
                 reader.readPreamble()
+                if PreviewConversion.expired { return HTMLFragment(body: "") }
                 if !reader.document.startedDocument { reader = makeReader(choice) }
             }
             let document = reader.document
             document.initialHyperref = document.hyperref
             let prefix = document.classInfo.columns > 1 ? document.columnMarker(document.classInfo.columns) : ""
             var html = prefix + document.preambleFileNotes + reader.read()
+            if PreviewConversion.expired { return HTMLFragment(body: "") }
             document.endedDocument = false
             if document.titleHTML == nil, let title = document.frontMatter.title {
                 // Without \maketitle the title still names the window and the exported PDF.

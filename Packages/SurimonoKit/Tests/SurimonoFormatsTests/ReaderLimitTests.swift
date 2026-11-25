@@ -635,6 +635,17 @@ struct SmallStackTests {
 
 /// The JavaScript readers: a conversion its caller gave up on must not report a result or hand its context on.
 struct ScriptConversionTests {
+    @Test("Finder の変換からは JavaScript のワーカーを開始できない")
+    func previewCannotStartWorker() throws {
+        let host = ScriptConverterHost("djot-0.3.2", bridge: "djot-bridge", category: "Test", testing: .init())
+        PreviewConversion.$deadline.withValue(.now + .seconds(5)) {
+            #expect(throws: ScriptConverterHost.ScriptError.unavailable) {
+                try host.fragment("paper", notice: "") { _ in HTMLFragment(body: "") }
+            }
+        }
+        #expect(host.startedScripts == 0)
+    }
+
     @Test("取り消された変換はスクリプトを始めずに取り消しを返し、次の変換は読める")
     func cancelledConversion() async throws {
         let task = Task { () -> Bool in

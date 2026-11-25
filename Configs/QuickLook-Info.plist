@@ -16,12 +16,8 @@
 			<array>
 				<string>net.daringfireball.markdown</string>
 				<string>org.orgmode.org</string>
-				<string>org.asciidoc.asciidoc</string>
 				<string>app.surimono.restructuredtext</string>
 				<string>org.tug.tex</string>
-				<string>net.djot.djot</string>
-				<string>org.textile-lang.textile</string>
-				<string>org.mediawiki.wikitext</string>
 				<string>org.jupyter.ipynb</string>
 				<string>org.quarto.qmarkdown</string>
 				<string>org.rstudio.rmarkdown</string>

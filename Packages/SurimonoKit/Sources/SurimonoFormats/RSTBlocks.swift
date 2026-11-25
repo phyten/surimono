@@ -35,6 +35,7 @@ final class RSTBlockReader {
 
     private func readParts() -> [RSTDocument.Part] {
         while index < lines.count {
+            if PreviewConversion.expired { return [] }
             let first = lines[index]
             if Self.blank(first) {
                 index += 1

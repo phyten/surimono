@@ -1,10 +1,11 @@
 import Foundation
+import Synchronization
 import Testing
 
 @testable import SurimonoCore
 
 struct FinderPreviewTests {
-    private func withDirectory(_ test: (URL) throws -> Void) throws {
+    func withDirectory(_ test: (URL) throws -> Void) throws {
         let url = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: url) }
@@ -41,9 +42,8 @@ struct FinderPreviewTests {
     func formats() throws {
         try withDirectory { directory in
             let samples = [
-                ("md", "# paper"), ("org", "* paper"), ("adoc", "= paper\n\npaper"), ("rst", "paper\n====="),
+                ("md", "# paper"), ("org", "* paper"), ("rst", "paper\n====="),
                 ("tex", #"\documentclass{article}\begin{document}paper\end{document}"#),
-                ("dj", "# paper"), ("textile", "h1. paper"), ("wiki", "== paper =="),
                 ("qmd", "# paper"), ("Rmd", "# paper"),
                 (
                     "ipynb",
@@ -130,7 +130,7 @@ struct FinderPreviewTests {
     func notebookImage() throws {
         try withDirectory { directory in
             let image = """
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8" onload="bad()">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8000 4000" onload="bad()">
                 <image href="https://remote.invalid/p"/><script>bad()</script><circle cx="4" cy="4" r="3"/>
                 </svg>
                 """
@@ -152,6 +152,7 @@ struct FinderPreviewTests {
             let svg = try #require(String(data: attachment.data, encoding: .utf8))
             #expect(attachment.type == .svg)
             #expect(svg.contains("viewBox="))
+            #expect(svg.contains("width=\"1600\"") && svg.contains("height=\"800\""))
             #expect(svg.contains("<circle"))
             #expect(!svg.contains("remote.invalid") && !svg.contains("bad()") && !svg.contains("<script"))
             #expect(preview.html.contains("src=\"cid:image-1\""))
@@ -173,17 +174,97 @@ struct FinderPreviewTests {
         }
     }
 
-    @Test("Wiki とスクリプト変換器の 5 MB 上限は原文を展開する前に適用する")
-    func readerLimits() throws {
+    @Test("画像のない Org と reStructuredText は説明を表示し、説明のない箇所には枠を残す")
+    func missingDescriptions() throws {
+        try withDirectory { directory in
+            for (suffix, source) in [
+                ("org", "[[file:missing.png]]\n\n[[file:missing.png][図の説明]]"),
+                ("rst", ".. image:: missing.png\n\n.. image:: missing.png\n   :alt: 図の説明"),
+            ] {
+                let file = directory.appendingPathComponent("paper." + suffix)
+                try Data(source.utf8).write(to: file)
+                let preview = FinderPreview.make(for: file)
+                #expect(preview.html.contains("<span class=\"preview-missing-image\""))
+                #expect(preview.html.contains("図の説明"))
+                #expect(!preview.html.contains("missing.png"))
+                #expect(preview.attachments.isEmpty)
+            }
+        }
+    }
+
+    @Test("登録を外した形式は変換器に渡さない")
+    func removedFormats() throws {
         try withDirectory { directory in
             for suffix in ["wiki", "adoc", "dj", "textile"] {
-                let url = directory.appendingPathComponent("large." + suffix)
-                try Data().write(to: url)
-                let handle = try FileHandle(forWritingTo: url)
-                try handle.truncate(atOffset: 5_000_001)
-                try handle.close()
-                let html = FinderPreview.make(for: url).html
-                #expect(html.utf8.count < 1024 && html.contains("6 MB"), "\(suffix)")
+                let url = directory.appendingPathComponent("paper." + suffix)
+                try Data("paper".utf8).write(to: url)
+                let preview = FinderPreview.make(for: url, deadline: .now + .seconds(5)) { _, _, _ in
+                    Issue.record("対象外の原稿が変換器に届いた")
+                    return HTMLFragment(body: "")
+                }
+                #expect(preview.html.contains("This document format is not supported."))
+            }
+        }
+    }
+
+    @Test("変換スレッドに期限を引き継ぎ、作業が終了してからエラーページを返す")
+    func deadline() throws {
+        try withDirectory { directory in
+            let url = directory.appendingPathComponent("paper.md")
+            try Data("paper".utf8).write(to: url)
+            let completed = Mutex(false)
+            let start = ContinuousClock.now
+            let preview = FinderPreview.make(for: url, deadline: start + .milliseconds(150)) { _, _, _ in
+                try StackSpace.onLargeStack {
+                    defer { completed.withLock { $0 = true } }
+                    // A separate safety bound also makes a missing deadline fail without hanging the test.
+                    while ContinuousClock.now < start + .seconds(2) {
+                        try PreviewConversion.check()
+                        Thread.sleep(forTimeInterval: 0.002)
+                    }
+                    Issue.record("変換スレッドが期限を過ぎても中断しなかった")
+                    return HTMLFragment(body: "late")
+                }
+            }
+            #expect(completed.withLock { $0 })
+            #expect(preview.html.contains("This document is too complex to preview."))
+            #expect(preview.html.utf8.count < 1024 && preview.attachments.isEmpty)
+        }
+    }
+
+    @Test("行数と生成 HTML の予算超過を複雑すぎる文書として知らせる")
+    func complexityLimits() throws {
+        try withDirectory { directory in
+            let url = directory.appendingPathComponent("paper.md")
+            try Data(repeating: 10, count: 100_000).write(to: url)
+            #expect(FinderPreview.make(for: url).html.contains("This document is too complex to preview."))
+            try Data("paper".utf8).write(to: url)
+            let preview = FinderPreview.make(for: url, deadline: .now + .seconds(10)) { _, _, _ in
+                HTMLFragment(body: String(repeating: "x", count: DocumentSizeLimits.htmlBytes + 1))
+            }
+            #expect(preview.html.contains("This document is too complex to preview."))
+            #expect(preview.html.utf8.count < 1024 && preview.attachments.isEmpty)
+        }
+    }
+
+    @Test("BOM 付き UTF-16 と UTF-32 の両バイト順で本文を読める")
+    func byteOrderMarks() throws {
+        try withDirectory { directory in
+            let url = directory.appendingPathComponent("paper.md")
+            let encodings: [(String.Encoding, [UInt8])] = [
+                (.utf16LittleEndian, [0xff, 0xfe]), (.utf16BigEndian, [0xfe, 0xff]),
+                (.utf32LittleEndian, [0xff, 0xfe, 0, 0]), (.utf32BigEndian, [0, 0, 0xfe, 0xff]),
+            ]
+            for (encoding, bom) in encodings {
+                let text = try #require("# 本文".data(using: encoding))
+                try (Data(bom) + text).write(to: url)
+                #expect(FinderPreview.make(for: url).html.contains("本文"))
+            }
+            for invalid: [UInt8] in [[0xfe, 0xff, 0xd8, 0], [0, 0, 0xfe, 0xff, 0, 0x11, 0, 0]] {
+                try Data(invalid).write(to: url)
+                #expect(
+                    FinderPreview.make(for: url).html.contains("The text encoding could not be read without data loss.")
+                )
             }
         }
     }
@@ -198,7 +279,7 @@ struct FinderPreviewTests {
             defer { try? file.close() }
             try file.truncate(atOffset: 30_000_001)
             let preview = FinderPreview.make(for: url)
-            #expect(preview.html.contains("31 MB"))
+            #expect(preview.html.contains("This file is too large to preview."))
             #expect(preview.html.utf8.count < 1024)
             #expect(preview.attachments.isEmpty)
             #expect(FinderPreview.errorPage("<message>").html.contains("&lt;message&gt;"))

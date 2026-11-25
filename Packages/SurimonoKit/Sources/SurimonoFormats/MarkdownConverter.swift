@@ -84,6 +84,7 @@ public enum MarkdownConverter {
             lines.removeFirst(end + 1)
             source = MarkdownSourceLines(lines, origins: Array(source.origins.dropFirst(end + 1)))
         }
+        if PreviewConversion.expired { return MarkdownMappedDocument(fragment: HTMLFragment(body: ""), blocks: []) }
         let nesting = MarkdownNesting.flattened(source.lines)
         source.lines = MarkdownPageBreaks.marking(nesting.lines, customLine: pageBreakLine)
         let extracted = MarkdownExtensions.extractFootnotes(source)
@@ -96,6 +97,7 @@ public enum MarkdownConverter {
         let (body, document) = renderBody(
             extracted.body, footnotes: footnotes, formulas: formulas, anchorsHeadings: true, mapping: mapping,
             proof: proof, notebookTOC: notebookTOC, tocAtTop: metadata.tableOfContents && notebookTOC == nil)
+        if PreviewConversion.expired { return MarkdownMappedDocument(fragment: HTMLFragment(body: ""), blocks: []) }
         let title = metadata.title ?? firstHeading(in: document, formulas: formulas)
         let leadingHeading = document.child(at: 0) as? Heading
         var html =
@@ -269,6 +271,7 @@ public enum MarkdownConverter {
     }
 
     private static func firstHeading(in node: any Markup, formulas: MarkdownExtensions.Formulas) -> String? {
+        if PreviewConversion.expired { return nil }
         if let heading = node as? Heading, heading.level == 1 {
             return MarkdownExtensions.splitCustomID(MarkdownExtensions.plainText(heading, formulas: formulas)).text
         }
@@ -544,6 +547,7 @@ public enum MarkdownConverter {
         var insideRawAnchor = false
         var index = 0
         while index < children.count {
+            if PreviewConversion.expired { return "" }
             if let list = looseDefinitionList(children, at: index, context, autolinks: autolinks) {
                 let origins = children[index..<(index + list.consumed)].reduce(into: Set<Int>()) {
                     $0.formUnion(sourceLines(of: $1, context))

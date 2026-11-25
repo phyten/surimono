@@ -28,8 +28,13 @@ public enum RSTConverter {
         let document = RSTDocument(directory: directory, readsIncludes: readsIncludes, permitsFile: permitsFile)
         var normalized = TextDecoding.normalizeNewlines(source)
         if normalized.first == "\u{feff}" { normalized.removeFirst() }
-        let lines = normalized.components(separatedBy: "\n").map(RSTDocument.expandTabs)
+        var lines: [String] = []
+        for line in normalized.components(separatedBy: "\n") {
+            if PreviewConversion.expired { return HTMLFragment(body: "") }
+            lines.append(RSTDocument.expandTabs(line))
+        }
         let body = document.blocks(lines)
+        if PreviewConversion.expired { return HTMLFragment(body: "") }
         document.finishHeadingText()
         let html = document.finishReferences(document.finishDirectives(body))
         let fonts = MathRenderer.fontFaces(for: html)
