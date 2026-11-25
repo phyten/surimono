@@ -285,7 +285,7 @@ struct VerticalMixedContentTests {
             finish: """
                 table.horizontal-box {width:100px}
                 .surimono-vertical table thead th {background:#f0b020!important}
-                tbody tr:last-child td {border-bottom-color:#009070}
+                tbody tr:last-child td {border-bottom-color:color(display-p3 0.12 0.53 0.44)}
                 """
         )
         let paper = PaperSize.a4.size
@@ -295,6 +295,11 @@ struct VerticalMixedContentTests {
         view.loadHTMLString(html, baseURL: nil)
         try await WebPaginator.waitUntil(timeout: .seconds(10)) { navigation.state != .loading }
         try #require(navigation.state == .finished)
+        // A print view can measure CSS colors even when WebKit cannot read back a canvas buffer.
+        _ = try await view.evaluateForPrinting(
+            """
+            CanvasRenderingContext2D.prototype.getImageData = () => { throw new DOMException('', 'InvalidStateError'); };
+            """, until: .now + .seconds(5))
         let document = try await VerticalPaginator.pages(
             in: view, pageSize: paper, margins: .init(top: 36, left: 36, bottom: 36, right: 36), timeout: .seconds(30))
         let headings = try await view.evaluateForPrinting(
@@ -345,6 +350,89 @@ struct VerticalMixedContentTests {
                 }
             }
             #expect(closed, "末行の下の罫 \(last)")
+        }
+    }
+
+    @Test("分割した表とコードの各行と元の見出しを完成 PDF から一度ずつ検索できる", .timeLimit(.minutes(1)))
+    func selectableContinuations() async throws {
+        _ = NSApplication.shared
+        let ids = (1...48).map { String(format: "%05d", $0) }
+        let rows = ids.map { "<tr><td>ROW_\($0)</td></tr>" }.joined()
+        let code = ids.map { "LINE_\($0)" }.joined(separator: "\n")
+        let body = "<table><thead><tr><th>HEADER_ONLY</th></tr></thead><tbody>\(rows)</tbody></table><pre>\(code)</pre>"
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "tategaki" })
+        let html = HTMLDocumentBuilder.build(
+            fragment: .init(body: body), format: .markdown, theme: theme,
+            finish: "table.horizontal-box {width:85px} td,th {height:28px;white-space:nowrap}")
+        let paper = CGSize(width: 195, height: 195)
+        let view = WKWebView(frame: CGRect(origin: .zero, size: paper))
+        let navigation = NavigationTracker()
+        view.navigationDelegate = navigation
+        view.loadHTMLString(html, baseURL: nil)
+        try await WebPaginator.waitUntil(timeout: .seconds(10)) { navigation.state != .loading }
+        try #require(navigation.state == .finished)
+        let pdf = try await VerticalPaginator.pages(
+            in: view, pageSize: paper, margins: .init(top: 14, left: 14, bottom: 14, right: 14), timeout: .seconds(30))
+        try #require(pdf.pageCount > 1)
+        // A 210-CSS-pixel row holds at most seven 28px cells. More on page one requires adjacent tiles.
+        let first = try #require(pdf.page(at: 0)?.string)
+        #expect(ids.filter { first.contains("ROW_" + $0) }.count > 7)
+        for label in ["HEADER_ONLY"] + ids.map({ "ROW_" + $0 }) + ids.map({ "LINE_" + $0 }) {
+            #expect(pdf.findString(label).count == 1, "検索文字列 \(label)")
+        }
+    }
+
+    @Test("ブラウザーで読んだ文字参照の表示文字は縦書きの前処理で変わらない", .timeLimit(.minutes(1)))
+    func referenceTextContent() async throws {
+        _ = NSApplication.shared
+        let source = "&#x65e5 &amp 文 &#49&#50 和&#80;DF文 &NotEqualTilde; &amp;lt;"
+        let marked = try VerticalText.marked(source)
+        let view = WKWebView()
+        let navigation = NavigationTracker()
+        view.navigationDelegate = navigation
+        view.loadHTMLString("<!doctype html><title></title>", baseURL: nil)
+        try await WebPaginator.waitUntil(timeout: .seconds(10)) { navigation.state != .loading }
+        try #require(navigation.state == .finished)
+        let texts = try await view.evaluateForPrinting(
+            """
+            const text = html => new DOMParser().parseFromString(html, 'text/html').body.textContent;
+            return [text(source), text(marked)];
+            """, arguments: ["source": source, "marked": marked], until: .now + .seconds(10))
+        let expected = "日 & 文 12 和PDF文 ≂\u{338} &lt;"
+        #expect(texts as? [String] == [expected, expected])
+    }
+
+    @Test("長い表の計測に失敗したら原稿を含めずに処理と呼び出しを知らせる", .timeLimit(.minutes(1)))
+    func tableMeasurementFailure() async throws {
+        _ = NSApplication.shared
+        let paper = CGSize(width: 195, height: 195)
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "tategaki" })
+        let html = HTMLDocumentBuilder.build(
+            fragment: .init(body: "<table><tr><td style='height:480px'>private-note</td></tr></table>"),
+            format: .markdown, theme: theme)
+        let view = WKWebView(frame: CGRect(origin: .zero, size: paper))
+        let navigation = NavigationTracker()
+        view.navigationDelegate = navigation
+        view.loadHTMLString(html, baseURL: nil)
+        try await WebPaginator.waitUntil(timeout: .seconds(10)) { navigation.state != .loading }
+        try #require(navigation.state == .finished)
+        _ = try await view.evaluateForPrinting(
+            """
+            HTMLTableRowElement.prototype.getBoundingClientRect = function() {
+                throw new DOMException(this.textContent, 'InvalidStateError');
+            };
+            """, until: .now + .seconds(5))
+        do {
+            _ = try await VerticalPaginator.pages(
+                in: view, pageSize: paper, margins: .init(top: 14, left: 14, bottom: 14, right: 14),
+                timeout: .seconds(10))
+            Issue.record("表の計測で例外になるはず")
+        } catch {
+            let info = (error as NSError).userInfo
+            let message = try #require(info["WKJavaScriptExceptionMessage"] as? String)
+            #expect(message.contains("prepare vertical strip / horizontal rows / getBoundingClientRect"))
+            #expect(message.contains("InvalidStateError"))
+            #expect(!message.contains("private-note"))
         }
     }
 

@@ -110,6 +110,37 @@ struct VerticalTextTests {
                 + #"年<span class="tcy">11</span>月<span class="tcy">25</span>日"#)
     }
 
+    @Test("Unicode の数量・範囲・時刻は横倒しにし、和文の助数詞とラベルは独立した整数を保つ")
+    func numericRuns() throws {
+        func sideways(_ text: String) -> String { #"<span class="v-latin v-sideways">\#(text)</span>"# }
+        for token in [
+            "−12", "±12", "1e−3", "12°C", "12℃", "12Ω", "12µm", "12㎏", "12\u{202f}kg", "12\u{a0}kg",
+            "12\u{2009}kg", "10〜20%", "10～20%", "10%〜20",
+        ] {
+            #expect(try VerticalText.marked(token) == sideways(token))
+        }
+        for token in [
+            "A-1", "1/2", "No.12",
+        ] {
+            #expect(try VerticalText.marked(token) == latin(token))
+        }
+        #expect(try VerticalText.marked("ＡＢ") == latin("ＡＢ"))
+        let two = #"<span class="tcy">12</span>"#
+        #expect(try VerticalText.marked("人数:12人") == "人数:" + two + "人")
+        #expect(try VerticalText.marked("count:12人") == latin("count") + ":" + two + "人")
+        #expect(
+            try VerticalText.marked("3〜4人")
+                == #"<span class="upright-digit">3</span>〜<span class="upright-digit">4</span>人"#)
+        #expect(try VerticalText.marked("3-4人") == latin("3-4") + aki + "人")
+        #expect(try VerticalText.marked("第2-3章") == "第" + aki + latin("2-3") + aki + "章")
+        #expect(try VerticalText.marked("2,000円") == latin("2,000") + aki + "円")
+        #expect(try VerticalText.marked("午後3:00") == "午後" + aki + latin("3:00"))
+        #expect(try VerticalText.marked("和−12°C文") == "和" + aki + sideways("−12°C") + aki + "文")
+        #expect(
+            try VerticalText.marked("12&#x202f;<b>Ω</b>人") == latin("12") + "&#x202f;<b>" + sideways("Ω") + "</b>" + aki
+                + "人")
+    }
+
     @Test("文字参照の原綴りと表示文字を保ち、同じ表示なら同じ和欧境界と縦中横を付ける")
     func references() throws {
         // Decode the fixture's references within each node, as an HTML reader would.
@@ -152,6 +183,35 @@ struct VerticalTextTests {
         #expect(protected.contains("<svg") && protected.contains("<ruby>親<rt>おや</rt></ruby>"))
         #expect(protected.contains(#"href="https://example.org/12""#))
         #expect(after.contains(protected))
+    }
+
+    @Test("横書きクラスの縦中横はスタイルを選ぶまで引数の文字と構造を保つ")
+    func articleTheme() throws {
+        let library = try PrintThemeLibrary.load()
+        let longWord = "long_identifier_with_underscores"
+        let direct = LongTokenMarks.marked(longWord)
+        #expect(direct.contains("long-token"))
+        #expect(
+            LongTokenMarks.marked(#"<span class="explicit-tcy">\#(longWord)</span>"#)
+                == #"<span class="explicit-tcy">\#(direct)</span>"#)
+        let manuscript =
+            #"\documentclass{article}\begin{document}和\rensuji{AB}文\tatechuyoko{123}日\rensuji{\ruby{親}{おや}}\end{document}"#
+        let fragment = LaTeXConverter.convert(manuscript)
+        let content =
+            #"和<span class="explicit-tcy">AB</span>文<span class="explicit-tcy">123</span>日<span class="explicit-tcy"><ruby>親<rt>おや</rt></ruby></span>"#
+        for name in ["standard", "tategaki"] {
+            let theme = try #require(library.first { $0.id == name })
+            let html = HTMLDocumentBuilder.build(fragment: fragment, format: .latex, theme: theme)
+            #expect(html.contains(content))
+            if name == "standard" {
+                let plain = LaTeXConverter.convert(
+                    manuscript.replacingOccurrences(of: #"\rensuji{AB}"#, with: "AB")
+                        .replacingOccurrences(of: #"\tatechuyoko{123}"#, with: "123")
+                        .replacingOccurrences(of: #"\rensuji{\ruby{親}{おや}}"#, with: #"\ruby{親}{おや}"#))
+                let expected = HTMLDocumentBuilder.build(fragment: plain, format: .latex, theme: theme)
+                #expect(html.replacingOccurrences(of: content, with: "和AB文123日<ruby>親<rt>おや</rt></ruby>") == expected)
+            }
+        }
     }
 
     @Test("縦書きを選んだ本文にだけ前処理を適用し、ソースコードの数字を保つ")

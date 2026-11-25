@@ -1,4 +1,5 @@
 // Coordinates sent back to Swift are page coordinates in CSS pixels, including the reader's zoom.
+trace.call = 'initialize vertical strip';
 const root = document.documentElement;
 const body = document.body;
 for (const element of [root, body]) {
@@ -34,6 +35,7 @@ function wrapper(tag, className) {
 // The pre holding a plain-text document inherits the body's type and remains in vertical flow.
 const horizontal = 'pre:not(.surimono-plain),table,figure,img,.math-block,.math-display,'
     + '.mermaid-block,.graphviz-block,.plantuml-block';
+trace.call = 'wrap horizontal boxes';
 for (const box of strip.querySelectorAll(horizontal)) {
     if (box.closest('.explicit-tcy')) continue;
     if (box.localName === 'pre') box.classList.add('vertical-code');
@@ -49,6 +51,7 @@ for (const run of strip.querySelectorAll('.explicit-tcy')) {
         /^(?:[A-Za-z0-9]{1,3}|[!?]{2})$/u.test(run.textContent)) run.classList.replace('explicit-tcy', 'tcy');
 }
 // Real separator and label boxes give the capture pass measurable ink.
+trace.call = 'prepare vertical notes';
 for (const list of strip.querySelectorAll('section.footnotes > ol')) {
     const rule = wrapper('hr', 'vertical-note-rule');
     list.before(rule);
@@ -118,7 +121,9 @@ const formulas = [...strip.querySelectorAll('.math-inline > svg')].filter(svg =>
 for (const svg of formulas) svg.parentElement.classList.add('vertical-inline-formula');
 // Request the vertical glyphs and math faces before measuring their final advances.
 strip.getBoundingClientRect();
+trace.call = 'document.fonts.ready';
 await document.fonts.ready;
+trace.call = 'inline SVG getBBox';
 const formulaSizes = formulas.map(svg => {
     const vb = svg.viewBox.baseVal;
     if (!vb.width || !vb.height) return null;
@@ -166,6 +171,7 @@ const fits = [];
 const readableBoxes = new WeakSet();
 const retryAtFloor = [];
 const bodyFont = parseFloat(getComputedStyle(strip).fontSize);
+trace.call = 'fit boxes / Range bounds';
 for (const box of strip.querySelectorAll(atomic)) {
     if (box.parentElement.closest(atomic)) continue;
     const rect = paintBounds(box);
@@ -331,7 +337,8 @@ globalThis.surimonoVerticalX = element => {
 let originX, originY;
 // Measure rows on the intact table so column widths, captions and spanning cells
 // keep their original positions. Code may have syntax spans across a printed line.
-function horizontalBreaks(box, stripTop) {
+function horizontalBreaks(box, stripTop, trace) {
+    trace.call = 'horizontal rows / getBoundingClientRect';
     const intervals = [];
     function include(rect) {
         if (rect.height <= 0 || rect.width <= 0) return;
@@ -339,6 +346,7 @@ function horizontalBreaks(box, stripTop) {
         intervals.push([rect.top, rect.bottom]);
     }
     for (const el of box.querySelectorAll('tr,td[rowspan],th[rowspan],img,svg,br')) include(el.getBoundingClientRect());
+    trace.call = 'horizontal text / Range.getClientRects';
     const text = document.createTreeWalker(box, NodeFilter.SHOW_TEXT);
     for (let n = text.nextNode(); n; n = text.nextNode()) {
         if (n.parentElement.closest('tr,svg,style,script')) continue;
@@ -354,30 +362,53 @@ function horizontalBreaks(box, stripTop) {
     }
     return cuts;
 }
-// The closing rule follows the table's own ink. Sampling the CSS color also resolves non-sRGB CSS notation.
-let swatch;
-function tableRegion(table, paint, stripTop) {
+// The compositor needs sRGB components, not pixels. Canvas readback can fail
+// even for a 1x1 swatch when WebKit has no readable graphics buffer.
+function srgbComponents(value) {
+    const rgb = /^rgba?\(([^)]+)\)$/.exec(value);
+    const components = rgb || /^color\(srgb ([^)]+)\)$/.exec(value);
+    if (!components) return null;
+    const channels = components[1].trim().split(/[\s,/]+/).map((part, i) => {
+        const scale = part.endsWith('%') ? 100 : (rgb && i < 3 ? 255 : 1);
+        return part === 'none' ? 0 : Math.max(0, Math.min(1, parseFloat(part) / scale));
+    });
+    if (channels.length === 3) channels.push(1);
+    return channels.length === 4 && channels.every(Number.isFinite) ? channels : null;
+}
+function ruleColor(value) {
+    const color = srgbComponents(value);
+    if (color) return color;
+    // Let the CSS engine convert wide-gamut colors before handing them to Quartz.
+    // Keep the probe outside the strip so it cannot become part of a printed row.
+    const probe = document.createElement('span');
+    probe.style.cssText = 'all:initial!important;display:none!important;color:#888!important';
+    probe.style.setProperty('color', 'color(from ' + value + ' srgb r g b / alpha)', 'important');
+    body.appendChild(probe);
+    try {
+        // If WebKit cannot serialize a color, keep the table readable with the theme's gray rule.
+        return srgbComponents(getComputedStyle(probe).color) ?? [8/15, 8/15, 8/15, 1];
+    } finally {
+        probe.remove();
+    }
+}
+function tableRegion(table, paint, stripTop, trace) {
+    trace.call = 'table/header getBoundingClientRect';
     const r = table.getBoundingClientRect(), head = table.tHead?.getBoundingClientRect();
     const cell = table.rows[table.rows.length - 1]?.cells[0];
+    trace.call = 'table bottom border computed style';
     const style = getComputedStyle(cell || table);
-    if (!swatch) {
-        const canvas = document.createElement('canvas');
-        canvas.width = canvas.height = 1;
-        swatch = canvas.getContext('2d');
-    }
-    swatch.clearRect(0, 0, 1, 1);
-    swatch.fillStyle = style.borderBottomColor;
-    swatch.fillRect(0, 0, 1, 1);
-    const color = Array.from(swatch.getImageData(0, 0, 1, 1).data, c => c / 255);
+    const color = ruleColor(style.borderBottomColor);
     return {leftInset: (r.left - paint.left) * unit + 1, width: r.width * unit,
         top: (r.top - stripTop) * unit, bottom: (r.bottom - stripTop) * unit,
         headTop: head && (head.top - stripTop) * unit, headHeight: head && head.height * unit,
         ruleWidth: (parseFloat(style.borderBottomWidth) || 2/3) * zoom, color};
 }
-function measureLayout() {
+function measureLayout(trace) {
+    trace.call = 'stabilize line edges';
     strip.style.left = '';
     strip.style.top = '';
     stabilizeEdges();
+    trace.call = 'position paired openers';
     positionPairedOpeners();
     const bands = [];
     originX = window.scrollX;
@@ -404,7 +435,9 @@ function measureLayout() {
         }
     });
     for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        trace.call = 'measure band / DOM bounds';
         if (n.nodeType === Node.TEXT_NODE) {
+            trace.call = 'measure text / Range.getClientRects';
             const parent = n.parentElement;
             const keep = !!parent.closest(heading);
             const extra = emphasisInk(parent.closest(annotations));
@@ -434,11 +467,11 @@ function measureLayout() {
             // Collapsed cell borders can paint beyond the measured bottom edge. Extend only
             // the last capture, so internal row boundaries and the measured type size stay intact.
             const continuation = split ? {
-                breaks: horizontalBreaks(n, stripTop),
+                breaks: horizontalBreaks(n, stripTop, trace),
                 gap: Math.max(0, parseFloat(getComputedStyle(n.parentElement).marginBlockStart) || 0) * zoom,
                 bottomBleed: n.matches('table') || n.querySelector('table') ? 2 : 0,
                 tables: (n.matches('table') ? [n] : [...n.querySelectorAll('table')].filter(t => !t.parentElement.closest('table')))
-                    .map(table => tableRegion(table, paint, stripTop))
+                    .map(table => tableRegion(table, paint, stripTop, trace))
             } : undefined;
             add(layout.width && layout.height ? layout : paint, n.matches('.vertical-note-rule') || !!n.closest(heading), paint, emphasisInk(emphasis), false,
                 continuation);
@@ -447,6 +480,7 @@ function measureLayout() {
     // A vertical-rl child can overflow the intrinsic strip to the left of the document.
     // WKPDFConfiguration captures positive page coordinates. Move the entire measured strip
     // before cutting; clamping individual boxes here would silently truncate the last rows.
+    trace.call = 'position measured strip';
     const shift = bands.reduce((right, band) => Math.max(right, band.ink.end, band.end), 0);
     if (shift > 0) {
         const left = strip.getBoundingClientRect().left + originX;
@@ -472,7 +506,8 @@ function measureLayout() {
 // WebKit paints off-slice glyphs into createPDF's clipped content stream. Hide complete
 // subtrees and split only text nodes crossing a cut, preserving the strip's line layout.
 const indexedText = new WeakSet();
-globalThis.surimonoIndexSlices = slices => {
+globalThis.surimonoIndexSlices = (slices, trace) => {
+    trace.call = 'index text ranges and box bounds';
     const cuts = slices.map((slice, i) => i+1 < slices.length ? (slice[1]+slices[i+1][0])/2 : slice[1]);
     const pages = cuts.map(() => []);
     function pageAt(x) {
@@ -548,10 +583,11 @@ globalThis.surimonoIndexSlices = slices => {
     }
     // Batch DOM writes after all range queries so measuring later paragraphs cannot force repeated layout.
     if (replacements.length) {
+        trace.call = 'replace indexed text ranges';
         for (const [node, pieces] of replacements) node.replaceWith(pieces);
         // Inline visibility spans normally leave shaping alone, but only the final DOM's
         // measurements may drive a capture. Re-index these persistent pieces at the new cuts.
-        return measureLayout();
+        return measureLayout(trace);
     }
     // The theme sampler may still inspect the full document before choosing its first capture.
     let previous;
@@ -569,6 +605,7 @@ globalThis.surimonoIndexSlices = slices => {
     };
     return null;
 };
-const measured = measureLayout();
+const measured = measureLayout(trace);
+trace.call = 'formula index';
 globalThis.surimonoFormulaIndex?.native();
 return measured;

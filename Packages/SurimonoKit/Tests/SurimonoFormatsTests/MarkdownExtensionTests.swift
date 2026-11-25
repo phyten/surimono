@@ -41,6 +41,44 @@ struct MarkdownExtensionTests {
         #expect(body(input + "`<!-- capture`").contains("<code>&lt;!-- capture</code>"))
     }
 
+    @Test("引用とリストの外で閉じたコメントは隠れた本文も閉じ記号も表示しない")
+    func commentAcrossContainers() throws {
+        for marker in ["> ", "- "] {
+            let html = body(marker + "<!--\n\n<div>非表示のメモ</div>\n-->\n\n表示する本文。")
+            #expect(try MarkupHTML.withBody(html) { $0.text.filter { !$0.isWhitespace } } == "表示する本文。")
+        }
+    }
+
+    @Test("文書末尾の最後のコメントだけを生成脚注との境目で閉じる")
+    func lastComment() throws {
+        let lead = "本文[^a]。\n\n[^a]: 文末注。\n\n"
+        for raw in ["<!-- open", "<!-- closed --> <!-- open", "<div>\n<!-- open"] {
+            let manuscript = body(raw)
+            #expect(!manuscript.hasSuffix("-->\n"))
+            let html = body(lead + raw)
+            #expect(html.contains(manuscript + "-->\n<section class=\"footnotes\">"))
+            #expect(try MarkupHTML.withBody(html) { $0.text.contains("文末注。") })
+        }
+        #expect(Array(body("通常の *本文*。").utf8) == Array("<p>通常の <em>本文</em>。</p>\n".utf8))
+    }
+
+    @Test("コメントの即時終了・属性・生テキスト・CDATA と判定できない末尾では原稿を保つ")
+    func commentLexicalBoundary() {
+        let suffix = "<section>注</section>"
+        for html in [
+            "<!-->", "<!--->", "<!-- closed --!>", "<div title='> <!--'>", "<div title='<!--",
+            "<script>let s = '<!--';</script>", "<STYLE><!--", "<textarea><!--</textarea>", "<title><!--</title>",
+            "<svg><![CDATA[ > <!-- ]]></svg>", "<svg><![CDATA[<!--", "<plaintext><!--",
+            "<script><!--<script></script><!--", "</ not <!-- >",
+            "<![CDATA[ > <textarea> ]]><!--",
+        ] {
+            #expect(HTMLScanner.appendingGenerated(suffix, to: html) == html + suffix)
+        }
+        for prefix in ["<!-->", "<!--->", "<!--x--!>", "<textarea><!--</textarea>", "<svg><![CDATA[<!--]]></svg>"] {
+            #expect(HTMLScanner.appendingGenerated(suffix, to: prefix + "<!--x") == prefix + "<!--x-->\n" + suffix)
+        }
+    }
+
     @Test("同じ脚注を二度参照すると番号は同じで、二度目の参照には別の id を付ける")
     func repeatedFootnote() {
         let html = body("一[^n] 二[^N]\n\n[^n]: 注")

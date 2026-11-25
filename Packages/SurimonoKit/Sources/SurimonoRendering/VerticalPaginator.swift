@@ -8,6 +8,23 @@ enum VerticalPaginator {
     private static let measurement = Bundle.module.url(forResource: "vertical-lines", withExtension: "js")
         .flatMap { try? String(contentsOf: $0, encoding: .utf8) }
 
+    // WebKit can report line zero for a native DOM exception. Only include our own
+    // stage and operation labels, never the document or a page-provided error message.
+    private static func diagnosed(_ script: String, stage: String) -> String {
+        """
+        const trace = {call: ''};
+        try {
+            \(script)
+        } catch (error) {
+            const name = error instanceof DOMException && error.code ? error.name :
+                error instanceof TypeError ? 'TypeError' : error instanceof RangeError ? 'RangeError' : 'Error';
+            const detail = trace.call ? ' / ' + trace.call : '';
+            const reason = error?.message === 'Vertical layout exceeds the fragment limit' ? error.message : name;
+            throw new Error('Vertical pagination: \(stage)' + detail + ' (' + reason + ')');
+        }
+        """
+    }
+
     // Full-width cells include white inside the font. Shape the theme's vertical alternates
     // so the gap is measured between their outlines, including for asymmetric brackets.
     private static let punctuationEdges: [String: Double] = {
@@ -114,10 +131,11 @@ enum VerticalPaginator {
             do {
                 let values =
                     try await webView.evaluateForPrinting(
-                        """
-                        const d = document.body.dataset;
-                        return d.latexVerticalRows ? [d.latexVerticalRows, d.latexSize, d.latexTextWidth, d.latexTextHeight].map(Number) : null;
-                        """, until: deadline) as? [Double]
+                        diagnosed(
+                            """
+                            const d = document.body.dataset;
+                            return d.latexVerticalRows ? [d.latexVerticalRows, d.latexSize, d.latexTextWidth, d.latexTextHeight].map(Number) : null;
+                            """, stage: "read manuscript dimensions"), until: deadline) as? [Double]
                 let manuscript: Manuscript?
                 if let values, values.count == 4, values[1].isFinite, values[1] > 0 {
                     // A contradictory geometry override may leave one dimension empty. Keep the
@@ -176,7 +194,8 @@ enum VerticalPaginator {
                             try Task.checkCancellation()
                             if plan.sources.count > 1 {
                                 _ = try await webView.evaluateForPrinting(
-                                    "surimonoCaptureSlice(index)", arguments: ["index": slice.index], until: deadline)
+                                    diagnosed("surimonoCaptureSlice(index)", stage: "show source slice \(slice.index)"),
+                                    arguments: ["index": slice.index], until: deadline)
                             }
                             // Assign rows by their layout width, then keep annotation overhang at its natural scale.
                             let rect = slice.rect.offsetBy(dx: 0, dy: originY)
@@ -228,7 +247,7 @@ enum VerticalPaginator {
         booklet: Bool, rows: Int, until deadline: ContinuousClock.Instant
     ) async throws -> (VerticalCapturePlan, CGFloat) {
         let value = try await webView.evaluateForPrinting(
-            script,
+            diagnosed(script, stage: "prepare vertical strip"),
             arguments: [
                 "width": width, "height": height, "font": font, "booklet": booklet, "inkEdges": punctuationEdges,
             ],
@@ -243,7 +262,8 @@ enum VerticalPaginator {
             }
             guard slices.count > 1 else { return result }
             let update = try await webView.evaluateForPrinting(
-                "return surimonoIndexSlices(slices)", arguments: ["slices": slices], until: deadline)
+                diagnosed("return surimonoIndexSlices(slices, trace)", stage: "index and remeasure slices"),
+                arguments: ["slices": slices], until: deadline)
             guard let changed = update as? String else { return result }
             json = changed
         }

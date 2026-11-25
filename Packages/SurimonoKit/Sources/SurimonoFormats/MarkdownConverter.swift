@@ -98,10 +98,10 @@ public enum MarkdownConverter {
             proof: proof, notebookTOC: notebookTOC, tocAtTop: metadata.tableOfContents && notebookTOC == nil)
         let title = metadata.title ?? firstHeading(in: document, formulas: formulas)
         let leadingHeading = document.child(at: 0) as? Heading
-        var html =
-            (leadingHeading?.level != 1 && notebookTOC == nil ? metadata.titleBlock() : "") + body
-            + footnoteSection(
-                footnotes, formulas: formulas, definitions: extracted.definitions, mapping: mapping, proof: proof)
+        var html = (leadingHeading?.level != 1 && notebookTOC == nil ? metadata.titleBlock() : "") + body
+        let notes = footnoteSection(
+            footnotes, formulas: formulas, definitions: extracted.definitions, mapping: mapping, proof: proof)
+        html = HTMLScanner.appendingGenerated(notes, to: html)
         if let citations { html = citations.finish(html) }
         var issues = citations?.issues ?? []
         if nesting.changed { issues.append(MarkdownNesting.issue) }
@@ -112,7 +112,8 @@ public enum MarkdownConverter {
         let fonts = notebookTOC == nil ? MathRenderer.fontFaces(for: html) : ""
         return MarkdownMappedDocument(
             fragment: HTMLFragment(
-                body: html + (fonts.isEmpty ? "" : "<style>\n\(fonts)\n</style>\n"), title: title,
+                body: HTMLScanner.appendingGenerated(fonts.isEmpty ? "" : "<style>\n\(fonts)\n</style>\n", to: html),
+                title: title,
                 language: metadata.language, readingIssues: issues),
             blocks: mapping?.blocks ?? [])
     }
@@ -342,13 +343,6 @@ public enum MarkdownConverter {
         case is SoftBreak: return "\n"
         case let html as HTMLBlock:
             let raw = html.rawHTML
-            // CommonMark ends a comment block at EOF. In the assembled document the generated notes follow it.
-            let comment = raw.drop(while: { $0.isWhitespace })
-            if comment.hasPrefix("<!--"), !comment.hasPrefix("<!-->"), !comment.hasPrefix("<!--->"),
-                !raw.contains("-->"), !raw.contains("--!>")
-            {
-                return raw + "-->\n"
-            }
             return MarkdownPageBreaks.html(forBlock: raw) ?? raw
         case let html as InlineHTML: return html.rawHTML
         case let link as Link:

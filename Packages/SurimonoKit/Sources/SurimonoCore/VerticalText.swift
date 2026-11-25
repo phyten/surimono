@@ -189,6 +189,78 @@ package enum VerticalText {
         case start, paragraph, japanese, western, opening, closing, other
     }
 
+    /// The original spelling is recovered only after the whole quantity has an orientation.
+    /// Its internal signs, delimiters and unit never pass through punctuation or spacing rules.
+    private struct NumericRun {
+        enum Orientation { case sideways, single, pair }
+        let text: Substring
+        let orientation: Orientation
+        let remainingUnit: Substring
+
+        init?(_ word: Substring, in source: String, note: Bool, neighbor: (Int) -> AnyIterator<Substring>) {
+            guard let first = word.first, first.isASCII || "+±−".contains(first),
+                word.utf8.contains(where: { (48...57).contains($0) })
+            else { return nil }
+            func quantity(_ value: Substring) -> (text: Substring, unit: Substring, hasUnit: Bool) {
+                guard !note, value.last?.isASCIIDigit == true else { return (value, "", false) }
+                let suffix = source[value.endIndex...]
+                let parts = neighbor(1)
+                var part = suffix
+                var symbol = ""
+                while true {
+                    if symbol.isEmpty { part = part.drop(while: \.isHorizontalSpace) }
+                    let letters = part.prefix(17).prefix(while: \.isUnitLetter)
+                    guard letters.utf8.count + symbol.utf8.count <= 16 else { return (value, "", false) }
+                    symbol += letters
+                    guard letters.endIndex == part.endIndex, let next = parts.next() else { break }
+                    part = next
+                }
+                guard LaTeXUnits.printedSymbols.contains(symbol) || ["℃", "㎏"].contains(symbol) else {
+                    return (value, "", false)
+                }
+                let local = suffix.drop(while: \.isHorizontalSpace).prefix(while: \.isUnitLetter)
+                let end = local.isEmpty ? value.endIndex : local.endIndex
+                return (source[value.startIndex..<end], symbol.dropFirst(local.count), true)
+            }
+            var run = quantity(word)
+            let tail = source[run.text.endIndex...]
+            if let wave = tail.first, wave == "〜" || wave == "～",
+                let rhs = tail.dropFirst().prefixMatch(of: /[+±−\-]?[0-9]+(?:[.,][0-9]+)*(?:[eE][+−\-]?[0-9]+)?/)
+            {
+                let right = quantity(rhs.output)
+                if run.hasUnit || right.hasUnit || !Self.isShortInteger(word) || !Self.isShortInteger(rhs.output) {
+                    run = (source[word.startIndex..<right.text.endIndex], right.unit, true)
+                }
+            }
+            text = run.text
+            remainingUnit = run.unit
+            guard !run.hasUnit, Self.isShortInteger(word) else {
+                orientation = .sideways
+                return
+            }
+            // A colon joins digits only between two numeric fields. A label such as 人数: is independent.
+            func attached(_ direction: Int) -> Bool {
+                var adjacent = direction < 0 ? source[..<word.startIndex] : source[word.endIndex...]
+                let parts = neighbor(direction)
+                func next() -> Character? {
+                    while adjacent.isEmpty {
+                        guard let part = parts.next() else { return nil }
+                        adjacent = part
+                    }
+                    return direction < 0 ? adjacent.popLast() : adjacent.popFirst()
+                }
+                guard let c = next() else { return false }
+                if c == ":" { return next()?.isASCIIDigit == true }
+                return (c.isASCII && (c.isLetter || c.isNumber || "%.,_+/-".contains(c))) || "±−".contains(c)
+            }
+            orientation = !note && (attached(-1) || attached(1)) ? .sideways : (word.count == 1 ? .single : .pair)
+        }
+
+        private static func isShortInteger(_ text: Substring) -> Bool {
+            text.utf8.count <= 2 && text.allSatisfy(\.isASCIIDigit)
+        }
+    }
+
     private struct Writer {
         var output = ""
         private var remaining = 250_000
@@ -199,6 +271,7 @@ package enum VerticalText {
         private var closingMark: Character?
         private var pending: [(text: String, space: Bool)] = []
         private var hasSpace = false
+        private var unitRemainder: Substring = ""
 
         mutating func markup(_ raw: String) {
             if closing == nil && !hasSpace { output += raw } else { pending.append((raw, false)) }
@@ -233,7 +306,7 @@ package enum VerticalText {
             let source = node.text
             let token =
                 #/
-                [+-]?[\p{sc=Latin}0-9_]+(?:[.,:/+\-][0-9][\p{sc=Latin}0-9_]*)* %? | \.[0-9]+ %?
+                [+±−\-]?[0-9]+(?::[0-9]+)+ | [+±−\-]?[\p{sc=Latin}0-9_]+(?:[.,/+−\-][0-9][\p{sc=Latin}0-9_]*)* %? | \.[0-9]+ %?
                 | [!?]+ | [\x20]+ | \R+ | [\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}ー０-９]+ | .
                 /#
             // Searching for a scheme from every short word in a dotted identifier would repeatedly
@@ -252,6 +325,24 @@ package enum VerticalText {
             let address = #/(?:[\p{L}\p{N}\-]+\.)*[A-Za-z0-9\u{fffc}%._~:/?#\[\]@!$&'()*+,;=\-]+/#
             var rest = source[...]
             while !rest.isEmpty {
+                // The number and this part of its unit can belong to different inline elements.
+                // Preserve those elements while carrying the orientation through their text nodes.
+                if !unitRemainder.isEmpty {
+                    let spaces = rest.prefix(while: \.isHorizontalSpace)
+                    if !spaces.isEmpty {
+                        markup(node.original(spaces))
+                        rest = rest[spaces.endIndex...]
+                        continue
+                    }
+                    let part = rest.prefix(unitRemainder.count)
+                    if unitRemainder.hasPrefix(part) {
+                        try sidewaysNumber(part, in: node)
+                        unitRemainder = unitRemainder.dropFirst(part.count)
+                        rest = rest[part.endIndex...]
+                        continue
+                    }
+                    unitRemainder = ""
+                }
                 var host = hosts[rest.startIndex]
                 if host == nil, let first = rest.first, "wWmM".contains(first) {
                     host = rest.prefixMatch(of: /(?i:www\.|mailto:)/)?.range.upperBound
@@ -265,7 +356,7 @@ package enum VerticalText {
                 // Avoid starting a Unicode regex VM (and two script lookups) for every period.
                 let prefix = rest.prefix { $0.isASCII && $0.isLetter }
                 let tail = rest[prefix.endIndex...]
-                var raw: Substring
+                let raw: Substring
                 if !prefix.isEmpty, tail.first.map({ $0.isASCII && !$0.isNumber && !"_%,:/+-".contains($0) }) ?? true,
                     !(tail.first == "." && tail.dropFirst().first?.isNumber == true)
                 {
@@ -275,18 +366,18 @@ package enum VerticalText {
                 } else {
                     raw = rest.prefixMatch(of: token)?.output ?? rest.prefix(1)
                 }
-                var hasUnit = false
-                if raw.last?.isASCII == true, raw.last?.isNumber == true, !note {
-                    let suffix = source[raw.endIndex...]
-                    let after = suffix.first ?? neighbor(1).next()?.first
-                    if after?.isHorizontalSpace == true {
-                        let symbol = Self.followingUnit(in: suffix, neighbors: neighbor(1))
-                        hasUnit = symbol != nil
-                        if let symbol, suffix.first?.isHorizontalSpace == true {
-                            let local = suffix.drop(while: \.isHorizontalSpace).prefix { $0.isUnitLetter }
-                            if local == symbol { raw = rest[..<local.endIndex] }
-                        }
+                if let number = NumericRun(raw, in: source, note: note, neighbor: neighbor) {
+                    switch number.orientation {
+                    case .sideways: try sidewaysNumber(number.text, in: node)
+                    case .single, .pair:
+                        try begin(.other)
+                        output += try span(
+                            headingNumber || number.orientation == .pair ? "tcy" : "upright-digit",
+                            node.original(number.text))
                     }
+                    unitRemainder = number.remainingUnit
+                    rest = rest[number.text.endIndex...]
+                    continue
                 }
                 let original = node.original(raw)
                 if plain && raw.first?.isNewline == true {
@@ -296,45 +387,10 @@ package enum VerticalText {
                     pending.append((original, true))
                     hasSpace = true
                 } else {
-                    let digits = raw.utf8.count <= 2 && raw.utf8.allSatisfy { (48...57).contains($0) }
-                    if digits {
-                        let before =
-                            raw.startIndex == source.startIndex
-                            ? neighbor(-1).next()?.last : source[source.index(before: raw.startIndex)]
-                        let after =
-                            raw.endIndex == source.endIndex ? neighbor(1).next()?.first : source[raw.endIndex]
-                        let touchesWord = [before, after].compactMap { $0 }.contains {
-                            $0.isASCII && ($0.isLetter || $0.isNumber || "%.,_+/-:".contains($0))
-                        }
-                        if note || (!touchesWord && !hasUnit) {
-                            try begin(.other)
-                            output += try span(
-                                headingNumber || raw.count == 2 ? "tcy" : "upright-digit", original)
-                        } else {
-                            try western(original)
-                        }
-                    } else {
-                        try glyphs(raw, original: original)
-                    }
+                    try glyphs(raw, original: original)
                 }
                 rest = rest[raw.endIndex...]
             }
-        }
-
-        // A unit can start in the next emphasis or link. Stop at the end of its symbol,
-        // so a space followed by ordinary English prose leaves the integer independent.
-        private static func followingUnit(in suffix: Substring, neighbors: AnyIterator<Substring>) -> String? {
-            var part = suffix
-            var symbol = ""
-            while true {
-                if symbol.isEmpty { part = part.drop(while: \.isHorizontalSpace) }
-                let letters = part.prefix(17).prefix { $0.isUnitLetter }
-                guard letters.utf8.count + symbol.utf8.count <= 16 else { return nil }
-                symbol += letters
-                guard letters.endIndex == part.endIndex, let next = neighbors.next() else { break }
-                part = next
-            }
-            return LaTeXUnits.printedSymbols.contains(symbol) ? symbol : nil
         }
 
         mutating func url(_ source: String) throws {
@@ -356,6 +412,14 @@ package enum VerticalText {
             body += node.original(label[start...])
             try begin(.western)
             output += try span("v-latin v-url", body)
+        }
+
+        private mutating func sidewaysNumber(_ part: Substring, in node: VerticalTextSource) throws {
+            // Mixed orientation already turns ASCII. Force upright unit glyphs and wave dashes
+            // to turn with the number without changing ordinary Latin or fullwidth prose.
+            let style = part.utf8.contains { $0 >= 128 } ? "v-latin v-sideways" : "v-latin"
+            try begin(.western)
+            output += try span(style, node.original(part))
         }
 
         mutating func western(_ source: String) throws {
@@ -399,6 +463,9 @@ package enum VerticalText {
 }
 
 extension Character {
-    fileprivate var isUnitLetter: Bool { isASCII && isLetter || "%µΩ°Å".contains(self) }
-    fileprivate var isHorizontalSpace: Bool { self == " " || self == "\t" || self == "\u{00a0}" }
+    fileprivate var isASCIIDigit: Bool { isASCII && isNumber }
+    fileprivate var isUnitLetter: Bool { isASCII && isLetter || "%µΩ°Å℃㎏′″".contains(self) }
+    fileprivate var isHorizontalSpace: Bool {
+        self == " " || self == "\t" || self == "\u{00a0}" || self == "\u{202f}" || self == "\u{2009}"
+    }
 }

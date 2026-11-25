@@ -11,7 +11,9 @@ enum LongTokenMarks {
     private static let separators = Set("/\\._-:=?&@#".unicodeScalars)
     private static let skippedElements: Set<String> = ["pre", "svg", "math"]
 
-    private static let verticalClasses: Set<Substring> = ["tcy", "kenten", "bousen", "v-url", "math", "math-block"]
+    private static let verticalClasses: Set<Substring> = [
+        "tcy", "explicit-tcy", "kenten", "bousen", "v-url", "math", "math-block",
+    ]
 
     static func marked(_ html: String, verticalLaTeX: Bool = false) -> String {
         var output = ""
@@ -36,9 +38,7 @@ enum LongTokenMarks {
     }
 
     private static func skips(_ tag: HTMLScanner.Tag, verticalLaTeX: Bool) -> Bool {
-        if skippedElements.contains(tag.name) || tag.source == #"<span class="tcy">"#
-            || tag.source == #"<span class="explicit-tcy">"#
-        {
+        if skippedElements.contains(tag.name) || tag.source == #"<span class="tcy">"# {
             return true
         }
         guard verticalLaTeX else { return false }

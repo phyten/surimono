@@ -68,6 +68,7 @@ body { font-family: "Hiragino Mincho ProN", serif; font-size: 10.5pt; line-heigh
 .surimono-vertical :is(.v-latin, .long-token):not(.horizontal-box *, code *, rt *, .math-inline *) {
     font-family: var(--vertical-latin-font, inherit);
 }
+.surimono-vertical .v-sideways { text-orientation: sideways; }
 .surimono-vertical .v-url, .surimono-vertical .v-url .long-token, .surimono-vertical .long-token:has(> .v-url) {
     word-break: normal; overflow-wrap: anywhere; hyphens: none;
 }

@@ -58,7 +58,8 @@ struct LaTeXVerticalTests {
             LaTeXConverter.convert(#"\documentclass{\#(name)}\begin{document}\#(body)\end{document}"#).body
         }
         for (command, content) in [
-            ("tatechuyoko", #"$\frac{1}{2}$"#), ("rensuji", #"\ruby{親}{おや}"#),
+            ("tatechuyoko", "AB"), ("rensuji", "123"), ("tatechuyoko", #"$\frac{1}{2}$"#),
+            ("rensuji", #"\ruby{親}{おや}"#),
             ("rensuji", #"\href{https://example.org/12}{参照}"#),
             ("rensuji[ignored]", #"\textbf{3}\rensuji{4}"#), ("tatechuyoko", #"<\&>"#),
         ] {
@@ -68,10 +69,8 @@ struct LaTeXVerticalTests {
             #expect(!inner.isEmpty)
             #expect(
                 actual
-                    == (name == "article"
-                        ? reference
-                        : reference.replacingOccurrences(
-                            of: "<p>\(inner)</p>", with: #"<p><span class="explicit-tcy">\#(inner)</span></p>"#)))
+                    == reference.replacingOccurrences(
+                        of: "<p>\(inner)</p>", with: #"<p><span class="explicit-tcy">\#(inner)</span></p>"#))
         }
     }
 

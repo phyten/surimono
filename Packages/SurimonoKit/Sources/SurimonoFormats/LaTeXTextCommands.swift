@@ -93,7 +93,7 @@ extension LaTeXReader {
         case "rensuji", "tatechuyoko":
             if name == "rensuji" { _ = optional() }
             let content = inline(argument() ?? "")
-            appendHTML(document.classInfo.isVertical ? #"<span class="explicit-tcy">\#(content)</span>"# : content)
+            appendHTML(#"<span class="explicit-tcy">\#(content)</span>"#)
         case "ruby", "jruby":
             _ = optional()
             let base = inline(argument() ?? "")

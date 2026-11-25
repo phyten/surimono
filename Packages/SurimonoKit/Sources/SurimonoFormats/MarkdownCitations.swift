@@ -163,7 +163,7 @@ final class MarkdownCitations {
             html.replaceSubrange(place, with: bibliography)
             return html.replacingOccurrences(of: referencesMarker, with: "")
         }
-        return html + bibliography
+        return HTMLScanner.appendingGenerated(bibliography, to: html)
     }
 
     private func render(_ citation: Citation, authorBudget: inout Int) -> String {
