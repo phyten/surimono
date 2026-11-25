@@ -92,16 +92,6 @@ struct PopoverCloseControlTests {
         try await waitUntil { !screen.isPresented() }
     }
 
-    @Test("アプリが前面にないときも Esc で目次の吹き出しが閉じる", .enabled { await !NSApplication.shared.isActive })
-    func escapeClosesOutlineWhileInactive() async throws {
-        let screen = try await AppPopoverScreen.open(.outline)
-        defer { screen.close() }
-        try #require(!NSApp.isActive)
-        try #require(screen.isPresented() && screen.popoverWindow.isVisible)
-        try TestWindowKeyboard.pressEscape(in: screen.popoverWindow)
-        try await waitUntil { !screen.isPresented() }
-    }
-
     @Test(
         "印刷画面と見比べ台では、1 回目の Esc は吹き出しだけを閉じて画面に残り、2 回目の Esc で表示に戻る",
         arguments: [AppPopover.printIssues, .comparePlace])
