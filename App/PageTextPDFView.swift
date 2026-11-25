@@ -81,6 +81,8 @@ class PageTextPDFView: PDFView {
 
     override func accessibilityRole() -> NSAccessibility.Role? { .group }
 
+    nonisolated override func accessibilityLabel() -> String? { String(localized: "Paper") }
+
     override func accessibilityChildren() -> [Any]? { visibleElements }
 
     // The synchronous main-thread read finishes before this local result crosses back to its caller.

@@ -112,6 +112,7 @@ private struct OpenURLView: View {
                 }
                 .keyboardShortcut(.defaultAction)
                 .disabled(loading)
+                .accessibilityLabel("Open from URL…")
             }
         }
         .padding(18)

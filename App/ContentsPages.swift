@@ -85,7 +85,8 @@ struct ContentsPages: View {
             let item = items.flatMap { $0.indices.contains(page) ? $0[page] : nil }
             let tile = PageTile(
                 model: model, page: page, generation: generation, width: width,
-                scale: scale, chapter: chapter, marked: marks.contains(page), current: visiblePages.contains(page),
+                scale: scale, pageTitle: item?.name ?? chapter, marked: marks.contains(page),
+                current: visiblePages.contains(page),
                 selected: focused && selected == page, rowMate: mate
             ) {
                 if item == nil { selection = page }
@@ -333,7 +334,7 @@ private struct PageTile: View {
     let generation: Int?
     let width: CGFloat
     let scale: CGFloat
-    let chapter: String?
+    let pageTitle: String?
     let marked: Bool
     let current: Bool
     let selected: Bool
@@ -409,7 +410,7 @@ private struct PageTile: View {
         .focusable(false)
         .accessibilityLabel(
             Text(
-                verbatim: chapter.map {
+                verbatim: pageTitle.map {
                     String(format: String(localized: "Page %1$lld, %2$@"), page + 1, $0)
                 } ?? String(format: String(localized: "Page %lld"), page + 1))
         )

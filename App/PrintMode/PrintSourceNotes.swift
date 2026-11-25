@@ -49,7 +49,7 @@ struct PrintSourceNotes: View {
 
     private func slides(_ deck: SlideDeck) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: "rectangle.on.rectangle")
+            Image(systemName: "rectangle.on.rectangle").accessibilityHidden(true)
                 .font(.system(size: 11.5))
                 .foregroundStyle(PrintPalette.ink3)
                 .frame(width: 16)
@@ -82,7 +82,7 @@ struct PrintSourceNotes: View {
         perform: @escaping () -> Void
     ) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: systemImage)
+            Image(systemName: systemImage).accessibilityHidden(true)
                 .font(.system(size: 11.5))
                 .foregroundStyle(PrintPalette.ink3)
                 .frame(width: 16)

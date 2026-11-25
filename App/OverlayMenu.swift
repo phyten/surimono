@@ -572,7 +572,7 @@ struct PrintButton: View {
     var iconOnly = false
     /// The button's word, without the ellipsis of the File menu's item: on the band the dots read as a word cut short,
     /// and the printer icon beside it already says that a screen follows.
-    static let titleKey = "Print"
+    static let titleKey = BandLayout.Item.print.editorNameResource.key
 
     var body: some View {
         Button {
@@ -590,6 +590,7 @@ struct PrintButton: View {
         .controlSize(ViewerWindow.bandControlSize)
         // The file name gives way to the one button that must always show in full.
         .fixedSize()
+        .accessibilityLabel(Text(BandLayout.Item.print.bandAccessibilityName))
         .help(ShortcutHints.help(String(localized: "Open the print screen"), [.documentPrint]))
     }
 }
@@ -601,13 +602,14 @@ struct StyleMenu: View {
     let showsName: Bool
 
     var body: some View {
-        let title =
-            model.usesHTMLPreset && !model.usesPrintTheme
-            ? String(localized: "HTML Preset") : String(localized: "Style")
+        let accessibility = model.bandStyleAccessibility
+        let title = String(localized: accessibility.name)
         let description = choice(title, model.styleName)
         control
             .help(Text(verbatim: showsName ? title : description))
-            .accessibilityLabel(Text(verbatim: description), isEnabled: !showsName)
+            .accessibilityLabel(Text(accessibility.name))
+            .accessibilityValue(Text(verbatim: accessibility.value))
+            .accessibilityAddTraits(model.isThemePalettePresented ? .isSelected : [])
     }
 
     @ViewBuilder private var control: some View {
@@ -651,7 +653,6 @@ struct StyleMenu: View {
         Group {
             if showsName { label.labelStyle(.titleAndIcon) } else { label.labelStyle(.iconOnly) }
         }
-        .accessibilityValue(model.usesHTMLPreset && model.isSmartRemovalEnabled ? Text("Smart Removal") : Text(""))
     }
 
     /// For HTML, Smart Removal on the preset shows as the wand's stars rather than as words beside its name.
@@ -664,16 +665,35 @@ struct StyleMenu: View {
 extension DocumentViewModel {
     /// The chosen print theme, or for HTML the cleanup preset (Smart Removal shows in the band's icon).
     var styleName: String {
-        if usesHTMLPreset && !usesPrintTheme {
-            return library.presets.first { $0.id == presetID }?.displayName(language: language) ?? presetID
-        }
-        let theme = library.themes.first { $0.id == themeID }?.displayName(language: language) ?? themeID
-        return usesPrintTheme && textScale != 1 ? theme + " · " + textScalePercentage : theme
+        if usesHTMLPreset && !usesPrintTheme { return selectedPresetName ?? presetID }
+        return scaledThemeName(selectedThemeName ?? themeID)
+    }
+
+    var selectedPresetName: String? {
+        library.presets.first { $0.id == presetID }?.displayName(language: language)
+    }
+
+    private var selectedThemeName: String? {
+        library.themes.first { $0.id == themeID }?.displayName(language: language)
+    }
+
+    var themeAccessibility: BandStyleAccessibility { .theme(selectedThemeName.map(scaledThemeName)) }
+
+    var presetAccessibility: BandStyleAccessibility { .preset(selectedPresetName, smartRemoval: isSmartRemovalEnabled) }
+
+    var bandStyleAccessibility: BandStyleAccessibility {
+        usesHTMLPreset && !usesPrintTheme ? presetAccessibility : themeAccessibility
+    }
+
+    private func scaledThemeName(_ name: String) -> String {
+        usesPrintTheme && textScale != 1 ? name + " · " + textScalePercentage : name
     }
 
     var textScalePercentage: String { "\(TextScale.percent(textScale))%" }
 
-    var zoomPercentage: String { "\(Int(((showsWeb ? webZoom : zoom) * 100).rounded()))%" }
+    var displayedZoom: Double { showsWeb ? webZoom : zoom }
+
+    var zoomPercentage: String { BandAccessibility.zoomPercentage(displayedZoom) }
 }
 
 struct StyleMenuItems: View {
@@ -800,10 +820,10 @@ struct LayoutPicker: View {
 
     var body: some View {
         CornerSegments(
-            title: "View Type", selection: model.viewOption(\.layout),
+            title: BandLayout.Item.layout.bandAccessibilityName, selection: model.viewOption(\.layout),
             values: ViewOptions.Layout.displayOrder, preset: model.preferences.corners
         ) { layout in
-            Label(layout.title, systemImage: layout.symbol)
+            Label(layout.title, systemImage: layout.symbol).accessibilityLabel(Text(layout.title))
         }
         .labelStyle(.iconOnly)
         .fixedSize()

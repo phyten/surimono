@@ -333,6 +333,7 @@ private struct ErrorPanel: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle").font(.system(size: 28)).foregroundStyle(PrintPalette.ink2)
+                .accessibilityHidden(true)
             Text(verbatim: message).multilineTextAlignment(.center).textSelection(.enabled)
             HStack {
                 if !model.layoutTooLarge {
@@ -359,7 +360,7 @@ struct ToastOverlay: View {
             Spacer()
             if let toast = model.toast {
                 HStack(spacing: 12) {
-                    Image(systemName: toast.systemImage).font(.system(size: 16))
+                    Image(systemName: toast.systemImage).font(.system(size: 16)).accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(verbatim: toast.title).font(.system(size: 13, weight: .semibold))
                             .fixedSize(horizontal: false, vertical: true)
@@ -368,6 +369,7 @@ struct ToastOverlay: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
+                    .accessibilityElement(children: .combine)
                     Group {
                         switch toast.action {
                         case .allowFolderAccess?:

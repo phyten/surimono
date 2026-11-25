@@ -151,7 +151,7 @@ struct SettingSetRemovalNotice: View {
         VStack {
             if let removal = preferences.removedPrintSettingSet {
                 HStack(spacing: 12) {
-                    Image(systemName: "trash").font(.system(size: 16))
+                    Image(systemName: "trash").font(.system(size: 16)).accessibilityHidden(true)
                     Text(verbatim: String(format: String(localized: "Deleted “%@”"), removal.set.name))
                         .font(.system(size: 13, weight: .semibold))
                         .fixedSize(horizontal: false, vertical: true)
@@ -207,7 +207,8 @@ struct SettingSetsSettings: View {
             } else {
                 ForEach(preferences.printSettingSets) { set in
                     HStack {
-                        Image(systemName: "line.3.horizontal").foregroundStyle(PrintPalette.ink3)
+                        Image(systemName: "line.3.horizontal").foregroundStyle(PrintPalette.ink3).accessibilityHidden(
+                            true)
                         description(set)
                         Spacer()
                         Button("Export…") { export([set], named: set.name) }

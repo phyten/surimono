@@ -40,6 +40,7 @@ struct TextSizeField: View {
                 step: 1
             )
             .labelsHidden()
+            .accessibilityValue(Text(verbatim: scale.formatted(.percent)))
             .modifier(
                 CornerBezel(preset: corners, role: .smallControl) { _ in
                     AppCornerShape(role: .smallControl, preset: corners).fill(PrintPalette.hover)
@@ -51,7 +52,7 @@ struct TextSizeField: View {
                             .font(.system(size: 10, weight: .semibold))
                         }
                 })
-            Text(verbatim: "%").foregroundStyle(PrintPalette.ink2)
+            Text(verbatim: "%").foregroundStyle(PrintPalette.ink2).accessibilityHidden(true)
         }
         .fixedSize()
     }
@@ -59,6 +60,7 @@ struct TextSizeField: View {
     private var field: some View {
         TextField(title, value: percent, format: .number.grouping(.never))
             .labelsHidden().multilineTextAlignment(.trailing).monospacedDigit()
+            .accessibilityLabel(Text("\(Text(title)) (percent)"))
     }
 
     private var percent: Binding<Int> {

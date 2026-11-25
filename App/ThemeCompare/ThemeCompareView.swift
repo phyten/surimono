@@ -185,6 +185,7 @@ private struct CompareTopBar: View {
             .buttonStyle(PrintBorderedButtonStyle())
             // While the place list is open, Esc closes the list first; this shortcut would also leave the stage.
             .keyboardShortcut(model.isComparePlacePickerPresented ? nil : .cancelAction)
+            .accessibilityLabel("Back to View")
             .help("Back to the view mode (Esc)")
             .fixedSize()
             VStack(alignment: .leading, spacing: 1) {
@@ -251,6 +252,8 @@ private struct ComparePlacePicker: View {
         }
         .buttonStyle(PrintBorderedButtonStyle())
         .fixedSize()
+        .accessibilityLabel("Compare At")
+        .accessibilityValue(Text(verbatim: model.comparePlace?.title ?? String(localized: "First Page")))
         .help("Start every page at the same heading or code")
         .popover(isPresented: $model.isComparePlacePickerPresented, arrowEdge: .bottom) {
             ComparePlaceList(model: model).presentationBackground(PrintPalette.raised)
@@ -446,6 +449,7 @@ private struct CompareCard: View {
             .frame(width: width, height: ThemeCompareLayout.nameRowHeight, alignment: .top)
             if !isCurrent {
                 Button(action: onChoose) { Text("Use This") }
+                    .accessibilityValue(Text(verbatim: name))
                     .buttonStyle(CompareChooseButtonStyle())
                     .frame(width: width)
             }
@@ -552,6 +556,7 @@ private struct CompareTrayCell: View {
                         .background(Circle().fill(PrintPalette.chrome).padding(-1.5))
                         .offset(x: 6, y: -6)
                         .opacity(isIn || isHovering ? 1 : 0)
+                        .accessibilityHidden(true)
                 }
                 Text(verbatim: name)
                     .font(.system(size: 11))

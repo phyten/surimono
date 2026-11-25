@@ -1,3 +1,4 @@
+import SurimonoCore
 import SwiftUI
 
 /// The band's switch for keeping the window above other apps: a pushpin, tilted and drawn in outline while the window
@@ -6,7 +7,7 @@ struct FloatOnTopButton: View {
     @Bindable var model: DocumentViewModel
 
     var body: some View {
-        Toggle("Float on Top", isOn: $model.isAlwaysOnTop)
+        Toggle(BandLayout.Item.floatOnTop.bandAccessibilityName, isOn: $model.isAlwaysOnTop)
             .toggleStyle(PinToggleStyle())
             .help("Float on Top")
     }

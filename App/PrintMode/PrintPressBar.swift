@@ -55,7 +55,8 @@ struct PrintPressBar: View {
         .buttonStyle(SealButtonStyle())
         .disabled(!model.canStartPrint)
         .help(Text(verbatim: printHelp))
-        .accessibilityLabel(Text(verbatim: printAccessibilityLabel))
+        .accessibilityLabel(Text("Print"))
+        .accessibilityValue(Text(verbatim: printAccessibilityValue))
     }
 
     /// The series of paper the layouts are made from, and which way the paper lies: the two choices that apply to all
@@ -194,10 +195,10 @@ struct PrintPressBar: View {
         return parts.dropFirst().reduce(first) { PrintModeText.format("%@ · %@", language: model.language, $0, $1) }
     }
 
-    private var printAccessibilityLabel: String {
+    private var printAccessibilityValue: String {
         // The same words as the result's first line, so that VoiceOver says what the button sends.
         [
-            PrintModeText.string("Print", language: model.language), model.selectedPrinterName,
+            model.selectedPrinterName,
             outcome?.lead(language: model.language) ?? model.summary,
         ]
         .compactMap { $0 }.joined(separator: ", ")

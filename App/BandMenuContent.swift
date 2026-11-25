@@ -294,12 +294,13 @@ struct BandMoreButton<Items: View>: View {
         Menu {
             items
         } label: {
-            Label("More", systemImage: "ellipsis.circle").labelStyle(.iconOnly)
+            Label(BandAccessibility.more, systemImage: "ellipsis.circle").labelStyle(.iconOnly)
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         // A borderless control takes the window's tint, and indigo on the band means "open" or "chosen".
         .tint(PrintPalette.ink)
+        .accessibilityLabel(Text(BandAccessibility.more))
         .fixedSize()
     }
 }
@@ -395,6 +396,7 @@ private struct BandDisplayMenuChoice: View {
                 Text(verbatim: entry.title)
             }
         case .style:
+            let accessibility = model.bandStyleAccessibility
             Menu {
                 if model.usesPrintTheme {
                     Button("Choose from Samples…") { model.openThemePalette() }
@@ -404,6 +406,8 @@ private struct BandDisplayMenuChoice: View {
             } label: {
                 Text(verbatim: entry.title)
             }
+            .accessibilityLabel(Text(accessibility.name))
+            .accessibilityValue(Text(verbatim: accessibility.value))
         case .layout:
             Menu {
                 Picker("View", selection: model.viewOption(\.layout)) {

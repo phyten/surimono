@@ -52,6 +52,7 @@ struct MarginField: View {
                 onChange(unit.stepped(stepBase, by: -1))
             }
             .labelsHidden()
+            .accessibilityValue(millimeters.map { Text(verbatim: unit.label($0)) } ?? Text("Mixed"))
             if showsUnit { Text(verbatim: unit.symbol).foregroundStyle(PrintPalette.ink2) }
         }
     }

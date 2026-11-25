@@ -196,16 +196,20 @@ struct ProsePanel: View {
         }
         .buttonStyle(.plain)
         .disabled(row.location != .found)
-        .accessibilityValue(accessibilityValue(for: row.location))
-        .accessibilityLabel(Text(verbatim: [group.label, row.excerpt.text, detail].joined(separator: " ")))
+        .accessibilityLabel(Text(verbatim: group.label))
+        .accessibilityValue(
+            Text(
+                verbatim: [row.excerpt.text, detail, locationStatus(row.location)].compactMap { $0 }.joined(
+                    separator: ", "))
+        )
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
-    private func accessibilityValue(for location: ProsePanelReport.Location) -> Text {
+    private func locationStatus(_ location: ProsePanelReport.Location) -> String? {
         switch location {
-        case .checking: Text("Checking…")
-        case .missing: Text("Could not locate this passage on the page.")
-        case .found: Text(verbatim: "")
+        case .checking: String(localized: "Checking…")
+        case .missing: String(localized: "Could not locate this passage on the page.")
+        case .found: nil
         }
     }
 
