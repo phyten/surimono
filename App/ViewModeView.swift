@@ -80,13 +80,17 @@ struct ViewModeView: View {
         .animation(.easeOut(duration: 0.16), value: menu.stage)
         .animation(.easeOut(duration: 0.2), value: model.showsOutlineDrawer)
         .animation(.easeOut(duration: 0.2), value: model.isReviewingSmartRemoval)
-        .sheet(isPresented: $model.isGoToPagePresented) { GoToPageSheet(model: model) }
+        .sheet(isPresented: model.controlBinding(\.isGoToPagePresented)) { [weak model] in
+            if let model { GoToPageSheet(model: model) }
+        }
         .background {
-            PointerTracker(isActive: !model.isBandAlwaysVisible) { point, contentHeight in
+            PointerTracker(isActive: !model.isBandAlwaysVisible) { [menu] point, contentHeight in
                 menu.contentHeight = contentHeight
                 if let point { menu.pointerMoved(to: point) } else { menu.pointerExited() }
             }
         }
+        .onAppear { [menu] in menu.startTrackingMenus() }
+        .onDisappear { [menu] in menu.stopTrackingMenus() }
         .onChange(of: isSplit, initial: true) { _, split in menu.hasBottomBand = split }
         .onChange(of: hoverBandShown) { _, shown in
             model.bandRevealDidChange(shown)
@@ -101,7 +105,10 @@ struct ViewModeView: View {
         }
         // The first plans can come before the window does.
         .background {
-            WindowReader { window in model.bandMinimumWidthDidChange(menu.minimumWidth, in: window) }
+            WindowReader { [weak model, menu] window in
+                guard let model, !model.isWindowClosed else { return }
+                model.bandMinimumWidthDidChange(menu.minimumWidth, in: window)
+            }
         }
         .onChange(of: model.latexBadge == nil) { _, hidden in
             if hidden { model.isLaTeXRecognitionPresented = false }
@@ -119,16 +126,17 @@ struct ViewModeView: View {
         .onChange(of: model.scrubber.holdsBand, initial: true) { _, held in
             menu.scrubberHeld = held
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { note in
-            if let window = note.object as? NSWindow, window === model.window { model.scrubber.cancel() }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { [weak model] note in
+            if let window = note.object as? NSWindow, window === model?.window { model?.scrubber.cancel() }
         }
         .onChange(of: holdsBand) { _, held in
             if held { menu.showFull() }
             menu.isHolding = held
         }
         #if DEBUG
-            .onReceive(NotificationCenter.default.publisher(for: DebugSnapshot.showMenu)) { note in
-                guard let target = note.object as? DocumentViewModel, target === model else { return }
+            .onReceive(NotificationCenter.default.publisher(for: DebugSnapshot.showMenu)) { [weak model, menu] note in
+                guard let model, !model.isWindowClosed, let target = note.object as? DocumentViewModel, target === model
+                else { return }
                 menu.isHolding = true
                 menu.showFull()
                 if let room = note.userInfo?["scrubRoom"] as? CGFloat, let window = model.window,
@@ -158,7 +166,7 @@ struct ViewModeView: View {
         }
         // Read while the band hides too, so that it shows on the buttons' line at once.
         .background {
-            TrafficLightsReader { lights in
+            TrafficLightsReader { [menu] lights in
                 if menu.trafficLights != lights { menu.trafficLights = lights }
                 if !menu.hasReadTrafficLights { menu.hasReadTrafficLights = true }
             }
@@ -498,8 +506,8 @@ struct ThemePaletteAnchor: View {
                         if presented { model.isThemePalettePresented = true } else { model.themePaletteDidClose() }
                     }),
                 arrowEdge: .trailing
-            ) {
-                ThemePalette(model: model)
+            ) { [weak model] in
+                if let model { ThemePalette(model: model) }
             }
     }
 }
@@ -515,8 +523,9 @@ struct PrintSettingsAnchor: View {
             .frame(width: 1)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
             .allowsHitTesting(false)
-            .popover(isPresented: $model.isPrintFinishPresented, arrowEdge: .trailing) {
-                PrintFinishSheet(model: model, isInPopover: true)
+            .popover(isPresented: model.controlBinding(\.isPrintFinishPresented), arrowEdge: .trailing) {
+                [weak model] in
+                if let model { PrintFinishSheet(model: model, isInPopover: true) }
             }
     }
 }

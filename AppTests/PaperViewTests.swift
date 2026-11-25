@@ -1074,6 +1074,34 @@ struct PaperViewTests {
         withExtendedLifetime(window) {}
     }
 
+    @Test("紙面を解体すると次のキー・ビューを外し、紙面内にあるフォーカスだけを窓に返す", arguments: [true, false])
+    func retireClearsPaperFocus(focusInsidePaper: Bool) throws {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered,
+            defer: true)
+        let root = try #require(window.contentView)
+        let paper = PaperPDFView(frame: root.bounds)
+        root.addSubview(paper)
+        let editor = NSTextView(frame: root.bounds)
+        (focusInsidePaper ? paper : root).addSubview(editor)
+        window.autorecalculatesKeyViewLoop = false
+        window.initialFirstResponder = focusInsidePaper ? paper : editor
+        paper.nextKeyView = editor
+        try #require(window.makeFirstResponder(editor) && window.firstResponder === editor)
+        try #require(paper.nextKeyView === editor)
+
+        PaperView.dismantleNSView(paper, coordinator: ())
+
+        #expect(paper.nextKeyView == nil)
+        if focusInsidePaper {
+            #expect(window.firstResponder === window)
+            #expect(window.initialFirstResponder == nil)
+        } else {
+            #expect(window.firstResponder === editor)
+            #expect(window.initialFirstResponder === editor)
+        }
+    }
+
     @Test("直前の元と表示用の文書は次の差し替えまで生き、紙を開いたまま両方とも解放される")
     func replacedDocumentsAreReleased() async throws {
         let (view, window) = try makeSinglePagePaper()
@@ -1105,6 +1133,69 @@ struct PaperViewTests {
     }
 
     #if DEBUG
+        @Test("ページ送りの途中で紙面を解体すると、紙面を保持していても新旧の表示用PDFと元のPDFを手放す")
+        func dismantlingReleasesDisplayedGenerations() async throws {
+            let (view, window) = try makeSinglePagePaper()
+            let single = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .fade, showsCoverAlone: false)
+            let clock = ManualPaperTileClock()
+            view.tileClock = clock
+            weak var olderSource: PDFDocument?
+            weak var olderCopy: PDFDocument?
+            weak var previousSource: PDFDocument?
+            weak var previousCopy: PDFDocument?
+            weak var currentSource: PDFDocument?
+            weak var currentCopy: PDFDocument?
+            try autoreleasepool {
+                var spread = single
+                spread.layout = .spread
+                let older = try #require(PDFDocument(data: TestFixtures.pdf("older", pages: 3)))
+                view.configure(older, at: 0, options: spread, logicalMargin: nil, showsPageNumbers: true)
+                olderSource = older
+                olderCopy = view.document
+                try #require(olderCopy != nil && olderCopy !== older)
+                let source = try #require(PDFDocument(data: TestFixtures.pdf("first", pages: 3)))
+                view.configure(source, at: 0, options: single, logicalMargin: nil, showsPageNumbers: true)
+                previousSource = source
+                let firstCopy: PDFDocument = try #require(view.document)
+                previousCopy = firstCopy
+                try #require(firstCopy !== source)
+                if view.layer == nil { view.layer = CALayer() }
+                view.shouldReduceMotion = { false }
+                let progress = PaperPDFView.frozenTurnProgress
+                defer { PaperPDFView.frozenTurnProgress = progress }
+                PaperPDFView.frozenTurnProgress = 0.5
+                view.turnPage(forward: true)
+                try #require(view.layer?.animation(forKey: "transition") != nil)
+
+                let replacement = try #require(PDFDocument(data: TestFixtures.pdf("second", pages: 3)))
+                view.configure(replacement, at: 0, options: spread, logicalMargin: nil, showsPageNumbers: true)
+                currentSource = replacement
+                let secondCopy: PDFDocument = try #require(view.document)
+                currentCopy = secondCopy
+                try #require(secondCopy !== replacement)
+                try #require(view.shownDocumentCount >= 3)
+                clock.advance(by: .milliseconds(400))
+
+                PaperView.dismantleNSView(view, coordinator: ())
+                #expect(view.accessibilityFocusedUIElement == nil && view.accessibilityHitTest(.zero) == nil)
+                #expect(!view.isAccessibilityElement() && view.accessibilityChildren()?.isEmpty == true)
+                #expect(view.document == nil)
+                #expect(view.shownDocumentCount == 0)
+                #expect(view.layer?.animation(forKey: "transition") == nil)
+            }
+            clock.advance(by: .milliseconds(599))
+            #expect(olderSource != nil && olderCopy != nil)
+            clock.advance(by: .milliseconds(1))
+            try await ShortcutMenuBaselineTests.waitForMenu { olderSource == nil && olderCopy == nil }
+            clock.advance(by: .milliseconds(399))
+            #expect(previousSource != nil && previousCopy != nil && currentSource != nil && currentCopy != nil)
+            clock.advance(by: .milliseconds(1))
+            try await ShortcutMenuBaselineTests.waitForMenu {
+                previousSource == nil && previousCopy == nil && currentSource == nil && currentCopy == nil
+            }
+            withExtendedLifetime((view, window)) {}
+        }
+
         @Test("停止したページ送りは、文書を二度差し替えてもアニメーションを外すまで元の紙を持つ")
         func pausedTurnOwnsItsPaper() async throws {
             let (view, window) = try makeSinglePagePaper()

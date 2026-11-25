@@ -3,7 +3,7 @@ import SwiftUI
 
 /// A closed window, its hosting view and copies of its root can all outlive the document.
 final class DocumentWindowContent: NSObject {
-    private final class Source {
+    @Observable fileprivate final class Source {
         var model: DocumentViewModel?
         init(_ model: DocumentViewModel) { self.model = model }
     }
@@ -77,6 +77,7 @@ final class DocumentWindowContent: NSObject {
         // The last window controller may already have left NSDocument.windowControllers. Keep the exact
         // host we installed through the next turn, outside SwiftUI's update and AppKit's close notification.
         DispatchQueue.main.async { [host, weak window] in
+            host.sceneBridgingOptions = []
             host.rootView = Root(source: nil, usesSnapshotAppearance: false)
             let view = host.view
             view.needsLayout = true

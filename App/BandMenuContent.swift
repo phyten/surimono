@@ -312,14 +312,16 @@ struct BandMoreMenu: View {
     var body: some View {
         let content = BandMenuContent(model: model)
         BandMoreButton {
-            ForEach(Array(content.rows.enumerated()), id: \.offset) { _, row in
+            ForEach(Array(content.rows.enumerated()), id: \.offset) { [weak model] _, row in
                 switch row {
                 case .header(let title): Text(verbatim: title).disabled(true)
                 case .divider: Divider()
                 case .entry(let entry):
-                    BandMenuItem(model: model, entry: entry)
-                        .disabled(!entry.isEnabled)
-                        .help(content.help(for: entry))
+                    if let model {
+                        BandMenuItem(model: model, entry: entry)
+                            .disabled(!entry.isEnabled)
+                            .help(BandMenuContent(model: model).help(for: entry))
+                    }
                 }
             }
         }
@@ -364,7 +366,10 @@ private struct BandMenuItem: View {
                 Text(verbatim: entry.title)
             }
         default:
-            Button(entry.title) { BandMenuContent(model: model).perform(entry.id) }
+            Button(entry.title) { [weak model, id = entry.id] in
+                guard let model, !model.isWindowClosed else { return }
+                BandMenuContent(model: model).perform(id)
+            }
         }
     }
 }

@@ -83,8 +83,8 @@ struct ManualDuplexPresentation: ViewModifier {
                 // Only a dismissal from outside ends the session; the sheet closing for the backs must not.
                 set: { if !$1, $0.manualDuplexSession?.showsReload == true { $0.cancelManualDuplex() } }
             )
-        ) {
-            if let session = model.manualDuplexSession {
+        ) { [weak model] in
+            if let model, let session = model.manualDuplexSession {
                 ManualDuplexSheet(model: model, session: session)
             }
         }
