@@ -1133,7 +1133,7 @@ struct PaperViewTests {
     }
 
     #if DEBUG
-        @Test("ページ送りの途中で紙面を解体すると、紙面を保持していても新旧の表示用PDFと元のPDFを手放す")
+        @Test("紙面を解体すると、古い世代は残りの猶予で、直近の二世代は解体から1秒でPDFを手放す")
         func dismantlingReleasesDisplayedGenerations() async throws {
             let (view, window) = try makeSinglePagePaper()
             let single = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .fade, showsCoverAlone: false)
@@ -1159,14 +1159,6 @@ struct PaperViewTests {
                 let firstCopy: PDFDocument = try #require(view.document)
                 previousCopy = firstCopy
                 try #require(firstCopy !== source)
-                if view.layer == nil { view.layer = CALayer() }
-                view.shouldReduceMotion = { false }
-                let progress = PaperPDFView.frozenTurnProgress
-                defer { PaperPDFView.frozenTurnProgress = progress }
-                PaperPDFView.frozenTurnProgress = 0.5
-                view.turnPage(forward: true)
-                try #require(view.layer?.animation(forKey: "transition") != nil)
-
                 let replacement = try #require(PDFDocument(data: TestFixtures.pdf("second", pages: 3)))
                 view.configure(replacement, at: 0, options: spread, logicalMargin: nil, showsPageNumbers: true)
                 currentSource = replacement
@@ -1181,7 +1173,6 @@ struct PaperViewTests {
                 #expect(!view.isAccessibilityElement() && view.accessibilityChildren()?.isEmpty == true)
                 #expect(view.document == nil)
                 #expect(view.shownDocumentCount == 0)
-                #expect(view.layer?.animation(forKey: "transition") == nil)
             }
             clock.advance(by: .milliseconds(599))
             #expect(olderSource != nil && olderCopy != nil)
@@ -1193,6 +1184,52 @@ struct PaperViewTests {
             try await ShortcutMenuBaselineTests.waitForMenu {
                 previousSource == nil && previousCopy == nil && currentSource == nil && currentCopy == nil
             }
+            withExtendedLifetime((view, window)) {}
+        }
+
+        @Test("停止中のページ送りのPDFは、二度差し替えて通常の猶予が切れても、紙面の解体から1秒間保持される")
+        func dismantlingKeepsPausedTurnForFullGrace() async throws {
+            let (view, window) = try makeSinglePagePaper()
+            let clock = ManualPaperTileClock()
+            view.tileClock = clock
+            let single = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .fade, showsCoverAlone: false)
+            var spread = single
+            spread.layout = .spread
+            weak var turningSource: PDFDocument?
+            weak var turningCopy: PDFDocument?
+            weak var turnDelegate: (any CAAnimationDelegate)?
+            try autoreleasepool {
+                let source = try #require(PDFDocument(data: TestFixtures.pdf("turning", pages: 3)))
+                view.configure(source, at: 0, options: single, logicalMargin: nil, showsPageNumbers: true)
+                turningSource = source
+                turningCopy = view.document
+                try #require(turningCopy != nil && turningCopy !== source)
+                if view.layer == nil { view.layer = CALayer() }
+                view.shouldReduceMotion = { false }
+                let progress = PaperPDFView.frozenTurnProgress
+                defer { PaperPDFView.frozenTurnProgress = progress }
+                PaperPDFView.frozenTurnProgress = 0.5
+                view.turnPage(forward: true)
+                turnDelegate = try #require(view.layer?.animation(forKey: "transition")?.delegate)
+
+                for name in ["previous", "current"] {
+                    let replacement = try #require(PDFDocument(data: TestFixtures.pdf(name, pages: 3)))
+                    view.configure(replacement, at: 0, options: spread, logicalMargin: nil, showsPageNumbers: true)
+                }
+                clock.advance(by: .seconds(1))
+                try #require(view.shownDocumentCount == 3)
+                let turn = try #require(view.layer?.animation(forKey: "transition"))
+                try #require(turn.speed == 0 && turnDelegate != nil && turn.delegate === turnDelegate)
+                PaperView.dismantleNSView(view, coordinator: ())
+                #expect(view.layer?.animation(forKey: "transition") == nil)
+            }
+            // Let Core Animation drop its own reference before observing the timer's hold.
+            try await ShortcutMenuBaselineTests.waitForMenu { turnDelegate == nil }
+            clock.advance(by: .milliseconds(999))
+            #expect(turningSource != nil)
+            #expect(turningCopy != nil)
+            clock.advance(by: .milliseconds(1))
+            try await ShortcutMenuBaselineTests.waitForMenu { turningSource == nil && turningCopy == nil }
             withExtendedLifetime((view, window)) {}
         }
 
