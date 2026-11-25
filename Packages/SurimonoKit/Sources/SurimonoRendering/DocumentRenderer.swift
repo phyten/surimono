@@ -571,12 +571,15 @@ public final class DocumentRenderer {
     }
 
     /// Prepares the logical pages only. The screen can show them while `composeSheet(for:)` imposes them on paper.
-    public func prepare(_ source: DocumentSource, settings: RenderSettings) async throws -> PreparedRender {
+    public func prepare(
+        _ source: DocumentSource, settings: RenderSettings,
+        onReadingPreview: (@MainActor (ReadingPreview) -> Void)? = nil
+    ) async throws -> PreparedRender {
         let interval = renderingSignposter.beginInterval(
             "prepare", id: renderingSignposter.makeSignpostID(), "format=\(source.format.rawValue, privacy: .public)")
         var pageCount = 0
         defer { renderingSignposter.endInterval("prepare", interval, "pages=\(pageCount)") }
-        let output = try await prepareOnce(source, settings: settings)
+        let output = try await prepareOnce(source, settings: settings, onReadingPreview: onReadingPreview)
         // HTML in Auto turns with its `@page` rules, which are known only once it has been laid out. A document that
         // asks for landscape is laid out again; the common upright one costs nothing more.
         if source.format == .html, settings.paperOrientation == .auto, settings.layout.kind != .booklet,
@@ -644,7 +647,18 @@ public final class DocumentRenderer {
         }
     }
 
-    private func prepareOnce(_ source: DocumentSource, settings: RenderSettings) async throws -> PreparedRender {
+    /// Only the reading surface receives these pages. Output APIs require a completed PreparedRender.
+    public struct ReadingPreview {
+        public let document: PDFDocument
+        public let layout: PrintLayout
+        public let options: PrintOptions
+        public let furniture: [Int: FurniturePlacement]
+    }
+
+    private func prepareOnce(
+        _ source: DocumentSource, settings: RenderSettings, suppliedInput: ThemedInput? = nil,
+        onReadingPreview: (@MainActor (ReadingPreview) -> Void)? = nil
+    ) async throws -> PreparedRender {
         try Task.checkCancellation()
         generation += 1
         let currentGeneration = generation
@@ -672,7 +686,7 @@ public final class DocumentRenderer {
                 landscape = settings.paperOrientation == .landscape
             }
             settings.layout = settings.layout.oriented(landscape)
-            var input: ThemedInput?
+            var input = suppliedInput
             if settings.latexComposition != .document {
                 // Resolve body column switches before fitting margins, and reuse that conversion for pagination.
                 var candidate = settings
@@ -786,6 +800,12 @@ public final class DocumentRenderer {
                 } else {
                     var outputSettings = settings
                     outputSettings.markdownChanges = []
+                    if let onReadingPreview,
+                        source.format == .csv
+                            || (source.format == .plainText && source.data.count > ReadingPrefix.textThresholdBytes)
+                    {
+                        input = try await readingInput(source, settings: outputSettings, onPreview: onReadingPreview)
+                    }
                     let result = try await logicalDocument(source, settings: outputSettings, input: input)
                     if source.format == .html, generation == currentGeneration {
                         sourcePageRule = (source, PageRule.orientation(of: result.pageRules))
@@ -2159,10 +2179,8 @@ public final class DocumentRenderer {
             OrgConverter.convert(
                 try decodedText(source.data), settings: orgReading,
                 fileName: source.fileURL?.lastPathComponent ?? source.name)
-        case .plainText:
-            try plainFragment(source)
-        case .csv:
-            try csvFragment(source)
+        case .plainText, .csv:
+            try DecodedPages(source).fragment()
         default: nil
         }
     }
@@ -2174,31 +2192,96 @@ public final class DocumentRenderer {
         return (try? themedFragment(source, proof: .shown))??.sourceLanguage
     }
 
-    private nonisolated static func plainFragment(_ source: DocumentSource) throws -> HTMLFragment {
-        guard source.data.count <= PageLayoutLimits.plainTextBytes else {
-            throw RenderingError.tooLarge(bytes: source.data.count)
+    private enum DecodedPages: Sendable {
+        case text(String, original: String?, language: SourceLanguage?, highlights: Bool)
+        case table(ArraySlice<[String]>, columns: Int?)
+
+        init(_ source: DocumentSource) throws {
+            if source.format == .plainText {
+                guard source.data.count <= PageLayoutLimits.plainTextBytes else {
+                    throw RenderingError.tooLarge(bytes: source.data.count)
+                }
+                let original = try DocumentRenderer.decodedText(source.data, preservingLineEndings: true)
+                let name = source.name ?? source.fileURL?.lastPathComponent
+                let normalized = TextDecoding.normalizeNewlines(original)
+                let language = name.flatMap { SourceLanguage.detect(fileName: $0, text: { normalized }) }
+                self = .text(
+                    normalized, original: language == nil ? nil : original, language: language,
+                    highlights: language != nil && normalized.utf16.count <= SyntaxHighlighter.maximumUTF16Count)
+            } else {
+                let text = try DocumentRenderer.decodedText(source.data)
+                let delimiter: Character
+                if let url = source.fileURL {
+                    delimiter = url.pathExtension.lowercased() == "tsv" ? "\t" : ","
+                } else {
+                    delimiter = CSVConverter.guessedDelimiter(of: text)
+                }
+                let rows = try CSVConverter.records(text, delimiter: delimiter) { count in
+                    guard count <= PageLayoutLimits.csvRows else {
+                        throw RenderingError.tooLarge(bytes: source.data.count)
+                    }
+                    if count.isMultiple(of: 1024) { try Task.checkCancellation() }
+                }
+                self = .table(rows[...], columns: ReadingPrefix.csvColumns(in: rows))
+            }
         }
-        let original = try decodedText(source.data, preservingLineEndings: true)
-        var fragment = PlainTextConverter.convert(
-            TextDecoding.normalizeNewlines(original), fileName: source.name ?? source.fileURL?.lastPathComponent)
-        if fragment.sourceLanguage != nil { fragment.sourceText = original }
-        return fragment
+
+        func leading(sourceBytes: Int) -> Self? {
+            switch self {
+            case .text(let text, let original, let language, let highlights):
+                guard let prefix = ReadingPrefix.text(original ?? text, sourceBytes: sourceBytes) else { return nil }
+                return .text(
+                    original == nil ? prefix : TextDecoding.normalizeNewlines(prefix),
+                    original: original == nil ? nil : prefix, language: language, highlights: highlights)
+            case .table(let rows, let columns):
+                return ReadingPrefix.csv(rows).map { .table($0, columns: columns) }
+            }
+        }
+
+        func fragment() -> HTMLFragment {
+            switch self {
+            case .text(let normalized, let original, let language, let highlights):
+                var fragment = PlainTextConverter.convert(normalized, language: language, highlights: highlights)
+                fragment.sourceText = original
+                return fragment
+            case .table(let rows, let columns):
+                return CSVConverter.table(rows, fixedColumns: columns)
+            }
+        }
+
+        @concurrent static func read(_ source: DocumentSource) async throws -> Self {
+            try Task.checkCancellation()
+            return try Self(source)
+        }
+
+        @concurrent func input() async throws -> ThemedInput {
+            try Task.checkCancellation()
+            return ThemedInput(fragment: fragment(), needsFolderAccess: false)
+        }
+
+        @concurrent func leadingInput(sourceBytes: Int) async throws -> ThemedInput? {
+            try Task.checkCancellation()
+            return try await leading(sourceBytes: sourceBytes)?.input()
+        }
     }
 
-    /// A file's extension names its delimiter. A table from memory, such as one copied from a spreadsheet, has no
-    /// name, so its text tells.
-    private nonisolated static func csvFragment(_ source: DocumentSource) throws -> HTMLFragment {
-        let text = try decodedText(source.data)
-        let delimiter: Character =
-            if let url = source.fileURL {
-                url.pathExtension.lowercased() == "tsv" ? "\t" : ","
-            } else {
-                CSVConverter.guessedDelimiter(of: text)
+    private func readingInput(
+        _ source: DocumentSource, settings: RenderSettings, onPreview: @MainActor (ReadingPreview) -> Void
+    ) async throws -> ThemedInput {
+        let decoded = try await DecodedPages.read(source)
+        if let leading = try await decoded.leadingInput(sourceBytes: source.data.count) {
+            // Keep the short layout out of the complete document and sheet caches. A failed preview is optional.
+            let reader = DocumentRenderer(isSandboxed: isSandboxed, paginateWithResult: paginate)
+            reader.now = now
+            if let first = try? await reader.prepareOnce(source, settings: settings, suppliedInput: leading) {
+                try Task.checkCancellation()
+                onPreview(
+                    ReadingPreview(
+                        document: first.viewDocument, layout: first.layout, options: first.options,
+                        furniture: first.viewFurniture))
             }
-        return try CSVConverter.convert(text, delimiter: delimiter) { count in
-            guard count <= PageLayoutLimits.csvRows else { throw RenderingError.tooLarge(bytes: source.data.count) }
-            if count.isMultiple(of: 1024) { try Task.checkCancellation() }
         }
+        return try await decoded.input()
     }
 
     nonisolated static func decodedText(_ data: Data, preservingLineEndings: Bool = false) throws -> String {

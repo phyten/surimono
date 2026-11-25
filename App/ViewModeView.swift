@@ -206,7 +206,9 @@ private struct PaperArea: View {
                     })
             } else if let document = model.paperDocument, !model.isCapturingWeb {
                 PaperView(
-                    document: document, initialPageIndex: model.currentPageIndex, options: model.viewOptions,
+                    document: document,
+                    initialPageIndex: model.readingPreview != nil ? model.shownPageIndex : model.currentPageIndex,
+                    options: model.viewOptions,
                     zoom: model.zoom, wheelSensitivity: model.preferences.wheelSensitivity,
                     selectsText: model.isSelectingText, logicalMargin: model.viewLogicalMargin,
                     showsPageNumbers: model.preferences.viewPageNumbers, changeMarks: model.paperChangeMarks,
@@ -218,6 +220,7 @@ private struct PaperArea: View {
                     furniture: model.paperFurniture,
                     narrowsLoneCover: model.loneCoverWidth == .onePage,
                     keepsSpotInPage: model.binder != nil || model.imageBundle != nil,
+                    isReadingPreview: model.readingPreview != nil,
                     controller: model.paper,
                     onZoomChange: model.windowAction { $0.zoom = $1 },
                     onPageChange: model.windowAction { $0.paperDidChangePage($1) },
@@ -247,7 +250,9 @@ private struct PaperArea: View {
         }
         .overlay(alignment: .bottom) {
             ZStack {
-                if model.trialThemeName != nil || updateDisplay != .hidden {
+                if model.readingPreview != nil {
+                    ProgressView().controlSize(.small).accessibilityLabel(Text("Preparing pages…"))
+                } else if model.trialThemeName != nil || updateDisplay != .hidden {
                     Group {
                         if let name = model.trialThemeName {
                             ThemeTrialBadge(name: name, isReady: model.themeTrial.document != nil)

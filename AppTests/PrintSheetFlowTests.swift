@@ -94,6 +94,86 @@ struct PrintSheetFlowTests {
         #expect(!model.layoutTooLarge && !model.offersPlainTextRecovery)
     }
 
+    @Test("先頭だけの紙を表示中は出力できず、全文に替わっても読んでいたページと倍率を保つ", .timeLimit(.minutes(1)))
+    func readingPreviewSwap() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let gate = CompositionGate()
+        gate.isHeld = true
+        var passes = 0
+        let renderer = DocumentRenderer(paginate: { _ in
+            passes += 1
+            if passes == 2 { try await gate.pass() }
+            return try #require(PDFDocument(data: TestFixtures.pdf("paper", pages: passes == 1 ? 3 : 15)))
+        })
+        let model = DocumentViewModel(
+            data: Data(String(repeating: "name,value\n", count: 5_001).utf8), fileURL: nil, format: .csv,
+            preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: directory),
+            renderer: renderer)
+        defer {
+            gate.release()
+            model.stop()
+        }
+        model.render()
+        try await waitUntil { gate.waiting == 1 }
+        let preview = try #require(model.readingPreview)
+        #expect(model.paperDocument === preview.document && model.paperPageCount == 3)
+        #expect(model.isRendering && model.result == nil && !model.isUpToDate)
+        #expect(!model.canOutput && !model.canExportReadingPDF)
+        #expect(!model.beginPDFExport())
+        #expect(await model.beginThemedExport() == nil)
+        model.toggleBookmark()
+        #expect(model.bookmarks.isEmpty)
+        model.paperDidChangePage(2)
+        model.zoom = 1.75
+        model.enterPrintMode()
+        #expect(model.mode == .view && model.isPrintModeRequested)
+        gate.release()
+        try await waitUntil { model.isUpToDate }
+        #expect(model.readingPreview == nil && model.paperDocument !== preview.document)
+        #expect(model.paperPageCount == 15 && model.currentPageIndex == 2 && model.zoom == 1.75)
+        #expect(passes == 2 && model.canExportReadingPDF)
+    }
+
+    @Test(
+        "新しい要求が来たら前の先頭PDFも全文PDFも遅れて表示されない",
+        .timeLimit(.minutes(1)), arguments: [1, 2])
+    func supersededReadingPass(heldPass: Int) async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let gate = CompositionGate()
+        gate.isHeld = true
+        var passes = 0
+        let renderer = DocumentRenderer(paginate: { _ in
+            passes += 1
+            let pageCount = passes
+            if passes == heldPass { try await gate.pass() }
+            return try #require(PDFDocument(data: TestFixtures.pdf("generation", pages: pageCount)))
+        })
+        let model = DocumentViewModel(
+            data: Data(String(repeating: "label,value\n", count: 5_001).utf8), fileURL: nil, format: .csv,
+            preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: directory),
+            renderer: renderer)
+        defer {
+            gate.release()
+            model.stop()
+        }
+        model.render()
+        let older = try #require(model.renderTask)
+        try await waitUntil { gate.waiting == 1 }
+        model.replaceContent(Data("new log".utf8), format: .plainText)
+        try await waitUntil { model.isUpToDate }
+        let completed = try #require(model.result)
+        gate.release()
+        await older.value
+        #expect(model.result?.viewDocument === completed.viewDocument)
+        #expect(model.readingPreview == nil && model.paperPageCount == heldPass + 1 && model.isUpToDate)
+    }
+
     @Test("表示では用紙を作らず刷り台に入ると同じ論理ページを順に面付けする", .timeLimit(.minutes(1)))
     func firstTrayVisit() async throws {
         let directory = temporaryDirectory()

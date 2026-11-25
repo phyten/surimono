@@ -163,6 +163,12 @@ bench-source bench-source-conversion:
 bench-latex-class:
 	SURIMONO_BENCH_LATEX_CLASS=1 $(SWIFT_TEST) --disable-sandbox -c release -debug-info-format none --filter LaTeXClassBenchmarks --no-parallel
 
+.PHONY: bench-large-text
+bench-large-text:
+	@set -e; for input in text1MB text10MB text50MB csv10k csv100k csv500k; do \
+		SURIMONO_BENCH_LARGE_TEXT=$$input $(SWIFT_TEST) --filter LargeTextConversionBenchmarks --no-parallel; \
+	done
+
 .PHONY: bench-pages bench-pages-rendering bench-pages-window
 bench-pages: bench-pages-rendering bench-pages-window
 

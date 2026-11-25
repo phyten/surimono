@@ -98,6 +98,7 @@ struct PaperView: NSViewRepresentable {
     /// A spread that shows its cover alone shows it one page wide (`LoneCoverWidth.onePage`).
     var narrowsLoneCover = false
     var keepsSpotInPage = false
+    var isReadingPreview = false
     /// The words to mark on the paper; nothing takes the marks away.
     var proseSpans: [ProsePaperSpan] = []
     var onPaperPress: () -> Void = {}
@@ -159,7 +160,8 @@ struct PaperView: NSViewRepresentable {
         view.configure(
             document, at: initialPageIndex, options: options, logicalMargin: logicalMargin,
             showsPageNumbers: showsPageNumbers, changeMarks: changeMarks, furniture: furniture,
-            keepsSpotInPage: keepsSpotInPage)
+            keepsSpotInPage: keepsSpotInPage || view.wasReadingPreview)
+        view.wasReadingPreview = isReadingPreview
         view.wheelSensitivity = wheelSensitivity
         view.selectsText = selectsText
         view.onFindHits = onFindHits
@@ -259,6 +261,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
     }
     private var options: ViewOptions?
     private var sourceDocument: PDFDocument?
+    fileprivate var wasReadingPreview = false
     private var pagePlan: ViewPageLayout?
     private var documentKey: ViewPageLayout.DocumentKey?
     /// A displayed copy and its source stay together through PDFKit's document replacement.

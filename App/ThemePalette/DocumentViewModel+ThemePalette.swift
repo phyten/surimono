@@ -11,6 +11,7 @@ extension DocumentViewModel {
 
     /// The pages the paper shows: a theme being tried, a trial just chosen, or the document's own pages.
     var paperDocument: PDFDocument? {
+        if let readingPreview { return readingPreview.document }
         if themeTrial.themeID != nil, let document = themeTrial.document { return document }
         if let chosenTrial, isCurrentLook(chosenTrial) { return chosenTrial.document }
         return result?.viewDocument
@@ -29,14 +30,18 @@ extension DocumentViewModel {
         return nil
     }
 
-    var paperPageCount: Int { verticalTrialPaper?.pageCount ?? pageCount }
+    var paperPageCount: Int { readingPreview?.document.pageCount ?? verticalTrialPaper?.pageCount ?? pageCount }
     var paperPageIndex: Int {
+        if readingPreview != nil { return shownPageIndex }
         guard let trial = verticalTrialPaper else { return currentPageIndex }
         return min(shownPageIndex, max(0, trial.pageCount - 1))
     }
 
     func jumpToPaperPage(_ page: Int) {
-        if let trial = verticalTrialPaper {
+        if let readingPreview {
+            guard (0..<readingPreview.document.pageCount).contains(page) else { return }
+            paper.goToPage(index: page, in: readingPreview.document)
+        } else if let trial = verticalTrialPaper {
             guard (0..<trial.pageCount).contains(page) else { return }
             paper.goToPage(index: page, in: trial)
         } else {
@@ -45,19 +50,21 @@ extension DocumentViewModel {
     }
 
     var paperFormulaIndex: PaperFormulaIndex? {
+        if readingPreview != nil { return nil }
         if themeTrial.themeID != nil, themeTrial.document != nil { return themeTrial.formulaIndex }
         if let chosenTrial, isCurrentLook(chosenTrial) { return chosenTrial.formulaIndex }
         return result?.formulaIndex
     }
 
     var paperDiagrams: [RenderedDiagram] {
+        if readingPreview != nil { return [] }
         if themeTrial.themeID != nil, themeTrial.document != nil { return themeTrial.diagrams }
         if let chosenTrial, isCurrentLook(chosenTrial) { return chosenTrial.diagrams }
         return result?.diagrams ?? []
     }
 
     var paperChangeMarks: [ChangeMark] {
-        guard mode == .view else { return [] }
+        guard mode == .view, readingPreview == nil else { return [] }
         let marks: [ChangeMark]
         if themeTrial.themeID != nil, themeTrial.document != nil {
             marks = themeTrial.changeMarks
@@ -77,6 +84,7 @@ extension DocumentViewModel {
 
     /// The header and footer the sheets draw on the pages the paper shows, so that what is read is what prints.
     var paperFurniture: [Int: FurniturePlacement] {
+        if let readingPreview { return readingPreview.furniture }
         if themeTrial.themeID != nil, themeTrial.document != nil { return themeTrial.furniture }
         if let chosenTrial, isCurrentLook(chosenTrial) { return chosenTrial.furniture }
         return shownFurniture
@@ -96,7 +104,7 @@ extension DocumentViewModel {
     /// its last page, and the document opens at the page the reader was on again once the trial ends.
     func paperDidChangePage(_ index: Int) {
         shownPageIndex = index
-        guard !paperShowsTrial else { return }
+        guard readingPreview == nil, !paperShowsTrial else { return }
         let previousPage = currentPageIndex
         currentPageIndex = index
         let units = displayUnits

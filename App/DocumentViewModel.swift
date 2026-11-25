@@ -612,6 +612,7 @@ final class DocumentViewModel {
         }
     }
 
+    private(set) var readingPreview: DocumentRenderer.ReadingPreview?
     private(set) var isRendering = false
     private(set) var isPrinting = false
     /// The printers the tray offers; refreshed when the tray opens and before each print.
@@ -693,7 +694,7 @@ final class DocumentViewModel {
     @ObservationIgnored private let initialViewOptions: ViewOptions
     let renderer: DocumentRenderer
     @ObservationIgnored private var composingSheets = false
-    private var renderTask: Task<Void, Never>?
+    private(set) var renderTask: Task<Void, Never>?
     @ObservationIgnored private var hasShownVerticalWritingNote = false
     private var toastTask: Task<Void, Never>?
     private var watcher: FileWatcher?
@@ -1040,7 +1041,7 @@ final class DocumentViewModel {
     var closedDetailsCount: Int { rendersSnapshot ? liveSnapshot?.closedDetailsCount ?? 0 : 0 }
     /// The pages shown were drawn from the current file and settings.
     var isUpToDate: Bool {
-        result != nil && !isRendering && error == nil && renderedSettings == renderSettings
+        result != nil && readingPreview == nil && !isRendering && error == nil && renderedSettings == renderSettings
             && renderedSourceURLs == sourceURLs && renderedFromSnapshot == rendersSnapshot
     }
     /// The tray, "Fold It" and the sheet notes may show `printResult`: it was composed from the logical pages in
@@ -1413,7 +1414,7 @@ final class DocumentViewModel {
         duplexTestTask = nil
         pendingPrintIssue = nil
         dropSpot()
-        renderTask?.cancel()
+        cancelRender()
         toastTask?.cancel()
         hashTask?.cancel()
         structureTask?.cancel()
@@ -1504,7 +1505,7 @@ final class DocumentViewModel {
         let generation = reloadGeneration
         reloadTask?.cancel()
         // Invalidate captures before yielding for I/O: an old snapshot must never win this race.
-        renderTask?.cancel()
+        cancelRender()
         if reloadsWeb { cancelCapture() }
         reloadOwnsProgress = true
         if reloadRequiresRefresh {
@@ -1592,7 +1593,7 @@ final class DocumentViewModel {
         reloadOwnsProgress = false
         reloadRequiresRefresh = false
         reloadRequiresWebRefresh = false
-        renderTask?.cancel()
+        cancelRender()
         renderer.clearCache()
         themeTrial.clear()
         themeSamples.invalidate()
@@ -1778,6 +1779,15 @@ final class DocumentViewModel {
         render()
     }
 
+    private func cancelRender() {
+        renderTask?.cancel()
+        if readingPreview != nil {
+            if shownPageIndex != currentPageIndex { pendingRestoredPage = nil }
+            currentPageIndex = shownPageIndex
+            readingPreview = nil
+        }
+    }
+
     func render() { render(reusing: nil) }
 
     private func render(reusing currentPages: PreparedRender?) {
@@ -1791,7 +1801,7 @@ final class DocumentViewModel {
         renderStartCount += 1
         renderingSettings = nil
         reloadOwnsProgress = false
-        renderTask?.cancel()
+        cancelRender()
         // A trial was laid out under the previous settings or file.
         themeTrial.end()
         if let openFailure {
@@ -1822,6 +1832,9 @@ final class DocumentViewModel {
         let started = ContinuousClock.now
         let layoutsBefore = renderer.logicalRenderCount
         let generation = dataGeneration
+        let showsLeadingPages =
+            mode == .view && binder == nil && imageBundle == nil
+            && (format == .plainText || format == .csv)
         renderTask = Task { [weak self, renderer, binder, imageBundle] in
             guard !Task.isCancelled else { return }
             var settings = settings
@@ -1848,7 +1861,19 @@ final class DocumentViewModel {
                         guard let self else { return }
                         source = withFolderAccess(singleSource)
                     }
-                    prepared = try await renderer.prepare(source, settings: settings)
+                    if showsLeadingPages {
+                        prepared = try await renderer.prepare(source, settings: settings) { [weak self] preview in
+                            guard let self, !Task.isCancelled, mode == .view, generation == dataGeneration,
+                                settings == renderSettings, currentPageIndex < preview.document.pageCount
+                            else { return }
+                            // A reload on a later page keeps the previous complete paper until that page is available.
+                            shownPageIndex = currentPageIndex
+                            readingPreview = preview
+                            sizeWindowToPaper(initialOnly: true)
+                        }
+                    } else {
+                        prepared = try await renderer.prepare(source, settings: settings)
+                    }
                     try Task.checkCancellation()
                     guard let self else { return }
                     if renderer.logicalRenderCount != layoutsBefore {
@@ -1857,6 +1882,11 @@ final class DocumentViewModel {
                     // The paper can show the logical pages before any sheets are needed.
                     settings.options.rotatesBackSides = mode == .print && printerRotation(for: prepared.layout)
                     renderingSettings = settings
+                    if readingPreview != nil {
+                        if shownPageIndex != currentPageIndex { pendingRestoredPage = nil }
+                        currentPageIndex = min(shownPageIndex, prepared.viewDocument.pageCount - 1)
+                        readingPreview = nil
+                    }
                     result = prepared
                     if offersOrgReading, source.format == .org, generation == dataGeneration {
                         orgFileInstructions = prepared.facts?.orgInstructions
@@ -1956,6 +1986,7 @@ final class DocumentViewModel {
                 if case DocumentRenderer.RenderingError.noReadableDocuments(let urls) = error { binder?.didFail(urls) }
                 if case DocumentRenderer.RenderingError.tooLarge = error { layoutTooLarge = true }
                 composingSheets = false
+                readingPreview = nil
                 self.error = Self.message(for: error)
                 pendingPrint = nil
                 pendingPrintIssue = nil
@@ -2097,6 +2128,9 @@ final class DocumentViewModel {
     var viewLogicalMargin: CGFloat? {
         guard imageBundle == nil, format.usesPrintTheme else { return nil }
         // Keep the margin attached to the pages still on screen while a new layout is being prepared.
+        if let readingPreview {
+            return CGFloat(readingPreview.layout.logicalMargins(options: readingPreview.options).smallest * 72 / 25.4)
+        }
         guard let settings = renderedSettings else { return nil }
         // Joined pages lose this much on every side, which uneven margins must not take out of the text.
         return CGFloat(
@@ -2175,6 +2209,10 @@ final class DocumentViewModel {
         pendingPrintIssue = nil
         dropSpot()
         guard mode != .print else { return }
+        if readingPreview != nil {
+            requestPrintMode()
+            return
+        }
         guard mode == .view, isWebPresentation || isCapturingWeb || webCaptureFailed else { return showPrintTray() }
         // The tray prints the page as it is now. One request waits for the copy at a time, and it opens the tray
         // only if the reader has not chosen something else since.
@@ -3532,7 +3570,9 @@ final class DocumentViewModel {
 
     /// One page, or a spread, at 100 %.
     var paperUnitSize: CGSize? {
-        guard let document = result?.viewDocument, document.pageCount > 0 else { return nil }
+        guard let document = readingPreview?.document ?? result?.viewDocument, document.pageCount > 0 else {
+            return nil
+        }
         let page = PageSizes.representative(
             (0..<document.pageCount).compactMap { index in
                 guard let page = document.page(at: index) else { return nil }

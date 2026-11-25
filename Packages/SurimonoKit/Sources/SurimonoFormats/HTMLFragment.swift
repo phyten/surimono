@@ -70,8 +70,12 @@ public enum PlainTextConverter {
     /// a name that tells nothing, a shebang line) colors it; text with no name is never colored.
     public static func convert(_ text: String, fileName: String?) -> HTMLFragment {
         let language = fileName.flatMap { SourceLanguage.detect(fileName: $0, text: { text }) }
+        return convert(text, language: language, highlights: true)
+    }
+
+    package static func convert(_ text: String, language: SourceLanguage?, highlights: Bool) -> HTMLFragment {
         // Code too long to color is shown whole without colors rather than cut.
-        let colored = language.flatMap { SyntaxHighlighter.highlight(text, language: $0.id) }
+        let colored = highlights ? language.flatMap { SyntaxHighlighter.highlight(text, language: $0.id) } : nil
         let opening = language == nil ? "<pre class=\"surimono-plain\">" : sourceOpen
         var fragment = HTMLFragment(body: "\(opening)\(colored ?? HTML.escape(text))</pre>")
         if language != nil { fragment.sourceText = text }
@@ -148,15 +152,29 @@ public enum CSVConverter {
         -> HTMLFragment
     {
         let rows = try records(text, delimiter: delimiter, checkRow: checkRow)
+        return table(rows[...])
+    }
+
+    package static func table(_ rows: ArraySlice<[String]>, fixedColumns: Int? = nil) -> HTMLFragment {
         func render(_ fields: [String], tag: String) -> String {
             "<tr>" + fields.map { "<\(tag)>\(HTML.escape($0))</\(tag)>" }.joined() + "</tr>"
         }
         let head = rows.first.map { render($0, tag: "th") } ?? ""
         let body = rows.dropFirst().map { render($0, tag: "td") }.joined()
-        return HTMLFragment(body: "<table class=\"surimono-csv\"><thead>\(head)</thead><tbody>\(body)</tbody></table>")
+        var opening = "<table class=\"surimono-csv\">"
+        if let fixedColumns {
+            // The last record can introduce another column. Reserve it on the first page as well.
+            opening =
+                "<table class=\"surimono-csv\" style=\"width:100%;table-layout:fixed;overflow-wrap:anywhere\"><colgroup>"
+            for offset in stride(from: 0, to: fixedColumns, by: 1_000) {
+                opening += "<col span=\"\(min(fixedColumns - offset, 1_000))\">"
+            }
+            opening += "</colgroup>"
+        }
+        return HTMLFragment(body: "\(opening)<thead>\(head)</thead><tbody>\(body)</tbody></table>")
     }
 
-    static func records(
+    package static func records(
         _ text: String, delimiter: Character, quote: Character = "\"", skipInitialSpace: Bool = false,
         checkRow: (Int) throws -> Void
     ) rethrows -> [[String]] {

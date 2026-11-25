@@ -27,7 +27,7 @@ extension DocumentViewModel {
         jumpToPaperPage(page)
     }
 
-    var canNavigateReading: Bool { mode == .view && !showsWeb && pageCount > 0 }
+    var canNavigateReading: Bool { mode == .view && !showsWeb && readingPreview == nil && pageCount > 0 }
     var hasContents: Bool { !showsWeb && (offersProse || pageCount > 1 || hasOutline || !bookmarkPages.isEmpty) }
     var bookmarkPages: [Int] { bookmarks.pages(pageCount: pageCount, entries: outlineEntries) }
     var visibleReadingPages: [Int] {
