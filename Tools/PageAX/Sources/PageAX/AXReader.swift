@@ -84,46 +84,62 @@ struct TreeNode: Encodable {
     var errors: [String] = []
 }
 
-struct HitNode: Encodable {
+struct HitNode: Codable {
     var role: String?
     var identifier: String?
     var frame: CGRect?
     var errors: [String] = []
+
+    func matchesAttributes(of other: HitNode) -> Bool {
+        guard errors.isEmpty, other.errors.isEmpty, let role, role == other.role,
+            (identifier ?? "") == (other.identifier ?? ""),
+            let frame, let otherFrame = other.frame, !frame.isEmpty, !otherFrame.isEmpty
+        else { return false }
+        return abs(frame.minX - otherFrame.minX) <= 0.001 && abs(frame.minY - otherFrame.minY) <= 0.001
+            && abs(frame.width - otherFrame.width) <= 0.001 && abs(frame.height - otherFrame.height) <= 0.001
+    }
+
+    func matchesWindow(_ window: HitNode) -> Bool {
+        role == kAXWindowRole && identifier?.isEmpty == false && matchesAttributes(of: window)
+    }
 }
 
-struct HitInspection: Encodable {
+struct HitInspection: Codable {
     let target: HitTarget
     let external: HitNode
     var parent: HitNode?
     var childCount: Int?
     var children: [HitNode] = []
     var pageFrame: CGRect?
+    var parentIsPaperWindow: Bool?
     var indexInPaperWindow: Int?
     var paperAncestorDistance: Int?
     var directlyContainsPaper = false
 
     func exclusionReason(macOSMajor: Int, paperID: String) -> String? {
-        guard macOSMajor == 26, target.mouseHitsPaper, target.paperHitIdentifier == target.page,
+        guard [26, 27].contains(macOSMajor), target.mouseHitsPaper, target.paperHitIdentifier == target.page,
             target.windowRole == kAXGroupRole, external.role == kAXGroupRole,
             external.identifier?.isEmpty != false, external.errors.isEmpty,
             external.frame?.contains(target.point) == true, pageFrame?.contains(target.point) == true
         else { return nil }
 
-        // The same window hosts the paper and its bands on master. Require the actual AX handle to
-        // contain this fixture's paper; an overlapping sibling with identical bounds is not enough.
+        // The known content group sits exactly between this window and its tagged paper.
+        // A root index or an indirect ancestor cannot distinguish it from another control.
+        guard let parent, parent.role == kAXWindowRole, parent.identifier?.isEmpty == false,
+            parent.errors.isEmpty, parent.frame?.contains(target.point) == true,
+            parentIsPaperWindow == true, directlyContainsPaper, paperAncestorDistance == 1
+        else { return nil }
+
         let windowStop: String
-        if target.windowIdentifier == paperID, parent?.role == kAXWindowRole || indexInPaperWindow != nil,
-            directlyContainsPaper || paperAncestorDistance == 1
-        {
+        if target.windowIdentifier == paperID {
             windowStop = "window hit the tagged paper; application hit its unnamed window content group"
-        } else if target.windowIdentifier?.isEmpty != false, target.windowIsPaperAncestor,
-            (paperAncestorDistance ?? 0) > 0
-        {
-            windowStop = "window and application hit ancestors of the tagged paper"
+        } else if target.windowIdentifier?.isEmpty != false, target.windowIsPaperAncestor {
+            windowStop =
+                "window hit a paper ancestor; application hit the unnamed window content group containing the paper"
         } else {
             return nil
         }
-        return "macOS 26: " + windowStop
+        return "macOS \(macOSMajor): " + windowStop
             + "; native mouse and paper AX reach the page. The hosting hierarchy and paper hit routing match origin/master."
     }
 }
@@ -300,33 +316,45 @@ final class AXReader {
         // Preserve partial evidence even if the next AX call fails or the element disappears.
         defer { hitInspection = inspection }
         let attrs = try names(hit)
-        if let parent = try optional(kAXParentAttribute, on: hit, names: attrs) {
-            inspection.parent = describe(try axElement(parent))
-        }
+        let parent = try optional(kAXParentAttribute, on: hit, names: attrs).map { try axElement($0) }
+        inspection.parent = parent.map(describe)
         let children = try optional(kAXChildrenAttribute, on: hit, names: attrs) as? [AXUIElement]
         inspection.childCount = children?.count
         inspection.children = (children ?? []).prefix(32).map(describe)
 
         let leaf = try page(via: .children, stage: stage)
         let paper = try axElement(value(leaf, kAXParentAttribute))
-        guard try identifier(paper) == token + ".paper" else { return inspection }
+        let taggedPaper = describe(paper)
+        guard taggedPaper.role == kAXGroupRole, taggedPaper.identifier == token + ".paper" else { return inspection }
         if let window = try optional(kAXWindowAttribute, on: paper, names: names(paper)) {
             let window = try axElement(window)
-            let roots = try optional(kAXChildrenAttribute, on: window, names: names(window)) as? [AXUIElement]
-            inspection.indexInPaperWindow = roots?.firstIndex { CFEqual($0, hit) }
+            // AXParent and AXWindow can vend different handles for the same window.
+            inspection.parentIsPaperWindow = inspection.parent?.matchesWindow(describe(window))
+            if let roots = try optional(kAXChildrenAttribute, on: window, names: names(window)) as? [AXUIElement] {
+                let matches = roots.indices.filter { inspection.external.matchesAttributes(of: describe(roots[$0])) }
+                if matches.count == 1 { inspection.indexInPaperWindow = matches.first }
+            }
         }
-        inspection.directlyContainsPaper = children?.contains { CFEqual($0, paper) } == true
+        inspection.directlyContainsPaper =
+            inspection.children.contains { taggedPaper.matchesAttributes(of: $0) }
+            || (children ?? []).dropFirst(inspection.children.count).contains {
+                taggedPaper.matchesAttributes(of: describe($0))
+            }
         guard let page = try paperPages(paper, stage: stage).first(where: { try identifier($0) == target.page })
         else { return inspection }
         inspection.pageFrame = try frame(page, attributes: names(page))
         var ancestor = paper
         for distance in 0..<32 {
-            if CFEqual(ancestor, hit) {
+            guard let object = try optional(kAXParentAttribute, on: ancestor, names: names(ancestor)) else { break }
+            let ancestorParent = try axElement(object)
+            // Nested unnamed groups can have identical frames. Match the parent on both paths as well.
+            if inspection.external.matchesAttributes(of: describe(ancestor)),
+                inspection.parent?.matchesAttributes(of: describe(ancestorParent)) == true
+            {
                 inspection.paperAncestorDistance = distance
                 break
             }
-            guard let parent = try optional(kAXParentAttribute, on: ancestor, names: names(ancestor)) else { break }
-            ancestor = try axElement(parent)
+            ancestor = ancestorParent
         }
         return inspection
     }

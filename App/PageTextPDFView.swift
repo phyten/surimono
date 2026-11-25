@@ -108,6 +108,12 @@ class PageTextPDFView: PDFView {
         page.selection(for: range)?.bounds(for: page)
     }
 
+    var selectionRetryTime: ContinuousClock.Instant { .now }
+
+    func withSelectionCopy(of page: PDFPage, matching text: NSString, read: (PDFPage) -> Void) {
+        PageTextGeometry.withCopy(of: page, matching: text, read: read)
+    }
+
     private func makeElement(for page: PDFPage, index: Int) -> PageTextElement {
         #if DEBUG
             if let axProbeToken {

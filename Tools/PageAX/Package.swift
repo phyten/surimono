@@ -6,6 +6,6 @@ let package = Package(
     products: [.executable(name: "surimono-page-ax", targets: ["PageAX"])],
     targets: [
         .executableTarget(name: "PageAX"),
-        .testTarget(name: "PageAXTests", dependencies: ["PageAX"]),
+        .testTarget(name: "PageAXTests", dependencies: ["PageAX"], resources: [.process("Fixtures")]),
     ]
 )

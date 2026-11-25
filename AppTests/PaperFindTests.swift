@@ -333,7 +333,11 @@ struct PaperFindTests {
         #expect(abs(shown.minX - expectedX) <= 1 && abs(shown.minY - expectedY) <= 1)
         #expect(view.currentSelection?.string == selected && selected == "After")
         view.revealProse(spans)
-        #expect(documentView.visibleRect == shown)
+        let after = documentView.visibleRect
+        #expect(abs(after.minX - shown.minX) <= 0.001)
+        #expect(abs(after.minY - shown.minY) <= 0.001)
+        #expect(abs(after.width - shown.width) <= 0.001)
+        #expect(abs(after.height - shown.height) <= 0.001)
         #expect(view.currentPageIndex == 0)
     }
 

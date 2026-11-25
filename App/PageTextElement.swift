@@ -18,7 +18,7 @@ nonisolated class PageTextElement: NSAccessibilityElement {
         private let text: NSString
         private var boxes: [CGRect]
         private var missing: [NSRange] = []
-        private var nextCopyAttempt: ContinuousClock.Instant?
+        private var nextRetry: ContinuousClock.Instant?
         private var resolving = false
 
         init(page: PDFPage, paper: PageTextPDFView, text: NSString) {
@@ -60,25 +60,26 @@ nonisolated class PageTextElement: NSAccessibilityElement {
                 guard let requested else { return !missing.isEmpty }
                 return missing.contains { NSIntersectionRange($0, requested).length > 0 }
             }
-            guard !resolving, !missing.isEmpty, anchor != nil, needsBounds(),
-                let document = sourceDocument, let paper, paper.document === document,
+            guard !resolving, !missing.isEmpty, anchor != nil, let paper else { return }
+            if let nextRetry, paper.selectionRetryTime < nextRetry { return }
+            guard needsBounds(),
+                let document = sourceDocument, paper.document === document,
                 let page = sourcePage, page.document === document
             else { return }
             resolving = true
             defer { resolving = false }
             withExtendedLifetime(document) {
-                guard let liveText = page.string, text.compare(liveText, options: .literal) == .orderedSame else {
-                    return
+                if let liveText = page.string, text.compare(liveText, options: .literal) == .orderedSame {
+                    fillMissing(in: requested) { paper.characterSelectionBounds(for: $0, on: page) }
+                    guard needsBounds() else { return }
+                    // A native copy can resolve all remaining ranges without keeping another document alive.
+                    paper.withSelectionCopy(of: page, matching: text) { copy in
+                        fillMissing { copy.selection(for: $0)?.bounds(for: copy) }
+                    }
                 }
-                fillMissing(in: requested) { paper.characterSelectionBounds(for: $0, on: page) }
-                // An inserted page may keep returning an empty selection. Resolve its missing ranges in a
-                // temporary one-page document without attaching another PDF to the accessibility element.
-                guard needsBounds(), nextCopyAttempt.map({ $0 <= .now }) != false else { return }
-                // Some nonprinting characters never have a box. Limit copies during a burst of AX requests.
-                nextCopyAttempt = .now + .milliseconds(250)
-                PageTextGeometry.withCopy(of: page, matching: text) { copy in
-                    fillMissing { copy.selection(for: $0)?.bounds(for: copy) }
-                }
+                // Nonprinting characters may stay unresolved. Allow a full interval after the scan finishes
+                // before either the source or a copy can occupy the main thread again.
+                nextRetry = paper.selectionRetryTime + .milliseconds(250)
             }
         }
 

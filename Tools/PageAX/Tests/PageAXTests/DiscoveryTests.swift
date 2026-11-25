@@ -115,22 +115,52 @@ struct DiscoveryTests {
             windowRole: kAXGroupRole, windowIdentifier: windowID)
         return HitInspection(
             target: target, external: HitNode(role: kAXGroupRole, frame: hasExternalFrame ? frame : nil),
-            parent: HitNode(role: kAXWindowRole), pageFrame: frame, paperAncestorDistance: 1)
+            parent: HitNode(role: kAXWindowRole, identifier: "fixture.window", frame: frame), pageFrame: frame,
+            parentIsPaperWindow: true, paperAncestorDistance: 1, directlyContainsPaper: true)
     }
 
-    @Test("窓が紙自身を返し、外部がその親を返したときは macOS 26 のヒット経路だけを除外する")
+    @Test("既知の窓の構成だけを、確認済みの macOS 26 と 27 でヒット経路から除外する")
     func verifiedWindowContentHit() {
         var hit = paperHit()
-        #expect(hit.exclusionReason(macOSMajor: 26, paperID: "fixture.paper") != nil)
-        #expect(hit.exclusionReason(macOSMajor: 15, paperID: "fixture.paper") == nil)
-        #expect(hit.exclusionReason(macOSMajor: 26, paperID: "other.paper") == nil)
+        for major in [26, 27] {
+            #expect(hit.exclusionReason(macOSMajor: major, paperID: "fixture.paper") != nil)
+        }
+        for major in [15, 28] {
+            #expect(hit.exclusionReason(macOSMajor: major, paperID: "fixture.paper") == nil)
+        }
+        #expect(hit.exclusionReason(macOSMajor: 27, paperID: "other.paper") == nil)
         hit.paperAncestorDistance = nil
-        // SwiftUI can expose the paper through AXChildren even if AXParent skips its container.
-        hit.directlyContainsPaper = true
-        #expect(hit.exclusionReason(macOSMajor: 26, paperID: "fixture.paper") != nil)
-        hit.parent = nil
-        hit.indexInPaperWindow = 0
-        #expect(hit.exclusionReason(macOSMajor: 26, paperID: "fixture.paper") != nil)
+        #expect(hit.exclusionReason(macOSMajor: 27, paperID: "fixture.paper") == nil)
+        hit.paperAncestorDistance = 1
+        hit.directlyContainsPaper = false
+        #expect(hit.exclusionReason(macOSMajor: 27, paperID: "fixture.paper") == nil)
+    }
+
+    @Test("macOS 27.2.1 の最初の段で記録したヒットは、紙を直接含む窓のグループとして除外する")
+    func recordedLayoutHit() throws {
+        let url = try #require(Bundle.module.url(forResource: "layout-hit-macos27", withExtension: "json"))
+        var hit = try JSONDecoder().decode(HitInspection.self, from: Data(contentsOf: url))
+        let paperID = "A11A30E8-ECB5-402D-916A-063911B9C8A3.paper"
+        #expect(hit.exclusionReason(macOSMajor: 27, paperID: paperID)?.contains("macOS 27") == true)
+
+        let window = HitNode(
+            role: kAXWindowRole, identifier: "surimono.file.v1.861EED17-FFC4-48A0-B21C-3D83BDF9C401",
+            frame: CGRect(x: 836, y: 115, width: 659, height: 1002))
+        let paper = HitNode(
+            role: kAXGroupRole, identifier: paperID, frame: CGRect(x: 836, y: 147, width: 659, height: 932))
+        hit.parentIsPaperWindow = hit.parent?.matchesWindow(window)
+        hit.directlyContainsPaper = hit.children.contains { paper.matchesAttributes(of: $0) }
+        hit.indexInPaperWindow = nil
+        #expect(hit.exclusionReason(macOSMajor: 27, paperID: paperID) != nil)
+        for mismatch in [
+            HitNode(role: kAXButtonRole, identifier: window.identifier, frame: window.frame),
+            HitNode(role: kAXWindowRole, identifier: "other.window", frame: window.frame),
+            HitNode(role: kAXWindowRole, frame: window.frame),
+            HitNode(role: kAXWindowRole, identifier: window.identifier, frame: window.frame?.offsetBy(dx: 1, dy: 0)),
+        ] {
+            hit.parentIsPaperWindow = hit.parent?.matchesWindow(mismatch)
+            #expect(hit.exclusionReason(macOSMajor: 27, paperID: paperID) == nil)
+        }
     }
 
     @Test("同じ枠の兄弟、手前のボタンの子、紙の外の点、読めない枠は除外しない")
@@ -148,13 +178,32 @@ struct DiscoveryTests {
         #expect(unknown.exclusionReason(macOSMajor: 26, paperID: "fixture.paper") == nil)
     }
 
-    @Test("窓側も無名の祖先に当たる構成は外部が紙の祖先と照合できたときだけ除外する")
+    @Test("窓側も無名の祖先に当たるとき、外部の要素は紙を直接含む窓のグループに限る")
     func verifiedAncestorHit() {
         var hit = paperHit(windowID: nil, windowIsAncestor: true)
-        hit.paperAncestorDistance = 2
         #expect(hit.exclusionReason(macOSMajor: 26, paperID: "fixture.paper") != nil)
+        hit.paperAncestorDistance = 2
+        #expect(hit.exclusionReason(macOSMajor: 26, paperID: "fixture.paper") == nil)
         hit.paperAncestorDistance = nil
         #expect(hit.exclusionReason(macOSMajor: 26, paperID: "fixture.paper") == nil)
+    }
+
+    @Test("ボタンの子、窓を照合できない祖先、別の窓のグループはどちらのヒットでも除外しない", arguments: [true, false])
+    func unverifiedWindowContent(taggedWindowHit: Bool) {
+        var hit = paperHit(windowID: taggedWindowHit ? "fixture.paper" : nil, windowIsAncestor: !taggedWindowHit)
+        hit.paperAncestorDistance = 2
+        hit.parent = HitNode(role: kAXButtonRole)
+        hit.parentIsPaperWindow = false
+        #expect(hit.exclusionReason(macOSMajor: 27, paperID: "fixture.paper") == nil)
+        hit.parent = nil
+        hit.parentIsPaperWindow = nil
+        #expect(hit.exclusionReason(macOSMajor: 27, paperID: "fixture.paper") == nil)
+        hit.indexInPaperWindow = 0
+        hit.paperAncestorDistance = 1
+        #expect(hit.exclusionReason(macOSMajor: 27, paperID: "fixture.paper") == nil)
+        hit.parent = HitNode(role: kAXWindowRole)
+        hit.parentIsPaperWindow = false
+        #expect(hit.exclusionReason(macOSMajor: 27, paperID: "fixture.paper") == nil)
     }
 
     @Test("別経路でページを取得しても応答不能は呼び出し側に返す")
