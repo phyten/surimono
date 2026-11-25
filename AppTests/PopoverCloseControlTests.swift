@@ -46,7 +46,7 @@ struct PopoverCloseControlTests {
         try await waitUntil { !PopoverCloseButton.dismissActions(in: popoverWindow).isEmpty }
         #expect(popoverWindow.firstResponder is NSTextView)
 
-        try Self.pressEscape(in: popoverWindow)
+        try TestWindowKeyboard.pressEscape(in: popoverWindow)
         try await waitUntil { !host.state.isPresented }
     }
 
@@ -88,7 +88,17 @@ struct PopoverCloseControlTests {
     func escapeKeyClosesTheAppPopover(_ popover: AppPopover) async throws {
         let screen = try await AppPopoverScreen.open(popover)
         defer { screen.close() }
-        try Self.pressEscape(in: screen.popoverWindow)
+        try TestWindowKeyboard.pressEscape(in: screen.popoverWindow)
+        try await waitUntil { !screen.isPresented() }
+    }
+
+    @Test("アプリが前面にないときも Esc で目次の吹き出しが閉じる", .enabled { await !NSApplication.shared.isActive })
+    func escapeClosesOutlineWhileInactive() async throws {
+        let screen = try await AppPopoverScreen.open(.outline)
+        defer { screen.close() }
+        try #require(!NSApp.isActive)
+        try #require(screen.isPresented() && screen.popoverWindow.isVisible)
+        try TestWindowKeyboard.pressEscape(in: screen.popoverWindow)
         try await waitUntil { !screen.isPresented() }
     }
 
@@ -101,13 +111,13 @@ struct PopoverCloseControlTests {
         let mode = screen.model.mode
         #expect(mode == (popover == .printIssues ? .print : .compare))
 
-        try Self.pressEscape(in: screen.popoverWindow)
+        try TestWindowKeyboard.pressEscape(in: screen.popoverWindow)
         try await waitUntil { !screen.isPresented() }
         try await Task.sleep(for: .milliseconds(300))
         #expect(screen.model.mode == mode)
         #expect(screen.window.isVisible)
 
-        try Self.pressEscape(in: screen.window)
+        try TestWindowKeyboard.pressEscape(in: screen.window)
         try await waitUntil { screen.model.mode == .view }
         #expect(screen.window.isVisible)
     }
@@ -141,16 +151,6 @@ struct PopoverCloseControlTests {
             try #require(ContinuousClock.now < deadline)
             try await Task.sleep(for: .milliseconds(20))
         }
-    }
-
-    /// The Esc key as AppKit delivers it: through the application, to the window and its first responder.
-    static func pressEscape(in window: NSWindow) throws {
-        let escape = try #require(
-            NSEvent.keyEvent(
-                with: .keyDown, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
-                windowNumber: window.windowNumber, context: nil, characters: "\u{1B}",
-                charactersIgnoringModifiers: "\u{1B}", isARepeat: false, keyCode: 53))
-        NSApp.sendEvent(escape)
     }
 
     private func waitUntil(_ condition: () -> Bool) async throws {
