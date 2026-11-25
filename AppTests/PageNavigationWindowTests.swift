@@ -96,6 +96,37 @@ struct PageNavigationWindowTests {
         try #require(ready(), sourceLocation: sourceLocation)
     }
 
+    @Test("印刷画面から戻ると、手前の窓を変えずに新しい紙がキー入力を受け取る", arguments: [false, true])
+    func focusAfterTray(background: Bool) async throws {
+        let fixture = try Fixture()
+        defer { fixture.close() }
+        let model = fixture.model
+        let window = fixture.window
+        try await Self.wait { model.isUpToDate && model.paper.view?.window === window }
+        model.enterPrintMode()
+        try await Self.wait { model.mode == .print && model.hasCurrentPrintPreview && model.paper.view?.window == nil }
+        let other = NSWindow(
+            contentRect: NSRect(x: 20, y: 20, width: 240, height: 180),
+            styleMask: [.titled], backing: .buffered, defer: true)
+        defer { other.orderOut(nil) }
+        if background {
+            other.makeKeyAndOrderFront(nil)
+            try #require(!window.isKeyWindow)
+        }
+        model.exitPrintMode()
+        try await Self.wait {
+            model.mode == .view && model.paper.view?.window === window
+                && !ViewerWindow.isResizingProgrammatically(window)
+        }
+        let paper = try #require(model.paper.view)
+        // Attaching the paper schedules its responder request on the main actor.
+        try await Self.wait {
+            let responder = window.firstResponder as? NSView
+            return responder === paper || responder?.isDescendant(of: paper) == true
+        }
+        if background { #expect(!window.isKeyWindow) }
+    }
+
     @Test("入力欄からスクラバーを押すと編集を離れ、Escと解放でページも履歴も変わらない")
     func fieldThenEscape() async throws {
         let fixture = try Fixture()

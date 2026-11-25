@@ -1074,54 +1074,149 @@ struct PaperViewTests {
         withExtendedLifetime(window) {}
     }
 
-    @Test("差し替えて外した文書は、紙が残る間は解放しない（PDFKit のアクセシビリティが古いページを読みにくるため）")
-    func replacedDocumentsStayAlive() throws {
-        weak var first: PDFDocument?
-        weak var singleCopy: PDFDocument?
-        weak var spreadCopy: PDFDocument?
+    @Test("直前の元と表示用の文書は次の差し替えまで生き、紙を開いたまま両方とも解放される")
+    func replacedDocumentsAreReleased() async throws {
+        let (view, window) = try makeSinglePagePaper()
         let single = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .instant, showsCoverAlone: false)
-        let spread = ViewOptions(layout: .spread, scrollAxis: .horizontal, transition: .instant, showsCoverAlone: false)
-        let (view, window) = try autoreleasepool { () throws -> (PaperPDFView, NSWindow) in
-            let document = try #require(PDFDocument(data: TestFixtures.pdf("first", pages: 3)))
-            first = document
-            return try makeSinglePagePaper(document: document)
-        }
+        weak var oldSource: PDFDocument?
+        weak var oldCopy: PDFDocument?
         try autoreleasepool {
-            // Page numbers make every layout draw a view copy, so each swap below replaces one copy with another.
-            let second = try #require(PDFDocument(data: TestFixtures.pdf("second", pages: 3)))
-            view.configure(second, at: 0, options: single, logicalMargin: nil, showsPageNumbers: true)
-            singleCopy = view.document
-            view.configure(second, at: 0, options: spread, logicalMargin: nil, showsPageNumbers: true)
-            spreadCopy = view.document
-            // More documents than any small cap would keep.
-            for index in 0..<40 {
-                let next = try #require(PDFDocument(data: TestFixtures.pdf("next \(index)", pages: 3)))
-                view.configure(
-                    next, at: 0, options: index.isMultiple(of: 2) ? single : spread, logicalMargin: nil,
-                    showsPageNumbers: true)
-            }
+            let first = try #require(PDFDocument(data: TestFixtures.pdf("first", pages: 3)))
+            view.configure(first, at: 0, options: single, logicalMargin: nil, showsPageNumbers: true)
+            oldSource = first
+            let copy: PDFDocument = try #require(view.document)
+            try #require(copy !== first)
+            oldCopy = copy
+            let replacement = try #require(PDFDocument(data: TestFixtures.pdf("replacement", pages: 3)))
+            view.configure(replacement, at: 0, options: single, logicalMargin: nil, showsPageNumbers: true)
         }
-        #expect(first != nil)
-        #expect(singleCopy != nil)
-        #expect(spreadCopy != nil)
-        #expect(view.document !== singleCopy && view.document !== spreadCopy)
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(oldSource != nil && oldCopy != nil)
+        let third = try #require(PDFDocument(data: TestFixtures.pdf("third", pages: 3)))
+        view.configure(third, at: 0, options: single, logicalMargin: nil, showsPageNumbers: true)
+        let deadline = ContinuousClock.now + .seconds(5)
+        while (oldSource != nil || oldCopy != nil) && ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(oldSource == nil)
+        #expect(oldCopy == nil)
+        #expect(view.document?.pageCount == 3)
         withExtendedLifetime(window) {}
     }
 
-    @Test("見開きと単ページを行き来しても、同じ表示用の文書を使い回す")
-    func toggledLayoutsReuseViewCopies() throws {
+    #if DEBUG
+        @Test("停止したページ送りは、文書を二度差し替えてもアニメーションを外すまで元の紙を持つ")
+        func pausedTurnOwnsItsPaper() async throws {
+            let (view, window) = try makeSinglePagePaper()
+            let options = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .fade, showsCoverAlone: false)
+            view.apply(options)
+            if view.layer == nil { view.layer = CALayer() }
+            view.shouldReduceMotion = { false }
+            weak let outgoing = view.document
+            let previous = PaperPDFView.frozenTurnProgress
+            PaperPDFView.frozenTurnProgress = 0.5
+            view.turnPage(forward: true)
+            PaperPDFView.frozenTurnProgress = previous
+            // A compositor copy can outlive the animation attached to PDFView during replacement.
+            let playback = CALayer()
+            try autoreleasepool {
+                let turn = try #require(view.layer?.animation(forKey: "transition"))
+                try #require(turn.speed == 0)
+                let copy = try #require(turn.copy() as? CATransition)
+                // A standalone layer can discard even a zero-speed transition at commit. This copy must stay
+                // installed until the test removes it, so it actually exercises the delegate's lifetime.
+                copy.isRemovedOnCompletion = false
+                playback.add(copy, forKey: "transition")
+                view.layer?.removeAllAnimations()
+            }
+            try autoreleasepool {
+                for name in ["second", "third"] {
+                    let source = try #require(PDFDocument(data: TestFixtures.pdf(name, pages: 3)))
+                    view.configure(source, at: 0, options: options, logicalMargin: nil, showsPageNumbers: false)
+                }
+            }
+            try await Task.sleep(for: .milliseconds(1200))
+            try #require(playback.animation(forKey: "transition")?.speed == 0)
+            #expect(view.shownDocumentCount == 2)
+            #expect(outgoing != nil)
+            playback.removeAllAnimations()
+            let deadline = ContinuousClock.now + .seconds(5)
+            while outgoing != nil && ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(20)) }
+            #expect(outgoing == nil)
+            withExtendedLifetime(window) {}
+        }
+    #endif
+
+    @Test("単ページのまま連続スクロールに変えてすぐ二度読み直すと、古い文書は猶予の後に解放される")
+    func scrollingChangeProtectsOutgoingDocument() async throws {
+        let paged = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .instant, showsCoverAlone: false)
+        var scrolling = paged
+        scrolling.transition = .scroll
+        let (view, window) = try makeSinglePagePaper()
+        let second = try #require(PDFDocument(data: TestFixtures.pdf("second", pages: 2)))
+        let third = try #require(PDFDocument(data: TestFixtures.pdf("third", pages: 2)))
+        weak var outgoing: PDFDocument?
+        try autoreleasepool {
+            let first = try #require(PDFDocument(data: TestFixtures.pdf("first", pages: 2)))
+            view.configure(first, at: 0, options: paged, logicalMargin: nil, showsPageNumbers: false)
+            outgoing = view.document
+            view.apply(scrolling)
+            #expect(view.displayMode == .singlePageContinuous)
+            view.configure(second, at: 0, options: scrolling, logicalMargin: nil, showsPageNumbers: false)
+            view.configure(third, at: 0, options: scrolling, logicalMargin: nil, showsPageNumbers: false)
+        }
+        #expect(outgoing != nil)
+        #if DEBUG
+            #expect(view.shownDocumentCount > 2)
+        #endif
+        let deadline = ContinuousClock.now + .seconds(5)
+        while outgoing != nil && ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(outgoing == nil)
+        withExtendedLifetime(window) {}
+    }
+
+    @Test("単ページと見開きを続けて切り替えても古いページに親があり、再読み込み後は2世代に戻る")
+    func toggledLayoutsReuseViewCopies() async throws {
         let single = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .instant, showsCoverAlone: false)
         let spread = ViewOptions(layout: .spread, scrollAxis: .horizontal, transition: .instant, showsCoverAlone: false)
         let (view, window) = try makeSinglePagePaper()
         let source = try #require(PDFDocument(data: TestFixtures.pdf("toggle", pages: 3)))
+        let replacement = try #require(PDFDocument(data: TestFixtures.pdf("next", pages: 3)))
         view.configure(source, at: 0, options: single, logicalMargin: nil, showsPageNumbers: true)
-        let singleCopy = view.document
+        let singlePage = try #require(view.document?.page(at: 0))
         view.configure(source, at: 0, options: spread, logicalMargin: nil, showsPageNumbers: true)
-        let spreadCopy = view.document
-        view.configure(source, at: 0, options: single, logicalMargin: nil, showsPageNumbers: true)
-        #expect(view.document === singleCopy)
-        view.configure(source, at: 0, options: spread, logicalMargin: nil, showsPageNumbers: true)
-        #expect(view.document === spreadCopy)
+        let spreadPage = try #require(view.document?.page(at: 0))
+        try #require(singlePage.document != nil && singlePage.document !== spreadPage.document)
+        #if DEBUG
+            // The helper installed a different document while initially configuring PDFKit's display mode.
+            let ready = ContinuousClock.now + .seconds(5)
+            while view.shownDocumentCount > 2 && ContinuousClock.now < ready {
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            try #require(view.shownDocumentCount == 2)
+        #endif
+        for _ in 0..<5 {
+            view.apply(single)
+            #expect(view.document === singlePage.document)
+            #expect(spreadPage.document != nil)
+            try await Task.sleep(for: .milliseconds(20))
+            view.apply(spread)
+            #expect(view.document === spreadPage.document)
+            #expect(singlePage.document != nil)
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        // The reader reloads immediately after changing layout. Its old tile can now be two swaps behind.
+        view.configure(replacement, at: 0, options: spread, logicalMargin: nil, showsPageNumbers: true)
+        #expect(singlePage.document != nil && spreadPage.document != nil)
+        #if DEBUG
+            #expect(view.shownDocumentCount == 3)
+            let deadline = ContinuousClock.now + .seconds(5)
+            while view.shownDocumentCount > 2 && ContinuousClock.now < deadline {
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            #expect(view.shownDocumentCount == 2)
+        #endif
+        #expect(spreadPage.document != nil)
         withExtendedLifetime(window) {}
     }
 

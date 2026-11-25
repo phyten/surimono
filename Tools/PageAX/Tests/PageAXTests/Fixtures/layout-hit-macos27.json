@@ -1,0 +1,245 @@
+{
+  "childCount": 13,
+  "children": [
+    {
+      "errors": [],
+      "frame": [
+        [
+          919,
+          123
+        ],
+        [
+          60,
+          16
+        ]
+      ],
+      "role": "AXStaticText"
+    },
+    {
+      "errors": [],
+      "frame": [
+        [
+          990.5,
+          124.5
+        ],
+        [
+          17,
+          13
+        ]
+      ],
+      "role": "AXStaticText"
+    },
+    {
+      "errors": [
+        "AXIdentifier: kAXErrorFailure (-25200)"
+      ],
+      "frame": [
+        [
+          1382,
+          123.5
+        ],
+        [
+          21,
+          15
+        ]
+      ],
+      "role": "AXMenuButton"
+    },
+    {
+      "errors": [],
+      "frame": [
+        [
+          1413,
+          119
+        ],
+        [
+          74,
+          24
+        ]
+      ],
+      "role": "AXButton"
+    },
+    {
+      "errors": [],
+      "frame": [
+        [
+          836,
+          147
+        ],
+        [
+          659,
+          932
+        ]
+      ],
+      "identifier": "A11A30E8-ECB5-402D-916A-063911B9C8A3.paper",
+      "role": "AXGroup"
+    },
+    {
+      "errors": [],
+      "frame": [
+        [
+          847,
+          1090
+        ],
+        [
+          62,
+          16
+        ]
+      ],
+      "role": "AXButton"
+    },
+    {
+      "errors": [],
+      "frame": [
+        [
+          918,
+          1087
+        ],
+        [
+          60.5,
+          22
+        ]
+      ],
+      "role": "AXButton"
+    },
+    {
+      "errors": [],
+      "frame": [
+        [
+          995.5,
+          1086
+        ],
+        [
+          56,
+          24
+        ]
+      ],
+      "role": "AXRadioGroup"
+    },
+    {
+      "errors": [],
+      "frame": [
+        [
+          1063.5,
+          1079
+        ],
+        [
+          260.5,
+          38
+        ]
+      ],
+      "role": "AXUnknown"
+    },
+    {
+      "errors": [],
+      "frame": [
+        [
+          1336,
+          1091
+        ],
+        [
+          51,
+          14
+        ]
+      ],
+      "role": "AXButton"
+    },
+    {
+      "errors": [],
+      "frame": [
+        [
+          1395,
+          1087
+        ],
+        [
+          36,
+          22
+        ]
+      ],
+      "role": "AXButton"
+    },
+    {
+      "errors": [],
+      "frame": [
+        [
+          1439,
+          1087
+        ],
+        [
+          22,
+          22
+        ]
+      ],
+      "role": "AXButton"
+    },
+    {
+      "errors": [],
+      "frame": [
+        [
+          1463,
+          1087
+        ],
+        [
+          22,
+          22
+        ]
+      ],
+      "role": "AXButton"
+    }
+  ],
+  "directlyContainsPaper": true,
+  "external": {
+    "errors": [],
+    "frame": [
+      [
+        836,
+        115
+      ],
+      [
+        659,
+        1002
+      ]
+    ],
+    "role": "AXGroup"
+  },
+  "indexInPaperWindow": 0,
+  "pageFrame": [
+    [
+      836,
+      147
+    ],
+    [
+      658.9899092774813,
+      932.0000000000001
+    ]
+  ],
+  "paperAncestorDistance": 1,
+  "parent": {
+    "errors": [],
+    "frame": [
+      [
+        836,
+        115
+      ],
+      [
+        659,
+        1002
+      ]
+    ],
+    "identifier": "surimono.file.v1.861EED17-FFC4-48A0-B21C-3D83BDF9C401",
+    "role": "AXWindow"
+  },
+  "parentIsPaperWindow": true,
+  "target": {
+    "mouseHitsPaper": true,
+    "page": "A11A30E8-ECB5-402D-916A-063911B9C8A3.page.0",
+    "paperHitIdentifier": "A11A30E8-ECB5-402D-916A-063911B9C8A3.page.0",
+    "point": [
+      889.277827094237,
+      244.4465583854178
+    ],
+    "windowIdentifier": "A11A30E8-ECB5-402D-916A-063911B9C8A3.paper",
+    "windowIsPaperAncestor": false,
+    "windowRole": "AXGroup"
+  }
+}

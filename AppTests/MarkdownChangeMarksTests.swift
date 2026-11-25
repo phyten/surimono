@@ -266,6 +266,34 @@ struct MarkdownChangeMarksTests {
         #expect(fixture.model.currentPageIndex == 2)
     }
 
+    #if DEBUG
+        @Test("同じ紙を30回再描画しても、各描画後の保持は表示中と直前の2世代以内に収まる")
+        func boundsShownDocumentsAfterReloads() async throws {
+            let fixture = try await fixture("Paper generations")
+            defer { fixture.close() }
+            let model = fixture.model
+            let controller = MemoryDocumentWindowController(model: model, onClose: {})
+            defer { controller.close() }
+            controller.window?.orderFront(nil)
+            try await wait { model.paper.probeShows(model.paperDocument) }
+            let paper = try #require(model.paper.attachedProbeView)
+            var peak = 0
+            for _ in 0..<30 {
+                let previous = try #require(model.result?.id)
+                model.reload()
+                try await wait {
+                    model.result?.id != previous && model.isUpToDate && model.paper.probeShows(model.paperDocument)
+                }
+                try #require(model.paper.attachedProbeView === paper)
+                let count = paper.shownDocumentCount
+                #expect((1...2).contains(count))
+                peak = max(peak, count)
+            }
+            #expect(paper.shownDocumentCount == 2)
+            Attachment.record("peak=\(peak) settled=\(paper.shownDocumentCount)", named: "shown-documents.txt")
+        }
+    #endif
+
     @Test("同じ内容の再読み込みでは変更を知らせ直さない")
     func announcesOnce() async throws {
         let fixture = try await fixture("First\n\nSecond")

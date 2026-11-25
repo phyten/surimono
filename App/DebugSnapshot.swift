@@ -597,9 +597,44 @@
         }
 
         static func captureIfReady(_ model: DocumentViewModel) {
+            if let session = DebugPageAXSession.current {
+                guard !scheduled, !captured, model.window != nil,
+                    model.fileURL?.resolvingSymlinksInPath() == session.fixture.resolvingSymlinksInPath()
+                else { return }
+                scheduled = true
+                Task {
+                    do {
+                        try await DebugPageAXSession.run(model, session: session)
+                        captured = true
+                        quitAfterCapture()
+                    } catch let stopped as DebugPageAXSession.ReaderStopped {
+                        logger.error("\(stopped.reason, privacy: .public)")
+                        exit(4)
+                    } catch {
+                        DebugSnapshotProgress.failed(error)
+                        exit(EXIT_FAILURE)
+                    }
+                }
+                return
+            }
             // A restored window can finish rendering before the requested download.
             if openURLArgument != nil, firstDocument !== model { return }
             if firstDocument == nil { firstDocument = model }
+            if let path = ShownDocumentsProbe.path {
+                guard firstDocument === model, !scheduled, !captured, model.window != nil else { return }
+                scheduled = true
+                Task { @MainActor in
+                    do {
+                        try await ShownDocumentsProbe.run(model, path: path)
+                        captured = true
+                        quitAfterCapture()
+                    } catch {
+                        DebugSnapshotProgress.failed(error)
+                        exit(EXIT_FAILURE)
+                    }
+                }
+                return
+            }
             if firstDocument === model, !captured, !scheduled, model.isUpToDate,
                 let kind = argument("SurimonoExport"), let path = argument("SurimonoExportPath"), path.hasPrefix("/")
             {
