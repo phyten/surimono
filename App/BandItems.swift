@@ -68,6 +68,7 @@ extension BandLayout.Item {
 
 /// One item of the band in the given form.
 struct BandItemView: View {
+    @Environment(\.locale) private var locale
     @Bindable var model: DocumentViewModel
     let item: BandLayout.Item
     let form: BandLayout.Form
@@ -86,24 +87,27 @@ struct BandItemView: View {
                     FormatBadge(text: model.formatBadge(in: form))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(Text(verbatim: recognition.explanation))
+                .accessibilityLabel(Text(item.bandAccessibilityName))
+                .accessibilityValue(Text(verbatim: recognition.label))
+                .accessibilityHint(Text(verbatim: recognition.explanation))
             } else {
                 FormatBadge(text: model.formatBadge)
             }
         case .readingSettings:
             BandDrawerButton(
-                title: "Reading Settings", symbol: "sidebar.right", showsName: form == .full,
+                title: item.bandAccessibilityName, symbol: "sidebar.right", showsName: form == .full,
                 selected: model.isReadingPanelOpen, showsDot: model.orgDocumentReading.changedCount > 0
             ) {
                 model.isReadingPanelOpen.toggle()
             }.help("Reading Settings")
-                .accessibilityValue(Text("Changed in This Document: \(model.orgDocumentReading.changedCount)"))
+                .accessibilityValue(Text(BandAccessibility.readingChanges(model.orgDocumentReading.changedCount)))
         case .chapter: CurrentChapterButton(model: model, trailing: trailing)
         case .pageIndicator: PageIndicatorButton(model: model, showsStatusName: form == .full)
         case .pageTurn: PageTurnButtons(model: model)
         case .outline:
             BandDrawerButton(
-                title: "Contents", symbol: "list.bullet", showsName: form == .full, selected: model.isOutlineShown
+                title: item.bandAccessibilityName, symbol: "list.bullet", showsName: form == .full,
+                selected: model.isOutlineShown
             ) { model.toggleOutline() }
             .disabled(!model.hasContents)
             .opacity(model.hasContents ? 1 : 0.5)
@@ -121,16 +125,18 @@ struct BandItemView: View {
             } label: {
                 Text(verbatim: model.zoomPercentage).monospacedDigit()
             }
+            .accessibilityLabel(Text(item.bandAccessibilityName))
+            .accessibilityValue(Text(verbatim: BandAccessibility.zoomValue(model.displayedZoom, locale: locale)))
             .help(ShortcutHints.help(String(localized: "Fit to Window"), [.viewZoomFit]))
         case .thumbnails:
             if let binder = model.binder {
                 Toggle(isOn: model.controlBinding(get: \.isDrawerOpen, set: { $0.setSideListOpen($1) })) {
-                    Text("Documents \(binder.items.count)")
+                    Text(BandAccessibility.documents(binder.items.count))
                 }
                 .toggleStyle(.button).help(ShortcutHints.help(String(localized: "List"), [.listToggle]))
             } else if model.imageBundle != nil {
                 BandDrawerButton(
-                    title: "Pages Tab", symbol: "square.grid.2x2", showsName: form == .full,
+                    title: item.bandAccessibilityName, symbol: "square.grid.2x2", showsName: form == .full,
                     selected: model.showsSideList
                 ) { model.setSideListOpen(!model.isDrawerOpen) }
                 .help(ShortcutHints.help(String(localized: "Pages Tab"), [.listToggle]))
@@ -138,7 +144,7 @@ struct BandItemView: View {
         case .floatOnTop: FloatOnTopButton(model: model)
         case .showOnAllSpaces:
             Toggle(isOn: model.controlBinding(\.showsOnAllSpaces)) {
-                Label("Show on All Spaces", systemImage: "rectangle.on.rectangle")
+                Label(item.bandAccessibilityName, systemImage: "rectangle.on.rectangle")
                     .labelStyle(.iconOnly)
                     .selectionRule(model.showsOnAllSpaces)
                     .foregroundStyle(model.showsOnAllSpaces ? PrintPalette.ai : PrintPalette.ink)
@@ -171,7 +177,7 @@ struct PresentationPicker: View {
         .background(CornerRole.control.shape.fill(PrintPalette.press))
         .fixedSize()
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(Text("Web or Paper"))
+        .accessibilityLabel(Text(BandLayout.Item.presentation.bandAccessibilityName))
     }
 
     private func segment(_ presentation: HTMLPresentation) -> some View {
@@ -269,11 +275,7 @@ struct PageIndicatorText: View {
                 .fixedSize()
             }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(
-                Text(
-                    verbatim: model.isVisiblePageBookmarked
-                        ? indicator + ", " + String(localized: "Bookmarked") : indicator)
-            )
+            .accessibilityLabel(Text(verbatim: model.pageIndicatorAccessibilityValue))
             .accessibilityValue(Text("Preparing pages…"), isEnabled: model.isPreparingWholeDocument)
         }
     }
@@ -283,6 +285,12 @@ struct PageIndicatorText: View {
             Color.clear.frame(width: 12, height: 12)
             if showsStatusName { Text("Preparing") }
         }
+    }
+}
+
+extension DocumentViewModel {
+    fileprivate var pageIndicatorAccessibilityValue: String {
+        BandAccessibility.pageIndicator(pageIndicator, bookmarked: isVisiblePageBookmarked)
     }
 }
 
@@ -314,6 +322,8 @@ struct PageIndicatorButton: View {
             .buttonStyle(.plain)
             .onHover { hovered = $0 }
             .pointerStyle(.link)
+            .accessibilityLabel(Text(BandLayout.Item.pageIndicator.bandAccessibilityName))
+            .accessibilityValue(Text(verbatim: model.pageIndicatorAccessibilityValue))
             .help(
                 model.isPreparingWholeDocument
                     ? PageIndicatorText.preparingHelp
@@ -350,6 +360,7 @@ private struct BandDrawerButton: View {
         }
         .buttonStyle(.plain)
         .fixedSize()
+        .accessibilityLabel(Text(title))
         .onHover { hovered = $0 }
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
@@ -368,8 +379,10 @@ struct PageTurnButtons: View {
         .fixedSize()
     }
 
+    static func title(forward: Bool) -> LocalizedStringKey { forward ? "Next Page" : "Previous Page" }
+
     private func turn(_ symbol: String, forward: Bool) -> some View {
-        let title: LocalizedStringKey = forward ? "Next Page" : "Previous Page"
+        let title = Self.title(forward: forward)
         return Button {
             model.paper.turnPage(forward: forward)
         } label: {
@@ -379,6 +392,7 @@ struct PageTurnButtons: View {
                 .foregroundStyle(PrintPalette.ink)
         }
         .disabled(!model.canTurnPaperPage(forward: forward))
+        .accessibilityLabel(Text(title))
         .help(
             ShortcutHints.help(
                 forward ? String(localized: "Next Page") : String(localized: "Previous Page"),
@@ -422,7 +436,7 @@ struct TransitionMenu: View {
         .buttonStyle(.plain)
         .menuIndicator(.hidden)
         .fixedSize()
-        .accessibilityLabel(Text("Page Turn"))
+        .accessibilityLabel(Text(BandLayout.Item.transition.bandAccessibilityName))
         .accessibilityValue(Text(model.viewOptions.transition.title))
         .help("Page Turn")
     }
@@ -445,6 +459,8 @@ struct TransitionPicker: View {
 /// Lays out every applicable item in each of its forms out of sight and records the widths, so the band can decide
 /// what fits without trying arrangements on screen.
 struct BandMeasurements: View {
+    static let isHiddenFromAccessibility = true
+
     @Bindable var model: DocumentViewModel
     let items: [BandLayout.Item]
     let menu: OverlayMenuState
@@ -474,7 +490,7 @@ struct BandMeasurements: View {
         .controlSize(ViewerWindow.bandControlSize)
         .hidden()
         .allowsHitTesting(false)
-        .accessibilityHidden(true)
+        .accessibilityHidden(Self.isHiddenFromAccessibility)
     }
 
     private func measure<Content: View>(_ slot: BandSlot, @ViewBuilder _ content: () -> Content) -> some View {

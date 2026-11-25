@@ -366,6 +366,8 @@ struct RecentFileRow: View {
         }
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
+        .accessibilityLabel(Text(verbatim: url.lastPathComponent))
+        .accessibilityValue(Text(verbatim: Self.folder(of: url)))
         .help(url.path)
     }
 

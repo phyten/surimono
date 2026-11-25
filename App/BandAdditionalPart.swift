@@ -64,7 +64,7 @@ struct BandAdditionalPart: View {
                 .disabled(!entry.isEnabled || hidesIssues)
                 .help(help(entry, content: content))
                 .accessibilityIdentifier("band.part." + item.rawValue)
-                .accessibilityLabel(Text(verbatim: item == .beforePrinting ? entry.title : item.editorName))
+                .accessibilityLabel(Text(item.bandAccessibilityName))
                 .accessibilityValue(Text(verbatim: accessibilityValue(entry)))
         }
     }
@@ -161,12 +161,8 @@ struct BandAdditionalPart: View {
     }
 
     private func accessibilityValue(_ entry: BandMenuContent.Entry) -> String {
-        if let value = entry.value { return value }
-        if let checked = entry.isChecked { return checked ? String(localized: "On") : String(localized: "Off") }
-        if item == .viewOptions || item == .printSettings {
-            return isOpen ? String(localized: "Open") : String(localized: "Closed")
-        }
-        return ""
+        item.bandAccessibilityValue(
+            choice: entry.value, checked: entry.isChecked, isOpen: isOpen, issueCount: model.printIssueCount)
     }
 
     private func help(_ entry: BandMenuContent.Entry, content: BandMenuContent) -> String {

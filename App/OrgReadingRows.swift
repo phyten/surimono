@@ -263,7 +263,9 @@ struct OrgReadingRows: View {
                             : (model == nil
                                 ? String(localized: "Restore shipping value: \(inherited.title)")
                                 : String(localized: "Restore Org default: \(inherited.title)"))
-                        OrgReadingResetButton(help: help) { set(inherited) }
+                        OrgReadingResetButton(help: help, name: Text("Revert \(String(localized: label))")) {
+                            set(inherited)
+                        }
                     } else if model == nil {
                         Color.clear.frame(width: 16, height: 1).accessibilityHidden(true)
                     }
@@ -296,11 +298,15 @@ struct OrgReadingRows: View {
 
 struct OrgReadingResetButton: View {
     let help: String
+    var name = Text("Restore Default")
     let action: () -> Void
 
     var body: some View {
         Button(action: action) { Image(systemName: "arrow.counterclockwise") }
-            .buttonStyle(.plain).help(help).accessibilityLabel(Text(verbatim: help)).frame(width: 16)
+            .buttonStyle(.plain).help(help)
+            .accessibilityLabel(name)
+            .accessibilityHint(Text(verbatim: help))
+            .frame(width: 16)
     }
 }
 

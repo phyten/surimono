@@ -77,6 +77,9 @@ private struct ImageBundleList: View {
                             pointedRow.wrappedValue = nil
                         }
                     }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel(Text(verbatim: item.name))
+                    .accessibilityValue(Text("Page \(index + 1)"))
                     .tag(item.url).id(item.url).help(item.name)
                     .background {
                         if bundle.flashedURLs.contains(item.url) {
@@ -138,6 +141,7 @@ private struct ImageThumbnail: View {
                 Image(systemName: "photo").foregroundStyle(PrintPalette.ink2)
             }
         }
+        .accessibilityHidden(true)
         .frame(width: 30, height: 40)
         .task(id: item) {
             guard let data = await model.data(for: item) else { return }

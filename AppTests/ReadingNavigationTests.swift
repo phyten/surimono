@@ -264,6 +264,14 @@ struct ReadingNavigationTests {
         #expect(model.bookmarkPages == [0, 10])
     }
 
+    @Test("引き出し幅の読み上げ操作はドラッグ中だけ増減を見送る")
+    func adjustingDrawerWidthDuringDrag() {
+        #expect(ContentsDivider.adjustedWidth(230, direction: .increment, initialWidth: 200) == nil)
+        #expect(ContentsDivider.adjustedWidth(230, direction: .decrement, initialWidth: 200) == nil)
+        #expect(ContentsDivider.adjustedWidth(230, direction: .increment, initialWidth: nil) == 240)
+        #expect(ContentsDivider.adjustedWidth(230, direction: .decrement, initialWidth: nil) == 220)
+    }
+
     @Test("引き出しの開閉・幅・タブだけを変えても文書ごとに復元できる", .timeLimit(.minutes(1)))
     func remembersPanel() async throws {
         let fixture = Fixture()
