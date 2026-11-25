@@ -84,8 +84,7 @@ public enum MathRenderer {
         }
         let nodes = sansMathAlphabet ? parsed.map { sansLetter($0, depth: 0) } : parsed
         let options = LayoutOptions(style: display ? .display : .text)
-        guard !PreviewConversion.expired else { return nil }
-        let box = layout(nodes, options: options)
+        guard let box = checkedLayout(nodes, options: options) else { return nil }
         guard !PreviewConversion.expired else { return nil }
         let list = toDisplayList(box)
         guard !reportTruncation || !list.truncated else { return nil }
@@ -135,6 +134,11 @@ public enum MathRenderer {
         return result
     }
 
+    private static func checkedLayout(_ nodes: [ParseNode], options: LayoutOptions) -> LayoutBox? {
+        guard MathLayoutLimits.accepts(nodes), !PreviewConversion.expired else { return nil }
+        return layout(nodes, options: options)
+    }
+
     /// Some formats leave tags inside SwaTex's SVG. A phantom keeps the tag column's
     /// exact dimensions, giving us the same paint sequence with just those marks omitted.
     private static func tagAttribute(nodes: [ParseNode], options: LayoutOptions, renderer: SVGRenderer, svg: String)
@@ -165,8 +169,8 @@ public enum MathRenderer {
             })
         else { return "" }
         let masked = nodes.map(mask)
-        guard !PreviewConversion.expired else { return "" }
-        let clean = renderer.render(toDisplayList(layout(masked, options: options)))
+        guard let box = checkedLayout(masked, options: options) else { return "" }
+        let clean = renderer.render(toDisplayList(box))
         // The renderer emits a flat sequence of self-closing shapes and text elements.
         // Include each item's closing tag when comparing, including the glyph's text.
         let shapes = clean.components(separatedBy: "><").dropFirst().dropLast()

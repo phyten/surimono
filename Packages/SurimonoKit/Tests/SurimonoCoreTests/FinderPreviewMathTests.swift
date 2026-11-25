@@ -17,6 +17,20 @@ extension FinderPreviewTests {
         }
     }
 
+    @Test("過大な寸法と疎な行列だけを原文で示し、次の数式と本文を表示する")
+    func mathLayoutBounds() throws {
+        let sparseRow = String(repeating: "&", count: 90) + "x"
+        let sparse = #"\begin{matrix}"# + sparseRow + String(repeating: #"\\"#, count: 90) + #"x\end{matrix}"#
+        let html = try mathPreview(
+            #"Before $\left|\rule{0pt}{4097em}\right|$."# + "\n\n$$" + sparse + "$$\n\nNext $z$. Tail.", suffix: "md")
+        #expect(html.components(separatedBy: "class=\"math-error\"").count - 1 == 2)
+        #expect(html.contains("4097em"))
+        #expect(html.contains(#"\begin{matrix}"#))
+        #expect(html.components(separatedBy: "<svg ").count - 1 == 1)
+        #expect(html.contains(#"aria-label="z""#))
+        #expect(html.contains("Tail."))
+    }
+
     @Test("千個の短い数式をすべて SVG にして末尾の本文まで読める", arguments: ["md", "tex"])
     func thousandFormulas(_ suffix: String) throws {
         let paper = (0..<1_000).map { "$\($0)$" }.joined(separator: " ")
