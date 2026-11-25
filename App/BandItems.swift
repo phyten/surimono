@@ -276,7 +276,6 @@ struct PageIndicatorText: View {
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text(verbatim: model.pageIndicatorAccessibilityValue))
-            .accessibilityValue(Text("Preparing pages…"), isEnabled: model.isPreparingWholeDocument)
         }
     }
 
@@ -290,7 +289,8 @@ struct PageIndicatorText: View {
 
 extension DocumentViewModel {
     fileprivate var pageIndicatorAccessibilityValue: String {
-        BandAccessibility.pageIndicator(pageIndicator, bookmarked: isVisiblePageBookmarked)
+        BandAccessibility.pageIndicator(
+            pageIndicator, bookmarked: isVisiblePageBookmarked, preparing: isPreparingWholeDocument)
     }
 }
 

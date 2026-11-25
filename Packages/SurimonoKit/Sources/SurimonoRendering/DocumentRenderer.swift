@@ -1571,6 +1571,7 @@ public final class DocumentRenderer {
                 source, pageBreakLine: settings.finish.breaks.customLine, proof: settings.finish.proof,
                 orgReading: settings.orgReading,
                 composition: settings.latexComposition, textWidthPoints: settings.textWidthPoints(in: settings.layout),
+                textScale: settings.textScale,
                 mapsMarkdownSource: !settings.markdownChanges.isEmpty, access: access,
                 onDenied: { needsFolderAccess.set() },
                 imageExists: { url in
@@ -2130,7 +2131,8 @@ public final class DocumentRenderer {
     nonisolated static func themedFragment(
         _ source: DocumentSource, pageBreakLine: String = "", proof: ProofMarks = .shown,
         orgReading: OrgReadingSettings = .init(),
-        composition: LaTeXComposition = .document, textWidthPoints: Double? = nil, mapsMarkdownSource: Bool = false,
+        composition: LaTeXComposition = .document, textWidthPoints: Double? = nil, textScale: Double = 1,
+        mapsMarkdownSource: Bool = false,
         access: LocalResourceAccess? = nil,
         onDenied: @escaping @Sendable () -> Void = {},
         imageExists: @escaping @Sendable (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
@@ -2180,7 +2182,7 @@ public final class DocumentRenderer {
                 try decodedText(source.data), settings: orgReading,
                 fileName: source.fileURL?.lastPathComponent ?? source.name)
         case .plainText, .csv:
-            try DecodedPages(source).fragment()
+            try DecodedPages(source, textWidthPoints: textWidthPoints, textScale: textScale).fragment()
         default: nil
         }
     }
@@ -2196,7 +2198,7 @@ public final class DocumentRenderer {
         case text(String, original: String?, language: SourceLanguage?, highlights: Bool)
         case table(ArraySlice<[String]>, columnGroup: String?)
 
-        init(_ source: DocumentSource) throws {
+        init(_ source: DocumentSource, textWidthPoints: Double?, textScale: Double) throws {
             if source.format == .plainText {
                 guard source.data.count <= PageLayoutLimits.plainTextBytes else {
                     throw RenderingError.tooLarge(bytes: source.data.count)
@@ -2222,7 +2224,9 @@ public final class DocumentRenderer {
                     }
                     if count.isMultiple(of: 1024) { try Task.checkCancellation() }
                 }
-                self = .table(rows[...], columnGroup: ReadingPrefix.csvColumnGroup(in: rows))
+                let width = textWidthPoints.map { $0 / TextScale.clamped(textScale) }
+                self = .table(
+                    rows[...], columnGroup: ReadingPrefix.csvColumnGroup(in: rows, widthAtDefaultScale: width))
             }
         }
 
@@ -2250,9 +2254,10 @@ public final class DocumentRenderer {
             }
         }
 
-        @concurrent static func read(_ source: DocumentSource) async throws -> Self {
+        @concurrent static func read(_ source: DocumentSource, settings: RenderSettings) async throws -> Self {
             try Task.checkCancellation()
-            return try Self(source)
+            return try Self(
+                source, textWidthPoints: settings.textWidthPoints(in: settings.layout), textScale: settings.textScale)
         }
 
         @concurrent func input() async throws -> ThemedInput {
@@ -2269,7 +2274,7 @@ public final class DocumentRenderer {
     private func readingInput(
         _ source: DocumentSource, settings: RenderSettings, onPreview: @MainActor (ReadingPreview) -> Void
     ) async throws -> ThemedInput {
-        let decoded = try await DecodedPages.read(source)
+        let decoded = try await DecodedPages.read(source, settings: settings)
         if let leading = try await decoded.leadingInput(sourceBytes: source.data.count) {
             // Keep the short layout out of the complete document and sheet caches. A failed preview is optional.
             let reader = DocumentRenderer(isSandboxed: isSandboxed, paginateWithResult: paginate)

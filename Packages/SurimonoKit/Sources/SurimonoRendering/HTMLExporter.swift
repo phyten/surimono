@@ -40,7 +40,7 @@ public enum HTMLExporter {
                             source, pageBreakLine: input.finish.breaks.customLine, proof: input.finish.proof,
                             orgReading: input.orgReading,
                             composition: input.latexComposition,
-                            textWidthPoints: input.textWidthPoints(in: input.layout))
+                            textWidthPoints: input.textWidthPoints(in: input.layout), textScale: input.textScale)
                     }
                 ).value
             else { throw DocumentRenderer.RenderingError.unsupportedFormat }

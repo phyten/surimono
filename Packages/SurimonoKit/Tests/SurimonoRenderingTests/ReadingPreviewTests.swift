@@ -10,12 +10,14 @@ struct ReadingPreviewTests {
         "先頭と全文を同じ用紙で順に組み、完成済みの文書は先頭から組み直さない",
         .timeLimit(.minutes(1)), arguments: [5_000, 5_001])
     func readingPasses(records: Int) async throws {
+        let row = "1,\"a,b\",104,2026-11-25,a long note that needs most of the remaining width\r\n"
         let text =
-            "head,value\r\n" + String(repeating: "\"a,b\",123\r\n", count: records - 2) + "LAST_RECORD,456,later column"
+            "id,name,amount,date,note\r\n" + String(repeating: row, count: records - 2)
+            + "LAST_RECORD,tail,456,2026-11-26,end,later column"
         let source = DocumentSource(data: Data(text.utf8), format: .csv)
         let settings = RenderSettings(
             layout: .a4Single, theme: PrintTheme(id: "test", name: "Test", css: ""),
-            preset: HTMLCleanupPreset(id: "none", name: "None"))
+            preset: HTMLCleanupPreset(id: "none", name: "None"), textScale: 1.25)
         var events: [String] = []
         var sizes: [CGSize] = []
         var groups: [Substring] = []
@@ -26,7 +28,9 @@ struct ReadingPreviewTests {
                     Issue.record("CSVのHTMLが渡されなかった")
                     return try RenderingFixtures.pdf()
                 }
-                #expect(html.contains("<thead><tr><th>head</th><th>value</th></tr></thead>"))
+                #expect(
+                    html.contains(
+                        "<thead><tr><th>id</th><th>name</th><th>amount</th><th>date</th><th>note</th></tr></thead>"))
                 #expect(html.contains("<td>a,b</td>"))
                 if let start = html.range(of: "<colgroup>"), let end = html.range(of: "</colgroup>") {
                     groups.append(html[start.upperBound..<end.lowerBound])
@@ -47,7 +51,13 @@ struct ReadingPreviewTests {
         #expect(events == (records == 5_000 ? ["complete"] : ["prefix", "shown", "complete"]))
         if records > 5_000 {
             #expect(groups.count == 2 && groups.first == groups.last)
-            #expect(groups.first?.components(separatedBy: "style=\"width:").count == 4)
+            let first = try #require(groups.first)
+            let widths = first.matches(of: /<col(?: span="([0-9]+)")? style="width:([0-9.]+)%">/).flatMap { match in
+                Array(repeating: Double(match.2)!, count: match.1.flatMap { Int($0) } ?? 1)
+            }
+            try #require(widths.count == 6)
+            let textWidth = settings.textWidthPoints(in: settings.layout) / settings.textScale
+            #expect(widths[2] / 100 * textWidth >= 57.5 - 0.0001 && widths[5] / 100 * textWidth >= 57.5 - 0.0001)
         } else {
             #expect(groups.isEmpty)
         }
@@ -56,6 +66,7 @@ struct ReadingPreviewTests {
         events.removeAll()
         _ = try await renderer.prepare(source, settings: settings)
         #expect(events == ["complete"])
+        if records > 5_000 { #expect(groups.count == 3 && groups.last == groups.first) }
         #expect(sizes.allSatisfy { $0 == sizes.first })
     }
 

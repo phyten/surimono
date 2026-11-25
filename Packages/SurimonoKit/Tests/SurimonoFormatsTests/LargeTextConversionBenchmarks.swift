@@ -40,6 +40,25 @@ struct LargeTextConversionBenchmarks {
         }
     }
 
+    @Test(
+        "解析済みのCSV全行から列幅を決める時間を計測する",
+        .enabled(if: ProcessInfo.processInfo.environment["SURIMONO_BENCH_LARGE_TEXT"]?.hasPrefix("csv") == true))
+    func columnWidths() throws {
+        let input = try #require(
+            Input(rawValue: ProcessInfo.processInfo.environment["SURIMONO_BENCH_LARGE_TEXT"] ?? ""))
+        let rows = CSVConverter.records(TextDecoding.decode(input.bytes()).text, delimiter: ",") { _ in }
+        try #require(rows.count == input.rows)
+        var times: [Double] = []
+        for _ in 0..<5 {
+            let start = ContinuousClock.now
+            let group = ReadingPrefix.csvColumnGroup(in: rows)
+            let elapsed = start.duration(to: .now).components
+            times.append(Double(elapsed.seconds) + Double(elapsed.attoseconds) / 1e18)
+            try #require(group != nil)
+        }
+        print("BENCH \(input.rawValue) columnWidthSeconds=\(times) median=\(times.sorted()[2])")
+    }
+
     @Test("大容量ログとCSVのデコードからHTML断片ができるまでを計測する")
     func convert() throws {
         let input = try #require(

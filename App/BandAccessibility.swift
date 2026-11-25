@@ -41,8 +41,16 @@ enum BandAccessibility {
         zoom.formatted(.percent.precision(.fractionLength(0)).locale(locale))
     }
 
-    static func pageIndicator(_ indicator: String?, bookmarked: Bool) -> String {
-        [indicator, bookmarked ? String(localized: "Bookmarked") : nil].compactMap { $0 }.joined(separator: ", ")
+    static func pageIndicator(_ indicator: String?, bookmarked: Bool, preparing: Bool = false) -> String {
+        [
+            preparing ? String(localized: "Preparing pages…") : nil, indicator,
+            bookmarked ? String(localized: "Bookmarked") : nil,
+        ]
+        .compactMap { $0 }.joined(separator: ", ")
+    }
+
+    static func printAction(pending: Bool) -> (title: LocalizedStringResource, help: LocalizedStringResource) {
+        pending ? ("Print When Ready", "Cancel") : (BandLayout.Item.print.editorNameResource, "Open the print screen")
     }
 }
 

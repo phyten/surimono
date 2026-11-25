@@ -572,19 +572,20 @@ struct PrintButton: View {
     static let titleKey = BandLayout.Item.print.editorNameResource.key
 
     var body: some View {
+        let pending = model.previewPrintRequest.destination != nil
+        let action = BandAccessibility.printAction(pending: pending)
         Button {
             model.performPrintCommand()
         } label: {
-            if model.previewPrintRequest.destination != nil {
+            if pending {
                 HStack(spacing: 4) {
                     ProgressView().controlSize(.mini).tint(.white)
-                    if !iconOnly { Text("Print When Ready") }
+                    if !iconOnly { Text(action.title) }
                 }
-                .accessibilityLabel(Text("Print When Ready"))
             } else if iconOnly {
-                Label(LocalizedStringKey(Self.titleKey), systemImage: "printer").labelStyle(.iconOnly)
+                Label(LocalizedStringKey(action.title.key), systemImage: "printer").labelStyle(.iconOnly)
             } else {
-                Label(LocalizedStringKey(Self.titleKey), systemImage: "printer").labelStyle(.titleAndIcon)
+                Label(LocalizedStringKey(action.title.key), systemImage: "printer").labelStyle(.titleAndIcon)
             }
         }
         .cornerButton(model.preferences.corners, .print)
@@ -594,11 +595,8 @@ struct PrintButton: View {
         // The file name gives way to the one button that must always show in full.
         .fixedSize()
         .disabled(!model.canPerformPrintCommand)
-        .accessibilityLabel(Text(BandLayout.Item.print.bandAccessibilityName))
-        .help(
-            ShortcutHints.help(
-                model.previewPrintRequest.destination == nil
-                    ? String(localized: "Open the print screen") : String(localized: "Cancel"), [.documentPrint]))
+        .accessibilityLabel(Text(action.title))
+        .help(ShortcutHints.help(String(localized: action.help), [.documentPrint]))
     }
 }
 
