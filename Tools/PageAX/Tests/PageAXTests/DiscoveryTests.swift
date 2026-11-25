@@ -307,6 +307,16 @@ struct DiscoveryTests {
         #expect(failures.allSatisfy { $0.detail?.contains($0.phase) == true })
     }
 
+    @Test("操作後の段のうち照合できなかった段だけが失敗になり、後の段が照合できても成功に戻らない")
+    func someLaterStageNotCompared() {
+        let last = checkReferences(in: [0, 1], after: "layout")
+        #expect(last.status == 1)
+        #expect(last.observations.filter { $0.outcome == "failure" }.map(\.phase) == ["reload"])
+        let middle = checkReferences(in: [0, 2], after: "layout")
+        #expect(middle.status == 1)
+        #expect(middle.observations.filter { $0.outcome == "failure" }.map(\.phase) == ["layout"])
+    }
+
     @Test("すべての段で独立の参照枠と照合できれば成功する")
     func everyStageCompared() {
         let report = checkReferences(in: [0, 1, 2], after: "layout")
