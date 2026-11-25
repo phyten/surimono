@@ -1789,14 +1789,16 @@ final class LaTeXReader {
         if math.contains("\\ref") || math.contains("\\eqref") {
             document.deferredMath.append(
                 .init(
-                    latex: math, display: display, fallback: source, macros: document.mathDefinitions.source,
+                    latex: math, display: display, fallback: source,
+                    macros: document.mathDefinitions.preamble(for: math),
                     numbers: numbers)
             )
             return anchor + document.placeholder("M", document.deferredMath.count - 1)
         }
         return anchor
             + document.mathHTML(
-                math, display: display, macros: document.mathDefinitions.source, source: source, numbers: numbers)
+                math, display: display, macros: document.mathDefinitions.preamble(for: math), source: source,
+                numbers: numbers)
     }
 
     private func inlineMath(closing: String) {
@@ -1890,7 +1892,8 @@ final class LaTeXReader {
         if value.contains(where: { "\\{}$".contains($0) }) {
             let source = "\\tag" + (tag.starred ? "*" : "") + "{" + value + "}"
             return document.mathHTML(
-                source, display: false, macros: document.mathDefinitions.source, source: source, numbers: [])
+                source, display: false, macros: document.mathDefinitions.preamble(for: source), source: source,
+                numbers: [])
         }
         return HTML.escape(tag.starred ? value : "(" + value + ")")
     }

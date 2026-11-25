@@ -79,13 +79,12 @@ public struct FinderPreview: Sendable {
             func localized(_ key: String) -> String { bundle.localizedString(forKey: key, value: nil, table: nil) }
             let message: String
             switch error {
-            case _ where ContinuousClock.now >= deadline || Task.isCancelled:
+            case _ where ContinuousClock.now >= deadline:
                 message = localized("This document is too complex to preview.")
             case Failure.encoding: message = localized("The text encoding could not be read without data loss.")
             case Failure.unsupported: message = localized("This document format is not supported.")
             case CocoaError.fileReadTooLarge: message = localized("This file is too large to preview.")
-            case Failure.complexity, is CancellationError:
-                message = localized("This document is too complex to preview.")
+            case Failure.complexity: message = localized("This document exceeds the preview size limits.")
             default: message = localized("The document could not be loaded.")
             }
             return errorPage(message)

@@ -60,11 +60,14 @@ public enum MathRenderer {
         _ latex: String, display: Bool, macros: String, rowNumberHTML: [String?], measureRows: Bool = false,
         reportTruncation: Bool = true, sansMathAlphabet: Bool = false, originalSource: String? = nil
     ) -> String? {
-        if let preview = PreviewConversion.current,
+        let preview = PreviewConversion.current
+        if let preview,
             !preview.reserveFormula(bodyBytes: latex.utf8.count, macroBytes: macros.utf8.count)
         {
             return nil
         }
+        let start = preview?.now()
+        defer { if let start { preview?.recordMathTime(since: start) } }
         let source = latex.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !PreviewConversion.expired, !source.isEmpty, let parsed = try? parseLaTeX(macros + source) else {
             return nil

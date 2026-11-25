@@ -5,11 +5,11 @@ import Testing
 @testable import SurimonoCore
 
 struct FinderPreviewTests {
-    func withDirectory(_ test: (URL) throws -> Void) throws {
+    func withDirectory<T>(_ test: (URL) throws -> T) throws -> T {
         let url = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: url) }
-        try test(url)
+        return try test(url)
     }
 
     @Test("標準スタイルで言語・数式の SVG と書体・コードの色を保ち、紙への改ページを入れない")
@@ -232,17 +232,17 @@ struct FinderPreviewTests {
         }
     }
 
-    @Test("行数と生成 HTML の予算超過を複雑すぎる文書として知らせる")
+    @Test("行数と生成 HTML の上限超過をプレビューのサイズ制限として知らせる")
     func complexityLimits() throws {
         try withDirectory { directory in
             let url = directory.appendingPathComponent("paper.md")
             try Data(repeating: 10, count: 100_000).write(to: url)
-            #expect(FinderPreview.make(for: url).html.contains("This document is too complex to preview."))
+            #expect(FinderPreview.make(for: url).html.contains("This document exceeds the preview size limits."))
             try Data("paper".utf8).write(to: url)
             let preview = FinderPreview.make(for: url, deadline: .now + .seconds(10)) { _, _, _ in
                 HTMLFragment(body: String(repeating: "x", count: DocumentSizeLimits.htmlBytes + 1))
             }
-            #expect(preview.html.contains("This document is too complex to preview."))
+            #expect(preview.html.contains("This document exceeds the preview size limits."))
             #expect(preview.html.utf8.count < 1024 && preview.attachments.isEmpty)
         }
     }

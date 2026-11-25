@@ -281,14 +281,8 @@ final class LaTeXDocument {
     var macros: [String: Macro] = [:]
     var hasExtendedMathDefinitions = false
     var environments: [String: (begin: Macro, end: String)] = [:]
-    /// Definitions given to every formula, so commands defined in the preamble work in math too.
-    // In a formula TeX is already in math mode. This identity also works inside nested
-    // ordinary macros that SwaTex expands itself, without changing the accessible source.
-    struct MathDefinitions {
-        var source = "\\def\\ensuremath#1{#1}"
-        var containsOnlyPrimitiveDefinitions = true
-    }
-    var mathDefinitions = MathDefinitions()
+    // Formulas already run in math mode, including inside macros that expand through SwaTex.
+    var mathDefinitions = MathDefinitions(source: #"\def\ensuremath#1{#1}"#)
     var booleans: [String: Bool] = [:]
     var toggles: [String: Bool] = [:]
     var loopMathNames: Set<String> = []

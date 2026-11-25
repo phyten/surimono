@@ -43,7 +43,7 @@ final class OrgContext {
     var notes: [String: Note] = [:]
     var propertiesByHeading: [Int: [String: String]] = [:]
     /// Definitions from `#+LATEX_HEADER:` lines, given to every formula.
-    var mathDefinitions = ""
+    private var mathDefinitions = MathDefinitions()
     var equationCount = 0
     /// What the document's `#+OPTIONS:` lines set, gathered by the discovery pass.
     var options = OrgExportOptions()
@@ -74,8 +74,11 @@ final class OrgContext {
     /// A formula as HTML, or its source marked as unreadable. The discovery pass draws nothing.
     func formula(_ latex: String, display: Bool, source: String) -> String {
         guard !discovering else { return "" }
+        guard let macros = mathDefinitions.preamble(for: latex) else {
+            return MathRenderer.fallback(source, display: display)
+        }
         return MathRenderer.html(
-            latex, display: display, macros: mathDefinitions, rowNumberHTML: [], reportTruncation: false,
+            latex, display: display, macros: macros, rowNumberHTML: [], reportTruncation: false,
             originalSource: MathRenderer.withoutDelimiters(source))
             ?? MathRenderer.fallback(source, display: display)
     }
@@ -100,9 +103,13 @@ final class OrgContext {
         if ["TITLE", "SUBTITLE", "AUTHOR", "DATE", "LANGUAGE"].contains(key) { metadata[key] = value }
         if key == "OPTIONS" { options.read(value, fileName: fileName, lineNumber: lineNumber, lines: lines) }
         if key == "LATEX_HEADER" || key == "LATEX_HEADER_EXTRA",
-            let definition = OrgMath.definition(value, after: mathDefinitions)
+            let definition = OrgMath.definition(value)
         {
-            mathDefinitions += definition
+            if mathDefinitions.preview != nil {
+                if discovering { mathDefinitions.preview?.appendHeader(definition) }
+            } else if MathRenderer.html("x", display: false, macros: mathDefinitions.source + definition) != nil {
+                mathDefinitions.source += definition
+            }
         }
         if OrgTaskKeywords.directives.contains(key) { taskKeywords.declare(value) }
     }

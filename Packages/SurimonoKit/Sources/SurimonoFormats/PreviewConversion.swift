@@ -5,13 +5,14 @@ import Synchronization
 package final class PreviewConversion: Sendable {
     @TaskLocal package static var current: PreviewConversion?
     private let deadline: ContinuousClock.Instant
-    private let now: @Sendable () -> ContinuousClock.Instant
+    let now: @Sendable () -> ContinuousClock.Instant
 
-    // SwaTex cannot interrupt parsing or layout. Count UTF-8 bytes including the definitions repeated at each call.
-    package static let maximumFormulaBytes = 2 * 1024
-    package static let maximumMathBytes = 16 * 1024
-    package static let maximumFormulas = 128
-    private let math = Mutex((remainingBytes: maximumMathBytes, remainingCalls: maximumFormulas, exceeded: false))
+    // At the measured expanding-macro rate, 128 KiB costs about 2.6 s. Also meter elapsed
+    // typesetting time: short calls have fixed overhead and expansion is not linear in source bytes.
+    package static let maximumFormulaBytes = 4 * 1024
+    package static let maximumMathBytes = 128 * 1024
+    private let math = Mutex((remainingBytes: maximumMathBytes, time: Duration.zero))
+    private static let mathTime: Duration = .seconds(2)
 
     package init(deadline: ContinuousClock.Instant, now: @escaping @Sendable () -> ContinuousClock.Instant = { .now }) {
         self.deadline = deadline
@@ -19,24 +20,30 @@ package final class PreviewConversion: Sendable {
     }
 
     func reserveFormula(bodyBytes: Int, macroBytes: Int) -> Bool {
-        math.withLock { budget in
-            guard !budget.exceeded, budget.remainingCalls > 0, macroBytes <= Self.maximumFormulaBytes,
-                bodyBytes <= Self.maximumFormulaBytes - macroBytes, bodyBytes + macroBytes <= budget.remainingBytes
-            else {
-                budget.exceeded = true
+        guard !Self.expired, macroBytes <= Self.maximumFormulaBytes, bodyBytes <= Self.maximumFormulaBytes - macroBytes
+        else { return false }
+        return math.withLock { budget in
+            let bytes = bodyBytes + macroBytes
+            guard budget.time < Self.mathTime else { return false }
+            guard bytes <= budget.remainingBytes else {
+                budget.remainingBytes = 0
                 return false
             }
-            budget.remainingCalls -= 1
-            budget.remainingBytes -= bodyBytes + macroBytes
+            budget.remainingBytes -= bytes
             return true
         }
+    }
+
+    func recordMathTime(since start: ContinuousClock.Instant) {
+        let elapsed = start.duration(to: now())
+        math.withLock { $0.time += elapsed }
     }
 
     package static var isActive: Bool { current != nil }
 
     package static var expired: Bool {
         guard let current else { return false }
-        return current.now() >= current.deadline || StackSpace.isCancelled || current.math.withLock { $0.exceeded }
+        return current.now() >= current.deadline || StackSpace.isCancelled
     }
 
     package static func check() throws {

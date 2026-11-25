@@ -5,39 +5,6 @@ import Testing
 @testable import SurimonoCore
 
 extension FinderPreviewTests {
-    @Test("式と定義の合計、文書内の総量と回数をパースの前に制限し、別の依頼は独立する")
-    func mathBudget() throws {
-        let limit = PreviewConversion.maximumFormulaBytes
-        func request(_ run: () throws -> Void) rethrows {
-            try PreviewConversion.$current.withValue(PreviewConversion(deadline: .now + .seconds(5)), operation: run)
-        }
-        request {
-            // Padding is still input to the parser and counts even when the expression is small.
-            let macros = String(repeating: " ", count: limit - 1)
-            #expect(MathRenderer.html("x", display: true, macros: macros) != nil)
-            #expect(MathRenderer.html("xy", display: true, macros: macros) == nil)
-            #expect(throws: CancellationError.self) { try PreviewConversion.check() }
-        }
-        request {
-            for _ in 0..<(PreviewConversion.maximumMathBytes / limit) {
-                // Nested readers reuse the same allowance on their larger native stacks.
-                let rendered = StackSpace.onLargeStack {
-                    MathRenderer.html("x", display: false, macros: String(repeating: " ", count: limit - 1))
-                }
-                #expect(rendered != nil)
-            }
-            #expect(MathRenderer.html("x", display: false) == nil)
-        }
-        try withDirectory { directory in
-            let file = directory.appendingPathComponent("paper.md")
-            let source = Array(repeating: "$x$", count: PreviewConversion.maximumFormulas + 1).joined(separator: " ")
-            try Data(source.utf8).write(to: file)
-            #expect(FinderPreview.make(for: file).html.contains("This document is too complex to preview."))
-            try Data("$x$".utf8).write(to: file)
-            #expect(FinderPreview.make(for: file).html.contains("<svg "))
-        }
-    }
-
     @Test("タグ境界が検査間隔を飛び越えても期限を検知する")
     func jumpingHTMLPositions() {
         // After the one-byte prefix, every tag ends at an odd offset.
@@ -95,7 +62,7 @@ extension FinderPreviewTests {
             #expect(reply.elapsed <= .milliseconds(FinderPreview.timeoutMilliseconds + 500))
             let tooComplex = reply.html.contains("This document is too complex to preview.")
             if suffix == "org" {
-                #expect(tooComplex && reply.html.utf8.count < 1024)
+                #expect(reply.html.contains("<pre class=\"math-error\">$$x+"))
             } else {
                 #expect(tooComplex || reply.html.contains("body class=\"surimono format-"))
             }

@@ -249,7 +249,7 @@ extension LaTeXDocument {
         let latex: String
         let display: Bool
         let fallback: String
-        let macros: String
+        let macros: String?
         let numbers: [String?]
     }
 
@@ -278,14 +278,19 @@ extension LaTeXDocument {
 
     /// Failed equations keep their source on paper. Limit the diagnostic excerpts so a damaged
     /// document cannot fill the print check panel with a second copy of its entire math source.
-    func mathHTML(_ latex: String, display: Bool, macros: String, source: String, numbers: [String?]) -> String {
-        if let rendered = MathRenderer.html(
-            latex, display: display, macros: macros, rowNumberHTML: numbers,
-            measureRows: classInfo.profile.body.alignsDisplayRows,
-            sansMathAlphabet: classInfo.beamerPageSize != nil && !classInfo.beamerUsesSerifMath,
-            originalSource: MathRenderer.withoutDelimiters(source))
+    func mathHTML(_ latex: String, display: Bool, macros: String?, source: String, numbers: [String?]) -> String {
+        if let macros,
+            let rendered = MathRenderer.html(
+                latex, display: display, macros: macros, rowNumberHTML: numbers,
+                measureRows: classInfo.profile.body.alignsDisplayRows,
+                sansMathAlphabet: classInfo.beamerPageSize != nil && !classInfo.beamerUsesSerifMath,
+                originalSource: MathRenderer.withoutDelimiters(source))
         {
             return rendered
+        }
+        if PreviewConversion.isActive {
+            // The counters and link targets already exist. Row numbers normally live inside the SVG.
+            return MathRenderer.fallback(source, display: display) + numbers.compactMap { $0 }.joined(separator: " ")
         }
         let issue = (isJapanese ? "数式を描けません: " : "Formula could not be typeset: ") + String(source.prefix(100))
         if !seenFormulaIssues.contains(issue), reserveExpansion(characters: issue.utf8.count) {

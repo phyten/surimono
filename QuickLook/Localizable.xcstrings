@@ -265,6 +265,59 @@
           }
         }
       }
+    },
+    "This document exceeds the preview size limits.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This document exceeds the preview size limits."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文書がプレビューで表示できる大きさを超えています。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文档超出了预览的大小限制。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文件超出預覽的大小限制。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "문서가 미리보기 크기 제한을 초과합니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce document dépasse les limites de taille de l’aperçu."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses Dokument überschreitet die Größenbeschränkungen für die Vorschau."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este documento supera los límites de tamaño de la vista previa."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

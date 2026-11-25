@@ -208,9 +208,14 @@ extension LaTeXReader {
 
     /// A definition every formula starts with; one SwaTex cannot read is left out, so it cannot break the others.
     func addMathDefinition(_ definition: String) {
+        guard !document.stopsExpanding else { return }
+        if document.mathDefinitions.preview != nil {
+            document.mathDefinitions.preview?.append(definition[...])
+            return
+        }
         // A definition inside a loop is still a definition. Rechecking a growing preamble on every
         // iteration must draw from the same finite work budget as expanding the loop itself.
-        guard !document.stopsExpanding, !document.mathDefinitions.source.hasSuffix(definition) else { return }
+        guard !document.mathDefinitions.source.hasSuffix(definition) else { return }
         let cost = document.mathDefinitions.source.utf8.count + definition.utf8.count
         guard cost <= 50_000_000 - document.expansionWork else {
             document.stopsExpanding = true
@@ -219,9 +224,7 @@ extension LaTeXReader {
         document.expansionWork += cost
         // Neither storing replacement tokens nor copying a control word expands its meaning.
         // A prefix made only of these assignments leaves the validation formula "x" unchanged.
-        // In Finder even definition validation must go through the request’s bounded SwaTex entry point.
-        if PreviewConversion.isActive || !document.mathDefinitions.containsOnlyPrimitiveDefinitions
-            || !StackSpace.hasRoom
+        if !document.mathDefinitions.containsOnlyPrimitiveDefinitions || !StackSpace.hasRoom
             || !MathRenderer.isOrdinaryDefinition(definition)
         {
             guard MathRenderer.html("x", display: false, macros: document.mathDefinitions.source + definition) != nil

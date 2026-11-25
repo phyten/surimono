@@ -318,7 +318,9 @@ extension RSTDocument {
         case "sub", "subscript": tag = "sub"
         case "sup", "superscript": tag = "sup"
         case "title-reference", "title", "t": tag = "cite"
-        case "math": return MathRenderer.html(raw, display: false) ?? escaped
+        case "math":
+            return MathRenderer.html(raw, display: false)
+                ?? (PreviewConversion.isActive ? MathRenderer.fallback(raw, display: false) : escaped)
         case "pep", "pep-reference", "rfc", "rfc-reference":
             guard let n = Int(text), n >= 0 else {
                 issueCount += 1
