@@ -2,26 +2,43 @@ import AppKit
 import PDFKit
 import Testing
 
-// Measured on 2026-11-25: the ink bottom of the affiliation line on the title page is 1.7 pt below real TeX on
-// macOS 26.6.2 and 2.1 pt below on macOS 27.2.1. Between the two systems, lines of fixture 083 move by about
-// 0.4 pt. Only the affiliation line gets the wider limit; every other anchor keeps 2 pt.
+// Title-page anchors use the same limit as every other anchor; the measured deltas are in the test's attachment.
 private let beamerVerticalTolerance: CGFloat = 2
-private let beamerInstituteVerticalTolerance: CGFloat = 2.5
+
+// Text origins in the first page's pdfTeX content stream, in PDF points from the top of the media box.
+func beamerTitlePageAnchors(for fixture: String) -> [(word: String, baseline: Double)] {
+    switch fixture {
+    case "083":
+        [
+            ("A folded rail spacer", 91.755), ("Model Rail Desk", 129.966), ("Paper Model Workshop", 152.437),
+            ("14 May 2026", 178.499),
+        ]
+    case "specimen":
+        [
+            ("A pocket tide gauge", 79.390), ("Field notes", 96.451), ("Mira Reed", 131.872),
+            ("Harbour Workshop", 154.344), ("22 May", 180.406),
+        ]
+    default: []
+    }
+}
 
 // Called from the timed print test to inspect the same physical pages that the reader exports.
 @MainActor
-func compareBeamerReference(_ pdf: PDFDocument, to reference: PDFDocument, fixture: String) throws {
+func compareBeamerReference(_ pdf: PDFDocument, to reference: PDFDocument, fixture: String, titleBaselines: [Double])
+    throws
+{
+    let titleAnchors = beamerTitlePageAnchors(for: fixture)
     let anchors: [(Int, [String])]
     switch fixture {
     case "083":
         anchors = [
-            (0, ["A folded rail spacer", "Model Rail Desk", "Paper Model Workshop", "14 May 2026"]),
+            (0, titleAnchors.map(\.word)),
             (1, ["A fixed rail height", "Observation", "The folded card", "The folded edge"]),
             (2, ["Readings", "Thin", "Folded", "Spacer heights", "Model Rail Desk"]),
         ]
     case "specimen":
         anchors = [
-            (0, ["A pocket tide gauge", "Field notes", "Mira Reed", "Harbour Workshop", "22 May"]),
+            (0, titleAnchors.map(\.word)),
             (1, ["Assembly"]),
             (
                 2,
@@ -56,6 +73,19 @@ func compareBeamerReference(_ pdf: PDFDocument, to reference: PDFDocument, fixtu
     }
     var positions = [ProcessInfo.processInfo.operatingSystemVersionString]
     defer { Attachment.record(positions.joined(separator: "\n"), named: "beamer-\(fixture)-positions.txt") }
+    #expect(titleBaselines.count == titleAnchors.count, "表紙の全行の基線を測定できる")
+    for (i, y) in titleBaselines.prefix(titleAnchors.count).enumerated() {
+        let anchor = titleAnchors[i]
+        var line = String(
+            format: "%@ DOM baselineFromTop=%.3f TeX=%.3f Δ=%+.3fpt", anchor.word, y, anchor.baseline,
+            y - anchor.baseline)
+        if i > 0 {
+            let gap = y - titleBaselines[i - 1]
+            let texGap = anchor.baseline - titleAnchors[i - 1].baseline
+            line += String(format: " baselineGap=%.3f TeX=%.3f Δ=%+.3fpt", gap, texGap, gap - texGap)
+        }
+        positions.append(line)
+    }
     for (index, words) in anchors {
         let page = try #require(pdf.page(at: index))
         let tex = try #require(reference.page(at: index))
@@ -103,16 +133,15 @@ func compareBeamerReference(_ pdf: PDFDocument, to reference: PDFDocument, fixtu
             let selectedTeX = try inkBottom(expected, in: reference, on: tex)
             let y = try isInstitute ? instituteInkBottom(on: page) : selectedY
             let texY = try isInstitute ? instituteInkBottom(on: tex) : selectedTeX
-            let tolerance = isInstitute ? beamerInstituteVerticalTolerance : beamerVerticalTolerance
             var position =
-                "\(fixture) p\(index + 1) \(word) inkY=\(y) TeX=\(texY) Δ=\(y - texY)pt (±\(tolerance)pt) "
+                "\(fixture) p\(index + 1) \(word) inkY=\(y) TeX=\(texY) Δ=\(y - texY)pt (±\(beamerVerticalTolerance)pt) "
                 + "font=\(face(in: pdf, on: page))/\(face(in: reference, on: tex)) embedded=\(embeddedFaces) scale=\(NSScreen.main?.backingScaleFactor ?? 0)"
             if isInstitute {
                 position +=
                     " selectionInkY=\(selectedY) selectionTeX=\(selectedTeX) selectionΔ=\(selectedY - selectedTeX)pt"
             }
             positions.append(position)
-            #expect(abs(y - texY) <= tolerance, "\(position)")
+            #expect(abs(y - texY) <= beamerVerticalTolerance, "\(position)")
         }
     }
     if fixture == "specimen" || fixture == "083" {
@@ -158,12 +187,16 @@ func compareBeamerReference(_ pdf: PDFDocument, to reference: PDFDocument, fixtu
     }
     if fixture == "083" {
         try checkSlideRules(
-            in: pdf, against: reference, page: 1, top: 130, bottom: 146, x: 180, near: "The folded card")
+            in: pdf, against: reference, page: 1, top: 130, bottom: 146, x: 180, near: "The folded card",
+            positions: &positions)
         try checkBlockGap(in: pdf, against: reference, page: 1, title: "Observation", body: "The folded card")
     }
     guard fixture == "specimen" else { return }
-    try checkSlideRules(in: pdf, against: reference, page: 0, top: 197, bottom: 214, x: 180, near: "22 May")
-    try checkSlideRules(in: pdf, against: reference, page: 4, top: 254, bottom: 261, x: 130, near: "Logged at noon")
+    try checkSlideRules(
+        in: pdf, against: reference, page: 0, top: 197, bottom: 214, x: 180, near: "22 May", positions: &positions)
+    try checkSlideRules(
+        in: pdf, against: reference, page: 4, top: 254, bottom: 261, x: 130, near: "Logged at noon",
+        positions: &positions)
     for (title, body) in [("Reading", "Turn the brass"), ("Caution", "Keep the scale"), ("Example", "Seven marks")] {
         try checkBlockGap(in: pdf, against: reference, page: 3, title: title, body: body)
     }
@@ -318,7 +351,7 @@ private func checkBeamerReadingOrder(in page: PDFPage, words: [String]) throws {
 @MainActor
 private func checkSlideRules(
     in pdf: PDFDocument, against reference: PDFDocument, page index: Int, top: CGFloat, bottom: CGFloat, x: CGFloat,
-    near word: String
+    near word: String, positions: inout [String]
 ) throws {
     func rule(in deck: PDFDocument) throws -> CGRect {
         let page = try #require(deck.page(at: index))
@@ -334,10 +367,11 @@ private func checkSlideRules(
         }
         return String(format: "%.2f", ink.minY - page.bounds(for: .mediaBox).minY - rule.maxY)
     }
-    #expect(
-        abs(actual.maxY - tex.maxY) <= 1,
-        "p\(index + 1) 横罫=\(actual) TeX=\(tex) 「\(word)」まで(pt)=\(offset(in: pdf, from: actual))/\(offset(in: reference, from: tex))"
-    )
+    let position =
+        "p\(index + 1) 横罫=\(actual) TeX=\(tex) ΔmaxY=\(actual.maxY - tex.maxY)pt "
+        + "「\(word)」まで(pt)=\(offset(in: pdf, from: actual))/\(offset(in: reference, from: tex))"
+    positions.append(position)
+    #expect(abs(actual.maxY - tex.maxY) <= 1, "\(position)")
     let thicknessTolerance: CGFloat = tex.height < 1 ? 0.15 : 0.5
     #expect(abs(actual.height - tex.height) <= thicknessTolerance, "スライドの横罫の太さ")
 }
