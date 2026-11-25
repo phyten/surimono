@@ -147,7 +147,11 @@ extension LaTeXReader {
             if source.last?.isLetter == true { skipSpacesAfterControlWord() }
         } else if let value = argument() {
             document.macros[name] = Macro(specification: [], body: value)
-            addMathDefinition("\\def\\\(name){\(value)}")
+            if document.mathDefinitions.preview != nil {
+                document.mathDefinitions.preview?.reject("\\" + name)
+            } else {
+                addMathDefinition("\\def\\\(name){\(value)}")
+            }
         }
     }
 
@@ -162,6 +166,7 @@ extension LaTeXReader {
 
     /// Commands and environment openings share argument rules, including a default for the first argument.
     private func define(_ command: String) {
+        let start = index
         _ = star()
         let environment = command.hasSuffix("environment") || command.hasSuffix("Environment")
         let name = environment ? argument() : definitionName()
@@ -181,7 +186,11 @@ extension LaTeXReader {
         }
         let body = argument() ?? ""
         let end = environment ? argument() ?? "" : nil
-        guard let name, !name.isEmpty, let parameters else { return }
+        guard let name, !name.isEmpty else { return }
+        guard let parameters else {
+            if !environment { document.mathDefinitions.preview?.reject("\\" + name) }
+            return
+        }
         var macro = Macro(specification: parameters, body: body)
         // SwaTex accepts the prefix of an optional-default declaration but lays out the remainder
         // as ordinary math in every subsequent formula. Expand that signature at its call site.
@@ -199,11 +208,24 @@ extension LaTeXReader {
             document.macros[name] = macro
             if parameters.isEmpty { readFancyRule(name, value: body) }
             document.didDefineMacro(name)
-            if !macro.extendedMath {
+            if document.mathDefinitions.preview != nil {
+                recordPreviewDefinition(command, name: name, start: start)
+            } else if !macro.extendedMath {
                 let signature = parameters.indices.map { "#\($0 + 1)" }.joined()
                 addMathDefinition("\\def\\\(name)\(signature){\(body)}")
             }
         }
+    }
+
+    /// Keep the original signature. Normalizing through the prose reader could hide unsupported syntax.
+    private func recordPreviewDefinition(_ command: String, name: String, start: Int) {
+        let target = "\\" + name
+        guard index - start <= PreviewConversion.maximumFormulaBytes else {
+            document.mathDefinitions.preview?.reject(target)
+            return
+        }
+        let source = "\\" + command + String(characters[start..<index])
+        document.mathDefinitions.preview?.append(source[...], expectedName: target)
     }
 
     /// A definition every formula starts with; one SwaTex cannot read is left out, so it cannot break the others.
@@ -258,6 +280,7 @@ extension LaTeXReader {
 
     /// Text before #1 must match at the call site. Text after each parameter specifies where that argument ends.
     private func defineTeXMacro() {
+        let start = index
         guard let name = definitionName() else { return }
         defer { document.didDefineMacro(name) }
         skipSpacesAfterControlWord()
@@ -278,6 +301,7 @@ extension LaTeXReader {
             }
         }
         let body = argument() ?? ""
+        if document.mathDefinitions.preview != nil { recordPreviewDefinition("def", name: name, start: start) }
         guard valid else { return }
         if Self.mayUseMathCounter(body) || body.contains("\\If") || body.contains("\\csname") {
             document.hasExtendedMathDefinitions = true
@@ -286,7 +310,7 @@ extension LaTeXReader {
         document.macros[name] = .init(prefix: delimiters[0], specification: parameters, body: body)
         if parameters.isEmpty { readFancyRule(name, value: body) }
         let signature = delimiters.enumerated().map { ($0.offset == 0 ? "" : "#\($0.offset)") + $0.element }.joined()
-        if name.count == 1 || name.allSatisfy({ $0.isASCII && $0.isLetter }) {
+        if document.mathDefinitions.preview == nil, name.count == 1 || name.allSatisfy({ $0.isASCII && $0.isLetter }) {
             addMathDefinition("\\def\\\(name)\(signature){\(body)}")
         }
     }

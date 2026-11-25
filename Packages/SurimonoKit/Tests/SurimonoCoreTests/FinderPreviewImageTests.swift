@@ -31,6 +31,32 @@ extension FinderPreviewTests {
         return try #require(CGImageSourceCreateImageAtIndex(source, 0, nil))
     }
 
+    @Test("デコーダーの制限を確認できなければ読める PNG も添付せず代替表示にする")
+    func unconfirmedImageDecoders() throws {
+        try withDirectory { directory in
+            let png = try encodedImage(.png, width: 2, height: 2)
+            try png.write(to: directory.appendingPathComponent("figure.png"))
+            let file = directory.appendingPathComponent("paper.md")
+            try Data("paper".utf8).write(to: file)
+            let markup =
+                "<p>Body</p><img src=\"figure.png\" alt=\"Figure\"><img src=\"data:image/png;base64,\(png.base64EncodedString())\">"
+            for allowed in [true, false] {
+                let preview = FinderPreview.make(for: file, deadline: .now + .seconds(5), allowsImages: allowed) {
+                    _, _, _ in
+                    HTMLFragment(body: markup)
+                }
+                #expect(preview.html.contains("<p>Body</p>"))
+                #expect(preview.attachments.isEmpty == !allowed)
+                if !allowed {
+                    #expect(
+                        preview.html.contains("Figure")
+                            && preview.html.contains("<span class=\"preview-missing-image\""))
+                    #expect(!preview.html.contains("<img "))
+                }
+            }
+        }
+    }
+
     @Test("圧縮のよい大画像 32 枚も長辺と合計画素数で制限し、残りは代替文字になる")
     func decodedBudget() throws {
         try withDirectory { directory in

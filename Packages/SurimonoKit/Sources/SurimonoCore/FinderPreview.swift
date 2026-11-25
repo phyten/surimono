@@ -54,7 +54,7 @@ public struct FinderPreview: Sendable {
 
     static func make(
         for url: URL, bundle: Bundle = .main, deadline: ContinuousClock.Instant,
-        now: @escaping @Sendable () -> ContinuousClock.Instant = { .now }, convert: Converter
+        now: @escaping @Sendable () -> ContinuousClock.Instant = { .now }, allowsImages: Bool = true, convert: Converter
     ) -> Self {
         do {
             return try PreviewConversion.$current.withValue(PreviewConversion(deadline: deadline, now: now)) {
@@ -77,7 +77,7 @@ public struct FinderPreview: Sendable {
                 let sourceBytes = Int(info.st_size)
                 guard sourceBytes <= limit else { throw CocoaError(.fileReadTooLarge) }
                 let data = try ConfinedFile.readBytes(descriptor, size: sourceBytes, maximumSize: limit)
-                return try build(data, format: format, url: url, convert: convert)
+                return try build(data, format: format, url: url, allowsImages: allowsImages, convert: convert)
             }
         } catch {
             func localized(_ key: String) -> String { bundle.localizedString(forKey: key, value: nil, table: nil) }
@@ -110,7 +110,9 @@ public struct FinderPreview: Sendable {
             attachments: [:])
     }
 
-    private static func build(_ data: Data, format: DocumentFormat, url: URL, convert: Converter) throws -> Self {
+    private static func build(_ data: Data, format: DocumentFormat, url: URL, allowsImages: Bool, convert: Converter)
+        throws -> Self
+    {
         try PreviewConversion.check()
         guard let text = TextDecoding.losslessText(data) else { throw Failure.encoding }
         var lineCount = 1
@@ -125,7 +127,7 @@ public struct FinderPreview: Sendable {
         guard fragment.body.utf8.count <= DocumentSizeLimits.htmlBytes else { throw Failure.complexity }
         var images = PreviewImages(directory: directory(of: url))
         var safe = fragment
-        safe.body = try PreviewMarkup.clean(fragment.body) { images.source($0) }
+        safe.body = try PreviewMarkup.clean(fragment.body) { allowsImages ? images.source($0) : nil }
         guard let theme else { throw CocoaError(.fileReadUnknown) }
         try PreviewConversion.check()
         let fonts = MathRenderer.fontFaces(for: safe.body)

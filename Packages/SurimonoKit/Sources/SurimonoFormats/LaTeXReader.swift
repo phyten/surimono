@@ -411,6 +411,7 @@ final class LaTeXReader {
             document.macros, document.environments, document.mathDefinitions, document.highlightColor,
             document.referenceNames
         )
+        document.mathDefinitions.preview?.insideGroup = true
         let outer = declarations.count
         let previousRowHeight = document.pageSettings.extraRowHeight
         let tableRegisters = document.pageSettings.tableSpacing
@@ -1365,6 +1366,10 @@ final class LaTeXReader {
         let limits = star()
         guard let name = argument()?.trimmingCharacters(in: .whitespaces), name.hasPrefix("\\") else { return }
         let text = argument() ?? ""
+        if document.mathDefinitions.preview != nil {
+            addMathDefinition("\\DeclareMathOperator\(limits ? "*" : ""){\(name)}{\\mathrm{\(text)}}")
+            return
+        }
         // SwaTex uses a separate operator-base layout for display limits. That path does not
         // give bare letters the roman font of the standalone operator-name layout.
         addMathDefinition("\\def\(name){\\operatorname\(limits ? "*" : ""){\\mathrm{\(text)}}}")

@@ -1,19 +1,8 @@
 import RobustnessSupport
+import SurimonoFormats
 import Testing
 
-@testable import SurimonoFormats
-
 struct MathRendererTests {
-    @Test("マクロ展開が大きければ構文木を作る前に打ち切る")
-    func previewExpansion() {
-        // Each use produces sixteen tokens including the following plus. Check nested and captured names too.
-        let preamble = #"\def\terms{x+y+z+w+v+u+t+s}\let\saved=\terms \newcommand{\expr}{\saved}"#
-        func input(_ uses: Int) -> String { preamble + String(repeating: #"\terms+"#, count: uses) + "x" }
-        #expect(MathRenderer.expansionFits(preamble + #"\expr"#))
-        #expect(MathRenderer.expansionFits(input(384)))
-        #expect(!MathRenderer.expansionFits(input(512)))
-    }
-
     @Test("文中式は展開後の最上段の二項・関係演算子にだけ伸縮する空きを記録する")
     func inlineGlue() throws {
         for source in [

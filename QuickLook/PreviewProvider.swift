@@ -7,14 +7,15 @@ import UniformTypeIdentifiers
 final class PreviewProvider: QLPreviewProvider, QLPreviewingController {
     // Before per-source restrictions, ImageIO accepts its process-wide list only on the first call.
     // Initialize it once in this extension process, before any provider starts opening images.
-    private static let configureDecoders: Void = {
+    private static let decoderStatus: OSStatus = {
         if #unavailable(macOS 27) {
-            _ = CGImageSourceSetAllowableTypes(FinderPreview.rasterTypeIdentifiers as CFArray)
+            return CGImageSourceSetAllowableTypes(FinderPreview.rasterTypeIdentifiers as CFArray)
         }
+        return noErr
     }()
 
     override init() {
-        _ = Self.configureDecoders
+        _ = Self.decoderStatus
         super.init()
     }
 
@@ -25,6 +26,7 @@ final class PreviewProvider: QLPreviewProvider, QLPreviewingController {
         let reply = QLPreviewReply(dataOfContentType: .html, contentSize: CGSize(width: 760, height: 820)) { reply in
             FinderPreview.replyData(
                 for: url, bundle: Bundle(for: PreviewProvider.self),
+                allowsImages: PreviewProvider.decoderStatus == noErr,
                 terminateIfStalled: {
                     // Only the extension exits. An uninterruptible converter would otherwise keep running after the
                     // timeout reply. If exit wins the race, Quick Look may miss that reply; this is accepted.

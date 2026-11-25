@@ -103,11 +103,13 @@ final class OrgContext {
         if ["TITLE", "SUBTITLE", "AUTHOR", "DATE", "LANGUAGE"].contains(key) { metadata[key] = value }
         if key == "OPTIONS" { options.read(value, fileName: fileName, lineNumber: lineNumber, lines: lines) }
         if key == "LATEX_HEADER" || key == "LATEX_HEADER_EXTRA",
-            let definition = OrgMath.definition(value)
+            !value.isEmpty
         {
             if mathDefinitions.preview != nil {
-                if discovering { mathDefinitions.preview?.appendHeader(definition) }
-            } else if MathRenderer.html("x", display: false, macros: mathDefinitions.source + definition) != nil {
+                if discovering { mathDefinitions.preview?.appendHeader(value) }
+            } else if let definition = OrgMath.definition(value),
+                MathRenderer.html("x", display: false, macros: mathDefinitions.source + definition) != nil
+            {
                 mathDefinitions.source += definition
             }
         }

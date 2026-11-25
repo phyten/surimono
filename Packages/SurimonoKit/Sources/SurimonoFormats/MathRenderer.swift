@@ -69,9 +69,15 @@ public enum MathRenderer {
         let start = preview?.now()
         defer { if let start { preview?.recordMathTime(since: start) } }
         let source = latex.trimmingCharacters(in: .whitespacesAndNewlines)
-        let input = macros + source
+        let input: String
+        if preview != nil {
+            var expansion = PreviewMathExpansion()
+            guard let expanded = try? expansion.expand(source, definitions: macros) else { return nil }
+            input = expanded
+        } else {
+            input = macros + source
+        }
         guard !PreviewConversion.expired, !source.isEmpty,
-            preview == nil || expansionFits(input),
             let parsed = try? parseLaTeX(input)
         else {
             return nil
@@ -127,29 +133,6 @@ public enum MathRenderer {
         let result = "<span class=\"math math-\(display ? "display" : "inline")\"\(metrics)>\(html)\(labels)</span>"
         if let preview, !preview.retainMathOutput(bytes: max(svg.utf8.count, result.utf8.count)) { return nil }
         return result
-    }
-
-    /// Count SwaTex's expanded tokens before allocating the parse tree or running layout. The scanner
-    /// installs ordinary bindings using SwaTex's own argument rules, then discards each expanded token.
-    static func expansionFits(_ input: String) -> Bool {
-        guard input.contains("\\") else { return true }
-        let parser = Parser(input)
-        do {
-            for count in 0...PreviewConversion.maximumExpandedTokens {
-                if count.isMultiple(of: 256), PreviewConversion.expired { return false }
-                let token = try parser.fetch()
-                if token.isEOF { return true }
-                switch token.text {
-                case "\\def", "\\gdef", "\\let":
-                    _ = try parser.parseFunction(breakOnTokenText: nil, name: nil)
-                case "\\edef", "\\xdef":
-                    // These construct the entire expanded replacement at declaration time.
-                    return false
-                default: parser.consume()
-                }
-            }
-        } catch { return false }
-        return false
     }
 
     /// Some formats leave tags inside SwaTex's SVG. A phantom keeps the tag column's

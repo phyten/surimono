@@ -5,12 +5,14 @@ import Synchronization
 extension FinderPreview {
     /// Quick Look calls its data producer after the reply object has been handed to the system.
     public static func replyData(
-        for url: URL, bundle: Bundle, terminateIfStalled: @escaping @Sendable () -> Void,
+        for url: URL, bundle: Bundle, allowsImages: Bool = true, terminateIfStalled: @escaping @Sendable () -> Void,
         encode: (Self) -> Data
     ) -> Data {
         PreviewWatchdog.shared.watch(
             timeoutMilliseconds: timeoutMilliseconds, grace: .milliseconds(500), bundle: bundle,
-            convert: { make(for: url, bundle: bundle, deadline: $0) }, terminateIfStalled: terminateIfStalled,
+            convert: {
+                make(for: url, bundle: bundle, deadline: $0, allowsImages: allowsImages, convert: nativeFragment)
+            }, terminateIfStalled: terminateIfStalled,
             encode: encode)
     }
 }
