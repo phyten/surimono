@@ -81,18 +81,18 @@ struct PrintEscapeOrderTests {
         #expect(top() && under.isOpen())
 
         // A popover takes the keys while it is open; afterwards the document window does.
-        try Self.pressEscape(in: popoverWindow ?? window)
+        try TestWindowKeyboard.pressEscape(in: popoverWindow ?? window)
         try await waitUntil("the first Esc to close the top") { !top() }
         try await Task.sleep(for: .milliseconds(300))
         #expect(under.isOpen(), "The first Esc also closed the \(under.name)")
         #expect(model.mode == .print)
 
-        try Self.pressEscape(in: window)
+        try TestWindowKeyboard.pressEscape(in: window)
         try await waitUntil("the second Esc to close the \(under.name)") { !under.isOpen() }
         try await Task.sleep(for: .milliseconds(300))
         #expect(model.mode == .print, "The second Esc also left the print screen")
 
-        try Self.pressEscape(in: window)
+        try TestWindowKeyboard.pressEscape(in: window)
         try await waitUntil("the third Esc to leave the print screen") { model.mode == .view }
         #expect(window.isVisible)
     }
@@ -108,16 +108,6 @@ struct PrintEscapeOrderTests {
             try #require(ContinuousClock.now < deadline)
             try await Task.sleep(for: .milliseconds(20))
         }
-    }
-
-    /// The Esc key as AppKit delivers it: through the application, to the window and its first responder.
-    private static func pressEscape(in window: NSWindow) throws {
-        let escape = try #require(
-            NSEvent.keyEvent(
-                with: .keyDown, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
-                windowNumber: window.windowNumber, context: nil, characters: "\u{1B}",
-                charactersIgnoringModifiers: "\u{1B}", isARepeat: false, keyCode: 53))
-        NSApp.sendEvent(escape)
     }
 
     private func waitUntil(_ what: String = "", _ condition: () -> Bool) async throws {
