@@ -99,6 +99,7 @@ struct PaperView: NSViewRepresentable {
     /// A spread that shows its cover alone shows it one page wide (`LoneCoverWidth.onePage`).
     var narrowsLoneCover = false
     var keepsSpotInPage = false
+    var isReadingPreview = false
     /// The words to mark on the paper; nothing takes the marks away.
     var proseSpans: [ProsePaperSpan] = []
     var onPaperPress: () -> Void = {}
@@ -149,6 +150,7 @@ struct PaperView: NSViewRepresentable {
         view.subviews.first { $0 is PaperSpotFrameView }?.layer?.cornerRadius = spotRadius
         view.onZoomChange = onZoomChange
         view.onPageChange = onPageChange
+        view.onFindHits = onFindHits
         view.onTurn = onTurn
         view.onKey = onKey
         view.onShortcut = onShortcut
@@ -160,10 +162,10 @@ struct PaperView: NSViewRepresentable {
         view.configure(
             document, at: initialPageIndex, options: options, logicalMargin: logicalMargin,
             showsPageNumbers: showsPageNumbers, changeMarks: changeMarks, furniture: furniture,
-            keepsSpotInPage: keepsSpotInPage)
+            keepsSpotInPage: keepsSpotInPage || view.wasReadingPreview)
+        view.wasReadingPreview = isReadingPreview
         view.wheelSensitivity = wheelSensitivity
         view.selectsText = selectsText
-        view.onFindHits = onFindHits
         view.find(findQuery)
         view.onPaperPress = onPaperPress
         view.drawProse(proseSpans)
@@ -260,6 +262,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
     }
     private var options: ViewOptions?
     private var sourceDocument: PDFDocument?
+    fileprivate var wasReadingPreview = false
     private var pagePlan: ViewPageLayout?
     private var documentKey: ViewPageLayout.DocumentKey?
     /// A displayed copy and its source stay together through PDFKit's document replacement.
@@ -392,8 +395,10 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
         }
     }
 
-    func copySourceSelection(to board: NSPasteboard) -> Bool {
-        guard let selection = currentSelection, let sourceDocument, let document, let pagePlan else { return false }
+    private func copySourceSelection(_ selection: PDFSelection, from document: PDFDocument, to board: NSPasteboard)
+        -> Bool
+    {
+        guard let sourceDocument, let pagePlan else { return false }
         guard
             let text = SourcePaperText.selected(
                 selection, in: sourceDocument,
@@ -405,13 +410,15 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
     }
 
     override func copy(_ sender: Any?) {
-        copySelection(to: .general) { super.copy(sender) }
+        copySelection(currentSelection, to: .general) { super.copy(sender) }
     }
 
-    func copySelection(to board: NSPasteboard, ordinaryCopy: () -> Void) {
-        if copySourceSelection(to: board) { return }
-        guard !drawnChangeMarks.isEmpty, let selection = currentSelection,
-            let sourceDocument, let document, let pagePlan
+    func copySelection(_ selection: PDFSelection?, to board: NSPasteboard, ordinaryCopy: () -> Void) {
+        guard let selection else { return ordinaryCopy() }
+        // Only pages belonging to the displayed PDF can be mapped or handed back to PDFKit for ordinary copy.
+        guard let document, selection.pages.allSatisfy({ $0.document === document }) else { return }
+        if copySourceSelection(selection, from: document, to: board) { return }
+        guard !drawnChangeMarks.isEmpty, let sourceDocument, let pagePlan
         else {
             ordinaryCopy()
             return
@@ -676,6 +683,11 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
         if pinchActive { ignoresPinchRemainder = true }
         pinchActive = false
         wheelTurner = WheelPageTurner()
+        if self.document !== document {
+            // Selection ranges and highlights refer to the outgoing PDF even when the new page text is identical.
+            clearSelection()
+            highlightedSelections = nil
+        }
         drawProse([])
         self.document = document
         setDisplay(\.displayBox, to: .cropBox)
@@ -1799,6 +1811,7 @@ extension PaperPDFView {
     private func restartFind() {
         findSearch?.cancel()
         findSearch = nil
+        currentFindIndex = nil
         guard !findHits.isEmpty || !findQuery.isEmpty else { return }
         findHits = []
         highlightedSelections = nil
@@ -1812,8 +1825,8 @@ extension PaperPDFView {
     }
 
     private func finishFind(_ selections: [PDFSelection], for query: String, in searched: PDFDocument) {
-        findSearch = nil
         guard query == findQuery, document === searched else { return }
+        findSearch = nil
         findHits = selections
         let pages = selections.map { selection in
             guard let page = selection.pages.first else { return 0 }

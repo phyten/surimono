@@ -27,8 +27,23 @@ extension DocumentViewModel {
         jumpToPaperPage(page)
     }
 
-    var canNavigateReading: Bool { mode == .view && !showsWeb && pageCount > 0 }
-    var hasContents: Bool { !showsWeb && (offersProse || pageCount > 1 || hasOutline || !bookmarkPages.isEmpty) }
+    var reservesPreviewControls: Bool { readingPreview != nil }
+    var showsScrubberSlot: Bool { offersScrubber || (menuArrangement == .split && reservesPreviewControls) }
+
+    func canTurnPaperPage(forward: Bool) -> Bool {
+        let page = paperPageIndex
+        let last = paperPageCount - 1
+        guard last > 0 else { return false }
+        if viewOptions.layout == .single { return forward ? page < last : page > 0 }
+        let offset = viewOptions.showsCoverAlone ? 1 : 0
+        let spread = (page + offset) / 2
+        return forward ? spread < (last + offset) / 2 : spread > 0
+    }
+
+    var canNavigateReading: Bool { mode == .view && !showsWeb && readingPreview == nil && pageCount > 0 }
+    var hasContents: Bool {
+        readingPreview == nil && !showsWeb && (offersProse || pageCount > 1 || hasOutline || !bookmarkPages.isEmpty)
+    }
     var bookmarkPages: [Int] { bookmarks.pages(pageCount: pageCount, entries: outlineEntries) }
     var visibleReadingPages: [Int] {
         let units = displayUnits

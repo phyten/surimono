@@ -76,6 +76,28 @@ struct BandAccessibilityTests {
         }
     }
 
+    @Test("準備中はページ位置としおりに準備状態を添え、完成時には外す")
+    func preparingPages() {
+        let preparing = String(localized: "Preparing pages…")
+        let bookmark = String(localized: "Bookmarked")
+        #expect(
+            BandAccessibility.pageIndicator("1 / 53+", bookmarked: true, preparing: true)
+                == "\(preparing), 1 / 53+, \(bookmark)")
+        #expect(
+            BandAccessibility.pageIndicator("1 / 16194", bookmarked: true, preparing: false) == "1 / 16194, \(bookmark)"
+        )
+    }
+
+    @Test("印刷を予約したボタンの読み上げ名は画面のラベルと一致し、取り消せることを案内する")
+    func pendingPrintAction() {
+        let pending = BandAccessibility.printAction(pending: true)
+        #expect(pending.title.key == "Print When Ready")
+        #expect(pending.help.key == "Cancel")
+        let ready = BandAccessibility.printAction(pending: false)
+        #expect(ready.title.key == "Print")
+        #expect(ready.help.key == "Open the print screen")
+    }
+
     @Test("帯のズーム率は画面では空白なし、読み上げでは地域に合う整数のパーセントになる")
     func zoomPercentages() {
         let zoom = 1.246

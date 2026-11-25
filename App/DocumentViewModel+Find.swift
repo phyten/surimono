@@ -34,7 +34,8 @@ extension DocumentViewModel {
 
     /// The paper found these hits for `query`: the logical page of each, in the document's order.
     func paperFound(_ pages: [Int], for query: String) {
-        let isNew = find.found(pages, for: query, readingPage: currentPageIndex)
+        let isNew = find.found(
+            pages, for: query, readingPage: readingPreview == nil ? currentPageIndex : shownPageIndex)
         // Words searched again on new pages keep their hit, and the reader stays where they are reading.
         paper.markFindHit(find.state.current, reveals: isNew)
     }
@@ -46,7 +47,7 @@ extension DocumentViewModel {
     }
 
     var sourceLineCount: Int {
-        guard hasPaperToSearch, sourceLanguage != nil, let result else { return 0 }
+        guard hasPaperToSearch, readingPreview == nil, sourceLanguage != nil, let result else { return 0 }
         return result.sourceLineCount
     }
 

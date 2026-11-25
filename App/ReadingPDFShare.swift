@@ -6,6 +6,7 @@ final class ReadingPDFShare: NSObject, NSSharingServicePickerDelegate {
     private let name: String
     private let protectedURLs: [URL]
     private var prepare: (@MainActor () async throws -> Data)?
+    var isPresented: Bool { picker != nil }
     private var picker: NSSharingServicePicker?
     private var task: Task<Void, Never>?
     private var file: URL?
@@ -19,7 +20,7 @@ final class ReadingPDFShare: NSObject, NSSharingServicePickerDelegate {
 
     isolated deinit { cancel() }
 
-    func show(in view: NSView) {
+    func makePicker() -> NSSharingServicePicker {
         let provider = NSItemProvider()
         provider.suggestedName = name
         provider.registerFileRepresentation(
@@ -44,9 +45,7 @@ final class ReadingPDFShare: NSObject, NSSharingServicePickerDelegate {
         let picker = NSSharingServicePicker(items: [provider])
         self.picker = picker
         picker.delegate = self
-        picker.show(
-            relativeTo: CGRect(x: view.bounds.midX, y: view.bounds.maxY - 1, width: 1, height: 1),
-            of: view, preferredEdge: .minY)
+        return picker
     }
 
     func sharingServicePicker(

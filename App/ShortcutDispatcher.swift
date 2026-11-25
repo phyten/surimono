@@ -70,6 +70,12 @@ final class ShortcutDispatcher {
         if controller.nativeUserKeys.contains(combination) { return false }
         let responder = window.flatMap { firstResponder($0) }
         let model = modelForKeyWindow(window)
+        if let model, model.previewPrintRequest.destination != nil, combination == .init(key: .named(.escape)),
+            !Self.isComposing(responder)
+        {
+            model.previewPrintRequest.cancel()
+            return true
+        }
         let textInput = Self.isTextInput(responder)
         if textInput, !combination.modifiers.contains(.command) { return false }
         let visibility = MenuSnapshot.Visibility(model: model, preferences: menus.preferences())

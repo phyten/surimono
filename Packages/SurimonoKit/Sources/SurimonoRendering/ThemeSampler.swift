@@ -659,7 +659,7 @@ extension DocumentRenderer {
                 source, pageBreakLine: settings.finish.breaks.customLine, proof: settings.finish.proof,
                 orgReading: settings.orgReading,
                 composition: settings.theme.formats == [.latex] ? settings.latexComposition : .document,
-                textWidthPoints: settings.textWidthPoints(in: layout), access: access,
+                textWidthPoints: settings.textWidthPoints(in: layout), textScale: settings.textScale, access: access,
                 imageExists: { url in
                     (access?.permits(url) ?? true) && FileManager.default.fileExists(atPath: url.path)
                 })

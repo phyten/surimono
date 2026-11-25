@@ -53,9 +53,15 @@ struct BandAdditionalPart: View {
         if let id = BandMenuContent.ID(rawValue: item.rawValue) {
             let content = BandMenuContent(model: model)
             let entry = content.entry(id)
+            // Only configured rows reserve this slot. Discovering a warning at the end of pagination
+            // must not move another button under the pointer.
+            let hidesIssues = reservesIssueSlot && (model.readingPreview != nil || model.printIssueCount == 0)
             control(entry)
                 .fixedSize()
-                .disabled(!entry.isEnabled)
+                .opacity(hidesIssues ? 0 : 1)
+                .accessibilityHidden(hidesIssues)
+                .allowsHitTesting(!hidesIssues)
+                .disabled(!entry.isEnabled || hidesIssues)
                 .help(help(entry, content: content))
                 .accessibilityIdentifier("band.part." + item.rawValue)
                 .accessibilityLabel(Text(item.bandAccessibilityName))
@@ -97,7 +103,7 @@ struct BandAdditionalPart: View {
             } else {
                 inspected(icon)
             }
-            if form != .full, item == .beforePrinting {
+            if form != .full, item == .beforePrinting, !reservesIssueSlot {
                 Text(verbatim: String(model.printIssueCount)).monospacedDigit()
             }
             if item.isBandChoice { BandMenuChevron() }
@@ -126,7 +132,10 @@ struct BandAdditionalPart: View {
         #endif
     }
 
+    private var reservesIssueSlot: Bool { item == .beforePrinting && model.previewPageCountForBand != nil }
+
     func labelText(_ entry: BandMenuContent.Entry) -> String {
+        if reservesIssueSlot { return item.editorName }
         if item == .scrollDirection {
             return model.viewOptions.scrollAxis == .vertical
                 ? String(localized: "Vertical Scroll") : String(localized: "Horizontal Scroll")

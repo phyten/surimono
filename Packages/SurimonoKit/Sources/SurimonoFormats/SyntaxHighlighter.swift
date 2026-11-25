@@ -2,7 +2,7 @@ import Foundation
 
 public enum SyntaxHighlighter {
     // Bound allocations and conversion latency before creating the indexed scalar buffer.
-    private static let maximumUTF16Count = 200_000
+    package static let maximumUTF16Count = 200_000
 
     /// HTML with tokens wrapped in spans, or nil for an unknown language or code too large to highlight.
     public static func highlight(_ code: String, language: String) -> String? {

@@ -14,6 +14,14 @@ extension BandLayout.Item {
         return hasCompactForm
     }
 
+    func hasIntermediateForm(for model: DocumentViewModel) -> Bool {
+        switch self {
+        case .formatBadge: model.offersLaTeXComposition && model.latexComposition != .document
+        case .pageIndicator: model.previewPageCountForBand != nil
+        default: false
+        }
+    }
+
     var hasCompactForm: Bool {
         switch self {
         case .presentation, .style, .outline, .readingSettings, .transition, .print,
@@ -39,7 +47,7 @@ extension BandLayout.Item {
             case .selectText: paper && model.canSelectText
             case .margins: model.marginsApply
             case .ignoreSlides: model.detectedSlideDeck != nil && model.usesHTMLPresentation
-            case .beforePrinting: model.printIssueCount > 0
+            case .beforePrinting: model.printIssueCount > 0 || model.previewPageCountForBand != nil
             case .saveAsFile: model.canSaveAsFile
             case .layout, .transition: paper
             case .presentation: model.usesHTMLPresentation
@@ -49,8 +57,8 @@ extension BandLayout.Item {
             // Whether the band shows them is the arrangement's business; these say only what the document allows.
             case .chapter: paper && model.hasOutline && model.chapterEntries.contains { $0.pageIndex != nil }
             case .readingSettings: model.offersOrgReading
-            case .outline: model.hasContents && model.imageBundle == nil
-            case .pageTurn: paper && model.paperPageCount > 1
+            case .outline: (model.hasContents || model.reservesPreviewControls) && model.imageBundle == nil
+            case .pageTurn: paper && (model.paperPageCount > 1 || model.reservesPreviewControls)
             case .zoom: paper ? model.zoom > 1.001 : abs(model.webZoom - 1) > 0.001
             case .thumbnails: model.imageBundle != nil || model.binder != nil
             }
@@ -94,14 +102,19 @@ struct BandItemView: View {
             }.help("Reading Settings")
                 .accessibilityValue(Text(BandAccessibility.readingChanges(model.orgDocumentReading.changedCount)))
         case .chapter: CurrentChapterButton(model: model, trailing: trailing)
-        case .pageIndicator: PageIndicatorButton(model: model)
+        case .pageIndicator: PageIndicatorButton(model: model, showsStatusName: form == .full)
         case .pageTurn: PageTurnButtons(model: model)
         case .outline:
             BandDrawerButton(
                 title: item.bandAccessibilityName, symbol: "list.bullet", showsName: form == .full,
                 selected: model.isOutlineShown
             ) { model.toggleOutline() }
-            .help(ShortcutHints.help(String(localized: "Contents"), [.viewOutline]))
+            .disabled(!model.hasContents)
+            .opacity(model.hasContents ? 1 : 0.5)
+            .help(
+                model.isPreparingWholeDocument
+                    ? PageIndicatorText.preparingHelp
+                    : ShortcutHints.help(String(localized: "Contents"), [.viewOutline]))
         case .presentation: PresentationPicker(model: model, showsNames: form == .full)
         case .style: StyleMenu(model: model, showsName: form == .full)
         case .layout: LayoutPicker(model: model)
@@ -222,6 +235,10 @@ extension HTMLPresentation {
 struct PageIndicatorText: View {
     @Bindable var model: DocumentViewModel
 
+    var showsStatusName: Bool
+    static let preparingHelp = String(
+        localized: "Preparing the whole document — printing and Contents become available when it is ready.")
+
     var body: some View {
         if let indicator = model.pageIndicator {
             HStack(spacing: 4) {
@@ -231,37 +248,71 @@ struct PageIndicatorText: View {
                         .opacity(model.isVisiblePageBookmarked ? 1 : 0)
                         .accessibilityHidden(true)
                 }
-                Text(verbatim: model.pageIndicatorTemplate ?? indicator).hidden()
-                    .overlay(alignment: .leading) { Text(verbatim: indicator) }
-                    .font(.system(size: 11)).monospacedDigit().foregroundStyle(PrintPalette.ink)
-                    .lineLimit(1)
-                    .fixedSize()
+                ZStack(alignment: .leading) {
+                    if let prefixCount = model.previewPageCountForBand {
+                        // Hold the larger of the two labels across publication, including in the icon-only form.
+                        HStack(spacing: 4) {
+                            statusMark
+                            Text(
+                                verbatim: PageIndicator.widestText(
+                                    pageCount: prefixCount, layout: model.viewOptions.layout) + "+")
+                        }.hidden()
+                        // Input bytes generously bound the digits needed for pages of this text or CSV.
+                        Text(
+                            verbatim: PageIndicator.widestText(
+                                pageCount: model.data.count, layout: model.viewOptions.layout)
+                        ).hidden()
+                    }
+                    Text(verbatim: model.pageIndicatorTemplate ?? indicator).hidden()
+                    HStack(spacing: 4) {
+                        if model.isPreparingWholeDocument {
+                            statusMark.overlay(alignment: .leading) {
+                                ProgressView().controlSize(.mini).frame(width: 12, height: 12)
+                            }
+                        }
+                        Text(verbatim: indicator)
+                    }
+                }
+                .font(.system(size: 11)).monospacedDigit().foregroundStyle(PrintPalette.ink)
+                .lineLimit(1)
+                .fixedSize()
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text(verbatim: model.pageIndicatorAccessibilityValue))
+        }
+    }
+
+    private var statusMark: some View {
+        HStack(spacing: 4) {
+            Color.clear.frame(width: 12, height: 12)
+            if showsStatusName { Text("Preparing") }
         }
     }
 }
 
 extension DocumentViewModel {
     fileprivate var pageIndicatorAccessibilityValue: String {
-        BandAccessibility.pageIndicator(pageIndicator, bookmarked: isVisiblePageBookmarked)
+        BandAccessibility.pageIndicator(
+            pageIndicator, bookmarked: isVisiblePageBookmarked, preparing: isPreparingWholeDocument)
     }
 }
 
 /// The sheet belongs to the reading surface so measuring a second button cannot present it twice.
 struct PageIndicatorButton: View {
     @Bindable var model: DocumentViewModel
+    var showsStatusName: Bool
     @State private var hovered = false
 
     var body: some View {
         if !model.canGoToPage {
-            PageIndicatorText(model: model)
+            PageIndicatorText(model: model, showsStatusName: showsStatusName)
+                .help(model.isPreparingWholeDocument ? PageIndicatorText.preparingHelp : "")
+                .padding(.horizontal, model.reservesPreviewControls ? 6 : 0)
         } else {
             Button {
                 model.presentGoToPage()
             } label: {
-                PageIndicatorText(model: model)
+                PageIndicatorText(model: model, showsStatusName: showsStatusName)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 4)
                     .background {
@@ -276,7 +327,10 @@ struct PageIndicatorButton: View {
             .pointerStyle(.link)
             .accessibilityLabel(Text(BandLayout.Item.pageIndicator.bandAccessibilityName))
             .accessibilityValue(Text(verbatim: model.pageIndicatorAccessibilityValue))
-            .help(ShortcutHints.help(String(localized: "Go to Page…"), [.documentGoToPage]))
+            .help(
+                model.isPreparingWholeDocument
+                    ? PageIndicatorText.preparingHelp
+                    : ShortcutHints.help(String(localized: "Go to Page…"), [.documentGoToPage]))
         }
     }
 }
@@ -340,6 +394,7 @@ struct PageTurnButtons: View {
                 // A borderless button takes the window's tint, and indigo on the band means "open" or "chosen".
                 .foregroundStyle(PrintPalette.ink)
         }
+        .disabled(!model.canTurnPaperPage(forward: forward))
         .accessibilityLabel(Text(title))
         .help(
             ShortcutHints.help(
@@ -416,7 +471,7 @@ struct BandMeasurements: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             measure(.name) { Text(verbatim: model.displayName).font(OverlayBand.nameFont).lineLimit(1) }
-            if model.offersScrubber {
+            if model.showsScrubberSlot {
                 measure(.scrubber) {
                     PageScrubberRail(current: 0, hover: nil, ticks: []).frame(width: BandLayout.scrubberMinimum)
                 }
@@ -424,7 +479,7 @@ struct BandMeasurements: View {
             measure(.more) { BandMoreButton { EmptyView() } }
             ForEach(items, id: \.self) { item in
                 measure(.item(item, .full)) { BandItemView(model: model, item: item, form: .full) }
-                if item == .formatBadge, model.offersLaTeXComposition, model.latexComposition != .document {
+                if item.hasIntermediateForm(for: model) {
                     measure(.item(item, .withoutSuffix)) {
                         BandItemView(model: model, item: item, form: .withoutSuffix)
                     }

@@ -72,6 +72,7 @@ struct BandMenuContent {
     }
 
     func help(for entry: Entry) -> String {
+        if entry.id == .outline, model.isPreparingWholeDocument { return PageIndicatorText.preparingHelp }
         if entry.id == .textFormat {
             return ClipboardFormatText.help(kind: model.textKind ?? .plainText, origin: model.textFormatOrigin)
         }
@@ -130,7 +131,7 @@ struct BandMenuContent {
         case .selectText: return parts.contains(.selectText)
         case .margins: return parts.contains(.margins)
         case .ignoreSlides: return parts.contains(.ignoreSlides)
-        case .beforePrinting: return parts.contains(.beforePrinting)
+        case .beforePrinting: return model.readingPreview == nil && model.printIssueCount > 0
         case .saveAsFile: return parts.contains(.saveAsFile)
         case .floatOnTop, .showOnAllSpaces, .alwaysShowToolbar, .viewOptions, .printSettings, .print, .keysAndGestures:
             return true
@@ -147,12 +148,18 @@ struct BandMenuContent {
         case .readingSettings:
             title = String(localized: "Reading Settings")
             checked = model.isReadingPanelOpen
-        case .outline: title = String(localized: "Contents…")
+        case .outline:
+            title = String(localized: "Contents…")
+            enabled = model.hasContents
         case .thumbnails:
             title = String(localized: "Show List")
             checked = model.isDrawerOpen
-        case .previousPage: title = String(localized: "Previous Page")
-        case .nextPage: title = String(localized: "Next Page")
+        case .previousPage:
+            title = String(localized: "Previous Page")
+            enabled = model.canTurnPaperPage(forward: false)
+        case .nextPage:
+            title = String(localized: "Next Page")
+            enabled = model.canTurnPaperPage(forward: true)
         case .documentInfo: title = String(localized: "Document Info…")
         case .presentation:
             title = String(localized: "View As")
@@ -215,7 +222,11 @@ struct BandMenuContent {
         case .viewOptions: title = String(localized: "View Options…")
         case .printSettings: title = String(localized: "Print Settings…")
         case .beforePrinting: title = String(localized: "Before Printing (\(model.printIssueCount))…")
-        case .print: title = String(localized: "Print")
+        case .print:
+            title =
+                model.previewPrintRequest.destination == nil
+                ? String(localized: "Print") : String(localized: "Print When Ready")
+            enabled = model.canPerformPrintCommand
         case .saveAsFile: title = String(localized: "Save as File…")
         case .keysAndGestures: title = String(localized: "Keys and Gestures")
         }

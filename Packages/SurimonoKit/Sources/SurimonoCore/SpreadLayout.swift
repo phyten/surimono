@@ -56,10 +56,10 @@ extension SpreadLayout {
 
 /// The page indicator of the view mode: "3 / 12" for a page, "2–3 / 12" for a spread.
 public enum PageIndicator {
-    public static func text(pages: [Int], pageCount: Int) -> String {
+    public static func text(pages: [Int], pageCount: Int, provisional: Bool = false) -> String {
         guard let first = pages.first, let last = pages.last else { return "" }
         let shown = first == last ? "\(first)" : "\(first)–\(last)"
-        return "\(shown) / \(pageCount)"
+        return "\(shown) / \(pageCount)" + (provisional ? "+" : "")
     }
 
     /// The widest text that any unit of this document can show, with "8" standing for every digit; in a font with

@@ -403,6 +403,34 @@ struct PaperFindTests {
         withExtendedLifetime(window) {}
     }
 
+    @Test("先頭の紙の本文をコピーでき、全文への差し替えで選択範囲と検索の印を引き継がない", .timeLimit(.minutes(1)))
+    func selectionBelongsToDisplayedPaper() async throws {
+        let (view, prefix, window) = try makePaper(["red apple"])
+        defer { window.contentView = nil }
+        let board = NSPasteboard(name: .init("SurimonoTests.preview.\(UUID())"))
+        defer { board.releaseGlobally() }
+        view.find("apple")
+        try await waitUntil { view.highlightedSelections?.count == 1 }
+        let red = try #require(prefix.findString("red").first)
+        view.setCurrentSelection(red, animate: false)
+        let selected = try #require(view.currentSelection)
+        // Stand in for PDFKit's ordinary copy so the user's clipboard is never touched.
+        view.copySelection(selected, to: board) {
+            if let text = view.currentSelection?.string { board.setString(text, forType: .string) }
+        }
+        #expect(board.string(forType: .string) == "red")
+        let complete = try #require(PDFDocument(data: TestFixtures.textPDF(["red apple", "green apple"])))
+        view.show(complete, at: 0)
+        #expect(view.currentSelection?.string?.isEmpty != false)
+        #expect(view.findHits.isEmpty && view.highlightedSelections == nil)
+        board.clearContents()
+        view.copySelection(selected, to: board) { Issue.record("古い選択が通常のコピーに渡された") }
+        #expect(board.string(forType: .string) == nil)
+        try await waitUntil { view.findHits.count == 2 }
+        let marks = try #require(view.highlightedSelections)
+        #expect(marks.map { $0.pages.first } == [complete.page(at: 0), complete.page(at: 1)])
+    }
+
     @Test("打ち直した語は、前の語の検索を取り消して探す", .timeLimit(.minutes(1)))
     func cancelsTheSearchBefore() async throws {
         let (view, _, window) = try makePaper(pages)

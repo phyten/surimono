@@ -6,10 +6,32 @@ extension DocumentViewModel {
 
     /// ⌘P and the Print button: the view mode opens the print tray, and the tray prints right away to the printer
     /// chosen on it. The system dialog stays one step away (⌥⌘P).
-    var printCommand: PrintCommand { mode == .print ? .printNow : .enterPrintMode }
+    var printCommand: PrintCommand {
+        switch mode {
+        case .view, .compare: .enterPrintMode
+        case .print: .printNow
+        }
+    }
 
     var canPerformPrintCommand: Bool {
-        manualDuplexSession == nil && (mode != .print || canStartPrint)
+        !isWindowClosed && manualDuplexSession == nil && (readingPreview == nil || isPreparingWholeDocument)
+            && (mode != .print || canStartPrint)
+    }
+
+    var canRequestPrintTray: Bool { printCommand == .enterPrintMode && canPerformPrintCommand }
+
+    var isPresentingSomething: Bool {
+        window?.attachedSheet != nil || hasDocumentPopover || isComparePlacePickerPresented
+            || (mode == .view && (isOutlineDrawerOpen || isDrawerOpen || isReadingPanelOpen || find.isPresented))
+            || drop.isActive
+            || isReviewingSmartRemoval || manualDuplexSession != nil || duplexTestResult != nil || outputError != nil
+            || sourceSharePicker != nil || readingShare?.isPresented == true
+    }
+
+    var canFulfillReservedPrint: Bool { canRequestPrintTray && isUpToDate && !isPresentingSomething }
+
+    func cancelReservedPrint() {
+        if previewPrintRequest.destination != nil { previewPrintRequest.cancel() }
     }
 
     func performPrintCommand() {
@@ -90,7 +112,6 @@ extension DocumentViewModel {
     /// ⌘1–⌘6 and the layout cards: choose the layout and show it on the tray.
     func chooseLayout(_ id: String) {
         guard PrintLayout.presets.contains(where: { $0.id == id }) else { return }
-        layoutID = id
-        enterPrintMode()
+        enterPrintMode(.layout(id))
     }
 }

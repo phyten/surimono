@@ -64,7 +64,10 @@ final class PaperFind {
     private(set) var focusRequests = 0
     @ObservationIgnored private var pause: Task<Void, Never>?
 
+    @ObservationIgnored var onOpen: (() -> Void)?
+
     func open() {
+        onOpen?()
         isPresented = true
         focusRequests += 1
         // The words of the last search are still in the field.
@@ -87,6 +90,12 @@ final class PaperFind {
     func found(_ pages: [Int], for query: String, readingPage: Int) -> Bool {
         guard isPresented, query == self.query, !query.isEmpty else { return false }
         return state.found(pages, for: query, readingPage: readingPage)
+    }
+
+    func discardPageMatches() {
+        // Keep the query so finding it again on the complete paper does not move the reader.
+        guard !state.pages.isEmpty else { return }
+        state.found([], for: state.query, readingPage: 0)
     }
 
     private func textChanged() {

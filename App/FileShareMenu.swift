@@ -42,14 +42,37 @@ final class FileShareMenu: NSObject, NSMenuItemValidation {
         switch content {
         case .files(let urls):
             guard let view = model.window?.contentView else { return }
-            let picker = NSSharingServicePicker(items: urls)
             model.clearSharedExport()
-            model.sourceSharePicker = picker
-            picker.show(
-                relativeTo: NSRect(x: view.bounds.midX, y: view.bounds.maxY - 1, width: 1, height: 1),
-                of: view, preferredEdge: .minY)
+            let share = FileSharePicker(urls: urls, model: model)
+            model.sourceSharePicker = share
+            share.picker.show(inDocumentView: view)
         case .readingPDF:
             model.exportReading(.share)
         }
+    }
+}
+
+/// The picker can outlive its menu. Release the window's presentation state when the service is chosen or dismissed.
+final class FileSharePicker: NSObject, NSSharingServicePickerDelegate {
+    let picker: NSSharingServicePicker
+    private weak var model: DocumentViewModel?
+
+    init(urls: [URL], model: DocumentViewModel) {
+        picker = NSSharingServicePicker(items: urls)
+        self.model = model
+        super.init()
+        picker.delegate = self
+    }
+
+    func sharingServicePicker(_ sharingServicePicker: NSSharingServicePicker, didChoose service: NSSharingService?) {
+        if model?.sourceSharePicker === self { model?.sourceSharePicker = nil }
+    }
+}
+
+extension NSSharingServicePicker {
+    func show(inDocumentView view: NSView) {
+        show(
+            relativeTo: NSRect(x: view.bounds.midX, y: view.bounds.maxY - 1, width: 1, height: 1),
+            of: view, preferredEdge: .minY)
     }
 }
