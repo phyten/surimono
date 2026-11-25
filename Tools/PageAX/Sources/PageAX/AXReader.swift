@@ -149,6 +149,7 @@ final class AXReader {
     let token: String
     private var externalHit: AXUIElement?
     private(set) var hitInspection: HitInspection?
+    private(set) var returnedFocusWindowCount = 0
     private(set) var optionalErrors: [String: Int] = [:]
 
     init(app: AXUIElement, token: String) {
@@ -268,9 +269,25 @@ final class AXReader {
                 throw try unexpectedElement(hit, names: attrs, route: route)
             }
         case .focus:
-            if let object = try optional(kAXFocusedUIElementAttribute, on: app, names: names(app)) {
-                let focus = try axElement(object)
-                let attrs = try names(focus)
+            let deadline = ContinuousClock.now + .seconds(5)
+            while let object = try optional(kAXFocusedUIElementAttribute, on: app, names: names(app)) {
+                var focus = try axElement(object)
+                var attrs = try names(focus)
+                let role = try optional(kAXRoleAttribute, on: focus, names: attrs) as? String
+                if role == kAXWindowRole, try stage.isReturningFocusWindow(role: role, identifier: identifier(focus)) {
+                    returnedFocusWindowCount += 1
+                    // AppKit can expose the window before its focused child, especially in a background app.
+                    // Follow only an actual focus attribute. AXChildren would conceal a lost keyboard focus.
+                    if let child = try optional(kAXFocusedUIElementAttribute, on: focus, names: attrs),
+                        !CFEqual(child, focus)
+                    {
+                        focus = try axElement(child)
+                        attrs = try names(focus)
+                    } else if ContinuousClock.now < deadline {
+                        Thread.sleep(forTimeInterval: 0.05)
+                        continue
+                    }
+                }
                 if try isPage(focus, names: attrs, generation: generation) { return focus }
                 if try identifier(focus) == token + ".paper",
                     let page = try paperPages(focus, stage: stage).first
@@ -454,7 +471,8 @@ struct HeldPage {
                 .allSatisfy({ abs($0) <= 1 })
         else {
             throw ProbeFailure(
-                "Marker AX bounds " + String(describing: rect) + " differ from PDFKit " + String(describing: box))
+                "Marker AX bounds " + String(describing: rect) + " differ from expected bounds "
+                    + String(describing: box))
         }
     }
 
@@ -512,7 +530,7 @@ struct HeldPage {
         }
         if detached && !rect.isEmpty { throw ProbeFailure("Detached marker still has screen bounds") }
         if current {
-            let box = reference.characterBounds
+            let box = try reference.expectedBounds()
             try Self.checkBounds(rect, against: box)
             let parent = try axElement(value(element, kAXParentAttribute))
             guard try value(parent, kAXIdentifierAttribute) as? String == paperIdentifier,

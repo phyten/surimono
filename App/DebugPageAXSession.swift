@@ -112,42 +112,58 @@
                         width: screenBox.width, height: screenBox.height)
                     // Obtain the reference from PDFKit independently of the AX cache. A copied page is queried in
                     // its own document, then its page-space rectangle is converted through the displayed page.
-                    func markerBounds(_ candidate: PDFPage) -> CGRect {
-                        candidate.selection(for: range)?.bounds(for: candidate) ?? .null
+                    try StageIssue.check(screenBox, field: field + ".element")
+                    try StageIssue.check(elementBox, field: field + ".elementAX")
+                    func markerBounds(_ candidate: PDFPage, source: String) -> (box: CGRect, source: String)? {
+                        if let selection = candidate.selection(for: range), selection.string == "世" {
+                            let box = selection.bounds(for: candidate)
+                            if PageTextGeometry.usable(box) { return (box, source) }
+                        }
+                        // PDFKit also offers an inclusive character-index selection through the document.
+                        guard index < candidate.numberOfCharacters,
+                            let selection = candidate.document?.selection(
+                                from: candidate, atCharacterIndex: index, to: candidate, atCharacterIndex: index),
+                            selection.string == "世", selection.numberOfTextRanges(on: candidate) == 1,
+                            selection.range(at: 0, on: candidate) == range
+                        else { return nil }
+                        let box = selection.bounds(for: candidate)
+                        return PageTextGeometry.usable(box) ? (box, source + ".documentSelection") : nil
                     }
-                    var selectionBounds = markerBounds(page)
-                    var referenceSource = "displayedPage"
-                    if !PageTextGeometry.usable(selectionBounds) {
+                    var reference = markerBounds(page, source: "displayedPage")
+                    var reason = "No finite marker selection on displayed page; matching page copy unavailable"
+                    if reference == nil {
                         PageTextGeometry.withCopy(of: page, matching: text) { copy in
-                            selectionBounds = markerBounds(copy)
-                            referenceSource = "copiedPage"
+                            reference = markerBounds(copy, source: "copiedPage")
+                            reason = "No finite marker selection on displayed page or matching page copy"
                         }
                     }
-                    do {
-                        try StageIssue.check(selectionBounds, field: field + ".pdf")
-                    } catch let issue as StageIssue {
-                        throw StageIssue(
-                            kind: issue.kind, field: issue.field,
-                            value: "\(issue.value); PDFKit: \(referenceSource); AX frame: \(screenBox)")
-                    }
-                    let glyph = view.convert(selectionBounds, from: page)
-                    try StageIssue.check(glyph, field: field + ".view")
-                    let bounds = axRect(glyph)
-                    try StageIssue.check(bounds, field: field)
-                    guard PageTextGeometry.usable(screenBox),
-                        [
-                            elementBox.minX - bounds.minX, elementBox.minY - bounds.minY,
-                            elementBox.maxX - bounds.maxX, elementBox.maxY - bounds.maxY,
-                        ].allSatisfy({ abs($0) <= 1 })
-                    else {
-                        throw StageIssue(
-                            kind: .geometryNotReady, field: "pages[\(pages.count)].elementCharacterBounds",
-                            value: "AX: \(elementBox); PDFKit (\(referenceSource)): \(bounds)")
+                    var bounds: CGRect?
+                    var glyph: CGRect
+                    if let reference {
+                        glyph = view.convert(reference.box, from: page)
+                        try StageIssue.check(glyph, field: field + ".view")
+                        let independent = axRect(glyph)
+                        try StageIssue.check(independent, field: field)
+                        guard
+                            [
+                                elementBox.minX - independent.minX, elementBox.minY - independent.minY,
+                                elementBox.maxX - independent.maxX, elementBox.maxY - independent.maxY,
+                            ].allSatisfy({ abs($0) <= 1 })
+                        else {
+                            throw StageIssue(
+                                kind: .geometryNotReady, field: field + ".element",
+                                value: "AX: \(elementBox); PDFKit (\(reference.source)): \(independent)")
+                        }
+                        bounds = independent
+                    } else {
+                        // The published frame can locate the hit point, but cannot independently verify itself.
+                        glyph = view.convert(window.convertFromScreen(screenBox), from: nil)
                     }
                     pages.append(
                         .init(
                             identifier: id, characterIndex: index, characterBounds: bounds,
-                            referenceSource: referenceSource, elementCharacterBounds: elementBox))
+                            referenceSource: reference?.source, elementCharacterBounds: elementBox,
+                            referenceUnavailable: bounds == nil ? reason : nil))
                     let pageFrame = view.convert(page.bounds(for: view.displayBox), from: page)
                     try StageIssue.check(pageFrame, field: "visiblePages[\(id)].frame")
                     try StageIssue.check(view.visibleRect, field: "paper.visibleRect")
@@ -194,24 +210,34 @@
 
             func publish(generation: Int) async throws {
                 let needsPaper = phase != "inTray" && phase != "finished"
-                var focused = false
                 let data = try await Stage.encodeWhenReady {
                     var pages: [PageReference] = []
                     var hit: HitTarget?
+                    var nativeFocus: NativeFocus?
                     if needsPaper {
                         model.paper.attachedProbeView?.identifyProbePaper(session.token)
-                        if !focused {
-                            _ = try references()
-                            try focusPaper(inner: phase != "initial")
-                            focused = true
-                        }
+                        if phase != "afterTray" { try focusPaper(inner: phase != "initial") }
                         // Changing responder can lay out the paper again. Validate the sample we will publish.
                         (pages, hit) = try references()
+                        if let paper = model.paper.attachedProbeView, let window = paper.window {
+                            let responder = window.firstResponder
+                            let inPaper = responder === paper || (responder as? NSView)?.isDescendant(of: paper) == true
+                            nativeFocus = NativeFocus(
+                                windowIdentifier: window.identifier?.rawValue,
+                                responder: responder.map { String(describing: type(of: $0)) } ?? "nil",
+                                isPaper: inPaper, isKeyWindow: window.isKeyWindow, isAppActive: NSApp.isActive)
+                            if phase == "afterTray", !inPaper {
+                                throw StageIssue(
+                                    kind: .geometryNotReady, field: "window.firstResponder",
+                                    value: String(describing: nativeFocus))
+                            }
+                        }
                     }
                     return Stage(
                         pid: getpid(), token: session.token, operation: session.operation, count: session.count,
                         sequence: sequence, phase: phase, generation: generation,
-                        hit: hit, pages: pages, axElements: ShownDocumentsProbe.elementMetrics)
+                        hit: hit, pages: pages, axElements: ShownDocumentsProbe.elementMetrics, nativeFocus: nativeFocus
+                    )
                 }
                 let file = session.directory.appending(path: "stage-\(sequence).json")
                 try data.write(to: file, options: .atomic)
@@ -234,8 +260,13 @@
                 }
                 // A real click leaves PDFKit's public documentView as the responder.
                 guard let responder = inner ? view.documentView : view,
-                    window.makeFirstResponder(responder), window.firstResponder === responder
-                else { throw SnapshotDeadline(stage: inner ? "inner paper focus" : "outer paper focus") }
+                    window.firstResponder === responder || window.makeFirstResponder(responder),
+                    window.firstResponder === responder
+                else {
+                    throw StageIssue(
+                        kind: .geometryNotReady, field: "window.firstResponder",
+                        value: inner ? "inner paper focus" : "outer paper focus")
+                }
             }
             do {
                 try await wait("first paper", for: paperReady)
@@ -263,7 +294,9 @@
                         phase = "afterTray"
                         model.exitPrintMode()
                         try await wait("returned paper") {
-                            paperReady() && model.paper.attachedProbeView?.probeID != oldID
+                            guard let window = model.window else { return false }
+                            return paperReady() && model.paper.attachedProbeView?.probeID != oldID
+                                && !ViewerWindow.isResizingProgrammatically(window)
                         }
                         try await publish(generation: iteration - 1)
                     }

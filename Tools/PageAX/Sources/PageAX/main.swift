@@ -4,9 +4,30 @@ import ApplicationServices
 struct PageReference: Codable {
     let identifier: String
     let characterIndex: Int
-    let characterBounds: CGRect
+    let characterBounds: CGRect?
     var referenceSource: String?
     var elementCharacterBounds: CGRect?
+    var referenceUnavailable: String?
+
+    func expectedBounds() throws -> CGRect {
+        if let characterBounds, referenceUnavailable == nil { return characterBounds }
+        guard characterBounds == nil, referenceUnavailable?.isEmpty == false, let elementCharacterBounds,
+            !elementCharacterBounds.isEmpty, !elementCharacterBounds.isInfinite,
+            [
+                elementCharacterBounds.minX, elementCharacterBounds.minY, elementCharacterBounds.maxX,
+                elementCharacterBounds.maxY,
+            ].allSatisfy(\.isFinite)
+        else { throw ProbeFailure("Missing marker bounds or reference diagnostic for " + identifier) }
+        return elementCharacterBounds
+    }
+}
+
+struct NativeFocus: Codable {
+    let windowIdentifier: String?
+    let responder: String
+    let isPaper: Bool
+    let isKeyWindow: Bool
+    let isAppActive: Bool
 }
 
 struct HitTarget: Codable {
@@ -29,6 +50,14 @@ struct Stage: Codable {
     let generation: Int
     var hit: HitTarget?
     var pages: [PageReference] = []
+    var nativeFocus: NativeFocus?
+
+    func isReturningFocusWindow(role: String?, identifier: String?) -> Bool {
+        guard phase == "afterTray", nativeFocus?.isPaper == true, role == kAXWindowRole,
+            let identifier, !identifier.isEmpty
+        else { return false }
+        return identifier == nativeFocus?.windowIdentifier
+    }
 }
 
 struct ExpectedStage: Encodable {
@@ -103,6 +132,30 @@ struct Report: Encodable {
     var optionalAttributeErrors: [String: Int] = [:]
     var status: Int32 = 0
 
+    var unavailableReferences: [Int: [PageReference]] = [:]
+
+    mutating func recordUnavailableReferences(_ stage: Stage) {
+        let unavailable = stage.pages.filter { $0.referenceUnavailable != nil }
+        if !unavailable.isEmpty {
+            unavailableReferences[stage.sequence] = unavailable
+            record("referenceUnavailable", sequence: stage.sequence, phase: stage.phase, route: "bounds")
+        }
+    }
+
+    mutating func recordComparedReferences(_ stage: Stage, verified: [PageReference]) {
+        if verified.contains(where: { $0.characterBounds != nil }) {
+            record("referenceCompared", sequence: stage.sequence, phase: stage.phase, route: "bounds")
+        }
+    }
+
+    mutating func finishReferences(_ stage: Stage) {
+        if totals["referenceCompared", default: 0] == 0 {
+            record(
+                "failure", sequence: stage.sequence, phase: stage.phase, route: "bounds",
+                detail: "No current external page bounds were verified against PDFKit in this run")
+        }
+    }
+
     mutating func recordAppError(_ failure: AppStageFailure) {
         appError = failure
         record("appError", sequence: failure.sequence, phase: failure.phase, route: "app", detail: failure.description)
@@ -172,6 +225,8 @@ func discover<Page>(_ stage: Stage, report: inout Report, acquire: (Route) throw
 }
 
 func run(_ report: inout Report, directory: URL) {
+    report.totals["referenceUnavailable"] = 0
+    report.totals["referenceCompared"] = 0
     let pid = report.pid
     var index = 0
     var generation = 0
@@ -212,15 +267,24 @@ func run(_ report: inout Report, directory: URL) {
             let reader = AXReader(app: app, token: stage.token)
             readerForDiagnostics = reader
             defer {
+                if reader.returnedFocusWindowCount > 0, let native = stage.nativeFocus {
+                    report.record(
+                        "focusWindowObserved", sequence: stage.sequence, phase: stage.phase, route: "focus",
+                        detail:
+                            "Window replies: \(reader.returnedFocusWindowCount), first responder: \(native.responder), key: \(native.isKeyWindow), active: \(native.isAppActive)"
+                    )
+                }
                 report.optionalAttributeErrors.merge(reader.optionalErrors, uniquingKeysWith: +)
                 report.hitInspections[stage.sequence] = reader.hitInspection
             }
             if phase != "inTray" && phase != "finished" {
+                report.recordUnavailableReferences(stage)
                 let current = try discover(stage, report: &report) { route in
                     let page = try HeldPage(reader.page(via: route, stage: stage), stage: stage)
                     try page.verify(current: true)
                     return page
                 }
+                report.recordComparedReferences(stage, verified: current.values.map(\.reference))
                 for route in Route.allCases {
                     if let page = current[route] {
                         report.record(
@@ -260,6 +324,7 @@ func run(_ report: inout Report, directory: URL) {
                 }
             }
             try requireAlive(pid)
+            if phase == "finished" { report.finishReferences(stage) }
             if report.status != 0 { report.captureTree(reader, sequence: index) }
             try Data(stage.token.utf8).write(
                 to: directory.appending(path: "ack-\(index)"), options: .withoutOverwriting)

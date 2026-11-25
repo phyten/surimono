@@ -8,7 +8,9 @@
     @MainActor struct DebugPageAXStageTests {
         typealias Stage = DebugPageAXSession.Stage
 
-        private func stage(second bounds: CGRect, point: CGPoint = .zero) -> Stage {
+        private func stage(
+            second bounds: CGRect?, point: CGPoint = .zero, element: CGRect? = nil, reason: String? = nil
+        ) -> Stage {
             let first = CGRect(x: 40, y: 80, width: 12, height: 14)
             return Stage(
                 pid: 42, token: "fixture", operation: "layout", count: 10, sequence: 2, phase: "layout", generation: 0,
@@ -17,7 +19,9 @@
                     windowIsPaperAncestor: false, windowRole: nil, windowIdentifier: nil),
                 pages: [
                     .init(identifier: "page.0", characterIndex: 6, characterBounds: first),
-                    .init(identifier: "page.1", characterIndex: 0, characterBounds: bounds),
+                    .init(
+                        identifier: "page.1", characterIndex: 0, characterBounds: bounds,
+                        elementCharacterBounds: element, referenceUnavailable: reason),
                 ],
                 axElements: .init(
                     leaves: [], firstTextSeconds: nil, totalTextSeconds: 0, totalSnapshotSeconds: 0,
@@ -47,6 +51,27 @@
                 #expect(json["kind"] as? String == "nonFinite")
                 #expect(json["field"] as? String == "pages[1].characterBounds.origin.x")
                 #expect(json["value"] as? String == "inf")
+            }
+        }
+
+        @Test("参照枠だけが欠けた段は再採取し、期限に達したら理由と有限の製品の枠を残す")
+        func missingPDFKitReference() async throws {
+            let box = CGRect(x: 12, y: 30, width: 12, height: 14)
+            let missing = stage(second: nil, element: box, reason: "no PDFKit selection")
+            var reads = 0
+            _ = try await Stage.encodeWhenReady {
+                reads += 1
+                return reads == 1 ? missing : stage(second: box)
+            }
+            #expect(reads == 2)
+            let data = try await Stage.encodeWhenReady(within: .zero) { missing }
+            let json = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+            let pages = try #require(json["pages"] as? [[String: Any]])
+            #expect(pages[1]["characterBounds"] == nil)
+            #expect(pages[1]["elementCharacterBounds"] as? [[Double]] == [[12, 30], [12, 14]])
+            #expect(pages[1]["referenceUnavailable"] as? String == "no PDFKit selection")
+            #expect(throws: DebugPageAXSession.StageIssue.self) {
+                try stage(second: nil, element: .zero, reason: "no PDFKit selection").encoded()
             }
         }
 

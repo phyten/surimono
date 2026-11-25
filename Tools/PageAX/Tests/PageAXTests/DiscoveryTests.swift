@@ -233,6 +233,52 @@ struct DiscoveryTests {
         }
     }
 
+    @Test("刷り台の復帰後は、非アクティブでも紙が応答者の同じ窓だけフォーカスの反映を待つ")
+    func returningFocusWindow() {
+        var returned = Stage(
+            pid: getpid(), token: token, operation: "tray", count: 1, sequence: 3, phase: "afterTray", generation: 0)
+        let paper = NativeFocus(
+            windowIdentifier: "fixture.window", responder: "paper", isPaper: true, isKeyWindow: false,
+            isAppActive: false)
+        returned.nativeFocus = paper
+        #expect(returned.isReturningFocusWindow(role: kAXWindowRole, identifier: "fixture.window"))
+        #expect(!returned.isReturningFocusWindow(role: kAXWindowRole, identifier: "other.window"))
+        #expect(!returned.isReturningFocusWindow(role: kAXButtonRole, identifier: "fixture.window"))
+        var initial = stage
+        initial.nativeFocus = paper
+        #expect(!initial.isReturningFocusWindow(role: kAXWindowRole, identifier: "fixture.window"))
+        returned.nativeFocus = NativeFocus(
+            windowIdentifier: "fixture.window", responder: "window", isPaper: false, isKeyWindow: false,
+            isAppActive: false)
+        #expect(!returned.isReturningFocusWindow(role: kAXWindowRole, identifier: "fixture.window"))
+    }
+
+    @Test("参照枠のない段は一度だけ数え、外から独立の枠と照合した段が一つもなければ失敗する")
+    func referenceCoverage() throws {
+        let box = CGRect(x: 40, y: 80, width: 12, height: 14)
+        let missing = PageReference(
+            identifier: "page.0", characterIndex: 0, characterBounds: nil,
+            elementCharacterBounds: box, referenceUnavailable: "no PDFKit selection")
+        let measured = PageReference(identifier: "page.1", characterIndex: 0, characterBounds: box)
+        var stage = stage
+        stage.pages = [missing, measured]
+        var report = report
+        report.recordUnavailableReferences(stage)
+        report.recordComparedReferences(stage, verified: [missing, missing])
+        #expect(report.totals["referenceUnavailable"] == 1)
+        #expect(report.unavailableReferences[0]?.first?.elementCharacterBounds == box)
+        var withoutComparison = report
+        withoutComparison.finishReferences(stage)
+        #expect(withoutComparison.status == 1)
+        report.recordComparedReferences(stage, verified: [measured, measured])
+        report.finishReferences(stage)
+        #expect(report.status == 0 && report.totals["referenceCompared"] == 1)
+        #expect(try missing.expectedBounds() == box)
+        var invalid = missing
+        invalid.elementCharacterBounds = .zero
+        #expect(throws: ProbeFailure.self) { try invalid.expectedBounds() }
+    }
+
     @Test("表示中の文字の矩形はゼロでも別の位置でも失敗する")
     func markerBounds() throws {
         let box = CGRect(x: 40, y: 80, width: 12, height: 14)

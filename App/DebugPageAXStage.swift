@@ -6,9 +6,18 @@
         struct PageReference: Encodable {
             let identifier: String
             let characterIndex: Int
-            let characterBounds: CGRect
+            let characterBounds: CGRect?
             var referenceSource: String?
             var elementCharacterBounds: CGRect?
+            var referenceUnavailable: String?
+        }
+
+        struct NativeFocus: Encodable {
+            let windowIdentifier: String?
+            let responder: String
+            let isPaper: Bool
+            let isKeyWindow: Bool
+            let isAppActive: Bool
         }
 
         struct HitTarget: Encodable {
@@ -33,6 +42,7 @@
             let hit: HitTarget?
             let pages: [PageReference]
             let axElements: ShownDocumentsProbe.ElementMetrics
+            var nativeFocus: NativeFocus?
 
             @MainActor static func encodeWhenReady(within timeout: Duration = .seconds(5), sample: () throws -> Self)
                 async throws
@@ -41,7 +51,14 @@
                 let deadline = ContinuousClock.now + timeout
                 while true {
                     do {
-                        return try sample().encoded()
+                        let stage = try sample()
+                        if stage.pages.contains(where: { $0.referenceUnavailable != nil }),
+                            ContinuousClock.now < deadline
+                        {
+                            try await Task.sleep(for: .milliseconds(50))
+                            continue
+                        }
+                        return try stage.encoded()
                     } catch let issue as StageIssue where issue.canRetry && ContinuousClock.now < deadline {
                         try await Task.sleep(for: .milliseconds(50))
                     }
@@ -50,7 +67,15 @@
 
             func encoded() throws -> Data {
                 for (index, page) in pages.enumerated() {
-                    try StageIssue.check(page.characterBounds, field: "pages[\(index)].characterBounds")
+                    if let bounds = page.characterBounds {
+                        try StageIssue.check(bounds, field: "pages[\(index)].characterBounds")
+                    } else if page.referenceUnavailable?.isEmpty != false || page.elementCharacterBounds == nil {
+                        throw StageIssue(
+                            kind: .geometryNotReady, field: "pages[\(index)]", value: "missing marker bounds")
+                    }
+                    if let element = page.elementCharacterBounds {
+                        try StageIssue.check(element, field: "pages[\(index)].elementCharacterBounds")
+                    }
                 }
                 if let hit { try StageIssue.check(hit.point, field: "hit.point") }
                 do {
