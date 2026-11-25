@@ -20,6 +20,47 @@ struct SourceTypesettingTests {
         DocumentSource(data: Data(text.utf8), format: .plainText).named("source.swift")
     }
 
+    @Test("原稿の行の位置をPDFから取り出し、書き出す本文には位置を示すリンクを残さない")
+    func takeLineLocations() throws {
+        let doc = try RenderingFixtures.pdf(count: 2)
+        let page = try #require(doc.page(at: 1))
+        let rect = CGRect(x: 40, y: 60, width: 230, height: 12)
+        for target in ["surimono-source-line:120", "https://example.com/"] {
+            let link = PDFAnnotation(bounds: rect, forType: .link, withProperties: nil)
+            link.url = URL(string: target)
+            page.addAnnotation(link)
+        }
+        let lines = SourceLineLocation.take(from: doc)
+        #expect(lines.lastNumber == 120)
+        #expect(lines.locations[120]?.pageIndex == 1)
+        #expect(lines.locations[120]?.rect == rect)
+        let saved = try #require(doc.dataRepresentation().flatMap(PDFDocument.init(data:)))
+        #expect(saved.page(at: 1)?.annotations.map { $0.url?.absoluteString } == ["https://example.com/"])
+    }
+
+    @Test("行番号を隠しても、折り返し・空行・重複行の位置が組版後の紙面に一致する")
+    func sourceLineLocations() async throws {
+        _ = NSApplication.shared
+        var block = CodeBlockOptions.sourcePage
+        block.lineNumbers = .none
+        let text =
+            String(repeating: "same\r\n", count: 120) + String(repeating: "wrap ", count: 55) + "\r\n\r\nTARGET\r\n"
+        let result = try await DocumentRenderer().prepare(file(text), settings: settings(block))
+        #expect(result.sourceLines.count == 123)
+        let last = try #require(result.sourceLines[123])
+        let blank = try #require(result.sourceLines[122])
+        let doc = result.viewDocument
+        let hit = try #require(doc.findString("TARGET").first)
+        let page = try #require(hit.pages.first)
+        #expect(last.pageIndex == doc.index(for: page))
+        #expect(last.pageIndex > 0)
+        #expect(last.rect.intersects(hit.bounds(for: page)))
+        #expect(blank.pageIndex < last.pageIndex || blank.rect.midY > last.rect.midY)
+        for i in 0..<doc.pageCount {
+            #expect(doc.page(at: i)?.annotations.isEmpty == true)
+        }
+    }
+
     @Test("字幅は一定で、行頭と行中のタブは四桁の位置、折り返しは字下げに二桁を足した位置に置く")
     func alignment() async throws {
         _ = NSApplication.shared
@@ -90,16 +131,40 @@ struct SourceTypesettingTests {
         #expect(try RenderingFixtures.inkColumns(sheet).lowerBound == left)
     }
 
+    @Test(
+        "行末や空行の違いにかかわらず、移動できる行は紙に刷った各番号と同じ位置にある",
+        arguments: [
+            ("", 0), ("\n", 1), ("a", 1), ("a\n", 1), ("a\n\n", 2), ("a\r\n\r\nb", 3),
+        ])
+    func lineBoundaries(text: String, count: Int) async throws {
+        _ = NSApplication.shared
+        let result = try await DocumentRenderer().prepare(file(text), settings: settings())
+        let page = try #require(result.viewDocument.page(at: 0))
+        #expect(result.viewDocument.pageCount == 1)
+        #expect(result.sourceLineCount == count)
+        #expect(result.sourceLines.keys.sorted() == (0..<count).map { $0 + 1 })
+        let digits = try gutterDigits(on: page)
+        try #require(digits.count == count)
+        for (index, digit) in digits.enumerated() {
+            let destination = try #require(result.sourceLines[index + 1])
+            #expect(destination.pageIndex == 0)
+            #expect((destination.rect.minY...destination.rect.maxY).contains(digit.midY))
+        }
+    }
+
     @Test("印刷した行番号には数字の中の白が残り、1 と 8 のインク量が異なる")
     func printedDigits() async throws {
         _ = NSApplication.shared
         let output = try await DocumentRenderer().render(
             file(String(repeating: "ink\n", count: 8)), settings: settings())
         let page = try #require(output.sheetDocument.page(at: 0))
-        try checkDigits(on: page)
+        let digits = try gutterDigits(on: page)
+        try #require(digits.count == 8)
+        #expect(Double(digits[7].ink) > 1.2 * Double(digits[0].ink))
+        #expect(!(page.string ?? "").contains(where: { $0.isNumber }))
     }
 
-    private func checkDigits(on page: PDFPage) throws {
+    private func gutterDigits(on page: PDFPage) throws -> [(midY: CGFloat, ink: Int)] {
         // Read only the gutter, including a little white at both edges, at 288 dpi.
         let box = page.bounds(for: .mediaBox)
         let scale = 4
@@ -115,7 +180,7 @@ struct SourceTypesettingTests {
         bitmap.translateBy(x: -(box.minX + 15 * 72 / 25.4 - 2), y: -box.minY)
         bitmap.drawPDFPage(try #require(page.pageRef))
         let bytes = try #require(bitmap.data).assumingMemoryBound(to: UInt8.self)
-        var counts: [Int] = []
+        var digits: [(midY: CGFloat, ink: Int)] = []
         var bounds = CGRect.null
         var count = 0
         for y in 0..<height {
@@ -128,14 +193,13 @@ struct SourceTypesettingTests {
             if !hasInk && count > 0 {
                 let coverage = CGFloat(count) / (bounds.width * bounds.height)
                 #expect(coverage > 0.12 && coverage < 0.72)
-                counts.append(count)
+                // Bitmap rows start at the top; navigation uses PDF page coordinates.
+                digits.append((box.maxY - bounds.midY / CGFloat(scale), count))
                 count = 0
                 bounds = .null
             }
         }
-        try #require(counts.count == 8)
-        #expect(Double(counts[7]) > 1.2 * Double(counts[0]))
-        #expect(!(page.string ?? "").contains(where: { $0.isNumber }))
+        return digits
     }
 
     @Test("WebKit で印刷したソースは表示用のページ番号があっても、複数ページ・折り返し・タブ・和文を原文どおり選べる")

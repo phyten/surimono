@@ -86,6 +86,9 @@ struct PrintFinishSheet: View {
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
+                    #if DEBUG
+                        .reportPrintFinishFrame(.picker("Booklet Binding"))
+                    #endif
                 }
             }
             if model.marginsAffectPrinting {
@@ -117,6 +120,9 @@ struct PrintFinishSheet: View {
                             Text("Print as Original").tag(ProofMarks.original)
                         }
                         .labelsHidden()
+                        #if DEBUG
+                            .reportPrintFinishFrame(.picker("Proof Marks"))
+                        #endif
                     }
                 }
                 section("Footnotes") {
@@ -125,6 +131,9 @@ struct PrintFinishSheet: View {
                         Text("At the Bottom of the Page (Beta)").tag(FootnotePlacement.pageBottom)
                     }
                     .labelsHidden()
+                    #if DEBUG
+                        .reportPrintFinishFrame(.picker("Footnotes"))
+                    #endif
                 }
                 section("Links on Paper") {
                     Picker("Links on Paper", selection: model.controlBinding(\.printFinish.links)) {
@@ -133,6 +142,9 @@ struct PrintFinishSheet: View {
                         Text("After the Text").tag(PaperLinks.inline)
                     }
                     .labelsHidden()
+                    #if DEBUG
+                        .reportPrintFinishFrame(.picker("Links on Paper"))
+                    #endif
                 }
             }
             if model.offersNotes {
@@ -141,6 +153,11 @@ struct PrintFinishSheet: View {
             section("Printer Adjustments") { PrintPrinterOptions(model: model) }.id(PrintFinishSection.printer)
             newDocumentsDefault
         }
+        #if DEBUG
+            .reportPrintFinishFrame(.content)
+        #endif
+        // A wide control in one section must not shift the leading edge of every other section.
+        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
         .padding(16)
     }
 
@@ -196,8 +213,18 @@ struct PrintFinishSheet: View {
         _ title: LocalizedStringKey, isFirst: Bool = false, @ViewBuilder content: () -> Content
     ) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            if !isFirst { Rectangle().fill(PrintPalette.line).frame(height: 1).padding(.bottom, 11) }
-            Text(title).font(.system(size: 13, weight: .semibold)).padding(.bottom, 7)
+            if !isFirst {
+                Rectangle().fill(PrintPalette.line).frame(height: 1)
+                    #if DEBUG
+                        .reportPrintFinishFrame(.divider(title))
+                    #endif
+                    .padding(.bottom, 11)
+            }
+            Text(title).font(.system(size: 13, weight: .semibold))
+                #if DEBUG
+                    .reportPrintFinishFrame(.heading(title))
+                #endif
+                .padding(.bottom, 7)
             content()
         }
         .padding(.bottom, 11)
@@ -251,8 +278,9 @@ struct PrintFinishSheet: View {
     ) -> some View {
         HStack(spacing: 10) {
             name().frame(width: Self.nameColumnWidth, alignment: .leading)
+            // The choices need the entire remaining column to decide whether one row fits.
             choice()
-            Spacer(minLength: 0)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(minHeight: 32)
     }
@@ -299,6 +327,9 @@ struct PrintFinishSheet: View {
                         Text("Write Your Own").tag("")
                     }
                     .labelsHidden()
+                    #if DEBUG
+                        .reportPrintFinishFrame(.picker("Date Format"))
+                    #endif
                     .controlSize(.small)
                     .fixedSize()
                     PrintTextField(
@@ -408,7 +439,7 @@ struct PrintFinishSheet: View {
                     count: PrintModeText.format(
                         "%lld places", language: model.language, facts?.thematicBreakCount ?? 0))
                 subheading("Your Own Syntax")
-                TextField("Your Own Syntax", text: $customLine, prompt: Text(verbatim: "＝＝改ページ＝＝"))
+                TextField("Your Own Syntax", text: $customLine, prompt: Text("==page break=="))
                     .labelsHidden()
                     .textFieldStyle(.roundedBorder)
                     .controlSize(.small)
@@ -426,7 +457,7 @@ struct PrintFinishSheet: View {
         }
     }
 
-    private func levelRow(level: Int, rule: Binding<HeadingBreak>) -> some View {
+    func levelRow(level: Int, rule: Binding<HeadingBreak>) -> some View {
         let count = facts?.headings.filter { $0.level == level }.count ?? 0
         return choiceRow {
             VStack(alignment: .leading, spacing: 0) {
@@ -497,6 +528,59 @@ struct PrintFinishSheet: View {
         }
     }
 }
+
+#if DEBUG
+    // SwiftUI can draw a picker without an AppKit control. Read unclipped bounds from the branch it places.
+    struct PrintFinishFrame: Equatable {
+        enum Element: Equatable {
+            case content
+            case heading(LocalizedStringKey)
+            case divider(LocalizedStringKey)
+            case segment(LocalizedStringKey)
+            case row(LocalizedStringKey)
+            case menu(LocalizedStringKey)
+            case picker(LocalizedStringKey)
+        }
+
+        let element: Element
+        let selected: LocalizedStringKey?
+        let isEnabled: Bool
+        let rect: CGRect
+    }
+
+    struct PrintFinishFrames: PreferenceKey {
+        static var defaultValue: [PrintFinishFrame] { [] }
+        static func reduce(value: inout [PrintFinishFrame], nextValue: () -> [PrintFinishFrame]) {
+            value += nextValue()
+        }
+    }
+
+    private struct PrintFinishFrameReader: View {
+        let element: PrintFinishFrame.Element
+        let selected: LocalizedStringKey?
+        @Environment(\.isEnabled) private var isEnabled
+
+        var body: some View {
+            GeometryReader { geometry in
+                Color.clear.preference(
+                    key: PrintFinishFrames.self,
+                    value: [
+                        PrintFinishFrame(
+                            element: element, selected: selected, isEnabled: isEnabled,
+                            rect: geometry.frame(in: .named("printFinishPanel")))
+                    ])
+            }
+        }
+    }
+
+    extension View {
+        func reportPrintFinishFrame(_ element: PrintFinishFrame.Element, selected: LocalizedStringKey? = nil)
+            -> some View
+        {
+            background { PrintFinishFrameReader(element: element, selected: selected) }
+        }
+    }
+#endif
 
 /// A switch with its name beside it, on the left edge of its section like the other controls. At the far end of the
 /// row, the switch sent the eye to the right for the control and back to the left for its name.
@@ -673,11 +757,7 @@ struct PrintPrinterOptions: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             row("Output Order", hint: printerOrderHint) {
-                PrintPageOrderPicker(order: model.controlBinding(\.printPageOrder))
-                    .disabled(model.selectedPrinterName == nil)
-                    .labelsHidden()
-                    .controlSize(.small)
-                    .fixedSize()
+                outputOrderPicker
             }
             row(
                 "Rotate Back Sides 180°",
@@ -690,6 +770,23 @@ struct PrintPrinterOptions: View {
                     .disabled(!isDuplex || model.selectedPrinterName == nil || !model.canOutput)
             }
         }
+    }
+
+    var outputOrderPicker: some View {
+        let picker = PrintPageOrderPicker(order: model.controlBinding(\.printPageOrder))
+        return ViewThatFits(in: .horizontal) {
+            picker.pickerStyle(.segmented).fixedSize()
+                #if DEBUG
+                    .reportPrintFinishFrame(.row("Output Order"))
+                #endif
+            picker.pickerStyle(.menu)
+                #if DEBUG
+                    .reportPrintFinishFrame(.menu("Output Order"))
+                #endif
+        }
+        .labelsHidden()
+        .controlSize(.small)
+        .disabled(model.selectedPrinterName == nil)
     }
 
     private var printerOrderHint: LocalizedStringKey {
@@ -714,7 +811,10 @@ struct PrintPrinterOptions: View {
         VStack(alignment: .leading, spacing: 0) {
             Rectangle().fill(PrintPalette.line).frame(height: 1)
             HStack(alignment: .top, spacing: 10) {
-                Text(title).font(.system(size: 12.5)).frame(width: 145, alignment: .leading).padding(.top, 3)
+                Text(title)
+                    .font(.system(size: 12.5))
+                    .frame(width: 145, alignment: .leading)
+                    .padding(.top, 3)
                 VStack(alignment: .leading, spacing: 5) {
                     control()
                     if let hint {
@@ -724,7 +824,7 @@ struct PrintPrinterOptions: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
             }
             .padding(.vertical, 9)
         }

@@ -9,6 +9,17 @@ import Testing
 
 @MainActor
 struct FindStateTests {
+    @Test("行番号と任意の桁を読み、範囲外を端に収め、不正な入力は無視する")
+    func lineInput() {
+        for text in ["120", "120:8", "１２０：８"] { #expect(GoToPage.line(for: text, count: 140) == 120) }
+        #expect(GoToPage.line(for: "-10", count: 140) == 1)
+        #expect(GoToPage.line(for: "0", count: 140) == 1)
+        #expect(GoToPage.line(for: String(repeating: "9", count: 30), count: 140) == 140)
+        for text in ["", "no", "3:", ":8", "3:x", "1:2:3"] {
+            #expect(GoToPage.line(for: text, count: 140) == nil)
+        }
+    }
+
     @Test("新しい語の検索は、読んでいるページ以降の最初の一致から始まる")
     func startsAtTheReadingPage() {
         var state = FindState()
@@ -506,6 +517,7 @@ struct PaperFindTests {
             ("Find Next", "g", .command, edit),
             ("Find Previous", "g", [.shift, .command], edit),
             ("Go to Page…", "g", [.option, .command], view),
+            ("Go to Line…", "g", .control, view),
             ("Reload", "r", .command, document),
         ] {
             let named = all.filter { $0.title == localized(title) }

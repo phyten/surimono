@@ -13,7 +13,21 @@ final class LaTeXReader {
     }
 
     let document: LaTeXDocument
-    var characters: [Character]
+    private var buffer: [Character]
+    private var unreadSource: Substring?
+
+    // Index-based scans and splices need the real tail (including its length for expansion budgets).
+    // Sequential class inspection usually reaches the body using only the first buffer.
+    var characters: [Character] {
+        _read {
+            completeBuffer()
+            yield buffer
+        }
+        _modify {
+            completeBuffer()
+            yield &buffer
+        }
+    }
     var index = 0
     // Distances from the end remain valid when a replacement is inserted before its caller returns.
     var macroFrameEnds: [Int] = []
@@ -48,8 +62,41 @@ final class LaTeXReader {
 
     init(_ text: String, document: LaTeXDocument, isBlock: Bool) {
         self.document = document
-        characters = Array(text)
+        buffer = Array(text)
         self.isBlock = isBlock
+    }
+
+    init(classifying text: String, document: LaTeXDocument) {
+        self.document = document
+        isBlock = false
+        buffer = []
+        unreadSource = text[...]
+    }
+
+    private func completeBuffer() {
+        if let unreadSource {
+            buffer.append(contentsOf: TextDecoding.normalizeNewlines(String(unreadSource)))
+            self.unreadSource = nil
+        }
+    }
+
+    private func fillBuffer(through position: Int) {
+        while position >= buffer.count, let unreadSource {
+            // Split on Character boundaries: in particular, CRLF stays together when normalized.
+            let chunk = unreadSource.prefix(1024)
+            buffer.append(contentsOf: TextDecoding.normalizeNewlines(String(chunk)))
+            self.unreadSource = chunk.endIndex == unreadSource.endIndex ? nil : unreadSource[chunk.endIndex...]
+        }
+    }
+
+    private func opaqueEnd() -> Int? {
+        while true {
+            var needsMore = false
+            let end = LaTeXLexer.opaqueEnd(buffer, at: index) { needsMore = true }
+            guard unreadSource != nil, needsMore || end == buffer.count else { return end }
+            // Double the span of an unfinished token so even a long comment costs linear work.
+            fillBuffer(through: buffer.count + (buffer.count - index))
+        }
     }
 
     private var precedingUnnumberedHeading: String?
@@ -137,7 +184,9 @@ final class LaTeXReader {
     }
 
     func peek(_ offset: Int = 0) -> Character? {
-        index + offset < characters.count ? characters[index + offset] : nil
+        let position = index + offset
+        if position >= buffer.count, unreadSource != nil { fillBuffer(through: position) }
+        return position < buffer.count ? buffer[position] : nil
     }
 
     func step(_ character: Character) {
@@ -536,8 +585,8 @@ final class LaTeXReader {
         var depth = 1
         var text: [Character] = []
         while let character = peek() {
-            if comments, character == "\\", let end = LaTeXLexer.opaqueEnd(characters, at: index) {
-                text.append(contentsOf: characters[index..<end])
+            if comments, character == "\\", let end = opaqueEnd() {
+                text.append(contentsOf: buffer[index..<end])
                 index = end
                 continue
             }
@@ -665,12 +714,10 @@ final class LaTeXReader {
     func skipSpacesAfterControlWord() {
         while peek() == " " || peek() == "\t" { index += 1 }
         guard peek() == "\n" else { return }
-        var lookahead = index + 1
-        while lookahead < characters.count, characters[lookahead] == " " || characters[lookahead] == "\t" {
-            lookahead += 1
-        }
-        if lookahead < characters.count, characters[lookahead] == "\n" { return }
-        index = lookahead
+        var offset = 1
+        while peek(offset) == " " || peek(offset) == "\t" { offset += 1 }
+        if peek(offset) == "\n" { return }
+        index += offset
     }
 
     private func verticalGlue(_ value: String) -> String? {
@@ -1171,7 +1218,7 @@ final class LaTeXReader {
         defer { inPreamble = previous }
         while !document.startedDocument, let character = peek() {
             retireFileFrames()
-            if let end = LaTeXLexer.opaqueEnd(characters, at: index) {
+            if let end = opaqueEnd() {
                 index = end
                 continue
             }
@@ -1253,9 +1300,7 @@ final class LaTeXReader {
                 continue
             }
             guard token == "\\begin", argument() == "landscape" else { return false }
-            var closed = false
-            _ = environmentBody("landscape", closed: &closed)
-            guard closed else { return false }
+            guard environmentBodyRange("landscape").closed else { return false }
             found = true
             skipSpaces()
         }
@@ -1265,8 +1310,8 @@ final class LaTeXReader {
     func declaration(_ command: String, argumentsFrom start: Int) -> String {
         // Dispatch has already consumed whitespace after the control word.
         var first = start
-        while first > 0, characters[first - 1].isWhitespace { first -= 1 }
-        let text = "\\" + command + String(characters[first..<index])
+        while first > 0, buffer[first - 1].isWhitespace { first -= 1 }
+        let text = "\\" + command + String(buffer[first..<index])
         return text.split(whereSeparator: \.isNewline).joined(separator: " ")
     }
 
@@ -1308,7 +1353,7 @@ final class LaTeXReader {
         let start = index
         while let character = peek(), character.isASCII, character.isLetter { index += 1 }
         if index == start, peek() != nil { index += 1 }
-        return Substring(String(characters[start..<index]))
+        return Substring(String(buffer[start..<index]))
     }
 
     private func declareOperator() {
@@ -1739,13 +1784,14 @@ final class LaTeXReader {
         if math.contains("\\ref") || math.contains("\\eqref") {
             document.deferredMath.append(
                 .init(
-                    latex: math, display: display, fallback: source, macros: document.mathDefinitions, numbers: numbers)
+                    latex: math, display: display, fallback: source, macros: document.mathDefinitions.source,
+                    numbers: numbers)
             )
             return anchor + document.placeholder("M", document.deferredMath.count - 1)
         }
         return anchor
             + document.mathHTML(
-                math, display: display, macros: document.mathDefinitions, source: source, numbers: numbers)
+                math, display: display, macros: document.mathDefinitions.source, source: source, numbers: numbers)
     }
 
     private func inlineMath(closing: String) {
@@ -1839,7 +1885,7 @@ final class LaTeXReader {
         if value.contains(where: { "\\{}$".contains($0) }) {
             let source = "\\tag" + (tag.starred ? "*" : "") + "{" + value + "}"
             return document.mathHTML(
-                source, display: false, macros: document.mathDefinitions, source: source, numbers: [])
+                source, display: false, macros: document.mathDefinitions.source, source: source, numbers: [])
         }
         return HTML.escape(tag.starred ? value : "(" + value + ")")
     }
@@ -2068,9 +2114,9 @@ final class LaTeXReader {
         case "comment":
             _ = verbatimBody(name)
         default:
-            var closed = false
-            let body = environmentBody(name, closed: &closed)
-            if Self.unsupportedEnvironments.contains(name), !closed {
+            let result = environmentBodyRange(name)
+            let body = String(buffer[result.range])
+            if Self.unsupportedEnvironments.contains(name), !result.closed {
                 appendHTML(picture(environment: name, body: body, closed: false))
             } else {
                 environment(name, body: body)
@@ -2091,46 +2137,42 @@ final class LaTeXReader {
 
     /// The source up to the `\end` that matches the environment just opened.
     func environmentBody(_ name: String) -> String {
-        var closed = false
-        return environmentBody(name, closed: &closed)
+        let result = environmentBodyRange(name)
+        return String(buffer[result.range])
     }
 
-    private func environmentBody(_ name: String, closed: inout Bool) -> String {
+    private func environmentBodyRange(_ name: String) -> (range: Range<Int>, closed: Bool) {
         let begin = Array("\\begin{\(name)}")
         let end = Array("\\end{\(name)}")
         var depth = 1
         let start = index
-        while index < characters.count {
-            let character = characters[index]
-            if let opaque = LaTeXLexer.opaqueEnd(characters, at: index) {
+        while let character = peek() {
+            if character == "\\" || character == "%", let opaque = opaqueEnd() {
                 index = max(opaque, index + 1)
                 continue
             }
             if character == "\\" {
-                if index + end.count <= characters.count, Array(characters[index..<(index + end.count)]) == end {
+                if peek(end.count - 1) != nil, buffer[index...].starts(with: end) {
                     depth -= 1
                     if depth == 0 {
-                        let body = String(characters[start..<index])
-                        closed = true
+                        let body = start..<index
                         index += end.count
-                        return body
+                        return (body, true)
                     }
                     index += end.count
                     continue
                 }
-                if index + begin.count <= characters.count,
-                    Array(characters[index..<(index + begin.count)]) == begin
-                {
+                if peek(begin.count - 1) != nil, buffer[index...].starts(with: begin) {
                     depth += 1
                     index += begin.count
                     continue
                 }
-                index = min(index + 2, characters.count)
+                index += peek(1) == nil ? 1 : 2
                 continue
             }
             index += 1
         }
-        return String(characters[start...])
+        return (start..<index, false)
     }
 
     private static let unsupportedEnvironments: Set<String> = [

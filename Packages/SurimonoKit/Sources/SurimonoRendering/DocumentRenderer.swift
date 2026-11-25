@@ -250,6 +250,8 @@ public struct PaginationRequest: Sendable {
     public var latexFlow = false
     public var latexMarginInk = false
     public var checksVerticalLaTeXInk = false
+    var verticalBooklet = false
+    var verticalTextScale: Double = 1
     public var flow = PrintFlow.horizontal
 }
 
@@ -266,7 +268,7 @@ extension WebPaginator {
             composesLaTeXParagraphs: request.composesLaTeXParagraphs,
             latexFlow: request.latexFlow,
             latexMarginInk: request.latexMarginInk, checksVerticalLaTeXInk: request.checksVerticalLaTeXInk,
-            flow: request.flow)
+            verticalBooklet: request.verticalBooklet, verticalTextScale: request.verticalTextScale, flow: request.flow)
     }
 }
 
@@ -308,6 +310,8 @@ public struct PreparedRender {
     public let issues: [PrintIssue]
     public let changeMarks: [ChangeMark]
     public var diagrams: [RenderedDiagram] = []
+    public let sourceLines: [Int: SourceLineLocation]
+    public let sourceLineCount: Int
     public var formulaIndex: PaperFormulaIndex?
     public var unreadableDocumentURLs: [URL] = []
     public var binderDocuments: [URL: PDFDocument] = [:]
@@ -451,7 +455,7 @@ public final class DocumentRenderer {
     private var sourcePageSizes: (source: DocumentSource, sizes: [CGSize])?
     /// The orientation the `@page` rules of an HTML source ask for, known once the source has been laid out.
     private var composedFragment: (source: DocumentSource, choice: LaTeXComposition, width: Double, input: ThemedInput)?
-    var cachedLaTeXInfo: (source: DocumentSource, composition: LaTeXComposition, info: LaTeXDocumentClassInfo)?
+    var cachedLaTeXInfo: (source: DocumentSource, infos: [LaTeXComposition: LaTeXDocumentClassInfo])?
     private var sourcePageRule: (source: DocumentSource, orientation: PaperOrientation?)?
 
     /// The logical pages of a cache entry. The document is handed out as is, so that a view showing it keeps it.
@@ -468,6 +472,7 @@ public final class DocumentRenderer {
         var binderPageSizes: [CGSize] = []
         var issues: [PrintIssue] = []
         var changeMarks: [ChangeMark] = []
+        var sourceLines: (locations: [Int: SourceLineLocation], lastNumber: Int) = ([:], 0)
         var diagrams: [RenderedDiagram] = []
         var markRequests: [MarkdownMarkRequest] = []
         var hasFormulas = false
@@ -503,6 +508,7 @@ public final class DocumentRenderer {
     private struct CacheKey: Equatable {
         let source: DocumentSource
         let pageSize: CGSize
+        let verticalBooklet: Bool
         let mixesImagePages: Bool
         let theme: PrintTheme?
         let typeface: Typeface?
@@ -710,6 +716,8 @@ public final class DocumentRenderer {
             let isPlainPDF = source.format == .pdf && source.children == nil
             let key = CacheKey(
                 source: source, pageSize: isPlainPDF ? .zero : pageSize,
+                verticalBooklet: settings.theme.flow == .vertical && settings.theme.supports(source.format)
+                    && settings.layout.kind == .booklet,
                 mixesImagePages: source.format == .image && settings.usesPerPageOrientation
                     && Set(sourcePageSizes?.sizes.map { $0.width > $0.height } ?? []).count > 1,
                 theme: source.children != nil || source.format.usesPrintTheme ? settings.theme : nil,
@@ -811,6 +819,9 @@ public final class DocumentRenderer {
                 logical.binderPageStarts = binderOutput?.pageStarts ?? [:]
                 logical.binderPageSizes = binderOutput?.pageSizes ?? []
                 if let text = finishing.sourceText {
+                    // Paper backgrounds and mirrored margins move link annotations with the ink. Read the final
+                    // positions once, before any binder, preview or export receives the cached document.
+                    logical.sourceLines = SourceLineLocation.take(from: document)
                     SourcePaperText.attach(
                         text, to: document, options: settings.code.sourceBlock,
                         language: finishing.facts?.sourceLanguage)
@@ -854,7 +865,9 @@ public final class DocumentRenderer {
                 summary: PrintSummary(plan: plan),
                 requiredFolderAccess: pages.requiredFolderAccess, unreadableImageURLs: pages.unreadable,
                 smartRemovalCandidates: pages.candidates, issues: pages.issues,
-                changeMarks: marks, diagrams: pages.diagrams, formulaIndex: pages.formulaIndex,
+                changeMarks: marks, diagrams: pages.diagrams, sourceLines: pages.sourceLines.locations,
+                sourceLineCount: pages.sourceLines.lastNumber,
+                formulaIndex: pages.formulaIndex,
                 unreadableDocumentURLs: pages.unreadableDocuments, binderDocuments: pages.binderDocuments,
                 binderPageStarts: pages.binderPageStarts,
                 facts: pages.finishing.facts, addedContentsPages: pages.finishing.contentsPageCount,
@@ -1013,6 +1026,15 @@ public final class DocumentRenderer {
                 return issue
             }
         noted.finishing = logical.finishing
+        noted.sourceLines.lastNumber = logical.sourceLines.lastNumber
+        noted.sourceLines.locations = logical.sourceLines.locations.mapValues { line in
+            let page = places[line.pageIndex]
+            let offset = settings.layout.swapsSides(onPage: page) ? shift : 0
+            let rect =
+                output === document
+                ? line.rect : DiagramGeometry.redrawn(line.rect, on: document.page(at: page), shift: offset)
+            return SourceLineLocation(pageIndex: page, rect: rect)
+        }
         noted.finishing.blankPages = plan.blankPages
         noted.finishing.notePages = plan.notePages
         logical.noted = (key, noted)
@@ -1354,7 +1376,8 @@ public final class DocumentRenderer {
             let latexFlow =
                 source.format == .latex && settings.theme.formats == [.latex]
                 && page.needsLaTeXFlow
-            let codeScript = CodeFitScript.javaScript(for: settings.code, layoutWidth: layoutWidth) ?? ""
+            let codeScript =
+                flow == .vertical ? "" : CodeFitScript.javaScript(for: settings.code, layoutWidth: layoutWidth) ?? ""
             let graphicScript =
                 source.format == .latex
                 ? LaTeXGraphicPreparation.script(
@@ -1366,7 +1389,8 @@ public final class DocumentRenderer {
             let preparation: String?
             if settings.markdownChanges.isEmpty {
                 // The theme's part goes last: its answer whether the theme has paper is the result of the whole.
-                let parts = [graphicScript, codeScript, themeScript].filter { !$0.isEmpty }
+                let locations = fragment.sourceLanguage == nil ? "" : SourceLineLocation.preparation
+                let parts = [graphicScript, codeScript, locations, themeScript].filter { !$0.isEmpty }
                 preparation = parts.isEmpty ? nil : parts.joined(separator: "\n")
             } else {
                 // Cleanup catches script errors. Only an explicit success may replace the background-only drawing.
@@ -1403,7 +1427,9 @@ public final class DocumentRenderer {
                         latexFlow: latexFlow,
                         latexMarginInk: source.format == .latex && settings.theme.formats == [.latex]
                             && (checksVerticalLaTeXInk || LaTeXFlowPaginator.hasMarginInk(in: fragment.body)),
-                        checksVerticalLaTeXInk: checksVerticalLaTeXInk, flow: flow),
+                        checksVerticalLaTeXInk: checksVerticalLaTeXInk,
+                        verticalBooklet: settings.layout.kind == .booklet,
+                        verticalTextScale: settings.textScale, flow: flow),
                     source: source
                 )
             }
@@ -1746,7 +1772,9 @@ public final class DocumentRenderer {
                 pageSize: settings.logicalPageSize,
                 margins: WebPaginator.Margins(settings.layout.logicalMargins(options: settings.options)),
                 allowsJavaScript: false, preparationScript: script?.isEmpty == false ? script : nil,
-                readsPageRules: false, drawsBackground: !separatesPaper, flow: flow)
+                readsPageRules: false, drawsBackground: !separatesPaper,
+                verticalBooklet: settings.layout.kind == .booklet,
+                verticalTextScale: settings.textScale, flow: flow)
         ).document
     }
 
@@ -1970,7 +1998,7 @@ public final class DocumentRenderer {
             composesLaTeXParagraphs: source.format == .latex,
             latexFlow: request.latexFlow,
             latexMarginInk: request.latexMarginInk, checksVerticalLaTeXInk: request.checksVerticalLaTeXInk,
-            flow: request.flow)
+            verticalBooklet: request.verticalBooklet, verticalTextScale: request.verticalTextScale, flow: request.flow)
         let output = try await paginate(wrapped)
         let preparation = output.preparationResult.flatMap {
             try? JSONDecoder().decode(PrintIssueAnchors.Preparation.self, from: Data($0.utf8))

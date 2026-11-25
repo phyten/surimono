@@ -90,6 +90,15 @@ extension LaTeXReader {
             appendHTML(
                 document.emphasisDepth.isMultiple(of: 2)
                     ? "<span style=\"font-style:normal\">\(text)</span>" : "<em>\(text)</em>")
+        case "rensuji", "tatechuyoko":
+            if name == "rensuji" { _ = optional() }
+            let content = inline(argument() ?? "")
+            appendHTML(#"<span class="explicit-tcy">\#(content)</span>"#)
+        case "ruby", "jruby":
+            _ = optional()
+            let base = inline(argument() ?? "")
+            let reading = inline((argument() ?? "").replacingOccurrences(of: "|", with: ""))
+            appendHTML("<ruby>\(base)<rt>\(reading)</rt></ruby>")
         case "sethlcolor": document.highlightColor = color()
         case "hl":
             let style = document.highlightColor.map { " style=\"background-color:\($0)\"" } ?? ""

@@ -2,27 +2,29 @@ import Foundation
 import SurimonoCore
 
 extension DocumentViewModel {
-    var pageTrack: PageTrack { PageTrack(count: pageCount, rightToLeft: viewOptions.direction == .rightToLeft) }
+    var scrubPage: Int { verticalTrialPaper == nil ? logicalReadingPage : paperPageIndex }
+    var pageTrack: PageTrack { PageTrack(count: paperPageCount, rightToLeft: viewOptions.direction == .rightToLeft) }
 
     var scrubSections: [PageSection] {
-        imageBundle == nil ? PageSection.sections(count: pageCount, chapters: chapterEntries) : []
+        imageBundle == nil && verticalTrialPaper == nil
+            ? PageSection.sections(count: pageCount, chapters: chapterEntries) : []
     }
 
     func handleScrubKey(_ key: ShortcutNamedKey) -> Bool {
         guard scrubber.keyboardFocus, offersScrubber, !blocksSurfaceShortcuts else { return false }
         switch key {
         case .home: scrubToPage(0)
-        case .end: scrubToPage(pageCount - 1)
-        case .leftArrow: scrubToPage(logicalReadingPage - pageTrack.stepToRight)
-        case .rightArrow: scrubToPage(logicalReadingPage + pageTrack.stepToRight)
+        case .end: scrubToPage(paperPageCount - 1)
+        case .leftArrow: scrubToPage(scrubPage - pageTrack.stepToRight)
+        case .rightArrow: scrubToPage(scrubPage + pageTrack.stepToRight)
         default: return false
         }
         return true
     }
 
     func scrubToPage(_ page: Int) {
-        guard offersScrubber, !blocksSurfaceShortcuts, (0..<pageCount).contains(page) else { return }
-        jumpToReadingPage(page)
+        guard offersScrubber, !blocksSurfaceShortcuts, (0..<paperPageCount).contains(page) else { return }
+        jumpToPaperPage(page)
     }
 
     var canNavigateReading: Bool { mode == .view && !showsWeb && pageCount > 0 }

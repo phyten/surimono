@@ -237,6 +237,8 @@ nav.toc a { text-decoration: none; }
 .format-latex .latex-logo-a { position: relative; top: -0.45em; font-size: 0.72em; margin-inline: -0.32em -0.17em; text-transform: uppercase; }
 .format-latex .latex-logo-ib { font-variant: small-caps; }
 .format-latex .latex-logo-epsilon { vertical-align: -0.18em; font-size: 0.77em; }
+.format-latex .kenten { text-emphasis: filled sesame; }
+.format-latex .bousen { text-decoration: underline; }
 .format-latex p.latex-noindent { text-indent: 0; }
 .latex-title-block { text-align: center; margin-bottom: 1.5em; }
 .latex-title-block > :first-child { margin-top: 0; }

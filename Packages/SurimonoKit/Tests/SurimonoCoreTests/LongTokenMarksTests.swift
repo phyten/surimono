@@ -4,6 +4,12 @@ import Testing
 
 @Suite("長いパスや URL の折り返し")
 struct LongTokenMarksTests {
+    @Test("明示した縦中横の長い文字列にも子要素を足さない")
+    func combinedText() {
+        let html = #"<span class="tcy">0123456789/0123456789</span>"#
+        #expect(LongTokenMarks.marked(html) == html)
+    }
+
     private let path = "/var/folders/fz/bqjk04/T/local-push-501.lock"
 
     @Test("和文の中の長いパスに印を付ける")

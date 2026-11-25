@@ -56,6 +56,43 @@ struct SourceLanguageBadgeTests {
         #expect(condition(), reason)
     }
 
+    @Test("行へ移動は元のページを履歴に残し、移動先の行をその組版の上で囲む", .timeLimit(.minutes(1)))
+    func navigateToSourceLine() async throws {
+        let rect = CGRect(x: 40, y: 90, width: 180, height: 12)
+        let fixture = try Fixture("sample.swift", Data("same\n\nsame\n".utf8)) { _ in
+            let pdf = try #require(PDFDocument(data: TestFixtures.pdf("Source", pages: 2)))
+            for number in 1...3 {
+                let link = PDFAnnotation(bounds: rect, forType: .link, withProperties: nil)
+                link.url = URL(string: "surimono-source-line:\(number)")
+                pdf.page(at: number == 3 ? 1 : 0)?.addAnnotation(link)
+            }
+            return pdf
+        }
+        defer { fixture.close() }
+        let model = fixture.model
+        try await wait("組版が終わる") { model.result != nil && !model.isRendering }
+        var shown: PaperSpot?
+        model.spotPresenter = {
+            shown = $0
+            return true
+        }
+        model.presentGoToLine()
+        #expect(model.goToTarget == .line)
+        model.goToLine(entered: "invalid")
+        #expect(model.goToTarget == .line)
+        #expect(model.currentPageIndex == 0)
+        model.goToLine(entered: "3:8")
+        try await wait("該当行を囲む") { shown != nil }
+        #expect(model.goToTarget == nil)
+        #expect(model.logicalReadingPage == 1)
+        #expect(shown?.pageIndex == 1)
+        #expect(shown?.framesLine == true)
+        #expect(shown?.anchor == rect)
+        #expect(shown?.document === model.result?.viewDocument)
+        model.goBack()
+        #expect(model.logicalReadingPage == 0)
+    }
+
     @Test("ソースコードの形式バッジは言語の名前になる")
     func sourceCode() {
         #expect(badge("main.swift") == "Swift")

@@ -114,27 +114,27 @@ struct PrintThemeMenuTests {
             PrintThemeMenu.search("LaTeX", in: all, categories: groups, language: "ja", format: .markdown).map(\.id)
                 == ["latex"])
         #expect(all.filter { $0.supports(.markdown) }.count == 109)
-        #expect(all.filter { $0.isAvailable(for: .latex, classStyle: "latex-article") }.count == 113)
+        #expect(all.filter { $0.isAvailable(for: .latex, classStyle: "latex-article") }.count == 114)
     }
 
-    @Test("行間広めの横書き HTML は縦書き追加前とバイト単位で一致する")
+    @Test("行間広めの横書き HTML は共通 CSS を含む見本とバイト単位で一致する")
     func horizontalStyleFixture() throws {
         let theme = try #require(PrintThemeLibrary.load().first { $0.id == "spacious" })
         let html = HTMLDocumentBuilder.build(fragment: HTMLFragment(body: "<p>本文</p>"), format: .markdown, theme: theme)
-        // Generated with this same fragment and the bundled style at 9cacef8.
+        // The shared sheet is embedded even when its LaTeX rules do not match this Markdown fragment.
         #expect(
             Data(SHA256.hash(data: Data(html.utf8))).base64EncodedString()
-                == "h7vzzCcMOmLiJsUN4K7J4emiE//lBLz/GEK7tTeZk2k=")
+                == "vVcoWeRZ1j2vXByXDGuYPZ2MNPz7PtwOl5o+ouyOSf4=")
     }
 
-    @Test("縦書きは和の趣にあり、Markdown・Org・テキストだけが選べる")
+    @Test("縦書きは和の趣にあり、Markdown・Org・テキスト・LaTeX で選べる")
     func verticalStyle() throws {
         let all = try PrintThemeLibrary.load()
         let vertical = try #require(all.first { $0.id == "tategaki" })
         #expect(vertical.category == "japanese")
         #expect(vertical.flow == .vertical)
         #expect(all.filter { $0.flow == .vertical }.map(\.id) == ["tategaki"])
-        #expect(Set(DocumentFormat.allCases.filter { vertical.supports($0) }) == [.markdown, .org, .plainText])
+        #expect(Set(DocumentFormat.allCases.filter { vertical.supports($0) }) == [.markdown, .org, .plainText, .latex])
     }
 
     @Test("スタイルとカテゴリーの両方の形式指定を検索と最近使った項目に適用する")

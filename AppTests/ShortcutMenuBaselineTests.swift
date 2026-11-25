@@ -40,7 +40,7 @@ struct ShortcutMenuBaselineTests {
         ("Find Previous", "g", [.shift, .command]),
         ("Show as Paper", "p", [.control, .command]),
         ("Single Page", "1", [.option, .command]), ("Spread", "2", [.option, .command]),
-        ("Go to Page…", "g", [.option, .command]),
+        ("Go to Page…", "g", [.option, .command]), ("Go to Line…", "g", .control),
         ("Back", "[", .command), ("Forward", "]", .command),
         ("Increase Text Size", "+", [.option, .command]),
         ("Decrease Text Size", "-", [.option, .command]), ("Original Text Size", "0", [.option, .command]),

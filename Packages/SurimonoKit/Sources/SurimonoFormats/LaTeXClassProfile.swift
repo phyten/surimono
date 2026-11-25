@@ -44,6 +44,9 @@ package struct LaTeXClassProfile: Equatable, Sendable {
     }
 
     struct Structure: Equatable, Sendable {
+        var isVertical = false
+        // A chapterless class can declare an opening side without introducing book matter or chapter breaks.
+        var declaredOpening: OpeningSide?
         var offersCompositionChoice = false
         var hasChapters = false
         var bookOpening: OpeningSide?

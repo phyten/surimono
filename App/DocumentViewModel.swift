@@ -238,7 +238,7 @@ final class DocumentViewModel {
     var pageHistory = PageHistory()
     var bookmarks = Bookmarks()
     let scrubber = PageScrubSession()
-    var offersScrubber: Bool { menuArrangement == .split && canNavigateReading && pageCount > 1 }
+    var offersScrubber: Bool { menuArrangement == .split && canNavigateReading && paperPageCount > 1 }
     var thumbnailGeneration: Int? { isUpToDate && paperDocument === result?.viewDocument ? result?.id : nil }
     /// The selected half of a spread; PDFView reports only its first page.
     var selectedReadingPage: Int? {
@@ -353,7 +353,11 @@ final class DocumentViewModel {
     /// The find bar over the paper. It belongs to the window and is never saved.
     let find = PaperFind()
     var proseMark = ProsePaperMark()
-    var isGoToPagePresented = false
+    var goToTarget: GoToPage.Target?
+    var isGoToPagePresented: Bool {
+        get { goToTarget != nil }
+        set { goToTarget = newValue ? (goToTarget ?? .page) : nil }
+    }
     var isViewOptionsPresented = false
     var isOutlinePresented = false {
         didSet {
@@ -1171,7 +1175,7 @@ final class DocumentViewModel {
         if let settings = renderedSettings ?? renderSettings, showsReadingPages(settings, fromSnapshot: fromSnapshot) {
             pendingPrintIssue = nil
             currentPageIndex = max(0, page - 1)
-            pointOut(issue, onPage: max(0, page - 1))
+            pointOut(issue.rect, onPage: max(0, page - 1))
         } else {
             pendingPrintIssue = (issue, pageCount)
         }
@@ -1182,10 +1186,10 @@ final class DocumentViewModel {
     /// The window gives the print stage back and takes the paper's width again first, so the paper may not be there
     /// yet; a problem with no mark on its page gets no frame. The request is for the pages the problem was found on:
     /// once a reload or a new layout replaces them, it is dropped, not matched to whatever the paper shows next.
-    private func pointOut(_ issue: PrintIssue, onPage pageIndex: Int) {
+    func pointOut(_ anchor: CGRect?, onPage pageIndex: Int, framesLine: Bool = false) {
         dropSpot()
-        guard let anchor = issue.rect, let document = result?.viewDocument else { return }
-        let spot = PaperSpot(pageIndex: pageIndex, anchor: anchor, document: document)
+        guard let anchor, let document = result?.viewDocument else { return }
+        let spot = PaperSpot(pageIndex: pageIndex, anchor: anchor, document: document, framesLine: framesLine)
         spotTask = Task { @MainActor [weak self] in
             for _ in 0..<50 {
                 guard let self, !Task.isCancelled, result?.viewDocument === document else { return }
@@ -1271,7 +1275,7 @@ final class DocumentViewModel {
         currentPageIndex = index
         // SwiftUI may still show the old PDF. A newly attached paper uses currentPageIndex instead.
         paper.goToPage(index: index, in: result.viewDocument)
-        if let found { pointOut(found, onPage: index) }
+        if let found { pointOut(found.rect, onPage: index) }
     }
 
     func useLandscapeForPrintIssue() {
@@ -1285,9 +1289,11 @@ final class DocumentViewModel {
 
     var smartRemovalCandidates: [SmartRemovalCandidate] { result?.smartRemovalCandidates ?? [] }
     var removedPartCount: Int { smartRemovalCandidates.filter { !smartRemovalKeptIDs.contains($0.id) }.count }
-    var displayUnits: [DisplayUnit] {
+    var displayUnits: [DisplayUnit] { displayUnits(for: pageCount) }
+
+    private func displayUnits(for count: Int) -> [DisplayUnit] {
         SpreadLayout.units(
-            pageCount: pageCount, layout: viewOptions.layout, showsCoverAlone: viewOptions.showsCoverAlone,
+            pageCount: count, layout: viewOptions.layout, showsCoverAlone: viewOptions.showsCoverAlone,
             direction: viewOptions.direction)
     }
     /// "3 / 12" for a page, "2–3 / 12" for a spread; "Slide 3 of 6" for a slide deck on the web.
@@ -1296,12 +1302,12 @@ final class DocumentViewModel {
             guard let slideDeck else { return nil }
             return Self.slideIndicator(slideDeck.currentIndex + 1, of: slideDeck.count)
         }
-        guard pageCount > 0 else { return nil }
-        let units = displayUnits
-        let pages =
-            SpreadLayout.unitIndex(containing: currentPageIndex + 1, in: units).map { units[$0].pages }
-            ?? [currentPageIndex + 1]
-        return PageIndicator.text(pages: pages, pageCount: pageCount)
+        let count = paperPageCount
+        let index = paperPageIndex
+        guard count > 0 else { return nil }
+        let units = displayUnits(for: count)
+        let pages = SpreadLayout.unitIndex(containing: index + 1, in: units).map { units[$0].pages } ?? [index + 1]
+        return PageIndicator.text(pages: pages, pageCount: count)
     }
 
     /// The widest page indicator of this document, whose width the band keeps for the indicator.
@@ -1310,8 +1316,8 @@ final class DocumentViewModel {
             guard let slideDeck else { return nil }
             return Self.slideIndicator(slideDeck.count, of: slideDeck.count)
         }
-        guard pageCount > 0 else { return nil }
-        return PageIndicator.widestText(pageCount: pageCount, layout: viewOptions.layout)
+        guard paperPageCount > 0 else { return nil }
+        return PageIndicator.widestText(pageCount: paperPageCount, layout: viewOptions.layout)
     }
 
     @ObservationIgnored private(set) var isWindowClosed = false

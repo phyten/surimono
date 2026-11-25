@@ -12,14 +12,17 @@ struct PagePixels {
     let height: Int
     private let bytes: [UInt8]
 
-    init(_ page: PDFPage, ground: CGColor = CGColor(gray: 1, alpha: 1)) throws {
+    init(
+        _ page: PDFPage, ground: CGColor = CGColor(gray: 1, alpha: 1),
+        colorSpace: CGColorSpace = CGColorSpaceCreateDeviceRGB()
+    ) throws {
         let box = page.bounds(for: .cropBox)
         width = Int(box.width * scale)
         height = Int(box.height * scale)
         let context = try #require(
             CGContext(
                 data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
-                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+                space: colorSpace, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
         context.setFillColor(ground)
         context.fill(CGRect(x: 0, y: 0, width: width, height: height))
         context.scaleBy(x: scale, y: scale)

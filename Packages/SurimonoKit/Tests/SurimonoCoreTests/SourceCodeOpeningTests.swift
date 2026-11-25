@@ -377,7 +377,7 @@ struct SourceCodeOpeningTests {
         #expect(language(verdict(name, Data(text.utf8), type: .unixExecutable)) == id)
     }
 
-    @Test("型のない名前の中身がバイナリなら「調べたらバイナリ」、言語の分からないテキストなら「対象外」と分ける")
+    @Test("拡張子のないファイルは言語が分からなくてもテキストなら開き、バイナリは断る")
     func untypedVerdicts() throws {
         // A Mach-O header, a stream and a binary property list under names that promise text.
         let machO = Data([0xCF, 0xFA, 0xED, 0xFE, 0x0C, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00])
@@ -386,9 +386,15 @@ struct SourceCodeOpeningTests {
         #expect(verdict(".env", try binaryPropertyList()) == .binary)
         #expect(verdict("tool", Data("#!/bin/sh\n".utf8) + Data([0x00, 0x01, 0x02])) == .binary)
         #expect(verdict("notes", machO) == .binary)
+        #expect(verdict("tool", machO, type: .unixExecutable) == .binary)
+        #expect(verdict("tool", Data("plain".utf8), type: .unixExecutable) == .text(nil))
+        #expect(verdict(".gitignore", Data("build/\n".utf8), type: .data) == .text(nil))
+        #expect(verdict("LICENSE", machO, type: .plainText) == .binary)
+        #expect(verdict(".env.example", machO, type: .plainText) == .binary)
+        #expect(verdict("unknown.custom", Data("plain".utf8), type: .data) == .notConcerned)
         // Text, but nothing names a language: a script that lost its `#!` line is still text someone may show.
-        #expect(verdict("LICENSE", Data("Permission is granted.\n".utf8)) == .notConcerned)
-        #expect(verdict("tool", Data("echo 1\n".utf8)) == .notConcerned)
+        #expect(verdict("LICENSE", Data("Permission is granted.\n".utf8)) == .text(nil))
+        #expect(verdict("tool", Data("echo 1\n".utf8)) == .text(nil))
     }
 
     @Test("実際の型が別の意味を持つファイルは、中身がテキストでも門の対象にしない")
@@ -623,8 +629,8 @@ struct SourceCodeOpeningTests {
             #expect(
                 OpenRequest(urls: files.keys.map(file))
                     == .binder(
-                        ["a.md", "b.ts", "d.mts", "Dockerfile", "g.plist", "tool"].map(file),
-                        excluded: ["c.ts", "e.mts", "f.plist", "Gemfile", "h.mp4", "LICENSE"].map(file)))
+                        ["a.md", "b.ts", "d.mts", "Dockerfile", "g.plist", "LICENSE", "tool"].map(file),
+                        excluded: ["c.ts", "e.mts", "f.plist", "Gemfile", "h.mp4"].map(file)))
         }
     }
 

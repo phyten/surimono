@@ -47,6 +47,7 @@ help:
 	@echo "snapshots  Render local snapshots; snapshots-report compares and snapshots-approve accepts reviewed cases"
 	@echo "bench      Record rendering benchmarks (SURIMONO_BENCH_RUNS / SURIMONO_BENCH_OUT)"
 	@echo "bench-source  Measure source conversion, first/all pages and memory (bench-source-conversion skips WebKit)"
+	@echo "bench-latex-class  Measure main-thread LaTeX class detection in Release"
 	@echo "bench-prose  Time the writing check on generated Japanese, English and mixed texts (SURIMONO_BENCH_RUNS)"
 	@echo "bench-compare  Compare medians: BASE=<json> NEW=<json> [BENCH_THRESHOLD=20]"
 	@echo "lint       Check Swift formatting"
@@ -157,6 +158,10 @@ bench-source bench-source-conversion:
 		SURIMONO_BENCH_SOURCE=$$input SURIMONO_BENCH_SOURCE_RENDER=$(if $(filter bench-source,$@),1,0) \
 		$(SWIFT_TEST) --disable-sandbox --filter SourceTypesettingBenchmarks --no-parallel; \
 	done
+
+.PHONY: bench-latex-class
+bench-latex-class:
+	SURIMONO_BENCH_LATEX_CLASS=1 $(SWIFT_TEST) --disable-sandbox -c release -debug-info-format none --filter LaTeXClassBenchmarks --no-parallel
 
 .PHONY: bench-pages bench-pages-rendering bench-pages-window
 bench-pages: bench-pages-rendering bench-pages-window

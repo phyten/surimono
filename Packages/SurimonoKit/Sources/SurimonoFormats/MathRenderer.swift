@@ -12,6 +12,43 @@ public enum MathRenderer {
     private static let viewBox = try? NSRegularExpression(pattern: #"viewBox="0 0 ([0-9.eE+-]+) ([0-9.eE+-]+)""#)
     private static let size = try? NSRegularExpression(pattern: #" width="[^"]*" height="[^"]*""#)
 
+    /// A primitive assignment only stores tokens. Read exactly one assignment with SwaTex's lexer.
+    /// Keep the full validation path if the meaning of either primitive could have changed.
+    static func isOrdinaryDefinition(_ source: String) -> Bool {
+        func isControlWord(_ text: String) -> Bool {
+            text.first == "\\" && text.count > 1 && text.dropFirst().allSatisfy { $0.isASCII && $0.isLetter }
+        }
+        var lexer = Lexer(source)
+        let command = lexer.lex().text
+        guard command == "\\def" || command == "\\let" else { return false }
+        let name = lexer.lex().text
+        guard isControlWord(name), !["\\def", "\\let", "\\verb"].contains(name) else { return false }
+        if command == "\\let" {
+            guard lexer.lex().text == "=" else { return false }
+            let original = lexer.lex().text
+            return isControlWord(original) && original != "\\verb" && lexer.pos == source.utf8.count
+                && source.last == " "
+        }
+        var token = lexer.lex()
+        var parameter = 0
+        while token.text != "{" {
+            if token.isEOF || token.text == "\\verb" { return false }
+            if token.text == "#" {
+                parameter += 1
+                guard parameter <= 9, lexer.lex().text == String(parameter) else { return false }
+            }
+            token = lexer.lex()
+        }
+        var depth = 1
+        while depth > 0 {
+            let token = lexer.lex()
+            if token.isEOF || token.text == "\\verb" { return false }
+            if token.text == "{" { depth += 1 }
+            if token.text == "}" { depth -= 1 }
+        }
+        return lexer.pos == source.utf8.count
+    }
+
     /// The formula as HTML, or nil when SwaTex cannot read it.
     /// - Parameter macros: Definitions put in front of the formula, such as a document's `\newcommand`s; they are
     ///   not part of its accessible label.

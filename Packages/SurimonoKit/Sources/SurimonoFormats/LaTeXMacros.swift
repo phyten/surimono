@@ -210,17 +210,23 @@ extension LaTeXReader {
     func addMathDefinition(_ definition: String) {
         // A definition inside a loop is still a definition. Rechecking a growing preamble on every
         // iteration must draw from the same finite work budget as expanding the loop itself.
-        guard !document.stopsExpanding, !document.mathDefinitions.hasSuffix(definition) else { return }
-        let cost = document.mathDefinitions.utf8.count + definition.utf8.count
+        guard !document.stopsExpanding, !document.mathDefinitions.source.hasSuffix(definition) else { return }
+        let cost = document.mathDefinitions.source.utf8.count + definition.utf8.count
         guard cost <= 50_000_000 - document.expansionWork else {
             document.stopsExpanding = true
             return
         }
         document.expansionWork += cost
-        guard MathRenderer.html("x", display: false, macros: document.mathDefinitions + definition) != nil else {
-            return
+        // Neither storing replacement tokens nor copying a control word expands its meaning.
+        // A prefix made only of these assignments leaves the validation formula "x" unchanged.
+        if !document.mathDefinitions.containsOnlyPrimitiveDefinitions || !StackSpace.hasRoom
+            || !MathRenderer.isOrdinaryDefinition(definition)
+        {
+            guard MathRenderer.html("x", display: false, macros: document.mathDefinitions.source + definition) != nil
+            else { return }
+            document.mathDefinitions.containsOnlyPrimitiveDefinitions = false
         }
-        document.mathDefinitions += definition
+        document.mathDefinitions.source += definition
     }
 
     /// Reject the whole signature on an unsupported specifier, since subsequent arguments could otherwise shift.
@@ -506,6 +512,7 @@ extension LaTeXReader {
         "Roman", "fnsymbol", "counterwithin", "counterwithout", "refstepcounter", "ensuremath", "endgraf",
         "texorpdfstring", "foreignlanguage", "parbox", "rule", "raisebox", "resizebox", "scalebox", "rotatebox",
         "subfloat", "subfigure", "subcaption", "subcaptionbox", "tcbox", "newtcolorbox", "newtcbtheorem", "makecell",
+        "tatechuyoko", "rensuji", "ruby", "jruby",
         "BooleanTrue", "BooleanFalse", "lstset", "lstdefinestyle",
     ]
 }

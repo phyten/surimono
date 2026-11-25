@@ -60,6 +60,11 @@ final class PaperController {
         }
 
         var showsProseMark: Bool { view?.drawnProseSpans.isEmpty == false }
+
+        func showSnapshotPage(_ index: Int, in source: PDFDocument) -> Bool {
+            guard let view, view.isMade(of: source) else { return false }
+            return view.showSnapshotPage(index)
+        }
     #endif
 
     func focus() {
@@ -807,6 +812,15 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
     }
 
     #if DEBUG
+        fileprivate func showSnapshotPage(_ index: Int) -> Bool {
+            guard let pagePlan, let slot = pagePlan.viewIndex(for: index),
+                let first = pagePlan.readingIndex(at: slot)
+            else { return false }
+            goToPage(index: index)
+            // A sliver of the next page can already be visible in continuous mode.
+            return currentPageIndex == first && isLogicalPageVisible(index)
+        }
+
         func alignSnapshotPaper() {
             // Intermediate resize fits can fall inside refit's dead band. Apply the final geometry exactly once.
             let unit = fittedUnitSize
@@ -1796,9 +1810,11 @@ struct PaperSpot: Equatable {
     let pageIndex: Int
     let anchor: CGRect
     let document: PDFDocument
+    var framesLine = false
 
     static func == (left: Self, right: Self) -> Bool {
         left.pageIndex == right.pageIndex && left.anchor == right.anchor && left.document === right.document
+            && left.framesLine == right.framesLine
     }
 }
 
@@ -1842,7 +1858,11 @@ extension PaperPDFView {
         // A page that the continuous layout scales carries its marks with it.
         let scale = pagePlan.scale(at: viewIndex)
         let anchor = spot.anchor.applying(CGAffineTransform(scaleX: scale, y: scale))
-        return convert(PrintIssue.spotFrame(around: anchor, in: page.bounds(for: .cropBox)), from: page)
+        let box = page.bounds(for: .cropBox)
+        let frame =
+            spot.framesLine
+            ? anchor.insetBy(dx: -2, dy: 0).intersection(box) : PrintIssue.spotFrame(around: anchor, in: box)
+        return convert(frame, from: page)
     }
 
     /// Scrolls a magnified paper, when the frame would lie out of sight, until the frame's whole height and the end

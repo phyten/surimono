@@ -46,6 +46,7 @@ public final class ThemeSampler {
     private let resourceAccess: LocalResourceAccess?
     private let html: String
     private let documentLanguage: String
+    private let booklet: Bool
     private let isSourcePage: Bool
     private let format: DocumentFormat
     private let baseURL: URL?
@@ -68,10 +69,11 @@ public final class ThemeSampler {
     /// - Parameter html: A whole document as `HTMLDocumentBuilder` builds it, with the theme in its first style element.
     public init(
         html: String, format: DocumentFormat = .markdown, baseURL: URL?, pageSize: CGSize,
-        margins: WebPaginator.Margins, textScale: Double = 1, typeface: Typeface = .style,
+        margins: WebPaginator.Margins, booklet: Bool = false, textScale: Double = 1, typeface: Typeface = .style,
         code: CodeStyle = CodeStyle(),
         timeout: Duration = .seconds(15), resourceAccess: LocalResourceAccess? = nil
     ) {
+        self.booklet = booklet
         self.resourceAccess = resourceAccess
         self.html = html
         self.documentLanguage = Self.language(in: html)
@@ -107,8 +109,10 @@ public final class ThemeSampler {
     // an older specimen. Length prefixes keep adjacent fields unambiguous without persisting their contents.
     public func cacheKey(for theme: PrintTheme, language: String, sourceHash: String = "") -> String {
         let effectiveMargins = margins(for: theme)
+        let version = theme.flow == .vertical ? "theme-sample-vertical-v3-\(booklet)" : "theme-sample-v2"
         let fields = [
-            "theme-sample-v2", theme.id, language, sourceHash, html, format.rawValue,
+            version, theme.id,
+            language, sourceHash, html, format.rawValue,
             HTMLDocumentBuilder.styleSheet(
                 theme: theme, textScale: textScale, typeface: typeface, code: code, language: documentLanguage,
                 sourcePage: isSourcePage),
@@ -160,9 +164,13 @@ public final class ThemeSampler {
         }
         var session: Session
         var hasPaper: Bool
-        let checksFlow = format == .latex && (theme.formats == [.latex] || marginMode?.applies(to: theme) == true)
+        let checksFlow =
+            theme.flow == .horizontal && format == .latex
+            && (theme.formats == [.latex] || marginMode?.applies(to: theme) == true)
         do {
-            session = try await openSession()
+            let vertical = theme.flow == .vertical && !isSourcePage
+            if vertical { resetSessions() }
+            session = try await openSession(vertical: vertical)
             try Task.checkCancellation()
             hasPaper = try await apply(theme, in: session.webView)
             var sampleUsesFlow = false
@@ -214,7 +222,8 @@ public final class ThemeSampler {
             // Measuring moves the body into a strip. A new session gives the next theme its original DOM.
             defer { resetSessions() }
             let sample = try await VerticalPaginator.pages(
-                in: session.webView, pageSize: pageSize, margins: margins, timeout: timeout
+                in: session.webView, pageSize: pageSize, margins: margins, timeout: timeout, booklet: booklet,
+                textScale: textScale
             ) { deadline in
                 guard let place else { return nil }
                 let x = try await session.webView.evaluateForPrinting(
@@ -382,7 +391,14 @@ public final class ThemeSampler {
         appliedHasPaper = nil
     }
 
-    private func openSession() async throws -> Session {
+    @concurrent private static func verticalHTML(_ html: String, latex: Bool) async throws -> String {
+        try Task.checkCancellation()
+        let marked = try VerticalText.marked(html, latex: latex)
+        try PageLayoutLimits.checkHTML(bytes: marked.utf8.count, sourceBytes: html.utf8.count)
+        return marked
+    }
+
+    private func openSession(vertical: Bool = false) async throws -> Session {
         if let session, session.isReady { return session }
         guard !isClosed else { throw SamplingError.closed }
         // A load that was cancelled or failed leaves a page that is not ready; start again rather than draw it.
@@ -391,6 +407,9 @@ public final class ThemeSampler {
         appliedTheme = nil
         appliedHasPaper = nil
         // Clear, so that the paper drawn by the other web view shows through around the text.
+        let html = vertical ? try await Self.verticalHTML(self.html, latex: format == .latex) : self.html
+        try Task.checkCancellation()
+        guard !isClosed else { throw SamplingError.closed }
         let session = Session(size: printableSize, drawsBackground: false, resourceAccess: resourceAccess, html: html)
         self.session = session
         do {
@@ -450,7 +469,10 @@ public final class ThemeSampler {
         }
         // Optional decorations can fail normally. A timed-out script might still change the DOM after
         // this theme, so discard its session before reusing the view for another sample.
-        for script in [CodeFitScript.javaScript(for: code, layoutWidth: printableSize.width), theme.script] {
+        let fitsCode = theme.flow != .vertical || isSourcePage
+        for script in [
+            fitsCode ? CodeFitScript.javaScript(for: code, layoutWidth: printableSize.width) : nil, theme.script,
+        ] {
             guard let script, !script.isEmpty else { continue }
             do {
                 _ = try await webView.evaluateForPrinting(script, world: world, until: .now + timeout)
@@ -647,10 +669,8 @@ extension DocumentRenderer {
             fragment: fragment, format: source.format, theme: settings.theme, baseURL: directory,
             language: settings.pageLanguage,
             textScale: settings.textScale, typeface: settings.typeface, removesPaper: removesPaper,
-            finish: settings.finish.styleSheet, code: settings.code
-        ) {
-            try PageLayoutLimits.checkHTML(bytes: $0, sourceBytes: source.data.count)
-        }
+            finish: settings.finish.styleSheet, code: settings.code, preparesThemeSampler: true,
+            checkSourceBytes: { try PageLayoutLimits.checkHTML(bytes: $0, sourceBytes: source.data.count) })
         try PageLayoutLimits.checkHTML(bytes: html.utf8.count, sourceBytes: source.data.count)
         // A slide specimen already carries its own paper and text margins, just like the printed deck.
         let slideSize = fragment.latexClass?.beamerPageSize
@@ -663,7 +683,8 @@ extension DocumentRenderer {
                 pageSize: size,
                 margins: WebPaginator.Margins(
                     slideSize == nil ? layout.logicalMargins(options: settings.options) : .zero),
-                textScale: settings.textScale, typeface: settings.typeface, code: settings.code, resourceAccess: access)
+                booklet: layout.kind == .booklet, textScale: settings.textScale, typeface: settings.typeface,
+                code: settings.code, resourceAccess: access)
             sampler.configureDocumentMargins(
                 box.map { WebPaginator.Margins($0.margins(fitting: size)) }, mode: settings.options.latexMargins,
                 hasMarginInk: hasMarginInk)

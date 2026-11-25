@@ -89,7 +89,11 @@ struct DocumentEditMenuTests {
         // AppKit adds different Search, Services, input-method and window rows on each OS.
         let owner = try #require(menus[1].delegate as? ViewerMainMenu)
         func visible(_ menu: NSMenu) -> [String] {
-            menu.items.filter { !$0.isHidden && !$0.isSeparatorItem && owner.installedItems.contains($0) }.map(\.title)
+            // AppKit appends the pending action's name ("Undo Make a Binder") when an earlier test left one on
+            // the key window's undo manager; the order of the rows is what this test fixes.
+            let plain = [Selector(("undo:")): native("Undo"), Selector(("redo:")): native("Redo")]
+            return menu.items.filter { !$0.isHidden && !$0.isSeparatorItem && owner.installedItems.contains($0) }
+                .map { item in item.action.flatMap { plain[$0] } ?? item.title }
         }
 
         for menu in menus { menu.delegate?.menuNeedsUpdate?(menu) }
@@ -131,7 +135,7 @@ struct DocumentEditMenuTests {
         for title in standardEdit { #expect(menus[2].item(withTitle: title)?.target == nil) }
         var view = [
             content.showsPaper ? "Show as Web" : "Show as Paper", "Show as Slides", "Single Page", "Spread",
-            "View Options…", "Go to Page…", "Check Writing", "Back", "Forward", "Bookmark This Page",
+            "View Options…", "Go to Page…", "Go to Line…", "Check Writing", "Back", "Forward", "Bookmark This Page",
             "Next Bookmark", "Previous Bookmark", "Increase Text Size", "Decrease Text Size", "Original Text Size",
         ]
         if content.composition != nil { view.append("LaTeX Layout") }

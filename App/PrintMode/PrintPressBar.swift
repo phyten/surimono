@@ -701,6 +701,5 @@ struct PrintPageOrderPicker: View {
             Text("Last Sheet First").tag(PrintPageOrder.lastSheetFirst)
             Text("First Sheet First").tag(PrintPageOrder.firstSheetFirst)
         }
-        .pickerStyle(.segmented)
     }
 }

@@ -66,6 +66,7 @@ public struct LaTeXDocumentClassInfo: Sendable, Equatable {
     public internal(set) var beamerUsesSerifText = false
     public internal(set) var beamerSections: [BeamerSection] = []
     var beamerUsesSerifMath = false
+    package var isVertical: Bool { profile.structure.isVertical }
     public var isJapanese: Bool { profile.typography.usesJapaneseStyle }
     var usesAMSA4Layout: Bool { profile.page.usesAMSA4Layout }
     var hidesTitlePageNumber: Bool { resolvedStyle?.firstPageNotice != nil || profile.pageStyle.hidesTitlePageNumber }
@@ -150,6 +151,8 @@ public struct LaTeXDocumentClassInfo: Sendable, Equatable {
     private func sameComposition(as rhs: Self) -> Bool {
         (self.composition == .proof) == (rhs.composition == .proof)
             && self.resolvedStyle == rhs.resolvedStyle
+            && self.isVertical == rhs.isVertical
+            && self.profile.structure.declaredOpening == rhs.profile.structure.declaredOpening
             && self.profile.structure.bookOpening == rhs.profile.structure.bookOpening
             && self.declaredPaperSize == rhs.declaredPaperSize
             && self.linksReferences == rhs.linksReferences
@@ -205,16 +208,34 @@ extension LaTeXConverter {
         fileIdentity: @escaping @Sendable (URL) -> URL = { $0.standardizedFileURL }
     ) -> LaTeXDocumentClassInfo {
         StackSpace.onLargeStack {
-            documentClassInfoInPlace(
+            readClassPreamble(
                 text, composition: composition, fontIndex: fontIndex, documentURL: documentURL, readFile: readFile,
-                fileIdentity: fileIdentity)
+                fileIdentity: fileIdentity
+            ).typesettingInfo
         }
     }
 
-    private static func documentClassInfoInPlace(
+    /// Document and proof read the same preamble. Two-column can change class options while reading it.
+    package static func classInfos(
+        _ text: String, composition: LaTeXComposition, documentURL: URL?,
+        readFile: @escaping @Sendable (URL) -> Data?, fileIdentity: @escaping @Sendable (URL) -> URL
+    ) -> (requested: LaTeXDocumentClassInfo, related: [LaTeXComposition: LaTeXDocumentClassInfo]) {
+        StackSpace.onLargeStack {
+            let document = readClassPreamble(
+                text, composition: composition, fontIndex: .system, documentURL: documentURL, readFile: readFile,
+                fileIdentity: fileIdentity)
+            let info = document.typesettingInfo
+            if composition == .twoColumn { return (info, [:]) }
+            let other: LaTeXComposition = composition == .proof ? .document : .proof
+            document.requestedComposition = other
+            return (info, [other: info.offersCompositionChoice ? document.typesettingInfo : info])
+        }
+    }
+
+    private static func readClassPreamble(
         _ text: String, composition: LaTeXComposition, fontIndex: InstalledFontIndex, documentURL: URL?,
         readFile: @escaping (URL) -> Data?, fileIdentity: @escaping (URL) -> URL
-    ) -> LaTeXDocumentClassInfo {
+    ) -> LaTeXDocument {
         let document = LaTeXDocument(fontIndex: fontIndex)
         document.requestedComposition = composition
         if documentURL != nil || text.contains("\\") {
@@ -222,9 +243,9 @@ extension LaTeXConverter {
             document.directory = documentURL?.deletingLastPathComponent()
             document.readFile = readFile
             document.fileIdentity = fileIdentity
-            let reader = LaTeXReader(TextDecoding.normalizeNewlines(text), document: document, isBlock: false)
+            let reader = LaTeXReader(classifying: text, document: document)
             reader.readPreamble()
         }
-        return document.typesettingInfo
+        return document
     }
 }

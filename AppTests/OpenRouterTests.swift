@@ -130,6 +130,32 @@ struct OpenRouterTests {
         try body(directory.standardizedFileURL)
     }
 
+    @Test("開くパネルでは表示中の隠しファイルと拡張子のないスクリプトを選べ、バイナリは開かない")
+    func extensionlessPanelSelection() throws {
+        let names = ["Dockerfile", "Makefile", "Gemfile", "LICENSE", ".gitignore", ".env.example", "run"]
+        var files = Dictionary(uniqueKeysWithValues: names.map { ($0, Data("content\n".utf8)) })
+        files["run"] = Data("#!/bin/sh\nexit 0\n".utf8)
+        files["tool"] = Data([0xcf, 0xfa, 0xed, 0xfe, 0])
+        try withFiles(files) { directory in
+            for name in ["run", "tool"] {
+                try FileManager.default.setAttributes(
+                    [.posixPermissions: 0o755], ofItemAtPath: directory.appendingPathComponent(name).path)
+            }
+            var opened: [String] = []
+            var refused = 0
+            let router = routed({ opened.append($0.lastPathComponent) }, refused: { _ in refused += 1 })
+            for name in names + ["tool"] {
+                let url = directory.appendingPathComponent(name)
+                #expect(OpenPanelFileFilter.allows(url))
+                router.presentOpenPanel = { $0([url]) }
+                router.showOpenPanel()
+            }
+            #expect(opened == names)
+            #expect(refused == 1)
+            #expect(!OpenPanelFileFilter.allows(directory.appendingPathComponent("clip.mp4")))
+        }
+    }
+
     private var video: Data {
         var data = Data()
         for _ in 0..<30 { data += Data([0x47, 0x40, 0x00, 0x10]) + Data(repeating: 0, count: 184) }
@@ -141,7 +167,7 @@ struct OpenRouterTests {
         let files = [
             "main.ts": Data("let a = 1\n".utf8), "main.go": Data("package main\n".utf8), "notes.md": Data("# a".utf8),
             "Dockerfile": Data("FROM scratch\n".utf8), "tool": Data("#!/bin/sh\necho 1\n".utf8),
-            ".env": Data("A=1\n".utf8), "LICENSE": Data("Free.\n".utf8),
+            ".env": Data("A=1\n".utf8), "LICENSE": Data("Free.\n".utf8), "Makefile": Data("all:\n".utf8),
         ]
         try withFiles(files) { directory in
             var opened: [String] = []
@@ -200,8 +226,8 @@ struct OpenRouterTests {
                 left = excluded
             })
             router.open(files.keys.map(file))
-            #expect(opened == ["Dockerfile", "main.go", "main.ts", "notes.md", "tool"].map(file))
-            #expect(left == ["clip.mts", "clip.ts", "LICENSE"].map(file))
+            #expect(opened == ["Dockerfile", "LICENSE", "main.go", "main.ts", "notes.md", "tool"].map(file))
+            #expect(left == ["clip.mts", "clip.ts"].map(file))
         }
     }
 
