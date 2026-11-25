@@ -253,30 +253,75 @@ struct DiscoveryTests {
         #expect(!returned.isReturningFocusWindow(role: kAXWindowRole, identifier: "fixture.window"))
     }
 
-    @Test("参照枠のない段は一度だけ数え、外から独立の枠と照合した段が一つもなければ失敗する")
-    func referenceCoverage() throws {
-        let box = CGRect(x: 40, y: 80, width: 12, height: 14)
-        let missing = PageReference(
+    private let box = CGRect(x: 40, y: 80, width: 12, height: 14)
+    private var missing: PageReference {
+        PageReference(
             identifier: "page.0", characterIndex: 0, characterBounds: nil,
             elementCharacterBounds: box, referenceUnavailable: "no PDFKit selection")
-        let measured = PageReference(identifier: "page.1", characterIndex: 0, characterBounds: box)
+    }
+    private var measured: PageReference {
+        PageReference(identifier: "page.1", characterIndex: 0, characterBounds: box)
+    }
+
+    @Test("独立の参照枠がないページと要素自身の枠を記録し、照合できた段は一度だけ数える")
+    func referenceDiagnostics() throws {
         var stage = stage
         stage.pages = [missing, measured]
         var report = report
         report.recordUnavailableReferences(stage)
-        report.recordComparedReferences(stage, verified: [missing, missing])
         #expect(report.totals["referenceUnavailable"] == 1)
         #expect(report.unavailableReferences[0]?.first?.elementCharacterBounds == box)
-        var withoutComparison = report
-        withoutComparison.finishReferences(stage)
-        #expect(withoutComparison.status == 1)
-        report.recordComparedReferences(stage, verified: [measured, measured])
-        report.finishReferences(stage)
+        report.recordComparedReferences(stage, verified: [missing, measured, measured])
         #expect(report.status == 0 && report.totals["referenceCompared"] == 1)
         #expect(try missing.expectedBounds() == box)
         var invalid = missing
         invalid.elementCharacterBounds = .zero
         #expect(throws: ProbeFailure.self) { try invalid.expectedBounds() }
+    }
+
+    private func checkReferences(in compared: Set<Int>, after phase: String) -> Report {
+        var report = report
+        for (sequence, name) in ["initial", phase, "reload"].enumerated() {
+            let stage = Stage(
+                pid: report.pid, token: token, operation: report.operation, count: 1, sequence: sequence,
+                phase: name, generation: 0, pages: [measured, missing])
+            report.recordComparedReferences(stage, verified: compared.contains(sequence) ? [measured] : [missing])
+        }
+        return report
+    }
+
+    @Test("どの段でも独立の参照枠と照合できなければ失敗する")
+    func noStageCompared() {
+        let report = checkReferences(in: [], after: "innerFocus")
+        #expect(report.status == 1)
+        #expect(report.observations.filter { $0.outcome == "failure" }.map(\.phase) == ["innerFocus", "reload"])
+    }
+
+    @Test("最初の段だけ独立の参照枠と照合できても、操作後の各段の名前と番号を付けて失敗する", arguments: ["layout", "afterTray"])
+    func onlyInitialCompared(phase: String) {
+        let report = checkReferences(in: [0], after: phase)
+        let failures = report.observations.filter { $0.outcome == "failure" }
+        #expect(report.status == 1)
+        #expect(failures.map(\.phase) == [phase, "reload"])
+        #expect(failures.map(\.sequence) == [1, 2])
+        #expect(failures.allSatisfy { $0.detail?.contains($0.phase) == true })
+    }
+
+    @Test("操作後の段のうち照合できなかった段だけが失敗になり、後の段が照合できても成功に戻らない")
+    func someLaterStageNotCompared() {
+        let last = checkReferences(in: [0, 1], after: "layout")
+        #expect(last.status == 1)
+        #expect(last.observations.filter { $0.outcome == "failure" }.map(\.phase) == ["reload"])
+        let middle = checkReferences(in: [0, 2], after: "layout")
+        #expect(middle.status == 1)
+        #expect(middle.observations.filter { $0.outcome == "failure" }.map(\.phase) == ["layout"])
+    }
+
+    @Test("すべての段で独立の参照枠と照合できれば成功する")
+    func everyStageCompared() {
+        let report = checkReferences(in: [0, 1, 2], after: "layout")
+        #expect(report.status == 0)
+        #expect(report.totals["referenceCompared"] == 3)
     }
 
     @Test("表示中の文字の矩形はゼロでも別の位置でも失敗する")

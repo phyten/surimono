@@ -145,14 +145,10 @@ struct Report: Encodable {
     mutating func recordComparedReferences(_ stage: Stage, verified: [PageReference]) {
         if verified.contains(where: { $0.characterBounds != nil }) {
             record("referenceCompared", sequence: stage.sequence, phase: stage.phase, route: "bounds")
-        }
-    }
-
-    mutating func finishReferences(_ stage: Stage) {
-        if totals["referenceCompared", default: 0] == 0 {
+        } else if stage.phase != "initial" {
             record(
                 "failure", sequence: stage.sequence, phase: stage.phase, route: "bounds",
-                detail: "No current external page bounds were verified against PDFKit in this run")
+                detail: "Stage \(stage.sequence) (\(stage.phase)): no bounds compared against PDFKit")
         }
     }
 
@@ -324,7 +320,6 @@ func run(_ report: inout Report, directory: URL) {
                 }
             }
             try requireAlive(pid)
-            if phase == "finished" { report.finishReferences(stage) }
             if report.status != 0 { report.captureTree(reader, sequence: index) }
             try Data(stage.token.utf8).write(
                 to: directory.appending(path: "ack-\(index)"), options: .withoutOverwriting)
