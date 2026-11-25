@@ -283,6 +283,58 @@ struct PageTextPDFViewTests {
         withExtendedLifetime(window) {}
     }
 
+    @Test("未確定の文字の再試行を待つ間も、確定した文字の枠は拡大・スクロール・窓の移動に追従する")
+    func resolvedFrameDuringBackoff() throws {
+        let view = UnsettledPaper(frame: CGRect(x: 0, y: 0, width: 420, height: 594))
+        view.copyIsAvailable = false
+        let document = try #require(PDFDocument(data: textPDF(["世代"])))
+        let page = try #require(document.page(at: 0))
+        let (_, window) = try makePaper(document: document, view: view)
+        view.scaleFactor = 1
+        view.layoutSubtreeIfNeeded()
+        let leaf = try #require(view.accessibilityChildren()?.first as? PageTextElement)
+        let first = NSRange(location: 0, length: 1)
+        let second = NSRange(location: 1, length: 1)
+        func expectFrame(_ range: NSRange) throws {
+            let selection = try #require(page.selection(for: range))
+            let local = view.convert(selection.bounds(for: page), from: page)
+            let expected = window.convertToScreen(view.convert(local, to: nil))
+            let actual = leaf.accessibilityFrame(for: range)
+            #expect(!expected.isEmpty)
+            #expect(abs(actual.minX - expected.minX) < 0.1 && abs(actual.maxX - expected.maxX) < 0.1)
+            #expect(abs(actual.minY - expected.minY) < 0.1 && abs(actual.maxY - expected.maxY) < 0.1)
+        }
+
+        view.selectionIsReady = true
+        let originalFrame = leaf.accessibilityFrame(for: first)
+        try #require(!originalFrame.isEmpty)
+        view.selectionIsReady = false
+        let reads = view.reads
+        #expect(leaf.accessibilityFrame(for: second) == .zero)
+        #expect(view.reads == reads + 1 && view.copyAttempts == 1)
+
+        view.selectionIsReady = true
+        view.clock += .milliseconds(249)
+        view.scaleFactor = 2
+        view.layoutSubtreeIfNeeded()
+        let scroll = try #require(view.documentView?.enclosingScrollView)
+        let clip = scroll.contentView
+        let origin = clip.bounds.origin
+        let dy: CGFloat = clip.bounds.midY < clip.documentRect.midY ? 24 : -24
+        clip.scroll(to: CGPoint(x: origin.x, y: origin.y + dy))
+        scroll.reflectScrolledClipView(clip)
+        try #require(clip.bounds.origin != origin)
+        window.setFrameOrigin(CGPoint(x: window.frame.minX + 32, y: window.frame.minY + 20))
+        try expectFrame(first)
+        #expect(leaf.accessibilityFrame(for: first) != originalFrame)
+        #expect(leaf.accessibilityFrame(for: second) == .zero)
+        #expect(view.reads == reads + 1 && view.copyAttempts == 1)
+
+        view.clock += .milliseconds(2)
+        try expectFrame(second)
+        #expect(view.reads == reads + 2 && view.copyAttempts == 1)
+    }
+
     @Test("メインスレッド以外からの同期問い合わせにも紙と同じ文字範囲と位置を返す")
     func geometryFromAnotherQueue() async throws {
         let (view, window) = try makePaper(pages: ["first page"])
