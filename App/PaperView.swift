@@ -287,8 +287,17 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
     // Most recently displayed last, including a copy reused from an earlier layout.
     private var shownDocuments: [ShownDocument] = []
     private static let tileDrawingGrace: Duration = .seconds(1)
+    private var displayRevision: UInt = 0
     private var tileRetirement: Task<Void, Never>?
-    private weak var pageTurnDocument: PDFDocument?
+    // Core Animation retains its delegate on the installed animation, including a paused page turn.
+    private final class PageTurnDocuments: NSObject, CAAnimationDelegate {
+        let displayed: PDFDocument
+        let source: PDFDocument?
+        init(_ displayed: PDFDocument, source: PDFDocument?) {
+            self.displayed = displayed
+            self.source = source
+        }
+    }
     private var logicalMargin: CGFloat?
     private var showsPageNumbers = false
     fileprivate weak var changeController: PaperController?
@@ -438,10 +447,10 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
         self.showsPageNumbers = showsPageNumbers
         self.changeMarks = changeMarks
         self.furniture = furniture
-        let changesLayout = self.options.map { $0.layout != options.layout } ?? false
+        let revision = displayRevision
         self.options = options
         configureDisplay(options)
-        show(source, at: position, changesLayout: changesLayout)
+        show(source, at: position, since: revision)
         if let point, let pagePlan,
             let viewIndex = pagePlan.viewIndex(for: min(position, max(source.pageCount - 1, 0))),
             let page = document?.page(at: viewIndex)
@@ -565,7 +574,8 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
         return pagePlan?.readingIndex(at: document.index(for: page)) ?? 0
     }
 
-    func show(_ source: PDFDocument, at index: Int, changesLayout: Bool = false) {
+    func show(_ source: PDFDocument, at index: Int, since revision: UInt? = nil) {
+        let previousRevision = revision ?? displayRevision
         let wasUpdating = isUpdatingDocument
         isUpdatingDocument = true
         defer {
@@ -595,10 +605,6 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
             drawnFurniture == furniture, document != nil
         {
             // Layout and navigation may change without touching page content or losing the PDFKit page cache.
-            if changesLayout, let current = shownDocuments.indices.last {
-                // Even a display-mode change that reuses the same PDF can leave a tile draw in flight.
-                shownDocuments[current].keepLayoutTilesUntil = .now + Self.tileDrawingGrace
-            }
             pagePlan = plan
             hideScrollersAndInsets()
             refit()
@@ -639,13 +645,13 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
         wheelTurner = WheelPageTurner()
         drawProse([])
         self.document = document
-        displayBox = .cropBox
+        setDisplay(\.displayBox, to: .cropBox)
         hideScrollersAndInsets()
         refit()
         goToPage(index: min(index, max(source.pageCount - 1, 0)))
         // The marks were selections of the pages just replaced.
         restartFind()
-        rememberShownDocument(document, source: source, changesLayout: changesLayout)
+        rememberShownDocument(document, source: source, changesLayout: previousRevision != displayRevision)
     }
 
     private func rememberShownDocument(_ displayed: PDFDocument, source: PDFDocument, changesLayout: Bool) {
@@ -690,12 +696,12 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
         // PDFKit has no public tile-drained callback. A rapid reload after a layout change can evict a third
         // PDF while its pages are still being drawn. Age each such copy independently so a busy window still drains.
         let now = ContinuousClock.now
+        let transition = layer?.animation(forKey: "transition") ?? layer?.animation(forKey: "pageTurn")
+        let turning = (transition?.delegate as? PageTurnDocuments)?.displayed
         var nextCheck: ContinuousClock.Instant?
         for index in shownDocuments.indices.dropLast(2).reversed() {
             var deadline = shownDocuments[index].keepLayoutTilesUntil
-            if pageTurnDocument === shownDocuments[index].document,
-                layer?.animation(forKey: "transition") != nil || layer?.animation(forKey: "pageTurn") != nil
-            {
+            if turning === shownDocuments[index].document {
                 // A slowed or paused page turn can outlive the tile grace period.
                 deadline = max(deadline ?? now, now + .seconds(1))
             }
@@ -732,10 +738,20 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
             case .single: options.isContinuous ? .singlePageContinuous : .singlePage
             case .spread: options.isContinuous ? .twoUpContinuous : .twoUp
             }
-        if displayMode != mode { displayMode = mode }
-        displaysAsBook = false
-        displaysRTL = options.direction == .rightToLeft
-        displayDirection = options.scrollAxis == .vertical ? .vertical : .horizontal
+        setDisplay(\.displayMode, to: mode)
+        setDisplay(\.displaysAsBook, to: false)
+        setDisplay(\.displaysRTL, to: options.direction == .rightToLeft)
+        setDisplay(\.displayDirection, to: options.scrollAxis == .vertical ? .vertical : .horizontal)
+    }
+
+    private func setDisplay<Value: Equatable>(_ key: ReferenceWritableKeyPath<PDFView, Value>, to value: Value) {
+        guard self[keyPath: key] != value else { return }
+        // PDFKit can keep drawing displaced tiles even when the same document stays installed.
+        if let last = shownDocuments.indices.last, shownDocuments[last].document === document {
+            shownDocuments[last].keepLayoutTilesUntil = .now + Self.tileDrawingGrace
+        }
+        if document != nil { displayRevision &+= 1 }
+        self[keyPath: key] = value
     }
 
     /// One page, or two side by side, at 100 %.
@@ -850,6 +866,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
             magnifyMonitor = nil
             return
         }
+        // Local event monitors run synchronously in AppKit's main-thread event dispatch.
         guard magnifyMonitor == nil else { return }
         magnifyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.magnify, .smartMagnify]) { [weak self] event in
             let handled = MainActor.assumeIsolated { self?.handleZoomGesture(event) ?? false }
@@ -1136,7 +1153,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
         let mode: PDFDisplayMode = narrow ? .singlePage : .twoUp
         guard displayMode != mode else { return }
         isSwitchingSpreadMode = true
-        displayMode = mode
+        setDisplay(\.displayMode, to: mode)
         isSwitchingSpreadMode = false
     }
 
@@ -1224,7 +1241,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
                 transition.timeOffset = progress * transition.duration
             }
         #endif
-        pageTurnDocument = document
+        if let document { transition.delegate = PageTurnDocuments(document, source: sourceDocument) }
         layer.add(transition, forKey: "pageTurn")
     }
 
@@ -1240,6 +1257,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
             wheelTurner = WheelPageTurner()
             return
         }
+        // The return value consumes the event during the same main-thread dispatch.
         guard wheelMonitor == nil else { return }
         // PDFKit's inner scroll view can consume wheel events before the PDFView override.
         wheelMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in

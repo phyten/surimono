@@ -63,6 +63,23 @@ struct PageTextPDFViewTests {
         withExtendedLifetime(window) {}
     }
 
+    #if DEBUG
+        @Test("検査開始時だけページの識別子を公開し、同じページの読み上げと要素を保つ")
+        func probePageIdentifier() throws {
+            let (view, window) = try makePaper(pages: ["first page"])
+            let ordinary = try #require(view.accessibilityChildren()?.first as? PageTextElement)
+            #expect(ordinary.accessibilityIdentifier() == nil)
+            view.identifyProbePaper("fixture")
+            let tagged = try #require(view.accessibilityChildren()?.first as? PageTextElement)
+            #expect(tagged.accessibilityIdentifier() == "fixture.page.0")
+            #expect(tagged.accessibilityLabel() == String(localized: "Page \(1)"))
+            #expect(tagged.accessibilityValue() as? String == "first page")
+            view.identifyProbePaper("fixture")
+            #expect(view.accessibilityChildren()?.first as? PageTextElement === tagged)
+            withExtendedLifetime(window) {}
+        }
+    #endif
+
     @Test("座標から要素を探しても、PDFKit のノードを渡さない")
     func hitTestStaysOnOurElements() throws {
         let (view, window) = try makePaper(pages: ["first page"])
@@ -157,8 +174,9 @@ struct PageTextPDFViewTests {
         let (view, window) = try makePaper(pages: ["first page"])
         let leaf = try #require(view.accessibilityChildren()?.first as? PageTextElement)
         let page = try #require(view.document?.page(at: 0))
-        let box = window.convertToScreen(view.convert(view.convert(page.characterBounds(at: 0), from: page), to: nil))
         let range = NSRange(location: 0, length: 1)
+        let selection = try #require(page.selection(for: range))
+        let box = window.convertToScreen(view.convert(view.convert(selection.bounds(for: page), from: page), to: nil))
         let frame = leaf.accessibilityFrame(for: range)
         #expect(!frame.isEmpty && abs(box.midX - frame.midX) < 0.1 && abs(box.midY - frame.midY) < 0.1)
         #expect(leaf.accessibilityRange(for: CGPoint(x: frame.midX, y: frame.midY)) == range)
@@ -169,14 +187,123 @@ struct PageTextPDFViewTests {
         #expect(leaf.accessibilityString(for: range) == "f")
     }
 
+    private final class UnsettledPaper: PageTextPDFView {
+        var selectionIsReady = false
+        var reads = 0
+
+        override func characterSelectionBounds(for range: NSRange, on page: PDFPage) -> CGRect? {
+            reads += 1
+            guard selectionIsReady else { return .null }
+            return super.characterSelectionBounds(for: range, on: page)
+        }
+    }
+
+    @Test("差し替え直後に文字の枠が未確定でも、同じ要素が次の問い合わせで本文の位置を返す", arguments: [true, false])
+    func recoversUnsettledSelection(liveSelectionRecovers: Bool) async throws {
+        let view = UnsettledPaper(frame: CGRect(x: 0, y: 0, width: 420, height: 594))
+        let (_, window) = try makePaper(document: #require(PDFDocument(data: textPDF(["old page"]))), view: view)
+        let replacement = try #require(PDFDocument(data: textPDF(["世代"])))
+        let page = try #require(replacement.page(at: 0))
+        view.reads = 0
+        view.document = replacement
+        view.go(to: page)
+        view.layoutSubtreeIfNeeded()
+        let leaf = try #require(view.accessibilityChildren()?.first as? PageTextElement)
+        #expect(leaf.accessibilityValue() as? String == "世代")
+        #expect(view.reads > 0)
+        await Task.yield()
+        view.selectionIsReady = liveSelectionRecovers
+        let range = NSRange(location: 0, length: 1)
+        let inside = window.convertPoint(
+            toScreen: view.convert(view.convert(CGPoint(x: 48, y: 506), from: page), to: nil))
+        if !liveSelectionRecovers { #expect(leaf.accessibilityRange(for: inside) == range) }
+        let box = leaf.accessibilityFrame(for: range)
+        let reads = view.reads
+        #expect(leaf.accessibilityFrame(for: range) == box)
+        #expect(view.reads == reads)
+        #expect(box.contains(inside))
+        #expect(abs(box.width - 16 * view.scaleFactor) < 1)
+        #expect(leaf.accessibilityRange(for: inside) == range)
+        #expect(view.accessibilityChildren()?.first as? PageTextElement === leaf)
+        view.document = nil
+        #expect(leaf.accessibilityFrame(for: range) == .zero)
+        #expect(leaf.accessibilityString(for: range) == "世")
+        withExtendedLifetime(window) {}
+    }
+
+    @Test("メインスレッド以外からの同期問い合わせにも紙と同じ文字範囲と位置を返す")
+    func geometryFromAnotherQueue() async throws {
+        let (view, window) = try makePaper(pages: ["first page"])
+        // The worker calls only synchronous nonisolated AX entry points while the test keeps the window alive.
+        nonisolated(unsafe) let leaf = try #require(view.accessibilityChildren()?.first as? PageTextElement)
+        let range = NSRange(location: 0, length: 1)
+        let expected = leaf.accessibilityFrame(for: range)
+        let center = CGPoint(x: expected.midX, y: expected.midY)
+        nonisolated(unsafe) let receiver = view
+        let valid = await withCheckedContinuation { continuation in
+            DispatchQueue.global().async { @Sendable in
+                let matches =
+                    leaf.accessibilityFrame(for: range) == expected && leaf.accessibilityRange(for: center) == range
+                    && (receiver.accessibilityHitTest(center) as? PageTextElement) === leaf
+                continuation.resume(returning: matches)
+            }
+        }
+        #expect(!expected.isEmpty && valid)
+        withExtendedLifetime(window) {}
+    }
+
+    @Test("回転と切り抜きのある紙でも、日本語・補助平面の文字・改行の範囲と位置が一致する")
+    func rotatedUnicodePage() throws {
+        let document = try #require(PDFDocument(data: textPDF(["日本𠮷野\n次の行あ\u{3099}"])))
+        let page = try #require(document.page(at: 0))
+        page.setBounds(CGRect(x: 15, y: 30, width: 380, height: 520), for: .cropBox)
+        page.rotation = 90
+        let (view, window) = try makePaper(document: document)
+        let leaf = try #require(view.accessibilityChildren()?.first as? PageTextElement)
+        #expect(leaf.accessibilityValue() as? String == "日本𠮷野\n次の行あ\u{3099}")
+        #expect(leaf.accessibilityNumberOfCharacters() == 11)
+        #expect(leaf.accessibilityString(for: NSRange(location: 2, length: 2)) == "𠮷")
+        #expect(leaf.accessibilityRange(for: 3) == NSRange(location: 2, length: 2))
+        #expect(leaf.accessibilityRange(forLine: 0) == NSRange(location: 0, length: 6))
+        #expect(leaf.accessibilityRange(forLine: 1) == NSRange(location: 6, length: 5))
+        #expect(leaf.accessibilityLine(for: 6) == 1)
+        #expect(leaf.accessibilityRange(for: 10) == NSRange(location: 9, length: 2))
+        for scale in [1.0, 1.5] {
+            view.scaleFactor = scale
+            view.go(to: CGRect(x: 70, y: 480, width: 20, height: 20), on: page)
+            window.setFrameOrigin(CGPoint(x: 120 * scale, y: 80 * scale))
+            view.layoutSubtreeIfNeeded()
+            // The fixture draws 16-point Japanese glyphs starting at (40, 500) and (40, 460).
+            for (range, x, y) in [
+                (NSRange(location: 2, length: 2), 80.0, 506.0),
+                (NSRange(location: 4, length: 1), 96.0, 506.0),
+                (NSRange(location: 6, length: 1), 48.0, 466.0),
+            ] {
+                let local = view.convert(CGPoint(x: x, y: y), from: page)
+                let center = window.convertPoint(toScreen: view.convert(local, to: nil))
+                let box = leaf.accessibilityFrame(for: range)
+                #expect(box.contains(center))
+                #expect(abs(box.width - 16 * scale) < 1 && abs(box.height - 16 * scale) < 1)
+                #expect(leaf.accessibilityRange(for: center) == range)
+            }
+        }
+    }
+
     private func makePaper(pages: [String]) throws -> (PageTextPDFView, NSWindow) {
         let document = try #require(PDFDocument(data: textPDF(pages)))
+        return try makePaper(document: document)
+    }
+
+    private func makePaper(
+        document: PDFDocument,
+        view: PageTextPDFView = PageTextPDFView(frame: NSRect(x: 0, y: 0, width: 420, height: 594))
+    ) throws -> (PageTextPDFView, NSWindow) {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 420, height: 594), styleMask: [.titled], backing: .buffered,
             defer: true)
-        let view = PageTextPDFView(frame: NSRect(x: 0, y: 0, width: 420, height: 594))
         window.contentView = view
         view.displayMode = .singlePage
+        view.displayBox = .cropBox
         view.document = document
         // A window that is not on screen has no visible pages until the view goes to one.
         view.go(to: try #require(document.page(at: 0)))
@@ -192,9 +319,12 @@ struct PageTextPDFViewTests {
         let context = try #require(CGContext(consumer: consumer, mediaBox: &box, nil))
         for text in pages {
             context.beginPDFPage(nil)
-            context.textPosition = CGPoint(x: 40, y: 500)
-            let string = NSAttributedString(string: text, attributes: [.font: NSFont.systemFont(ofSize: 14)])
-            CTLineDraw(CTLineCreateWithAttributedString(string), context)
+            let font = try #require(NSFont(name: "HiraginoSans-W3", size: 16))
+            for (line, body) in text.components(separatedBy: "\n").enumerated() {
+                context.textPosition = CGPoint(x: 40, y: 500 - line * 40)
+                let string = NSAttributedString(string: body, attributes: [.font: font])
+                CTLineDraw(CTLineCreateWithAttributedString(string), context)
+            }
             context.endPDFPage()
         }
         context.closePDF()

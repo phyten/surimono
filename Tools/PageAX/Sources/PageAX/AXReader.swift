@@ -6,6 +6,10 @@ struct ProbeFailure: Error, CustomStringConvertible {
     init(_ description: String) { self.description = description }
 }
 
+struct ContainerHit: Error, CustomStringConvertible {
+    let description: String
+}
+
 struct AXFailure: Error, CustomStringConvertible {
     let api: String
     let error: AXError
@@ -76,12 +80,59 @@ struct TreeNode: Encodable {
     var role: String?
     var identifier: String?
     var childCount: Int?
+    var isExternalHit: Bool?
     var errors: [String] = []
+}
+
+struct HitNode: Encodable {
+    var role: String?
+    var identifier: String?
+    var frame: CGRect?
+    var errors: [String] = []
+}
+
+struct HitInspection: Encodable {
+    let target: HitTarget
+    let external: HitNode
+    var parent: HitNode?
+    var childCount: Int?
+    var children: [HitNode] = []
+    var pageFrame: CGRect?
+    var indexInPaperWindow: Int?
+    var paperAncestorDistance: Int?
+    var directlyContainsPaper = false
+
+    func exclusionReason(macOSMajor: Int, paperID: String) -> String? {
+        guard macOSMajor == 26, target.mouseHitsPaper, target.paperHitIdentifier == target.page,
+            target.windowRole == kAXGroupRole, external.role == kAXGroupRole,
+            external.identifier?.isEmpty != false, external.errors.isEmpty,
+            external.frame?.contains(target.point) == true, pageFrame?.contains(target.point) == true
+        else { return nil }
+
+        // The same window hosts the paper and its bands on master. Require the actual AX handle to
+        // contain this fixture's paper; an overlapping sibling with identical bounds is not enough.
+        let windowStop: String
+        if target.windowIdentifier == paperID, parent?.role == kAXWindowRole || indexInPaperWindow != nil,
+            directlyContainsPaper || paperAncestorDistance == 1
+        {
+            windowStop = "window hit the tagged paper; application hit its unnamed window content group"
+        } else if target.windowIdentifier?.isEmpty != false, target.windowIsPaperAncestor,
+            (paperAncestorDistance ?? 0) > 0
+        {
+            windowStop = "window and application hit ancestors of the tagged paper"
+        } else {
+            return nil
+        }
+        return "macOS 26: " + windowStop
+            + "; native mouse and paper AX reach the page. The hosting hierarchy and paper hit routing match origin/master."
+    }
 }
 
 final class AXReader {
     let app: AXUIElement
     let token: String
+    private var externalHit: AXUIElement?
+    private(set) var hitInspection: HitInspection?
     private(set) var optionalErrors: [String: Int] = [:]
 
     init(app: AXUIElement, token: String) {
@@ -101,18 +152,42 @@ final class AXReader {
     }
 
     private func isPage(_ node: AXUIElement, names attributes: [String], generation: Int) throws -> Bool {
-        guard try optional(kAXRoleAttribute, on: node, names: attributes) as? String == kAXStaticTextRole,
-            let text = try optional(kAXValueAttribute, on: node, names: attributes) as? String,
-            Self.hasMarker(text, generation: generation, token: token)
+        guard let id = try optional(kAXIdentifierAttribute, on: node, names: attributes) as? String,
+            id.hasPrefix(token + ".page."),
+            try optional(kAXRoleAttribute, on: node, names: attributes) as? String == kAXStaticTextRole,
+            let text = try optional(kAXValueAttribute, on: node, names: attributes) as? String
         else { return false }
-        if let object = try optional(kAXParentAttribute, on: node, names: attributes) {
-            let parent = try axElement(object)
-            if try optional(kAXRoleAttribute, on: parent, names: names(parent)) as? String == kAXGroupRole {
-                return true
-            }
+        return Self.hasMarker(text, generation: generation, token: token)
+    }
+
+    private func identifier(_ node: AXUIElement) throws -> String? {
+        try optional(kAXIdentifierAttribute, on: node, names: names(node)) as? String
+    }
+
+    func isFixturePaper(role: String?, identifier: () throws -> String?) throws -> Bool {
+        // Only groups can be our paper. Unrelated controls may advertise AXIdentifier but fail when asked for it.
+        guard role == kAXGroupRole else { return false }
+        do {
+            return try identifier() == token + ".paper"
+        } catch let failure as AXFailure where failure.api == kAXIdentifierAttribute && failure.error == .failure {
+            optionalErrors[failure.description, default: 0] += 1
+            return false
         }
-        let id = try optional(kAXIdentifierAttribute, on: node, names: attributes) as? String
-        return id?.hasPrefix(token + ".page.") == true
+    }
+
+    private func paperPages(_ paper: AXUIElement, stage: Stage) throws -> [AXUIElement] {
+        let children = try value(paper, kAXChildrenAttribute) as? [AXUIElement] ?? []
+        var matches: [AXUIElement] = []
+        for child in children {
+            let attrs = try names(child)
+            // Reject an unowned leaf before asking it for any text or geometry.
+            guard let id = try optional(kAXIdentifierAttribute, on: child, names: attrs) as? String,
+                id.hasPrefix(token + ".page."),
+                try optional(kAXRoleAttribute, on: child, names: attrs) as? String == kAXStaticTextRole
+            else { throw try unexpectedElement(child, names: attrs, route: .children) }
+            if try isPage(child, names: attrs, generation: stage.generation) { matches.append(child) }
+        }
+        return matches
     }
 
     static func hasMarker(_ text: String, generation: Int, token: String) -> Bool {
@@ -138,19 +213,42 @@ final class AXReader {
                 guard visited.insert(node).inserted else { continue }
                 do {
                     let attrs = try names(node)
-                    if try isPage(node, names: attrs, generation: generation) { return node }
+                    let role = try optional(kAXRoleAttribute, on: node, names: attrs) as? String
+                    if try isFixturePaper(
+                        role: role,
+                        identifier: {
+                            try optional(kAXIdentifierAttribute, on: node, names: attrs) as? String
+                        })
+                    {
+                        guard let leaf = try paperPages(node, stage: stage).first else {
+                            throw ProbeFailure("Paper lacks current fixture page")
+                        }
+                        return leaf
+                    }
                     queue += try optional(kAXChildrenAttribute, on: node, names: attrs) as? [AXUIElement] ?? []
                 } catch let failure as AXFailure where failure.error == .invalidUIElement {
                     optionalErrors[failure.description, default: 0] += 1
                 }
             }
         case .hit:
-            guard let point = stage.hitPoint else { throw ProbeFailure("No visible point on the paper") }
+            guard let target = stage.hit, target.mouseHitsPaper, target.paperHitIdentifier == target.page else {
+                throw ProbeFailure("No point verified by native mouse and paper AX hit tests")
+            }
+            let point = target.point
             var hit: AXUIElement?
             try checked(AXUIElementCopyElementAtPosition(app, Float(point.x), Float(point.y), &hit), "hitTest")
             if let hit {
+                externalHit = hit
                 let attrs = try names(hit)
-                if try isPage(hit, names: attrs, generation: generation) { return hit }
+                if try identifier(hit) == target.page, try isPage(hit, names: attrs, generation: generation) {
+                    return hit
+                }
+                let inspection = try inspectHit(hit, target: target, stage: stage)
+                if let reason = inspection.exclusionReason(
+                    macOSMajor: ProcessInfo.processInfo.operatingSystemVersion.majorVersion, paperID: token + ".paper")
+                {
+                    throw ContainerHit(description: reason)
+                }
                 throw try unexpectedElement(hit, names: attrs, route: route)
             }
         case .focus:
@@ -158,17 +256,79 @@ final class AXReader {
                 let focus = try axElement(object)
                 let attrs = try names(focus)
                 if try isPage(focus, names: attrs, generation: generation) { return focus }
-                // The paper itself is the responder. Only its immediate page leaves belong to this route.
-                if try optional(kAXRoleAttribute, on: focus, names: attrs) as? String == kAXGroupRole {
-                    let children = try optional(kAXChildrenAttribute, on: focus, names: attrs) as? [AXUIElement] ?? []
-                    for child in children where try isPage(child, names: names(child), generation: generation) {
-                        return child
-                    }
+                if try identifier(focus) == token + ".paper",
+                    let page = try paperPages(focus, stage: stage).first
+                {
+                    return page
                 }
                 throw try unexpectedElement(focus, names: attrs, route: route)
             }
         }
         throw ProbeFailure("No fixture page for generation " + String(generation))
+    }
+
+    private func frame(_ node: AXUIElement, attributes: [String]) throws -> CGRect? {
+        guard let position = try optional(kAXPositionAttribute, on: node, names: attributes),
+            let dimensions = try optional(kAXSizeAttribute, on: node, names: attributes)
+        else { return nil }
+        var origin = CGPoint.zero
+        var size = CGSize.zero
+        try unpack(position, .cgPoint, into: &origin)
+        try unpack(dimensions, .cgSize, into: &size)
+        // A diagnostic frame from an unsettled AX node must not make the reader's JSON unwritable.
+        guard origin.x.isFinite, origin.y.isFinite, size.width.isFinite, size.height.isFinite else {
+            throw ProbeFailure("Non-finite AXPosition or AXSize: \(origin), \(size)")
+        }
+        return CGRect(origin: origin, size: size)
+    }
+
+    private func describe(_ node: AXUIElement) -> HitNode {
+        var result = HitNode()
+        do {
+            let attrs = try names(node)
+            result.role = try optional(kAXRoleAttribute, on: node, names: attrs) as? String
+            result.frame = try frame(node, attributes: attrs)
+            result.identifier = try optional(kAXIdentifierAttribute, on: node, names: attrs) as? String
+        } catch {
+            result.errors.append(String(describing: error))
+        }
+        return result
+    }
+
+    private func inspectHit(_ hit: AXUIElement, target: HitTarget, stage: Stage) throws -> HitInspection {
+        var inspection = HitInspection(target: target, external: describe(hit))
+        // Preserve partial evidence even if the next AX call fails or the element disappears.
+        defer { hitInspection = inspection }
+        let attrs = try names(hit)
+        if let parent = try optional(kAXParentAttribute, on: hit, names: attrs) {
+            inspection.parent = describe(try axElement(parent))
+        }
+        let children = try optional(kAXChildrenAttribute, on: hit, names: attrs) as? [AXUIElement]
+        inspection.childCount = children?.count
+        inspection.children = (children ?? []).prefix(32).map(describe)
+
+        let leaf = try page(via: .children, stage: stage)
+        let paper = try axElement(value(leaf, kAXParentAttribute))
+        guard try identifier(paper) == token + ".paper" else { return inspection }
+        if let window = try optional(kAXWindowAttribute, on: paper, names: names(paper)) {
+            let window = try axElement(window)
+            let roots = try optional(kAXChildrenAttribute, on: window, names: names(window)) as? [AXUIElement]
+            inspection.indexInPaperWindow = roots?.firstIndex { CFEqual($0, hit) }
+        }
+        inspection.directlyContainsPaper = children?.contains { CFEqual($0, paper) } == true
+        guard let page = try paperPages(paper, stage: stage).first(where: { try identifier($0) == target.page })
+        else { return inspection }
+        inspection.pageFrame = try frame(page, attributes: names(page))
+        var ancestor = paper
+        for distance in 0..<32 {
+            if CFEqual(ancestor, hit) {
+                inspection.paperAncestorDistance = distance
+                break
+            }
+            guard let parent = try optional(kAXParentAttribute, on: ancestor, names: names(ancestor)) else { break }
+            ancestor = try axElement(parent)
+        }
+        return inspection
     }
 
     private func unexpectedElement(_ node: AXUIElement, names attrs: [String], route: Route) throws -> ProbeFailure {
@@ -186,6 +346,7 @@ final class AXReader {
             let (node, path) = queue[index]
             index += 1
             var item = TreeNode(path: path)
+            if let externalHit, CFEqual(externalHit, node) { item.isExternalHit = true }
             do {
                 let attrs = try names(node)
                 func read(_ key: String) -> CFTypeRef? {
@@ -222,58 +383,123 @@ struct HeldPage {
     let attributes: [String]
     let parameters: [String]
 
-    init(_ element: AXUIElement, token: String) throws {
+    let reference: PageReference
+    let paperIdentifier: String
+    let generation: Int
+    static let requiredParameters = [
+        kAXStringForRangeParameterizedAttribute, kAXAttributedStringForRangeParameterizedAttribute,
+        kAXBoundsForRangeParameterizedAttribute, kAXLineForIndexParameterizedAttribute,
+        kAXRangeForLineParameterizedAttribute,
+        kAXRangeForIndexParameterizedAttribute, kAXRangeForPositionParameterizedAttribute,
+    ]
+
+    init(_ element: AXUIElement, stage: Stage) throws {
         self.element = element
+        generation = stage.generation
+        paperIdentifier = stage.token + ".paper"
         attributes = try names(element)
         parameters = try names(element, parameterized: true)
-        guard attributes.contains(kAXValueAttribute), let original = try value(element, kAXValueAttribute) as? String,
-            AXReader.hasMarker(original, generation: 0, token: token)
-        else { throw ProbeFailure("Initial page has no generation-zero marker") }
+        try Self.requireContract(attributes: attributes, parameters: parameters)
+        guard let id = try value(element, kAXIdentifierAttribute) as? String,
+            let reference = stage.pages.first(where: { $0.identifier == id }),
+            let original = try value(element, kAXValueAttribute) as? String,
+            AXReader.hasMarker(original, generation: generation, token: stage.token)
+        else { throw ProbeFailure("Page lacks its fixture text or independent PDFKit reference") }
         self.original = original
+        self.reference = reference
     }
 
-    func verify() throws {
-        let attributes = try names(element)
-        let parameters = try names(element, parameterized: true)
-        guard attributes.contains(kAXValueAttribute), try value(element, kAXValueAttribute) as? String == original
+    static func requireContract(attributes: [String], parameters: [String]) throws {
+        let required = [
+            kAXIdentifierAttribute, kAXValueAttribute, kAXNumberOfCharactersAttribute,
+            kAXRoleAttribute, kAXPositionAttribute, kAXSizeAttribute, kAXParentAttribute,
+        ]
+        let missing = Set(required).subtracting(attributes).union(Set(Self.requiredParameters).subtracting(parameters))
+        guard missing.isEmpty else {
+            throw ProbeFailure("Missing AX attributes: " + missing.sorted().joined(separator: ", "))
+        }
+    }
+
+    static func checkBounds(_ rect: CGRect, against box: CGRect) throws {
+        guard !box.isEmpty, !rect.isEmpty,
+            [rect.minX - box.minX, rect.maxX - box.maxX, rect.minY - box.minY, rect.maxY - box.maxY]
+                .allSatisfy({ abs($0) <= 1 })
         else {
-            throw ProbeFailure("Old AXValue changed")
+            throw ProbeFailure(
+                "Marker AX bounds " + String(describing: rect) + " differ from PDFKit " + String(describing: box))
         }
-        for key in [
-            kAXRoleAttribute, kAXPositionAttribute, kAXSizeAttribute, kAXNumberOfCharactersAttribute,
-            kAXParentAttribute, kAXChildrenAttribute,
-        ] where attributes.contains(key) {
-            do { _ = try value(element, key) } catch let error as AXFailure
-                where (error.error == .noValue || error.error == .attributeUnsupported)
-                && [kAXParentAttribute, kAXChildrenAttribute].contains(key)
-            { continue }
+    }
+
+    private func parameter(_ key: String, _ argument: CFTypeRef) throws -> CFTypeRef? {
+        var result: CFTypeRef?
+        try checked(AXUIElementCopyParameterizedAttributeValue(element, key as CFString, argument, &result), key)
+        return result
+    }
+
+    private func checkRange(_ key: String, _ argument: CFTypeRef, _ expected: NSRange) throws {
+        var result = CFRange()
+        try unpack(parameter(key, argument), .cfRange, into: &result)
+        guard result.location == expected.location, result.length == expected.length else {
+            throw ProbeFailure("Unexpected " + key + ": " + String(describing: result))
         }
-        var range = CFRange(location: 0, length: (original as NSString).length)
-        guard let argument = AXValueCreate(.cfRange, &range) else { throw ProbeFailure("Could not form AX range") }
-        for key in [
-            kAXStringForRangeParameterizedAttribute, kAXAttributedStringForRangeParameterizedAttribute,
-            kAXBoundsForRangeParameterizedAttribute,
-        ] {
-            guard parameters.contains(key) else {
-                if self.parameters.contains(key) { throw ProbeFailure("Lost " + key) }
-                continue
+    }
+
+    func verify(current: Bool, detached: Bool = false) throws {
+        let text = original as NSString
+        guard try value(element, kAXValueAttribute) as? String == original,
+            try value(element, kAXNumberOfCharactersAttribute) as? Int == text.length
+        else { throw ProbeFailure("Fixture text or UTF-16 character count changed") }
+        let start = reference.characterIndex
+        let expected = NSRange(location: start, length: 1)
+        guard start >= 0, start < text.length, text.substring(with: expected) == "世" else {
+            throw ProbeFailure("PDFKit reference does not index the fixture marker")
+        }
+        var range = CFRange(location: start, length: 1)
+        guard let argument = AXValueCreate(.cfRange, &range) else { throw ProbeFailure("Invalid fixture range") }
+        guard try parameter(kAXStringForRangeParameterizedAttribute, argument) as? String == "世",
+            try (parameter(kAXAttributedStringForRangeParameterizedAttribute, argument) as? NSAttributedString)?.string
+                == "世"
+        else { throw ProbeFailure("Wrong substring at fixture marker") }
+        try checkRange(kAXRangeForIndexParameterizedAttribute, start as NSNumber, expected)
+        let line = text.lineRange(for: expected)
+        var offset = 0
+        var lineNumber = 0
+        while offset < line.location {
+            offset = NSMaxRange(text.lineRange(for: NSRange(location: offset, length: 0)))
+            lineNumber += 1
+        }
+        guard try parameter(kAXLineForIndexParameterizedAttribute, start as NSNumber) as? Int == lineNumber else {
+            throw ProbeFailure("Wrong line number at fixture marker")
+        }
+        try checkRange(kAXRangeForLineParameterizedAttribute, lineNumber as NSNumber, line)
+        var rect = CGRect.zero
+        try unpack(parameter(kAXBoundsForRangeParameterizedAttribute, argument), .cgRect, into: &rect)
+        if !current {
+            var full = CFRange(location: 0, length: text.length)
+            guard let argument = AXValueCreate(.cfRange, &full),
+                try parameter(kAXStringForRangeParameterizedAttribute, argument) as? String == original,
+                try (parameter(kAXAttributedStringForRangeParameterizedAttribute, argument) as? NSAttributedString)?
+                    .string == original
+            else { throw ProbeFailure("Retained page no longer returns its complete original text") }
+        }
+        if detached && !rect.isEmpty { throw ProbeFailure("Detached marker still has screen bounds") }
+        if current {
+            let box = reference.characterBounds
+            try Self.checkBounds(rect, against: box)
+            let parent = try axElement(value(element, kAXParentAttribute))
+            guard try value(parent, kAXIdentifierAttribute) as? String == paperIdentifier,
+                try value(element, kAXRoleAttribute) as? String == kAXStaticTextRole
+            else { throw ProbeFailure("Page is not a static text child of the fixture paper") }
+            var origin = CGPoint.zero
+            var size = CGSize.zero
+            try unpack(value(element, kAXPositionAttribute), .cgPoint, into: &origin)
+            try unpack(value(element, kAXSizeAttribute), .cgSize, into: &size)
+            guard CGRect(origin: origin, size: size).insetBy(dx: -1, dy: -1).contains(rect) else {
+                throw ProbeFailure("Marker is outside its page frame")
             }
-            var result: CFTypeRef?
-            try checked(AXUIElementCopyParameterizedAttributeValue(element, key as CFString, argument, &result), key)
-            switch key {
-            case kAXStringForRangeParameterizedAttribute:
-                guard result as? String == original else { throw ProbeFailure("Old AXStringForRange changed") }
-            case kAXAttributedStringForRangeParameterizedAttribute:
-                guard (result as? NSAttributedString)?.string == original else {
-                    throw ProbeFailure("Old AX attributed text changed")
-                }
-            default:
-                var rect = CGRect.zero
-                try unpack(result, .cgRect, into: &rect)
-                guard [rect.origin.x, rect.origin.y, rect.width, rect.height].allSatisfy(\.isFinite) else {
-                    throw ProbeFailure("Nonfinite AXBoundsForRange")
-                }
-            }
+            var center = CGPoint(x: box.midX, y: box.midY)
+            guard let point = AXValueCreate(.cgPoint, &center) else { throw ProbeFailure("Invalid marker point") }
+            try checkRange(kAXRangeForPositionParameterizedAttribute, point, expected)
         }
     }
 }

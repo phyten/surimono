@@ -1104,6 +1104,77 @@ struct PaperViewTests {
         withExtendedLifetime(window) {}
     }
 
+    #if DEBUG
+        @Test("停止したページ送りは、文書を二度差し替えてもアニメーションを外すまで元の紙を持つ")
+        func pausedTurnOwnsItsPaper() async throws {
+            let (view, window) = try makeSinglePagePaper()
+            let options = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .fade, showsCoverAlone: false)
+            view.apply(options)
+            if view.layer == nil { view.layer = CALayer() }
+            view.shouldReduceMotion = { false }
+            weak let outgoing = view.document
+            let previous = PaperPDFView.frozenTurnProgress
+            PaperPDFView.frozenTurnProgress = 0.5
+            view.turnPage(forward: true)
+            PaperPDFView.frozenTurnProgress = previous
+            // A compositor copy can outlive the animation attached to PDFView during replacement.
+            let playback = CALayer()
+            try autoreleasepool {
+                let turn = try #require(view.layer?.animation(forKey: "transition"))
+                try #require(turn.speed == 0)
+                let copy = try #require(turn.copy() as? CATransition)
+                // A standalone layer can discard even a zero-speed transition at commit. This copy must stay
+                // installed until the test removes it, so it actually exercises the delegate's lifetime.
+                copy.isRemovedOnCompletion = false
+                playback.add(copy, forKey: "transition")
+                view.layer?.removeAllAnimations()
+            }
+            try autoreleasepool {
+                for name in ["second", "third"] {
+                    let source = try #require(PDFDocument(data: TestFixtures.pdf(name, pages: 3)))
+                    view.configure(source, at: 0, options: options, logicalMargin: nil, showsPageNumbers: false)
+                }
+            }
+            try await Task.sleep(for: .milliseconds(1200))
+            try #require(playback.animation(forKey: "transition")?.speed == 0)
+            #expect(view.shownDocumentCount == 2)
+            #expect(outgoing != nil)
+            playback.removeAllAnimations()
+            let deadline = ContinuousClock.now + .seconds(5)
+            while outgoing != nil && ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(20)) }
+            #expect(outgoing == nil)
+            withExtendedLifetime(window) {}
+        }
+    #endif
+
+    @Test("単ページのまま連続スクロールに変えてすぐ二度読み直すと、古い文書は猶予の後に解放される")
+    func scrollingChangeProtectsOutgoingDocument() async throws {
+        let paged = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .instant, showsCoverAlone: false)
+        var scrolling = paged
+        scrolling.transition = .scroll
+        let (view, window) = try makeSinglePagePaper()
+        let second = try #require(PDFDocument(data: TestFixtures.pdf("second", pages: 2)))
+        let third = try #require(PDFDocument(data: TestFixtures.pdf("third", pages: 2)))
+        weak var outgoing: PDFDocument?
+        try autoreleasepool {
+            let first = try #require(PDFDocument(data: TestFixtures.pdf("first", pages: 2)))
+            view.configure(first, at: 0, options: paged, logicalMargin: nil, showsPageNumbers: false)
+            outgoing = view.document
+            view.apply(scrolling)
+            #expect(view.displayMode == .singlePageContinuous)
+            view.configure(second, at: 0, options: scrolling, logicalMargin: nil, showsPageNumbers: false)
+            view.configure(third, at: 0, options: scrolling, logicalMargin: nil, showsPageNumbers: false)
+        }
+        #expect(outgoing != nil)
+        #if DEBUG
+            #expect(view.shownDocumentCount > 2)
+        #endif
+        let deadline = ContinuousClock.now + .seconds(5)
+        while outgoing != nil && ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(outgoing == nil)
+        withExtendedLifetime(window) {}
+    }
+
     @Test("単ページと見開きを続けて切り替えても古いページに親があり、再読み込み後は2世代に戻る")
     func toggledLayoutsReuseViewCopies() async throws {
         let single = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .instant, showsCoverAlone: false)
@@ -1116,6 +1187,14 @@ struct PaperViewTests {
         view.configure(source, at: 0, options: spread, logicalMargin: nil, showsPageNumbers: true)
         let spreadPage = try #require(view.document?.page(at: 0))
         try #require(singlePage.document != nil && singlePage.document !== spreadPage.document)
+        #if DEBUG
+            // The helper installed a different document while initially configuring PDFKit's display mode.
+            let ready = ContinuousClock.now + .seconds(5)
+            while view.shownDocumentCount > 2 && ContinuousClock.now < ready {
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            try #require(view.shownDocumentCount == 2)
+        #endif
         for _ in 0..<5 {
             view.apply(single)
             #expect(view.document === singlePage.document)

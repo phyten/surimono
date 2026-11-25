@@ -1,6 +1,24 @@
 import AppKit
 import ApplicationServices
 
+struct PageReference: Codable {
+    let identifier: String
+    let characterIndex: Int
+    let characterBounds: CGRect
+    var referenceSource: String?
+    var elementCharacterBounds: CGRect?
+}
+
+struct HitTarget: Codable {
+    let point: CGPoint
+    let page: String
+    let mouseHitsPaper: Bool
+    let paperHitIdentifier: String?
+    let windowIsPaperAncestor: Bool
+    let windowRole: String?
+    let windowIdentifier: String?
+}
+
 struct Stage: Codable {
     let pid: Int32
     let token: String
@@ -9,7 +27,8 @@ struct Stage: Codable {
     let sequence: Int
     let phase: String
     let generation: Int
-    let hitPoint: CGPoint?
+    var hit: HitTarget?
+    var pages: [PageReference] = []
 }
 
 struct ExpectedStage: Encodable {
@@ -46,6 +65,27 @@ struct Observation: Encodable {
     let detail: String?
 }
 
+struct AppStageFailure: Codable, Error, CustomStringConvertible {
+    let pid: Int32
+    let token: String
+    let sequence: Int
+    let phase: String
+    let kind: String
+    let field: String
+    let value: String
+
+    var description: String { "Stage \(sequence) (\(phase)): \(kind) at \(field): \(value)" }
+
+    static func read(in directory: URL, pid: Int32, token: String?) throws -> Self? {
+        let file = directory.appending(path: "error.json")
+        guard FileManager.default.fileExists(atPath: file.path) else { return nil }
+        let failure = try JSONDecoder().decode(Self.self, from: Data(contentsOf: file))
+        guard failure.pid == pid, UUID(uuidString: failure.token) != nil, token == nil || token == failure.token
+        else { throw ProbeFailure("error.json does not belong to this app session") }
+        return failure
+    }
+}
+
 struct Report: Encodable {
     let pid: Int32
     let operation: String
@@ -56,9 +96,17 @@ struct Report: Encodable {
     var observations: [Observation] = []
     var tree: [TreeNode]?
     var treeSequence: Int?
+    var appError: AppStageFailure?
     var stageMismatch: StageMismatch?
+    var failedDiscoveryStage: Stage?
+    var hitInspections: [Int: HitInspection] = [:]
     var optionalAttributeErrors: [String: Int] = [:]
     var status: Int32 = 0
+
+    mutating func recordAppError(_ failure: AppStageFailure) {
+        appError = failure
+        record("appError", sequence: failure.sequence, phase: failure.phase, route: "app", detail: failure.description)
+    }
 
     mutating func captureTree(_ reader: AXReader, sequence: Int) {
         guard tree == nil else { return }
@@ -70,7 +118,7 @@ struct Report: Encodable {
         totals[outcome, default: 0] += 1
         observations.append(.init(sequence: sequence, phase: phase, route: route, outcome: outcome, detail: detail))
         switch outcome {
-        case "failure", "processExited": status = 1
+        case "appError", "failure", "processExited": status = 1
         case "cannotComplete", "timeout": if status == 0 { status = 3 }
         case "permissionDenied": status = 2
         default: break
@@ -87,9 +135,11 @@ func requireAlive(_ pid: Int32) throws {
     guard kill(pid, 0) == 0 else { throw ProcessExited() }
 }
 
-func waitForFile(_ url: URL, pid: Int32) throws {
+func waitForFile(_ url: URL, pid: Int32, token: String?) throws {
     let deadline = ContinuousClock.now + .seconds(100)
+    let directory = url.deletingLastPathComponent()
     while !FileManager.default.fileExists(atPath: url.path) {
+        if let failure = try AppStageFailure.read(in: directory, pid: pid, token: token) { throw failure }
         if kill(pid, 0) != 0 {
             // The app can publish completion and quit between the existence check and the PID check.
             if FileManager.default.fileExists(atPath: url.path) { return }
@@ -100,40 +150,23 @@ func waitForFile(_ url: URL, pid: Int32) throws {
     }
 }
 
-// The current page proves the generation changed. Only the handles acquired at stage zero are retained.
+// A good handle from one route cannot vouch for the element returned by another route.
 func discover<Page>(_ stage: Stage, report: inout Report, acquire: (Route) throws -> Page) throws -> [Route: Page] {
-    let deadline = ContinuousClock.now + .seconds(5)
     var pages: [Route: Page] = [:]
-    var missing: [Route: String] = [:]
-    repeat {
-        for route in Route.allCases {
-            do {
-                pages[route] = try acquire(route)
-                missing.removeValue(forKey: route)
-                if stage.sequence != 0 { break }
-            } catch let failure as AXFailure where failure.error == .apiDisabled {
-                throw failure
-            } catch {
-                missing[route] = String(describing: error)
-                if (error as? AXFailure)?.error == .cannotComplete || error is Deadline {
-                    report.record(
-                        error is Deadline ? "timeout" : "cannotComplete", sequence: stage.sequence, phase: stage.phase,
-                        route: route.rawValue, detail: String(describing: error))
-                }
-            }
-        }
-        if !pages.isEmpty || ContinuousClock.now >= deadline { break }
-        try requireAlive(stage.pid)
-        Thread.sleep(forTimeInterval: 0.15)
-    } while true
     for route in Route.allCases {
-        if let reason = missing[route] {
+        do {
+            pages[route] = try acquire(route)
+        } catch let miss as ContainerHit where route == .hit {
             report.record(
-                "unavailable", sequence: stage.sequence, phase: stage.phase, route: route.rawValue, detail: reason)
+                "hitRouteExcluded", sequence: stage.sequence, phase: stage.phase, route: route.rawValue,
+                detail: miss.description)
+        } catch {
+            report.failedDiscoveryStage = stage
+            report.record(
+                "routeError", sequence: stage.sequence, phase: stage.phase, route: route.rawValue,
+                detail: String(describing: error))
+            throw error
         }
-    }
-    guard !pages.isEmpty else {
-        throw ProbeFailure("All three routes unavailable for generation " + String(stage.generation))
     }
     return pages
 }
@@ -157,7 +190,7 @@ func run(_ report: inout Report, directory: URL) {
         var knownBundle: String?
         while true {
             let url = directory.appending(path: "stage-\(index).json")
-            try waitForFile(url, pid: pid)
+            try waitForFile(url, pid: pid, token: token)
             try requireAlive(pid)
             let stage = try JSONDecoder().decode(Stage.self, from: Data(contentsOf: url))
             let expected = ExpectedStage(
@@ -178,27 +211,44 @@ func run(_ report: inout Report, directory: URL) {
             token = stage.token
             let reader = AXReader(app: app, token: stage.token)
             readerForDiagnostics = reader
-            defer { report.optionalAttributeErrors.merge(reader.optionalErrors, uniquingKeysWith: +) }
-            if index == 0 {
-                let initial = try discover(stage, report: &report) { route in
-                    try HeldPage(reader.page(via: route, stage: stage), token: stage.token)
-                }
-                held = Dictionary(uniqueKeysWithValues: initial.map { ($0.key.rawValue, $0.value) })
-                report.attributes = held.mapValues(\.attributes)
-                report.parameterizedAttributes = held.mapValues(\.parameters)
+            defer {
+                report.optionalAttributeErrors.merge(reader.optionalErrors, uniquingKeysWith: +)
+                report.hitInspections[stage.sequence] = reader.hitInspection
             }
-            if phase == "reload" {
-                // A stale handle returning old text is meaningful only once the user can see the new text.
-                _ = try discover(stage, report: &report) { try reader.page(via: $0, stage: stage) }
+            if phase != "inTray" && phase != "finished" {
+                let current = try discover(stage, report: &report) { route in
+                    let page = try HeldPage(reader.page(via: route, stage: stage), stage: stage)
+                    try page.verify(current: true)
+                    return page
+                }
+                for route in Route.allCases {
+                    if let page = current[route] {
+                        report.record(
+                            "currentPage", sequence: index, phase: phase, route: route.rawValue,
+                            detail: page.reference.identifier)
+                    }
+                }
+                if current[.hit] == nil && held["hit"] != nil {
+                    report.failedDiscoveryStage = stage
+                    throw ProbeFailure("Previously available hit route stopped returning a fixture page")
+                }
+                if phase == "initial" {
+                    held = Dictionary(uniqueKeysWithValues: current.map { ($0.key.rawValue, $0.value) })
+                    report.attributes = held.mapValues(\.attributes)
+                    report.parameterizedAttributes = held.mapValues(\.parameters)
+                } else if phase == "innerFocus" {
+                    held["innerFocus"] = current[.focus]
+                }
+                if held["hit"] == nil, let hit = current[.hit] { held["hit"] = hit }
             }
             for (route, page) in held.sorted(by: { $0.key < $1.key }) {
                 do {
-                    try page.verify()
+                    try page.verify(current: false, detached: stage.generation > page.generation)
                     report.record("originalText", sequence: index, phase: phase, route: route)
                 } catch let error as AXFailure {
                     let outcome: String
                     switch error.error {
-                    case .invalidUIElement where index > 0: outcome = "invalidUIElement"
+                    case .invalidUIElement where index > 0 && phase != "innerFocus": outcome = "invalidUIElement"
                     case .cannotComplete: outcome = "cannotComplete"
                     case .apiDisabled: outcome = "permissionDenied"
                     default: outcome = "failure"
@@ -216,18 +266,20 @@ func run(_ report: inout Report, directory: URL) {
             if phase == "finished" {
                 // Between the last AX reply and the application's intentional quit, an exit is still a failure.
                 let complete = directory.appending(path: "complete")
-                try waitForFile(complete, pid: pid)
+                try waitForFile(complete, pid: pid, token: token)
                 guard try String(contentsOf: complete, encoding: .utf8) == stage.token else {
                     throw ProbeFailure("Missing completion token")
                 }
                 break
             }
             index += 1
-            if (phase == "initial" || phase == "reload") && generation == report.count {
+            if phase == "initial" {
+                phase = "innerFocus"
+            } else if (phase == "innerFocus" || phase == "reload") && generation == report.count {
                 phase = "finished"
             } else if phase == "inTray" {
                 phase = "afterTray"
-            } else if (phase == "initial" || phase == "reload") && report.operation != "reload" {
+            } else if (phase == "innerFocus" || phase == "reload") && report.operation != "reload" {
                 phase = report.operation == "tray" ? "inTray" : "layout"
             } else {
                 phase = "reload"
@@ -235,6 +287,13 @@ func run(_ report: inout Report, directory: URL) {
             }
         }
     } catch {
+        // The app can publish its diagnostic and exit between two reader checks, including the final PID check.
+        if let failure = (error as? AppStageFailure)
+            ?? (try? AppStageFailure.read(in: directory, pid: pid, token: token))
+        {
+            report.recordAppError(failure)
+            return
+        }
         let outcome: String
         if kill(pid, 0) != 0 || error is ProcessExited {
             outcome = "processExited"

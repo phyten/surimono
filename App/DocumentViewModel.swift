@@ -4118,7 +4118,7 @@ final class DocumentViewModel {
         let info = operation.printInfo
         info.dictionary()[NSPrintInfo.AttributeKey.copies] = 1
         info.dictionary()[NSPrintInfo.AttributeKey.allPages] = true
-        PrintCompletion.run(operation, in: window) { [weak self] success in
+        PrintCompletion.run(operation, document: document, in: window) { [weak self] success in
             guard let self else { return }
             guard !isWindowClosed, success, info.jobDisposition == .spool else {
                 complete(nil)
@@ -4248,7 +4248,7 @@ final class DocumentViewModel {
         // The sheets are already the pages asked for, so a page range left over from another job must not cut them.
         operation.printInfo.dictionary()[NSPrintInfo.AttributeKey.allPages] = true
         PrintCompletion.run(
-            operation, in: window,
+            operation, document: result.sheetDocument, in: window,
             completion: beginSheetPrint(quickPrinter: quick ? operation.printInfo.printer.name : nil))
     }
 
@@ -4611,18 +4611,23 @@ final class DocumentViewModel {
 }
 
 private final class PrintCompletion: NSObject {
+    // Closing or re-rendering the window can drop its render result while the print panel is open.
+    private let document: PDFDocument
     private let operation: NSPrintOperation
     private let completion: (Bool) -> Void
     private var lifetime: PrintCompletion?
 
-    private init(_ operation: NSPrintOperation, completion: @escaping (Bool) -> Void) {
+    private init(_ operation: NSPrintOperation, document: PDFDocument, completion: @escaping (Bool) -> Void) {
+        self.document = document
         self.operation = operation
         self.completion = completion
     }
 
-    static func run(_ operation: NSPrintOperation, in window: NSWindow, completion: @escaping (Bool) -> Void) {
+    static func run(
+        _ operation: NSPrintOperation, document: PDFDocument, in window: NSWindow, completion: @escaping (Bool) -> Void
+    ) {
         // The window and its model can disappear while the print system still needs the job and delegate.
-        let delegate = PrintCompletion(operation, completion: completion)
+        let delegate = PrintCompletion(operation, document: document, completion: completion)
         delegate.lifetime = delegate
         operation.runModal(
             for: window, delegate: delegate, didRun: #selector(didRun(_:success:context:)), contextInfo: nil)

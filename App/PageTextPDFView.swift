@@ -15,9 +15,13 @@ class PageTextPDFView: PDFView {
 
     private func discardReplacedElements() {
         guard elementsDocument !== document || (document == nil && !elements.isEmpty) else { return }
+        clearElements()
+        elementsDocument = document
+    }
+
+    private func clearElements() {
         for element in elements.values { element.position.anchor = nil }
         elements.removeAll()
-        elementsDocument = document
     }
 
     override init(frame frameRect: NSRect) {
@@ -37,11 +41,11 @@ class PageTextPDFView: PDFView {
         private var axProbeToken: String?
 
         func identifyProbePaper(_ token: String) {
+            guard axProbeToken != token else { return }
             axProbeToken = token
             setAccessibilityIdentifier(token + ".paper")
-            for element in elements.values {
-                element.setAccessibilityIdentifier(token + ".page." + String(element.index))
-            }
+            // A page published before the reader started still has the ordinary accessibility contract.
+            clearElements()
         }
 
         /// PDFKit hands every page it shows to Vision. Tests show the pages of far more documents than a reader does,
@@ -61,10 +65,10 @@ class PageTextPDFView: PDFView {
 
     override func accessibilityChildren() -> [Any]? { visibleElements }
 
-    // AppKit asks these on the main thread, though NSObject declares them outside the main actor.
+    // The synchronous main-thread read finishes before this local result crosses back to its caller.
     nonisolated override func accessibilityHitTest(_ point: NSPoint) -> Any? {
         nonisolated(unsafe) var element: Any?
-        MainActor.assumeIsolated { element = visibleElements.first { $0.accessibilityFrame().contains(point) } }
+        onPaperAccessibilityMain { element = visibleElements.first { $0.accessibilityFrame().contains(point) } }
         return element ?? self
     }
 
@@ -100,23 +104,36 @@ class PageTextPDFView: PDFView {
 
     private static var closedClasses: Set<ObjectIdentifier> = []
 
+    func characterSelectionBounds(for range: NSRange, on page: PDFPage) -> CGRect? {
+        page.selection(for: range)?.bounds(for: page)
+    }
+
+    private func makeElement(for page: PDFPage, index: Int) -> PageTextElement {
+        #if DEBUG
+            if let axProbeToken {
+                return ProbePageTextElement(page: page, index: index, parent: self, token: axProbeToken)
+            }
+        #endif
+        return PageTextElement(page: page, index: index, parent: self)
+    }
+
     private var visibleElements: [PageTextElement] {
         discardReplacedElements()
         guard let document else { return [] }
         return visiblePages.map { page in
-            if let element = elements[ObjectIdentifier(page)] { return element }
+            if let element = elements[ObjectIdentifier(page)] {
+                if element.position.anchor == nil { position(element, on: page) }
+                return element
+            }
             #if DEBUG
                 let start = ProcessInfo.processInfo.systemUptime
             #endif
-            let element = PageTextElement(page: page, index: document.index(for: page), parent: self)
+            let element = makeElement(for: page, index: document.index(for: page))
             #if DEBUG
                 if ShownDocumentsProbe.measuresElements {
                     ShownDocumentsProbe.extractedCount += 1
                     ShownDocumentsProbe.extractionSeconds += ProcessInfo.processInfo.systemUptime - start
                     ShownDocumentsProbe.elements.add(element)
-                }
-                if let token = axProbeToken {
-                    element.setAccessibilityIdentifier(token + ".page." + String(element.index))
                 }
             #endif
             position(element, on: page)
