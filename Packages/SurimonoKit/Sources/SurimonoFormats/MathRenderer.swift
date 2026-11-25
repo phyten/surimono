@@ -60,6 +60,11 @@ public enum MathRenderer {
         _ latex: String, display: Bool, macros: String, rowNumberHTML: [String?], measureRows: Bool = false,
         reportTruncation: Bool = true, sansMathAlphabet: Bool = false, originalSource: String? = nil
     ) -> String? {
+        if let preview = PreviewConversion.current,
+            !preview.reserveFormula(bodyBytes: latex.utf8.count, macroBytes: macros.utf8.count)
+        {
+            return nil
+        }
         let source = latex.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !PreviewConversion.expired, !source.isEmpty, let parsed = try? parseLaTeX(macros + source) else {
             return nil
@@ -142,6 +147,7 @@ public enum MathRenderer {
             })
         else { return "" }
         let masked = nodes.map(mask)
+        guard !PreviewConversion.expired else { return "" }
         let clean = renderer.render(toDisplayList(layout(masked, options: options)))
         // The renderer emits a flat sequence of self-closing shapes and text elements.
         // Include each item's closing tag when comparing, including the glyph's text.

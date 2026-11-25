@@ -5,7 +5,7 @@ import UniformTypeIdentifiers
 struct PreviewImages {
     static let maximumCount = 32
     static let maximumBytes = 8_000_000
-    // Retain the input ceiling for codecs that need source-sized scratch space even for a thumbnail.
+    // A codec may temporarily decode one 32 MP source. The separate 8 MP budget covers images in the reply.
     private static let maximumSourcePixels = 32_000_000
     // A 1,600 px still covers the default preview at 2x. Eight million pixels is 32 MB at four bytes per pixel.
     static let maximumSide = 1_600
@@ -83,7 +83,15 @@ struct PreviewImages {
     }
 
     private func raster(_ data: Data, expected: UTType) -> (FinderPreview.Attachment, Int)? {
-        let options = [kCGImageSourceShouldCache: false] as CFDictionary
+        var sourceOptions: [CFString: Any] = [
+            kCGImageSourceShouldCache: false, kCGImageSourceTypeIdentifierHint: expected.identifier,
+        ]
+        if #available(macOS 27, *) {
+            sourceOptions[kCGImageSourceAllowableTypes] =
+                expected == .heif ? [expected.identifier, UTType.heic.identifier] : [expected.identifier]
+        }
+        // On older systems the hint is advisory. Verify the detected type before querying frame metadata.
+        let options = sourceOptions as CFDictionary
         guard let source = CGImageSourceCreateWithData(data as CFData, options),
             let identifier = CGImageSourceGetType(source) as String?, let type = UTType(identifier),
             type == expected || (expected == .heif && type == .heic),

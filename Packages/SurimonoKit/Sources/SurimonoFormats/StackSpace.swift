@@ -67,7 +67,7 @@ package enum StackSpace {
         var reachedLimit = false
         var omitted = false
         // Task-local values do not automatically cross the pthread boundary.
-        let deadline = PreviewConversion.deadline
+        let preview = PreviewConversion.current
         /// The caller's task, which waits for this thread and so outlives every use here.
         let task: UnsafeCurrentTask?
 
@@ -79,7 +79,7 @@ package enum StackSpace {
             let dictionary = Thread.current.threadDictionary
             dictionary[StackSpace.largeStackKey] = self
             // The readers' Objective-C temporaries are released before the caller takes the result.
-            PreviewConversion.$deadline.withValue(deadline) { autoreleasepool { run() } }
+            PreviewConversion.$current.withValue(preview) { autoreleasepool { run() } }
             reachedLimit = dictionary[StackSpace.limitKey] != nil
             omitted = dictionary[StackSpace.omissionKey] != nil
             dictionary[StackSpace.largeStackKey] = nil

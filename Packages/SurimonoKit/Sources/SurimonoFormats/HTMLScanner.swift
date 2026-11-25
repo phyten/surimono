@@ -36,8 +36,12 @@ package struct HTMLScanner {
         var index = 0
         func string(_ range: Range<Int>) -> String { String(decoding: bytes[range], as: UTF8.self) }
         var tagEnds = TagEnds(bytes)
+        var nextCheck = 0
         while index < bytes.count {
-            if index.isMultiple(of: 4096), PreviewConversion.expired { return }
+            if index >= nextCheck {
+                if PreviewConversion.expired { return }
+                nextCheck = index + 4096
+            }
             guard bytes[index] == UInt8(ascii: "<"), let end = markupEnd(in: bytes, at: index, tagEnds: &tagEnds)
             else {
                 index += 1

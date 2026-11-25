@@ -37,8 +37,14 @@ public struct FinderPreview: Sendable {
         case unsupported
     }
 
+    static let timeoutMilliseconds = 5_000
+
     public static func make(for url: URL, bundle: Bundle = .main) -> Self {
-        make(for: url, bundle: bundle, deadline: .now + .seconds(5), convert: nativeFragment)
+        make(for: url, bundle: bundle, deadline: .now + .milliseconds(timeoutMilliseconds))
+    }
+
+    static func make(for url: URL, bundle: Bundle = .main, deadline: ContinuousClock.Instant) -> Self {
+        make(for: url, bundle: bundle, deadline: deadline, convert: nativeFragment)
     }
 
     typealias Converter = (String, DocumentFormat, URL) throws -> HTMLFragment
@@ -47,7 +53,7 @@ public struct FinderPreview: Sendable {
         -> Self
     {
         do {
-            return try PreviewConversion.$deadline.withValue(deadline) {
+            return try PreviewConversion.$current.withValue(PreviewConversion(deadline: deadline)) {
                 try PreviewConversion.check()
                 let format =
                     DocumentFormat(fileExtension: url.pathExtension)

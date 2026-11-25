@@ -219,7 +219,9 @@ extension LaTeXReader {
         document.expansionWork += cost
         // Neither storing replacement tokens nor copying a control word expands its meaning.
         // A prefix made only of these assignments leaves the validation formula "x" unchanged.
-        if !document.mathDefinitions.containsOnlyPrimitiveDefinitions || !StackSpace.hasRoom
+        // In Finder even definition validation must go through the request’s bounded SwaTex entry point.
+        if PreviewConversion.isActive || !document.mathDefinitions.containsOnlyPrimitiveDefinitions
+            || !StackSpace.hasRoom
             || !MathRenderer.isOrdinaryDefinition(definition)
         {
             guard MathRenderer.html("x", display: false, macros: document.mathDefinitions.source + definition) != nil

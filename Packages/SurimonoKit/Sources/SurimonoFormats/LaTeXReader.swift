@@ -171,9 +171,9 @@ final class LaTeXReader {
         }
         let outer = groups
         groups = []
-        let deadline = PreviewConversion.deadline
+        let preview = PreviewConversion.isActive
         while !document.endedDocument, let character = peek() {
-            if deadline != nil, PreviewConversion.expired { break }
+            if preview, PreviewConversion.expired { break }
             step(character)
         }
         while !groups.isEmpty { endGroup() }

@@ -14,8 +14,12 @@ private struct RSTInlineScanner {
         chars = Array(source)
         var i = 0
         var previousBar: Int?
+        var nextCheck = 0
         while i < chars.count {
-            if i.isMultiple(of: 256), PreviewConversion.expired { return }
+            if i >= nextCheck {
+                if PreviewConversion.expired { return }
+                nextCheck = i + 256
+            }
             let char = chars[i]
             if char == "\\" {
                 i += 2
@@ -98,8 +102,12 @@ private struct RSTInlineScanner {
         var result = ""
         var start = 0
         var i = 0
+        var nextCheck = 0
         while i < chars.count {
-            if i.isMultiple(of: 256), PreviewConversion.expired { return "" }
+            if i >= nextCheck {
+                if PreviewConversion.expired { return "" }
+                nextCheck = i + 256
+            }
             let char = chars[i]
             var end = i + 1
             var html: String?
