@@ -5,26 +5,24 @@ import SwiftUI
 /// looks for a drag's destination without hit testing and finds it above the paper and the live web page, which would
 /// otherwise take the drag and refuse it.
 struct DropCatcher: NSViewRepresentable {
-    let session: DropSession
-    /// The window's own part: the new drag's plan is decided by the model, which knows what the window holds.
-    let onEnter: ([URL], CGPoint) -> Bool
-    let onPerform: () -> Bool
+    weak var model: DocumentViewModel?
 
     func makeNSView(context: Context) -> DropCatcherView {
         DropCatcherView()
     }
 
     func updateNSView(_ view: DropCatcherView, context: Context) {
-        view.session = session
-        view.onEnter = onEnter
-        view.onPerform = onPerform
+        view.model = model
+    }
+
+    static func dismantleNSView(_ view: DropCatcherView, coordinator: ()) {
+        view.model = nil
     }
 }
 
 final class DropCatcherView: NSView {
-    var session: DropSession?
-    var onEnter: (([URL], CGPoint) -> Bool)?
-    var onPerform: (() -> Bool)?
+    weak var model: DocumentViewModel?
+    private var session: DropSession? { model?.drop }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -49,8 +47,9 @@ final class DropCatcherView: NSView {
     }
 
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        guard let model, !model.isWindowClosed else { return [] }
         session?.size = window?.contentView?.bounds.size ?? bounds.size
-        return onEnter?(urls(of: sender), point(of: sender)) == true ? .copy : []
+        return model.dragEntered(urls(of: sender), at: point(of: sender)) ? .copy : []
     }
 
     override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
@@ -66,10 +65,11 @@ final class DropCatcherView: NSView {
     }
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        guard let model, !model.isWindowClosed else { return false }
         defer { session?.end() }
         session?.move(to: point(of: sender))
         // Reading the files now, at the drop, is what gives a sandboxed app access to them.
         _ = urls(of: sender)
-        return onPerform?() == true
+        return model.performDrop()
     }
 }

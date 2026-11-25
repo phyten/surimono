@@ -119,7 +119,10 @@ struct BandItemView: View {
                 BandDrawerButton(
                     title: "Pages Tab", symbol: "square.grid.2x2", showsName: form == .full,
                     selected: model.showsSideList
-                ) { model.setSideListOpen(!model.isDrawerOpen) }
+                ) { [weak model] in
+                    guard let model, !model.isWindowClosed else { return }
+                    model.setSideListOpen(!model.isDrawerOpen)
+                }
                 .help(ShortcutHints.help(String(localized: "Pages Tab"), [.listToggle]))
             }
         case .floatOnTop: FloatOnTopButton(model: model)
@@ -426,7 +429,7 @@ struct BandMeasurements: View {
             .fixedSize()
             .onGeometryChange(for: CGFloat.self) {
                 $0.size.width
-            } action: { width in
+            } action: { [menu] width in
                 if menu.bandWidths[slot] != width { menu.bandWidths[slot] = width }
             }
     }

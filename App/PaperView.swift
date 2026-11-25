@@ -29,6 +29,7 @@ final class PaperController {
 
     func followChange(on pageIndex: Int, in source: PDFDocument, pinnedBandHeight: CGFloat) {
         // A save announces its changes before SwiftUI installs the new PDF. Never scroll the outgoing pages.
+        guard !isClosed else { return }
         pendingChange = (source, pageIndex, pinnedBandHeight)
         revealPendingChange()
     }
@@ -536,11 +537,30 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
         onToast = nil
         onDiagram = nil
         pendingMenu?.cancel()
+        pendingMenu = nil
+        tileRetirement?.cancel()
+        tileRetirement = nil
         findSearch?.cancel()
         findSearch = nil
         stopZoomReturn()
         updateMagnifyMonitor()
         updateWheelMonitor()
+        // The outgoing tiles and page turn use these generations. Detach their consumers before
+        // releasing the PDFs, even if AppKit keeps the retired view.
+        layer?.removeAnimation(forKey: "pageTurn")
+        layer?.removeAnimation(forKey: "transition")
+        layer?.removeAnimation(forKey: "pageTurnScale")
+        subviews.compactMap { $0 as? PaperSpotFrameView }.first?.dismiss()
+        findHits = []
+        highlightedSelections = nil
+        clearSelection()
+        proseUnderlines.show([])
+        formulaIndex = nil
+        pageOverlayViewProvider = nil
+        delegate = nil
+        document = nil
+        sourceDocument = nil
+        shownDocuments.removeAll()
         NotificationCenter.default.removeObserver(self)
         // A gesture recognizer can retain its closed container. Unhook it from the discarded view.
         gestureRecognizers = []
@@ -788,6 +808,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
 
     override func layout() {
         super.layout()
+        guard !isRetired else { return }
         hideScrollersAndInsets()
         // Fit again when the window changes size; the zoom the user chose is relative to the fit.
         if bounds.size != fittedSize { refit() }
@@ -948,12 +969,12 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
 
     @objc private func scaleDidChange() {
         // PDFKit also rescales on its own, for example when the display mode changes; the zoom stays the user's.
-        guard !isSettingScale, fitScale > 0 else { return }
+        guard !isRetired, !isSettingScale, fitScale > 0 else { return }
         refit()
     }
 
     @objc private func pageDidChange() {
-        guard !isMeasuringFit, !isUpdatingDocument, !isSettingScale, !isSwitchingSpreadMode else { return }
+        guard !isRetired, !isMeasuringFit, !isUpdatingDocument, !isSettingScale, !isSwitchingSpreadMode else { return }
         // PDFKit may turn pages itself, such as onto the blank before the cover or past the cover while showing one
         // page; show what the reader expects there.
         if let document, let page = currentPage, options?.layout == .spread, options?.isContinuous != true {
@@ -1931,6 +1952,13 @@ final class PaperSpotFrameView: NSView {
         layer?.borderWidth = options.increasedContrast ? 3 : 2
         layer?.backgroundColor =
             options.reduceTransparency ? nil : NSColor(PrintPalette.paperAi).withAlphaComponent(0.08).cgColor
+    }
+
+    fileprivate func dismiss() {
+        task?.cancel()
+        task = nil
+        spot = nil
+        removeFromSuperview()
     }
 
     func show(_ spot: PaperSpot, lifetime: Duration) {

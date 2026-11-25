@@ -114,6 +114,7 @@ final class ViewerFileDocument: NSDocument {
 
     override func close() {
         presentation?.close()
+        presentation = nil
         super.close()
         contents.withLock { $0 = (nil, nil) }
     }

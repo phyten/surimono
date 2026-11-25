@@ -159,6 +159,12 @@ final class ImageBundleModel {
         }
     }
 
+    func stopFlashing() {
+        flashTask?.cancel()
+        flashTask = nil
+        flashedURLs = []
+    }
+
     private static func sorted(_ items: [Item]) -> [Item] {
         items.sorted {
             let order = NaturalOrder.compare($0.name, $1.name)

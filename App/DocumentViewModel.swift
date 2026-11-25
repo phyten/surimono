@@ -1327,6 +1327,18 @@ final class DocumentViewModel {
         isWindowClosed = true
         paper.disconnect()
         stop()
+        // A native control may still hold the closed presentation while AppKit finishes dismissal.
+        window?.undoManager?.removeAllActions(withTarget: self)
+        drop.end()
+        imageBundle?.stopFlashing()
+        renderTask = nil
+        pendingPDF = nil
+        printResult = nil
+        result = nil
+        structureDocument = nil
+        chosenTrial = nil
+        themeTrial.clear()
+        renderer.clearCache()
         onFirstRender = nil
         textReopener = nil
     }
@@ -1822,7 +1834,7 @@ final class DocumentViewModel {
         let started = ContinuousClock.now
         let layoutsBefore = renderer.logicalRenderCount
         let generation = dataGeneration
-        renderTask = Task { [weak self, renderer, binder, imageBundle] in
+        renderTask = Task { [weak self, binder, imageBundle] in
             guard !Task.isCancelled else { return }
             var settings = settings
             do {
@@ -1848,6 +1860,8 @@ final class DocumentViewModel {
                         guard let self else { return }
                         source = withFolderAccess(singleSource)
                     }
+                    // Reading a bundle can outlast cancellation while a file read is in progress.
+                    guard let renderer = self?.renderer else { return }
                     prepared = try await renderer.prepare(source, settings: settings)
                     try Task.checkCancellation()
                     guard let self else { return }
@@ -1898,6 +1912,7 @@ final class DocumentViewModel {
                     }
                 }
                 if self?.mode == .print || self?.waitingOutput?.replacesReview == true {
+                    guard let renderer = self?.renderer else { return }
                     self?.composingSheets = true
                     let output = try await renderer.composeSheet(
                         for: prepared, rotatesBackSides: settings.options.rotatesBackSides)
