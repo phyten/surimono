@@ -6,10 +6,14 @@ import Testing
 
 extension FinderPreviewTests {
     private func mathPreview(_ source: String, suffix: String) throws -> String {
-        try withDirectory { directory in
+        // These tests measure output and counts. The elapsed-time budget has its own advancing-clock test.
+        let start = ContinuousClock.now
+        return try withDirectory { directory in
             let file = directory.appendingPathComponent("paper." + suffix)
             try Data(source.utf8).write(to: file)
-            return FinderPreview.make(for: file).html
+            return FinderPreview.make(
+                for: file, deadline: start + .seconds(5), now: { start }, convert: FinderPreview.nativeFragment
+            ).html
         }
     }
 
@@ -52,6 +56,32 @@ extension FinderPreviewTests {
         #expect(html.contains("<code class=\"math-error\">$\(expression)$</code>"))
         #expect(html.components(separatedBy: "<svg ").count - 1 == 2)
         #expect(html.contains("after."))
+    }
+
+    private func expandingFormula(_ repetitions: Int) -> String {
+        String(repeating: #"\t+"#, count: repetitions) + "x"
+    }
+
+    @Test("展開トークンまたは SVG が大きすぎる式だけを原文で示す", arguments: [384, 512])
+    func expandedFormulaOutput(_ repetitions: Int) throws {
+        let formula = expandingFormula(repetitions)
+        let html = try mathPreview(
+            #"#+LATEX_HEADER: \def\t{x+y+z+w+v+u+t+s}"# + "\n\n$a$\n\n$$\(formula)$$\n\n$b$ tail.", suffix: "org")
+        #expect(html.components(separatedBy: "<svg ").count - 1 == 2)
+        #expect(html.contains("<pre class=\"math-error\">$$\(formula)$$</pre>"))
+        #expect(html.contains("tail."))
+    }
+
+    @Test("数式の出力予算を超えた式以降も原文と末尾の本文を残す")
+    func exhaustedMathOutput() throws {
+        let formula = "$$" + expandingFormula(256) + "$$"
+        let displays = Array(repeating: formula, count: 16).joined(separator: "\n\n")
+        let html = try mathPreview(
+            #"#+LATEX_HEADER: \def\t{x+y+z+w+v+u+t+s}"# + "\n\n" + displays + "\n\nLast $z$ paragraph.", suffix: "org")
+        #expect(html.components(separatedBy: "<svg ").count - 1 == 11)
+        #expect(html.components(separatedBy: "<pre class=\"math-error\">\(formula)</pre>").count - 1 == 5)
+        #expect(html.contains("Last <code class=\"math-error\">$z$</code> paragraph."))
+        #expect(html.utf8.count <= FinderPreview.maximumHTMLBytes)
     }
 
     @Test("文書の数式予算を使い切ると後続の式を原文で示して最後まで読む")

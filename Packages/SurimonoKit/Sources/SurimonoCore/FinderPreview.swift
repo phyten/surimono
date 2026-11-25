@@ -32,11 +32,14 @@ public struct FinderPreview: Sendable {
     }()
 
     enum Failure: Error {
+        case oversizedReply
         case complexity
         case encoding
         case unsupported
     }
 
+    // Leave room for the bounded math output, the body and embedded fonts in one data reply.
+    static let maximumHTMLBytes = 16 << 20
     static let timeoutMilliseconds = 5_000
 
     public static func make(for url: URL, bundle: Bundle = .main) -> Self {
@@ -49,11 +52,12 @@ public struct FinderPreview: Sendable {
 
     typealias Converter = (String, DocumentFormat, URL) throws -> HTMLFragment
 
-    static func make(for url: URL, bundle: Bundle = .main, deadline: ContinuousClock.Instant, convert: Converter)
-        -> Self
-    {
+    static func make(
+        for url: URL, bundle: Bundle = .main, deadline: ContinuousClock.Instant,
+        now: @escaping @Sendable () -> ContinuousClock.Instant = { .now }, convert: Converter
+    ) -> Self {
         do {
-            return try PreviewConversion.$current.withValue(PreviewConversion(deadline: deadline)) {
+            return try PreviewConversion.$current.withValue(PreviewConversion(deadline: deadline, now: now)) {
                 try PreviewConversion.check()
                 let format =
                     DocumentFormat(fileExtension: url.pathExtension)
@@ -79,8 +83,8 @@ public struct FinderPreview: Sendable {
             func localized(_ key: String) -> String { bundle.localizedString(forKey: key, value: nil, table: nil) }
             let message: String
             switch error {
-            case _ where ContinuousClock.now >= deadline:
-                message = localized("This document is too complex to preview.")
+            case _ where now() >= deadline: return tooComplex(bundle)
+            case Failure.oversizedReply: return tooComplex(bundle)
             case Failure.encoding: message = localized("The text encoding could not be read without data loss.")
             case Failure.unsupported: message = localized("This document format is not supported.")
             case CocoaError.fileReadTooLarge: message = localized("This file is too large to preview.")
@@ -89,6 +93,14 @@ public struct FinderPreview: Sendable {
             }
             return errorPage(message)
         }
+    }
+
+    static func tooComplex(_ bundle: Bundle) -> Self {
+        errorPage(bundle.localizedString(forKey: "This document is too complex to preview.", value: nil, table: nil))
+    }
+
+    func boundedReply(bundle: Bundle) -> Self {
+        html.utf8.count <= Self.maximumHTMLBytes ? self : Self.tooComplex(bundle)
     }
 
     static func errorPage(_ message: String) -> Self {
@@ -109,11 +121,8 @@ public struct FinderPreview: Sendable {
         }
         try PreviewConversion.check()
         let fragment = try convert(text, format, url)
-        func check(_ count: Int) throws {
-            try PreviewConversion.check()
-            guard count <= DocumentSizeLimits.htmlBytes else { throw Failure.complexity }
-        }
-        try check(fragment.body.utf8.count)
+        try PreviewConversion.check()
+        guard fragment.body.utf8.count <= DocumentSizeLimits.htmlBytes else { throw Failure.complexity }
         var images = PreviewImages(directory: directory(of: url))
         var safe = fragment
         safe.body = try PreviewMarkup.clean(fragment.body) { images.source($0) }
@@ -123,8 +132,12 @@ public struct FinderPreview: Sendable {
         try PreviewConversion.check()
         let html = try HTMLDocumentBuilder.build(
             fragment: safe, format: format, theme: theme, language: Locale.preferredLanguages.first ?? "en",
-            finish: screenCSS + "\n" + fonts, previewPolicy: policy, checkSourceBytes: check)
-        try check(html.utf8.count)
+            finish: screenCSS + "\n" + fonts, previewPolicy: policy,
+            checkSourceBytes: { bytes in
+                try PreviewConversion.check()
+                guard bytes <= maximumHTMLBytes else { throw Failure.oversizedReply }
+            })
+        try PreviewConversion.check()
         return Self(html: html, attachments: images.attachments)
     }
 
@@ -134,7 +147,7 @@ public struct FinderPreview: Sendable {
         }
     }
 
-    private static func nativeFragment(_ text: String, format: DocumentFormat, url: URL) throws -> HTMLFragment {
+    static func nativeFragment(_ text: String, format: DocumentFormat, url: URL) throws -> HTMLFragment {
         let directory = directory(of: url)
         let imageExists: @Sendable (URL) -> Bool = { candidate in
             guard let directory, PreviewImages.extensions[candidate.pathExtension.lowercased()] != nil,

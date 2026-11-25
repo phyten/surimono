@@ -101,10 +101,12 @@ enum PreviewMarkup {
                 }
                 output += tag.isSelfClosing ? "/>" : ">"
             }
-            guard output.utf8.count <= DocumentSizeLimits.htmlBytes else { throw FinderPreview.Failure.complexity }
+            guard output.utf8.count <= FinderPreview.maximumHTMLBytes else {
+                throw FinderPreview.Failure.oversizedReply
+            }
         }
         try PreviewConversion.check()
-        guard output.utf8.count <= DocumentSizeLimits.htmlBytes else { throw FinderPreview.Failure.complexity }
+        guard output.utf8.count <= FinderPreview.maximumHTMLBytes else { throw FinderPreview.Failure.oversizedReply }
         return output
     }
 

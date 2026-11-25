@@ -171,3 +171,10 @@ struct PreviewImages {
         "image/webp": .webP, "image/heic": .heic, "image/heif": .heif, "image/svg+xml": .svg,
     ]
 }
+
+extension FinderPreview {
+    /// The raster codecs used by Quick Look. SVG attachments pass through the markup sanitizer.
+    public static let rasterTypeIdentifiers = Set(
+        PreviewImages.extensions.values.filter { $0 != .svg }.map(\.identifier)
+    ).sorted()
+}

@@ -69,7 +69,11 @@ public enum MathRenderer {
         let start = preview?.now()
         defer { if let start { preview?.recordMathTime(since: start) } }
         let source = latex.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !PreviewConversion.expired, !source.isEmpty, let parsed = try? parseLaTeX(macros + source) else {
+        let input = macros + source
+        guard !PreviewConversion.expired, !source.isEmpty,
+            preview == nil || expansionFits(input),
+            let parsed = try? parseLaTeX(input)
+        else {
             return nil
         }
         let nodes = sansMathAlphabet ? parsed.map { sansLetter($0, depth: 0) } : parsed
@@ -79,6 +83,7 @@ public enum MathRenderer {
         guard !PreviewConversion.expired else { return nil }
         let list = toDisplayList(box)
         guard !reportTruncation || !list.truncated else { return nil }
+        if preview != nil, list.items.count > PreviewConversion.maximumExpandedTokens { return nil }
         let rows = rowNumberHTML.isEmpty ? [] : rowBaselines(in: box)
         let labels = zip(rowNumberHTML, rows).compactMap { number, baseline in
             number.map {
@@ -91,6 +96,7 @@ public enum MathRenderer {
         }
         let renderer = SVGRenderer(options: SVGOptions(fontSize: fontSize, padding: 0))
         let svg = renderer.render(list)
+        if preview != nil, svg.utf8.count > PreviewConversion.maximumFormulaOutput { return nil }
         let nsSVG = svg as NSString
         guard let viewBox, let size,
             let bounds = viewBox.firstMatch(in: svg, range: NSRange(location: 0, length: nsSVG.length)),
@@ -104,20 +110,46 @@ public enum MathRenderer {
         // end a list item; keep the original UTF-8 bytes outside Markdown's grammar.
         let original = originalSource ?? latex
         let savedSource =
-            original == source ? "" : " data-formula-source=\"\(Data(original.utf8).base64EncodedString())\""
+            preview != nil || original == source
+            ? "" : " data-formula-source=\"\(Data(original.utf8).base64EncodedString())\""
         let attributes =
             " width=\"\(em(width / fontSize))\" height=\"\(em(height / fontSize))\""
             + " style=\"vertical-align: -\(em(list.depth)); overflow: visible\""
             + " role=\"img\" aria-label=\"\(HTML.escape(source))\""
             + savedSource
-            + tagAttribute(nodes: nodes, options: options, renderer: renderer, svg: svg)
-            + (display ? "" : inlineGlue(nodes: nodes, box: box, list: list))
+            + (preview == nil ? tagAttribute(nodes: nodes, options: options, renderer: renderer, svg: svg) : "")
+            + (display || preview != nil ? "" : inlineGlue(nodes: nodes, box: box, list: list))
         // Only the root element's size: the rules of fractions and radicals are rects with sizes of their own.
         guard let root = size.firstMatch(in: svg, range: NSRange(location: 0, length: nsSVG.length)) else { return nil }
         var html = nsSVG.replacingCharacters(in: root.range, with: attributes)
         // Formulas take the theme's text color unless they set a color of their own.
         html = html.replacingOccurrences(of: "\"rgba(0,0,0,1)\"", with: "\"currentColor\"")
-        return "<span class=\"math math-\(display ? "display" : "inline")\"\(metrics)>\(html)\(labels)</span>"
+        let result = "<span class=\"math math-\(display ? "display" : "inline")\"\(metrics)>\(html)\(labels)</span>"
+        if let preview, !preview.retainMathOutput(bytes: max(svg.utf8.count, result.utf8.count)) { return nil }
+        return result
+    }
+
+    /// Count SwaTex's expanded tokens before allocating the parse tree or running layout. The scanner
+    /// installs ordinary bindings using SwaTex's own argument rules, then discards each expanded token.
+    static func expansionFits(_ input: String) -> Bool {
+        guard input.contains("\\") else { return true }
+        let parser = Parser(input)
+        do {
+            for count in 0...PreviewConversion.maximumExpandedTokens {
+                if count.isMultiple(of: 256), PreviewConversion.expired { return false }
+                let token = try parser.fetch()
+                if token.isEOF { return true }
+                switch token.text {
+                case "\\def", "\\gdef", "\\let":
+                    _ = try parser.parseFunction(breakOnTokenText: nil, name: nil)
+                case "\\edef", "\\xdef":
+                    // These construct the entire expanded replacement at declaration time.
+                    return false
+                default: parser.consume()
+                }
+            }
+        } catch { return false }
+        return false
     }
 
     /// Some formats leave tags inside SwaTex's SVG. A phantom keeps the tag column's

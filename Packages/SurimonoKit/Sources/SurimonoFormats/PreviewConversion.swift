@@ -11,7 +11,12 @@ package final class PreviewConversion: Sendable {
     // typesetting time: short calls have fixed overhead and expansion is not linear in source bytes.
     package static let maximumFormulaBytes = 4 * 1024
     package static let maximumMathBytes = 128 * 1024
-    private let math = Mutex((remainingBytes: maximumMathBytes, time: Duration.zero))
+    // The eight-term probe produced 1.07 MB from 6,145 glyphs and 1.43 MB from 8,193 glyphs.
+    static let maximumFormulaOutput = 1 << 20
+    private static let maximumMathOutput = 8 << 20
+    static let maximumExpandedTokens = 8_192
+    private let math = Mutex(
+        (remainingBytes: maximumMathBytes, remainingOutput: maximumMathOutput, time: Duration.zero))
     private static let mathTime: Duration = .seconds(2)
 
     package init(deadline: ContinuousClock.Instant, now: @escaping @Sendable () -> ContinuousClock.Instant = { .now }) {
@@ -24,12 +29,24 @@ package final class PreviewConversion: Sendable {
         else { return false }
         return math.withLock { budget in
             let bytes = bodyBytes + macroBytes
-            guard budget.time < Self.mathTime else { return false }
+            guard budget.remainingOutput > 0, budget.time < Self.mathTime else { return false }
             guard bytes <= budget.remainingBytes else {
                 budget.remainingBytes = 0
                 return false
             }
             budget.remainingBytes -= bytes
+            return true
+        }
+    }
+
+    func retainMathOutput(bytes: Int) -> Bool {
+        guard bytes <= Self.maximumFormulaOutput else { return false }
+        return math.withLock { budget in
+            guard bytes <= budget.remainingOutput else {
+                budget.remainingOutput = 0
+                return false
+            }
+            budget.remainingOutput -= bytes
             return true
         }
     }

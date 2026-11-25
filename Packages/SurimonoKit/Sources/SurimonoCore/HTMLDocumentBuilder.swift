@@ -103,7 +103,7 @@ public enum HTMLDocumentBuilder {
         let ownNumbers = fragment.decidesHeadingNumbers ? " own-heading-numbers" : ""
         let base = baseURL.map { "<base href=\"\(HTML.escape($0.absoluteString))\">\n" } ?? ""
         let finishStyle = finish.isEmpty ? "" : "\n<style id=\"surimono-finish\">\n\(finish)\n</style>"
-        return """
+        let head = """
             <!doctype html>
             <html lang="\(HTML.escape(language.code))"\(direction)>
             <head>
@@ -114,10 +114,12 @@ public enum HTMLDocumentBuilder {
             </style>\(sourceStyle)\(fontStyle)\(format == .rst ? rstStyle : "")\(finishStyle)\(slideStyle)\(removesPaper ? "\n" + PaperBackground.removalStyle : "")
             </head>
             <body class="surimono format-\(format.rawValue)\(ownNumbers)"\(latex)>
-            \(body)
-            </body>
-            </html>
             """
+        let end = "\n</body>\n</html>"
+        if previewPolicy != nil {
+            try checkSourceBytes(head.utf8.count + 1 + body.utf8.count + end.utf8.count)
+        }
+        return head + "\n" + body + end
     }
 
     private static let sourcePageCSS: String = {

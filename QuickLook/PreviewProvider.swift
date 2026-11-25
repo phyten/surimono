@@ -1,9 +1,23 @@
 import Darwin
+import ImageIO
 import QuickLookUI
 import SurimonoCore
 import UniformTypeIdentifiers
 
 final class PreviewProvider: QLPreviewProvider, QLPreviewingController {
+    // Before per-source restrictions, ImageIO accepts its process-wide list only on the first call.
+    // Initialize it once in this extension process, before any provider starts opening images.
+    private static let configureDecoders: Void = {
+        if #unavailable(macOS 27) {
+            _ = CGImageSourceSetAllowableTypes(FinderPreview.rasterTypeIdentifiers as CFArray)
+        }
+    }()
+
+    override init() {
+        _ = Self.configureDecoders
+        super.init()
+    }
+
     func providePreview(
         for request: QLFilePreviewRequest, completionHandler handler: @escaping (QLPreviewReply?, (any Error)?) -> Void
     ) {
@@ -13,7 +27,8 @@ final class PreviewProvider: QLPreviewProvider, QLPreviewingController {
                 for: url, bundle: Bundle(for: PreviewProvider.self),
                 terminateIfStalled: {
                     // Only the extension exits. An uninterruptible converter would otherwise keep running after the
-                    // timeout reply. Quick Look can launch a fresh provider for the next request.
+                    // timeout reply. If exit wins the race, Quick Look may miss that reply; this is accepted.
+                    // Quick Look can launch a fresh provider for the next request.
                     Darwin._exit(EXIT_SUCCESS)
                 }
             ) { preview in
