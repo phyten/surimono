@@ -38,6 +38,7 @@ struct PrintFoldView: View {
                 }
                 .buttonStyle(PrintBorderedButtonStyle(height: 30))
                 .disabled(!book.canTurn(by: book.rightBound ? 1 : -1))
+                .accessibilityLabel(book.rightBound ? Text("Next Spread") : Text("Previous Spread"))
                 .help(book.rightBound ? "Next Spread" : "Previous Spread")
                 Button {
                     book.turn(by: book.rightBound ? -1 : 1)
@@ -46,6 +47,7 @@ struct PrintFoldView: View {
                 }
                 .buttonStyle(PrintBorderedButtonStyle(height: 30))
                 .disabled(!book.canTurn(by: book.rightBound ? -1 : 1))
+                .accessibilityLabel(book.rightBound ? Text("Previous Spread") : Text("Next Spread"))
                 .help(book.rightBound ? "Previous Spread" : "Next Spread")
                 Rectangle().fill(PrintPalette.line2).frame(width: 1, height: 18).padding(.horizontal, 4)
                 Button(action: close) {

@@ -22,6 +22,7 @@ struct BinderDrawer: View {
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
+                .accessibilityLabel("More")
                 .menuStyle(.borderlessButton)
                 .fixedSize()
                 PanelIconButton("plus", label: "Add Documents…") { [weak model] in
@@ -189,6 +190,7 @@ private struct BinderRow: View {
                             binder.selection == item.url ? AnyShapeStyle(.primary) : AnyShapeStyle(PrintPalette.ink3))
                     }
                 }
+                .accessibilityHidden(true)
                 .frame(width: 30, height: 40)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(verbatim: item.name).font(.system(size: 13)).lineLimit(1).truncationMode(.middle)
@@ -198,7 +200,9 @@ private struct BinderRow: View {
                             Text("·")
                             Text(String(format: String(localized: "%lld pages"), count))
                         }
-                        if binder.unreadableURLs.contains(item.url) { Image(systemName: "exclamationmark.triangle") }
+                        if binder.unreadableURLs.contains(item.url) {
+                            Image(systemName: "exclamationmark.triangle").accessibilityLabel("Unreadable Document")
+                        }
                     }
                     .font(.system(size: 11)).foregroundStyle(
                         binder.selection == item.url ? AnyShapeStyle(.primary) : AnyShapeStyle(PrintPalette.ink3))
@@ -206,6 +210,7 @@ private struct BinderRow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .contentShape(Rectangle())
+            .accessibilityElement(children: .combine)
             .onHover(perform: onPoint)
             // The removal button keeps its room whether it shows or not, so the names do not move.
             Group {

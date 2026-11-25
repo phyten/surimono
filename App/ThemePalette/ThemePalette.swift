@@ -100,6 +100,10 @@ struct ThemePalette: View {
                     .font(.system(size: 12))
                     .foregroundStyle(PrintPalette.ink2)
                     .lineLimit(1)
+                    .accessibilityLabel(
+                        Text(
+                            verbatim: model.theme(model.themeID)?.displayName(language: model.language)
+                                ?? String(localized: "Not Found")))
                 Spacer(minLength: 8)
                 PopoverCloseButton()
             }
@@ -147,7 +151,7 @@ struct ThemePalette: View {
 
     private var searchField: some View {
         HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass").foregroundStyle(PrintPalette.ink2)
+            Image(systemName: "magnifyingglass").foregroundStyle(PrintPalette.ink2).accessibilityHidden(true)
             TextField("Search by name or category", text: $query)
                 .textFieldStyle(.plain)
             if !query.isEmpty {
@@ -410,6 +414,12 @@ struct ThemePaletteCell: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(Text(verbatim: name))
+        .accessibilityIdentifier("themePaletteCell.\(theme.id)")
+        .accessibilityAddTraits(isCurrent ? .isSelected : [])
+        .accessibilityAction(
+            named: isFavorite ? Text("Remove from Favorites") : Text("Add to Favorites")
+        ) { model.toggleFavoriteTheme(theme.id) }
         .overlay(alignment: .topTrailing) {
             // Always there, so the keyboard can reach it; it shows on hover, when focused, or on a favorite. It keeps
             // clear of the check that hangs off the corner.
@@ -428,12 +438,6 @@ struct ThemePaletteCell: View {
             if inside { model.hoverPaletteTheme(theme.id) }
         }
         .task(id: model.paletteSamples.taskID(for: theme)) { await model.paletteSamples.load(theme) }
-        .accessibilityLabel(Text(verbatim: name))
-        .accessibilityIdentifier("themePaletteCell.\(theme.id)")
-        .accessibilityAddTraits(isCurrent ? .isSelected : [])
-        .accessibilityAction(
-            named: isFavorite ? Text("Remove from Favorites") : Text("Add to Favorites")
-        ) { model.toggleFavoriteTheme(theme.id) }
     }
 }
 
@@ -461,6 +465,7 @@ struct FavoriteStarButton: View {
                 .contentShape(Rectangle())
         }
         .accessibilityLabel(Text(verbatim: label))
+        .accessibilityAddTraits(isFavorite ? .isSelected : [])
         .help(isFavorite ? LocalizedStringKey("Remove from Favorites") : LocalizedStringKey("Add to Favorites"))
     }
 

@@ -379,7 +379,7 @@ struct PrintTopBar: View {
         } label: {
             HStack(spacing: 5) {
                 Text("Modified")
-                Image(systemName: "chevron.down")
+                Image(systemName: "chevron.down").accessibilityHidden(true)
                     .font(.system(size: 10, weight: .semibold))
             }
             .font(.system(size: 12, weight: .semibold))
@@ -419,8 +419,7 @@ struct PrintStyleMenu: View {
     static func value(for model: DocumentViewModel) -> String {
         if model.usesPrintTheme { return model.styleName }
         if model.usesHTMLPreset {
-            return model.library.presets.first { $0.id == model.presetID }?.displayName(language: model.language)
-                ?? model.presetID
+            return model.selectedPresetName ?? model.presetID
         }
         return String(localized: model.format == .pdf ? "PDF is shown as is" : "Images are shown as is")
     }
@@ -439,7 +438,8 @@ struct PrintStyleMenu: View {
             .accessibilityIdentifier("printStylePaletteButton")
             .help(fullName)
             .accessibilityLabel(Text("Style"))
-            .accessibilityValue(Text(verbatim: model.styleName))
+            .accessibilityValue(Text(verbatim: model.themeAccessibility.value))
+            .accessibilityAddTraits(model.isThemePalettePresented ? .isSelected : [])
             .modifier(OptionalStyleTip(model: model, isEnabled: showsTip))
         }
         if model.usesHTMLPreset {
@@ -456,8 +456,7 @@ struct PrintStyleMenu: View {
             } label: {
                 label(
                     "Preset",
-                    value: model.library.presets.first { $0.id == model.presetID }?.displayName(
-                        language: model.language) ?? model.presetID)
+                    value: model.selectedPresetName ?? model.presetID)
             }
             .menuStyle(.button)
             .buttonStyle(.plain)
@@ -465,7 +464,7 @@ struct PrintStyleMenu: View {
             .fixedSize()
             .help(fullName)
             .accessibilityLabel(Text("Preset"))
-            .accessibilityValue(Text(verbatim: Self.value(for: model)))
+            .accessibilityValue(Text(verbatim: model.presetAccessibility.value))
         } else if !model.usesPrintTheme {
             label(
                 "Style",

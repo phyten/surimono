@@ -707,7 +707,7 @@ struct PrintMarginEditor: View {
         _ title: LocalizedStringKey, _ side: WritableKeyPath<PageMargins, Double>
     ) -> some View {
         VStack(spacing: 2) {
-            Text(title).font(.system(size: 11)).foregroundStyle(PrintPalette.ink2)
+            Text(title).font(.system(size: 11)).foregroundStyle(PrintPalette.ink2).accessibilityHidden(true)
             TextField(
                 title,
                 value: model.controlBinding(

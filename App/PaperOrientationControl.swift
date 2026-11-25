@@ -9,7 +9,7 @@ struct PaperOrientationControl: View {
             choices
         } label: {
             HStack(spacing: 4) {
-                Image(systemName: "rectangle.portrait.rotate")
+                Image(systemName: "rectangle.portrait.rotate").accessibilityHidden(true)
                 Text(value)
             }
         }

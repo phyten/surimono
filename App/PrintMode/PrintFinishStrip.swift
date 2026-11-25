@@ -160,6 +160,14 @@ struct PrintFinishStrip: View {
             }
         }
 
+        var defaultValue: LocalizedStringKey {
+            switch self {
+            case .furniture, .notes: "None"
+            case .breaks: "Do Not Break at Headings"
+            case .contents: "Follow the Text's Contents"
+            }
+        }
+
         var section: PrintFinishSection {
             switch self {
             case .furniture: .furniture
@@ -307,6 +315,7 @@ struct PrintFinishStrip: View {
         .buttonStyle(.plain)
         .menuIndicator(.hidden)
         .fixedSize()
+        .accessibilityLabel("Print Settings")
         .help(Text("Header & Footer, Page Breaks, Contents Page and Notes"))
     }
 
@@ -344,6 +353,8 @@ struct PrintFinishStrip: View {
         .buttonStyle(.plain)
         .menuIndicator(.hidden)
         .fixedSize()
+        .accessibilityLabel(Text(item.title))
+        .accessibilityValue(Text(value(of: item) ?? item.defaultValue))
         .help(Text(item.title))
     }
 }
@@ -372,9 +383,12 @@ struct PrintFurnitureChoice: View {
     @ViewBuilder var menuItems: some View {
         if model.themeFormat == .latex {
             Button("As the Document") { model.chooseDocumentFurniture() }
+                .accessibilityAddTraits(model.usesDocumentFurniture ? .isSelected : [])
         }
         ForEach(Self.choices, id: \.value) { choice in
             Button(choice.title) { model.chooseFurniture(choice.value) }
+                .accessibilityAddTraits(
+                    !model.usesDocumentFurniture && model.furnitureChoice == choice.value ? .isSelected : [])
         }
     }
 
@@ -401,6 +415,7 @@ struct PrintChapterBreakChoice: View {
     @ViewBuilder var menuItems: some View {
         ForEach(Self.choices, id: \.value) { choice in
             Button(choice.title) { model.printFinish.breaks.h1 = choice.value }
+                .accessibilityAddTraits(model.printFinish.breaks.h1 == choice.value ? .isSelected : [])
         }
     }
 
@@ -424,6 +439,7 @@ struct PrintNoteChoice: View {
     @ViewBuilder var menuItems: some View {
         ForEach(Self.choices, id: \.value) { choice in
             Button(choice.title) { model.notes.isEnabled = choice.value }
+                .accessibilityAddTraits(model.notes.isEnabled == choice.value ? .isSelected : [])
         }
     }
 
@@ -450,6 +466,7 @@ struct PrintContentsChoice: View {
     @ViewBuilder var menuItems: some View {
         ForEach(Self.choices, id: \.value) { choice in
             Button(choice.title) { model.printFinish.toc.mode = choice.value }
+                .accessibilityAddTraits(model.printFinish.toc.mode == choice.value ? .isSelected : [])
         }
     }
 

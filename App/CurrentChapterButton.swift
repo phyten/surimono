@@ -34,6 +34,8 @@ struct CurrentChapterButton: View {
         }
         .buttonStyle(.plain)
         .help((title.isEmpty ? "" : title + "\n") + ShortcutHints.help(String(localized: "Contents"), [.viewOutline]))
-        .accessibilityLabel(Text(verbatim: String(localized: "Current Chapter") + ": " + title))
+        .accessibilityLabel(Text(BandLayout.Item.chapter.bandAccessibilityName))
+        .accessibilityValue(Text(verbatim: title))
+        .accessibilityAddTraits(model.isOutlineShown ? .isSelected : [])
     }
 }
