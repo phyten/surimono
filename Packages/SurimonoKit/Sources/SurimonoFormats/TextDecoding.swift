@@ -159,7 +159,8 @@ public enum TextDecoding {
     }
 
     package static func normalizeNewlines(_ text: String) -> String {
-        text.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
+        text.replacingOccurrences(of: "\r\n", with: "\n", options: .literal)
+            .replacingOccurrences(of: "\r", with: "\n", options: .literal)
     }
 
     /// How Japanese the text reads, or nil when it does not: control characters, or too little kana among the
