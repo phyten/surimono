@@ -53,12 +53,19 @@ body.format-latex .beamer-titlepage { text-align: center; transform: translateY(
 body.format-latex .beamer-titlepage:has(.latex-front-subtitle) { transform: translateY(calc(13.5 * var(--tex-pt))); }
 body.format-latex .beamer-titlepage > * { display: block; text-align: center; margin: 0; padding: calc(6.5 * var(--tex-pt)); }
 body.format-latex .beamer-titlepage .latex-front-title { padding: calc(8 * var(--tex-pt)); margin: 0; }
+/* With no subtitle the title line box already supplies part of the colorbox's 8pt separation. */
+body.format-latex .beamer-titlepage:not(:has(.latex-front-subtitle)) .latex-front-title {
+    padding-block: calc(7 * var(--tex-pt));
+}
 body.format-latex .beamer-titlepage .latex-front-authors { margin-top: 1em; font: inherit; }
 body.format-latex .beamer-titlepage .beamer-institute { font-size: var(--beamer-script-size,calc(8 * var(--tex-pt))); }
 /* A titlegraphic follows the date on its own baseline without moving the text boxes above. */
 body.format-latex .beamer-titlepage .beamer-titlegraphic { position: relative; top: calc(5 * var(--tex-pt)); }
+/* The subtitle adds space before the date. Take one print-layout pixel out of the
+   date-to-graphic gap without resizing the flex item and recentering its text. */
+body.format-latex .beamer-titlepage:has(.latex-front-subtitle) .beamer-titlegraphic { top: calc(5 * var(--tex-pt) - 1px); }
 body.format-latex .beamer-titlepage .latex-front-date { font: inherit; }
-body.format-latex .beamer-titlepage .latex-front-subtitle { color: var(--beamer-blue); padding-top: 0; padding-bottom: .35em; }
+body.format-latex .beamer-titlepage .latex-front-subtitle { color: var(--beamer-blue); padding-top: 0; padding-bottom: .45em; }
 body.format-latex .beamer-titlepage:has(.latex-front-subtitle) .latex-front-title { padding-bottom: .15em; }
 body.format-latex .beamer-frame :is(.beamer-frame-subtitle,.beamer-institute,.latex-front-authors,.latex-front-date,
     .latex-front-subtitle,.beamer-titlegraphic,.beamer-frame-body > p,.beamer-block-body > p,.latex-verbatim) {
