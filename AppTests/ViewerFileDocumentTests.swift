@@ -88,7 +88,13 @@ struct ViewerFileDocumentTests {
     @Test("窓を閉じるとタイル描画用のPDFより先に紙面を解放する", .timeLimit(.minutes(1)), arguments: WindowKind.allCases)
     func closingWindowReleasesPaperBeforePDFs(kind: WindowKind) async throws {
         try await withClosedContent(in: kind, holdingPaper: false) { content in
-            try await content.waitForRelease { [content.paper == nil ? nil : "paper"] }
+            try await content.waitForRelease {
+                [
+                    content.fileDocument == nil ? nil : "document", content.model == nil ? nil : "model",
+                    content.renderer == nil ? nil : "renderer", content.trialRenderer == nil ? nil : "trialRenderer",
+                    content.paper == nil ? nil : "paper",
+                ]
+            }
             try await content.checkPDFRelease()
         }
     }
