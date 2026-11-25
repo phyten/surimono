@@ -20,6 +20,20 @@ extension DocumentViewModel {
 
     var canRequestPrintTray: Bool { printCommand == .enterPrintMode && canPerformPrintCommand }
 
+    var isPresentingSomething: Bool {
+        window?.attachedSheet != nil || hasDocumentPopover || isComparePlacePickerPresented
+            || (mode == .view && (isOutlineDrawerOpen || isDrawerOpen || isReadingPanelOpen || find.isPresented))
+            || drop.isActive
+            || isReviewingSmartRemoval || manualDuplexSession != nil || duplexTestResult != nil || outputError != nil
+            || sourceSharePicker != nil || readingShare?.isPresented == true
+    }
+
+    var canFulfillReservedPrint: Bool { canRequestPrintTray && isUpToDate && !isPresentingSomething }
+
+    func cancelReservedPrint() {
+        if previewPrintRequest.destination != nil { previewPrintRequest.cancel() }
+    }
+
     func performPrintCommand() {
         guard canPerformPrintCommand else { return }
         switch printCommand {

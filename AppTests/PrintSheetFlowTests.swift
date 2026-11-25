@@ -368,6 +368,144 @@ struct PrintSheetFlowTests {
         }
     }
 
+    @Test("予約した見比べ画面から表示に戻ると、その場で予約が消え、全文の完成や次の組版でも印刷画面を開かない", .timeLimit(.minutes(1)))
+    func leavingCompareCancelsReservation() async throws {
+        try await withHeldPreview { model, complete in
+            model.enterCompareMode()
+            model.performPrintCommand()
+            try #require(model.previewPrintRequest.destination == .currentLayout)
+            model.exitCompareMode()
+            #expect(model.mode == .view && model.previewPrintRequest.destination == nil)
+            await complete()
+            try #require(model.isUpToDate && model.mode == .view)
+            model.increaseTextSize()
+            model.renderForChangedSettings()
+            await model.renderTask?.value
+            #expect(model.isUpToDate && model.mode == .view && model.previewPrintRequest.destination == nil)
+        }
+    }
+
+    enum Presentation: CaseIterable {
+        case printSettings, viewOptions, palette, outline, contentsDrawer, sideList, figures, latex, goToPage
+        case find, readingPanel, comparePlaces, printIssues, manualDuplex, duplexTest, outputError, drag, fileSharing,
+            pdfSharing
+
+        @MainActor func open(in model: DocumentViewModel) {
+            switch self {
+            case .printSettings: model.presentPrintSettings()
+            case .viewOptions: model.isViewOptionsPresented = true
+            case .palette: model.isThemePalettePresented = true
+            case .outline: model.isOutlinePresented = true
+            case .contentsDrawer: model.setContentsOpen(true)
+            case .sideList: model.setSideListOpen(true)
+            case .figures: model.isFiguresPresented = true
+            case .latex: model.isLaTeXRecognitionPresented = true
+            case .goToPage: model.presentGoToPage()
+            case .find: model.performFind()
+            case .readingPanel: model.isReadingPanelOpen = true
+            case .comparePlaces: model.isComparePlacePickerPresented = true
+            case .printIssues: model.isPrintIssuesPresented = true
+            case .manualDuplex:
+                let layout = PrintLayout.a4Duplex
+                model.manualDuplexSession = ManualDuplexSession(
+                    printerName: "Test", layout: layout, imposition: Imposition.plan(pageCount: 2, layout: layout),
+                    copies: 1, pageOrder: .firstSheetFirst, jobTitle: "Test", language: "ja", correction: .init())
+            case .duplexTest: model.duplexTestResult = .init(printerName: "Test", duplex: .longEdge)
+            case .outputError: model.outputError = "Test"
+            case .drag: _ = model.dragEntered([], at: .zero)
+            case .fileSharing: model.sourceSharePicker = FileSharePicker(urls: [], model: model)
+            case .pdfSharing:
+                let share = ReadingPDFShare(name: "Test.pdf", protectedURLs: []) { throw CancellationError() }
+                model.readingShare = share
+                _ = share.makePicker()
+            }
+        }
+    }
+
+    @Test("準備中に別のパネルを開くと即座に予約が消え、全文が完成してもその画面を保つ", .timeLimit(.minutes(1)), arguments: Presentation.allCases)
+    func openingPresentationCancelsReservation(_ presentation: Presentation) async throws {
+        try await withHeldPreview { model, complete in
+            if presentation == .comparePlaces { model.enterCompareMode() }
+            let screen = model.mode
+            model.performPrintCommand()
+            try #require(model.previewPrintRequest.destination == .currentLayout && !model.isPresentingSomething)
+            presentation.open(in: model)
+            #expect(model.previewPrintRequest.destination == nil)
+            try #require(model.isPresentingSomething)
+            await complete()
+            #expect(model.mode == screen && model.isPresentingSomething)
+            if presentation == .printSettings { #expect(model.isPrintFinishPresented) }
+            if presentation == .viewOptions { #expect(model.isViewOptionsPresented) }
+        }
+    }
+
+    @Test("スマート削除の確認を始めると印刷予約を取り消し、確認を閉じても復活しない")
+    func smartRemovalCancelsReservation() throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let model = DocumentViewModel(
+            data: Data("<p>Test</p>".utf8), fileURL: nil, format: .html,
+            preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: directory))
+        defer { model.stop() }
+        // Only HTML offers this panel; a CSV with a held preview cannot open it.
+        model.previewPrintRequest.press(.currentLayout)
+        model.setSmartRemoval(enabled: true)
+        model.reviewSmartRemoval()
+        try #require(model.isReviewingSmartRemoval && model.isPresentingSomething)
+        #expect(model.previewPrintRequest.destination == nil)
+        model.endSmartRemovalReview()
+        #expect(!model.isPresentingSomething && model.previewPrintRequest.destination == nil)
+    }
+
+    @Test("表示設定を開いたまま印刷を押せても、全文の完成はその設定を閉じず予約を破棄する", .timeLimit(.minutes(1)))
+    func alreadyOpenPresentationBlocksFulfillment() async throws {
+        try await withHeldPreview { model, complete in
+            model.isViewOptionsPresented = true
+            try #require(model.canPerformPrintCommand)
+            model.performPrintCommand()
+            try #require(model.previewPrintRequest.destination == .currentLayout)
+            await complete()
+            #expect(model.isUpToDate && model.mode == .view && model.isViewOptionsPresented)
+        }
+    }
+
+    @Test("文書の窓にシートが付くと予約は即座に消え、シートを閉じても復活しない", .timeLimit(.minutes(1)))
+    func attachedSheetCancelsReservation() async throws {
+        try await withHeldPreview { model, complete in
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: .titled, backing: .buffered,
+                defer: false)
+            let sheet = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 200, height: 100), styleMask: .titled, backing: .buffered,
+                defer: false)
+            window.isReleasedWhenClosed = false
+            sheet.isReleasedWhenClosed = false
+            // AppKit queues a sheet for a window that is not on screen, so the parent has to be shown first.
+            window.orderFront(nil)
+            model.window = window
+            defer {
+                if window.attachedSheet === sheet { window.endSheet(sheet) }
+                model.window = nil
+                sheet.close()
+                window.close()
+            }
+            model.performPrintCommand()
+            try #require(model.previewPrintRequest.destination == .currentLayout)
+            window.beginSheet(sheet, completionHandler: nil)
+            let deadline = ContinuousClock.now + .seconds(5)
+            while window.attachedSheet == nil, ContinuousClock.now < deadline {
+                try await Task.sleep(for: .milliseconds(10))
+            }
+            try #require(window.attachedSheet === sheet)
+            #expect(model.isPresentingSomething && model.previewPrintRequest.destination == nil)
+            window.endSheet(sheet)
+            await complete()
+            #expect(model.isUpToDate && model.mode == .view)
+        }
+    }
+
     @Test("既に印刷画面なら先頭表示中に予約できず、画面移動前の予約も全文の完成で破棄する", .timeLimit(.minutes(1)), arguments: [false, true])
     func completedRenderDropsIneligibleRequest(reserved: Bool) async throws {
         try await withHeldPreview { model, complete in

@@ -18,7 +18,7 @@ extension DocumentViewModel {
     }
 
     func clearSharedExport() {
-        sourceSharePicker?.close()
+        sourceSharePicker?.picker.close()
         sourceSharePicker = nil
         readingShare?.cancel()
         readingShare = nil
@@ -46,7 +46,7 @@ extension DocumentViewModel {
             else { return }
             clearSharedExport()
             readingShare = share
-            share.show(in: view)
+            share.makePicker().show(inDocumentView: view)
             return
         }
         additionalExportTask = Task { [weak self] in

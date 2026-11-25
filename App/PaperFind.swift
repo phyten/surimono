@@ -64,7 +64,10 @@ final class PaperFind {
     private(set) var focusRequests = 0
     @ObservationIgnored private var pause: Task<Void, Never>?
 
+    @ObservationIgnored var onOpen: (() -> Void)?
+
     func open() {
+        onOpen?()
         isPresented = true
         focusRequests += 1
         // The words of the last search are still in the field.
