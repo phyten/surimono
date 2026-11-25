@@ -136,7 +136,8 @@ public enum MathRenderer {
 
     private static func checkedLayout(_ nodes: [ParseNode], options: LayoutOptions) -> LayoutBox? {
         guard MathLayoutLimits.accepts(nodes), !PreviewConversion.expired else { return nil }
-        return layout(nodes, options: options)
+        let box = layout(nodes, options: options)
+        return MathDisplayLimits.accepts(box) ? box : nil
     }
 
     /// Some formats leave tags inside SwaTex's SVG. A phantom keeps the tag column's
@@ -261,6 +262,7 @@ public enum MathRenderer {
                 cut += 1
             }
             if case .kern = child.content { continue }
+            guard MathDisplayLimits.accepts(child) else { return "" }
             items += toDisplayList(child).items.count
         }
         guard items == list.items.count else { return "" }
