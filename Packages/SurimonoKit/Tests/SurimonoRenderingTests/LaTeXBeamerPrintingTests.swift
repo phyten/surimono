@@ -144,6 +144,7 @@ struct LaTeXBeamerPrintingTests {
         let value = try await view.evaluateForPrinting(
             """
             const body = document.querySelector('[data-frame="' + frame + '"] > .beamer-frame-body');
+            const frameTop = body.parentElement.getBoundingClientRect().top;
             const text = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
             return words.map(word => {
                 let node;
@@ -154,7 +155,7 @@ struct LaTeXBeamerPrintingTests {
                 node.before(mark);
                 const y = mark.getBoundingClientRect().bottom;
                 mark.remove();
-                return y / pixelsPerPoint;
+                return (y - frameTop) / pixelsPerPoint;
             });
             """,
             arguments: ["frame": frame, "words": words, "pixelsPerPoint": WebPaginator.printPixelsPerPoint],
@@ -218,6 +219,7 @@ struct LaTeXBeamerPrintingTests {
         let paginator = WebPaginator()
         var measurement: String?
         var listBaselines: [Double]?
+        var titleBaselines: [Double] = []
         let listWords = ["Mark the", "Yard stick", "Copper sleeve", "Inner pin", "Cut", "File", "Tip"]
         let measuredPages = name == "083" ? [1, 2] : [0, 2, 3, 5, 8]
         let dumpPath = ProcessInfo.processInfo.environment["SURIMONO_LATEX_WEBKIT_LINE_DUMP"]
@@ -225,6 +227,10 @@ struct LaTeXBeamerPrintingTests {
             // Record the layout in the actual print view. The final PDF alone cannot show
             // whether the list pitches drifted in the DOM or only while printing its glyphs.
             paginator.inspectPrintLayout = { view in
+                do {
+                    titleBaselines = try await self.baselines(
+                        in: view, frame: 1, words: beamerTitlePageAnchors(for: name).map(\.word))
+                } catch { Issue.record(error) }
                 do {
                     if name == "specimen" {
                         listBaselines = try await self.baselines(in: view, frame: 3, words: listWords)
@@ -334,7 +340,7 @@ struct LaTeXBeamerPrintingTests {
         } else {
             #expect(pdf.pageCount == reference.pageCount)
         }
-        try compareBeamerReference(pdf, to: reference, fixture: name)
+        try compareBeamerReference(pdf, to: reference, fixture: name, titleBaselines: titleBaselines)
         if name == "swap" {
             #expect(pdf.page(at: 0)?.string?.contains("Low water") == true)
             #expect(pdf.page(at: 1)?.string?.contains("High water") == true)
