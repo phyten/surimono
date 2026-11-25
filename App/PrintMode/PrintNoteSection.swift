@@ -217,6 +217,7 @@ struct PrintNoteSection: View {
                     .contentShape(CornerRole.largeControl.shape)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(card.name)
                 .accessibilityAddTraits(isOn ? .isSelected : [])
                 .contextMenu {
                     if card.isOwn {
@@ -254,6 +255,7 @@ struct PrintNoteSection: View {
             }
             .buttonStyle(.plain)
             .padding(.top, 8)
+            .accessibilityLabel("Adjust the Lines")
             .accessibilityValue(model.showsNoteAdjustments ? Text("Open") : Text("Closed"))
             if model.showsNoteAdjustments {
                 lineKinds
@@ -342,11 +344,13 @@ struct PrintNoteSection: View {
     private func slider(
         _ title: LocalizedStringKey, value: Binding<Double>, range: ClosedRange<Double>, step: Double, text: String
     ) -> some View {
-        HStack(spacing: 8) {
+        let millimeters = value.wrappedValue.formatted(.number.precision(.fractionLength(0...2)))
+        return HStack(spacing: 8) {
             Text(title)
                 .font(.system(size: 12))
                 .foregroundStyle(PrintPalette.ink2)
                 .frame(width: 84, alignment: .leading)
+                .accessibilityHidden(true)
             // Rounded here rather than with the slider's step, which would draw a tick for every value.
             Slider(
                 value: Binding(
@@ -356,9 +360,11 @@ struct PrintNoteSection: View {
             ) { Text(title) }
             .labelsHidden()
             .controlSize(.small)
+            .accessibilityValue(Text(verbatim: String(format: String(localized: "%@ mm"), millimeters)))
             Text(verbatim: text)
                 .font(.system(size: 12).monospacedDigit())
                 .frame(width: 58, alignment: .trailing)
+                .accessibilityHidden(true)
         }
         .frame(height: 26)
     }

@@ -7,6 +7,7 @@ struct ShortcutRecordingControl: View {
     let title: String
     let displaysKeys: Bool
     let label: String
+    let spokenValue: String
     let hotKeys: GlobalHotKeys
     let refuse: () -> Void
     let change: (KeyCombo?) -> Void
@@ -15,7 +16,8 @@ struct ShortcutRecordingControl: View {
     var body: some View {
         if editing {
             ShortcutRecorder(
-                displayTitle: title, displaysKeys: displaysKeys, label: label, hotKeys: hotKeys,
+                displayTitle: title, displaysKeys: displaysKeys, label: label, spokenValue: spokenValue,
+                hotKeys: hotKeys,
                 refuse: refuse, change: change, leave: { editing = false })
         } else {
             Button {
@@ -31,7 +33,7 @@ struct ShortcutRecordingControl: View {
                 return .handled
             }
             .accessibilityLabel(Text(verbatim: label))
-            .accessibilityValue(Text(verbatim: title))
+            .accessibilityValue(Text(verbatim: spokenValue))
             .accessibilityHint(Text(verbatim: ShortcutRecorder.recordingHelp))
         }
     }
@@ -42,6 +44,7 @@ struct ShortcutRecorder: NSViewRepresentable {
     let displayTitle: String
     let displaysKeys: Bool
     let label: String
+    let spokenValue: String
     let hotKeys: GlobalHotKeys
     let refuse: () -> Void
     let change: (KeyCombo?) -> Void
@@ -65,6 +68,7 @@ struct ShortcutRecorder: NSViewRepresentable {
     private func configure(_ button: RecorderButton) {
         button.hotKeys = hotKeys
         button.displayTitle = displayTitle
+        button.spokenValue = spokenValue
         button.isEnabled = isEnabled
         button.change = change
         button.refuse = refuse
@@ -128,6 +132,7 @@ struct ShortcutRecorder: NSViewRepresentable {
     final class RecorderButton: NSButton {
         var hotKeys: GlobalHotKeys?
         var displayTitle: String?
+        var spokenValue: String?
         var change: ((KeyCombo?) -> Void)?
         var refuse: (() -> Void)?
         var leave: (() -> Void)?
@@ -176,7 +181,7 @@ struct ShortcutRecorder: NSViewRepresentable {
                 recording
                 ? String(localized: "Type a shortcut")
                 : displayTitle ?? String(localized: "Record Shortcut")
-            setAccessibilityValue(title)
+            setAccessibilityValue(recording ? title : spokenValue ?? title)
         }
         @objc private func record() {
             guard acceptsFirstResponder, !recording, window?.makeFirstResponder(self) == true else { return }

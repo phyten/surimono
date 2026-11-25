@@ -290,7 +290,7 @@ private struct RepairNotice: View {
         }
         if !lines.isEmpty {
             HStack(alignment: .top, spacing: 10) {
-                Image(systemName: "wrench.and.screwdriver").foregroundStyle(.tint)
+                Image(systemName: "wrench.and.screwdriver").foregroundStyle(.tint).accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Some saved toolbar arrangements were repaired when they were read.").fontWeight(.semibold)
                     ForEach(lines, id: \.self) { line in
@@ -317,7 +317,8 @@ private struct ConflictNotice: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
-            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(PrintPalette.warn)
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(PrintPalette.warn).accessibilityHidden(
+                true)
             Text(
                 "This arrangement was changed elsewhere while you edited it. Duplicate keeps your changes as a new arrangement."
             )
@@ -338,7 +339,8 @@ private struct RecoveryNotice: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(PrintPalette.warn)
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(PrintPalette.warn).accessibilityHidden(
+                true)
             VStack(alignment: .leading, spacing: 6) {
                 Text("The saved toolbar arrangements could not be read.").fontWeight(.semibold)
                 Text(
@@ -461,7 +463,7 @@ private struct MoreLock: View {
             .frame(width: 24, height: MiniatureMetrics.chipHeight)
             .help("“…” is fixed. All operations are also available here.")
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(Text(verbatim: "…"))
+            .accessibilityLabel("More")
             .accessibilityValue(Text("Fixed"))
     }
 }

@@ -157,7 +157,7 @@ struct TextFormatBadgeMenu: View {
         .menuIndicator(.hidden)
         .fixedSize()
         .help(ClipboardFormatText.help(kind: kind, origin: model.textFormatOrigin))
-        .accessibilityLabel(Text("Format"))
+        .accessibilityLabel(Text(BandLayout.Item.formatBadge.editorNameResource))
         .accessibilityValue(Text(verbatim: ClipboardFormatText.value(kind: kind, origin: model.textFormatOrigin)))
     }
 }

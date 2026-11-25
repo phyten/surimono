@@ -24,6 +24,8 @@ struct PrintStyleTip: ViewModifier {
                             .overlay(CornerRole.tile.shape.strokeBorder(PrintPalette.line2))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Dismiss")
+                    .accessibilityHint("Choose a style from samples")
                     .fixedSize()
                     .offset(y: 44)
                 }

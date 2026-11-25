@@ -67,6 +67,9 @@ struct ManualDuplexSheet: View {
             Text(title)
             Text(hint).font(.caption).foregroundStyle(PrintPalette.ink2)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(title))
+        .accessibilityHint(Text(hint))
     }
 }
 

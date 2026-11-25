@@ -45,6 +45,7 @@ struct SettingsView: View {
                     }.disabled(isDefault)
                 } else {
                     Button("Choose…") { initialTextWell.choose { if let hex = Self.hex($0) { set(hex) } } }
+                        .accessibilityLabel(Text(label))
                 }
             }
             .controlSize(.small).fixedSize()

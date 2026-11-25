@@ -40,6 +40,10 @@ private struct OutlineList: View {
                             model.goToOutlineEntry(entry)
                             model.paper.focus()
                         }
+                        .accessibilityAddTraits(
+                            index == (model.outlineFilter.query.isEmpty ? current : model.outlineFilter.selection)
+                                ? .isSelected : []
+                        )
                         .id(index)
                     }
                 }
@@ -102,7 +106,8 @@ private struct OutlineRow: View {
         .buttonStyle(.plain)
         .disabled(entry.pageIndex == nil)
         .onHover { isHovered = $0 }
-        .accessibilityAddTraits(isCurrent ? .isSelected : [])
+        .accessibilityLabel(Text(verbatim: entry.title))
+        .accessibilityValue(entry.pageIndex.map { Text("Page \($0 + 1)") } ?? Text(verbatim: ""))
     }
 }
 
@@ -163,6 +168,9 @@ private struct BookmarkRow: View {
                 .frame(minHeight: 32).contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(Text(verbatim: model.bookmarkTitle(page: page)))
+            .accessibilityValue(model.hasOutline ? Text("Page \(page + 1)") : Text(verbatim: ""))
+            .accessibilityAction(named: Text("Remove Bookmark")) { model.removeBookmark(page: page) }
             Button {
                 model.removeBookmark(page: page)
             } label: {
@@ -172,6 +180,7 @@ private struct BookmarkRow: View {
             .buttonStyle(.plain).foregroundStyle(PrintPalette.ink2)
             .opacity(isHovered ? 1 : 0)
             .accessibilityLabel("Remove Bookmark")
+            .accessibilityValue(Text("Page \(page + 1)"))
             .help("Remove Bookmark")
         }
         .font(.system(size: 13)).foregroundStyle(PrintPalette.ink)
@@ -283,7 +292,7 @@ struct OutlineDrawer: View {
     }
 }
 
-private struct ContentsDivider: View {
+struct ContentsDivider: View {
     let model: DocumentViewModel
     let displayedWidth: CGFloat
     @State private var initialWidth: CGFloat?
@@ -296,10 +305,35 @@ private struct ContentsDivider: View {
                     .onChanged { drag in
                         let start = initialWidth ?? displayedWidth
                         initialWidth = start
-                        let room = (model.window?.frame.width ?? 680) - 240
-                        model.contentsPanel.width = max(176, min(400, room, start + drag.translation.width)).rounded()
+                        resize(to: start + drag.translation.width)
                     }
-                    .onEnded { _ in initialWidth = nil })
+                    .onEnded { _ in initialWidth = nil }
+            )
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Contents Panel Width")
+            .accessibilityValue(Text("\(Int(displayedWidth)) pt"))
+            .accessibilityAdjustableAction { direction in
+                if let width = Self.adjustedWidth(displayedWidth, direction: direction, initialWidth: initialWidth) {
+                    resize(to: width)
+                }
+            }
+    }
+
+    static func adjustedWidth(
+        _ displayedWidth: CGFloat, direction: AccessibilityAdjustmentDirection, initialWidth: CGFloat?
+    ) -> CGFloat? {
+        // The next drag event still measures its translation from the original width.
+        guard initialWidth == nil else { return nil }
+        switch direction {
+        case .increment: return displayedWidth + 10
+        case .decrement: return displayedWidth - 10
+        @unknown default: return nil
+        }
+    }
+
+    private func resize(to width: CGFloat) {
+        let room = (model.window?.frame.width ?? 680) - 240
+        model.contentsPanel.width = max(176, min(400, room, width)).rounded()
     }
 }
 

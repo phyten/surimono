@@ -473,18 +473,17 @@ private struct EditableShortcutRow: View {
     }
 
     private static let unassigned = String(localized: "Unassigned")
-    private static let recordLabelFormat = String(localized: "%1$@. Scope: %2$@. Shortcut: %3$@.")
     private static let more = String(localized: "More")
 
     @ViewBuilder private var controls: some View {
         let keys = self.keys
         let display = keys.map { controller.layout.display($0) }.joined(separator: " / ")
-        let label = String.localizedStringWithFormat(
-            Self.recordLabelFormat, title,
-            ShortcutText.scope(ShortcutOperation.operation(operation).applicability),
-            keys.isEmpty ? Self.unassigned : keys.map { controller.layout.spoken($0) }.joined(separator: ", "))
+        let spokenKeys =
+            keys.isEmpty ? Self.unassigned : keys.map { controller.layout.spoken($0) }.joined(separator: ", ")
+        let scope = ShortcutText.scope(ShortcutOperation.operation(operation).applicability)
         ShortcutRecordingControl(
-            title: keys.isEmpty ? Self.unassigned : display, displaysKeys: !keys.isEmpty, label: label,
+            title: keys.isEmpty ? Self.unassigned : display, displaysKeys: !keys.isEmpty,
+            label: choice(String(localized: "Record Shortcut"), title), spokenValue: choice(scope, spokenKeys),
             hotKeys: controller.hotKeys, refuse: { error = ShortcutText.reason(.invalidKey) }
         ) { combo in
             do { propose(try combo.map { [try recorded($0)] } ?? []) } catch {
