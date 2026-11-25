@@ -693,7 +693,7 @@ final class DocumentViewModel {
     @ObservationIgnored private let initialViewOptions: ViewOptions
     let renderer: DocumentRenderer
     @ObservationIgnored private var composingSheets = false
-    private var renderTask: Task<Void, Never>?
+    private(set) var renderTask: Task<Void, Never>?
     @ObservationIgnored private var hasShownVerticalWritingNote = false
     private var toastTask: Task<Void, Never>?
     private var watcher: FileWatcher?
@@ -1332,6 +1332,8 @@ final class DocumentViewModel {
         drop.end()
         imageBundle?.stopFlashing()
         renderTask = nil
+        isRendering = false
+        composingSheets = false
         pendingPDF = nil
         printResult = nil
         result = nil

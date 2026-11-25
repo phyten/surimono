@@ -142,6 +142,7 @@ private struct DocumentWindowChanges: ViewModifier {
                 if document != nil { model.sizeWindowToPaper() }
             }
             .onChange(of: model.isRendering) { _, rendering in
+                guard !model.isWindowClosed else { return }
                 if !rendering {
                     model.sizeWindowToPaper()
                     OpenRouter.shared.printIfRequested(model)

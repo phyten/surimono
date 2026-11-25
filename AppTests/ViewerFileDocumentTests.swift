@@ -139,12 +139,9 @@ struct ViewerFileDocumentTests {
         do {
             let model = bundles.open([try fixtureURL()])
             let window = try #require(model.window)
-            do {
-                content = try await ClosedContent(window: window, model: model)
-            } catch {
-                window.close()
-                throw error
-            }
+            defer { if !model.isWindowClosed { window.close() } }
+            content = try await ClosedContent(window: window, model: model)
+            try await content.drawAndSwitchLayout(of: model)
             window.performClose(nil)
             #expect(!bundles.hasWindows)
             #expect(model.result == nil)
@@ -161,31 +158,74 @@ struct ViewerFileDocumentTests {
 
     @Test("画像の読み込みが戻る前に束を閉じても、表示モデルと描画器を解放する", .timeLimit(.minutes(1)))
     func closingWhileHashingImageReleasesRenderer() async throws {
+        try await closeWhileHashing(keepModel: false)
+    }
+
+    @Test("閉じた束のモデルを保持したまま画像の読み込みを再開しても、結果を公開せず描画も印刷も再開しない", .timeLimit(.minutes(1)))
+    func closingWhileHashingDiscardsLateResult() async throws {
+        try await closeWhileHashing(keepModel: true)
+    }
+
+    private func closeWhileHashing(keepModel: Bool) async throws {
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
+        let bytes = TestFixtures.png(red: 0.5)
         let reading = OSAllocatedUnfairLock(initialState: false)
-        let releaseRead = DispatchSemaphore(value: 0)
-        defer { releaseRead.signal() }
+        let gate = DispatchGroup()
+        gate.enter()
+        var render: Task<Void, Never>?
+        var resumed = false
+        defer {
+            if !resumed {
+                gate.leave()
+                await render?.value
+            }
+        }
         let bundle = ImageBundleModel(urls: [directory.appendingPathComponent("image.png")]) { _ in
             reading.withLock { $0 = true }
-            releaseRead.wait()
-            return Data()
+            gate.wait()
+            return bytes
         }
         weak var releasedModel: DocumentViewModel?
         weak var releasedRenderer: DocumentRenderer?
+        var retainedModel: DocumentViewModel?
+        let starts: Int
+        var prints = 0
         do {
             let model = DocumentViewModel(
                 data: Data(), fileURL: nil, format: .image, preferences: AppPreferences(defaults: suite.defaults),
                 library: UserLibrary(root: directory), imageBundle: bundle)
             releasedModel = model
             releasedRenderer = model.renderer
+            if keepModel { retainedModel = model }
+            model.printerListSource = { PrinterList(names: ["Test"], defaultName: "Test") }
+            model.printSubmit = { _, _, _ in prints += 1 }
             defer { model.closeWindow() }
             model.start()
+            if keepModel { model.printDocument(quick: true) }
+            let activeRender: Task<Void, Never> = try #require(model.renderTask)
+            render = activeRender
+            if keepModel { try #require(model.hasWaitingOutput) }
             try await ShortcutMenuBaselineTests.waitForMenu { reading.withLock { $0 } }
+            starts = model.renderStartCount
         }
-        try await ShortcutMenuBaselineTests.waitForMenu { releasedModel == nil && releasedRenderer == nil }
+        if retainedModel == nil {
+            try await ShortcutMenuBaselineTests.waitForMenu { releasedModel == nil && releasedRenderer == nil }
+        }
+        #expect(render?.isCancelled == true)
+        gate.leave()
+        resumed = true
+        await render?.value
+        if let model = retainedModel {
+            #expect(bundle.setHash == nil && model.contentHash == nil)
+            #expect(model.renderer.logicalRenderCount == 0)
+            #expect(model.result == nil && model.printResult == nil && model.error == nil)
+            #expect(model.renderTask == nil && model.renderStartCount == starts)
+            #expect(!model.isRendering && !model.isPrinting && !model.hasWaitingOutput)
+        }
+        #expect(prints == 0)
     }
 
     /// Hold the objects AppKit can cache. Keep a native picker selection alive as well, as in the closing-window trace.
@@ -196,12 +236,15 @@ struct ViewerFileDocumentTests {
         let hostingView: NSView
         let dropCatcher: DropCatcherView
         let layoutSelection: Binding<ViewOptions.Layout>
+        let tileClock: ManualPaperTileClock
+        let publishedPage: PageTextElement
         weak var model: DocumentViewModel?
         weak var renderer: DocumentRenderer?
         weak var trialRenderer: DocumentRenderer?
         weak var paper: PaperPDFView?
         weak var pdf: PDFDocument?
         weak var logicalPDF: PDFDocument?
+        weak var lastDisplay: PDFDocument?
 
         init(window: NSWindow, model: DocumentViewModel) async throws {
             self.window = window
@@ -220,21 +263,71 @@ struct ViewerFileDocumentTests {
             renderer = model.renderer
             trialRenderer = model.themeTrial.renderer
             let view = try #require(model.paper.view)
+            try await ShortcutMenuBaselineTests.waitForMenu { !view.visiblePages.isEmpty }
+            publishedPage = try #require(view.accessibilityChildren()?.first as? PageTextElement)
+            try #require(publishedPage.accessibilityParent() as? NSView === view)
             let displayed: PDFDocument = try #require(view.document)
             let logical = try #require(model.result?.logicalDocument)
+            tileClock = ManualPaperTileClock()
+            view.tileClock = tileClock
             paper = view
+            lastDisplay = displayed
             pdf = displayed
             logicalPDF = logical
         }
 
+        func drawAndSwitchLayout(of model: DocumentViewModel) async throws {
+            // The bitmap and the drawing call's temporary AppKit objects are not owners in the closed window.
+            try autoreleasepool {
+                let view = try #require(paper)
+                view.layoutSubtreeIfNeeded()
+                let bitmap = try #require(view.bitmapImageRepForCachingDisplay(in: view.bounds))
+                view.cacheDisplay(in: view.bounds, to: bitmap)
+            }
+            let spread = model.viewOptions.layout == .single
+            model.updateViewOptions {
+                $0.layout = spread ? .spread : .single
+                $0.showsCoverAlone = false
+            }
+            try await ShortcutMenuBaselineTests.waitForMenu {
+                guard let paper, let displayed = paper.document else { return false }
+                let twoUp = paper.displayMode == .twoUp || paper.displayMode == .twoUpContinuous
+                return twoUp == spread && displayed !== pdf
+            }
+            let displayed: PDFDocument = try #require(paper?.document)
+            lastDisplay = displayed
+        }
+
         func waitForRelease(documentReleased: () -> Bool = { true }) async throws {
             #expect(DocumentWindows.shared.model(for: window) == nil)
+            #expect(publishedPage.accessibilityParent() == nil)
+            #expect(publishedPage.accessibilityFrame() == .zero)
             let deadline = ContinuousClock.now + .seconds(6)
-            while (!documentReleased() || model != nil || renderer != nil || trialRenderer != nil || paper != nil
-                || pdf != nil || logicalPDF != nil)
-                && ContinuousClock.now < deadline
-            {
-                try await Task.sleep(for: .milliseconds(20))
+            func wait(_ ready: () -> Bool, alive: () -> String) async throws {
+                while !ready(), ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(10)) }
+                try #require(ready(), "still alive: \(alive())")
+            }
+            try await wait {
+                documentReleased() && model == nil && renderer == nil && trialRenderer == nil && paper == nil
+            } alive: {
+                [
+                    documentReleased() ? nil : "document", model == nil ? nil : "model",
+                    renderer == nil ? nil : "renderer", trialRenderer == nil ? nil : "trialRenderer",
+                    paper == nil ? nil : "paper",
+                ].compactMap { $0 }.joined(separator: ", ")
+            }
+            tileClock.advance(by: .milliseconds(999))
+            #expect(pdf != nil)
+            #expect(lastDisplay != nil)
+            tileClock.advance(by: .milliseconds(1))
+            try await wait {
+                pdf == nil && lastDisplay == nil && logicalPDF == nil
+            } alive: {
+                [
+                    pdf == nil ? nil : "pdf", lastDisplay == nil ? nil : "lastDisplay",
+                    logicalPDF == nil ? nil : "logicalPDF",
+                ]
+                .compactMap { $0 }.joined(separator: ", ")
             }
             withExtendedLifetime((host, hostingView, dropCatcher)) {}
         }

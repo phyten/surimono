@@ -182,6 +182,7 @@ struct PageTextPDFViewTests {
         #expect(leaf.accessibilityRange(for: CGPoint(x: frame.midX, y: frame.midY)) == range)
         let replacement: PDFDocument = try #require(PDFDocument(data: textPDF(["second page"])))
         view.document = replacement
+        #expect(leaf.accessibilityParent() == nil)
         #expect(leaf.accessibilityFrame() == .zero)
         #expect(leaf.accessibilityFrame(for: range) == .zero)
         #expect(leaf.accessibilityString(for: range) == "f")
