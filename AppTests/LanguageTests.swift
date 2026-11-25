@@ -410,8 +410,12 @@ struct LanguageTests {
         let spacing: [Character: Character] = [":": "\u{00A0}", "?": "\u{202F}", "!": "\u{202F}", ";": "\u{202F}"]
         for (key, entry) in catalog.strings {
             for unit in entry.localizations["fr"]?.units ?? [] {
+                // Org keywords such as #+TOC: and :UNNUMBERED: are shown as the reader types them, so their
+                // colons belong to the syntax and take no French spacing.
+                let syntax = unit.value.ranges(of: #/#\+[A-Z_]+:|:[A-Z_]+:/#)
                 for index in unit.value.indices {
                     guard let space = spacing[unit.value[index]] else { continue }
+                    if syntax.contains(where: { $0.contains(index) }) { continue }
                     #expect(
                         index != unit.value.startIndex && unit.value[unit.value.index(before: index)] == space,
                         "\(key) — \(unit.value)")
