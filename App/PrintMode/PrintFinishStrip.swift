@@ -64,47 +64,75 @@ struct PrintChoice<Value: Hashable> {
     }
 }
 
-/// A row of choices in the tray's own colors; the chosen one is drawn in ai.
+/// A group of choices in the tray's own colors; the chosen one is drawn in ai.
 struct PrintSegments<Value: Hashable>: View {
     let label: LocalizedStringKey
     let options: [PrintChoice<Value>]
-    let selection: Value?
-    var help: LocalizedStringKey?
-    var isVertical = false
+    let selection: Value
     let choose: (Value) -> Void
     @Environment(\.printAccent) private var accent
     @Environment(\.printAccentInk) private var accentInk
 
     var body: some View {
-        let stack = isVertical ? AnyLayout(VStackLayout(spacing: 0)) : AnyLayout(HStackLayout(spacing: 0))
-        stack {
-            ForEach(options.indices, id: \.self) { index in
-                let option = options[index]
+        ViewThatFits(in: .horizontal) {
+            row.fixedSize()
+                #if DEBUG
+                    .reportPrintFinishFrame(.row(label), selected: selectedTitle)
+                #endif
+            Picker(label, selection: Binding(get: { selection }, set: { choose($0) })) {
+                ForEach(options, id: \.value) { option in
+                    Text(option.title).tag(option.value)
+                }
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+            #if DEBUG
+                .reportPrintFinishFrame(.menu(label), selected: selectedTitle)
+            #endif
+        }
+        // Keep the group's spoken name and value when its children change from buttons to a picker.
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(Text(label))
+        .accessibilityValue(selectedTitle.map { Text($0) } ?? Text(verbatim: ""))
+        .help(Text(label))
+    }
+
+    private var selectedTitle: LocalizedStringKey? {
+        options.first { $0.value == selection }?.title
+    }
+
+    private var row: some View {
+        HStack(spacing: 0) {
+            ForEach(options, id: \.value) { option in
                 let isOn = option.value == selection
                 Button {
                     choose(option.value)
                 } label: {
+                    // Fit the row at a constant weight. Its side padding leaves room for the selected title.
                     Text(option.title)
-                        .font(.system(size: 12, weight: isOn ? .semibold : .regular))
-                        .foregroundStyle(isOn ? accentInk : PrintPalette.ink2)
-                        .lineLimit(1)
-                        .fixedSize()
+                        .fontWeight(.regular)
+                        .hidden()
                         .padding(.horizontal, 9)
-                        .frame(maxWidth: isVertical ? .infinity : nil, alignment: .leading)
+                        .overlay {
+                            Text(option.title)
+                                .fontWeight(isOn ? .semibold : .regular)
+                                .foregroundStyle(isOn ? accentInk : PrintPalette.ink2)
+                        }
+                        .font(.system(size: 12))
+                        .lineLimit(1)
                         .frame(height: 24)
                         .background(CornerRole.smallControl.shape.fill(isOn ? accent : .clear))
                         .contentShape(CornerRole.smallControl.shape)
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(isOn ? .isSelected : [])
+                #if DEBUG
+                    .reportPrintFinishFrame(.segment(option.title))
+                #endif
             }
         }
         .padding(2)
         .background(CornerRole.largeControl.shape.fill(PrintPalette.hover))
-        .fixedSize()
-        .help(help.map { Text($0) } ?? Text(label))
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(Text(label))
     }
 }
 

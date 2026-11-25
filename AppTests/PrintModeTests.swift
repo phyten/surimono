@@ -489,6 +489,241 @@ struct PrintModeTests {
         #expect(width(ideal.width + 2) >= ideal.width)
     }
 
+    #if DEBUG
+        @MainActor private final class FinishLayout {
+            private(set) var frames: [PrintFinishFrame] = []
+
+            func host(_ content: some View) -> NSView {
+                let panel =
+                    content
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .coordinateSpace(name: "printFinishPanel")
+                    .onPreferenceChange(PrintFinishFrames.self) { self.frames = $0 }
+                return NSHostingView(rootView: panel)
+            }
+
+            func checkBounds(in host: NSView) {
+                for frame in frames {
+                    let rect = frame.rect
+                    #expect(
+                        !rect.isEmpty && rect.minX >= host.bounds.minX && rect.maxX <= host.bounds.maxX,
+                        "item=\(frame.element) frame=\(rect) panel=\(host.bounds)")
+                }
+            }
+        }
+
+        @Test("改ページと目次は収まる幅で横一列になり、狭くするとメニューに同じ選択値が出る", arguments: ["en", "de", "ja"])
+        func finishSegmentsFit(language: String) {
+            func check<Value>(
+                _ label: LocalizedStringKey, _ choices: [PrintChoice<Value>], selected: Value, title: LocalizedStringKey
+            ) {
+                let segments = PrintSegments(label: label, options: choices, selection: selected) { _ in
+                    Issue.record("幅の変更で選択が書き換わった")
+                }
+                .environment(\.locale, Locale(identifier: language))
+                let controller = NSHostingController(rootView: segments)
+                let layout = FinishLayout()
+                let host = layout.host(segments)
+                let rowWidth = controller.sizeThatFits(in: CGSize(width: 1200, height: 100)).width
+                for width: CGFloat in [1200, 428, 411, 160, 1200] {
+                    let available = CGSize(width: width, height: 100)
+                    #expect(controller.sizeThatFits(in: available).width <= width)
+                    host.setFrameSize(available)
+                    host.layoutSubtreeIfNeeded()
+                    let placed = layout.frames.filter { $0.element == .row(label) || $0.element == .menu(label) }
+                    let expected: PrintFinishFrame.Element = rowWidth <= width ? .row(label) : .menu(label)
+                    #expect(placed.map(\.element) == [expected], "language=\(language) width=\(width)")
+                    #expect(placed.first?.selected == title)
+                    layout.checkBounds(in: host)
+                }
+            }
+            check("Page Breaks", PrintChapterBreakChoice.choices, selected: .page, title: "New Page for Each Chapter")
+            check("Contents Page", PrintContentsChoice.choices, selected: .front, title: "Add Contents to Front")
+        }
+
+        // The sheet normally rebuilds levelRow from its body when the document's rules change.
+        private struct HeadingBreakTestRow: View {
+            let model: DocumentViewModel
+
+            var body: some View {
+                PrintFinishSheet(model: model).levelRow(level: 2, rule: model.controlBinding(\.printFinish.breaks.h2))
+            }
+        }
+
+        @Test("切り替わる幅の前後では、三択を変えても形を保ち、読み上げの名前と値がモデルに合う", arguments: ["en", "de", "fr", "ja"])
+        func finishSelectionAtBoundary(language: String) throws {
+            let fixture = Fixture()
+            let model = fixture.model(format: .markdown)
+            let locale = Locale(identifier: language)
+            let url = try #require(Bundle.main.url(forResource: language, withExtension: "lproj"))
+            let strings = try #require(Bundle(url: url))
+
+            // SwiftUI's virtual children can expose the public AX selectors without NSAccessibilityProtocol conformance.
+            func containsChoice(in children: [Any], name: String, value: String) -> Bool {
+                for child in children {
+                    let node = child as AnyObject
+                    let rawValue: Any? = node.accessibilityValue?()
+                    if [node.accessibilityLabel?(), node.accessibilityTitle?()].contains(name),
+                        node.accessibilityValueDescription?() == value || rawValue as? String == value
+                    {
+                        return true
+                    }
+                    if containsChoice(in: node.accessibilityChildren?() ?? [], name: name, value: value) { return true }
+                }
+                return false
+            }
+
+            func check<Value: Equatable>(
+                _ control: some View, label: String, selection: Binding<Value>, choices: [(Value, String)]
+            ) throws {
+                let layout = FinishLayout()
+                let localized = control.environment(\.locale, locale).environment(\.accessibilityEnabled, true)
+                let boundary = NSHostingView(rootView: localized.fixedSize()).fittingSize.width
+                let host = layout.host(localized)
+                let key = LocalizedStringKey(label)
+                host.setFrameSize(CGSize(width: 1200, height: 100))
+                host.layoutSubtreeIfNeeded()
+                let row = try #require(layout.frames.first { $0.element == .row(key) })
+                let name = strings.localizedString(forKey: label, value: nil, table: nil)
+                for delta: CGFloat in [-1, 1] {
+                    host.setFrameSize(CGSize(width: boundary + delta, height: 100))
+                    for (value, title) in choices {
+                        selection.wrappedValue = value
+                        host.layoutSubtreeIfNeeded()
+                        let placed = layout.frames.filter { $0.element == .menu(key) || $0.element == .row(key) }
+                        #expect(selection.wrappedValue == value)
+                        #expect(placed.map(\.element) == [delta < 0 ? .menu(key) : .row(key)])
+                        #expect(placed.first?.selected == LocalizedStringKey(title))
+                        if delta > 0 { #expect(placed.first?.rect.width == row.rect.width) }
+                        let spoken = strings.localizedString(forKey: title, value: nil, table: nil)
+                        #expect(
+                            containsChoice(in: host.accessibilityChildren() ?? [], name: name, value: spoken),
+                            "language=\(language) name=\(name) value=\(spoken) delta=\(delta)")
+                    }
+                }
+            }
+            try check(
+                PrintChapterBreakChoice(model: model), label: "Page Breaks",
+                selection: model.controlBinding(\.printFinish.breaks.h1),
+                choices: [
+                    (.none, "Do Not Break at Headings"), (.page, "New Page for Each Chapter"),
+                    (.rightPage, "Chapters from Right Page"),
+                ])
+            try check(
+                PrintContentsChoice(model: model), label: "Contents Page",
+                selection: model.controlBinding(\.printFinish.toc.mode),
+                choices: [
+                    (.source, "Follow the Text's Contents"), (.front, "Add Contents to Front"),
+                    (.hidden, "Do Not Print Contents"),
+                ])
+            let rule = model.controlBinding(\.printFinish.breaks.h2)
+            try check(
+                HeadingBreakTestRow(model: model), label: "Page Breaks", selection: rule,
+                choices: [(.none, "None"), (.page, "Page Break"), (.rightPage, "From Right Page")])
+        }
+
+        @Test("幅428ptの印刷設定では英独の改ページと目次がメニューになり、日本語は横一列を保つ", arguments: ["en", "de", "ja"])
+        func finishChoicesInPanel(language: String) {
+            let fixture = Fixture()
+            let model = fixture.model(format: .markdown)
+            model.printFinish.breaks.h1 = .page
+            model.printFinish.toc.mode = .front
+            let layout = FinishLayout()
+            let host = layout.host(PrintFinishSheet(model: model).environment(\.locale, Locale(identifier: language)))
+            host.setFrameSize(CGSize(width: 428, height: 720))
+            host.layoutSubtreeIfNeeded()
+            func check(_ label: LocalizedStringKey, selected: LocalizedStringKey) {
+                let choices = layout.frames.filter { $0.selected == selected }
+                #expect(choices.map(\.element) == [language == "ja" ? .row(label) : .menu(label)])
+            }
+            check("Page Breaks", selected: "New Page for Each Chapter")
+            check("Contents Page", selected: "Add Contents to Front")
+        }
+
+        @Test("幅460ptの印刷設定は左右両方向で本文・見出し・区切り線・選択欄が両端に収まる", arguments: ["en", "fr"], [false, true])
+        func finishPanelFrames(language: String, rightToLeft: Bool) {
+            let fixture = Fixture()
+            fixture.preferences.layoutID = PrintLayout.a4Single.id
+            let model = fixture.model(format: .markdown)
+            model.printFinish.breaks.h1 = .page
+            let layout = FinishLayout()
+            let panel = PrintFinishSheet(model: model)
+                .environment(\.locale, Locale(identifier: language))
+                .environment(\.layoutDirection, rightToLeft ? .rightToLeft : .leftToRight)
+            let host = layout.host(panel)
+            host.setFrameSize(CGSize(width: 460, height: 720))
+            host.layoutSubtreeIfNeeded()
+
+            let sections: [LocalizedStringKey] = [
+                "Paper & Margins", "Header & Footer", "Page Breaks", "Contents Page", "Proof Marks", "Footnotes",
+                "Links on Paper", "Note Pages", "Printer Adjustments",
+            ]
+            let elements = layout.frames.map(\.element)
+            #expect(elements.contains(.content))
+            for (index, title) in sections.enumerated() {
+                #expect(elements.contains(.heading(title)))
+                if index > 0 { #expect(elements.contains(.divider(title))) }
+            }
+            // Depth stays inline in both languages, even when the chapter break choices use a popup.
+            #expect(elements.contains(.segment("Chapters")))
+            #expect(elements.contains(.segment("Sections")))
+            #expect(
+                layout.frames.contains {
+                    $0.element == .menu("Page Breaks") && $0.selected == "New Page for Each Chapter"
+                })
+            for picker: LocalizedStringKey in ["Proof Marks", "Footnotes", "Links on Paper"] {
+                #expect(elements.contains(.picker(picker)))
+            }
+            #expect(elements.contains(.menu("Output Order")) || elements.contains(.row("Output Order")))
+            layout.checkBounds(in: host)
+        }
+
+        @Test("英語の見出し別の三択はスクロールバーのある設定行でも一列に収まる", arguments: HeadingBreak.allCases)
+        func englishHeadingChoicesFit(rule: HeadingBreak) {
+            let fixture = Fixture()
+            let sheet = PrintFinishSheet(model: fixture.model(format: .markdown))
+            let row = sheet.levelRow(level: 1, rule: .constant(rule)).environment(\.locale, Locale(identifier: "en"))
+            // The captured 460 pt panel leaves 411 pt for this row and 256 pt after its label and gap.
+            let available = CGSize(width: 411, height: 200)
+            let size = NSHostingController(rootView: row).sizeThatFits(in: available)
+            #expect(size.width <= available.width)
+            let layout = FinishLayout()
+            let host = layout.host(row)
+            host.setFrameSize(available)
+            host.layoutSubtreeIfNeeded()
+            #expect(layout.frames.contains { $0.element == .row("Page Breaks") })
+            layout.checkBounds(in: host)
+        }
+
+        @Test("フランス語の出力順はプリンターの有無にかかわらず右列に収まる", arguments: PrintPageOrder.allCases, [false, true])
+        func frenchPrinterOrderFits(order: PrintPageOrder, hasPrinter: Bool) {
+            let fixture = Fixture()
+            fixture.preferences.printPageOrder = order
+            let model = fixture.model()
+            model.printerListSource = {
+                hasPrinter ? PrinterList(names: ["Test Printer"], defaultName: "Test Printer") : .empty
+            }
+            model.printerCapabilitiesSource = { _ in nil }
+            model.refreshPrinters()
+            #expect(model.selectedPrinterName == (hasPrinter ? "Test Printer" : nil))
+            let picker = PrintPrinterOptions(model: model).outputOrderPicker.environment(
+                \.locale, Locale(identifier: "fr"))
+            let controller = NSHostingController(rootView: picker)
+            let layout = FinishLayout()
+            let host = layout.host(picker)
+            for width: CGFloat in [256, 273] {
+                let size = CGSize(width: width, height: 100)
+                #expect(controller.sizeThatFits(in: size).width <= width)
+                host.setFrameSize(size)
+                host.layoutSubtreeIfNeeded()
+                #expect(layout.frames.map(\.element) == [.menu("Output Order")])
+                #expect(layout.frames.first?.isEnabled == hasPrinter)
+                layout.checkBounds(in: host)
+            }
+        }
+
+    #endif
+
     @Test("印刷の帯は幅0で大きさを聞かれても低いままで、刷り台の窓を縦に縮められる")
     func pressBarStaysLowAtZeroWidth() {
         let fixture = Fixture()

@@ -54250,6 +54250,59 @@
         }
       }
     },
+    "==page break==": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "==page break=="
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "＝＝改ページ＝＝"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "==分页=="
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "==分頁=="
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "==페이지 나누기=="
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "==Saut de page=="
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "==Umbruch=="
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "==Salto de página=="
+          }
+        }
+      }
+    },
     "Your Own Syntax": {
       "extractionState": "manual",
       "localizations": {

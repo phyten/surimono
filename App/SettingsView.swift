@@ -463,6 +463,7 @@ struct SettingsView: View {
                     Toggle("Rotate Back Sides 180°", isOn: $preferences.rotateBack)
                         .settingSearchRow("Rotate Back Sides 180°")
                     PrintPageOrderPicker(order: $preferences.printPageOrder)
+                        .pickerStyle(.segmented)
                         .settingSearchRow("Output Order")
                 } header: {
                     Text("Printers Without Remembered Settings")
