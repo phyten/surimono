@@ -35,7 +35,7 @@ struct SourcePaperCopyTests {
         let board = NSPasteboard(name: .init("SurimonoTests.source.\(UUID())"))
         defer { board.releaseGlobally() }
         var usedFallback = false
-        view.copySelection(to: board) { usedFallback = true }
+        view.copySelection(view.currentSelection, to: board) { usedFallback = true }
         if usedFallback {
             let detail = selectionDiagnostic(selection, on: view, logical: logical, source: source)
             try #require(!usedFallback, "原文と一致する選択で通常のコピーが呼ばれた \(detail)")
@@ -106,7 +106,7 @@ struct SourcePaperCopyTests {
         defer { board.releaseGlobally() }
         var called = false
         // Stand in for PDFView.copy so the test never changes the user's clipboard.
-        view.copySelection(to: board) {
+        view.copySelection(view.currentSelection, to: board) {
             called = true
             if let visible = view.currentSelection?.string { board.setString(visible, forType: .string) }
         }

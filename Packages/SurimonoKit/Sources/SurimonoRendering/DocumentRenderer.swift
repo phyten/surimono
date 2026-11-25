@@ -2194,7 +2194,7 @@ public final class DocumentRenderer {
 
     private enum DecodedPages: Sendable {
         case text(String, original: String?, language: SourceLanguage?, highlights: Bool)
-        case table(ArraySlice<[String]>, columns: Int?)
+        case table(ArraySlice<[String]>, columnGroup: String?)
 
         init(_ source: DocumentSource) throws {
             if source.format == .plainText {
@@ -2222,19 +2222,20 @@ public final class DocumentRenderer {
                     }
                     if count.isMultiple(of: 1024) { try Task.checkCancellation() }
                 }
-                self = .table(rows[...], columns: ReadingPrefix.csvColumns(in: rows))
+                self = .table(rows[...], columnGroup: ReadingPrefix.csvColumnGroup(in: rows))
             }
         }
 
         func leading(sourceBytes: Int) -> Self? {
             switch self {
-            case .text(let text, let original, let language, let highlights):
-                guard let prefix = ReadingPrefix.text(original ?? text, sourceBytes: sourceBytes) else { return nil }
-                return .text(
-                    original == nil ? prefix : TextDecoding.normalizeNewlines(prefix),
-                    original: original == nil ? nil : prefix, language: language, highlights: highlights)
-            case .table(let rows, let columns):
-                return ReadingPrefix.csv(rows).map { .table($0, columns: columns) }
+            case .text(let normalized, _, let language, _):
+                // Number gutters and long-line scaling for source code depend on the entire block.
+                guard language == nil, let prefix = ReadingPrefix.text(normalized, sourceBytes: sourceBytes) else {
+                    return nil
+                }
+                return .text(prefix, original: nil, language: nil, highlights: false)
+            case .table(let rows, let columnGroup):
+                return ReadingPrefix.csv(rows).map { .table($0, columnGroup: columnGroup) }
             }
         }
 
@@ -2244,8 +2245,8 @@ public final class DocumentRenderer {
                 var fragment = PlainTextConverter.convert(normalized, language: language, highlights: highlights)
                 fragment.sourceText = original
                 return fragment
-            case .table(let rows, let columns):
-                return CSVConverter.table(rows, fixedColumns: columns)
+            case .table(let rows, let columnGroup):
+                return CSVConverter.table(rows, columnGroup: columnGroup)
             }
         }
 

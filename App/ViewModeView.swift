@@ -250,9 +250,7 @@ private struct PaperArea: View {
         }
         .overlay(alignment: .bottom) {
             ZStack {
-                if model.readingPreview != nil {
-                    ProgressView().controlSize(.small).accessibilityLabel(Text("Preparing pages…"))
-                } else if model.trialThemeName != nil || updateDisplay != .hidden {
+                if model.readingPreview == nil && (model.trialThemeName != nil || updateDisplay != .hidden) {
                     Group {
                         if let name = model.trialThemeName {
                             ThemeTrialBadge(name: name, isReady: model.themeTrial.document != nil)
@@ -315,8 +313,8 @@ extension PaperView {
             model.dismissProseMark()
         }
         view.findQuery = model.find.query
-        view.onFindHits = { [weak model] pages, query in
-            guard let model, !model.isWindowClosed else { return }
+        view.onFindHits = { [weak model, weak document] pages, query in
+            guard let model, !model.isWindowClosed, let document, model.paperDocument === document else { return }
             model.paperFound(pages, for: query)
         }
         return view
@@ -326,12 +324,20 @@ extension PaperView {
 private struct ErrorPanel: View {
     @Bindable var model: DocumentViewModel
     let message: String
+    @State private var dismissed = false
 
     var body: some View {
+        if !dismissed || model.readingPreview == nil { panel }
+    }
+
+    private var panel: some View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle").font(.system(size: 28)).foregroundStyle(PrintPalette.ink2)
             Text(verbatim: message).multilineTextAlignment(.center).textSelection(.enabled)
             HStack {
+                if model.readingPreview != nil {
+                    Button("Dismiss") { dismissed = true }
+                }
                 if !model.layoutTooLarge {
                     Button("Reload") { model.reload() }
                 }

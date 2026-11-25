@@ -106,18 +106,36 @@ struct PrintSheetFlowTests {
         let renderer = DocumentRenderer(paginate: { _ in
             passes += 1
             if passes == 2 { try await gate.pass() }
-            return try #require(PDFDocument(data: TestFixtures.pdf("paper", pages: passes == 1 ? 3 : 15)))
+            let pages = Array(repeating: "name value", count: passes == 1 ? 3 : 15)
+            return try #require(PDFDocument(data: TestFixtures.textPDF(pages)))
         })
         let model = DocumentViewModel(
             data: Data(String(repeating: "name,value\n", count: 5_001).utf8), fileURL: nil, format: .csv,
             preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: directory),
             renderer: renderer)
+        model.updateViewOptions {
+            $0 = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .instant, showsCoverAlone: false)
+        }
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 594), styleMask: [.titled], backing: .buffered,
+            defer: true)
+        window.isReleasedWhenClosed = false
+        let host = NSHostingView(rootView: ViewModeView(model: model))
+        window.contentView = host
         defer {
             gate.release()
-            model.stop()
+            model.closeWindow()
+            window.contentView = nil
+            window.close()
         }
         model.render()
-        try await waitUntil { gate.waiting == 1 }
+        try await waitUntil {
+            host.layoutSubtreeIfNeeded()
+            return gate.waiting == 1 && model.paper.view?.document?.pageCount == 3
+                && model.paper.view?.visiblePages.isEmpty == false
+        }
+        let paper = try #require(model.paper.view)
+        try #require(paper.window === window)
         let preview = try #require(model.readingPreview)
         #expect(model.paperDocument === preview.document && model.paperPageCount == 3)
         #expect(model.isRendering && model.result == nil && !model.isUpToDate)
@@ -126,14 +144,49 @@ struct PrintSheetFlowTests {
         #expect(await model.beginThemedExport() == nil)
         model.toggleBookmark()
         #expect(model.bookmarks.isEmpty)
-        model.paperDidChangePage(2)
-        model.zoom = 1.75
-        model.enterPrintMode()
-        #expect(model.mode == .view && model.isPrintModeRequested)
+        model.find.text = "value"
+        model.performFind()
+        try await waitUntil { model.find.state.pages == [0, 1, 2] }
+        paper.goToPage(index: 2)
+        paper.setZoom(2, anchor: nil)
+        try await waitUntil { model.shownPageIndex == 2 && model.zoom == 2 }
+        let page = try #require(paper.document?.page(at: 2))
+        // Start away from the page origin so a swap which merely restores the page index cannot pass.
+        paper.go(to: PDFDestination(page: page, at: CGPoint(x: 0, y: page.bounds(for: .cropBox).maxY)))
+        let top = try #require(paper.currentDestination?.point)
+        paper.go(to: PDFDestination(page: page, at: CGPoint(x: 110, y: 500)))
+        let before = try #require(paper.currentDestination)
+        try #require(before.page === page && abs(before.point.y - top.y) > 40)
+        let position = before.point
+        let magnification = paper.scaleFactor
+        #expect(
+            model.isPreparingWholeDocument && !model.hasContents
+                && model.showsScrubberSlot == (model.menuArrangement == .split))
+        #expect(!model.canTurnPaperPage(forward: true))
+        #expect(!model.canRequestReadingPDF && !model.canRequestSheetOutput && !model.canExportReading(.richText))
+        let menu = MenuSnapshot.Content(model: model, preferences: model.preferences)
+        #expect(menu.enabled.contains(.documentPrint))
+        let deferred: Set<ShortcutOperationID> = [
+            .documentPrintSystem, .documentExportPDF, .documentExportReadingPDF, .documentExportPNG,
+            .documentExportHTML, .documentCopyHTML, .documentCopyRichText, .documentShare,
+        ]
+        #expect(menu.enabled.isDisjoint(with: deferred))
+        model.performPrintCommand()
+        #expect(model.mode == .view && model.previewPrintRequest.destination == .currentLayout)
+        model.chooseLayout(PrintLayout.a4Single.id)
+        #expect(model.previewPrintRequest.destination == nil)
         gate.release()
         try await waitUntil { model.isUpToDate }
         #expect(model.readingPreview == nil && model.paperDocument !== preview.document)
-        #expect(model.paperPageCount == 15 && model.currentPageIndex == 2 && model.zoom == 1.75)
+        try await waitUntil {
+            host.layoutSubtreeIfNeeded()
+            return paper.document?.pageCount == 15 && paper.currentDestination?.page === paper.document?.page(at: 2)
+        }
+        try await waitUntil { model.find.state.pages == Array(0..<15) }
+        let after = try #require(paper.currentDestination)
+        #expect(model.paper.view === paper && paper.currentPageIndex == 2 && model.currentPageIndex == 2)
+        #expect(model.zoom == 2 && paper.zoom == 2 && abs(paper.scaleFactor - magnification) < 0.01)
+        #expect(abs(after.point.x - position.x) < 3 && abs(after.point.y - position.y) < 3)
         #expect(passes == 2 && model.canExportReadingPDF)
     }
 
@@ -165,13 +218,114 @@ struct PrintSheetFlowTests {
         model.render()
         let older = try #require(model.renderTask)
         try await waitUntil { gate.waiting == 1 }
+        if heldPass == 2 { model.performPrintCommand() }
         model.replaceContent(Data("new log".utf8), format: .plainText)
         try await waitUntil { model.isUpToDate }
         let completed = try #require(model.result)
         gate.release()
         await older.value
+        #expect(model.mode == .view && model.previewPrintRequest.destination == nil)
         #expect(model.result?.viewDocument === completed.viewDocument)
         #expect(model.readingPreview == nil && model.paperPageCount == heldPass + 1 && model.isUpToDate)
+    }
+
+    @Test(
+        "全文を表示済みなら内容の再読み込みも余白変更も先頭の組版を省く",
+        .timeLimit(.minutes(1)), arguments: [false, true])
+    func completePaperStaysDuringReflow(changesMargins: Bool) async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let gate = CompositionGate()
+        var completePasses: [Bool] = []
+        let renderer = DocumentRenderer(paginate: { request in
+            guard case .html(let html, _) = request.source else { throw CocoaError(.fileReadCorruptFile) }
+            let complete = html.contains("<td>LAST_RECORD</td>")
+            completePasses.append(complete)
+            try await gate.pass()
+            return try #require(PDFDocument(data: TestFixtures.pdf("paper", pages: complete ? 8 : 2)))
+        })
+        let csv = String(repeating: "name,value\n", count: 5_001) + "LAST_RECORD,end"
+        let model = DocumentViewModel(
+            data: Data(csv.utf8), fileURL: nil, format: .csv,
+            preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: directory),
+            renderer: renderer)
+        defer {
+            gate.release()
+            model.stop()
+        }
+        model.render()
+        try await waitUntil { model.isUpToDate }
+        let existing = try #require(model.paperDocument)
+        #expect(completePasses == [false, true])
+        model.paperDidChangePage(6)
+        gate.isHeld = true
+        if changesMargins {
+            model.setMargins(model.printOptions.margins.top + 1)
+            model.renderForChangedSettings()
+        } else {
+            model.replaceContent(Data((csv + ",changed").utf8), format: .csv)
+        }
+        try await waitUntil { gate.waiting == 1 }
+        #expect(model.paperDocument === existing && model.readingPreview == nil)
+        #expect(completePasses == [false, true, true])
+        gate.release()
+        try await waitUntil { model.isUpToDate }
+        #expect(model.paperDocument !== existing && model.currentPageIndex == 6)
+        #expect(completePasses == [false, true, true])
+    }
+
+    enum PreviewOutcome: CaseIterable { case success, failure, close }
+
+    @Test(
+        "全文の完成で刷り台を開き、失敗時は先頭の紙を残し、閉じた窓は開かない",
+        .timeLimit(.minutes(1)), arguments: PreviewOutcome.allCases)
+    func pendingTray(outcome: PreviewOutcome) async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let gate = CompositionGate()
+        gate.isHeld = true
+        var passes = 0
+        let renderer = DocumentRenderer(paginate: { _ in
+            passes += 1
+            if passes == 2 {
+                try await gate.pass()
+                if outcome == .failure { throw CocoaError(.fileReadCorruptFile) }
+            }
+            return try #require(PDFDocument(data: TestFixtures.pdf("paper", pages: 3)))
+        })
+        let model = DocumentViewModel(
+            data: Data(String(repeating: "name,value\n", count: 5_001).utf8), fileURL: nil, format: .csv,
+            preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: directory),
+            renderer: renderer)
+        defer {
+            gate.release()
+            model.stop()
+        }
+        model.printerListSource = { .empty }
+        model.render()
+        let rendering = try #require(model.renderTask)
+        try await waitUntil { gate.waiting == 1 }
+        let prefix = try #require(model.readingPreview?.document)
+        model.chooseLayout(PrintLayout.a4Single.id)
+        #expect(model.previewPrintRequest.destination == .layout(PrintLayout.a4Single.id))
+        if outcome == .close { model.closeWindow() }
+        gate.release()
+        await rendering.value
+        #expect(model.previewPrintRequest.destination == nil && !model.isPreparingWholeDocument)
+        switch outcome {
+        case .success:
+            #expect(model.mode == .print && model.layoutID == PrintLayout.a4Single.id)
+        case .failure:
+            #expect(model.mode == .view && model.paperDocument === prefix && model.error != nil)
+            #expect(!model.canRequestPrint && !model.canExportReading(.png))
+            model.performPrintCommand()
+            #expect(model.previewPrintRequest.destination == nil)
+        case .close: #expect(model.mode == .view && model.isWindowClosed)
+        }
     }
 
     @Test("表示では用紙を作らず刷り台に入ると同じ論理ページを順に面付けする", .timeLimit(.minutes(1)))

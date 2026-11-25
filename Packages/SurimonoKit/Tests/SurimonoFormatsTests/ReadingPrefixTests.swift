@@ -66,4 +66,27 @@ struct ReadingPrefixTests {
         let rows = [["header"], [String(repeating: "x", count: 200_001)]] + Array(repeating: ["a"], count: 5_000)
         #expect(ReadingPrefix.csv(rows[...]) == nil)
     }
+
+    @Test("見出しを含む先頭千件の表示幅を使い、後から現れる列には最小幅を割り当てる")
+    func weightedColumns() {
+        var rows = [["id", "名前", "東京都内の窓口名", "detail"]] + Array(repeating: ["1"], count: 5_000)
+        rows[999] = ["1", "東京支店", "短文\n短文", String(repeating: "界", count: 10_000)]
+        rows[1_000] = ["1", "outside sample", "", "", "late column"]
+        let group = ReadingPrefix.csvColumnGroup(in: rows)
+        // Weights are 4, 8, 16, 32 and 4.
+        #expect(
+            group
+                == "<colgroup><col style=\"width:6.25%\"><col style=\"width:12.5%\"><col style=\"width:25.0%\"><col style=\"width:50.0%\"><col style=\"width:6.25%\"></colgroup>"
+        )
+        #expect(ReadingPrefix.csvColumnGroup(in: Array(rows.prefix(5_000))) == nil)
+    }
+    @Test("バイト制限で先頭から外れた列には、その長さにかかわらず最小幅を確保する")
+    func columnsBeyondByteBudget() {
+        let rows =
+            [["id"], ["1"], ["2", String(repeating: "長", count: 100_000)]]
+            + Array(repeating: ["3"], count: 5_000)
+        #expect(ReadingPrefix.csv(rows[...])?.count == 2)
+        #expect(ReadingPrefix.csvColumnGroup(in: rows) == "<colgroup><col span=\"2\" style=\"width:50.0%\"></colgroup>")
+    }
+
 }

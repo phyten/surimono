@@ -94,6 +94,7 @@ final class DocumentViewModel {
     private(set) var format: DocumentFormat
     private(set) var data: Data {
         didSet {
+            previewPageCountForBand = nil
             dataGeneration += 1
             orgFileInstructions = nil
         }
@@ -613,6 +614,10 @@ final class DocumentViewModel {
     }
 
     private(set) var readingPreview: DocumentRenderer.ReadingPreview?
+    // Keep the measured indicator slot through the swap so controls beside it stay under the pointer.
+    private(set) var previewPageCountForBand: Int?
+    var isPreparingWholeDocument: Bool { readingPreview != nil && isRendering && error == nil }
+    var previewPrintRequest = PreviewPrintRequest()
     private(set) var isRendering = false
     private(set) var isPrinting = false
     /// The printers the tray offers; refreshed when the tray opens and before each print.
@@ -1308,7 +1313,7 @@ final class DocumentViewModel {
         guard count > 0 else { return nil }
         let units = displayUnits(for: count)
         let pages = SpreadLayout.unitIndex(containing: index + 1, in: units).map { units[$0].pages } ?? [index + 1]
-        return PageIndicator.text(pages: pages, pageCount: count)
+        return PageIndicator.text(pages: pages, pageCount: count, provisional: readingPreview != nil)
     }
 
     /// The widest page indicator of this document, whose width the band keeps for the indicator.
@@ -1396,6 +1401,7 @@ final class DocumentViewModel {
     }
 
     func stop() {
+        previewPrintRequest.cancel()
         scrubber.cancel()
         thumbnailCache = nil
         pageUpdateTask?.cancel()
@@ -1504,6 +1510,7 @@ final class DocumentViewModel {
         reloadGeneration += 1
         let generation = reloadGeneration
         reloadTask?.cancel()
+        previewPrintRequest.cancel()
         // Invalidate captures before yielding for I/O: an old snapshot must never win this race.
         cancelRender()
         if reloadsWeb { cancelCapture() }
@@ -1581,6 +1588,7 @@ final class DocumentViewModel {
     }
 
     private func applyReload(reloadsWeb: Bool) {
+        previewPrintRequest.cancel()
         reloadedPages = .awaitingLayout
         // Companion files can change the headings even when the main LaTeX source is byte-for-byte identical.
         if format == .latex {
@@ -1784,6 +1792,7 @@ final class DocumentViewModel {
         if readingPreview != nil {
             if shownPageIndex != currentPageIndex { pendingRestoredPage = nil }
             currentPageIndex = shownPageIndex
+            find.discardPageMatches()
             readingPreview = nil
         }
     }
@@ -1832,8 +1841,9 @@ final class DocumentViewModel {
         let started = ContinuousClock.now
         let layoutsBefore = renderer.logicalRenderCount
         let generation = dataGeneration
+        // On reload or reflow the reader already has complete paper, even when its settings are stale.
         let showsLeadingPages =
-            mode == .view && binder == nil && imageBundle == nil
+            result == nil && mode == .view && binder == nil && imageBundle == nil
             && (format == .plainText || format == .csv)
         renderTask = Task { [weak self, renderer, binder, imageBundle] in
             guard !Task.isCancelled else { return }
@@ -1866,9 +1876,13 @@ final class DocumentViewModel {
                             guard let self, !Task.isCancelled, mode == .view, generation == dataGeneration,
                                 settings == renderSettings, currentPageIndex < preview.document.pageCount
                             else { return }
-                            // A reload on a later page keeps the previous complete paper until that page is available.
                             shownPageIndex = currentPageIndex
+                            previewPageCountForBand = preview.document.pageCount
                             readingPreview = preview
+                            if isPrintModeRequested {
+                                isPrintModeRequested = false
+                                if previewPrintRequest.destination == nil { previewPrintRequest.press(.currentLayout) }
+                            }
                             sizeWindowToPaper(initialOnly: true)
                         }
                     } else {
@@ -1885,6 +1899,7 @@ final class DocumentViewModel {
                     if readingPreview != nil {
                         if shownPageIndex != currentPageIndex { pendingRestoredPage = nil }
                         currentPageIndex = min(shownPageIndex, prepared.viewDocument.pageCount - 1)
+                        find.discardPageMatches()
                         readingPreview = nil
                     }
                     result = prepared
@@ -1967,6 +1982,11 @@ final class DocumentViewModel {
                     outputAfterReview = nil
                     run(output)
                 }
+                if previewPrintRequest.destination != nil, mode == .view, isUpToDate,
+                    let destination = previewPrintRequest.take()
+                {
+                    enterPrintMode(destination)
+                }
             } catch is CancellationError {
                 // A superseding request owns the progress indicator.
             } catch DocumentRenderer.RenderingError.imageChanged
@@ -1986,7 +2006,6 @@ final class DocumentViewModel {
                 if case DocumentRenderer.RenderingError.noReadableDocuments(let urls) = error { binder?.didFail(urls) }
                 if case DocumentRenderer.RenderingError.tooLarge = error { layoutTooLarge = true }
                 composingSheets = false
-                readingPreview = nil
                 self.error = Self.message(for: error)
                 pendingPrint = nil
                 pendingPrintIssue = nil
@@ -1999,7 +2018,13 @@ final class DocumentViewModel {
     }
 
     private func finishFirstRender(succeeded: Bool) {
-        if succeeded { applyRestoredPageIfReady() } else { refreshPageUpdate() }
+        if succeeded {
+            applyRestoredPageIfReady()
+        } else {
+            previewPrintRequest.cancel()
+            if readingPreview != nil { isPrintModeRequested = false }
+            refreshPageUpdate()
+        }
         if succeeded, !finishBinderRestorationIfReady() { return }
         let report = onFirstRender
         onFirstRender = nil
@@ -2205,14 +2230,16 @@ final class DocumentViewModel {
         viewOptions = options
     }
 
-    func enterPrintMode() {
+    func enterPrintMode(_ destination: PreviewPrintRequest.Destination = .currentLayout) {
+        if isPreparingWholeDocument || previewPrintRequest.destination != nil {
+            previewPrintRequest.press(destination)
+            return
+        }
+        guard readingPreview == nil else { return }
+        if case .layout(let id) = destination { layoutID = id }
         pendingPrintIssue = nil
         dropSpot()
         guard mode != .print else { return }
-        if readingPreview != nil {
-            requestPrintMode()
-            return
-        }
         guard mode == .view, isWebPresentation || isCapturingWeb || webCaptureFailed else { return showPrintTray() }
         // The tray prints the page as it is now. One request waits for the copy at a time, and it opens the tray
         // only if the reader has not chosen something else since.
@@ -2245,6 +2272,12 @@ final class DocumentViewModel {
     /// The tray keeps the window's frame for the way back, so a new window goes there only after it has taken the
     /// paper's shape; until then the request waits for `enterRequestedPrintMode()`.
     func requestPrintMode() {
+        if readingPreview != nil {
+            if isPreparingWholeDocument, previewPrintRequest.destination == nil {
+                previewPrintRequest.press(.currentLayout)
+            }
+            return
+        }
         isPrintModeRequested = true
         if !isRendering, hasSizedWindow || error != nil { enterRequestedPrintMode() }
     }
@@ -2306,6 +2339,7 @@ final class DocumentViewModel {
     func enterCompareMode() {
         guard !isWindowClosed else { return }
         guard mode == .view, usesPrintTheme else { return }
+        previewPrintRequest.cancel()
         pendingPrintIssue = nil
         dropSpot()
         isThemePalettePresented = false
@@ -4199,7 +4233,7 @@ final class DocumentViewModel {
 
     // A command from the reading window may enter the tray or request a fresh capture before output is ready.
     var canRequestSheetOutput: Bool {
-        !isPrinting && !isExporting
+        readingPreview == nil && !isPrinting && !isExporting
             && (mode != .print || canOutput || showsWeb || isCapturingWeb
                 || webCaptureFailed || isReviewingSmartRemoval || showsStaleDate)
     }
@@ -4346,7 +4380,7 @@ final class DocumentViewModel {
     }
 
     var canRequestReadingOutput: Bool {
-        !isExporting && !isPrinting
+        readingPreview == nil && !isExporting && !isPrinting
             && (error == nil || showsWeb || isCapturingWeb || webCaptureFailed || isReviewingSmartRemoval)
     }
 

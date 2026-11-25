@@ -89,6 +89,12 @@ final class PaperFind {
         return state.found(pages, for: query, readingPage: readingPage)
     }
 
+    func discardPageMatches() {
+        // Keep the query so finding it again on the complete paper does not move the reader.
+        guard !state.pages.isEmpty else { return }
+        state.found([], for: state.query, readingPage: 0)
+    }
+
     private func textChanged() {
         pause?.cancel()
         guard isPresented else { return }

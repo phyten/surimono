@@ -9,7 +9,8 @@ extension DocumentViewModel {
     var printCommand: PrintCommand { mode == .print ? .printNow : .enterPrintMode }
 
     var canPerformPrintCommand: Bool {
-        manualDuplexSession == nil && (mode != .print || canStartPrint)
+        manualDuplexSession == nil && (readingPreview == nil || isPreparingWholeDocument)
+            && (mode != .print || canStartPrint)
     }
 
     func performPrintCommand() {
@@ -90,7 +91,6 @@ extension DocumentViewModel {
     /// ⌘1–⌘6 and the layout cards: choose the layout and show it on the tray.
     func chooseLayout(_ id: String) {
         guard PrintLayout.presets.contains(where: { $0.id == id }) else { return }
-        layoutID = id
-        enterPrintMode()
+        enterPrintMode(.layout(id))
     }
 }

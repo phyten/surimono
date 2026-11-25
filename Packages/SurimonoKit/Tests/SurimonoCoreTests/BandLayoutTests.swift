@@ -28,6 +28,28 @@ struct BandLayoutTests {
         .print: .init(full: 70, compact: 34),
     ]
 
+    @Test("準備中の語を先に畳み、幅を詰めても進捗とページ数を残す")
+    func preparationWidth() throws {
+        let widths: [BandLayout.Item: BandLayout.Widths] = [
+            .pageIndicator: .init(full: 90, withoutSuffix: 50), .style: .init(full: 50, compact: 20),
+        ]
+        func plan(_ width: CGFloat) -> BandRowPlan? {
+            BandLayout.resolve(
+                arrangement: .init(bottomLeft: [.style], bottomRight: [.pageIndicator]),
+                mode: .split, availableItems: Set(widths.keys),
+                measurements: .init(items: widths, name: 0, scrubber: 120),
+                metrics: .init(topFixed: 0, bottomFixed: 0, separator: 0, titleGap: 0, toolGap: 0, outerGap: 0),
+                availableWidth: width
+            ).bottom
+        }
+        #expect(plan(260)?.forms[.pageIndicator] == .full)
+        #expect(plan(220)?.showsScrubber == true)
+        #expect(plan(220)?.forms == [.style: .full, .pageIndicator: .withoutSuffix])
+        #expect(plan(100)?.forms == [.style: .full, .pageIndicator: .withoutSuffix])
+        #expect(plan(50)?.forms == [.pageIndicator: .withoutSuffix])
+        #expect(plan(30)?.minimumWidth == 50)
+    }
+
     @Test("標準の上下配置は現在の部品順と一致する")
     func frozenSplit() {
         let top = BandLayout.Item.allCases.filter { BandLayout.position(of: $0, in: .split) == .top }

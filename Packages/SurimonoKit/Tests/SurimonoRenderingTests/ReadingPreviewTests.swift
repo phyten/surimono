@@ -18,6 +18,7 @@ struct ReadingPreviewTests {
             preset: HTMLCleanupPreset(id: "none", name: "None"))
         var events: [String] = []
         var sizes: [CGSize] = []
+        var groups: [Substring] = []
         let renderer = DocumentRenderer(
             isSandboxed: { false },
             paginate: { request in
@@ -27,7 +28,9 @@ struct ReadingPreviewTests {
                 }
                 #expect(html.contains("<thead><tr><th>head</th><th>value</th></tr></thead>"))
                 #expect(html.contains("<td>a,b</td>"))
-                #expect(html.contains("<colgroup><col span=\"3\"></colgroup>") == (records > 5_000))
+                if let start = html.range(of: "<colgroup>"), let end = html.range(of: "</colgroup>") {
+                    groups.append(html[start.upperBound..<end.lowerBound])
+                }
                 #expect(html.contains("table-layout:fixed") == (records > 5_000))
                 sizes.append(request.pageSize)
                 let complete = html.contains("<td>LAST_RECORD</td>")
@@ -42,12 +45,46 @@ struct ReadingPreviewTests {
             Issue.record("完成済みの文書を先頭の紙で置き換えた")
         }
         #expect(events == (records == 5_000 ? ["complete"] : ["prefix", "shown", "complete"]))
+        if records > 5_000 {
+            #expect(groups.count == 2 && groups.first == groups.last)
+            #expect(groups.first?.components(separatedBy: "style=\"width:").count == 4)
+        } else {
+            #expect(groups.isEmpty)
+        }
         #expect(ready.viewDocument.pageCount == 3 && ready.viewDocument === cached.viewDocument)
         renderer.clearCache()
         events.removeAll()
         _ = try await renderer.prepare(source, settings: settings)
         #expect(events == ["complete"])
         #expect(sizes.allSatisfy { $0 == sizes.first })
+    }
+
+    @Test("後半に長い行がある大きなソースコードは全文だけを組む", .timeLimit(.minutes(1)))
+    func sourceUsesWholeBlock() async throws {
+        let code =
+            String(repeating: "// " + String(repeating: "a", count: 100) + "\n", count: 10_000)
+            + "// LONG_TAIL" + String(repeating: "b", count: 1_000)
+        let source = DocumentSource(data: Data(code.utf8), format: .plainText).named("example.swift")
+        let settings = RenderSettings(
+            layout: .a4Single, theme: PrintTheme(id: "test", name: "Test", css: ""),
+            preset: HTMLCleanupPreset(id: "none", name: "None"))
+        var passes = 0
+        let renderer = DocumentRenderer(
+            isSandboxed: { false },
+            paginate: { request in
+                passes += 1
+                if case .html(let html, _) = request.source {
+                    #expect(html.contains("<pre class=\"surimono-source"))
+                    #expect(html.contains("LONG_TAIL"))
+                } else {
+                    Issue.record("ソースコードのHTMLが渡されなかった")
+                }
+                return try RenderingFixtures.pdf(size: request.pageSize)
+            })
+        _ = try await renderer.prepare(source, settings: settings) { _ in
+            Issue.record("言語を検出したソースコードの先頭だけを表示した")
+        }
+        #expect(passes == 1)
     }
 
     @Test("Shift_JISのログの先頭と末尾を同じ復号結果から組む", .timeLimit(.minutes(1)))

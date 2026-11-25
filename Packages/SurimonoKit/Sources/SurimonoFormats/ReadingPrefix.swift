@@ -34,9 +34,44 @@ package enum ReadingPrefix {
         return String(decoding: bytes[..<end], as: UTF8.self)
     }
 
-    package static func csvColumns(in rows: [[String]]) -> Int? {
-        guard rows.count > csvThresholdRecords else { return nil }
-        return rows.lazy.map(\.count).max()
+    package static func csvColumnGroup(in rows: [[String]]) -> String? {
+        guard rows.count > csvThresholdRecords, let columns = rows.lazy.map(\.count).max(), columns > 0 else {
+            return nil
+        }
+        // Reserve late columns before laying out either table. A long description can claim up to
+        // eight times the space of an ID, regardless of how many megabytes the field contains.
+        var weights = Array(repeating: UInt8(4), count: columns)
+        // A wide record may exhaust the prefix byte budget before the record limit.
+        let sample = csv(rows[...]) ?? rows.prefix(csvLeadingRecords)
+        for row in sample {
+            for (column, cell) in row.enumerated() where weights[column] < 32 {
+                var line = 0
+                for character in cell {
+                    if character.isNewline {
+                        line = 0
+                    } else {
+                        line +=
+                            character.isEastAsianWide
+                                || character.unicodeScalars.first?.properties.isEmojiPresentation == true ? 2 : 1
+                        weights[column] = max(weights[column], UInt8(min(line, 32)))
+                        if line >= 32 { break }
+                    }
+                }
+            }
+        }
+        let total = Double(weights.reduce(0) { $0 + Int($1) })
+        var group = "<colgroup>"
+        var start = 0
+        // A sparse record can add many equal columns. HTML limits each col span to 1,000.
+        while start < columns {
+            let weight = weights[start]
+            var end = start + 1
+            while end < columns, end - start < 1_000, weights[end] == weight { end += 1 }
+            let span = end - start > 1 ? " span=\"\(end - start)\"" : ""
+            group += "<col\(span) style=\"width:\(100 * Double(weight) / total)%\">"
+            start = end
+        }
+        return group + "</colgroup>"
     }
 
     package static func csv(_ rows: ArraySlice<[String]>) -> ArraySlice<[String]>? {

@@ -179,6 +179,10 @@ public enum BandLayout {
         spacing: ([Item: Form]) -> CGFloat
     ) -> Plan {
         var forms = forms
+        let reservesProgress = widths[.pageIndicator]?.withoutSuffix != nil
+        if reservesProgress, itemWidth(forms, widths: widths) + spacing(forms) + name > available {
+            forms[.pageIndicator] = .withoutSuffix
+        }
         // Additional labels yield before the document name. Legacy callers keep their original collapse order.
         for item in compactBeforeName where itemWidth(forms, widths: widths) + spacing(forms) + name > available {
             if forms[item] == .full, widths[item]?.compact != nil { forms[item] = .compact }
@@ -195,6 +199,7 @@ public enum BandLayout {
                 }
                 if forms[item] != nil, widths[item]?.compact != nil { forms[item] = .compact }
             case .remove(let item):
+                if item == .pageIndicator && reservesProgress { continue }
                 if forms.removeValue(forKey: item) != nil { removed.insert(item) }
             }
         }
@@ -281,14 +286,21 @@ public enum BandLayout {
                     + visibleSeparators(in: trailingForSeparators, forms: forms),
                 position: position, mode: mode, metrics: metrics, standardSpacing: standardSpacing, moreDock: moreDock)
         }
-        let preferredForms = Dictionary(
+        var preferredForms = Dictionary(
             uniqueKeysWithValues: widths.map { ($0.key, names.preferredForm(for: $0.key, widths: $0.value)) })
+        // The preparation word yields before the slider, even when the entire row otherwise fits.
+        if position == .bottom, let rail = measurements.scrubber, widths[.pageIndicator]?.withoutSuffix != nil,
+            itemWidth(preferredForms, widths: widths) + geometry(preferredForms).spacingWidth + rail > availableWidth
+        {
+            preferredForms[.pageIndicator] = .withoutSuffix
+        }
         let plan = collapse(
             forms: preferredForms, widths: widths, name: name, available: availableWidth,
             steps: physicalSteps(at: position),
             compactBeforeName: additionalCompactOrder
         ) { geometry($0).spacingWidth }
-        let minimumForms: [Item: Form] = widths[.print].map { [.print: $0.compact == nil ? .full : .compact] } ?? [:]
+        var minimumForms: [Item: Form] = widths[.print].map { [.print: $0.compact == nil ? .full : .compact] } ?? [:]
+        if widths[.pageIndicator]?.withoutSuffix != nil { minimumForms[.pageIndicator] = .withoutSuffix }
         // Only the surplus of the *unfolded* row belongs to the scrubber. A label folding must never
         // make the scrubber reappear. The ordinary spacer minimum remains as clearance for the controls.
         let resolvedGeometry = geometry(plan.forms)

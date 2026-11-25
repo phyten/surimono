@@ -162,8 +162,7 @@ struct BandPlans {
             widths[item] = BandLayout.Widths(
                 full: measured[.item(item, .full)] ?? 0,
                 compact: item.hasCompactForm(for: model) ? measured[.item(item, .compact)] ?? 0 : nil,
-                withoutSuffix: item == .formatBadge && model.offersLaTeXComposition
-                    && model.latexComposition != .document
+                withoutSuffix: item.hasIntermediateForm(for: model)
                     ? measured[.item(item, .withoutSuffix)] : nil)
         }
         let lights = OverlayBand.lights(model: model, menu: menu)
@@ -180,7 +179,7 @@ struct BandPlans {
             availableItems: Set(applicable),
             measurements: BandMeasurementsValue(
                 items: widths, name: measured[.name] ?? .greatestFiniteMagnitude,
-                scrubber: model.offersScrubber && menu.bandWidth > 0 ? measured[.scrubber] : nil),
+                scrubber: model.showsScrubberSlot && menu.bandWidth > 0 ? measured[.scrubber] : nil),
             metrics: metrics,
             availableWidth: availableWidth ?? (menu.bandWidth > 0 ? menu.bandWidth : .greatestFiniteMagnitude),
             names: model.preferences.bandNames)
@@ -529,8 +528,14 @@ struct BottomBand: View {
         HStack(spacing: spacing) {
             HStack(spacing: spacing) { bandParts(row.leading, row: row, model: model) }.fixedSize()
             if row.showsScrubber {
-                PageScrubber(model: model)
-                    .padding(.horizontal, Self.spacerMinimum / 2)
+                Group {
+                    if model.offersScrubber {
+                        PageScrubber(model: model)
+                    } else {
+                        PageScrubberRail(current: 0, hover: nil, ticks: []).opacity(0.45).accessibilityHidden(true)
+                    }
+                }
+                .padding(.horizontal, Self.spacerMinimum / 2)
             } else {
                 Spacer(minLength: Self.spacerMinimum)
             }
@@ -570,7 +575,13 @@ struct PrintButton: View {
         Button {
             model.performPrintCommand()
         } label: {
-            if iconOnly {
+            if model.previewPrintRequest.destination != nil {
+                HStack(spacing: 4) {
+                    ProgressView().controlSize(.mini).tint(.white)
+                    if !iconOnly { Text("Print When Ready") }
+                }
+                .accessibilityLabel(Text("Print When Ready"))
+            } else if iconOnly {
                 Label(LocalizedStringKey(Self.titleKey), systemImage: "printer").labelStyle(.iconOnly)
             } else {
                 Label(LocalizedStringKey(Self.titleKey), systemImage: "printer").labelStyle(.titleAndIcon)
@@ -582,7 +593,11 @@ struct PrintButton: View {
         .controlSize(ViewerWindow.bandControlSize)
         // The file name gives way to the one button that must always show in full.
         .fixedSize()
-        .help(ShortcutHints.help(String(localized: "Open the print screen"), [.documentPrint]))
+        .disabled(!model.canPerformPrintCommand)
+        .help(
+            ShortcutHints.help(
+                model.previewPrintRequest.destination == nil
+                    ? String(localized: "Open the print screen") : String(localized: "Cancel"), [.documentPrint]))
     }
 }
 

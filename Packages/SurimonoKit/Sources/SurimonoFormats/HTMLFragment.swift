@@ -155,21 +155,17 @@ public enum CSVConverter {
         return table(rows[...])
     }
 
-    package static func table(_ rows: ArraySlice<[String]>, fixedColumns: Int? = nil) -> HTMLFragment {
+    package static func table(_ rows: ArraySlice<[String]>, columnGroup: String? = nil) -> HTMLFragment {
         func render(_ fields: [String], tag: String) -> String {
             "<tr>" + fields.map { "<\(tag)>\(HTML.escape($0))</\(tag)>" }.joined() + "</tr>"
         }
         let head = rows.first.map { render($0, tag: "th") } ?? ""
         let body = rows.dropFirst().map { render($0, tag: "td") }.joined()
         var opening = "<table class=\"surimono-csv\">"
-        if let fixedColumns {
-            // The last record can introduce another column. Reserve it on the first page as well.
+        if let columnGroup {
             opening =
-                "<table class=\"surimono-csv\" style=\"width:100%;table-layout:fixed;overflow-wrap:anywhere\"><colgroup>"
-            for offset in stride(from: 0, to: fixedColumns, by: 1_000) {
-                opening += "<col span=\"\(min(fixedColumns - offset, 1_000))\">"
-            }
-            opening += "</colgroup>"
+                "<table class=\"surimono-csv\" style=\"width:100%;table-layout:fixed;overflow-wrap:anywhere\">"
+                + columnGroup
         }
         return HTMLFragment(body: "\(opening)<thead>\(head)</thead><tbody>\(body)</tbody></table>")
     }
