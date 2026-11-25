@@ -86,11 +86,14 @@ struct PrintSegments<Value: Hashable>: View {
             }
             .pickerStyle(.menu)
             .labelsHidden()
-            .accessibilityLabel(Text(label))
             #if DEBUG
                 .reportPrintFinishFrame(.menu(label), selected: selectedTitle)
             #endif
         }
+        // Keep the group's spoken name and value when its children change from buttons to a picker.
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(Text(label))
+        .accessibilityValue(selectedTitle.map { Text($0) } ?? Text(verbatim: ""))
         .help(Text(label))
     }
 
@@ -105,11 +108,18 @@ struct PrintSegments<Value: Hashable>: View {
                 Button {
                     choose(option.value)
                 } label: {
+                    // Fit the row at a constant weight. Its side padding leaves room for the selected title.
                     Text(option.title)
-                        .font(.system(size: 12, weight: isOn ? .semibold : .regular))
-                        .foregroundStyle(isOn ? accentInk : PrintPalette.ink2)
-                        .lineLimit(1)
+                        .fontWeight(.regular)
+                        .hidden()
                         .padding(.horizontal, 9)
+                        .overlay {
+                            Text(option.title)
+                                .fontWeight(isOn ? .semibold : .regular)
+                                .foregroundStyle(isOn ? accentInk : PrintPalette.ink2)
+                        }
+                        .font(.system(size: 12))
+                        .lineLimit(1)
                         .frame(height: 24)
                         .background(CornerRole.smallControl.shape.fill(isOn ? accent : .clear))
                         .contentShape(CornerRole.smallControl.shape)
@@ -123,9 +133,6 @@ struct PrintSegments<Value: Hashable>: View {
         }
         .padding(2)
         .background(CornerRole.largeControl.shape.fill(PrintPalette.hover))
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(Text(label))
-        .accessibilityValue(selectedTitle.map { Text($0) } ?? Text(verbatim: ""))
     }
 }
 
