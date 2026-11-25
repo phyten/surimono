@@ -18,6 +18,19 @@ public enum TextDecoding {
         signatures.first { bytes.starts(with: $0.0) }.map { ($0.0.count, $0.1) }
     }
 
+    /// Reject a lossy decode for display while keeping the tolerant decoder available to format detection.
+    package static func losslessText(_ data: Data, preservingLineEndings: Bool = false) -> String? {
+        let decoded = decode(data, preservingLineEndings: preservingLineEndings)
+        guard String(data: data, encoding: decoded.encoding) != nil else { return nil }
+        if let (signature, encoding) = signatures.first(where: { data.starts(with: $0.0) }) {
+            let payload = data.dropFirst(signature.count)
+            guard let text = String(data: payload, encoding: encoding), text.data(using: encoding) == payload else {
+                return nil
+            }
+        }
+        return decoded.text
+    }
+
     public static func decode(_ data: Data, preservingLineEndings: Bool = false) -> DecodedText {
         func result(_ text: String, _ encoding: String.Encoding) -> DecodedText {
             DecodedText(text: preservingLineEndings ? text : normalizeNewlines(text), encoding: encoding)

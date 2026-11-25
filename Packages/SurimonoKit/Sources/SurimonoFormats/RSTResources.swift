@@ -28,7 +28,7 @@ extension RSTDocument {
     func rstRead(_ file: URL) -> String? {
         // Bound the aggregate, too: a small acyclic include tree may repeat the same subtree many times.
         let remaining = 5_000_000 - directives.bytesRead
-        guard remaining > 0, directives.readCount < 256, let directory,
+        guard readsIncludes, remaining > 0, directives.readCount < 256, let directory,
             let data = try? ConfinedFile.readPermitted(
                 file, within: directory.path, maximumSize: remaining, permitsOpenedFile: permitsFile)
         else { return nil }

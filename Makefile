@@ -21,7 +21,7 @@ FIXED ?=
 
 XCODEBUILD = xcodebuild -quiet -project Surimono.xcodeproj -scheme Surimono -derivedDataPath "$(DERIVED_DATA)" -destination 'platform=macOS'
 SWIFT_TEST = swift test --package-path Packages/SurimonoKit
-SWIFT_PATHS = Tools/PageAX/Package.swift Tools/PageAX/Sources Tools/PageAX/Tests Tools/Snapshots/Package.swift Tools/Snapshots/Sources Tools/Snapshots/Tests App AppTests Packages/SurimonoKit/Sources Packages/SurimonoKit/Tests
+SWIFT_PATHS = Tools/PageAX/Package.swift Tools/PageAX/Sources Tools/PageAX/Tests Tools/Snapshots/Package.swift Tools/Snapshots/Sources Tools/Snapshots/Tests App QuickLook AppTests Packages/SurimonoKit/Sources Packages/SurimonoKit/Tests
 APP = $(DERIVED_DATA)/Build/Products/$(CONFIGURATION)/Surimono.app
 RELEASE_APP = $(DERIVED_DATA)/Build/Products/Release/Surimono.app
 # Both app targets make Surimono.app (the menu bar shows PRODUCT_NAME), so the App Store app gets derived data of its own.
@@ -232,6 +232,8 @@ build-appstore:
 
 # The App Store build must be sandboxed and must not carry or load Sparkle: the App Store updates the app.
 check-appstore: build-appstore
+	test -x "$(APP_STORE_APP)/Contents/PlugIns/SurimonoQuickLook.appex/Contents/MacOS/SurimonoQuickLook"
+	codesign -d --entitlements - --xml "$(APP_STORE_APP)/Contents/PlugIns/SurimonoQuickLook.appex" 2>/dev/null | plutil -convert json -o - - | jq -e '.["com.apple.security.app-sandbox"] == true and .["com.apple.security.files.user-selected.read-only"] == true and (.["com.apple.security.network.client"] != true) and (.["com.apple.security.network.server"] != true)' >/dev/null
 	codesign -d --entitlements - --xml "$(APP_STORE_APP)" 2>/dev/null | grep -q '<key>com.apple.security.app-sandbox</key><true/>'
 	frameworks="$$(find "$(APP_STORE_APP)" -name Sparkle.framework -print)" && test -z "$$frameworks"
 	libraries="$$(otool -L "$(APP_STORE_APP)/Contents/MacOS/Surimono")" && ! printf '%s\n' "$$libraries" | grep -q Sparkle

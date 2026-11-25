@@ -321,17 +321,19 @@ final class ScriptConverterHost: @unchecked Sendable {
     }
 
     func fragment(
-        _ source: String, notice: @autoclosure () -> String,
+        _ source: String, fallsBackToSource: Bool = true, notice: @autoclosure () -> String,
         rewrite: (ScriptDocument) throws -> HTMLFragment
     ) throws -> HTMLFragment {
         // Check bytes before entering the VM; a document that fits but converts too slowly is shown as text too.
-        guard source.utf8.count <= 5_000_000 else {
+        guard source.utf8.count <= DocumentSizeLimits.markupReaderBytes else {
+            guard fallsBackToSource else { throw CocoaError(.fileReadTooLarge) }
             return HTMLFragment(body: "<p>\(HTML.escape(notice()))</p>" + PlainTextConverter.convert(source).body)
         }
         let document: ScriptDocument
         do {
             document = try parts(source)
         } catch ScriptError.timedOut {
+            guard fallsBackToSource else { throw ScriptError.timedOut }
             let message = String(localized: "This document took too long to read. Showing the original text.")
             return HTMLFragment(body: "<p>\(HTML.escape(message))</p>" + PlainTextConverter.convert(source).body)
         }

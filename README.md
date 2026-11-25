@@ -35,6 +35,7 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 - Set two global shortcuts in Settings > Keyboard Shortcuts to open the clipboard in the viewer or on the print screen while Surimono is running (both are unset by default).
 - Open or print selected text from any app with the Services menu (Open in Surimono, Print with Surimono). It stays in memory until you choose Save as File…
 - Bind a Markdown file's parts: `<<[file]` (Marked), `{{file}}` (MultiMarkdown), `/file` (iA Writer), or a SUMMARY.md of links open as a binder when you ask, with the parent's text as a preface
+- In Finder, select a Markdown, Org, AsciiDoc, reStructuredText, LaTeX, Djot, Textile, MediaWiki, Jupyter Notebook, Quarto, or R Markdown file and press Space. Quick Look shows a scrolling preview in Surimono’s Standard style, offline.
 - Streaming Preview, compatible with [Marked's](https://markedapp.com/help/Streaming_Preview): apps that write to the `mkStreamingPreview` pasteboard appear live, without a file (the base URL for relative images is not used). A leading `<!--format: org-->` comment selects the format
 - Syntax highlighting for Markdown and Org code blocks, plus Markdown callouts (`:::` and `> [!note]`) with a tag, an icon and a line of their own that tell the kinds apart even in black and white, rendered offline without JavaScript
 - Extended Markdown: footnotes, `==highlight==`, `^superscript^` and `~subscript~`, ruby `{漢字|かんじ}`, emoji `:tada:`, definition lists, heading ids and a `[TOC]` table of contents

@@ -7,14 +7,25 @@ public enum RSTConverter {
     public static func convert(
         _ source: String, directory: URL? = nil, permitsFile: @escaping @Sendable (URL) -> Bool = { _ in true }
     ) -> HTMLFragment {
-        // On a stack of known size, so a document reads the same on every thread.
-        StackSpace.onLargeStack { convertInPlace(source, directory: directory, permitsFile: permitsFile) }
+        convert(source, directory: directory, readsIncludes: true, permitsFile: permitsFile)
     }
 
-    private static func convertInPlace(_ source: String, directory: URL?, permitsFile: @escaping (URL) -> Bool)
+    package static func convert(
+        _ source: String, directory: URL?, readsIncludes: Bool,
+        permitsFile: @escaping @Sendable (URL) -> Bool = { _ in true }
+    ) -> HTMLFragment {
+        // On a stack of known size, so a document reads the same on every thread.
+        StackSpace.onLargeStack {
+            convertInPlace(source, directory: directory, readsIncludes: readsIncludes, permitsFile: permitsFile)
+        }
+    }
+
+    private static func convertInPlace(
+        _ source: String, directory: URL?, readsIncludes: Bool, permitsFile: @escaping (URL) -> Bool
+    )
         -> HTMLFragment
     {
-        let document = RSTDocument(directory: directory, permitsFile: permitsFile)
+        let document = RSTDocument(directory: directory, readsIncludes: readsIncludes, permitsFile: permitsFile)
         var normalized = TextDecoding.normalizeNewlines(source)
         if normalized.first == "\u{feff}" { normalized.removeFirst() }
         let lines = normalized.components(separatedBy: "\n").map(RSTDocument.expandTabs)
@@ -31,6 +42,7 @@ public enum RSTConverter {
 final class RSTDocument {
     let directory: URL?
     let permitsFile: (URL) -> Bool
+    let readsIncludes: Bool
     var references = RSTReferences()
     var directives = RSTDirectiveState()
     var anchors: [MarkdownExtensions.HeadingAnchor] = []
@@ -40,12 +52,13 @@ final class RSTDocument {
     private var adornments: [String: Int] = [:]
     var depth = 0
 
-    init(directory: URL?, permitsFile: @escaping (URL) -> Bool) {
+    init(directory: URL?, readsIncludes: Bool = true, permitsFile: @escaping (URL) -> Bool) {
         // Anchor all later relative reads to the directory identified when conversion starts.
         self.directory = directory.flatMap { url in
             guard url.isFileURL, let path = try? ConfinedFile.canonicalPath(url) else { return nil }
             return URL(fileURLWithPath: path, isDirectory: true)
         }
+        self.readsIncludes = readsIncludes
         self.permitsFile = permitsFile
     }
 

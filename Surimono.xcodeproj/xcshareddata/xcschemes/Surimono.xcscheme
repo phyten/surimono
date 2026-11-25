@@ -5,6 +5,9 @@
       <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
         <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="A00000000000000000000030" BuildableName="Surimono.app" BlueprintName="Surimono" ReferencedContainer="container:Surimono.xcodeproj"/>
       </BuildActionEntry>
+      <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
+        <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="B00000000000000000000011" BuildableName="SurimonoQuickLook.appex" BlueprintName="SurimonoQuickLook" ReferencedContainer="container:Surimono.xcodeproj"/>
+      </BuildActionEntry>
       <BuildActionEntry buildForTesting="YES" buildForRunning="NO" buildForProfiling="NO" buildForArchiving="NO" buildForAnalyzing="YES">
         <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="A00000000000000000000031" BuildableName="SurimonoTests.xctest" BlueprintName="SurimonoTests" ReferencedContainer="container:Surimono.xcodeproj"/>
       </BuildActionEntry>

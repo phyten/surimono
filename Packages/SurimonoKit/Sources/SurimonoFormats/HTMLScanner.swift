@@ -24,14 +24,17 @@ package struct HTMLScanner {
     private static let rawTextElements: Set<String> = ["script", "style", "textarea", "title"]
 
     package static func tokens(_ html: String) -> [Token] {
-        let bytes = Array(html.utf8)
         var tokens: [Token] = []
+        forEachToken(html) { tokens.append($0) }
+        return tokens
+    }
+
+    /// Visits large fragments without retaining a second copy of every token.
+    package static func forEachToken(_ html: String, visit: (Token) throws -> Void) rethrows {
+        let bytes = Array(html.utf8)
         var textStart = 0
         var index = 0
         func string(_ range: Range<Int>) -> String { String(decoding: bytes[range], as: UTF8.self) }
-        func flushText(upTo end: Int) {
-            if textStart < end { tokens.append(.text(string(textStart..<end))) }
-        }
         var tagEnds = TagEnds(bytes)
         while index < bytes.count {
             guard bytes[index] == UInt8(ascii: "<"), let end = markupEnd(in: bytes, at: index, tagEnds: &tagEnds)
@@ -39,24 +42,23 @@ package struct HTMLScanner {
                 index += 1
                 continue
             }
-            flushText(upTo: index)
+            if textStart < index { try visit(.text(string(textStart..<index))) }
             guard let tag = tag(string(index..<end)) else {
-                tokens.append(.opaque(string(index..<end)))
+                try visit(.opaque(string(index..<end)))
                 index = end
                 textStart = end
                 continue
             }
-            tokens.append(.tag(tag))
+            try visit(.tag(tag))
             index = end
             if !tag.isClosing, !tag.isSelfClosing, rawTextElements.contains(tag.name) {
                 let close = closingTag(of: tag.name, in: bytes, from: index)
-                if index < close { tokens.append(.opaque(string(index..<close))) }
+                if index < close { try visit(.opaque(string(index..<close))) }
                 index = close
             }
             textStart = index
         }
-        flushText(upTo: bytes.count)
-        return tokens
+        if textStart < bytes.count { try visit(.text(string(textStart..<bytes.count))) }
     }
 
     /// Where a tag that starts scanning at an offset ends. Scanning forward from every `<` is quadratic when the
@@ -202,10 +204,21 @@ package struct HTMLScanner {
     }
 
     private static func attribute(_ wanted: String, inTag source: String) -> String? {
+        var found: String?
+        visitAttributes(in: source) { name, value in
+            guard name == wanted else { return true }
+            found = decodingEntities(value)
+            return false
+        }
+        return found
+    }
+
+    /// The visitor can stop after the first matching attribute. Values still contain HTML entities.
+    package static func visitAttributes(in source: String, visit: (String, String) -> Bool) {
         var rest = source.drop { !$0.isWhitespace && $0 != ">" }
         while true {
             rest = rest.drop { $0.isWhitespace || $0 == "/" }
-            guard let first = rest.first, first != ">" else { return nil }
+            guard let first = rest.first, first != ">" else { return }
             let name = rest.prefix { !$0.isWhitespace && $0 != "=" && $0 != ">" && $0 != "/" }
             rest = rest.dropFirst(name.count).drop(while: \.isWhitespace)
             var value = ""
@@ -222,7 +235,7 @@ package struct HTMLScanner {
                     rest = rest.dropFirst(body.count)
                 }
             }
-            if name.lowercased() == wanted { return decodingEntities(value) }
+            if !visit(name.lowercased(), value) { return }
             if name.isEmpty { rest = rest.dropFirst() }
         }
     }
