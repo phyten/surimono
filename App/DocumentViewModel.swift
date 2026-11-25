@@ -648,7 +648,8 @@ final class DocumentViewModel {
     private(set) var previewPageCountForBand: Int?
     var isPreparingWholeDocument: Bool { readingPreview != nil && isRendering && error == nil }
     // A reserved print belongs to the screen it was reserved on. It is fulfilled only if, when the complete document
-    // arrives, the user is still on that screen with nothing else open; anything else the user starts cancels it.
+    // arrives, the user is still on that screen with nothing else open. Changing the mode or opening another sheet,
+    // popover or panel cancels it; scrolling, paging and selecting do not.
     var previewPrintRequest = PreviewPrintRequest()
     private(set) var isRendering = false
     private(set) var isPrinting = false

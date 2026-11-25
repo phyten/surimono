@@ -468,6 +468,7 @@ struct PrintSheetFlowTests {
             try #require(model.previewPrintRequest.destination == .currentLayout)
             await complete()
             #expect(model.isUpToDate && model.mode == .view && model.isViewOptionsPresented)
+            #expect(model.previewPrintRequest.destination == nil)
         }
     }
 
