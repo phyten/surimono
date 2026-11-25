@@ -2,7 +2,7 @@ import AppKit
 import PDFKit
 import Testing
 
-// On macOS 26.6.2 and 27.2.1, the institute's ink bottom is 0.90 pt below TeX on 083 and matches TeX on specimen.
+// Title-page anchors use the same limit as every other anchor; the measured deltas are in the test's attachment.
 private let beamerVerticalTolerance: CGFloat = 2
 
 // Text origins in the first page's pdfTeX content stream, in PDF points from the top of the media box.
