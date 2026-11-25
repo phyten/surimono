@@ -141,6 +141,25 @@ struct VerticalTextTests {
                 + "人")
     }
 
+    @Test("範囲の両端で時刻・分数・指数を最後まで読み、助数詞に続く整数の向きを保つ")
+    func rangeEndpoints() throws {
+        func sideways(_ text: String) -> String { #"<span class="v-latin v-sideways">\#(text)</span>"# }
+        func pair(_ digits: String) -> String { #"<span class="tcy">\#(digits)</span>"# }
+        func single(_ digit: String) -> String { #"<span class="upright-digit">\#(digit)</span>"# }
+        for (source, expected) in [
+            ("12:30〜13:00", sideways("12:30〜13:00")), ("1/2〜3/4", sideways("1/2〜3/4")),
+            ("12〜13:30", sideways("12〜13:30")), ("10^3", latin("10^3")),
+            ("3月12日〜15日", single("3") + "月" + pair("12") + "日〜" + pair("15") + "日"),
+            ("1,234.5円", latin("1,234.5") + aki + "円"), ("約−3℃", "約" + aki + sideways("−3℃")),
+            ("A4 2段", latin("A4") + " " + single("2") + "段"), ("第12回", "第" + pair("12") + "回"),
+            ("v1.2.3", latin("v1.2.3")), ("12時30分", pair("12") + "時" + pair("30") + "分"),
+            ("5%〜10%", sideways("5%〜10%")), ("2～10^−3", sideways("2～10^−3")),
+            ("10^文", pair("10") + "^文"),
+        ] {
+            #expect(try VerticalText.marked(source) == expected)
+        }
+    }
+
     @Test("文字参照の原綴りと表示文字を保ち、同じ表示なら同じ和欧境界と縦中横を付ける")
     func references() throws {
         // Decode the fixture's references within each node, as an HTML reader would.

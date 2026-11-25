@@ -197,10 +197,11 @@ package enum VerticalText {
         let orientation: Orientation
         let remainingUnit: Substring
 
-        init?(_ word: Substring, in source: String, note: Bool, neighbor: (Int) -> AnyIterator<Substring>) {
-            guard let first = word.first, first.isASCII || "+±−".contains(first),
-                word.utf8.contains(where: { (48...57).contains($0) })
-            else { return nil }
+        init?(
+            _ word: Substring, in source: String, note: Bool, readToken: (Substring) -> Substring,
+            neighbor: (Int) -> AnyIterator<Substring>
+        ) {
+            guard Self.isNumericToken(word) else { return nil }
             func quantity(_ value: Substring) -> (text: Substring, unit: Substring, hasUnit: Bool) {
                 guard !note, value.last?.isASCIIDigit == true else { return (value, "", false) }
                 let suffix = source[value.endIndex...]
@@ -222,24 +223,8 @@ package enum VerticalText {
                 let end = local.isEmpty ? value.endIndex : local.endIndex
                 return (source[value.startIndex..<end], symbol.dropFirst(local.count), true)
             }
-            var run = quantity(word)
-            let tail = source[run.text.endIndex...]
-            if let wave = tail.first, wave == "〜" || wave == "～",
-                let rhs = tail.dropFirst().prefixMatch(of: /[+±−\-]?[0-9]+(?:[.,][0-9]+)*(?:[eE][+−\-]?[0-9]+)?/)
-            {
-                let right = quantity(rhs.output)
-                if run.hasUnit || right.hasUnit || !Self.isShortInteger(word) || !Self.isShortInteger(rhs.output) {
-                    run = (source[word.startIndex..<right.text.endIndex], right.unit, true)
-                }
-            }
-            text = run.text
-            remainingUnit = run.unit
-            guard !run.hasUnit, Self.isShortInteger(word) else {
-                orientation = .sideways
-                return
-            }
             // A colon joins digits only between two numeric fields. A label such as 人数: is independent.
-            func attached(_ direction: Int) -> Bool {
+            func attached(to word: Substring, direction: Int) -> Bool {
                 var adjacent = direction < 0 ? source[..<word.startIndex] : source[word.endIndex...]
                 let parts = neighbor(direction)
                 func next() -> Character? {
@@ -253,7 +238,36 @@ package enum VerticalText {
                 if c == ":" { return next()?.isASCIIDigit == true }
                 return (c.isASCII && (c.isLetter || c.isNumber || "%.,_+/-".contains(c))) || "±−".contains(c)
             }
-            orientation = !note && (attached(-1) || attached(1)) ? .sideways : (word.count == 1 ? .single : .pair)
+            func orientation(of token: Substring, hasUnit: Bool) -> Orientation {
+                if hasUnit || !Self.isShortInteger(token) { return .sideways }
+                if !note && (attached(to: token, direction: -1) || attached(to: token, direction: 1)) {
+                    return .sideways
+                }
+                return token.count == 1 ? .single : .pair
+            }
+            let left = quantity(word)
+            let leftOrientation = orientation(of: word, hasUnit: left.hasUnit)
+            let tail = source[left.text.endIndex...]
+            if let wave = tail.first, wave == "〜" || wave == "～" {
+                let rhs = readToken(tail.dropFirst())
+                if Self.isNumericToken(rhs) {
+                    let right = quantity(rhs)
+                    if leftOrientation == .sideways || orientation(of: rhs, hasUnit: right.hasUnit) == .sideways {
+                        text = source[word.startIndex..<right.text.endIndex]
+                        remainingUnit = right.unit
+                        self.orientation = .sideways
+                        return
+                    }
+                }
+            }
+            text = left.text
+            remainingUnit = left.unit
+            self.orientation = leftOrientation
+        }
+
+        private static func isNumericToken(_ word: Substring) -> Bool {
+            guard let first = word.first, first.isASCII || "±−".contains(first) else { return false }
+            return word.utf8.contains { (48...57).contains($0) }
         }
 
         private static func isShortInteger(_ text: Substring) -> Bool {
@@ -306,9 +320,25 @@ package enum VerticalText {
             let source = node.text
             let token =
                 #/
-                [+±−\-]?[0-9]+(?::[0-9]+)+ | [+±−\-]?[\p{sc=Latin}0-9_]+(?:[.,/+−\-][0-9][\p{sc=Latin}0-9_]*)* %? | \.[0-9]+ %?
+                [+±−\-]?(?:[0-9]+(?:[.,][0-9]+)*|\.[0-9]+)\^[+−\-]?[0-9]+ %?
+                | [+±−\-]?[0-9]+(?::[0-9]+)+ | [+±−\-]?[\p{sc=Latin}0-9_]+(?:[.,/+−\-][0-9][\p{sc=Latin}0-9_]*)* %? | \.[0-9]+ %?
                 | [!?]+ | [\x20]+ | \R+ | [\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}ー０-９]+ | .
                 /#
+            func leadingToken(_ rest: Substring) -> Substring {
+                // Short ASCII words and standalone punctuation are common in source-like prose.
+                // Avoid starting a Unicode regex VM (and two script lookups) for every period.
+                let prefix = rest.prefix { $0.isASCII && $0.isLetter }
+                let tail = rest[prefix.endIndex...]
+                if !prefix.isEmpty, tail.first.map({ $0.isASCII && !$0.isNumber && !"_%,:/+-".contains($0) }) ?? true,
+                    !(tail.first == "." && tail.dropFirst().first?.isNumber == true)
+                {
+                    return prefix
+                }
+                if rest.first == ".", rest.dropFirst().first?.isNumber != true {
+                    return rest.prefix(1)
+                }
+                return rest.prefixMatch(of: token)?.output ?? rest.prefix(1)
+            }
             // Searching for a scheme from every short word in a dotted identifier would repeatedly
             // scan the same suffix. Each :// has just one possible scheme immediately to its left.
             var hosts: [String.Index: String.Index] = [:]
@@ -352,21 +382,8 @@ package enum VerticalText {
                     rest = rest[match.range.upperBound...]
                     continue
                 }
-                // Short ASCII words and standalone punctuation are common in source-like prose.
-                // Avoid starting a Unicode regex VM (and two script lookups) for every period.
-                let prefix = rest.prefix { $0.isASCII && $0.isLetter }
-                let tail = rest[prefix.endIndex...]
-                let raw: Substring
-                if !prefix.isEmpty, tail.first.map({ $0.isASCII && !$0.isNumber && !"_%,:/+-".contains($0) }) ?? true,
-                    !(tail.first == "." && tail.dropFirst().first?.isNumber == true)
-                {
-                    raw = prefix
-                } else if rest.first == ".", rest.dropFirst().first?.isNumber != true {
-                    raw = rest.prefix(1)
-                } else {
-                    raw = rest.prefixMatch(of: token)?.output ?? rest.prefix(1)
-                }
-                if let number = NumericRun(raw, in: source, note: note, neighbor: neighbor) {
+                let raw = leadingToken(rest)
+                if let number = NumericRun(raw, in: source, note: note, readToken: leadingToken, neighbor: neighbor) {
                     switch number.orientation {
                     case .sideways: try sidewaysNumber(number.text, in: node)
                     case .single, .pair:

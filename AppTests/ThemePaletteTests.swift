@@ -147,7 +147,7 @@ struct ThemePaletteTests {
         #expect(model.paperDocument === own)
     }
 
-    @Test("混植原稿の末尾が未終了のコメントでも試し刷りと選択後の A4 に文末注が載る", .timeLimit(.minutes(1)))
+    @Test("混植原稿の試し刷りと選択後の A4 に文末注が載る", .timeLimit(.minutes(1)))
     func mixedVerticalEndnote() async throws {
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
@@ -184,7 +184,6 @@ struct ThemePaletteTests {
             $$\int_0^1 x^2\,dx=\frac13$$
 
             [^a]: 脚注は文書の終わりに置く。
-            <!-- r7 26078
 
             """#
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

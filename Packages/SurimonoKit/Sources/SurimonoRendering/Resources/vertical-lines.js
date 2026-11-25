@@ -394,6 +394,7 @@ function ruleColor(value) {
 function tableRegion(table, paint, stripTop, trace) {
     trace.call = 'table/header getBoundingClientRect';
     const r = table.getBoundingClientRect(), head = table.tHead?.getBoundingClientRect();
+    // The first cell of the last row supplies the rule; collapsed-border conflicts and hidden are ignored, and zero width uses 2/3px.
     const cell = table.rows[table.rows.length - 1]?.cells[0];
     trace.call = 'table bottom border computed style';
     const style = getComputedStyle(cell || table);

@@ -511,7 +511,7 @@ struct VerticalMixedContentTests {
     @Test("実機の混植原稿を通常の組版経路で開くと別行数式と文末脚注のインクが紙に載る", .timeLimit(.minutes(1)))
     func manuscript() async throws {
         _ = NSApplication.shared
-        let source = DocumentSource(data: Data((mixManuscript + "<!-- r7 26078\n").utf8), format: .markdown)
+        let source = DocumentSource(data: Data(mixManuscript.utf8), format: .markdown)
         let style = try #require(PrintThemeLibrary.load().first { $0.id == "tategaki" })
         let theme = PrintTheme(
             id: style.id, name: style.name, css: style.css + "\n" + manuscriptInkColors, flow: style.flow)

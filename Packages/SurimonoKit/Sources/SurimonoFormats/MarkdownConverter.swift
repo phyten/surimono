@@ -98,10 +98,10 @@ public enum MarkdownConverter {
             proof: proof, notebookTOC: notebookTOC, tocAtTop: metadata.tableOfContents && notebookTOC == nil)
         let title = metadata.title ?? firstHeading(in: document, formulas: formulas)
         let leadingHeading = document.child(at: 0) as? Heading
-        var html = (leadingHeading?.level != 1 && notebookTOC == nil ? metadata.titleBlock() : "") + body
-        let notes = footnoteSection(
-            footnotes, formulas: formulas, definitions: extracted.definitions, mapping: mapping, proof: proof)
-        html = HTMLScanner.appendingGenerated(notes, to: html)
+        var html =
+            (leadingHeading?.level != 1 && notebookTOC == nil ? metadata.titleBlock() : "") + body
+            + footnoteSection(
+                footnotes, formulas: formulas, definitions: extracted.definitions, mapping: mapping, proof: proof)
         if let citations { html = citations.finish(html) }
         var issues = citations?.issues ?? []
         if nesting.changed { issues.append(MarkdownNesting.issue) }
@@ -112,8 +112,7 @@ public enum MarkdownConverter {
         let fonts = notebookTOC == nil ? MathRenderer.fontFaces(for: html) : ""
         return MarkdownMappedDocument(
             fragment: HTMLFragment(
-                body: HTMLScanner.appendingGenerated(fonts.isEmpty ? "" : "<style>\n\(fonts)\n</style>\n", to: html),
-                title: title,
+                body: html + (fonts.isEmpty ? "" : "<style>\n\(fonts)\n</style>\n"), title: title,
                 language: metadata.language, readingIssues: issues),
             blocks: mapping?.blocks ?? [])
     }
@@ -341,9 +340,7 @@ public enum MarkdownConverter {
         case is ThematicBreak: return "<hr>\n"
         case is LineBreak: return "<br>\n"
         case is SoftBreak: return "\n"
-        case let html as HTMLBlock:
-            let raw = html.rawHTML
-            return MarkdownPageBreaks.html(forBlock: raw) ?? raw
+        case let html as HTMLBlock: return MarkdownPageBreaks.html(forBlock: html.rawHTML) ?? html.rawHTML
         case let html as InlineHTML: return html.rawHTML
         case let link as Link:
             let title = link.title.map { " title=\"\(HTML.escape($0))\"" } ?? ""
