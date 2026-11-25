@@ -4,6 +4,34 @@ import Testing
 @testable import SurimonoFormats
 
 struct LaTeXClassDocumentTests {
+    @Test("結合文字・CRLF・サロゲートペアが読み足しの境界にあっても前文と本文で同じ改行を読む")
+    func newlineBoundaries() {
+        let tail = #"\documentclass{book}"# + "\n" + #"\begin{document}x\end{document}"#
+        for (padding, raw, normalized) in [
+            (1022, "\r\u{0301}", "\n\u{0301}"),
+            (1022, "\r\n\u{0301}", "\n\u{0301}"),
+            // UTF-16 offset 1024 falls between CR and LF, or between the two units of the emoji.
+            (1022, "\r\n", "\n"), (1022, "😀\r", "😀\n"),
+        ] {
+            let prefix = "%" + String(repeating: "a", count: padding)
+            let source = prefix + raw + tail
+            let expected = Array((prefix + normalized + tail).utf8)
+            let reader = LaTeXReader(classifying: source, document: LaTeXDocument(fontIndex: .init(faces: [:])))
+            var streamed = ""
+            while let character = reader.peek() {
+                streamed.append(character)
+                reader.index += 1
+            }
+            #expect(Array(streamed.utf8) == expected)
+            let partial = LaTeXReader(classifying: source, document: LaTeXDocument(fontIndex: .init(faces: [:])))
+            _ = partial.peek()
+            #expect(Array(String(partial.characters).utf8) == expected)
+            #expect(Array(TextDecoding.normalizeNewlines(source).utf8) == expected)
+            #expect(LaTeXConverter.documentClassInfo(source).hasChapters)
+            #expect(LaTeXConverter.convert(source).latexClass?.hasChapters == true)
+        }
+    }
+
     @Test("前文の読み足しの境界にあるコメント・命令・改行でも本文の開始と向きを判定する")
     func preambleBoundaries() {
         let prefix = #"\documentclass{article}"#
