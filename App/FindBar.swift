@@ -128,12 +128,12 @@ struct GoToPageSheet: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(asksForLine ? LocalizedStringKey("Go to Line") : "Go to Page").font(.headline)
             HStack(spacing: 8) {
-                TextField(asksForLine ? "120:8" : String(model.currentPageIndex + 1), text: $text)
+                TextField(asksForLine ? "120:8" : String(model.paperPageIndex + 1), text: $text)
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 80)
                     .focused($isFocused)
                     .accessibilityLabel(asksForLine ? Text("Line number") : Text("Page number"))
-                Text(verbatim: "1 – \(asksForLine ? model.sourceLineCount : model.pageCount)").foregroundStyle(
+                Text(verbatim: "1 – \(asksForLine ? model.sourceLineCount : model.paperPageCount)").foregroundStyle(
                     PrintPalette.ink2
                 ).monospacedDigit()
             }

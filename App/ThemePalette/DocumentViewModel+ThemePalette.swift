@@ -16,6 +16,34 @@ extension DocumentViewModel {
         return result?.viewDocument
     }
 
+    /// A vertical trial can turn a single horizontal page into several reading pages.
+    /// Navigation on that temporary PDF must not change the saved position or print range.
+    var verticalTrialPaper: PDFDocument? {
+        guard mode == .view else { return nil }
+        if let document = themeTrial.document {
+            return themeTrial.requestedSettings?.theme.flow == .vertical ? document : nil
+        }
+        if let chosenTrial, isCurrentLook(chosenTrial), chosenTrial.settings?.theme.flow == .vertical {
+            return chosenTrial.document
+        }
+        return nil
+    }
+
+    var paperPageCount: Int { verticalTrialPaper?.pageCount ?? pageCount }
+    var paperPageIndex: Int {
+        guard let trial = verticalTrialPaper else { return currentPageIndex }
+        return min(shownPageIndex, max(0, trial.pageCount - 1))
+    }
+
+    func jumpToPaperPage(_ page: Int) {
+        if let trial = verticalTrialPaper {
+            guard (0..<trial.pageCount).contains(page) else { return }
+            paper.goToPage(index: page, in: trial)
+        } else {
+            jumpToReadingPage(page)
+        }
+    }
+
     var paperFormulaIndex: PaperFormulaIndex? {
         if themeTrial.themeID != nil, themeTrial.document != nil { return themeTrial.formulaIndex }
         if let chosenTrial, isCurrentLook(chosenTrial) { return chosenTrial.formulaIndex }

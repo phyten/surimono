@@ -53,6 +53,11 @@ final class PaperController {
 
     #if DEBUG
         var showsProseMark: Bool { view?.drawnProseSpans.isEmpty == false }
+
+        func showSnapshotPage(_ index: Int, in source: PDFDocument) -> Bool {
+            guard let view, view.isMade(of: source) else { return false }
+            return view.showSnapshotPage(index)
+        }
     #endif
 
     func focus() {
@@ -686,6 +691,15 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
     }
 
     #if DEBUG
+        fileprivate func showSnapshotPage(_ index: Int) -> Bool {
+            guard let pagePlan, let slot = pagePlan.viewIndex(for: index),
+                let first = pagePlan.readingIndex(at: slot)
+            else { return false }
+            goToPage(index: index)
+            // A sliver of the next page can already be visible in continuous mode.
+            return currentPageIndex == first && isLogicalPageVisible(index)
+        }
+
         func alignSnapshotPaper() {
             // Intermediate resize fits can fall inside refit's dead band. Apply the final geometry exactly once.
             let unit = fittedUnitSize

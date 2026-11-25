@@ -11,7 +11,11 @@ enum LongTokenMarks {
     private static let separators = Set("/\\._-:=?&@#".unicodeScalars)
     private static let skippedElements: Set<String> = ["pre", "svg", "math"]
 
-    static func marked(_ html: String) -> String {
+    private static let verticalClasses: Set<Substring> = [
+        "tcy", "explicit-tcy", "kenten", "bousen", "v-url", "math", "math-block",
+    ]
+
+    static func marked(_ html: String, verticalLaTeX: Bool = false) -> String {
         var output = ""
         output.reserveCapacity(html.utf8.count)
         var skipped: (name: String, depth: Int)?
@@ -25,12 +29,22 @@ enum LongTokenMarks {
                     guard tag.name == current.name, !tag.isSelfClosing else { continue }
                     let depth = current.depth + (tag.isClosing ? -1 : 1)
                     skipped = depth == 0 ? nil : (current.name, depth)
-                } else if skippedElements.contains(tag.name), !tag.isClosing, !tag.isSelfClosing {
+                } else if !tag.isClosing, !tag.isSelfClosing, skips(tag, verticalLaTeX: verticalLaTeX) {
                     skipped = (tag.name, 1)
                 }
             }
         }
         return output
+    }
+
+    private static func skips(_ tag: HTMLScanner.Tag, verticalLaTeX: Bool) -> Bool {
+        if skippedElements.contains(tag.name) || tag.source == #"<span class="tcy">"# {
+            return true
+        }
+        guard verticalLaTeX else { return false }
+        if tag.name == "rt" || tag.name == "code" { return true }
+        let classes = tag.attribute("class")?.split(whereSeparator: \.isWhitespace) ?? []
+        return !verticalClasses.isDisjoint(with: classes)
     }
 
     private static func markedText(_ text: Substring) -> String {

@@ -5,7 +5,7 @@ extension DocumentViewModel {
     /// document is not made of pages.
     var hasPaperToSearch: Bool { mode == .view && !showsWeb }
 
-    var canGoToPage: Bool { hasPaperToSearch && pageCount > 1 }
+    var canGoToPage: Bool { hasPaperToSearch && paperPageCount > 1 }
     func performFind() {
         guard hasPaperToSearch else { return }
         dismissProseMark()
@@ -67,7 +67,7 @@ extension DocumentViewModel {
     /// Turns to the page typed into Go to Page, by the numbers the page indicator shows.
     func goToPage(entered text: String) {
         isGoToPagePresented = false
-        guard let index = GoToPage.index(for: text, pageCount: pageCount) else { return }
-        jumpToReadingPage(index)
+        guard let index = GoToPage.index(for: text, pageCount: paperPageCount) else { return }
+        jumpToPaperPage(index)
     }
 }

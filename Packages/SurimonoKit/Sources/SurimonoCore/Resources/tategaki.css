@@ -1,33 +1,180 @@
 body { font-family: "Hiragino Mincho ProN", serif; font-size: 10.5pt; line-height: 1.75; color: #222; }
 .surimono-vertical {
+    --vertical-latin-font: inherit;
     writing-mode: vertical-rl;
     direction: ltr;
     text-orientation: mixed;
+    font-kerning: none;
+    font-feature-settings: "halt" 0, "vhal" 0, "chws" 0, "vchw" 0, "palt" 0, "vpal" 0;
+    text-align: justify;
+    text-align-last: start;
+    text-justify: inter-character;
+    line-break: strict;
+    font-size: var(--body-size);
     inline-size: var(--content-height);
     box-sizing: border-box;
     block-size: max-content;
     display: flow-root;
 }
 .surimono-vertical p { margin: 0; }
-.surimono-vertical p + p { text-indent: 1em; }
-.surimono-vertical :is(h1, h2, h3, h4, h5, h6, strong) { font-family: "Hiragino Sans", sans-serif; }
-.surimono-vertical :is(h1, h2, h3, h4, h5, h6) { margin-block: 0.75em 0.35em; margin-inline: 0; }
-.surimono-vertical em { font-style: normal; text-emphasis: filled sesame; }
-.surimono-vertical a { text-decoration: none; border-block-end: 0.5pt solid currentColor; }
-.surimono-vertical .tcy { -webkit-text-combine: horizontal; text-combine-upright: all; }
-.surimono-vertical .upright-digits { text-orientation: upright; }
+.surimono-vertical :is(p,h1,h2,h3,h4,h5,h6) + p:not(:where(.horizontal-box *)) { text-indent: 1em; }
+.surimono-vertical :where(pre):not(.vertical-code) { text-indent: 1em each-line; }
+.surimono-vertical :where(pre):not(.vertical-code) .v-initial { margin-inline-start: -0.5em; }
+.surimono-vertical strong { font-family: "Hiragino Sans", sans-serif; }
+.surimono-vertical :is(h1, h2, h3, h4, h5, h6) { margin: 0; font-size: 1em; font-weight: bold; text-align: start; }
+.surimono-vertical h1,
+.format-latex[data-latex-chapters="true"] .surimono-vertical h2[id^="sec-"] { font-size: 1.4em; padding-inline-start: calc(2 * var(--body-size)); padding-block: calc(3.5 * var(--body-size)) calc(1.75 * var(--body-size)); }
+.surimono-vertical h2,
+.format-latex[data-latex-chapters="true"] .surimono-vertical h3[id^="sec-"] { font-size: 1.2em; padding-block: calc(2.625 * var(--body-size)) calc(0.875 * var(--body-size)); }
+.surimono-vertical h3,
+.format-latex[data-latex-chapters="true"] .surimono-vertical h4[id^="sec-"] { font-size: 1.05em; padding-block: calc(1.75 * var(--body-size)) 0; }
+.surimono-vertical :is(h2, h3),
+.format-latex[data-latex-chapters="true"] .surimono-vertical :is(h3, h4)[id^="sec-"] { padding-inline-start: var(--body-size); }
+.format-latex .surimono-vertical .secnum { margin-inline-end: 1em; }
+.format-latex .surimono-vertical .secnum .latex-xkanjiskip { font-size: 0; }
+.format-latex .surimono-vertical .bousen:not(:where(.horizontal-box *, .explicit-tcy *)) { text-decoration: underline; text-underline-position: right; }
+.surimono-vertical em:not(:where(.horizontal-box *, .explicit-tcy *)), .surimono-vertical .kenten { font-style: normal; text-emphasis-style: filled sesame; text-emphasis-position: over right; }
+.surimono-vertical em[data-vertical-latin]:not(:where(.horizontal-box *, .explicit-tcy *, .kenten)) { font-style: italic; text-emphasis-style: none; }
+.surimono-vertical ruby { -webkit-ruby-position: before; ruby-position: over; }
+.surimono-vertical rt { font-size: 0.5em; }
+.surimono-vertical a { color: inherit; text-decoration: none; border: 0; overflow-wrap: anywhere; }
+.surimono-vertical .tcy { -webkit-text-combine: horizontal; text-combine-upright: all; letter-spacing: 0; }
+.surimono-vertical .explicit-tcy {
+    display: inline-block; writing-mode: horizontal-tb; width: max-content; white-space: nowrap;
+    text-indent: 0; vertical-align: baseline; font-kerning: auto; font-feature-settings: normal;
+}
+.surimono-vertical .upright-digit { text-orientation: upright; }
+/* Generated space has no DOM text. A regular breakable space collapses at either line edge,
+   including before an opening bracket that moved to the next line. Times' space advances 1/4 em. */
+.surimono-vertical .aki, .surimono-vertical .v-before-open::before, .surimono-vertical .v-pair-space::before {
+    font-family: "Times New Roman", serif;
+    font-style: normal;
+    font-weight: normal;
+    text-orientation: sideways;
+    white-space: normal;
+    letter-spacing: 0;
+    word-spacing: 0;
+}
+.surimono-vertical .aki:empty::before, .surimono-vertical .v-before-open::before, .surimono-vertical .v-pair-space::before { content: " "; visibility: hidden; }
+.surimono-vertical .v-before-open::before { word-spacing: 0.25em; }
+/* Negative word spacing trims the ink bearings inside a pair and collapses at a soft break. */
+.surimono-vertical .v-pair-space::before { word-spacing: calc(-0.25em + var(--pair-kern, 0em)); }
+.surimono-vertical .v-edge, .surimono-vertical .v-edge::before { font-size: 0; word-spacing: 0; }
+.surimono-vertical .v-half { margin-inline-start: -0.5em; }
+.surimono-vertical .v-pair-space + .v-half { position: relative; }
+.surimono-vertical .v-close { margin-inline-end: -0.5em; }
+.surimono-vertical p:has(.v-initial) { text-indent: 0; }
+.surimono-vertical .v-initial { margin-inline-start: 0.5em; }
+.surimono-vertical :is(.v-latin, .long-token):not(.horizontal-box *, code *, rt *, .math-inline *) {
+    font-family: var(--vertical-latin-font, inherit);
+}
+.surimono-vertical .v-sideways { text-orientation: sideways; }
+.surimono-vertical .v-url, .surimono-vertical .v-url .long-token, .surimono-vertical .long-token:has(> .v-url) {
+    word-break: normal; overflow-wrap: anywhere; hyphens: none;
+}
+.surimono-vertical ul { list-style-type: "・"; }
+.surimono-vertical ul ul { list-style-type: "◦"; }
+.surimono-vertical ul ul ul { list-style-type: "▪"; }
+.surimono-vertical ol { list-style-type: cjk-ideographic; }
+.surimono-vertical :is(ol, ul) { list-style-position: outside; padding-inline-start: 2em; }
+.surimono-vertical blockquote {
+    inline-size: fit-content; max-inline-size: calc(100% - 1em); box-sizing: border-box;
+    margin-inline: 1em 0; padding-inline-start: 0; padding-block-start: 0.5em;
+    border: 0; border-block-start: 0.5pt solid currentColor; background: none;
+}
+.surimono-vertical code { font-family: "SFMono-Regular", Menlo, monospace; font-variant-ligatures: none; text-orientation: sideways; }
 .surimono-vertical .horizontal-box-line {
-    display: flow-root;
-    padding-inline: 0.5em;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    inline-size: 100%;
+    box-sizing: border-box;
+    clear: both;
+    text-align: start;
+    text-align-last: auto;
     margin-block: 0.5em;
     text-indent: 0;
 }
 .surimono-vertical .horizontal-box {
     display: inline-block;
+    flex: none;
+    float: none;
+    font-feature-settings: normal;
+    font-kerning: auto;
     writing-mode: horizontal-tb;
+    text-align: start;
+    line-break: auto;
+    text-align-last: auto;
+    text-justify: auto;
     vertical-align: top;
-    max-inline-size: none;
+    max-inline-size: var(--content-width);
+    box-sizing: border-box;
     margin: 0;
 }
+.surimono-vertical :is(.vertical-code, table) { font-size: calc(0.85 * var(--body-size)); }
 .surimono-vertical table.horizontal-box { display: inline-table; }
+.surimono-vertical .vertical-code { inline-size: max-content; white-space: pre-wrap; overflow-wrap: anywhere; }
+/* Resolve percentage-sized SVGs against their natural formula width before sizing the vertical parent. */
+.surimono-vertical :is(.math-block, .math-display).horizontal-box { inline-size: max-content; }
+.surimono-vertical .horizontal-box:is(.math-display, .math-block) svg { max-width: none; }
+.surimono-vertical .horizontal-box .vertical-code { inline-size: auto; max-inline-size: 100%; }
+.surimono-vertical section.footnotes {
+    margin: 0; margin-block-start: 1em; border: 0; padding: 0; font-size: 85%;
+}
+.surimono-vertical .vertical-note-rule {
+    margin: 0; margin-block-end: 0.5em; inline-size: 33.333333%; block-size: 0;
+    border: 0; border-block-start: 0.5pt solid #888;
+}
+.surimono-vertical .footnotes > ol { list-style: none; padding: 0; margin: 0; }
+.surimono-vertical .footnotes > ol > li { margin: 0; }
+.surimono-vertical .footnotes li > p { margin: 0; }
+.surimono-vertical .footnotes .vertical-numbered-note { padding-inline-start: calc(var(--note-label-width, 1em) + 1em); }
+.surimono-vertical .vertical-numbered-note,
+.surimono-vertical .vertical-numbered-note > p:first-child { text-indent: calc(-1em - var(--note-label-width, 1em)); }
+.surimono-vertical .vertical-numbered-note > :not(:first-child) { text-indent: 0; }
+.surimono-vertical .vertical-note-number {
+    display: inline-block; inline-size: var(--note-label-width, 1em); block-size: 1em; margin-inline-end: 1em;
+    line-height: 1; text-indent: 0; text-align: start; vertical-align: middle;
+    white-space: nowrap; -webkit-user-select: none; user-select: none;
+}
+.surimono-vertical .vertical-note-number:empty::before {
+    content: attr(data-number); text-orientation: sideways; letter-spacing: 0;
+}
+/* A single generated digit stays upright in its own horizontal cell. */
+.surimono-vertical .vertical-single-number::before {
+    display: inline-block; writing-mode: horizontal-tb; width: 1em; height: 1em; text-align: center;
+}
+.surimono-vertical .vertical-code .code-src { white-space: pre-wrap; }
+.surimono-vertical .vertical-code .code-line { padding-left: 0; }
+.surimono-vertical .vertical-code .code-line::before { content: none; }
+.surimono-vertical :is(.math-block, .math-display).horizontal-box { text-align: center; align-self: center; }
+/* A top-level marker after a box starts at the row edge; wrapped text hangs below its marker. */
+.surimono-vertical .horizontal-box-line + :is(ol, ul) { padding-inline-start: 0; list-style-position: inside; }
+.surimono-vertical .horizontal-box-line + :is(ol, ul) > li { padding-inline-start: 1em; text-indent: -1em; }
+.surimono-vertical .horizontal-box-line + :is(ol, ul) > li :is(ol, ul) { text-indent: 0; }
+.surimono-vertical .vertical-code {
+    border: 0.5pt solid #ccc; background: transparent; box-shadow: none; padding: 0.35em 0.5em;
+}
+.surimono-vertical code:not(pre code) { background-color: #f3f3f3; }
+.surimono-vertical table thead > tr > :is(th, td),
+.surimono-vertical table tr:not(:has(> td)) > th { background-color: #f0f0f0; }
+.surimono-vertical .footnote-ref a { display: inline-block; writing-mode: vertical-rl; text-orientation: upright; }
+.surimono-vertical .footnote-ref .v-latin { text-orientation: sideways; }
+.surimono-vertical .vertical-inline-formula {
+    display: inline-block; position: relative; vertical-align: baseline;
+    writing-mode: horizontal-tb; direction: ltr; line-height: 0; width: 1em;
+}
+.surimono-vertical .vertical-inline-formula > svg {
+    /* The SVG text must keep its horizontal baselines before the whole formula is turned. */
+    writing-mode: horizontal-tb; position: absolute; top: 50%; left: 50%;
+    transform-origin: center; transform: translate(-50%, -50%) rotate(90deg);
+}
+/* Only the paragraph gets a first-line indent. The shoulder anchor must advance by its base glyph alone. */
+.surimono-vertical .vertical-note-base { display: inline-block; text-indent: 0; line-height: 1; position: relative; white-space: nowrap; }
+.surimono-vertical .footnote-ref:not(.horizontal-box *) {
+    font-size: 0.6em; line-height: 1; text-indent: 0; vertical-align: baseline; position: relative; left: 1em; top: -1em;
+}
+.surimono-vertical .vertical-note-base > .footnote-ref {
+    position: absolute; left: 100%; top: 0; writing-mode: horizontal-tb; white-space: nowrap;
+}
 .surimono-vertical .surimono-off-page { visibility: hidden !important; }

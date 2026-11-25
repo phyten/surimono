@@ -66,6 +66,7 @@ public struct LaTeXDocumentClassInfo: Sendable, Equatable {
     public internal(set) var beamerUsesSerifText = false
     public internal(set) var beamerSections: [BeamerSection] = []
     var beamerUsesSerifMath = false
+    package var isVertical: Bool { profile.structure.isVertical }
     public var isJapanese: Bool { profile.typography.usesJapaneseStyle }
     var usesAMSA4Layout: Bool { profile.page.usesAMSA4Layout }
     var hidesTitlePageNumber: Bool { resolvedStyle?.firstPageNotice != nil || profile.pageStyle.hidesTitlePageNumber }
@@ -150,6 +151,8 @@ public struct LaTeXDocumentClassInfo: Sendable, Equatable {
     private func sameComposition(as rhs: Self) -> Bool {
         (self.composition == .proof) == (rhs.composition == .proof)
             && self.resolvedStyle == rhs.resolvedStyle
+            && self.isVertical == rhs.isVertical
+            && self.profile.structure.declaredOpening == rhs.profile.structure.declaredOpening
             && self.profile.structure.bookOpening == rhs.profile.structure.bookOpening
             && self.declaredPaperSize == rhs.declaredPaperSize
             && self.linksReferences == rhs.linksReferences

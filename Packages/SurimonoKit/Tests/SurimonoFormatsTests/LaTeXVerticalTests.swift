@@ -1,0 +1,98 @@
+import Foundation
+import Testing
+
+@testable import SurimonoFormats
+
+struct LaTeXVerticalTests {
+    @Test("同じ jlreq でも縦横のクラス情報は区別し、章のない原稿では開始面の指定だけを保持する")
+    func chapterlessClass() {
+        let vertical = LaTeXDocumentClassInfo(name: "jlreq", options: " uplatex, tate , openany, openright ")
+        let horizontal = LaTeXDocumentClassInfo(name: "jlreq", options: "uplatex")
+        #expect(vertical.isVertical)
+        #expect(!horizontal.isVertical)
+        #expect(vertical != horizontal)
+        #expect(vertical.profile.structure.declaredOpening == .right)
+        #expect(vertical.profile.bookOpeningSide == nil)
+    }
+
+    @Test("縦組みの章と無番号章には改ページ標識が付き、節には付かない", arguments: ["tbook", "treport", "jlreq"])
+    func chapterBoundaries(name: String) {
+        let body = LaTeXConverter.convert(
+            #"\documentclass[tate,report,openany]{\#(name)}\begin{document}\chapter{春}\section{梅}本文\chapter*{秋}\end{document}"#
+        ).body
+        let chapters = body.matches(of: /<template data-latex-break="[^"]+"><\/template>\s*<h2[^>]* id="sec-[^"]+">/)
+        #expect(chapters.count == 2)
+        #expect(body.contains(#"<span class="secnum">1.1</span>梅"#))
+    }
+
+    @Test("局所的な組み方向・割注・字取りでは引数の文字を残す")
+    func localCommands() {
+        let fragment = LaTeXConverter.convert(
+            #"\documentclass[uplatex]{jlreq}\begin{document}{\yoko 横}{\tate 縦}\warichu{割注}\jidori{字取り}\end{document}"#)
+        #expect(fragment.body.contains("横縦割注字取り"))
+        #expect(fragment.latexClass?.isVertical == false)
+    }
+
+    @Test("縦組みの文書でも用紙・段数・両面・章の開始面を読み取る")
+    func classOptions() throws {
+        let info = LaTeXConverter.documentClassInfo(
+            #"\documentclass[tate,book,b5paper,twocolumn,twoside,openright]{jlreq}"#)
+        let paper = try #require(info.declaredPaperSize)
+        #expect(abs(paper.width - 182 * 72 / 25.4) < 0.01)
+        #expect(abs(paper.height - 257 * 72 / 25.4) < 0.01)
+        #expect(info.columns == 2)
+        #expect(info.pageBox.mirrorsSides)
+        #expect(info.profile.bookOpeningSide == "right")
+
+        let single = LaTeXConverter.documentClassInfo(#"\documentclass[a5paper,onecolumn,oneside,openany]{ltjtbook}"#)
+        #expect(single.columns == 1)
+        #expect(!single.pageBox.mirrorsSides)
+        #expect(single.profile.bookOpeningSide == "page")
+        let small = try #require(single.declaredPaperSize)
+        #expect(abs(small.width - 148 * 72 / 25.4) < 0.01)
+    }
+
+    @Test("明示の縦中横は分数・ルビ・リンクの構造を保ち、横書きでは引数をそのまま組む", arguments: ["tarticle", "article"])
+    func explicitRuns(name: String) throws {
+        func convert(_ body: String) -> String {
+            LaTeXConverter.convert(#"\documentclass{\#(name)}\begin{document}\#(body)\end{document}"#).body
+        }
+        for (command, content) in [
+            ("tatechuyoko", "AB"), ("rensuji", "123"), ("tatechuyoko", #"$\frac{1}{2}$"#),
+            ("rensuji", #"\ruby{親}{おや}"#),
+            ("rensuji", #"\href{https://example.org/12}{参照}"#),
+            ("rensuji[ignored]", #"\textbf{3}\rensuji{4}"#), ("tatechuyoko", #"<\&>"#),
+        ] {
+            let reference = convert(content)
+            let actual = convert("\\" + command + "{" + content + "}")
+            let inner = try #require(reference.firstMatch(of: /(?s)<p>(.*?)<\/p>/)?.1)
+            #expect(!inner.isEmpty)
+            #expect(
+                actual
+                    == reference.replacingOccurrences(
+                        of: "<p>\(inner)</p>", with: #"<p><span class="explicit-tcy">\#(inner)</span></p>"#))
+        }
+    }
+
+    @Test("縦中横の中でも前方参照の番号とリンク先が解決される", arguments: ["article", "tarticle"])
+    func combinedReference(name: String) {
+        let source =
+            #"\documentclass{\#(name)}\usepackage{hyperref}\begin{document}\rensuji{\ref{later}}\section{節}\label{later}\end{document}"#
+        let actual = LaTeXConverter.convert(source).body
+        let plain = LaTeXConverter.convert(
+            source.replacingOccurrences(of: #"\rensuji{\ref{later}}"#, with: #"\ref{later}"#)
+        ).body
+        let link = plain.firstMatch(of: /<a [^>]*href="#[^"]+"[^>]*>1<\/a>/)?.output
+        #expect(link != nil && link.map { actual.contains($0) } == true)
+    }
+
+    @Test("縦横どちらでもルビの読みをまとめ、傍点と傍線を区別する", arguments: ["tarticle", "article"])
+    func annotations(name: String) {
+        let body = LaTeXConverter.convert(
+            #"\documentclass{\#(name)}\begin{document}\ruby{山}{やま}\jruby[g]{青空}{あお|ぞら}\ruby[m]{海}{うみ}\kenten{点}\bou{粒}\kasen{線}\end{document}"#
+        ).body
+        #expect(body.contains("<ruby>山<rt>やま</rt></ruby><ruby>青空<rt>あおぞら</rt></ruby><ruby>海<rt>うみ</rt></ruby>"))
+        #expect(
+            body.contains(#"<span class="kenten">点</span><span class="kenten">粒</span><span class="bousen">線</span>"#))
+    }
+}

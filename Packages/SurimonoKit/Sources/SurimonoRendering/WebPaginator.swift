@@ -241,7 +241,8 @@ public final class WebPaginator: NSObject {
         latexPageNumbers: LaTeXPageNumbers? = nil, restartsAfterTitle: Bool = false,
         composesLaTeXParagraphs: Bool = false, latexFlow: Bool = false, latexMarginInk: Bool = false,
         checksVerticalLaTeXInk: Bool = false,
-        flow: PrintFlow = .horizontal, timeout: Duration? = nil
+        verticalBooklet: Bool = false, verticalTextScale: Double = 1, flow: PrintFlow = .horizontal,
+        timeout: Duration? = nil
     ) async throws -> Result {
         let bytes: Int
         var nativeLaTeXBreaks = false
@@ -433,7 +434,9 @@ public final class WebPaginator: NSObject {
         if flow == .vertical {
             if indexesFormulas { try await installFormulaIndex() }
             let document = try await VerticalPaginator.pages(
-                in: session.webView, pageSize: pageSize, margins: margins, timeout: printTimeout)
+                in: session.webView, pageSize: pageSize, margins: margins, timeout: printTimeout,
+                booklet: verticalBooklet, textScale: verticalTextScale)
+            try session.checkPrintNavigation()
             if session.localHandler != nil { LocalResourceSchemeHandler.restoreFileLinks(in: document) }
             var result = Result(
                 document: document, preparationResult: preparationResult, pageRules: pageRules,

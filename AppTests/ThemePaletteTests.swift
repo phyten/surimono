@@ -2,7 +2,9 @@ import Foundation
 import PDFKit
 import SurimonoCore
 import SurimonoRendering
+import SwiftUI
 import Testing
+import UniformTypeIdentifiers
 
 @testable import Surimono
 
@@ -143,6 +145,135 @@ struct ThemePaletteTests {
         model.tryTheme("standard")
         #expect(model.themeTrial.themeID == nil)
         #expect(model.paperDocument === own)
+    }
+
+    @Test("混植原稿の試し刷りと選択後の A4 に文末注が載る", .timeLimit(.minutes(1)))
+    func mixedVerticalEndnote() async throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let source = #"""
+            # 第三章 混ぜ書き
+
+            吾輩は試し刷りの文章である。「名前はまだ無い。」（どこで刷られたか）、とんと見当がつかぬ。
+
+            ## 表とコード
+
+            次の表は横組みのまま置く。
+
+            | 用紙 | 段 | 字数 | 行数 |
+            |---|---|---|---|
+            | A4 | 2 | 30 | 24 |
+            | A5 | 1 | 42 | 18 |
+
+            ```swift
+            let pages = paginate(document, paper: .a4)
+            print("pages: \(pages.count)")
+            ```
+
+            - 一つ目の項目は少し長くして、二行目がぶら下がるかを確かめるための文章である。
+            - 二つ目
+              - 入れ子
+
+            1. 番号の一
+            2. 番号の二
+
+            > 引用は一字下げて右に罫を引く。
+
+            *強調*と *emphasis* と `code` と{漢字|かんじ}、脚注[^a]。数式 $E=mc^2$ と
+
+            $$\int_0^1 x^2\,dx=\frac13$$
+
+            [^a]: 脚注は文書の終わりに置く。
+
+            """#
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("mix-2.md")
+        try Data(source.utf8).write(to: url)
+        let opened = try SurimonoDocument(
+            file: FileWrapper(url: url, options: .immediate), contentType: #require(UTType(filenameExtension: "md")))
+        let format = try #require(opened.format)
+        #expect(format == .markdown)
+        let model = DocumentViewModel(
+            data: opened.data, fileURL: url, format: format,
+            preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: directory))
+        defer { model.closeWindow() }
+        let settings = try #require(model.renderSettings)
+        #expect(settings.layout == .a4Single && settings.textScale == 1)
+        #expect(settings.options.margins == .uniform(15))
+        func checkNote() throws {
+            let document = try #require(model.paperDocument)
+            let text = (0..<document.pageCount).compactMap { document.page(at: $0)?.string }.joined()
+                .filter { !$0.isWhitespace }
+            #expect(text.components(separatedBy: "脚注は文書の終わりに置く。").count == 2)
+        }
+        model.render()
+        try await waitUntil { model.result != nil && !model.isRendering }
+        let original = try #require(model.paperDocument)
+        model.hoverPaletteTheme("tategaki")
+        try await waitUntil { model.themeTrial.document != nil }
+        #expect(model.paperShowsTrial)
+        try checkNote()
+        model.endThemeTrial()
+        model.selectTheme("tategaki")
+        model.render()
+        try await waitUntil { !model.isRendering && model.paperDocument === model.result?.logicalDocument }
+        #expect(model.error == nil && model.paperDocument !== original && !model.paperShowsTrial)
+        try checkNote()
+    }
+
+    #if DEBUG
+        @Test("二枚目を指定した撮影は一枚の元文書から試しの PDF に切り替わり、指定ページが見えるまで待つ", .timeLimit(.minutes(1)))
+        func snapshotTrialPage() async throws {
+            let suite = TestDefaultsSuite()
+            defer { suite.remove() }
+            let model = model(suite)
+            let controller = MemoryDocumentWindowController(model: model, onClose: {})
+            defer { controller.close() }
+            model.viewOptions.layout = .single
+            model.render()
+            try await waitUntil { model.result != nil && !model.isRendering && model.paper.isConnected }
+            model.tryTheme("tategaki")
+            try await DebugSnapshot.showTrialPage(2, of: "tategaki", in: model)
+            try await waitUntil { model.pageIndicator == "2 / 3" }
+            #expect(model.currentPageIndex == 0)
+        }
+    #endif
+
+    @Test("元の一枚を縦書きで試すと帯から試しの最終ページに移れ、試しを終えると元の一枚に戻る", .timeLimit(.minutes(1)))
+    func verticalTrialPageTurns() async throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let model = model(suite)
+        model.viewOptions.layout = .single
+        model.render()
+        try await waitUntil { model.result != nil && !model.isRendering }
+        model.tryTheme("tategaki")
+        try await waitUntil { model.themeTrial.document != nil }
+        let document = try #require(model.paperDocument)
+        let host = NSHostingView(
+            rootView: PaperView(
+                document: document, initialPageIndex: 0, options: model.viewOptions, zoom: 1, controller: model.paper,
+                onZoomChange: { _ in }, onPageChange: model.paperDidChangePage, onTurn: {}, onKey: { _ in false }))
+        let window = NSWindow(
+            contentRect: CGRect(x: 0, y: 0, width: 420, height: 594), styleMask: [.titled], backing: .buffered,
+            defer: true)
+        window.isReleasedWhenClosed = false
+        window.contentView = host
+        defer { window.close() }
+        host.layoutSubtreeIfNeeded()
+        try await waitUntil { model.paper.isConnected }
+        #expect(model.pageIndicator == "1 / 3")
+        #expect(BandLayout.Item.applicable(for: model).contains(.pageTurn))
+        model.paper.turnPage(forward: true)
+        try await waitUntil { model.pageIndicator == "2 / 3" }
+        model.goToPage(entered: "3")
+        try await waitUntil { model.pageIndicator == "3 / 3" }
+        #expect(model.currentPageIndex == 0)
+        model.endThemeTrial()
+        #expect(model.pageIndicator == "1 / 1")
+        #expect(!BandLayout.Item.applicable(for: model).contains(.pageTurn))
     }
 
     @Test("試しているテーマを選ぶと、文書のページがそのテーマで組み上がるまで試しのページを出し続ける", .timeLimit(.minutes(1)))

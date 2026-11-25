@@ -9,6 +9,7 @@ package enum LaTeXClassID: String, CaseIterable, Sendable {
     case jsarticle, jsreport, jsbook, ltjsarticle, ltjsreport, ltjsbook, bxjsarticle, bxjsreport, bxjsbook
     case jlreq, jarticle, jreport, jbook, ltjarticle, ltjreport, ltjbook, ujarticle, ujreport, ujbook
     case utarticle, utreport, utbook, tarticle, treport, tbook, ctexart, ctexrep, ctexbook, oblivoir
+    case ltjtarticle, ltjtreport, ltjtbook
     case unknown
 }
 
@@ -52,13 +53,28 @@ enum LaTeXClassRegistry {
             scaledJapanese(builder)
         case .jlreq: japaneseLayout(builder)
         case .jarticle, .jreport, .jbook, .ltjarticle, .ltjreport, .ltjbook, .ujarticle, .ujreport, .ujbook,
-            .utarticle, .utreport, .utbook, .tarticle, .treport, .tbook:
+            .utarticle, .utreport, .utbook, .tarticle, .treport, .tbook, .ltjtarticle, .ltjtreport, .ltjtbook:
             traditionalJapanese(builder)
         case .ctexart, .ctexrep, .ctexbook: chinese(builder)
         case .oblivoir: korean(builder)
         case .unknown: applyFamilyPrefix(builder)
         }
+        builder.structure.isVertical = isVertical(builder.id, options: request.options)
+        if builder.structure.isVertical {
+            builder.structure.declaredOpening = builder.openingOption
+            if builder.structure.hasChapters, let opening = builder.structure.declaredOpening {
+                builder.structure.bookOpening = builder.effectiveOpening(opening)
+            }
+        }
         return builder.resolve()
+    }
+
+    private static func isVertical(_ id: LaTeXClassID, options: [String]) -> Bool {
+        switch id {
+        case .jlreq: options.contains("tate")
+        case .tarticle, .treport, .tbook, .utarticle, .utreport, .utbook, .ltjtarticle, .ltjtreport, .ltjtbook: true
+        default: false
+        }
     }
 
     // An unregistered name can inherit family defaults without acquiring the identity of an exact match.
@@ -378,8 +394,9 @@ enum LaTeXClassRegistry {
                 builder.structure.formatsContentsChapterNames = true
             }
         }
-        builder.structure.hasChapters = ![.jarticle, .ltjarticle, .ujarticle, .utarticle, .tarticle].contains(
-            builder.id)
+        builder.structure.hasChapters = ![.jarticle, .ltjarticle, .ujarticle, .utarticle, .tarticle, .ltjtarticle]
+            .contains(
+                builder.id)
     }
 
     private static func chinese(_ builder: Builder) {
@@ -439,16 +456,24 @@ enum LaTeXClassRegistry {
             pageStyle.twoSidedFields = twoSided
         }
 
+        var openingOption: LaTeXClassProfile.OpeningSide? {
+            for option in options.reversed() {
+                switch option {
+                case "openright", "open=right": return .right
+                case "openleft", "open=left": return .left
+                case "openany", "open=any": return .any
+                default: continue
+                }
+            }
+            return nil
+        }
+
+        func effectiveOpening(_ opening: LaTeXClassProfile.OpeningSide) -> LaTeXClassProfile.OpeningSide {
+            options.last { $0 == "oneside" || $0 == "twoside" } == "oneside" ? .any : opening
+        }
+
         func setBookOpening(numberInHead: Bool, ruled: Bool = false) {
-            let opening = options.last {
-                ["openright", "openleft", "openany", "open=right", "open=left", "open=any"].contains($0)
-            }
-            let twoSided = options.last { $0 == "oneside" || $0 == "twoside" } != "oneside"
-            if !twoSided || opening == "openany" || opening == "open=any" {
-                structure.bookOpening = .any
-            } else {
-                structure.bookOpening = opening == "openleft" || opening == "open=left" ? .left : .right
-            }
+            structure.bookOpening = effectiveOpening(openingOption ?? .right)
             pageStyle.running = .markedBook(numberInHead: numberInHead, ruled: ruled)
         }
 
