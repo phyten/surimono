@@ -64,5 +64,5 @@
 | Org の名前付きドロワー | `Drawers` | Drawers | ドロワー | Drawer | Cajones | Tiroirs | 드로어 | 抽屉 | 抽屜 |
 | Org のプロパティを収めるドロワー | `Property Drawers` | Property Drawers | プロパティドロワー | Eigenschaften-Drawer | Cajones de propiedades | Tiroirs de propriétés | 속성 드로어 | 属性抽屉 | 屬性抽屜 |
 | Org で日時だけの段落にある日時 | `Standalone Timestamps` | Standalone Timestamps | 単独の日時 | Einzelne Zeitstempel | Marcas de tiempo aisladas | Horodatages isolés | 단독 타임스탬프 | 独立时间戳 | 獨立時間戳記 |
-| Org のコロンで始める等幅の行 | `Fixed-Width Sections` | Fixed-Width Sections | 等幅の行 | Zeilen mit Festbreite | Líneas de ancho fijo | Lignes à chasse fixe | 고정폭 행 | 等宽行 | 等寬行 |
+| Org のコロンで始める等幅の行 | `Fixed-Width Sections` | Fixed-Width Sections | 等幅の行 | Zeilen in Festbreitenschrift | Líneas de ancho fijo | Lignes à chasse fixe | 고정폭 줄 | 等宽行 | 等寬行 |
 | Org で ARCHIVE タグを付けた部分木 | `Archived Trees` | Archived Trees | アーカイブした項目 | Archivierte Teilbäume | Subárboles archivados | Branches archivées | 보관된 하위 트리 | 已归档的子树 | 已封存的子樹 |
