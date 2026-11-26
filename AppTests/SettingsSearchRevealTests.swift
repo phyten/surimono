@@ -178,9 +178,8 @@ struct SettingsSearchRevealTests {
             SettingsDetail(section: .documents, hits: search.hits) { _ in
                 ReadingDefaultsControls(
                     defaults: OrgReadingDefaultsPane.defaults(.surimono),
-                    resetQuestion: "Reset Org settings to defaults?",
+                    format: .org,
                     differences: OrgReadingDefaultsPane.differences, apply: { _ in },
-                    header: { Text("Org") },
                     rows: {
                         VStack(spacing: 2) {
                             ForEach(0..<40, id: \.self) { index in

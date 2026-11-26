@@ -1,3 +1,4 @@
+import SurimonoCore
 import SwiftUI
 
 typealias ReadingSettingChange = (name: String, current: String, new: String)
@@ -61,12 +62,11 @@ enum ReadingDefaultsConfirmation {
 }
 
 /// The grouped form scrolls independently of the actions that replace its values.
-struct ReadingDefaultsControls<Value: Equatable, Header: View, Rows: View>: View {
+struct ReadingDefaultsControls<Value: Equatable, Rows: View>: View {
     let defaults: ReadingDefaults<Value>
-    let resetQuestion: LocalizedStringResource
+    let format: DocumentFormat
     let differences: (Value, Value) -> [ReadingSettingChange]
     let apply: (Value) -> Void
-    @ViewBuilder let header: Header
     @ViewBuilder let rows: Rows
     @State private var pending: ReadingDefaults<Value>.Alternative?
     #if DEBUG
@@ -80,13 +80,7 @@ struct ReadingDefaultsControls<Value: Equatable, Header: View, Rows: View>: View
                     Section {
                         rows
                     } header: {
-                        HStack {
-                            header
-                            Spacer()
-                            Text(defaults.status).foregroundStyle(.secondary)
-                        }
-                        .font(.body).textCase(nil)
-                        .accessibilityElement(children: .contain)
+                        DocumentDefaultsHeader(format: format, status: defaults.status)
                     }
                 }
                 .formStyle(.grouped)
@@ -102,7 +96,7 @@ struct ReadingDefaultsControls<Value: Equatable, Header: View, Rows: View>: View
             .padding(.horizontal, 20).padding(.vertical, 10)
         }
         .alert(
-            Text(pending?.question ?? resetQuestion),
+            Text(pending?.question ?? reset.question),
             isPresented: Binding(get: { pending != nil }, set: { if !$0 { pending = nil } }),
             presenting: pending
         ) { target in
@@ -141,7 +135,7 @@ struct ReadingDefaultsControls<Value: Equatable, Header: View, Rows: View>: View
     }
 
     private var reset: ReadingDefaults<Value>.Alternative {
-        defaults.reset(question: resetQuestion)
+        defaults.reset(question: DocumentsChapter.resetQuestion(for: format))
     }
 
     @ViewBuilder private var actions: some View {

@@ -1082,6 +1082,11 @@
                     // The Settings window in place of the document's, opened as from the app menu.
                     model.preferences.settingsSection =
                         SettingsSection.allCases.first { String(describing: $0) == name } ?? .general
+                    if name == "documents", let raw = argument("SurimonoSettingsFormat"),
+                        let format = DocumentFormat(rawValue: raw), DocumentsChapter.formats.contains(format)
+                    {
+                        model.preferences.settingsDocumentFormat = format
+                    }
                     DebugSnapshotProgress.report("Opening Settings: " + name)
                     AppKitShell.current?.showSettings(nil)
                     let deadline = ContinuousClock.now + .seconds(8)

@@ -358,6 +358,13 @@ final class AppPreferences {
         return true
     }
 
+    private static let shippedHTMLPreset = "none"
+    private static let shippedHTMLJavaScript = true
+
+    var usesDefaultHTMLSettings: Bool {
+        presetID == Self.shippedHTMLPreset && allowsJavaScript == Self.shippedHTMLJavaScript
+    }
+
     var presetID: String { didSet { defaults.set(presetID, forKey: "preset") } }
     var margin: Double {
         didSet {
@@ -685,7 +692,7 @@ final class AppPreferences {
             blocks: defaults.string(forKey: "codeBlockLineNumbers").flatMap(
                 CodeBlockOptions.LineNumbers.init(rawValue:)) ?? numbers.blocks)
         defaultCodePaletteID = defaults.string(forKey: "codePalette") ?? CodePalette.matchesStyleID
-        presetID = defaults.string(forKey: "preset") ?? "none"
+        presetID = defaults.string(forKey: "preset") ?? Self.shippedHTMLPreset
         margin = defaults.object(forKey: "margin") as? Double ?? 15
         let storedFinish = defaults.data(forKey: "printFinishDefaults").flatMap {
             try? JSONDecoder().decode(PrintFinishDefaults.self, from: $0)
@@ -700,7 +707,7 @@ final class AppPreferences {
         finishDefaults = storedFinish
         viewPageNumbers = defaults.bool(forKey: "viewPageNumbers")
         rotateBack = defaults.bool(forKey: "rotateBack")
-        allowsJavaScript = defaults.object(forKey: "allowsJavaScript") as? Bool ?? true
+        allowsJavaScript = defaults.object(forKey: "allowsJavaScript") as? Bool ?? Self.shippedHTMLJavaScript
         printerName = defaults.string(forKey: "printer")
         printPageOrder = PrintPageOrder(rawValue: defaults.string(forKey: "printPageOrder") ?? "") ?? .lastSheetFirst
         printerProfiles =

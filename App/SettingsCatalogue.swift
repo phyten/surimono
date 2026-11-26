@@ -217,7 +217,10 @@ enum SettingsCatalogue {
                 let shown = Set(controls.map(\.id))
                 let otherSyntax = ReadingCatalogue.rows(for: format).filter { !shown.contains($0.id) }
                     .flatMap(\.instructions).map { $0.syntax.lowercased() }
-                rows.append(.init(.documents, "Defaults for New Documents", format: format, identifiers: otherSyntax))
+                rows.append(
+                    .init(
+                        .documents, DocumentsChapter.title(format), format: format,
+                        anchor: "Defaults for New Documents", identifiers: otherSyntax))
             }
             if format == .plainText {
                 rows += CodeNumberRow.allCases.map { .init(.documents, $0.label.key, format: format) }
@@ -240,6 +243,7 @@ enum SettingsCatalogue {
             }
         }
         rows += [
+            .init(.documents, "Show Only Changed Settings", format: .org),
             .init(.documents, "Use Emacs Defaults…", format: .org),
             .init(.documents, "Reset to Defaults…", format: .org),
             .init(.documents, "Default HTML Preset", format: .html, identifiers: [".html", ".htm"]),

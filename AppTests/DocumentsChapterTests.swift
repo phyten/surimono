@@ -145,7 +145,77 @@ struct DocumentsChapterTests {
         }
     }
 
-    @Test("最小幅の形式選択と広い窓の形式一覧で八言語の各ページが収まる", arguments: UILanguage.supported, [519, 780])
+    @Test("HTML はプリセットと JavaScript の両方が出荷時の値に戻ると初期値と示す")
+    func htmlStatus() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let prefs = AppPreferences(defaults: suite.defaults)
+        #expect(prefs.usesDefaultHTMLSettings)
+        prefs.presetID = "reader"
+        #expect(!prefs.usesDefaultHTMLSettings)
+        prefs.allowsJavaScript = false
+        prefs.presetID = "none"
+        #expect(!prefs.usesDefaultHTMLSettings)
+        prefs.allowsJavaScript = true
+        #expect(prefs.usesDefaultHTMLSettings)
+    }
+
+    @Test("リセットの確認には選んだ形式の表示名が八言語それぞれで入る", arguments: UILanguage.supported)
+    func resetQuestions(language: String) throws {
+        let locale = Locale(identifier: language)
+        let url = try #require(Bundle.main.url(forResource: language, withExtension: "lproj"))
+        let strings = try #require(Bundle(url: url))
+        for format in DocumentsChapter.formats where format != .html {
+            var question = DocumentsChapter.resetQuestion(for: format)
+            question.locale = locale
+            let title = DocumentsChapter.title(format)
+            let name = strings.localizedString(forKey: title, value: title, table: nil)
+            let template = strings.localizedString(forKey: question.key, value: "MISSING", table: nil)
+            #expect(template != "MISSING")
+            let expected = String(format: template, locale: locale, name)
+            #expect(expected.contains(name))
+            #expect(String(localized: question) == expected)
+        }
+    }
+
+    @Test("形式一覧は各行を同じ高さとし、ソースコードの前だけ間隔を空ける", arguments: UILanguage.supported)
+    func formatList(language: String) async throws {
+        var selected = DocumentFormat.rst
+        let selection = Binding(get: { selected }, set: { selected = $0 })
+        let screen = OrgReadingTestWindow(width: 780, height: 540) {
+            DocumentsChapterView(formats: DocumentsChapter.formats, selection: selection) { Color.clear }
+                .environment(\.locale, Locale(identifier: language))
+        }
+        defer { screen.window.close() }
+        func table(in view: NSView) -> NSTableView? {
+            (view as? NSTableView) ?? view.subviews.lazy.compactMap { table(in: $0) }.first
+        }
+        try await screen.wait("format list") { table(in: screen.host)?.numberOfRows == 10 }
+        let list = try #require(table(in: screen.host))
+        let column = try #require(list.enclosingScrollView)
+        #expect((176...180).contains(column.frame.width))
+        let rects = (0..<10).map(list.rect(ofRow:))
+        let ordinary = Array(rects.prefix(8)) + [rects[9]]
+        #expect(ordinary.allSatisfy { (30...32).contains($0.height) }, "\(rects)")
+        #expect((10...12).contains(rects[9].minY - rects[7].maxY), "\(rects)")
+        let cell = try #require(list.view(atColumn: 0, row: 3, makeIfNecessary: false) as? NSTableCellView)
+        let text = try #require(cell.textField)
+        #expect(text.stringValue == "reStructuredText")
+        #expect(text.frame.width >= text.intrinsicContentSize.width)
+        let label = text.convert(text.bounds, to: nil)
+        let bounds = column.convert(column.bounds, to: nil)
+        #expect(bounds.maxX - label.maxX >= 16)
+        let source = try #require(list.view(atColumn: 0, row: 9, makeIfNecessary: false) as? NSTableCellView)
+        let url = try #require(Bundle.main.url(forResource: language, withExtension: "lproj"))
+        let strings = try #require(Bundle(url: url))
+        #expect(source.textField?.stringValue == strings.localizedString(forKey: "Source Code", value: nil, table: nil))
+        #expect(list.effectiveStyle == .sourceList && list.selectedRow == 3)
+        #expect(list.delegate?.tableView?(list, shouldSelectRow: 8) == false)
+        list.selectRowIndexes(IndexSet(integer: 9), byExtendingSelection: false)
+        #expect(selected == .plainText)
+    }
+
+    @Test("最小幅の形式選択と広い窓の形式一覧で八言語の各ページが収まる", arguments: UILanguage.supported, [519, 720, 780])
     func layout(language: String, width: CGFloat) async throws {
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
@@ -155,8 +225,18 @@ struct DocumentsChapterTests {
         let settings = SettingsView(
             preferences: prefs, library: UserLibrary(root: root),
             arrangementEditor: BandArrangementEditorSession(preferences: prefs))
+        let url = try #require(Bundle.main.url(forResource: language, withExtension: "lproj"))
+        let strings = try #require(Bundle(url: url))
         let height = SettingsWindowPlacement.minimumContentSize.height
-        for format in DocumentsChapter.formats {
+        let pages =
+            DocumentsChapter.formats.map { ($0, "Surimono defaults") } + [(.org, "Emacs defaults"), (.org, "Custom")]
+        for (format, status) in pages {
+            if status == "Emacs defaults" { prefs.setOrgDefaults(.emacs) }
+            if status == "Custom" {
+                var custom = OrgReadingDefaults.surimono
+                custom.headlineLevels = 5
+                prefs.setOrgDefaults(custom)
+            }
             let frames = SettingsRowFrames()
             var viewport = CGRect.null
             let screen = OrgReadingTestWindow(width: width, height: height) {
@@ -186,10 +266,27 @@ struct DocumentsChapterTests {
             for key in keys {
                 let frame = try #require(frames.rows[key])
                 #expect(!frame.isEmpty && viewport.contains(frame), "\(key) \(frame), viewport=\(viewport)")
-                #expect(frame.minX >= (width == 780 ? viewport.minX + 156 : viewport.minX))
+                #expect(frame.minX >= (width >= 720 ? viewport.minX + 178 : viewport.minX))
+            }
+            let left = try #require(frames.rows["Defaults for New Documents"])
+            let right = try #require(frames.rows[status])
+            #expect(!left.isEmpty && !right.isEmpty && left.maxX < right.minX)
+            #expect(abs(left.midY - right.midY) <= 1)
+            let title = DocumentsChapter.title(format)
+            for (key, font, frame) in [(title, Font.headline, left), (status, Font.body, right)] {
+                let label = strings.localizedString(forKey: key, value: key, table: nil)
+                let host = NSHostingController(
+                    rootView: Text(verbatim: label).font(font).fixedSize()
+                        .environment(\.locale, Locale(identifier: language)))
+                let intrinsic = host.sizeThatFits(in: CGSize(width: width, height: height))
+                #expect(frame.width >= intrinsic.width - 1, "\(language) \(label) \(intrinsic) \(frame)")
+            }
+            if format == .org {
+                let filter = try #require(frames.rows["Show Only Changed Settings"])
+                #expect(filter.midY > left.midY)
             }
             let first = try #require(frames.rows[keys[0]])
-            #expect((first.minX - viewport.minX > 156) == (width == 780))
+            #expect((first.minX - viewport.minX > 178) == (width >= 720))
         }
     }
 }

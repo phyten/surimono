@@ -11,6 +11,12 @@ enum DocumentsChapter {
         format == .plainText ? "Source Code" : format.displayName
     }
 
+    static func resetQuestion(for format: DocumentFormat) -> LocalizedStringResource {
+        if format == .org { return "Reset Org settings to defaults?" }
+        let name = LocalizedStringResource(String.LocalizationValue(stringLiteral: title(format)))
+        return "Reset the \(name) settings to Surimono defaults?"
+    }
+
     static func extensions(for format: DocumentFormat) -> [String] {
         switch format {
         case .markdown: [".md", ".markdown"]
@@ -45,16 +51,8 @@ struct DocumentsChapterView<Page: View>: View {
         GeometryReader { viewport in
             if Self.usesList(width: viewport.size.width) {
                 HStack(spacing: 0) {
-                    List(
-                        selection: Binding(
-                            get: { Optional(selection) }, set: { if let value = $0 { selection = value } })
-                    ) {
-                        ForEach(formats, id: \.self) { format in
-                            Text(LocalizedStringKey(DocumentsChapter.title(format))).tag(format)
-                        }
-                    }
-                    .accessibilityLabel(Text("Format"))
-                    .frame(width: 156)
+                    DocumentFormatList(formats: formats, selection: $selection)
+                        .frame(width: 178)
                     Divider()
                     page.id(selection)
                 }
@@ -71,6 +69,109 @@ struct DocumentsChapterView<Page: View>: View {
                 }
             }
         }
+    }
+}
+
+/// A source list gives the selection its native key-window and inactive appearances.
+private struct DocumentFormatList: NSViewRepresentable {
+    let formats: [DocumentFormat]
+    @Binding var selection: DocumentFormat
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let table = NSTableView()
+        table.style = .sourceList
+        table.headerView = nil
+        table.intercellSpacing = .zero
+        table.allowsEmptySelection = false
+        table.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
+        table.addTableColumn(NSTableColumn(identifier: .init("format")))
+        table.delegate = context.coordinator
+        table.dataSource = context.coordinator
+        let scroll = NSScrollView()
+        scroll.hasVerticalScroller = true
+        scroll.autohidesScrollers = true
+        scroll.documentView = table
+        return scroll
+    }
+
+    func updateNSView(_ scroll: NSScrollView, context: Context) {
+        guard let table = scroll.documentView as? NSTableView else { return }
+        let coordinator = context.coordinator
+        let locale = context.environment.locale
+        var rows = formats.map(Optional.some)
+        if let index = formats.firstIndex(of: .plainText), index > 0 { rows.insert(nil, at: index) }
+        coordinator.select = nil
+        if coordinator.rows != rows || coordinator.locale != locale {
+            coordinator.rows = rows
+            coordinator.locale = locale
+            table.setAccessibilityLabel(String(localized: LocalizedStringResource("Format", locale: locale)))
+            table.reloadData()
+        }
+        if let index = rows.firstIndex(of: selection), table.selectedRow != index {
+            table.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false)
+            table.scrollRowToVisible(index)
+        }
+        coordinator.select = { selection = $0 }
+    }
+
+    final class Coordinator: NSObject, NSTableViewDataSource, NSTableViewDelegate {
+        var rows: [DocumentFormat?] = []
+        var locale = Locale.current
+        var select: ((DocumentFormat) -> Void)?
+
+        func numberOfRows(in tableView: NSTableView) -> Int { rows.count }
+
+        func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat { rows[row] == nil ? 11 : 31 }
+        func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool { rows[row] != nil }
+
+        func tableView(_ tableView: NSTableView, didAdd rowView: NSTableRowView, forRow row: Int) {
+            rowView.setAccessibilityHidden(rows[row] == nil)
+        }
+
+        func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+            guard let format = rows[row] else { return nil }
+            let title = String.LocalizationValue(stringLiteral: DocumentsChapter.title(format))
+            let label = NSTextField(labelWithString: String(localized: LocalizedStringResource(title, locale: locale)))
+            label.font = .systemFont(ofSize: NSFont.systemFontSize)
+            label.translatesAutoresizingMaskIntoConstraints = false
+            let cell = NSTableCellView()
+            cell.addSubview(label)
+            cell.textField = label
+            NSLayoutConstraint.activate([
+                label.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 8),
+                label.trailingAnchor.constraint(lessThanOrEqualTo: cell.trailingAnchor, constant: -16),
+                label.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+            ])
+            return cell
+        }
+
+        func tableViewSelectionDidChange(_ notification: Notification) {
+            guard let table = notification.object as? NSTableView, rows.indices.contains(table.selectedRow),
+                let format = rows[table.selectedRow]
+            else { return }
+            select?(format)
+        }
+    }
+}
+
+struct DocumentDefaultsHeader: View {
+    let format: DocumentFormat
+    let status: LocalizedStringResource
+
+    var body: some View {
+        HStack {
+            Text(LocalizedStringKey(DocumentsChapter.title(format)))
+                .font(.headline)
+                .accessibilityAddTraits(.isHeader)
+                .settingSearchRow("Defaults for New Documents", fillsRow: false)
+            Spacer()
+            Text(status).foregroundStyle(.secondary)
+                .settingSearchRow(status.key, fillsRow: false)
+        }
+        .font(.body).textCase(nil)
+        .accessibilityElement(children: .contain)
     }
 }
 
@@ -120,10 +221,7 @@ struct FormatDefaultsPane: View {
 
     var body: some View {
         ReadingDefaultsControls(
-            defaults: defaults, resetQuestion: "Reset to defaults?", differences: differences, apply: { _ in reset() },
-            header: {
-                Text("Defaults for New Documents").settingSearchRow("Defaults for New Documents", fillsRow: false)
-            },
+            defaults: defaults, format: format, differences: differences, apply: { _ in reset() },
             rows: {
                 ForEach(rows, id: \.id) { entry in
                     if let row = preferences.formatReadingDefaults.resolve(entry.id, for: format) {
@@ -172,7 +270,7 @@ struct CodeNumberDefaultsPane: View {
         ReadingDefaultsControls(
             defaults: ReadingDefaults(
                 builtIn: CodeLineNumberDefaults(), alternatives: [], current: preferences.codeLineNumbers),
-            resetQuestion: "Reset to defaults?",
+            format: .plainText,
             differences: { current, target in
                 CodeNumberRow.allCases.compactMap { row in
                     let from = current[keyPath: row.keyPath]
@@ -181,9 +279,6 @@ struct CodeNumberDefaultsPane: View {
                     return (String(localized: row.label), String(localized: from.title), String(localized: to.title))
                 }
             }, apply: { preferences.codeLineNumbers = $0 },
-            header: {
-                Text("Defaults for New Documents")
-            },
             rows: {
                 ForEach(CodeNumberRow.allCases, id: \.self) { row in
                     Picker(row.label, selection: $preferences.codeLineNumbers[dynamicMember: row.keyPath]) {

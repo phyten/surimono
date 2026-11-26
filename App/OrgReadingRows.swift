@@ -339,17 +339,16 @@ struct OrgReadingDefaultsPane: View {
     var body: some View {
         let current = preferences.orgReadingDefaults ?? .surimono
         var controls = ReadingDefaultsControls(
-            defaults: Self.defaults(current), resetQuestion: "Reset Org settings to defaults?",
+            defaults: Self.defaults(current), format: .org,
             differences: Self.differences,
             apply: { values in
                 preferences.setOrgDefaults(values)
                 filter.didApply(values)
             },
-            header: {
+            rows: {
                 Toggle("Show Only Changed Settings", isOn: $filter.isOn)
                     .toggleStyle(.checkbox)
-            },
-            rows: {
+                    .settingSearchRow("Show Only Changed Settings")
                 if filter.showsEmpty(current) {
                     Text("No settings differ from Surimono defaults").foregroundStyle(.secondary)
                 } else {

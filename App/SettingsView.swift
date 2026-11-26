@@ -591,6 +591,9 @@ struct SettingsView: View {
                     .settingSearchRow("Default HTML Preset")
                     Toggle("Allow JavaScript in HTML", isOn: $preferences.allowsJavaScript)
                         .settingSearchRow("Allow JavaScript in HTML")
+                } header: {
+                    DocumentDefaultsHeader(
+                        format: .html, status: preferences.usesDefaultHTMLSettings ? "Surimono defaults" : "Custom")
                 } footer: {
                     defaultsNote
                 }

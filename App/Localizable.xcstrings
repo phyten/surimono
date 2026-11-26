@@ -160,55 +160,55 @@
         }
       }
     },
-    "Reset to defaults?": {
+    "Reset the %@ settings to Surimono defaults?": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reset to defaults?"
+            "value": "Reset the %@ settings to Surimono defaults?"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "初期値に戻しますか？"
+            "value": "「%@」の設定を Surimono の初期値に戻しますか？"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Auf Standardwerte zurücksetzen?"
+            "value": "Einstellungen für %@ auf die Surimono-Standardwerte zurücksetzen?"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "¿Restablecer los valores iniciales?"
+            "value": "¿Restablecer los ajustes de %@ a los valores iniciales de Surimono?"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rétablir les valeurs initiales ?"
+            "value": "Rétablir les valeurs initiales de Surimono pour les réglages de %@ ?"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "초깃값으로 재설정할까요?"
+            "value": "%@ 설정을 Surimono 초깃값으로 재설정할까요?"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "要恢复为初始值吗？"
+            "value": "要将 %@ 设置恢复为 Surimono 初始值吗？"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "要回復為初始值嗎？"
+            "value": "要將 %@ 設定回復為 Surimono 初始值嗎？"
           }
         }
       }
