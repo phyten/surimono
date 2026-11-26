@@ -124,7 +124,7 @@ struct PrintThemeMenuTests {
         // The shared sheet is embedded even when its LaTeX rules do not match this Markdown fragment.
         #expect(
             Data(SHA256.hash(data: Data(html.utf8))).base64EncodedString()
-                == "vVcoWeRZ1j2vXByXDGuYPZ2MNPz7PtwOl5o+ouyOSf4=")
+                == "my2E9bT9CzFzDMW8w4qSSHUJz+vs+C0yn1U9GDh+ZMA=")
     }
 
     @Test("縦書きは和の趣にあり、Markdown・Org・テキスト・LaTeX で選べる")
