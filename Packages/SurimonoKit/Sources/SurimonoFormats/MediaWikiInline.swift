@@ -1,7 +1,7 @@
 import Foundation
 
 extension WikiReader {
-    private static let pieces = WikiPattern(
+    static let inlineTokens = WikiPattern(
         "\u{E000}([0-9]+)\u{E001}([a-z]*)"
             + #"|(?:https?://|mailto:)[^\s"<>\[\]\uE000]+"#
             + #"|&(?:#\d+|#[xX][a-fA-F0-9]+|[a-zA-Z][a-zA-Z0-9]*);|__[A-Z][A-Z0-9_]*?__"#
@@ -100,19 +100,23 @@ extension WikiReader {
 
     private func pieces(_ text: String) -> String {
         guard !text.isEmpty else { return "" }
-        return Self.pieces.replace(text, plain: HTML.escape) { m in
+        return Self.inlineTokens.replace(text, plain: HTML.escape) { m in
             if let i = Int(m[1]), atoms.indices.contains(i) {
                 let a = atoms[i]
-                return a.kind == "link" ? link(a.body, trail: m[2]) : render(a) + m[2]
+                return a.kind == "link" ? render(a, trail: m[2]) : render(a) + m[2]
             }
             if m[0].hasPrefix("&") { return m[0] }
             if m[0].hasPrefix("__") {
                 switch m[0] {
-                case "__FORCETOC__": forceTOC = true
+                case "__FORCETOC__":
+                    forceTOC = true
+                    if switchOffsets[m[0]] == nil { switchOffsets[m[0]] = activeSwitches[m[0]] }
                 case "__TOC__" where !explicitTOC:
                     explicitTOC = true
-                    return later { [self] in hideTOC ? "" : MarkdownExtensions.tableOfContents(anchors) }
-                case "__NOTOC__": hideTOC = true
+                    return later { [self] in ReaderContentsKind.text.mark(MarkdownExtensions.tableOfContents(anchors)) }
+                case "__NOTOC__":
+                    hideTOC = true
+                    if switchOffsets[m[0]] == nil { switchOffsets[m[0]] = activeSwitches[m[0]] }
                 default: break
                 }
                 return ""
@@ -178,7 +182,10 @@ extension WikiReader {
         return plain
     }
 
-    func render(_ a: Atom, block: Bool = false, display: Bool = false) -> String {
+    func render(_ a: Atom, block: Bool = false, display: Bool = false, trail: String = "") -> String {
+        let parent = activeSwitches
+        activeSwitches = a.switches
+        defer { activeSwitches = parent }
         switch a.kind {
         case "external":
             if a.body.isEmpty { external += 1 }
@@ -198,7 +205,7 @@ extension WikiReader {
             let content = a.body.isEmpty ? nil : inline(a.body)
             return references.add(content, name: a.attrs["name"], group: a.attrs["group"] ?? "")
         case "references": return referenceList(a.attrs["group"] ?? "")
-        case "link": return link(a.body)
+        case "link": return link(a.body, trail: trail)
         case "template", "parameter": return template(a.body, block: block)
         case "gallery":
             var figures = ""

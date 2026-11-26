@@ -1,5 +1,5 @@
 /// The approval belongs to the document and settings that produced it.
-public struct MarkdownDiscardConfirmation: Equatable, Identifiable, Sendable {
+public struct ReadingDiscardConfirmation: Equatable, Identifiable, Sendable {
     public var id: Int { generation }
     public let count: Int
     fileprivate let format: DocumentFormat
@@ -11,28 +11,29 @@ public struct MarkdownDiscardConfirmation: Equatable, Identifiable, Sendable {
     fileprivate let defaults: FormatReadingChoices
 }
 
-public enum MarkdownFileLockResult: Equatable, Sendable {
+public enum ReadingFileLockResult: Equatable, Sendable {
     case finished
     case awaitingInstructions
-    case needsConfirmation(MarkdownDiscardConfirmation)
+    case needsConfirmation(ReadingDiscardConfirmation)
 }
 
 extension DocumentSettings {
     /// Asking for confirmation leaves both the settings and the legacy finish untouched.
-    public mutating func lockMarkdownFileInstructions(
+    public mutating func lockReadingFileInstructions(
         for format: DocumentFormat = .markdown, facts: DocumentFacts?, generation: Int, defaults: FormatReadingChoices,
-        confirming approval: MarkdownDiscardConfirmation? = nil
-    ) -> MarkdownFileLockResult {
-        guard format.usesMarkdownReadingSettings, formatReading.allowsFileChanges(for: format) else { return .finished }
+        confirming approval: ReadingDiscardConfirmation? = nil
+    ) -> ReadingFileLockResult {
+        guard format.usesFormatReadingSettings, formatReading.allowsFileChanges(for: format) else { return .finished }
         guard let facts else { return .awaitingInstructions }
+        let before = formatReading.restricted(to: [format])
         var after = formatReading
         var finish = printFinish
         var count = 0
         after.revert(.sectionNumbers, for: format, fileOnly: facts.numberInstructions)
-        if after != formatReading { count += 1 }
-        let beforeContents = after
+        let beforeContents = after.restricted(to: [format])
+        if beforeContents != before { count += 1 }
         after.revert(.tableOfContents, for: format, fileOnly: facts.contentsInstructions)
-        if after != beforeContents {
+        if after.restricted(to: [format]) != beforeContents {
             count += 1
             var migrated = self
             if migrated.migrateContents(format: format, facts: facts, defaults: defaults, editing: true) {
@@ -42,8 +43,9 @@ extension DocumentSettings {
             }
         }
         after.setAllowsFileChanges(false, for: format)
-        let current = MarkdownDiscardConfirmation(
-            count: count, format: format, generation: generation, before: formatReading, after: after,
+        let current = ReadingDiscardConfirmation(
+            count: count, format: format, generation: generation, before: before,
+            after: after.restricted(to: [format]),
             oldFinish: printFinish,
             newFinish: finish, defaults: defaults.restricted(to: [format]))
         if count > 0, current != approval { return .needsConfirmation(current) }

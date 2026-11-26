@@ -152,7 +152,7 @@ extension ComputationalReadingTests {
 extension ComputationalReadingTests {
     @Test("文書で追加した先頭の目次は変換結果にも含まれ、本文の目次を残す", arguments: [DocumentFormat.quarto, .rMarkdown])
     func documentLead(format: DocumentFormat) {
-        var reading = MarkdownReadingSettings()
+        var reading = FormatReadingSettings()
         reading.document.set(.outline(present: true, depth: .levels(1)), for: .tableOfContents, format: format)
         let fragment = ComputationalMarkdown.convert("# One\n\n## Two\n\n[TOC]", format: format, reading: reading)
         #expect(fragment.body.hasPrefix("<nav") && fragment.body.components(separatedBy: "</nav>").count == 3)
@@ -162,7 +162,7 @@ extension ComputationalReadingTests {
     func numberDepthLock() throws {
         let source = "---\nnumber-depth: 1\n---\n# One\n\n## Two"
         let file = ComputationalMarkdown.convert(source).numberInstructions
-        var reading = MarkdownReadingSettings()
+        var reading = FormatReadingSettings()
         let state = try #require(reading.document.resolve(.sectionNumbers, for: .quarto, file: file))
         #expect(state.allowsOutline(present: true, depth: .levels(1)))
         #expect(state.allowsOutline(present: false, depth: .all))

@@ -62,7 +62,7 @@ extension MarkdownReadingTests {
     @Test("三つの読み方を独立に本文・見出し・先頭と本文の目次へ反映する", arguments: [false, true], [false, true])
     func combinations(numbered: Bool, lead: Bool) {
         for breaks in [false, true] {
-            var reading = MarkdownReadingSettings()
+            var reading = FormatReadingSettings()
             reading.document.set(
                 .outline(present: numbered, depth: .levels(1)), for: .sectionNumbers, format: .markdown)
             reading.document.set(.outline(present: lead, depth: .levels(1)), for: .tableOfContents, format: .markdown)

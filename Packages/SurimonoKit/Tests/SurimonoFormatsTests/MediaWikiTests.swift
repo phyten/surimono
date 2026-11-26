@@ -183,11 +183,12 @@ struct MediaWikiTests {
         #expect(html.contains(">…</td>"))
     }
 
-    @Test("目次抑止と名前空間は本文に記号を残さない")
+    @Test("本文の目次は抑止指定に優先し、名前空間と指定の記号を残さない")
     func suppressed() {
         let html = MediaWikiConverter.convert("__TOC__\n__NOTOC__\n== Ink ==\n[[ja:Other]] [[Category:Paper|Sort]]")
             .body
-        for hidden in ["__TOC__", "__NOTOC__", "<nav", "Other", "Sort"] { #expect(!html.contains(hidden)) }
+        #expect(html.contains("<nav class=\"toc\""))
+        for hidden in ["__TOC__", "__NOTOC__", "Other", "Sort"] { #expect(!html.contains(hidden)) }
         #expect(html.contains("Categories: Paper"))
     }
 

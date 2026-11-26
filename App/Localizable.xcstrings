@@ -2970,55 +2970,55 @@
         }
       }
     },
-    "Appears for individual Markdown, Quarto, R Markdown and Org documents.": {
+    "Appears for individual Markdown, Quarto, R Markdown, reStructuredText, MediaWiki and Org documents.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Appears for individual Markdown, Quarto, R Markdown and Org documents."
+            "value": "Appears for individual Markdown, Quarto, R Markdown, reStructuredText, MediaWiki and Org documents."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "単独の Markdown・Quarto・R Markdown・Org 文書で表示されます。"
+            "value": "単独の Markdown・Quarto・R Markdown・reStructuredText・MediaWiki・Org 文書で表示されます。"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Erscheint bei einzelnen Markdown-, Quarto-, R-Markdown- und Org-Dokumenten."
+            "value": "Erscheint bei einzelnen Markdown-, Quarto-, R-Markdown-, reStructuredText-, MediaWiki- und Org-Dokumenten."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aparece en documentos Markdown, Quarto, R Markdown y Org individuales."
+            "value": "Aparece en documentos Markdown, Quarto, R Markdown, reStructuredText, MediaWiki y Org individuales."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apparaît pour les documents Markdown, Quarto, R Markdown et Org ouverts individuellement."
+            "value": "Apparaît pour les documents Markdown, Quarto, R Markdown, reStructuredText, MediaWiki et Org ouverts individuellement."
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "개별 Markdown, Quarto, R Markdown 및 Org 문서에 표시됩니다."
+            "value": "개별 Markdown, Quarto, R Markdown, reStructuredText, MediaWiki 및 Org 문서에 표시됩니다."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在单独打开的 Markdown、Quarto、R Markdown 和 Org 文档中显示。"
+            "value": "在单独打开的 Markdown、Quarto、R Markdown、reStructuredText、MediaWiki 和 Org 文档中显示。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "在單獨打開的 Markdown、Quarto、R Markdown 和 Org 文件中顯示。"
+            "value": "在單獨打開的 Markdown、Quarto、R Markdown、reStructuredText、MediaWiki 和 Org 文件中顯示。"
           }
         }
       }

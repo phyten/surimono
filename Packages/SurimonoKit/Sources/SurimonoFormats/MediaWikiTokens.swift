@@ -98,6 +98,24 @@ extension WikiReader {
             }
         }
 
+        // Carry offsets through brace grouping. The block and inline readers receive the original spelling.
+        func plain(_ range: NSRange) -> String {
+            let text = source.substring(with: range)
+            guard text.contains("__") else { return text }
+            let part = text as NSString
+            var tagged = ""
+            var cursor = 0
+            Self.inlineTokens.forEachMatch(in: text) { match in
+                let word = part.substring(with: match.range)
+                guard word == "__NOTOC__" || word == "__FORCETOC__" else { return }
+                let end = NSMaxRange(match.range)
+                tagged += part.substring(with: NSRange(location: cursor, length: end - cursor))
+                tagged += switchTag + String(range.location + match.range.location) + "\u{E007}"
+                cursor = end
+            }
+            return cursor == 0 ? text : tagged + part.substring(from: cursor)
+        }
+
         func region(_ start: Int, _ end: Int, _ bounds: NSRange, _ nesting: Int) -> String {
             var text = ""
             var cursor = bounds.location
@@ -106,7 +124,7 @@ extension WikiReader {
                 if PreviewConversion.expired { return "" }
                 let t = tokens[i]
                 let raw = source.substring(with: t.range)
-                text += source.substring(with: NSRange(location: cursor, length: t.range.location - cursor))
+                text += plain(NSRange(location: cursor, length: t.range.location - cursor))
                 cursor = NSMaxRange(t.range)
                 let name = t.kind
                 if Self.allowed.contains(name) {
@@ -132,7 +150,7 @@ extension WikiReader {
                 }
                 i += 1
             }
-            text += source.substring(with: NSRange(location: cursor, length: NSMaxRange(bounds) - cursor))
+            text += plain(NSRange(location: cursor, length: NSMaxRange(bounds) - cursor))
             return groupBraces(text)
         }
         return region(0, tokens.count, NSRange(location: 0, length: source.length), 0)

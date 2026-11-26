@@ -186,8 +186,8 @@ public struct RenderSettings: Equatable, Sendable {
             for: format, file: facts.contentsInstructions, defaults: formatReadingDefaults)
     }
 
-    var markdownReading: MarkdownReadingSettings {
-        MarkdownReadingSettings(
+    var readingSettings: FormatReadingSettings {
+        FormatReadingSettings(
             document: formatReading, defaults: formatReadingDefaults,
             manuscriptContents: finish.legacyTOC != nil || finish.originalPresetContents?.mode == .source)
     }
@@ -1716,7 +1716,7 @@ public final class DocumentRenderer {
             let fragment = try Self.themedFragment(
                 source, pageBreakLine: settings.finish.breaks.customLine, proof: settings.finish.proof,
                 orgReading: settings.orgReading, includesOrgLead: settings.includesOrgLead,
-                markdownReading: settings.markdownReading,
+                readingSettings: settings.readingSettings,
                 contentsDepth: settings.readerDepth(for: source.format),
                 proposedLeadDepth: settings.proposedLeadDepth(for: source.format),
                 composition: settings.latexComposition, textWidthPoints: settings.textWidthPoints(in: settings.layout),
@@ -2430,7 +2430,7 @@ public final class DocumentRenderer {
     nonisolated static func themedFragment(
         _ source: DocumentSource, pageBreakLine: String = "", proof: ProofMarks = .shown,
         orgReading: OrgReadingSettings = .init(), includesOrgLead: Bool = true,
-        markdownReading: MarkdownReadingSettings = .init(), contentsDepth: Int? = nil,
+        readingSettings: FormatReadingSettings = .init(), contentsDepth: Int? = nil,
         proposedLeadDepth: Int? = nil,
         composition: LaTeXComposition = .document, textWidthPoints: Double? = nil, textScale: Double = 1,
         mapsMarkdownSource: Bool = false,
@@ -2447,13 +2447,13 @@ public final class DocumentRenderer {
         case .markdown:
             try markdownFragment(
                 source, pageBreakLine: pageBreakLine, proof: proof, mapsSource: mapsMarkdownSource,
-                contentsDepth: contentsDepth, reading: markdownReading,
+                contentsDepth: contentsDepth, reading: readingSettings,
                 access: access, onDenied: onDenied)
         case .graphviz, .plantuml:
             DiagramConverter.convert(try decodedText(source.data), format: source.format)
         case .quarto, .rMarkdown:
             ComputationalMarkdown.convert(
-                try decodedText(source.data), format: source.format, reading: markdownReading,
+                try decodedText(source.data), format: source.format, reading: readingSettings,
                 pageBreakLine: pageBreakLine, proof: proof, contentsDepth: contentsDepth,
                 proposedLeadDepth: proposedLeadDepth)
         case .docx: try DocxConverter.convert(source.data)
@@ -2462,6 +2462,7 @@ public final class DocumentRenderer {
         case .rst:
             RSTConverter.convert(
                 try decodedText(source.data), directory: source.fileURL?.deletingLastPathComponent(),
+                reading: readingSettings,
                 permitsFile: {
                     url in
                     guard access?.permits(url) != false else {
@@ -2473,7 +2474,7 @@ public final class DocumentRenderer {
         case .mediawiki:
             MediaWikiConverter.convert(
                 try decodedText(source.data), directory: source.fileURL?.deletingLastPathComponent(),
-                contentsDepth: contentsDepth ?? 3,
+                contentsDepth: contentsDepth, reading: readingSettings,
                 imageExists: imageExists)
         case .textile:
             try TextileConverter.convert(try decodedText(source.data))

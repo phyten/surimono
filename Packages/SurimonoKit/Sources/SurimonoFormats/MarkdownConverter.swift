@@ -2,62 +2,13 @@ import CryptoKit
 import Foundation
 import Markdown
 
-public struct MarkdownReadingSettings: Sendable {
-    public var document: FormatReadingChoices
-    public var defaults: FormatReadingChoices
-    /// A saved legacy finish still owns the lead list until its first edit.
-    public var manuscriptContents: Bool
-
-    public init(
-        document: FormatReadingChoices = .init(), defaults: FormatReadingChoices = .init(),
-        manuscriptContents: Bool = false
-    ) {
-        self.document = document
-        self.defaults = defaults
-        self.manuscriptContents = manuscriptContents
-    }
-    struct Options {
-        var numbers: ReadingDepth?
-        var ownsNumbers = false
-        var preservesBreaks = false
-        var lead: ReadingDepth?
-    }
-
-    func resolve(
-        for format: DocumentFormat, numbers: ReadingFileInstructions, contents: ReadingFileInstructions,
-        contentsDepth: Int?
-    ) -> Options {
-        var result = Options()
-        switch document.resolve(.sectionNumbers, for: format, file: numbers, defaults: defaults) {
-        case .toggle(let present):
-            result.numbers = present.value ? .all : nil
-        case .outline(let present, let depth):
-            result.numbers = present.value ? depth.value : nil
-        case nil: break
-        }
-        result.ownsNumbers = !document.usesStyleForMarkdownNumbers(for: format, file: numbers, defaults: defaults)
-        if case .toggle(let breaks) = document.resolve(.preserveBreaks, for: format, defaults: defaults) {
-            result.preservesBreaks = breaks.value
-        }
-        let choices = manuscriptContents ? FormatReadingChoices() : document
-        let app = manuscriptContents ? FormatReadingChoices() : defaults
-        if case .outline(let present, let depth) = choices.resolve(
-            .tableOfContents, for: format, file: contents, defaults: app), present.value
-        {
-            result.lead = depth.layer == .app ? contentsDepth.map(ReadingDepth.levels) ?? depth.value : depth.value
-        }
-        return result
-    }
-
-}
-
 public enum MarkdownConverter {
     /// - Parameter pageBreakLine: A line of the reader's own that stands for a page break, besides the usual ones.
     /// The callbacks run on the converter's own thread while the caller waits for it (`StackSpace.onLargeStack`):
     /// they must not need the caller's thread or actor, and do not see its task-local values.
     public static func convert(
         _ text: String, pageBreakLine: String = "", proof: ProofMarks = .shown,
-        contentsDepth: Int? = nil, reading: MarkdownReadingSettings = .init(), directory: URL? = nil,
+        contentsDepth: Int? = nil, reading: FormatReadingSettings = .init(), directory: URL? = nil,
         readFile: @escaping @Sendable (URL) -> Data? = { _ in nil }
     ) -> HTMLFragment {
         convertDocument(
@@ -72,7 +23,7 @@ public enum MarkdownConverter {
     /// they must not need the caller's thread or actor, and do not see its task-local values.
     public static func convertWithSourceMap(
         _ text: String, pageBreakLine: String = "", proof: ProofMarks = .shown,
-        contentsDepth: Int? = nil, reading: MarkdownReadingSettings = .init(), directory: URL? = nil,
+        contentsDepth: Int? = nil, reading: FormatReadingSettings = .init(), directory: URL? = nil,
         readFile: @escaping @Sendable (URL) -> Data? = { _ in nil }
     ) -> MarkdownMappedDocument {
         convertDocument(
@@ -97,7 +48,7 @@ public enum MarkdownConverter {
     /// Converts on a stack that holds the nesting limit, so a document reads the same on every thread.
     private static func convertDocument(
         _ text: String, mapsSource: Bool, pageBreakLine: String, proof: ProofMarks, embedded: EmbeddedOptions = .init(),
-        contentsDepth: Int? = nil, reading: MarkdownReadingSettings? = nil, directory: URL? = nil,
+        contentsDepth: Int? = nil, reading: FormatReadingSettings? = nil, directory: URL? = nil,
         readFile: @escaping @Sendable (URL) -> Data? = { _ in nil }
     ) -> MarkdownMappedDocument {
         StackSpace.onLargeStack(
@@ -118,7 +69,7 @@ public enum MarkdownConverter {
 
     private static func convertDocumentOnLargeStack(
         _ text: String, mapsSource: Bool, pageBreakLine: String, proof: ProofMarks, embedded: EmbeddedOptions,
-        contentsDepth: Int?, reading: MarkdownReadingSettings?, directory: URL?,
+        contentsDepth: Int?, reading: FormatReadingSettings?, directory: URL?,
         readFile: @escaping @Sendable (URL) -> Data?
     ) -> MarkdownMappedDocument {
         let (document, reachedLimit) = StackSpace.collectingLimit {
@@ -135,7 +86,7 @@ public enum MarkdownConverter {
 
     private static func convertDocumentInPlace(
         _ text: String, mapsSource: Bool, pageBreakLine: String, proof: ProofMarks, embedded: EmbeddedOptions,
-        contentsDepth: Int?, reading: MarkdownReadingSettings?, directory: URL?, readFile: @escaping (URL) -> Data?
+        contentsDepth: Int?, reading: FormatReadingSettings?, directory: URL?, readFile: @escaping (URL) -> Data?
     ) -> MarkdownMappedDocument {
         let notebookTOC = embedded.notebookTOC
         // CommonMark reads NUL as U+FFFD, and cmark widens it so before measuring columns; the rewriting before cmark
@@ -196,7 +147,7 @@ public enum MarkdownConverter {
             language: metadata.language, readingIssues: issues, decidesHeadingNumbers: options.ownsNumbers
         ).recordingContents(metadata.contentsInstructions)
         fragment.numberInstructions = metadata.numberInstructions
-        fragment.markdownContentsMarker = marker
+        fragment.inTextContentsMarker = marker
         fragment.contentsTitle = metadata.contentsTitle
         if !metadata.tableOfContents, let lead {
             var headings = DocumentOutline.headings(inHTML: fragment.body)

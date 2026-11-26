@@ -8,7 +8,7 @@ import Testing
 @testable import Surimono
 
 @MainActor
-struct OrgReadingPanelLayoutTests {
+struct ReadingPanelLayoutTests {
     @Test("固定見出しの前を七ポイント広げ、開閉見出しに切り替わる境界に一本の線を置く")
     func groupSpacing() throws {
         let width = ReadingPanelMetrics.width - 24
@@ -151,8 +151,9 @@ struct OrgReadingPanelLayoutTests {
         }
     }
 
-    @Test("原稿が先頭の目次を指定したときはパネルで深さだけを変えられる", arguments: [DocumentFormat.markdown, .quarto, .rMarkdown])
-    func markdownPanel(format: DocumentFormat) async throws {
+    @Test(
+        "原稿が先頭の目次を指定したときはパネルで深さだけを変えられる", arguments: [DocumentFormat.markdown, .quarto, .rMarkdown, .rst, .mediawiki])
+    func formatPanel(format: DocumentFormat) async throws {
         let suite = TestDefaultsSuite()
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer {
@@ -162,10 +163,15 @@ struct OrgReadingPanelLayoutTests {
         let renderer = DocumentRenderer(paginate: { _ in
             try #require(PDFDocument(data: TestFixtures.pdf("A", pages: 1)))
         })
+        let source =
+            switch format {
+            case .rst: ".. contents::\n\nA\n==="
+            case .mediawiki: "__FORCETOC__\n== A =="
+            case .rMarkdown: "---\noutput:\n  pdf_document:\n    toc: true\n---\n# A"
+            default: "---\ntoc: true\n---\n# A"
+            }
         let model = DocumentViewModel(
-            data: Data(
-                (format == .rMarkdown
-                    ? "---\noutput:\n  pdf_document:\n    toc: true\n---\n# A" : "---\ntoc: true\n---\n# A").utf8),
+            data: Data(source.utf8),
             fileURL: nil,
             format: format, preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: root),
             renderer: renderer)
@@ -176,7 +182,7 @@ struct OrgReadingPanelLayoutTests {
             try #require(ContinuousClock.now < deadline)
             try await Task.sleep(for: .milliseconds(10))
         }
-        let row = try #require(model.markdownResolution(.tableOfContents))
+        let row = try #require(model.readingResolution(.tableOfContents))
         guard case .outline(let present, let depth) = row else {
             Issue.record("目次の選択欄がない")
             return
@@ -184,12 +190,12 @@ struct OrgReadingPanelLayoutTests {
         let picker = ReadingOutlinePicker(
             label: ReadingSettingID.tableOfContents.label, present: present, depth: depth, set: { _ in })
         #expect(picker.hasAlternative && !picker.allows(nil) && picker.allows(.levels(1)) && picker.allows(.all))
-        model.setMarkdownValue(.outline(present: true, depth: .levels(1)), for: .tableOfContents)
+        model.setReadingValue(.outline(present: true, depth: .levels(1)), for: .tableOfContents)
         #expect(model.leadContents == .levels(1) && model.readingChangedCount == 1)
-        model.setMarkdownValue(.outline(present: false, depth: .all), for: .tableOfContents)
+        model.setReadingValue(.outline(present: false, depth: .all), for: .tableOfContents)
         #expect(model.leadContents == .levels(1))
         let host = NSHostingController(
-            rootView: MarkdownReadingPanel(model: model).environment(\.locale, Locale(identifier: "en")))
+            rootView: FormatReadingPanel(model: model).environment(\.locale, Locale(identifier: "en")))
         let size = host.sizeThatFits(in: CGSize(width: ReadingPanelMetrics.width, height: 600))
         #expect(size.width == ReadingPanelMetrics.width && size.height > 0)
     }
@@ -207,6 +213,29 @@ struct OrgReadingPanelLayoutTests {
                 documentName: "test.md", fileURL: nil, allowsFileChanges: false,
                 source: try #require(source), changed: false, partialLock: partialLock)
             #expect(view.reason(locale: locale) == expected)
+        }
+    }
+
+    @Test("rST と Wiki の固定理由には原稿の指定と変更できる成分が一行で出る")
+    func directiveReasons() throws {
+        let rst = RSTConverter.convert(".. sectnum::\n\n.. contents:: Map")
+        let cases: [(ReadingInstructionSource?, ReadingFileReason.PartialLock, String)] = [
+            (rst.numberInstructions.present?.source, .enabled, ".. sectnum:: (depth can be changed)"),
+            (rst.contentsInstructions.present?.source, .enabled, ".. contents:: Map (depth can be changed)"),
+            (
+                MediaWikiConverter.convert("__FORCETOC__").contentsInstructions.present?.source, .enabled,
+                "__FORCETOC__ (depth can be changed)"
+            ),
+            (
+                MediaWikiConverter.convert("__NOTOC__").contentsInstructions.present?.source, .disabled,
+                "__NOTOC__ (off is fixed)"
+            ),
+        ]
+        for (source, lock, expected) in cases {
+            let reason = ReadingFileReason(
+                documentName: "test", fileURL: nil, allowsFileChanges: false,
+                source: try #require(source), changed: false, partialLock: lock)
+            #expect(reason.reason(locale: Locale(identifier: "en")) == "Specified in file: " + expected)
         }
     }
 

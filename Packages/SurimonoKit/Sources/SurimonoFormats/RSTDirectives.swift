@@ -7,8 +7,12 @@ struct RSTDirectiveState {
         let depth: Int
         let local: Bool
         let position: Int
+        let instructions: ReadingFileInstructions
     }
     var contents: [Contents] = []
+    var lead: Contents?
+    var numbers = ReadingFileInstructions()
+    func marker(_ index: Int) -> String { "<!--\(token)toc\(index)-->" }
     let token = UUID().uuidString
     var numbering: [String: String]?
     var nextClasses: [String] = []
@@ -22,6 +26,7 @@ struct RSTDirective {
     let argument: String
     let options: [String: String]
     let lines: [String]
+    let optionOffsets: [String: Int]
 
     init?(_ first: String, _ body: [String]) {
         guard first.hasPrefix(".. "), let separator = first.range(of: "::") else { return nil }
@@ -33,9 +38,11 @@ struct RSTDirective {
         argument = String(first[separator.upperBound...]).rstStripped
         var rest = body[...]
         var params: [String: String] = [:]
+        var offsets: [String: Int] = [:]
         while let line = rest.first, line.hasPrefix(":"), let colon = line.dropFirst().firstIndex(of: ":") {
             let key = line[line.index(after: line.startIndex)..<colon]
             guard !key.isEmpty, key.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" }) else { break }
+            offsets[key.lowercased()] = rest.startIndex + 1
             var value = String(line[line.index(after: colon)...]).rstStripped
             rest = rest.dropFirst()
             while let continuation = rest.first, continuation.hasPrefix(" ") {
@@ -46,6 +53,7 @@ struct RSTDirective {
         }
         while rest.first?.isEmpty == true { rest = rest.dropFirst() }
         while rest.last?.isEmpty == true { rest = rest.dropLast() }
+        optionOffsets = offsets
         options = params
         lines = Array(rest)
     }
@@ -63,6 +71,20 @@ extension RSTDocument {
             content = [d.argument] + body
         } else {
             content = [d.argument, ""] + d.lines
+        }
+        func instructions(minimum: Int) -> ReadingFileInstructions {
+            func source(_ offset: Int) -> ReadingInstructionSource? {
+                guard let line = blockReader?.sourceLine else { return nil }
+                let index = line + offset
+                guard sourceLines.indices.contains(index) else { return nil }
+                return ReadingInstructionSource(
+                    lines: sourceLines, index: index, fileName: directives.includeStack.last?.lastPathComponent)
+            }
+            let depth = d.options["depth"].flatMap(Int.init).map { value in
+                ReadingInstruction(
+                    ReadingDepth.levels(max(minimum, value)), source: d.optionOffsets["depth"].flatMap(source))
+            }
+            return .init(present: .init(true, source: source(0)), depth: depth)
         }
         switch d.name {
         case "image": rendered = rstImage(d.argument, options: d.options)
@@ -110,7 +132,7 @@ extension RSTDocument {
             guard d.options["literal"] != nil || d.options["code"] != nil, let (_, lines) = rstIncludedFile(d) else {
                 return rstUnreadable(first, body)
             }
-            if let language = d.options["code"] { return rstCode(lines, language: language, options: d.options) }
+            if let language = d.options["code"] { return rstCode(Array(lines), language: language, options: d.options) }
             return "<pre class=\"literal-block\">\(HTML.escape(lines.joined(separator: "\n")))</pre>"
         case "contents":
             guard directives.contents.count < 256 else { return rstUnreadable(first, body) }
@@ -120,12 +142,13 @@ extension RSTDocument {
             let fileDepth = Int(d.options["depth"] ?? "").map { max(1, $0) }
             let toc = RSTDirectiveState.Contents(
                 id: id, label: d.argument, depth: fileDepth ?? 6,
-                local: d.options["local"] != nil, position: anchors.count)
+                local: d.options["local"] != nil, position: anchors.count, instructions: instructions(minimum: 1))
             let index = directives.contents.count
             directives.contents.append(toc)
-            return "<!--\(directives.token)toc\(index)-->"
+            return directives.marker(index)
         case "sectnum", "section-numbering":
             directives.numbering = d.options
+            directives.numbers = instructions(minimum: 0)
             return ""
         case "header", "footer", "meta", "index": return ""
         case "raw":
@@ -176,12 +199,17 @@ extension RSTDocument {
             d.options["code"] == nil, let (file, lines) = rstIncludedFile(d)
         else { return false }
         directives.includeStack.append(file)
-        defer { directives.includeStack.removeLast() }
+        let previous = sourceLines
+        sourceLines = lines
+        defer {
+            directives.includeStack.removeLast()
+            sourceLines = previous
+        }
         render(lines.map(Self.expandTabs))
         return true
     }
 
-    private func rstIncludedFile(_ directive: RSTDirective) -> (URL, [String])? {
+    private func rstIncludedFile(_ directive: RSTDirective) -> (URL, ArraySlice<String>)? {
         guard let file = rstFile(directive.argument), directives.includeStack.count < 8,
             !directives.includeStack.contains(file), let text = rstRead(file)
         else { return nil }
@@ -198,7 +226,7 @@ extension RSTDocument {
             guard let cut = selected.firstIndex(where: { $0.contains(marker) }) else { return nil }
             selected = selected.prefix(upTo: cut)
         }
-        return (file, Array(selected))
+        return (file, selected)
     }
 
     private func rstUnreadable(_ first: String, _ body: [String]) -> String {

@@ -667,4 +667,91 @@ extension PrintFinishRenderingTests {
         let restored = try await renderer.prepare(source, settings: settings)
         #expect(restored.facts?.headings.first?.text == "1 Book")
     }
+
+    @Test("rST の原稿・文書・既定の番号が本文・二つの目次・しおりに届く")
+    func rstReadingLayers() async throws {
+        let source = DocumentSource(
+            data: Data(
+                """
+                .. sectnum::
+                   :start: 4
+                   :depth: 2
+
+                .. contents:: Map
+
+                One
+                ===
+
+                .. contents:: Local
+                   :local:
+
+                Child
+                -----
+
+                Two
+                ===
+                """.utf8), format: .rst)
+        var html = ""
+        let renderer = DocumentRenderer(paginate: { request in
+            if case .html(let body, _) = request.source { html = body }
+            return try RenderingFixtures.pdf(pages: [["4 One", "4.1 Child", "5 Two"]], size: request.pageSize)
+        })
+        var settings = try settings()
+        settings.formatReadingDefaults.set(
+            .outline(present: true, depth: .levels(1)), for: .sectionNumbers, format: .rst)
+        settings.formatReading.set(
+            .outline(present: false, depth: .all), for: .sectionNumbers, format: .rst,
+            defaults: settings.formatReadingDefaults)
+        settings.formatReadingDefaults.set(
+            .outline(present: true, depth: .levels(1)), for: .tableOfContents, format: .rst)
+        let pages = try await renderer.prepare(source, settings: settings)
+        let facts = try #require(pages.facts)
+        #expect(facts.headings.map(\.text) == ["4 One", "4.1 Child", "5 Two"])
+        #expect(facts.leadEntries?.map(\.text) == ["4 One", "5 Two"])
+        #expect(DocumentOutline.contentsHeadings(in: html, navIndex: 1).map(\.text) == ["4.1 Child"])
+        let outline = await ReadingPDFExporter.outline(
+            of: source, in: pages.logicalDocument, proof: .shown, includesSourceContents: true, facts: facts)
+        #expect(ReadingBookmark.tree(from: outline.entries).first?.children.first?.entry.title == "4.1 Child")
+
+        settings.formatReading.setAllowsFileChanges(true, for: .rst)
+        let changed = try await renderer.prepare(source, settings: settings)
+        #expect(
+            changed.facts?.headings.map(\.text) == ["One", "Child", "Two"] && html.contains(" own-heading-numbers"))
+        let plain = DocumentSource(data: Data("One\n===\n\nChild\n-----\n\nTwo\n===".utf8), format: .rst)
+        settings.formatReading.revert(.sectionNumbers, for: .rst)
+        let inherited = try await renderer.prepare(plain, settings: settings)
+        #expect(inherited.facts?.headings.map(\.text) == ["1 One", "Child", "2 Two"])
+        #expect(inherited.facts?.leadEntries?.map(\.text) == ["1 One", "2 Two"])
+        settings.formatReadingDefaults.revert(.sectionNumbers, for: .rst)
+        _ = try await renderer.prepare(plain, settings: settings)
+        #expect(!html.contains(" own-heading-numbers"))
+    }
+
+    @Test("Wiki の先頭の目次は原稿・文書・既定の順で決まり、本文の目次はその場に残る")
+    func wikiReadingLayers() async throws {
+        let renderer = DocumentRenderer(paginate: { request in try RenderingFixtures.pdf(size: request.pageSize) })
+        var settings = try settings()
+        let text = "== One ==\n__TOC__\n=== Child ===\n== Two =="
+        func facts(_ prefix: String) async throws -> DocumentFacts {
+            let source = DocumentSource(data: Data((prefix + text).utf8), format: .mediawiki)
+            let pages = try await renderer.prepare(source, settings: settings)
+            return try #require(pages.facts)
+        }
+        settings.formatReadingDefaults.set(
+            .outline(present: true, depth: .all), for: .tableOfContents, format: .mediawiki)
+        #expect(try await facts("").leadEntries?.map(\.text) == ["One", "Child", "Two"])
+        settings.formatReading.set(
+            .outline(present: false, depth: .all), for: .tableOfContents, format: .mediawiki,
+            defaults: settings.formatReadingDefaults)
+        #expect(try await facts("").contentsKinds == [.text])
+        #expect(try await facts("__FORCETOC__\n").leadEntries?.map(\.text) == ["One", "Child", "Two"])
+        settings.formatReading.revert(.tableOfContents, for: .mediawiki)
+        let off = try await facts("__NOTOC__\n")
+        #expect(off.contentsKinds == [.text] && off.leadEntries == nil)
+        settings.formatReading.setAllowsFileChanges(true, for: .mediawiki)
+        settings.formatReading.set(
+            .outline(present: true, depth: .levels(1)), for: .tableOfContents, format: .mediawiki,
+            file: off.contentsInstructions, defaults: settings.formatReadingDefaults)
+        #expect(try await facts("__NOTOC__\n").leadEntries?.map(\.text) == ["One", "Two"])
+    }
 }

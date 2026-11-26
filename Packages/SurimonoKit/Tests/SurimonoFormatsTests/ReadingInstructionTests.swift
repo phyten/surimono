@@ -16,7 +16,7 @@ struct ReadingInstructionTests {
     func markdown(marker: String) throws {
         let header = "---\ntoc: true\ntoc-depth: 1\ntoc-title: Custom\nnumber-sections: true\n---\n"
         let fragment = MarkdownConverter.convert(header + headings + "\n\n" + marker)
-        #expect(fragment.markdownContentsMarker?.lowercased() == marker.lowercased())
+        #expect(fragment.inTextContentsMarker?.lowercased() == marker.lowercased())
         let html = fragment.body
         let navs = contents(html)
         try #require(navs.count == 2)
@@ -113,7 +113,7 @@ struct ReadingInstructionTests {
         #expect(heading.upperBound <= nav.lowerBound && with.contains(">Bravo</h2>"))
     }
 
-    @Test("MediaWiki の強制・本文の目次は合わせて一つで章から三段、NOTOC は両方を隠す")
+    @Test("MediaWiki の強制・本文の目次は合わせて一つで章から三段、強制と本文の指定は NOTOC に優先する")
     func wiki() throws {
         let body = "\n= Root =\n== Alpha ==\n=== Bravo ===\n==== Charlie ====\n===== Delta ====="
         for marker in ["__FORCETOC__", "__TOC__", "__FORCETOC__\n__TOC__"] {
@@ -123,7 +123,7 @@ struct ReadingInstructionTests {
             let nav = try #require(navs.first)
             #expect(nav.contains("Alpha") && nav.contains("Charlie") && !nav.contains("Root") && !nav.contains("Delta"))
             #expect(html.contains(">Charlie</h4>"))
-            #expect(contents(MediaWikiConverter.convert(marker + body + "\n__NOTOC__").body).isEmpty)
+            #expect(contents(MediaWikiConverter.convert(marker + body + "\n__NOTOC__").body).count == 1)
         }
         #expect(contents(MediaWikiConverter.convert(body).body).isEmpty)
     }

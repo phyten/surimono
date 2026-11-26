@@ -365,12 +365,16 @@ struct OrgOutline {
 struct SectionNumbers {
     private var counters: [Int] = []
 
+    private let start: Int
+    init(start: Int = 1) { self.start = start }
+
     /// Org and Markdown retain skipped levels and a final dot. Computational documents use the compact form (1.2).
-    mutating func next(level: Int, compact: Bool = false) -> String {
+    mutating func next(level: Int, compact: Bool = false, trailingDot: Bool = true) -> String {
+        if counters.isEmpty && level == 1 { counters.append(start - 1) }
         while counters.count < level { counters.append(0) }
         counters.removeLast(counters.count - level)
         counters[level - 1] += 1
         if compact { return counters.filter { $0 > 0 }.map(String.init).joined(separator: ".") }
-        return counters.map(String.init).joined(separator: ".") + "."
+        return counters.map(String.init).joined(separator: ".") + (trailingDot ? "." : "")
     }
 }

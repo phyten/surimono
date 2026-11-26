@@ -108,18 +108,18 @@ struct PrintFinishFlowTests {
         #expect(rows(.markdown, lead, true, .init()) == [.layout])
         #expect(rows(.markdown, marker, false, page) == [.inText])
         #expect(rows(.markdown, both, true, page) == [.layout, .look, .inText])
-        for format in [DocumentFormat.quarto, .rMarkdown] {
+        for format in [DocumentFormat.quarto, .rMarkdown, .rst, .mediawiki] {
             #expect(rows(format, plain, false, page).isEmpty)
             #expect(rows(format, both, true, page) == [.layout, .look, .inText])
         }
-        #expect(rows(.rst, plain, false, page) == [.lead])
+        #expect(rows(.asciidoc, plain, false, page) == [.lead])
         let org = DocumentFacts(fragment: OrgConverter.convert("* Alpha"))
         let orgMarker = DocumentFacts(fragment: OrgConverter.convert("* Alpha\n#+TOC: headlines 1"))
         #expect(rows(.org, org, false, page).isEmpty)
         #expect(rows(.org, orgMarker, false, page) == [.inText])
         #expect(rows(.org, org, true, page) == [.layout, .look])
         let emptyWiki = DocumentFacts(fragment: MediaWikiConverter.convert("__FORCETOC__\n__TOC__"))
-        #expect(rows(.mediawiki, emptyWiki, true, page) == [.lead, .layout, .look])
+        #expect(rows(.mediawiki, emptyWiki, true, page) == [.layout, .look])
         let latex = DocumentFacts(fragment: LaTeXConverter.convert(#"\section{Alpha}"#))
         #expect(rows(.latex, latex, false, page).isEmpty)
         for (source, row): (String, ContentsFinishRow) in [
@@ -166,8 +166,8 @@ struct PrintFinishFlowTests {
         #expect(model.printFinish.contents.inText == .hidden)
     }
 
-    @Test("番号なしはこの文書の変更になり、戻すとスタイルかアプリ既定に従う", arguments: [DocumentFormat.markdown, .quarto, .rMarkdown])
-    func markdownNumberChanges(format: DocumentFormat) async throws {
+    @Test("番号なしはこの文書の変更になり、戻すとスタイルかアプリ既定に従う", arguments: [DocumentFormat.markdown, .quarto, .rMarkdown, .rst])
+    func sectionNumberChanges(format: DocumentFormat) async throws {
         let environment = Environment()
         defer { environment.cleanUp() }
         let model = environment.model("# Book\n## One", format: format)
@@ -177,9 +177,9 @@ struct PrintFinishFlowTests {
         let off: ReadingSettingValue = format == .rMarkdown ? .toggle(false) : .outline(present: false, depth: .all)
         let all: ReadingSettingValue = format == .rMarkdown ? .toggle(true) : .outline(present: true, depth: .all)
         func selection() throws -> ReadingOutlinePicker.Selection {
-            let row = try #require(model.markdownResolution(.sectionNumbers))
+            let row = try #require(model.readingResolution(.sectionNumbers))
             if case .toggle(let present) = row {
-                guard let enabled = present.value(inheritsStyle: model.markdownNumbersInheritStyle) else {
+                guard let enabled = present.value(inheritsStyle: model.numbersInheritStyle) else {
                     return .style
                 }
                 return .outline(enabled ? .all : nil)
@@ -187,23 +187,23 @@ struct PrintFinishFlowTests {
             guard case .outline(let present, let depth) = row else { throw CocoaError(.coderInvalidValue) }
             return ReadingOutlinePicker(
                 label: ReadingSettingID.sectionNumbers.label, present: present, depth: depth,
-                restoreStyle: model.markdownNumbersInheritStyle ? {} : nil, set: { _ in }
+                restoreStyle: model.numbersInheritStyle ? {} : nil, set: { _ in }
             ).selection
         }
         #expect(try selection() == .style)
         #expect(model.readingChangedCount == 0)
-        model.setMarkdownValue(off, for: .sectionNumbers)
+        model.setReadingValue(off, for: .sectionNumbers)
         #expect(try selection() == .outline(nil))
-        #expect(model.markdownResolution(.sectionNumbers)?.isChanged == true && model.readingChangedCount == 1)
-        model.revertMarkdownValue(.sectionNumbers)
+        #expect(model.readingResolution(.sectionNumbers)?.isChanged == true && model.readingChangedCount == 1)
+        model.revertReadingValue(.sectionNumbers)
         #expect(try selection() == .style)
-        #expect(model.markdownResolution(.sectionNumbers)?.isChanged == false && model.readingChangedCount == 0)
+        #expect(model.readingResolution(.sectionNumbers)?.isChanged == false && model.readingChangedCount == 0)
         let settings = FormatDefaultsPane(format: format, preferences: model.preferences)
         settings.set(all, for: .sectionNumbers)
-        model.setMarkdownValue(off, for: .sectionNumbers)
+        model.setReadingValue(off, for: .sectionNumbers)
         #expect(try selection() == .outline(nil))
         #expect(model.readingChangedCount == 1)
-        model.revertMarkdownValue(.sectionNumbers)
+        model.revertReadingValue(.sectionNumbers)
         #expect(try selection() == .outline(.all))
         settings.set(off, for: .sectionNumbers)
         #expect(try selection() == .outline(nil))

@@ -103,7 +103,7 @@ struct ResourceLibraryTests {
         #expect(
             theme.css.contains(#"body:not(.format-latex):not(.own-heading-numbers) h2::before { content: counter(h2)"#))
         let source = "# Book\n\n## Heading"
-        var reading = MarkdownReadingSettings()
+        var reading = FormatReadingSettings()
         func check(owned: Bool, numbered: Bool) {
             let fragment =
                 format == .markdown

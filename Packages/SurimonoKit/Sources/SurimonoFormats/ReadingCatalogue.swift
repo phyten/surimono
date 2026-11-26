@@ -167,7 +167,7 @@ public enum ReadingCatalogue {
             copy: [".. sectnum::", "   :depth: {n}"]),
         .init(
             .tableOfContents, .outline(present: false, depth: .levels(6)),
-            [.init(".. contents::", .note), .init("contents :depth:", .note), .init("contents :local:", .note)],
+            [.init(".. contents::", .presence), .init("contents :depth:", .depth), .init("contents :local:", .note)],
             copy: [".. contents::", "   :depth: {n}"]),
     ]
 

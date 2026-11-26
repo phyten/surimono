@@ -123,6 +123,12 @@ extension HTMLFragment {
 }
 
 extension HTMLFragment {
+    func addingLeadContents(depth: ReadingDepth?) -> Self {
+        guard let depth else { return self }
+        var headings = DocumentOutline.headings(inHTML: body)
+        return addingLeadContents(headings: &headings, depth: depth)
+    }
+
     package func addingLeadContents(headings: inout [DocumentHeading], depth: ReadingDepth) -> Self {
         guard !headings.isEmpty else { return self }
         var copy = self
