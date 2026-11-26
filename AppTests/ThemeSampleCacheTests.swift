@@ -91,6 +91,20 @@ struct ThemeSampleCacheTests {
         #expect(try Data(contentsOf: directory) == Data("not a directory".utf8))
     }
 
+    @Test("パレットから予約した整理は容量を超えた見本を削除する")
+    func scheduledEviction() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let sample = directory.appendingPathComponent("old.pdf")
+        try Data().write(to: sample)
+        let file = try FileHandle(forWritingTo: sample)
+        try file.truncate(atOffset: 51 * 1024 * 1024)
+        try file.close()
+        ThemeSampleCache(directory: directory).schedulePruning()
+        try await ShortcutMenuBaselineTests.waitForMenu { !FileManager.default.fileExists(atPath: sample.path) }
+    }
+
     @Test("整理は最近使ったファイルを残して個数と容量を両方満たす")
     func eviction() {
         let files = (0..<4).map {

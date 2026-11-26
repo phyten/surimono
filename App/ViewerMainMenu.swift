@@ -2,6 +2,10 @@ import AppKit
 import Observation
 import SwiftUI
 
+#if DEBUG
+    import OSLog
+#endif
+
 /// Only descriptor-owned rows participate in reconciliation. AppKit keeps its Services, Help and Window entries.
 final class ViewerMainMenu: NSObject, NSMenuDelegate, NSMenuItemValidation {
     static let shareIdentifier = "surimono.menu.documentShare"
@@ -29,6 +33,8 @@ final class ViewerMainMenu: NSObject, NSMenuDelegate, NSMenuItemValidation {
 
     private let sharing = FileShareMenu()
     #if DEBUG
+        private static let log = OSLog(subsystem: "io.github.phyten.Surimono", category: "Menu")
+
         // The host checks the actual rows we installed independently of OS-provided Services,
         // Help search, window-management and input-method rows on its particular macOS version.
         let installedItems = NSHashTable<NSMenuItem>.weakObjects()
@@ -223,6 +229,11 @@ final class ViewerMainMenu: NSObject, NSMenuDelegate, NSMenuItemValidation {
     #endif
 
     func menuNeedsUpdate(_ menu: NSMenu) {
+        #if DEBUG
+            let id = OSSignpostID(log: Self.log)
+            os_signpost(.begin, log: Self.log, name: "Menu update", signpostID: id, "%{public}@", menu.title)
+            defer { os_signpost(.end, log: Self.log, name: "Menu update", signpostID: id) }
+        #endif
         refresh()
         #if DEBUG
             if menu === recent { DebugMenuDump.recentMenuPresented(menu) }

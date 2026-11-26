@@ -194,11 +194,11 @@ extension DocumentViewModel {
     func openThemePalette() {
         guard usesPrintTheme, mode == .view || mode == .print else { return }
         // Before it opens, so that it opens at its size with or without the code colors.
-        specimenSamples.diskCache?.prune()
         followThemeSamples()
         // Both hang off the same edge of the view mode's window; the tray keeps its settings beside the sheets.
         if mode == .view { isPrintFinishPresented = false }
         isThemePalettePresented = true
+        specimenSamples.diskCache?.schedulePruning()
     }
 
     /// Called as the palette closes, however it was closed.

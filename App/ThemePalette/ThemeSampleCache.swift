@@ -42,15 +42,18 @@ final class ThemeSampleCache {
         }
     }
 
-    struct Entry {
+    nonisolated struct Entry: Sendable {
         let url: URL
         let size: Int
         let used: Date
     }
 
-    static func removing(from entries: [Entry], countLimit: Int = 600, byteLimit: Int = 50 * 1024 * 1024) -> [URL] {
+    nonisolated static func removing(from entries: [Entry], countLimit: Int = 600, byteLimit: Int = 50 * 1024 * 1024)
+        -> [URL]
+    {
         var count = entries.count
         var bytes = entries.reduce(0) { $0 + $1.size }
+        guard count > countLimit || bytes > byteLimit else { return [] }
         var removed: [URL] = []
         for entry in entries.sorted(by: { ($0.used, $0.url.path) < ($1.used, $1.url.path) }) {
             guard count > countLimit || bytes > byteLimit else { break }
@@ -61,7 +64,14 @@ final class ThemeSampleCache {
         return removed
     }
 
-    func prune() {
+    // Maintenance only touches regenerable files. PDFKit pages stay on the main actor.
+    private static let maintenance = DispatchQueue(label: "app.surimono.theme-sample-cache", qos: .utility)
+
+    func schedulePruning() {
+        Self.maintenance.async { [directory] in Self.prune(directory: directory) }
+    }
+
+    private nonisolated static func prune(directory: URL) {
         let keys: Set<URLResourceKey> = [.fileSizeKey, .contentModificationDateKey, .isRegularFileKey]
         guard
             let urls = try? FileManager.default.contentsOfDirectory(
