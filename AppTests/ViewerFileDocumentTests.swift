@@ -80,7 +80,7 @@ struct ViewerFileDocumentTests {
     }
 
     @Test("窓を閉じると、タイル描画用のPDFが解放される前に紙面が文書を手放す", .timeLimit(.minutes(1)), arguments: WindowKind.allCases)
-    func closingWindowReleasesPaperBeforePDFs(kind: WindowKind) async throws {
+    func closingWindowDetachesPaperContentBeforePDFRelease(kind: WindowKind) async throws {
         try await withClosedContent(in: kind, holdingPaper: false) { content in
             try await content.checkReleaseOrder()
         }
@@ -338,8 +338,9 @@ struct ViewerFileDocumentTests {
             try #require(remaining.isEmpty, "still alive: \(remaining.joined(separator: ", "))")
         }
 
-        // AppKit's tracking-area hit test can autorelease the view under the pointer into XCTest's
-        // outer pool. A retired, detached view can safely outlive the window once it owns no PDFs.
+        // On macOS 26 we observed AppKit's tracking-area hit test autorelease the paper into XCTest's
+        // outer pool when the window opened under the pointer. Here we check retirement and content
+        // release. dismantledPaperDeallocatesInHiddenWindow checks that the view itself deallocates.
         private var remainingPaperContent: String? {
             guard let paper else { return nil }
             if !paper.isRetired { return "active paper" }
