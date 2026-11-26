@@ -12,12 +12,14 @@ public struct MarkdownMetadata: Equatable, Sendable {
     public var nocite: [String] = []
     public var linkCitations = true
     public var tableOfContents = false
-    var tocInstruction: ReadingInstruction<Bool>?
+    var contentsInstructions = ReadingFileInstructions()
+    var numberInstructions = ReadingFileInstructions()
+    var contentsTitle: String?
     public var hasCSL = false
 
     public init() {}
 
-    package init(lines: ArraySlice<String>) {
+    package init(lines: ArraySlice<String>, plainMarkdown: Bool = true) {
         var index = lines.startIndex
         while index < lines.endIndex {
             let line = lines[index]
@@ -48,6 +50,13 @@ public struct MarkdownMetadata: Equatable, Sendable {
                 values = [ComputationalMetadata.scalar(scalar)]
             }
             let items = values.filter { !$0.isEmpty }
+            func instruction<Value>(_ value: Value) -> ReadingInstruction<Value> {
+                var source = ReadingInstructionSource(fileName: nil, lineNumber: start, rawText: line)
+                source.excerpt = .init(
+                    previous: start - 2 >= lines.startIndex ? lines[start - 2] : nil, line: line,
+                    next: start < lines.endIndex ? lines[start] : nil, tokenOffset: 0)
+                return .init(value, source: source)
+            }
             switch ComputationalMetadata.scalar(key) {
             case "title": title = items.first
             case "author": authors = items
@@ -58,8 +67,25 @@ public struct MarkdownMetadata: Equatable, Sendable {
             case "nocite": nocite = items
             case "link-citations": linkCitations = items.first?.lowercased() != "false"
             case "toc":
-                tableOfContents = items.first?.lowercased() == "true"
-                tocInstruction = .init(tableOfContents, source: .init(fileName: nil, lineNumber: start, rawText: line))
+                if !plainMarkdown {
+                    tableOfContents = items.first?.lowercased() == "true"
+                    continue
+                }
+                contentsInstructions.present = Bool(scalar.lowercased()).map(instruction)
+                tableOfContents = contentsInstructions.present?.value == true
+            case "number-sections" where plainMarkdown:
+                numberInstructions.present = Bool(scalar.lowercased()).map(instruction)
+            case "toc-depth" where plainMarkdown:
+                if let count = Int(scalar), count >= 0 {
+                    contentsInstructions.depth = instruction(.levels(count))
+                }
+            case "toc-title" where plainMarkdown:
+                if ["|", "|-", "|+", ">", ">-", ">+"].contains(scalar) {
+                    let children = lines[start..<index].prefix { $0.isEmpty || $0.first?.isWhitespace == true }
+                    contentsTitle = ComputationalMetadata.blockScalar(children, folded: scalar.first == ">")
+                } else if !scalar.isEmpty, !scalar.hasPrefix("["), !scalar.hasPrefix("{") {
+                    contentsTitle = ComputationalMetadata.scalar(scalar)
+                }
             case "csl": hasCSL = true
             default: break
             }

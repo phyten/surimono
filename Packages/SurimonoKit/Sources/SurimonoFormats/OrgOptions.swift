@@ -312,7 +312,7 @@ struct OrgOutline {
     var shallowest: Int?
     var entries: [Entry] = []
     var requests: [Request] = []
-    private var counters: [Int] = []
+    var numbers = SectionNumbers()
     private var reservedCustomIDs: Set<String> = []
     private var usedIDs: Set<String> = []
     private var nextSuffix: [String: Int] = [:]
@@ -325,14 +325,6 @@ struct OrgOutline {
         if let value = properties["UNNUMBERED"] { unnumbered.append((level, value)) }
         guard let value = unnumbered.last?.value, value != "nil" else { return nil }
         return value
-    }
-
-    /// The next number at `level`, such as `1.2.`. A skipped level counts as 0, as in Emacs.
-    mutating func nextNumber(level: Int) -> String {
-        while counters.count < level { counters.append(0) }
-        counters.removeLast(counters.count - level)
-        counters[level - 1] += 1
-        return counters.map(String.init).joined(separator: ".") + "."
     }
 
     /// Keeps an id the document wrote itself away from the ids made here.
@@ -375,4 +367,16 @@ struct OrgOutline {
         return !rest.isEmpty && rest.allSatisfy { $0.isNumber || $0 == "-" }
     }
 
+}
+
+struct SectionNumbers {
+    private var counters: [Int] = []
+
+    /// The next number at `level`, such as `1.2.`. A skipped level counts as 0, as in Emacs.
+    mutating func next(level: Int) -> String {
+        while counters.count < level { counters.append(0) }
+        counters.removeLast(counters.count - level)
+        counters[level - 1] += 1
+        return counters.map(String.init).joined(separator: ".") + "."
+    }
 }

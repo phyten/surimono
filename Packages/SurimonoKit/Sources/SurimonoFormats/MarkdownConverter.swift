@@ -2,16 +2,62 @@ import CryptoKit
 import Foundation
 import Markdown
 
+public struct MarkdownReadingSettings: Sendable {
+    public var document: FormatReadingChoices
+    public var defaults: FormatReadingChoices
+    /// A saved legacy finish still owns the lead list until its first edit.
+    public var manuscriptContents: Bool
+
+    public init(
+        document: FormatReadingChoices = .init(), defaults: FormatReadingChoices = .init(),
+        manuscriptContents: Bool = false
+    ) {
+        self.document = document
+        self.defaults = defaults
+        self.manuscriptContents = manuscriptContents
+    }
+    fileprivate struct Options {
+        var numbers: ReadingDepth?
+        var ownsNumbers = false
+        var preservesBreaks = false
+        var lead: ReadingDepth?
+    }
+
+    fileprivate func resolve(_ metadata: MarkdownMetadata, contentsDepth: Int?) -> Options {
+        var result = Options()
+        if case .outline(let present, let depth) = document.resolve(
+            .sectionNumbers, for: .markdown, file: metadata.numberInstructions, defaults: defaults)
+        {
+            result.numbers = present.value ? depth.value : nil
+            result.ownsNumbers = present.value || present.source != nil || present.layer == .document
+        }
+        if case .toggle(let breaks) = document.resolve(.preserveBreaks, for: .markdown, defaults: defaults) {
+            result.preservesBreaks = breaks.value
+        }
+        let choices = manuscriptContents ? FormatReadingChoices() : document
+        let app = manuscriptContents ? FormatReadingChoices() : defaults
+        if case .outline(let present, let depth) = choices.resolve(
+            .tableOfContents, for: .markdown, file: metadata.contentsInstructions, defaults: app), present.value
+        {
+            result.lead = depth.layer == .app ? contentsDepth.map(ReadingDepth.levels) ?? depth.value : depth.value
+        }
+        return result
+    }
+
+}
+
 public enum MarkdownConverter {
     /// - Parameter pageBreakLine: A line of the reader's own that stands for a page break, besides the usual ones.
     /// The callbacks run on the converter's own thread while the caller waits for it (`StackSpace.onLargeStack`):
     /// they must not need the caller's thread or actor, and do not see its task-local values.
     public static func convert(
         _ text: String, pageBreakLine: String = "", proof: ProofMarks = .shown,
-        contentsDepth: Int = 3, directory: URL? = nil, readFile: @escaping @Sendable (URL) -> Data? = { _ in nil }
+        contentsDepth: Int? = nil, reading: MarkdownReadingSettings = .init(), directory: URL? = nil,
+        readFile: @escaping @Sendable (URL) -> Data? = { _ in nil }
     ) -> HTMLFragment {
         convertDocument(
             text, mapsSource: false, pageBreakLine: pageBreakLine, proof: proof, contentsDepth: contentsDepth,
+            reading: reading,
             directory: directory,
             readFile: readFile
         ).fragment
@@ -21,28 +67,33 @@ public enum MarkdownConverter {
     /// they must not need the caller's thread or actor, and do not see its task-local values.
     public static func convertWithSourceMap(
         _ text: String, pageBreakLine: String = "", proof: ProofMarks = .shown,
-        contentsDepth: Int = 3, directory: URL? = nil, readFile: @escaping @Sendable (URL) -> Data? = { _ in nil }
+        contentsDepth: Int? = nil, reading: MarkdownReadingSettings = .init(), directory: URL? = nil,
+        readFile: @escaping @Sendable (URL) -> Data? = { _ in nil }
     ) -> MarkdownMappedDocument {
         convertDocument(
             text, mapsSource: true, pageBreakLine: pageBreakLine, proof: proof, contentsDepth: contentsDepth,
+            reading: reading,
             directory: directory, readFile: readFile
         )
     }
 
-    static func notebookCell(_ text: String, pageBreakLine: String, proof: ProofMarks, toc: String) -> HTMLFragment {
+    static func embeddedBody(_ text: String, pageBreakLine: String, proof: ProofMarks, toc: String? = nil)
+        -> HTMLFragment
+    {
         convertDocument(text, mapsSource: false, pageBreakLine: pageBreakLine, proof: proof, notebookTOC: toc).fragment
     }
 
     /// Converts on a stack that holds the nesting limit, so a document reads the same on every thread.
     private static func convertDocument(
         _ text: String, mapsSource: Bool, pageBreakLine: String, proof: ProofMarks, notebookTOC: String? = nil,
-        contentsDepth: Int = 3, directory: URL? = nil, readFile: @escaping @Sendable (URL) -> Data? = { _ in nil }
+        contentsDepth: Int? = nil, reading: MarkdownReadingSettings? = nil, directory: URL? = nil,
+        readFile: @escaping @Sendable (URL) -> Data? = { _ in nil }
     ) -> MarkdownMappedDocument {
         StackSpace.onLargeStack(
             {
                 convertDocumentOnLargeStack(
                     text, mapsSource: mapsSource, pageBreakLine: pageBreakLine, proof: proof, notebookTOC: notebookTOC,
-                    contentsDepth: contentsDepth, directory: directory, readFile: readFile)
+                    contentsDepth: contentsDepth, reading: reading, directory: directory, readFile: readFile)
             },
             withoutThread: {
                 // swift-markdown's recursion has no guard of its own: without a stack known to hold the nesting
@@ -56,12 +107,13 @@ public enum MarkdownConverter {
 
     private static func convertDocumentOnLargeStack(
         _ text: String, mapsSource: Bool, pageBreakLine: String, proof: ProofMarks, notebookTOC: String?,
-        contentsDepth: Int, directory: URL?, readFile: @escaping @Sendable (URL) -> Data?
+        contentsDepth: Int?, reading: MarkdownReadingSettings?, directory: URL?,
+        readFile: @escaping @Sendable (URL) -> Data?
     ) -> MarkdownMappedDocument {
         let (document, reachedLimit) = StackSpace.collectingLimit {
             convertDocumentInPlace(
                 text, mapsSource: mapsSource, pageBreakLine: pageBreakLine, proof: proof, notebookTOC: notebookTOC,
-                contentsDepth: contentsDepth, directory: directory, readFile: readFile)
+                contentsDepth: contentsDepth, reading: reading, directory: directory, readFile: readFile)
         }
         guard reachedLimit, !document.fragment.readingIssues.contains(MarkdownNesting.issue) else { return document }
         var fragment = document.fragment
@@ -71,7 +123,7 @@ public enum MarkdownConverter {
 
     private static func convertDocumentInPlace(
         _ text: String, mapsSource: Bool, pageBreakLine: String, proof: ProofMarks, notebookTOC: String?,
-        contentsDepth: Int, directory: URL?, readFile: @escaping (URL) -> Data?
+        contentsDepth: Int?, reading: MarkdownReadingSettings?, directory: URL?, readFile: @escaping (URL) -> Data?
     ) -> MarkdownMappedDocument {
         // CommonMark reads NUL as U+FFFD, and cmark widens it so before measuring columns; the rewriting before cmark
         // must see the same text, or its columns point past the end of the line.
@@ -82,7 +134,7 @@ public enum MarkdownConverter {
         let mapping = mapsSource ? BlockMapping(original: original) : nil
         var metadata = MarkdownMetadata()
         if let end = frontMatterEnd(in: lines) {
-            metadata = MarkdownMetadata(lines: lines[1..<end])
+            metadata = MarkdownMetadata(lines: lines[1..<end], plainMarkdown: reading != nil)
             lines.removeFirst(end + 1)
             source = MarkdownSourceLines(lines, origins: Array(source.origins.dropFirst(end + 1)))
         }
@@ -96,17 +148,21 @@ public enum MarkdownConverter {
             metadata.bibliography.isEmpty || notebookTOC != nil
             ? nil : MarkdownCitations(metadata: metadata, directory: directory, readFile: readFile)
         let formulas = MarkdownExtensions.Formulas(citations: citations)
-        let (body, document) = renderBody(
+        let options = reading.map { $0.resolve(metadata, contentsDepth: contentsDepth) } ?? .init()
+        let lead = reading == nil && notebookTOC == nil && metadata.tableOfContents ? .levels(3) : options.lead
+        let (body, document, marker) = renderBody(
             extracted.body, footnotes: footnotes, formulas: formulas, anchorsHeadings: true, mapping: mapping,
             proof: proof, notebookTOC: notebookTOC,
-            leadDepth: metadata.tableOfContents && notebookTOC == nil ? contentsDepth : nil)
+            leadDepth: metadata.tableOfContents ? lead?.headingLevels : nil, numberDepth: options.numbers,
+            preservesBreaks: options.preservesBreaks, contentsTitle: metadata.contentsTitle)
         if PreviewConversion.expired { return MarkdownMappedDocument(fragment: HTMLFragment(body: ""), blocks: []) }
         let title = metadata.title ?? firstHeading(in: document, formulas: formulas)
         let leadingHeading = document.child(at: 0) as? Heading
         var html =
             (leadingHeading?.level != 1 && notebookTOC == nil ? metadata.titleBlock() : "") + body
             + footnoteSection(
-                footnotes, formulas: formulas, definitions: extracted.definitions, mapping: mapping, proof: proof)
+                footnotes, formulas: formulas, definitions: extracted.definitions, mapping: mapping, proof: proof,
+                preservesBreaks: options.preservesBreaks)
         if let citations { html = citations.finish(html) }
         var issues = citations?.issues ?? []
         if nesting.changed { issues.append(MarkdownNesting.issue) }
@@ -115,17 +171,22 @@ public enum MarkdownConverter {
         }
         // At the end of the body, so the theme's rules for the first block still find the document's first block.
         let fonts = notebookTOC == nil ? MathRenderer.fontFaces(for: html) : ""
-        return MarkdownMappedDocument(
-            fragment: HTMLFragment(
-                body: html + (fonts.isEmpty ? "" : "<style>\n\(fonts)\n</style>\n"), title: title,
-                language: metadata.language, readingIssues: issues
-            ).recordingContents(
-                .init(present: metadata.tocInstruction)),
-            blocks: mapping?.blocks ?? [])
+        var fragment = HTMLFragment(
+            body: html + (fonts.isEmpty ? "" : "<style>\n\(fonts)\n</style>\n"), title: title,
+            language: metadata.language, readingIssues: issues, decidesHeadingNumbers: options.ownsNumbers
+        ).recordingContents(metadata.contentsInstructions)
+        fragment.numberInstructions = metadata.numberInstructions
+        fragment.markdownContentsMarker = marker
+        fragment.contentsTitle = metadata.contentsTitle
+        if !metadata.tableOfContents, let lead {
+            var headings = DocumentOutline.headings(inHTML: fragment.body)
+            fragment = fragment.addingLeadContents(headings: &headings, depth: lead)
+        }
+        return MarkdownMappedDocument(fragment: fragment, blocks: mapping?.blocks ?? [])
     }
 
     package static func frontMatterEnd(in lines: [String]) -> Int? {
-        guard lines.first == "---", lines.count > 1,
+        guard lines.first == "---" || lines.first == "\u{FEFF}---", lines.count > 1,
             !lines[1].trimmingCharacters(in: .whitespaces).isEmpty,
             let end = lines.dropFirst().firstIndex(where: { $0 == "---" || $0 == "..." })
         else { return nil }
@@ -200,10 +261,13 @@ public enum MarkdownConverter {
         let anchors: [MarkdownExtensions.HeadingAnchor]
         let formulas: MarkdownExtensions.Formulas
         var nextAnchor = 0
+        var preservesBreaks = false
+        var contentsTitle: String?
+        var contentsMarker: String?
         var notebookTOC: String?
         func tableOfContents(levels: Int = 3) -> String {
-            notebookTOC ?? formulas.citations?.tableOfContents(anchors, levels: levels)
-                ?? MarkdownExtensions.tableOfContents(anchors, levels: levels)
+            notebookTOC ?? formulas.citations?.tableOfContents(anchors, levels: levels, title: contentsTitle)
+                ?? MarkdownExtensions.tableOfContents(anchors, levels: levels, title: contentsTitle)
         }
 
         init(
@@ -222,20 +286,33 @@ public enum MarkdownConverter {
     private static func renderBody(
         _ lines: MarkdownSourceLines, footnotes: MarkdownExtensions.Footnotes, formulas: MarkdownExtensions.Formulas,
         anchorsHeadings: Bool, mapping: BlockMapping? = nil, proof: ProofMarks, notebookTOC: String? = nil,
-        leadDepth: Int? = nil
-    ) -> (String, Document) {
+        leadDepth: Int? = nil, numberDepth: ReadingDepth? = nil, preservesBreaks: Bool = false,
+        contentsTitle: String? = nil
+    ) -> (String, Document, String?) {
         let source = MarkdownCallouts.preprocess(
             MarkdownExtensions.rewriteInline(lines, footnotes: footnotes, formulas: formulas, proof: proof),
             referencesMarker: formulas.citations?.referencesMarker)
         let document = MarkdownNesting.document(
             parsing: source.lines.joined(separator: "\n"), options: [.disableSmartOpts])
+        var anchors = anchorsHeadings ? MarkdownExtensions.headingAnchors(in: document, formulas: formulas) : []
+        if let numberDepth, let top = MarkdownExtensions.sectionLevel(in: anchors) {
+            var numbers = SectionNumbers()
+            for index in anchors.indices {
+                let level = anchors[index].level - top + 1
+                if level > 0, level <= numberDepth.headingLevels {
+                    anchors[index].number = numbers.next(level: level) + " "
+                }
+            }
+        }
         let context = Context(
-            source: source,
-            anchors: anchorsHeadings ? MarkdownExtensions.headingAnchors(in: document, formulas: formulas) : [],
+            source: source, anchors: anchors,
             formulas: formulas, mapping: mapping)
+        context.preservesBreaks = preservesBreaks
+        context.contentsTitle = contentsTitle
         context.notebookTOC = notebookTOC
         let toc = leadDepth.map { ReaderContentsKind.lead.mark(context.tableOfContents(levels: $0)) } ?? ""
-        return (toc + render(document, context), document)
+        let body = render(document, context)
+        return (toc + body, document, context.contentsMarker)
     }
 
     private static func sourceLines(of node: any Markup, _ context: Context) -> Set<Int> {
@@ -258,16 +335,16 @@ public enum MarkdownConverter {
     /// end of the list. Paper has no way back from a note, so the notes carry no return links.
     private static func footnoteSection(
         _ footnotes: MarkdownExtensions.Footnotes, formulas: MarkdownExtensions.Formulas,
-        definitions: [String: MarkdownSourceLines], mapping: BlockMapping?, proof: ProofMarks
+        definitions: [String: MarkdownSourceLines], mapping: BlockMapping?, proof: ProofMarks, preservesBreaks: Bool
     ) -> String {
         guard !footnotes.order.isEmpty else { return "" }
         var items = ""
         footnotes.forEachReferenced { index, id in
             let definition = footnotes.definitions[id] ?? ""
-            let (html, _) = renderBody(
+            let (html, _, _) = renderBody(
                 MarkdownSourceLines.unmapped(definition.components(separatedBy: "\n")), footnotes: footnotes,
                 formulas: formulas,
-                anchorsHeadings: false, proof: proof)
+                anchorsHeadings: false, proof: proof, preservesBreaks: preservesBreaks)
             let item = "<li id=\"fn-\(index + 1)\">\(html)</li>\n"
             let origins =
                 definitions[id]?.origins.reduce(into: Set<Int>()) { $0.formUnion($1) } ?? []
@@ -330,14 +407,20 @@ public enum MarkdownConverter {
             return "<pre><code\(language)>\(highlighted ?? HTML.escape(code.code))</code></pre>\n"
         case let heading as Heading:
             var attributes = ""
+            var number = ""
             if context.nextAnchor < context.anchors.count {
                 attributes = " id=\"\(HTML.escape(context.anchors[context.nextAnchor].id))\""
+                number = context.anchors[context.nextAnchor].number
                 context.nextAnchor += 1
             }
             let content = MarkdownExtensions.splitCustomID(children()).text
-            return "<h\(heading.level)\(attributes)>\(content)</h\(heading.level)>\n"
+            return "<h\(heading.level)\(attributes)>\(number)\(content)</h\(heading.level)>\n"
         case let paragraph as Paragraph:
             if MarkdownExtensions.isTableOfContentsMarker(paragraph) {
+                if context.contentsMarker == nil {
+                    let label = MarkdownExtensions.plainText(paragraph).trimmingCharacters(in: .whitespaces)
+                    context.contentsMarker = paragraph.children.contains { $0 is Emphasis } ? "[[_TOC_]]" : label
+                }
                 return context.tableOfContents()
             }
             return definitionList(paragraph, context, autolinks: autolinks) ?? (wrap("p") + "\n")
@@ -348,7 +431,7 @@ public enum MarkdownConverter {
             return renderCallout(quote, context, autolinks: autolinks) ?? (wrap("blockquote") + "\n")
         case is ThematicBreak: return "<hr>\n"
         case is LineBreak: return "<br>\n"
-        case is SoftBreak: return "\n"
+        case is SoftBreak: return context.preservesBreaks ? "<br>\n" : "\n"
         case let html as HTMLBlock: return MarkdownPageBreaks.html(forBlock: html.rawHTML) ?? html.rawHTML
         case let html as InlineHTML: return html.rawHTML
         case let link as Link:

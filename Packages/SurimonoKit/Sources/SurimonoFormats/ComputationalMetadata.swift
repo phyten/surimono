@@ -40,10 +40,7 @@ struct ComputationalMetadata {
                     }
                 }
             } else if ["|", ">"].contains(raw) {
-                let indent =
-                    children.filter { !$0.trimmed.isEmpty }.map { $0.prefix(while: \.isWhitespace).count }.min() ?? 0
-                values[key] =
-                    children.map { String($0.dropFirst(indent)) }.joined(separator: raw == "|" ? "\n" : " ").trimmed
+                values[key] = Self.blockScalar(children, folded: raw == ">")
             } else if raw.hasPrefix("[") && raw.hasSuffix("]") {
                 let entries = Self.items(String(raw.dropFirst().dropLast()))
                 values[key] = entries.compactMap { key == "author" ? Self.author($0) : Self.scalar($0) }.joined(
@@ -78,6 +75,11 @@ struct ComputationalMetadata {
                 values[key] = Self.scalar(raw)
             }
         }
+    }
+
+    static func blockScalar(_ lines: ArraySlice<String>, folded: Bool) -> String {
+        let indent = lines.filter { !$0.trimmed.isEmpty }.map { $0.prefix(while: \.isWhitespace).count }.min() ?? 0
+        return lines.map { String($0.dropFirst(indent)) }.joined(separator: folded ? " " : "\n").trimmed
     }
 
     static func pair(_ text: String) -> (String, String)? {

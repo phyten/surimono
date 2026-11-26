@@ -29,24 +29,34 @@ public enum ReadingRowResolution: Equatable, Sendable {
 public struct FormatReadingChoices: Codable, Equatable, Sendable {
     private var formats: [String: [String: ReadingChoice]] = [:]
 
+    private var unlockedFormats: Set<DocumentFormat> = []
+
     public init() {}
-    public var isEmpty: Bool { formats.isEmpty }
+    public var isEmpty: Bool { formats.isEmpty && unlockedFormats.isEmpty }
+
+    public func allowsFileChanges(for format: DocumentFormat) -> Bool { unlockedFormats.contains(format) }
+
+    public mutating func setAllowsFileChanges(_ allows: Bool, for format: DocumentFormat) {
+        if allows { unlockedFormats.insert(format) } else { unlockedFormats.remove(format) }
+    }
 
     public func restricted(to included: Set<DocumentFormat>) -> Self {
         var result = Self()
         for format in included {
             result.formats[format.rawValue] = formats[format.rawValue]
         }
+        result.unlockedFormats = unlockedFormats.intersection(included)
         return result
     }
 
     public func resolve(
         _ id: ReadingSettingID, for format: DocumentFormat, file: ReadingFileInstructions = .init(),
-        defaults: Self = .init(), allowsFileChanges: Bool = false
+        defaults: Self = .init(), allowsFileChanges: Bool? = nil
     ) -> ReadingRowResolution? {
         guard let field = id.formatField, format != .org,
             let row = ReadingCatalogue.rows(for: format).first(where: { $0.id == id })
         else { return nil }
+        let allowsFileChanges = allowsFileChanges ?? self.allowsFileChanges(for: format)
         let document = formats[format.rawValue]?[field]
         let app = defaults.formats[format.rawValue]?[field]
 
@@ -84,7 +94,7 @@ public struct FormatReadingChoices: Codable, Equatable, Sendable {
     /// An app-default edit uses the same method with the shipped defaults and no file instructions.
     public mutating func set(
         _ value: ReadingSettingValue, for id: ReadingSettingID, format: DocumentFormat,
-        file: ReadingFileInstructions = .init(), defaults: Self = .init(), allowsFileChanges: Bool = false
+        file: ReadingFileInstructions = .init(), defaults: Self = .init(), allowsFileChanges: Bool? = nil
     ) {
         guard let field = id.formatField,
             let row = resolve(id, for: format, file: file, defaults: defaults, allowsFileChanges: allowsFileChanges)
@@ -125,8 +135,16 @@ public struct FormatReadingChoices: Codable, Equatable, Sendable {
     }
 
     public func encode(to encoder: any Encoder) throws {
-        var container = encoder.singleValueContainer()
-        try container.encode(formats)
+        var container = encoder.container(keyedBy: Field.self)
+        for name in Set(formats.keys).union(unlockedFormats.map(\.rawValue)) {
+            var fields = container.nestedContainer(keyedBy: Field.self, forKey: Field(stringValue: name))
+            for (field, choice) in formats[name] ?? [:] {
+                try fields.encode(choice, forKey: Field(stringValue: field))
+            }
+            if let format = DocumentFormat(rawValue: name), allowsFileChanges(for: format) {
+                try fields.encode(true, forKey: Field(stringValue: "allowsFileChanges"))
+            }
+        }
     }
 
     /// An unrecognized format, setting or future value cannot invalidate its siblings.
@@ -136,6 +154,9 @@ public struct FormatReadingChoices: Codable, Equatable, Sendable {
             guard let format = DocumentFormat(rawValue: key.stringValue), format != .org,
                 let fields = try? formats.nestedContainer(keyedBy: Field.self, forKey: key)
             else { continue }
+            if (try? fields.decode(Bool.self, forKey: Field(stringValue: "allowsFileChanges"))) == true {
+                unlockedFormats.insert(format)
+            }
             for row in ReadingCatalogue.rows(for: format) {
                 guard let name = row.id.formatField,
                     var choice = try? fields.decode(ReadingChoice.self, forKey: Field(stringValue: name))

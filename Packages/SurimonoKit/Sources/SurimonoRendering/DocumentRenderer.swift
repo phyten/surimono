@@ -186,6 +186,12 @@ public struct RenderSettings: Equatable, Sendable {
             for: format, file: facts.contentsInstructions, defaults: formatReadingDefaults)
     }
 
+    var markdownReading: MarkdownReadingSettings {
+        MarkdownReadingSettings(
+            document: formatReading, defaults: formatReadingDefaults,
+            manuscriptContents: finish.legacyTOC != nil || finish.originalPresetContents?.mode == .source)
+    }
+
     var includesOrgLead: Bool { finish.legacyTOC != nil || finish.contents.placement == .inline }
 
     func proposedLeadDepth(for format: DocumentFormat) -> Int? {
@@ -1704,6 +1710,7 @@ public final class DocumentRenderer {
             let fragment = try Self.themedFragment(
                 source, pageBreakLine: settings.finish.breaks.customLine, proof: settings.finish.proof,
                 orgReading: settings.orgReading, includesOrgLead: settings.includesOrgLead,
+                markdownReading: settings.markdownReading,
                 contentsDepth: settings.readerDepth(for: source.format),
                 proposedLeadDepth: settings.proposedLeadDepth(for: source.format),
                 composition: settings.latexComposition, textWidthPoints: settings.textWidthPoints(in: settings.layout),
@@ -1886,7 +1893,8 @@ public final class DocumentRenderer {
                     entry.page = entry.page.map { plan.bodyPageIndices[$0] + 1 }
                     return entry
                 }
-                let pages = try await contentsPages(numbered, source: source, settings: settings)
+                let pages = try await contentsPages(
+                    numbered, title: fragment.contentsTitle, source: source, settings: settings)
                 contents = pages
                 if pages.pageCount == plannedPageCount { break }
                 plannedPageCount = pages.pageCount
@@ -1943,14 +1951,14 @@ public final class DocumentRenderer {
 
     /// The contents laid out like the text: the same theme, paper size and margins.
     private func contentsPages(
-        _ entries: [PaperContents.Entry], source: DocumentSource, settings: RenderSettings
+        _ entries: [PaperContents.Entry], title: String?, source: DocumentSource, settings: RenderSettings
     ) async throws -> PDFDocument {
         let directory = source.fileURL?.deletingLastPathComponent()
         let flow = settings.theme.supports(source.format) ? settings.theme.flow : .horizontal
         let separatesPaper = WebPaginator.drawsClearPages && flow == .horizontal
         let fragment = PaperContents.fragment(
             entries: entries, look: settings.finish.contents.look,
-            title: PaperContents.title(language: settings.pageLanguage))
+            title: title ?? PaperContents.title(language: settings.pageLanguage))
         let html = try await Self.builtHTML(
             fragment, source: source, settings: settings, separatesPaper: separatesPaper, isContents: true)
         let script = separatesPaper ? Self.themedPreparation(settings.theme) : settings.theme.script
@@ -2297,7 +2305,8 @@ public final class DocumentRenderer {
     /// The HTML of a format that prints with a theme, or nil for the formats that print as they are.
     nonisolated static func themedFragment(
         _ source: DocumentSource, pageBreakLine: String = "", proof: ProofMarks = .shown,
-        orgReading: OrgReadingSettings = .init(), includesOrgLead: Bool = true, contentsDepth: Int? = nil,
+        orgReading: OrgReadingSettings = .init(), includesOrgLead: Bool = true,
+        markdownReading: MarkdownReadingSettings = .init(), contentsDepth: Int? = nil,
         proposedLeadDepth: Int? = nil,
         composition: LaTeXComposition = .document, textWidthPoints: Double? = nil, textScale: Double = 1,
         mapsMarkdownSource: Bool = false,
@@ -2314,7 +2323,7 @@ public final class DocumentRenderer {
         case .markdown:
             try markdownFragment(
                 source, pageBreakLine: pageBreakLine, proof: proof, mapsSource: mapsMarkdownSource,
-                contentsDepth: contentsDepth ?? 3,
+                contentsDepth: contentsDepth, reading: markdownReading,
                 access: access, onDenied: onDenied)
         case .graphviz, .plantuml:
             DiagramConverter.convert(try decodedText(source.data), format: source.format)

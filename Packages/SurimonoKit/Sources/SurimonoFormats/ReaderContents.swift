@@ -151,7 +151,8 @@ extension HTMLFragment {
             headings = DocumentOutline.headings(inHTML: anchored)
         }
         let nav = MarkdownExtensions.tableOfContents(
-            headings.map { .init(level: $0.level, id: $0.id ?? "", text: $0.text) }, levels: depth.headingLevels)
+            headings.map { .init(level: $0.level, id: $0.id ?? "", text: $0.text) }, levels: depth.headingLevels,
+            title: contentsTitle)
         return copy.prependingLead(nav)
     }
 }

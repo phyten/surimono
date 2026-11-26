@@ -400,7 +400,7 @@ struct OrgParser {
                     let numbered = relative <= context.reading.sectionNumbers.limit && unnumbered == nil
                     listTag = numbered ? "ol" : "ul"
                     if numbered && !low {
-                        let next = context.outline.nextNumber(level: relative)
+                        let next = context.outline.numbers.next(level: relative)
                         number = "<span class=\"section-number-\(level)\">\(next)</span> "
                     }
                     // The id the document wrote is a link target with or without a table of contents.
