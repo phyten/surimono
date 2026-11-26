@@ -4,12 +4,15 @@ import SwiftUI
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     static let windowID = NSUserInterfaceItemIdentifier("surimono.settings.v1")
 
-    static func makeWindow(for view: SettingsView) -> NSWindow {
+    static func makeWindow(
+        for view: SettingsView,
+        hostingWindow: @MainActor (NSViewController) -> NSWindow = NSWindow.init(contentViewController:)
+    ) -> NSWindow {
         let host = NSHostingController(rootView: view)
         host.sceneBridgingOptions = [.toolbars]
         // SwiftUI can update the window minimum after layout. Give both layers the same screen-specific floor.
         host.sizingOptions = [.minSize]
-        let window = NSWindow(contentViewController: host)
+        let window = hostingWindow(host)
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         window.isReleasedWhenClosed = false
         window.contentMinSize = SettingsWindowPlacement.minimumContentSize
