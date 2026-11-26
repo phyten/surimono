@@ -140,7 +140,7 @@ li.task-list-item > p:first-child > input[type="checkbox"].org-partial:not(:chec
 .org-tag + .org-tag { margin-inline-start: 0.15em; }
 /* Tags hold lower-case and Japanese words, which rise above the cap height and hang below the baseline: trim to the
    font's own top and the baseline, and leave the room for descenders below. */
-@supports (text-box-trim: trim-both) and (text-box-edge: cap alphabetic) {
+@supports (text-box-trim: trim-both) and (text-box-edge: text alphabetic) {
     .org-tag {
         line-height: 1;
         text-box-trim: trim-both;

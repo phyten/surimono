@@ -30,6 +30,6 @@ th, td { border-color: #b9a2cf; }
     --callout-plain: #4a3a52; --callout-radius: 4pt; --callout-tag-radius: 2.5pt;
 }
 /* Chalkduster drops g, y and p below its own descent, into a tag's frame: tags take the body face. */
-@supports (text-box-trim: trim-both) and (text-box-edge: cap alphabetic) {
+@supports (text-box-trim: trim-both) and (text-box-edge: text alphabetic) {
     .org-tag { font-family: "Avenir Next", "Hiragino Sans", sans-serif; }
 }
