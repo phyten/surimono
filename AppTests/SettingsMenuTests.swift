@@ -51,6 +51,7 @@ struct SettingsMenuTests {
                 preferences: preferences, library: UserLibrary(root: directory), arrangementEditor: editor))
         let controller = SettingsWindowController(window: window, editor: editor)
         defer { controller.close() }
+        #expect(!window.isRestorable)
         #expect(window.collectionBehavior.contains(.moveToActiveSpace))
         controller.showWindow(nil)
         let screen = try #require(window.screen)
@@ -71,6 +72,95 @@ struct SettingsMenuTests {
         #expect(window.contentRect(forFrameRect: window.frame).size == size)
         #expect(abs(window.frame.midX - screen.visibleFrame.midX) <= 1)
         #expect(abs(window.frame.midY - screen.visibleFrame.midY) <= 1)
+    }
+
+    @Test("小画面では設定全体を端までスクロールでき、大きい画面に戻すと保存寸法で開く")
+    func smallScreenViewport() async throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let preferences = AppPreferences(defaults: suite.defaults)
+        let preferred = CGSize(width: 950, height: 630)
+        preferences.settingsContentSize = preferred
+        let editor = BandArrangementEditorSession(preferences: preferences)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let window = SettingsWindowController.makeWindow(
+            for: SettingsView(
+                preferences: preferences, library: UserLibrary(root: directory), arrangementEditor: editor))
+        let controller = SettingsWindowController(window: window, editor: editor)
+        defer { controller.close() }
+        window.orderBack(nil)
+        let small = CGRect(x: 40, y: 60, width: 800, height: 500)
+        controller.placeWindow(in: small)
+
+        func outerScroll() -> NSScrollView? {
+            guard let content = window.contentView, let pane = settingsPaneContainer(in: content) else { return nil }
+            var ancestor = pane.superview
+            while let view = ancestor {
+                if let scroll = view as? NSScrollView, let document = scroll.documentView,
+                    document.bounds.width >= 820, document.bounds.height >= 540,
+                    scroll.documentVisibleRect.width < 820, scroll.documentVisibleRect.height < 540
+                {
+                    return scroll
+                }
+                ancestor = view.superview
+            }
+            return nil
+        }
+        let deadline = ContinuousClock.now + .seconds(5)
+        while outerScroll() == nil && ContinuousClock.now < deadline {
+            window.contentView?.layoutSubtreeIfNeeded()
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(window.frame == CGRect(x: 52, y: 72, width: 776, height: 476))
+        #expect(window.contentMinSize == window.contentRect(forFrameRect: window.frame).size)
+        let scroll = try #require(outerScroll())
+        let document = try #require(scroll.documentView)
+        let corner = CGRect(x: document.bounds.maxX - 2, y: document.bounds.maxY - 2, width: 1, height: 1)
+        document.scrollToVisible(corner)
+        #expect(scroll.documentVisibleRect.contains(corner))
+        #expect(AppPreferences(defaults: suite.defaults).settingsContentSize == preferred)
+        controller.placeWindow(in: CGRect(x: 0, y: 0, width: 1400, height: 900))
+        #expect(window.contentMinSize == CGSize(width: 820, height: 540))
+        #expect(window.contentRect(forFrameRect: window.frame).size == preferred)
+    }
+
+    @Test("旧枠が二つあればAppKitの寸法を一度だけ引き継ぐ")
+    func migrateFrame() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let defaults = suite.defaults
+        // Frame descriptors recorded by the two old Settings windows.
+        defaults.set("414 256 820 572 0 0 1728 1084 ", forKey: "NSWindow Frame com_apple_SwiftUI_Settings_window")
+        defaults.set("313 92 1100 884 0 0 1728 1084 ", forKey: "NSWindow Frame SurimonoSettings")
+        let preferences = AppPreferences(defaults: defaults)
+        preferences.migrateSettingsContentSize(chrome: CGSize(width: 0, height: 32))
+        #expect(preferences.settingsContentSize == CGSize(width: 1100, height: 852))
+        preferences.settingsContentSize = nil
+        AppPreferences(defaults: defaults).migrateSettingsContentSize(chrome: .zero)
+        #expect(preferences.settingsContentSize == nil)
+    }
+
+    @Test("旧SwiftUIの枠だけでも寸法を移し、旧既定幅の高さも保持する", arguments: [820, 860])
+    func migrateLegacyWidth(width: Int) {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        suite.defaults.set(
+            "414 256 \(width) 572 0 0 1728 1084 ", forKey: "NSWindow Frame com_apple_SwiftUI_Settings_window")
+        let preferences = AppPreferences(defaults: suite.defaults)
+        preferences.migrateSettingsContentSize(chrome: CGSize(width: 0, height: 32))
+        #expect(preferences.settingsContentSize == CGSize(width: width, height: 540))
+    }
+
+    @Test("現行の保存寸法があれば旧枠で置き換えない")
+    func preferCurrentSize() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        suite.defaults.set("313 92 1100 884 0 0 1728 1084 ", forKey: "NSWindow Frame SurimonoSettings")
+        let preferences = AppPreferences(defaults: suite.defaults)
+        preferences.settingsContentSize = CGSize(width: 970, height: 650)
+        preferences.migrateSettingsContentSize(chrome: .zero)
+        #expect(preferences.settingsContentSize == CGSize(width: 970, height: 650))
     }
 
     @Test("新しい表示・ウィンドウ・印刷の既定値は保存され再読み込みできる")

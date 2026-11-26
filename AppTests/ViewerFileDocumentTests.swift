@@ -459,10 +459,10 @@ struct ViewerFileDocumentTests {
         #expect(document.windowControllers.count == 1)
     }
 
-    @Test("旧シーンのウインドウ識別子から空の文書を作らない")
-    func ignoresLegacyWindows() {
+    @Test("旧シーンと設定の識別子を起動時に復元しない", arguments: ["SwiftUI.DocumentGroup", "surimono.settings.v1"])
+    func ignoresLegacyWindows(identifier: String) {
         let coder = NSKeyedArchiver(requiringSecureCoding: true)
-        let handled = NSApp.restoreWindow(withIdentifier: .init("SwiftUI.DocumentGroup"), state: coder) { _, _ in
+        let handled = NSApp.restoreWindow(withIdentifier: .init(identifier), state: coder) { _, _ in
             Issue.record("未知の識別子の復元を引き受けた")
         }
         #expect(!handled)

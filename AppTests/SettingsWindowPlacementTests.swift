@@ -17,6 +17,18 @@ struct SettingsWindowPlacementTests {
         #expect(SettingsWindowPlacement.screen(key: nil, screens: screens, pointer: pointer, frame: { $0 }) == second)
     }
 
+    @Test("ポインタがどの画面にもないときは先頭の画面を選ぶ")
+    func pointerOutsideScreens() {
+        #expect(
+            SettingsWindowPlacement.screen(
+                key: nil, screens: [first, second], pointer: CGPoint(x: 2000, y: 0), frame: { $0 }) == first)
+    }
+
+    @Test("キー画面も接続画面もなければ配置先はない")
+    func noScreens() {
+        #expect(SettingsWindowPlacement.screen(key: nil, screens: [CGRect](), pointer: .zero, frame: { $0 }) == nil)
+    }
+
     @Test("同じ画面の現在の操作スペースに表示中のときだけ位置を保つ")
     func keepVisibleWindow() {
         #expect(
@@ -40,14 +52,14 @@ struct SettingsWindowPlacementTests {
     func defaultFrame() {
         let visible = CGRect(x: -1900, y: 240, width: 1880, height: 1040)
         #expect(
-            SettingsWindowPlacement.frame(in: visible, savedContentSize: nil, chrome: chrome)
+            SettingsWindowPlacement(in: visible, savedContentSize: nil, chrome: chrome).frame
                 == CGRect(x: -1480, y: 366, width: 1040, height: 788))
     }
 
     @Test("保存した内容の大きさで現在の画面に中央揃えする")
     func savedFrame() {
         #expect(
-            SettingsWindowPlacement.frame(in: first, savedContentSize: CGSize(width: 900, height: 600), chrome: chrome)
+            SettingsWindowPlacement(in: first, savedContentSize: CGSize(width: 900, height: 600), chrome: chrome).frame
                 == CGRect(x: 270, y: 136, width: 900, height: 628))
     }
 
@@ -55,17 +67,34 @@ struct SettingsWindowPlacementTests {
     func smallerScreen() {
         let visible = CGRect(x: 90, y: 30, width: 920, height: 680)
         #expect(
-            SettingsWindowPlacement.frame(
-                in: visible, savedContentSize: CGSize(width: 1500, height: 1200), chrome: chrome)
+            SettingsWindowPlacement(
+                in: visible, savedContentSize: CGSize(width: 1500, height: 1200), chrome: chrome
+            ).frame
                 == CGRect(x: 102, y: 42, width: 896, height: 656))
     }
 
-    @Test("余白の狭い画面でも既存の最小内容寸法を保つ")
-    func minimumSize() {
-        let visible = CGRect(x: 0, y: 30, width: 830, height: 580)
-        #expect(
-            SettingsWindowPlacement.frame(
-                in: visible, savedContentSize: CGSize(width: 700, height: 500), chrome: chrome)
-                == CGRect(x: 5, y: 36, width: 820, height: 568))
+    @Test("通常の最小寸法が収まる画面でも四辺に12ポイントを残す")
+    func minimumFitsWithoutMargins() {
+        let placement = SettingsWindowPlacement(
+            in: CGRect(x: 0, y: 30, width: 830, height: 580),
+            savedContentSize: CGSize(width: 700, height: 500), chrome: chrome)
+        #expect(placement.frame == CGRect(x: 12, y: 42, width: 806, height: 556))
+        #expect(placement.contentMinimum == CGSize(width: 806, height: 528))
+    }
+
+    @Test("最小寸法より小さな画面ではタイトルバーを含めて収める")
+    func smallerThanMinimum() {
+        let placement = SettingsWindowPlacement(
+            in: CGRect(x: 0, y: 0, width: 800, height: 500), savedContentSize: nil, chrome: chrome)
+        #expect(placement.frame == CGRect(x: 12, y: 12, width: 776, height: 476))
+        #expect(placement.contentMinimum == CGSize(width: 776, height: 448))
+    }
+
+    @Test("余裕のある画面では手動リサイズの最小内容寸法を保つ")
+    func usualMinimum() {
+        let placement = SettingsWindowPlacement(
+            in: first, savedContentSize: CGSize(width: 700, height: 500), chrome: chrome)
+        #expect(placement.frame == CGRect(x: 310, y: 166, width: 820, height: 568))
+        #expect(placement.contentMinimum == CGSize(width: 820, height: 540))
     }
 }

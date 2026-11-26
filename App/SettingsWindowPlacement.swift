@@ -1,6 +1,6 @@
 import CoreGraphics
 
-enum SettingsWindowPlacement {
+struct SettingsWindowPlacement {
     static let minimumContentSize = CGSize(width: 820, height: 540)
     // The sidebar and scroll bar leave at least 760 pt for the editor's two-column layout.
     static let defaultContentSize = CGSize(width: 1040, height: 760)
@@ -16,16 +16,18 @@ enum SettingsWindowPlacement {
         !isVisible || isMiniaturized || !onActiveSpace || !onTargetScreen
     }
 
-    static func frame(in visible: CGRect, savedContentSize: CGSize?, chrome: CGSize) -> CGRect {
-        let content = savedContentSize ?? defaultContentSize
+    let frame: CGRect
+    let contentMinimum: CGSize
+
+    init(in visible: CGRect, savedContentSize: CGSize?, chrome: CGSize) {
+        let preferred = savedContentSize ?? Self.defaultContentSize
         let margin: CGFloat = 12
-        func extent(_ preferred: CGFloat, minimum: CGFloat, available: CGFloat, decoration: CGFloat) -> CGFloat {
-            max(minimum + decoration, min(preferred + decoration, available - 2 * margin))
-        }
-        let width = extent(
-            content.width, minimum: minimumContentSize.width, available: visible.width, decoration: chrome.width)
-        let height = extent(
-            content.height, minimum: minimumContentSize.height, available: visible.height, decoration: chrome.height)
-        return CGRect(x: visible.midX - width / 2, y: visible.midY - height / 2, width: width, height: height)
+        let limit = CGSize(width: max(0, visible.width - 2 * margin), height: max(0, visible.height - 2 * margin))
+        contentMinimum = CGSize(
+            width: min(Self.minimumContentSize.width, max(0, limit.width - chrome.width)),
+            height: min(Self.minimumContentSize.height, max(0, limit.height - chrome.height)))
+        let width = min(limit.width, max(preferred.width, contentMinimum.width) + chrome.width)
+        let height = min(limit.height, max(preferred.height, contentMinimum.height) + chrome.height)
+        frame = CGRect(x: visible.midX - width / 2, y: visible.midY - height / 2, width: width, height: height)
     }
 }
