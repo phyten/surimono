@@ -152,7 +152,9 @@ final class DocumentViewModel {
     /// `selectCodePalette(_:)`.
     var codePaletteID: String
     private var chosenCodeBlock: CodeBlockOptions?
-    private var defaultCodeBlock: CodeBlockOptions { sourceLanguage == nil ? CodeBlockOptions() : .sourcePage }
+    private var defaultCodeBlock: CodeBlockOptions {
+        preferences.codeLineNumbers.options(sourcePage: sourceLanguage != nil)
+    }
     var codeBlock: CodeBlockOptions {
         get { chosenCodeBlock ?? defaultCodeBlock }
         set { chosenCodeBlock = newValue == defaultCodeBlock ? nil : newValue }
@@ -1101,7 +1103,6 @@ final class DocumentViewModel {
         }
         settings.binderStartsOnFront = binder != nil && binderStartsOnFront && settings.layout.hasFacingPages
         if finishAppliesToText {
-            settings.formatReadingDefaults = preferences.formatReadingDefaults
             settings.finish = printFinish
             settings.formatReading = formatReading
         }
@@ -1111,9 +1112,12 @@ final class DocumentViewModel {
         settings.documentName = displayName
         settings.pageLanguage = language
         if usesPrintTheme {
+            settings.formatReadingDefaults = preferences.formatReadingDefaults
             settings.code = CodeStyle(
                 palette: library.codePalette(codePaletteID), block: chosenCodeBlock,
+                lineNumbers: preferences.codeLineNumbers,
                 cutFormat: String(localized: "+%d characters"))
+            settings.restrictReadingDefaults(to: binder.map { Set($0.items.map(\.format)) } ?? [format])
         }
         return settings
     }
@@ -3100,7 +3104,7 @@ final class DocumentViewModel {
             binderStartsOnFront: binder != nil ? binderStartsOnFront : nil,
             printFinish: finishAppliesToText ? printFinish : nil,
             codePaletteID: usesPrintTheme ? codePaletteID : nil,
-            codeBlock: usesPrintTheme && codeBlock != defaultCodeBlock ? codeBlock : nil,
+            codeBlock: usesPrintTheme ? chosenCodeBlock : nil,
             bandVisibility: bandVisibility == defaultBandVisibility ? nil : bandVisibility,
             notes: offersNotes && notes != NotePages() ? notes : nil, bookletBinding: bookletBinding,
             pageRange: pageRange.isAll ? nil : pageRange, bookmarks: bookmarks.isEmpty ? nil : bookmarks,
@@ -3402,7 +3406,7 @@ final class DocumentViewModel {
     private func migrateReadContents(_ rendered: RenderSettings?) {
         guard contentHash != nil, printFinish.originalPresetContents != nil, let rendered, let contentsFacts,
             rendered.finish == printFinish, rendered.formatReading == formatReading,
-            rendered.formatReadingDefaults == preferences.formatReadingDefaults,
+            rendered.formatReadingDefaults == preferences.formatReadingDefaults.restricted(to: [format]),
             rendered.orgReading == (format == .org ? orgReading : .init())
         else { return }
         let usesDefault = !hasSavedSettings && !didCustomizeSinceLoad && settingsBaseline?.printFinish == printFinish

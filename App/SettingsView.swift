@@ -9,6 +9,7 @@ struct SettingsView: View {
     let arrangementEditor: BandArrangementEditorSession
     @State private var initialTextWell = InitialTextWell()
     @State private var query = ""
+    @State private var pickedSearchFormat: DocumentFormat?
     @State private var bandHints = BandHintSession()
     @State private var editorFrame = CGRect.zero
     @State private var hintLayerFrame = CGRect.zero
@@ -110,7 +111,10 @@ struct SettingsView: View {
             .toolbar(removing: .sidebarToggle)
         } detail: {
             let section = preferences.settingsSection
-            let hits = SettingsSearchHits(query: query, anchors: matches.filter { $0.section == section }.map(\.anchor))
+            let format =
+                pickedSearchFormat.flatMap { results.formats.contains($0) ? $0 : nil }
+                ?? results.bestFormat(keeping: preferences.settingsDocumentFormat) ?? preferences.settingsDocumentFormat
+            let hits = results.hits(for: section, format: format, query: query)
             let shown = visible.isEmpty ? nil : section
             SettingsDetail(section: shown, hits: hits) { selected in
                 switch selected {
@@ -118,8 +122,21 @@ struct SettingsView: View {
                     BandArrangementSettings(session: arrangementEditor, hints: bandHints)
                 case .keyboardShortcuts:
                     ShortcutSettingsView(controller: .shared)
-                case .org:
-                    OrgReadingDefaultsPane(preferences: preferences)
+                case .documents:
+                    DocumentsChapterView(
+                        formats: query.isEmpty ? DocumentsChapter.formats : results.formats,
+                        selection: Binding(
+                            get: { format },
+                            set: { value in
+                                preferences.settingsDocumentFormat = value
+                                if !query.isEmpty {
+                                    pickedSearchFormat = value
+                                    searchSelection.pick(.documents)
+                                }
+                            })
+                    ) {
+                        documentSettingsPage(format)
+                    }
                 default:
                     ScrollViewReader { proxy in
                         form(selected).modifier(SettingsSearchReveal(proxy: proxy))
@@ -249,6 +266,7 @@ struct SettingsView: View {
             get: { query },
             set: { value in
                 if query.isEmpty && !value.isEmpty { searchSelection.begin(in: preferences.settingsSection) }
+                pickedSearchFormat = nil
                 query = value
                 if value.isEmpty, let section = searchSelection.finish() { arrangementEditor.showSection(section) }
             })
@@ -282,6 +300,16 @@ struct SettingsView: View {
                 }
             }
         return SettingsCatalogue.search(query, in: rows)
+    }
+
+    @ViewBuilder func documentSettingsPage(_ format: DocumentFormat) -> some View {
+        switch format {
+        case .org: OrgReadingDefaultsPane(preferences: preferences)
+        case .html:
+            ScrollViewReader { proxy in form(.html).modifier(SettingsSearchReveal(proxy: proxy)) }
+        case .plainText: CodeNumberDefaultsPane(preferences: preferences)
+        default: FormatDefaultsPane(format: format, preferences: preferences)
+        }
     }
 
     private func form(_ section: SettingsSection) -> some View {
@@ -563,6 +591,9 @@ struct SettingsView: View {
                     .settingSearchRow("Default HTML Preset")
                     Toggle("Allow JavaScript in HTML", isOn: $preferences.allowsJavaScript)
                         .settingSearchRow("Allow JavaScript in HTML")
+                } header: {
+                    DocumentDefaultsHeader(
+                        format: .html, status: preferences.usesDefaultHTMLSettings ? "Surimono defaults" : "Custom")
                 } footer: {
                     defaultsNote
                 }
@@ -587,7 +618,7 @@ struct SettingsView: View {
                 }
             case .clipboard:
                 ClipboardSettings(preferences: preferences)
-            case .org, .keyboardShortcuts, .toolbarArrangement: EmptyView()
+            case .documents, .org, .keyboardShortcuts, .toolbarArrangement: EmptyView()
             }
         }
         .formStyle(.grouped)

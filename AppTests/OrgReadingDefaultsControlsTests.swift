@@ -16,16 +16,16 @@ struct OrgReadingDefaultsControlsTests {
             (custom, "Custom", true, true),
         ] {
             let defaults = OrgReadingDefaultsPane.defaults(current)
-            #expect(defaults.status?.key == status)
+            #expect(defaults.status.key == status)
             #expect(defaults.canApply(.emacs) == useEmacs)
             #expect(defaults.canApply(.surimono) == reset)
         }
     }
 
-    @Test("別の初期値がなければ状態名を出さず、複数あれば一致する組を選ぶ")
+    @Test("別の初期値がなくても変更状態を示し、複数あれば一致する組を選ぶ")
     func alternatives() {
         let empty = ReadingDefaults(builtIn: 1, alternatives: [], current: 2)
-        #expect(empty.status == nil)
+        #expect(empty.status.key == "Custom")
         let many = ReadingDefaults(
             builtIn: 1,
             alternatives: [
@@ -33,7 +33,7 @@ struct OrgReadingDefaultsControlsTests {
                 .init(
                     values: 3, status: "Three", action: "Use Three…", confirmation: "Use Three", question: "Use Three?"),
             ], current: 3)
-        #expect(many.status?.key == "Three")
+        #expect(many.status.key == "Three")
         #expect(many.canApply(1) && many.canApply(2) && !many.canApply(3))
     }
 

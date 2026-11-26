@@ -22,6 +22,79 @@ struct FinishCacheTests {
     private let orgSource = DocumentSource(data: Data("#+OPTIONS: toc:nil\n* A\nA_1".utf8), format: .org).named(
         "sample.org")
 
+    @Test("六形式の先頭の目次は全体の既定を使い、保存済みの文書指定と原稿の指定を優先する")
+    func formatDefaults() async throws {
+        let markup = "# Chapter\n\n## First\n\n### Nested\n\n## Second"
+        let manuscripts: [(DocumentFormat, String)] = [
+            (.markdown, markup), (.quarto, markup), (.rMarkdown, markup),
+            (.rst, "First\n=====\n\nBody.\n\nNested\n------\n\nBody.\n\nSecond\n======\n\nBody."),
+            (.asciidoc, "= Title\n\n== First\n\n=== Nested\n\n== Second"),
+            (.mediawiki, "== First ==\n\n=== Nested ===\n\n== Second =="),
+        ]
+        for (format, text) in manuscripts {
+            var settings = try settings()
+            var pages: [String] = []
+            let renderer = DocumentRenderer(paginate: { request in
+                if case .html(let html, _) = request.source { pages.append(html) }
+                return try RenderingFixtures.pdf(count: 1)
+            })
+            func rendersContents(_ text: String) async throws -> Bool {
+                pages.removeAll()
+                _ = try await renderer.prepare(
+                    DocumentSource(data: Data(text.utf8), format: format), settings: settings)
+                return try #require(pages.first).contains("<nav class=\"toc\"")
+            }
+            settings.formatReadingDefaults.set(
+                .outline(present: true, depth: .all), for: .tableOfContents, format: format)
+            #expect(try await rendersContents(text), "\(format)")
+            let full = try #require(pages.first)
+            #expect(DocumentOutline.sourceContentsEntries(inHTML: full).contains("Nested"), "\(format)")
+            settings.formatReadingDefaults.set(
+                .outline(present: true, depth: .levels(1)), for: .tableOfContents, format: format)
+            _ = try await rendersContents(text)
+            let shallow = try #require(pages.first)
+            #expect(
+                !DocumentOutline.sourceContentsEntries(inHTML: shallow).contains("Nested"), "\(format)")
+            settings.formatReading.set(
+                .outline(present: false, depth: .all), for: .tableOfContents, format: format,
+                defaults: settings.formatReadingDefaults)
+            #expect(try await !rendersContents(text), "\(format)")
+            if format == .markdown {
+                #expect(try await rendersContents("---\ntoc: true\n---\n" + text))
+            }
+        }
+    }
+
+    @Test("他形式の目次と使わない行番号の変更は組版を増やさず、継承する既定を変えたときだけ組む")
+    func inheritedDefaultsCache() async throws {
+        var settings = try settings()
+        var calls = 0
+        let renderer = DocumentRenderer(paginate: { _ in
+            calls += 1
+            return try RenderingFixtures.pdf(count: 1)
+        })
+        _ = try await renderer.prepare(source, settings: settings)
+        settings.formatReadingDefaults.set(.outline(present: true, depth: .all), for: .tableOfContents, format: .quarto)
+        settings.code = CodeStyle(lineNumbers: .init(source: .none))
+        _ = try await renderer.prepare(source, settings: settings)
+        #expect(calls == 1)
+        settings.formatReadingDefaults.set(
+            .outline(present: true, depth: .all), for: .tableOfContents, format: .markdown)
+        _ = try await renderer.prepare(source, settings: settings)
+        #expect(calls == 2)
+        settings.code = CodeStyle(lineNumbers: .init(source: .none, blocks: .all))
+        _ = try await renderer.prepare(source, settings: settings)
+        #expect(calls == 3)
+
+        let chosen = CodeBlockOptions(frame: .rule)
+        settings.code.block = chosen
+        _ = try await renderer.prepare(source, settings: settings)
+        #expect(calls == 4)
+        settings.code = CodeStyle(block: chosen, lineNumbers: .init(source: .everyFive, blocks: .everyFive))
+        _ = try await renderer.prepare(source, settings: settings)
+        #expect(calls == 4)
+    }
+
     @Test("Org の全体既定だけを変えると、再組版した本文に番号と下付きが反映される")
     func orgDefaultsInvalidateCache() async throws {
         var settings = try settings()

@@ -1,3 +1,4 @@
+import SurimonoCore
 import SwiftUI
 
 /// Revoking a reveal must not update the hidden form just to cancel its pending scroll.
@@ -10,6 +11,7 @@ final class SettingsSearchVisit: Equatable {
 struct SettingsSearchHits: Equatable {
     var query = ""
     var anchors: [String] = []
+    var format: DocumentFormat?
     var visit: SettingsSearchVisit?
     var canReveal: Bool { visit?.isCurrent != false }
 

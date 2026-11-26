@@ -209,7 +209,7 @@ struct LanguageTests {
         #expect(
             SettingsGroup.allCases.flatMap(\.sections) == [
                 .general, .keyboardShortcuts, .view, .toolbarArrangement, .styles,
-                .printing, .pageNumbers, .settingSets, .clipboard, .org, .html,
+                .printing, .pageNumbers, .settingSets, .clipboard, .documents,
             ])
     }
 

@@ -96,11 +96,12 @@ struct SettingsSearchRevealTests {
             func translate(_ key: String) -> String { bundle.localizedString(forKey: key, value: nil, table: nil) }
             let query = translate(anchor)
             let results = SettingsCatalogue.search(query, in: SettingsCatalogue.rows, localize: translate)
-            let anchors = results.rows.filter { $0.section == .org }.map(\.anchor)
-            try #require(anchors.first == anchor)
+            var hits = results.hits(for: .documents, format: .org, query: query)
+            try #require(hits.anchors.first == anchor)
             let visit = SettingsSearchVisit()
             if !canReveal { visit.cancel() }
-            search.hits = SettingsSearchHits(query: query, anchors: anchors, visit: visit)
+            hits.visit = visit
+            search.hits = hits
             try await screen.wait("Expected query \(query), canReveal=\(canReveal)") {
                 search.received?.query == query && search.received?.canReveal == canReveal
             }
@@ -139,7 +140,7 @@ struct SettingsSearchRevealTests {
         let search: FilterSearch
 
         var body: some View {
-            SettingsDetail(section: .org, hits: search.hits) { _ in
+            SettingsDetail(section: .documents, hits: search.hits) { _ in
                 OrgReadingDefaultsPane(preferences: preferences, filter: .init(isOn: true))
                     .overlay { ReceivedQuery(search: search) }
                     .environment(\.settingsRowFrames, search.frames)
@@ -174,12 +175,11 @@ struct SettingsSearchRevealTests {
         let search: Search
 
         var body: some View {
-            SettingsDetail(section: .org, hits: search.hits) { _ in
+            SettingsDetail(section: .documents, hits: search.hits) { _ in
                 ReadingDefaultsControls(
                     defaults: OrgReadingDefaultsPane.defaults(.surimono),
-                    resetQuestion: "Reset Org settings to defaults?",
+                    format: .org,
                     differences: OrgReadingDefaultsPane.differences, apply: { _ in },
-                    header: { Text("Org") },
                     rows: {
                         VStack(spacing: 2) {
                             ForEach(0..<40, id: \.self) { index in
