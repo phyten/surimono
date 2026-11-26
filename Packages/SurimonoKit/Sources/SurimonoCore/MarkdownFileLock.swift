@@ -45,10 +45,9 @@ extension DocumentSettings {
             count: count, generation: generation, before: formatReading, after: after, oldFinish: printFinish,
             newFinish: finish, defaults: defaults.restricted(to: [.markdown]))
         if count > 0, current != approval { return .needsConfirmation(current) }
-        if approval == nil || approval == current {
-            printFinish = finish
-            formatReading = after
-        }
+        // Nothing is left to discard, or this exact discard was approved: a stale approval cannot block the lock.
+        printFinish = finish
+        formatReading = after
         return .finished
     }
 }
