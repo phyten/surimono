@@ -195,8 +195,8 @@ struct PrintedFragmentLinks: Decodable, Sendable {
                 }
             }
             let exact = try regions(start: link.start, end: link.end, boxes: link.boxes)
-            // Generated list numbers can repeat a superscript. Its original annotation distinguishes
-            // that occurrence; never synthesize a link for an ambiguous run of printed glyphs.
+            // Generated list numbers can repeat a superscript. At an ambiguous position,
+            // only a matching URL identifies the original link.
             let pieces =
                 exact.isEmpty ? try index?.regions(start: link.start, end: link.end, allowAmbiguous: true) ?? [] : exact
             for piece in pieces {
@@ -215,10 +215,10 @@ struct PrintedFragmentLinks: Decodable, Sendable {
                         bounds.contains(CGPoint(x: piece.bounds.midX, y: piece.bounds.midY))
                             || piece.bounds.contains(CGPoint(x: bounds.midX, y: bounds.midY))
                     else { continue }
-                    if let url = item.url,
-                        url != link.url && url.removingPercentEncoding != link.url.removingPercentEncoding
-                    {
-                        continue
+                    if exact.isEmpty && item.url == nil { continue }
+                    if let url = item.url, url != link.url {
+                        guard let decoded = url.removingPercentEncoding, decoded == link.url.removingPercentEncoding
+                        else { continue }
                     }
                     matched = true
                     let i = item.index

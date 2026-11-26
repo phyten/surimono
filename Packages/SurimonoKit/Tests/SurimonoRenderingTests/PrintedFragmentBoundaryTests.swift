@@ -244,6 +244,100 @@ struct PrintedFragmentBoundaryTests {
         }
     }
 
+    @Test("重複する文字に別のリンクが重なっても元の移動先を修復後と書き出し後に保つ", arguments: [true, false])
+    func ambiguousGoTo(hasTarget: Bool) async throws {
+        let original = try RenderingFixtures.pdfData(pages: [["X", "X"], ["Alpha"], ["Beta"]])
+        let paper = try #require(PDFDocument(data: original))
+        let source = try #require(paper.page(at: 0))
+        let firstX = try #require(source.selection(for: NSRange(location: 0, length: 1))).bounds(for: source)
+        let point = CGPoint(x: 40, y: 700)
+        let bytes = try ReadingPDFNavigationWriter.repair(
+            original, links: [], bookmarks: nil,
+            adding: [.init(page: 0, bounds: firstX, destination: .init(page: 1, point: point, zoom: 0))])
+
+        // A has no DOM text. B's X can match either printed X. The unambiguous link
+        // on Alpha ensures the repair writes new PDF bytes even when it leaves A alone.
+        let id = hasTarget ? "beta" : "absent"
+        let snapshot = PrintedFragmentLinks(
+            text: "XAlphaBeta",
+            links: [
+                .init(id: "alpha", url: "about:blank#alpha", start: 0, end: 0, top: false),
+                .init(id: id, url: "about:blank#\(id)", start: 0, end: 1, top: false),
+                .init(id: "beta", url: "about:blank#beta", start: 1, end: 6, top: false),
+            ],
+            anchors: [.init(id: "alpha", start: 1, end: 6), .init(id: "beta", start: 6, end: 10)], rows: [])
+        let repaired = try await snapshot.resolve(in: bytes)
+        let logical = try #require(repaired.reopened?.document)
+        let saved = try await ReadingPDFExporter.data(from: logical, entries: [], title: "Links")
+        for pdf in [logical, try #require(PDFDocument(data: saved))] {
+            let links = try #require(pdf.page(at: 0)).annotations
+            try #require(links.count == 1)
+            let a = try #require((links[0].action as? PDFActionGoTo)?.destination ?? links[0].destination)
+            #expect(a.page === pdf.page(at: 1))
+            #expect(a.point == point)
+            let other = try #require(pdf.page(at: 1)?.annotations.first)
+            #expect(((other.action as? PDFActionGoTo)?.destination ?? other.destination)?.page === pdf.page(at: 2))
+        }
+    }
+
+    @Test(
+        "印刷で番号が重複したときは候補位置にある同じ URL の注釈だけを修復する",
+        arguments: [("note", "note", true), ("note", "%6Eote", true), ("%FF", "%FE", false)])
+    func ambiguousMatchingURL(printed: String, dom: String, matches: Bool) async throws {
+        let paper = try RenderingFixtures.pdf(pages: [["1", "1"], ["Note"]])
+        let source = try #require(paper.page(at: 0))
+        let hits = paper.findString("1")
+        try #require(hits.count == 2)
+        let base = "https://example.org/document#"
+        let url = try #require(URL(string: base + printed))
+        for hit in hits {
+            let annotation = PDFAnnotation(bounds: hit.bounds(for: source), forType: .link, withProperties: nil)
+            annotation.url = url
+            source.addAnnotation(annotation)
+        }
+        let id = dom.removingPercentEncoding ?? dom
+        let snapshot = PrintedFragmentLinks(
+            text: "1Note", links: [.init(id: id, url: base + dom, start: 0, end: 1, top: false)],
+            anchors: [.init(id: id, start: 1, end: 5)], rows: [])
+        let output = try await snapshot.resolve(in: #require(paper.dataRepresentation()))
+        #expect((output.reopened != nil) == matches)
+        let logical = output.reopened?.document ?? paper
+        let page = try #require(logical.page(at: 0))
+        for (index, hit) in hits.enumerated() {
+            let bounds = hit.bounds(for: source)
+            let link = try #require(page.annotation(at: CGPoint(x: bounds.midX, y: bounds.midY)))
+            if index == 0 && matches {
+                #expect(
+                    ((link.action as? PDFActionGoTo)?.destination ?? link.destination)?.page === logical.page(at: 1))
+            } else {
+                #expect(link.url == url)
+            }
+        }
+    }
+
+    @Test("文書内リンクの DOM 走査には 100 ミリ秒と検査回数・項目数の上限がある")
+    func scanLimits() throws {
+        let script = try #require(PrintedFragmentLinks.script)
+        #expect(script.contains("performance.now() + 100;"))
+        #expect(script.contains("++visits > 16000 ||"))
+        #expect(script.contains("entries > 4096 ||"))
+    }
+
+    @Test("文書内リンクの既定の返信期限は 500 ミリ秒で修復期限は 1 秒")
+    func defaultBudgets() async throws {
+        var observed: ContinuousClock.Instant?
+        let before = ContinuousClock.now
+        _ = try await PrintedFragmentLinks.read { deadline in
+            observed = deadline
+            return nil
+        }
+        let after = ContinuousClock.now
+        let deadline = try #require(observed)
+        // Bracket the creation of the deadline without sleeping or assuming a scheduling tolerance.
+        #expect((before...after).contains(deadline - .milliseconds(500)))
+        #expect(PrintedFragmentLinks.repairBudget == .seconds(1))
+    }
+
     @Test("WebKit の返信期限を過ぎても完成した本文を保ち、後から来た返信を捨てる")
     func missingWebReply() async throws {
         let paper = try RenderingFixtures.pdfData(pages: [["Finished"]])
