@@ -5,7 +5,8 @@ extension WikiReader {
         var caption = ""
         var alt = ""
         var width: String?
-        for option in options {
+        for (index, option) in options.enumerated() {
+            if index.isMultiple(of: 128), PreviewConversion.expired { return "" }
             let value = option.wikiTrim
             let key = value.lowercased()
             if key.hasPrefix("alt=") {

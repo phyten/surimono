@@ -41,12 +41,13 @@ extension WikiReader {
             }
             if raw.hasPrefix(" ") {
                 flush()
-                var pre = [String(raw.dropFirst())]
+                var pre = inline(String(raw.dropFirst()))
                 while index < lines.count, lines[index].hasPrefix(" ") {
-                    pre.append(String(lines[index].dropFirst()))
+                    if index.isMultiple(of: 128), PreviewConversion.expired { return "" }
+                    pre += "\n" + inline(String(lines[index].dropFirst()))
                     index += 1
                 }
-                output += "<pre>" + pre.map(inline).joined(separator: "\n") + "</pre>"
+                output += "<pre>" + pre + "</pre>"
                 continue
             }
             let level = raw.prefix { $0 == "=" }.count

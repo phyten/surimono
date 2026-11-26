@@ -74,6 +74,19 @@ extension FinderPreviewTests {
         #expect(html.contains(#"aria-label="z^2""#) && html.contains("Tail."))
     }
 
+    @Test("MediaWiki で文書全体の数式予算128 KiBを使い切ると、後続の式を原文に戻して本文を最後まで読む")
+    func mediaWikiDocumentMathBudget() throws {
+        // Whitespace fills each 4 KiB input reservation without increasing SVG size.
+        let formula = "<math>x" + String(repeating: " ", count: 4095) + "</math>"
+        let displays = Array(repeating: formula, count: 32).joined(separator: "\n")
+        let html = try mathPreview(
+            displays + "\nThen <math>y</math> and <math>z</math>. Final paragraph.", suffix: "wiki")
+        #expect(html.components(separatedBy: "<svg ").count - 1 == 32)
+        #expect(
+            html.contains(
+                #"Then <code class="math-error">y</code> and <code class="math-error">z</code>. Final paragraph."#))
+    }
+
     @Test("本文と定義が単独の上限を超えた式だけ原文に戻す")
     func oversizedFormula() throws {
         let expression = String(repeating: "x+", count: 2_048) + "y"

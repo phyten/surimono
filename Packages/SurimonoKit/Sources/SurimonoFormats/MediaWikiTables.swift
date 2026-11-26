@@ -32,6 +32,7 @@ extension WikiReader {
                     var balance = 1
                     output += HTML.escape(line)
                     while index < lines.count && balance > 0 {
+                        if index.isMultiple(of: 128), PreviewConversion.expired { return "" }
                         let literal = lines[index]
                         if literal.hasPrefix("{|") { balance += 1 }
                         if literal.hasPrefix("|}") { balance -= 1 }
@@ -53,7 +54,9 @@ extension WikiReader {
                     row = true
                 }
                 let header = line.hasPrefix("!")
-                for part in line.dropFirst().components(separatedBy: header ? "!!" : "||") {
+                let cells = String(line.dropFirst()).wikiFields(separatedBy: header ? "!!" : "||")
+                for (offset, part) in cells.enumerated() {
+                    if offset.isMultiple(of: 128), PreviewConversion.expired { return "" }
                     endCell()
                     let tag = header ? "th" : "td"
                     cell = tag
