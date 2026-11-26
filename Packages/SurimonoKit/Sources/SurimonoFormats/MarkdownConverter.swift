@@ -295,7 +295,10 @@ public enum MarkdownConverter {
             referencesMarker: formulas.citations?.referencesMarker)
         let document = MarkdownNesting.document(
             parsing: source.lines.joined(separator: "\n"), options: [.disableSmartOpts])
-        var anchors = anchorsHeadings ? MarkdownExtensions.headingAnchors(in: document, formulas: formulas) : []
+        var anchors =
+            anchorsHeadings
+            ? MarkdownExtensions.headingAnchors(
+                in: document, formulas: formulas, hasFootnotes: !footnotes.order.isEmpty) : []
         if let numberDepth, let top = MarkdownExtensions.sectionLevel(in: anchors) {
             var numbers = SectionNumbers()
             for index in anchors.indices {

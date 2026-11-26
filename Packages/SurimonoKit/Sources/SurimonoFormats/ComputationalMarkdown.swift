@@ -94,7 +94,7 @@ struct ComputationalBody {
     var labels: [String: ComputationalLabel] = [:]
     var insertions: [ComputationalInsertion] = []
     var headings: [(level: Int, id: String, text: String)] = []
-    var headingIDs: Set<String> = []
+    var headingSuffixes: [String: Int] = [:]
     var sectionNumbers = Array(repeating: 0, count: 6)
     // A document cannot collide with the deferred references and generated footnote IDs.
     let token = "surimono" + UUID().uuidString.replacingOccurrences(of: "-", with: "")
