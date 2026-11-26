@@ -62,9 +62,18 @@ public final class WebPaginator: NSObject {
         case emptyDocument
     }
 
+    public struct FootnotePass: Sendable {
+        struct Note: Sendable, Equatable {
+            let references: Int
+            let reservesRoom: Bool
+        }
+        let measuresOnly: Bool
+        let stock: [Note]
+    }
+
     @MainActor
     public struct Result {
-        public let document: PDFDocument
+        public fileprivate(set) var document: PDFDocument
         public let preparationResult: String?
         /// The document's own `@page` rules with a size, read before the preparation script ran; empty unless asked.
         public let pageRules: [PageRule]
@@ -79,6 +88,11 @@ public final class WebPaginator: NSObject {
         /// What the renderer added to the pages of a text and read from it.
         var finishing = FinishedPages()
         var drawingBytes: Data?
+        /// The reservation pass measures WebKit's native stock destinations, even if
+        /// reading navigation replaced or removed a reference in the reader's copy.
+        var footnoteLayout: PDFDocument?
+        var fragmentAnchors: [String: PrintedFragmentLinks.Region] = [:]
+        var contentsRows: [[PrintedFragmentLinks.Region]] = []
 
         public init(
             document: PDFDocument, preparationResult: String? = nil, pageRules: [PageRule] = [],
@@ -242,6 +256,7 @@ public final class WebPaginator: NSObject {
         composesLaTeXParagraphs: Bool = false, latexFlow: Bool = false, latexMarginInk: Bool = false,
         checksVerticalLaTeXInk: Bool = false,
         verticalBooklet: Bool = false, verticalTextScale: Double = 1, flow: PrintFlow = .horizontal,
+        contentsHeadingIDs: [String] = [], footnotePass: FootnotePass? = nil,
         timeout: Duration? = nil
     ) async throws -> Result {
         let bytes: Int
@@ -431,18 +446,60 @@ public final class WebPaginator: NSObject {
             let sources = try JSONDecoder().decode([DiagramGeometry.Source].self, from: Data(json.utf8))
             return .init(document: document, sources: sources, token: indexToken)
         }
+        func openPrinted(_ bytes: Data) throws -> PDFDocument {
+            guard let document = PDFDocument(data: bytes), document.pageCount > 0 else {
+                throw PaginationError.emptyDocument
+            }
+            return document
+        }
+        // Snapshot only the committed page that produced the finished PDF. A late error
+        // or a missing reply can discard navigation without invalidating the printed pages.
+        func applyLinks(
+            bytes: Data, to result: inout Result, bindsLinks: Bool = true,
+            verticalLayout: PrintedFragmentLinks.VerticalLayout? = nil
+        ) async throws {
+            result.printDestination = try session.checkPrintNavigation()
+            try Task.checkCancellation()
+            // The measurement pass consumes only native stock annotations. No user-facing
+            // links leave this pass, so it needs neither DOM matching nor URL restoration.
+            guard footnotePass?.measuresOnly != true else { return }
+            let view = session.webView
+            let media = view.mediaType
+            let snapshot: PrintedFragmentLinks?
+            do {
+                if flow == .horizontal { view.mediaType = "print" }
+                defer { if flow == .horizontal { view.mediaType = media } }
+                snapshot = try await PrintedFragmentLinks.measure(
+                    in: view, source: source, vertical: flow == .vertical, headingIDs: contentsHeadingIDs)
+            }
+            if (try? session.checkPrintNavigation()) == result.printDestination,
+                let navigation = try await snapshot?.resolve(
+                    in: bytes, bindsLinks: bindsLinks, verticalLayout: verticalLayout)
+            {
+                if let reopened = navigation.reopened {
+                    if footnotePass != nil { result.footnoteLayout = result.document }
+                    result.document = reopened.document
+                    result.drawingBytes = navigation.bytes
+                }
+                result.fragmentAnchors = navigation.anchors
+                result.contentsRows = navigation.rows
+            }
+            try Task.checkCancellation()
+            if session.localHandler != nil { LocalResourceSchemeHandler.restoreFileLinks(in: result.document) }
+        }
         if flow == .vertical {
             if indexesFormulas { try await installFormulaIndex() }
-            let document = try await VerticalPaginator.pages(
+            var layout = PrintedFragmentLinks.VerticalLayout()
+            let printed = try await VerticalPaginator.data(
                 in: session.webView, pageSize: pageSize, margins: margins, timeout: printTimeout,
-                booklet: verticalBooklet, textScale: verticalTextScale)
+                booklet: verticalBooklet, textScale: verticalTextScale, recordSlice: { layout.record($0, $1) })
+            let document = try openPrinted(printed)
             try session.checkPrintNavigation()
-            if session.localHandler != nil { LocalResourceSchemeHandler.restoreFileLinks(in: document) }
             var result = Result(
                 document: document, preparationResult: preparationResult, pageRules: pageRules,
                 requiredFolderAccess: session.localHandler?.requiredFolderAccess)
             if indexesFormulas { result.diagramPass = try await formulaPass(document) }
-            result.printDestination = try session.checkPrintNavigation()
+            try await applyLinks(bytes: printed, to: &result, verticalLayout: layout)
             return result
         }
         // Only a document with `@page` rules can set margins of its own and so draw below the paper; an unknown
@@ -511,7 +568,7 @@ public final class WebPaginator: NSObject {
                         """, arguments: ["width": width], until: layoutDeadline)
                 }
                 let data = try await session.printToPDF(
-                    checkingBelowPaper: mayDrawBelowPaper, latexMarginInk: latexMarginInk,
+                    checkingBelowPaper: mayDrawBelowPaper, latexMarginInk: latexMarginInk, footnotePass: footnotePass,
                     deadline: latexPageNumbers == nil ? nil : layoutDeadline)
                 if composesLatin {
                     _ = try await session.webView.evaluateForPrinting("surimonoRestoreLatin()", until: layoutDeadline)
@@ -639,10 +696,9 @@ public final class WebPaginator: NSObject {
                 await inspectPrintLayout(webView)
                 webView.mediaType = media
             }
-            let pageData = try await pageDataForPass(indexFormulas: indexesFormulas)
+            let printed = try await pageDataForPass(indexFormulas: indexesFormulas)
             try await recordLines(final: true)
-            guard let document = PDFDocument(data: pageData) else { throw PaginationError.emptyDocument }
-            if session.localHandler != nil { LocalResourceSchemeHandler.restoreFileLinks(in: document) }
+            let document = try openPrinted(printed)
             var result = Result(
                 document: document,
                 preparationResult: preparationResult, pageRules: pageRules,
@@ -656,7 +712,7 @@ public final class WebPaginator: NSObject {
                     ).pages
             }
             result.finishing.latexPages = texPages
-            result.drawingBytes = pageData
+            result.drawingBytes = printed
             if adjusted { result.issues = [Self.verticalWritingIssue] }
             if incompleteReferences { result.issues.append(.unresolvedLaTeXPages) }
             if indexesFormulas {
@@ -684,7 +740,8 @@ public final class WebPaginator: NSObject {
                     try Task.checkCancellation()
                 }
             }
-            result.printDestination = try session.checkPrintNavigation()
+            // The flow compositor already binds the links in its slices.
+            try await applyLinks(bytes: printed, to: &result, bindsLinks: !capturesLaTeXFlow)
             return result
         }
         do {
@@ -711,7 +768,8 @@ public final class WebPaginator: NSObject {
                 rendersDiagrams: rendersDiagrams, collectsDiagrams: collectsDiagrams, indexesFormulas: indexesFormulas,
                 latexPageNumbers: lostReferences ? nil : latexPageNumbers,
                 restartsAfterTitle: restartsAfterTitle, composesLaTeXParagraphs: composesLatin,
-                latexMarginInk: latexMarginInk, timeout: timeout)
+                latexMarginInk: latexMarginInk, contentsHeadingIDs: contentsHeadingIDs, footnotePass: footnotePass,
+                timeout: timeout)
             if lostReferences { fallback.issues.append(.unresolvedLaTeXPages) }
             if usedFlow {
                 fallback.issues.append(
@@ -1146,7 +1204,8 @@ private final class PaginationSession {
     /// - Parameter checkingBelowPaper: Whether the document may draw below the paper, so that the pages are cut back
     ///   to the paper only after finding nothing there.
     func printToPDF(
-        checkingBelowPaper: Bool, latexMarginInk: Bool = false, deadline: ContinuousClock.Instant? = nil
+        checkingBelowPaper: Bool, latexMarginInk: Bool = false, footnotePass: WebPaginator.FootnotePass? = nil,
+        deadline: ContinuousClock.Instant? = nil
     ) async throws -> Data {
         let deadline = deadline ?? .now + printTimeout
         try checkPrintNavigation()
@@ -1244,7 +1303,8 @@ private final class PaginationSession {
                 "globalThis.surimonoMarginInk.remove(); delete globalThis.surimonoMarginInk;",
                 arguments: [:], until: deadline)
         }
-        return try await Self.cutToPaper(at: outputURL, pageSize: pageSize, checkingBelowPaper: checkingBelowPaper)
+        return try await Self.cutToPaper(
+            at: outputURL, pageSize: pageSize, checkingBelowPaper: checkingBelowPaper, footnotePass: footnotePass)
     }
 
     /// WebKit cuts the printable height into pages of whole CSS pixels and lets a document's `@page` size and margins
@@ -1259,11 +1319,23 @@ private final class PaginationSession {
     ///
     /// The cut pages come back as a document read anew: PDFKit keeps reporting some characters of a page whose boxes
     /// were just changed at zero size, which would break finding and selecting text on the paper.
-    @concurrent private static func cutToPaper(at url: URL, pageSize: CGSize, checkingBelowPaper: Bool) async throws
+    @concurrent private static func cutToPaper(
+        at url: URL, pageSize: CGSize, checkingBelowPaper: Bool, footnotePass: WebPaginator.FootnotePass?
+    ) async throws
         -> Data
     {
-        guard let bytes = try? Data(contentsOf: url), let document = PDFDocument(data: bytes), document.pageCount > 0
-        else { throw WebPaginator.PaginationError.emptyDocument }
+        guard var bytes = try? Data(contentsOf: url) else { throw WebPaginator.PaginationError.emptyDocument }
+        if let footnotePass {
+            // Quartz can emit all the references to a named stock destination but omit
+            // the destination object. PDFKit discards that shared identity when saving the crop.
+            if let recovered = try? FootnotePlacer.recoverStock(in: bytes, expected: footnotePass.stock) {
+                bytes = recovered
+            }
+            try Task.checkCancellation()
+        }
+        guard let document = PDFDocument(data: bytes), document.pageCount > 0 else {
+            throw WebPaginator.PaginationError.emptyDocument
+        }
         for index in 0..<document.pageCount {
             try Task.checkCancellation()
             guard let page = document.page(at: index) else { continue }

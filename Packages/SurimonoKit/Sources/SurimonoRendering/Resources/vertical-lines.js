@@ -21,6 +21,13 @@ probe.style.cssText = 'all:initial!important;position:absolute!important;height:
 body.appendChild(probe);
 const unit = 100 * zoom / probe.getBoundingClientRect().height;
 probe.remove();
+// Report read-only fragment geometry in the same document coordinates as WKPDFConfiguration.rect.
+let sliceAtX = () => 0;
+globalThis.surimonoVerticalFragment = rect => ({
+    slice: sliceAtX((rect.left + rect.right) / 2),
+    x: (rect.left + window.scrollX) * unit, y: (rect.top + window.scrollY) * unit,
+    width: rect.width * unit, height: rect.height * unit
+});
 
 // Keep additions bounded even if a short source produces a very large DOM.
 const limit = 250000;
@@ -521,6 +528,7 @@ globalThis.surimonoIndexSlices = (slices, trace) => {
         }
         return lo;
     }
+    sliceAtX = pageAt;
     const replacements = [];
     const tree = document.createTreeWalker(strip, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
         acceptNode(n) {

@@ -9,7 +9,7 @@ enum PaperComposer {
     /// unless the page kept the paginator's allowance. Links and other annotations move along with their page.
     /// - Parameter shift: How far the content of the page at an index moves to the right, on a paper that stays.
     static func compose(
-        _ document: PDFDocument, paper: PDFPage?, shift: (Int) -> CGFloat = { _ in 0 }
+        _ document: PDFDocument, paper: PDFPage?, bindsPrintedLinks: Bool = false, shift: (Int) -> CGFloat = { _ in 0 }
     ) -> PDFDocument? {
         let paperBox = paper.map { $0.bounds(for: .cropBox).intersection($0.bounds(for: .mediaBox)) }
         if let paperBox, paperBox.width <= 0 || paperBox.height <= 0 { return nil }
@@ -37,7 +37,18 @@ enum PaperComposer {
             context.endPage()
         }
         context.closePDF()
-        guard let composed = PDFDocument(data: data as Data), composed.pageCount == boxes.count else { return nil }
+        guard let drawn = PDFDocument(data: data as Data), drawn.pageCount == boxes.count else { return nil }
+        let composed: PDFDocument
+        if bindsPrintedLinks {
+            // Reopening the drawn bytes and only adding annotations can leave PDFKit's
+            // drawing as its saved data. A new page tree serializes the live annotations.
+            let pages = (0..<drawn.pageCount).compactMap { drawn.page(at: $0) }
+            guard pages.count == boxes.count else { return nil }
+            composed = PDFDocument()
+            for (index, page) in pages.enumerated() { composed.insert(page, at: index) }
+        } else {
+            composed = drawn
+        }
         // A link into the document points at a page of the old one; it is pointed at the same place in the new one.
         func moved(_ destination: PDFDestination?) -> PDFDestination? {
             guard let destination, let page = destination.page else { return nil }
@@ -50,19 +61,34 @@ enum PaperComposer {
             let y = point.y == kPDFDestinationUnspecifiedValue ? point.y : point.y - box.minY
             return composed.destination(on: target, at: CGPoint(x: x, y: y))
         }
+        var bound: ReadingPDFNavigation.PageLinks = [:]
         for (index, box) in boxes.enumerated() {
             guard let source = document.page(at: index), let target = composed.page(at: index) else { continue }
             StandalonePage.retainSources(of: source, on: target)
+            var slot = target.annotations.count
             for annotation in source.annotations {
                 guard let copy = annotation.copy() as? PDFAnnotation else { return nil }
                 copy.bounds = annotation.bounds.offsetBy(dx: shift(index) - box.minX, dy: -box.minY)
-                if let destination = moved(annotation.destination) { copy.destination = destination }
+                var rebound = moved(annotation.destination)
+                if let rebound { copy.destination = rebound }
                 if let action = annotation.action as? PDFActionGoTo, let destination = moved(action.destination) {
                     copy.action = PDFActionGoTo(destination: destination)
+                    rebound = destination
+                }
+                if bindsPrintedLinks, let rebound, let page = rebound.page {
+                    // These XYZ destinations were authored on the newly drawn pages. A
+                    // copied annotation's backing array can still refer to the old page tree.
+                    let record = ReadingPDFNavigationWriter.Destination(
+                        page: composed.index(for: page), point: rebound.point, zoom: rebound.zoom)
+                    bound[index, default: [:]][slot] = .init(
+                        page: index, annotation: slot, bounds: copy.bounds, action: .internalDestination(record))
                 }
                 target.addAnnotation(copy)
+                slot += 1
             }
         }
+        if !bound.isEmpty { composed.binderNavigation = .bound(bound) }
+        composed.inheritDisplayFallback(from: document)
         return composed
     }
 

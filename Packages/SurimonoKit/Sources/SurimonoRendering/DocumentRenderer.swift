@@ -296,6 +296,8 @@ public struct PaginationRequest: Sendable {
     var verticalBooklet = false
     var verticalTextScale: Double = 1
     public var flow = PrintFlow.horizontal
+    var contentsHeadingIDs: [String] = []
+    var footnotePass: WebPaginator.FootnotePass?
 }
 
 extension WebPaginator {
@@ -311,7 +313,8 @@ extension WebPaginator {
             composesLaTeXParagraphs: request.composesLaTeXParagraphs,
             latexFlow: request.latexFlow,
             latexMarginInk: request.latexMarginInk, checksVerticalLaTeXInk: request.checksVerticalLaTeXInk,
-            verticalBooklet: request.verticalBooklet, verticalTextScale: request.verticalTextScale, flow: request.flow)
+            verticalBooklet: request.verticalBooklet, verticalTextScale: request.verticalTextScale, flow: request.flow,
+            contentsHeadingIDs: request.contentsHeadingIDs, footnotePass: request.footnotePass)
     }
 }
 
@@ -1470,7 +1473,7 @@ public final class DocumentRenderer {
                     readsPageRules: true), source: source)
             guard settings.mirrorsLaidOutPages else { return page }
             var mirrored = WebPaginator.Result(
-                document: Self.mirroringMargins(of: page.document, settings: settings),
+                document: Self.mirroringMargins(of: page.document, settings: settings, bindsPrintedLinks: true),
                 preparationResult: page.preparationResult, pageRules: page.pageRules,
                 requiredFolderAccess: page.requiredFolderAccess)
             mirrored.issues = page.issues
@@ -1583,7 +1586,7 @@ public final class DocumentRenderer {
                             && (checksVerticalLaTeXInk || LaTeXFlowPaginator.hasMarginInk(in: fragment.body)),
                         checksVerticalLaTeXInk: checksVerticalLaTeXInk,
                         verticalBooklet: settings.layout.kind == .booklet,
-                        verticalTextScale: settings.textScale, flow: flow),
+                        verticalTextScale: settings.textScale, flow: flow, contentsHeadingIDs: page.contentsHeadingIDs),
                     source: source
                 )
             }
@@ -1610,7 +1613,9 @@ public final class DocumentRenderer {
                 text.issues.append(PrintIssue(id: "\(kind.rawValue)-reader-\(offset)", kind: kind, detail: detail))
             }
             if page.needsFolderAccess { text.requiredFolderAccess = directory }
-            text = try await finished(text, fragment: fragment, facts: page.facts, source: source, settings: settings)
+            text = try await finished(
+                text, fragment: fragment, facts: page.facts, source: source,
+                settings: settings)
             text.finishing.sourceText = fragment.sourceText
             guard separatesPaper, text.preparationResult == "paper" else { return text }
             let paperHTML = PaperBackground.document(
@@ -1633,7 +1638,7 @@ public final class DocumentRenderer {
                 return text
             }
             guard let paperPage = paper.document.page(at: 0),
-                let composed = PaperComposer.compose(text.document, paper: paperPage)
+                let composed = PaperComposer.compose(text.document, paper: paperPage, bindsPrintedLinks: true)
             else { return text }
             var result = WebPaginator.Result(
                 document: composed, preparationResult: text.preparationResult, pageRules: text.pageRules,
@@ -1682,6 +1687,7 @@ public final class DocumentRenderer {
         let needsLaTeXFlow: Bool
         let paper: HTMLFragment
         let html: String
+        let contentsHeadingIDs: [String]
         let facts: DocumentFacts
         let mermaid: Bool
         let diagrams: Bool
@@ -1788,9 +1794,17 @@ public final class DocumentRenderer {
             && (fragment.body.contains("graphviz-block") || fragment.body.contains("plantuml-block")
                 || source.format == .latex && fragment.body.contains("class=\"tikz-block\""))
         try Task.checkCancellation()
+        let headingIDs: [String]
+        if settings.finish.frontDepth(format: source.format, lead: lead) == nil || facts.beamerPageSize != nil {
+            headingIDs = []
+        } else if settings.finish.originalPresetContents?.mode == .front {
+            headingIDs = Array(facts.headings.lazy.compactMap(\.id).prefix(4096))
+        } else {
+            headingIDs = Array((facts.leadEntries ?? []).lazy.compactMap(\.id).prefix(4096))
+        }
         return ThemedPage(
             fragment: fragment, needsLaTeXFlow: needsLaTeXFlow, paper: paper, html: html,
-            facts: facts,
+            contentsHeadingIDs: headingIDs, facts: facts,
             mermaid: mermaid, diagrams: diagrams, needsFolderAccess: read.needsFolderAccess)
     }
 
@@ -1822,8 +1836,8 @@ public final class DocumentRenderer {
     /// The pages of a text with what the print finish adds to them: the contents in front, a blank before a chapter
     /// that would fall on a left-hand page, and the margins of the left-hand pages turned the other way round.
     private func finished(
-        _ text: WebPaginator.Result, fragment: HTMLFragment, facts: DocumentFacts, source: DocumentSource,
-        settings: RenderSettings
+        _ text: WebPaginator.Result, fragment: HTMLFragment, facts: DocumentFacts,
+        source: DocumentSource, settings: RenderSettings
     ) async throws -> WebPaginator.Result {
         var result = text
         result.finishing.facts = facts
@@ -1841,12 +1855,30 @@ public final class DocumentRenderer {
         let pageCount = text.document.pageCount
         var plan = FinishedPagePlan(bodyPageCount: pageCount, contentsPageCount: 0, rightPageStarts: [])
         var contents: PDFDocument?
+        var rowLinks: [Int: [(bounds: CGRect, target: PrintedFragmentLinks.Region)]] = [:]
         if usesRightPages || wantsContents || notes != nil {
-            let pageTexts = (0..<pageCount).map { text.document.page(at: $0)?.string ?? "" }
-            let headingPages = DocumentOutline.pages(
+            var pageTexts: [String] = []
+            for index in 0..<pageCount {
+                if index.isMultiple(of: 16) {
+                    await Task.yield()
+                    try Task.checkCancellation()
+                }
+                pageTexts.append(text.document.page(at: index)?.string ?? "")
+            }
+            var headingPages = DocumentOutline.pages(
                 of: facts.headings, inPageTexts: pageTexts,
                 contentsEntries: facts.visibleContentsEntries
             )
+            if wantsContents {
+                let listed = Set((facts.leadEntries ?? []).compactMap(\.id))
+                for (index, heading) in facts.headings.enumerated() {
+                    if let id = heading.id, usesLegacyFront || listed.contains(id),
+                        let target = text.fragmentAnchors[id]
+                    {
+                        headingPages[index] = target.page
+                    }
+                }
+            }
             let insertion = notes.map {
                 FinishedPagePlan.Notes(
                     placement: $0.placement, layoutKind: settings.layout.kind,
@@ -1865,31 +1897,49 @@ public final class DocumentRenderer {
                 bodyPageCount: pageCount, contentsPageCount: 0, rightPageStarts: starts, notes: insertion)
             // The numbers in the contents depend on how many pages the contents take, which the numbers can change.
             // A layout counts once it takes the pages it was numbered for.
-            let entries: [PaperContents.Entry]
+            let rows: [(entry: PaperContents.Entry, id: String?)]
             if let frontDepth, wantsContents {
                 if usesLegacyFront {
-                    entries = PaperContents.entries(
+                    rows = PaperContents.legacyRows(
                         headings: facts.headings, pageNumbers: headingPages, depth: frontDepth)
                 } else {
-                    entries = PaperContents.readerEntries(facts: facts, pageNumbers: headingPages)
+                    let entries = PaperContents.readerEntries(facts: facts, pageNumbers: headingPages)
+                    rows = zip(entries, facts.leadEntries ?? []).map { ($0, $1.id) }
                 }
             } else {
-                entries = []
+                rows = []
             }
+            var printedRows: [[PrintedFragmentLinks.Region]] = []
             var plannedPageCount = 1
             for _ in 0..<(wantsContents ? Self.contentsLayoutLimit : 0) {
                 plan = FinishedPagePlan(
                     bodyPageCount: pageCount, contentsPageCount: plannedPageCount, rightPageStarts: starts,
                     notes: insertion)
-                let numbered = entries.map { entry in
-                    var entry = entry
+                let numbered = rows.map { row in
+                    var entry = row.entry
                     entry.page = entry.page.map { plan.bodyPageIndices[$0] + 1 }
                     return entry
                 }
                 let pages = try await contentsPages(numbered, source: source, settings: settings)
-                contents = pages
-                if pages.pageCount == plannedPageCount { break }
-                plannedPageCount = pages.pageCount
+                contents = pages.document
+                printedRows = pages.contentsRows
+                if pages.document.pageCount == plannedPageCount { break }
+                plannedPageCount = pages.document.pageCount
+            }
+            var regionCount = 0
+            for (index, pair) in zip(rows, printedRows).enumerated() {
+                if index.isMultiple(of: 64) {
+                    await Task.yield()
+                    try Task.checkCancellation()
+                }
+                let (row, regions) = pair
+                guard let id = row.id, let target = text.fragmentAnchors[id] else { continue }
+                regionCount += regions.count
+                guard regionCount <= 4096 else {
+                    rowLinks.removeAll()
+                    break
+                }
+                for region in regions { rowLinks[region.page, default: []].append((region.bounds, target)) }
             }
             // A contents that never settled keeps all its pages, so the pages after it stay in step with the last one.
             if let contents, contents.pageCount != plan.contentsPageCount {
@@ -1898,8 +1948,12 @@ public final class DocumentRenderer {
                     notes: insertion)
             }
         }
-        let document = Self.assembled(text.document, contents: contents, plan: plan, settings: settings)
-        let mirrored = Self.mirroringMargins(of: document, settings: settings, plan: notes != nil ? plan : nil)
+        let document = try await Self.assembled(
+            text.document, contents: contents,
+            links: rowLinks,
+            plan: plan, settings: settings)
+        let mirrored = Self.mirroringMargins(
+            of: document, settings: settings, plan: notes != nil ? plan : nil, bindsPrintedLinks: true)
         var finished = WebPaginator.Result(
             document: mirrored,
             preparationResult: text.preparationResult, pageRules: text.pageRules,
@@ -1944,7 +1998,7 @@ public final class DocumentRenderer {
     /// The contents laid out like the text: the same theme, paper size and margins.
     private func contentsPages(
         _ entries: [PaperContents.Entry], source: DocumentSource, settings: RenderSettings
-    ) async throws -> PDFDocument {
+    ) async throws -> WebPaginator.Result {
         let directory = source.fileURL?.deletingLastPathComponent()
         let flow = settings.theme.supports(source.format) ? settings.theme.flow : .horizontal
         let separatesPaper = WebPaginator.drawsClearPages && flow == .horizontal
@@ -1963,23 +2017,30 @@ public final class DocumentRenderer {
                 readsPageRules: false, drawsBackground: !separatesPaper,
                 verticalBooklet: settings.layout.kind == .booklet,
                 verticalTextScale: settings.textScale, flow: flow)
-        ).document
+        )
     }
 
     /// Adds to the document itself, so that the links between its pages keep pointing at them. The note pages go in
     /// later, in `noted(_:source:settings:)`.
     private static func assembled(
-        _ body: PDFDocument, contents: PDFDocument?, plan: FinishedPagePlan, settings: RenderSettings
-    ) -> PDFDocument {
+        _ body: PDFDocument, contents: PDFDocument?,
+        links: [Int: [(bounds: CGRect, target: PrintedFragmentLinks.Region)]], plan: FinishedPagePlan,
+        settings: RenderSettings
+    ) async throws -> PDFDocument {
         guard !plan.isUnchanged else { return body }
+        var frontPages: [Int: (index: Int, offset: CGPoint)] = [:]
+        var bodyIndices: [Int] = []
         var index = 0
         for page in plan.pages {
             switch page {
             case .note: continue
-            case .body: break
+            case .body: bodyIndices.append(index)
             case .contents(let number):
                 if let page = contents?.page(at: number), let copy = StandalonePage.copy(of: page) {
                     body.insert(copy, at: index)
+                    let original = page.bounds(for: .mediaBox).origin
+                    let placed = copy.bounds(for: .mediaBox).origin
+                    frontPages[number] = (index, CGPoint(x: placed.x - original.x, y: placed.y - original.y))
                 }
             case .blank:
                 let blank = PDFPage()
@@ -1990,6 +2051,55 @@ public final class DocumentRenderer {
             }
             index += 1
         }
+        // Bind on the complete page tree. As with a binder, PDFKit can synthesize an
+        // incomplete /Dest for a copied page. Retain the authored operands for the verified write.
+        let deadline = ContinuousClock.now + PrintedFragmentLinks.repairBudget
+        var bound: ReadingPDFNavigation.PageLinks = [:]
+        var added: [PDFAnnotation] = []
+        // Only new trailing annotations participate in this transaction. Removing one on
+        // timeout never shifts the slot of an annotation from the backing PDF.
+        var published = false
+        defer {
+            if !published {
+                for link in added.reversed() { link.page?.removeAnnotation(link) }
+            }
+        }
+        var count = 0
+        for (number, rows) in links {
+            guard let (index, offset) = frontPages[number], let page = body.page(at: index) else { continue }
+            var slot = page.annotations.count
+            for row in rows {
+                if count.isMultiple(of: 64) {
+                    await Task.yield()
+                    try Task.checkCancellation()
+                }
+                count += 1
+                guard .now < deadline else { return body }
+                guard bodyIndices.indices.contains(row.target.page) else { continue }
+                let targetIndex = bodyIndices[row.target.page]
+                guard let targetPage = body.page(at: targetIndex) else { continue }
+                let point = CGPoint(x: row.target.bounds.minX, y: row.target.bounds.maxY)
+                let target = body.destination(on: targetPage, at: point)
+                let bounds = row.bounds.offsetBy(dx: offset.x, dy: offset.y)
+                let link = PDFAnnotation(bounds: bounds, forType: .link, withProperties: nil)
+                link.action = PDFActionGoTo(destination: target)
+                let border = PDFBorder()
+                border.lineWidth = 0
+                link.border = border
+                page.addAnnotation(link)
+                added.append(link)
+                let destination = ReadingPDFNavigationWriter.Destination(
+                    page: targetIndex, point: point, zoom: target.zoom)
+                bound[index, default: [:]][slot] = .init(
+                    page: index, annotation: slot, bounds: bounds,
+                    action: .internalDestination(destination))
+                slot += 1
+            }
+        }
+        try Task.checkCancellation()
+        guard .now < deadline else { return body }
+        if !bound.isEmpty { body.binderNavigation = .bound(bound) }
+        published = true
         return body
     }
 
@@ -1997,7 +2107,8 @@ public final class DocumentRenderer {
     /// margin. The pages were laid out with the same width, so moving them is all it takes.
     /// - Parameter plan: Where the pages end up once the notes are in, when that is what decides their sides.
     private static func mirroringMargins(
-        of document: PDFDocument, settings: RenderSettings, plan: FinishedPagePlan? = nil
+        of document: PDFDocument, settings: RenderSettings, plan: FinishedPagePlan? = nil,
+        bindsPrintedLinks: Bool = false
     ) -> PDFDocument {
         guard settings.mirrorsLaidOutPages || plan != nil else { return document }
         guard settings.layout.mirrorsMargins(options: settings.options) else { return document }
@@ -2007,7 +2118,7 @@ public final class DocumentRenderer {
             return document
         }
         return PaperComposer.compose(
-            document, paper: nil,
+            document, paper: nil, bindsPrintedLinks: bindsPrintedLinks,
             shift: { index in
                 let place = places.flatMap { $0.indices.contains(index) ? $0[index] : nil } ?? index
                 return settings.layout.swapsSides(onPage: place) ? shift : 0
@@ -2115,9 +2226,18 @@ public final class DocumentRenderer {
             let pageSize = settings.logicalPageSize
             let margins = WebPaginator.Margins(settings.layout.logicalMargins(options: settings.options))
             let directory = source.fileURL?.deletingLastPathComponent()
-            func request(_ body: String, collectsDiagrams: Bool = false) async throws -> PaginationRequest {
+            let counts = Dictionary(grouping: plan.references, by: \.note).mapValues(\.count)
+            func request(reserving groups: [PageFootnotes.Group]? = nil) async throws -> PaginationRequest {
+                let collectsDiagrams = groups != nil
+                let placing = groups.map { Set($0.flatMap(\.notes)) } ?? plan.eligibleNotes
+                let reserved = Set((groups ?? []).compactMap { $0.notes.first })
+                let pass = WebPaginator.FootnotePass(
+                    measuresOnly: groups == nil,
+                    stock: plan.stockNumbers(placing: placing).map {
+                        .init(references: counts[$0, default: 0], reservesRoom: reserved.contains($0))
+                    })
                 var fragment = page.paper
-                fragment.body = body
+                fragment.body = groups.map(plan.reservingHTML) ?? plan.measuringHTML(placing: placing)
                 let html = try await Self.builtHTML(
                     fragment, source: source, settings: settings, separatesPaper: WebPaginator.drawsClearPages)
                 return PaginationRequest(
@@ -2127,11 +2247,11 @@ public final class DocumentRenderer {
                     rendersMermaid: page.mermaid, rendersDiagrams: page.diagrams,
                     latexPageNumbers: page.numbering, restartsAfterTitle: page.restartsAfterTitle,
                     collectsDiagrams: collectsDiagrams && page.collectsDiagrams && settings.markdownChanges.isEmpty,
-                    indexesFormulas: collectsDiagrams && settings.indexesFormulas)
+                    indexesFormulas: collectsDiagrams && settings.indexesFormulas,
+                    contentsHeadingIDs: collectsDiagrams ? page.contentsHeadingIDs : [], footnotePass: pass)
             }
             try Task.checkCancellation()
-            let measured = try await paginateCheckingIssues(
-                request(plan.measuringHTML(placing: plan.eligibleNotes)), source: source)
+            let measured = try await paginateCheckingIssues(request(), source: source)
             try Task.checkCancellation()
             let measurement = try FootnotePlacer.measure(measured.document, plan: plan, placing: plan.eligibleNotes)
             let groups = try FootnotePlacer.groups(
@@ -2144,10 +2264,9 @@ public final class DocumentRenderer {
                 guard !remaining.isEmpty else { return nil }
                 let placing = remaining
                 do {
-                    let result = try await paginateCheckingIssues(
-                        request(plan.reservingHTML(groups: placing), collectsDiagrams: true), source: source
-                    ) {
-                        try FootnotePlacer.compose($0, plan: plan, groups: placing, margins: margins)
+                    let result = try await paginateCheckingIssues(request(reserving: placing), source: source) {
+                        try FootnotePlacer.composition(
+                            $0, annotationSource: $1, plan: plan, groups: placing, margins: margins)
                     }
                     try Task.checkCancellation()
                     return result
@@ -2170,7 +2289,7 @@ public final class DocumentRenderer {
 
     private func paginateCheckingIssues(
         _ request: PaginationRequest, source: DocumentSource,
-        transform: ((PDFDocument) throws -> PDFDocument)? = nil
+        placingNotes: ((PDFDocument, PDFDocument) throws -> FootnotePlacer.Composition)? = nil
     ) async throws
         -> WebPaginator.Result
     {
@@ -2186,12 +2305,14 @@ public final class DocumentRenderer {
             composesLaTeXParagraphs: source.format == .latex,
             latexFlow: request.latexFlow,
             latexMarginInk: request.latexMarginInk, checksVerticalLaTeXInk: request.checksVerticalLaTeXInk,
-            verticalBooklet: request.verticalBooklet, verticalTextScale: request.verticalTextScale, flow: request.flow)
+            verticalBooklet: request.verticalBooklet, verticalTextScale: request.verticalTextScale, flow: request.flow,
+            contentsHeadingIDs: request.contentsHeadingIDs, footnotePass: request.footnotePass)
         let output = try await paginate(wrapped)
         let preparation = output.preparationResult.flatMap {
             try? JSONDecoder().decode(PrintIssueAnchors.Preparation.self, from: Data($0.utf8))
         }
-        let document = try transform?(output.document) ?? output.document
+        let placement = try placingNotes?(output.footnoteLayout ?? output.document, output.document)
+        let document = placement?.document ?? output.document
         let access = resourceAccess(for: source)
         let issues = (preparation?.issues ?? []).map { issue in
             var issue = issue
@@ -2212,13 +2333,16 @@ public final class DocumentRenderer {
             document: document,
             preparationResult: preparation.map { $0.previous } ?? output.preparationResult,
             pageRules: output.pageRules, requiredFolderAccess: output.requiredFolderAccess)
+        result.fragmentAnchors =
+            placement.map { output.fragmentAnchors.compactMapValues($0.bodyLocation) } ?? output.fragmentAnchors
         result.finishing.latexPages = output.finishing.latexPages
         if let pass = output.diagramPass {
-            result.diagrams = (try? pass.diagrams(transform: transform)) ?? []
+            result.diagrams =
+                (try? pass.diagrams(transform: placingNotes.map { place in { try place($0, $0).document } })) ?? []
             try Task.checkCancellation()
         }
         // Only the page contents are drawn by Quartz; restoring or removing link annotations does not alter them.
-        if transform == nil { result.drawingBytes = output.drawingBytes }
+        if placement == nil { result.drawingBytes = output.drawingBytes }
         result.issues = PrintIssueAnchors.extract(from: document, issues: issues) + output.issues
         return result
     }

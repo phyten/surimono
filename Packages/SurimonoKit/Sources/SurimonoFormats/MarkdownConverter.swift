@@ -231,7 +231,9 @@ public enum MarkdownConverter {
             parsing: source.lines.joined(separator: "\n"), options: [.disableSmartOpts])
         let context = Context(
             source: source,
-            anchors: anchorsHeadings ? MarkdownExtensions.headingAnchors(in: document, formulas: formulas) : [],
+            anchors: anchorsHeadings
+                ? MarkdownExtensions.headingAnchors(
+                    in: document, formulas: formulas, hasFootnotes: !footnotes.order.isEmpty) : [],
             formulas: formulas, mapping: mapping)
         context.notebookTOC = notebookTOC
         let toc = leadDepth.map { ReaderContentsKind.lead.mark(context.tableOfContents(levels: $0)) } ?? ""
