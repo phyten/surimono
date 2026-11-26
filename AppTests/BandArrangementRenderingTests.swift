@@ -82,10 +82,10 @@ struct BandArrangementRenderingTests {
         .alwaysShowToolbar, .margins, .printSettings, .viewOptions, .saveAsFile, .keysAndGestures,
     ]
 
-    /// Measured widths of the legacy parts, without the stacks' spacing.
+    /// Fixture widths exclude the gaps between controls.
     private static let widths: [BandSlot: CGFloat] = [
         .name: 120, .more: 24,
-        .item(.formatBadge, .full): 30, .item(.pageIndicator, .full): 50,
+        .item(.formatBadge, .full): 30, .item(.pageIndicator, .full): 50, .item(.chapter, .full): 72,
         .item(.style, .full): 90, .item(.style, .compact): 40,
         .item(.outline, .full): 60, .item(.outline, .compact): 30,
         .item(.layout, .full): 60, .item(.transition, .full): 100, .item(.transition, .compact): 40,
@@ -102,8 +102,8 @@ struct BandArrangementRenderingTests {
         return menu
     }
 
-    /// Use the original width calculation with today's default parts to check every collapse boundary.
-    private func legacy(_ model: DocumentViewModel, mode: MenuArrangement, width: CGFloat) -> (
+    /// Price the standard stacks independently of the renderer to check every collapse boundary.
+    private func referencePlan(_ model: DocumentViewModel, mode: MenuArrangement, width: CGFloat) -> (
         top: BandLayout.Plan, bottom: BandLayout.Plan?
     ) {
         let topItems: Set<BandLayout.Item> = [.formatBadge, .floatOnTop, .print]
@@ -114,26 +114,23 @@ struct BandArrangementRenderingTests {
         func widths(top: Bool) -> [BandLayout.Item: BandLayout.Widths] {
             var result: [BandLayout.Item: BandLayout.Widths] = [:]
             for item in applicable where (mode == .top || topItems.contains(item)) == top {
-                let gap: CGFloat =
-                    switch item {
-                    case .formatBadge: 6
-                    case .pageIndicator: mode == .split ? 8 : 6
-                    case .print: 0
-                    default: 8
-                    }
+                // The docked Print button's gap is already in the fixed top width.
+                let gap: CGFloat = item == .print ? 0 : 6
                 result[item] = BandLayout.Widths(
                     full: (Self.widths[.item(item, .full)] ?? 0) + gap,
                     compact: Self.widths[.item(item, .compact)].map { $0 + gap })
             }
             return result
         }
+        // Title starts at 83pt. Three further 6pt gaps, 8pt spacer, 8pt padding and 24pt More total 141pt.
+        // A separator costs its 1pt rule and a 6pt gap.
         let top = BandLayout.plan(
-            widths: widths(top: true), fixed: OverlayBand.fixedWidth(lights: nil) + 24, separator: 9, name: 120,
+            widths: widths(top: true), fixed: 141, separator: 7, name: 120,
             available: width)
         let bottom =
             mode == .split
             ? BandLayout.plan(
-                widths: widths(top: false), fixed: 28, separator: 9, name: 0, available: width,
+                widths: widths(top: false), fixed: 28, separator: 7, name: 0, available: width,
                 steps: BandLayout.bottomSteps) : nil
         return (top, bottom)
     }
@@ -169,14 +166,18 @@ struct BandArrangementRenderingTests {
         }
         #expect(wide.top.geometry.moreDock == .beforePrint)
 
-        // Zero stands for a band not laid out yet, which shows everything.
+        // Below the window minimum, only the fixed infrastructure and compact Print must fit at that minimum.
         for width in stride(from: CGFloat(1), through: 900, by: 1) {
             let plans = BandPlans(model: model, menu: menu(width: width))
-            let old = legacy(model, mode: mode, width: width)
-            #expect(plans.top.forms == old.top.forms, "top at \(width)")
-            #expect(plans.top.nameWidth == old.top.nameWidth, "name at \(width)")
-            #expect(plans.bottom?.forms == old.bottom?.forms, "bottom at \(width)")
-            let pushedOut = Set(old.top.overflow + (old.bottom?.overflow ?? []))
+            let reference = referencePlan(model, mode: mode, width: width)
+            #expect(plans.top.forms == reference.top.forms, "top at \(width)")
+            #expect(plans.top.nameWidth == reference.top.nameWidth, "name at \(width)")
+            #expect(plans.bottom?.forms == reference.bottom?.forms, "bottom at \(width)")
+            #expect(plans.top.requiredWidth <= max(width, 141 + 34), "top footprint at \(width)")
+            if let bottom = plans.bottom {
+                #expect(bottom.requiredWidth <= max(width, 28), "bottom footprint at \(width)")
+            }
+            let pushedOut = Set(reference.top.overflow + (reference.bottom?.overflow ?? []))
             #expect(Set(plans.resolved.overflow) == pushedOut, "overflow at \(width)")
         }
     }

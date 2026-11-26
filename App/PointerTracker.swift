@@ -9,7 +9,7 @@ import SwiftUI
 ///
 /// Nothing polls: a tracking area over the whole content reports the pointer's moves, and the window's own changes
 /// (moving, resizing, being covered or shown) ask again. It is active always, so a window floating on top is followed
-/// while another app is active too. Bands that always show need none of it.
+/// while another app is active too. Pinned bands use the same positions for their description cards.
 struct PointerTracker: NSViewRepresentable {
     var isActive = true
     let onChange: (_ point: CGPoint?, _ contentHeight: CGFloat) -> Void
@@ -50,7 +50,7 @@ struct PointerTracker: NSViewRepresentable {
             var contentHeight: CGFloat
         }
 
-        /// Whether the view follows the pointer now: on a window, for bands that show on pointing.
+        /// Whether the view is currently following the pointer in its window.
         var isMonitoring: Bool { area != nil }
 
         override func hitTest(_ point: NSPoint) -> NSView? { nil }

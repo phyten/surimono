@@ -9,6 +9,9 @@ struct SettingsView: View {
     let arrangementEditor: BandArrangementEditorSession
     @State private var initialTextWell = InitialTextWell()
     @State private var query = ""
+    @State private var bandHints = BandHintSession()
+    @State private var editorFrame = CGRect.zero
+    @State private var hintLayerFrame = CGRect.zero
     @State private var searchSelection = SettingsSearchSelection()
     @State private var pendingSearchPick: SettingsSection?
     private let updater = AppUpdater.shared
@@ -112,7 +115,7 @@ struct SettingsView: View {
             SettingsDetail(section: shown, hits: hits) { selected in
                 switch selected {
                 case .toolbarArrangement:
-                    BandArrangementSettings(session: arrangementEditor)
+                    BandArrangementSettings(session: arrangementEditor, hints: bandHints)
                 case .keyboardShortcuts:
                     ShortcutSettingsView(controller: .shared)
                 case .org:
@@ -125,6 +128,9 @@ struct SettingsView: View {
             }
             // The split column allocates the viewport independently of the visited editor's ideal size.
             .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
+            .background {
+                if shown == .toolbarArrangement { BandHintWindowFrame(frame: $editorFrame) }
+            }
             .onChange(of: shown, initial: true) {
                 switch shown {
                 case .toolbarArrangement: arrangementEditor.didAppear()
@@ -159,6 +165,30 @@ struct SettingsView: View {
             minWidth: windowMinimum.width, idealWidth: SettingsWindowPlacement.defaultContentSize.width,
             minHeight: windowMinimum.height
         )
+        .overlay {
+            if !visible.isEmpty, preferences.settingsSection == .toolbarArrangement {
+                BandHintLayer(
+                    session: bandHints,
+                    editorFrame: editorFrame.offsetBy(dx: -hintLayerFrame.minX, dy: -hintLayerFrame.minY)
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background { BandHintWindowFrame(frame: $hintLayerFrame) }
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            }
+        }
+        .onContinuousHover { phase in
+            guard preferences.settingsSection == .toolbarArrangement else { return }
+            let point: CGPoint?
+            switch phase {
+            case .active(let p):
+                point = CGPoint(
+                    x: p.x + hintLayerFrame.minX - editorFrame.minX,
+                    y: p.y + hintLayerFrame.minY - editorFrame.minY)
+            case .ended: point = nil
+            }
+            bandHints.moveInEditor(to: point, dragging: NSEvent.pressedMouseButtons != 0)
+        }
         .onChange(of: query) {
             guard !query.isEmpty, let best = results.bestSection(keeping: preferences.settingsSection) else { return }
             arrangementEditor.showSection(best)
@@ -182,6 +212,7 @@ struct SettingsView: View {
             if case .section = previous, pending == nil, !visible.contains(preferences.settingsSection) { query = "" }
         }
         .onChange(of: preferences.settingsSection) {
+            bandHints.dismiss()
             if !visible.contains(preferences.settingsSection) { query = "" }
         }
         .onDisappear {
