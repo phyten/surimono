@@ -8,9 +8,9 @@ import Testing
 struct SettingsSearchTests {
     @Test(
         "Org は読み方の名前とキーと拡張子から対応する設定行を開く",
-        arguments: ["見出しの番号", "先頭の目次", "Subscripts and Superscripts", "num", "toc", "^", ".org"])
+        arguments: ["見出しの番号", "先頭の目次", "Lead Contents", "Subscripts and Superscripts", "num", "toc", "^", ".org"])
     func orgSettings(query: String) {
-        let names = ["Heading Numbers": "見出しの番号", "Lead Contents": "先頭の目次"]
+        let names = ["Heading Numbers": "見出しの番号", "Table of Contents at the Top": "先頭の目次"]
         let results = SettingsCatalogue.search(query, in: SettingsCatalogue.rows, localize: { names[$0] ?? $0 })
         #expect(results.bestSection(keeping: .pageNumbers) == .org)
         if query == "num" { #expect(results.rows.contains { $0.section == .org && $0.anchor == "Heading Numbers" }) }
@@ -45,6 +45,13 @@ struct SettingsSearchTests {
         let languages = ["en", "ja", "de", "es", "fr", "ko", "zh-Hans", "zh-Hant"]
         let index = try #require(languages.firstIndex(of: language))
         for (anchor, new, oldNames) in [
+            (
+                "Table of Contents at the Top", "Table of Contents at the Top",
+                [
+                    "Table of Contents at the Top", "先頭の目次", "Inhaltsverzeichnis am Anfang", "Índice al principio",
+                    "Sommaire en début de document", "문서 앞의 목차", "文首目录", "文件開頭的目錄",
+                ]
+            ),
             (
                 "Levels Shown as Headings", "Levels Shown as Headings",
                 [

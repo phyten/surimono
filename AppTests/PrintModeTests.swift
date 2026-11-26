@@ -563,7 +563,7 @@ struct PrintModeTests {
             }
         }
 
-        @Test("切り替わる幅の前後では、三択を変えても形を保ち、読み上げの名前と値がモデルに合う", arguments: ["en", "de", "fr", "ja"])
+        @Test("切り替わる幅の前後では、三択を変えても形を保ち、読み上げの名前と値がモデルに合う", arguments: UILanguage.supported)
         func finishSelectionAtBoundary(language: String) throws {
             let fixture = Fixture()
             let model = fixture.model(format: .markdown)
@@ -710,8 +710,8 @@ struct PrintModeTests {
                     choice("Page Breaks", selected: "New Page for Each Chapter")
                     if ["en", "fr"].contains(language) { #expect(elements.contains(.menu("Page Breaks"))) }
                     if format == .markdown {
-                        #expect(elements.contains(.label("Lead Contents")))
-                        #expect(elements.contains(.picker("Lead Contents")))
+                        #expect(elements.contains(.label("Table of Contents at the Top")))
+                        #expect(elements.contains(.picker("Table of Contents at the Top")))
                         #expect(elements.contains(.picker("Proof Marks")))
                         for label: LocalizedStringKey in ["Placement", "Look", "Contents in Text"] {
                             #expect(elements.contains(.label(label)) == hasContents)
@@ -731,7 +731,7 @@ struct PrintModeTests {
                             #expect(elements.contains(.label(label)) == hasContents)
                             #expect(elements.contains(.toggle(label)) == hasContents)
                         }
-                        #expect(!elements.contains(.picker("Lead Contents")))
+                        #expect(!elements.contains(.picker("Table of Contents at the Top")))
                     }
                     for picker: LocalizedStringKey in ["Footnotes", "Links on Paper"] {
                         #expect(elements.contains(.picker(picker)))

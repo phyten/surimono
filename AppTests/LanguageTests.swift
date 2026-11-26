@@ -92,6 +92,7 @@ struct LanguageTests {
             return value
         }
         #expect(try term("Placement") != term("Layout"))
+        if language == "en" { #expect(try term("Table of Contents at the Top") == "Lead Contents") }
         if language == "ja" {
             #expect(try term("As Written") == term("As They Are"))
             #expect(try term(LaTeXComposition.document.titleKey) == "文書の指定")

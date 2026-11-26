@@ -2546,58 +2546,6 @@
         }
       }
     },
-    "Lead Contents": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lead Contents"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "先頭の目次"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "开头目录"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "開頭目錄"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "문서 앞 목차"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sommaire en tête"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Inhaltsverzeichnis am Anfang"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Índice al principio"
-          }
-        }
-      }
-    },
     "Placement": {
       "localizations": {
         "en": {
@@ -3020,7 +2968,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Table of Contents at the Top"
+            "value": "Lead Contents"
           }
         },
         "ja": {
@@ -3044,25 +2992,25 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sommaire en début de document"
+            "value": "Sommaire en tête"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "문서 앞의 목차"
+            "value": "문서 앞 목차"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "文首目录"
+            "value": "开头目录"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "文件開頭的目錄"
+            "value": "開頭目錄"
           }
         }
       }

@@ -515,10 +515,11 @@ struct PrintFinishSheet: View {
         } else {
             if rows.contains(.lead), let row = model.leadContentsResolution, case .outline(let present, let depth) = row
             {
-                contentsChoice("Lead Contents", locked: present.isLocked || depth.isLocked) {
+                let title = LocalizedStringKey(OrgSettingID.tableOfContents.label.key)
+                contentsChoice(title, locked: present.isLocked || depth.isLocked) {
                     let choices = OrgReadingDefaults.Depth(depth.value).choices
                     Picker(
-                        "Lead Contents",
+                        title,
                         selection: model.controlBinding(get: \.leadContents, set: { $0.setLeadContents($1) })
                     ) {
                         ForEach(choices, id: \.self) { value in
@@ -528,7 +529,7 @@ struct PrintFinishSheet: View {
                         }
                     }.labelsHidden()
                         #if DEBUG
-                            .reportPrintFinishFrame(.picker("Lead Contents"))
+                            .reportPrintFinishFrame(.picker(title))
                         #endif
                         .disabled(model.contentsFacts == nil || present.isLocked && (depth.isLocked || !present.value))
                 }

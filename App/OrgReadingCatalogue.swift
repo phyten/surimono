@@ -18,7 +18,7 @@ extension OrgSettingID {
     var label: LocalizedStringResource {
         switch self {
         case .sectionNumbers: "Heading Numbers"
-        case .tableOfContents: "Lead Contents"
+        case .tableOfContents: "Table of Contents at the Top"
         case .headlineLevels: "Levels Shown as Headings"
         case .tags: "Heading Tags"
         case .scripts: "Subscripts and Superscripts"
