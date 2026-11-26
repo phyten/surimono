@@ -71,7 +71,10 @@ public struct MarkdownMetadata: Equatable, Sendable {
                     tableOfContents = items.first?.lowercased() == "true"
                     continue
                 }
-                contentsInstructions.present = Bool(scalar.lowercased()).map(instruction)
+                // Earlier readers enabled contents when the first decoded item was true, including quoted values.
+                let presence =
+                    items.first?.lowercased() == "true" ? true : Bool(ComputationalMetadata.scalar(scalar).lowercased())
+                contentsInstructions.present = presence.map(instruction)
                 tableOfContents = contentsInstructions.present?.value == true
             case "number-sections" where plainMarkdown:
                 numberInstructions.present = Bool(scalar.lowercased()).map(instruction)

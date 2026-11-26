@@ -247,11 +247,15 @@ struct FormatDefaultsPane: View {
         for row in rows { preferences.formatReadingDefaults.revert(row.id, for: format) }
     }
 
-    private func description(_ row: ReadingRowResolution) -> String {
+    private func description(_ row: ReadingRowResolution, id: ReadingSettingID) -> String {
         switch row {
         case .toggle(let flag): return String(localized: flag.value ? "On" : "Off")
         case .outline(let present, let depth):
-            let title = String(localized: ReadingOutlinePicker.title(for: present.value ? depth.value : nil))
+            let followsStyle = format == .markdown && id == .sectionNumbers && present.layer == .app
+            let title =
+                followsStyle
+                ? String(localized: "From Style")
+                : String(localized: ReadingOutlinePicker.title(for: present.value ? depth.value : nil))
             if !present.value, depth.layer == .document {
                 // The remembered depth also applies when a file requests a contents list.
                 return title + " · " + String(localized: ReadingOutlinePicker.title(for: depth.value))
@@ -266,7 +270,7 @@ struct FormatDefaultsPane: View {
             guard let from = current.resolve(row.id, for: format), let to = target.resolve(row.id, for: format),
                 from != to
             else { return nil }
-            return (String(localized: row.id.label), description(from), description(to))
+            return (String(localized: row.id.label), description(from, id: row.id), description(to, id: row.id))
         }
     }
 
@@ -279,6 +283,7 @@ struct FormatDefaultsPane: View {
                         FormatReadingControl(
                             id: entry.id, row: row, resetHelp: String(localized: "Restore Default"),
                             documentName: "", fileURL: nil, allowsFileChanges: false,
+                            inheritsStyle: format == .markdown && entry.id == .sectionNumbers,
                             set: { set($0, for: entry.id) },
                             revert: { preferences.formatReadingDefaults.revert(entry.id, for: format) }
                         )

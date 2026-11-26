@@ -34,6 +34,16 @@ public struct FormatReadingChoices: Codable, Equatable, Sendable {
     public init() {}
     public var isEmpty: Bool { formats.isEmpty && unlockedFormats.isEmpty }
 
+    /// Without a presence choice at any layer, Markdown keeps the style's heading counters.
+    public func usesStyleForMarkdownNumbers(file: ReadingFileInstructions = .init(), defaults: Self = .init()) -> Bool {
+        file.present == nil && choice(.sectionNumbers, for: .markdown)?.present == nil
+            && defaults.choice(.sectionNumbers, for: .markdown)?.present == nil
+    }
+
+    private func choice(_ id: ReadingSettingID, for format: DocumentFormat) -> ReadingChoice? {
+        id.formatField.flatMap { formats[format.rawValue]?[$0] }
+    }
+
     public func allowsFileChanges(for format: DocumentFormat) -> Bool { unlockedFormats.contains(format) }
 
     public mutating func setAllowsFileChanges(_ allows: Bool, for format: DocumentFormat) {
@@ -53,12 +63,12 @@ public struct FormatReadingChoices: Codable, Equatable, Sendable {
         _ id: ReadingSettingID, for format: DocumentFormat, file: ReadingFileInstructions = .init(),
         defaults: Self = .init(), allowsFileChanges: Bool? = nil
     ) -> ReadingRowResolution? {
-        guard let field = id.formatField, format != .org,
+        guard id.formatField != nil, format != .org,
             let row = ReadingCatalogue.rows(for: format).first(where: { $0.id == id })
         else { return nil }
         let allowsFileChanges = allowsFileChanges ?? self.allowsFileChanges(for: format)
-        let document = formats[format.rawValue]?[field]
-        let app = defaults.formats[format.rawValue]?[field]
+        let document = choice(id, for: format)
+        let app = defaults.choice(id, for: format)
 
         func presence(_ shipped: Bool) -> ReadingResolution<Bool> {
             ReadingResolution(
@@ -108,7 +118,12 @@ public struct FormatReadingChoices: Codable, Equatable, Sendable {
             guard row.allowsOutline(present: enabled, depth: limit) else { return }
             // One control carries both components. Write only the one the reader touched, so choosing a
             // depth never drops a stored presence, and switching off keeps the depth for switching back on.
-            if !enabled || !present.value { present.set(enabled, in: &choice.present) }
+            if format == .markdown, id == .sectionNumbers, !enabled, !present.isLocked {
+                // An explicit None suppresses style counters even when the shipped presence is also false.
+                choice.present = false
+            } else if !enabled || !present.value {
+                present.set(enabled, in: &choice.present)
+            }
             if enabled { depth.set(limit, in: &choice.depth) }
         default: return
         }
@@ -123,6 +138,17 @@ public struct FormatReadingChoices: Codable, Equatable, Sendable {
         if fileOnly == nil || fileOnly?.present != nil { choice.present = nil }
         if fileOnly == nil || fileOnly?.depth != nil { choice.depth = nil }
         store(choice, field: field, format: format)
+    }
+
+    /// A legacy finish supplies only components that have no newer document choice.
+    package mutating func inheritMissingLeadContents(from migrated: Self, for format: DocumentFormat) {
+        guard let field = ReadingSettingID.tableOfContents.formatField,
+            let legacy = migrated.choice(.tableOfContents, for: format)
+        else { return }
+        var lead = choice(.tableOfContents, for: format) ?? ReadingChoice()
+        lead.present = lead.present ?? legacy.present
+        lead.depth = lead.depth ?? legacy.depth
+        store(lead, field: field, format: format)
     }
 
     private mutating func store(_ choice: ReadingChoice, field: String, format: DocumentFormat) {

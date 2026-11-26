@@ -161,6 +161,45 @@ struct PrintFinishFlowTests {
         #expect(model.printFinish.contents.inText == .hidden)
     }
 
+    @Test("Markdown の番号なしはこの文書の変更になり、戻すとスタイルかアプリ既定に従う")
+    func markdownNumberChanges() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = environment.model("# Book\n## One")
+        defer { model.stop() }
+        model.start()
+        try await waitUntil { model.contentsFacts != nil }
+        let off = ReadingSettingValue.outline(present: false, depth: .all)
+        let all = ReadingSettingValue.outline(present: true, depth: .all)
+        func picker() throws -> ReadingOutlinePicker {
+            let row = try #require(model.markdownResolution(.sectionNumbers))
+            guard case .outline(let present, let depth) = row else { throw CocoaError(.coderInvalidValue) }
+            return ReadingOutlinePicker(
+                label: ReadingSettingID.sectionNumbers.label, present: present, depth: depth,
+                restoreStyle: model.markdownNumbersInheritStyle ? {} : nil, set: { _ in })
+        }
+        #expect(try picker().selection == .style)
+        #expect(model.readingChangedCount == 0)
+        model.setMarkdownValue(off, for: .sectionNumbers)
+        #expect(try picker().selection == .outline(nil))
+        #expect(model.markdownResolution(.sectionNumbers)?.isChanged == true && model.readingChangedCount == 1)
+        model.revertMarkdownValue(.sectionNumbers)
+        #expect(try picker().selection == .style)
+        #expect(model.markdownResolution(.sectionNumbers)?.isChanged == false && model.readingChangedCount == 0)
+        let settings = FormatDefaultsPane(format: .markdown, preferences: model.preferences)
+        settings.set(all, for: .sectionNumbers)
+        model.setMarkdownValue(off, for: .sectionNumbers)
+        #expect(try picker().selection == .outline(nil))
+        #expect(model.readingChangedCount == 1)
+        model.revertMarkdownValue(.sectionNumbers)
+        #expect(try picker().selection == .outline(.all))
+        settings.set(off, for: .sectionNumbers)
+        #expect(try picker().selection == .outline(nil))
+        #expect(model.readingChangedCount == 0)
+        settings.reset()
+        #expect(try picker().selection == .style)
+    }
+
     @Test("旧LaTeXの前付けだけを外しても原稿の図目次・表目次は残る", arguments: [true, false], [true, false])
     func emptyContentsSection(figures: Bool, tables: Bool) async throws {
         let environment = Environment()

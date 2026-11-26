@@ -29,7 +29,8 @@ public struct MarkdownReadingSettings: Sendable {
             .sectionNumbers, for: .markdown, file: metadata.numberInstructions, defaults: defaults)
         {
             result.numbers = present.value ? depth.value : nil
-            result.ownsNumbers = present.value || present.source != nil || present.layer == .document
+            result.ownsNumbers = !document.usesStyleForMarkdownNumbers(
+                file: metadata.numberInstructions, defaults: defaults)
         }
         if case .toggle(let breaks) = document.resolve(.preserveBreaks, for: .markdown, defaults: defaults) {
             result.preservesBreaks = breaks.value
@@ -133,7 +134,7 @@ public enum MarkdownConverter {
         var lines = original
         let mapping = mapsSource ? BlockMapping(original: original) : nil
         var metadata = MarkdownMetadata()
-        if let end = frontMatterEnd(in: lines) {
+        if let end = frontMatterEnd(in: lines, allowsBOM: reading != nil) {
             metadata = MarkdownMetadata(lines: lines[1..<end], plainMarkdown: reading != nil)
             lines.removeFirst(end + 1)
             source = MarkdownSourceLines(lines, origins: Array(source.origins.dropFirst(end + 1)))
@@ -185,8 +186,8 @@ public enum MarkdownConverter {
         return MarkdownMappedDocument(fragment: fragment, blocks: mapping?.blocks ?? [])
     }
 
-    package static func frontMatterEnd(in lines: [String]) -> Int? {
-        guard lines.first == "---" || lines.first == "\u{FEFF}---", lines.count > 1,
+    package static func frontMatterEnd(in lines: [String], allowsBOM: Bool = false) -> Int? {
+        guard lines.first == "---" || (allowsBOM && lines.first == "\u{FEFF}---"), lines.count > 1,
             !lines[1].trimmingCharacters(in: .whitespaces).isEmpty,
             let end = lines.dropFirst().firstIndex(where: { $0 == "---" || $0 == "..." })
         else { return nil }
