@@ -105,6 +105,8 @@ final class BandArrangementEditorSession {
     /// Recorded layout, independent of SwiftUI accessibility nodes and editor history.
     @ObservationIgnored var layoutFrames: [String: CGRect] = [:]
 
+    var chipFrames: [BandZoneID: [CGRect]] = [:]
+
     /// Why leaving the draft needs an answer first.
     enum Leave: Equatable {
         case selectSet(BandArrangementSelection)
@@ -131,6 +133,7 @@ final class BandArrangementEditorSession {
         case printIsRequired
         case separatorAdded(String)
         case separatorDeleted
+        case dropFailed
         case backToStandard
         case saved(String)
         case cannotSave
@@ -150,6 +153,7 @@ final class BandArrangementEditorSession {
             case .printIsRequired: String(localized: "Print can be moved, but cannot be removed.")
             case .separatorAdded(let zone): String(format: String(localized: "Separator added to %@."), zone)
             case .separatorDeleted: String(localized: "Separator deleted.")
+            case .dropFailed: String(localized: "Couldn’t place this item. Drag it again.")
             case .backToStandard:
                 String(localized: "Back to Standard, not saved yet. Undo brings your arrangement back.")
             case .saved(let name): String(format: String(localized: "Saved “%@”. All view windows use it now."), name)
@@ -161,7 +165,7 @@ final class BandArrangementEditorSession {
         }
 
         var isWarning: Bool {
-            [.printIsRequired, .cannotSave, .conflict, .historyConflict].contains(self)
+            [.dropFailed, .printIsRequired, .cannotSave, .conflict, .historyConflict].contains(self)
         }
     }
 
@@ -197,6 +201,7 @@ final class BandArrangementEditorSession {
     private(set) var message: Message?
     /// The insertion marker while something is dragged over the miniature. Hovering is never history.
     var dropTarget: BandEditorDropTarget?
+    var dropMarker: CGRect?
     /// The drag this editor started last, for the marker and the refusal while it hovers.
     private(set) var dragging: BandEditorPayload?
     /// Counts the draft's changes; a drag that began before one is stale.
@@ -299,13 +304,11 @@ final class BandArrangementEditorSession {
         return entries.indices.contains(location.index) ? entries[location.index] : nil
     }
 
-    /// A separator the app does not draw: first or last in its zone, or next to another separator.
+    /// The first separator between two groups represents the rule drawn for the whole run.
     func separatorIsIdle(at index: Int, in zone: BandZoneID) -> Bool {
         let entries = arrangement[zone]
         guard entries.indices.contains(index), entries[index] == .separator else { return false }
-        let before = entries[..<index].last
-        let after = entries[(index + 1)...].first
-        return before == nil || after == nil || before == .separator || after == .separator
+        return index == 0 || entries[index - 1] == .separator || !entries[(index + 1)...].contains { $0.item != nil }
     }
 
     var hasIdleSeparators: Bool {
@@ -338,7 +341,7 @@ final class BandArrangementEditorSession {
     /// Moves an entry so that it stands before the entry now at `index` of the destination (its count appends).
     @discardableResult
     func move(_ location: BandEntryLocation, to destination: BandDestination, at index: Int) -> Bool {
-        guard let entry = entry(at: location) else { return false }
+        guard let entry = entry(at: location) else { return refuseDrop() }
         if entry == .part(.print), destination == .unused {
             say(.printIsRequired)
             return false
@@ -349,10 +352,8 @@ final class BandArrangementEditorSession {
             next = try arrangement.movingEntry(
                 at: location.index, from: location.destination, to: destination, at: index, for: mode)
         } catch {
-            if error as? BandArrangementMoveError == .printIsRequired { say(.printIsRequired) }
-            return false
+            return refuseDrop()
         }
-        guard next != arrangement else { return true }
         // Where the entry ends up: after removal, an entry moved later in its own zone stands one place earlier.
         var landed = index
         if location.destination == destination, location.index < index { landed -= 1 }
@@ -365,8 +366,13 @@ final class BandArrangementEditorSession {
             name = String(localized: "Separator")
             if case .zone(let zone) = destination { selection = .separator(zone, landed) } else { selection = nil }
         }
-        apply(next)
-        commit(before, action: String(localized: "Move"))
+        // Crossing identical separators still moves keyboard selection, even though the saved sequence is equal.
+        if next != arrangement {
+            apply(next)
+            commit(before, action: String(localized: "Move"))
+        } else if landed == location.index {
+            return true
+        }
         switch destination {
         case .zone(let zone):
             say(.moved(name, zone.editorName, landed + 1, arrangement[zone].count))
@@ -379,7 +385,9 @@ final class BandArrangementEditorSession {
     @discardableResult
     func insertSeparator(in zone: BandZoneID, at index: Int) -> Bool {
         let before = snapshot()
-        guard let next = try? arrangement.insertingSeparator(at: index, in: zone, for: mode) else { return false }
+        guard let next = try? arrangement.insertingSeparator(at: index, in: zone, for: mode) else {
+            return refuseDrop()
+        }
         selection = .separator(zone, index)
         apply(next)
         commit(before, action: String(localized: "Add Separator"))
@@ -406,10 +414,13 @@ final class BandArrangementEditorSession {
         moveSelection(to: .unused)
     }
 
-    /// The inspector's Add Separator: right after the selected entry, or at the end of the selected part's zone.
+    /// A palette press also works before a chip has been selected.
     func insertSeparatorAfterSelection() {
-        guard let location = selectedLocation, case .zone(let zone) = location.destination else { return }
-        insertSeparator(in: zone, at: location.index + 1)
+        if let location = selectedLocation, case .zone(let zone) = location.destination {
+            insertSeparator(in: zone, at: location.index + 1)
+        } else {
+            insertSeparator(in: .topLeft, at: arrangement.topLeft.count)
+        }
     }
 
     func backToStandard() {
@@ -449,9 +460,13 @@ final class BandArrangementEditorSession {
 
     /// Whether a drop of the drag in progress may land there; Print over "Parts to Add" says why it may not.
     func proposal(for target: BandEditorDropTarget) -> DropOperation {
-        guard let dragging, validate(dragging) else { return .forbidden }
+        guard !needsRecovery, let dragging else { return .forbidden }
+        guard validate(dragging) else {
+            if case .zone = target, message != .dropFailed { say(.dropFailed) }
+            return .forbidden
+        }
         switch (dragging.source, target) {
-        case (.newSeparator, .zone): return .copy
+        case (.newSeparator, .zone), (.newSeparator, .unused): return .copy
         case (.newSeparator, _): return .forbidden
         case (.entry(_, .part(.print)), .unused):
             // Said once while it hovers, not at every movement of the pointer.
@@ -470,11 +485,13 @@ final class BandArrangementEditorSession {
             dropTarget = nil
             dragging = nil
         }
-        guard validate(payload) else { return false }
+        guard !needsRecovery, validate(payload) else { return refuseDrop() }
         switch (payload.source, target) {
         case (.newSeparator, .zone(let zone, let index)):
             return insertSeparator(in: zone, at: index)
-        case (.newSeparator, _):
+        case (.newSeparator, .unused):
+            return true
+        case (.newSeparator, .outside):
             return false
         case (.entry(let location, _), .zone(let zone, let index)):
             return move(location, to: .zone(zone), at: index)
@@ -491,6 +508,13 @@ final class BandArrangementEditorSession {
         case (.entry, .outside):
             return false
         }
+    }
+
+    @discardableResult
+    func refuseDrop() -> Bool {
+        dropTarget = nil
+        say(.dropFailed)
+        return false
     }
 
     func validate(_ payload: BandEditorPayload) -> Bool {
@@ -834,6 +858,7 @@ final class BandArrangementEditorSession {
                 entry(at: location).map { BandEditorPayload.Source.entry(location, $0) }
             }
             dragging = BandEditorPayload(session: id, revision: revision, mode: mode, source: source ?? .newSeparator)
+            dropMarker = nil
             dropTarget = target
         }
 

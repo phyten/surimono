@@ -28,8 +28,8 @@ struct BandEditorGeometryTests {
             try await fixture.checkZones(windowWidth: width)
             let viewport = try #require(fixture.scrollViews.first).contentView.bounds.width
             // The wide arrangement gives the palette 230 points and a 14-point gutter.
-            // In both arrangements there are two 20-point page margins and two 8-point band insets.
-            let expected = viewport - 40 - 16 - (width == 1100 ? 244 : 0)
+            // In both arrangements there are two 20-point page margins around the full drop target.
+            let expected = viewport - 40 - (width == 1100 ? 244 : 0)
             for key in ["topBand", "bottomBand"] {
                 let band = try #require(fixture.session.layoutFrames[key])
                 #expect(abs(band.width - expected) <= 1, "\(fixture.geometryDetails)")
@@ -194,8 +194,19 @@ struct BandEditorGeometryTests {
                 #expect(left.minX >= 20 && right.maxX <= windowWidth - 230 - 20, "\(details)")
                 #expect(right.maxX <= viewport - 20, "\(details)")
                 #expect(left.minX >= band.minX - 1 && right.maxX <= band.maxX + 1, "\(details)")
+                let first = CGPoint(x: band.minX + 1, y: left.minY + 1)
+                let last = CGPoint(x: band.maxX - 1, y: right.midY)
+                if let leftZone = BandZoneID(rawValue: leftID), let rightZone = BandZoneID(rawValue: rightID) {
+                    #expect(BandEditorDrop.placement(at: first, in: session).target == .zone(leftZone, index: 0))
+                    // On a wrapped zone the right edge appends to the pointed line.
+                    if case .zone(let zone, _) = BandEditorDrop.placement(at: last, in: session).target {
+                        #expect(zone == rightZone)
+                    } else {
+                        Issue.record("帯の右端がドロップ先になっていない")
+                    }
+                }
                 // The bottom band has no fixed suffix. Its right zone should actually use the available room.
-                if bandID == "bottomBand" { #expect(abs(right.maxX - band.maxX) <= 1, "\(details)") }
+                if bandID == "bottomBand" { #expect(abs(right.maxX + 8 - band.maxX) <= 1, "\(details)") }
             }
         }
 

@@ -27,6 +27,27 @@ struct BandSeparatorTests {
         #expect(decoded == repaired.arrangement)
     }
 
+    @Test("空の領域と先頭・末尾・隣り合う位置に挿入した線を保存と読み直しで保つ")
+    func storeInsertedSeparators() throws {
+        var split = BandArrangement.standard(for: .split)
+        split = try split.moving(.formatBadge, to: .unused, for: .split)
+        split = try split.insertingSeparator(at: 0, in: .topLeft, for: .split)
+        split = try split.moving(.formatBadge, to: .zone(.topLeft), for: .split)
+        for index in [0, 1, 4] {
+            split = try split.insertingSeparator(at: index, in: .topLeft, for: .split)
+        }
+        let expected: [BandEntry] = [.separator, .separator, .separator, .part(.formatBadge), .separator]
+        #expect(split.topLeft == expected)
+        let repaired = BandArrangementRepair.repair(StoredBandArrangement(split), for: .split)
+        #expect(repaired.arrangement.topLeft == expected)
+        #expect(repaired.notices.isEmpty)
+        var store = BandArrangementStore()
+        try store.insert(.init(name: "Test", layouts: .init(split: split)))
+        let restored = try JSONDecoder().decode(BandArrangementStore.self, from: JSONEncoder().encode(store))
+        #expect(restored.activeLayouts.split.topLeft == expected)
+        #expect(restored.repairNotices.isEmpty)
+    }
+
     @Test("区切りのない旧記録も自動で線を足さずに読み込む")
     func olderRecord() {
         let repaired = BandArrangementRepair.repair(
@@ -203,6 +224,28 @@ extension BandSeparatorTests {
         let bare = plan([.part(.style), .part(.outline)])
         #expect(bare.bottom?.requiredWidth == 78)
         #expect(bare.bottom?.geometry.separatorsBefore == [])
+    }
+
+    @Test("標準の配置に余分な線を足しても実際の帯の余白・必要幅・折りたたみは同じ")
+    func idleSeparatorsPreserveStandardSpacing() {
+        for mode in MenuArrangement.allCases {
+            let standard = BandArrangement.standard(for: mode)
+            var decorated = standard
+            let zone: BandZoneID = mode == .top ? .topRight : .bottomLeft
+            decorated[zone].insert(.separator, at: 1)
+            decorated[zone].insert(.separator, at: 0)
+            decorated[zone] += [.separator, .separator]
+            for width: CGFloat in [165, 1000] {
+                func resolve(_ arrangement: BandArrangement) -> BandResolvedPlan {
+                    BandLayout.resolve(
+                        arrangement: arrangement, mode: mode, availableItems: Set(BandLayout.Item.allCases),
+                        measurements: .init(items: [.style: .init(full: 85, compact: 30)], name: 80),
+                        metrics: .init(topFixed: 80, bottomFixed: 20, separator: 9), availableWidth: width)
+                }
+                #expect(resolve(decorated) == resolve(standard))
+                #expect(resolve(decorated.forImageBundle(in: mode)) == resolve(standard.forImageBundle(in: mode)))
+            }
+        }
     }
 
     @Test("使えない部品を除いた両側に部品が残るときだけ線を描く")

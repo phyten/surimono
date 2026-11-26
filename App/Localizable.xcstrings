@@ -18063,6 +18063,59 @@
         }
       }
     },
+    "Couldn’t place this item. Drag it again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t place this item. Drag it again."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ここに配置できませんでした。もう一度ドラッグしてください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法放置此项目。请重新拖动。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法放置此項目。請重新拖移。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 항목을 배치할 수 없습니다. 다시 드래그하세요."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de placer cet élément. Faites-le glisser à nouveau."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Element konnte nicht platziert werden. Ziehe es erneut."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo colocar el elemento. Vuelve a arrastrarlo."
+          }
+        }
+      }
+    },
     "Separator deleted.": {
       "extractionState": "manual",
       "localizations": {

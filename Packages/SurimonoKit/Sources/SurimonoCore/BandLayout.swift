@@ -245,6 +245,8 @@ public enum BandLayout {
         availableItems: Set<Item>, measurements: BandMeasurementsValue, metrics: BandMetrics, availableWidth: CGFloat,
         names: Names
     ) -> BandRowPlan {
+        let leading = leading.toolbarEntries
+        let trailing = trailing.toolbarEntries
         let standard = BandArrangement.builtIn(for: mode, includesLegacyParts: true)
         let standardLeading = position == .top ? standard.topLeft : standard.bottomLeft
         let standardTrailing = position == .top ? standard.topRight : standard.bottomRight
