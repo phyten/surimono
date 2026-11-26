@@ -112,30 +112,64 @@ struct OrgReadingDefaultsControlsTests {
         #expect(ja.localizedString(forKey: reset.question.key, value: nil, table: nil) == "Org の設定を初期値に戻しますか？")
     }
 
-    @Test("八言語で二行の項目を空行で区切り、八件を超えたら残り件数も独立した項目にする", arguments: UILanguage.supported)
-    func confirmationLayout(language: String) throws {
-        let url = try #require(Bundle.main.url(forResource: language, withExtension: "lproj"))
-        let bundle = try #require(Bundle(url: url))
-        let changes: [ReadingSettingChange] = (1...9).map { ("item \($0)", "A", "B") }
+    @Test("八言語で適用とリセットの件数・単複と、空行・省略行まで一致する", arguments: UILanguage.supported, [1, 2, 8, 9])
+    func confirmationLayout(language: String, count: Int) throws {
+        let changes: [ReadingSettingChange] = (1...count).map { ("item \($0)", "A", "B") }
         let bullet = language == "ja" ? "・" : "• "
-        let rows = (1...8).map { "\(bullet)item \($0)\nA → B" }
-        let eight = ReadingDefaultsConfirmation.message(
-            heading: "Lead", changes: Array(changes.prefix(8)), bundle: bundle)
-        #expect(eight == "Lead\n\n" + rows.joined(separator: "\n\n"))
-        let remaining = [
-            "en": "• and 3 more", "ja": "・ほか 3 項目", "de": "• und 3 weitere", "es": "• y 3 más",
-            "fr": "• et 3 autres", "ko": "• 외 3개", "zh-Hans": "• 另有 3 项", "zh-Hant": "• 另有 3 項",
-        ]
-        let last = try #require(remaining[language])
-        let nine = ReadingDefaultsConfirmation.message(heading: "Lead", changes: changes, bundle: bundle)
-        #expect(nine == "Lead\n\n" + (Array(rows.prefix(6)) + [last]).joined(separator: "\n\n"))
+        let visible = count == 9 ? 6 : count
+        var entries = (1...visible).map { "\(bullet)item \($0)\nA → B" }
+        if count == 9 {
+            let remaining = [
+                "en": "• and 3 more", "ja": "・ほか 3 項目", "de": "• und 3 weitere", "es": "• y 3 más",
+                "fr": "• et 3 autres", "ko": "• 외 3개", "zh-Hans": "• 另有 3 项", "zh-Hant": "• 另有 3 項",
+            ]
+            entries.append(try #require(remaining[language]))
+        }
+        let headings = try #require(Self.expectedHeadings(language: language, count: count))
+        for (resetting, heading) in [(false, headings.change), (true, headings.reset)] {
+            let actual = ReadingDefaultsConfirmation.message(resetting: resetting, changes: changes, language: language)
+            #expect(actual == ([heading] + entries).joined(separator: "\n\n"))
+        }
+    }
+
+    private static func expectedHeadings(language: String, count n: Int) -> (change: String, reset: String)? {
+        switch (language, n) {
+        case ("en", 1):
+            ("The following 1 setting will change:", "The following 1 setting will reset to Surimono defaults:")
+        case ("en", _):
+            ("The following \(n) settings will change:", "The following \(n) settings will reset to Surimono defaults:")
+        case ("de", 1):
+            ("1 Einstellung wird geändert:", "1 Einstellung wird auf den Surimono-Standardwert zurückgesetzt:")
+        case ("de", _):
+            (
+                "Die folgenden \(n) Einstellungen werden geändert:",
+                "Die folgenden \(n) Einstellungen werden auf die Surimono-Standardwerte zurückgesetzt:"
+            )
+        case ("es", 1): ("Se cambiará 1 ajuste:", "Se restablecerá el valor inicial de Surimono en 1 ajuste:")
+        case ("es", _):
+            (
+                "Se cambiarán los siguientes \(n) ajustes:",
+                "Se restablecerán los valores iniciales de Surimono en los siguientes \(n) ajustes:"
+            )
+        case ("fr", 1): ("1 réglage sera modifié :", "1 réglage retrouvera sa valeur initiale de Surimono :")
+        case ("fr", _):
+            (
+                "Les \(n) réglages suivants seront modifiés :",
+                "Les \(n) réglages suivants retrouveront leurs valeurs initiales de Surimono :"
+            )
+        case ("ja", _): ("次の \(n) 項目が変わります。", "次の \(n) 項目が Surimono の初期値に戻ります。")
+        case ("ko", _): ("다음 설정 \(n)개가 변경됩니다:", "다음 설정 \(n)개가 Surimono 초깃값으로 재설정됩니다:")
+        case ("zh-Hans", _): ("将更改以下 \(n) 项设置：", "以下 \(n) 项设置将恢复为 Surimono 初始值：")
+        case ("zh-Hant", _): ("將更改以下 \(n) 項設定：", "以下 \(n) 項設定將回復為 Surimono 初始值：")
+        default: nil
+        }
     }
 
     @Test("全項目が変わる場合まで省略行を含めた表示件数が八件を超えない")
     func entryLimit() {
         let changes: [ReadingSettingChange] = OrgSettingID.allCases.map { ($0.rawValue, "A", "B") }
         for count in 1...changes.count {
-            let message = ReadingDefaultsConfirmation.message(heading: "Lead", changes: Array(changes.prefix(count)))
+            let message = ReadingDefaultsConfirmation.message(resetting: false, changes: Array(changes.prefix(count)))
             let entries = message.components(separatedBy: "\n\n").dropFirst()
             #expect(entries.count == (count <= 8 ? count : 7))
         }

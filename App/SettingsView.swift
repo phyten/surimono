@@ -117,15 +117,11 @@ struct SettingsView: View {
                     BandArrangementSettings(session: arrangementEditor)
                 case .keyboardShortcuts:
                     ShortcutSettingsView(controller: .shared)
+                case .org:
+                    OrgReadingDefaultsPane(preferences: preferences)
                 default:
                     ScrollViewReader { proxy in
-                        Group {
-                            if selected == .org {
-                                OrgReadingDefaultsPane(preferences: preferences)
-                            } else {
-                                form(selected)
-                            }
-                        }.modifier(SettingsSearchReveal(proxy: proxy))
+                        form(selected).modifier(SettingsSearchReveal(proxy: proxy))
                     }
                 }
             }

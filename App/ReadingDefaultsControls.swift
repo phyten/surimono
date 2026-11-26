@@ -23,6 +23,13 @@ struct ReadingDefaults<Value: Equatable> {
             question: question)
     }
 
+    var fixedSearchAnchors: Set<String> {
+        var anchors = Set(alternatives.map(\.action.key))
+        if alternatives.count > 1 { anchors.insert("Other Defaults") }
+        anchors.insert("Reset to Defaults…")
+        return anchors
+    }
+
     var status: LocalizedStringResource? {
         guard !alternatives.isEmpty else { return nil }
         if current == builtIn { return "Surimono defaults" }
@@ -31,13 +38,24 @@ struct ReadingDefaults<Value: Equatable> {
 }
 
 enum ReadingDefaultsConfirmation {
-    static func message(heading: String, changes: [ReadingSettingChange], bundle: Bundle = .main) -> String {
+    static func message(
+        resetting: Bool, changes: [ReadingSettingChange],
+        language: String = Bundle.main.preferredLocalizations.first ?? "en"
+    ) -> String {
+        let bundle = Bundle.main.path(forResource: language, ofType: "lproj").flatMap(Bundle.init(path:)) ?? .main
+        let locale = Locale(identifier: language)
+        let heading =
+            resetting
+            ? String(
+                localized: "The following \(changes.count) settings will reset to Surimono defaults:", bundle: bundle,
+                locale: locale)
+            : String(localized: "The following \(changes.count) settings will change:", bundle: bundle, locale: locale)
         let limit = changes.count > 8 ? 6 : changes.count
         var entries = changes.prefix(limit).map { change in
-            String(localized: "• \(change.name)\n\(change.current) → \(change.new)", bundle: bundle)
+            String(localized: "• \(change.name)\n\(change.current) → \(change.new)", bundle: bundle, locale: locale)
         }
         if limit < changes.count {
-            entries.append(String(localized: "• and \(changes.count - limit) more", bundle: bundle))
+            entries.append(String(localized: "• and \(changes.count - limit) more", bundle: bundle, locale: locale))
         }
         return ([heading] + entries).joined(separator: "\n\n")
     }
@@ -58,22 +76,25 @@ struct ReadingDefaultsControls<Value: Equatable, Header: View, Rows: View>: View
 
     var body: some View {
         VStack(spacing: 0) {
-            Form {
-                Section {
-                    rows
-                } header: {
-                    HStack {
-                        header
-                        Spacer()
-                        if let status = defaults.status {
-                            Text(status).foregroundStyle(.secondary)
+            ScrollViewReader { proxy in
+                Form {
+                    Section {
+                        rows
+                    } header: {
+                        HStack {
+                            header
+                            Spacer()
+                            if let status = defaults.status {
+                                Text(status).foregroundStyle(.secondary)
+                            }
                         }
+                        .font(.body).textCase(nil)
+                        .accessibilityElement(children: .contain)
                     }
-                    .font(.body).textCase(nil)
-                    .accessibilityElement(children: .contain)
                 }
+                .formStyle(.grouped)
+                .modifier(SettingsSearchReveal(proxy: proxy, fixedAnchors: defaults.fixedSearchAnchors))
             }
-            .formStyle(.grouped)
             Divider()
             ViewThatFits(in: .horizontal) {
                 HStack { actions }.fixedSize()
@@ -107,11 +128,9 @@ struct ReadingDefaultsControls<Value: Equatable, Header: View, Rows: View>: View
             }
         } message: { target in
             let changes = differences(defaults.current, target.values)
-            let heading =
-                target.values == defaults.builtIn
-                ? String(localized: "The following \(changes.count) settings will reset to Surimono defaults:")
-                : String(localized: "The following \(changes.count) settings will change:")
-            Text(verbatim: ReadingDefaultsConfirmation.message(heading: heading, changes: changes))
+            Text(
+                verbatim: ReadingDefaultsConfirmation.message(
+                    resetting: target.values == defaults.builtIn, changes: changes))
         }
         #if DEBUG
             .onAppear {
@@ -133,6 +152,8 @@ struct ReadingDefaultsControls<Value: Equatable, Header: View, Rows: View>: View
             Menu("Other Defaults") {
                 ForEach(defaults.alternatives, id: \.action.key) { button($0) }
             }
+            .settingSearchRow(
+                "Other Defaults", fillsRow: false, additionalHighlights: defaults.alternatives.map(\.action.key))
         } else if let alternative = defaults.alternatives.first {
             button(alternative).settingSearchRow(alternative.action.key, fillsRow: false)
         }
