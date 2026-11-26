@@ -191,6 +191,29 @@ struct MediaWikiTests {
         #expect(html.contains("Categories: Paper"))
     }
 
+    // Expected bodies captured from the default converter at 2d1153b5.
+    @Test("強制目次だけのMediaWikiの既定HTMLは公開版とバイト単位で一致する")
+    func defaultForcedContents() {
+        let source = "__FORCETOC__\nIntro.\n== One ==\n== Two =="
+        let expected = """
+            <p>Intro.</p>
+            <nav class="toc"><ul><li><a href="#one">One</a></li><li><a href="#two">Two</a></li></ul></nav>
+            <h2 id="one">One</h2><h2 id="two">Two</h2>
+            """
+        #expect(MediaWikiConverter.convert(source).body.utf8.elementsEqual(expected.utf8))
+    }
+
+    @Test("強制目次と本文中の目次があるMediaWikiの既定HTMLは公開版とバイト単位で一致する")
+    func defaultForcedContentsWithMarker() {
+        let source = "__FORCETOC__\nIntro.\n== One ==\n__TOC__\n== Two =="
+        let expected = """
+            <p>Intro.</p>
+            <h2 id="one">One</h2><nav class="toc"><ul><li><a href="#one">One</a></li><li><a href="#two">Two</a></li></ul></nav>
+            <h2 id="two">Two</h2>
+            """
+        #expect(MediaWikiConverter.convert(source).body.utf8.elementsEqual(expected.utf8))
+    }
+
     @Test("強制目次は最初の見出しの前に一度だけ置く")
     func forcedTOC() {
         let html = MediaWikiConverter.convert("Opening\n== First ==\n__FORCETOC__\n__FORCETOC__").body
