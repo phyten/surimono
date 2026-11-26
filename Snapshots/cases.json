@@ -1,4 +1,6 @@
 [
+  {"id": "ui-markdown-reading-panel-light", "kind": "ui", "input": "Snapshots/fixtures/markdown-reading.md", "arguments": ["-SurimonoReadingPanel", "YES", "-SurimonoMenu", "always", "-SurimonoAppearance", "light"], "tags": ["markdown-reading-panel", "light"]},
+  {"id": "ui-markdown-reading-panel-dark", "kind": "ui", "input": "Snapshots/fixtures/markdown-reading.md", "arguments": ["-SurimonoReadingPanel", "YES", "-SurimonoMenu", "always", "-SurimonoAppearance", "dark"], "tags": ["markdown-reading-panel", "dark"]},
   {"id": "ui-org-reading-panel-light", "kind": "ui", "input": "Snapshots/fixtures/org-reading.org", "arguments": ["-SurimonoReadingPanel", "YES", "-SurimonoMenu", "always", "-SurimonoAppearance", "light"], "tags": ["org-reading-panel", "light"]},
   {"id": "ui-settings-org-light", "kind": "ui", "input": "Snapshots/fixtures/org-reading.org", "arguments": ["-SurimonoSettings", "org", "-SurimonoSettingsSize", "820x540", "-SurimonoAppearance", "light"], "tags": ["settings-org", "light"]},
   {"id": "ui-org-reading-panel-dark", "kind": "ui", "input": "Snapshots/fixtures/org-reading.org", "arguments": ["-SurimonoReadingPanel", "YES", "-SurimonoMenu", "always", "-SurimonoAppearance", "dark"], "tags": ["org-reading-panel", "dark"]},

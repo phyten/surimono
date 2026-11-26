@@ -50,13 +50,18 @@ public enum OrgConverter {
         let context = parser.context
         context.reading = context.options.resolved(over: settings)
         context.omissions = context.subtrees.omissions(context: context, lineCount: parser.lines.count)
-        if !context.omissions.isEmpty {
-            // Filtered headings never reach the rendering pass. Use the complete keyword vocabulary for them too.
-            if !context.options.file.hasTaskElements {
-                context.options.file.hasTaskElements = context.subtrees.headings.contains {
-                    context.taskKeywords.contains($0.headline.keyword)
-                }
+        // Priorities may follow a keyword declared later, even in a subtree omitted from the final pass.
+        if !context.options.file.hasTaskOrDateElements {
+            context.options.file.hasTaskOrDateElements = context.subtrees.headings.contains {
+                let title = $0.headline.title
+                let word = title.prefix { !$0.isWhitespace }
+                if OrgHeadline.isPriority(word) { return true }
+                guard context.taskKeywords.contains(String(word)) else { return false }
+                let rest = title[word.endIndex...].drop(while: \.isWhitespace)
+                return OrgHeadline.isPriority(rest.prefix { !$0.isWhitespace })
             }
+        }
+        if !context.omissions.isEmpty {
             // Rediscover the visible outline. Named footnotes remain available across subtree boundaries.
             context.repeatingDiscovery = true
             context.propertiesByHeading.removeAll()
@@ -73,6 +78,19 @@ public enum OrgConverter {
         if context.reading.date { fields.append(("DATE", "p")) }
         for (key, _) in fields {
             if let value = context.metadata[key] { _ = OrgInline.render(value, context: context) }
+        }
+        // A timestamp in suppressed front matter is still in the manuscript. Keep its inline
+        // discovery separate so hidden fields cannot register footnotes in the printed body.
+        if !context.options.file.hasTaskOrDateElements {
+            context.options.file.hasTaskOrDateElements = context.metadata.contains { key, value in
+                guard key != "LANGUAGE", !fields.contains(where: { $0.0 == key }),
+                    value.contains("<") || value.contains("[")
+                else { return false }
+                let discovery = OrgContext()
+                discovery.discovering = true
+                _ = OrgInline.render(value, context: discovery)
+                return discovery.options.file.hasTaskOrDateElements
+            }
         }
         context.discovering = false
         context.anonymous = 0
@@ -245,6 +263,7 @@ struct OrgParser {
                 if context.reading.timestamps != .all,
                     let filtered = OrgInline.filterIsolatedTimestamps(text, mode: context.reading.timestamps)
                 {
+                    context.options.file.hasTaskOrDateElements = true
                     if !filtered.isEmpty { output += "<p>\(inline(filtered))</p>\n" }
                     paragraph = []
                     caption = nil
@@ -451,11 +470,11 @@ struct OrgParser {
                 output += "<hr>\n"
                 index += 1
             } else if Self.isClock(trimmed) {
-                context.options.file.hasTaskElements = true
+                context.options.file.hasTaskOrDateElements = true
                 if context.reading.clocks { paragraph.append(line) }
                 index += 1
             } else if index == planningLine, let planning = OrgInline.planning(trimmed) {
-                context.options.file.hasTaskElements = true
+                context.options.file.hasTaskOrDateElements = true
                 flush()
                 caption = nil
                 if context.reading.planning { output += planning }
@@ -637,7 +656,6 @@ struct OrgParser {
         let keyword = headline.keyword
         let isTask = context.taskKeywords.contains(keyword)
         if isTask || context.reading.todo && (context.active.contains(keyword) || context.done.contains(keyword)) {
-            if !context.discovering && isTask { context.options.file.hasTaskElements = true }
             if context.reading.todo {
                 prefix +=
                     "<span class=\"org-\(context.done.contains(keyword) ? "done" : "todo")\">\(HTML.escape(keyword))</span> "
@@ -646,8 +664,6 @@ struct OrgParser {
         }
         let cookie = text.prefix { !$0.isWhitespace }
         if OrgHeadline.isPriority(cookie) {
-            // A later directive may redefine a keyword stripped in the first discovery pass.
-            if !context.discovering || headline.title.hasPrefix("[#") { context.options.file.hasTaskElements = true }
             if context.reading.priority {
                 prefix += "<span class=\"org-priority\">\(HTML.escape(String(cookie.dropFirst().dropLast())))</span> "
             }

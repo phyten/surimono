@@ -165,7 +165,12 @@ final class DocumentViewModel {
     private var orgGroupExpansion: [OrgReadingGroup: Bool] = [:]
 
     func orgGroupExpanded(_ group: OrgReadingGroup) -> Bool {
-        orgGroupExpansion[group] ?? (group == .tasks && orgFileInstructions?.hasTaskElements == true)
+        group.isExpanded(
+            manual: orgGroupExpansion[group], changed: orgGroupCounts(group).changed, file: orgFileInstructions)
+    }
+
+    func orgGroupCounts(_ group: OrgReadingGroup) -> ReadingGroupCounts {
+        group.counts(in: orgReading, file: orgFileInstructions ?? .init())
     }
 
     func setOrgGroupExpanded(_ expanded: Bool, for group: OrgReadingGroup) {
@@ -173,7 +178,20 @@ final class DocumentViewModel {
     }
 
     var offersOrgReading: Bool { format == .org && binder == nil && imageBundle == nil }
-    var showsReadingPanel: Bool { mode == .view && offersOrgReading && isReadingPanelOpen }
+    var showsReadingPanel: Bool {
+        guard mode == .view && isReadingPanelOpen else { return false }
+        #if DEBUG
+            if previewsMarkdownReading { return true }
+        #endif
+        return offersOrgReading
+    }
+
+    #if DEBUG
+        var previewsMarkdownReading: Bool {
+            format == .markdown && binder == nil && imageBundle == nil
+                && DebugSnapshot.flag("SurimonoReadingPanel")
+        }
+    #endif
     private(set) var orgFileInstructions: OrgFileInstructions?
     var orgDocumentReading = OrgDocumentReadingSettings()
     var orgChangedCount: Int {
@@ -332,7 +350,7 @@ final class DocumentViewModel {
     }
     var showsSideList: Bool { isDrawerOpen && (binder != nil || imageBundle != nil) }
     var sideInset: CGFloat {
-        if showsReadingPanel { return OrgReadingPanel.width }
+        if showsReadingPanel { return ReadingPanelMetrics.width }
         guard mode == .view, showsSideList else { return 0 }
         return imageBundle == nil ? SidePanelMetrics.width : contentsWidth
     }

@@ -9,9 +9,9 @@ import Testing
 struct OrgReadingPanelLayoutTests {
     @Test("読み方に変更がなければ下端を空け、変更すると件数と戻す操作を表示する")
     func changesFooter() {
-        let available = CGSize(width: OrgReadingPanel.width - 24, height: 1_000)
+        let available = CGSize(width: ReadingPanelMetrics.width - 24, height: 1_000)
         for count in 0...3 {
-            let footer = NSHostingController(rootView: OrgReadingFooter(count: count, revert: {}))
+            let footer = NSHostingController(rootView: ReadingPanelFooter(count: count, revert: {}))
             let size = footer.sizeThatFits(in: available)
             #expect((size.height > 0) == (count > 0), "count=\(count) footer=\(size) available=\(available)")
             #expect(size.width <= available.width, "count=\(count) footer=\(size) available=\(available)")
@@ -52,12 +52,12 @@ struct OrgReadingPanelLayoutTests {
                                     } action: {
                                         frames[labels[index]] = $0
                                     }
-                                OrgReadingChoiceRow(
+                                ReadingChoiceRow(
                                     title: Text(verbatim: title).fontWeight(changed ? .bold : .regular),
                                     token: ["num", "toc", "^"][index], picker: picker
                                 ) {
                                     if changed {
-                                        OrgReadingResetButton(help: "Reset", action: {})
+                                        ReadingResetButton(help: "Reset", action: {})
                                     } else {
                                         Color.clear.frame(width: 16, height: 1)
                                     }
@@ -81,7 +81,7 @@ struct OrgReadingPanelLayoutTests {
     @Test("パネルのチェックボックスとメニューは、戻す矢印や折り返しの有無によらず右端が揃う")
     func panelControlEdges() async throws {
         var frames = [Int: CGRect]()
-        let width = OrgReadingPanel.width - 24
+        let width = ReadingPanelMetrics.width - 24
         let screen = OrgReadingTestWindow(width: width, height: 360) {
             VStack(alignment: .leading) {
                 ForEach(0..<3, id: \.self) { index in
@@ -98,8 +98,8 @@ struct OrgReadingPanelLayoutTests {
                     } action: {
                         frames[index] = $0
                     }
-                    OrgReadingChoiceRow(title: Text(verbatim: label), picker: control) {
-                        if index == 1 { OrgReadingResetButton(help: "Reset", action: {}) }
+                    ReadingChoiceRow(title: Text(verbatim: label), picker: control) {
+                        if index == 1 { ReadingResetButton(help: "Reset", action: {}) }
                     }
                 }
             }.frame(width: width)
@@ -110,6 +110,52 @@ struct OrgReadingPanelLayoutTests {
         }
         for frame in frames.values { #expect(abs(frame.maxX - width) <= 1, "width=\(width) frames=\(frames)") }
     }
+
+    @Test("畳んだ見出しは変更と指定の件数を含めて八言語で実幅に収まる", arguments: UILanguage.supported)
+    func groupHeadersFit(language: String) throws {
+        let locale = Locale(identifier: language)
+        let path = try #require(Bundle.main.path(forResource: language, ofType: "lproj"))
+        let strings = try #require(Bundle(path: path))
+        let available = CGSize(width: ReadingPanelMetrics.width - 24, height: 500)
+        for group in OrgReadingGroup.allCases where group.isFoldable {
+            var counts = ReadingGroupCounts()
+            counts.changed = 2
+            counts.file = 2
+            let key = group.title.key
+            let title = strings.localizedString(forKey: key, value: "<missing>", table: nil)
+            #expect(title != "<missing>")
+            let section = ReadingPanelSection(
+                title: LocalizedStringResource(String.LocalizationValue(stringLiteral: key), locale: locale),
+                expanded: .constant(false), counts: counts, ids: group.settings
+            ) { _ in EmptyView() }
+            let host = NSHostingController(rootView: section.environment(\.locale, locale))
+            let size = host.sizeThatFits(in: available)
+            #expect(size.width <= available.width && size.height > 0, "\(language) \(title) \(size)")
+        }
+    }
+
+    #if DEBUG
+        @Test("Markdown の三行を実幅に並べ、原稿が有効にした目次では深さを選べる")
+        func markdownPreview() throws {
+            let file = MarkdownConverter.convert("---\ntoc: true\n---\n# A").contentsInstructions
+            let preview = MarkdownReadingPreview(
+                documentName: "test.md", fileURL: nil, contents: file, defaults: .init(), close: {})
+            #expect(preview.ids == [.sectionNumbers, .tableOfContents, .preserveBreaks])
+            let row = try #require(preview.resolution(.tableOfContents))
+            guard case .outline(let present, let depth) = row else {
+                Issue.record("目次の選択欄がない")
+                return
+            }
+            #expect(present.isLocked && !depth.isLocked && present.source?.rawText == "toc: true")
+            let picker = ReadingOutlinePicker(
+                label: ReadingSettingID.tableOfContents.label, present: present, depth: depth, set: { _ in })
+            #expect(picker.hasAlternative && !picker.allows(nil))
+            #expect(picker.allows(.levels(1)) && picker.allows(.all))
+            let host = NSHostingController(rootView: preview.environment(\.locale, Locale(identifier: "en")))
+            let size = host.sizeThatFits(in: CGSize(width: ReadingPanelMetrics.width, height: 600))
+            #expect(size.width == ReadingPanelMetrics.width && size.height > 0)
+        }
+    #endif
 
     @Test("読み方の全項目は八言語で選択値と戻す矢印が収まり、横に収まる行は一列を保つ", arguments: UILanguage.supported)
     func choicesFit(language: String) throws {
@@ -125,7 +171,7 @@ struct OrgReadingPanelLayoutTests {
             }
         let scripts = ["Only in { }", "Even without { }", "Leave as Written"].map(translated)
         // The two 12 pt insets belong to SidePanel, outside the rows' proposal.
-        let available = CGSize(width: OrgReadingPanel.width - 24, height: 1_000)
+        let available = CGSize(width: ReadingPanelMetrics.width - 24, height: 1_000)
         for id in OrgReadingGroup.allCases.flatMap(\.settings) {
             let label = id.label.key
             let choices: [String]
@@ -154,8 +200,8 @@ struct OrgReadingPanelLayoutTests {
                         }.labelsHidden().pickerStyle(.menu)
                     }
                 }
-                let reset = OrgReadingResetButton(help: "Reset", action: {})
-                let row = OrgReadingChoiceRow(title: title, picker: picker) { reset }
+                let reset = ReadingResetButton(help: "Reset", action: {})
+                let row = ReadingChoiceRow(title: title, picker: picker) { reset }
                 let inline = HStack(alignment: .firstTextBaseline, spacing: 6) {
                     title
                     picker

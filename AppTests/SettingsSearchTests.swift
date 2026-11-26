@@ -125,7 +125,13 @@ struct SettingsSearchTests {
                 #expect(hits.rows.contains { $0.section == .org && $0.anchor == anchor }, "\(language) \(query)")
             }
         }
-        #expect(OrgReadingGroup.allCases == [.structure, .information, .text, .tasks, .details])
+        for group in OrgReadingGroup.allCases {
+            let hits = SettingsCatalogue.search(translate(group.title.key), in: rows, localize: translate)
+            let anchors = Set(hits.rows.filter { $0.section == .org }.map(\.anchor))
+            #expect(group.settings.allSatisfy { anchors.contains($0.label.key) })
+        }
+        #expect(
+            OrgReadingGroup.allCases == [.structure, .information, .tasksAndDates, .textAndMarkup, .printedContent])
     }
 
     @Test("アイコンと部品の表示を検索するとツールバーの配置の先頭行が見つかる", arguments: ["icon", "アイコン", "Parts", "部品の表示"])

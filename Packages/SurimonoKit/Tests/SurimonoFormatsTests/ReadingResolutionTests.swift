@@ -175,15 +175,59 @@ struct ReadingResolutionTests {
         #expect(!markdown.value && markdown.layer == .app && markdownDepth.value == .levels(3))
     }
 
+    @Test("Markdown の行を戻すと記憶した深さも消え、再固定ではファイル指定の成分だけを戻す")
+    func revertComponents() throws {
+        let file = MarkdownConverter.convert("---\ntoc: true\n---\n# A").contentsInstructions
+        var document = FormatReadingChoices()
+        document.set(.outline(present: true, depth: .levels(1)), for: .tableOfContents, format: .markdown, file: file)
+        document.set(
+            .outline(present: false, depth: .all), for: .tableOfContents, format: .markdown, file: file,
+            allowsFileChanges: true)
+        document.set(.toggle(true), for: .preserveBreaks, format: .markdown)
+        document.revert(.tableOfContents, for: .markdown, fileOnly: file)
+        #expect(document.leadContents(for: .markdown, file: file) == .levels(1))
+        document.revert(.tableOfContents, for: .markdown)
+        #expect(document.leadContents(for: .markdown, file: file) == .levels(3))
+        #expect(!document.isEmpty)
+        document.revert(.preserveBreaks, for: .markdown)
+        #expect(document.isEmpty)
+    }
+
+    @Test("群ごとに変更と固定の行だけを数え、手で閉じると自動では開かない")
+    func groupCounts() throws {
+        let file = try #require(OrgConverter.convert("#+OPTIONS: *:nil tex:nil f:nil").orgInstructions)
+        var settings = OrgReadingSettings()
+        let group = OrgReadingGroup.textAndMarkup
+        func counts(_ changed: Int, _ fixed: Int) {
+            let counts = group.counts(in: settings, file: file)
+            #expect(counts.changed == changed && counts.file == fixed)
+            #expect(group.isExpanded(manual: nil, changed: counts.changed, file: file) == (changed > 0))
+            #expect(!group.isExpanded(manual: false, changed: counts.changed, file: file))
+        }
+        counts(0, 2)
+        settings.set(true, for: .preserveBreaks, file: file)
+        counts(1, 2)
+        settings.setAllowsFileChanges(true, file: file)
+        counts(1, 0)
+        settings.set(true, for: .emphasis, file: file)
+        counts(2, 0)
+        settings.setAllowsFileChanges(false, file: file)
+        counts(1, 2)
+        #expect(OrgReadingGroup.printedContent.counts(in: settings, file: file).file == 1)
+        #expect(!OrgReadingGroup.printedContent.isExpanded(manual: nil, changed: 0, file: file))
+    }
+
     @Test("目録は Org の識別子と表示順、各形式の対象項目を保つ")
     func catalogue() {
-        let expected: [ReadingSettingID] = [
-            .sectionNumbers, .tableOfContents, .headlineLevels, .tags, .title, .author, .date, .scripts,
-            .preserveBreaks, .emphasis, .math, .planning, .clocks, .priority, .todo, .statistics, .tasks,
-            .drawers, .properties, .timestamps, .footnotes, .tables, .fixedWidth, .archived,
+        let expected: [[ReadingSettingID]] = [
+            [.sectionNumbers, .tableOfContents, .headlineLevels, .tags, .todo], [.title, .author, .date],
+            [.planning, .clocks, .priority, .statistics, .timestamps], [.preserveBreaks, .scripts, .emphasis, .math],
+            [.tasks, .drawers, .properties, .footnotes, .tables, .fixedWidth, .archived],
         ]
-        #expect(ReadingCatalogue.rows(for: .org).map(\.id) == expected)
-        #expect(Set(expected) == Set(OrgSettingID.allCases))
+        #expect(OrgReadingGroup.allCases.map(\.settings) == expected)
+        let ids = ReadingCatalogue.rows(for: .org).map(\.id)
+        #expect(ids == expected.flatMap { $0 })
+        #expect(ids.count == 24 && Set(ids) == Set(OrgSettingID.allCases))
         #expect(OrgSettingID.sectionNumbers.rawValue == "org.num" && OrgSettingID.tableOfContents.rawValue == "org.toc")
         for format in DocumentFormat.allCases where format != .org {
             let ids: [ReadingSettingID] =

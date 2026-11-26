@@ -1,0 +1,102 @@
+import SurimonoCore
+import SwiftUI
+
+extension ReadingRowResolution {
+    var isChanged: Bool {
+        switch self {
+        case .toggle(let present): present.layer == .document
+        case .outline(let present, let depth): present.layer == .document || depth.layer == .document
+        }
+    }
+}
+
+/// A single outline picker edits two independently resolved components.
+struct FormatReadingControl: View {
+    let id: ReadingSettingID
+    let row: ReadingRowResolution
+    let documentName: String
+    let fileURL: URL?
+    let allowsFileChanges: Bool
+    let set: @MainActor @Sendable (ReadingSettingValue) -> Void
+    let revert: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            switch row {
+            case .toggle(let present):
+                control(locked: present.isLocked) {
+                    Toggle(isOn: Binding(get: { present.value }, set: { set(.toggle($0)) })) { Text(id.label) }
+                        .labelsHidden().toggleStyle(.checkbox)
+                }
+                reason(present.source, changed: present.layer == .document)
+            case .outline(let present, let depth):
+                let picker = ReadingOutlinePicker(label: id.label, present: present, depth: depth, set: set)
+                control(locked: !picker.hasAlternative) { picker }
+                reason(
+                    present.source,
+                    changed: present.layer == .document || present.source == depth.source && depth.layer == .document)
+                if present.source != depth.source { reason(depth.source, changed: depth.layer == .document) }
+            }
+        }
+    }
+
+    private func control<Picker: View>(locked: Bool, @ViewBuilder picker: () -> Picker) -> some View {
+        ReadingSettingControl(
+            id: id, changed: row.isChanged, locked: locked, resetHelp: String(localized: "Restore Default"),
+            reset: revert, control: picker)
+    }
+
+    @ViewBuilder private func reason(_ source: ReadingInstructionSource?, changed: Bool) -> some View {
+        if let source {
+            ReadingFileReason(
+                documentName: documentName, fileURL: fileURL, allowsFileChanges: allowsFileChanges, source: source,
+                changed: changed)
+        }
+    }
+}
+
+struct ReadingOutlinePicker: View {
+    let label: LocalizedStringResource
+    let present: ReadingResolution<Bool>
+    let depth: ReadingResolution<ReadingDepth>
+    let set: @MainActor @Sendable (ReadingSettingValue) -> Void
+
+    private var value: ReadingDepth? { present.value ? depth.value : nil }
+
+    func allows(_ choice: ReadingDepth?) -> Bool {
+        ReadingRowResolution.outline(present: present, depth: depth)
+            .allowsOutline(present: choice != nil, depth: choice ?? depth.value)
+    }
+
+    private var choices: [ReadingDepth?] {
+        var values: [ReadingDepth?] = [nil] + (1...6).map { .levels($0) } + [.all]
+        if !values.contains(depth.value) { values.append(depth.value) }
+        return values
+    }
+
+    static func title(for value: ReadingDepth?, locale: Locale = .current) -> LocalizedStringResource {
+        switch value {
+        case nil: LocalizedStringResource("None", locale: locale)
+        case .all: LocalizedStringResource("All Levels", locale: locale)
+        case .levels(let depth): LocalizedStringResource("Up to Level \(depth)", locale: locale)
+        }
+    }
+
+    var hasAlternative: Bool { choices.contains { $0 != value && allows($0) } }
+
+    var body: some View {
+        let selection = Binding(
+            get: { value },
+            set: { choice in
+                set(.outline(present: choice != nil, depth: choice ?? depth.value))
+            })
+        Picker(selection: selection) {
+            ForEach(choices, id: \.self) { choice in
+                Text(Self.title(for: choice)).tag(choice).disabled(!allows(choice))
+            }
+        } label: {
+            Text(label)
+        }
+        .labelsHidden().pickerStyle(.menu)
+    }
+}

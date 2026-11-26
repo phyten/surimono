@@ -5,28 +5,32 @@ import Testing
 
 struct OrgPrintSettingsTests {
     @Test(
-        "表示設定で隠したタスクも原稿の要素として数える",
+        "非表示の予定・作業時間・優先度・進捗・日時もタスクと日時の群を開く",
         arguments: [
-            "* TODO A", "* DONE A", "* [#B] A", "* A [1/2]", "- A [50%]",
+            "#+DATE: <2026-11-23 Mon>", "<2026-11-23 Mon>", "[2026-11-23 Mon]", "* [#B] A", "* A [1/2]", "- A [50%]",
             "* A\nSCHEDULED: <2026-11-23 Mon>", "* A\nDEADLINE: <2026-11-23 Mon>", "* A\nCLOSED: [2026-11-23 Mon]",
             "CLOCK: [2026-11-23 Mon]", ":LOGBOOK:\nCLOCK: [2026-11-23 Mon]\n:END:",
-            "* LATER A\n#+TODO: LATER | FIN", "#+begin_src org\n* TODO A\n#+end_src",
+            "* LATER [#B] A\n#+TODO: LATER | FIN", "* A :noexport:\n[2026-11-23]",
         ])
-    func taskElements(source: String) {
-        let options = "#+OPTIONS: todo:nil tasks:nil pri:nil p:nil stat:nil c:nil d:nil\n"
-        #expect(OrgConverter.convert(options + source).orgInstructions?.hasTaskElements == true)
+    func taskElements(source: String) throws {
+        let options = "#+OPTIONS: todo:nil tasks:nil pri:nil p:nil stat:nil c:nil d:nil <:nil date:nil\n"
+        let file = try #require(OrgConverter.convert(options + source).orgInstructions)
+        #expect(file.hasTaskOrDateElements)
+        #expect(OrgReadingGroup.tasksAndDates.isExpanded(manual: nil, changed: 0, file: file))
+        #expect(!OrgReadingGroup.textAndMarkup.isExpanded(manual: nil, changed: 0, file: file))
     }
 
     @Test(
         "設定やコード例や普通の語だけではタスクを含む文書にしない",
         arguments: [
-            "#+OPTIONS: todo:t p:t pri:t stat:t c:t", "* A\nTODO text", "* =code [50%]=",
+            "* TODO A", "* DONE A", "* LATER A\n#+TODO: LATER | FIN", "#+begin_src org\n* TODO A\n#+end_src",
+            "#+OPTIONS: todo:t p:t pri:t stat:t c:t <:t", "* A\nTODO text", "* =code [50%]=",
             "#+begin_src org\n,* TODO A\nCLOCK: [2026-11-23 Mon]\n#+end_src",
             "* TODO ordinary word\n#+TODO: OPEN | FIN", "* TODO [#A] ordinary text\n#+TODO: OPEN | FIN",
             "#+TODO: OPEN | FIN",
         ])
     func noTaskElements(source: String) {
-        #expect(OrgConverter.convert(source).orgInstructions?.hasTaskElements == false)
+        #expect(OrgConverter.convert(source).orgInstructions?.hasTaskOrDateElements == false)
     }
 
     @Test("追加項目の継承・原稿による固定・個別解除・保存・コピーが往復する")

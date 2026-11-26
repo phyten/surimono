@@ -45,11 +45,7 @@ extension Int: OrgReadingChoice {
 
 extension OrgReadingDefaults.Depth: OrgReadingChoice {
     func titleResource(locale: Locale = .current) -> LocalizedStringResource {
-        switch self {
-        case .off: LocalizedStringResource("None", locale: locale)
-        case .all: LocalizedStringResource("All Levels", locale: locale)
-        case .levels(let depth): LocalizedStringResource("Up to Level \(depth)", locale: locale)
-        }
+        ReadingOutlinePicker.title(for: readingDepth, locale: locale)
     }
 
     var title: String { String(localized: titleResource()) }
@@ -228,23 +224,16 @@ struct OrgReadingRows: View {
             ForEach(OrgReadingGroup.allCases, id: \.self) { group in
                 let ids = group.settings.filter { !changedOnly || changed.contains($0) }
                 if !ids.isEmpty {
-                    let title = Text(group.title).font(.subheadline.bold()).accessibilityAddTraits(.isHeader)
-                    let rows = ForEach(ids, id: \.self) { $0.field.row(in: self) }
-                    if let model, group == .tasks || group == .details {
-                        DisclosureGroup(
-                            isExpanded: Binding(
-                                get: { model.orgGroupExpanded(group) },
-                                set: { model.setOrgGroupExpanded($0, for: group) })
-                        ) {
-                            VStack(alignment: .leading, spacing: 16) { rows }.padding(.top, 8)
-                        } label: {
-                            title.frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        .disclosureGroupStyle(PanelDisclosureStyle())
-                    } else {
-                        title
-                        rows
-                    }
+                    ReadingPanelSection(
+                        title: group.title,
+                        expanded: model.flatMap { model in
+                            group.isFoldable
+                                ? Binding(
+                                    get: { model.orgGroupExpanded(group) },
+                                    set: { model.setOrgGroupExpanded($0, for: group) }) : nil
+                        },
+                        counts: model?.orgGroupCounts(group) ?? .init(), ids: ids
+                    ) { $0.field.row(in: self) }
                 }
             }
         }
@@ -271,34 +260,27 @@ struct OrgReadingRows: View {
             }
         }
         if !changedOnly || changed {
-            let title = Text(label).fontWeight(changed ? .bold : .regular).foregroundStyle(
-                locked ? .secondary : .primary)
-            let picker = current.control(label, selection: Binding(get: { current }, set: set), key: key.id).disabled(
-                locked
-            )
-            .accessibilityIdentifier(key.id.rawValue)
+            let help =
+                resolved?.source != nil
+                ? String(localized: "Restore file value: \(inherited.title)")
+                : (editsDefaults
+                    ? String(localized: "Restore shipping value: \(inherited.title)")
+                    : String(localized: "Restore Org default: \(inherited.title)"))
             let row = VStack(alignment: .leading, spacing: 4) {
-                OrgReadingChoiceRow(title: title, token: model == nil ? token : nil, picker: picker) {
-                    if changed {
-                        let help =
-                            resolved?.source != nil
-                            ? String(localized: "Restore file value: \(inherited.title)")
-                            : (model == nil
-                                ? String(localized: "Restore shipping value: \(inherited.title)")
-                                : String(localized: "Restore Org default: \(inherited.title)"))
-                        OrgReadingResetButton(help: help, name: Text("Revert \(String(localized: label))")) {
-                            set(inherited)
-                        }
-                    } else if model == nil {
-                        Color.clear.frame(width: 16, height: 1).accessibilityHidden(true)
-                    }
+                ReadingSettingControl(
+                    id: key.id, token: editsDefaults ? token : nil, changed: changed, locked: locked,
+                    resetHelp: help, reset: { set(inherited) }
+                ) {
+                    current.control(label, selection: Binding(get: { current }, set: set), key: key.id)
                 }
                 if key.id == .headlineLevels {
                     Text("Deeper headings become list items.")
                         .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
                 if let model, let source = resolved?.source {
-                    OrgFileReason(model: model, source: source, changed: changed)
+                    ReadingFileReason(
+                        documentName: model.displayName, fileURL: model.fileURL,
+                        allowsFileChanges: model.orgDocumentReading.allowsFileChanges, source: source, changed: changed)
                 }
                 if let notes = resolved?.notes, !notes.isEmpty {
                     let marked = notes.count { $0.kind == .unnumberedHeading }
@@ -319,61 +301,6 @@ struct OrgReadingRows: View {
     }
 }
 
-struct OrgReadingResetButton: View {
-    let help: String
-    var name = Text("Restore Default")
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) { Image(systemName: "arrow.counterclockwise") }
-            .buttonStyle(.plain).help(help)
-            .accessibilityLabel(name)
-            .accessibilityHint(Text(verbatim: help))
-            .frame(width: 16)
-    }
-}
-
-struct OrgReadingChoiceRow<Title: View, Choice: View, Reset: View>: View {
-    let title: Title
-    var token: String?
-    let picker: Choice
-    @ViewBuilder let reset: Reset
-
-    var body: some View {
-        if let token {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                title
-                Text(verbatim: token).font(.caption.monospaced()).foregroundStyle(.secondary)
-                Spacer(minLength: 2)
-                reset
-                picker.fixedSize()
-            }
-        } else {
-            let controls = HStack(alignment: .firstTextBaseline, spacing: 6) {
-                reset
-                picker.fixedSize()
-            }
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .firstTextBaseline, spacing: 0) {
-                    title.fixedSize()
-                    Spacer(minLength: 6)
-                    controls.fixedSize()
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    title.fixedSize(horizontal: false, vertical: true)
-                    ViewThatFits(in: .horizontal) {
-                        controls.fixedSize()
-                        // File-specified choices can themselves be wider than the panel.
-                        ScrollView(.horizontal) { controls }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-}
-
 struct OrgChangedSettingsFilter {
     var isOn = false
 
@@ -385,6 +312,7 @@ struct OrgChangedSettingsFilter {
 }
 
 struct OrgReadingDefaultsPane: View {
+    @Environment(\.settingsSearchHits) private var search
     let preferences: AppPreferences
     #if DEBUG
         @State private var filter = OrgChangedSettingsFilter(
@@ -410,7 +338,7 @@ struct OrgReadingDefaultsPane: View {
 
     var body: some View {
         let current = preferences.orgReadingDefaults ?? .surimono
-        let controls = ReadingDefaultsControls(
+        var controls = ReadingDefaultsControls(
             defaults: Self.defaults(current), resetQuestion: "Reset Org settings to defaults?",
             differences: Self.differences,
             apply: { values in
@@ -429,11 +357,14 @@ struct OrgReadingDefaultsPane: View {
                 }
             })
         #if DEBUG
-            var preview = controls
-            preview.snapshotTarget = DebugSnapshot.orgDefaultsFixture?.target
-            return preview
-        #else
-            return controls
+            controls.snapshotTarget = DebugSnapshot.orgDefaultsFixture?.target
         #endif
+        return controls.onChange(of: search, initial: true) {
+            guard filter.isOn, search.canReveal, let target = search.anchors.first,
+                let id = ReadingSettingID.allCases.first(where: { $0.label.key == target }),
+                !current.changedIDs(from: .surimono).contains(id)
+            else { return }
+            filter.isOn = false
+        }
     }
 }

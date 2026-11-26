@@ -187,7 +187,7 @@ public struct OrgInstructionNote: Equatable, Sendable {
 
 public struct OrgFileInstructions: Equatable, Sendable {
     /// Source syntax, including task elements hidden by reading settings.
-    public internal(set) var hasTaskElements = false
+    public internal(set) var hasTaskOrDateElements = false
     fileprivate var values = OrgReadingValues()
     fileprivate var sources: [OrgSettingID: OrgInstructionSource] = [:]
     fileprivate var notes: [OrgSettingID: [OrgInstructionNote]] = [:]
@@ -351,10 +351,33 @@ public struct OrgReadingSettings: Equatable, Sendable {
     }
 }
 
+/// A masked choice is not a visible edit. Count each row according to the same resolution as its control.
+public struct ReadingGroupCounts: Equatable, Sendable {
+    public var changed = 0
+    public var file = 0
+    public init() {}
+}
+
+extension OrgReadingGroup {
+    public func counts(in settings: OrgReadingSettings, file: OrgFileInstructions) -> ReadingGroupCounts {
+        var counts = ReadingGroupCounts()
+        for row in OrgSettingRegistry.rows where self.settings.contains(row.id) {
+            row.count(in: settings, file: file, into: &counts)
+        }
+        return counts
+    }
+
+    public func isExpanded(manual: Bool?, changed: Int, file: OrgFileInstructions?) -> Bool {
+        guard isFoldable else { return true }
+        return manual ?? (changed > 0 || self == .tasksAndDates && file?.hasTaskOrDateElements == true)
+    }
+}
+
 /// Bulk operations visit the same typed keys as the individual controls.
 private protocol OrgSettingOperations: Sendable {
     var id: OrgSettingID { get }
     func restore(_ values: OrgReadingValues, to defaults: inout OrgReadingDefaults)
+    func count(in settings: OrgReadingSettings, file: OrgFileInstructions, into counts: inout ReadingGroupCounts)
     func hasChoice(in values: OrgReadingValues) -> Bool
     func token(in values: OrgReadingValues) -> String?
     func moveChoice(from source: inout OrgReadingValues, to target: inout OrgReadingValues)
@@ -377,6 +400,13 @@ extension Int: OrgOptionToken { var token: String { String(self) } }
 extension OrgSetting: OrgSettingOperations where Value: OrgOptionToken {
     fileprivate func restore(_ values: OrgReadingValues, to defaults: inout OrgReadingDefaults) {
         if let value = values[keyPath: choice] { defaults[keyPath: fallback] = value }
+    }
+    fileprivate func count(
+        in settings: OrgReadingSettings, file: OrgFileInstructions, into counts: inout ReadingGroupCounts
+    ) {
+        let resolved = settings.resolve(self, file: file)
+        if resolved.layer == .document { counts.changed += 1 }
+        if resolved.isLocked { counts.file += 1 }
     }
     fileprivate func hasChoice(in values: OrgReadingValues) -> Bool { values[keyPath: choice] != nil }
     fileprivate func token(in values: OrgReadingValues) -> String? {

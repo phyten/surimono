@@ -29,15 +29,17 @@ public enum ReadingSettingID: String, CaseIterable, Sendable {
 
 /// The order of groups and rows is also the order of the existing Org panel.
 public enum OrgReadingGroup: CaseIterable, Sendable {
-    case structure, information, text, tasks, details
+    case structure, information, tasksAndDates, textAndMarkup, printedContent
+
+    public var isFoldable: Bool { self != .structure && self != .information }
 
     public var settings: [OrgSettingID] {
         switch self {
-        case .structure: [.sectionNumbers, .tableOfContents, .headlineLevels, .tags]
-        case .text: [.scripts, .preserveBreaks, .emphasis, .math]
-        case .tasks: [.planning, .clocks, .priority, .todo, .statistics, .tasks]
+        case .structure: [.sectionNumbers, .tableOfContents, .headlineLevels, .tags, .todo]
         case .information: [.title, .author, .date]
-        case .details: [.drawers, .properties, .timestamps, .footnotes, .tables, .fixedWidth, .archived]
+        case .tasksAndDates: [.planning, .clocks, .priority, .statistics, .timestamps]
+        case .textAndMarkup: [.preserveBreaks, .scripts, .emphasis, .math]
+        case .printedContent: [.tasks, .drawers, .properties, .footnotes, .tables, .fixedWidth, .archived]
         }
     }
 }

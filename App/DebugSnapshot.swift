@@ -456,7 +456,9 @@
         }
 
         static func configure(_ model: DocumentViewModel) {
-            if flag("SurimonoReadingPanel"), model.offersOrgReading { model.isReadingPanelOpen = true }
+            if flag("SurimonoReadingPanel"), model.offersOrgReading || model.previewsMarkdownReading {
+                model.isReadingPanelOpen = true
+            }
             if flag("SurimonoFolderNotice") { model.showToast(.folderAccess) }
             if let choice = argument("SurimonoComposition").flatMap(LaTeXComposition.init(rawValue:)) {
                 model.snapshotComposition = choice
