@@ -74,28 +74,15 @@ struct ViewerFileDocumentTests {
             #expect(DocumentWindows.shared.model(for: content.window) == nil)
             #expect(content.publishedPage.accessibilityParent() == nil)
             #expect(content.publishedPage.accessibilityFrame() == .zero)
-            try await content.waitForRelease {
-                [
-                    content.fileDocument == nil ? nil : "document", content.model == nil ? nil : "model",
-                    content.renderer == nil ? nil : "renderer", content.trialRenderer == nil ? nil : "trialRenderer",
-                ]
-            }
-            try await content.checkPDFRelease()
+            try await content.checkReleaseOrder()
             withExtendedLifetime(paper) {}
         }
     }
 
-    @Test("窓を閉じるとタイル描画用のPDFより先に紙面を解放する", .timeLimit(.minutes(1)), arguments: WindowKind.allCases)
+    @Test("窓を閉じると、タイル描画用のPDFが解放される前に紙面が文書を手放す", .timeLimit(.minutes(1)), arguments: WindowKind.allCases)
     func closingWindowReleasesPaperBeforePDFs(kind: WindowKind) async throws {
         try await withClosedContent(in: kind, holdingPaper: false) { content in
-            try await content.waitForRelease {
-                [
-                    content.fileDocument == nil ? nil : "document", content.model == nil ? nil : "model",
-                    content.renderer == nil ? nil : "renderer", content.trialRenderer == nil ? nil : "trialRenderer",
-                    content.paper == nil ? nil : "paper",
-                ]
-            }
-            try await content.checkPDFRelease()
+            try await content.checkReleaseOrder()
         }
     }
 
@@ -351,7 +338,27 @@ struct ViewerFileDocumentTests {
             try #require(remaining.isEmpty, "still alive: \(remaining.joined(separator: ", "))")
         }
 
-        func checkPDFRelease() async throws {
+        // AppKit's tracking-area hit test can autorelease the view under the pointer into XCTest's
+        // outer pool. A retired, detached view can safely outlive the window once it owns no PDFs.
+        private var remainingPaperContent: String? {
+            guard let paper else { return nil }
+            if !paper.isRetired { return "active paper" }
+            if paper.window != nil { return "paper.window" }
+            if paper.superview != nil { return "paper.superview" }
+            if paper.document != nil { return "paper.document" }
+            #if DEBUG
+                if paper.shownDocumentCount != 0 { return "paper.shownDocuments" }
+            #endif
+            return nil
+        }
+
+        func checkReleaseOrder() async throws {
+            try await waitForRelease {
+                [
+                    remainingPaperContent, fileDocument == nil ? nil : "document", model == nil ? nil : "model",
+                    renderer == nil ? nil : "renderer", trialRenderer == nil ? nil : "trialRenderer",
+                ]
+            }
             tileClock.advance(by: .milliseconds(999))
             #expect(pdf != nil)
             #expect(lastDisplay != nil)
