@@ -784,10 +784,10 @@ public final class DocumentRenderer {
                 if let children = source.children {
                     let output = try await binder(children, settings: settings)
                     binderOutput = output
-                    if #available(macOS 26, *) {
+                    if #available(macOS 26, *), output.boundLinks.isEmpty {
                         document = output.document
                     } else {
-                        document = try await StandalonePage.reopenBinder(output.document)
+                        document = try await StandalonePage.reopenBinder(output.document, boundLinks: output.boundLinks)
                     }
                     unreadable = []
                     candidates = []
@@ -1078,6 +1078,7 @@ public final class DocumentRenderer {
     }
 
     private struct BinderOutput {
+        var boundLinks: ReadingPDFNavigation.PageLinks = [:]
         let document = PDFDocument()
         var hasFormulas = false
         var documents: [URL: PDFDocument] = [:]
@@ -1092,23 +1093,48 @@ public final class DocumentRenderer {
 
     /// A copied link can lose its target page on insertion. Resolve it in this occurrence of the child,
     /// even when the binder contains several copies of the same document.
-    private static func bindLinks(from child: PDFDocument, to pages: [PDFPage], in binder: PDFDocument) {
+    private static func bindLinks(
+        from child: PDFDocument, to pages: [PDFPage], in binder: PDFDocument,
+        dictionaries: ReadingPDFNavigation.PageLinks, offset: Int, bound: inout ReadingPDFNavigation.PageLinks
+    ) {
         for (index, page) in pages.enumerated() {
             guard let source = child.page(at: index) else { continue }
-            for (original, copy) in zip(source.annotations, page.annotations) {
-                guard original.type == "Link", copy.type == "Link", original.bounds == copy.bounds else { continue }
+            // PDFKit may insert a Popup next to a copied Text annotation.
+            let originals = source.annotations.enumerated().filter { $0.element.type == "Link" }
+            let copies = page.annotations.enumerated().filter { $0.element.type == "Link" }
+            for ((sourceSlot, original), (copySlot, copy)) in zip(originals, copies) {
+                guard original.bounds == copy.bounds else { continue }
                 let action = original.action
                 let goTo = action as? PDFActionGoTo
-                guard action == nil || goTo != nil, let destination = goTo?.destination ?? original.destination,
-                    let target = destination.page,
-                    target.document === child
-                else { continue }
-                let targetIndex = child.index(for: target)
-                guard pages.indices.contains(targetIndex) else { continue }
+                guard action == nil || goTo != nil else { continue }
+                let destination = goTo?.destination ?? original.destination
+                let nativeIndex = destination?.page.flatMap { target -> Int? in
+                    guard target.document === child else { return nil }
+                    let index = child.index(for: target)
+                    return pages.indices.contains(index) ? index : nil
+                }
+                let record = dictionaries[index]?[sourceSlot]
+                let raw = record.flatMap {
+                    ReadingPDFNavigation.sameBounds($0.bounds, original.bounds) ? $0.action.target : nil
+                }
+                guard let targetIndex = nativeIndex ?? raw?.page, pages.indices.contains(targetIndex) else { continue }
+                let targetPage = pages[targetIndex]
+                if let raw, raw.page == targetIndex,
+                    nativeIndex == nil || raw.mode != "XYZ" || record?.action == .namedDestination(raw)
+                {
+                    // A PDFDestination only exposes a point and zoom. Keep the full array for the verified write.
+                    let target = ReadingPDFNavigationWriter.Destination(
+                        page: offset + targetIndex, mode: raw.mode, arguments: raw.arguments)
+                    bound[offset + index, default: [:]][copySlot] = .init(
+                        page: offset + index, annotation: copySlot, bounds: copy.bounds,
+                        action: .internalDestination(target))
+                }
                 let copiedTarget = (copy.action as? PDFActionGoTo)?.destination ?? copy.destination
-                guard copiedTarget?.page !== pages[targetIndex] else { continue }
-                let moved = binder.destination(on: pages[targetIndex], at: destination.point)
-                moved.zoom = destination.zoom
+                guard copiedTarget?.page !== targetPage else { continue }
+                let unspecified = CGFloat(kPDFDestinationUnspecifiedValue)
+                let point = destination?.point ?? CGPoint(x: unspecified, y: unspecified)
+                let moved = binder.destination(on: targetPage, at: point)
+                moved.zoom = destination?.zoom ?? unspecified
                 if action != nil {
                     copy.action = PDFActionGoTo(destination: moved)
                 } else {
@@ -1153,7 +1179,20 @@ public final class DocumentRenderer {
                 let offset = BinderPagination.offsets(
                     pageCounts: [output.document.pageCount, document.pageCount],
                     startsOnFront: settings.binderStartsOnFront)[1]
+                // Capture names and exact Fit operands before PDFKit copies or inserts the pages.
+                let dictionaries = (try? await ReadingPDFNavigation.dictionaryLinks(in: document)) ?? [:]
+                try Task.checkCancellation()
+                // A page copy can synthesize Popup annotations and mutate the backing annotation array.
+                // Take linked PDF pages from a private occurrence so the cached child stays intact.
+                let hasInternalLinks = dictionaries.values.contains { $0.values.contains(where: \.action.isInternal) }
+                let occurrencePDF =
+                    child.format == .pdf && hasInternalLinks
+                    ? prepared.sourceBytes.flatMap(PDFDocument.init(data:)) : nil
                 let pages = try (0..<document.pageCount).map { index in
+                    if let page = occurrencePDF?.page(at: index) {
+                        StandalonePage.retainSources(of: page, on: page)
+                        return page
+                    }
                     guard let page = document.page(at: index), let copy = StandalonePage.copy(of: page) else {
                         throw RenderingError.invalidPDF
                     }
@@ -1170,7 +1209,9 @@ public final class DocumentRenderer {
                 if prepared.formulaIndex != nil { output.hasFormulas = true }
                 output.pageSizes += Self.pageSizes(of: document)
                 for page in pages { output.document.insert(page, at: output.document.pageCount) }
-                Self.bindLinks(from: document, to: pages, in: output.document)
+                Self.bindLinks(
+                    from: document, to: pages, in: output.document, dictionaries: dictionaries, offset: offset,
+                    bound: &output.boundLinks)
                 SourcePaperText.include(document, in: output.document, startingAt: offset)
                 if let url = child.fileURL {
                     output.documents[url] = document

@@ -249,6 +249,79 @@ struct ReadingPDFDestinationTests {
         #expect(selection.string?.contains("PAGE-1") == true)
     }
 
+    @Test("同じ子を二度とじても、同じ矩形の内部リンク・URL・メモを区別し、宛先の表示方法を保つ", arguments: [false, true])
+    func repeatedChildLinks(named: Bool) async throws {
+        // PDFKit may read the name tree while returning no page for a legacy name in the same catalog.
+        let horizontal = "[4 0 R /FitH null]"
+        let region = "[4 0 R /FitR 21 32 104 205]"
+        let xyz = "[4 0 R /XYZ 73 null 1.5]"
+        let rect = "/Rect [10 10 34 34]"
+        let child = DocumentSource(
+            data: pdf([
+                "<< /Type /Catalog /Pages 2 0 R /Dests << /line \(horizontal) /point \(xyz) >> /Names << /Dests << /Names [<410042> << /D \(region) >>] >> >> >>",
+                "<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>",
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 300] /Resources << >> /Annots [5 0 R 6 0 R 7 0 R 8 0 R 9 0 R] >>",
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 300] /Resources << >> >>",
+                "<< /Type /Annot /Subtype /Link \(rect) /Dest \(named ? "/line" : horizontal) >>",
+                "<< /Type /Annot /Subtype /Link \(rect) /A << /S /URI /URI (https://example.com/paper) >> >>",
+                "<< /Type /Annot /Subtype /Text \(rect) /Contents (Margin note) >>",
+                "<< /Type /Annot /Subtype /Link /Rect [30 40 60 50] /A << /S /GoTo /D \(named ? "<410042>" : region) >> >>",
+                "<< /Type /Annot /Subtype /Link /Rect [50 60 80 75] /Dest \(named ? "/point" : xyz) >>",
+            ]), format: .pdf)
+        var settings = RenderSettings(
+            layout: .a4Single, theme: PrintTheme(id: "test", name: "Test", css: ""),
+            preset: HTMLCleanupPreset(id: "none", name: "None"))
+        settings.binderStartsOnFront = false
+        let prepared = try await DocumentRenderer().prepare(.binder([child, child]), settings: settings)
+
+        func check(_ document: PDFDocument, stage: String) async throws {
+            let backing = try #require(document.documentRef)
+            let raw = try await ReadingPDFRawNavigation.capture(backing)
+            for index in [0, 2] {
+                let page = try #require(document.page(at: index))
+                let target = try #require(document.page(at: index + 1))
+                let annotations = page.annotations.filter { $0.type != "Popup" }
+                try #require(annotations.count == 5)
+                for i in [0, 3, 4] {
+                    let link = annotations[i]
+                    #expect(
+                        ((link.action as? PDFActionGoTo)?.destination ?? link.destination)?.page === target,
+                        "\(stage) p\(index + 1), link \(i)")
+                }
+                #expect(
+                    annotations[0].bounds == annotations[1].bounds && annotations[1].bounds == annotations[2].bounds)
+                #expect(annotations[1].url?.absoluteString == "https://example.com/paper")
+                #expect(annotations[2].type == "Text" && annotations[2].contents == "Margin note")
+                let destinations = raw.links.filter { $0.page == index }.compactMap { $0.action.target }
+                #expect(
+                    destinations == [
+                        .init(page: index + 1, mode: "FitH", arguments: [nil]),
+                        .init(page: index + 1, mode: "FitR", arguments: [21, 32, 104, 205]),
+                        .init(page: index + 1, mode: "XYZ", arguments: [73, nil, 1.5]),
+                    ], "\(stage) p\(index + 1)")
+            }
+        }
+        try await check(prepared.viewDocument, stage: "binder")
+        let reopened = try await StandalonePage.reopenBinder(prepared.viewDocument)
+        try await check(reopened, stage: "reopened")
+        let bytes = try await ReadingPDFExporter.data(from: prepared.viewDocument, entries: [], title: "Binder")
+        try await check(#require(PDFDocument(data: bytes)), stage: "exported")
+    }
+
+    @Test("しおりを検証できない PDF も合本の表示用には開き直せる")
+    func binderReopenWithInvalidOutline() async throws {
+        let document = try #require(PDFDocument(data: file(link: "/Dest [3 0 R /Fit]", bookmark: "/Dest [null /Fit]")))
+        await #expect(throws: ReadingPDFExporter.ExportError.self) {
+            _ = try await ReadingPDFExporter.data(from: document)
+        }
+        let reopened = try await StandalonePage.reopenBinder(document)
+        #expect(reopened !== document)
+        #expect(reopened.pageCount == 1)
+        let page = try #require(reopened.page(at: 0))
+        let link = try #require(page.annotations.first)
+        #expect(link.type == "Link")
+    }
+
     @Test("座標差が 1・4 ULP なら保存値を保ち、5 ULP なら宛先を修復して書き出す", arguments: [1, 4, 5])
     func coordinateTolerance(ulps: Int) async throws {
         // Keep the saved operand exactly representable and set the live operand in memory.

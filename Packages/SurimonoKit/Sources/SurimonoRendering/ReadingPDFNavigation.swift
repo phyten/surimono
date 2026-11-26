@@ -5,29 +5,37 @@ struct ReadingPDFNavigation: Sendable {
     typealias Raw = ReadingPDFRawNavigation
     typealias Writer = ReadingPDFNavigationWriter
 
+    typealias PageLinks = [Int: [Int: Raw.Link]]
+
     private var mediaOrigins: [CGPoint]
     var links: [Raw.Link]
     var outline: [Raw.Entry]
 
-    private static func sameBounds(_ a: CGRect, _ b: CGRect) -> Bool {
+    static func sameBounds(_ a: CGRect, _ b: CGRect) -> Bool {
         abs(a.minX - b.minX) < 0.01 && abs(a.minY - b.minY) < 0.01
             && abs(a.width - b.width) < 0.01 && abs(a.height - b.height) < 0.01
     }
 
     @MainActor
-    init(_ document: PDFDocument, stage: String = "view") async throws {
+    private static func makeCheckpoint(for document: PDFDocument) -> @MainActor () async throws -> Void {
         let count = document.pageCount
         var work = 0
-        func checkpoint() async throws {
+        return {
             try Task.checkCancellation()
             work += 1
             if work.isMultiple(of: 128) { await Task.yield() }
             guard document.pageCount == count else { throw ReadingPDFExporter.ExportError.cannotCopyDocument }
         }
+    }
+
+    @MainActor
+    private static func dictionaries(in document: PDFDocument, includesOutline: Bool) async throws -> (
+        origins: [CGPoint], links: PageLinks, outline: [Raw.Entry]
+    ) {
+        let count = document.pageCount
+        let checkpoint = Self.makeCheckpoint(for: document)
         try await checkpoint()
 
-        // Read the UI-owned actions before consulting PDFKit's backing page dictionaries.
-        let live = try await Self.projection(of: document)
         // Pages in a binder can come from different files or have moved since the file was opened.
         // Map each original page dictionary back to its position in the live document.
         var indexes: [CGPDFDictionaryRef: Int] = [:]
@@ -52,7 +60,7 @@ struct ReadingPDFNavigation: Sendable {
         for pdf in sources.values {
             let raw: Raw
             do {
-                raw = try await Raw.capture(pdf)
+                raw = try await Raw.capture(pdf, includesOutline: includesOutline)
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
@@ -86,26 +94,48 @@ struct ReadingPDFNavigation: Sendable {
             }
         }
 
+        return (origins, pageKeys.compactMapValues { byPage[$0] }, originalOutline)
+    }
+
+    @MainActor
+    static func dictionaryLinks(in document: PDFDocument) async throws -> PageLinks {
+        try await dictionaries(in: document, includesOutline: false).links
+    }
+
+    @MainActor
+    init(_ document: PDFDocument, stage: String = "view", boundLinks: PageLinks = [:]) async throws {
+        let checkpoint = Self.makeCheckpoint(for: document)
+        let live = try await Self.projection(of: document)
+        let backing = try await Self.dictionaries(in: document, includesOutline: true)
+        var originals = backing.links
+        for (page, records) in boundLinks {
+            originals[page, default: [:]].merge(records) { _, bound in bound }
+        }
         var links: [Raw.Link] = []
         var visited: [Int: Set<Int>] = [:]
         for link in live.links {
             try await checkpoint()
-            let original = pageKeys[link.page].flatMap { byPage[$0]?[link.annotation] }
+            let bound = boundLinks[link.page]?[link.annotation]
+            let original = originals[link.page]?[link.annotation]
             let detail = "\(stage) p\(link.page + 1) annotation=\(link.annotation)"
             if let original, original.action.isInternal, !Self.sameBounds(original.bounds, link.bounds) {
                 throw ReadingPDFExporter.ExportError.navigation("\(detail): original link bounds differ.")
             }
             let matching = original.flatMap { Self.sameBounds($0.bounds, link.bounds) ? $0.action : nil }
-            let value = try Self.resolve(link.action, original: matching, detail: detail)
+            let value: Raw.Action
+            if let bound, link.action != .other {
+                value = bound.action
+            } else {
+                value = try Self.resolve(link.action, original: matching, detail: detail)
+            }
             visited[link.page, default: []].insert(link.annotation)
             if value.isInternal {
                 links.append(.init(page: link.page, annotation: link.annotation, bounds: link.bounds, action: value))
             }
         }
-        for (p, key) in pageKeys {
+        for (p, records) in originals {
             try await checkpoint()
-            guard let originals = byPage[key] else { continue }
-            for link in originals.values {
+            for link in records.values {
                 try await checkpoint()
                 if link.action.isInternal && visited[p]?.contains(link.annotation) != true {
                     throw ReadingPDFExporter.ExportError.navigation(
@@ -113,8 +143,9 @@ struct ReadingPDFNavigation: Sendable {
                 }
             }
         }
-        self.mediaOrigins = origins
+        self.mediaOrigins = backing.origins
         self.links = links
+        let originalOutline = backing.outline
         var entries: [Raw.Entry] = []
         for (i, entry) in live.outline.enumerated() {
             try await checkpoint()

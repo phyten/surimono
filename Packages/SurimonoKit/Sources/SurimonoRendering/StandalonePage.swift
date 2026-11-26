@@ -1,3 +1,4 @@
+import OSLog
 import ObjectiveC
 import PDFKit
 
@@ -17,11 +18,24 @@ public enum StandalonePage {
         return reopened(assembled, from: assembled.dataRepresentation())
     }
 
-    static func reopenBinder(_ assembled: PDFDocument) async throws -> PDFDocument {
+    static func reopenBinder(_ assembled: PDFDocument, boundLinks: ReadingPDFNavigation.PageLinks = [:]) async throws
+        -> PDFDocument
+    {
         // PDFKit can move a copied page's origin without adjusting the coordinates of links into it.
-        let data = try await ReadingPDFExporter.data(from: assembled)
-        guard let copy = reopened(assembled, from: data) else { throw DocumentRenderer.RenderingError.invalidPDF }
-        return copy
+        do {
+            let data = try await ReadingPDFExporter.data(from: assembled, boundLinks: boundLinks)
+            if let copy = reopened(assembled, from: data) { return copy }
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            // Display can still use PDFKit's native result when unrelated navigation is unreadable.
+        }
+        try Task.checkCancellation()
+        Logger(subsystem: "app.surimono.Surimono", category: "Binder")
+            .warning("Navigation verification failed while reopening a binder for display. Using the native PDF.")
+        if let copy = reopened(assembled, from: assembled.dataRepresentation()) { return copy }
+        if #available(macOS 26, *) { return assembled }
+        throw DocumentRenderer.RenderingError.invalidPDF
     }
 
     private static func reopened(_ assembled: PDFDocument, from data: Data?) -> PDFDocument? {

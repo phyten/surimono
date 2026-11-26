@@ -47,7 +47,11 @@ public enum ReadingPDFExporter {
 
     /// Captures navigation before PDFKit can drop weak destinations during its native write.
     public static func data(from document: PDFDocument) async throws -> Data {
-        let expected = try await ReadingPDFNavigation(document, stage: "export")
+        try await data(from: document, boundLinks: [:])
+    }
+
+    static func data(from document: PDFDocument, boundLinks: ReadingPDFNavigation.PageLinks) async throws -> Data {
+        let expected = try await ReadingPDFNavigation(document, stage: "export", boundLinks: boundLinks)
         guard let bytes = document.dataRepresentation() else { throw ExportError.cannotCopyDocument }
         return try await expected.verified(bytes, pageCount: document.pageCount, stage: "export → saved")
     }
