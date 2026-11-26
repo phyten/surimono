@@ -55,6 +55,8 @@ struct CornerSegments<Value: Hashable, Segment: View>: View {
     @Binding var selection: Value
     let values: [Value]
     let preset: CornerPreset
+    var bandSegment: ((Value) -> BandSegment)?
+    private var usesBandPlate: Bool { bandSegment != nil }
     @ViewBuilder let segment: (Value) -> Segment
     @Environment(\.layoutDirection) private var direction
     @State private var keySegment = CornerSegmentFocus()
@@ -66,26 +68,42 @@ struct CornerSegments<Value: Hashable, Segment: View>: View {
         .pickerStyle(.segmented)
         .labelsHidden()
         .modifier(
-            CornerBezel(preset: preset, role: .segmentGroup) { focused in
+            CornerBezel(preset: preset, role: .segmentGroup, bandSegments: usesBandPlate) { focused in
                 ContentSizedSegments {
                     ForEach(values, id: \.self) { value in
                         let selected = selection == value
                         let shape = AppCornerShape(role: .segment, preset: preset)
-                        segment(value).lineLimit(1)
-                            .foregroundStyle(selected ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
-                            .selectionRule(selected, color: .white)
-                            .fixedSize(horizontal: true, vertical: false)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .background(shape.fill(selected ? PrintPalette.aiControl : .clear))
-                            .overlay {
-                                if focused, value == ((keySegment.value as? Value) ?? selection) {
+                        Group {
+                            if let bandSegment {
+                                segment(value).modifier(BandPlateFace(on: selected, compact: true))
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                    .modifier(BandSegmentInteraction(segment: bandSegment(value)))
+                            } else {
+                                segment(value).lineLimit(1)
+                                    .foregroundStyle(selected ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+                                    .selectionRule(selected, color: .white)
+                                    .fixedSize(horizontal: true, vertical: false)
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                    .background(shape.fill(selected ? PrintPalette.aiControl : .clear))
+                            }
+                        }
+                        .overlay {
+                            if focused, value == ((keySegment.value as? Value) ?? selection) {
+                                if usesBandPlate {
+                                    BandSegmentFocusRing(radius: BandDesign.plateRadius(preset))
+                                        .frame(width: 30, height: 30)
+                                } else {
                                     shape.strokeBorder(
                                         DisplayAccessibility.focusColor(onSelectedControl: selected), lineWidth: 2)
                                 }
                             }
+                        }
                     }
                 }
-                .background(AppCornerShape(role: .segmentGroup, preset: preset).fill(PrintPalette.hover))
+                .background(
+                    AppCornerShape(role: .segmentGroup, preset: preset).fill(
+                        usesBandPlate ? PrintPalette.bandSegmentTrack : PrintPalette.hover)
+                )
                 .onChange(of: focused) { keySegment.value = nil }
             }
         )
@@ -93,12 +111,32 @@ struct CornerSegments<Value: Hashable, Segment: View>: View {
         .onKeyPress(keys: [.leftArrow, .rightArrow]) { key in
             // AppKit moves the key segment with an arrow and selects it with Space. Only mirror the focus ring.
             let current = (keySegment.value as? Value) ?? selection
-            if !preset.usesSystemControls, let index = values.firstIndex(of: current) {
+            if usesBandPlate || !preset.usesSystemControls, let index = values.firstIndex(of: current) {
                 let forward = (key.key == .rightArrow) == (direction == .leftToRight)
                 keySegment.value = values[(index + (forward ? 1 : values.count - 1)) % values.count]
             }
             return .ignored
         }
+    }
+}
+
+/// AppKit draws the system keyboard ring around the replacement face; the underlying picker owns focus.
+private struct BandSegmentFocusRing: NSViewRepresentable {
+    let radius: CGFloat
+    final class Ring: NSView {
+        var radius: CGFloat = 0
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+        override func draw(_ dirtyRect: NSRect) {
+            NSGraphicsContext.saveGraphicsState()
+            NSFocusRingPlacement.only.set()
+            NSBezierPath(roundedRect: bounds.insetBy(dx: 4, dy: 4), xRadius: radius, yRadius: radius).fill()
+            NSGraphicsContext.restoreGraphicsState()
+        }
+    }
+    func makeNSView(context: Context) -> Ring { Ring() }
+    func updateNSView(_ view: Ring, context: Context) {
+        view.radius = radius
+        view.needsDisplay = true
     }
 }
 
@@ -133,6 +171,7 @@ struct CornerMenuPicker<Value: Hashable>: View {
 struct CornerBezel<Face: View>: ViewModifier {
     let preset: CornerPreset
     let role: CornerRole?
+    var bandSegments = false
     @ViewBuilder let face: (Bool) -> Face
     @Environment(\.isEnabled) private var enabled
     @FocusState private var focused: Bool
@@ -140,7 +179,11 @@ struct CornerBezel<Face: View>: ViewModifier {
     @GestureState private var pressed = false
 
     func body(content: Content) -> some View {
-        if preset.usesSystemControls {
+        if bandSegments {
+            content.focused($focused)
+                .visualEffect { drawing, _ in drawing.opacity(0) }
+                .overlay { face(focused).allowsHitTesting(false).accessibilityHidden(true) }
+        } else if preset.usesSystemControls {
             content
         } else {
             let shape = AppCornerShape(role: role, preset: preset)

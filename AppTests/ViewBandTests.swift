@@ -532,7 +532,7 @@ struct ViewBandTests {
         #expect(abs(back.maxY - hover.paperOnly.maxY) <= 3)
     }
 
-    @Test("ポインタの監視は窓に載っている間だけで、窓から外れると止まり、常に表示では張らない")
+    @Test("ポインタの監視は有効な間だけで、窓から外れると止まる")
     func trackerStopsWithWindow() throws {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 300, height: 200), styleMask: [.titled], backing: .buffered,

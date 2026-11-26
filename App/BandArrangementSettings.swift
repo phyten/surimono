@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 /// parts and separators are dragged between the zones and "Parts to Add", or moved with the inspector's buttons.
 struct BandArrangementSettings: View {
     @Bindable var session: BandArrangementEditorSession
+    let hints: BandHintSession
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -22,6 +23,9 @@ struct BandArrangementSettings: View {
                 proxy.scrollTo(Optional(selection))
             }
         }
+        .modifier(
+            BandHintHost(session: hints, editor: true, blocked: session.dialog != nil || session.pendingLeave != nil)
+        )
     }
 
     private var partsRow: some View {
@@ -556,7 +560,6 @@ private struct ZoneEditor: View {
                 .zone(zone, index: BandEditorDrop.insertionIndex(at: location, frames: ordered(entries.count)))
             }
         )
-        .help(zone.editorName)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text(verbatim: zone.editorName))
     }
@@ -619,6 +622,7 @@ private struct MiniatureNotes: View {
 
 /// One entry of the draft: a part drawn as on the band, or a separator. Click or Space selects it, and it drags.
 private struct EntryChip: View {
+    @Environment(\.bandHints) private var hints
     let session: BandArrangementEditorSession
     let location: BandEntryLocation
     let entry: BandEntry
@@ -640,6 +644,9 @@ private struct EntryChip: View {
 
     var body: some View {
         let name = entry.item?.editorName ?? String(localized: "Separator")
+        let hint =
+            entry.item.map(BandHintContent.editor)
+            ?? .init(name: name, detail: String(localized: "Separator: appears on the toolbar only between two parts."))
         content(name: name)
             .frame(minHeight: MiniatureMetrics.chipHeight)
             .padding(.horizontal, entry == .separator ? 1 : (entry == .part(.print) && !showsName ? 1 : 4))
@@ -681,13 +688,21 @@ private struct EntryChip: View {
                 return .handled
             }
             .onDrag {
-                BandEditorDrop.provider(session.beginDrag(.entry(location, entry)))
+                hints?.beginDrag()
+                return BandEditorDrop.provider(session.beginDrag(.entry(location, entry)))
             }
-            .help(help(name: name))
+            .bandHint(
+                entry.item?.rawValue ?? "separator-\(location.destination)-\(location.index)",
+                hint
+            )
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text(verbatim: name))
             .accessibilityValue(Text(verbatim: positionText))
-            .accessibilityHint(entry == .part(.print) ? Text("Required; cannot be removed.") : Text(verbatim: ""))
+            .accessibilityHint(
+                Text(
+                    verbatim: entry == .part(.print)
+                        ? hint.detail + " " + String(localized: "Required; cannot be removed.") : hint.detail)
+            )
             .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
             .accessibilityAction { session.select(selection) }
             .accessibilityActions { BandEntryActions(session: session, selection: selection) }
@@ -712,15 +727,6 @@ private struct EntryChip: View {
                 }
             }
         }
-    }
-
-    private func help(name: String) -> String {
-        guard let item = entry.item else {
-            return isIdle
-                ? String(localized: "Separator: appears on the toolbar only between two parts.")
-                : String(localized: "Separator")
-        }
-        return choice(name, item.editorDescription)
     }
 
     private var positionText: String {
@@ -858,6 +864,7 @@ private struct UnusedPalette: View {
 /// The palette's separator, which can be dragged into the zones any number of times. Pressed, it adds one after the
 /// selected entry.
 private struct SeparatorSource: View {
+    @Environment(\.bandHints) private var hints
     let session: BandArrangementEditorSession
 
     var body: some View {
@@ -880,8 +887,16 @@ private struct SeparatorSource: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(PrintPalette.ink)
-        .onDrag { BandEditorDrop.provider(session.beginDrag(.newSeparator)) }
-        .help("Drag into a zone, or select a part and press to add a separator after it.")
+        .onDrag {
+            hints?.beginDrag()
+            return BandEditorDrop.provider(session.beginDrag(.newSeparator))
+        }
+        .bandHint(
+            "separator",
+            .init(
+                name: String(localized: "Separator"),
+                detail: String(localized: "Drag into a zone, or select a part and press to add a separator after it."))
+        )
         .accessibilityHint(Text("Adds a separator after the selected part."))
     }
 }

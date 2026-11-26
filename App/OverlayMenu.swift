@@ -35,6 +35,9 @@ final class OverlayMenuState {
     var scrubberHeld = false {
         didSet { if scrubberHeld { showFull() } else { updateHideTimer() } }
     }
+    var hasActivePart = false {
+        didSet { updateHideTimer() }
+    }
     var isHolding = false {
         didSet { updateHideTimer() }
     }
@@ -74,7 +77,7 @@ final class OverlayMenuState {
 
     isolated deinit { stopTrackingMenus() }
 
-    private var isHeld: Bool { isHolding || scrubberHeld || menuTracking > 0 }
+    private var isHeld: Bool { isHolding || hasActivePart || scrubberHeld || menuTracking > 0 }
     /// The edge of the paper under a hidden band, and the band's room with that edge while it shows. A band that makes
     /// room for itself moves the paper's edge away from a still pointer, which therefore stays inside; and the band
     /// hides only once the pointer is beyond both, where giving the room back cannot bring the edge under it again.
@@ -384,8 +387,39 @@ struct BandPart: View {
     let form: BandLayout.Form
     var trailing = false
 
+    @Environment(\.bandHints) private var hints
+    @Environment(\.hintsAboveBand) private var above
+
     var body: some View {
+        let id = item.rawValue
+        let hint = BandHintContent.band(item, model: model)
+        let grouped = item == .pageTurn || item == .presentation || item == .layout
+        let reserved =
+            item == .beforePrinting && model.previewPageCountForBand != nil
+            && (model.readingPreview != nil || model.printIssueCount == 0)
         BandItemView(model: model, item: item, form: form, trailing: trailing)
+            .environment(\.bandPartHovered, hints?.hover == id || BandDesign.argument("SurimonoBandHover") == id)
+            .accessibilityLabel(
+                Text(item.bandAccessibilityName), isEnabled: !grouped && item != .print && item != .style
+            )
+            .accessibilityValue(
+                Text(verbatim: hint.accessibilityValue ?? ""),
+                isEnabled: !grouped && item != .zoom && hint.accessibilityValue != nil
+            )
+            .accessibilityHint(Text(verbatim: hint.accessibilityHint))
+            .bandHint(
+                id, hint, above: above, enabled: !reserved && item != .pageTurn,
+                showsName: displaysName(hint.name)
+            )
+            .background {
+                if item == .pageTurn {
+                    let leftIsForward = model.viewOptions.direction == .rightToLeft
+                    HStack(spacing: 2) {
+                        turnHint(forward: leftIsForward)
+                        turnHint(forward: !leftIsForward)
+                    }
+                }
+            }
             .bandAnchor(.item(item), in: model.bandAnchors)
             // Only the part on the band: `BandMeasurements` draws another one out of sight.
             .onGeometryChange(for: CGRect.self) {
@@ -394,6 +428,34 @@ struct BandPart: View {
                 if item == .thumbnails { model.drop.listButtonFrame = frame }
             }
     }
+    func displaysName(_ name: String) -> Bool {
+        if item == .print { return form != .compact }
+        if item == .chapter {
+            return !model.currentChapterTitle.isEmpty && name == model.currentChapterTitle
+                && CurrentChapterButton.titleFits(name)
+        }
+        guard form == .full else { return false }
+        switch item {
+        case .outline, .readingSettings: return true
+        case .readingDirection, .scrollDirection, .paperOrientation, .paperSeries, .cover, .selectText,
+            .alwaysShowToolbar,
+            .margins, .printSettings, .ignoreSlides, .beforePrinting, .viewOptions, .saveAsFile, .keysAndGestures:
+            guard let id = BandMenuContent.ID(rawValue: item.rawValue) else { return false }
+            let entry = BandMenuContent(model: model).entry(id)
+            let label = BandAdditionalPart(model: model, item: item, form: form).labelText(entry)
+            return label == name || label == name + "…" || label.hasPrefix(name + " (")
+        default: return false
+        }
+    }
+
+    private func turnHint(forward: Bool) -> some View {
+        Color.clear.bandHint(
+            forward ? "pageTurn.next" : "pageTurn.previous",
+            .turn(forward: forward, model: model), above: above
+        )
+        .allowsHitTesting(false).accessibilityHidden(true)
+    }
+
 }
 
 /// The thin line between parts of a band. It draws only the line: the room around it is the plan's
@@ -437,8 +499,8 @@ struct OverlayBand: View {
     let menu: OverlayMenuState
     let plans: BandPlans
 
-    static let spacing: CGFloat = 10
-    static let toolSpacing: CGFloat = 8
+    static let spacing: CGFloat = 6
+    static let toolSpacing: CGFloat = 6
     static let titleSpacing: CGFloat = 6
     static let nameFont = Font.system(size: 13, weight: .semibold)
     /// Where the traffic lights end in a window without a toolbar, for a window that has none of its own to measure.
@@ -495,7 +557,9 @@ struct OverlayBand: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
                     .frame(maxWidth: row.nameWidth + 0.5, alignment: .leading)
-                    .help(model.fileURL?.path ?? model.displayName)
+                    .bandHint(
+                        "name", .init(name: model.displayName, detail: model.fileURL?.path ?? model.displayName),
+                        showsName: (menu.bandWidths[.name] ?? .infinity) <= row.nameWidth + 0.5)
             }
             bandParts(row.leading, row: row, model: model)
         }
@@ -508,6 +572,13 @@ struct OverlayBand: View {
         return HStack(spacing: spacing) {
             HStack(spacing: spacing) { bandParts(items, row: row, model: model) }.fixedSize()
             BandMoreMenu(model: model)
+                .bandHint(
+                    "more",
+                    .init(
+                        name: String(localized: "More"),
+                        detail: String(localized: "All operations are also available in “…”."))
+                )
+                .accessibilityHint(Text("All operations are also available in “…”."))
                 .bandAnchor(.more, in: model.bandAnchors)
                 // The plan's gap before "…"; in the Standard order the stack's spacing draws it instead.
                 .padding(.leading, row.geometry.moreGap)
@@ -604,7 +675,6 @@ struct PrintButton: View {
         .fixedSize()
         .disabled(!model.canPerformPrintCommand)
         .accessibilityLabel(Text(action.title))
-        .help(ShortcutHints.help(String(localized: action.help), [.documentPrint]))
     }
 }
 
@@ -615,56 +685,33 @@ struct StyleMenu: View {
     let showsName: Bool
 
     var body: some View {
-        let accessibility = model.bandStyleAccessibility
-        let title = String(localized: accessibility.name)
-        let description = choice(title, model.styleName)
-        control
-            .help(Text(verbatim: showsName ? title : description))
-            .accessibilityLabel(Text(accessibility.name))
-            .accessibilityValue(Text(verbatim: accessibility.value))
-            .accessibilityAddTraits(model.isThemePalettePresented ? .isSelected : [])
-    }
-
-    @ViewBuilder private var control: some View {
         if model.usesPrintTheme, model.binder == nil {
-            // Print themes open the palette of samples beside the paper, where it leaves the paper in view.
             Button {
                 model.openThemePalette()
             } label: {
-                HStack(spacing: 3) {
-                    label
-                    BandMenuChevron()
-                }
-                .foregroundStyle(
-                    model.isThemePalettePresented ? AnyShapeStyle(PrintPalette.ai) : AnyShapeStyle(PrintPalette.ink)
-                )
-                .selectionRule(model.isThemePalettePresented)
+                label
             }
+            .buttonStyle(BandStatePlate(on: model.isThemePalettePresented, compact: !showsName))
             .fixedSize()
         } else {
+            let smart = model.binder == nil && model.usesHTMLPreset && model.isSmartRemovalEnabled
             Menu {
                 StyleMenuItems(model: model)
             } label: {
-                HStack(spacing: 3) {
-                    label
-                    BandMenuChevron()
-                }
-                .foregroundStyle(PrintPalette.ink)
+                label
             }
-            // The borderless-button menu style keeps one image and one title of its label and would drop the arrow.
             .menuStyle(.button)
-            .buttonStyle(.plain)
+            .buttonStyle(BandStatePlate(on: smart, compact: !showsName))
             .menuIndicator(.hidden)
             .fixedSize()
         }
     }
 
-    @ViewBuilder private var label: some View {
-        // "textformat" is drawn as kana in Japanese and as other letters elsewhere, so it does not match the line icons
-        // beside it. The palette symbol is the same in every language.
-        let label = Label(model.styleName, systemImage: symbol)
-        Group {
-            if showsName { label.labelStyle(.titleAndIcon) } else { label.labelStyle(.iconOnly) }
+    private var label: some View {
+        HStack(spacing: showsName ? 4 : 1) {
+            Image(systemName: symbol).frame(width: showsName ? 16 : 14)
+            if showsName { Text(verbatim: model.styleName) }
+            BandMenuChevron(inheritsInk: true)
         }
     }
 
@@ -834,13 +881,13 @@ struct LayoutPicker: View {
     var body: some View {
         CornerSegments(
             title: BandLayout.Item.layout.bandAccessibilityName, selection: model.viewOption(\.layout),
-            values: ViewOptions.Layout.displayOrder, preset: model.preferences.corners
+            values: ViewOptions.Layout.displayOrder, preset: model.preferences.corners,
+            bandSegment: { $0 == .single ? .single : .spread }
         ) { layout in
             Label(layout.title, systemImage: layout.symbol).accessibilityLabel(Text(layout.title))
         }
         .labelStyle(.iconOnly)
         .fixedSize()
-        .help(ShortcutHints.help(String(localized: "Single Page or Spread"), [.viewSingle, .viewSpread]))
     }
 }
 

@@ -172,7 +172,8 @@ struct BandPartGlyph: View {
                 symbol("exclamationmark.triangle")
                 if let sampleIssueCount { Text(verbatim: String(sampleIssueCount)).monospacedDigit() }
             }
-        case .cover, .selectText, .alwaysShowToolbar, .printSettings, .ignoreSlides, .viewOptions,
+        case .alwaysShowToolbar: BandStateGlyph(item: item, on: false).foregroundStyle(PrintPalette.ink)
+        case .cover, .selectText, .printSettings, .ignoreSlides, .viewOptions,
             .saveAsFile, .keysAndGestures:
             symbol(item.additionalSymbol ?? "questionmark")
         }
@@ -201,18 +202,13 @@ struct BandPartGlyph: View {
         var body: some View {
             HStack(spacing: 1) {
                 ForEach(Array(symbols.enumerated()), id: \.offset) { index, symbol in
-                    Image(systemName: symbol)
-                        .font(.system(size: 10))
-                        .frame(width: 20, height: 15)
-                        .foregroundStyle(index == selected ? AnyShapeStyle(.white) : AnyShapeStyle(PrintPalette.ink))
-                        .background {
-                            CornerRole.segment.shape
-                                .fill(index == selected ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear))
-                        }
+                    let glyph = Image(systemName: symbol).font(.system(size: 10))
+                    glyph.modifier(BandPlateFace(on: index == selected, compact: true))
+                        .environment(\.bandPlateCorners, AppPreferences.shared.corners)
                 }
             }
             .padding(1)
-            .background(CornerRole.segmentGroup.shape.fill(PrintPalette.press))
+            .background(CornerRole.segmentGroup.shape.fill(PrintPalette.bandSegmentTrack))
         }
     }
 }

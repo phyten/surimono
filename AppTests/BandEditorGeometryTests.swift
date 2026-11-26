@@ -131,7 +131,7 @@ struct BandEditorGeometryTests {
             // Only the scroll-count test isolates the detail page from the sidebar's own list.
             let root: AnyView
             if detailOnly {
-                root = AnyView(BandArrangementSettings(session: session))
+                root = AnyView(BandArrangementSettings(session: session, hints: BandHintSession()))
             } else {
                 root = AnyView(
                     SettingsView(

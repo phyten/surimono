@@ -18,6 +18,9 @@ enum PrintPalette {
     static var line2: Color { color(.line2) }
     static var line3: Color { color(.line3) }
     static var ai: Color { color(.ai) }
+    static var bandPlateFill: Color { color(.bandPlateFill) }
+    static var bandSegmentTrack: Color { color(.bandSegmentTrack) }
+    static var bandOnInk: Color { color(.bandOnInk) }
     /// The fill of a selected standard control in the reading window. The system draws white text on it, which the
     /// bright night indigo of `ai` cannot carry.
     static var aiControl: Color { color(.aiControl) }
@@ -52,7 +55,8 @@ enum PrintPalette {
 
     nonisolated enum Swatch: CaseIterable {
         case chrome, stage, raised, hover, press, ink, ink2, ink3, disabledInk
-        case line, line2, line3, ai, aiControl, aiTint, aiTint2, warn, warnTint
+        case line, line2, line3, ai, bandPlateFill, bandSegmentTrack, bandOnInk, aiControl, aiTint, aiTint2, warn,
+            warnTint
         case foldMark, pictogramPaper, paperRing, paperShadow, popShadow, toast, toastInk
         case shu, shuHover, shuPress, shuShadow, blankPaper, blankInk, foldLine, paperAi
 
@@ -94,7 +98,12 @@ enum PrintPalette {
                     default: dark ? 0.26 : 0.32
                     }
                 return pair(0x26272B, 0xFFFFFF, alpha: alpha)
-            case .ai: return increasedContrast ? pair(0x173858, 0xC5DFFF) : pair(0x2B4C6F, 0x92B3D9)
+            case .ai:
+                if increasedContrast { return pair(0x173858, 0xC5DFFF) }
+                fallthrough
+            case .bandPlateFill: return pair(0x2B4C6F, 0x92B3D9)
+            case .bandSegmentTrack: return pair(0x26272B, 0xFFFFFF, alpha: dark ? 0.06 : 0.05)
+            case .bandOnInk: return increasedContrast ? pair(0x173858, 0xE6F2FF) : pair(0x2B4C6F, 0xDDEDFF)
             case .aiControl: return pair(0x2B4C6F, 0x426FA6)
             case .aiTint: return pair(0x2B4C6F, 0x92B3D9, alpha: dark ? 0.11 : 0.09)
             case .aiTint2: return pair(0x2B4C6F, 0x92B3D9, alpha: dark ? 0.19 : 0.15)

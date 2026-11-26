@@ -204,6 +204,7 @@
             for state in states.split(separator: ",") {
                 let fields = state.split(separator: ":").map(String.init)
                 switch fields[0] {
+                case "hint": break  // The hint host reads the target without changing the selection.
                 case "top": editor.mode = .top
                 case "split": editor.mode = .split
                 case "draft": draftEdits(editor)
@@ -484,8 +485,8 @@
             if let value = argument("SurimonoViewLayout"), let layout = ViewOptions.Layout(rawValue: value) {
                 model.setLayout(layout)
             }
-            if argument("SurimonoCoverAlone")?.uppercased() == "YES" {
-                model.updateViewOptions { $0.showsCoverAlone = true }
+            if argument("SurimonoCoverAlone") != nil {
+                model.updateViewOptions { $0.showsCoverAlone = flag("SurimonoCoverAlone") }
             }
             if argument("SurimonoRightToLeft")?.uppercased() == "YES" {
                 model.updateViewOptions { $0.direction = .rightToLeft }
@@ -494,9 +495,12 @@
                 model.updateViewOptions { $0.transition = transition }
             }
             if let value = argument("SurimonoZoom"), let zoom = Double(value) { model.zoom = zoom }
-            if argument("SurimonoAlwaysOnTop")?.uppercased() == "YES" { model.isAlwaysOnTop = true }
-            if argument("SurimonoShowsOnAllSpaces")?.uppercased() == "YES" { model.showsOnAllSpaces = true }
-            if argument("SurimonoSelectText")?.uppercased() == "YES" { model.isSelectingText = true }
+            if argument("SurimonoAlwaysOnTop") != nil { model.isAlwaysOnTop = flag("SurimonoAlwaysOnTop") }
+            if argument("SurimonoShowsOnAllSpaces") != nil { model.showsOnAllSpaces = flag("SurimonoShowsOnAllSpaces") }
+            if argument("SurimonoSelectText") != nil { model.isSelectingText = flag("SurimonoSelectText") }
+            if argument("SurimonoAlwaysShowToolbar") != nil {
+                model.isBandAlwaysVisible = flag("SurimonoAlwaysShowToolbar")
+            }
             if argument("SurimonoDrawer")?.uppercased() == "YES" { model.isDrawerOpen = true }
             switch argument("SurimonoMenu") {
             case "pinned", "always": model.bandVisibility = .always
@@ -719,8 +723,8 @@
                 }
                 // A slide deck is measured once the page has loaded, and the window then takes its shape.
                 if model.showsWeb { try? await Task.sleep(for: .milliseconds(1200)) }
-                if argument("SurimonoSlides") == "off" {
-                    model.setIgnoresSlides(true)
+                if let slides = argument("SurimonoSlides"), ["on", "off"].contains(slides) {
+                    model.setIgnoresSlides(slides == "off")
                     try? await Task.sleep(for: .milliseconds(800))
                 }
                 if let script = argument("SurimonoWebScript") {
@@ -938,6 +942,12 @@
                 }
                 if let path = argument("SurimonoHitMap"), let window = model.window {
                     try? hitMap(of: window).write(toFile: path, atomically: true, encoding: .utf8)
+                }
+                if let width = argument("SurimonoBandCaptureWidth").flatMap(Double.init), width >= 320,
+                    let window = model.window, let content = window.contentView
+                {
+                    window.setContentSize(NSSize(width: width, height: content.bounds.height))
+                    try? await Task.sleep(for: .milliseconds(300))
                 }
                 if let name = argument("SurimonoSettings") {
                     // The Settings window in place of the document's, opened as from the app menu.
