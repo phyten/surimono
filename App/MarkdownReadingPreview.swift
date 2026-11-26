@@ -45,7 +45,8 @@
                 ReadingPanelSection(ids: ids) { id in
                     if let row = resolution(id) {
                         FormatReadingControl(
-                            id: id, row: row, documentName: documentName, fileURL: fileURL,
+                            id: id, row: row, resetHelp: row.resetHelp(format: "Markdown"), documentName: documentName,
+                            fileURL: fileURL,
                             allowsFileChanges: allowsFileChanges,
                             set: {
                                 document.set(

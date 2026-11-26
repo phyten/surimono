@@ -27,9 +27,10 @@ struct ReadingPanel<Actions: View, Rows: View>: View {
             PanelIconButton("xmark", label: "Close", action: close)
         } content: {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    rows
+                VStack(alignment: .leading, spacing: 0) {
+                    VStack(alignment: .leading, spacing: 16) { rows }
                     if let allowsFileChanges {
+                        ReadingPanelDivider()
                         VStack(alignment: .leading, spacing: 4) {
                             Toggle("Allow Changes to File Instructions", isOn: allowsFileChanges)
                                 .toggleStyle(.checkbox).controlSize(.small).fixedSize(horizontal: false, vertical: true)
@@ -49,6 +50,36 @@ struct ReadingPanel<Actions: View, Rows: View>: View {
     }
 }
 
+struct ReadingPanelDivider: View {
+    var body: some View {
+        Rectangle().fill(PrintPalette.line).frame(height: 1)
+            .padding(.vertical, 11)
+            .accessibilityHidden(true)
+    }
+}
+
+struct ReadingPanelGroups<GroupID: Hashable, Section: View>: View {
+    let groups: [GroupID]
+    let isFoldable: (GroupID) -> Bool
+    @ViewBuilder let section: (GroupID) -> Section
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(groups.enumerated()), id: \.element) { index, group in
+                if index > 0 {
+                    let previousIsStatic = !isFoldable(groups[index - 1])
+                    if previousIsStatic && isFoldable(group) {
+                        ReadingPanelDivider()
+                    } else {
+                        Spacer().frame(height: previousIsStatic ? 23 : 16)
+                    }
+                }
+                VStack(alignment: .leading, spacing: 16) { section(group) }
+            }
+        }
+    }
+}
+
 /// An untitled section is a flat list. Only groups in the document panel supply a disclosure binding.
 struct ReadingPanelSection<Row: View>: View {
     var title: LocalizedStringResource?
@@ -60,14 +91,18 @@ struct ReadingPanelSection<Row: View>: View {
     var body: some View {
         let rows = ForEach(ids, id: \.self, content: row)
         if let title, let expanded {
+            let visibleCounts = expanded.wrappedValue ? ReadingGroupCounts() : counts
             DisclosureGroup(isExpanded: expanded) {
                 VStack(alignment: .leading, spacing: 16) { rows }.padding(.top, 8)
             } label: {
-                ReadingGroupHeader(title: title, counts: expanded.wrappedValue ? .init() : counts)
+                ReadingGroupHeader(title: title, counts: visibleCounts)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityRemoveTraits(.isHeader)
+                    .accessibilityAction { expanded.wrappedValue.toggle() }
             }
             .disclosureGroupStyle(PanelDisclosureStyle())
         } else {
-            if let title { ReadingGroupHeader(title: title) }
+            if let title { ReadingGroupHeader(title: title).foregroundStyle(.secondary) }
             rows
         }
     }
@@ -203,6 +238,30 @@ struct ReadingFileReason: View {
             line[range].underlineStyle = .single
         }
         return Text(line)
+    }
+}
+
+struct ReadingMenu<Value: Hashable, Options: View>: View {
+    let label: LocalizedStringResource
+    @Binding var selection: Value
+    let valueLabel: Text
+    @ViewBuilder let options: Options
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        Group {
+            if !isEnabled && colorScheme == .dark {
+                Picker(label, selection: $selection) {
+                    options
+                } currentValueLabel: {
+                    valueLabel.foregroundStyle(PrintPalette.disabledInk)
+                }
+            } else {
+                Picker(label, selection: $selection) { options }
+            }
+        }
+        .labelsHidden().pickerStyle(.menu)
     }
 }
 

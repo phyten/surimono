@@ -1,7 +1,43 @@
 import SurimonoCore
 import SwiftUI
 
+enum ReadingResetHelp {
+    static func app(format: String, value: String) -> String {
+        String(localized: "Restore \(format) default: \(value)")
+    }
+
+    static func file(value: String) -> String {
+        String(localized: "Restore file value: \(value)")
+    }
+}
+
 extension ReadingRowResolution {
+    func resetHelp(format: String) -> String {
+        func help<Value>(_ component: ReadingResolution<Value>, _ value: String) -> String {
+            component.source == nil
+                ? ReadingResetHelp.app(format: format, value: value) : ReadingResetHelp.file(value: value)
+        }
+        func toggle(_ present: ReadingResolution<Bool>) -> String {
+            help(present, present.inherited ? String(localized: "On") : String(localized: "Off"))
+        }
+        switch self {
+        case .toggle(let present):
+            return toggle(present)
+        case .outline(let present, let depth):
+            if (present.source == nil) != (depth.source == nil) {
+                let levels = String(localized: ReadingOutlinePicker.title(for: depth.inherited))
+                if depth.layer == .document {
+                    let restoreDepth = help(depth, levels)
+                    return present.layer == .document
+                        ? [toggle(present), restoreDepth].joined(separator: "\n") : restoreDepth
+                }
+                return toggle(present)
+            }
+            let value = String(localized: ReadingOutlinePicker.title(for: present.inherited ? depth.inherited : nil))
+            return help(present, value)
+        }
+    }
+
     var isChanged: Bool {
         switch self {
         case .toggle(let present): present.layer == .document
@@ -14,6 +50,7 @@ extension ReadingRowResolution {
 struct FormatReadingControl: View {
     let id: ReadingSettingID
     let row: ReadingRowResolution
+    let resetHelp: String
     let documentName: String
     let fileURL: URL?
     let allowsFileChanges: Bool
@@ -42,7 +79,7 @@ struct FormatReadingControl: View {
 
     private func control<Picker: View>(locked: Bool, @ViewBuilder picker: () -> Picker) -> some View {
         ReadingSettingControl(
-            id: id, changed: row.isChanged, locked: locked, resetHelp: String(localized: "Restore Default"),
+            id: id, changed: row.isChanged, locked: locked, resetHelp: resetHelp,
             reset: revert, control: picker)
     }
 
@@ -90,13 +127,10 @@ struct ReadingOutlinePicker: View {
             set: { choice in
                 set(.outline(present: choice != nil, depth: choice ?? depth.value))
             })
-        Picker(selection: selection) {
+        ReadingMenu(label: label, selection: selection, valueLabel: Text(Self.title(for: value))) {
             ForEach(choices, id: \.self) { choice in
                 Text(Self.title(for: choice)).tag(choice).disabled(!allows(choice))
             }
-        } label: {
-            Text(label)
         }
-        .labelsHidden().pickerStyle(.menu)
     }
 }

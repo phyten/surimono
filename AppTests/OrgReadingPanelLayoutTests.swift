@@ -7,6 +7,21 @@ import Testing
 
 @MainActor
 struct OrgReadingPanelLayoutTests {
+    @Test("固定見出しの前を七ポイント広げ、開閉見出しに切り替わる境界に一本の線を置く")
+    func groupSpacing() throws {
+        let width = ReadingPanelMetrics.width - 24
+        for (foldable, gap) in [([false, false], 23), ([false, true], 23), ([true, true], 16)] {
+            let groups = ReadingPanelGroups(
+                groups: [0, 1], isFoldable: { foldable[$0] }, section: { _ in Color.clear.frame(height: 10) })
+            let renderer = ImageRenderer(content: groups.frame(width: width))
+            renderer.scale = 1
+            let bitmap = NSBitmapImageRep(cgImage: try #require(renderer.cgImage))
+            #expect(bitmap.pixelsHigh == 20 + gap)
+            let painted = (0..<bitmap.pixelsHigh).filter { (bitmap.colorAt(x: 10, y: $0)?.alphaComponent ?? 0) > 0 }
+            #expect(painted == (foldable == [false, true] ? [21] : []))
+        }
+    }
+
     @Test("読み方に変更がなければ下端を空け、変更すると件数と戻す操作を表示する")
     func changesFooter() {
         let available = CGSize(width: ReadingPanelMetrics.width - 24, height: 1_000)

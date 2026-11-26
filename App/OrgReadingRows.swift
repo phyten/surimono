@@ -12,12 +12,9 @@ extension OrgReadingChoice {
     @MainActor fileprivate func control(_ label: LocalizedStringResource, selection: Binding<Self>, key: OrgSettingID)
         -> some View
     {
-        Picker(selection: selection) {
+        ReadingMenu(label: label, selection: selection, valueLabel: Text(verbatim: title)) {
             ForEach(choices, id: \.self) { Text(verbatim: $0.title).tag($0) }
-        } label: {
-            Text(label)
         }
-        .labelsHidden().pickerStyle(.menu)
     }
 }
 
@@ -147,11 +144,9 @@ extension OrgReadingDefaults.Names: OrgReadingChoice {
         var values = choices
         if key == .drawers { values.append(.excluding(["LOGBOOK"])) }
         if !values.contains(self) { values.append(self) }
-        return Picker(selection: selection) {
+        return ReadingMenu(label: label, selection: selection, valueLabel: Text(verbatim: title)) {
             ForEach(values, id: \.self) { Text(verbatim: $0.title).tag($0) }
-        } label: {
-            Text(label)
-        }.labelsHidden().pickerStyle(.menu)
+        }
     }
 }
 
@@ -219,21 +214,26 @@ struct OrgReadingRows: View {
     private var file: OrgFileInstructions { model?.orgFileInstructions ?? .init() }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        if let model {
+            ReadingPanelGroups(groups: OrgReadingGroup.allCases, isFoldable: \.isFoldable) { group in
+                ReadingPanelSection(
+                    title: group.title,
+                    expanded: group.isFoldable
+                        ? Binding(
+                            get: { model.orgGroupExpanded(group) },
+                            set: { model.setOrgGroupExpanded($0, for: group) }) : nil,
+                    counts: model.orgGroupCounts(group), ids: group.settings
+                ) { $0.field.row(in: self) }
+            }
+        } else {
             let changed = preferences.orgReadingDefaults?.changedIDs(from: .surimono) ?? []
-            ForEach(OrgReadingGroup.allCases, id: \.self) { group in
-                let ids = group.settings.filter { !changedOnly || changed.contains($0) }
-                if !ids.isEmpty {
-                    ReadingPanelSection(
-                        title: group.title,
-                        expanded: model.flatMap { model in
-                            group.isFoldable
-                                ? Binding(
-                                    get: { model.orgGroupExpanded(group) },
-                                    set: { model.setOrgGroupExpanded($0, for: group) }) : nil
-                        },
-                        counts: model?.orgGroupCounts(group) ?? .init(), ids: ids
-                    ) { $0.field.row(in: self) }
+            VStack(alignment: .leading, spacing: 16) {
+                ForEach(OrgReadingGroup.allCases, id: \.self) { group in
+                    let ids = group.settings.filter { !changedOnly || changed.contains($0) }
+                    if !ids.isEmpty {
+                        ReadingGroupHeader(title: group.title)
+                        ForEach(ids, id: \.self) { $0.field.row(in: self) }
+                    }
                 }
             }
         }
@@ -262,10 +262,10 @@ struct OrgReadingRows: View {
         if !changedOnly || changed {
             let help =
                 resolved?.source != nil
-                ? String(localized: "Restore file value: \(inherited.title)")
+                ? ReadingResetHelp.file(value: inherited.title)
                 : (editsDefaults
                     ? String(localized: "Restore shipping value: \(inherited.title)")
-                    : String(localized: "Restore Org default: \(inherited.title)"))
+                    : ReadingResetHelp.app(format: "Org", value: inherited.title))
             let row = VStack(alignment: .leading, spacing: 4) {
                 ReadingSettingControl(
                     id: key.id, token: editsDefaults ? token : nil, changed: changed, locked: locked,
@@ -315,10 +315,10 @@ struct OrgReadingDefaultsPane: View {
     @Environment(\.settingsSearchHits) private var search
     let preferences: AppPreferences
     #if DEBUG
-        @State private var filter = OrgChangedSettingsFilter(
+        @State var filter = OrgChangedSettingsFilter(
             isOn: DebugSnapshot.orgDefaultsFixture?.changedOnly == true)
     #else
-        @State private var filter = OrgChangedSettingsFilter()
+        @State var filter = OrgChangedSettingsFilter()
     #endif
 
     static func defaults(_ current: OrgReadingDefaults) -> ReadingDefaults<OrgReadingDefaults> {

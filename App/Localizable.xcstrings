@@ -3651,55 +3651,55 @@
         }
       }
     },
-    "Restore Org default: %@": {
+    "Restore %@ default: %@": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Restore Org default: %@"
+            "value": "Restore %1$@ default: %2$@"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Org の既定「%@」に戻す"
+            "value": "%1$@ の既定「%2$@」に戻す"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Org-Standard wiederherstellen: %@"
+            "value": "%1$@-Standard wiederherstellen: %2$@"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Restablecer el valor predeterminado de Org: %@"
+            "value": "Restablecer el valor predeterminado de %1$@: %2$@"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rétablir la valeur par défaut d’Org : %@"
+            "value": "Rétablir la valeur %1$@ par défaut : %2$@"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Org 기본값으로 복원: %@"
+            "value": "%1$@ 기본값으로 복원: %2$@"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "恢复 Org 默认值：%@"
+            "value": "恢复 %1$@ 默认值：%2$@"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "回復 Org 預設值：%@"
+            "value": "回復 %1$@ 預設值：%2$@"
           }
         }
       }

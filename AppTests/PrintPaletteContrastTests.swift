@@ -24,6 +24,48 @@ struct PrintPaletteContrastTests {
             Int((color.greenComponent * 255).rounded()), Int((color.blueComponent * 255).rounded()))
     }
 
+    @MainActor
+    @Test("暗い読み方パネルの固定値はパネル面と選択欄の両方で比が三以上になる", arguments: ["None", "2 levels"])
+    func lockedReadingValue(value: String) throws {
+        func bitmap(_ value: String) throws -> NSBitmapImageRep {
+            let menu = ReadingMenu(label: "Heading Numbers", selection: .constant(0), valueLabel: Text(verbatim: value))
+            {
+                Text(verbatim: "None").tag(0)
+                Text(verbatim: "2 levels").tag(1)
+            }
+            let host = NSHostingView(
+                rootView: menu.disabled(true).padding(8).background(PrintPalette.raised)
+                    .environment(\.colorScheme, .dark))
+            host.appearance = NSAppearance(named: .darkAqua)
+            host.setFrameSize(host.fittingSize)
+            host.layoutSubtreeIfNeeded()
+            let image = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+            host.cacheDisplay(in: host.bounds, to: image)
+            return image
+        }
+        let text = try bitmap(value)
+        let blank = try bitmap(" ")
+        try #require(text.pixelsWide == blank.pixelsWide && text.pixelsHigh == blank.pixelsHigh)
+        let panel = hex(try #require(text.colorAt(x: 2, y: 2)?.usingColorSpace(.sRGB)))
+        var contrast = 0.0
+        var contrastOnControl = 0.0
+        // Compare only pixels painted by the value, excluding the native bezel and arrows.
+        for y in 0..<text.pixelsHigh {
+            for x in 0..<text.pixelsWide {
+                guard let pixel = text.colorAt(x: x, y: y)?.usingColorSpace(.sRGB),
+                    let ground = blank.colorAt(x: x, y: y)?.usingColorSpace(.sRGB), pixel != ground
+                else { continue }
+                let ink = hex(pixel)
+                contrast = max(contrast, CodeColor.contrast(ink, panel) ?? 0)
+                contrastOnControl = max(contrastOnControl, CodeColor.contrast(ink, hex(ground)) ?? 0)
+            }
+        }
+        let primary = Swatch.ink.resolved(dark: true, increasedContrast: false, reduceTransparency: false)
+        let enabled = try #require(CodeColor.contrast(hex(primary), panel))
+        #expect(contrastOnControl >= 3)
+        #expect(contrast >= 3 && contrast < enabled, "value=\(contrast) primary=\(enabled) panel=\(panel)")
+    }
+
     @Test("刷り台の文字と枠は両方の外観と表示設定で背景から読み分けられる", arguments: [false, true], [false, true])
     func paletteContrast(dark: Bool, increased: Bool) throws {
         for reduced in [false, true] {
