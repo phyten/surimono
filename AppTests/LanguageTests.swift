@@ -82,6 +82,23 @@ struct LanguageTests {
         }
     }
 
+    @Test("目次の置き方を用紙のレイアウトと区別し、原稿どおりの組み方の訳を保つ", arguments: UILanguage.supported)
+    func contentsTerms(language: String) throws {
+        let url = try #require(Bundle.main.url(forResource: language, withExtension: "lproj"))
+        let bundle = try #require(Bundle(url: url))
+        func term(_ key: String) throws -> String {
+            let value = bundle.localizedString(forKey: key, value: "MISSING", table: nil)
+            try #require(value != "MISSING")
+            return value
+        }
+        #expect(try term("Placement") != term("Layout"))
+        if language == "en" { #expect(try term("Table of Contents at the Top") == "Lead Contents") }
+        if language == "ja" {
+            #expect(try term("As Written") == term("As They Are"))
+            #expect(try term(LaTeXComposition.document.titleKey) == "文書の指定")
+        }
+    }
+
     @Test("語数の中央値は各言語で1語と小数と複数の単位を選ぶ")
     func medianWords() throws {
         for (language, expected) in [

@@ -100,10 +100,15 @@ struct SettingSetSummary {
             }
         case .finish:
             if let finish = set.finish {
-                switch finish.toc.mode {
-                case .hidden: values.append(text("Do Not Print Contents"))
-                case .front: values.append(text("Add Contents to Front"))
-                case .source: values.append(text("Follow the Text's Contents"))
+                if let legacy = finish.legacyTOC {
+                    switch legacy.mode {
+                    case .hidden: values.append(text("Do Not Print Contents"))
+                    case .front: values.append(text("Add Contents to Front"))
+                    case .source: values.append(text("Follow the Text's Contents"))
+                    }
+                } else {
+                    values.append(text(finish.contents.placement == .page ? "Separate Page" : "Same Page as Text"))
+                    if let lead = set.leadContents { values.append(lead.title) }
                 }
                 switch finish.proof {
                 case .shown: break

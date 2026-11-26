@@ -667,8 +667,8 @@
             default: break
             }
             switch argument("SurimonoTOC") {
-            case "head": model.printFinish.toc.mode = .front
-            case "hidden": model.printFinish.toc.mode = .hidden
+            case "head": model.printFinish.legacyPresetContents.mode = .front
+            case "hidden": model.printFinish.legacyPresetContents.mode = .hidden
             default: break
             }
             if let value = argument("SurimonoNote"), let preset = NotePaperPreset.preset(id: value) {

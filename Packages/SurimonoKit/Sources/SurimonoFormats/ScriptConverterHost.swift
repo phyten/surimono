@@ -7,6 +7,9 @@ struct ScriptDocument {
     let author: String
     let revision: String
     let language: String?
+    var combinedContents = false
+    var leadContents: String?
+    var contentsDepth: String?
 }
 
 // The outline runs synchronously on a detached task. Formats can host JavaScriptCore without any UI framework.
@@ -295,14 +298,16 @@ final class ScriptConverterHost: @unchecked Sendable {
         throw DocxError.conversionFailed
     }
 
-    private func parts(_ source: String) throws -> ScriptDocument {
+    private func parts(_ source: String, contentsDepth: Int?) throws -> ScriptDocument {
         try withContext(deadline: Self.deadline(forBytes: source.utf8.count)) {
             context, isCancelled, begin in
             #if DEBUG
                 let start = DispatchTime.now().uptimeNanoseconds
             #endif
             try begin()
-            guard let result = context.objectForKeyedSubscript("surimonoConvert")?.call(withArguments: [source]),
+            guard
+                let result = context.objectForKeyedSubscript("surimonoConvert")?.call(
+                    withArguments: contentsDepth.map { [source, $0] } ?? [source]),
                 let html = result.forProperty("html"), html.isString
             else { throw CocoaError(.fileReadCorruptFile) }
             #if DEBUG
@@ -318,12 +323,13 @@ final class ScriptConverterHost: @unchecked Sendable {
             }
             return ScriptDocument(
                 html: html.toString(), author: text("author") ?? "", revision: text("revision") ?? "",
-                language: text("language"))
+                language: text("language"), combinedContents: text("combinedContents") == "true",
+                leadContents: text("leadContents"), contentsDepth: text("contentsDepth"))
         }
     }
 
     func fragment(
-        _ source: String, notice: @autoclosure () -> String,
+        _ source: String, contentsDepth: Int? = nil, notice: @autoclosure () -> String,
         rewrite: (ScriptDocument) throws -> HTMLFragment
     ) throws -> HTMLFragment {
         // Check bytes before entering the VM; a document that fits but converts too slowly is shown as text too.
@@ -332,7 +338,7 @@ final class ScriptConverterHost: @unchecked Sendable {
         }
         let document: ScriptDocument
         do {
-            document = try parts(source)
+            document = try parts(source, contentsDepth: contentsDepth)
         } catch ScriptError.timedOut {
             let message = String(localized: "This document took too long to read. Showing the original text.")
             return HTMLFragment(body: "<p>\(HTML.escape(message))</p>" + PlainTextConverter.convert(source).body)

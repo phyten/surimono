@@ -75,7 +75,7 @@ struct PrintFinishFlowTests {
         let first = environment.model("同じ文書")
         first.start()
         try await waitUntil { first.contentHash != nil }
-        first.printFinish.toc.mode = .front
+        first.printFinish.legacyPresetContents.mode = .front
         first.printOptions.margins = PageMargins(top: 10, left: 20, bottom: 30, right: 40)
         first.printOptions.furniture = .nameAndDate
         first.rememberedSettingsDidChange()
@@ -84,9 +84,223 @@ struct PrintFinishFlowTests {
         let second = environment.model("同じ文書")
         second.start()
         try await waitUntil { second.contentHash != nil }
-        #expect(second.printFinish.toc.mode == .front)
+        #expect(second.printFinish.contents.placement == .page)
         #expect(second.printOptions.margins == PageMargins(top: 10, left: 20, bottom: 30, right: 40))
         #expect(second.printOptions.furniture == .nameAndDate)
+    }
+
+    @Test("先頭・本文中・配置に効く目次の行だけ表示し、旧前付けの最初の編集を残す")
+    func contentsRowVisibility() {
+        var page = PrintFinish()
+        page.contents.placement = .page
+        page.contents.inText = .hidden
+        let plain = DocumentFacts(fragment: MarkdownConverter.convert("# Alpha"))
+        let lead = DocumentFacts(fragment: MarkdownConverter.convert("---\ntoc: true\n---\n# Alpha"))
+        let marker = DocumentFacts(fragment: MarkdownConverter.convert("[TOC]\n\n# Alpha"))
+        let both = DocumentFacts(fragment: MarkdownConverter.convert("---\ntoc: true\n---\n[TOC]\n\n# Alpha"))
+        func rows(_ format: DocumentFormat, _ facts: DocumentFacts, _ lead: Bool, _ finish: PrintFinish) -> Set<
+            ContentsFinishRow
+        > {
+            ContentsFinishRow.visible(format: format, hasLead: lead, finish: finish, facts: facts)
+        }
+        #expect(rows(.markdown, plain, false, page) == [.lead])
+        #expect(rows(.markdown, plain, true, page) == [.lead, .layout, .look])
+        #expect(rows(.markdown, lead, true, .init()) == [.lead, .layout])
+        #expect(rows(.markdown, marker, false, page) == [.lead, .inText])
+        #expect(rows(.markdown, both, true, page) == [.lead, .layout, .look, .inText])
+        let org = DocumentFacts(fragment: OrgConverter.convert("* Alpha"))
+        let orgMarker = DocumentFacts(fragment: OrgConverter.convert("* Alpha\n#+TOC: headlines 1"))
+        #expect(rows(.org, org, false, page).isEmpty)
+        #expect(rows(.org, orgMarker, false, page) == [.inText])
+        #expect(rows(.org, org, true, page) == [.layout, .look])
+        let emptyWiki = DocumentFacts(fragment: MediaWikiConverter.convert("__FORCETOC__\n__TOC__"))
+        #expect(rows(.mediawiki, emptyWiki, true, page) == [.lead, .layout, .look])
+        let latex = DocumentFacts(fragment: LaTeXConverter.convert(#"\section{Alpha}"#))
+        #expect(rows(.latex, latex, false, page).isEmpty)
+        for (source, row): (String, ContentsFinishRow) in [
+            (#"\tableofcontents\section{Alpha}"#, .contents), (#"\listoffigures"#, .figures),
+            (#"\listoftables"#, .tables),
+        ] {
+            #expect(rows(.latex, DocumentFacts(fragment: LaTeXConverter.convert(source)), false, page) == [row])
+        }
+        var old = PrintFinish()
+        old.legacyPresetContents.mode = .front
+        old.legacyPresetContents.keepsSourceTOC = true
+        #expect(rows(.markdown, marker, false, old) == [.lead, .layout, .look, .inText])
+        #expect(rows(.markdown, lead, true, old) == [.lead, .layout, .look])
+        #expect(rows(.latex, latex, false, old) == [.contents])
+    }
+
+    @Test("本文中の目次を印刷しない選択は、原稿から指示が消えても残り、再び指示が現れると行が戻る")
+    func inTextContentsAfterReload() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let marked = "# One\n\n[TOC]\n\n## Two"
+        let plain = "# One\n\n## Two"
+        let model = environment.model(marked)
+        model.start()
+        try await waitUntil { model.contentsFacts != nil && model.contentHash != nil }
+        #expect(model.contentsFinishRows == [.lead, .inText])
+        model.setLeadContents(.levels(2))
+        #expect(model.contentsFinishRows == [.lead, .layout, .inText])
+        model.editContents(\.placement, .page)
+        #expect(model.contentsFinishRows == [.lead, .layout, .look, .inText])
+        model.setLeadContents(.off)
+        #expect(model.contentsFinishRows == [.lead, .inText])
+        model.editContents(\.inText, .hidden)
+        model.render()
+        try await waitUntil { model.isUpToDate && model.contentsFacts != nil }
+        #expect(model.contentsFinishRows == [.lead, .inText])
+        model.replaceContent(Data(plain.utf8), format: .markdown)
+        try await waitUntil { model.contentsFacts != nil }
+        #expect(model.contentsFinishRows == [.lead] && model.rememberedSettings.printFinish?.contents.inText == .hidden)
+        model.replaceContent(Data(marked.utf8), format: .markdown)
+        try await waitUntil { model.contentsFacts != nil }
+        #expect(model.contentsFinishRows == [.lead, .inText] && model.printFinish.contents.inText == .hidden)
+    }
+
+    @Test("旧LaTeXの前付けだけを外しても原稿の図目次・表目次は残る", arguments: [true, false], [true, false])
+    func emptyContentsSection(figures: Bool, tables: Bool) async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let source = #"\section{One}"# + (figures ? #"\listoffigures"# : "") + (tables ? #"\listoftables"# : "")
+        let model = environment.model(source, format: .latex)
+        model.printFinish.legacyPresetContents.mode = .front
+        model.printFinish.legacyPresetContents.keepsSourceTOC = true
+        model.start()
+        try await waitUntil { model.contentsFacts != nil && model.contentHash != nil }
+        var lists: Set<ContentsFinishRow> = []
+        if figures { lists.insert(.figures) }
+        if tables { lists.insert(.tables) }
+        #expect(model.contentsFinishRows == lists.union([.contents]) && model.latexContentsBinding.wrappedValue)
+        model.latexContentsBinding.wrappedValue = false
+        #expect(model.printFinish.legacyTOC == nil && model.contentsFinishRows == lists)
+        #expect(model.printFinish.contents.showsFigures && model.printFinish.contents.showsTables)
+    }
+
+    @Test("旧版の新規文書用仕上げと設定セットは適用先の原稿で移行を決める")
+    func legacyDefaultsAndSets() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let data = Data(
+            #"{"options":{},"finish":{"toc":{"mode":"front","depth":"sections","keepsSourceTOC":true}}}"#.utf8)
+        environment.suite.defaults.set(data, forKey: "printFinishDefaults")
+        let prefs = environment.preferences
+        let plain = environment.model("# One\n\n# Two", preferences: prefs)
+        plain.start()
+        try await waitUntil { plain.contentsFacts != nil && plain.printFinish.legacyTOC == nil }
+        #expect(plain.leadContents == .levels(2) && plain.printFinish.contents.placement == .page)
+        #expect(prefs.printFinish.legacyTOC?.mode == .front)
+        prefs.setFinishDefaults(options: plain.printOptions, finish: plain.printFinish)
+        #expect(environment.preferences.printFinish.legacyTOC == prefs.printFinish.legacyTOC)
+        #expect(environment.preferences.printFinish.legacyTOC?.depth == .sections)
+        #expect(prefs.formatReadingDefaults.isEmpty)
+        let marked = environment.model("---\ntoc: true\n---\n# One\n\n[TOC]", preferences: prefs)
+        marked.start()
+        try await waitUntil { marked.contentsFacts != nil }
+        #expect(marked.printFinish.legacyTOC?.keepsSourceTOC == true)
+        #expect(marked.contentsFinishRows == [.lead, .layout, .look, .inText])
+        let set = PrintSettingSet(name: "Original", settings: DocumentSettings(printFinish: prefs.printFinish))
+        marked.applyPrintSettingSet(set)
+        #expect(marked.printFinish.legacyTOC?.mode == .front)
+        marked.editContents(\.look, .plain)
+        #expect(marked.printFinish.legacyTOC == nil && marked.leadContents == .levels(2))
+        var newSet = plain.currentPrintSettingSet.keeping([.finish])
+        newSet.name = "New"
+        let decoded = try JSONDecoder().decode(PrintSettingSet.self, from: JSONEncoder().encode(newSet))
+        marked.applyPrintSettingSet(decoded)
+        #expect(marked.leadContents == .levels(2))
+        #expect(marked.matchesPrintSettingSet(decoded))
+    }
+
+    @Test("仕上げの先頭目次では深さだけを指定した原稿のロックを移行前にも守る")
+    func leadControlWithLockedDepth() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = environment.model("---\ntoc-depth: 2\n---\n# One\n\n## Two", format: .quarto)
+        model.printFinish.legacyPresetContents.mode = .front
+        model.start()
+        try await waitUntil { model.contentsFacts != nil && model.contentHash != nil }
+        let legacy = model.rememberedSettings
+        model.setLeadContents(.levels(1))
+        #expect(model.rememberedSettings == legacy && model.printFinish.legacyTOC?.mode == .front)
+        model.setLeadContents(.levels(2))
+        #expect(model.leadContents == .levels(2) && model.printFinish.legacyTOC == nil)
+        model.setLeadContents(.off)
+        #expect(model.leadContents == .off)
+    }
+
+    @Test("有無だけ指定した原稿では旧仕上げでも「なし」を拒み、選んだ深さで刷る", arguments: [DocumentFormat.markdown, .mediawiki])
+    func leadControlWithLockedPresence(format: DocumentFormat) async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let source =
+            format == .markdown
+            ? "---\ntoc: true\n---\n# A\n## B\n### C" : "__FORCETOC__\n== A ==\n=== B ===\n==== C ===="
+        let model = environment.model(source, format: format)
+        model.printFinish.legacyPresetContents.mode = .hidden
+        model.start()
+        try await waitUntil { model.contentsFacts != nil && model.contentHash != nil }
+        let legacy = model.rememberedSettings
+        #expect(model.leadContents == .levels(3))
+        model.setLeadContents(.off)
+        #expect(model.rememberedSettings == legacy)
+        model.setLeadContents(.levels(1))
+        #expect(model.printFinish.legacyTOC == nil && model.leadContents == .levels(1))
+        model.render()
+        try await waitUntil { model.isUpToDate && model.contentsFacts?.leadEntries?.map(\.text) == ["B"] }
+    }
+
+    @Test("新規文書用の仕上げに保存しても、先頭の目次の文書指定をアプリ既定に書かない")
+    func savingDefaultsKeepsLeadLocal() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let preferences = environment.preferences
+        for format: DocumentFormat in [.markdown, .org] {
+            let model = environment.model(format: format, preferences: preferences)
+            model.setLeadContents(.levels(4))
+            model.editContents(\.placement, .page)
+            preferences.setFinishDefaults(options: model.printOptions, finish: model.printFinish)
+            let reloaded = environment.preferences
+            #expect(reloaded.formatReadingDefaults.isEmpty && reloaded.orgReadingDefaults == nil)
+            #expect(environment.model(format: format, preferences: reloaded).leadContents == .off)
+            #expect(reloaded.printFinish.contents.placement == .page)
+        }
+    }
+
+    @Test("Orgで移行した旧セットを再適用しても、先頭の目次が二重にならない")
+    func reapplyLegacySet() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = environment.model("* Alpha\n* Bravo", format: .org)
+        model.start()
+        try await waitUntil { model.contentHash != nil && model.contentsFacts != nil }
+        var legacy = PrintFinish()
+        legacy.legacyPresetContents.mode = .front
+        legacy.legacyPresetContents.keepsSourceTOC = true
+        let set = PrintSettingSet(name: "Front", settings: DocumentSettings(printFinish: legacy))
+        model.applyPrintSettingSet(set)
+        model.render()
+        try await waitUntil { model.printFinish.legacyTOC == nil && model.leadContents == .levels(1) }
+        model.render()
+        try await waitUntil { model.matchesPrintSettingSet(set) }
+        var options = PrintOptions()
+        options.margins = .uniform(23)
+        let margins = PrintSettingSet(name: "Margins", settings: DocumentSettings(printOptions: options)).keeping([
+            .margins
+        ])
+        model.applyPrintSettingSet(margins)
+        #expect(model.selectedSettingSetID == margins.id && model.printOptions.margins == .uniform(23))
+        model.applyPrintSettingSet(set)
+        #expect(model.printFinish.legacyTOC == nil && model.printFinish.contents.placement == .page)
+        model.render()
+        try await waitUntil { model.isUpToDate && model.result?.addedContentsPages == 1 }
+        #expect(model.contentsFacts?.visibleContentsEntries == [] && model.leadContents == .levels(1))
+        legacy.proof = .accepted
+        let corrected = PrintSettingSet(name: "Corrections", settings: DocumentSettings(printFinish: legacy))
+        model.applyPrintSettingSet(corrected)
+        #expect(model.printFinish.legacyTOC == nil && model.printFinish.proof == .accepted)
+        #expect(model.matchesPrintSettingSet(corrected))
     }
 
     @Test("既定にした仕上げで新しい文書が始まり、余白の設定を変えると余白だけ追う")
@@ -97,13 +311,13 @@ struct PrintFinishFlowTests {
         options.furniture = .name
         options.rotatesBackSides = true
         var finish = PrintFinish()
-        finish.toc.mode = .hidden
+        finish.legacyPresetContents.mode = .hidden
         environment.preferences.setFinishDefaults(options: options, finish: finish)
         let preferences = environment.preferences
         #expect(preferences.printOptions.furniture == .name)
         #expect(!preferences.printOptions.rotatesBackSides)
-        #expect(preferences.printFinish.toc.mode == .hidden)
-        #expect(environment.model(preferences: preferences).printFinish.toc.mode == .hidden)
+        #expect(preferences.printFinish.legacyPresetContents.mode == .hidden)
+        #expect(environment.model(preferences: preferences).printFinish.legacyPresetContents.mode == .hidden)
         preferences.margin = 20
         #expect(preferences.printOptions.margins == .uniform(20))
         #expect(preferences.printOptions.furniture == .name)
@@ -239,7 +453,7 @@ struct PrintFinishFlowTests {
         #expect(model.activeSettingSet?.id == set.id)
         #expect(model.layoutID == "a4Duplex")
         #expect(model.printOptions.furniture == .nameAndDate)
-        #expect(model.printFinish.toc.mode == .hidden)
+        #expect(model.printFinish.legacyPresetContents.mode == .hidden)
         #expect(!model.isSettingSetChanged)
         model.printFinish.breaks.h1 = .page
         #expect(model.isSettingSetChanged)

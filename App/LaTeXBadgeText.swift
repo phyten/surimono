@@ -65,7 +65,7 @@ struct LaTeXBadgeText {
 extension LaTeXComposition {
     var titleKey: String {
         switch self {
-        case .document: "As Written"
+        case .document: "LaTeX Composition As Written"
         case .twoColumn: "Two Columns"
         case .proof: "Proof"
         }

@@ -160,6 +160,38 @@ public struct RenderSettings: Equatable, Sendable {
         return reading
     }
 
+    public var formatReading = FormatReadingChoices()
+    public var formatReadingDefaults = FormatReadingChoices()
+
+    func leadContents(for format: DocumentFormat, facts: DocumentFacts) -> ReadingDepth? {
+        if format == .org {
+            switch orgReading.resolve(.tableOfContents, file: facts.orgInstructions ?? .init()).value {
+            case .off: return nil
+            case .all: return .all
+            case .levels(let count): return .levels(count)
+            }
+        }
+        return formatReading.leadContents(
+            for: format, file: facts.contentsInstructions, defaults: formatReadingDefaults)
+    }
+
+    var includesOrgLead: Bool { finish.legacyTOC != nil || finish.contents.placement == .inline }
+
+    func proposedLeadDepth(for format: DocumentFormat) -> Int? {
+        if let legacy = finish.legacyTOC { return legacy.mode == .front ? legacy.readingDepth.headingLevels : nil }
+        return formatReading.leadContents(for: format, defaults: formatReadingDefaults)?.headingLevels
+    }
+
+    func readerDepth(for format: DocumentFormat) -> Int? {
+        // Headless export can read an automatically migrated source preset before a document window normalizes it.
+        if finish.originalPresetContents?.mode == .source, format == .markdown || format == .mediawiki { return nil }
+        guard finish.legacyTOC == nil,
+            case .outline(_, let depth) = formatReading.resolve(
+                .tableOfContents, for: format, defaults: formatReadingDefaults)
+        else { return nil }
+        return depth.value.headingLevels
+    }
+
     public var orgReading = OrgReadingSettings()
     public var latexComposition = LaTeXComposition.document
     /// The colors and blocks of the document's code; the print theme's own by default.
@@ -286,7 +318,6 @@ struct FinishedPages {
     /// the chapter of each page be found only when a header or footer asks for it.
     var pagePlan: FinishedPagePlan?
     var bodyHTML: String?
-    var showsSourceContents = false
 }
 
 /// The logical pages of a render, ready to show before the printed sheets are composed.
@@ -516,6 +547,8 @@ public final class DocumentRenderer {
         let code: CodeStyle?
         let preset: HTMLCleanupPreset?
         let margins: PageMargins
+        let formatReading: FormatReadingChoices
+        let formatReadingDefaults: FormatReadingChoices
         let orgReading: OrgReadingSettings?
         let latexComposition: LaTeXComposition
         let usesDocumentWidth: Bool
@@ -740,6 +773,7 @@ public final class DocumentRenderer {
                 code: source.children != nil || source.format.usesPrintTheme ? settings.code : nil,
                 preset: source.children != nil || source.format.usesHTMLPreset ? settings.preset : nil,
                 margins: isPlainPDF ? .zero : margins,
+                formatReading: settings.formatReading, formatReadingDefaults: settings.formatReadingDefaults,
                 orgReading: source.format == .org || source.children != nil ? settings.orgReading : nil,
                 latexComposition: settings.latexComposition,
                 usesDocumentWidth: source.format == .latex
@@ -759,7 +793,8 @@ public final class DocumentRenderer {
                     && settings.layout.mirrorsMargins(options: settings.options),
                 rightBound: !isPlainPDF && settings.layout.mirrorsMargins(options: settings.options)
                     && settings.layout.isRightBound,
-                contentsLanguage: isThemed && (settings.finish.toc.mode == .front || settings.finish.links == .endnotes)
+                contentsLanguage: isThemed
+                    && (settings.finish.contents.placement == .page || settings.finish.links == .endnotes)
                     ? settings.pageLanguage : nil,
                 hasNotes: settings.activeNotes != nil,
                 textNotes: isThemed
@@ -1172,6 +1207,9 @@ public final class DocumentRenderer {
             do {
                 var childSettings = settings
                 childSettings.binderStartsOnFront = false
+                childSettings.finish.legacyPresetContents = PaperTOC()
+                childSettings.formatReading = .init()
+                childSettings.formatReadingDefaults = .init()
                 childSettings.finish.footnotes = .end
                 childSettings.markdownChanges = []
                 // Left and right belong to the bound pages, which a document on its own does not know.
@@ -1648,7 +1686,9 @@ public final class DocumentRenderer {
         guard
             let fragment = try Self.themedFragment(
                 source, pageBreakLine: settings.finish.breaks.customLine, proof: settings.finish.proof,
-                orgReading: settings.orgReading,
+                orgReading: settings.orgReading, includesOrgLead: settings.includesOrgLead,
+                contentsDepth: settings.readerDepth(for: source.format),
+                proposedLeadDepth: settings.proposedLeadDepth(for: source.format),
                 composition: settings.latexComposition, textWidthPoints: settings.textWidthPoints(in: settings.layout),
                 textScale: settings.textScale,
                 mapsMarkdownSource: !settings.markdownChanges.isEmpty, access: access,
@@ -1688,6 +1728,16 @@ public final class DocumentRenderer {
             read = try await readThemedInput(source, settings: settings, access: access)
         }
         var fragment = read.fragment
+        var facts = DocumentFacts(fragment: fragment)
+        let lead = settings.leadContents(for: source.format, facts: facts)
+        let original = settings.finish.preparingLead(in: fragment, facts: &facts, format: source.format, lead: lead)
+        fragment.body = settings.finish.placedBody(original, format: source.format, lead: lead)
+        facts.visibleContentsEntries =
+            settings.finish.legacyTOC?.showsSourceContents != false && fragment.body.contains("<nav")
+            ? DocumentOutline.sourceContentsEntries(inHTML: fragment.body) : []
+        if source.format == .latex, fragment.body != original.body, facts.beamerPageSize == nil {
+            facts.headings = DocumentOutline.headings(inHTML: fragment.body)
+        }
         let needsLaTeXFlow =
             source.format == .latex
             && (fragment.latexClass?.composition == .proof || fragment.latexClass?.resolvedStyle != nil
@@ -1702,7 +1752,14 @@ public final class DocumentRenderer {
         let language = HTMLDocumentBuilder.language(for: fragment, fallback: settings.pageLanguage).code
         fragment.language = language
         var paper = fragment
-        paper.body = settings.finish.links.apply(to: fragment.body, language: settings.pageLanguage)
+        if source.format != .latex, settings.finish.legacyTOC == nil, original.body.contains("<nav") {
+            paper.body = settings.finish.placedBody(
+                original, format: source.format, lead: lead, forPaper: true)
+            if source.format != .markdown, !settings.markdownChanges.isEmpty {
+                paper.body = FragmentChanges.identifyingBlocks(in: paper.body, for: settings.markdownChanges)
+            }
+        }
+        paper.body = settings.finish.links.apply(to: paper.body, language: settings.pageLanguage)
         let html = try await builtHTML(paper, source: source, settings: settings, separatesPaper: separatesPaper)
         // Text and tables cannot emit diagram elements. Check markup before adding styles or duplicating it for notes.
         let markup = source.format != .plainText && source.format != .csv
@@ -1716,7 +1773,7 @@ public final class DocumentRenderer {
         try Task.checkCancellation()
         return ThemedPage(
             fragment: fragment, needsLaTeXFlow: needsLaTeXFlow, paper: paper, html: html,
-            facts: DocumentFacts(fragment: fragment),
+            facts: facts,
             mermaid: mermaid, diagrams: diagrams, needsFolderAccess: read.needsFolderAccess)
     }
 
@@ -1755,20 +1812,23 @@ public final class DocumentRenderer {
         result.finishing.facts = facts
         let finish = settings.finish
         let usesRightPages = settings.layout.hasFacingPages && finish.breaks.usesRightPages
-        let wantsContents = finish.toc.mode == .front && !facts.headings.isEmpty
+        let frontDepth = finish.frontDepth(
+            format: source.format, lead: settings.leadContents(for: source.format, facts: facts))
+        // A previously saved automatic migration may predate the check against the native list.
+        let usesLegacyFront = finish.originalPresetContents?.mode == .front
+        let hasEntries = usesLegacyFront ? !facts.headings.isEmpty : facts.leadEntries?.isEmpty == false
+        let wantsContents = frontDepth != nil && hasEntries
         let notes = settings.activeNotes
         result.finishing.bodyHTML = fragment.body
-        result.finishing.showsSourceContents = finish.toc.showsSourceContents
         guard usesRightPages || wantsContents || settings.mirrorsLaidOutPages || notes != nil else { return result }
         let pageCount = text.document.pageCount
         var plan = FinishedPagePlan(bodyPageCount: pageCount, contentsPageCount: 0, rightPageStarts: [])
         var contents: PDFDocument?
         if usesRightPages || wantsContents || notes != nil {
-            let showsSourceContents = finish.toc.showsSourceContents
             let pageTexts = (0..<pageCount).map { text.document.page(at: $0)?.string ?? "" }
             let headingPages = DocumentOutline.pages(
                 of: facts.headings, inPageTexts: pageTexts,
-                contentsEntries: showsSourceContents ? DocumentOutline.sourceContentsEntries(inHTML: fragment.body) : []
+                contentsEntries: facts.visibleContentsEntries
             )
             let insertion = notes.map {
                 FinishedPagePlan.Notes(
@@ -1788,16 +1848,28 @@ public final class DocumentRenderer {
                 bodyPageCount: pageCount, contentsPageCount: 0, rightPageStarts: starts, notes: insertion)
             // The numbers in the contents depend on how many pages the contents take, which the numbers can change.
             // A layout counts once it takes the pages it was numbered for.
+            let entries: [PaperContents.Entry]
+            if let frontDepth, wantsContents {
+                if usesLegacyFront {
+                    entries = PaperContents.entries(
+                        headings: facts.headings, pageNumbers: headingPages, depth: frontDepth)
+                } else {
+                    entries = PaperContents.readerEntries(facts: facts, pageNumbers: headingPages)
+                }
+            } else {
+                entries = []
+            }
             var plannedPageCount = 1
             for _ in 0..<(wantsContents ? Self.contentsLayoutLimit : 0) {
                 plan = FinishedPagePlan(
                     bodyPageCount: pageCount, contentsPageCount: plannedPageCount, rightPageStarts: starts,
                     notes: insertion)
-                let pages = try await contentsPages(
-                    PaperContents.entries(
-                        headings: facts.headings,
-                        pageNumbers: headingPages.map { $0.map { plan.bodyPageIndices[$0] + 1 } },
-                        depth: finish.toc.depth), source: source, settings: settings)
+                let numbered = entries.map { entry in
+                    var entry = entry
+                    entry.page = entry.page.map { plan.bodyPageIndices[$0] + 1 }
+                    return entry
+                }
+                let pages = try await contentsPages(numbered, source: source, settings: settings)
                 contents = pages
                 if pages.pageCount == plannedPageCount { break }
                 plannedPageCount = pages.pageCount
@@ -1846,8 +1918,7 @@ public final class DocumentRenderer {
         finished.finishing = FinishedPages(
             latexPages: text.finishing.latexPages, facts: facts, contentsPageCount: contents?.pageCount ?? 0,
             blankPages: plan.blankPages,
-            plan: notes != nil ? plan : nil, pagePlan: plan, bodyHTML: fragment.body,
-            showsSourceContents: finish.toc.showsSourceContents)
+            plan: notes != nil ? plan : nil, pagePlan: plan, bodyHTML: fragment.body)
         return finished
     }
 
@@ -1861,7 +1932,7 @@ public final class DocumentRenderer {
         let flow = settings.theme.supports(source.format) ? settings.theme.flow : .horizontal
         let separatesPaper = WebPaginator.drawsClearPages && flow == .horizontal
         let fragment = PaperContents.fragment(
-            entries: entries, look: settings.finish.toc.look,
+            entries: entries, look: settings.finish.contents.look,
             title: PaperContents.title(language: settings.pageLanguage))
         let html = try await Self.builtHTML(
             fragment, source: source, settings: settings, separatesPaper: separatesPaper, isContents: true)
@@ -2008,13 +2079,13 @@ public final class DocumentRenderer {
     /// this runs only for a header or footer that names the chapter.
     private static func chapters(of logical: Logical) -> [String] {
         let finishing = logical.finishing
-        guard let facts = finishing.facts, !facts.headings.isEmpty, let body = finishing.bodyHTML else { return [] }
+        guard let facts = finishing.facts, !facts.headings.isEmpty, finishing.bodyHTML != nil else { return [] }
         let plan = finishing.pagePlan
         let places = plan?.bodyPageIndices ?? Array(0..<logical.document.pageCount)
         let pageTexts = places.map { logical.document.page(at: $0)?.string ?? "" }
         let headingPages = DocumentOutline.pages(
             of: facts.headings, inPageTexts: pageTexts,
-            contentsEntries: finishing.showsSourceContents ? DocumentOutline.sourceContentsEntries(inHTML: body) : [])
+            contentsEntries: facts.visibleContentsEntries)
         return PageChapters.titles(headings: facts.headings, pages: headingPages, pageCount: places.count, plan: plan)
     }
 
@@ -2209,7 +2280,8 @@ public final class DocumentRenderer {
     /// The HTML of a format that prints with a theme, or nil for the formats that print as they are.
     nonisolated static func themedFragment(
         _ source: DocumentSource, pageBreakLine: String = "", proof: ProofMarks = .shown,
-        orgReading: OrgReadingSettings = .init(),
+        orgReading: OrgReadingSettings = .init(), includesOrgLead: Bool = true, contentsDepth: Int? = nil,
+        proposedLeadDepth: Int? = nil,
         composition: LaTeXComposition = .document, textWidthPoints: Double? = nil, textScale: Double = 1,
         mapsMarkdownSource: Bool = false,
         access: LocalResourceAccess? = nil,
@@ -2225,31 +2297,37 @@ public final class DocumentRenderer {
         case .markdown:
             try markdownFragment(
                 source, pageBreakLine: pageBreakLine, proof: proof, mapsSource: mapsMarkdownSource,
+                contentsDepth: contentsDepth ?? 3,
                 access: access, onDenied: onDenied)
         case .graphviz, .plantuml:
             DiagramConverter.convert(try decodedText(source.data), format: source.format)
         case .quarto, .rMarkdown:
-            ComputationalMarkdown.convert(try decodedText(source.data), pageBreakLine: pageBreakLine, proof: proof)
+            ComputationalMarkdown.convert(
+                try decodedText(source.data), pageBreakLine: pageBreakLine, proof: proof, contentsDepth: contentsDepth,
+                proposedLeadDepth: proposedLeadDepth)
         case .docx: try DocxConverter.convert(source.data)
         case .djot:
             try DjotConverter.convert(try decodedText(source.data))
         case .rst:
-            RSTConverter.convert(try decodedText(source.data), directory: source.fileURL?.deletingLastPathComponent()) {
-                url in
-                guard access?.permits(url) != false else {
-                    onDenied()
-                    return false
-                }
-                return true
-            }
+            RSTConverter.convert(
+                try decodedText(source.data), directory: source.fileURL?.deletingLastPathComponent(),
+                permitsFile: {
+                    url in
+                    guard access?.permits(url) != false else {
+                        onDenied()
+                        return false
+                    }
+                    return true
+                })
         case .mediawiki:
             MediaWikiConverter.convert(
                 try decodedText(source.data), directory: source.fileURL?.deletingLastPathComponent(),
+                contentsDepth: contentsDepth ?? 3,
                 imageExists: imageExists)
         case .textile:
             try TextileConverter.convert(try decodedText(source.data))
         case .asciidoc:
-            try AsciiDocConverter.convert(try decodedText(source.data))
+            try AsciiDocConverter.convert(try decodedText(source.data), contentsDepth: contentsDepth)
         case .notebook:
             try NotebookConverter.convert(try decodedText(source.data), pageBreakLine: pageBreakLine, proof: proof)
         case .latex:
@@ -2259,7 +2337,8 @@ public final class DocumentRenderer {
         case .org:
             OrgConverter.convert(
                 try decodedText(source.data), settings: orgReading,
-                fileName: source.fileURL?.lastPathComponent ?? source.name)
+                fileName: source.fileURL?.lastPathComponent ?? source.name, includesLeadContents: includesOrgLead,
+                proposedLeadDepth: proposedLeadDepth)
         case .plainText, .csv:
             try DecodedPages(source, textWidthPoints: textWidthPoints, textScale: textScale).fragment()
         default: nil

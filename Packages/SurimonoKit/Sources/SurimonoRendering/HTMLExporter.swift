@@ -38,7 +38,9 @@ public enum HTMLExporter {
                     operation: {
                         try DocumentRenderer.themedFragment(
                             source, pageBreakLine: input.finish.breaks.customLine, proof: input.finish.proof,
-                            orgReading: input.orgReading,
+                            orgReading: input.orgReading, includesOrgLead: input.includesOrgLead,
+                            contentsDepth: input.readerDepth(for: source.format),
+                            proposedLeadDepth: input.proposedLeadDepth(for: source.format),
                             composition: input.latexComposition,
                             textWidthPoints: input.textWidthPoints(in: input.layout), textScale: input.textScale)
                     }
@@ -54,6 +56,10 @@ public enum HTMLExporter {
             fragment = try await convert(candidate)
         }
         let settings = candidate
+        let facts = DocumentFacts(fragment: fragment)
+        fragment.body = settings.finish.contentsBody(
+            fragment, facts: facts, format: source.format, lead: settings.leadContents(for: source.format, facts: facts)
+        )
         var body = fragment
         body.body = settings.finish.links.apply(to: fragment.body, language: settings.pageLanguage)
         let directory = source.fileURL?.deletingLastPathComponent()

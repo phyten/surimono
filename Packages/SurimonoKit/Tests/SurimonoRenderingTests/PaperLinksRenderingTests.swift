@@ -39,7 +39,7 @@ struct PaperLinksRenderingTests {
         var options = RenderSettings(
             layout: .a4Duplex, theme: try #require(themes.first { $0.id == "standard" }),
             preset: HTMLCleanupPreset(id: "none", name: "None"))
-        options.finish.toc.mode = .front
+        options.finish.legacyPresetContents.mode = .front
         options.options.furniture.topCenter = "CHAPTER:{章}"
         let renderer = DocumentRenderer(paginate: { request in
             if case .html(let html, _) = request.source, html.contains("paper-toc-title") {

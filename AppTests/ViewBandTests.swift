@@ -801,7 +801,7 @@ struct ViewBandTests {
         model.layoutID = PrintLayout.a4BookletA5.id
         model.printOptions.mirrorsMargins = true
         model.printFinish.breaks.h1 = .rightPage
-        model.printFinish.toc.mode = .front
+        model.printFinish.legacyPresetContents.mode = .front
         let reading = try #require(model.renderSettings)
         #expect(reading.layout == .a4BookletA5)
         model.mode = .print

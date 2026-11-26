@@ -74,12 +74,38 @@ Html5Converter.prototype.convert_inline_quoted = function (node) {
     return quoted.call(this, node);
 };
 
-async function documentParts(source) {
+async function documentParts(source, contentsDepth) {
     const document = await load(source, {
         safe: 'secure', standalone: false, backend: 'html5',
         attributes: { showtitle: '', 'sectanchors!': '', 'icons!': '', 'source-highlighter!': '', lang: 'und@' }
     });
+    const macro = document.getAttribute('toc-placement') === 'macro';
+    const lead = document.hasAttribute('toc') && !macro;
+    const combined = lead && document.hasSections() && document.findBy({context: 'toc'}).length > 0;
+    const fileDepth = document.getAttribute('toclevels');
+    if (lead && fileDepth == null && contentsDepth != null) document.setAttribute('toclevels', String(contentsDepth));
+    // The embedded converter normally discards macro nodes when it also writes an automatic contents.
+    // Render each such node with its own title and levels at its original position in the unified finish.
+    if (combined && contentsDepth != null) {
+        const convertToc = document.converter.convert_toc;
+        document.converter.convert_toc = async function(node) {
+            const placement = document.attributes['toc-placement'];
+            document.attributes['toc-placement'] = 'macro';
+            try {
+                let toc = await convertToc.call(this, node);
+                if (node.id == null) {
+                    toc = toc.replace('<div id="toc" ', '<div ').replace('<div id="toctitle" ', '<div ');
+                }
+                return toc.replace('<div ', '<div data-surimono-in-text="1" ');
+            } finally {
+                document.attributes['toc-placement'] = placement;
+            }
+        };
+    }
     return {
+        combinedContents: String(combined),
+        leadContents: lead ? 'true' : (!document.hasAttribute('toc') && document._attributesModified.has('toc') ? 'false' : undefined),
+        contentsDepth: fileDepth,
         html: await document.convert(),
         author: document.getAuthors().map(author => author.getName()).join(', '),
         revision: [document.getRevisionNumber(), document.getRevisionDate(), document.getRevisionRemark()]
@@ -90,9 +116,9 @@ async function documentParts(source) {
 
 // JSContext drains native Promise jobs before returning to Swift. No event loop,
 // timers, or asynchronous host functions participate in secure string conversion.
-function surimonoConvert(source) {
+function surimonoConvert(source, contentsDepth) {
     const result = {};
-    documentParts(source).then(parts => Object.assign(result, parts), () => { result.failed = true; });
+    documentParts(source, contentsDepth).then(parts => Object.assign(result, parts), () => { result.failed = true; });
     return result;
 }
 
