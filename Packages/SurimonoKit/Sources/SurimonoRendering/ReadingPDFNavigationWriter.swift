@@ -62,6 +62,12 @@ enum ReadingPDFNavigationWriter {
         let destination: Destination
     }
 
+    struct NewLink: Sendable {
+        let page: Int
+        let bounds: CGRect
+        let destination: Destination
+    }
+
     struct Bookmark: Equatable, Sendable {
         let title: String
         let destination: Destination?
@@ -70,14 +76,58 @@ enum ReadingPDFNavigationWriter {
     }
 
     /// Pages and annotations are zero-based. A nil outline leaves the catalog's original outline intact.
-    static func repair(_ data: Data, links: [Link], bookmarks: [Bookmark]?, removingAnnotations: [Int: Set<Int>] = [:])
+    static func repair(
+        _ data: Data, links: [Link], bookmarks: [Bookmark]?, removingAnnotations: [Int: Set<Int>] = [:],
+        adding: [NewLink] = []
+    )
         throws -> Data
     {
         try Task.checkCancellation()
-        guard !links.isEmpty || bookmarks != nil || !removingAnnotations.isEmpty else { return data }
+        guard !links.isEmpty || bookmarks != nil || !removingAnnotations.isEmpty || !adding.isEmpty else { return data }
         return try data.withUnsafeBytes { buffer in
             var file = try File(bytes: buffer.bindMemory(to: UInt8.self))
-            return try file.repair(data, links: links, bookmarks: bookmarks, removingAnnotations: removingAnnotations)
+            return try file.repair(
+                data, links: links, bookmarks: bookmarks, removingAnnotations: removingAnnotations, adding: adding)
+        }
+    }
+
+    struct AnnotationLocation {
+        let page: Int
+        let bounds: CGRect
+    }
+
+    /// Fill missing indirect /Dest objects before PDFKit serializes the page boxes and
+    /// loses their identities. Every annotation dictionary and every defined target stays intact.
+    static func restoringMissingDestinations(
+        in data: Data, locate: ([Ref: [AnnotationLocation]]) throws -> [Ref: Destination]
+    ) throws -> Data? {
+        return try data.withUnsafeBytes { buffer in
+            var file = try File(bytes: buffer.bindMemory(to: UInt8.self))
+            guard file.offsets.values.contains(0) else { return nil }
+            try file.readPageTree()
+            var marksByDestination: [Ref: [AnnotationLocation]] = [:]
+            for (page, ref) in file.pages.enumerated() {
+                try Task.checkCancellation()
+                let dictionary = try file.dictionary(ref)
+                guard dictionary.fields["Annots"] != nil else { continue }
+                for annotation in try file.references("Annots", in: dictionary) {
+                    try Task.checkCancellation()
+                    let dict = try file.dictionary(annotation)
+                    guard var dest = try? file.field("Dest", of: dict), let id = try? dest.ref(),
+                        file.offsets[id] != nil
+                    else { continue }
+                    var subtype = try file.field("Subtype", of: dict)
+                    guard try subtype.name() == "Link" else { continue }
+                    var rect = try file.field("Rect", of: dict)
+                    marksByDestination[id, default: []].append(.init(page: page, bounds: try rect.rectangle()))
+                }
+            }
+            for (id, target) in try locate(marksByDestination) where file.offsets[id] == 0 {
+                try Task.checkCancellation()
+                file.revisions[id] = Data(try file.operand(target).utf8)
+            }
+            guard !file.revisions.isEmpty else { return nil }
+            return try file.repair(data, links: [], bookmarks: nil, removingAnnotations: [:], adding: [])
         }
     }
 
@@ -97,7 +147,7 @@ enum ReadingPDFNavigationWriter {
         }
     }
 
-    private struct Ref: Hashable {
+    struct Ref: Hashable {
         let id: Int
         let generation: Int
         var operand: String { "\(id) \(generation) R" }
@@ -271,6 +321,21 @@ enum ReadingPDFNavigationWriter {
             }
         }
 
+        mutating func rectangle() throws -> CGRect {
+            guard take(91) else { throw Failure.unsupported }
+            func coordinate(_ token: String) throws -> CGFloat {
+                guard let n = Double(token), n.isFinite else { throw Failure.unsupported }
+                return CGFloat(n)
+            }
+            let x = try coordinate(word())
+            let y = try coordinate(word())
+            let right = try coordinate(word())
+            let top = try coordinate(word())
+            spaces()
+            guard take(93), right > x, top > y else { throw Failure.unsupported }
+            return CGRect(x: x, y: y, width: right - x, height: top - y)
+        }
+
         mutating func references() throws -> [Ref] {
             spaces()
             guard take(91) else { throw Failure.unsupported }
@@ -436,6 +501,15 @@ enum ReadingPDFNavigationWriter {
             }
         }
 
+        mutating func readPageTree() throws {
+            let catalog = try dictionary(root)
+            var type = try field("Type", of: catalog)
+            guard try type.name() == "Catalog" else { throw Failure.unsupported }
+            var tree = try field("Pages", of: catalog)
+            var visited = Set<Ref>()
+            try collectPages(tree.ref(), visited: &visited, depth: 0)
+        }
+
         func operand(_ destination: Destination) throws -> String {
             guard pages.indices.contains(destination.page),
                 Destination.argumentCount(for: destination.mode) == destination.arguments.count,
@@ -503,15 +577,13 @@ enum ReadingPDFNavigationWriter {
             return ("/First \(first.operand) /Last \(last.operand) /Count \(count)", visibleChildren)
         }
 
-        mutating func repair(_ base: Data, links: [Link], bookmarks: [Bookmark]?, removingAnnotations: [Int: Set<Int>])
+        mutating func repair(
+            _ base: Data, links: [Link], bookmarks: [Bookmark]?, removingAnnotations: [Int: Set<Int>], adding: [NewLink]
+        )
             throws -> Data
         {
+            if pages.isEmpty { try readPageTree() }
             let catalog = try dictionary(root)
-            var type = try field("Type", of: catalog)
-            guard try type.name() == "Catalog" else { throw Failure.unsupported }
-            var tree = try field("Pages", of: catalog)
-            var visited = Set<Ref>()
-            try collectPages(tree.ref(), visited: &visited, depth: 0)
             for (source, group) in Dictionary(grouping: links, by: \.page) {
                 guard pages.indices.contains(source) else { throw Failure.unsupported }
                 let annotations = try references("Annots", in: dictionary(pages[source]))
@@ -530,14 +602,26 @@ enum ReadingPDFNavigationWriter {
                         ["A", "Dest"], adding: "/Dest \(try operand(link.destination))", in: bytes)
                 }
             }
-            for (source, removed) in removingAnnotations {
+            let additions = Dictionary(grouping: adding, by: \.page)
+            for source in Set(removingAnnotations.keys).union(additions.keys) {
+                let removed = removingAnnotations[source] ?? []
                 try Task.checkCancellation()
                 guard pages.indices.contains(source) else { throw Failure.unsupported }
                 let ref = pages[source]
                 let dict = try dictionary(ref)
-                let annotations = try references("Annots", in: dict)
+                let annotations = dict.fields["Annots"] == nil ? [] : try references("Annots", in: dict)
                 guard removed.allSatisfy(annotations.indices.contains) else { throw Failure.unsupported }
-                let kept = annotations.indices.filter { !removed.contains($0) }.map { annotations[$0].operand }
+                var kept = annotations.indices.filter { !removed.contains($0) }.map { annotations[$0].operand }
+                for link in additions[source] ?? [] {
+                    try Task.checkCancellation()
+                    let ref = try allocate()
+                    let r = link.bounds
+                    let rect = try [r.minX, r.minY, r.maxX, r.maxY].map(decimal).joined(separator: " ")
+                    revisions[ref] = Data(
+                        "<< /Type /Annot /Subtype /Link /Rect [\(rect)] /Border [0 0 0] /Dest \(try operand(link.destination)) >>"
+                            .utf8)
+                    kept.append(ref.operand)
+                }
                 revisions[ref] = dict.editing(["Annots"], adding: "/Annots [\(kept.joined(separator: " "))]", in: bytes)
             }
             if let bookmarks {

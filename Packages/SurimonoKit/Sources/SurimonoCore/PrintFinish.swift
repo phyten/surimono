@@ -348,7 +348,6 @@ public enum PaperContents {
         public var depth: Int
         public var text: String
         public var page: Int?
-        fileprivate var link: URL?
 
         public init(depth: Int, text: String, page: Int?) {
             self.depth = depth
@@ -364,33 +363,28 @@ public enum PaperContents {
     }
 
     public static func entries(headings: [DocumentHeading], pageNumbers: [Int?], depth: ReadingDepth) -> [Entry] {
-        entries(headings: headings, pageNumbers: pageNumbers, depth: depth, linkForHeading: { _ in nil })
+        legacyRows(headings: headings, pageNumbers: pageNumbers, depth: depth).map(\.entry)
     }
 
-    package static func entries(
-        headings: [DocumentHeading], pageNumbers: [Int?], depth: ReadingDepth, linkForHeading: (Int) -> URL?
-    ) -> [Entry] {
+    package static func legacyRows(
+        headings: [DocumentHeading], pageNumbers: [Int?], depth: ReadingDepth
+    ) -> [(entry: Entry, id: String?)] {
         legacySelection(headings, depth: depth).map { index, heading in
-            var entry = Entry(
-                depth: heading.level, text: heading.text,
-                page: pageNumbers.indices.contains(index) ? pageNumbers[index] : nil)
-            entry.link = linkForHeading(index)
-            return entry
+            (
+                Entry(
+                    depth: heading.level, text: heading.text,
+                    page: pageNumbers.indices.contains(index) ? pageNumbers[index] : nil), heading.id
+            )
         }
     }
 
-    package static func readerEntries(
-        facts: DocumentFacts, pageNumbers: [Int?], linkForHeading: (Int) -> URL? = { _ in nil }
-    ) -> [Entry] {
-        var targets: [String: (index: Int, page: Int)] = [:]
+    package static func readerEntries(facts: DocumentFacts, pageNumbers: [Int?]) -> [Entry] {
+        var targets: [String: Int] = [:]
         for (index, heading) in facts.headings.enumerated() where pageNumbers.indices.contains(index) {
-            if let id = heading.id, let page = pageNumbers[index], targets[id] == nil { targets[id] = (index, page) }
+            if let id = heading.id, let page = pageNumbers[index], targets[id] == nil { targets[id] = page }
         }
         return (facts.leadEntries ?? []).map { item in
-            let target = item.id.flatMap { targets[$0] }
-            var entry = Entry(depth: item.level, text: item.text, page: target?.page)
-            entry.link = target.flatMap { linkForHeading($0.index) }
-            return entry
+            Entry(depth: item.level, text: item.text, page: item.id.flatMap { targets[$0] })
         }
     }
 
@@ -419,12 +413,9 @@ public enum PaperContents {
     public static func fragment(entries: [Entry], look: PaperTOC.Look, title: String) -> HTMLFragment {
         let rows = entries.map { entry in
             let page = entry.page.map(String.init) ?? ""
-            let url = entry.link
-            let tag = url == nil ? "div" : "a"
-            let href = url.map { " href=\"" + HTML.escape($0.absoluteString) + "\"" } ?? ""
-            return "<\(tag)\(href) class=\"paper-toc-row paper-toc-depth-\(entry.depth)\">"
+            return "<div class=\"paper-toc-row paper-toc-depth-\(entry.depth)\">"
                 + "<span class=\"paper-toc-text\">\(HTML.escape(entry.text))</span>"
-                + "<span class=\"paper-toc-page\">\(page)</span></\(tag)>"
+                + "<span class=\"paper-toc-page\">\(page)</span></div>"
         }
         let line = "1px dotted rgba(0, 0, 0, 0.4)"
         let borders =
@@ -439,8 +430,6 @@ public enum PaperContents {
             .paper-toc-title::before, .paper-toc-title::after { content: none !important; }
             .paper-toc-row { display: flex; justify-content: space-between; align-items: baseline; gap: 1em; \
             padding-block: 0.25em; }
-            a.paper-toc-row { color: inherit; text-decoration: none; }
-            a.paper-toc-row::after { content: none; }
             .paper-toc-depth-2 { padding-left: 1.2em; font-size: 0.92em; }
             .paper-toc-depth-3 { padding-left: 2.4em; }
             .paper-toc-depth-4 { padding-left: 3.6em; }

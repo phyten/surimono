@@ -114,9 +114,24 @@ enum VerticalPaginator {
     /// the position up spends what is left of the budget instead of starting one of its own.
     static func pages(
         in webView: WKWebView, pageSize: CGSize, margins: WebPaginator.Margins, timeout: Duration,
-        booklet: Bool = false, textScale: Double = 1, fragmentLinks: PrintedFragmentLinks.Preparation? = nil,
+        booklet: Bool = false, textScale: Double = 1,
         samplePosition: (@MainActor (ContinuousClock.Instant) async throws -> CGFloat?)? = nil
     ) async throws -> PDFDocument {
+        let bytes = try await data(
+            in: webView, pageSize: pageSize, margins: margins, timeout: timeout,
+            booklet: booklet, textScale: textScale, samplePosition: samplePosition)
+        guard let document = PDFDocument(data: bytes), document.pageCount > 0 else {
+            throw WebPaginator.PaginationError.emptyDocument
+        }
+        return document
+    }
+
+    static func data(
+        in webView: WKWebView, pageSize: CGSize, margins: WebPaginator.Margins, timeout: Duration,
+        booklet: Bool = false, textScale: Double = 1,
+        samplePosition: (@MainActor (ContinuousClock.Instant) async throws -> CGFloat?)? = nil,
+        recordSlice: (@MainActor (Int, PrintedFragmentLinks.VerticalLayout.Slice) -> Void)? = nil
+    ) async throws -> Data {
         try Task.checkCancellation()
         guard PDFDrawing.validGeometry(pageSize: pageSize, margins: margins), let measurement else {
             throw WebPaginator.PaginationError.printFailed
@@ -125,113 +140,119 @@ enum VerticalPaginator {
         let pixelsPerPoint: CGFloat = 96.0 / 72
         // Each WebKit reply below is awaited only until this deadline, and fails at once when the page's process
         // has ended: awaiting WebKit's own async calls left the capture task (and its session) waiting for good.
-        let deadline = ContinuousClock.now + timeout
-        var result: Result<PDFDocument, any Error>?
-        let capture = Task { @MainActor in
-            do {
-                let values =
-                    try await webView.evaluateForPrinting(
-                        diagnosed(
-                            """
-                            const d = document.body.dataset;
-                            return d.latexVerticalRows ? [d.latexVerticalRows, d.latexSize, d.latexTextWidth, d.latexTextHeight].map(Number) : null;
-                            """, stage: "read manuscript dimensions"), until: deadline) as? [Double]
-                let manuscript: Manuscript?
-                if let values, values.count == 4, values[1].isFinite, values[1] > 0 {
-                    // A contradictory geometry override may leave one dimension empty. Keep the
-                    // declared font and columns and fit that axis to the available paper.
-                    let textWidth = values[2] > 0 ? values[2] : pageSize.width
-                    let textHeight = values[3] > 0 ? values[3] : pageSize.height
-                    manuscript = Manuscript(
-                        rows: values[0] == 2 ? 2 : 1, font: values[1],
-                        textArea: CGSize(width: textWidth, height: textHeight))
-                } else {
-                    manuscript = nil
-                }
-                let frame = Frame(pageSize: pageSize, margins: margins, textScale: textScale, manuscript: manuscript)
-                let width = frame.width * pixelsPerPoint
-                let height = frame.height * pixelsPerPoint
-                let (plan, originY) = try await measure(
-                    in: webView, script: measurement, width: width, height: height, font: frame.font,
-                    booklet: booklet, rows: frame.rows, until: deadline)
-                try Task.checkCancellation()
-                let pages = plan.pages
-                var selected = pages.startIndex..<pages.endIndex
-                if let samplePosition, !pages.isEmpty {
-                    let position = try await samplePosition(deadline)
-                    let index =
-                        position.flatMap { x in
-                            pages.firstIndex { page in
-                                guard let last = page.last else { return false }
-                                return plan.sources[last.index].end >= -x
-                            }
-                        } ?? 0
-                    selected = index..<(index + 1)
-                }
-                let bytes = try await PDFDrawing.data(pageSize: pageSize) { context in
-                    if pages.isEmpty {
-                        context.beginPDFPage(nil)
-                        context.endPDFPage()
-                    }
-                    // The original header stays selectable. Repeated furniture is ink only, including any links.
-                    var headerImage: (CGRect, CGImage)?
-                    @MainActor func repeatedHeader(_ source: CGRect) async throws -> CGImage {
-                        if let headerImage, headerImage.0 == source { return headerImage.1 }
-                        let config = WKPDFConfiguration()
-                        config.rect = source
-                        let data = try await webView.pdfForPrinting(configuration: config, until: deadline)
-                        guard let doc = PDFDocument(data: data), let page = doc.page(at: 0) else {
-                            throw WebPaginator.PaginationError.printFailed
-                        }
-                        let image = try PageImageExporter.image(page, dpi: 288)
-                        headerImage = (source, image)
-                        return image
-                    }
-                    for page in selected {
-                        context.beginPDFPage(nil)
-                        defer { context.endPDFPage() }
-                        for slice in pages[page] {
-                            try Task.checkCancellation()
-                            if plan.sources.count > 1 {
-                                _ = try await webView.evaluateForPrinting(
-                                    diagnosed("surimonoCaptureSlice(index)", stage: "show source slice \(slice.index)"),
-                                    arguments: ["index": slice.index], until: deadline)
-                            }
-                            // Assign rows by their layout width, then keep annotation overhang at its natural scale.
-                            let rect = slice.rect.offsetBy(dx: 0, dy: originY)
-                            let scale = slice.fit / pixelsPerPoint
-                            let target = CGRect(
-                                x: frame.right + slice.offset.x / pixelsPerPoint,
-                                y: frame.top(of: slice.row) - slice.offset.y / pixelsPerPoint,
-                                width: rect.width * scale, height: rect.height * scale)
-                            try await FlowPageCapture.draw(
-                                rect, from: webView, into: target, in: context, deadline: deadline)
-                            if let header = slice.header {
-                                let image = try await repeatedHeader(header.offsetBy(dx: 0, dy: originY))
-                                context.draw(
-                                    image,
-                                    in: CGRect(
-                                        x: target.minX + (header.minX - rect.minX) * scale, y: target.maxY,
-                                        width: header.width * scale, height: header.height * scale))
-                            }
-                            if let rule = slice.bottomRule, rule.color.count == 4 {
-                                context.setFillColor(
-                                    CGColor(
-                                        srgbRed: rule.color[0], green: rule.color[1],
-                                        blue: rule.color[2], alpha: rule.color[3]))
-                                context.fill(
-                                    CGRect(
-                                        x: target.minX + (rule.rect.minX - rect.minX) * scale,
-                                        y: target.minY - rule.rect.height * scale, width: rule.rect.width * scale,
-                                        height: rule.rect.height * scale))
-                            }
-                        }
-                    }
-                }
-                result = .success(try await PrintedFragmentLinks.open(bytes, links: fragmentLinks?.links).document)
-            } catch {
-                result = .failure(error)
+        return try await capturedData(timeout: timeout) { deadline in
+            let values =
+                try await webView.evaluateForPrinting(
+                    diagnosed(
+                        """
+                        const d = document.body.dataset;
+                        return d.latexVerticalRows ? [d.latexVerticalRows, d.latexSize, d.latexTextWidth, d.latexTextHeight].map(Number) : null;
+                        """, stage: "read manuscript dimensions"), until: deadline) as? [Double]
+            let manuscript: Manuscript?
+            if let values, values.count == 4, values[1].isFinite, values[1] > 0 {
+                // A contradictory geometry override may leave one dimension empty. Keep the
+                // declared font and columns and fit that axis to the available paper.
+                let textWidth = values[2] > 0 ? values[2] : pageSize.width
+                let textHeight = values[3] > 0 ? values[3] : pageSize.height
+                manuscript = Manuscript(
+                    rows: values[0] == 2 ? 2 : 1, font: values[1],
+                    textArea: CGSize(width: textWidth, height: textHeight))
+            } else {
+                manuscript = nil
             }
+            let frame = Frame(pageSize: pageSize, margins: margins, textScale: textScale, manuscript: manuscript)
+            let width = frame.width * pixelsPerPoint
+            let height = frame.height * pixelsPerPoint
+            let (plan, originY) = try await measure(
+                in: webView, script: measurement, width: width, height: height, font: frame.font,
+                booklet: booklet, rows: frame.rows, until: deadline)
+            try Task.checkCancellation()
+            let pages = plan.pages
+            var selected = pages.startIndex..<pages.endIndex
+            if let samplePosition, !pages.isEmpty {
+                let position = try await samplePosition(deadline)
+                let index =
+                    position.flatMap { x in
+                        pages.firstIndex { page in
+                            guard let last = page.last else { return false }
+                            return plan.sources[last.index].end >= -x
+                        }
+                    } ?? 0
+                selected = index..<(index + 1)
+            }
+            return try await PDFDrawing.data(pageSize: pageSize) { context in
+                if pages.isEmpty {
+                    context.beginPDFPage(nil)
+                    context.endPDFPage()
+                }
+                // The original header stays selectable. Repeated furniture is ink only, including any links.
+                var headerImage: (CGRect, CGImage)?
+                @MainActor func repeatedHeader(_ source: CGRect) async throws -> CGImage {
+                    if let headerImage, headerImage.0 == source { return headerImage.1 }
+                    let config = WKPDFConfiguration()
+                    config.rect = source
+                    let data = try await webView.pdfForPrinting(configuration: config, until: deadline)
+                    guard let doc = PDFDocument(data: data), let page = doc.page(at: 0) else {
+                        throw WebPaginator.PaginationError.printFailed
+                    }
+                    let image = try PageImageExporter.image(page, dpi: 288)
+                    headerImage = (source, image)
+                    return image
+                }
+                for page in selected {
+                    context.beginPDFPage(nil)
+                    defer { context.endPDFPage() }
+                    for slice in pages[page] {
+                        try Task.checkCancellation()
+                        if plan.sources.count > 1 {
+                            _ = try await webView.evaluateForPrinting(
+                                diagnosed("surimonoCaptureSlice(index)", stage: "show source slice \(slice.index)"),
+                                arguments: ["index": slice.index], until: deadline)
+                        }
+                        // Assign rows by their layout width, then keep annotation overhang at its natural scale.
+                        let rect = slice.rect.offsetBy(dx: 0, dy: originY)
+                        let scale = slice.fit / pixelsPerPoint
+                        let target = CGRect(
+                            x: frame.right + slice.offset.x / pixelsPerPoint,
+                            y: frame.top(of: slice.row) - slice.offset.y / pixelsPerPoint,
+                            width: rect.width * scale, height: rect.height * scale)
+                        try await FlowPageCapture.draw(
+                            rect, from: webView, into: target, in: context, deadline: deadline)
+                        recordSlice?(slice.index, .init(source: rect, paper: target, page: page))
+                        if let header = slice.header {
+                            let image = try await repeatedHeader(header.offsetBy(dx: 0, dy: originY))
+                            context.draw(
+                                image,
+                                in: CGRect(
+                                    x: target.minX + (header.minX - rect.minX) * scale, y: target.maxY,
+                                    width: header.width * scale, height: header.height * scale))
+                        }
+                        if let rule = slice.bottomRule, rule.color.count == 4 {
+                            context.setFillColor(
+                                CGColor(
+                                    srgbRed: rule.color[0], green: rule.color[1],
+                                    blue: rule.color[2], alpha: rule.color[3]))
+                            context.fill(
+                                CGRect(
+                                    x: target.minX + (rule.rect.minX - rect.minX) * scale,
+                                    y: target.minY - rule.rect.height * scale, width: rule.rect.width * scale,
+                                    height: rule.rect.height * scale))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Only the capture shares the print deadline. Its caller may still spend a separate
+    /// budget on navigation after it receives these complete bytes.
+    static func capturedData(
+        timeout: Duration, operation: @escaping @MainActor (ContinuousClock.Instant) async throws -> Data
+    ) async throws -> Data {
+        let deadline = ContinuousClock.now + timeout
+        var result: Result<Data, any Error>?
+        let capture = Task {
+            do { result = .success(try await operation(deadline)) } catch { result = .failure(error) }
         }
         // WebKit's async capture has no cancellation API. Release the owning session promptly, and never start
         // another slice or publish a partial PDF if an outstanding callback arrives after the deadline.

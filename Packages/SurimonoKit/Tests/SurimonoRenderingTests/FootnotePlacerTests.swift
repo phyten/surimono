@@ -82,6 +82,93 @@ struct FootnotePlacerTests {
         #expect(page.annotations.count == 1)
     }
 
+    @Test("文字のない測定印と参照が未定義の同じ宛先を持つとき原紙から脚注を置ける")
+    func missingStockDestination() async throws {
+        let planned = try #require(PageFootnotes.plan(for: html))
+        let bytes = try await PDFDrawing.data(pageSize: CGSize(width: 600, height: 800)) { context in
+            // Quartz writes the same indirect /Dest on each of these annotations but
+            // no destination object when nothing defines the name.
+            let note = "fn-1" as CFString
+            context.beginPDFPage(nil)
+            context.setDestination(note, for: CGRect(x: 100, y: 640, width: 6, height: 10))
+            context.setDestination(note, for: CGRect(x: 110, y: 600, width: 3, height: 3))
+            context.endPDFPage()
+            context.beginPDFPage(nil)
+            context.setDestination(note, for: CGRect(x: 40, y: 697, width: 3, height: 3))
+            context.setDestination(note, for: CGRect(x: 40, y: 680, width: 3, height: 3))
+            context.endPDFPage()
+        }
+        #expect(try FootnotePlacer.recoverStock(in: bytes, expected: [.init(references: 2, reservesRoom: true)]) == nil)
+        let recovered = try #require(
+            try FootnotePlacer.recoverStock(in: bytes, expected: [.init(references: 1, reservesRoom: true)]))
+        // Exercise the same trim and PDFKit reopen that otherwise erase the dangling identity.
+        let printed = try #require(PDFDocument(data: recovered))
+        for index in 0..<printed.pageCount {
+            let page = try #require(printed.page(at: index))
+            let paper = CGRect(x: 0, y: 2, width: 600, height: 798)
+            page.setBounds(paper, for: .mediaBox)
+            page.setBounds(paper, for: .cropBox)
+        }
+        let trimmed = try #require(printed.dataRepresentation())
+        let raw = try #require(PDFDocument(data: trimmed))
+        let measured = try FootnotePlacer.measure(raw, plan: planned, placing: [1])
+        #expect(measured.stock.first?.rect.height == 20)
+        #expect(measured.references[0]?.page == 0)
+        let groups = try FootnotePlacer.groups(for: measured, plan: planned, contentHeight: 720, textScale: 1)
+        // Simulate a successful reading repair which omits all private stock links.
+        let reading = try #require(PDFDocument(data: trimmed))
+        for index in 0..<reading.pageCount {
+            let page = try #require(reading.page(at: index))
+            for mark in page.annotations { page.removeAnnotation(mark) }
+        }
+        let url = try #require(URL(string: "https://example.test/read"))
+        let external = PDFAnnotation(
+            bounds: CGRect(x: 30, y: 740, width: 28, height: 10),
+            forType: .link, withProperties: nil)
+        external.url = url
+        reading.page(at: 0)?.addAnnotation(external)
+        let margins = WebPaginator.Margins(top: 40, left: 40, bottom: 40, right: 40)
+        let placed = try FootnotePlacer.composition(
+            raw, annotationSource: reading, plan: planned, groups: groups, margins: margins)
+        #expect(placed.document.pageCount == 1)
+        #expect(placed.document.page(at: 0)?.annotations.map(\.url) == [url])
+        // A missing navigation reply uses the same raw measurement and stock removal.
+        let withoutReading = try FootnotePlacer.compose(raw, plan: planned, groups: groups, margins: margins)
+        #expect(withoutReading.pageCount == placed.document.pageCount)
+        #expect(withoutReading.page(at: 0)?.annotations.isEmpty == true)
+    }
+
+    @Test("リンク計測の結果にかかわらず原紙を使ってページ下の脚注を組む", arguments: [false, true])
+    func separateReadingAndLayout(repaired: Bool) async throws {
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "standard" })
+        var options = RenderSettings(layout: .a4Single, theme: theme, preset: .init(id: "none", name: ""))
+        options.finish.footnotes = .pageBottom
+        let source = DocumentSource(data: Data("A reference[^one].\n\n[^one]: Note.".utf8), format: .markdown)
+        var measured: [Bool] = []
+        let renderer = DocumentRenderer(paginateWithResult: { request in
+            let pass = try #require(request.footnotePass)
+            measured.append(pass.measuresOnly)
+            #expect(pass.stock == [.init(references: 1, reservesRoom: !pass.measuresOnly)])
+            let layout = try fixture(reserve: !pass.measuresOnly)
+            if pass.measuresOnly || !repaired { return .init(document: layout) }
+            // The reading copy has an external link but none of the stock's geometry.
+            let reader = try RenderingFixtures.pdf(count: layout.pageCount, size: CGSize(width: 600, height: 800))
+            let link = PDFAnnotation(
+                bounds: CGRect(x: 40, y: 720, width: 60, height: 14),
+                forType: .link, withProperties: nil)
+            link.url = URL(string: "https://example.test/reader")
+            reader.page(at: 0)?.addAnnotation(link)
+            var result = WebPaginator.Result(document: reader)
+            result.footnoteLayout = layout
+            return result
+        })
+        let placed = try await renderer.prepare(source, settings: options).logicalDocument
+        #expect(measured == [true, false])
+        #expect(placed.pageCount == 1)
+        let url = repaired ? "https://example.test/reader" : "https://example.test"
+        #expect(placed.page(at: 0)?.annotations.contains { $0.url?.absoluteString == url } == true)
+    }
+
     @Test("予約マーカーが失われたときは部分合成せず失敗する")
     func missingReserve() throws {
         let planned = try #require(PageFootnotes.plan(for: html))

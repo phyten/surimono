@@ -1,156 +1,470 @@
 import PDFKit
 import WebKit
 
-/// WebKit prints encoded fragments as URLs and may write a named /Dest with no usable page.
-/// Carry both ends through the native print or the vertical slices, then join them in the final page tree.
-struct PrintedFragmentLinks: Sendable {
-    let prefix: String
-    var collectsDestinations = true
+/// Identify a DOM text fragment in the actual printed glyphs, without assuming that a
+/// screen CSS pixel, a forced page break, or the origin of a cropped page maps to a fixed offset.
+struct PrintedFragmentLinks: Decodable, Sendable {
+    struct Box: Decodable, Sendable {
+        let slice: Int
+        let x, y, width, height: CGFloat
+    }
+    struct Span: Decodable, Sendable {
+        let start: Int
+        let end: Int
+        var boxes: [Box]?
+    }
+    struct Anchor: Decodable, Sendable {
+        let id: String
+        let start: Int
+        let end: Int
+        var box: Box?
+        var glyph: String?
+    }
+    struct Link: Decodable, Sendable {
+        let id: String
+        let url: String
+        let start: Int
+        let end: Int
+        let top: Bool
+        var boxes: [Box]?
+    }
+    struct Region: Sendable {
+        let page: Int
+        let bounds: CGRect
+    }
+    /// Open and validate the new bytes within the repair budget. Once transferred,
+    /// only the renderer's actor can touch this PDFKit page tree.
+    @MainActor final class Reopened {
+        let document: PDFDocument
+        init(_ document: sending PDFDocument) { self.document = document }
+    }
+    struct Output: Sendable {
+        var bytes: Data?
+        var reopened: Reopened?
+        var anchors: [String: Region] = [:]
+        var rows: [[Region]] = []
+    }
+    let text: String
+    let links: [Link]
+    let anchors: [Anchor]
+    let rows: [Span]
 
-    /// Submit the marker script before the next required WebKit operation on the same view.
-    /// Printing never waits for an optional reply. A missing or failed reply only discards
-    /// private marks, including any that the script installed before it threw.
-    @MainActor final class Preparation {
-        private(set) var links: PrintedFragmentLinks?
+    static let script = Bundle.module.url(forResource: "printed-fragments", withExtension: "js").flatMap {
+        try? String(contentsOf: $0, encoding: .utf8)
+    }
 
-        init(in view: WKWebView, source: WebPaginator.Source) {
-            // Generated documents resolve their images against a directory while their paper lives at a temporary URL.
-            let resourceBase: URL?
-            switch source {
-            case .html(_, let base): resourceBase = base
-            case .snapshot: resourceBase = SnapshotSchemeHandler.rootURL
-            case .sandboxed(_, let access, false):
-                resourceBase = LocalResourceSchemeHandler.url(for: access.documentURL.deletingLastPathComponent())
-            default: resourceBase = nil
+    @MainActor static func measure(
+        in view: WKWebView, source: WebPaginator.Source, vertical: Bool, headingIDs: [String]
+    ) async throws -> Self? {
+        try Task.checkCancellation()
+        guard let script, headingIDs.count <= 4096 else { return nil }
+        var headingBytes = 0
+        for id in headingIDs {
+            headingBytes += id.utf8.count
+            guard headingBytes <= 384_000 else { return nil }
+        }
+        let base: URL?
+        switch source {
+        case .html(_, let directory): base = directory
+        case .snapshot: base = SnapshotSchemeHandler.rootURL
+        case .sandboxed(_, let access, false):
+            base = LocalResourceSchemeHandler.url(for: access.documentURL.deletingLastPathComponent())
+        default: base = nil
+        }
+        return try await read { deadline in
+            try await view.evaluateForPrinting(
+                script,
+                arguments: [
+                    "resourceBase": base?.absoluteString ?? "", "vertical": vertical, "headingIDs": headingIDs,
+                ], until: deadline
+            ) as? String
+        }
+    }
+
+    @MainActor static func read(
+        budget: Duration = .milliseconds(500), using evaluate: (ContinuousClock.Instant) async throws -> String?
+    ) async throws -> Self? {
+        try Task.checkCancellation()
+        let deadline = ContinuousClock.now + budget
+        do {
+            guard let json = try await evaluate(deadline) else { return nil }
+            return try await bounded(until: deadline) { try await decode(json) }
+        } catch {
+            try Task.checkCancellation()
+            return nil
+        }
+    }
+
+    @concurrent private static func decode(_ json: String) async throws -> Self? {
+        guard json.utf8.count <= 4_000_000 else { return nil }
+        return try JSONDecoder().decode(Self.self, from: Data(json.utf8))
+    }
+
+    /// The original bytes already contain the complete paper and no private annotations.
+    /// Do not join a stalled PDFKit call on the main actor, even when its task ignores cancellation.
+    static func bounded<Value: Sendable>(
+        until deadline: ContinuousClock.Instant, work: @escaping @Sendable () async throws -> Value?
+    ) async throws -> Value? {
+        try Task.checkCancellation()
+        guard .now < deadline else { return nil }
+        let (stream, reply) = AsyncStream<Value>.makeStream()
+        let worker = Task {
+            if let output = try? await work(), ContinuousClock.now < deadline { reply.yield(output) }
+            reply.finish()
+        }
+        let timer = Task {
+            try await Task.sleep(until: deadline, clock: .continuous)
+            reply.finish()
+        }
+        defer {
+            timer.cancel()
+            worker.cancel()
+            reply.finish()
+        }
+        var iterator = stream.makeAsyncIterator()
+        let answer = await iterator.next()
+        try Task.checkCancellation()
+        return answer
+    }
+
+    static let repairBudget: Duration = .seconds(1)
+
+    func resolve(
+        in data: Data, bindsLinks: Bool = true, verticalLayout: VerticalLayout? = nil,
+        budget: Duration = Self.repairBudget
+    ) async throws -> Output {
+        try await Self.bounded(until: .now + budget) {
+            try await match(data, bindsLinks: bindsLinks, verticalLayout: verticalLayout)
+        } ?? Output()
+    }
+
+    @concurrent private func match(_ data: Data, bindsLinks: Bool, verticalLayout: VerticalLayout?) async throws
+        -> Output
+    {
+        try Task.checkCancellation()
+        guard data.count <= 64_000_000, let pdf = PDFDocument(data: data), pdf.pageCount <= 2048 else {
+            return Output()
+        }
+        let index: PrintedTextIndex?
+        if verticalLayout == nil {
+            guard let ordered = try await PrintedTextIndex(document: pdf, text: text) else { return Output() }
+            index = ordered
+        } else {
+            index = nil
+        }
+        func regions(start: Int, end: Int, boxes: [Box]?) throws -> [Region] {
+            if let verticalLayout { return try verticalLayout.regions(boxes ?? []) }
+            return try index?.regions(start: start, end: end) ?? []
+        }
+        var output = Output()
+        var visited = 0
+        func checkpoint() async throws {
+            visited += 1
+            if visited.isMultiple(of: 64) { await Task.yield() }
+            try Task.checkCancellation()
+        }
+        for anchor in anchors {
+            try await checkpoint()
+            if let verticalLayout {
+                output.anchors[anchor.id] = try verticalLayout.first(anchor, in: pdf)
+            } else {
+                output.anchors[anchor.id] = index?.first(start: anchor.start, end: anchor.end)
             }
-            let prefix = "surimono-fragment://\(UUID().uuidString.lowercased())/"
-            links = PrintedFragmentLinks(prefix: prefix, collectsDestinations: false)
-            view.callAsyncJavaScript(
-                PrintedFragmentLinks.script,
-                arguments: ["prefix": prefix, "resourceBase": resourceBase?.absoluteString ?? ""],
-                in: nil, in: WebPaginator.preparationWorld
-            ) { [weak self] reply in
-                if case .success(let value) = reply, let installed = value as? Bool {
-                    self?.links = installed ? PrintedFragmentLinks(prefix: prefix) : nil
+        }
+        for row in rows {
+            try await checkpoint()
+            output.rows.append(try regions(start: row.start, end: row.end, boxes: row.boxes))
+        }
+        guard bindsLinks else { return output }
+        typealias Writer = ReadingPDFNavigationWriter
+        var replace: [Writer.Link] = []
+        var add: [Writer.NewLink] = []
+        var remove: [Int: Set<Int>] = [:]
+        var annotations: [Int: PrintedAnnotations] = [:]
+        var used: [Int: Set<Int>] = [:]
+        var remainingAnnotations = 32768
+        // Only inspect pages containing a source link. Cache them for repeated references.
+        for link in links {
+            try await checkpoint()
+            let destination: Writer.Destination?
+            if link.top, let paper = pdf.page(at: 0)?.bounds(for: .cropBox) {
+                destination = .init(page: 0, mode: "XYZ", arguments: [paper.minX, paper.maxY, nil])
+            } else {
+                destination = output.anchors[link.id].map {
+                    .init(page: $0.page, mode: "XYZ", arguments: [$0.bounds.minX, $0.bounds.maxY, nil])
+                }
+            }
+            let exact = try regions(start: link.start, end: link.end, boxes: link.boxes)
+            // Generated list numbers can repeat a superscript. Its original annotation distinguishes
+            // that occurrence; never synthesize a link for an ambiguous run of printed glyphs.
+            let pieces =
+                exact.isEmpty ? try index?.regions(start: link.start, end: link.end, allowAmbiguous: true) ?? [] : exact
+            for piece in pieces {
+                if annotations[piece.page] == nil {
+                    let originals = pdf.page(at: piece.page)?.annotations ?? []
+                    guard originals.count <= remainingAnnotations else { return Output() }
+                    remainingAnnotations -= originals.count
+                    annotations[piece.page] = try await PrintedAnnotations(originals)
+                }
+                guard let pageLinks = annotations[piece.page] else { continue }
+                var matched = false
+                for item in pageLinks.overlapping(piece.bounds) {
+                    try await checkpoint()
+                    let bounds = item.bounds
+                    guard bounds.intersects(piece.bounds),
+                        bounds.contains(CGPoint(x: piece.bounds.midX, y: piece.bounds.midY))
+                            || piece.bounds.contains(CGPoint(x: bounds.midX, y: bounds.midY))
+                    else { continue }
+                    if let url = item.url,
+                        url != link.url && url.removingPercentEncoding != link.url.removingPercentEncoding
+                    {
+                        continue
+                    }
+                    matched = true
+                    let i = item.index
+                    guard used[piece.page, default: []].insert(i).inserted else { continue }
+                    if let destination {
+                        replace.append(.init(page: piece.page, annotation: i, destination: destination))
+                    } else {
+                        remove[piece.page, default: []].insert(i)
+                    }
+                }
+                if !matched, !exact.isEmpty, let destination {
+                    add.append(.init(page: piece.page, bounds: piece.bounds, destination: destination))
                 }
             }
         }
-    }
-
-    private static let script = """
-        const current = document.URL.split('#')[0];
-        const targets = new Map();
-        let named;
-        for (const link of document.querySelectorAll('a[href]')) {
-          if (!(link instanceof HTMLAnchorElement) || !link.href.includes('#')) continue;
-          const raw = link.getAttribute('href').trim();
-          const page = link.href.split('#')[0];
-          if (page !== current && !(raw.startsWith('#') && page === resourceBase)) continue;
-          let id = link.hash.slice(1);
-          try { id = decodeURIComponent(id); } catch {}
-          let target = id ? document.getElementById(id) : document.body;
-          if (!target) {
-            if (!named) {
-              named = new Map();
-              for (const a of document.querySelectorAll('a[name]')) if (!named.has(a.name)) named.set(a.name, a);
-            }
-            target = named.get(id);
-          }
-          if (!target && id.toLowerCase() === 'top') target = document.body;
-          if (!target) continue;
-          let index = targets.get(target);
-          if (index === undefined) {
-            index = targets.size;
-            targets.set(target, index);
-            const mark = document.createElement('a');
-            mark.href = prefix + 'target/' + index;
-            mark.setAttribute('aria-hidden', 'true');
-            mark.style.cssText = 'all:initial!important;position:absolute!important;display:block!important;' +
-              'width:1px!important;height:1px!important;line-height:0!important;font-size:0!important;' +
-              'border:0!important;padding:0!important;margin:0!important;visibility:inherit!important;background:transparent!important';
-            if (target.matches('img,input,hr,br,area,embed,video,canvas,svg')) target.before(mark);
-            else target.prepend(mark);
-          }
-          // Keep fragment-only links matching the theme's internal-link selectors.
-          const marker = prefix + 'link/' + index;
-          link.setAttribute('href', raw.startsWith('#') ? '#' + marker : marker);
+        if !replace.isEmpty || !add.isEmpty || !remove.isEmpty {
+            let bytes = try Writer.repair(
+                data, links: replace, bookmarks: nil, removingAnnotations: remove, adding: add)
+            guard let reopened = PDFDocument(data: bytes), reopened.pageCount == pdf.pageCount else { return Output() }
+            try Task.checkCancellation()
+            output.reopened = await Reopened(reopened)
+            output.bytes = bytes
         }
-        return targets.size > 0;
-        """
-
-    private func marker(on annotation: PDFAnnotation) -> Substring? {
-        guard let url = (annotation.action as? PDFActionURL)?.url ?? annotation.url else { return nil }
-        // PDFKit sometimes encodes the fragment separator when it writes an opaque about:blank URL.
-        let raw = url.absoluteString
-        let address = url.scheme == "about" ? raw.removingPercentEncoding ?? raw : raw
-        let value = address.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false).last
-        guard let value, value.hasPrefix(prefix) else { return nil }
-        return value.dropFirst(prefix.count)
+        return output
     }
+}
 
-    /// Navigation is optional. If the writer cannot update these bytes, use the printed pages
-    /// and remove the private URLs from the live document. Drawing must then use that document.
-    @MainActor static func open(_ printed: Data, links: Self?) async throws -> (
-        document: PDFDocument, drawingBytes: Data?
-    ) {
-        if let links {
-            do {
-                let bytes = try await links.resolve(in: printed)
-                if let document = PDFDocument(data: bytes), document.pageCount > 0 { return (document, bytes) }
-            } catch {
+extension PrintedFragmentLinks {
+    /// WebKit captures top-down rectangles of a vertical strip. A slice can be scaled,
+    /// placed in either booklet row, or split over pages when it contains a large table.
+    struct VerticalLayout: Sendable {
+        struct Slice: Sendable {
+            let source: CGRect
+            let paper: CGRect
+            let page: Int
+
+            func project(_ box: Box) -> Region? {
+                let rect = CGRect(x: box.x, y: box.y, width: box.width, height: box.height).intersection(source)
+                guard !rect.isEmpty, source.width > 0, source.height > 0 else { return nil }
+                let sx = paper.width / source.width
+                let sy = paper.height / source.height
+                let projected = CGRect(
+                    x: paper.minX + (rect.minX - source.minX) * sx,
+                    y: paper.maxY - (rect.maxY - source.minY) * sy, width: rect.width * sx, height: rect.height * sy)
+                return Region(page: page, bounds: projected)
+            }
+        }
+
+        private var slices: [Int: [Slice]] = [:]
+        private var count = 0
+
+        mutating func record(_ index: Int, _ slice: Slice) {
+            guard count <= 16384 else { return }
+            count += 1
+            if count > 16384 {
+                slices.removeAll()
+                return
+            }
+            slices[index, default: []].append(slice)
+        }
+
+        func regions(_ boxes: [Box]) throws -> [Region] {
+            var hits: [Region] = []
+            for box in boxes {
+                for slice in slices[box.slice] ?? [] {
+                    try Task.checkCancellation()
+                    if let hit = slice.project(box) { hits.append(hit) }
+                }
+            }
+            return hits
+        }
+
+        func first(_ anchor: Anchor, in document: PDFDocument) throws -> Region? {
+            guard let box = anchor.box, let glyph = anchor.glyph else { return nil }
+            // PDFKit can extract the left column before its right-hand predecessor.
+            // Identify the glyph at its painted location, independently of extraction order.
+            var found: Region?
+            for region in try regions([box]) {
+                guard let page = document.page(at: region.page),
+                    let selection = page.selection(for: region.bounds.insetBy(dx: -1, dy: -1)),
+                    let text = page.string as NSString?
+                else { continue }
+                for n in 0..<selection.numberOfTextRanges(on: page) {
+                    var remaining = selection.range(at: n, on: page)
+                    guard remaining.location != NSNotFound, NSMaxRange(remaining) <= text.length else { continue }
+                    while remaining.length > 0 {
+                        try Task.checkCancellation()
+                        let hit = text.range(of: glyph, options: .literal, range: remaining)
+                        guard hit.location != NSNotFound, hit.length > 0 else { break }
+                        if let bounds = page.selection(for: hit)?.bounds(for: page),
+                            region.bounds.insetBy(dx: -1, dy: -1).contains(CGPoint(x: bounds.midX, y: bounds.midY))
+                        {
+                            guard found == nil else { return nil }
+                            found = Region(page: region.page, bounds: bounds)
+                        }
+                        let end = NSMaxRange(hit)
+                        remaining = NSRange(location: end, length: NSMaxRange(remaining) - end)
+                    }
+                }
+            }
+            return found
+        }
+    }
+}
+
+/// Index the vertical extents once per source page. A long contents page should not
+/// rescan every other row for each link. The prefix maxima also handle tall annotations.
+private struct PrintedAnnotations {
+    struct Item {
+        let index: Int
+        let bounds: CGRect
+        let url: String?
+    }
+    private let sorted: [Item]
+    private let tops: [CGFloat]
+
+    init(_ annotations: [PDFAnnotation]) async throws {
+        var items: [Item] = []
+        for (index, annotation) in annotations.enumerated() {
+            if index.isMultiple(of: 64) {
+                await Task.yield()
                 try Task.checkCancellation()
             }
+            guard annotation.type == "Link" else { continue }
+            let action = annotation.action
+            guard action == nil || action is PDFActionURL || action is PDFActionGoTo else { continue }
+            let url = annotation.url ?? (action as? PDFActionURL)?.url
+            items.append(.init(index: index, bounds: annotation.bounds, url: url?.absoluteString))
         }
-        guard let document = PDFDocument(data: printed), document.pageCount > 0 else {
-            throw WebPaginator.PaginationError.emptyDocument
+        sorted = items.sorted { $0.bounds.minY < $1.bounds.minY }
+        var maxima: [CGFloat] = []
+        for annotation in sorted {
+            maxima.append(max(maxima.last ?? -.infinity, annotation.bounds.maxY))
         }
-        guard let links else { return (document, printed) }
-        for index in 0..<document.pageCount {
-            try Task.checkCancellation()
-            guard let page = document.page(at: index) else { continue }
-            for annotation in page.annotations where links.marker(on: annotation) != nil {
-                page.removeAnnotation(annotation)
-            }
-        }
-        return (document, nil)
+        tops = maxima
     }
 
-    /// Match the first printed occurrence of a target, including forward links and links across slices.
-    @concurrent func resolve(in bytes: Data) async throws -> Data {
-        typealias Writer = ReadingPDFNavigationWriter
-        guard let document = PDFDocument(data: bytes) else { throw WebPaginator.PaginationError.emptyDocument }
-        var targets: [Int: Writer.Destination] = [:]
-        var sources: [(page: Int, annotation: Int, id: Int)] = []
-        var removed: [Int: Set<Int>] = [:]
-        for index in 0..<document.pageCount {
+    func overlapping(_ rect: CGRect) -> ArraySlice<Item> {
+        var low = 0
+        var high = sorted.count
+        while low < high {
+            let mid = low + (high - low) / 2
+            if tops[mid] < rect.minY { low = mid + 1 } else { high = mid }
+        }
+        let first = low
+        high = sorted.count
+        while low < high {
+            let mid = low + (high - low) / 2
+            if sorted[mid].bounds.minY <= rect.maxY { low = mid + 1 } else { high = mid }
+        }
+        return sorted[first..<low]
+    }
+}
+
+/// Whitespace, list counters and print furniture can add characters to a page. Find the
+/// earliest and latest order-preserving embeddings. Only coincident offsets prove an occurrence.
+private struct PrintedTextIndex {
+    let document: PDFDocument
+    let firstMatch: [Int]
+    let lastMatch: [Int]
+    let glyphs: [(page: Int, offset: Int)]
+
+    init?(document: PDFDocument, text: String) async throws {
+        var paper: [UInt16] = []
+        var glyphs: [(Int, Int)] = []
+        let spaces = CharacterSet.whitespacesAndNewlines
+        for i in 0..<document.pageCount {
             try Task.checkCancellation()
-            guard let page = document.page(at: index) else { continue }
-            for (offset, annotation) in page.annotations.enumerated() {
-                guard let marker = marker(on: annotation) else { continue }
-                if !collectsDestinations {
-                    removed[index, default: []].insert(offset)
+            if i.isMultiple(of: 16) { await Task.yield() }
+            guard let page = document.page(at: i), page.numberOfCharacters < 524288 - paper.count else { return nil }
+            let pageText = (page.string ?? "").utf16
+            guard pageText.count <= 524288 - paper.count else { return nil }
+            for (offset, unit) in pageText.enumerated() {
+                if offset.isMultiple(of: 2048) { try Task.checkCancellation() }
+                if unit == 0xad || unit == 0x200b || unit == 0xfeff || Unicode.Scalar(unit).map(spaces.contains) == true
+                {
                     continue
                 }
-                if marker.hasPrefix("target/"), let id = Int(marker.dropFirst("target/".count)) {
-                    if targets[id] == nil {
-                        targets[id] = .init(
-                            page: index, mode: "XYZ", arguments: [annotation.bounds.minX, annotation.bounds.maxY, nil])
-                    }
-                    removed[index, default: []].insert(offset)
-                } else if marker.hasPrefix("link/"), let id = Int(marker.dropFirst("link/".count)) {
-                    sources.append((index, offset, id))
-                }
+                paper.append(unit)
+                glyphs.append((i, offset))
             }
         }
-        var links: [Writer.Link] = []
-        for source in sources {
-            if let target = targets[source.id] {
-                links.append(.init(page: source.page, annotation: source.annotation, destination: target))
-            } else {
-                // A hidden destination has no printed position.
-                removed[source.page, default: []].insert(source.annotation)
+        let dom = Array(text.utf16)
+        var low = Array(repeating: 0, count: dom.count)
+        var high = low
+        var next = 0
+        for i in dom.indices {
+            if i.isMultiple(of: 2048) { try Task.checkCancellation() }
+            while next < paper.count, paper[next] != dom[i] { next += 1 }
+            guard next < paper.count else { return nil }
+            low[i] = next
+            next += 1
+        }
+        next = paper.count
+        for i in dom.indices.reversed() {
+            if i.isMultiple(of: 2048) { try Task.checkCancellation() }
+            while next > 0, paper[next - 1] != dom[i] { next -= 1 }
+            guard next > 0 else { return nil }
+            next -= 1
+            high[i] = next
+        }
+        self.document = document
+        self.glyphs = glyphs
+        firstMatch = low
+        lastMatch = high
+    }
+
+    func first(start: Int, end: Int) -> PrintedFragmentLinks.Region? {
+        guard firstMatch.indices.contains(start), start < end, firstMatch[start] == lastMatch[start] else { return nil }
+        let glyph = glyphs[firstMatch[start]]
+        guard let page = document.page(at: glyph.page) else { return nil }
+        // PDFKit's characterBounds counts drawn glyphs, while selection ranges count
+        // UTF-16 text including the line separators synthesized by PDFKit.
+        guard let rect = page.selection(for: NSRange(location: glyph.offset, length: 1))?.bounds(for: page) else {
+            return nil
+        }
+        let visible = rect.intersection(page.bounds(for: .cropBox))
+        guard !visible.isEmpty, !visible.isInfinite else { return nil }
+        return .init(page: glyph.page, bounds: visible)
+    }
+
+    func regions(start: Int, end: Int, allowAmbiguous: Bool = false) throws -> [PrintedFragmentLinks.Region] {
+        guard start >= 0, start < end, end <= firstMatch.count, end - start <= 16384 else { return [] }
+        var result: [PrintedFragmentLinks.Region] = []
+        var i = start
+        while i < end {
+            try Task.checkCancellation()
+            if !allowAmbiguous && firstMatch[i] != lastMatch[i] { return [] }
+            let first = glyphs[firstMatch[i]]
+            var last = first
+            i += 1
+            while i < end, firstMatch[i] == firstMatch[i - 1] + 1, glyphs[firstMatch[i]].page == first.page {
+                if !allowAmbiguous && firstMatch[i] != lastMatch[i] { return [] }
+                last = glyphs[firstMatch[i]]
+                i += 1
+            }
+            guard let page = document.page(at: first.page),
+                let selection = page.selection(
+                    for: NSRange(location: first.offset, length: last.offset - first.offset + 1))
+            else { continue }
+            for line in selection.selectionsByLine() {
+                try Task.checkCancellation()
+                let box = line.bounds(for: page).intersection(page.bounds(for: .cropBox))
+                if !box.isEmpty, !box.isInfinite { result.append(.init(page: first.page, bounds: box)) }
             }
         }
-        return try Writer.repair(bytes, links: links, bookmarks: nil, removingAnnotations: removed)
+        return result
     }
 }

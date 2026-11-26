@@ -98,44 +98,80 @@ struct PrintedFragmentLinkTests {
         #expect(back.allSatisfy { $0.page === first })
     }
 
-    @Test("組み直した PDF の目印は本文位置への GoTo になり、別文書のリンクは URL を保つ")
-    func resolvedAnnotations() async throws {
-        let prefix = "surimono-fragment://test/"
+    @Test("別ページ目次と本文の見出し参照・脚注を同じ Org 文書から書き出せる", .timeLimit(.minutes(1)), arguments: [false, true])
+    func separateContentsWithBodyLinks(mirrored: Bool) async throws {
+        let renderer = DocumentRenderer()
+        let source = DocumentSource(
+            data: Data(
+                """
+                #+OPTIONS: toc:t num:nil
+                * First
+                See [[#last][next chapter]] and note[fn:1].
+
+                * Last
+                :PROPERTIES:
+                :CUSTOM_ID: last
+                :END:
+                End.
+
+                [fn:1] Footnote body
+                """.utf8), format: .org)
+        var settings = RenderSettings(
+            layout: .a4Duplex, theme: .init(id: "test", name: "Test", css: "#last { break-before:page }"),
+            preset: .init(id: "none", name: "None"))
+        settings.finish.contents.placement = .page
+        settings.options.mirrorsMargins = mirrored
+        settings.options.margins = .init(top: 12, left: 30, bottom: 12, right: 10)
+        let result = try await renderer.prepare(source, settings: settings)
+        #expect(result.addedContentsPages == 1)
+        let logical = result.logicalDocument
+        let saved = try await ReadingPDFExporter.data(from: logical, entries: [], title: "Notes")
+        let copy = try #require(PDFDocument(data: saved))
+        for pdf in [logical, copy] {
+            let front = try #require(pdf.page(at: 0))
+            let first = try #require(pdf.page(at: 1))
+            let last = try #require(pdf.page(at: 2))
+            let bodyLinks = first.annotations.compactMap {
+                ($0.action as? PDFActionGoTo)?.destination ?? $0.destination
+            }
+            try #require(bodyLinks.count == 2)
+            for (label, dest) in zip(["Last", "Footnote body"], bodyLinks.sorted { $0.point.y > $1.point.y }) {
+                #expect(dest.page === last)
+                let line = try #require(pdf.findString(label).first { $0.pages.first === last })
+                #expect(abs(dest.point.y - line.bounds(for: last).maxY) < 2)
+            }
+            let rows = front.annotations.compactMap { ($0.action as? PDFActionGoTo)?.destination ?? $0.destination }
+            #expect(rows.count == 2)
+            #expect(rows.contains { $0.page === first })
+            #expect(rows.contains { $0.page === last })
+        }
+    }
+
+    @Test("先頭の注釈をバイト列から除いても後続の本文リンクを書き出せる")
+    func removedFirstAnnotation() async throws {
         let buffer = NSMutableData()
         let consumer = try #require(CGDataConsumer(data: buffer))
         let context = try #require(CGContext(consumer: consumer, mediaBox: nil, nil))
-        var paper = CGRect(x: 0, y: 0, width: 400, height: 600)
+        var paper = CGRect(x: 0, y: 2, width: 400, height: 600)
         let rect = CGRect(x: 30, y: 220, width: 100, height: 20)
-        let external = try #require(URL(string: "https://example.org/other#same"))
         context.beginPage(mediaBox: &paper)
-        context.setURL(try #require(URL(string: prefix + "link/0")) as CFURL, for: rect)
-        context.setURL(external as CFURL, for: rect.offsetBy(dx: 0, dy: 40))
+        context.setURL(URL(fileURLWithPath: "/unused") as CFURL, for: rect)
+        context.setDestination("body" as CFString, for: rect.offsetBy(dx: 0, dy: 40))
         context.endPage()
         context.beginPage(mediaBox: &paper)
-        context.setURL(try #require(URL(string: prefix + "target/0")) as CFURL, for: rect)
+        context.addDestination("body" as CFString, at: rect.origin)
         context.endPage()
         context.closePDF()
-        let bytes = try await PrintedFragmentLinks(prefix: prefix).resolve(in: buffer as Data)
+        let original = try #require(PDFDocument(data: buffer as Data))
+        #expect(original.page(at: 0)?.annotations.first?.url?.path == "/unused")
+        let bytes = try ReadingPDFNavigationWriter.repair(
+            buffer as Data, links: [], bookmarks: nil, removingAnnotations: [0: [0]])
         let document = try #require(PDFDocument(data: bytes))
-        func check(_ pdf: PDFDocument) throws {
-            let page = try #require(pdf.page(at: 1))
-            let links = try #require(pdf.page(at: 0)).annotations
-            #expect(page.annotations.isEmpty)
-            #expect(links.count == 2)
-            #expect(links.contains { $0.url == external })
-            let destinations = links.compactMap { ($0.action as? PDFActionGoTo)?.destination ?? $0.destination }
-            let destination = try #require(destinations.first)
-            #expect(destination.page === page)
-            #expect(destination.point == CGPoint(x: 30, y: 240))
-        }
-        try check(document)
-        let saved = try await ReadingPDFExporter.data(from: document)
-        try check(#require(PDFDocument(data: saved)))
-
-        // A JavaScript exception can leave marks at either end of a link.
-        let partial = PrintedFragmentLinks(prefix: prefix, collectsDestinations: false)
-        let cleaned = try await PrintedFragmentLinks.open(buffer as Data, links: partial)
-        #expect(cleaned.document.page(at: 0)?.annotations.map(\.url) == [external])
-        #expect(cleaned.document.page(at: 1)?.annotations.isEmpty == true)
+        let saved = try await ReadingPDFExporter.data(from: document, entries: [], title: "Test")
+        let copy = try #require(PDFDocument(data: saved))
+        let annotations = try #require(copy.page(at: 0)).annotations
+        try #require(annotations.count == 1)
+        let target = try #require((annotations[0].action as? PDFActionGoTo)?.destination ?? annotations[0].destination)
+        #expect(target.page === copy.page(at: 1))
     }
 }
