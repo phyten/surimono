@@ -86,10 +86,14 @@ struct PreviewImages {
         var sourceOptions: [CFString: Any] = [
             kCGImageSourceShouldCache: false, kCGImageSourceTypeIdentifierHint: expected.identifier,
         ]
-        if #available(macOS 27, *) {
-            sourceOptions[kCGImageSourceAllowableTypes] =
-                expected == .heif ? [expected.identifier, UTType.heic.identifier] : [expected.identifier]
-        }
+        // The Xcode 26.6 SDK does not declare this key, so it only compiles with the macOS 27 SDK. `if #available`
+        // alone would not help an older SDK.
+        #if compiler(>=6.4)
+            if #available(macOS 27, *) {
+                sourceOptions[kCGImageSourceAllowableTypes] =
+                    expected == .heif ? [expected.identifier, UTType.heic.identifier] : [expected.identifier]
+            }
+        #endif
         // On older systems the hint is advisory. Verify the detected type before querying frame metadata.
         let options = sourceOptions as CFDictionary
         guard let source = CGImageSourceCreateWithData(data as CFData, options),

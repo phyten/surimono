@@ -8,10 +8,12 @@ final class PreviewProvider: QLPreviewProvider, QLPreviewingController {
     // Before per-source restrictions, ImageIO accepts its process-wide list only on the first call.
     // Initialize it once in this extension process, before any provider starts opening images.
     private static let decoderStatus: OSStatus = {
-        if #unavailable(macOS 27) {
-            return CGImageSourceSetAllowableTypes(FinderPreview.rasterTypeIdentifiers as CFArray)
-        }
-        return noErr
+        // Per-source restrictions need the macOS 27 SDK as well as macOS 27. A build made with an older SDK
+        // cannot set them, so it keeps the process-wide list on every system.
+        #if compiler(>=6.4)
+            if #available(macOS 27, *) { return noErr }
+        #endif
+        return CGImageSourceSetAllowableTypes(FinderPreview.rasterTypeIdentifiers as CFArray)
     }()
 
     override init() {
