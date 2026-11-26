@@ -424,11 +424,18 @@ public struct DocumentFacts: Equatable, Sendable {
                 level: heading.level, title: heading.text, pageIndex: page < beamerPageFrames.count ? page : nil)
         }
     }
+    public var coalescesContentsInLegacy: Bool
+    public var contentsInstructions: ReadingFileInstructions
+    public var contentsKinds: Set<ReaderContentsKind>
+    public var visibleContentsEntries: [String] = []
     public var hasSourceContents: Bool
 
     public init(fragment: HTMLFragment) {
         offersLaTeXComposition = fragment.latexClass?.offersCompositionChoice == true
         latexRecognition = fragment.latexClass?.recognition
+        coalescesContentsInLegacy = fragment.coalescesContentsInLegacy
+        contentsInstructions = fragment.contentsInstructions
+        contentsKinds = fragment.sourceContentsKinds
         orgInstructions = fragment.orgInstructions
         sourceLanguage = fragment.sourceLanguage
         title = fragment.title

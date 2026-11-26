@@ -195,6 +195,36 @@ struct ShortcutActionsTests {
             try export.settings(format: .markdown, name: "a", layoutID: "a3TwoUp", style: nil).layout == .a3TwoUp)
     }
 
+    @Test("ショートカットの目次は既定で原稿どおりに組み、保存済みの旧仕上げでは従来の本文と前付けを使う")
+    func headlessContents() async throws {
+        let environment = try Environment()
+        defer { environment.restore() }
+        let wiki = Data("__FORCETOC__\n== Alpha ==\n__TOC__\n== Bravo ==".utf8)
+        for (mode, keep, hides, pages): (String?, Bool, Bool, Int) in [
+            (nil, false, false, 1), ("source", false, false, 1), ("hidden", false, true, 1),
+            ("front", false, true, 2), ("front", true, false, 2),
+        ] {
+            if let mode {
+                let json =
+                    #"{"options":{},"finish":{"toc":{"mode":"\#(mode)","depth":"sections","keepsSourceTOC":\#(keep)}}}"#
+                environment.suite.defaults.set(Data(json.utf8), forKey: "printFinishDefaults")
+            }
+            var body = ""
+            let renderer = DocumentRenderer(paginate: { request in
+                if case .html(let html, _) = request.source, !html.contains("paper-toc-title") { body = html }
+                return try #require(PDFDocument(data: TestFixtures.pdf("Alpha", pages: 1)))
+            })
+            let export = HeadlessExport(
+                preferences: AppPreferences(defaults: environment.suite.defaults), library: environment.export.library,
+                renderer: renderer)
+            let output = try await export.export(
+                wiki, fileURL: nil, format: .mediawiki, name: "wiki", layoutID: "a4Single")
+            #expect(body.components(separatedBy: "<nav class=\"toc\"").count - 1 == 1)
+            #expect(body.contains("nav.toc { display: none") == hides)
+            #expect(PDFDocument(data: output.data)?.pageCount == pages)
+        }
+    }
+
     @Test("旧版が判だけを覚えていた設定でも、刷り台で判を変えたあとでも、書き出しはその判の既定を使う")
     func defaultLayoutFollowsTheChosenSeries() throws {
         let environment = try Environment()

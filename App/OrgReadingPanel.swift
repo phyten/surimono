@@ -16,6 +16,7 @@ enum OrgFileLockResult: Equatable {
 extension DocumentViewModel {
     func setOrgValue<Value>(_ value: Value, for key: OrgSetting<Value>) {
         guard offersOrgReading, let orgFileInstructions else { return }
+        if key.id == .tableOfContents { migrateContents(editing: true) }
         var settings = orgReading
         settings.set(value, for: key, file: orgFileInstructions)
         orgDocumentReading = settings.document
@@ -42,6 +43,9 @@ extension DocumentViewModel {
 
     func resetOrgValues() {
         guard offersOrgReading else { return }
+        if orgReading.resolve(.tableOfContents, file: orgFileInstructions ?? .init()).layer == .document {
+            migrateContents(editing: true)
+        }
         orgDocumentReading.resetValues()
     }
 

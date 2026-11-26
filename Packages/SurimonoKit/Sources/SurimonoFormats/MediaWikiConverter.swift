@@ -100,7 +100,9 @@ final class WikiReader {
         if forceTOC && !hideTOC && !explicitTOC,
             let first = result.range(of: #"<h[1-6] id=""#, options: .regularExpression)
         {
-            result.insert(contentsOf: MarkdownExtensions.tableOfContents(anchors), at: first.lowerBound)
+            result.insert(
+                contentsOf: ReaderContentsKind.lead.mark(MarkdownExtensions.tableOfContents(anchors)),
+                at: first.lowerBound)
         }
         result += references.remainder()
         if !categories.isEmpty {
@@ -127,9 +129,15 @@ final class WikiReader {
             title = title?.replacingOccurrences(of: escapedMarker, with: "\u{E000}")
         }
         let fonts = MathRenderer.fontFaces(for: result)
-        return HTMLFragment(
+        var fragment = HTMLFragment(
             body: result + (fonts.isEmpty ? "" : "<style>\(fonts)</style>"), title: title,
-            readingIssues: reachedNestingLimit ? [StackSpace.limitIssue] : [])
+            readingIssues: reachedNestingLimit ? [StackSpace.limitIssue] : []
+        ).recordingContents(
+            .init(
+                present: hideTOC ? .init(false) : (forceTOC ? .init(true) : nil),
+                depth: forceTOC && !hideTOC ? .init(.levels(3)) : nil))
+        fragment.coalescesContentsInLegacy = forceTOC && explicitTOC && !hideTOC
+        return fragment
     }
 
     func heading(_ level: Int, _ source: String) -> String {

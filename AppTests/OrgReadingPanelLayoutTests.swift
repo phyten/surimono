@@ -22,7 +22,7 @@ struct OrgReadingPanelLayoutTests {
     func defaultsAlignWithForm(language: String, width: CGFloat) async throws {
         let path = try #require(Bundle.main.path(forResource: language, ofType: "lproj"))
         let strings = try #require(Bundle(path: path))
-        let labels = ["Heading Numbers", "Table of Contents at the Top", "Subscripts and Superscripts"]
+        let labels = ["Heading Numbers", "Lead Contents", "Subscripts and Superscripts"]
         for changed in [false, true] {
             var frames = [String: CGRect]()
             let screen = OrgReadingTestWindow(width: width, height: 300) {

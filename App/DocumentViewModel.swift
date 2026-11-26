@@ -97,6 +97,7 @@ final class DocumentViewModel {
             previewPageCountForBand = nil
             dataGeneration += 1
             orgFileInstructions = nil
+            contentsFacts = nil
         }
     }
     /// Counts the contents the window has held, so that what a layout read is only taken for the contents it read.
@@ -179,7 +180,8 @@ final class DocumentViewModel {
         orgFileInstructions.map { orgDocumentReading.changedCount(file: $0) } ?? 0
     }
 
-    private var formatReading = FormatReadingChoices()
+    var formatReading = FormatReadingChoices()
+    private(set) var contentsFacts: DocumentFacts?
 
     var orgReading: OrgReadingSettings {
         OrgReadingSettings(
@@ -1080,7 +1082,11 @@ final class DocumentViewModel {
             settings.latexComposition = latexComposition
         }
         settings.binderStartsOnFront = binder != nil && binderStartsOnFront && settings.layout.hasFacingPages
-        if finishAppliesToText { settings.finish = printFinish }
+        if finishAppliesToText {
+            settings.formatReadingDefaults = preferences.formatReadingDefaults
+            settings.finish = printFinish
+            settings.formatReading = formatReading
+        }
         if mode == .print, offersNotes { settings.notes = notes }
         // The view mode always shows the whole document.
         if mode == .print { settings.pageRange = pageRange }
@@ -1974,6 +1980,13 @@ final class DocumentViewModel {
                         readingPreview = nil
                     }
                     result = prepared
+                    if finishAppliesToText, source.format == format, generation == dataGeneration, !fromSnapshot,
+                        settings.finish == printFinish, settings.orgReading == (format == .org ? orgReading : .init()),
+                        settings.formatReading == formatReading
+                    {
+                        contentsFacts = prepared.facts
+                        migrateReadContents(settings)
+                    }
                     if offersOrgReading, source.format == .org, generation == dataGeneration {
                         orgFileInstructions = prepared.facts?.orgInstructions
                     }
@@ -2681,14 +2694,16 @@ final class DocumentViewModel {
         let known =
             readStructure?.source == source && readStructure?.proof == proof && readStructure?.orgReading == org
             ? readStructure : nil
-        let includesSourceContents = !finishAppliesToText || printFinish.toc.showsSourceContents
+        let includesSourceContents = !finishAppliesToText || printFinish.legacyTOC?.showsSourceContents != false
         structureTask = Task { [weak self] in
             let read:
                 (
                     headings: [DocumentHeading], statistics: DocumentStatistics,
                     contents: [String], title: String?
                 )?
-            if let known {
+            if let facts = prepared.facts {
+                read = (facts.headings, facts.statistics, facts.visibleContentsEntries, facts.title)
+            } else if let known {
                 read = (known.headings, known.statistics, known.contents, known.title)
             } else {
                 read = await Task.detached(priority: .utility) {
@@ -3079,6 +3094,9 @@ final class DocumentViewModel {
 
     var currentPrintSettingSet: PrintSettingSet {
         var set = PrintSettingSet(name: "", settings: rememberedSettings)
+        if set.finish?.legacyTOC == nil, finishAppliesToText, format != .latex {
+            set.leadContents = leadContents
+        }
         // A set saved without notes turns them off, which a document's record has no need to say.
         if offersNotes { set.notes = notes }
         return applicablePrintSettingSet(set)
@@ -3121,11 +3139,27 @@ final class DocumentViewModel {
         if !offersNotes { set.notes = nil }
         // A binder can hold texts and still have no page breaks or contents of its own to compare.
         if !finishAppliesToText { set.finish = nil }
+        if set.finish == nil || format == .latex { set.leadContents = nil }
         return set
     }
 
     func matchesPrintSettingSet(_ set: PrintSettingSet) -> Bool {
-        applicablePrintSettingSet(set).matches(rememberedSettings)
+        var applicable = applicablePrintSettingSet(set)
+        if let legacyFinish = applicable.finish, legacyFinish.legacyTOC != nil, let contentsFacts {
+            var document = rememberedSettings
+            document.printFinish = legacyFinish
+            if document.migrateContents(
+                format: format, facts: contentsFacts, defaults: preferences.formatReadingDefaults,
+                orgDefaults: preferences.orgReadingDefaults ?? .surimono)
+            {
+                applicable.finish = document.printFinish
+                if document.orgReading != rememberedSettings.orgReading || document.formatReading != formatReading {
+                    return false
+                }
+            }
+        }
+        if let choice = applicable.leadContents, !matchesLeadContents(choice) { return false }
+        return applicable.matches(rememberedSettings)
     }
 
     func applyPrintSettingSet(_ set: PrintSettingSet) {
@@ -3147,7 +3181,15 @@ final class DocumentViewModel {
             printOptions.latexFurniture = themeFormat == .latex ? set.latexFurniture : nil
             printOptions.furniture = furniture
         }
-        if let finish = set.finish { printFinish = finish }
+        if let finish = set.finish {
+            // Reapplying the selected legacy set must not feed its migrated Org lead back into the old reader.
+            if finish.legacyTOC == nil || selectedSettingSetID != set.id
+                || !matchesPrintSettingSet(set.keeping([.finish]))
+            {
+                printFinish = finish
+            }
+            if let choice = set.leadContents { setLeadContents(choice) }
+        }
         if let notes = set.notes { self.notes = notes }
         selectedSettingSetID = set.id
         if let id = set.themeID { themeID = id }
@@ -3199,7 +3241,14 @@ final class DocumentViewModel {
             if let mirrors = set.mirrorsMargins { options.mirrorsMargins = mirrors }
             if let furniture = set.furniture { options.furniture = furniture }
             resolved.printOptions = options
-            if let finish = set.finish { resolved.printFinish = finish }
+            if let finish = set.finish {
+                resolved.printFinish = finish
+                if let value = set.leadContents {
+                    resolved.setLeadContents(
+                        value, format: format, facts: contentsFacts, defaults: preferences.formatReadingDefaults,
+                        orgDefaults: preferences.orgReadingDefaults ?? .surimono)
+                }
+            }
             if let notes = set.notes { resolved.notes = notes == NotePages() ? nil : notes }
             if let id = set.themeID { resolved.themeID = id }
             if let face = set.typeface { resolved.typeface = face == .style ? nil : face }
@@ -3235,6 +3284,7 @@ final class DocumentViewModel {
         if let orientation = resolved.paperOrientation { paperOrientation = orientation }
         if let options = resolved.printOptions { printOptions = options }
         if let finish = resolved.printFinish { printFinish = finish }
+        formatReading = resolved.formatReading
         notes = resolved.notes ?? NotePages()
         if let id = resolved.themeID { themeID = id }
         setTypeface(resolved.typeface ?? .style)
@@ -3318,6 +3368,7 @@ final class DocumentViewModel {
             }
             // Anything that already differs from the defaults was changed by the user while the content was read.
             settingsBaseline = defaultSettings
+            migrateReadContents(renderedSettings)
             rememberedSettingsDidChange()
             return
         }
@@ -3326,7 +3377,24 @@ final class DocumentViewModel {
         apply(saved)
         hasSavedSettings = true
         settingsBaseline = rememberedSettings
+        migrateReadContents(renderedSettings)
         validateMigratedContentIfReady()
+    }
+
+    /// Either the content hash or the reader can finish first. Convert only once both describe these settings.
+    private func migrateReadContents(_ rendered: RenderSettings?) {
+        guard contentHash != nil, printFinish.legacyTOC != nil, let rendered, let contentsFacts,
+            rendered.finish == printFinish, rendered.formatReading == formatReading,
+            rendered.formatReadingDefaults == preferences.formatReadingDefaults,
+            rendered.orgReading == (format == .org ? orgReading : .init())
+        else { return }
+        let usesDefault = !hasSavedSettings && !didCustomizeSinceLoad && settingsBaseline?.printFinish == printFinish
+        migrateContents()
+        if usesDefault {
+            settingsBaseline?.migrateContents(
+                format: format, facts: contentsFacts,
+                defaults: preferences.formatReadingDefaults, orgDefaults: preferences.orgReadingDefaults ?? .surimono)
+        }
     }
 
     private func savedSettings(for hash: ContentHash) -> DocumentSettings? {
@@ -4610,7 +4678,7 @@ final class DocumentViewModel {
         let usesCurrent = mode == .view && readingSettings == settings
         let initialHeadings = readStructure?.headings ?? current.facts?.headings ?? []
         let initialTitle = format == .html ? readStructure?.title : nil
-        let includesSourceContents = !finishAppliesToText || settings.finish.toc.showsSourceContents
+        let includesSourceContents = !finishAppliesToText || settings.finish.legacyTOC?.showsSourceContents != false
         let fallbackTitle = String(readingExportName.dropLast(4))
         return { [outlineEntries, format, fileURL, binder, imageBundle, themeFormat, readingSettings] in
             try Task.checkCancellation()

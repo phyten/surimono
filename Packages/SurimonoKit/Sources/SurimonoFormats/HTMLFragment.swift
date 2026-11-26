@@ -13,6 +13,10 @@ public struct HTMLFragment: Equatable, Sendable {
     public var sourceLanguage: SourceLanguage?
     /// The decoded input associated with these exact pages, including whitespace invisible in a PDF.
     public var sourceText: String?
+    /// Older readers coalesced a forced lead and an explicit marker into a single list.
+    public internal(set) var coalescesContentsInLegacy = false
+    public var contentsInstructions = ReadingFileInstructions()
+    public internal(set) var contentsKinds: [Int: ReaderContentsKind] = [:]
     public var orgInstructions: OrgFileInstructions?
     // Keeping the full profile inline would reserve its size on the worker stack for each
     // temporary fragment, including the other formats' branches while a nested frame is read.

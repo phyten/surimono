@@ -40,7 +40,8 @@ extension RSTDocument {
             body += String(repeating: "</li></ul>", count: depth)
             let label = toc.label.isEmpty ? (toc.local ? "" : "Contents") : toc.label
             let heading = label.isEmpty ? "" : "<p class=\"topic-title\">\(inline(label))</p>"
-            rendered.append("<nav class=\"toc\" id=\"\(HTML.escape(toc.id))\" role=\"doc-toc\">\(heading)\(body)</nav>")
+            let nav = "<nav class=\"toc\" id=\"\(HTML.escape(toc.id))\" role=\"doc-toc\">\(heading)\(body)</nav>"
+            rendered.append(toc.local ? nav : ReaderContentsKind.lead.mark(nav))
         }
         var result = html
         if !numbers.isEmpty {

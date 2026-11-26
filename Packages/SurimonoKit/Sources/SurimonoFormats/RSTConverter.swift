@@ -5,27 +5,33 @@ public enum RSTConverter {
     /// The callbacks run on the converter's own thread while the caller waits for it (`StackSpace.onLargeStack`):
     /// they must not need the caller's thread or actor, and do not see its task-local values.
     public static func convert(
-        _ source: String, directory: URL? = nil, permitsFile: @escaping @Sendable (URL) -> Bool = { _ in true }
+        _ source: String, directory: URL? = nil, contentsDepth: Int? = nil,
+        permitsFile: @escaping @Sendable (URL) -> Bool = { _ in true }
     ) -> HTMLFragment {
-        convert(source, directory: directory, readsIncludes: true, permitsFile: permitsFile)
+        convert(
+            source, directory: directory, readsIncludes: true, contentsDepth: contentsDepth, permitsFile: permitsFile)
     }
 
     package static func convert(
-        _ source: String, directory: URL?, readsIncludes: Bool,
+        _ source: String, directory: URL?, readsIncludes: Bool, contentsDepth: Int? = nil,
         permitsFile: @escaping @Sendable (URL) -> Bool = { _ in true }
     ) -> HTMLFragment {
         // On a stack of known size, so a document reads the same on every thread.
         StackSpace.onLargeStack {
-            convertInPlace(source, directory: directory, readsIncludes: readsIncludes, permitsFile: permitsFile)
+            convertInPlace(
+                source, directory: directory, readsIncludes: readsIncludes, contentsDepth: contentsDepth,
+                permitsFile: permitsFile)
         }
     }
 
     private static func convertInPlace(
-        _ source: String, directory: URL?, readsIncludes: Bool, permitsFile: @escaping (URL) -> Bool
+        _ source: String, directory: URL?, readsIncludes: Bool, contentsDepth: Int?,
+        permitsFile: @escaping (URL) -> Bool
     )
         -> HTMLFragment
     {
         let document = RSTDocument(directory: directory, readsIncludes: readsIncludes, permitsFile: permitsFile)
+        document.directives.defaultContentsDepth = contentsDepth
         var normalized = TextDecoding.normalizeNewlines(source)
         if normalized.first == "\u{feff}" { normalized.removeFirst() }
         var lines: [String] = []
@@ -40,7 +46,11 @@ public enum RSTConverter {
         let fonts = MathRenderer.fontFaces(for: html)
         return HTMLFragment(
             body: html + (fonts.isEmpty ? "" : "<style>\(fonts)</style>"), title: document.title,
-            readingIssues: document.issueCount > 0 ? [String(document.issueCount)] : [])
+            readingIssues: document.issueCount > 0 ? [String(document.issueCount)] : []
+        ).recordingContents(
+            document.directives.contents.first { !$0.local }.map {
+                .init(present: .init(true), depth: $0.fileDepth.map { .init(.levels($0)) })
+            } ?? .init())
     }
 }
 

@@ -12,6 +12,8 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
     public var mirrorsMargins: Bool?
     public var furniture: PageFurniture?
     public var finish: PrintFinish?
+    /// Portable reading choice captured with the finish. Older sets carry their original PaperTOC instead.
+    public var leadContents: OrgReadingDefaults.Depth?
     /// Nil in sets saved before note pages, which leave the document's notes as they are.
     public var notes: NotePages?
     public var themeID: String?
@@ -51,7 +53,10 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
             result.furniture = nil
             result.latexFurniture = nil
         }
-        if !parts.contains(.finish) { result.finish = nil }
+        if !parts.contains(.finish) {
+            result.finish = nil
+            result.leadContents = nil
+        }
         if !parts.contains(.notes) { result.notes = nil }
         if !parts.contains(.style) {
             result.themeID = nil
@@ -77,7 +82,7 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
         linksMargins = settings.printOptions?.linksMargins
         mirrorsMargins = settings.printOptions?.mirrorsMargins
         furniture = settings.printOptions?.furniture
-        finish = settings.printFinish
+        finish = settings.printFinish?.forSettingSet
         notes = settings.notes
         themeID = settings.themeID
         typeface = settings.typeface ?? (settings.textScale == nil ? nil : .style)
@@ -88,7 +93,7 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
     private enum CodingKeys: String, CodingKey {
         case id, name, layoutID, paperOrientation, margins, linksMargins, mirrorsMargins, furniture, finish, notes,
             themeID, textScale, typeface, presetID
-        case marginsInMillimeters, showsPageNumbers, latexMargins, latexFurniture
+        case leadContents, marginsInMillimeters, showsPageNumbers, latexMargins, latexFurniture
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -104,6 +109,7 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
         try values.encodeIfPresent(mirrorsMargins, forKey: .mirrorsMargins)
         try values.encodeIfPresent(furniture, forKey: .furniture)
         try values.encodeIfPresent(finish, forKey: .finish)
+        try values.encodeIfPresent(leadContents, forKey: .leadContents)
         try values.encodeIfPresent(notes, forKey: .notes)
         try values.encodeIfPresent(themeID, forKey: .themeID)
         try values.encodeIfPresent(typeface, forKey: .typeface)
@@ -135,6 +141,7 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
             field(PageFurniture.self, .furniture)
             ?? field(Bool.self, .showsPageNumbers).map { $0 ? .pageNumber : PageFurniture() }
         finish = field(PrintFinish.self, .finish)
+        leadContents = field(OrgReadingDefaults.Depth.self, .leadContents)
         notes = field(NotePages.self, .notes)
         themeID = field(String.self, .themeID)
         typeface = field(Typeface.self, .typeface)
@@ -154,6 +161,7 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
             result.latexMargins = nil
             result.latexFurniture = nil
         }
+        if formats == [.latex] || !formats.contains(where: \.usesPrintTheme) { result.leadContents = nil }
         if !formats.contains(where: \.usesPrintTheme) {
             result.themeID = nil
             result.typeface = nil
@@ -183,7 +191,7 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
             furniture.map {
                 $0 == settings.printOptions?.furniture && latexFurniture == settings.printOptions?.latexFurniture
             },
-            finish.map { $0 == (settings.printFinish ?? PrintFinish()) },
+            finish.map { $0.forSettingSet == (settings.printFinish ?? PrintFinish()).forSettingSet },
             notes.map { $0 == (settings.notes ?? NotePages()) },
             themeID.map { $0 == settings.themeID },
             typeface.map { $0 == (settings.typeface ?? .style) },

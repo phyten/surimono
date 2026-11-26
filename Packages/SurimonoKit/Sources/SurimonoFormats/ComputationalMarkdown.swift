@@ -1,7 +1,9 @@
 import Foundation
 
 public enum ComputationalMarkdown {
-    public static func convert(_ text: String, pageBreakLine: String = "", proof: ProofMarks = .shown) -> HTMLFragment {
+    public static func convert(
+        _ text: String, pageBreakLine: String = "", proof: ProofMarks = .shown, contentsDepth: Int? = nil
+    ) -> HTMLFragment {
         var lines = TextDecoding.normalizeNewlines(text).components(separatedBy: "\n")
         var metadata = ComputationalMetadata(lines: &lines)
         let language =
@@ -15,10 +17,15 @@ public enum ComputationalMarkdown {
         if PreviewConversion.expired { return HTMLFragment(body: "") }
         let fallback = metadata.unreadable.map { MarkupHTML.listing($0, language: "yaml") } ?? ""
         return HTMLFragment(
-            body: fallback + metadata.header + document.contents + document.resolve(fragment.body),
+            body: fallback + metadata.header + ReaderContentsKind.lead.mark(document.contents(depth: contentsDepth))
+                + document.resolve(fragment.body),
             title: metadata.values["title"]
                 ?? fragment.title.map { HTML.unescape(document.resolve($0, plainText: true)) }, language: language,
-            readingIssues: fragment.readingIssues)
+            readingIssues: fragment.readingIssues
+        ).recordingContents(
+            .init(
+                present: metadata.values["toc"].map { .init($0.lowercased() == "true") },
+                depth: metadata.values["toc-depth"].flatMap(Int.init).map { .init(.levels(max(0, $0))) }))
     }
 
     private static func proseLanguage(_ lines: [String], metadata: ComputationalMetadata) -> String {

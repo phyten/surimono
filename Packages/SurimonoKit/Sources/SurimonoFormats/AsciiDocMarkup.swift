@@ -29,8 +29,17 @@ enum AsciiDocMarkup {
             }
             let fonts = MathRenderer.fontFaces(for: html)
             if !fonts.isEmpty { html += "<style>\(fonts)</style>" }
-            return HTMLFragment(
-                body: html, title: title?.text, language: parts.language == "und" ? nil : parts.language)
+            if parts.leadContents == "true", let nav = html.range(of: "<nav class=\"toc\"") {
+                html.replaceSubrange(nav, with: ReaderContentsKind.lead.mark(String(html[nav])))
+            }
+            var fragment = HTMLFragment(
+                body: html, title: title?.text, language: parts.language == "und" ? nil : parts.language
+            ).recordingContents(
+                .init(
+                    present: parts.leadContents.map { .init($0 == "true") },
+                    depth: parts.contentsDepth.flatMap(Int.init).map { .init(.levels(max(1, $0))) }))
+            fragment.coalescesContentsInLegacy = parts.combinedContents
+            return fragment
         }
     }
 
@@ -75,7 +84,10 @@ enum AsciiDocMarkup {
                             + String(rest.drop(while: { $0 == "." || $0 == " " })) + "</li>"
                     }.joined() + "</ol></section>"
             }
-            if node.has("toc") { return "<nav class=\"toc\"\(node.id)>\(inner(node))</nav>" }
+            if node.has("toc") {
+                let nav = "<nav class=\"toc\"\(node.id)>\(inner(node))</nav>"
+                return node.attribute("data-surimono-in-text") == "1" ? ReaderContentsKind.text.mark(nav) : nav
+            }
             // Theme selectors (including direct children and adjacent paragraphs) expect ordinary document flow.
             if node.id.isEmpty
                 && (node.has("paragraph") || node.has("sectionbody") || node.has("content")

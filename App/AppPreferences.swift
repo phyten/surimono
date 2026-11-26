@@ -331,7 +331,7 @@ final class AppPreferences {
         layoutID = layout.counterpart(in: series).id
     }
     /// What the reader made the default from the tray; the margin and header above stay for Settings.
-    private var finishDefaults: FinishDefaults? {
+    private var finishDefaults: PrintFinishDefaults? {
         didSet {
             if let data = try? JSONEncoder().encode(finishDefaults) {
                 defaults.set(data, forKey: "printFinishDefaults")
@@ -623,7 +623,7 @@ final class AppPreferences {
         presetID = defaults.string(forKey: "preset") ?? "none"
         margin = defaults.object(forKey: "margin") as? Double ?? 15
         let storedFinish = defaults.data(forKey: "printFinishDefaults").flatMap {
-            try? JSONDecoder().decode(FinishDefaults.self, from: $0)
+            try? JSONDecoder().decode(PrintFinishDefaults.self, from: $0)
         }
         // Earlier versions kept a switch for the page number beside the defaults made from the tray.
         defaultFurniture =
@@ -848,11 +848,6 @@ final class AppPreferences {
         recentBinders.clear()
     }
 
-    private struct FinishDefaults: Codable {
-        var options: PrintOptions
-        var finish: PrintFinish
-    }
-
     var printOptions: PrintOptions {
         var options = finishDefaults?.options ?? PrintOptions(marginsInMillimeters: margin)
         options.furniture = defaultFurniture
@@ -861,11 +856,13 @@ final class AppPreferences {
 
     var printFinish: PrintFinish { finishDefaults?.finish ?? PrintFinish() }
 
+    var headlessPrintFinish: PrintFinish { finishDefaults?.finish ?? .manuscriptContents }
+
     /// New documents start with these margins, header and footer, page breaks and contents.
     func setFinishDefaults(options: PrintOptions, finish: PrintFinish) {
         var options = options
         options.rotatesBackSides = false
-        finishDefaults = FinishDefaults(options: options, finish: finish)
+        finishDefaults = PrintFinishDefaults(options: options, finish: finish.forNewDocuments)
         if let margin = options.margins.uniformValue { self.margin = margin }
         defaultFurniture = options.furniture
     }

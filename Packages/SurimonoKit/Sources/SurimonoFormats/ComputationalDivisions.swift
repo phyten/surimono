@@ -170,9 +170,9 @@ extension ComputationalBody {
         }
     }
 
-    var contents: String {
+    func contents(depth fallback: Int?) -> String {
         guard metadata.values["toc"]?.lowercased() == "true" else { return "" }
-        let depth = Int(metadata.values["toc-depth"] ?? "") ?? 3
+        let depth = Int(metadata.values["toc-depth"] ?? "") ?? fallback ?? 3
         let items = headings.filter { $0.level <= depth }.map {
             "<li><a href=\"#\(HTML.escape($0.id))\">\(HTML.escape($0.text))</a></li>"
         }

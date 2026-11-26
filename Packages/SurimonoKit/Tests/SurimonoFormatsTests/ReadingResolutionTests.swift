@@ -92,6 +92,56 @@ struct ReadingResolutionTests {
         #expect(document.isEmpty)
     }
 
+    @Test("深さだけを固定した原稿では、違う深さへの変更を丸ごと断り、同じ深さでの有無の切り替えは通す")
+    func depthOnlyLock() {
+        let line = ReadingInstructionSource(fileName: nil, lineNumber: 3, rawText: "toc-depth: 1")
+        let file = ReadingFileInstructions(depth: .init(.levels(1), source: line))
+        func set(_ doc: inout FormatReadingChoices, _ on: Bool, _ depth: ReadingDepth, allows: Bool = false) {
+            doc.set(
+                .outline(present: on, depth: depth), for: .tableOfContents, format: .quarto, file: file,
+                allowsFileChanges: allows)
+        }
+        func state(_ doc: FormatReadingChoices, allows: Bool = false) -> (Bool, ReadingDepth)? {
+            guard
+                case .outline(let present, let depth) = doc.resolve(
+                    .tableOfContents, for: .quarto, file: file, allowsFileChanges: allows)
+            else { return nil }
+            return (present.value, depth.value)
+        }
+        var doc = FormatReadingChoices()
+        set(&doc, true, .levels(2))
+        #expect(doc.isEmpty)
+        set(&doc, true, .levels(1))
+        #expect(state(doc)?.0 == true && state(doc)?.1 == .levels(1))
+        set(&doc, false, .levels(1))
+        #expect(doc.isEmpty)
+        set(&doc, true, .levels(2), allows: true)
+        #expect(state(doc, allows: true)?.0 == true && state(doc, allows: true)?.1 == .levels(2))
+    }
+
+    @Test("深さだけを選び直しても、保存していた有無は全体既定が後から一致していても消えない")
+    func depthEditKeepsPresence() throws {
+        var app = FormatReadingChoices()
+        var doc = FormatReadingChoices()
+        doc.set(.outline(present: true, depth: .levels(1)), for: .tableOfContents, format: .quarto)
+        app.set(.outline(present: true, depth: .levels(3)), for: .tableOfContents, format: .quarto)
+        doc.set(.outline(present: true, depth: .levels(2)), for: .tableOfContents, format: .quarto, defaults: app)
+        // The app default returns to "absent": the document must still show its contents.
+        guard case .outline(let present, let depth) = doc.resolve(.tableOfContents, for: .quarto)
+        else {
+            Issue.record("目次がない")
+            return
+        }
+        #expect(present.value && present.layer == .document && depth.value == .levels(2))
+        doc.set(.outline(present: false, depth: .levels(2)), for: .tableOfContents, format: .quarto)
+        guard case .outline(let off, let kept) = doc.resolve(.tableOfContents, for: .quarto)
+        else {
+            Issue.record("目次がない")
+            return
+        }
+        #expect(!off.value && kept.value == .levels(2))
+    }
+
     @Test("全体既定が後から一致しても記録を保ち、利用者が継承値を選び直したときだけ消す")
     func changedDefaults() {
         var app = FormatReadingChoices()
@@ -140,8 +190,7 @@ struct ReadingResolutionTests {
                 switch format {
                 case .markdown: [.sectionNumbers, .tableOfContents, .preserveBreaks]
                 case .quarto, .rMarkdown, .rst, .asciidoc: [.sectionNumbers, .tableOfContents]
-                case .mediawiki: [.tableOfContents]
-                default: []
+                default: format.usesPrintTheme && format != .latex ? [.tableOfContents] : []
                 }
             #expect(ReadingCatalogue.rows(for: format).map(\.id) == ids)
         }

@@ -206,6 +206,104 @@ struct PrintFinishRenderingTests {
         }
     }
 
+    @Test("七形式で先頭と本文中の目次を独立して組み、指定時だけ先頭に一ページ足す")
+    func unifiedContentsMatrix() async throws {
+        let cases: [(DocumentFormat, String, Int)] = [
+            (.org, "* Alpha\n#+TOC: headlines 2\n** Bravo", 1),
+            (.markdown, "# Alpha\n\n[TOC]\n\n## Bravo", 1),
+            (.quarto, "# Alpha\n\n[TOC]\n\n## Bravo", 1),
+            (.rst, "Alpha\n=====\n\n.. contents::\n   :local:\n\nBravo\n-----\n\nCharlie\n-----", 1),
+            (.asciidoc, "= Title\n:toc: macro\n\ntoc::[]\n\n== Alpha\n\n== Bravo", 1),
+            (.mediawiki, "== Alpha ==\n__TOC__\n=== Bravo ===", 1),
+            (.djot, "# Alpha\n\n## Bravo", 0),
+        ]
+        let base = try settings()
+        for (format, manuscript, textCount) in cases {
+            let source = DocumentSource(data: Data(manuscript.utf8), format: format)
+            var body = ""
+            let renderer = DocumentRenderer(paginate: { request in
+                if case .html(let html, _) = request.source, !html.contains("paper-toc-title") { body = html }
+                return try RenderingFixtures.pdf(size: request.pageSize)
+            })
+            for present in [false, true] {
+                for separate in [false, true] {
+                    for hidden in [false, true] {
+                        var settings = base
+                        settings.orgReading.defaults.tableOfContents = present ? .levels(2) : .off
+                        settings.formatReading.set(
+                            .outline(present: present, depth: .levels(2)), for: .tableOfContents, format: format)
+                        settings.finish.contents.placement = separate ? .page : .inline
+                        settings.finish.contents.inText = hidden ? .hidden : .asWritten
+                        let pages = try await renderer.prepare(source, settings: settings)
+                        #expect(pages.facts?.contentsKinds.contains(.text) == (textCount > 0), "\(format)")
+                        let hiddenCount = body.components(separatedBy: " data-surimono-hidden>").count - 1
+                        let navCount = body.components(separatedBy: "<nav class=\"toc\"").count - 1
+                        #expect(hiddenCount == (hidden ? textCount : 0), "\(format)")
+                        #expect(navCount == textCount + (present && !separate ? 1 : 0), "\(format)")
+                        #expect(pages.addedContentsPages == (present && separate ? 1 : 0), "\(format)")
+                        #expect(pages.logicalDocument.pageCount == 1 + (present && separate ? 1 : 0))
+                    }
+                }
+            }
+        }
+    }
+
+    @Test("ファイルの先頭指定と本文の目次が同時にあるとき、配置は先頭だけを移す")
+    func fileLeadAndMarker() async throws {
+        let cases: [(DocumentFormat, String)] = [
+            (.org, "#+OPTIONS: toc:1\n* Alpha\n#+TOC: headlines 1\n* Bravo"),
+            (.markdown, "---\ntoc: true\n---\n# Alpha\n\n[TOC]\n\n# Bravo"),
+            (.quarto, "---\ntoc: true\n---\n# Alpha\n\n[TOC]\n\n# Bravo"),
+            (.rst, ".. contents:: Main\n\nAlpha\n=====\n\n.. contents:: Here\n   :local:\n\nBravo\n-----"),
+            (.asciidoc, "= Title\n:toc:\n\n== Alpha\n\ntoc::[]\n\n== Bravo"),
+            (.mediawiki, "__FORCETOC__\n== Alpha ==\n__TOC__\n== Bravo =="),
+        ]
+        let base = try settings()
+        for (format, text) in cases {
+            var html = ""
+            let renderer = DocumentRenderer(paginate: { request in
+                if case .html(let body, _) = request.source, !body.contains("paper-toc-title") { html = body }
+                return try RenderingFixtures.pdf(size: request.pageSize)
+            })
+            let source = DocumentSource(data: Data(text.utf8), format: format)
+            for page in [false, true] {
+                var settings = base
+                settings.finish.contents.placement = page ? .page : .inline
+                let prepared = try await renderer.prepare(source, settings: settings)
+                #expect(prepared.facts?.contentsKinds.contains(.text) == true, "\(format)")
+                #expect(html.components(separatedBy: "<nav class=\"toc\"").count - 1 == (page ? 1 : 2), "\(format)")
+                #expect(html.components(separatedBy: " data-surimono-in-text>").count - 1 == 1, "\(format)")
+                #expect(prepared.addedContentsPages == (page ? 1 : 0), "\(format)")
+            }
+        }
+    }
+
+    @Test("旧版のLaTeXは三つの一覧を一括で扱い、前付けのページ数も保つ")
+    func legacyLatexLists() async throws {
+        let text =
+            #"\documentclass{article}\begin{document}\section{A}\tableofcontents\listoffigures\listoftables\end{document}"#
+        let source = DocumentSource(data: Data(text.utf8), format: .latex)
+        let base = try settings()
+        for mode in PaperTOC.Mode.allCases {
+            for keep in [false, true] {
+                var body = ""
+                let renderer = DocumentRenderer(paginate: { request in
+                    if case .html(let html, _) = request.source, !html.contains("paper-toc-title") { body = html }
+                    return try RenderingFixtures.pdf(size: request.pageSize)
+                })
+                var settings = base
+                settings.finish.toc.mode = mode
+                settings.finish.toc.keepsSourceTOC = keep
+                let pages = try await renderer.prepare(source, settings: settings)
+                #expect(body.components(separatedBy: "<nav class=\"toc\"").count - 1 == 3)
+                #expect(
+                    body.contains("nav.toc { display: none !important; }")
+                        == (mode == .hidden || mode == .front && !keep))
+                #expect(pages.addedContentsPages == (mode == .front ? 1 : 0))
+            }
+        }
+    }
+
     @Test("先頭に足すと原文の目次は隠れ、残す設定なら両方出る", .timeLimit(.minutes(1)))
     func sourceContentsWithFront() async throws {
         let source = markdown("[TOC]\n\n# 第一章\n\n本文\n")

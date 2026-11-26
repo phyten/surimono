@@ -155,7 +155,7 @@ struct PrintFinishStrip: View {
             switch self {
             case .furniture: "Header & Footer"
             case .breaks: "Page Breaks"
-            case .contents: "Contents Page"
+            case .contents: "Contents"
             case .notes: "Notes"
             }
         }
@@ -164,7 +164,7 @@ struct PrintFinishStrip: View {
             switch self {
             case .furniture, .notes: "None"
             case .breaks: "Do Not Break at Headings"
-            case .contents: "Follow the Text's Contents"
+            case .contents: "Same Page as Text"
             }
         }
 
@@ -213,9 +213,10 @@ struct PrintFinishStrip: View {
         .overlay(alignment: .top) { Rectangle().fill(PrintPalette.line).frame(height: 1) }
     }
 
-    private var applicableItems: [Item] {
+    var applicableItems: [Item] {
         var items: [Item] = [.furniture]
-        if model.finishAppliesToText { items += [.breaks, .contents] }
+        if model.finishAppliesToText { items.append(.breaks) }
+        if model.offersContentsFinish { items.append(.contents) }
         if model.offersNotes && model.notes.applies(to: model.layout) { items.append(.notes) }
         return items
     }
@@ -226,7 +227,9 @@ struct PrintFinishStrip: View {
         case .furniture:
             model.usesDocumentFurniture ? "As the Document" : PrintFurnitureChoice.stripTitle(model.furnitureChoice)
         case .breaks: PrintChapterBreakChoice.stripTitle(model.printFinish.breaks.h1)
-        case .contents: PrintContentsChoice.stripTitle(model.printFinish.toc.mode)
+        case .contents:
+            model.contentsFinishRows.contains(.layout)
+                ? PrintContentsChoice.stripTitle(model.printFinish.contents.placement) : nil
         case .notes: PrintNoteChoice.stripTitle(model.notes.isEnabled)
         }
     }
@@ -295,7 +298,11 @@ struct PrintFinishStrip: View {
     private func combinedMenu(_ items: [Item]) -> some View {
         Menu {
             ForEach(items, id: \.self) { item in
-                Menu(item.title) { menuItems(item) }
+                if opensSectionDirectly(item) {
+                    Button(item.title) { model.presentFinish(item.section) }
+                } else {
+                    Menu(item.title) { menuItems(item) }
+                }
             }
         } label: {
             HStack(spacing: 5) {
@@ -323,14 +330,49 @@ struct PrintFinishStrip: View {
         switch item {
         case .furniture: PrintFurnitureChoice(model: model).menuItems
         case .breaks: PrintChapterBreakChoice(model: model).menuItems
-        case .contents: PrintContentsChoice(model: model).menuItems
+        case .contents:
+            if model.format == .latex {
+                if model.contentsFinishRows.contains(.contents) {
+                    Toggle("Print Contents", isOn: model.latexContentsBinding)
+                }
+                if model.contentsFinishRows.contains(.figures) {
+                    Toggle("Print List of Figures", isOn: model.contentsBinding(\.showsFigures))
+                }
+                if model.contentsFinishRows.contains(.tables) {
+                    Toggle("Print List of Tables", isOn: model.contentsBinding(\.showsTables))
+                }
+            } else if model.contentsFinishRows.contains(.layout) {
+                PrintContentsChoice(model: model).menuItems.disabled(
+                    model.printFinish.legacyTOC != nil && model.contentsFacts == nil)
+            }
         case .notes: PrintNoteChoice(model: model).menuItems
         }
         Divider()
         Button("Open in All Settings") { model.presentFinish(item.section) }
     }
 
-    private func menu(_ item: Item) -> some View {
+    private func opensSectionDirectly(_ item: Item) -> Bool {
+        item == .contents && model.format != .latex && !model.contentsFinishRows.contains(.layout)
+    }
+
+    @ViewBuilder private func menu(_ item: Item) -> some View {
+        if opensSectionDirectly(item) {
+            Button {
+                model.presentFinish(item.section)
+            } label: {
+                Text(item.title)
+                    .font(.system(size: 12)).foregroundStyle(PrintPalette.ink)
+                    .padding(.horizontal, 8).frame(height: 28)
+                    .background(CornerRole.control.shape.fill(PrintPalette.hover))
+                    .contentShape(CornerRole.control.shape)
+            }
+            .buttonStyle(.plain).fixedSize()
+        } else {
+            choiceMenu(item)
+        }
+    }
+
+    private func choiceMenu(_ item: Item) -> some View {
         Menu {
             menuItems(item)
         } label: {
@@ -354,7 +396,9 @@ struct PrintFinishStrip: View {
         .menuIndicator(.hidden)
         .fixedSize()
         .accessibilityLabel(Text(item.title))
-        .accessibilityValue(Text(value(of: item) ?? item.defaultValue))
+        .accessibilityValue(
+            Text(value(of: item) ?? (item == .contents && model.format == .latex ? "As Written" : item.defaultValue))
+        )
         .help(Text(item.title))
     }
 }
@@ -452,26 +496,24 @@ struct PrintNoteChoice: View {
 struct PrintContentsChoice: View {
     @Bindable var model: DocumentViewModel
 
-    static let choices: [PrintChoice<PaperTOC.Mode>] = [
-        .init(.source, "Follow the Text's Contents"), .init(.front, "Add Contents to Front"),
-        .init(.hidden, "Do Not Print Contents"),
+    static let choices: [PrintChoice<ContentsFinish.Placement>] = [
+        .init(.inline, "Same Page as Text"), .init(.page, "Separate Page"),
     ]
 
     var body: some View {
-        PrintSegments(label: "Contents Page", options: Self.choices, selection: model.printFinish.toc.mode) {
-            model.printFinish.toc.mode = $0
+        PrintSegments(label: "Placement", options: Self.choices, selection: model.printFinish.contents.placement) {
+            model.editContents(\.placement, $0)
         }
     }
 
     @ViewBuilder var menuItems: some View {
         ForEach(Self.choices, id: \.value) { choice in
-            Button(choice.title) { model.printFinish.toc.mode = choice.value }
-                .accessibilityAddTraits(model.printFinish.toc.mode == choice.value ? .isSelected : [])
+            Button(choice.title) { model.editContents(\.placement, choice.value) }
+                .accessibilityAddTraits(model.printFinish.contents.placement == choice.value ? .isSelected : [])
         }
     }
 
-    /// What the strip shows beside the name; nothing while the contents follow the text.
-    static func stripTitle(_ value: PaperTOC.Mode) -> LocalizedStringKey? {
-        value == .source ? nil : choices.first { $0.value == value }?.title
+    static func stripTitle(_ value: ContentsFinish.Placement) -> LocalizedStringKey? {
+        value == .page ? "Separate Page" : nil
     }
 }

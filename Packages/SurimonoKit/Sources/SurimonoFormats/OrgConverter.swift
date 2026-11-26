@@ -9,19 +9,21 @@ public enum OrgConverter {
         convert(text, settings: OrgReadingSettings(defaults: defaults))
     }
 
-    public static func convert(_ text: String, settings: OrgReadingSettings = .init(), fileName: String? = nil)
-        -> HTMLFragment
-    {
+    public static func convert(
+        _ text: String, settings: OrgReadingSettings = .init(), fileName: String? = nil,
+        includesLeadContents: Bool = true
+    ) -> HTMLFragment {
         StackSpace.onLargeStack {
             let (fragment, reachedLimit) = StackSpace.collectingLimit {
-                convertInPlace(text, settings: settings, fileName: fileName)
+                convertInPlace(text, settings: settings, fileName: fileName, includesLeadContents: includesLeadContents)
             }
             return fragment.notingLimit(reachedLimit)
         }
     }
 
-    private static func convertInPlace(_ text: String, settings: OrgReadingSettings, fileName: String?) -> HTMLFragment
-    {
+    private static func convertInPlace(
+        _ text: String, settings: OrgReadingSettings, fileName: String?, includesLeadContents: Bool
+    ) -> HTMLFragment {
         var parser = OrgParser(
             lines: TextDecoding.normalizeNewlines(text).components(separatedBy: "\n"),
             context: OrgContext(defaults: settings.defaults, fileName: fileName))
@@ -75,7 +77,12 @@ public enum OrgConverter {
             title: japanese ? "目次" : "Table of Contents")
         let depth = context.reading.tableOfContents
         var pieces = [titleBlock]
-        if depth != .off { pieces.append(contents.table(OrgOutline.Request(depth: depth == .all ? nil : depth.limit))) }
+        // A separate contents page does not consume the expansion budget of in-text tables.
+        if includesLeadContents, depth != .off {
+            pieces.append(
+                ReaderContentsKind.lead.mark(
+                    contents.table(OrgOutline.Request(depth: depth == .all ? nil : depth.limit))))
+        }
         // Each mark is found once, in one walk over the text, however many tables the document asks for.
         let marked = content.components(separatedBy: "<!--\(context.contentsToken)-")
         pieces.append(marked[0])
@@ -96,7 +103,7 @@ public enum OrgConverter {
             readingIssues: contents.omitted ? [OrgConverter.contentsLimitIssue] : [],
             decidesHeadingNumbers: true)
         fragment.orgInstructions = context.options.file
-        return fragment
+        return fragment.recordingContents()
     }
 }
 

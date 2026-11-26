@@ -10,7 +10,7 @@ struct SettingsSearchTests {
         "Org は読み方の名前とキーと拡張子から対応する設定行を開く",
         arguments: ["見出しの番号", "先頭の目次", "Subscripts and Superscripts", "num", "toc", "^", ".org"])
     func orgSettings(query: String) {
-        let names = ["Heading Numbers": "見出しの番号", "Table of Contents at the Top": "先頭の目次"]
+        let names = ["Heading Numbers": "見出しの番号", "Lead Contents": "先頭の目次"]
         let results = SettingsCatalogue.search(query, in: SettingsCatalogue.rows, localize: { names[$0] ?? $0 })
         #expect(results.bestSection(keeping: .pageNumbers) == .org)
         if query == "num" { #expect(results.rows.contains { $0.section == .org && $0.anchor == "Heading Numbers" }) }

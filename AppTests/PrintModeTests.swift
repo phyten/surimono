@@ -284,9 +284,8 @@ struct PrintTrayTests {
         #expect(PrintChapterBreakChoice.stripTitle(.none) == nil)
         #expect(PrintChapterBreakChoice.stripTitle(.page) != nil)
         #expect(PrintChapterBreakChoice.stripTitle(.rightPage) != nil)
-        #expect(PrintContentsChoice.stripTitle(.source) == nil)
-        #expect(PrintContentsChoice.stripTitle(.front) != nil)
-        #expect(PrintContentsChoice.stripTitle(.hidden) != nil)
+        #expect(PrintContentsChoice.stripTitle(.inline) == nil)
+        #expect(PrintContentsChoice.stripTitle(.page) != nil)
         #expect(PrintNoteChoice.stripTitle(false) == nil)
         #expect(PrintNoteChoice.stripTitle(true) != nil)
     }
@@ -502,6 +501,20 @@ struct PrintModeTests {
                 return NSHostingView(rootView: panel)
             }
 
+            func checkNativeControls(in host: NSView) {
+                func visit(_ view: NSView) {
+                    guard !view.isHidden else { return }
+                    if view is NSControl, !view.bounds.isEmpty {
+                        let rect = view.convert(view.bounds, to: host)
+                        #expect(
+                            rect.minX >= host.bounds.minX && rect.maxX <= host.bounds.maxX,
+                            "control=\(type(of: view)) frame=\(rect) panel=\(host.bounds)")
+                    }
+                    for child in view.subviews { visit(child) }
+                }
+                visit(host)
+            }
+
             func checkBounds(in host: NSView) {
                 for frame in frames {
                     let rect = frame.rect
@@ -538,7 +551,7 @@ struct PrintModeTests {
                 }
             }
             check("Page Breaks", PrintChapterBreakChoice.choices, selected: .page, title: "New Page for Each Chapter")
-            check("Contents Page", PrintContentsChoice.choices, selected: .front, title: "Add Contents to Front")
+            check("Placement", PrintContentsChoice.choices, selected: .page, title: "Separate Page")
         }
 
         // The sheet normally rebuilds levelRow from its body when the document's rules change.
@@ -610,11 +623,10 @@ struct PrintModeTests {
                     (.rightPage, "Chapters from Right Page"),
                 ])
             try check(
-                PrintContentsChoice(model: model), label: "Contents Page",
-                selection: model.controlBinding(\.printFinish.toc.mode),
+                PrintContentsChoice(model: model), label: "Placement",
+                selection: model.controlBinding(\.printFinish.contents.placement),
                 choices: [
-                    (.source, "Follow the Text's Contents"), (.front, "Add Contents to Front"),
-                    (.hidden, "Do Not Print Contents"),
+                    (.inline, "Same Page as Text"), (.page, "Separate Page"),
                 ])
             let rule = model.controlBinding(\.printFinish.breaks.h2)
             try check(
@@ -637,45 +649,98 @@ struct PrintModeTests {
                 #expect(choices.map(\.element) == [language == "ja" ? .row(label) : .menu(label)])
             }
             check("Page Breaks", selected: "New Page for Each Chapter")
-            check("Contents Page", selected: "Add Contents to Front")
+            #expect(layout.frames.contains { $0.selected == "Separate Page" })
         }
 
-        @Test("幅460ptの印刷設定は左右両方向で本文・見出し・区切り線・選択欄が両端に収まる", arguments: ["en", "fr"], [false, true])
-        func finishPanelFrames(language: String, rightToLeft: Bool) {
+        @Test(
+            "幅460ptの印刷設定は八言語・左右両方向で各見出し・区切り線・選択欄が両端に収まる", arguments: [DocumentFormat.markdown, .latex], [true, false])
+        func finishPanelFrames(format: DocumentFormat, hasContents: Bool) async throws {
             let fixture = Fixture()
             fixture.preferences.layoutID = PrintLayout.a4Single.id
-            let model = fixture.model(format: .markdown)
+            let source: String
+            if format == .markdown {
+                source = hasContents ? "---\ntoc: true\n---\n# Alpha\n\n[TOC]\n\n## Bravo" : "# Alpha"
+            } else {
+                let lists = hasContents ? #"\tableofcontents\listoffigures\listoftables"# : ""
+                source = #"\documentclass{article}\begin{document}\section{Alpha}\#(lists)\end{document}"#
+            }
+            let model = DocumentViewModel(
+                data: Data(source.utf8), fileURL: nil, format: format, preferences: fixture.preferences,
+                library: fixture.library,
+                renderer: DocumentRenderer(paginate: { _ in PDFDocument(data: TestFixtures.pdf("Alpha", pages: 1))! }))
             model.printFinish.breaks.h1 = .page
-            let layout = FinishLayout()
-            let panel = PrintFinishSheet(model: model)
-                .environment(\.locale, Locale(identifier: language))
-                .environment(\.layoutDirection, rightToLeft ? .rightToLeft : .leftToRight)
-            let host = layout.host(panel)
-            host.setFrameSize(CGSize(width: 460, height: 720))
-            host.layoutSubtreeIfNeeded()
+            model.printFinish.contents.placement = .page
+            model.start()
+            try await waitUntil { model.contentsFacts != nil }
+            let hasSection = format == .markdown || hasContents
+            #expect(PrintFinishStrip(model: model).applicableItems.contains(.contents) == hasSection)
+            var sections: [LocalizedStringKey] = ["Paper & Margins", "Header & Footer", "Page Breaks"]
+            if hasSection { sections.append("Contents") }
+            if format == .markdown { sections.append("Proof Marks") }
+            sections += ["Footnotes", "Links on Paper", "Note Pages", "Printer Adjustments"]
 
-            let sections: [LocalizedStringKey] = [
-                "Paper & Margins", "Header & Footer", "Page Breaks", "Contents Page", "Proof Marks", "Footnotes",
-                "Links on Paper", "Note Pages", "Printer Adjustments",
-            ]
-            let elements = layout.frames.map(\.element)
-            #expect(elements.contains(.content))
-            for (index, title) in sections.enumerated() {
-                #expect(elements.contains(.heading(title)))
-                if index > 0 { #expect(elements.contains(.divider(title))) }
+            for language in UILanguage.supported {
+                for direction: LayoutDirection in [.leftToRight, .rightToLeft] {
+                    let layout = FinishLayout()
+                    let panel = PrintFinishSheet(model: model)
+                        .environment(\.locale, Locale(identifier: language))
+                        .environment(\.layoutDirection, direction)
+                    let host = layout.host(panel)
+                    host.setFrameSize(CGSize(width: 460, height: 720))
+                    host.layoutSubtreeIfNeeded()
+                    #expect(host.bounds.width == 460)
+                    let elements = layout.frames.map(\.element)
+                    #expect(elements.contains(.content))
+                    #expect(elements.contains(.heading("Contents")) == hasSection)
+                    #expect(elements.contains(.divider("Contents")) == hasSection)
+                    for (index, title) in sections.enumerated() {
+                        #expect(elements.contains(.heading(title)))
+                        if index > 0 { #expect(elements.contains(.divider(title))) }
+                    }
+                    func choice(
+                        _ name: LocalizedStringKey, selected: LocalizedStringKey, options: [LocalizedStringKey] = []
+                    ) {
+                        if elements.contains(.row(name)) {
+                            for option in options { #expect(elements.contains(.segment(option))) }
+                        }
+                        let frames = layout.frames.filter { $0.element == .menu(name) || $0.element == .row(name) }
+                        #expect(
+                            frames.contains { $0.selected == selected }, "\(format) \(language) \(direction) \(name)")
+                    }
+                    choice("Page Breaks", selected: "New Page for Each Chapter")
+                    if ["en", "fr"].contains(language) { #expect(elements.contains(.menu("Page Breaks"))) }
+                    if format == .markdown {
+                        #expect(elements.contains(.label("Lead Contents")))
+                        #expect(elements.contains(.picker("Lead Contents")))
+                        #expect(elements.contains(.picker("Proof Marks")))
+                        for label: LocalizedStringKey in ["Placement", "Look", "Contents in Text"] {
+                            #expect(elements.contains(.label(label)) == hasContents)
+                            #expect((elements.contains(.row(label)) || elements.contains(.menu(label))) == hasContents)
+                        }
+                        if hasContents {
+                            #expect(elements.contains(.row("Placement")), "\(language) \(direction)")
+                            choice(
+                                "Placement", selected: "Separate Page", options: ["Same Page as Text", "Separate Page"])
+                            choice("Look", selected: "Dotted", options: ["Dotted", "No Lines", "Chapter Lines"])
+                            choice("Contents in Text", selected: "As Written", options: ["As Written", "Don't Print"])
+                        }
+                    } else {
+                        for label: LocalizedStringKey in [
+                            "Print Contents", "Print List of Figures", "Print List of Tables",
+                        ] {
+                            #expect(elements.contains(.label(label)) == hasContents)
+                            #expect(elements.contains(.toggle(label)) == hasContents)
+                        }
+                        #expect(!elements.contains(.picker("Lead Contents")))
+                    }
+                    for picker: LocalizedStringKey in ["Footnotes", "Links on Paper"] {
+                        #expect(elements.contains(.picker(picker)))
+                    }
+                    #expect(elements.contains(.menu("Output Order")) || elements.contains(.row("Output Order")))
+                    layout.checkBounds(in: host)
+                    layout.checkNativeControls(in: host)
+                }
             }
-            // Depth stays inline in both languages, even when the chapter break choices use a popup.
-            #expect(elements.contains(.segment("Chapters")))
-            #expect(elements.contains(.segment("Sections")))
-            #expect(
-                layout.frames.contains {
-                    $0.element == .menu("Page Breaks") && $0.selected == "New Page for Each Chapter"
-                })
-            for picker: LocalizedStringKey in ["Proof Marks", "Footnotes", "Links on Paper"] {
-                #expect(elements.contains(.picker(picker)))
-            }
-            #expect(elements.contains(.menu("Output Order")) || elements.contains(.row("Output Order")))
-            layout.checkBounds(in: host)
         }
 
         @Test("英語の見出し別の三択はスクロールバーのある設定行でも一列に収まる", arguments: HeadingBreak.allCases)

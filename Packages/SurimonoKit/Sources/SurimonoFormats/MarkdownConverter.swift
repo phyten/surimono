@@ -115,7 +115,9 @@ public enum MarkdownConverter {
         return MarkdownMappedDocument(
             fragment: HTMLFragment(
                 body: html + (fonts.isEmpty ? "" : "<style>\n\(fonts)\n</style>\n"), title: title,
-                language: metadata.language, readingIssues: issues),
+                language: metadata.language, readingIssues: issues
+            ).recordingContents(
+                .init(present: metadata.tocInstruction, depth: metadata.tableOfContents ? .init(.levels(3)) : nil)),
             blocks: mapping?.blocks ?? [])
     }
 
@@ -228,7 +230,7 @@ public enum MarkdownConverter {
             anchors: anchorsHeadings ? MarkdownExtensions.headingAnchors(in: document, formulas: formulas) : [],
             formulas: formulas, mapping: mapping)
         context.notebookTOC = notebookTOC
-        let toc = tocAtTop ? context.tableOfContents() : ""
+        let toc = tocAtTop ? ReaderContentsKind.lead.mark(context.tableOfContents()) : ""
         return (toc + render(document, context), document)
     }
 

@@ -24,6 +24,29 @@ struct BinderRenderingTests {
         ]
     }
 
+    @Test("合本の子は文書と全体の目次設定を引き継がず、原稿の目次を従来の個数で組む")
+    func childContents() async throws {
+        let wiki = DocumentSource(
+            data: Data("__FORCETOC__\n== Alpha ==\n__TOC__\n== Bravo ==".utf8), format: .mediawiki)
+        let md = DocumentSource(data: Data("# First\n\n# Last".utf8), format: .markdown)
+        var lists: [Int] = []
+        let renderer = DocumentRenderer(paginate: { request in
+            if case .html(let html, _) = request.source {
+                lists.append(html.components(separatedBy: "<nav class=\"toc\"").count - 1)
+                #expect(!html.contains("nav.toc { display: none"))
+            }
+            return try RenderingFixtures.pdf(size: request.pageSize)
+        })
+        var settings = settings
+        settings.finish.toc.mode = .front
+        settings.formatReading.set(.outline(present: true, depth: .all), for: .tableOfContents, format: .mediawiki)
+        settings.formatReadingDefaults.set(
+            .outline(present: true, depth: .all), for: .tableOfContents, format: .markdown)
+        let result = try await renderer.prepare(.binder([wiki, md]), settings: settings)
+        #expect(lists == [1, 0])
+        #expect(result.logicalDocument.pageCount == 2 && result.addedContentsPages == 0)
+    }
+
     @Test("合本の先頭位置は文書間の白紙を含みキャッシュでも残る")
     func pageStarts() async throws {
         let renderer = DocumentRenderer()

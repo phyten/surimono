@@ -12,6 +12,7 @@ public struct MarkdownMetadata: Equatable, Sendable {
     public var nocite: [String] = []
     public var linkCitations = true
     public var tableOfContents = false
+    var tocInstruction: ReadingInstruction<Bool>?
     public var hasCSL = false
 
     public init() {}
@@ -56,7 +57,9 @@ public struct MarkdownMetadata: Equatable, Sendable {
             case "reference-section-title": referenceSectionTitle = items.first
             case "nocite": nocite = items
             case "link-citations": linkCitations = items.first?.lowercased() != "false"
-            case "toc": tableOfContents = items.first?.lowercased() == "true"
+            case "toc":
+                tableOfContents = items.first?.lowercased() == "true"
+                tocInstruction = .init(tableOfContents, source: .init(fileName: nil, lineNumber: start, rawText: line))
             case "csl": hasCSL = true
             default: break
             }
