@@ -120,7 +120,7 @@ struct FinishCacheTests {
         settings.finish.breaks.h1 = .page
         _ = try await renderer.prepare(source, settings: settings)
         #expect(renderer.logicalRenderCount == 2)
-        settings.finish.toc.mode = .front
+        settings.finish.legacyPresetContents.mode = .front
         _ = try await renderer.prepare(source, settings: settings)
         #expect(renderer.logicalRenderCount == 3)
         settings.code.block.lineNumbers = .all
@@ -134,7 +134,7 @@ struct FinishCacheTests {
     @Test("A判へ戻すと A判の大きさで組み直し、目次と改ページはそのまま効く")
     func seriesKeepsFinish() async throws {
         var settings = try settings()
-        settings.finish.toc.mode = .front
+        settings.finish.legacyPresetContents.mode = .front
         settings.finish.breaks.h1 = .rightPage
         var sizes: [CGSize] = []
         let renderer = DocumentRenderer(paginate: { request in
@@ -159,7 +159,7 @@ struct FinishCacheTests {
         options.furniture = .nameAndDate
         var finish = PrintFinish()
         finish.breaks.h1 = .rightPage
-        finish.toc.mode = .front
+        finish.legacyPresetContents.mode = .front
         var block = CodeBlockOptions()
         block.lineNumbers = .everyFive
         let saved = DocumentSettings(

@@ -220,7 +220,7 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
             options.furniture = furniture
             var finish = PrintFinish()
             finish.breaks.h1 = h1
-            finish.toc.mode = contents
+            finish.legacyPresetContents.mode = contents
             return PrintSettingSet(
                 id: id, name: UILanguage.name(names, language: language, english: names["en"] ?? ""),
                 settings: DocumentSettings(

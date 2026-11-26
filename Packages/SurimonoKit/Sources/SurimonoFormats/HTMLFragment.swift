@@ -15,6 +15,13 @@ public struct HTMLFragment: Equatable, Sendable {
     public var sourceText: String?
     /// Older readers coalesced a forced lead and an explicit marker into a single list.
     public internal(set) var coalescesContentsInLegacy = false
+    /// Native contents for a document choice, or for comparing a legacy front page without changing its body.
+    package struct ProposedLead: Equatable, Sendable {
+        package let depth: Int
+        package let html: String
+    }
+
+    package var proposedLeadContents: ProposedLead?
     public var contentsInstructions = ReadingFileInstructions()
     public internal(set) var contentsKinds: [Int: ReaderContentsKind] = [:]
     public var orgInstructions: OrgFileInstructions?

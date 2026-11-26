@@ -99,14 +99,14 @@ final class MarkdownCitations {
 
     private func token(_ kind: String, index: Int) -> String { "\u{E002}\(nonce)\(kind)\(index)\u{E003}" }
 
-    func tableOfContents(_ anchors: [MarkdownExtensions.HeadingAnchor]) -> String {
+    func tableOfContents(_ anchors: [MarkdownExtensions.HeadingAnchor], levels: Int) -> String {
         let labels = anchors.map { heading in
             guard heading.text.contains("@") else { return heading }
             let label = token("T", index: tocHeadings.count)
             tocHeadings.append(heading)
             return MarkdownExtensions.HeadingAnchor(level: heading.level, id: heading.id, text: label)
         }
-        return MarkdownExtensions.tableOfContents(labels)
+        return MarkdownExtensions.tableOfContents(labels, levels: levels)
     }
 
     private func replacing(_ kind: String, in body: String, with replacement: (Int) -> String?) -> String {

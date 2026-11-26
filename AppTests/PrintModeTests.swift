@@ -639,7 +639,7 @@ struct PrintModeTests {
             let fixture = Fixture()
             let model = fixture.model(format: .markdown)
             model.printFinish.breaks.h1 = .page
-            model.printFinish.toc.mode = .front
+            model.printFinish.legacyPresetContents.mode = .front
             let layout = FinishLayout()
             let host = layout.host(PrintFinishSheet(model: model).environment(\.locale, Locale(identifier: language)))
             host.setFrameSize(CGSize(width: 428, height: 720))

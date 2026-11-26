@@ -48,6 +48,22 @@ extension HTMLFragment {
         return result
     }
 
+    package var leadEntries: [DocumentHeading]? {
+        if let index = contentsKinds.first(where: { $0.value == .lead })?.key {
+            return DocumentOutline.contentsHeadings(in: body, navIndex: index)
+        }
+        return proposedLeadContents.map { DocumentOutline.contentsHeadings(in: $0.html, navIndex: 0) }
+    }
+
+    package func prependingLead(_ nav: String) -> Self {
+        guard !nav.isEmpty else { return self }
+        var copy = self
+        copy.body = nav + body
+        copy.contentsKinds = Dictionary(uniqueKeysWithValues: contentsKinds.map { ($0.key + 1, $0.value) })
+        copy.contentsKinds[0] = .lead
+        return copy
+    }
+
     private func contentsKind(of nav: HTMLScanner.Tag, at index: Int) -> ReaderContentsKind? {
         contentsKinds[index] ?? (nav.attribute("class")?.split(separator: " ").contains("toc") == true ? .text : nil)
     }
@@ -106,12 +122,10 @@ extension HTMLFragment {
     }
 }
 
-extension DocumentOutline {
-    package static func addingLeadContents(to body: String, headings: [DocumentHeading], depth: ReadingDepth) -> String
-    {
-        guard !headings.isEmpty else { return body }
-        var body = body
-        var headings = headings
+extension HTMLFragment {
+    package func addingLeadContents(headings: inout [DocumentHeading], depth: ReadingDepth) -> Self {
+        guard !headings.isEmpty else { return self }
+        var copy = self
         if headings.contains(where: { $0.id?.isEmpty != false }) {
             var ids: Set<String> = []
             HTMLScanner.forEachToken(body) { token in
@@ -133,11 +147,11 @@ extension DocumentOutline {
                     }
                 }
             }
-            body = anchored
-            headings = Self.headings(inHTML: anchored)
+            copy.body = anchored
+            headings = DocumentOutline.headings(inHTML: anchored)
         }
         let nav = MarkdownExtensions.tableOfContents(
             headings.map { .init(level: $0.level, id: $0.id ?? "", text: $0.text) }, levels: depth.headingLevels)
-        return nav + body
+        return copy.prependingLead(nav)
     }
 }

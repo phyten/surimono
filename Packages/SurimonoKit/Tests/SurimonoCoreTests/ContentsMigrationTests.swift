@@ -11,6 +11,7 @@ struct ContentsMigrationTests {
             (.markdown, MarkdownConverter.convert("---\ntoc: true\n---\n" + heading), [.source]),
             (.markdown, MarkdownConverter.convert("[TOC]\n\n" + heading), [.source, .hidden]),
             (.markdown, MarkdownConverter.convert("---\ntoc: true\n---\n[TOC]\n\n" + heading), [.source]),
+            (.rst, RSTConverter.convert("A\n===\n\n.. contents:: Here\n\nB\n===\n"), [.source, .hidden]),
             (.latex, LaTeXConverter.convert(#"\section{Alpha}\tableofcontents\listoffigures\listoftables"#), [.source]),
         ]
         for (format, fragment, convertible) in cases {
@@ -20,10 +21,10 @@ struct ContentsMigrationTests {
                     for depth in PaperTOC.Depth.allCases {
                         for look in PaperTOC.Look.allCases {
                             var finish = PrintFinish()
-                            finish.toc.mode = mode
-                            finish.toc.keepsSourceTOC = keep
-                            finish.toc.depth = depth
-                            finish.toc.look = look
+                            finish.legacyPresetContents.mode = mode
+                            finish.legacyPresetContents.keepsSourceTOC = keep
+                            finish.legacyPresetContents.depth = depth
+                            finish.legacyPresetContents.look = look
                             var document = DocumentSettings(printFinish: finish)
                             #expect(
                                 document.migrateContents(format: format, facts: facts) == convertible.contains(mode))
@@ -62,7 +63,7 @@ struct ContentsMigrationTests {
         for (format, fragment) in cases {
             let facts = DocumentFacts(fragment: fragment)
             var finish = PrintFinish()
-            finish.toc.mode = .source
+            finish.legacyPresetContents.mode = .source
             var document = DocumentSettings(printFinish: finish)
             #expect(facts.coalescesContentsInLegacy)
             let automatic = document.migrateContents(format: format, facts: facts)
@@ -102,7 +103,7 @@ struct ContentsMigrationTests {
         let fragment = MarkdownConverter.convert("---\ntoc: true\n---\n# Alpha\n\n[TOC]")
         let facts = DocumentFacts(fragment: fragment)
         var old = PrintFinish()
-        old.toc.mode = .hidden
+        old.legacyPresetContents.mode = .hidden
         var saved = DocumentSettings(printFinish: old)
         let automatic = saved.migrateContents(format: .markdown, facts: facts)
         #expect(!automatic)
@@ -123,7 +124,7 @@ struct ContentsMigrationTests {
         let facts = DocumentFacts(fragment: ComputationalMarkdown.convert(manuscript))
         #expect(facts.contentsInstructions.present == nil && facts.contentsInstructions.depth?.value == .levels(2))
         var finish = PrintFinish()
-        finish.toc.mode = .front
+        finish.legacyPresetContents.mode = .front
         var document = DocumentSettings(printFinish: finish)
         document.formatReading.set(.outline(present: true, depth: .all), for: .tableOfContents, format: .quarto)
         document.formatReading.set(.outline(present: false, depth: .all), for: .tableOfContents, format: .quarto)
@@ -150,10 +151,10 @@ struct ContentsMigrationTests {
         let facts = DocumentFacts(fragment: MarkdownConverter.convert("# Alpha\n\n# Bravo"))
         for mode in PaperTOC.Mode.allCases {
             var old = PrintFinish()
-            old.toc.mode = mode
-            old.toc.depth = .sections
-            old.toc.look = .ruled
-            old.toc.keepsSourceTOC = true
+            old.legacyPresetContents.mode = mode
+            old.legacyPresetContents.depth = .sections
+            old.legacyPresetContents.look = .ruled
+            old.legacyPresetContents.keepsSourceTOC = true
             var document = DocumentSettings(printFinish: old)
             let migrated = document.migrateContents(format: .markdown, facts: facts)
             #expect(migrated)
@@ -184,40 +185,41 @@ struct ContentsMigrationTests {
     func nativeDepth() throws {
         let headings = "# A\n\n## B\n\n### C"
         let qmd = "---\ntoc: true\n---\n" + headings
-        let rst = ".. contents::\n\nA\n====\n\nB\n----\n\nC\n~~~~"
         let adoc = "= Title\n:toc:\n\n== A\n\n=== B\n\n==== C"
-        let cases: [(DocumentFormat, HTMLFragment, Bool)] = [
-            (.markdown, MarkdownConverter.convert(qmd), true),
-            (.quarto, ComputationalMarkdown.convert(qmd, contentsDepth: 1), false),
-            (.rst, RSTConverter.convert(rst, contentsDepth: 1), false),
-            (.asciidoc, try AsciiDocConverter.convert(adoc, contentsDepth: 1), false),
+        let wiki = "__FORCETOC__\n== A ==\n=== B ===\n==== C ===="
+        let cases: [(DocumentFormat, HTMLFragment, [String])] = [
+            (.markdown, MarkdownConverter.convert(qmd, contentsDepth: 1), ["B"]),
+            (.mediawiki, MediaWikiConverter.convert(wiki, contentsDepth: 1), ["B"]),
+            (.quarto, ComputationalMarkdown.convert(qmd, contentsDepth: 1), ["A"]),
+            (.asciidoc, try AsciiDocConverter.convert(adoc, contentsDepth: 1), ["A"]),
         ]
-        for (format, fragment, fixedDepth) in cases {
+        for (format, fragment, expected) in cases {
+            let file = fragment.contentsInstructions
+            var choices = FormatReadingChoices()
+            choices.set(.outline(present: true, depth: .levels(1)), for: .tableOfContents, format: format, file: file)
+            let row = try #require(choices.resolve(.tableOfContents, for: format, file: file))
+            #expect(!row.allowsOutline(present: false, depth: .all))
+            #expect(row.allowsOutline(present: true, depth: .all))
+            #expect(choices.leadContents(for: format, file: file) == .levels(1))
+            #expect(DocumentOutline.sourceContentsEntries(inHTML: fragment.body) == expected, "\(format)")
+        }
+        for enabled in [false, true] {
+            let header = enabled ? "toc: true\n" : ""
+            let fragment = ComputationalMarkdown.convert("---\n" + header + "toc-depth: 2\n---\n" + headings)
             let file = fragment.contentsInstructions
             guard
-                case .outline(let present, let depth) = FormatReadingChoices().resolve(
-                    .tableOfContents, for: format, file: file)
+                case .outline(let presence, let depth) = FormatReadingChoices().resolve(
+                    .tableOfContents, for: .quarto, file: file)
             else {
                 Issue.record("目次の読み方がない")
-                continue
+                return
             }
-            #expect(present.value && present.isLocked)
-            #expect(depth.isLocked == fixedDepth)
-            let entries = DocumentOutline.sourceContentsEntries(inHTML: fragment.body)
-            if !fixedDepth { #expect(entries == ["A"], "\(format)") }
+            #expect(presence.isLocked == enabled && depth.isLocked && depth.value == .levels(2))
         }
-        let explicit = [
-            ComputationalMarkdown.convert(
-                qmd.replacingOccurrences(of: "toc: true", with: "toc: true\ntoc-depth: 2"), contentsDepth: 1),
-            RSTConverter.convert(
-                rst.replacingOccurrences(of: ".. contents::", with: ".. contents::\n   :depth: 2"), contentsDepth: 1),
-            try AsciiDocConverter.convert(
-                adoc.replacingOccurrences(of: ":toc:", with: ":toc:\n:toclevels: 2"), contentsDepth: 1),
-        ]
-        for fragment in explicit {
-            #expect(fragment.contentsInstructions.depth?.value == .levels(2))
-            #expect(DocumentOutline.sourceContentsEntries(inHTML: fragment.body) == ["A", "B"])
-        }
+        let explicit = try AsciiDocConverter.convert(
+            adoc.replacingOccurrences(of: ":toc:", with: ":toc:\n:toclevels: 2"), contentsDepth: 1)
+        #expect(explicit.contentsInstructions.depth?.value == .levels(2))
+        #expect(DocumentOutline.sourceContentsEntries(inHTML: explicit.body) == ["A", "B"])
         let disabled = [
             MarkdownConverter.convert("---\ntoc: false\n---\n" + headings),
             ComputationalMarkdown.convert("---\ntoc: false\n---\n" + headings),
@@ -225,6 +227,65 @@ struct ContentsMigrationTests {
             MediaWikiConverter.convert("__NOTOC__\n== A =="),
         ]
         for fragment in disabled { #expect(fragment.contentsInstructions.present?.value == false) }
+    }
+
+    @Test("有無だけ指定した旧原稿は深さ三を復元し、移行後の変更では深さだけを書ける")
+    func migratedNativeDepth() {
+        for (format, fragment) in [
+            (DocumentFormat.markdown, MarkdownConverter.convert("---\ntoc: true\n---\n# A")),
+            (.mediawiki, MediaWikiConverter.convert("__FORCETOC__\n== A ==")),
+        ] {
+            var defaults = FormatReadingChoices()
+            defaults.set(.outline(present: true, depth: .all), for: .tableOfContents, format: format)
+            var document = DocumentSettings(printFinish: .manuscriptContents)
+            let facts = DocumentFacts(fragment: fragment)
+            let migrated = document.migrateContents(format: format, facts: facts, defaults: defaults)
+            #expect(migrated)
+            #expect(
+                document.formatReading.leadContents(for: format, file: facts.contentsInstructions, defaults: defaults)
+                    == .levels(3))
+            var previouslyMigrated = document
+            previouslyMigrated.formatReading = .init()
+            let repaired = previouslyMigrated.migrateContents(format: format, facts: facts, defaults: defaults)
+            #expect(repaired && previouslyMigrated == document)
+            let repeated = previouslyMigrated.migrateContents(format: format, facts: facts, defaults: defaults)
+            #expect(!repeated)
+            document.setLeadContents(
+                .levels(1), format: format, facts: facts, defaults: defaults, orgDefaults: .surimono)
+            #expect(
+                document.formatReading.leadContents(for: format, file: facts.contentsInstructions, defaults: defaults)
+                    == .levels(1))
+        }
+    }
+
+    @Test("旧前付けと新しい目次の掲載項目や段が違えば自動移行を保留する")
+    func nativeFrontMigration() {
+        var finish = PrintFinish()
+        finish.legacyPresetContents.mode = .front
+        for (format, fragment, expected) in [
+            (DocumentFormat.org, OrgConverter.convert("* A\n* B", proposedLeadDepth: 1), true),
+            (.org, OrgConverter.convert("* A\n** B", proposedLeadDepth: 1), false),
+            (
+                .org, OrgConverter.convert("* A\n* B\n:PROPERTIES:\n:UNNUMBERED: notoc\n:END:", proposedLeadDepth: 1),
+                false
+            ),
+            (.quarto, ComputationalMarkdown.convert("# A\n# B", proposedLeadDepth: 1), true),
+            (.quarto, ComputationalMarkdown.convert("# A\n## B", proposedLeadDepth: 1), false),
+            (.quarto, ComputationalMarkdown.convert("# A\n# B {.unlisted}", proposedLeadDepth: 1), false),
+        ] {
+            var document = DocumentSettings(printFinish: finish)
+            let migrated = document.migrateContents(format: format, facts: DocumentFacts(fragment: fragment))
+            #expect(migrated == expected, "\(format)")
+        }
+    }
+
+    @Test("同名の見出しが続いても除外した見出しのページ番号を別ページの目次に使わない")
+    func duplicateHeadingPages() {
+        let fragment = ComputationalMarkdown.convert(
+            "---\ntoc: true\n---\n# A {#first}\n# A {#skip .unlisted}\n# A {#last}")
+        let facts = DocumentFacts(fragment: fragment)
+        #expect(facts.leadEntries?.compactMap(\.id) == ["first", "last"])
+        #expect(PaperContents.readerEntries(facts: facts, pageNumbers: [0, 2, 5]).map(\.page) == [0, 5])
     }
 
     @Test("既存の識別子を保ち、識別子のない見出しにも先頭の目次から移動できる")

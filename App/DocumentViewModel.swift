@@ -3139,6 +3139,7 @@ final class DocumentViewModel {
         if !offersNotes { set.notes = nil }
         // A binder can hold texts and still have no page breaks or contents of its own to compare.
         if !finishAppliesToText { set.finish = nil }
+        set.finish = set.finish?.preservingMigratedContents(from: printFinish)
         if set.finish == nil || format == .latex { set.leadContents = nil }
         return set
     }
@@ -3182,10 +3183,8 @@ final class DocumentViewModel {
             printOptions.furniture = furniture
         }
         if let finish = set.finish {
-            // Reapplying the selected legacy set must not feed its migrated Org lead back into the old reader.
-            if finish.legacyTOC == nil || selectedSettingSetID != set.id
-                || !matchesPrintSettingSet(set.keeping([.finish]))
-            {
+            // Reapplying an equivalent legacy finish must not feed its migrated Org lead back into the old reader.
+            if finish.legacyTOC == nil || !matchesPrintSettingSet(set.keeping([.finish])) {
                 printFinish = finish
             }
             if let choice = set.leadContents { setLeadContents(choice) }
@@ -3383,7 +3382,7 @@ final class DocumentViewModel {
 
     /// Either the content hash or the reader can finish first. Convert only once both describe these settings.
     private func migrateReadContents(_ rendered: RenderSettings?) {
-        guard contentHash != nil, printFinish.legacyTOC != nil, let rendered, let contentsFacts,
+        guard contentHash != nil, printFinish.originalPresetContents != nil, let rendered, let contentsFacts,
             rendered.finish == printFinish, rendered.formatReading == formatReading,
             rendered.formatReadingDefaults == preferences.formatReadingDefaults,
             rendered.orgReading == (format == .org ? orgReading : .init())

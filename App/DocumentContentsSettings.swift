@@ -13,8 +13,8 @@ enum ContentsFinishRow: Hashable {
             if kinds.contains(.contents) { rows.insert(.contents) }
             if kinds.contains(.figures) { rows.insert(.figures) }
             if kinds.contains(.tables) { rows.insert(.tables) }
-            // This front page can exist even when the manuscript has no lists. Allow the reader to turn it off.
-            if rows.isEmpty, finish.legacyTOC?.mode == .front, facts?.headings.isEmpty == false {
+            // This front page can exist even when the manuscript has no table of contents. Allow the reader to turn it off.
+            if !kinds.contains(.contents), finish.legacyTOC?.mode == .front, facts?.headings.isEmpty == false {
                 rows.insert(.contents)
             }
         } else if format.usesPrintTheme {
@@ -81,7 +81,7 @@ extension DocumentViewModel {
     }
 
     func migrateContents(editing: Bool = false) {
-        guard editing || printFinish.legacyTOC != nil, let contentsFacts else { return }
+        guard editing || printFinish.originalPresetContents != nil, let contentsFacts else { return }
         var document = rememberedSettings
         guard
             document.migrateContents(

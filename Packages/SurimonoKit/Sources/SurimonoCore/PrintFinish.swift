@@ -113,6 +113,12 @@ public struct PrintFinish: Codable, Hashable, Sendable {
         if case .legacy(let toc) = record { return toc }
         return nil
     }
+    /// The portable legacy preset survives automatic migration until a contents control is edited.
+    public var originalPresetContents: PaperTOC? {
+        if case .migrated(let toc) = record { return toc }
+        return legacyTOC
+    }
+
     public var contents: ContentsFinish {
         get {
             switch record {
@@ -133,7 +139,14 @@ public struct PrintFinish: Codable, Hashable, Sendable {
 
     public var forNewDocuments: Self {
         var copy = self
-        if case .migrated(let toc) = record { copy.toc = toc }
+        if case .migrated(let toc) = record { copy.legacyPresetContents = toc }
+        return copy
+    }
+
+    /// Applying the same legacy contents should still apply any other fields supplied by the preset.
+    public func preservingMigratedContents(from active: Self) -> Self {
+        var copy = self
+        if case .migrated(let original) = active.record, legacyTOC == original { copy.record = active.record }
         return copy
     }
 
@@ -145,14 +158,14 @@ public struct PrintFinish: Codable, Hashable, Sendable {
     }
 
     /// Compatibility for the original presets and legacy rendering fixtures.
-    public var toc: PaperTOC {
-        get { legacyTOC ?? PaperTOC() }
+    public var legacyPresetContents: PaperTOC {
+        get { originalPresetContents ?? PaperTOC() }
         set { record = .legacy(newValue) }
     }
 
     public static var manuscriptContents: Self {
         var finish = Self()
-        finish.toc = PaperTOC()
+        finish.legacyPresetContents = PaperTOC()
         return finish
     }
 
@@ -350,13 +363,34 @@ public enum PaperContents {
     }
 
     public static func entries(headings: [DocumentHeading], pageNumbers: [Int?], depth: ReadingDepth) -> [Entry] {
-        guard let top = DocumentOutline.chapterLevel(of: headings.map(\.level)) else { return [] }
-        let levels = depth.headingLevels
-        return headings.enumerated().compactMap { index, heading in
-            guard heading.level >= top, heading.level - top < levels else { return nil }
-            return Entry(
-                depth: heading.level - top + 1, text: heading.text,
+        legacySelection(headings, depth: depth).map { index, heading in
+            Entry(
+                depth: heading.level, text: heading.text,
                 page: pageNumbers.indices.contains(index) ? pageNumbers[index] : nil)
+        }
+    }
+
+    package static func readerEntries(facts: DocumentFacts, pageNumbers: [Int?]) -> [Entry] {
+        var pagesByID: [String: Int] = [:]
+        for (heading, page) in zip(facts.headings, pageNumbers) {
+            if let id = heading.id, let page, pagesByID[id] == nil { pagesByID[id] = page }
+        }
+        return (facts.leadEntries ?? []).map { item in
+            Entry(depth: item.level, text: item.text, page: item.id.flatMap { pagesByID[$0] })
+        }
+    }
+
+    static func legacyHeadings(_ headings: [DocumentHeading], depth: ReadingDepth) -> [DocumentHeading] {
+        legacySelection(headings, depth: depth).map { $0.1 }
+    }
+
+    private static func legacySelection(_ headings: [DocumentHeading], depth: ReadingDepth) -> [(Int, DocumentHeading)]
+    {
+        guard let top = DocumentOutline.chapterLevel(of: headings.map(\.level)) else { return [] }
+        return headings.enumerated().compactMap { index, heading in
+            let level = heading.level - top
+            guard level >= 0, level < depth.headingLevels else { return nil }
+            return (index, DocumentHeading(level: level + 1, text: heading.text, id: heading.id))
         }
     }
 

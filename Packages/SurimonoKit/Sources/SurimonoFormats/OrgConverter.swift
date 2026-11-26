@@ -11,11 +11,26 @@ public enum OrgConverter {
 
     public static func convert(
         _ text: String, settings: OrgReadingSettings = .init(), fileName: String? = nil,
-        includesLeadContents: Bool = true
+        includesLeadContents: Bool = true, proposedLeadDepth: Int? = nil
     ) -> HTMLFragment {
         StackSpace.onLargeStack {
             let (fragment, reachedLimit) = StackSpace.collectingLimit {
-                convertInPlace(text, settings: settings, fileName: fileName, includesLeadContents: includesLeadContents)
+                var fragment = convertInPlace(
+                    text, settings: settings, fileName: fileName, includesLeadContents: includesLeadContents)
+                // A legacy front page need not have heading anchors. Read its proposed replacement separately
+                // so the comparison cannot change the legacy body or consume its in-text expansion budget.
+                if let proposedLeadDepth, let file = fragment.orgInstructions,
+                    settings.resolve(.tableOfContents, file: file).value == .off,
+                    settings.resolve(.tableOfContents, file: file).source == nil, !fragment.body.contains("<nav")
+                {
+                    var proposed = settings
+                    proposed.set(.levels(proposedLeadDepth), for: .tableOfContents, file: file)
+                    fragment.proposedLeadContents =
+                        convertInPlace(
+                            text, settings: proposed, fileName: fileName, includesLeadContents: false
+                        ).proposedLeadContents
+                }
+                return fragment
             }
             return fragment.notingLimit(reachedLimit)
         }
@@ -77,11 +92,17 @@ public enum OrgConverter {
             title: japanese ? "目次" : "Table of Contents")
         let depth = context.reading.tableOfContents
         var pieces = [titleBlock]
+        var proposed: HTMLFragment.ProposedLead?
         // A separate contents page does not consume the expansion budget of in-text tables.
         if includesLeadContents, depth != .off {
             pieces.append(
                 ReaderContentsKind.lead.mark(
                     contents.table(OrgOutline.Request(depth: depth == .all ? nil : depth.limit))))
+        }
+        if !includesLeadContents && depth != .off {
+            var separate = contents
+            proposed = .init(
+                depth: depth.limit, html: separate.table(OrgOutline.Request(depth: depth == .all ? nil : depth.limit)))
         }
         // Each mark is found once, in one walk over the text, however many tables the document asks for.
         let marked = content.components(separatedBy: "<!--\(context.contentsToken)-")
@@ -102,6 +123,7 @@ public enum OrgConverter {
             title: parser.context.metadata["TITLE"], language: parser.context.metadata["LANGUAGE"],
             readingIssues: contents.omitted ? [OrgConverter.contentsLimitIssue] : [],
             decidesHeadingNumbers: true)
+        fragment.proposedLeadContents = proposed
         fragment.orgInstructions = context.options.file
         return fragment.recordingContents()
     }

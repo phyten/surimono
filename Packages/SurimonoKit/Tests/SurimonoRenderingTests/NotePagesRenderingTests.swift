@@ -188,7 +188,7 @@ struct NotePagesRenderingTests {
     func contentsCountNotes() async throws {
         var settings = try settings(.a4Duplex)
         settings.finish.breaks.h1 = .page
-        settings.finish.toc.mode = .front
+        settings.finish.legacyPresetContents.mode = .front
         settings.notes = try notes(.duplexBack)
         let source = DocumentSource(data: Data("# 第一章\n\n一\n\n# 第二章\n\n二\n".utf8), format: .markdown)
         let prepared = try await DocumentRenderer().prepare(source, settings: settings)

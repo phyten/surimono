@@ -34,8 +34,25 @@ extension PaperTOC {
             OrgReadingSettings().resolve(.tableOfContents, file: facts.orgInstructions ?? .init()).source == nil
         else { return false }
         if mode == .hidden { return true }
-        return !facts.hasSourceContents && facts.contentsInstructions.present == nil
-            && facts.contentsInstructions.depth == nil
+        guard !facts.hasSourceContents, facts.contentsInstructions.present == nil,
+            facts.contentsInstructions.depth == nil
+        else { return false }
+        // These readers can exclude, number or promote headings differently from the old front page.
+        if [.org, .quarto, .rMarkdown].contains(format) {
+            guard facts.proposedLeadDepth == readingDepth.headingLevels, let proposed = facts.leadEntries else {
+                return false
+            }
+            let old = PaperContents.legacyHeadings(facts.headings, depth: readingDepth)
+            guard old.count == proposed.count else { return false }
+            // Org creates missing anchors only when a lead is requested. Without an old anchor,
+            // a unique label is sufficient to identify the same heading and page.
+            let counts = Dictionary(facts.headings.map { ($0.text, 1) }, uniquingKeysWith: +)
+            return zip(old, proposed).allSatisfy { before, after in
+                before.level == after.level && before.text == after.text
+                    && (before.id.map { $0 == after.id } ?? (counts[before.text] == 1))
+            }
+        }
+        return true
     }
 }
 
@@ -44,6 +61,33 @@ extension PrintFinish {
     public func contentsBody(
         _ fragment: HTMLFragment, facts: DocumentFacts, format: DocumentFormat, lead: ReadingDepth?,
         forPaper: Bool = false
+    ) -> String {
+        var facts = facts
+        let prepared = preparingLead(in: fragment, facts: &facts, format: format, lead: lead)
+        return placedBody(prepared, format: format, lead: lead, forPaper: forPaper)
+    }
+
+    package func preparingLead(
+        in fragment: HTMLFragment, facts: inout DocumentFacts, format: DocumentFormat, lead: ReadingDepth?
+    ) -> HTMLFragment {
+        guard legacyTOC == nil, let lead, format != .latex, !facts.contentsKinds.contains(.lead) else {
+            return fragment
+        }
+        if let proposed = fragment.proposedLeadContents {
+            return contents.placement == .page ? fragment : fragment.prependingLead(proposed.html)
+        }
+        // An empty native list may mean the reader explicitly excluded every heading.
+        guard format != .org,
+            facts.contentsInstructions.present?.value != true
+                || fragment.coalescesContentsInLegacy && format == .mediawiki
+        else { return fragment }
+        let prepared = fragment.addingLeadContents(headings: &facts.headings, depth: lead)
+        facts.leadEntries = prepared.leadEntries
+        return prepared
+    }
+
+    package func placedBody(
+        _ fragment: HTMLFragment, format: DocumentFormat, lead: ReadingDepth?, forPaper: Bool = false
     ) -> String {
         guard legacyTOC == nil else { return fragment.body }
         var hidden: Set<ReaderContentsKind> = []
@@ -55,14 +99,7 @@ extension PrintFinish {
             if contents.placement == .page || lead == nil { hidden.insert(.lead) }
             if contents.inText == .hidden { hidden.insert(.text) }
         }
-        let body = fragment.filteringContents(hidden, forPaper: forPaper)
-        guard let lead, contents.placement == .inline, format != .org, format != .latex,
-            !facts.contentsKinds.contains(.lead),
-            // An empty list from a reader can mean that the manuscript explicitly excluded all its headings.
-            facts.contentsInstructions.present?.value != true
-                || fragment.coalescesContentsInLegacy && format == .mediawiki
-        else { return body }
-        return DocumentOutline.addingLeadContents(to: body, headings: facts.headings, depth: lead)
+        return fragment.filteringContents(hidden, forPaper: forPaper)
     }
 
     public func frontDepth(format: DocumentFormat, lead: ReadingDepth?) -> ReadingDepth? {
@@ -133,7 +170,18 @@ extension DocumentSettings {
     ) -> Bool {
         guard var finish = printFinish else { return false }
         guard let legacy = finish.legacyTOC else {
-            guard editing, finish.forNewDocuments.legacyTOC != nil else { return false }
+            guard let original = finish.originalPresetContents else { return false }
+            if !editing {
+                // Older automatic migrations treated the native depth of three as a file lock.
+                guard original.mode == .source, format == .markdown || format == .mediawiki,
+                    facts.contentsInstructions.present?.value == true, facts.contentsInstructions.depth == nil,
+                    formatReading.leadContents(for: format, file: facts.contentsInstructions, defaults: defaults)
+                        != .levels(3)
+                else { return false }
+                writeLeadContents(
+                    .levels(3), format: format, facts: facts, defaults: defaults, orgDefaults: orgDefaults)
+                return true
+            }
             finish.adoptContents(editing: true)
             printFinish = finish
             return true

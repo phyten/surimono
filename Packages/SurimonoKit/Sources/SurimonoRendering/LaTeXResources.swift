@@ -51,7 +51,7 @@ extension DocumentRenderer {
     }
 
     nonisolated static func markdownFragment(
-        _ source: DocumentSource, pageBreakLine: String, proof: ProofMarks, mapsSource: Bool,
+        _ source: DocumentSource, pageBreakLine: String, proof: ProofMarks, mapsSource: Bool, contentsDepth: Int,
         access: LocalResourceAccess?, onDenied: @escaping @Sendable () -> Void
     ) throws -> HTMLFragment {
         let text = try decodedText(source.data)
@@ -68,11 +68,13 @@ extension DocumentRenderer {
         }
         if mapsSource {
             return MarkdownConverter.convertWithSourceMap(
-                text, pageBreakLine: pageBreakLine, proof: proof, directory: directory, readFile: readBibliography
+                text, pageBreakLine: pageBreakLine, proof: proof, contentsDepth: contentsDepth, directory: directory,
+                readFile: readBibliography
             ).fragment
         }
         return MarkdownConverter.convert(
-            text, pageBreakLine: pageBreakLine, proof: proof, directory: directory, readFile: readBibliography)
+            text, pageBreakLine: pageBreakLine, proof: proof, contentsDepth: contentsDepth, directory: directory,
+            readFile: readBibliography)
     }
 
     /// Find the default style without laying out pages or converting the body. Includes in the preamble

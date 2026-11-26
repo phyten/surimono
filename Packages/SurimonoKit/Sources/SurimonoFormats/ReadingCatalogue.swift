@@ -111,7 +111,7 @@ public enum ReadingCatalogue {
     ]
     private static let yamlTOCCopy = ["toc: {true|false}", "toc-depth: {n}"]
 
-    // MarkdownMetadata currently reads only toc; MarkdownExtensions lists three levels from the chapter.
+    // MarkdownMetadata currently reads only toc; the native list defaults to three levels from the chapter.
     private static let markdown: [ReadingCatalogueRow] = [
         .init(
             .sectionNumbers, .outline(present: false, depth: .all),
@@ -173,7 +173,7 @@ public enum ReadingCatalogue {
             copy: [".. sectnum::", "   :depth: {n}"]),
         .init(
             .tableOfContents, .outline(present: false, depth: .levels(6)),
-            [.init(".. contents::", .presence), .init("contents :depth:", .depth), .init("contents :local:", .note)],
+            [.init(".. contents::", .note), .init("contents :depth:", .note), .init("contents :local:", .note)],
             copy: [".. contents::", "   :depth: {n}"]),
     ]
 

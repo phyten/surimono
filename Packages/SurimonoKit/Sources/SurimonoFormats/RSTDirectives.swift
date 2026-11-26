@@ -4,12 +4,10 @@ struct RSTDirectiveState {
     struct Contents {
         let id: String
         let label: String
-        let fileDepth: Int?
         let depth: Int
         let local: Bool
         let position: Int
     }
-    var defaultContentsDepth: Int?
     var contents: [Contents] = []
     let token = UUID().uuidString
     var numbering: [String: String]?
@@ -120,9 +118,8 @@ extension RSTDocument {
             let id = references.id(name, kind: "topic")
             references.targets[RSTReferences.name(name)] = .address("#" + id)
             let fileDepth = Int(d.options["depth"] ?? "").map { max(1, $0) }
-            let fallback = d.options["local"] == nil ? directives.defaultContentsDepth : nil
             let toc = RSTDirectiveState.Contents(
-                id: id, label: d.argument, fileDepth: fileDepth, depth: fileDepth ?? fallback ?? 6,
+                id: id, label: d.argument, depth: fileDepth ?? 6,
                 local: d.options["local"] != nil, position: anchors.count)
             let index = directives.contents.count
             directives.contents.append(toc)

@@ -23,11 +23,11 @@ struct ReadingPaperContentsTests {
             #expect(fragment.body.components(separatedBy: "<nav class=\"toc\"").count - 1 == count)
             for (mode, keep, showsSource) in modes {
                 var finish = PrintFinish()
-                finish.toc.mode = mode
-                finish.toc.keepsSourceTOC = keep
+                finish.legacyPresetContents.mode = mode
+                finish.legacyPresetContents.keepsSourceTOC = keep
                 for depth in PaperTOC.Depth.allCases {
-                    finish.toc.depth = depth
-                    #expect(finish.toc.showsSourceContents == showsSource)
+                    finish.legacyPresetContents.depth = depth
+                    #expect(finish.legacyPresetContents.showsSourceContents == showsSource)
                     #expect(finish.styleSheet.contains("nav.toc { display: none !important; }") == !showsSource)
                     let entries = PaperContents.entries(headings: facts.headings, pageNumbers: [], depth: depth)
                     #expect(entries.map(\.text) == (depth == .chapters ? ["Alpha"] : ["Alpha", "Bravo"]))

@@ -4,14 +4,18 @@ public enum MediaWikiConverter {
     /// The callbacks run on the converter's own thread while the caller waits for it (`StackSpace.onLargeStack`):
     /// they must not need the caller's thread or actor, and do not see its task-local values.
     public static func convert(
-        _ source: String, directory: URL? = nil,
+        _ source: String, directory: URL? = nil, contentsDepth: Int = 3,
         imageExists: @escaping @Sendable (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
     ) -> HTMLFragment {
         // On a stack of known size, so a document reads the same on every thread.
-        StackSpace.onLargeStack { convertInPlace(source, directory: directory, imageExists: imageExists) }
+        StackSpace.onLargeStack {
+            convertInPlace(source, directory: directory, contentsDepth: contentsDepth, imageExists: imageExists)
+        }
     }
 
-    private static func convertInPlace(_ source: String, directory: URL?, imageExists: @escaping (URL) -> Bool)
+    private static func convertInPlace(
+        _ source: String, directory: URL?, contentsDepth: Int, imageExists: @escaping (URL) -> Bool
+    )
         -> HTMLFragment
     {
         guard source.utf8.count <= DocumentSizeLimits.markupReaderBytes else {
@@ -19,7 +23,7 @@ public enum MediaWikiConverter {
             return HTMLFragment(body: "<p>\(HTML.escape(message))</p>" + PlainTextConverter.convert(source).body)
         }
         let reader = WikiReader(directory: directory, imageExists: imageExists)
-        return reader.document(TextDecoding.normalizeNewlines(source))
+        return reader.document(TextDecoding.normalizeNewlines(source), contentsDepth: contentsDepth)
     }
 
     package static func detects(_ text: String) -> Bool {
@@ -91,7 +95,7 @@ final class WikiReader {
         return "\u{E002}\(nonce)\(deferred.count - 1)\u{E003}"
     }
 
-    func document(_ source: String) -> HTMLFragment {
+    func document(_ source: String, contentsDepth: Int) -> HTMLFragment {
         japanese = source.prefix(8192).range(of: #"[ぁ-ヿ]"#, options: .regularExpression) != nil
         // Keep literal private-use characters, including inside nowiki, distinct from parser tokens.
         let hasMarker = source.contains("\u{E000}")
@@ -101,7 +105,8 @@ final class WikiReader {
             let first = result.range(of: #"<h[1-6] id=""#, options: .regularExpression)
         {
             result.insert(
-                contentsOf: ReaderContentsKind.lead.mark(MarkdownExtensions.tableOfContents(anchors)),
+                contentsOf: ReaderContentsKind.lead.mark(
+                    MarkdownExtensions.tableOfContents(anchors, levels: contentsDepth)),
                 at: first.lowerBound)
         }
         result += references.remainder()
@@ -134,8 +139,7 @@ final class WikiReader {
             readingIssues: reachedNestingLimit ? [StackSpace.limitIssue] : []
         ).recordingContents(
             .init(
-                present: hideTOC ? .init(false) : (forceTOC ? .init(true) : nil),
-                depth: forceTOC && !hideTOC ? .init(.levels(3)) : nil))
+                present: hideTOC ? .init(false) : (forceTOC ? .init(true) : nil)))
         fragment.coalescesContentsInLegacy = forceTOC && explicitTOC && !hideTOC
         return fragment
     }

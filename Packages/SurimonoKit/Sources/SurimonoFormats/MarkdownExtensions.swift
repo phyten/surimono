@@ -1224,7 +1224,7 @@ enum MarkdownExtensions {
         let top =
             anchors.filter { $0.level == highest }.count == 1 && anchors.contains(where: { $0.level > highest })
             ? anchors.filter { $0.level > highest }.map(\.level).min() ?? highest : highest
-        let entries = anchors.filter { $0.level >= top && $0.level < top + levels }
+        let entries = anchors.filter { $0.level >= top && $0.level - top < levels }
         guard !entries.isEmpty else { return "" }
         var html = "<nav class=\"toc\">"
         var depth = 0

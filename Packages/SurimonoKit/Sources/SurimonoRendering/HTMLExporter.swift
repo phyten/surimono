@@ -40,6 +40,7 @@ public enum HTMLExporter {
                             source, pageBreakLine: input.finish.breaks.customLine, proof: input.finish.proof,
                             orgReading: input.orgReading, includesOrgLead: input.includesOrgLead,
                             contentsDepth: input.readerDepth(for: source.format),
+                            proposedLeadDepth: input.proposedLeadDepth(for: source.format),
                             composition: input.latexComposition,
                             textWidthPoints: input.textWidthPoints(in: input.layout), textScale: input.textScale)
                     }

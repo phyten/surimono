@@ -41,7 +41,7 @@ extension RSTDocument {
             let label = toc.label.isEmpty ? (toc.local ? "" : "Contents") : toc.label
             let heading = label.isEmpty ? "" : "<p class=\"topic-title\">\(inline(label))</p>"
             let nav = "<nav class=\"toc\" id=\"\(HTML.escape(toc.id))\" role=\"doc-toc\">\(heading)\(body)</nav>"
-            rendered.append(toc.local ? nav : ReaderContentsKind.lead.mark(nav))
+            rendered.append(ReaderContentsKind.text.mark(nav))
         }
         var result = html
         if !numbers.isEmpty {

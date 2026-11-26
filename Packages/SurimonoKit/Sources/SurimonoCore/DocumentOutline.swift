@@ -426,6 +426,9 @@ public struct DocumentFacts: Equatable, Sendable {
     }
     public var coalescesContentsInLegacy: Bool
     public var contentsInstructions: ReadingFileInstructions
+    var proposedLeadDepth: Int?
+    /// The lead list in print order, independent of the full outline used for bookmarks and page lookup.
+    public var leadEntries: [DocumentHeading]?
     public var contentsKinds: Set<ReaderContentsKind>
     public var visibleContentsEntries: [String] = []
     public var hasSourceContents: Bool
@@ -435,6 +438,8 @@ public struct DocumentFacts: Equatable, Sendable {
         latexRecognition = fragment.latexClass?.recognition
         coalescesContentsInLegacy = fragment.coalescesContentsInLegacy
         contentsInstructions = fragment.contentsInstructions
+        proposedLeadDepth = fragment.proposedLeadContents?.depth
+        leadEntries = fragment.leadEntries
         contentsKinds = fragment.sourceContentsKinds
         orgInstructions = fragment.orgInstructions
         sourceLanguage = fragment.sourceLanguage

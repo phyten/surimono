@@ -38,7 +38,7 @@ struct BinderRenderingTests {
             return try RenderingFixtures.pdf(size: request.pageSize)
         })
         var settings = settings
-        settings.finish.toc.mode = .front
+        settings.finish.legacyPresetContents.mode = .front
         settings.formatReading.set(.outline(present: true, depth: .all), for: .tableOfContents, format: .mediawiki)
         settings.formatReadingDefaults.set(
             .outline(present: true, depth: .all), for: .tableOfContents, format: .markdown)

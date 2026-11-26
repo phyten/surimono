@@ -36,13 +36,13 @@ struct PrintFinishTests {
     @Test("目次を出さないとき、先頭に足して原文の分を残さないときは原文の目次を隠す")
     func hidesSourceContents() {
         var finish = PrintFinish()
-        finish.toc.mode = .source
+        finish.legacyPresetContents.mode = .source
         #expect(!finish.styleSheet.contains("nav.toc"))
-        finish.toc.mode = .hidden
+        finish.legacyPresetContents.mode = .hidden
         #expect(finish.styleSheet.contains("nav.toc { display: none"))
-        finish.toc.mode = .front
+        finish.legacyPresetContents.mode = .front
         #expect(finish.styleSheet.contains("nav.toc { display: none"))
-        finish.toc.keepsSourceTOC = true
+        finish.legacyPresetContents.keepsSourceTOC = true
         #expect(!finish.styleSheet.contains("nav.toc"))
     }
 
@@ -54,7 +54,7 @@ struct PrintFinishTests {
         #expect(finish.breaks.h1 == .none)
         #expect(finish.breaks.h2 == .page)
         #expect(finish.breaks.ignoredSyntaxes == [.newpage])
-        #expect(finish.toc.mode == .front)
+        #expect(finish.legacyPresetContents.mode == .front)
     }
 
     @Test("仕上げは JSON で往復する")
@@ -63,7 +63,7 @@ struct PrintFinishTests {
         finish.breaks.h3 = .rightPage
         finish.breaks.ignoredSyntaxes = [.kramdown, .comment]
         finish.breaks.customLine = "＝＝改ページ＝＝"
-        finish.toc.look = .ruled
+        finish.legacyPresetContents.look = .ruled
         #expect(try JSONDecoder().decode(PrintFinish.self, from: JSONEncoder().encode(finish)) == finish)
     }
 
@@ -174,10 +174,10 @@ struct PrintFinishTests {
         #expect(!PrintSettingSet(name: "自分", settings: DocumentSettings()).isBuiltIn)
         #expect(sets[0].layoutID == "a4Duplex")
         #expect(sets[0].furniture == .nameAndDate)
-        #expect(sets[0].finish?.toc.mode == .hidden)
+        #expect(sets[0].finish?.legacyPresetContents.mode == .hidden)
         #expect(sets[1].layoutID == "a4BookletA5")
         #expect(sets[1].finish?.breaks.h1 == .rightPage)
-        #expect(sets[1].finish?.toc.mode == .front)
+        #expect(sets[1].finish?.legacyPresetContents.mode == .front)
         #expect(sets[2].furniture == PageFurniture())
     }
 
@@ -192,7 +192,7 @@ struct PrintFinishTests {
         let set = PrintSettingSet(name: "セット", settings: settings)
         #expect(set.matches(settings))
         var changed = settings
-        changed.printFinish?.toc.mode = .hidden
+        changed.printFinish?.legacyPresetContents.mode = .hidden
         #expect(!set.matches(changed))
         changed = settings
         changed.printOptions?.margins.top = 21

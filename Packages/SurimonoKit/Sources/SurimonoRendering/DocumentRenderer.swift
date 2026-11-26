@@ -177,7 +177,14 @@ public struct RenderSettings: Equatable, Sendable {
 
     var includesOrgLead: Bool { finish.legacyTOC != nil || finish.contents.placement == .inline }
 
+    func proposedLeadDepth(for format: DocumentFormat) -> Int? {
+        if let legacy = finish.legacyTOC { return legacy.mode == .front ? legacy.readingDepth.headingLevels : nil }
+        return formatReading.leadContents(for: format, defaults: formatReadingDefaults)?.headingLevels
+    }
+
     func readerDepth(for format: DocumentFormat) -> Int? {
+        // Headless export can read an automatically migrated source preset before a document window normalizes it.
+        if finish.originalPresetContents?.mode == .source, format == .markdown || format == .mediawiki { return nil }
         guard finish.legacyTOC == nil,
             case .outline(_, let depth) = formatReading.resolve(
                 .tableOfContents, for: format, defaults: formatReadingDefaults)
@@ -1138,7 +1145,7 @@ public final class DocumentRenderer {
             do {
                 var childSettings = settings
                 childSettings.binderStartsOnFront = false
-                childSettings.finish.toc = PaperTOC()
+                childSettings.finish.legacyPresetContents = PaperTOC()
                 childSettings.formatReading = .init()
                 childSettings.formatReadingDefaults = .init()
                 childSettings.finish.footnotes = .end
@@ -1602,6 +1609,7 @@ public final class DocumentRenderer {
                 source, pageBreakLine: settings.finish.breaks.customLine, proof: settings.finish.proof,
                 orgReading: settings.orgReading, includesOrgLead: settings.includesOrgLead,
                 contentsDepth: settings.readerDepth(for: source.format),
+                proposedLeadDepth: settings.proposedLeadDepth(for: source.format),
                 composition: settings.latexComposition, textWidthPoints: settings.textWidthPoints(in: settings.layout),
                 textScale: settings.textScale,
                 mapsMarkdownSource: !settings.markdownChanges.isEmpty, access: access,
@@ -1643,8 +1651,8 @@ public final class DocumentRenderer {
         var fragment = read.fragment
         var facts = DocumentFacts(fragment: fragment)
         let lead = settings.leadContents(for: source.format, facts: facts)
-        let original = fragment
-        fragment.body = settings.finish.contentsBody(original, facts: facts, format: source.format, lead: lead)
+        let original = settings.finish.preparingLead(in: fragment, facts: &facts, format: source.format, lead: lead)
+        fragment.body = settings.finish.placedBody(original, format: source.format, lead: lead)
         facts.visibleContentsEntries =
             settings.finish.legacyTOC?.showsSourceContents != false && fragment.body.contains("<nav")
             ? DocumentOutline.sourceContentsEntries(inHTML: fragment.body) : []
@@ -1666,8 +1674,8 @@ public final class DocumentRenderer {
         fragment.language = language
         var paper = fragment
         if source.format != .latex, settings.finish.legacyTOC == nil, original.body.contains("<nav") {
-            paper.body = settings.finish.contentsBody(
-                original, facts: facts, format: source.format, lead: lead, forPaper: true)
+            paper.body = settings.finish.placedBody(
+                original, format: source.format, lead: lead, forPaper: true)
             if source.format != .markdown, !settings.markdownChanges.isEmpty {
                 paper.body = FragmentChanges.identifyingBlocks(in: paper.body, for: settings.markdownChanges)
             }
@@ -1727,7 +1735,10 @@ public final class DocumentRenderer {
         let usesRightPages = settings.layout.hasFacingPages && finish.breaks.usesRightPages
         let frontDepth = finish.frontDepth(
             format: source.format, lead: settings.leadContents(for: source.format, facts: facts))
-        let wantsContents = (frontDepth?.headingLevels ?? 0) > 0 && !facts.headings.isEmpty
+        // A previously saved automatic migration may predate the check against the native list.
+        let usesLegacyFront = finish.originalPresetContents?.mode == .front
+        let hasEntries = usesLegacyFront ? !facts.headings.isEmpty : facts.leadEntries?.isEmpty == false
+        let wantsContents = frontDepth != nil && hasEntries
         let notes = settings.activeNotes
         result.finishing.bodyHTML = fragment.body
         guard usesRightPages || wantsContents || settings.mirrorsLaidOutPages || notes != nil else { return result }
@@ -1758,16 +1769,28 @@ public final class DocumentRenderer {
                 bodyPageCount: pageCount, contentsPageCount: 0, rightPageStarts: starts, notes: insertion)
             // The numbers in the contents depend on how many pages the contents take, which the numbers can change.
             // A layout counts once it takes the pages it was numbered for.
+            let entries: [PaperContents.Entry]
+            if let frontDepth, wantsContents {
+                if usesLegacyFront {
+                    entries = PaperContents.entries(
+                        headings: facts.headings, pageNumbers: headingPages, depth: frontDepth)
+                } else {
+                    entries = PaperContents.readerEntries(facts: facts, pageNumbers: headingPages)
+                }
+            } else {
+                entries = []
+            }
             var plannedPageCount = 1
             for _ in 0..<(wantsContents ? Self.contentsLayoutLimit : 0) {
                 plan = FinishedPagePlan(
                     bodyPageCount: pageCount, contentsPageCount: plannedPageCount, rightPageStarts: starts,
                     notes: insertion)
-                let pages = try await contentsPages(
-                    PaperContents.entries(
-                        headings: facts.headings,
-                        pageNumbers: headingPages.map { $0.map { plan.bodyPageIndices[$0] + 1 } },
-                        depth: frontDepth ?? .all), source: source, settings: settings)
+                let numbered = entries.map { entry in
+                    var entry = entry
+                    entry.page = entry.page.map { plan.bodyPageIndices[$0] + 1 }
+                    return entry
+                }
+                let pages = try await contentsPages(numbered, source: source, settings: settings)
                 contents = pages
                 if pages.pageCount == plannedPageCount { break }
                 plannedPageCount = pages.pageCount
@@ -2179,6 +2202,7 @@ public final class DocumentRenderer {
     nonisolated static func themedFragment(
         _ source: DocumentSource, pageBreakLine: String = "", proof: ProofMarks = .shown,
         orgReading: OrgReadingSettings = .init(), includesOrgLead: Bool = true, contentsDepth: Int? = nil,
+        proposedLeadDepth: Int? = nil,
         composition: LaTeXComposition = .document, textWidthPoints: Double? = nil, textScale: Double = 1,
         mapsMarkdownSource: Bool = false,
         access: LocalResourceAccess? = nil,
@@ -2194,30 +2218,32 @@ public final class DocumentRenderer {
         case .markdown:
             try markdownFragment(
                 source, pageBreakLine: pageBreakLine, proof: proof, mapsSource: mapsMarkdownSource,
+                contentsDepth: contentsDepth ?? 3,
                 access: access, onDenied: onDenied)
         case .graphviz, .plantuml:
             DiagramConverter.convert(try decodedText(source.data), format: source.format)
         case .quarto, .rMarkdown:
             ComputationalMarkdown.convert(
-                try decodedText(source.data), pageBreakLine: pageBreakLine, proof: proof, contentsDepth: contentsDepth)
+                try decodedText(source.data), pageBreakLine: pageBreakLine, proof: proof, contentsDepth: contentsDepth,
+                proposedLeadDepth: proposedLeadDepth)
         case .docx: try DocxConverter.convert(source.data)
         case .djot:
             try DjotConverter.convert(try decodedText(source.data))
         case .rst:
             RSTConverter.convert(
                 try decodedText(source.data), directory: source.fileURL?.deletingLastPathComponent(),
-                contentsDepth: contentsDepth
-            ) {
-                url in
-                guard access?.permits(url) != false else {
-                    onDenied()
-                    return false
-                }
-                return true
-            }
+                permitsFile: {
+                    url in
+                    guard access?.permits(url) != false else {
+                        onDenied()
+                        return false
+                    }
+                    return true
+                })
         case .mediawiki:
             MediaWikiConverter.convert(
                 try decodedText(source.data), directory: source.fileURL?.deletingLastPathComponent(),
+                contentsDepth: contentsDepth ?? 3,
                 imageExists: imageExists)
         case .textile:
             try TextileConverter.convert(try decodedText(source.data))
@@ -2232,7 +2258,8 @@ public final class DocumentRenderer {
         case .org:
             OrgConverter.convert(
                 try decodedText(source.data), settings: orgReading,
-                fileName: source.fileURL?.lastPathComponent ?? source.name, includesLeadContents: includesOrgLead)
+                fileName: source.fileURL?.lastPathComponent ?? source.name, includesLeadContents: includesOrgLead,
+                proposedLeadDepth: proposedLeadDepth)
         case .plainText, .csv:
             try DecodedPages(source, textWidthPoints: textWidthPoints, textScale: textScale).fragment()
         default: nil
