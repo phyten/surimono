@@ -185,7 +185,8 @@ struct PrintedFragmentBoundaryTests {
         let logical = result.logicalDocument
         let saved = try await ReadingPDFExporter.data(from: logical, entries: [], title: "Binder")
         let copy = try #require(PDFDocument(data: saved))
-        for pdf in [logical, copy] {
+        var firstRelativeY: CGFloat?
+        for (stage, pdf) in [("logical", logical), ("export", copy)] {
             try #require(pdf.pageCount == 4)
             for i in [0, 2] {
                 let first = try #require(pdf.page(at: i))
@@ -194,25 +195,35 @@ struct PrintedFragmentBoundaryTests {
                 let dest = try #require((link.action as? PDFActionGoTo)?.destination ?? link.destination)
                 let heading = try #require(pdf.findString("Destination").first { $0.pages.first === second }).bounds(
                     for: second)
-                #expect(dest.page === second)
-                #expect(abs(dest.point.x - heading.minX) < 1 && abs(dest.point.y - heading.maxY) < 1)
+                let media = second.bounds(for: .mediaBox)
+                let targetIndex = dest.page.map { String(pdf.index(for: $0)) } ?? "nil"
+                let detail =
+                    "\(stage) sourceIndex=\(i) expectedIndex=\(i + 1) actualIndex=\(targetIndex) "
+                    + "destination=\(dest.point) heading=\(heading) mediaBox=\(media) cropBox=\(second.bounds(for: .cropBox))"
+                #expect(dest.page === second, "\(detail)")
+                #expect(abs(dest.point.x - heading.minX) < 1, "\(detail)")
+                // The anchor uses the first character. The search measures the whole title.
+                #expect(abs(dest.point.y - heading.maxY) < heading.height, "\(detail)")
+
+                // Both copies of the same child and their exports must still preserve the same point on paper.
+                let relativeY = dest.point.y - media.minY
+                if let firstRelativeY {
+                    #expect(
+                        abs(relativeY - firstRelativeY) < 0.02,
+                        "\(detail) relativeY=\(relativeY) first=\(firstRelativeY)")
+                } else {
+                    firstRelativeY = relativeY
+                }
             }
         }
     }
 
-    @Test("ページにまたがるリンクの両端は原点と文字倍率が変わっても紙の端の見出しを指す", arguments: [CGFloat(12), 24])
-    func acrossPages(fontSize: CGFloat) async throws {
-        let original = try RenderingFixtures.pdfData(
-            pages: [["Start"], ["End"], ["Other", "Target"]], size: CGSize(width: 250, height: 300),
-            lineSpacing: 230, font: .systemFont(ofSize: fontSize))
-        let paper = try #require(PDFDocument(data: original))
-        for i in 0..<paper.pageCount {
-            let page = try #require(paper.page(at: i))
-            let bounds = CGRect(x: 0, y: 2, width: 250, height: 298)
-            page.setBounds(bounds, for: .mediaBox)
-            page.setBounds(bounds, for: .cropBox)
-        }
-        let bytes = try #require(paper.dataRepresentation())
+    @Test("ページにまたがるリンクの両端は原点と文字倍率が変わっても紙の端の見出しを指す", arguments: [CGFloat(12), 24], [CGFloat(0), 2])
+    func acrossPages(fontSize: CGFloat, originY: CGFloat) async throws {
+        // Write the box directly: PDFKit may rebase pages when saving a setBounds edit.
+        let bytes = try RenderingFixtures.pdfData(
+            pages: [["Start"], ["End"], ["Other", "Target"]], size: CGSize(width: 250, height: 298),
+            origin: CGPoint(x: 0, y: originY), lineSpacing: 230, font: .systemFont(ofSize: fontSize))
         let snapshot = PrintedFragmentLinks(
             text: "StartEndOtherTarget",
             links: [.init(id: "edge", url: "about:blank#edge", start: 0, end: 8, top: false)],
@@ -220,7 +231,6 @@ struct PrintedFragmentBoundaryTests {
         let output = try await snapshot.resolve(in: bytes)
         let repaired = try #require(output.bytes)
         let logical = try #require(PDFDocument(data: repaired))
-        #expect(logical.page(at: 2)?.bounds(for: .mediaBox).minY == 2)
         let mirrored = try #require(
             PaperComposer.compose(logical, paper: nil, bindsPrintedLinks: true, shift: { $0 == 1 ? 15 : 0 }))
         var documents = [logical, mirrored]
@@ -239,7 +249,10 @@ struct PrintedFragmentBoundaryTests {
                 #expect(link.bounds.contains(CGPoint(x: hit.midX, y: hit.midY)))
                 let dest = try #require((link.action as? PDFActionGoTo)?.destination ?? link.destination)
                 #expect(dest.page === page)
-                #expect(abs(dest.point.x - heading.minX) < 0.02 && abs(dest.point.y - heading.maxY) < 0.02)
+                #expect(
+                    abs(dest.point.x - heading.minX) < 0.02 && abs(dest.point.y - heading.maxY) < 0.02,
+                    "source=\(word) destination=\(dest.point) heading=\(heading) mediaBox=\(page.bounds(for: .mediaBox))"
+                )
             }
         }
     }
