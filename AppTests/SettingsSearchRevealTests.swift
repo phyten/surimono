@@ -96,11 +96,12 @@ struct SettingsSearchRevealTests {
             func translate(_ key: String) -> String { bundle.localizedString(forKey: key, value: nil, table: nil) }
             let query = translate(anchor)
             let results = SettingsCatalogue.search(query, in: SettingsCatalogue.rows, localize: translate)
-            let anchors = results.rows.filter { $0.format == .org }.map(\.anchor)
-            try #require(anchors.first == anchor)
+            var hits = results.hits(for: .documents, format: .org, query: query)
+            try #require(hits.anchors.first == anchor)
             let visit = SettingsSearchVisit()
             if !canReveal { visit.cancel() }
-            search.hits = SettingsSearchHits(query: query, anchors: anchors, visit: visit)
+            hits.visit = visit
+            search.hits = hits
             try await screen.wait("Expected query \(query), canReveal=\(canReveal)") {
                 search.received?.query == query && search.received?.canReveal == canReveal
             }

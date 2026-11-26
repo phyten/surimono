@@ -13,6 +13,7 @@ struct SettingsSearchTests {
         let names = ["Heading Numbers": "見出しの番号", "Table of Contents at the Top": "先頭の目次"]
         let results = SettingsCatalogue.search(query, in: SettingsCatalogue.rows, localize: { names[$0] ?? $0 })
         #expect(results.bestSection(keeping: .pageNumbers) == .documents)
+        #expect(results.bestFormat(keeping: .org) == .org)
         if query == "num" { #expect(results.rows.contains { $0.format == .org && $0.anchor == "Heading Numbers" }) }
     }
 
@@ -126,8 +127,9 @@ struct SettingsSearchTests {
             }
         }
         for group in OrgReadingGroup.allCases {
-            let hits = SettingsCatalogue.search(translate(group.title.key), in: rows, localize: translate)
-            let anchors = Set(hits.rows.filter { $0.format == .org }.map(\.anchor))
+            let query = translate(group.title.key)
+            let results = SettingsCatalogue.search(query, in: rows, localize: translate)
+            let anchors = Set(results.hits(for: .documents, format: .org, query: query).anchors)
             #expect(group.settings.allSatisfy { anchors.contains($0.label.key) })
         }
         #expect(
@@ -190,7 +192,7 @@ struct SettingsSearchTests {
     @Test("検索中に読者が選んだ区分は、自動選択と同じ区分でもクリア後に残る")
     func explicitChoice() {
         var selection = SettingsSearchSelection()
-        selection.begin(in: .html)
+        selection.begin(in: .documents)
         selection.pick(.printing)
         #expect(selection.finish() == .printing)
     }
@@ -201,7 +203,7 @@ struct SettingsSearchTests {
         selection.begin(in: .general)
         selection.pick(.styles)
         _ = selection.finish()
-        selection.begin(in: .html)
-        #expect(selection.finish() == .html)
+        selection.begin(in: .documents)
+        #expect(selection.finish() == .documents)
     }
 }
