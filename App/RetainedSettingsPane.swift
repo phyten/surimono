@@ -19,6 +19,7 @@ struct SettingsDetail<Content: View>: NSViewRepresentable {
             let pane = GeometryReader { viewport in
                 sectionView.frame(width: viewport.size.width, height: viewport.size.height)
             }
+            .modifier(SettingsSearchHighlights())
             .environment(\.settingsSearchHits, scopedHits)
             .environment(\.locale, inputs.locale)
             .environment(\.layoutDirection, inputs.direction)

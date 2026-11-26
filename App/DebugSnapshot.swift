@@ -30,6 +30,42 @@
         static func flag(_ name: String) -> Bool { argument(name)?.uppercased() == "YES" }
 
         // Settings photography only: read process arguments into view state, never preferences.
+        struct OrgDefaultsFixture {
+            let current: OrgReadingDefaults
+            let target: OrgReadingDefaults?
+            let changedOnly: Bool
+
+            init?(state: String?, alert: String?, changedOnly: Bool) {
+                let requested: OrgReadingDefaults? =
+                    switch alert {
+                    case "emacs": .emacs
+                    case "reset": .surimono
+                    default: nil
+                    }
+                switch state {
+                case "emacs": current = .emacs
+                case "custom":
+                    var values = OrgReadingDefaults.emacs
+                    values.tableOfContents = .off
+                    values.planning = true
+                    current = values
+                default:
+                    guard requested != nil || changedOnly else { return nil }
+                    current = requested == .surimono ? .emacs : .surimono
+                }
+                self.changedOnly = changedOnly
+                // A matching target is disabled in the actual footer and has no alert to capture.
+                target = current == requested ? nil : requested
+            }
+        }
+
+        static var orgDefaultsFixture: OrgDefaultsFixture? {
+            guard argument("SurimonoSettings") == "org" else { return nil }
+            return OrgDefaultsFixture(
+                state: argument("SurimonoOrgDefaultsState"), alert: argument("SurimonoOrgDefaultsAlert"),
+                changedOnly: flag("SurimonoOrgChangedOnly"))
+        }
+
         static var shortcutReview: String? { argument("SurimonoShortcutReview") }
         static var shortcutSearch: String? { argument("SurimonoShortcutSearch") }
         static var shortcutShowGlobal: Bool { flag("SurimonoShortcutGlobal") }
@@ -198,11 +234,17 @@
         /// `top`, `draft` (edits with separators the toolbar does not draw), `select:<part>`, `drop:<zone>:<index>`
         /// (the insertion marker of a hovering drag), `refused` (Print taken off), `unsaved` (the question before
         /// switching to Standard), `delete` and `new` (their sheets).
-        static func configureArrangementEditor() {
-            guard let states = argument("SurimonoArrangementEditor"), let editor = BandArrangementEditorSession.app
-            else { return }
-            for state in states.split(separator: ",") {
-                let fields = state.split(separator: ":").map(String.init)
+        /// A coordinate drop is `drop:new@topLeft:x,y` or `drop:bottomLeft:1@topRight:x,y`. Source indices are
+        /// zero-based; offsets are points from the named zone's top-left, including negative offsets and overflow.
+        static func configureArrangementEditor(_ states: String, editor: BandArrangementEditorSession) async throws {
+            var commands = states.split(separator: ",").makeIterator()
+            while let state = commands.next() {
+                if state.hasPrefix("drop:"), state.contains("@") {
+                    guard let y = commands.next() else { throw CocoaError(.coderInvalidValue) }
+                    try await performEditorDrop(state.dropFirst(5), y: y, editor: editor)
+                    continue
+                }
+                let fields = state.components(separatedBy: ":")
                 switch fields[0] {
                 case "hint": break  // The hint host reads the target without changing the selection.
                 case "top": editor.mode = .top
@@ -228,6 +270,63 @@
                 case "new": editor.dialog = .new
                 default: logger.error("Unknown editor state \(state, privacy: .public)")
                 }
+            }
+        }
+
+        private static func performEditorDrop(
+            _ command: Substring, y: Substring, editor: BandArrangementEditorSession
+        ) async throws {
+            let pair = command.split(separator: "@", omittingEmptySubsequences: false)
+            guard pair.count == 2 else { throw CocoaError(.coderInvalidValue) }
+            let destination = pair[1].split(separator: ":")
+            guard destination.count == 2, let zone = BandZoneID(rawValue: String(destination[0])),
+                editor.zones.contains(zone), let x = Double(destination[1]), x.isFinite, let y = Double(y), y.isFinite
+            else { throw CocoaError(.coderInvalidValue) }
+
+            // Earlier commands and window resizing can change wrapping. Let SwiftUI publish each zone's geometry.
+            let deadline = ContinuousClock.now + .seconds(3)
+            repeat {
+                try await Task.sleep(for: .milliseconds(30))
+                if editor.zones.allSatisfy({ zone in
+                    editor.layoutFrames[zone.rawValue]?.isEmpty == false
+                        && editor.chipFrames[zone, default: []].count == editor.arrangement[zone].count
+                }), editor.layoutFrames["topBand"] != nil,
+                    editor.mode == .top || editor.layoutFrames["bottomBand"] != nil,
+                    editor.arrangement.topRight.last(where: { $0.item != nil }) != .part(.print)
+                        || editor.dockedMoreFrame != nil
+                {
+                    break
+                }
+                guard ContinuousClock.now < deadline else { throw SnapshotDeadline(stage: "Toolbar drop geometry") }
+            } while true
+            guard let frame = editor.layoutFrames[zone.rawValue] else { throw CocoaError(.coderInvalidValue) }
+            let source: BandEditorPayload.Source
+            if pair[0] == "new" {
+                source = .newSeparator
+            } else {
+                let fields = pair[0].split(separator: ":")
+                guard fields.count == 2, let from = BandZoneID(rawValue: String(fields[0])),
+                    editor.zones.contains(from), let index = Int(fields[1])
+                else { throw CocoaError(.coderInvalidValue) }
+                let location = BandEntryLocation(destination: .zone(from), index: index)
+                guard editor.entry(at: location) == .separator else { throw CocoaError(.coderInvalidValue) }
+                source = .entry(location, .separator)
+            }
+            let point = CGPoint(x: frame.minX + x, y: frame.minY + y)
+            let provider = BandEditorDrop.provider(editor.beginDrag(source))
+            let placed = await withCheckedContinuation { continuation in
+                if !BandEditorDrop.perform(
+                    [provider], at: point, in: editor,
+                    completion: { result in
+                        continuation.resume(returning: result)
+                    })
+                {
+                    continuation.resume(returning: false)
+                }
+            }
+            guard placed else {
+                throw CocoaError(
+                    .coderInvalidValue, userInfo: [NSLocalizedDescriptionKey: "Toolbar drop refused: \(command),\(y)"])
             }
         }
 
@@ -624,6 +723,34 @@
             // A restored window can finish rendering before the requested download.
             if openURLArgument != nil, firstDocument !== model { return }
             if firstDocument == nil { firstDocument = model }
+            if flag("SurimonoMenuTiming") {
+                guard firstDocument === model, !scheduled, !captured, model.window != nil, model.isUpToDate else {
+                    return
+                }
+                scheduled = true
+                Task { @MainActor in
+                    do {
+                        guard let path = argument("SurimonoMenuTimingPath"), path.hasPrefix("/") else {
+                            throw CocoaError(.fileWriteInvalidFileName)
+                        }
+                        model.window?.makeKeyAndOrderFront(nil)
+                        guard DocumentWindows.shared.currentModel === model, let main = NSApp.mainMenu else {
+                            throw CocoaError(.coderValueNotFound)
+                        }
+                        let destination = URL(fileURLWithPath: path)
+                        let sources = DocumentWindows.shared.openModels.flatMap(\.protectedSourceURLs)
+                        guard DocumentViewModel.canExport(to: destination, sourceURLs: sources) else {
+                            throw CocoaError(.fileWriteNoPermission)
+                        }
+                        try writeMenuTiming(main, to: destination)
+                        captured = true
+                        if flag("SurimonoSnapshotQuit") { quitAfterCapture() }
+                    } catch {
+                        DebugSnapshotProgress.failed(error)
+                    }
+                }
+                return
+            }
             if let path = ShownDocumentsProbe.path {
                 guard firstDocument === model, !scheduled, !captured, model.window != nil else { return }
                 scheduled = true
@@ -953,7 +1080,6 @@
                     // The Settings window in place of the document's, opened as from the app menu.
                     model.preferences.settingsSection =
                         SettingsSection.allCases.first { String(describing: $0) == name } ?? .general
-                    configureArrangementEditor()
                     DebugSnapshotProgress.report("Opening Settings: " + name)
                     AppKitShell.current?.showSettings(nil)
                     let deadline = ContinuousClock.now + .seconds(8)
@@ -975,6 +1101,15 @@
                     {
                         settingsWindow?.setContentSize(NSSize(width: size[0], height: size[1]))
                         try? await Task.sleep(for: .milliseconds(500))
+                    }
+                    if let states = argument("SurimonoArrangementEditor"), let editor = BandArrangementEditorSession.app
+                    {
+                        do {
+                            try await configureArrangementEditor(states, editor: editor)
+                        } catch {
+                            DebugSnapshotProgress.failed(error)
+                            return
+                        }
                     }
                     if let settingsWindow { probeArrangementUndo(in: settingsWindow) }
                     if quitsArrangementEditor {
@@ -1007,6 +1142,9 @@
                     let data = try await capturePNG(
                         around: window, includeChildren: openURLArgument == nil, surface: surface
                     ) {
+                        if !doc, orgDefaultsFixture?.target != nil, window.attachedSheet?.isVisible != true {
+                            return "Waiting for the Org defaults alert"
+                        }
                         guard doc else { return nil }
                         if requestedMode == "print" && model.mode != .print { return "Waiting for the print tray" }
                         if requestedMode == "compare" && model.mode != .compare {
@@ -1137,6 +1275,43 @@
                 logger.error("Unknown export kind")
                 return false
             }
+        }
+
+        private static func writeMenuTiming(_ main: NSMenu, to destination: URL) throws {
+            struct Timing: Encodable {
+                let medianMS: Double
+                let maximumMS: Double
+            }
+            struct Measurement: Encodable {
+                let menu: String
+                let menuNeedsUpdate: Timing?
+                let appKitUpdate: Timing
+            }
+            struct Report: Encodable {
+                let iterations: Int
+                let menus: [Measurement]
+            }
+            let iterations = 20
+            func measure(_ update: () -> Void) -> Timing {
+                let samples = (0..<iterations).map { _ in
+                    let start = DispatchTime.now().uptimeNanoseconds
+                    update()
+                    return Double(DispatchTime.now().uptimeNanoseconds - start) / 1_000_000
+                }.sorted()
+                let middle = samples.count / 2
+                return Timing(medianMS: (samples[middle - 1] + samples[middle]) / 2, maximumMS: samples[iterations - 1])
+            }
+            let menus = main.items.compactMap(\.submenu)
+            guard !menus.isEmpty else { throw CocoaError(.coderValueNotFound) }
+            let measurements = menus.map { menu in
+                // Keep the application delegate cost distinguishable from AppKit's native validation.
+                let delegate = menu.delegate?.menuNeedsUpdate.map { update in measure { update(menu) } }
+                return Measurement(menu: menu.title, menuNeedsUpdate: delegate, appKitUpdate: measure { menu.update() })
+            }
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            let report = Report(iterations: iterations, menus: measurements)
+            try encoder.encode(report).write(to: destination, options: .atomic)
         }
 
         private static func quitAfterCapture() {

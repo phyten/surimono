@@ -83,6 +83,8 @@ make clean
 | `make snapshots-reference` | 任意。ローカルの実 TeX でコーパスの参照 PDF を更新する。エンジン・必要なクラスなどがなければ理由を表示してスキップする |
 | `make test-tools` | GUI を開かず SwiftPM ツールを検証する |
 
+設定の「ツールバーの配置」を撮るときは、DEBUG 引数 `-SurimonoSettings toolbarArrangement -SurimonoBandArrangement editor` と合わせて `-SurimonoArrangementEditor 'split,drop:new@topLeft:5,12'` で実際に下書きへ区切り線を足せる。`drop:bottomLeft:1@topRight:-5,12` は下・左の添字 1（0 始まり）の線を移す。座標は `@` の後の領域の左上から右・下へ測った pt。負の値や領域を越えた値も使え、帯の外に落とした配置済みの線は消える。空領域は配置見本 `sparse` にある。従来の `drop:topLeft:0` はマーカーだけを出す。この撮影は通常と同じ配置判定・ペイロード読み込み・編集処理を通る。ポインタによるドラッグ開始と SwiftUI からの `DropInfo` の配送は実機で確認する。
+
 ケースは `Snapshots/cases.json` に1件ずつ記載する。PDF は全ページを100 dpiで原寸比較し、紙面寸法、本文の矩形、先頭・末尾の行の高さ、行数、同じ本文の行の移動量と本文差分を測る。許容値は `Snapshots/tolerances.json`。LaTeX は実 TeX との差と前回承認時からの推移も表示する。忠実度は回帰の終了コードに影響しない。
 
 UI はアプリを前面に出さず、実ポインタと入力カーソルを除いて、対象窓と子窓を固定背景に合成する。撮影時は不透明な表示を使い、SwiftUI のコントロールをアクティブな外観にする。ネイティブのタイトルバーなどには macOS の非アクティブ色が残る。組版・面付け・見本・窓のアニメーションの完了と、PDFView にページが見えていることを確認してから、300 ms 間隔で最大5回撮る。連続2枚の画素が一致すれば安定。`run.json` の `capture.isKeyWindow` と `appActive` は観測値で、両方が false でも合格できる。`unstable` は画素が揃わなかったケース、`readinessIssue` は描画待ちが完了しなかった理由。どちらも承認前に調べる。

@@ -577,7 +577,9 @@ struct BandArrangementEditorTests {
         #expect(session.draft.split.unused == BandTestCatalog.standardUnused + [.pageTurn])
         payload = session.beginDrag(.newSeparator)
         #expect(session.proposal(for: .zone(.bottomRight, index: 2)) == .copy)
-        #expect(session.proposal(for: .unused) == .forbidden)
+        #expect(session.proposal(for: .unused) == .copy)
+        #expect(session.drop(payload, on: .unused))
+        payload = session.beginDrag(.newSeparator)
         #expect(session.drop(payload, on: .zone(.bottomRight, index: 2)))
         #expect(
             session.draft.split.bottomRight == [
@@ -592,6 +594,164 @@ struct BandArrangementEditorTests {
         #expect(session.proposal(for: .outside) == .forbidden)
         #expect(!session.drop(payload, on: .outside))
         #expect(session.draft.split.bottomRight == [.part(.chapter), .part(.pageIndicator), .part(.readingSettings)])
+    }
+
+    @Test("新しい区切り線と配置済みの区切り線を各領域のすべての挿入位置へ落とせる")
+    func separatorDropPositions() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let session = environment.session
+        for mode in MenuArrangement.allCases {
+            session.mode = mode
+            for zone in session.zones {
+                let original = session.arrangement[zone]
+                for index in 0...original.count {
+                    let target = BandEditorDropTarget.zone(zone, index: index)
+                    let new = session.beginDrag(.newSeparator)
+                    #expect(session.proposal(for: target) == .copy)
+                    #expect(session.drop(new, on: target))
+                    var expected = original
+                    expected.insert(.separator, at: index)
+                    #expect(session.arrangement[zone] == expected)
+                    let source: BandZoneID = zone == .topLeft ? .topRight : .topLeft
+                    #expect(session.drop(session.beginDrag(.newSeparator), on: .zone(source, index: 0)))
+                    let moved = session.beginDrag(.entry(location(.zone(source), 0), .separator))
+                    #expect(session.proposal(for: target) == .move)
+                    #expect(session.drop(moved, on: target))
+                    expected.insert(.separator, at: index)
+                    #expect(session.arrangement[zone] == expected)
+                    session.undo()
+                    session.undo()
+                    session.undo()
+                    #expect(session.arrangement[zone] == original)
+                }
+            }
+        }
+    }
+
+    @Test("空の領域に線を追加して別の線を移し、使わない部品に落とした線だけを消す")
+    func emptyZoneDrop() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let session = environment.session
+        session.select(.part(.formatBadge))
+        session.removeSelection()
+        let empty = BandEditorDropTarget.zone(.topLeft, index: 0)
+        #expect(session.drop(session.beginDrag(.newSeparator), on: empty))
+        let added = session.beginDrag(.entry(location(.zone(.topLeft), 0), .separator))
+        #expect(session.drop(added, on: .unused))
+        #expect(session.arrangement.topLeft.isEmpty)
+        #expect(session.drop(session.beginDrag(.newSeparator), on: .zone(.bottomLeft, index: 0)))
+        let moved = session.beginDrag(.entry(location(.zone(.bottomLeft), 0), .separator))
+        #expect(session.drop(moved, on: empty))
+        #expect(session.arrangement.topLeft == [.separator])
+    }
+
+    @Test("未選択のパレットからも区切りを追加でき、以後は選択中の線の後ろに足す")
+    func addSeparatorWithoutSelection() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let session = environment.session
+        session.insertSeparatorAfterSelection()
+        session.insertSeparatorAfterSelection()
+        #expect(session.arrangement.topLeft == [.part(.formatBadge), .separator, .separator])
+        #expect(session.selection == .separator(.topLeft, 2))
+    }
+
+    @Test("帯の端・余白・左右の間も近い領域へ入り、未計測のチップは末尾へ入る")
+    func wholeBandDropTarget() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let session = environment.session
+        session.layoutFrames = [
+            "topBand": CGRect(x: 10, y: 40, width: 400, height: 50),
+            "topLeft": CGRect(x: 80, y: 46, width: 65, height: 30),
+            "topRight": CGRect(x: 300, y: 46, width: 90, height: 30),
+            "palette": CGRect(x: 10, y: 120, width: 400, height: 80),
+        ]
+        session.chipFrames[.topLeft] = [CGRect(x: 3, y: 3, width: 24, height: 24)]
+        session.chipFrames[.topRight] = [CGRect(x: 20, y: 3, width: 24, height: 24)]
+        func target(_ x: CGFloat, _ y: CGFloat) -> BandEditorDropTarget {
+            BandEditorDrop.placement(at: CGPoint(x: x, y: y), in: session).target
+        }
+        #expect(target(11, 41) == .zone(.topLeft, index: 0))
+        #expect(target(98, 55) == .zone(.topLeft, index: 1))
+        #expect(target(175, 55) == .zone(.topLeft, index: 1))
+        #expect(target(270, 55) == .zone(.topRight, index: 0))
+        #expect(target(409, 89) == .zone(.topRight, index: 1))
+        session.chipFrames[.topRight] = []
+        #expect(target(300, 55) == .zone(.topRight, index: 1))
+        #expect(target(20, 115) == .outside)
+        #expect(target(20, 121) == .unused)
+        session.layoutFrames["topRight"] = CGRect(x: 80, y: 80, width: 220, height: 10)
+        #expect(target(85, 87) == .zone(.topRight, index: 1))
+    }
+
+    @Test("印刷の前は固定の「…」より手前に線とマーカーを置く", arguments: [false, true])
+    func insertBeforeDockedPrint(wrapped: Bool) {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let session = environment.session
+        let zone = BandZoneID.topRight
+        let band = CGRect(x: 10, y: 20, width: 200, height: 80)
+        session.layoutFrames = ["topBand": band, zone.rawValue: band]
+        let lock = CGRect(x: 3, y: 3, width: 24, height: 26)
+        let button = CGRect(x: wrapped ? 3 : 30, y: wrapped ? 33 : 3, width: 40, height: 26)
+        session.dockedMoreFrame = lock
+        session.chipFrames[zone] = [button]
+        for local in [CGPoint(x: lock.maxX - 1, y: lock.midY), CGPoint(x: button.minX + 1, y: button.midY)] {
+            let placement = BandEditorDrop.placement(
+                at: CGPoint(x: local.x + band.minX, y: local.y + band.minY), in: session)
+            #expect(placement.target == .zone(zone, index: 0))
+            #expect(placement.marker == CGRect(x: 0.25, y: 3, width: 2.5, height: 26))
+            #expect(session.drop(session.beginDrag(.newSeparator), on: placement.target))
+            #expect(session.arrangement[zone] == [.separator, .part(.print)])
+            session.undo()
+        }
+    }
+
+    @Test("VoiceOverの移動先を次の操作の起点にすると連続する線を越え、別の領域にも進める")
+    func accessibilityMoveDestination() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let session = environment.session
+        session.select(.part(.formatBadge))
+        session.insertSeparatorAfterSelection()
+        session.insertSeparatorAfterSelection()
+        session.performAccessibilityAction(on: .separator(.topLeft, 2)) { session.moveSelection(by: -1) }
+        #expect(session.accessibilityFocusDestination == .separator(.topLeft, 1))
+        session.performAccessibilityAction(on: session.accessibilityFocusDestination) { session.moveSelection(by: -1) }
+        #expect(session.accessibilityFocusDestination == .separator(.topLeft, 0))
+        #expect(session.arrangement.topLeft == [.separator, .part(.formatBadge), .separator])
+        session.performAccessibilityAction(on: session.accessibilityFocusDestination) {
+            session.moveSelection(to: .zone(.topRight))
+        }
+        #expect(session.accessibilityFocusDestination == .separator(.topRight, 1))
+    }
+
+    @Test("同じ領域の連続する線を越えて選択を動かし、キー操作で端から端まで移せる")
+    func movingPastIdenticalSeparators() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let session = environment.session
+        session.select(.part(.formatBadge))
+        session.insertSeparatorAfterSelection()
+        session.insertSeparatorAfterSelection()
+        session.select(.part(.zoom))
+        session.moveSelection(to: .zone(.topLeft))
+        #expect(!session.separatorIsIdle(at: 1, in: .topLeft))
+        #expect(session.separatorIsIdle(at: 2, in: .topLeft))
+        session.select(.separator(.topLeft, 2))
+        session.moveSelection(by: -1)
+        #expect(session.selection == .separator(.topLeft, 1))
+        session.moveSelection(by: -1)
+        #expect(session.arrangement.topLeft == [.separator, .part(.formatBadge), .separator, .part(.zoom)])
+        for index in 0...4 {
+            let moved = session.beginDrag(.entry(location(.zone(.topLeft), 0), .separator))
+            #expect(session.drop(moved, on: .zone(.topLeft, index: index)))
+            #expect(session.selection == .separator(.topLeft, max(0, index - 1)))
+            if index > 1 { session.undo() }
+        }
     }
 
     @Test("印刷を使わない部品へ落とすと断って理由を伝える")
@@ -613,6 +773,8 @@ struct BandArrangementEditorTests {
         let session = environment.session
         let stale = session.beginDrag(.entry(location(.zone(.topRight), 0), .part(.print)))
         session.insertSeparator(in: .topLeft, at: 0)
+        #expect(session.proposal(for: .zone(.topLeft, index: 0)) == .forbidden)
+        #expect(session.message == .dropFailed)
         #expect(!session.drop(stale, on: .zone(.topLeft, index: 0)))
         let other = BandArrangementEditorSession(preferences: environment.preferences)
         let foreign = other.beginDrag(.entry(location(.zone(.topRight), 0), .part(.print)))
@@ -653,7 +815,13 @@ struct BandArrangementEditorTests {
         #expect(BandEditorDrop.insertionIndex(at: CGPoint(x: 50, y: 40), frames: frames) == 5)
         #expect(BandEditorDrop.insertionIndex(at: CGPoint(x: 10, y: 90), frames: frames) == 3)
         #expect(BandEditorDrop.insertionIndex(at: CGPoint(x: 10, y: 10), frames: []) == 0)
+        // The gap between lines used to match both rows and could jump past the entire second row.
+        #expect(BandEditorDrop.insertionIndex(at: CGPoint(x: 200, y: 27), frames: frames) == 3)
+        #expect(BandEditorDrop.insertionIndex(at: CGPoint(x: -5, y: 29), frames: frames) == 3)
         #expect(BandEditorDrop.marker(at: 3, frames: frames) == CGRect(x: -2.75, y: 30, width: 2.5, height: 26))
+        #expect(
+            BandEditorDrop.marker(at: 3, frames: frames, pointerY: 27) == CGRect(x: 96.25, y: 0, width: 2.5, height: 26)
+        )
         #expect(BandEditorDrop.marker(at: 5, frames: frames) == CGRect(x: 63.25, y: 30, width: 2.5, height: 26))
     }
 
