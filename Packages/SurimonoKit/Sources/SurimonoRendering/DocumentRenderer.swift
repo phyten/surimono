@@ -1593,7 +1593,9 @@ public final class DocumentRenderer {
                 text.issues.append(PrintIssue(id: "\(kind.rawValue)-reader-\(offset)", kind: kind, detail: detail))
             }
             if page.needsFolderAccess { text.requiredFolderAccess = directory }
-            text = try await finished(text, fragment: fragment, facts: page.facts, source: source, settings: settings)
+            text = try await finished(
+                text, fragment: fragment, facts: page.facts, contentsAnchors: page.contentsAnchors, source: source,
+                settings: settings)
             text.finishing.sourceText = fragment.sourceText
             guard separatesPaper, text.preparationResult == "paper" else { return text }
             let paperHTML = PaperBackground.document(
@@ -1666,6 +1668,7 @@ public final class DocumentRenderer {
         let paper: HTMLFragment
         let html: String
         let facts: DocumentFacts
+        let contentsAnchors: PaperContentsAnchors?
         let mermaid: Bool
         let diagrams: Bool
         var collectsDiagrams: Bool { mermaid || diagrams }
@@ -1760,6 +1763,10 @@ public final class DocumentRenderer {
             }
         }
         paper.body = settings.finish.links.apply(to: paper.body, language: settings.pageLanguage)
+        let contentsAnchors = settings.finish.frontDepth(format: source.format, lead: lead).flatMap { _ in
+            PaperContentsAnchors(facts: facts, legacy: settings.finish.originalPresetContents?.mode == .front)
+        }
+        if let contentsAnchors { paper.body = contentsAnchors.marking(paper.body) }
         let html = try await builtHTML(paper, source: source, settings: settings, separatesPaper: separatesPaper)
         // Text and tables cannot emit diagram elements. Check markup before adding styles or duplicating it for notes.
         let markup = source.format != .plainText && source.format != .csv
@@ -1773,7 +1780,7 @@ public final class DocumentRenderer {
         try Task.checkCancellation()
         return ThemedPage(
             fragment: fragment, needsLaTeXFlow: needsLaTeXFlow, paper: paper, html: html,
-            facts: facts,
+            facts: facts, contentsAnchors: contentsAnchors,
             mermaid: mermaid, diagrams: diagrams, needsFolderAccess: read.needsFolderAccess)
     }
 
@@ -1805,8 +1812,9 @@ public final class DocumentRenderer {
     /// The pages of a text with what the print finish adds to them: the contents in front, a blank before a chapter
     /// that would fall on a left-hand page, and the margins of the left-hand pages turned the other way round.
     private func finished(
-        _ text: WebPaginator.Result, fragment: HTMLFragment, facts: DocumentFacts, source: DocumentSource,
-        settings: RenderSettings
+        _ text: WebPaginator.Result, fragment: HTMLFragment, facts: DocumentFacts,
+        contentsAnchors: PaperContentsAnchors?,
+        source: DocumentSource, settings: RenderSettings
     ) async throws -> WebPaginator.Result {
         var result = text
         result.finishing.facts = facts
@@ -1824,12 +1832,16 @@ public final class DocumentRenderer {
         let pageCount = text.document.pageCount
         var plan = FinishedPagePlan(bodyPageCount: pageCount, contentsPageCount: 0, rightPageStarts: [])
         var contents: PDFDocument?
+        let targets = contentsAnchors?.takeDestinations(in: text.document) ?? [:]
         if usesRightPages || wantsContents || notes != nil {
             let pageTexts = (0..<pageCount).map { text.document.page(at: $0)?.string ?? "" }
-            let headingPages = DocumentOutline.pages(
+            var headingPages = DocumentOutline.pages(
                 of: facts.headings, inPageTexts: pageTexts,
                 contentsEntries: facts.visibleContentsEntries
             )
+            for (index, target) in targets where headingPages.indices.contains(index) {
+                if let page = target.destination.page { headingPages[index] = text.document.index(for: page) }
+            }
             let insertion = notes.map {
                 FinishedPagePlan.Notes(
                     placement: $0.placement, layoutKind: settings.layout.kind,
@@ -1852,9 +1864,11 @@ public final class DocumentRenderer {
             if let frontDepth, wantsContents {
                 if usesLegacyFront {
                     entries = PaperContents.entries(
-                        headings: facts.headings, pageNumbers: headingPages, depth: frontDepth)
+                        headings: facts.headings, pageNumbers: headingPages, depth: frontDepth,
+                        linkForHeading: { targets[$0]?.url })
                 } else {
-                    entries = PaperContents.readerEntries(facts: facts, pageNumbers: headingPages)
+                    entries = PaperContents.readerEntries(
+                        facts: facts, pageNumbers: headingPages, linkForHeading: { targets[$0]?.url })
                 }
             } else {
                 entries = []
@@ -1881,7 +1895,10 @@ public final class DocumentRenderer {
                     notes: insertion)
             }
         }
-        let document = Self.assembled(text.document, contents: contents, plan: plan, settings: settings)
+        let document = Self.assembled(
+            text.document, contents: contents,
+            targets: Dictionary(uniqueKeysWithValues: targets.values.map { ($0.url, $0.destination) }),
+            plan: plan, settings: settings)
         let mirrored = Self.mirroringMargins(of: document, settings: settings, plan: notes != nil ? plan : nil)
         var finished = WebPaginator.Result(
             document: mirrored,
@@ -1952,7 +1969,8 @@ public final class DocumentRenderer {
     /// Adds to the document itself, so that the links between its pages keep pointing at them. The note pages go in
     /// later, in `noted(_:source:settings:)`.
     private static func assembled(
-        _ body: PDFDocument, contents: PDFDocument?, plan: FinishedPagePlan, settings: RenderSettings
+        _ body: PDFDocument, contents: PDFDocument?, targets: [URL: PDFDestination], plan: FinishedPagePlan,
+        settings: RenderSettings
     ) -> PDFDocument {
         guard !plan.isUnchanged else { return body }
         var index = 0
@@ -1963,6 +1981,14 @@ public final class DocumentRenderer {
             case .contents(let number):
                 if let page = contents?.page(at: number), let copy = StandalonePage.copy(of: page) {
                     body.insert(copy, at: index)
+                    for annotation in copy.annotations {
+                        if let url = (annotation.action as? PDFActionURL)?.url ?? annotation.url,
+                            let target = targets[url]
+                        {
+                            annotation.url = nil
+                            annotation.action = PDFActionGoTo(destination: target)
+                        }
+                    }
                 }
             case .blank:
                 let blank = PDFPage()

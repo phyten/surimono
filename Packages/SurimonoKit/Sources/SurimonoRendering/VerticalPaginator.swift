@@ -114,7 +114,7 @@ enum VerticalPaginator {
     /// the position up spends what is left of the budget instead of starting one of its own.
     static func pages(
         in webView: WKWebView, pageSize: CGSize, margins: WebPaginator.Margins, timeout: Duration,
-        booklet: Bool = false, textScale: Double = 1, fragmentLinks: PrintedFragmentLinks? = nil,
+        booklet: Bool = false, textScale: Double = 1, fragmentLinks: PrintedFragmentLinks.Preparation? = nil,
         samplePosition: (@MainActor (ContinuousClock.Instant) async throws -> CGFloat?)? = nil
     ) async throws -> PDFDocument {
         try Task.checkCancellation()
@@ -228,11 +228,7 @@ enum VerticalPaginator {
                         }
                     }
                 }
-                let resolved = try await fragmentLinks?.resolve(in: bytes) ?? bytes
-                guard let document = PDFDocument(data: resolved), document.pageCount > 0 else {
-                    throw WebPaginator.PaginationError.emptyDocument
-                }
-                result = .success(document)
+                result = .success(try await PrintedFragmentLinks.open(bytes, links: fragmentLinks?.links).document)
             } catch {
                 result = .failure(error)
             }

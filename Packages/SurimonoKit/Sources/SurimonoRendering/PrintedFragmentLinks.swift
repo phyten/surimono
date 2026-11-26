@@ -5,26 +5,36 @@ import WebKit
 /// Carry both ends through the native print or the vertical slices, then join them in the final page tree.
 struct PrintedFragmentLinks: Sendable {
     let prefix: String
+    var collectsDestinations = true
 
-    @MainActor static func install(
-        in view: WKWebView, source: WebPaginator.Source, until deadline: ContinuousClock.Instant
-    )
-        async throws -> Self?
-    {
-        // Generated documents resolve their images against a directory while their paper lives at a temporary URL.
-        // An HTML file's own <base> can deliberately point a fragment link at a different document.
-        let resourceBase: URL?
-        switch source {
-        case .html(_, let base): resourceBase = base
-        case .snapshot: resourceBase = SnapshotSchemeHandler.rootURL
-        case .sandboxed(_, let access, false):
-            resourceBase = LocalResourceSchemeHandler.url(for: access.documentURL.deletingLastPathComponent())
-        default: resourceBase = nil
+    /// Submit the marker script before the next required WebKit operation on the same view.
+    /// Printing never waits for an optional reply. A missing or failed reply only discards
+    /// private marks, including any that the script installed before it threw.
+    @MainActor final class Preparation {
+        private(set) var links: PrintedFragmentLinks?
+
+        init(in view: WKWebView, source: WebPaginator.Source) {
+            // Generated documents resolve their images against a directory while their paper lives at a temporary URL.
+            let resourceBase: URL?
+            switch source {
+            case .html(_, let base): resourceBase = base
+            case .snapshot: resourceBase = SnapshotSchemeHandler.rootURL
+            case .sandboxed(_, let access, false):
+                resourceBase = LocalResourceSchemeHandler.url(for: access.documentURL.deletingLastPathComponent())
+            default: resourceBase = nil
+            }
+            let prefix = "surimono-fragment://\(UUID().uuidString.lowercased())/"
+            links = PrintedFragmentLinks(prefix: prefix, collectsDestinations: false)
+            view.callAsyncJavaScript(
+                PrintedFragmentLinks.script,
+                arguments: ["prefix": prefix, "resourceBase": resourceBase?.absoluteString ?? ""],
+                in: nil, in: WebPaginator.preparationWorld
+            ) { [weak self] reply in
+                if case .success(let value) = reply, let installed = value as? Bool {
+                    self?.links = installed ? PrintedFragmentLinks(prefix: prefix) : nil
+                }
+            }
         }
-        let prefix = "surimono-fragment://\(UUID().uuidString.lowercased())/"
-        let installed = try await view.evaluateForPrinting(
-            script, arguments: ["prefix": prefix, "resourceBase": resourceBase?.absoluteString ?? ""], until: deadline)
-        return installed as? Bool == true ? Self(prefix: prefix) : nil
     }
 
     private static let script = """
@@ -68,6 +78,43 @@ struct PrintedFragmentLinks: Sendable {
         return targets.size > 0;
         """
 
+    private func marker(on annotation: PDFAnnotation) -> Substring? {
+        guard let url = (annotation.action as? PDFActionURL)?.url ?? annotation.url else { return nil }
+        // PDFKit sometimes encodes the fragment separator when it writes an opaque about:blank URL.
+        let raw = url.absoluteString
+        let address = url.scheme == "about" ? raw.removingPercentEncoding ?? raw : raw
+        let value = address.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false).last
+        guard let value, value.hasPrefix(prefix) else { return nil }
+        return value.dropFirst(prefix.count)
+    }
+
+    /// Navigation is optional. If the writer cannot update these bytes, use the printed pages
+    /// and remove the private URLs from the live document. Drawing must then use that document.
+    @MainActor static func open(_ printed: Data, links: Self?) async throws -> (
+        document: PDFDocument, drawingBytes: Data?
+    ) {
+        if let links {
+            do {
+                let bytes = try await links.resolve(in: printed)
+                if let document = PDFDocument(data: bytes), document.pageCount > 0 { return (document, bytes) }
+            } catch {
+                try Task.checkCancellation()
+            }
+        }
+        guard let document = PDFDocument(data: printed), document.pageCount > 0 else {
+            throw WebPaginator.PaginationError.emptyDocument
+        }
+        guard let links else { return (document, printed) }
+        for index in 0..<document.pageCount {
+            try Task.checkCancellation()
+            guard let page = document.page(at: index) else { continue }
+            for annotation in page.annotations where links.marker(on: annotation) != nil {
+                page.removeAnnotation(annotation)
+            }
+        }
+        return (document, nil)
+    }
+
     /// Match the first printed occurrence of a target, including forward links and links across slices.
     @concurrent func resolve(in bytes: Data) async throws -> Data {
         typealias Writer = ReadingPDFNavigationWriter
@@ -79,11 +126,11 @@ struct PrintedFragmentLinks: Sendable {
             try Task.checkCancellation()
             guard let page = document.page(at: index) else { continue }
             for (offset, annotation) in page.annotations.enumerated() {
-                let url = ((annotation.action as? PDFActionURL)?.url ?? annotation.url)?.absoluteString
-                guard let url else { continue }
-                let address = url.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false).last ?? ""
-                guard address.hasPrefix(prefix) else { continue }
-                let marker = address.dropFirst(prefix.count)
+                guard let marker = marker(on: annotation) else { continue }
+                if !collectsDestinations {
+                    removed[index, default: []].insert(offset)
+                    continue
+                }
                 if marker.hasPrefix("target/"), let id = Int(marker.dropFirst("target/".count)) {
                     if targets[id] == nil {
                         targets[id] = .init(

@@ -28,6 +28,51 @@ struct PrintedFragmentLinkTests {
         }
     }
 
+    @Test("別ページの目次は同じページの同名見出しを区別し、読むための PDF にもその位置を残す", .timeLimit(.minutes(1)))
+    func separateContents() async throws {
+        let source = DocumentSource(
+            data: Data("#+OPTIONS: toc:t num:nil\n* Alpha\n前の本文\n\nAlpha\n\n* Alpha\n次の本文\n* Omega\n最後の本文".utf8),
+            format: .org)
+        var settings = RenderSettings(
+            layout: .a4Single, theme: .init(id: "test", name: "Test", css: "#omega { break-before: page }"),
+            preset: .init(id: "none", name: "None"))
+        settings.finish.contents.placement = .page
+        let prepared = try await DocumentRenderer().prepare(source, settings: settings)
+        #expect(prepared.addedContentsPages == 1)
+        let logical = prepared.logicalDocument
+        let first = try #require(logical.page(at: 1))
+        let last = try #require(logical.page(at: 2))
+        let alpha = logical.findString("Alpha").filter { $0.pages.first === first }.map { $0.bounds(for: first) }
+        let omega = try #require(logical.findString("Omega").first { $0.pages.first === last }).bounds(for: last)
+        // The middle "Alpha" is prose. Only the two heading occurrences have destinations.
+        try #require(alpha.count == 3)
+        let sourceRows = try #require(logical.page(at: 0)).annotations.sorted { $0.bounds.midY > $1.bounds.midY }
+        try #require(sourceRows.count == 3)
+        let data = try await ReadingPDFExporter.data(from: logical, entries: [], title: "Contents")
+        let saved = try #require(PDFDocument(data: data))
+        let savedRows = try #require(saved.page(at: 0)).annotations.sorted { $0.bounds.midY > $1.bounds.midY }
+        try #require(savedRows.count == 3)
+        for (offset, entry) in [(1, alpha[0]), (1, alpha[2]), (2, omega)].enumerated() {
+            let (index, heading) = entry
+            let row = sourceRows[offset]
+            let target = try #require((row.action as? PDFActionGoTo)?.destination ?? row.destination)
+            let page = try #require(logical.page(at: index))
+            #expect(target.page === page)
+            // The anchor sits at the start of the line box; glyph bounds depend on the font.
+            #expect(abs(target.point.y - heading.maxY) < heading.height * 0.6)
+            #expect(abs(target.point.x - heading.minX) < heading.height)
+            #expect(page.annotations.isEmpty)
+            let copy = savedRows[offset]
+            let destination = try #require((copy.action as? PDFActionGoTo)?.destination ?? copy.destination)
+            let savedPage = try #require(saved.page(at: index))
+            #expect(destination.page === savedPage)
+            let old = page.bounds(for: .mediaBox)
+            let new = savedPage.bounds(for: .mediaBox)
+            #expect(abs(target.point.x - old.minX - destination.point.x + new.minX) < 0.02)
+            #expect(abs(target.point.y - old.minY - destination.point.y + new.minY) < 0.02)
+        }
+    }
+
     @Test("HTML の符号化した断片と名前付きアンカーは本文へ移り、別文書の同名の断片は URL を保つ", .timeLimit(.minutes(1)))
     func htmlFragments() async throws {
         _ = NSApplication.shared
@@ -86,5 +131,11 @@ struct PrintedFragmentLinkTests {
         try check(document)
         let saved = try await ReadingPDFExporter.data(from: document)
         try check(#require(PDFDocument(data: saved)))
+
+        // A JavaScript exception can leave marks at either end of a link.
+        let partial = PrintedFragmentLinks(prefix: prefix, collectsDestinations: false)
+        let cleaned = try await PrintedFragmentLinks.open(buffer as Data, links: partial)
+        #expect(cleaned.document.page(at: 0)?.annotations.map(\.url) == [external])
+        #expect(cleaned.document.page(at: 1)?.annotations.isEmpty == true)
     }
 }

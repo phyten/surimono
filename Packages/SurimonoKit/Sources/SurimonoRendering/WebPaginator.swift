@@ -433,8 +433,8 @@ public final class WebPaginator: NSObject {
         }
         if flow == .vertical {
             if indexesFormulas { try await installFormulaIndex() }
-            let links = try await PrintedFragmentLinks.install(
-                in: session.webView, source: source, until: .now + timeout)
+            let links =
+                printTimeout > .zero ? PrintedFragmentLinks.Preparation(in: session.webView, source: source) : nil
             let document = try await VerticalPaginator.pages(
                 in: session.webView, pageSize: pageSize, margins: margins, timeout: printTimeout,
                 booklet: verticalBooklet, textScale: verticalTextScale, fragmentLinks: links)
@@ -541,6 +541,12 @@ public final class WebPaginator: NSObject {
                     "globalThis.surimonoFlowMarks?.(); delete globalThis.surimonoFlowMarks; delete globalThis.surimonoDefersMarks;",
                     in: session.webView, timeout: timeout)
             }
+            // The existing preparation and print run on this WebContent process after the marker
+            // request. Page-reference measurement needs the original hrefs until its final pass.
+            var navigation: PrintedFragmentLinks.Preparation?
+            if !capturesLaTeXFlow, latexPageNumbers == nil, remaining() > .zero {
+                navigation = .init(in: session.webView, source: source)
+            }
             let adjusted = try await Self.useHorizontalRootForOutput(in: session.webView, timeout: timeout)
             try Task.checkCancellation()
             var texPages: [LaTeXPageReferences.Page] = []
@@ -621,6 +627,9 @@ public final class WebPaginator: NSObject {
                             if layout == "stable" && !capturesLaTeXFlow { break }
                         }
                     }
+                    if !capturesLaTeXFlow, remaining() > .zero {
+                        navigation = .init(in: webView, source: source)
+                    }
                     guard
                         try await runPreparationScript(
                             LaTeXPageReferences.removeProbes, in: webView, timeout: min(timeout, remaining()))
@@ -641,17 +650,9 @@ public final class WebPaginator: NSObject {
                 await inspectPrintLayout(webView)
                 webView.mediaType = media
             }
-            // Flow pagination writes its own destinations after assigning columns. Native printing needs
-            // the markers only in the final pass, after page reference fields and source anchors are in place.
-            let links =
-                capturesLaTeXFlow
-                ? nil
-                : try await PrintedFragmentLinks.install(
-                    in: session.webView, source: source, until: min(layoutDeadline, .now + timeout))
             let printed = try await pageDataForPass(indexFormulas: indexesFormulas)
-            let pageData = try await links?.resolve(in: printed) ?? printed
+            let (document, pageData) = try await PrintedFragmentLinks.open(printed, links: navigation?.links)
             try await recordLines(final: true)
-            guard let document = PDFDocument(data: pageData) else { throw PaginationError.emptyDocument }
             if session.localHandler != nil { LocalResourceSchemeHandler.restoreFileLinks(in: document) }
             var result = Result(
                 document: document,
