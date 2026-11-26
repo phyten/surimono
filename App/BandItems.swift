@@ -99,7 +99,7 @@ struct BandItemView: View {
         case .readingSettings:
             BandDrawerButton(
                 item: item, showsName: form == .full,
-                selected: model.isReadingPanelOpen, hasChanges: model.orgDocumentReading.changedCount > 0
+                selected: model.isReadingPanelOpen, hasChanges: model.orgChangedCount > 0
             ) {
                 model.isReadingPanelOpen.toggle()
             }

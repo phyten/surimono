@@ -213,55 +213,60 @@ struct ViewerFileDocumentTests {
         gate.enter()
         var render: Task<Void, Never>?
         var resumed = false
-        defer {
+        // The Xcode 26.6 compiler rejects `await` in a defer body, so a failure is settled in the catch below:
+        // the render must finish before the defaults suite and the directory above are removed.
+        do {
+            let bundle = ImageBundleModel(urls: [directory.appendingPathComponent("image.png")]) { _ in
+                reading.withLock { $0 = true }
+                gate.wait()
+                return bytes
+            }
+            weak var releasedModel: DocumentViewModel?
+            weak var releasedRenderer: DocumentRenderer?
+            var retainedModel: DocumentViewModel?
+            let starts: Int
+            var prints = 0
+            do {
+                let model = DocumentViewModel(
+                    data: Data(), fileURL: nil, format: .image, preferences: AppPreferences(defaults: suite.defaults),
+                    library: UserLibrary(root: directory), imageBundle: bundle)
+                releasedModel = model
+                releasedRenderer = model.renderer
+                if keepModel { retainedModel = model }
+                model.printerListSource = { PrinterList(names: ["Test"], defaultName: "Test") }
+                model.printSubmit = { _, _, _ in prints += 1 }
+                defer { model.closeWindow() }
+                model.start()
+                if keepModel { model.printDocument(quick: true) }
+                let activeRender: Task<Void, Never> = try #require(model.renderTask)
+                render = activeRender
+                if keepModel { try #require(model.hasWaitingOutput) }
+                try await ShortcutMenuBaselineTests.waitForMenu { reading.withLock { $0 } }
+                starts = model.renderStartCount
+            }
+            if retainedModel == nil {
+                try await ShortcutMenuBaselineTests.waitForMenu { releasedModel == nil && releasedRenderer == nil }
+            }
+            #expect(render?.isCancelled == true)
+            gate.leave()
+            resumed = true
+            await render?.value
+            if let model = retainedModel {
+                #expect(bundle.setHash == nil && model.contentHash == nil)
+                #expect(model.renderer.logicalRenderCount == 0)
+                #expect(model.result == nil && model.printResult == nil && model.error == nil)
+                #expect(model.renderTask == nil && model.renderStartCount == starts)
+                #expect(!model.isRendering && !model.isPrinting && !model.hasWaitingOutput)
+            }
+            #expect(prints == 0)
+        } catch {
             if !resumed {
                 gate.leave()
-                await render?.value
+                resumed = true
             }
+            await render?.value
+            throw error
         }
-        let bundle = ImageBundleModel(urls: [directory.appendingPathComponent("image.png")]) { _ in
-            reading.withLock { $0 = true }
-            gate.wait()
-            return bytes
-        }
-        weak var releasedModel: DocumentViewModel?
-        weak var releasedRenderer: DocumentRenderer?
-        var retainedModel: DocumentViewModel?
-        let starts: Int
-        var prints = 0
-        do {
-            let model = DocumentViewModel(
-                data: Data(), fileURL: nil, format: .image, preferences: AppPreferences(defaults: suite.defaults),
-                library: UserLibrary(root: directory), imageBundle: bundle)
-            releasedModel = model
-            releasedRenderer = model.renderer
-            if keepModel { retainedModel = model }
-            model.printerListSource = { PrinterList(names: ["Test"], defaultName: "Test") }
-            model.printSubmit = { _, _, _ in prints += 1 }
-            defer { model.closeWindow() }
-            model.start()
-            if keepModel { model.printDocument(quick: true) }
-            let activeRender: Task<Void, Never> = try #require(model.renderTask)
-            render = activeRender
-            if keepModel { try #require(model.hasWaitingOutput) }
-            try await ShortcutMenuBaselineTests.waitForMenu { reading.withLock { $0 } }
-            starts = model.renderStartCount
-        }
-        if retainedModel == nil {
-            try await ShortcutMenuBaselineTests.waitForMenu { releasedModel == nil && releasedRenderer == nil }
-        }
-        #expect(render?.isCancelled == true)
-        gate.leave()
-        resumed = true
-        await render?.value
-        if let model = retainedModel {
-            #expect(bundle.setHash == nil && model.contentHash == nil)
-            #expect(model.renderer.logicalRenderCount == 0)
-            #expect(model.result == nil && model.printResult == nil && model.error == nil)
-            #expect(model.renderTask == nil && model.renderStartCount == starts)
-            #expect(!model.isRendering && !model.isPrinting && !model.hasWaitingOutput)
-        }
-        #expect(prints == 0)
     }
 
     /// Hold the objects AppKit can cache. Keep a native picker selection alive as well, as in the closing-window trace.

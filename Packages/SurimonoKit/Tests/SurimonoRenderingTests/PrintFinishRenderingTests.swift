@@ -168,6 +168,44 @@ struct PrintFinishRenderingTests {
         #expect(try await logicalPages(source, settings).pageCount == 2)
     }
 
+    @Test("原稿に目次が零・一・二個ある場合の仕上げを、組版に渡す本文と差し込んだページで確かめる")
+    func readingContentsMatrix() async throws {
+        let header = "---\ntoc: true\n---\n"
+        let markdown = "# Alpha\n\n## Bravo\n\n[TOC]"
+        let cases: [(DocumentFormat, String, Int)] = [
+            (.org, "* Alpha\n** Bravo", 0), (.org, "#+OPTIONS: toc:1\n* Alpha\n** Bravo", 1),
+            (.markdown, header + markdown, 2), (.quarto, header + markdown, 2),
+            (.rMarkdown, "---\noutput:\n  html_document:\n    toc: true\n---\n" + markdown, 1),
+            (.rMarkdown, header + markdown, 2),
+        ]
+        let modes: [(PaperTOC.Mode, Bool, Bool, Int)] = [
+            (.hidden, false, true, 0), (.source, false, false, 0),
+            (.front, false, true, 1), (.front, true, false, 1),
+        ]
+        let base = try settings()
+        for (format, text, navCount) in cases {
+            let source = DocumentSource(data: Data(text.utf8), format: format)
+            for (mode, keep, hides, added) in modes {
+                var bodyHTML: String?
+                let renderer = DocumentRenderer(paginate: { request in
+                    if case .html(let html, _) = request.source, !html.contains("paper-toc-title") {
+                        bodyHTML = html
+                    }
+                    return try RenderingFixtures.pdf(size: request.pageSize)
+                })
+                var settings = base
+                settings.finish.toc.mode = mode
+                settings.finish.toc.keepsSourceTOC = keep
+                let pages = try await renderer.prepare(source, settings: settings)
+                let body = try #require(bodyHTML)
+                #expect(body.components(separatedBy: "<nav class=\"toc\"").count - 1 == navCount)
+                #expect(body.contains("nav.toc { display: none !important; }") == hides)
+                #expect(pages.addedContentsPages == added)
+                #expect(pages.logicalDocument.pageCount == 1 + added)
+            }
+        }
+    }
+
     @Test("先頭に足すと原文の目次は隠れ、残す設定なら両方出る", .timeLimit(.minutes(1)))
     func sourceContentsWithFront() async throws {
         let source = markdown("[TOC]\n\n# 第一章\n\n本文\n")

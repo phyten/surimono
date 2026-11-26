@@ -1,32 +1,9 @@
 import OSLog
 
 /// Stable identifiers shared by the document panel and the defaults pane.
-public enum OrgSettingID: String, CaseIterable, Sendable {
-    case sectionNumbers = "org.num"
-    case tableOfContents = "org.toc"
-    case scripts = "org.scripts"
-    case headlineLevels = "org.headlineLevels"
-    case tags = "org.tags"
-    case preserveBreaks = "org.preserveBreaks"
-    case emphasis = "org.emphasis"
-    case math = "org.math"
-    case clocks = "org.clocks"
-    case planning = "org.planning"
-    case priority = "org.priority"
-    case todo = "org.todo"
-    case statistics = "org.statistics"
-    case tasks = "org.tasks"
-    case title = "org.title"
-    case author = "org.author"
-    case date = "org.date"
-    case drawers = "org.drawers"
-    case properties = "org.properties"
-    case timestamps = "org.timestamps"
-    case footnotes = "org.footnotes"
-    case tables = "org.tables"
-    case fixedWidth = "org.fixedWidth"
-    case archived = "org.archived"
+public typealias OrgSettingID = ReadingSettingID
 
+extension OrgSettingID {
     public var token: String {
         switch self {
         case .sectionNumbers: "num"
@@ -55,31 +32,9 @@ public enum OrgSettingID: String, CaseIterable, Sendable {
         case .archived: "arch"
         }
     }
-
 }
 
-/// File locations belong to the instruction, including when a document choice temporarily masks it.
-public struct OrgInstructionSource: Equatable, Sendable {
-    public let fileName: String?
-    public let lineNumber: Int
-    public let rawText: String
-
-    /// The original lines are retained by the parser so revealing a reason never reopens a changed file.
-    public struct Excerpt: Equatable, Sendable {
-        public let previous: String?
-        public let line: String
-        public let next: String?
-        public let tokenOffset: Int
-    }
-
-    public internal(set) var excerpt: Excerpt?
-
-    public init(fileName: String?, lineNumber: Int, rawText: String) {
-        self.fileName = fileName
-        self.lineNumber = lineNumber
-        self.rawText = rawText
-    }
-}
+public typealias OrgInstructionSource = ReadingInstructionSource
 
 private struct OrgReadingValues: Codable, Equatable, Sendable {
     var sectionNumbers: OrgReadingDefaults.Depth?
@@ -285,6 +240,13 @@ public struct OrgDocumentReadingSettings: Codable, Equatable, Sendable {
         OrgSettingRegistry.rows.count { $0.hasChoice(in: values) }
     }
 
+    /// A newly added file instruction can mask an old choice without deleting it.
+    public func changedCount(file: OrgFileInstructions) -> Int {
+        OrgSettingRegistry.rows.count {
+            (allowsFileChanges || file.sources[$0.id] == nil) && $0.hasChoice(in: values)
+        }
+    }
+
     /// Reverting rows leaves the reader's permission to edit file instructions in place.
     public mutating func resetValues() { values = OrgReadingValues() }
 
@@ -315,7 +277,7 @@ extension OrgReadingDefaults.Scripts {
     }
 }
 
-public enum OrgReadingLayer: Equatable, Sendable { case file, document, app }
+public typealias OrgReadingLayer = ReadingLayer
 
 public struct OrgResolvedSetting<Value: Equatable & Sendable>: Equatable, Sendable {
     public let value: Value
@@ -323,6 +285,7 @@ public struct OrgResolvedSetting<Value: Equatable & Sendable>: Equatable, Sendab
     /// Where the reset arrow leads, even when the document currently wins.
     public let inherited: Value
     public let source: OrgInstructionSource?
+    public let isLocked: Bool
     public let notes: [OrgInstructionNote]
 }
 
@@ -336,19 +299,24 @@ public struct OrgReadingSettings: Equatable, Sendable {
     }
 
     public func resolve<Value>(_ key: OrgSetting<Value>, file: OrgFileInstructions) -> OrgResolvedSetting<Value> {
-        let source = file.sources[key.id]
-        let inherited = file.values[keyPath: key.choice] ?? defaults[keyPath: key.fallback]
-        let choice = source == nil || document.allowsFileChanges ? document.values[keyPath: key.choice] : nil
+        let row = resolution(key, file: file)
         return OrgResolvedSetting(
-            value: choice ?? inherited, layer: choice != nil ? .document : (source == nil ? .app : .file),
-            inherited: inherited, source: source, notes: file.notes[key.id] ?? [])
+            value: row.value, layer: row.layer, inherited: row.inherited, source: row.source,
+            isLocked: row.isLocked, notes: file.notes[key.id] ?? [])
     }
 
-    /// Compare only on an edit. A later change to the app default must not erase a deliberate choice.
+    private func resolution<Value>(_ key: OrgSetting<Value>, file: OrgFileInstructions) -> ReadingResolution<Value> {
+        let instruction = file.sources[key.id].flatMap { source in
+            file.values[keyPath: key.choice].map { ReadingInstruction($0, source: source) }
+        }
+        return ReadingResolution(
+            file: instruction, document: document.values[keyPath: key.choice], app: defaults[keyPath: key.fallback],
+            allowsFileChanges: document.allowsFileChanges)
+    }
+
     public mutating func set<Value>(_ value: Value, for key: OrgSetting<Value>, file: OrgFileInstructions) {
-        let row = resolve(key, file: file)
-        guard row.source == nil || document.allowsFileChanges else { return }
-        document.values[keyPath: key.choice] = value == row.inherited ? nil : value
+        let row = resolution(key, file: file)
+        row.set(value, in: &document.values[keyPath: key.choice])
     }
 
     /// Count and apply the very same transition so the confirmation matches what will be lost.
