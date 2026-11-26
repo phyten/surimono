@@ -5,6 +5,7 @@ struct ReadingPDFNavigation: Sendable {
     typealias Raw = ReadingPDFRawNavigation
     typealias Writer = ReadingPDFNavigationWriter
 
+    private var mediaOrigins: [CGPoint]
     var links: [Raw.Link]
     var outline: [Raw.Entry]
 
@@ -32,10 +33,12 @@ struct ReadingPDFNavigation: Sendable {
         var indexes: [CGPDFDictionaryRef: Int] = [:]
         var repeated = Set<CGPDFDictionaryRef>()
         var sources: [ObjectIdentifier: CGPDFDocument] = [:]
+        var origins: [CGPoint] = []
         var pageKeys: [Int: CGPDFDictionaryRef] = [:]
         for i in 0..<count {
             try await checkpoint()
             guard let page = document.page(at: i) else { throw ReadingPDFExporter.ExportError.cannotCopyDocument }
+            origins.append(page.bounds(for: .mediaBox).origin)
             if let ref = page.pageRef, let key = ref.dictionary, let pdf = ref.document {
                 pageKeys[i] = key
                 if indexes.updateValue(i, forKey: key) != nil { repeated.insert(key) }
@@ -110,6 +113,7 @@ struct ReadingPDFNavigation: Sendable {
                 }
             }
         }
+        self.mediaOrigins = origins
         self.links = links
         var entries: [Raw.Entry] = []
         for (i, entry) in live.outline.enumerated() {
@@ -131,6 +135,42 @@ struct ReadingPDFNavigation: Sendable {
         }
         try Task.checkCancellation()
         self.outline = entries
+    }
+
+    /// A native write can translate each copied page by a different amount. Express the captured navigation in
+    /// the reopened document's page spaces before comparing it or adding destinations authored on those pages.
+    func rebased(to document: PDFDocument) throws -> Self {
+        guard document.pageCount == mediaOrigins.count else { throw ReadingPDFExporter.ExportError.cannotCopyDocument }
+        let origins = try mediaOrigins.indices.map { i in
+            try Task.checkCancellation()
+            guard let page = document.page(at: i) else { throw ReadingPDFExporter.ExportError.cannotCopyDocument }
+            return page.bounds(for: .mediaBox).origin
+        }
+        guard origins != mediaOrigins else { return self }
+        func offset(_ page: Int) -> CGPoint {
+            CGPoint(x: origins[page].x - mediaOrigins[page].x, y: origins[page].y - mediaOrigins[page].y)
+        }
+        func moved(_ action: Raw.Action) -> Raw.Action {
+            guard let target = action.target else { return action }
+            let delta = offset(target.page)
+            let shifted = target.offsetBy(dx: delta.x, dy: delta.y)
+            if case .namedDestination = action { return .namedDestination(shifted) }
+            return .internalDestination(shifted)
+        }
+        var copy = self
+        copy.mediaOrigins = origins
+        copy.links = try links.map { link in
+            try Task.checkCancellation()
+            let delta = offset(link.page)
+            return .init(
+                page: link.page, annotation: link.annotation, bounds: link.bounds.offsetBy(dx: delta.x, dy: delta.y),
+                action: moved(link.action))
+        }
+        copy.outline = try outline.map { entry in
+            try Task.checkCancellation()
+            return .init(level: entry.level, title: entry.title, isOpen: entry.isOpen, action: moved(entry.action))
+        }
+        return copy
     }
 
     // The source is read on its owning actor. A saved file is independently opened and
@@ -226,7 +266,7 @@ struct ReadingPDFNavigation: Sendable {
         return live
     }
 
-    private func bookmarks() throws -> [Writer.Bookmark] {
+    private static func bookmarks(from outline: [Raw.Entry]) throws -> [Writer.Bookmark] {
         var pending: [(level: Int, node: Writer.Bookmark)] = []
         for entry in outline.reversed() {
             try Task.checkCancellation()
@@ -254,10 +294,18 @@ struct ReadingPDFNavigation: Sendable {
     // Quartz preserves the exact view operands. PDFKit must also be able to follow the saved destination.
     private func matches(_ expected: Raw.Action, dictionary: Raw.Action, reader: Raw.Action?) -> Bool {
         guard let target = expected.target else { return expected == dictionary }
-        guard dictionary.target == target, let actual = reader?.target, actual.page == target.page else { return false }
+        guard let stored = dictionary.target, stored.page == target.page, stored.mode == target.mode,
+            let actual = reader?.target, actual.page == target.page
+        else { return false }
+        // Quartz can parse a translated coordinate one ulp away from the number written as a PDF decimal.
+        // Keep the page, mode, nulls and zoom exact, and allow only floating-point roundoff for positions.
+        for i in target.arguments.indices where target.arguments[i] != stored.arguments[i] {
+            guard !(target.mode == "XYZ" && i == 2), let wanted = target.arguments[i], let got = stored.arguments[i],
+                abs(wanted - got) <= min(0.001, 4 * wanted.ulp)
+            else { return false }
+        }
         guard target.mode == "XYZ" else { return true }
         // PDFKit exposes XYZ coordinates and scale, but projects zero zoom as unspecified.
-        // The dictionary comparison above still requires every operand to match exactly.
         for i in target.arguments.indices {
             let wanted = target.arguments[i]
             let got = actual.arguments[i]
@@ -269,7 +317,7 @@ struct ReadingPDFNavigation: Sendable {
 
     private func changes(in bytes: Data, pageCount: Int, stage: String, reopen: @Sendable (Data) -> PDFDocument?)
         async throws
-        -> (links: [Writer.Link], outlineDiffers: Bool, firstDifference: String?)
+        -> (links: [Writer.Link], outline: [Raw.Entry]?, firstDifference: String?)
     {
         let saved: Raw
         do {
@@ -284,10 +332,11 @@ struct ReadingPDFNavigation: Sendable {
             throw ReadingPDFExporter.ExportError.navigation("\(stage): cannot reopen \(pageCount) pages.")
         }
         let native = try await Self.projection(of: document)
+        let rebased = try self.rebased(to: document)
         var observed: [Int: [Int: Raw.Link]] = [:]
         for link in native.links { observed[link.page, default: [:]][link.annotation] = link }
         var expected: [Int: [Int: Raw.Link]] = [:]
-        for link in links { expected[link.page, default: [:]][link.annotation] = link }
+        for link in rebased.links { expected[link.page, default: [:]][link.annotation] = link }
         var repairs: [Writer.Link] = []
         var difference: String?
         var matched = 0
@@ -320,6 +369,7 @@ struct ReadingPDFNavigation: Sendable {
             throw ReadingPDFExporter.ExportError.navigation(
                 "\(stage): missing link annotation (\(matched)/\(links.count)).")
         }
+        let outline = rebased.outline
         var sameOutline =
             saved.hasValidOutlineCounts && saved.outline.count == outline.count && native.outline.count == outline.count
         if sameOutline {
@@ -343,7 +393,7 @@ struct ReadingPDFNavigation: Sendable {
             difference =
                 "\(stage) bookmarks: expected=\(outline.count) dictionary=\(saved.outline.count) PDFKit=\(native.outline.count) validCounts=\(saved.hasValidOutlineCounts)"
         }
-        return (repairs, !sameOutline, difference)
+        return (repairs, sameOutline ? nil : outline, difference)
     }
 
     @concurrent
@@ -353,17 +403,17 @@ struct ReadingPDFNavigation: Sendable {
     ) async throws -> Data {
         do {
             let changes = try await changes(in: data, pageCount: pageCount, stage: "saved", reopen: reopen)
-            if changes.links.isEmpty && !changes.outlineDiffers { return data }
+            if changes.links.isEmpty && changes.outline == nil { return data }
             let difference = changes.firstDifference ?? "saved navigation differs"
             let patched: Data
             do {
-                patched = try Writer.repair(
-                    data, links: changes.links, bookmarks: changes.outlineDiffers ? try bookmarks() : nil)
+                let bookmarks = try changes.outline.map(Self.bookmarks(from:))
+                patched = try Writer.repair(data, links: changes.links, bookmarks: bookmarks)
             } catch is CancellationError { throw CancellationError() } catch {
                 throw ReadingPDFExporter.ExportError.navigation("\(difference); repair: \(error.localizedDescription)")
             }
             let remaining = try await self.changes(in: patched, pageCount: pageCount, stage: "repaired", reopen: reopen)
-            if !remaining.links.isEmpty || remaining.outlineDiffers {
+            if !remaining.links.isEmpty || remaining.outline != nil {
                 throw ReadingPDFExporter.ExportError.navigation(
                     "\(difference); \(remaining.firstDifference ?? "repaired navigation differs")")
             }

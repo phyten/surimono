@@ -109,8 +109,9 @@ public enum ReadingPDFExporter {
         // PDFDestination.page is weak; this independent writer owns its target wrappers until serialization.
         var targets = PageTargets()
         if !preservesOutline {
+            expected = try original.rebased(to: document)
             expected.links = try repairLinks(
-                in: document, original: original.links, headings: headings, entries: entries, sourceURL: sourceURL,
+                in: document, original: expected.links, headings: headings, entries: entries, sourceURL: sourceURL,
                 snapshotURLs: snapshotURLs, targets: &targets)
             expected.outline = try setOutline(in: document, entries: entries, targets: &targets)
         }
