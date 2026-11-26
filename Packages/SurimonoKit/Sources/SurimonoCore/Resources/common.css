@@ -99,14 +99,15 @@ li.task-list-item > p:first-child > input[type="checkbox"].org-partial:not(:chec
 /* An inline frame is as tall as its font's ascent and descent, so the capitals sat high in some typefaces and the
    frame grew tall in others. Trim the box to the cap height and the baseline, then give it the same room above and
    below. An engine without the trim keeps the rule above. */
-@supports (text-box-trim: trim-both) {
+@supports (text-box-trim: trim-both) and (text-box-edge: cap alphabetic) {
     .org-todo {
         display: inline-block;
         font-size: max(0.72em, 0.62rem);
         line-height: 1;
         text-box-trim: trim-both;
         text-box-edge: cap alphabetic;
-        padding: 0.22em 0.42em;
+        padding-block: 0.22em;
+        padding-inline: 0.42em;
         border-radius: 0.15em;
         vertical-align: 0.06em;
         margin-inline-end: 0.14em;
@@ -139,12 +140,13 @@ li.task-list-item > p:first-child > input[type="checkbox"].org-partial:not(:chec
 .org-tag + .org-tag { margin-inline-start: 0.15em; }
 /* Tags hold lower-case and Japanese words, which rise above the cap height and hang below the baseline: trim to the
    font's own top and the baseline, and leave the room for descenders below. */
-@supports (text-box-trim: trim-both) {
+@supports (text-box-trim: trim-both) and (text-box-edge: cap alphabetic) {
     .org-tag {
         line-height: 1;
         text-box-trim: trim-both;
         text-box-edge: text alphabetic;
-        padding: 0.16em 0.48em 0.36em;
+        padding-block: 0.16em 0.36em;
+        padding-inline: 0.48em;
     }
 }
 p.org-planning {
