@@ -1102,6 +1102,36 @@ struct PaperViewTests {
         }
     }
 
+    @Test("表示していない窓で文書を開いた紙面を解体して外すと、紙面自体が解放される")
+    func dismantledPaperDeallocatesInHiddenWindow() async throws {
+        let tileClock = ManualPaperTileClock()
+        weak var releasedPaper: PaperPDFView?
+        weak var displayedPDF: PDFDocument?
+        try autoreleasepool {
+            let (paper, window) = try makeSinglePagePaper(tileClock: tileClock)
+            try #require(!window.isVisible && paper.window === window && paper.document != nil)
+            releasedPaper = paper
+            displayedPDF = paper.document
+            window.isReleasedWhenClosed = false
+            PaperView.dismantleNSView(paper, coordinator: ())
+            window.contentView = nil
+            window.close()
+            #expect(paper.isRetired && paper.document == nil)
+        }
+
+        // The tile clock holds the PDFs. Give pending framework and main-queue work its own turns after teardown.
+        autoreleasepool { tileClock.advance(by: .seconds(1)) }
+        let deadline = ContinuousClock.now + .seconds(3)
+        while (releasedPaper != nil || displayedPDF != nil) && ContinuousClock.now < deadline {
+            autoreleasepool {
+                _ = RunLoop.main.run(mode: .default, before: Date(timeIntervalSinceNow: 0.01))
+            }
+            await Task.yield()
+        }
+        #expect(displayedPDF == nil)
+        #expect(releasedPaper == nil)
+    }
+
     @Test("直前の元と表示用の文書は次の差し替えまで生き、紙を開いたまま両方とも解放される")
     func replacedDocumentsAreReleased() async throws {
         let (view, window) = try makeSinglePagePaper()
@@ -1357,12 +1387,15 @@ struct PaperViewTests {
         }.min() ?? .infinity
     }
 
-    private func makeSinglePagePaper(document: PDFDocument? = nil) throws -> (PaperPDFView, NSWindow) {
+    private func makeSinglePagePaper(document: PDFDocument? = nil, tileClock: PaperTileClock? = nil) throws
+        -> (PaperPDFView, NSWindow)
+    {
         let document = try document ?? #require(PDFDocument(data: TestFixtures.pdf("pinch", pages: 6)))
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 420, height: 594), styleMask: [.titled], backing: .buffered,
             defer: true)
         let view = PaperPDFView(frame: NSRect(x: 0, y: 0, width: 420, height: 594))
+        if let tileClock { view.tileClock = tileClock }
         window.contentView = view
         view.show(document, at: 0)
         view.apply(ViewOptions(layout: .single, scrollAxis: .vertical, transition: .instant, showsCoverAlone: false))
