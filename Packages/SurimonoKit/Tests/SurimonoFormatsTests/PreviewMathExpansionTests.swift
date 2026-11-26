@@ -28,6 +28,31 @@ struct PreviewMathExpansionTests {
         #expect(!dollars.hasPrefix("$") && !dollars.hasSuffix("$"))
     }
 
+    @Test("置換末尾の制御空白は SwaTex に定義を直接渡した場合と同じ SVG になる")
+    func trailingControlSpaceSVG() throws {
+        let definition = #"\def\spacedword{x\ }"#
+        let formula = #"\spacedword"#
+        func svg(_ input: String) throws -> String {
+            let nodes = try parseLaTeX(input)
+            let box = layout(nodes, options: LayoutOptions(style: .text))
+            return renderToSVG(toDisplayList(box), SVGOptions())
+        }
+        var expansion = PreviewMathExpansion()
+        let expanded = try expansion.expand(formula, definitions: definition)
+        let reference = try svg(definition + formula)
+        #expect(try svg(expanded).utf8.elementsEqual(reference.utf8))
+    }
+
+    @Test("置換で両端に現れたドル記号は SwaTex が元の定義と同じく構文エラーにする")
+    func expandedDollarDelimiters() throws {
+        let definition = #"\def\wrapped{$x$}"#
+        let formula = #"\wrapped"#
+        var expansion = PreviewMathExpansion()
+        let expanded = try expansion.expand(formula, definitions: definition)
+        #expect(throws: ParseError.self) { try parseLaTeX(definition + formula) }
+        #expect(throws: ParseError.self) { try parseLaTeX(expanded) }
+    }
+
     @Test("制御綴り直後と連続する空白は変更前の画像または式の原文で表示する")
     func spacesInDocuments() throws {
         for (definitions, formula) in [

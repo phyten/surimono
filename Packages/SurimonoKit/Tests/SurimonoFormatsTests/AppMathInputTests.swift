@@ -60,19 +60,27 @@ struct AppMathInputTests {
     @Test("通常表示の上界が固定版 SwaTex で数式を解析した実展開回数を覆う")
     func nativeExpansionCount() throws {
         let branches = #"\def\firstword{x}\def\secondword{\firstword}"#
+        let expectation = #"\newcommand{\expect}[2][P]{\mathbb E_{#1}[#2]}"#
+        let omitted = #"\expect{X^2}"#
         for (definitions, formula, calls) in [
             (#"\def\word{ab}"#, #"\boxed\word"#, 2),
             (#"\def\word{x}"#, #"\argmin_{\word} f(x)"#, 7),
             (#"\def\prefix{\nextop}\def\nextop#1{[#1]}"#, #"\prefix{x}+\prefix y"#, 4),
             (branches, #"\TextOrMath{\firstword}{\secondword}"#, 3),
             (branches, #"\text{\TextOrMath{\firstword}{\secondword}}"#, 2),
-            (#"\newcommand{\expect}[2][P]{\mathbb E_{#1}[#2]}"#, #"\expect[Q]{X^2}"#, 2),
+            (expectation, #"\expect[Q]{X^2}"#, 2),
+            (expectation, omitted, 2),
             (#"\def\pair#1{#1#1}"#, #"\pair{\pair{x}}+\pair{z}"#, 4),
         ] {
             let bound = try #require(NativeMathBound.bound(formula, definitions: definitions))
             let parser = Parser(definitions + formula)
-            let nodes = try parser.parse()
-            #expect(!nodes.isEmpty)
+            if formula == omitted {
+                // SwaTex 0.6.0 reads "[" as the replacement body and still expects two arguments.
+                #expect(throws: ParseError.self) { try parser.parse() }
+            } else {
+                let nodes = try parser.parse()
+                #expect(!nodes.isEmpty)
+            }
             // 0.6.0 keeps its counter private and maxExpand fixed at 1000. Read the stored
             // counter after the real parse. A renamed or unavailable field must fail the test.
             let count = try #require(Mirror(reflecting: parser).descendant("gullet", "expansionCount") as? Int)
