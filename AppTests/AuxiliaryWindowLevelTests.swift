@@ -58,6 +58,9 @@ struct AuxiliaryWindowLevelTests {
         auxiliary.collectionBehavior = [.moveToActiveSpace, .fullScreenNone, .ignoresCycle]
         document.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         document.orderFront(nil)
+        coordinator.refresh(windows: [auxiliary], presenting: auxiliary)
+        #expect(!auxiliary.isVisible)
+        #expect(auxiliary.collectionBehavior == [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle])
         auxiliary.orderFront(nil)
         coordinator.refresh(windows: [document, auxiliary])
         #expect(auxiliary.collectionBehavior == [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle])

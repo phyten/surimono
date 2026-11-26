@@ -15,9 +15,8 @@ final class ViewerApplication: NSApplication {
         withIdentifier identifier: NSUserInterfaceItemIdentifier, state: NSCoder,
         completionHandler: @escaping (NSWindow?, (any Error)?) -> Void
     ) -> Bool {
-        // Older versions archived SwiftUI scene identifiers. Only current window identifiers can be decoded.
-        guard identifier == SettingsWindowController.windowID || ViewerFileDocument.recognizes(window: identifier)
-        else { return false }
+        // Settings, including its previously archived identifier, opens only on request.
+        guard ViewerFileDocument.recognizes(window: identifier) else { return false }
         return super.restoreWindow(withIdentifier: identifier, state: state, completionHandler: completionHandler)
     }
 }

@@ -3,9 +3,7 @@ import SurimonoRendering
 import SwiftUI
 
 struct SettingsView: View {
-    static let minimumSize = NSSize(width: 820, height: 540)
-    static let idealWidth: CGFloat = 860
-
+    var windowMinimum = SettingsWindowPlacement.minimumContentSize
     @Bindable var preferences: AppPreferences
     @Bindable var library: UserLibrary
     let arrangementEditor: BandArrangementEditorSession
@@ -156,6 +154,11 @@ struct SettingsView: View {
                         : Bundle.main.localizedString(
                             forKey: preferences.settingsSection.rawValue, value: nil, table: nil)))
         }
+        .modifier(SettingsViewport(windowMinimum: windowMinimum))
+        .frame(
+            minWidth: windowMinimum.width, idealWidth: SettingsWindowPlacement.defaultContentSize.width,
+            minHeight: windowMinimum.height
+        )
         .onChange(of: query) {
             guard !query.isEmpty, let best = results.bestSection(keeping: preferences.settingsSection) else { return }
             arrangementEditor.showSection(best)
@@ -185,7 +188,6 @@ struct SettingsView: View {
             initialTextWell.deactivate()
             query = ""
         }
-        .frame(minWidth: Self.minimumSize.width, idealWidth: Self.idealWidth, minHeight: Self.minimumSize.height)
         .background {
             WindowReader { window in
                 let editor = arrangementEditor
@@ -195,6 +197,9 @@ struct SettingsView: View {
                     undo: { editor.undo() }, redo: { editor.redo() })
             }
         }
+        #if DEBUG
+            .snapshotControlAppearance()
+        #endif
     }
 
     private func selectSection(_ section: SettingsSection) {
@@ -562,6 +567,26 @@ struct SettingsView: View {
     @ViewBuilder private var libraryError: some View {
         if let error = library.error {
             Text(verbatim: error).foregroundStyle(PrintPalette.warn).textSelection(.enabled)
+        }
+    }
+}
+
+/// Keep both split-view columns and their controls reachable when the display is smaller than their usual minimum.
+private struct SettingsViewport: ViewModifier {
+    let windowMinimum: CGSize
+
+    func body(content: Content) -> some View {
+        let usual = SettingsWindowPlacement.minimumContentSize
+        if windowMinimum == usual {
+            content
+        } else {
+            GeometryReader { viewport in
+                // A non-overlay scroller can consume room on the other axis as well.
+                ScrollView([.horizontal, .vertical]) {
+                    content.frame(
+                        width: max(viewport.size.width, usual.width), height: max(viewport.size.height, usual.height))
+                }
+            }
         }
     }
 }

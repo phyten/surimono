@@ -274,6 +274,35 @@ final class AppPreferences {
     var defaultPaperOrientation: PaperOrientation {
         didSet { defaults.set(defaultPaperOrientation.rawValue, forKey: "defaultPaperOrientation") }
     }
+    var settingsContentSize: CGSize? {
+        get {
+            guard let size = defaults.array(forKey: "settingsContentSize") as? [Double], size.count == 2,
+                size.allSatisfy({ $0.isFinite && $0 > 0 })
+            else { return nil }
+            return CGSize(width: size[0], height: size[1])
+        }
+        set { defaults.set(newValue.map { [Double($0.width), Double($0.height)] }, forKey: "settingsContentSize") }
+    }
+
+    func migrateSettingsContentSize(chrome: CGSize) {
+        let migrated = "didMigrateSettingsContentSize"
+        guard !defaults.bool(forKey: migrated) else { return }
+        defer { defaults.set(true, forKey: migrated) }
+        guard settingsContentSize == nil else { return }
+        // Both old autosaves stored x, y, width, height followed by the screen rectangle.
+        // Read the dimensions without applying the old origin or constraining them to today's screen.
+        // The old layout chose its height at runtime and did not record whether the user resized it.
+        for key in ["NSWindow Frame SurimonoSettings", "NSWindow Frame com_apple_SwiftUI_Settings_window"] {
+            guard let descriptor = defaults.string(forKey: key) else { continue }
+            let fields = descriptor.split(whereSeparator: \.isWhitespace)
+            guard fields.count >= 4, let width = Double(fields[2]), let height = Double(fields[3]),
+                width.isFinite, height.isFinite, width > chrome.width, height > chrome.height
+            else { continue }
+            settingsContentSize = CGSize(width: width - chrome.width, height: height - chrome.height)
+            return
+        }
+    }
+
     /// Kept for this app run, including when the Settings window is closed and reopened.
     var settingsSection: SettingsSection = .general
     // An explicit request can point to the current section while a search hides its contents.
