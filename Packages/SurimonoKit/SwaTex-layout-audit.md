@@ -29,26 +29,89 @@ Surimono のアプリと Finder のプレビューは、同じ [MathRenderer](So
 
 ## 構文解析前の利用者マクロ
 
-通常表示は、LaTeX の前文、Org のヘッダー、数式先頭の定義から、その式が呼ぶ定義と依存先を選ぶ。グループを抜けると LaTeX リーダーが以前の定義に戻す。利用者定義も動的な命令も含まない通常の数式は、元の綴りで組む。[入力の選択](Sources/SurimonoFormats/AppMathInput.swift)・[定義の索引](Sources/SurimonoFormats/PreviewMathDefinitions.swift)
+### 通常表示
 
-- 対応する利用者マクロはアプリ内で展開し、展開済みの式だけを SwaTex に渡す。呼び出しは 1,024 回、深さは 32、未処理のスタックと出力はそれぞれ UTF-8 で 8,192 バイト、スタックに積む累計は 65,536 バイトまで。引数を複写するたびに、積む前に計上する。再帰・深さ・回数・サイズの超過はその場で原文表示にする。Finder は従来どおり、入力と定義の合計にも 4,096 バイトの上限を持つ。[展開器](Sources/SurimonoFormats/PreviewMathExpansion.swift)
-- アプリは「構文未対応」の場合だけ、元の定義を渡せるかを別に検査する。対象は区切り付き引数などを持つプリミティブな `\def`。式と置換本文の制御綴がすべて検査対象の定義に含まれ、ほかのトークンが許可した ASCII の文字・数式記号の場合に限る。検査は各本文のバイト数、各引数の出現回数、呼び出す制御綴を数える。呼び出し先の費用を出現ごとに加え、循環・深さ超過を拒む。引数を取る呼び出しは元の式に 1 個までで、本文から呼べるのは引数なしの定義だけ。こうすると、引数は元の式と、そこに書かれた引数なしの呼び出しの費用で上から抑えられる。各引数の複写にこの全額を見込み、総量が 8,192 バイト、呼び出しが 1,000 回に収まることを除算で確かめる。上界を証明できない式は元の定義を SwaTex に渡さず、原文で示す。[静的な上界](Sources/SurimonoFormats/NativeMathBound.swift)
-- 生の `\newcommand` 系に既定引数や星が付くと、SwaTex 0.6.0 は `[` を置換本文、または `*` を定義先として読む。この形を元のまま渡す場合は、単独の宣言で、後続トークンをリテラルと限られた書体・記号命令に限定する。`[` のコピーは呼び出しごとに 1 バイトを見込み、`*` を定義する場合は後続の `*` 呼び出しを許さない。`.tex` のリーダーは従来から既定引数を先に置換し、星付きの通常定義を `\def` に直す。
-- LaTeX の xparse、カウンター、利用者定義環境は数式リーダーが先に処理する。読み直す置換・未処理の文字・出力にもバイト予算を置き、同じ数式環境の下読みと各行で作業予算を共有する。打ち切った途中の式は組まず、原文を残す。通常の本文には従来から置換前の検査があった。ただし Swift の `Character` は結合文字をいくつでも含めるため、文字数ではメモリの上界にならない。本文のマクロ置換は 1 回 100,000 UTF-8 バイト、挿入は文書の残り予算（初期値 2,000,000）に収める。[数式の前処理](Sources/SurimonoFormats/LaTeXMathMacros.swift)・[本文の置換](Sources/SurimonoFormats/LaTeXMacros.swift)
+パーサーに渡す文字列は従来の「定義＋原式」。LaTeX 文書では、この「定義」はリーダーが従来 SwaTex 向けに正規化した前文を指す。定義の索引で、使われた名前がグループ内の代入や未対応の別名なら、その式だけを原文で示す。証明に通った場合も、参照先だけに切り詰めた前文や、展開済みの数式をパーサー入力に使わない。Markdown の式先頭に連続するトップレベルの宣言も前文として検査する。式の途中の代入は認めない。[入力の選択](Sources/SurimonoFormats/AppMathInput.swift)・[文書の定義](Sources/SurimonoFormats/PreviewMathDefinitions.swift)
+
+[計数器](Sources/SurimonoFormats/NativeMathBound.swift) は、合計 65,536 バイトまでの入力を固定版の Lexer で字句解析する。置換文字列や置換先のトークン配列を作らず、次の順で見積もる。
+
+1. 各宣言について本文トークンとその UTF-8 長、グループの内側を含む引数番号ごとの使用回数を読み取る。式から到達する呼び出し先をメモ化し、出現ごとに本文・転送・展開回数の費用を加える。循環、深さ 32 超、未監査の命令、実行時に定義やトークンの意味を変える操作は拒否する。単純な `\let` は代入元の意味を展開しない。別名を呼ぶ式は拒否し、未使用の別名は後続の式を妨げない。
+2. 引数に渡り得る長さには式全体の上界を使う。引数は重ならないので、一つの呼び出しの複写倍率は引数別の使用回数の最大値。線形な転送をたどって次に現れ得る複写が一つなら、その倍率を掛けて本文の先へ進む。同時に複数の複写候補がある場合は、一方がもう一方を引数として取り込む可能性がある。全入力と到達する本文が、リテラル・引数番号・グループ・必須引数をすべて明示的なグループで与えた利用者呼び出しだけからなる場合に限り、兄弟へはみ出さないことを検査して各経路の最大倍率を使う。この場合もサイズには引数の切片を使わない。区切り付き引数、末尾の引数待ち命令、先読みを含み、この独立性を示せない複数複写は拒否する。
+3. 乗算・加算は 65,537 で飽和させる。本文と呼び出し先の費用に複写倍率を適用し、出力・展開中の置換量を 8,192 バイト、前文・原式および引数転送を含む累計を 65,536 バイト、宣言・許可した組み込みを含む展開を 999 回までとする。空の置換にも 1 回を課す。`\def` など、固定版で展開回数を消費しない代入自体は入力バイトに含める。文書の定義を使う SwaTex の配列挿入や `fetch()` はこの検査のあとでしか呼ばれない。[代入と置換](https://github.com/PhraseHQ/SwaTex/blob/153738a2bcdcb62450ead9ab292989e3de0a449f/Sources/SwaTex/Parser/MacroExpander.swift#L273)
+
+利用者定義と組み合わせる組み込みには、固定版で確認した記号、線形な引数読み取り、展開費用を定数で抑えられる補助命令だけを認める。`\TextOrMath` は二つの引数の片方だけを返す。固定本文 265 個の中で同一引数を繰り返すのは `\tmspace`。`\bra@ket` は縦棒が出るたびに区切り引数を挿入し、`\bra@set` は最初の区切りを置換する。これらと公開入口 `\Braket`・`\Set`・`\set` は利用者定義を含む入力で拒否する。生成した TeX を読み直す `\ce`・`\pu` にも上界を与えていない。`\expandafter`、条件分岐、catcode 変更、間接的な名前解決、本文内の再定義、組み込みが暗黙に使う名前の上書きも同様。マクロなしの通常表示では従来の組み込み用の検査を使う。[固定本文](https://github.com/PhraseHQ/SwaTex/blob/153738a2bcdcb62450ead9ab292989e3de0a449f/Sources/SwaTex/Parser/BuiltinMacros.swift)・[関数型マクロ](https://github.com/PhraseHQ/SwaTex/blob/153738a2bcdcb62450ead9ab292989e3de0a449f/Sources/SwaTex/Parser/MacroExpander.swift#L625)
+
+生の `\newcommand` 系に既定引数や星が付くと、0.6.0 は `[` を本文または `*` を定義先として読む。`boundedRawSignature` が許すのは、単独の宣言と、後続トークンが限定された場合だけ。ここは **SwaTex の更新ごとに** Lexer と `handleNewcommand` の実装に突き合わせる。関数表、組み込み本文、暗黙の呼び出し先・環境内の代入、展開回数の加算箇所も同時に再点検する。[固定版の読み取り](https://github.com/PhraseHQ/SwaTex/blob/153738a2bcdcb62450ead9ab292989e3de0a449f/Sources/SwaTex/Parser/MacroExpander.swift#L534)
+
+### LaTeX の前処理
+
+xparse、カウンター、利用者環境は数式リーダーが先に扱う。数式内の `\csname` は名前の中身を読む前にその式の `ReaderMathBudget.refused` を立てる。名前を組み立てるために本文用リーダーを起動しない。数式の置換・検査はその予算に記録し、文書全体の `stopsExpanding` を立てない。通常の本文は引き続き 1 置換 100,000 UTF-8 バイト、挿入は文書の残り予算（初期値 2,000,000）まで。[数式の処理](Sources/SurimonoFormats/LaTeXMathMacros.swift)・[名前解決](Sources/SurimonoFormats/LaTeXMacros.swift)
+
+### Finder で展開前のトークンを保護する命令
+
+Finder は 4,096 バイト以内の式と選ばれた定義を自身で展開する。SwaTex に渡す利用者定義は空。引数をそのまま取る、文字列・寸法を読む、または次のトークンを先読みする位置に利用者マクロが来たら、その式を原文表示にする。展開本文から出た命令にも同じ判定を行う。固定個数で読み終わりを確認できる引数に限り、その後の展開を再開する。生の引数や任意引数、未分類の命令、読み取り命令を返し得る `\TextOrMath` の先まで判断できない場合は、その式の残りでも利用者マクロを展開しない。`^`・`_` の引数も検査する。[Finder の展開器](Sources/SurimonoFormats/PreviewMathExpansion.swift)
+
+<details>
+<summary>固定版の関数登録 318 件のうち、必須または任意の引数を宣言する 179 命令</summary>
+
+```text
+\" \' \. \= \@binrel \@char \Bbb \Big \Bigg \Biggl \Biggm \Biggr \Bigl \Bigm \Bigr \H \Overrightarrow
+\\abovefrac \\atopfrac \\bracefrac \\brackfrac \^ \` \above \acute \angl \bar \bcancel \begin \big \bigg
+\biggl \biggm \biggr \bigl \bigm \bigr \binom \bm \bold \boldsymbol \breve \c \cancel \cfrac \check
+\color \colorbox \dbinom \ddot \dfrac \dot \emph \end \fbox \fcolorbox \frac \frak \genfrac \grave \hat
+\hbox \href \hskip \hspace \html@mathml \htmlStyle \kern \left \mathbb \mathbf \mathbin \mathcal
+\mathchoice \mathclap \mathclose \mathfrak \mathinner \mathit \mathllap \mathnormal \mathop \mathopen
+\mathord \mathpunct \mathrel \mathring \mathrlap \mathrm \mathscr \mathsf \mathsfit \mathtt \middle
+\mkern \mskip \operatorname@ \operatornamewithlimits \overbrace \overbracket \overgroup \overleftarrow
+\overleftharpoon \overleftrightarrow \overline \overlinesegment \overrightarrow \overrightharpoon
+\overset \phantom \phase \pmb \r \raisebox \right \rule \smash \sout \sqrt \stackrel \tbinom \text
+\textbf \textcircled \textcolor \textit \textmd \textnormal \textrm \textsc \textsf \textsl \texttt
+\textup \tfrac \tilde \u \underbrace \underbracket \undergroup \underleftarrow \underleftrightarrow
+\underline \underlinesegment \underrightarrow \underset \url \utilde \v \vcenter \vec \vphantom
+\widecheck \widehat \widetilde \xLeftarrow \xLeftrightarrow \xRightarrow \xcancel \xhookleftarrow
+\xhookrightarrow \xleftarrow \xleftequilibrium \xleftharpoondown \xleftharpoonup \xleftrightarrow
+\xleftrightharpoons \xlongequal \xmapsto \xrightarrow \xrightequilibrium \xrightharpoondown
+\xrightharpoonup \xrightleftarrows \xrightleftharpoons \xtofrom \xtwoheadleftarrow \xtwoheadrightarrow
+\~
+```
+
+</details>
+
+<details>
+<summary>定義本文の中で引数を取る組み込みマクロ 27 個と、別に登録されるハンドラー 23 個</summary>
+
+本文に引数番号があるもの
+
+```text
+\@hspace \@hspacer \Bra \Ket \blue \boxed \bra \braket \clap \ddddot \dddot \gray \green \hphantom \ket
+\llap \mod \orange \pink \pmod \pod \purple \red \rlap \substack \tmspace \underbar
+```
+
+`addFunctionMacros` にある本文表以外の名前。`\operatorname` は `\@ifstar` を経由する。
+
+```text
+\@firstoftwo \@ifnextchar \@ifstar \@secondoftwo \DeclareMathOperator \TextOrMath \bra@ket \bra@set \ce
+\char \dotsc \errmessage \expandafter \htmlClass \htmlData \htmlId \message \newcommand \noexpand
+\operatorname \providecommand \pu \renewcommand
+```
+
+</details>
+
+登録引数数がゼロの命令にも先読みがある。`\\`・`\newline` は任意の `[size]`、`\hspace`・`\operatorname`・`\tag` は星、`\dotsc` は次の句読点・右区切りを見る。`\char` は数字列または逆引用符の直後の生トークン、`\verb` は字句解析中に区切り文字までを読む。定義系プリミティブ `\def`・`\gdef`・`\edef`・`\xdef`・`\let`・`\futurelet`、接頭辞 `\global`・`\long`、行列・配列環境の位置や行間指定も登録引数数だけでは尽くせない。このため Finder は未知の命令を安全な記号として通さない。[関数引数の読み方](https://github.com/PhraseHQ/SwaTex/blob/153738a2bcdcb62450ead9ab292989e3de0a449f/Sources/SwaTex/Parser/Parser.swift#L409)・[行末の先読み](https://github.com/PhraseHQ/SwaTex/blob/153738a2bcdcb62450ead9ab292989e3de0a449f/Sources/SwaTex/Parser/Functions/Cr.swift#L24)
+
+書体宣言（`\rm`・`\sf`・`\tt`・`\bf`・`\it`・`\cal`）、スタイル宣言（`\displaystyle`・`\textstyle`・`\scriptstyle`・`\scriptscriptstyle`）、寸法宣言（`\tiny` から `\Huge`）、`$`・`\(` も、登録引数数はゼロだが区切りまで式を読み進める。生文字列の引数を持つ例は `\color`・`\textcolor`・`\htmlStyle`、URL は `\href`・`\url`、寸法は `\kern`・`\hskip`・`\rule`。直接の先読みをする固定本文の別名も同じ保守的な扱いになる。
 
 ## 互換性の再検証
 
-リポジトリ直下の `make math-corpus` は、各文書を通常の変換器へ渡し、数式 SVG の開始タグから終了タグまでと、原文表示の HTML を出現順に SHA-256 で照合する。位置・寸法・描画内容・アクセシビリティ属性のすべてが対象。基準は変更前の `1435ed1b` で採取した。[比較テスト](Tests/SurimonoFormatsTests/AppMathCorpusTests.swift)・[文書別の基準](Tests/SurimonoFormatsTests/Fixtures/app-math.tsv)
+`make math-corpus` は変更前 `1435ed1b` から採取した数式 SVG と原文表示 HTML を、文書内の出現順・全バイトの SHA-256 で照合する。次表のマクロ使用数は、生成された SVG のうち実際に利用者マクロを呼んだ式数。前文を持つ文書では、マクロを呼ばない式も同じ前文で組む。[比較テスト](Tests/SurimonoFormatsTests/AppMathCorpusTests.swift)・[文書別の基準](Tests/SurimonoFormatsTests/Fixtures/app-math.tsv)
 
-| 入力 | 文書 | SVG | 利用者マクロなし | 予算付き展開 | 静的検査後に SwaTex で展開 | 従来から原文表示 | 新たな原文表示 |
+| 通常表示の対象 | 文書 | SVG | 利用者マクロを呼ぶ SVG | うち自前展開 | うち静的検査後に SwaTex | 従来から原文表示 | 新たな原文表示 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 前回の Quick Look 比較と同じ一覧、通常表示 | 333 | 183 | 180 | 3 | 0 | 1 | 0 |
-| 他形式・スナップショット原稿・破損 fixture を含む全一覧 | 350 | 190 | 187 | 3 | 0 | 2 | 0 |
+| Quick Look 比較と同じ一覧 | 333 | 183 | 3 | 0 | 3 | 1 | 0 |
+| 全サンプル・fixture・スナップショット原稿 | 350 | 190 | 3 | 0 | 3 | 2 | 0 |
 
-3 式は `Samples/sample.tex` の 2 式と `015-reservoir/main.tex` の 1 式。全一覧では `preflight.md` と `sample.adoc` の既存の原文表示、および破損 Word fixture 1 件の文書変換エラーも変更前と一致した。静的検査の採否は専用テストで確かめる。子プロセスでは、引数を二度使う入れ子と引数なしの倍増列を、各々 Markdown と LaTeX の通常経路に通す。固定の入力が 8 KiB の境界を越えた式、その次の `a+b`、末尾の本文を検査する。子の上限は実時間 15 秒、CPU 8 秒、最大 RSS 512 MiB。[予算と互換性のテスト](Tests/SurimonoFormatsTests/AppMathInputTests.swift)・[子プロセステスト](Tests/SurimonoCoreTests/MathWorkProcessTests.swift)
+論文の生の定義を使う差分テストは 232 式。230 式が静的検査を通り、元の定義＋原式を SwaTex に渡す。そのうち 229 式が組まれ、インライン・別行の 458 SVG が旧経路とバイト一致する。残る 3 式は、既定を省いた `\expect{X}`、生の `\newcommand*` で定義した `\density{x}`、置換本文を波括弧で囲まない `\def` の `\unitdx`。最初の 1 式は上界の検査後に SwaTex が構文エラーを返し、後者 2 式は検査で拒否する。3 式とも旧パーサーで同じ入力の構文エラーを独立に確認する。別に、LaTeX リーダーで正規化される星・既定引数の 10 式も比較する。[差分テスト](Tests/SurimonoFormatsTests/AppMathDifferentialTests.swift)
 
-通常の Formats テストでは、上記の保存済み基準とは別に、論文用の定義と式をその場で旧入力（定義＋原式）と現行経路に渡し、インライン・別行の SVG を UTF-8 バイトで照合する。生の SwaTex 入力 223 件のうち、アプリ内展開 210 件、上界を検査した SwaTex 展開 10 件、旧パーサーでも構文エラーの入力 3 件。さらに `.tex` のリーダーを通る既定引数と星付きの 10 件を、旧リーダーが渡していた入力と照合する。[差分テスト](Tests/SurimonoFormatsTests/AppMathDifferentialTests.swift)
+[計数テスト](Tests/SurimonoFormatsTests/AppMathInputTests.swift) は通常式の実展開と上界、拒否直前の回数・バイト、名前解決後の式の独立性を調べる。[子プロセステスト](Tests/SurimonoCoreTests/MathWorkProcessTests.swift) は引数の入れ子複写と引数なしの倍増列を Markdown と LaTeX の両方で開く。該当式の原文、後続の `a+b` と利用者マクロの SVG、末尾の本文を検査する。上限は実時間 15 秒、CPU 8 秒、最大 RSS 512 MiB。
 
-## 検証範囲
-
-上記の展開予算は利用者定義が対象。SwaTex の組み込み命令全体の構文解析時間、プロセス全体のアロケーター、WebKit・Finder・印刷ドライバーによる SVG の描画、すべての式に対する実時間・RSS の上限はこの見積もりの対象外。数式途中の動的な定義や間接的な名前解決など、展開量を証明できない式、深く入れ子にした式、複雑な証明木は原文表示になる場合がある。
+元の前文と原式の合計が 64 KiB を超える場合は、使わない定義があってもその入力を渡せない。未監査の組み込みと利用者マクロを組み合わせた場合も原文表示になり得る。上界の単位は、扱うトークンの UTF-8 長と展開回数。Swift のアロケーターの使用バイト数、配列挿入に伴う要素移動、SwaTex 全体の構文解析・描画時間、WebKit や Finder を含むプロセス全体の RSS・実時間までは証明しない。

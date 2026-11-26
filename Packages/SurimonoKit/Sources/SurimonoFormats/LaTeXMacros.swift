@@ -1,4 +1,5 @@
 import Foundation
+import SwaTex
 
 extension LaTeXDocument {
     /// Stop expanding on the first overrun so the reader can still print the surrounding paper and report one issue.
@@ -115,6 +116,11 @@ extension LaTeXReader {
 
     /// The command's name can itself contain an expansion, for example a counter value.
     func readCSName() -> String {
+        // Name construction uses a prose reader. Never enter that reader from a math splice.
+        if let mathBudget {
+            mathBudget.refused = true
+            return ""
+        }
         guard let end = LaTeXLexer.find("endcsname", in: characters, from: index) else {
             index = characters.count
             return ""
@@ -202,6 +208,7 @@ extension LaTeXReader {
             document.hasExtendedMathDefinitions = true
         }
         if let end {
+            document.mathDefinitions.app.replaceWithReaderDefinition("environment:" + name)
             document.environments[name] = (macro, end)
         } else {
             if command == "providecommand", isDefinedCommand(name) { return }
@@ -210,7 +217,9 @@ extension LaTeXReader {
             document.didDefineMacro(name)
             if document.mathDefinitions.preview != nil {
                 recordPreviewDefinition(command, name: name, start: start)
-            } else if !macro.extendedMath {
+            } else if macro.extendedMath {
+                document.mathDefinitions.app.replaceWithReaderDefinition("\\" + name)
+            } else {
                 let signature = parameters.indices.map { "#\($0 + 1)" }.joined()
                 addMathDefinition("\\def\\\(name)\(signature){\(body)}")
             }
@@ -237,7 +246,14 @@ extension LaTeXReader {
         }
         // A definition inside a loop is still a definition. Rechecking a growing preamble on every
         // iteration must draw from the same finite work budget as expanding the loop itself.
-        guard !document.mathDefinitions.source.hasSuffix(definition) else { return }
+        if document.mathDefinitions.app.insideGroup {
+            document.mathDefinitions.app.append(definition[...], unsupported: true)
+            return
+        }
+        guard !document.mathDefinitions.source.hasSuffix(definition) else {
+            document.mathDefinitions.app.append(definition[...])
+            return
+        }
         let cost = document.mathDefinitions.source.utf8.count + definition.utf8.count
         guard cost <= 50_000_000 - document.expansionWork else {
             document.stopsExpanding = true
@@ -251,11 +267,24 @@ extension LaTeXReader {
         }
         // Neither storing replacement tokens nor copying a control word expands its meaning.
         // A prefix made only of these assignments leaves the validation formula "x" unchanged.
+        if definition.hasPrefix("\\def") {
+            var lexer = Lexer(definition)
+            _ = lexer.lex()
+            let target = lexer.lex().text
+            guard NativeMathBound.mayDeclare(target) else {
+                document.mathDefinitions.app.reject(target)
+                return
+            }
+        }
         if !document.mathDefinitions.containsOnlyPrimitiveDefinitions || !StackSpace.hasRoom
             || !MathRenderer.isOrdinaryDefinition(definition)
         {
-            var checked = PreviewMathDefinitions(app: true)
-            guard AppMathInput.readPrefix(definition, into: &checked) == "" else { return }
+            guard AppMathInput.afterLeadingDeclarations(definition) == "",
+                NativeMathBound.accepts("x", definitions: definition)
+            else {
+                document.mathDefinitions.app.append(definition[...], unsupported: true)
+                return
+            }
             document.mathDefinitions.containsOnlyPrimitiveDefinitions = false
         }
         document.mathDefinitions.app.append(definition[...])
@@ -367,6 +396,14 @@ extension LaTeXReader {
 
     /// Count each substitution before appending it. A doubling definition must not allocate its next oversized body.
     func replacement(_ macro: LaTeXDocument.Macro) -> String? {
+        if let mathBudget {
+            let bytes = macro.body.utf8.count
+            guard bytes <= PreviewMathExpansion.maximumWork - mathBudget.inspected else {
+                mathBudget.refused = true
+                return nil
+            }
+            mathBudget.inspected += bytes
+        }
         guard characters[index...].starts(with: macro.prefix) else { return nil }
         index += macro.prefix.count
         var arguments: [String] = []
@@ -382,11 +419,13 @@ extension LaTeXReader {
             }
         }
         guard !document.stopsExpanding else { return nil }
-        guard macro.body.utf8.count <= 50_000_000 - document.expansionWork else {
-            document.stopsExpanding = true
-            return nil
+        if mathBudget == nil {
+            guard macro.body.utf8.count <= 50_000_000 - document.expansionWork else {
+                document.stopsExpanding = true
+                return nil
+            }
+            document.expansionWork += macro.body.utf8.count
         }
-        document.expansionWork += macro.body.utf8.count
         // Allow a substantial paragraph or table in one substitution, but cap it at 100,000 UTF-8 bytes so a single
         // expansion cannot consume the entire document allowance.
         let remaining = mathBudget?.available(pending: characters[index...], depth: macroFrameEnds.count) ?? 100_000

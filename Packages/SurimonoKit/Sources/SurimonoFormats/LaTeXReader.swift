@@ -413,6 +413,7 @@ final class LaTeXReader {
             document.referenceNames
         )
         document.mathDefinitions.preview?.insideGroup = true
+        document.mathDefinitions.app.insideGroup = true
         let outer = declarations.count
         let previousRowHeight = document.pageSettings.extraRowHeight
         let tableRegisters = document.pageSettings.tableSpacing

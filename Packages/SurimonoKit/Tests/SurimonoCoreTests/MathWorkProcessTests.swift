@@ -47,6 +47,12 @@ struct MathWorkProcessTests {
                         html.contains(#"aria-label="a+b""#), html.components(separatedBy: "<svg ").count == 2
                     else { throw CocoaError(.coderInvalidValue) }
                 }
+                let keep = #"\def\keepword#1{#1}\keepword{c+d}"#
+                let continued = MarkdownConverter.convert(document + "\n\n$" + keep + "$").body
+                guard continued.components(separatedBy: "math-error").count == 2,
+                    continued.contains("aria-label=\"" + keep + "\""), continued.contains(">d</text>"),
+                    continued.components(separatedBy: "<svg ").count == 3
+                else { throw CocoaError(.coderInvalidValue) }
             }
             // Four copies of this fixed literal are just over 8 KiB even without a guard.
             // Cross the real byte boundary without relying on a slow or memory-hungry test.
@@ -59,17 +65,23 @@ struct MathWorkProcessTests {
                 let markdown = "$$" + definitions + call + "$$"
                 let latex = "$" + call + "$"
                 let documents = [
-                    (MarkdownConverter.convert("Before.\n\n" + markdown + "\n\nAfter $a+b$. Tail.").body, markdown),
+                    (
+                        MarkdownConverter.convert(
+                            "Before.\n\n" + markdown + "\n\nAfter " + #"$\def\keepword#1{#1}\keepword{a+b}$. Tail."#
+                        ).body, markdown
+                    ),
                     (
                         LaTeXConverter.convert(
-                            definitions + "\\begin{document}Before. " + latex + " After $a+b$. Tail.\\end{document}"
+                            definitions + #"\NewDocumentCommand\keepword{m}{#1}\begin{document}Before. "# + latex
+                                + #" After $\keepword{a+b}$. Tail.\end{document}"#
                         ).body, latex
                     ),
                 ]
                 for (html, source) in documents {
                     guard html.contains("class=\"math-error\">" + HTML.escape(source)),
                         html.components(separatedBy: "class=\"math-error\"").count == 2,
-                        html.contains(#"aria-label="a+b""#), html.contains("Tail."),
+                        html.contains(">a</text>"), html.contains(">+</text>"), html.contains(">b</text>"),
+                        html.contains("Tail."),
                         html.components(separatedBy: "<svg ").count == 2
                     else { throw CocoaError(.coderInvalidValue) }
                 }

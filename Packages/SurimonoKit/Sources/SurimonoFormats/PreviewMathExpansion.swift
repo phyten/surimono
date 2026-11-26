@@ -50,26 +50,27 @@ struct PreviewMathExpansion {
     private var pendingBytes = 0
     private var output = ""
     private var afterControlWord = false
-    private var afterWhitespace = false
     private var specialUses = 0
     private var hasChemistry = false
     private var hasBraket = false
     private var bars = 0
 
-    mutating func expand(_ formula: String, definitions: String, app: Bool = false) throws -> String {
+    mutating func expand(_ formula: String, definitions: String) throws -> String {
         self = Self()
-        let limit = app ? Self.maximumBytes : PreviewConversion.maximumFormulaBytes
+        let limit = PreviewConversion.maximumFormulaBytes
         guard formula.utf8.count <= limit, definitions.utf8.count <= limit - formula.utf8.count else {
             throw Refusal.size
         }
-        let macros = try PreviewMathMacro.read(definitions, app: app)
+        let macros = try PreviewMathMacro.read(definitions)
         let tokens = try Self.tokens(formula, limit: limit)
         for (index, token) in tokens.enumerated().reversed() {
             guard Self.permitted(token) else { throw Refusal.unsupported }
             try push(Item(text: token, call: nil, sourceIndex: index))
         }
+        var reader = NativeArgumentPosition()
         while let item = pop() {
             if let macro = macros[item.text] {
+                guard !reader.mayInspect else { throw Refusal.unsupported }
                 guard steps < Self.maximumSteps else { throw Refusal.steps }
                 guard !PreviewConversion.expired else { throw CancellationError() }
                 steps += 1
@@ -103,11 +104,59 @@ struct PreviewMathExpansion {
                     }
                 }
             } else {
-                try emit(item.text, preserveSpaces: app)
+                reader.observe(item.text)
+                try emit(item.text)
             }
         }
         if hasChemistry { try Self.checkChemistry(output) }
         return output
+    }
+
+    /// Recover a known argument boundary only after all the raw, braced arguments were emitted.
+    /// If a native handler has optional arguments, reads a numeric/string tail, or peeks ahead,
+    /// there is no safe generic boundary. This also covers a native command emitted by a user body.
+    private struct NativeArgumentPosition {
+        var remaining = 0
+        var groupDepth = 0
+        var uncertain = false
+        var mayInspect: Bool { remaining > 0 || uncertain }
+
+        mutating func observe(_ token: String) {
+            if uncertain { return }
+            if groupDepth > 0 {
+                if token == "{" { groupDepth += 1 }
+                if token == "}" {
+                    groupDepth -= 1
+                    if groupDepth == 0 { remaining -= 1 }
+                }
+                return
+            }
+            if remaining > 0 {
+                if token == " " { return }
+                if token == "{" {
+                    groupDepth = 1
+                } else if token.utf8.count == 1, let c = token.first, c.isASCII && (c.isLetter || c.isNumber) {
+                    remaining -= 1
+                } else {
+                    uncertain = true
+                }
+                return
+            }
+            switch token {
+            case #"\boxed"#, #"\text"#, #"\mathrm"#, #"\mathbf"#, #"\mathbb"#, #"\mathcal"#, #"\mathsf"#,
+                #"\mathit"#, #"\mathtt"#, #"\textrm"#, #"\textbf"#, #"\textit"#, "^", "_":
+                remaining = 1
+            case #"\frac"#, #"\dfrac"#, #"\tfrac"#: remaining = 2
+            // A branch can return an argument reader that consumes tokens after both groups.
+            case #"\TextOrMath"#: uncertain = true
+            default:
+                if token.hasPrefix("\\") {
+                    uncertain = !NativeMathBound.ordinarySymbol(token)
+                } else {
+                    uncertain = token == "~" || !token.utf8.allSatisfy { $0 < 128 }
+                }
+            }
+        }
     }
 
     /// Charge each individual stack write, including every copy of every substituted argument, before appending it.
@@ -149,7 +198,7 @@ struct PreviewMathExpansion {
         throw Refusal.unsupported
     }
 
-    private mutating func emit(_ text: String, preserveSpaces: Bool) throws {
+    private mutating func emit(_ text: String) throws {
         // These public braket/set commands use fixed delimiters. tmspace copies its sign into both mode branches.
         if text == "\\ce" || text == "\\pu" { hasChemistry = true }
         if text == "\\Braket" { hasBraket = true }
@@ -160,21 +209,17 @@ struct PreviewMathExpansion {
             guard specialUses <= 4 else { throw Refusal.size }
         }
         let separates = afterControlWord && text.utf8.first.map(Self.wordByte) == true
-        // Substitution can put a real space after a control word, or place two space tokens
-        // together. A zero-token comment keeps a second lex from eating or coalescing the space.
-        let protectsSpace = preserveSpaces && text == " " && (afterControlWord || afterWhitespace)
-        let separator = protectsSpace ? "%\n" : (separates ? " " : "")
+        let separator = separates ? " " : ""
         let bytes = text.utf8.count + separator.utf8.count
         guard bytes <= Self.maximumBytes - outputBytes else { throw Refusal.size }
         output += separator
         output += text
         outputBytes += bytes
         afterControlWord = Self.controlWord(text)
-        afterWhitespace = text == " " || text == "\\ "
     }
 
     /// mhchem re-lexes generated TeX. Accept short literal chemical notation, with no TeX or nested input.
-    private static func checkChemistry(_ source: String) throws {
+    static func checkChemistry(_ source: String) throws {
         var lexer = Lexer(source)
         while true {
             let token = lexer.lex()
@@ -220,8 +265,8 @@ struct PreviewMathExpansion {
         return !token.contains("@") && !token.hasPrefix("\\verb") && !forbidden.contains(token)
     }
 
-    private static let specialBuiltins: Set<String> = [#"\tmspace"#, #"\Braket"#, #"\Set"#, #"\set"#, #"\ce"#, #"\pu"#]
-    static let inspectedWords = forbidden.union(specialBuiltins)
+    static let specialBuiltins: Set<String> = [#"\tmspace"#, #"\Braket"#, #"\Set"#, #"\set"#, #"\ce"#, #"\pu"#]
+    static let inspectedWords = forbidden.union(specialBuiltins).union([#"\else"#, #"\fi"#, #"\or"#, #"\unless"#])
     static let longestInspectedWord = inspectedWords.map { $0.utf8.count }.max() ?? 0
 
     private static let forbidden: Set<String> = [

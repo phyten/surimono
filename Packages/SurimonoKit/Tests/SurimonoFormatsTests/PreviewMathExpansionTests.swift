@@ -117,7 +117,7 @@ struct PreviewMathExpansionTests {
             var expansion = PreviewMathExpansion()
             #expect(throws: PreviewMathExpansion.Refusal.size) {
                 try expansion.expand(
-                    String(repeating: #"\wrapped"#, count: 5), definitions: "\\def\\wrapped{\(command)}")
+                    #"\wrapped"#, definitions: "\\def\\wrapped{" + String(repeating: command, count: 5) + "}")
             }
         }
         var chemistry = PreviewMathExpansion()

@@ -129,6 +129,10 @@ extension LaTeXReader {
         var visiting: Set<String> = []
         /// An ordinary wrapper can call an xparse macro indirectly. Cache finished searches and skip cyclic edges.
         func needsReader(_ name: String) -> Bool {
+            if document.mathDefinitions.app.isRejected("\\" + name) {
+                mathBudget?.refused = true
+                return false
+            }
             if isMathCounter(name) { return includingCounters }
             if Self.xparseBranches.contains(name) || name == "csname" { return true }
             guard let macro = document.macros[name] else { return false }
@@ -139,14 +143,12 @@ extension LaTeXReader {
             else { return false }
             defer { visiting.remove(name) }
             guard visiting.count <= PreviewMathExpansion.maximumDepth, StackSpace.hasRoom,
-                macro.body.utf8.count <= PreviewMathExpansion.maximumWork - (mathBudget?.inspected ?? 0),
-                macro.body.utf8.count <= 50_000_000 - document.expansionWork
+                macro.body.utf8.count <= PreviewMathExpansion.maximumWork - (mathBudget?.inspected ?? 0)
             else {
                 mathBudget?.refused = true
                 return false
             }
             mathBudget?.inspected += macro.body.utf8.count
-            document.expansionWork += macro.body.utf8.count
             guard macro.body.contains("\\") else {
                 dependencies[name] = false
                 return false
@@ -193,6 +195,10 @@ extension LaTeXReader {
             if name == "begin" {
                 let after = index
                 if let key = argument(), let environment = document.environments[key] {
+                    guard !document.mathDefinitions.app.isRejected("environment:" + key) else {
+                        mathBudget?.refused = true
+                        return nil
+                    }
                     append(String(characters[start..<before]))
                     let begin = replacement(environment.begin)
                     let body = environmentBody(key)
@@ -233,13 +239,8 @@ extension LaTeXReader {
             } else if token == missingArgument {
                 append("\\text{-NoValue-}")
             } else if name == "csname" {
-                let key = readCSName()
-                if let macro = document.macros[key] {
-                    guard let source = replacement(macro) else { return nil }
-                    insertExpansion(source)
-                } else if !key.isEmpty {
-                    append("\\" + key)
-                }
+                mathBudget?.refused = true
+                return nil
             }
             start = index
         }

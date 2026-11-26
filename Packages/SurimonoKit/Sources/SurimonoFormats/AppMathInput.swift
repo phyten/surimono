@@ -3,7 +3,7 @@ import SwaTex
 /// Only a statically costed expression can carry user assignments into the native parser.
 enum AppMathInput {
     enum Route {
-        case original, expanded, boundedNative
+        case original, boundedNative
     }
 
     private static let assignments: Set<String> = [
@@ -12,14 +12,13 @@ enum AppMathInput {
 
     /// Split leading assignments using the same token boundaries as the parser. Check the source size before lexing.
     /// Anything after a preamble must be the formula itself; it cannot be silently discarded during validation.
-    static func readPrefix(_ source: String, into index: inout PreviewMathDefinitions) -> String? {
+    static func afterLeadingDeclarations(_ source: String) -> String? {
         guard source.utf8.count <= PreviewMathExpansion.maximumBytes else { return nil }
         var lexer = Lexer(source)
         var token = lexer.lex()
         while token.isSpace { token = lexer.lex() }
         while assignments.contains(token.text) {
             let kind = token.text
-            let start = token.loc.start
             token = lexer.lex()
             if kind != #"\def"# && token.text == "*" { token = lexer.lex() }
             if token.text == "{" && kind != #"\def"# && kind != #"\let"# {
@@ -54,10 +53,6 @@ enum AppMathInput {
                     if token.text == "}" { depth -= 1 }
                 }
             }
-            let bytes = source.utf8
-            let lower = bytes.index(bytes.startIndex, offsetBy: start)
-            let upper = bytes.index(bytes.startIndex, offsetBy: lexer.pos)
-            index.append(source[lower..<upper])
             token = lexer.lex()
             while token.isSpace { token = lexer.lex() }
         }
@@ -70,31 +65,45 @@ enum AppMathInput {
         // source so a change in comment handling inside a native argument cannot hide an assignment.
         if definitions.isEmpty && !requiresInspection(source) { return (source, .original) }
         var formula = source
-        var declarations = definitions
-        if !definitions.isEmpty || assignments.contains(where: { source.hasPrefix($0) }) {
-            var index = PreviewMathDefinitions(app: true)
-            guard readPrefix(definitions, into: &index) == "" else { return nil }
-            if assignments.contains(where: { source.hasPrefix($0) }) {
-                guard let tail = readPrefix(source, into: &index) else { return nil }
-                formula = tail
-            }
-            guard let selected = index.preamble(for: formula) else { return nil }
-            declarations = selected
-            if selected.isEmpty && !requiresInspection(formula) { return (formula, .original) }
+        var preamble = definitions
+        if assignments.contains(where: { source.hasPrefix($0) }) {
+            // Markdown has no separate preamble. Only its leading top-level declarations precede
+            // the expression; an assignment anywhere in the expression itself fails the proof.
+            guard source.utf8.count <= PreviewMathExpansion.maximumWork - definitions.utf8.count else { return nil }
+            guard let tail = afterLeadingDeclarations(source) else { return nil }
+            formula = tail
+            preamble += String(decoding: source.utf8.dropLast(tail.utf8.count), as: UTF8.self)
         }
-        var expansion = PreviewMathExpansion()
-        do {
-            let result = try expansion.expand(formula, definitions: declarations, app: true)
-            return (result, expansion.steps == 0 ? .original : .expanded)
-        } catch PreviewMathExpansion.Refusal.unsupported {
-            guard NativeMathBound.accepts(formula, definitions: declarations) else { return nil }
-            return (declarations + formula, .boundedNative)
-        } catch {
-            return nil
+        if preamble.isEmpty {
+            guard standalone(formula) else { return nil }
+            return (source, .original)
         }
+        guard NativeMathBound.accepts(formula, definitions: preamble) else { return nil }
+        return (definitions + source, .boundedNative)
     }
 
-    private static func requiresInspection(_ source: String) -> Bool {
+    // Preserve the existing limits for the few native helpers with non-linear or re-lexed input,
+    // even in formulas without a user declaration. Always return the original source.
+    private static func standalone(_ formula: String) -> Bool {
+        guard !requiresInspection(formula, allowFixedHelpers: true),
+            let tokens = try? PreviewMathExpansion.tokens(formula, limit: PreviewMathExpansion.maximumBytes),
+            tokens.allSatisfy(PreviewMathExpansion.permitted),
+            !tokens.contains(where: { conditional($0) })
+        else { return false }
+        let special = tokens.filter(PreviewMathExpansion.specialBuiltins.contains)
+        guard special.count <= 4, !special.contains(#"\Braket"#) || tokens.filter({ $0 == "|" }).count <= 64 else {
+            return false
+        }
+        return !special.contains(where: { $0 == #"\ce"# || $0 == #"\pu"# })
+            || (try? PreviewMathExpansion.checkChemistry(formula)) != nil
+    }
+
+    static func conditional(_ word: String) -> Bool {
+        ((word.hasPrefix(#"\if"#) || word.hasPrefix(#"\If"#)) && word != #"\iff"#)
+            || [#"\else"#, #"\fi"#, #"\or"#, #"\unless"#].contains(word)
+    }
+
+    private static func requiresInspection(_ source: String, allowFixedHelpers: Bool = false) -> Bool {
         // SwaTex lexes ASCII control words in UTF-8. A Swift Character (or a regex matching
         // graphemes) can span both the final ASCII letter and a following combining mark.
         let bytes = source.utf8
@@ -106,10 +115,17 @@ enum AppMathInput {
                 bytes.formIndex(after: &cursor)
             }
             let word = bytes[slash..<cursor]
+            if word.starts(with: [92, 105, 102]) || word.starts(with: [92, 73, 102]) {
+                if !word.elementsEqual(#"\iff"#.utf8) { return true }
+            }
             if word.count > 1, word.count <= PreviewMathExpansion.longestInspectedWord,
                 PreviewMathExpansion.inspectedWords.contains(String(decoding: word, as: UTF8.self))
             {
-                return true
+                if !allowFixedHelpers
+                    || !PreviewMathExpansion.specialBuiltins.contains(String(decoding: word, as: UTF8.self))
+                {
+                    return true
+                }
             }
         }
         return false

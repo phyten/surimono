@@ -12,9 +12,8 @@ struct PreviewMathMacro {
 
     private typealias Refusal = PreviewMathExpansion.Refusal
 
-    static func read(_ source: String, app: Bool = false) throws -> [String: Self] {
-        var input = try PreviewMathExpansion.tokens(
-            source, limit: app ? PreviewMathExpansion.maximumBytes : PreviewConversion.maximumFormulaBytes)[...]
+    static func read(_ source: String) throws -> [String: Self] {
+        var input = try PreviewMathExpansion.tokens(source)[...]
         var macros: [String: Self] = [:]
         while let kind = input.popFirst() {
             if kind == " " { continue }
@@ -22,9 +21,6 @@ struct PreviewMathMacro {
                 ["\\def", "\\newcommand", "\\renewcommand", "\\providecommand", "\\DeclareMathOperator"].contains(kind)
             else { throw Refusal.unsupported }
             let starred = kind != "\\def" && input.take("*")
-            // The app's LaTeX reader normalizes starred commands and consumes optional defaults.
-            // Raw SwaTex 0.6.0 interprets those signatures differently from LaTeX.
-            if app && starred && kind != "\\DeclareMathOperator" { throw Refusal.unsupported }
             input.skipSpaces()
             let name: String
             if kind != "\\def", input.first == "{" {
@@ -53,7 +49,6 @@ struct PreviewMathMacro {
                 count = number
                 input.skipSpaces()
                 if count > 0, input.first == "[" {
-                    if app { throw Refusal.unsupported }
                     optional = try input.group(optional: true)
                     guard optional?.allSatisfy(PreviewMathExpansion.permitted) == true else {
                         throw Refusal.unsupported
@@ -72,17 +67,8 @@ struct PreviewMathMacro {
                 && (replacement.elementsEqual(operatorText)
                     || replacement.elementsEqual(["\\mathrm", "{"] + operatorText + ["}"]))
             let builtin = isBuiltin(name)
-            if !app, kind == "\\providecommand", builtin || macros[name] != nil { continue }
-            // The app reader lowers DeclareMathOperator to this primitive declaration.
-            let normalizedOperator =
-                app && kind == "\\def" && name == "\\argmax" && count == 0
-                && replacement.elementsEqual(["\\operatorname", "{", "\\mathrm", "{"] + operatorText + ["}", "}"])
-            // These notation commands can be replaced in the app's bounded token stack. The
-            // resulting parser starts with no user definitions, including for these builtin names.
-            let paperNotation = app && Self.paperNotation.contains(name) && kind != "\\newcommand"
-            if builtin && !standardR && !standardOperator && !normalizedOperator && !paperNotation {
-                throw Refusal.unsupported
-            }
+            if kind == "\\providecommand", builtin || macros[name] != nil { continue }
+            if builtin && !standardR && !standardOperator { throw Refusal.unsupported }
             if kind == "\\renewcommand", !builtin, macros[name] == nil { throw Refusal.unsupported }
             var body: [Part] = []
             if kind == "\\DeclareMathOperator" {
@@ -107,13 +93,9 @@ struct PreviewMathMacro {
         return macros
     }
 
-    private static let paperNotation: Set<String> = [
-        #"\R"#, #"\N"#, #"\C"#, #"\vec"#, #"\epsilon"#, #"\bra"#, #"\ket"#, #"\square"#, #"\argmin"#, #"\argmax"#,
-    ]
-
     /// SwaTex has no public name lookup. Its noexpand lookup returns relax for any expandable builtin;
     /// it receives just one validated control word, with no user arguments or replacement text.
-    private static func isBuiltin(_ name: String) -> Bool {
+    static func isBuiltin(_ name: String) -> Bool {
         if SymbolInfo(name: name, mode: .math) != nil || SymbolInfo(name: name, mode: .text) != nil { return true }
         if (try? Parser("\\noexpand" + name).fetch().text) != name { return true }
         // The non-expandable primitives and implicit control words in the pinned parser's function registry.

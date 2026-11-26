@@ -4,6 +4,8 @@ import SwaTex
 struct MathDefinitions {
     var source: String
     var containsOnlyPrimitiveDefinitions = true
+    var preambleTooLarge = false
+    var rawHeaderMayProduceOutput = false
     var preview: PreviewMathDefinitions?
     var app = PreviewMathDefinitions(app: true)
 
@@ -19,7 +21,16 @@ struct MathDefinitions {
 
     func preamble(for formula: String) -> String? {
         if let preview { return preview.preamble(for: formula) }
-        return app.preamble(for: formula)
+        guard let selected = app.preamble(for: formula) else { return nil }
+        if selected.isEmpty && !rawHeaderMayProduceOutput
+            && (source.isEmpty || source == #"\def\ensuremath#1{#1}"#)
+        {
+            return ""
+        }
+        // Never silently recompose a different native preamble. In particular, a raw optional
+        // signature can emit ordinary input before a formula even when the name is not called.
+        guard !preambleTooLarge, source.utf8.count <= PreviewMathExpansion.maximumWork else { return nil }
+        return source
     }
 }
 
@@ -30,18 +41,6 @@ struct PreviewMathDefinitions {
         let source: String?
         let previous: Int?
         let dependencies: Set<String>
-        var primitiveTail: Substring?
-        var alias: String?
-
-        var byteCount: Int? {
-            if let alias, let primitiveTail { return 4 + alias.utf8.count + primitiveTail.utf8.count }
-            return source?.utf8.count
-        }
-
-        var assignment: String? {
-            if let alias, let primitiveTail { return "\\def" + alias + primitiveTail }
-            return source
-        }
     }
 
     private let app: Bool
@@ -57,12 +56,12 @@ struct PreviewMathDefinitions {
 
     /// One Org header can declare several commands. Walk slices so a large replacement need not be
     /// copied into a character array just to find the next top-level declaration.
-    mutating func appendHeader(_ header: String) {
+    mutating func appendHeader(_ header: String, unsupported: Bool = false) {
         var cursor = header.startIndex
         var nextCheck = cursor
         var start: String.Index?
         var depth = 0
-        var unsupportedPrefix = false
+        var unsupportedPrefix = unsupported
         while cursor < header.endIndex {
             if cursor >= nextCheck {
                 guard !PreviewConversion.expired else { return }
@@ -86,7 +85,7 @@ struct PreviewMathDefinitions {
                         if let start {
                             append(header[start..<token], unsupported: unsupportedPrefix)
                         } else {
-                            unsupportedPrefix = header[..<token].contains { !$0.isWhitespace }
+                            unsupportedPrefix = unsupported || header[..<token].contains { !$0.isWhitespace }
                         }
                         start = token
                     } else if start == nil {
@@ -105,6 +104,14 @@ struct PreviewMathDefinitions {
             }
         }
         if let start { append(header[start...], unsupported: unsupportedPrefix) }
+    }
+
+    func isRejected(_ name: String) -> Bool {
+        latest[name].map { declarations[$0].source == nil } ?? false
+    }
+
+    mutating func replaceWithReaderDefinition(_ name: String) {
+        if insideGroup { reject(name) } else { latest.removeValue(forKey: name) }
     }
 
     mutating func reject(_ name: String) {
@@ -134,18 +141,7 @@ struct PreviewMathDefinitions {
             return
         }
         if app && command == "\\let" {
-            var original = lexer.lex()
-            if original.text == "=" { original = lexer.lex() }
-            while original.isSpace { original = lexer.lex() }
-            // Share the stored body. A long sequence of aliases must not allocate a body per alias.
-            guard fits, !unsupported, let id = latest[original.text], declarations[id].primitiveTail != nil else {
-                reject(name)
-                return
-            }
-            var captured = declarations[id]
-            captured.alias = name
-            latest[name] = declarations.count
-            declarations.append(captured)
+            reject(name)
             return
         }
         if command == (app ? "\\newcommand" : "\\providecommand"), latest[name] != nil { return }
@@ -165,12 +161,7 @@ struct PreviewMathDefinitions {
         }
         let previous = command == "\\renewcommand" ? latest[name] : nil
         latest[name] = declarations.count
-        var declaration = Declaration(source: text, previous: previous, dependencies: dependencies)
-        if app && command == "\\def" {
-            let end = text.utf8.index(text.utf8.startIndex, offsetBy: target.loc.end)
-            declaration.primitiveTail = text[end...]
-        }
-        declarations.append(declaration)
+        declarations.append(Declaration(source: text, previous: previous, dependencies: dependencies))
     }
 
     func preamble(for formula: String) -> String? {
@@ -182,23 +173,34 @@ struct PreviewMathDefinitions {
         guard !latest.isEmpty else { return "" }
         var lexer = Lexer(formula)
         var pending: [Int] = []
+        let hasImplicitBinding = app && NativeMathBound.implicitNames.contains { latest[$0] != nil }
+        var visitedNative: Set<String> = []
+        func enqueue(_ name: String) {
+            if let id = latest[name] {
+                pending.append(id)
+            } else if hasImplicitBinding, let calls = NativeMathBound.implicitCalls[name],
+                visitedNative.insert(name).inserted
+            {
+                for callee in calls { enqueue(callee) }
+            }
+        }
         while true {
             let token = lexer.lex()
             if token.isEOF { break }
-            if let id = latest[token.text] {
-                guard remaining >= 0 else { return nil }
-                pending.append(id)
+            if token.text.hasPrefix("\\") {
+                enqueue(token.text)
+                if remaining < 0 && !pending.isEmpty { return nil }
             }
         }
         var selected: Set<Int> = []
         while let id = pending.popLast() {
             guard selected.insert(id).inserted else { continue }
             let declaration = declarations[id]
-            guard let bytes = declaration.byteCount, bytes <= remaining else { return nil }
+            guard let bytes = declaration.source?.utf8.count, bytes <= remaining else { return nil }
             remaining -= bytes
             if let previous = declaration.previous { pending.append(previous) }
-            pending += declaration.dependencies.compactMap { latest[$0] }
+            for name in declaration.dependencies { enqueue(name) }
         }
-        return selected.sorted().compactMap { declarations[$0].assignment }.joined()
+        return selected.sorted().compactMap { declarations[$0].source }.joined()
     }
 }

@@ -17,6 +17,17 @@ struct AppMathDifferentialTests {
         }
     }
 
+    private static let tokenReaders = [
+        Paper(
+            "token capture", #"\def\wordpair{ab}\def\closeword{)}"#,
+            [
+                #"\boxed\wordpair"#, #"\boxed{\wordpair}"#, #"\text\wordpair"#, #"\frac\wordpair c"#,
+                #"\dotsc\closeword"#, #"\char`\wordpair"#,
+                #"\TextOrMath\wordpair{x}"#, #"\text{\TextOrMath\wordpair{x}}"#,
+            ]),
+        Paper("raw color model", #"\def\modelword{RGB}"#, [#"\textcolor[\modelword]{0,0,0}{x}"#]),
+    ]
+
     private static let papers: [Paper] = [
         Paper(
             "number fields", #"\def\R{\mathbb{R}}\def\N{\mathbb{N}}\def\C{\mathbb{C}}"#,
@@ -379,7 +390,6 @@ struct AppMathDifferentialTests {
 
     @Test("論文の定義を使った各数式は旧経路と同じバイト列の数式画像になる")
     func comparesNativeAndApp() {
-        var own = 0
         var native = 0
         var fallback: Set<String> = []
         var seen: Set<String> = []
@@ -391,11 +401,20 @@ struct AppMathDifferentialTests {
             // A primitive definition only starts its replacement at an opening brace.
             #"unbraced primitive: \unitdx"#,
         ]
-        for paper in Self.papers {
+        for paper in Self.papers + Self.tokenReaders {
             for formula in paper.formulas {
                 let id = "\(paper.name): \(formula)"
                 #expect(seen.insert(id).inserted)
-                let route = AppMathInput.prepare(formula, definitions: paper.definitions)?.route
+                let prepared = AppMathInput.prepare(formula, definitions: paper.definitions)
+                // The raw default has a bounded expansion but still lacks a mandatory argument
+                // in SwaTex. The other two parser errors have no accepted declaration signature.
+                if !oldParserFailures.contains(id) || id == #"default subscript: \expect{X}"# {
+                    #expect(prepared?.route == .boundedNative, "\(id)")
+                    #expect(prepared?.input.utf8.elementsEqual((paper.definitions + formula).utf8) == true, "\(id)")
+                    if prepared?.route == .boundedNative { native += 1 }
+                } else {
+                    #expect(prepared == nil, "\(id)")
+                }
                 if oldParserFailures.contains(id) {
                     #expect(throws: ParseError.self) { try parseLaTeX(paper.definitions + formula) }
                 }
@@ -412,17 +431,34 @@ struct AppMathDifferentialTests {
                         Issue.record("\(id), display=\(display), native=\(expected != nil), app=\(actual != nil)")
                     }
                 }
-                if fallback.contains(id) { continue }
-                switch route {
-                case .expanded: own += 1
-                case .boundedNative: native += 1
-                default: Issue.record("Missing macro route for \(id)")
-                }
             }
         }
         #expect(fallback == oldParserFailures)
-        #expect(own == 210)
-        #expect(native == 10)
+        #expect(native == 230 && seen.count == 232)
+    }
+
+    @Test("先読みや生の引数を持つ数式は Finder で同じ画像または原文になる")
+    func previewTokenReaders() throws {
+        let afterArgument = #"\boxed{a}+\wordpair"#
+        let boundaries = Paper(
+            "end of argument", #"\def\wordpair{ab}"#, [afterArgument, #"\TextOrMath{\boxed}{\boxed}\wordpair"#])
+        func inPreview(_ render: () -> String?) -> String? {
+            PreviewConversion.$current.withValue(PreviewConversion(deadline: .now + .seconds(5)), operation: render)
+        }
+        for paper in Self.tokenReaders + [boundaries] {
+            for formula in paper.formulas {
+                for display in [false, true] {
+                    let reference = inPreview { legacyHTML(formula, definitions: paper.definitions, display: display) }
+                    let expected = try #require(reference)
+                    let preview = inPreview { MathRenderer.html(formula, display: display, macros: paper.definitions) }
+                    if let preview {
+                        #expect(preview.utf8.elementsEqual(expected.utf8), "\(formula)")
+                    } else {
+                        #expect(formula != afterArgument, "The boxed argument already ended")
+                    }
+                }
+            }
+        }
     }
 
     @Test("生の既定引数や星付き定義は複写量と後続の命令を検査できる場合だけ元のまま組む")
@@ -477,7 +513,7 @@ struct AppMathDifferentialTests {
             let html = LaTeXConverter.convert(paper + "\n" + #"\begin{document}$"# + original + #"$\end{document}"#)
                 .body
             #expect(html.utf8.firstRange(of: expected.utf8) != nil, "\(original)")
-            #expect(AppMathInput.prepare(normalized, definitions: legacyDefinitions)?.route == .expanded)
+            #expect(AppMathInput.prepare(normalized, definitions: legacyDefinitions)?.route == .boundedNative)
         }
     }
 }
