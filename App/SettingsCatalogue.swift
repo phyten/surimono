@@ -152,6 +152,8 @@ enum SettingsCatalogue {
             .init(.styles, "Default Typeface", words: ["LaTeX Typeface", "As the Style"]),
             .init(.styles, "Open Styles Folder"),
             .init(.styles, "Reload", anchor: "Open Styles Folder"),
+            .init(.org, "Use Emacs Defaults…"),
+            .init(.org, "Reset to Defaults…"),
             .init(.html, "Default HTML Preset"),
             .init(.html, "Allow JavaScript in HTML"),
             .init(.html, "Open Presets Folder"),

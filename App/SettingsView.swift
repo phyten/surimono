@@ -118,7 +118,15 @@ struct SettingsView: View {
                 case .keyboardShortcuts:
                     ShortcutSettingsView(controller: .shared)
                 default:
-                    ScrollViewReader { proxy in form(selected).modifier(SettingsSearchReveal(proxy: proxy)) }
+                    ScrollViewReader { proxy in
+                        Group {
+                            if selected == .org {
+                                OrgReadingDefaultsPane(preferences: preferences)
+                            } else {
+                                form(selected)
+                            }
+                        }.modifier(SettingsSearchReveal(proxy: proxy))
+                    }
                 }
             }
             // The split column allocates the viewport independently of the visited editor's ideal size.
@@ -513,7 +521,6 @@ struct SettingsView: View {
                     .settingSearchRow("Open Styles Folder")
                     libraryError
                 }
-            case .org: OrgReadingDefaultsPane(preferences: preferences)
             case .html:
                 Section {
                     Picker("Default HTML Preset", selection: $preferences.presetID) {
@@ -548,9 +555,7 @@ struct SettingsView: View {
                 }
             case .clipboard:
                 ClipboardSettings(preferences: preferences)
-            case .keyboardShortcuts: EmptyView()
-            case .toolbarArrangement:
-                EmptyView()
+            case .org, .keyboardShortcuts, .toolbarArrangement: EmptyView()
             }
         }
         .formStyle(.grouped)

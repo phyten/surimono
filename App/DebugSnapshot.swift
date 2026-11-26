@@ -30,6 +30,42 @@
         static func flag(_ name: String) -> Bool { argument(name)?.uppercased() == "YES" }
 
         // Settings photography only: read process arguments into view state, never preferences.
+        struct OrgDefaultsFixture {
+            let current: OrgReadingDefaults
+            let target: OrgReadingDefaults?
+            let changedOnly: Bool
+
+            init?(state: String?, alert: String?, changedOnly: Bool) {
+                let requested: OrgReadingDefaults? =
+                    switch alert {
+                    case "emacs": .emacs
+                    case "reset": .surimono
+                    default: nil
+                    }
+                switch state {
+                case "emacs": current = .emacs
+                case "custom":
+                    var values = OrgReadingDefaults.emacs
+                    values.tableOfContents = .off
+                    values.planning = true
+                    current = values
+                default:
+                    guard requested != nil || changedOnly else { return nil }
+                    current = requested == .surimono ? .emacs : .surimono
+                }
+                self.changedOnly = changedOnly
+                // A matching target is disabled in the actual footer and has no alert to capture.
+                target = current == requested ? nil : requested
+            }
+        }
+
+        static var orgDefaultsFixture: OrgDefaultsFixture? {
+            guard argument("SurimonoSettings") == "org" else { return nil }
+            return OrgDefaultsFixture(
+                state: argument("SurimonoOrgDefaultsState"), alert: argument("SurimonoOrgDefaultsAlert"),
+                changedOnly: flag("SurimonoOrgChangedOnly"))
+        }
+
         static var shortcutReview: String? { argument("SurimonoShortcutReview") }
         static var shortcutSearch: String? { argument("SurimonoShortcutSearch") }
         static var shortcutShowGlobal: Bool { flag("SurimonoShortcutGlobal") }
@@ -997,6 +1033,9 @@
                     let data = try await capturePNG(
                         around: window, includeChildren: openURLArgument == nil, surface: surface
                     ) {
+                        if !doc, orgDefaultsFixture?.target != nil, window.attachedSheet?.isVisible != true {
+                            return "Waiting for the Org defaults alert"
+                        }
                         guard doc else { return nil }
                         if requestedMode == "print" && model.mode != .print { return "Waiting for the print tray" }
                         if requestedMode == "compare" && model.mode != .compare {
