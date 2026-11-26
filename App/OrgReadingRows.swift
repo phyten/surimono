@@ -257,7 +257,7 @@ struct OrgReadingRows: View {
         let current = resolved?.value ?? defaults[keyPath: path]
         let inherited = resolved?.inherited ?? OrgReadingDefaults.surimono[keyPath: path]
         let changed = resolved.map { $0.layer == .document } ?? (current != inherited)
-        let locked = resolved?.source != nil && model?.orgDocumentReading.allowsFileChanges == false
+        let locked = resolved?.isLocked == true
         let editsDefaults = model == nil
         let set: @MainActor @Sendable (Value) -> Void = { [weak model, preferences] value in
             if let model {

@@ -96,11 +96,11 @@ struct BandItemView: View {
         case .readingSettings:
             BandDrawerButton(
                 title: item.bandAccessibilityName, symbol: "sidebar.right", showsName: form == .full,
-                selected: model.isReadingPanelOpen, showsDot: model.orgDocumentReading.changedCount > 0
+                selected: model.isReadingPanelOpen, showsDot: model.orgChangedCount > 0
             ) {
                 model.isReadingPanelOpen.toggle()
             }.help("Reading Settings")
-                .accessibilityValue(Text(BandAccessibility.readingChanges(model.orgDocumentReading.changedCount)))
+                .accessibilityValue(Text(BandAccessibility.readingChanges(model.orgChangedCount)))
         case .chapter: CurrentChapterButton(model: model, trailing: trailing)
         case .pageIndicator: PageIndicatorButton(model: model, showsStatusName: form == .full)
         case .pageTurn: PageTurnButtons(model: model)
