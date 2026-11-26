@@ -150,12 +150,13 @@ struct OrgExportSelectionTests {
     func clockForms() {
         for line in ["CLOCK: [2026-11-23 Mon 10:00]--[2026-11-23 Mon 11:30] => 1:30", "CLOCK: => 12:30"] {
             let hidden = OrgConverter.convert("#+OPTIONS: c:nil\n" + line)
-            #expect(hidden.body.isEmpty && hidden.orgInstructions?.hasTaskElements == true)
+            #expect(hidden.body.isEmpty && hidden.orgInstructions?.hasTaskOrDateElements == true)
             #expect(OrgConverter.convert("#+OPTIONS: c:t\n" + line).body.contains("CLOCK:"))
         }
         for line in ["CLOCK: <2026-11-23 Mon>", "CLOCK:=> 12:30", "CLOCK: =>1:30", "CLOCK: => 1:3"] {
             let ordinary = OrgConverter.convert("#+OPTIONS: c:nil\n" + line)
-            #expect(ordinary.body.contains("CLOCK:") && ordinary.orgInstructions?.hasTaskElements == false)
+            #expect(ordinary.body.contains("CLOCK:"))
+            #expect(ordinary.orgInstructions?.hasTaskOrDateElements == line.contains("<2026-11-23 Mon>"))
         }
     }
 
@@ -185,7 +186,7 @@ struct OrgExportSelectionTests {
     func planningInProse(prefix: String) {
         let fragment = OrgConverter.convert(prefix + "SCHEDULED: <2026-11-23 Mon>")
         #expect(fragment.body.contains("SCHEDULED:") && !fragment.body.contains("org-planning"))
-        #expect(fragment.orgInstructions?.hasTaskElements == false)
+        #expect(fragment.orgInstructions?.hasTaskOrDateElements == true)
     }
 
     @Test("普通のドロワーは本文と同じ強調・リンク・リスト・表・数式・脚注を使う")

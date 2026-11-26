@@ -283,9 +283,10 @@ enum OrgInline {
                 } else if source.hasPrefix("<")
                     || source.dropFirst().prefix(4).allSatisfy(\.isNumber) && source.dropFirst(5).hasPrefix("-")
                 {
+                    context.options.file.hasTaskOrDateElements = true
                     html = timestamp(source)
                 } else {
-                    context.options.file.hasTaskElements = true
+                    context.options.file.hasTaskOrDateElements = true
                     if !context.reading.statistics {
                         html = ""
                     } else if cookies == .all || cookies == .edges && (index == 0 || token.end == characters.count) {

@@ -94,6 +94,20 @@ public struct FormatReadingChoices: Codable, Equatable, Sendable {
             if enabled { depth.set(limit, in: &choice.depth) }
         default: return
         }
+        store(choice, field: field, format: format)
+    }
+
+    /// Removing a row also removes a remembered depth while presence is off.
+    public mutating func revert(
+        _ id: ReadingSettingID, for format: DocumentFormat, fileOnly: ReadingFileInstructions? = nil
+    ) {
+        guard let field = id.formatField, var choice = formats[format.rawValue]?[field] else { return }
+        if fileOnly == nil || fileOnly?.present != nil { choice.present = nil }
+        if fileOnly == nil || fileOnly?.depth != nil { choice.depth = nil }
+        store(choice, field: field, format: format)
+    }
+
+    private mutating func store(_ choice: ReadingChoice, field: String, format: DocumentFormat) {
         if choice == ReadingChoice() {
             formats[format.rawValue]?[field] = nil
             if formats[format.rawValue]?.isEmpty == true { formats[format.rawValue] = nil }

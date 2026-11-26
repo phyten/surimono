@@ -43,8 +43,8 @@ struct OrgReadingDefaultsControlsTests {
         let expected: [(LocalizedStringResource, LocalizedStringResource, LocalizedStringResource)] = [
             ("Heading Numbers", "None", "All Levels"),
             ("Table of Contents at the Top", "None", "All Levels"),
-            ("Subscripts and Superscripts", "Only in { }", "Even without { }"),
             ("Clock Lines", "On", "Off"),
+            ("Subscripts and Superscripts", "Only in { }", "Even without { }"),
             ("Drawers", "Don't Show", "Show All Except LOGBOOK"),
             ("Archived Trees", "Entire Tree", "Heading Only"),
         ]

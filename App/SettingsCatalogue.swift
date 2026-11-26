@@ -187,7 +187,7 @@ enum SettingsCatalogue {
         for group in OrgReadingGroup.allCases {
             rows += group.settings.map { id in
                 let token = id.token.lowercased()
-                let aliases = orgSearchWords(for: id) + (group == .text ? formerOrgTextHeadings : [])
+                let aliases = orgSearchWords(for: id) + (group == .textAndMarkup ? formerOrgTextHeadings : [])
                 return .init(
                     .org, id.label.key, words: aliases, identifiers: [token, token + ":", ".org"],
                     heading: group.title.key)
@@ -213,7 +213,8 @@ enum SettingsCatalogue {
 
     // Keep retired translations searchable when the display catalog no longer contains their keys.
     private static let formerOrgTextHeadings = [
-        "Text Formatting", "文字", "Text", "Texto", "Texte", "문자", "텍스트", "Formatierung des Fließtexts",
+        "Body Text Formatting", "Text Formatting", "文字", "Text", "Texto", "Texte", "문자", "텍스트",
+        "Formatierung des Fließtexts",
         "Formato del cuerpo del texto", "Mise en forme du corps du texte",
     ]
 
@@ -279,7 +280,8 @@ enum SettingsCatalogue {
             ]
         case .timestamps:
             [
-                "Alleinstehende Zeitstempel", "Active Only", "Actifs uniquement", "仅活动时间戳", "僅作用中時間戳記", "Inactive Only",
+                "Standalone Timestamps", "Alleinstehende Zeitstempel", "Active Only", "Actifs uniquement", "仅活动时间戳",
+                "僅作用中時間戳記", "Inactive Only",
                 "Inactifs uniquement", "仅非活动时间戳", "僅非作用中時間戳記",
             ]
         case .clocks: ["Arbeitszeitprotokolle"]

@@ -44,7 +44,7 @@ extension EnvironmentValues {
     @Entry var settingsSearchHits = SettingsSearchHits()
     @Entry var settingsRowVerticalInset: CGFloat = 0
     @Entry var highlightedSettings: Set<String> = []
-    @Entry fileprivate var settingsRowFrames: SettingsRowFrames?
+    @Entry var settingsRowFrames: SettingsRowFrames?
 }
 
 /// Matches can be anywhere in the pane, including controls outside the scrolling viewport.
@@ -71,10 +71,12 @@ struct SettingsSearchReveal: ViewModifier {
     var isForm = true
     var fixedAnchors: Set<String> = []
     @Environment(\.settingsSearchHits) private var hits
-    @State private var frames = SettingsRowFrames()
+    @Environment(\.settingsRowFrames) private var providedFrames
+    @State private var localFrames = SettingsRowFrames()
     @State private var bottomRoom: CGFloat?
 
     func body(content: Content) -> some View {
+        let frames = providedFrames ?? localFrames
         content
             .environment(\.settingsRowFrames, frames)
             // Grouped forms leave ten points above and below each row's content on macOS.

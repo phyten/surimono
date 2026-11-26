@@ -1,3 +1,4 @@
+import SurimonoCore
 import SwiftUI
 import Testing
 
@@ -69,6 +70,96 @@ struct SettingsSearchRevealTests {
             try await screen.wait("Expected search reveal to finish") { search.highlighted.isEmpty }
             let currentClip = try #require(search.rows[target]?.enclosingScrollView?.contentView)
             #expect(currentClip.window === screen.window && currentClip.bounds.origin == position)
+        }
+    }
+
+    @Test("Org の変更だけを表示中は、検索した行が未変更のときだけ絞り込みを外し、末尾の行全体まで送る")
+    func changedOnlySearch() async throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let preferences = AppPreferences(defaults: suite.defaults)
+        var defaults = OrgReadingDefaults.surimono
+        defaults.scripts = .all
+        preferences.setOrgDefaults(defaults)
+
+        let locale = Locale(identifier: "en")
+        let bundle = try #require(Bundle.main.url(forResource: "en", withExtension: "lproj").flatMap(Bundle.init(url:)))
+        let search = FilterSearch()
+        let screen = OrgReadingTestWindow(width: 560, height: 320) {
+            FilteredPane(preferences: preferences, search: search).environment(\.locale, locale)
+        }
+        defer { screen.window.close() }
+        let frames = search.frames
+        let changed = ReadingSettingID.scripts.label.key
+        let last = ReadingSettingID.archived.label.key
+        func enter(_ anchor: String, canReveal: Bool) async throws {
+            func translate(_ key: String) -> String { bundle.localizedString(forKey: key, value: nil, table: nil) }
+            let query = translate(anchor)
+            let results = SettingsCatalogue.search(query, in: SettingsCatalogue.rows, localize: translate)
+            let anchors = results.rows.filter { $0.section == .org }.map(\.anchor)
+            try #require(anchors.first == anchor)
+            let visit = SettingsSearchVisit()
+            if !canReveal { visit.cancel() }
+            search.hits = SettingsSearchHits(query: query, anchors: anchors, visit: visit)
+            try await screen.wait("Expected query \(query), canReveal=\(canReveal)") {
+                search.received?.query == query && search.received?.canReveal == canReveal
+            }
+        }
+        let rowKeys = Set(OrgReadingGroup.allCases.flatMap(\.settings).map { $0.label.key })
+        func shown() -> Set<String> { rowKeys.intersection(frames.rows.keys) }
+        try await screen.wait("Only the changed row should be present: \(frames.rows) viewport=\(frames.viewport)") {
+            frames.fullyShows(changed) && shown() == [changed] && frames.scroll != nil
+        }
+        let origin = frames.scroll?.visibleRect.origin
+        try await enter(last, canReveal: false)
+        #expect(shown() == [changed])
+        #expect(frames.scroll?.visibleRect.origin == origin)
+
+        try await enter(changed, canReveal: true)
+        #expect(shown() == [changed])
+        #expect(frames.fullyShows(changed))
+
+        try await enter(last, canReveal: true)
+        try await screen.wait(
+            "Expected \(last) in \(frames.viewport): row=\(String(describing: frames.rows[last])) scroll=\(String(describing: frames.scroll))"
+        ) {
+            guard let row = frames.rows[last], let scroll = frames.scroll else { return false }
+            return row.height > 0 && frames.viewport.contains(row) && scroll.visibleRect.minY > (origin?.y ?? 0)
+        }
+    }
+
+    @MainActor @Observable fileprivate final class FilterSearch {
+        var hits = SettingsSearchHits()
+        let frames = SettingsRowFrames()
+        @ObservationIgnored var received: SettingsSearchHits?
+    }
+
+    private struct FilteredPane: View {
+        let preferences: AppPreferences
+        let search: FilterSearch
+
+        var body: some View {
+            SettingsDetail(section: .org, hits: search.hits) { _ in
+                OrgReadingDefaultsPane(preferences: preferences, filter: .init(isOn: true))
+                    .overlay { ReceivedQuery(search: search) }
+                    .environment(\.settingsRowFrames, search.frames)
+                    .transformEnvironment(\.settingsSearchHits) { hits in
+                        // The container grants a fresh visit when it shows a pane. Exercise a revoked visit too.
+                        if !search.hits.canReveal { hits.visit = search.hits.visit }
+                    }
+            }
+        }
+    }
+
+    private struct ReceivedQuery: View {
+        let search: FilterSearch
+        @Environment(\.settingsSearchHits) private var hits
+
+        var body: some View {
+            Color.clear.task(id: hits) {
+                await Task.yield()
+                if !Task.isCancelled { search.received = hits }
+            }
         }
     }
 

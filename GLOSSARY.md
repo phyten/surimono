@@ -63,6 +63,9 @@
 | Org の見出しやリストに書く進捗 | `Completion Percentages and Counts` | Completion Percentages and Counts | 完了率と件数 | Fortschritt in % und Anzahl | Progreso (% y número) | Progression (% et nombre) | 완료율 및 건수 | 完成率与计数 | 完成率與計數 |
 | Org の名前付きドロワー | `Drawers` | Drawers | ドロワー | Drawer | Cajones | Tiroirs | 드로어 | 抽屉 | 抽屜 |
 | Org のプロパティを収めるドロワー | `Property Drawers` | Property Drawers | プロパティドロワー | Eigenschaften-Drawer | Cajones de propiedades | Tiroirs de propriétés | 속성 드로어 | 属性抽屉 | 屬性抽屜 |
-| Org で日時だけの段落にある日時 | `Standalone Timestamps` | Standalone Timestamps | 単独の日時 | Einzelne Zeitstempel | Marcas de tiempo aisladas | Horodatages isolés | 단독 타임스탬프 | 独立时间戳 | 獨立時間戳記 |
+| Org で日時だけの段落にある日時 | `Timestamps` | Timestamps | タイムスタンプ | Zeitstempel | Marcas de tiempo | Horodatages | 타임스탬프 | 时间戳 | 時間戳記 |
+| Org の予定・作業時間・優先度・進捗・日時の群 | `Tasks and Dates` | Tasks and Dates | タスクと日時 | Aufgaben und Termine | Tareas y fechas | Tâches et dates | 작업과 날짜 | 任务与日期 | 任務與日期 |
+| Org の改行・上下付き・強調・数式の群 | `Text and Markup` | Text and Markup | 文字と記法 | Text und Auszeichnung | Texto y marcado | Texte et balisage | 텍스트와 마크업 | 文本与标记 | 文字與標記 |
+| Org の印刷対象を選ぶ群 | `What Is Printed` | What Is Printed | 印刷に含める内容 | Druckinhalt | Contenido impreso | Contenu imprimé | 인쇄할 내용 | 打印内容 | 列印內容 |
 | Org のコロンで始める等幅の行 | `Fixed-Width Sections` | Fixed-Width Sections | 等幅の行 | Zeilen in Festbreitenschrift | Líneas de ancho fijo | Lignes à chasse fixe | 고정폭 줄 | 等宽行 | 等寬行 |
 | Org で ARCHIVE タグを付けた部分木 | `Archived Trees` | Archived Trees | アーカイブした項目 | Archivierte Teilbäume | Subárboles archivados | Branches archivées | 보관된 하위 트리 | 已归档的子树 | 已封存的子樹 |

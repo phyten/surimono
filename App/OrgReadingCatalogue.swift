@@ -5,16 +5,15 @@ extension OrgReadingGroup {
     var title: LocalizedStringResource {
         switch self {
         case .structure: "Structure"
-        case .text: "Body Text Formatting"
-        case .tasks: "Tasks"
+        case .textAndMarkup: "Text and Markup"
+        case .tasksAndDates: "Tasks and Dates"
         case .information: "Document Information"
-        case .details: "Details"
+        case .printedContent: "What Is Printed"
         }
     }
-
 }
 
-extension OrgSettingID {
+extension ReadingSettingID {
     var label: LocalizedStringResource {
         switch self {
         case .sectionNumbers: "Heading Numbers"
@@ -36,7 +35,7 @@ extension OrgSettingID {
         case .date: "Date"
         case .drawers: "Drawers"
         case .properties: "Property Drawers"
-        case .timestamps: "Standalone Timestamps"
+        case .timestamps: "Timestamps"
         case .footnotes: "Footnotes"
         case .tables: "Tables"
         case .fixedWidth: "Fixed-Width Sections"

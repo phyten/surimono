@@ -172,11 +172,11 @@ struct DocumentSettingsFlowTests {
         #expect(model.orgDocumentReading.changedCount == 0)
     }
 
-    @Test("タスクと詳細の初期表示を原稿から決め、開閉は同じ窓だけで覚える", .timeLimit(.minutes(1)), arguments: [true, false])
+    @Test("タスクと日時・印刷に含める内容の初期表示を原稿から決め、開閉は同じ窓だけで覚える", .timeLimit(.minutes(1)), arguments: [true, false])
     func orgPanelGroups(hasTasks: Bool) async throws {
         let fixture = try environment()
         defer { fixture.cleanUp() }
-        let source = "#+OPTIONS: p:t f:nil tasks:nil\n" + (hasTasks ? "* TODO One" : "* One")
+        let source = "#+OPTIONS: p:t f:nil tasks:nil\n" + (hasTasks ? "* TODO [#B] One" : "* One")
         let page = pdf("One", pages: 1)
         func document() async throws -> DocumentViewModel {
             let model = DocumentViewModel(
@@ -191,29 +191,29 @@ struct DocumentSettingsFlowTests {
         // AppKit-backed controls may omit their SwiftUI accessibility identifier. Measure the
         // actual rows at the panel width; a closed group contributes only its disclosure label.
         func panelHeight(_ subject: DocumentViewModel) -> CGFloat {
-            let width = OrgReadingPanel.width - 24
+            let width = ReadingPanelMetrics.width - 24
             let rows = OrgReadingRows(model: subject, preferences: fixture.preferences)
                 .frame(width: width).fixedSize(horizontal: false, vertical: true)
             return NSHostingController(rootView: rows).sizeThatFits(in: CGSize(width: width, height: 2_400)).height
         }
-        #expect(model.orgGroupExpanded(.tasks) == hasTasks && !model.orgGroupExpanded(.details))
+        #expect(model.orgGroupExpanded(.tasksAndDates) == hasTasks && !model.orgGroupExpanded(.printedContent))
         let initial = panelHeight(model)
-        model.setOrgGroupExpanded(false, for: .tasks)
+        model.setOrgGroupExpanded(false, for: .tasksAndDates)
         let closed = panelHeight(model)
-        model.setOrgGroupExpanded(true, for: .tasks)
+        model.setOrgGroupExpanded(true, for: .tasksAndDates)
         let tasksOpen = panelHeight(model)
         #expect(closed > 0 && tasksOpen > closed)
         #expect(initial == (hasTasks ? tasksOpen : closed))
-        model.setOrgGroupExpanded(true, for: .details)
+        model.setOrgGroupExpanded(true, for: .printedContent)
         let bothOpen = panelHeight(model)
         #expect(bothOpen > tasksOpen)
-        model.setOrgGroupExpanded(!hasTasks, for: .tasks)
+        model.setOrgGroupExpanded(!hasTasks, for: .tasksAndDates)
         let reopened = panelHeight(model)
         #expect(hasTasks ? reopened < bothOpen : reopened == bothOpen)
-        #expect(model.orgGroupExpanded(.tasks) != hasTasks && model.orgGroupExpanded(.details))
+        #expect(model.orgGroupExpanded(.tasksAndDates) != hasTasks && model.orgGroupExpanded(.printedContent))
         let next = try await document()
         defer { next.stop() }
-        #expect(next.orgGroupExpanded(.tasks) == hasTasks && !next.orgGroupExpanded(.details))
+        #expect(next.orgGroupExpanded(.tasksAndDates) == hasTasks && !next.orgGroupExpanded(.printedContent))
         #expect(panelHeight(next) == initial)
     }
 
