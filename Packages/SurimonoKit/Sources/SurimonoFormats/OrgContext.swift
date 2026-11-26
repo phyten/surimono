@@ -107,10 +107,29 @@ final class OrgContext {
         {
             if mathDefinitions.preview != nil {
                 if discovering { mathDefinitions.preview?.appendHeader(value) }
-            } else if let definition = OrgMath.definition(value),
-                MathRenderer.html("x", display: false, macros: mathDefinitions.source + definition) != nil
-            {
-                mathDefinitions.source += definition
+            } else if discovering, let definition = OrgMath.definition(value) {
+                // As in the original header reader, ignore a declaration rejected by SwaTex
+                // (e.g. newcommand on a builtin). The admission probe itself goes through the proof.
+                if !mathDefinitions.preambleTooLarge,
+                    mathDefinitions.source.utf8.count + definition.utf8.count <= PreviewMathExpansion.maximumWork
+                {
+                    let next = mathDefinitions.source + definition
+                    if MathRenderer.html("x", display: false, macros: next) != nil {
+                        mathDefinitions.app.appendHeader(definition)
+                        mathDefinitions.source = next
+                        if !definition.hasPrefix("\\def") { mathDefinitions.rawHeaderMayProduceOutput = true }
+                    } else if !NativeMathBound.accepts("x", definitions: next) {
+                        mathDefinitions.app.appendHeader(definition, unsupported: true)
+                    }
+                } else {
+                    mathDefinitions.app.appendHeader(definition)
+                    mathDefinitions.preambleTooLarge = true
+                    if !definition.hasPrefix("\\def") { mathDefinitions.rawHeaderMayProduceOutput = true }
+                }
+            } else if discovering {
+                // Keep a refusal for grouped assignments and aliases even when the Org reader
+                // does not install them. Using an older meaning here could draw a different SVG.
+                mathDefinitions.app.appendHeader(value, unsupported: true)
             }
         }
         if OrgTaskKeywords.directives.contains(key) { taskKeywords.declare(value) }

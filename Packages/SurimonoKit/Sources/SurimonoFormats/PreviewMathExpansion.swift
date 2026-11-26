@@ -62,13 +62,16 @@ struct PreviewMathExpansion {
             throw Refusal.size
         }
         let macros = try PreviewMathMacro.read(definitions)
-        let tokens = try Self.tokens(formula)
+        let tokens = try Self.tokens(formula, limit: limit, forPreview: true)
         for (index, token) in tokens.enumerated().reversed() {
             guard Self.permitted(token) else { throw Refusal.unsupported }
             try push(Item(text: token, call: nil, sourceIndex: index))
         }
+        var reader = NativeArgumentPosition()
+        var emitted: [String] = []
         while let item = pop() {
             if let macro = macros[item.text] {
+                guard !reader.mayInspect else { throw Refusal.unsupported }
                 guard steps < Self.maximumSteps else { throw Refusal.steps }
                 guard !PreviewConversion.expired else { throw CancellationError() }
                 steps += 1
@@ -102,11 +105,81 @@ struct PreviewMathExpansion {
                     }
                 }
             } else {
+                reader.observe(item.text)
                 try emit(item.text)
+                // emit charged this nonempty token to the 8 KiB output budget.
+                emitted.append(item.text)
             }
         }
+        // parseLaTeX trims its input and strips outer dollar delimiters before lexing. Keep
+        // newly exposed edge tokens (including a trailing control space) inside two comments
+        // that contribute no tokens. The same re-lex below checks these sentinels as well.
+        if output.first?.isWhitespace == true || output.last?.isWhitespace == true
+            || (output.hasPrefix("$") && output.hasSuffix("$"))
+        {
+            if !definitions.isEmpty || !output.utf8.elementsEqual(formula.utf8) {
+                guard 3 <= Self.maximumBytes - outputBytes else { throw Refusal.size }
+                output = "%\n" + output + "%"
+                outputBytes += 3
+            }
+        }
+        // SwaTex will lex this string again. Compare spellings byte-for-byte: Swift String
+        // equality also accepts canonically equivalent Unicode. Separators are not tokens.
+        var lexer = Lexer(output)
+        for text in emitted {
+            let token = lexer.lex()
+            guard !token.isEOF, token.text.utf8.elementsEqual(text.utf8) else { throw Refusal.unsupported }
+        }
+        guard lexer.lex().isEOF else { throw Refusal.unsupported }
         if hasChemistry { try Self.checkChemistry(output) }
         return output
+    }
+
+    /// Recover a known argument boundary only after all the raw, braced arguments were emitted.
+    /// If a native handler has optional arguments, reads a numeric/string tail, or peeks ahead,
+    /// there is no safe generic boundary. This also covers a native command emitted by a user body.
+    private struct NativeArgumentPosition {
+        var remaining = 0
+        var groupDepth = 0
+        var uncertain = false
+        var mayInspect: Bool { remaining > 0 || uncertain }
+
+        mutating func observe(_ token: String) {
+            if uncertain { return }
+            if groupDepth > 0 {
+                if token == "{" { groupDepth += 1 }
+                if token == "}" {
+                    groupDepth -= 1
+                    if groupDepth == 0 { remaining -= 1 }
+                }
+                return
+            }
+            if remaining > 0 {
+                if token == " " { return }
+                if token == "{" {
+                    groupDepth = 1
+                } else if token.utf8.count == 1, let c = token.first, c.isASCII && (c.isLetter || c.isNumber) {
+                    remaining -= 1
+                } else {
+                    uncertain = true
+                }
+                return
+            }
+            switch token {
+            case #"\boxed"#, #"\text"#, #"\mathrm"#, #"\mathbf"#, #"\mathbb"#, #"\mathcal"#, #"\mathsf"#,
+                #"\mathit"#, #"\mathtt"#, #"\textrm"#, #"\textbf"#, #"\textit"#, "^", "_":
+                remaining = 1
+            case #"\frac"#, #"\dfrac"#, #"\tfrac"#: remaining = 2
+            // A branch can return an argument reader that consumes tokens after both groups.
+            case #"\TextOrMath"#: uncertain = true
+            default:
+                if token.hasPrefix("\\") {
+                    uncertain = !NativeMathBound.ordinarySymbol(token)
+                } else {
+                    uncertain = token == "~" || !token.utf8.allSatisfy { $0 < 128 }
+                }
+            }
+        }
     }
 
     /// Charge each individual stack write, including every copy of every substituted argument, before appending it.
@@ -154,21 +227,22 @@ struct PreviewMathExpansion {
         if text == "\\Braket" { hasBraket = true }
         if text == "|" { bars += 1 }
         if hasBraket && bars > 64 { throw Refusal.size }
-        if ["\\tmspace", "\\Braket", "\\Set", "\\set", "\\ce", "\\pu"].contains(text) {
+        if Self.specialBuiltins.contains(text) {
             specialUses += 1
             guard specialUses <= 4 else { throw Refusal.size }
         }
         let separates = afterControlWord && text.utf8.first.map(Self.wordByte) == true
-        let bytes = text.utf8.count + (separates ? 1 : 0)
+        let separator = separates ? " " : ""
+        let bytes = text.utf8.count + separator.utf8.count
         guard bytes <= Self.maximumBytes - outputBytes else { throw Refusal.size }
-        if separates { output += " " }
+        output += separator
         output += text
         outputBytes += bytes
         afterControlWord = Self.controlWord(text)
     }
 
     /// mhchem re-lexes generated TeX. Accept short literal chemical notation, with no TeX or nested input.
-    private static func checkChemistry(_ source: String) throws {
+    static func checkChemistry(_ source: String) throws {
         var lexer = Lexer(source)
         while true {
             let token = lexer.lex()
@@ -196,14 +270,21 @@ struct PreviewMathExpansion {
         text.utf8.first == 92 && text.utf8.count > 1 && text.utf8.dropFirst().allSatisfy(wordByte)
     }
 
-    static func tokens(_ source: String) throws -> [String] {
+    static func tokens(_ source: String, limit: Int = PreviewConversion.maximumFormulaBytes, forPreview: Bool = false)
+        throws -> [String]
+    {
         // Every lexer token consumes at least one byte of this already bounded source.
-        guard source.utf8.count <= PreviewConversion.maximumFormulaBytes else { throw Refusal.size }
+        guard source.utf8.count <= limit else { throw Refusal.size }
         var lexer = Lexer(source)
         var result: [String] = []
         while true {
             let token = lexer.lex()
             if token.isEOF { return result }
+            // parseURLGroup changes the lexer's catcodes before scanning its argument. Stop
+            // at the command, including in a selected definition, before lexing the URL as math.
+            if forPreview, token.text == #"\url"# || token.text == #"\href"# || token.text.hasPrefix(#"\verb"#) {
+                throw Refusal.unsupported
+            }
             result.append(token.text)
         }
     }
@@ -213,6 +294,10 @@ struct PreviewMathExpansion {
         // Internal braket helpers accept arbitrary replacement delimiters.
         return !token.contains("@") && !token.hasPrefix("\\verb") && !forbidden.contains(token)
     }
+
+    static let specialBuiltins: Set<String> = [#"\tmspace"#, #"\Braket"#, #"\Set"#, #"\set"#, #"\ce"#, #"\pu"#]
+    static let inspectedWords = forbidden.union(specialBuiltins).union([#"\else"#, #"\fi"#, #"\or"#, #"\unless"#])
+    static let longestInspectedWord = inspectedWords.map { $0.utf8.count }.max() ?? 0
 
     private static let forbidden: Set<String> = [
         "\\", "\\def", "\\gdef", "\\edef", "\\xdef", "\\let", "\\futurelet", "\\global", "\\long",

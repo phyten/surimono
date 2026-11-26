@@ -31,6 +31,7 @@ final class LaTeXReader {
     var index = 0
     // Distances from the end remain valid when a replacement is inserted before its caller returns.
     var macroFrameEnds: [Int] = []
+    var mathBudget: ReaderMathBudget?
     // Like macro frames, input boundaries follow the unchanged tail when more tokens are inserted.
     var fileFrames: [(tail: Int, chainDepth: Int)] = []
     let isBlock: Bool
@@ -412,6 +413,7 @@ final class LaTeXReader {
             document.referenceNames
         )
         document.mathDefinitions.preview?.insideGroup = true
+        document.mathDefinitions.app.insideGroup = true
         let outer = declarations.count
         let previousRowHeight = document.pageSettings.extraRowHeight
         let tableRegisters = document.pageSettings.tableSpacing
@@ -1783,11 +1785,17 @@ final class LaTeXReader {
         return (text, String(characters[start..<index]))
     }
 
-    func formula(_ latex: String, display: Bool, source: String, expanded: Bool = false, numbers: [String?] = [])
+    func formula(
+        _ latex: String, display: Bool, source: String, expanded: Bool = false, numbers: [String?] = [],
+        budget: ReaderMathBudget? = nil
+    )
         -> String
     {
         // amsthm's `\qedhere` only moves the end-of-proof box, which SwaTex does not know.
-        let (clean, labels) = Self.removingLabels(expanded ? latex : expandMathCommands(latex))
+        guard let resolved = expanded ? latex : expandMathCommands(latex, budget: budget) else {
+            return MathRenderer.fallback(source, display: display)
+        }
+        let (clean, labels) = Self.removingLabels(resolved)
         let anchor = mathAnchor(labels, tag: Self.explicitTag(clean))
         let units = LaTeXUnits.expandingInMath(clean.replacingOccurrences(of: "\\qedhere", with: ""))
         guard let math = mathWithLoopVariables(units) else { return anchor }
@@ -1923,22 +1931,31 @@ final class LaTeXReader {
         let base = starred ? String(name.dropLast()) : name
         // Resolve macro arguments before collecting labels or splitting rows. Their counters still belong
         // to the row that will receive a number below.
-        var latex = expandMathCommands(Self.withoutComments(body), includingCounters: false)
+        let source = "\\begin{\(name)}\(body)\\end{\(name)}"
+        func fallback() {
+            appendBlock(MathRenderer.fallback(source, display: true))
+        }
+        let budget = ReaderMathBudget()
+        guard var latex = expandMathCommands(Self.withoutComments(body), includingCounters: false, budget: budget)
+        else {
+            fallback()
+            return
+        }
         // alignat's column count is not part of the formula.
         if base == "alignat", latex.drop(while: \.isWhitespace).first == "{", let close = latex.firstIndex(of: "}") {
             latex = String(latex[latex.index(after: close)...])
         }
         let wrapper = Self.mathEnvironments[base] ?? nil
-        let source = "\\begin{\(name)}\(body)\\end{\(name)}"
         func render(_ formula: String, expanded: Bool = false, numbers: [String?] = []) -> String {
             self.formula(
                 wrapper.map { $0.0 + formula + $0.1 } ?? formula, display: true, source: source, expanded: expanded,
-                numbers: numbers)
+                numbers: numbers, budget: budget)
         }
         if Self.numberedRows.contains(base) {
             var anchors = ""
             var rows = Self.rows(of: latex)
             var numbers = [String?](repeating: nil, count: rows.count)
+            var totalBytes = max(0, rows.count - 1) * 2
             for position in rows.indices {
                 var (row, labels) = Self.removingLabels(rows[position])
                 // eqnarray's three columns read as align's two: `a & = & b` becomes `a &= b`.
@@ -1966,9 +1983,19 @@ final class LaTeXReader {
                     anchors += mathAnchor(labels, tag: nil)
                 }
                 // Freeze the row here: the next row advances the same equation counter before SwaTex draws either.
-                let (frozen, generatedLabels) = Self.removingLabels(expandMathCommands(row))
+                guard let resolved = expandMathCommands(row, budget: budget) else {
+                    fallback()
+                    return
+                }
+                let (frozen, generatedLabels) = Self.removingLabels(resolved)
                 if !generatedLabels.isEmpty {
                     anchors += mathAnchor(generatedLabels, tag: Self.explicitTag(frozen))
+                }
+                totalBytes += frozen.utf8.count
+                if budget.steps > 0, totalBytes > PreviewMathExpansion.maximumBytes {
+                    document.mathExpansionLimitReached = true
+                    fallback()
+                    return
                 }
                 rows[position] = frozen
             }
@@ -2012,7 +2039,11 @@ final class LaTeXReader {
                 guard document.reserveExpansion() else { break }
                 let last = index == rows.count - 1
                 let align = rows.count == 1 ? "center" : index == 0 ? "left" : last ? "right" : "center"
-                let expression = self.formula(row, display: true, source: row)
+                let expression = self.formula(row, display: true, source: row, budget: budget)
+                if budget.refused {
+                    fallback()
+                    return
+                }
                 let numberClass = rows.count == 1 ? "eqno" : "latex-multline-number"
                 let number = last && !printed.isEmpty ? "<span class=\"\(numberClass)\">\(printed)</span>" : ""
                 let style = "display: flex; align-items: baseline; justify-content: \(align); column-gap: 1em"

@@ -1,9 +1,127 @@
 import Foundation
+import SwaTex
 import Testing
 
 @testable import SurimonoFormats
 
 struct PreviewMathExpansionTests {
+    @Test("置換で消える空白・結合する文字を拒み、区切りだけを足した制御綴りは保つ")
+    func serializedTokens() throws {
+        for (definitions, formula) in [
+            (#"\def\joinword#1{\text{\TeX#1}}"#, #"\joinword{ code}"#),
+            (#"\def\joinword#1{\text{a #1}}"#, #"\joinword{ b}"#),
+            (#"\def\joinword#1{\ #1}"#, #"\joinword{ b}"#),
+            (#"\def\letterword{x}"#, "\\letterword\u{0301}"),
+        ] {
+            var expansion = PreviewMathExpansion()
+            #expect(throws: PreviewMathExpansion.Refusal.unsupported) {
+                try expansion.expand(formula, definitions: definitions)
+            }
+        }
+        var expansion = PreviewMathExpansion()
+        #expect(try expansion.expand(#"\joinword{x}"#, definitions: #"\def\joinword#1{\alpha#1}"#) == #"\alpha x"#)
+        let spaced = try expansion.expand(#"\spacedword"#, definitions: #"\def\spacedword{x\ }"#)
+        #expect(try PreviewMathExpansion.tokens(spaced) == ["x", #"\ "#])
+        #expect(!spaced.hasSuffix(" ") && expansion.outputBytes == spaced.utf8.count)
+        let dollars = try expansion.expand(#"\wrapped"#, definitions: #"\def\wrapped{$x$}"#)
+        #expect(try PreviewMathExpansion.tokens(dollars) == ["$", "x", "$"])
+        #expect(!dollars.hasPrefix("$") && !dollars.hasSuffix("$"))
+    }
+
+    @Test("置換末尾の制御空白は SwaTex に定義を直接渡した場合と同じ SVG になる")
+    func trailingControlSpaceSVG() throws {
+        let definition = #"\def\spacedword{x\ }"#
+        let formula = #"\spacedword"#
+        func svg(_ input: String) throws -> String {
+            let nodes = try parseLaTeX(input)
+            let box = layout(nodes, options: LayoutOptions(style: .text))
+            return renderToSVG(toDisplayList(box), SVGOptions())
+        }
+        var expansion = PreviewMathExpansion()
+        let expanded = try expansion.expand(formula, definitions: definition)
+        let reference = try svg(definition + formula)
+        #expect(try svg(expanded).utf8.elementsEqual(reference.utf8))
+    }
+
+    @Test("置換で両端に現れたドル記号は SwaTex が元の定義と同じく構文エラーにする")
+    func expandedDollarDelimiters() throws {
+        let definition = #"\def\wrapped{$x$}"#
+        let formula = #"\wrapped"#
+        var expansion = PreviewMathExpansion()
+        let expanded = try expansion.expand(formula, definitions: definition)
+        #expect(throws: ParseError.self) { try parseLaTeX(definition + formula) }
+        #expect(throws: ParseError.self) { try parseLaTeX(expanded) }
+    }
+
+    @Test("制御綴り直後と連続する空白は変更前の画像または式の原文で表示する")
+    func spacesInDocuments() throws {
+        for (definitions, formula) in [
+            (#"\def\joinword#1{\text{\TeX#1}}"#, #"\joinword{ code}"#),
+            (#"\def\joinword#1{\text{a #1}}"#, #"\joinword{ b}"#),
+        ] {
+            let parsed = try parseLaTeX(definitions + formula)
+            for display in [false, true] {
+                let delimiter = display ? "$$" : "$"
+                let tex = delimiter + formula + delimiter
+                // Markdown carries the declaration inside the math delimiters.
+                let md = delimiter + definitions + formula + delimiter
+                try PreviewConversion.$current.withValue(PreviewConversion(deadline: .now + .seconds(10))) {
+                    for (body, source, label) in [
+                        (MarkdownConverter.convert(md).body, md, definitions + formula),
+                        (
+                            LaTeXConverter.convert(definitions + #"\begin{document}"# + tex + #"\end{document}"#).body,
+                            tex, formula
+                        ),
+                    ] {
+                        let reference = try #require(
+                            MathRenderer.renderParsed(parsed, source: label, original: label, display: display))
+                        if body.contains("math-error") {
+                            #expect(
+                                body.contains(MathRenderer.fallback(source, display: display))
+                                    && !body.contains("<svg "))
+                        } else {
+                            #expect(body.utf8.firstRange(of: reference.utf8) != nil)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Test("字句規則を変える命令は利用者定義の中でも拒み、改行を含む URL は原文のまま残す")
+    func contextualLexing() {
+        let url = "https://example.test/a%20b\nc"
+        let definitions = #"\def\word{x}"#
+        let formula = #"\word+\url{"# + url + "}"
+        for (source, preamble) in [
+            (formula, definitions), (#"\href{"# + url + "}{x}", ""), (#"\url{a}"#, ""),
+            (#"\outerword{"# + url + "}", #"\def\innerword{\href}\def\outerword{\innerword}"#),
+            (#"\outerword"#, #"\def\outerword{\url{a}}"#), (#"\verb|%~|"#, ""), (#"\verb*|%~|"#, ""),
+        ] {
+            var expansion = PreviewMathExpansion()
+            #expect(throws: PreviewMathExpansion.Refusal.unsupported) {
+                try expansion.expand(source, definitions: preamble)
+            }
+            #expect(expansion.steps == 0 && expansion.scheduledBytes == 0 && expansion.outputBytes == 0)
+        }
+        PreviewConversion.$current.withValue(PreviewConversion(deadline: .now + .seconds(10))) {
+            for delimiter in ["$", "$$"] {
+                let math = delimiter + formula + delimiter
+                let tex = definitions + #"\begin{document}"# + math + #" then $a+b$.\end{document}"#
+                let html = LaTeXConverter.convert(tex).body
+                #expect(
+                    html.contains(MathRenderer.fallback(math, display: delimiter == "$$"))
+                        && html.contains(#"aria-label="a+b""#))
+            }
+            for source in [definitions + formula, #"\url{"# + url + "}"] {
+                let math = "$$" + source + "$$"
+                let html = MarkdownConverter.convert(math + "\n\nThen $a+b$.").body
+                #expect(
+                    html.contains(MathRenderer.fallback(math, display: true)) && html.contains(#"aria-label="a+b""#))
+            }
+        }
+    }
+
     @Test("引数を二度使うマクロの入れ子は実際に積んだトークンと出力量で打ち切る")
     func doubledArguments() {
         var expansion = PreviewMathExpansion()
@@ -117,7 +235,7 @@ struct PreviewMathExpansionTests {
             var expansion = PreviewMathExpansion()
             #expect(throws: PreviewMathExpansion.Refusal.size) {
                 try expansion.expand(
-                    String(repeating: #"\wrapped"#, count: 5), definitions: "\\def\\wrapped{\(command)}")
+                    #"\wrapped"#, definitions: "\\def\\wrapped{" + String(repeating: command, count: 5) + "}")
             }
         }
         var chemistry = PreviewMathExpansion()

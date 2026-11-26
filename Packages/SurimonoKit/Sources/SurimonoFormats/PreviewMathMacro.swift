@@ -13,7 +13,7 @@ struct PreviewMathMacro {
     private typealias Refusal = PreviewMathExpansion.Refusal
 
     static func read(_ source: String) throws -> [String: Self] {
-        var input = try PreviewMathExpansion.tokens(source)[...]
+        var input = try PreviewMathExpansion.tokens(source, forPreview: true)[...]
         var macros: [String: Self] = [:]
         while let kind = input.popFirst() {
             if kind == " " { continue }
@@ -95,7 +95,7 @@ struct PreviewMathMacro {
 
     /// SwaTex has no public name lookup. Its noexpand lookup returns relax for any expandable builtin;
     /// it receives just one validated control word, with no user arguments or replacement text.
-    private static func isBuiltin(_ name: String) -> Bool {
+    static func isBuiltin(_ name: String) -> Bool {
         if SymbolInfo(name: name, mode: .math) != nil || SymbolInfo(name: name, mode: .text) != nil { return true }
         if (try? Parser("\\noexpand" + name).fetch().text) != name { return true }
         // The non-expandable primitives and implicit control words in the pinned parser's function registry.

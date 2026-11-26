@@ -286,3 +286,11 @@ snapshots-reference:
 
 snapshots-baseline:
 	@Tools/Snapshots/baseline.sh "$(abspath $(DERIVED_DATA))"
+
+.PHONY: math-corpus
+math-corpus:
+	@set -eu; files=$$(mktemp); trap 'rm -f "$$files"' EXIT; \
+	git ls-files Samples AppTests Packages/SurimonoKit/Tests Snapshots/corpus Snapshots/fixtures Snapshots/specimen.md | \
+		LC_ALL=C grep -Ei '\.(tex|latex|ltx|md|markdown|mdown|mkdn|mkd|qmd|rmd|rmarkdown|rst|rest|org|ipynb|asciidoc|adoc|dj|djot|textile|wiki|mediawiki|wikitext|docx)$$' | \
+		grep -vE '/README\.md$$' | LC_ALL=C sort > "$$files"; \
+	SURIMONO_MATH_CORPUS="$$files" $(SWIFT_TEST) --filter AppMathCorpusTests
