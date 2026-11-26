@@ -31,7 +31,7 @@ open -n -W -a "$app" "$PWD/Samples/booklet-demo.md" --args \
   -SurimonoMenuTimingPath /tmp/surimono-menu.json -SurimonoSnapshotQuit YES
 ```
 
-実際に操作したときのデリゲートの処理時間は、Debug ビルドの `Menu update` 区間を Instruments の os_signpost で読むか、次のコマンドで開始と終了を確認する。
+実際に操作したときの更新時間は、Debug ビルドで Instruments の os_signpost を使うか、次のコマンドで開始と終了を確認する。`Menu update` は `menuNeedsUpdate` の呼び出しを、`Menu refresh after close` はメニューを閉じた後にメインキューで実行する `refresh()` の処理時間を測る。
 
 ```sh
 /usr/bin/log stream --signpost --predicate 'subsystem == "io.github.phyten.Surimono" AND category == "Menu"'

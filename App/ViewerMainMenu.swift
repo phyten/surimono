@@ -207,6 +207,11 @@ final class ViewerMainMenu: NSObject, NSMenuDelegate, NSMenuItemValidation {
         awaitingClose = true
         DispatchQueue.main.async {
             self.awaitingClose = false
+            #if DEBUG
+                let id = OSSignpostID(log: Self.log)
+                os_signpost(.begin, log: Self.log, name: "Menu refresh after close", signpostID: id)
+                defer { os_signpost(.end, log: Self.log, name: "Menu refresh after close", signpostID: id) }
+            #endif
             self.refresh()
         }
     }

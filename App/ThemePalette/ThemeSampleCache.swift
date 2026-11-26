@@ -64,7 +64,8 @@ final class ThemeSampleCache {
         return removed
     }
 
-    // Maintenance only touches regenerable files. PDFKit pages stay on the main actor.
+    // Pruning can delete a file during a read or after an atomic save. Loaded pages own their PDF data.
+    // ThemeSamples redraws a missing entry and keeps the drawn page in memory even if saving fails.
     private static let maintenance = DispatchQueue(label: "app.surimono.theme-sample-cache", qos: .utility)
 
     func schedulePruning() {
