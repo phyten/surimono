@@ -9,10 +9,15 @@ struct BandHintTiming {
 
     private var warmUntil: ContinuousClock.Instant?
 
+    private mutating func setTarget(_ id: String?, at now: ContinuousClock.Instant) {
+        if target != nil, visible != nil { warmUntil = now + .milliseconds(1500) }
+        target = id
+    }
+
     mutating func enter(_ id: String?, at now: ContinuousClock.Instant) {
         advance(to: now)
         guard target != id else { return }
-        target = id
+        setTarget(id, at: now)
         if let id {
             if visible == id {
                 deadline = nil
@@ -29,18 +34,18 @@ struct BandHintTiming {
     mutating func advance(to now: ContinuousClock.Instant) {
         guard let deadline, now >= deadline else { return }
         visible = target
-        if visible != nil { warmUntil = now + .milliseconds(1500) }
         self.deadline = nil
     }
 
-    mutating func dismiss(continuingFocus: Bool = false) {
+    mutating func dismiss(continuingFocus: Bool = false, at now: ContinuousClock.Instant = .now) {
+        setTarget(nil, at: now)
         if !continuingFocus { warmUntil = nil }
         visible = nil
         deadline = nil
     }
 }
 
-private struct BandHintTarget: Equatable {
+struct BandHintTarget: Equatable {
     let rect: CGRect
     let content: BandHintContent
     let above: Bool
@@ -173,29 +178,16 @@ final class BandHintSession {
         hover != nil || overHint || (!mouseFocus && focus.flatMap { targets[$0] } != nil)
     }
 
-    func move(to position: CGPoint?) {
-        if point != position {
-            usingFocus = false
-            if let position, let dismissedTarget, let source = targets[dismissedTarget],
-                source.rect.contains(position)
-                    || (footprint?.id == dismissedTarget && footprint?.contains(position, from: source.rect) == true)
-            {
-                awaitsInput = true
-            } else {
-                // A menu can still be tracking when the pointer leaves its button.
-                if dismissedTarget != nil && timing.visible == nil && timing.deadline == nil {
-                    timing.enter(nil, at: .now)
-                }
-                dismissedTarget = nil
-                awaitsInput = false
-            }
-        }
+    func move(to position: CGPoint?, pressedMouseButtons: Int = NSEvent.pressedMouseButtons) {
+        // A native picker can consume mouse-up inside its tracking loop.
+        if pressedSegment != nil && pressedMouseButtons & 1 == 0 { pressedSegment = nil }
+        let moved = point != position
         point = position
         updateHoveredSegment()
-        refresh()
+        refresh(pointerMoved: moved)
     }
 
-    fileprivate func updateSegments(_ rects: [BandSegment: CGRect]) {
+    func updateSegments(_ rects: [BandSegment: CGRect]) {
         segmentRects = rects
         updateHoveredSegment()
     }
@@ -205,7 +197,7 @@ final class BandHintSession {
         if segment != hoveredSegment { hoveredSegment = segment }
     }
 
-    fileprivate func update(_ newTargets: [String: BandHintTarget]) {
+    func update(_ newTargets: [String: BandHintTarget]) {
         if targets != newTargets { targets = newTargets }
         refresh()
     }
@@ -221,10 +213,14 @@ final class BandHintSession {
     }
 
     func setFocus(_ id: String?) {
+        let changed = focus != id
         focus = id
         guard !mouseFocus else { return }
         if NSEvent.pressedMouseButtons == 0 { dragging = false }
-        if id != nil { awaitsInput = false }
+        if changed {
+            dismissedTarget = nil
+            if id != nil { awaitsInput = false }
+        }
         usingFocus = id != nil
         refresh()
     }
@@ -244,17 +240,24 @@ final class BandHintSession {
         if menuDepth == 0 { refresh() }
     }
 
-    private func refresh() {
+    private func onFootprint(of id: String) -> Bool {
+        guard let point, let footprint, footprint.id == id, let target = targets[id] else { return false }
+        return footprint.contains(point, from: target.rect)
+    }
+
+    private func refresh(pointerMoved: Bool = false) {
         let hit = point.flatMap { p in targets.first { $0.value.rect.contains(p) }?.key }
         if hover != hit { hover = hit }
-        let resting: String?
-        if let point, let visible, let footprint, footprint.id == visible,
-            let target = targets[visible], footprint.contains(point, from: target.rect)
-        {
-            resting = visible
-        } else {
-            resting = nil
+        if pointerMoved {
+            usingFocus = false
+            if let dismissedTarget, hit == dismissedTarget || (hit == nil && onFootprint(of: dismissedTarget)) {
+                awaitsInput = true
+            } else {
+                dismissedTarget = nil
+                awaitsInput = false
+            }
         }
+        let resting = visible.flatMap { onFootprint(of: $0) ? $0 : nil }
         if overHint != (resting != nil) { overHint = resting != nil }
         // In the editor a card can overlap another chip. Keep its own description until the pointer leaves its face.
         let onFace = point.map { footprint?.rect.contains($0) == true } == true && resting != nil
@@ -300,7 +303,7 @@ final class BandHintSession {
     func dismiss(continuingFocus: Bool = false) {
         awaitsInput = true
         task?.cancel()
-        dismissedTarget = hover ?? (overHint ? visible : dismissedTarget)
+        dismissedTarget = timing.target ?? visible ?? dismissedTarget ?? hover
         timing.dismiss(continuingFocus: continuingFocus)
         visible = nil
         overHint = false

@@ -123,7 +123,7 @@ struct BandStatePlateTests {
         }
     }
 
-    @Test("初回は450ms、離脱は150ms、前の表示から1500ms以内だけ隣を60msで開く")
+    @Test("初回は450ms、離脱は150ms、前の部品を離れてから1500ms以内だけ隣を60msで開く")
     func deadlines() {
         let start = ContinuousClock.now
         func time(_ ms: Int) -> ContinuousClock.Instant { start + .milliseconds(ms) }
@@ -139,17 +139,15 @@ struct BandStatePlateTests {
         state.advance(to: time(700))
         #expect(state.visible == nil)
         var expired = state
-        expired.enter("cover", at: time(1951))
-        #expect(expired.deadline == time(2401))
-        state.enter("cover", at: time(1950))
-        #expect(state.deadline == time(2010))
-        state.advance(to: time(2010))
+        expired.enter("cover", at: time(2051))
+        #expect(expired.deadline == time(2501))
+        state.enter("cover", at: time(2050))
+        #expect(state.deadline == time(2110))
+        state.advance(to: time(2110))
         state.advance(to: time(9999))
         #expect(state.visible == "cover")
-        state.dismiss()
-        state.enter("cover", at: time(10000))
-        #expect(state.visible == nil && state.deadline == nil)
-        state.enter(nil, at: time(10001))
+        state.dismiss(at: time(10000))
+        #expect(state.target == nil && state.visible == nil && state.deadline == nil)
         state.enter("cover", at: time(10002))
         #expect(state.deadline == time(10452))
     }
@@ -160,7 +158,7 @@ struct BandStatePlateTests {
         var state = BandHintTiming()
         state.enter("outline", at: start)
         state.advance(to: start + .milliseconds(450))
-        state.dismiss(continuingFocus: true)
+        state.dismiss(continuingFocus: true, at: start + .milliseconds(460))
         #expect(state.visible == nil)
         state.enter("layout", at: start + .milliseconds(470))
         #expect(state.deadline == start + .milliseconds(530))
