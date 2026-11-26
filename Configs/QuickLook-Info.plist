@@ -21,6 +21,7 @@
 				<string>org.jupyter.ipynb</string>
 				<string>org.quarto.qmarkdown</string>
 				<string>org.rstudio.rmarkdown</string>
+				<string>org.mediawiki.wikitext</string>
 			</array>
 		</dict>
 	</dict>

@@ -59,6 +59,7 @@ struct FinderPreviewTests {
                 ("md", "# paper"), ("org", "* paper"), ("rst", "paper\n====="),
                 ("tex", #"\documentclass{article}\begin{document}paper\end{document}"#),
                 ("qmd", "# paper"), ("Rmd", "# paper"),
+                ("mediawiki", "== paper =="), ("wiki", "== paper =="), ("wikitext", "== paper =="),
                 (
                     "ipynb",
                     ##"{"nbformat":4,"nbformat_minor":5,"cells":[{"cell_type":"markdown","metadata":{},"source":["# paper"]}]}"##
@@ -71,6 +72,57 @@ struct FinderPreviewTests {
                 #expect(html.contains("body class=\"surimono format-"), "\(suffix)")
                 #expect(html.components(separatedBy: "<body").last?.contains("paper") == true, "\(suffix)")
             }
+        }
+    }
+
+    @Test("MediaWiki の見出し・リスト・表・節へのリンクと明示した目次を標準スタイルで表示する")
+    func mediaWikiDocument() throws {
+        try withDirectory { directory in
+            let file = directory.appendingPathComponent("notes.mediawiki")
+            try """
+            = Field Notes =
+            __TOC__
+            == Paper ==
+            * Washi
+            {| class="wikitable"
+            ! Material
+            |-
+            | Kozo
+            |}
+            [[#Paper|Back to paper]]
+            """.write(to: file, atomically: true, encoding: .utf8)
+            let html = FinderPreview.make(for: file).html
+            for expected in [
+                #"body class="surimono format-mediawiki""#, "font-size: 10.5pt",
+                #"<h1 id="field-notes">Field Notes</h1>"#, #"<h2 id="paper">Paper</h2>"#,
+                ##"<nav class="toc"><ul><li><a href="#paper">Paper</a>"##,
+                "<ul><li>Washi</li></ul>", #"<table class="wikitable">"#,
+                "<th><p>Material</p>", "<td><p>Kozo</p>", ##"<a href="#paper">Back to paper</a>"##,
+            ] {
+                #expect(html.contains(expected), "\(expected)")
+            }
+        }
+    }
+
+    @Test("MediaWiki は指定した相対画像だけを添付し、隣の文書や一覧検索が必要な画像を読まない")
+    func mediaWikiFiles() throws {
+        try withDirectory { directory in
+            let file = directory.appendingPathComponent("note.wiki")
+            let graphic = #"<svg viewBox="0 0 4 8"><rect width="4" height="8"/></svg>"#
+            for name in ["Paper sample.svg", "Another_paper sample.svg"] {
+                try Data(graphic.utf8).write(to: directory.appendingPathComponent(name))
+            }
+            try Data("Private page content".utf8).write(to: directory.appendingPathComponent("Private.wiki"))
+            try """
+            [[File:Paper_sample.svg|alt=Sample]]
+            [[File:Another paper sample.svg]]
+            {{:Private.wiki}}
+            """.write(to: file, atomically: true, encoding: .utf8)
+            let preview = FinderPreview.make(for: file)
+            #expect(preview.attachments.count == 1 && preview.attachments["image-1"]?.type == .svg)
+            #expect(preview.html.contains(#"<img src="cid:image-1" alt="Sample""#))
+            #expect(preview.html.contains("Image unavailable: Another paper sample.svg"))
+            #expect(!preview.html.contains("Private page content"))
         }
     }
 
@@ -209,7 +261,7 @@ struct FinderPreviewTests {
     @Test("登録を外した形式は変換器に渡さない")
     func removedFormats() throws {
         try withDirectory { directory in
-            for suffix in ["wiki", "adoc", "dj", "textile"] {
+            for suffix in ["adoc", "dj", "textile"] {
                 let url = directory.appendingPathComponent("paper." + suffix)
                 try Data("paper".utf8).write(to: url)
                 let preview = FinderPreview.make(for: url, deadline: .now + .seconds(5)) { _, _, _ in
@@ -250,8 +302,13 @@ struct FinderPreviewTests {
     func complexityLimits() throws {
         try withDirectory { directory in
             let url = directory.appendingPathComponent("paper.md")
-            try Data(repeating: 10, count: 100_000).write(to: url)
-            #expect(FinderPreview.make(for: url).html.contains("This document exceeds the preview size limits."))
+            for suffix in ["md", "wiki"] {
+                let file = directory.appendingPathComponent("paper." + suffix)
+                try Data(repeating: 10, count: 100_000).write(to: file)
+                let preview = FinderPreview.make(for: file)
+                #expect(preview.html.contains("This document exceeds the preview size limits."))
+                #expect(preview.html.utf8.count < 1024 && preview.attachments.isEmpty)
+            }
             try Data("paper".utf8).write(to: url)
             let preview = FinderPreview.make(for: url, deadline: .now + .seconds(10)) { _, _, _ in
                 HTMLFragment(body: String(repeating: "x", count: DocumentSizeLimits.htmlBytes + 1))

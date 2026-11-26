@@ -277,8 +277,8 @@ public struct PrintLayout: Codable, Hashable, Sendable, Identifiable {
         let terms: [String: [String]] = [
             "en": ["Single-sided", "Duplex", "3-up + Notes", "2-up", "Booklet", "4 Pages on One Sheet"],
             "ja": ["片面", "両面", "3枚＋メモ", "2 ページを 1 枚に", "中綴じ", "4 ページを 1 枚に"],
-            "zh-Hans": ["单面", "双面", "每页3张＋笔记", "每页2张", "小册子", "每页4张"],
-            "zh-Hant": ["單面", "雙面", "每頁3張＋筆記", "每頁2張", "小冊子", "每頁4張"],
+            "zh-Hans": ["单面", "双面", "每张 3 页＋笔记栏", "每张 2 页", "小册子", "每张 4 页"],
+            "zh-Hant": ["單面", "雙面", "每張 3 頁＋筆記欄", "每張 2 頁", "小冊子", "每張 4 頁"],
             "ko": ["단면", "양면", "3쪽 + 메모", "2쪽 모아찍기", "소책자", "4쪽 모아찍기"],
             "fr": ["Recto", "Recto verso", "3 pages + notes", "2 pages par feuille", "Livret", "4 pages par feuille"],
             "de": [
