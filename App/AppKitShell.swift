@@ -24,21 +24,18 @@ final class AppKitShell: NSObject, NSMenuItemValidation {
 
     func installMenu() { menu.install() }
 
-    private var canToggleSettings: Bool {
+    private var canOpenSettings: Bool {
         ShortcutDispatcher.shared.canPerform(.operation(.appSettings))
     }
 
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
-        item.action == #selector(toggleSettings(_:)) && canToggleSettings
+        item.action == #selector(openSettings(_:)) && canOpenSettings
     }
 
-    @objc func toggleSettings(_ sender: Any?) {
-        guard canToggleSettings else { return }
-        if let window = settings?.window, window.isKeyWindow {
-            window.performClose(sender)
-        } else {
-            showSettings(sender)
-        }
+    @objc func openSettings(_ sender: Any?) {
+        guard canOpenSettings else { return }
+        showSettings(sender)
+        if !NSApp.isActive { NSApp.activate() }
     }
 
     var hasOpenSettings: Bool {
@@ -47,21 +44,12 @@ final class AppKitShell: NSObject, NSMenuItemValidation {
     }
 
     func showSettings(_ sender: Any?) {
-        let controller = settingsController()
-        controller.showWindow(sender)
-        controller.window?.makeKeyAndOrderFront(sender)
+        settingsController().showWindow(sender)
     }
 
     func settingsController() -> SettingsWindowController {
         if let settings { return settings }
         let window = SettingsWindowController.makeWindow(for: environment.settingsView)
-        // Prefer the AppKit frame. Older installations saved the Settings scene under SwiftUI's name.
-        if !window.setFrameUsingName("SurimonoSettings"),
-            !window.setFrameUsingName("com_apple_SwiftUI_Settings_window")
-        {
-            window.center()
-        }
-        window.setFrameAutosaveName("SurimonoSettings")
         let controller = SettingsWindowController(window: window, editor: environment.arrangementEditor)
         settings = controller
         return controller

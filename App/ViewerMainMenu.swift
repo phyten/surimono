@@ -85,7 +85,7 @@ final class ViewerMainMenu: NSObject, NSMenuDelegate, NSMenuItemValidation {
         app.addItem(afterInfo)
         sections.append((.appInfo, Group(app, before: afterInfo)))
         let settings = native(
-            app, Self.standardTitle("Settings…"), #selector(AppKitShell.toggleSettings(_:)), ",", target: shell)
+            app, Self.standardTitle("Settings…"), #selector(AppKitShell.openSettings(_:)), ",", target: shell)
         ShortcutDispatcher.shared.menus.register(settings, for: .appSettings)
         app.addItem(.separator())
         let services = submenu(Self.standardTitle("Services"), in: app)

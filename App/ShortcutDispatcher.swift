@@ -355,7 +355,7 @@ final class ShortcutDispatcher {
         case .printSettings: model?.presentPrintSettings()
         case .clipboardOpenPrintScreen: openClipboardPrintScreen()
         case .appOpen: OpenRouter.shared.showOpenPanel()
-        case .appSettings: AppKitShell.current?.toggleSettings(nil)
+        case .appSettings: AppKitShell.current?.openSettings(nil)
         case .appOpenURL: OpenURLPanel.present()
         case .clipboardReopen: ClipboardWindows.shared.reopenClosed()
         case .clipboardOpen: ClipboardWindows.shared.open()

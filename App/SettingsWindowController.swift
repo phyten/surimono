@@ -17,11 +17,17 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSWi
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         window.isReleasedWhenClosed = false
         window.contentMinSize = SettingsView.minimumSize
-        // The Settings scene supplied an ideal width but no ideal height. Let the content choose its height.
-        window.setContentSize(
-            NSSize(
-                width: SettingsView.idealWidth,
-                height: max(SettingsView.minimumSize.height, host.view.fittingSize.height)))
+        window.collectionBehavior.insert(.moveToActiveSpace)
+        if view.preferences.settingsContentSize == nil, let legacy = view.preferences.legacySettingsFrame {
+            // Old autosaves include the origin even for an untouched window. Let AppKit decode the descriptor.
+            let oldDefault = NSSize(
+                width: 860, height: max(SettingsView.minimumSize.height, host.view.fittingSize.height))
+            window.setContentSize(oldDefault)
+            window.setFrame(from: legacy)
+            let size = window.contentRect(forFrameRect: window.frame).size
+            if size != oldDefault { view.preferences.settingsContentSize = size }
+        }
+        window.setContentSize(view.preferences.settingsContentSize ?? SettingsWindowPlacement.defaultContentSize)
         return window
     }
 
@@ -47,6 +53,33 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSWi
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { nil }
+
+    override func showWindow(_ sender: Any?) {
+        guard let window else { return }
+        let key = NSApp.keyWindow
+        let screen = SettingsWindowPlacement.screen(
+            key: key?.isOnActiveSpace == true ? key?.screen : nil,
+            screens: NSScreen.screens, pointer: NSEvent.mouseLocation, frame: { $0.frame })
+        if let screen,
+            SettingsWindowPlacement.needsPlacement(
+                isVisible: window.isVisible, isMiniaturized: window.isMiniaturized,
+                onActiveSpace: window.isOnActiveSpace, onTargetScreen: window.screen == screen)
+        {
+            let frame = SettingsWindowPlacement.frame(
+                in: screen.visibleFrame, savedContentSize: editor.preferences.settingsContentSize,
+                chrome: window.frameRect(forContentRect: .zero).size)
+            if window.frame != frame { window.setFrame(frame, display: false) }
+        }
+        // Apply the same full-screen role as other auxiliaries before AppKit chooses a Space on ordering.
+        AuxiliaryWindowLevel.shared.refresh(windows: [window], presenting: window)
+        if window.isMiniaturized { window.deminiaturize(sender) }
+        window.makeKeyAndOrderFront(sender)
+    }
+
+    func windowDidEndLiveResize(_ notification: Notification) {
+        guard let window else { return }
+        editor.preferences.settingsContentSize = window.contentRect(forFrameRect: window.frame).size
+    }
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         guard editor.isDirty else { return true }

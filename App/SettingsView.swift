@@ -3,8 +3,7 @@ import SurimonoRendering
 import SwiftUI
 
 struct SettingsView: View {
-    static let minimumSize = NSSize(width: 820, height: 540)
-    static let idealWidth: CGFloat = 860
+    static let minimumSize = SettingsWindowPlacement.minimumContentSize
 
     @Bindable var preferences: AppPreferences
     @Bindable var library: UserLibrary
@@ -181,7 +180,10 @@ struct SettingsView: View {
             initialTextWell.deactivate()
             query = ""
         }
-        .frame(minWidth: Self.minimumSize.width, idealWidth: Self.idealWidth, minHeight: Self.minimumSize.height)
+        .frame(
+            minWidth: Self.minimumSize.width, idealWidth: SettingsWindowPlacement.defaultContentSize.width,
+            minHeight: Self.minimumSize.height
+        )
         .background {
             WindowReader { window in
                 let editor = arrangementEditor

@@ -10,7 +10,7 @@ struct SettingsMenuTests {
         Bundle.main.localizedString(forKey: key, value: key, table: nil)
     }
 
-    @Test("設定窓は最初に理想幅で開き、ペインを変えると窓の題名がその翻訳に変わる")
+    @Test("設定窓は既定の大きさで開き、ペインを変えると窓の題名がその翻訳に変わる")
     func paneWindow() async throws {
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
@@ -33,10 +33,44 @@ struct SettingsMenuTests {
                 try await Task.sleep(for: .milliseconds(10))
             }
             #expect(window.title == expected)
-            #expect(window.frame.width == 860)
-            #expect(window.contentRect(forFrameRect: window.frame).height >= 540)
+            #expect(window.contentRect(forFrameRect: window.frame).size == NSSize(width: 1040, height: 760))
             #expect(window.contentMinSize == NSSize(width: 820, height: 540))
         }
+    }
+
+    @Test("開いている設定窓は動かさず、閉じた後は手で変えた寸法で同じ窓を中央に開く")
+    func reopenSettings() throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let preferences = AppPreferences(defaults: suite.defaults)
+        let editor = BandArrangementEditorSession(preferences: preferences)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let window = SettingsWindowController.makeWindow(
+            for: SettingsView(
+                preferences: preferences, library: UserLibrary(root: directory), arrangementEditor: editor))
+        let controller = SettingsWindowController(window: window, editor: editor)
+        defer { controller.close() }
+        #expect(window.collectionBehavior.contains(.moveToActiveSpace))
+        controller.showWindow(nil)
+        let screen = try #require(window.screen)
+        #expect(abs(window.frame.midX - screen.visibleFrame.midX) <= 1)
+        #expect(abs(window.frame.midY - screen.visibleFrame.midY) <= 1)
+        let size = CGSize(width: 820, height: 540)
+        window.setContentSize(size)
+        controller.windowDidEndLiveResize(Notification(name: NSWindow.didEndLiveResizeNotification, object: window))
+        #expect(AppPreferences(defaults: suite.defaults).settingsContentSize == size)
+        window.setFrameOrigin(CGPoint(x: screen.visibleFrame.minX, y: screen.visibleFrame.minY))
+        let moved = window.frame
+        controller.showWindow(nil)
+        #expect(window.frame == moved)
+        controller.close()
+        #expect(!window.isVisible)
+        controller.showWindow(nil)
+        #expect(controller.window === window && window.isVisible)
+        #expect(window.contentRect(forFrameRect: window.frame).size == size)
+        #expect(abs(window.frame.midX - screen.visibleFrame.midX) <= 1)
+        #expect(abs(window.frame.midY - screen.visibleFrame.midY) <= 1)
     }
 
     @Test("新しい表示・ウィンドウ・印刷の既定値は保存され再読み込みできる")

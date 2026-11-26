@@ -491,7 +491,7 @@ struct SystemMenuShortcutsTests {
         let app = try #require(main.item(at: 0)?.submenu)
         let file = try #require(main.item(at: 1)?.submenu)
         let documentMenu = try #require(main.item(at: 4)?.submenu)
-        let toggle = try #require(app.items.first { $0.action == #selector(AppKitShell.toggleSettings(_:)) })
+        let openSettings = try #require(app.items.first { $0.action == #selector(AppKitShell.openSettings(_:)) })
         let open = try #require(
             file.items.first { $0.identifier?.rawValue == SystemMenuShortcuts.accessibilityID(.appOpen) })
         let reload = try #require(
@@ -512,7 +512,7 @@ struct SystemMenuShortcutsTests {
             app.update()
             file.update()
             documentMenu.update()
-            #expect(toggle.isEnabled == canOpen)
+            #expect(openSettings.isEnabled == canOpen)
             #expect(open.isEnabled == canOpen)
             #expect(reload.isEnabled == canReload)
         }

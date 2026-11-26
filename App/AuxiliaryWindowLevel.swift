@@ -36,7 +36,7 @@ final class AuxiliaryWindowLevel: NSObject {
         !isDocument && !isPanel && isVisible && isTitled && !hasParent && level == .normal
     }
 
-    func refresh(windows: [NSWindow], excluding closed: NSWindow? = nil) {
+    func refresh(windows: [NSWindow], excluding closed: NSWindow? = nil, presenting: NSWindow? = nil) {
         let hasFloatingDocument = documents.allObjects.contains {
             $0 !== closed && $0.isVisible && $0.level == .floating
         }
@@ -56,7 +56,8 @@ final class AuxiliaryWindowLevel: NSObject {
             let eligible =
                 raised.contains(window)
                 || Self.shouldRaise(
-                    isDocument: documents.contains(window), isPanel: window is NSPanel, isVisible: window.isVisible,
+                    isDocument: documents.contains(window), isPanel: window is NSPanel,
+                    isVisible: window.isVisible || window === presenting,
                     isTitled: window.styleMask.contains(.titled),
                     hasParent: window.parent != nil || window.sheetParent != nil,
                     level: window.level)

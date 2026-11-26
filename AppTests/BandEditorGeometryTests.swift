@@ -15,6 +15,17 @@ struct BandEditorGeometryTests {
         try await fixture.checkZones(windowWidth: width)
     }
 
+    @Test("設定窓の既定幅では追加できる部品が縮図の右に並ぶ")
+    func paletteBesideEditor() async throws {
+        let fixture = try Fixture(
+            width: SettingsWindowPlacement.defaultContentSize.width, layouts: BandArrangementVariants())
+        defer { fixture.close() }
+        try await fixture.waitForFrames(["topBand", "palette"])
+        let band = try #require(fixture.session.layoutFrames["topBand"])
+        let palette = try #require(fixture.session.layoutFrames["palette"])
+        #expect(palette.minX > band.maxX)
+    }
+
     @Test("同じ配置ペインで幅1100と820を往復すると両方の帯がその場で折り返す", arguments: [820.0, 1100.0])
     func resizeCrowdedZones(initialWidth: Double) async throws {
         // A saved name wider than the narrow column makes the header ask for extra room even on macOS 26.

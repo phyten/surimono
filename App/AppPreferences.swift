@@ -263,6 +263,21 @@ final class AppPreferences {
     var defaultPaperOrientation: PaperOrientation {
         didSet { defaults.set(defaultPaperOrientation.rawValue, forKey: "defaultPaperOrientation") }
     }
+    var settingsContentSize: CGSize? {
+        get {
+            guard let size = defaults.array(forKey: "settingsContentSize") as? [Double], size.count == 2,
+                size.allSatisfy({ $0.isFinite && $0 > 0 })
+            else { return nil }
+            return CGSize(width: size[0], height: size[1])
+        }
+        set { defaults.set(newValue.map { [Double($0.width), Double($0.height)] }, forKey: "settingsContentSize") }
+    }
+
+    var legacySettingsFrame: String? {
+        defaults.string(forKey: "NSWindow Frame SurimonoSettings")
+            ?? defaults.string(forKey: "NSWindow Frame com_apple_SwiftUI_Settings_window")
+    }
+
     /// Kept for this app run, including when the Settings window is closed and reopened.
     var settingsSection: SettingsSection = .general
     // An explicit request can point to the current section while a search hides its contents.
