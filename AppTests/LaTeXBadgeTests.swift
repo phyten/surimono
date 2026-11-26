@@ -35,7 +35,7 @@ struct LaTeXBadgeTests {
         let recognition = try #require(facts.latexRecognition)
         let badge = LaTeXBadgeText(recognition, language: "ja", facts: facts)
         #expect(badge.label == "beamer")
-        #expect(badge.explanation == "原稿のテーマ『Madrid』には対応していないため、beamer の標準の体裁で表示しています。")
+        #expect(badge.explanation == "原稿のテーマ「Madrid」には対応していないため、beamer の標準の体裁で表示しています。")
         #expect(badge.slideNotes.isEmpty)
         facts.continuedBeamerFrames = 2
         facts.unreadableBeamerFrames = 1

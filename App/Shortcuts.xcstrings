@@ -172,7 +172,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Surimono の印刷モードで開く"
+            "value": "Surimono の印刷画面で開く"
           }
         },
         "zh-Hans": {
@@ -225,7 +225,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ファイルを Surimono の印刷モードで開き、刷る用紙を並べます。「印刷」を押すまで、プリンターには何も送りません。"
+            "value": "ファイルを Surimono の印刷画面で開き、刷る用紙を並べます。「印刷」を押すまで、プリンターには何も送りません。"
           }
         },
         "zh-Hans": {
@@ -255,7 +255,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Öffnet Dateien im Druckmodus von Surimono, mit fertig angeordneten Bögen. Es wird nichts an den Drucker gesendet, bis du „Drucken“ drückst."
+            "value": "Öffnet Dateien im Druckmodus von Surimono, mit fertig angeordneten Blättern. Es wird nichts an den Drucker gesendet, bis du auf „Drucken“ klickst."
           }
         },
         "es": {
@@ -596,7 +596,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "${files}を印刷モードで開く"
+            "value": "${files}を印刷画面で開く"
           }
         },
         "zh-Hans": {
@@ -702,7 +702,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "印刷モードで開く"
+            "value": "印刷画面で開く"
           }
         },
         "zh-Hans": {

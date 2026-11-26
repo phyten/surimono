@@ -2929,7 +2929,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "番号なしに指定された見出しが %lld つあります"
+            "value": "番号なしに指定された見出しが %lld 件あります"
           }
         },
         "de": {
@@ -2982,7 +2982,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "目次から外した見出しが %lld つあります"
+            "value": "目次から外した見出しが %lld 件あります"
           }
         },
         "de": {
@@ -3471,7 +3471,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ファイルの指定を上書きした %lld 項目の変更を破棄します。ほかの変更は残ります。"
+            "value": "ファイルの指定を上書きした %lld 項目の変更を破棄しますか？ほかの変更は残ります。"
           }
         },
         "de": {
@@ -4673,7 +4673,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "確認しています"
+            "value": "確認しています…"
           }
         },
         "de": {
@@ -5010,7 +5010,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "原稿のテーマ『%@』には対応していないため、beamer の標準の体裁で表示しています。"
+            "value": "原稿のテーマ「%@」には対応していないため、beamer の標準の体裁で表示しています。"
           }
         },
         "de": {
@@ -5175,7 +5175,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bei einer Folie werden alle Schritte zusammen angezeigt, weil ihre Überblendbefehle nicht gelesen werden konnten."
+            "value": "Bei einer Folie werden alle Schritte zusammen angezeigt, weil ihre Overlay-Befehle nicht gelesen werden konnten."
           }
         },
         "fr": {
@@ -5228,7 +5228,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bei %lld Folien werden alle Schritte zusammen angezeigt, weil ihre Überblendbefehle nicht gelesen werden konnten."
+            "value": "Bei %lld Folien werden alle Schritte zusammen angezeigt, weil ihre Overlay-Befehle nicht gelesen werden konnten."
           }
         },
         "fr": {
@@ -6134,7 +6134,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "図を SVG で保存…"
+            "value": "図を SVG として保存…"
           }
         },
         "ko": {
@@ -6186,7 +6186,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "図を PNG で保存…"
+            "value": "図を PNG として保存…"
           }
         },
         "ko": {
@@ -6446,7 +6446,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "図を PNG でコピー"
+            "value": "図を PNG としてコピー"
           }
         },
         "ko": {
@@ -7030,7 +7030,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Öffnen Sie ein unverschlüsseltes Word-Dokument (.docx)."
+            "value": "Öffne ein unverschlüsseltes Word-Dokument (.docx)."
           }
         },
         "es": {
@@ -8694,7 +8694,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zeigt das aktuelle Kapitel und öffnet das Inhaltsverzeichnis."
+            "value": "Zeigt das aktuelle Kapitel und öffnet den Inhalt."
           }
         },
         "es": {
@@ -8850,7 +8850,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Drucken und Speichern"
+            "value": "Drucken und Sichern"
           }
         },
         "es": {
@@ -9526,7 +9526,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Öffnet das Druckeinstellungsfenster."
+            "value": "Öffnet die Druckeinstellungen."
           }
         },
         "es": {
@@ -9734,7 +9734,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Speichert das Originaldokument in einer neuen Datei."
+            "value": "Sichert das Originaldokument in einer neuen Datei."
           }
         },
         "es": {
@@ -10172,7 +10172,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "スライドが検出されたHTML文書で使えます。"
+            "value": "スライドが検出された HTML 文書で使えます。"
           }
         },
         "zh-Hans": {
@@ -10306,7 +10306,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Erscheint bei Dokumenten, die als neue Datei gespeichert werden können."
+            "value": "Erscheint bei Dokumenten, die als neue Datei gesichert werden können."
           }
         },
         "es": {
@@ -10380,7 +10380,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "合本が1文書になったとき"
+            "value": "合本が 1 文書になったとき"
           }
         },
         "zh-Hans": {
@@ -10491,7 +10491,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "LaTeX-Dokumente verwenden den Stil ihrer Dokumentklasse, bis Sie für das jeweilige Dokument einen Stil auswählen."
+            "value": "LaTeX-Dokumente verwenden den Stil ihrer Dokumentklasse, bis du für das jeweilige Dokument einen Stil auswählst."
           }
         },
         "es": {
@@ -10641,7 +10641,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "この合本には1文書だけ残っています"
+            "value": "この合本には 1 文書だけ残っています"
           }
         },
         "zh-Hans": {
@@ -10931,7 +10931,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bestätigen Sie vor dem Anwenden die Änderungen an globalen und Druckkurzbefehlen."
+            "value": "Bestätige vor dem Anwenden die Änderungen an globalen Kurzbefehlen und Druckkurzbefehlen."
           }
         },
         "es": {
@@ -11555,7 +11555,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nicht enthaltene Vorgänge behalten ihre Tasten. Erst beim Anwenden wird etwas geändert."
+            "value": "Nicht enthaltene Aktionen behalten ihre Tasten. Erst beim Anwenden wird etwas geändert."
           }
         },
         "es": {
@@ -11711,7 +11711,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Unbekannter oder fester Vorgang: %@"
+            "value": "Unbekannte oder feste Aktion: %@"
           }
         },
         "es": {
@@ -11815,7 +11815,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ich verstehe, dass globale Tasten in anderen Apps wirken und Drucktasten Seiten an einen Drucker senden können."
+            "value": "Ich verstehe, dass globale Kurzbefehle in anderen Apps wirken und Druckkurzbefehle Seiten an einen Drucker senden können."
           }
         },
         "es": {
@@ -11837,7 +11837,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "この版では変更できない操作か、macOS が管理する割り当てです。"
+            "value": "このビルドでは変更できない操作か、macOS が管理する割り当てです。"
           }
         },
         "zh-Hans": {
@@ -11867,7 +11867,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dieser Vorgang kann in dieser Version nicht geändert werden oder wird von macOS verwaltet."
+            "value": "Diese Aktion kann in dieser Version nicht geändert werden oder wird von macOS verwaltet."
           }
         },
         "es": {
@@ -11889,7 +11889,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "このショートカットファイルの形式の版には対応していません。Surimono をアップデートして読み込んでください。"
+            "value": "このショートカットファイルの形式のバージョンには対応していません。Surimono をアップデートして読み込んでください。"
           }
         },
         "zh-Hans": {
@@ -12023,7 +12023,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die Kurzbefehldatei konnte nicht gelesen oder gespeichert werden. Es wurde nichts geändert."
+            "value": "Die Kurzbefehldatei konnte nicht gelesen oder gesichert werden. Es wurde nichts geändert."
           }
         },
         "es": {
@@ -12286,7 +12286,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Web oder Papier wechseln"
+            "value": "Zwischen Web und Papier wechseln"
           }
         },
         "es": {
@@ -12308,7 +12308,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "1 枚・見開き"
+            "value": "単ページ・見開き"
           }
         },
         "zh-Hans": {
@@ -12569,7 +12569,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOSで管理されています"
+            "value": "macOS で管理されています"
           }
         },
         "zh-Hans": {
@@ -12621,7 +12621,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@が使用しています。この操作はまだショートカットの変更に対応していません。"
+            "value": "%@ が使用しています。この操作はまだショートカットの変更に対応していません。"
           }
         },
         "zh-Hans": {
@@ -12651,7 +12651,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bereits von %@ verwendet. Diese Aktion unterstützt noch keine anpassbaren Kurzbefehle."
+            "value": "Bereits von „%@“ verwendet. Diese Aktion unterstützt noch keine anpassbaren Kurzbefehle."
           }
         },
         "es": {
@@ -13128,7 +13128,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Diese Anordnung wurde anderswo geändert, während du sie bearbeitet hast. Duplizieren behält deine Änderungen als neue Anordnung."
+            "value": "Diese Anordnung wurde anderswo geändert, während du sie bearbeitet hast. „Duplizieren“ behält deine Änderungen als neue Anordnung."
           }
         },
         "es": {
@@ -13181,7 +13181,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Diese Anordnung wurde anderswo geändert. Sichern behält deine Änderungen als neue Anordnung."
+            "value": "Diese Anordnung wurde anderswo geändert. „Sichern“ behält deine Änderungen als neue Anordnung."
           }
         },
         "es": {
@@ -13310,7 +13310,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@を「%2$@」の %3$lld 番目に移しました（%4$lld 個中）。"
+            "value": "%1$@ を「%2$@」の %3$lld 番目に移しました（%4$lld 個中）。"
           }
         },
         "zh-Hans": {
@@ -13469,7 +13469,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@をツールバーから外しました。「…」から使えます。"
+            "value": "%@ をツールバーから外しました。「…」から使えます。"
           }
         },
         "zh-Hans": {
@@ -13976,7 +13976,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Erscheint bei Dokumenten mit Druckstil oder HTML-Vorgabe."
+            "value": "Erscheint bei Dokumenten mit Druckstil oder HTML-Voreinstellung."
           }
         },
         "es": {
@@ -14294,7 +14294,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Erscheint nur beim Vergrößern."
+            "value": "Erscheint nur bei vergrößerter Ansicht."
           }
         },
         "es": {
@@ -14768,7 +14768,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zurück zu Standard, noch nicht gesichert. Widerrufen holt deine Anordnung zurück."
+            "value": "Zurück zu „Standard“, noch nicht gesichert. „Widerrufen“ holt deine Anordnung zurück."
           }
         },
         "es": {
@@ -14979,7 +14979,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wählt einen Druckstil oder eine HTML-Bereinigungsvorgabe."
+            "value": "Wählt einen Druckstil oder eine Voreinstellung zur HTML-Bereinigung."
           }
         },
         "es": {
@@ -16221,7 +16221,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "前へ (⌥←)"
+            "value": "前へ（⌥←）"
           }
         },
         "zh-Hans": {
@@ -16327,7 +16327,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "後ろへ (⌥→)"
+            "value": "後ろへ（⌥→）"
           }
         },
         "zh-Hans": {
@@ -16516,7 +16516,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Geht zur vorigen oder nächsten Seite."
+            "value": "Geht zur vorherigen oder nächsten Seite."
           }
         },
         "es": {
@@ -17204,7 +17204,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vorige / nächste Seite"
+            "value": "Vorherige / nächste Seite"
           }
         },
         "es": {
@@ -17386,7 +17386,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "やり直す (⇧⌘Z)"
+            "value": "やり直す（⇧⌘Z）"
           }
         },
         "zh-Hans": {
@@ -17734,7 +17734,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sichern ersetzt „%@“ durch deine Änderungen. Verwerfen lässt sie wie gesichert."
+            "value": "„Sichern“ ersetzt „%@“ durch deine Änderungen. „Verwerfen“ behält den gesicherten Stand bei."
           }
         },
         "es": {
@@ -18264,7 +18264,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zeigt beim Vergrößern den Zoom; ein Klick passt an das Fenster an."
+            "value": "Zeigt bei vergrößerter Ansicht den Zoom; ein Klick passt die Seite ans Fenster an."
           }
         },
         "es": {
@@ -18423,7 +18423,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Standard lässt sich nicht überschreiben. Dupliziere es, um deine Änderungen zu behalten."
+            "value": "„Standard“ lässt sich nicht überschreiben. Dupliziere die Anordnung, um deine Änderungen zu behalten."
           }
         },
         "es": {
@@ -18476,7 +18476,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Standard ändert sich nicht. Sichern behält deine Änderungen als neue Anordnung."
+            "value": "„Standard“ ändert sich nicht. „Sichern“ behält deine Änderungen als neue Anordnung."
           }
         },
         "es": {
@@ -19029,7 +19029,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "取り消す (⌘Z)"
+            "value": "取り消す（⌘Z）"
           }
         },
         "zh-Hans": {
@@ -19452,7 +19452,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@。範囲: %2$@。ショートカット: %3$@。"
+            "value": "%1$@。範囲：%2$@。ショートカット：%3$@。"
           }
         },
         "zh-Hans": {
@@ -20383,7 +20383,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dokument speichern"
+            "value": "Dokument sichern"
           }
         },
         "es": {
@@ -20989,7 +20989,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Surimono を隠す"
+            "value": "Surimono を非表示"
           }
         },
         "zh-Hans": {
@@ -21549,7 +21549,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "In Dokumenten, die Ergänzungen erlauben"
+            "value": "In Fenstern, die weitere Dokumente annehmen"
           }
         },
         "es": {
@@ -21731,7 +21731,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "文書の数字が使える表示モードで"
+            "value": "文書の情報が見られる表示モードで"
           }
         },
         "zh-Hans": {
@@ -21973,7 +21973,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Erhält Standardaktionen und Texteingaben."
+            "value": "Hält Standardaktionen und das Bestätigen von Eingaben verfügbar."
           }
         },
         "es": {
@@ -22397,7 +22397,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Minimieren"
+            "value": "Im Dock ablegen"
           }
         },
         "es": {
@@ -23162,7 +23162,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "以前のショートカット: %@"
+            "value": "以前のショートカット：%@"
           }
         },
         "zh-Hans": {
@@ -24199,7 +24199,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kurzbefehle konnten nicht gespeichert werden. Öffne diese Seite erneut; vorhandene Daten bleiben erhalten."
+            "value": "Kurzbefehle konnten nicht gesichert werden. Öffne diese Seite erneut; vorhandene Daten bleiben erhalten."
           }
         },
         "es": {
@@ -25017,7 +25017,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "大きい用紙に2ページ配置"
+            "value": "大きい用紙に 2 ページ配置"
           }
         },
         "zh-Hans": {
@@ -25070,7 +25070,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "小さい用紙に2ページ配置"
+            "value": "小さい用紙に 2 ページ配置"
           }
         },
         "zh-Hans": {
@@ -25577,7 +25577,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hand-Duplex"
+            "value": "Manueller Duplexdruck"
           }
         },
         "es": {
@@ -25944,7 +25944,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Warten Sie, bis alle Blätter ausgegeben wurden."
+            "value": "Warte, bis alle Blätter ausgegeben wurden."
           }
         },
         "es": {
@@ -25997,7 +25997,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Legen Sie den Stapel in derselben Reihenfolge wieder in das Fach."
+            "value": "Lege den Stapel in derselben Reihenfolge wieder in das Fach."
           }
         },
         "es": {
@@ -26050,7 +26050,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Legen Sie das Papier so ein, dass die leeren Seiten bedruckt werden. Drehen Sie bei Bedarf den ganzen Stapel."
+            "value": "Lege das Papier so ein, dass die leeren Seiten bedruckt werden. Drehe bei Bedarf den ganzen Stapel."
           }
         },
         "es": {
@@ -26232,7 +26232,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "裏を 180° 回す"
+            "value": "裏を 180° 回転"
           }
         },
         "zh-Hans": {
@@ -26527,7 +26527,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ ist nicht verfügbar. Verbinden Sie den Drucker und klicken Sie auf Rückseiten drucken."
+            "value": "%@ ist nicht verfügbar. Verbinde den Drucker und klicke auf „Rückseiten drucken“."
           }
         },
         "es": {
@@ -26603,7 +26603,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "印刷を送れなかったか、取り消されました。プリンターの待ち行列と用紙を確かめてから、やり直してください。"
+            "value": "印刷を送れなかったか、キャンセルされました。プリントキューと用紙を確かめてから、やり直してください。"
           }
         },
         "zh-Hans": {
@@ -26633,7 +26633,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Der Druckauftrag konnte nicht gesendet werden oder wurde abgebrochen. Prüfen Sie die Warteschlange und das Papier, bevor Sie es erneut versuchen."
+            "value": "Der Druckauftrag konnte nicht gesendet werden oder wurde abgebrochen. Prüfe die Warteschlange und das Papier, bevor du es erneut versuchst."
           }
         },
         "es": {
@@ -27104,7 +27104,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Änderungen übernommen drucken"
+            "value": "Mit übernommenen Änderungen drucken"
           }
         },
         "es": {
@@ -27646,7 +27646,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "HTML: %@"
+            "value": "HTML %@"
           }
         },
         "zh-Hans": {
@@ -28248,7 +28248,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Integrierte Sets"
+            "value": "Integrierte"
           }
         },
         "es": {
@@ -28508,7 +28508,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Eigene Sets"
+            "value": "Eigene"
           }
         },
         "es": {
@@ -28530,7 +28530,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "用紙とレイアウト・余白・ヘッダーとフッター・仕上げ・ノート・スタイルと文字の大きさ・HTML プリセットをまとめて当てます。1 枚・見開きと拡大率は含みません。"
+            "value": "用紙とレイアウト・余白・ヘッダーとフッター・仕上げ・ノート・スタイルと文字の大きさ・HTML プリセットをまとめて当てます。単ページ・見開きと拡大率は含みません。"
           }
         },
         "zh-Hans": {
@@ -28560,7 +28560,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wendet Papier und Layout, Ränder, Kopf- und Fußzeilen, Verarbeitung, Notizen, Stil und Textgröße sowie HTML-Vorlagen in einem Schritt an. Ansichtslayout und Zoom sind nicht enthalten."
+            "value": "Wendet Papier und Layout, Ränder, Kopf- und Fußzeilen, Verarbeitung, Notizen, Stil und Textgröße sowie HTML-Voreinstellungen in einem Schritt an. Ansichtslayout und Zoom sind nicht enthalten."
           }
         },
         "es": {
@@ -28612,7 +28612,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Noch keine. Sichern Sie eines über Dokument › Einstellungssätze › Aktuelle Einstellungen sichern … oder über Einstellungssätze im Druckbildschirm."
+            "value": "Noch keine. Sichere einen über Dokument › Einstellungssätze › Aktuelle Einstellungen sichern … oder über Einstellungssätze im Druckbildschirm."
           }
         },
         "es": {
@@ -29160,7 +29160,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Der gespeicherte Einstellungssatz wird durch die aktuellen Einstellungen ersetzt."
+            "value": "Der gesicherte Einstellungssatz wird durch die aktuellen Einstellungen ersetzt."
           }
         },
         "es": {
@@ -29980,7 +29980,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wählen Sie einen Ordner, der dieses Dokument enthält"
+            "value": "Wähle einen Ordner, der dieses Dokument enthält"
           }
         },
         "en": {
@@ -30032,7 +30032,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wählen Sie den Ordner des Dokuments oder einen übergeordneten Ordner, um Bilder und andere Ressourcen anzuzeigen."
+            "value": "Wähle den Ordner des Dokuments oder einen übergeordneten Ordner, um Bilder und andere Ressourcen anzuzeigen."
           }
         },
         "en": {
@@ -30084,7 +30084,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Der Ordnerzugriff konnte nicht gespeichert werden"
+            "value": "Der Ordnerzugriff konnte nicht gesichert werden"
           }
         },
         "en": {
@@ -30448,7 +30448,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "表示モードで出す"
+            "value": "表示モードのとき"
           }
         },
         "en": {
@@ -30761,7 +30761,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ページのあいだを詰める"
+            "value": "ページをつなぐ"
           }
         },
         "en": {
@@ -31327,7 +31327,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Diese PDF konnte nicht geöffnet werden."
+            "value": "Dieses PDF konnte nicht geöffnet werden."
           }
         },
         "es": {
@@ -32122,7 +32122,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Diese Taste öffnet den Speicherdialog für ein PDF in Lesereihenfolge."
+            "value": "Diese Taste öffnet den Dialog zum Sichern eines PDFs in Lesereihenfolge."
           }
         },
         "es": {
@@ -32440,7 +32440,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sobald das gesamte Dokument vorbereitet ist, können Sie es drucken und den Inhalt aufrufen."
+            "value": "Sobald das gesamte Dokument vorbereitet ist, kannst du es drucken und den Inhalt aufrufen."
           }
         },
         "es": {
@@ -33198,7 +33198,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ユーザープリセットのフォルダを開く"
+            "value": "自分のプリセットのフォルダを開く"
           }
         },
         "en": {
@@ -33711,7 +33711,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Druckstile konnten nicht geladen werden. Laden Sie sie in den Einstellungen neu."
+            "value": "Druckstile konnten nicht geladen werden. Lade sie in den Einstellungen neu."
           }
         },
         "es": {
@@ -33923,7 +33923,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die PDF konnte nicht exportiert werden."
+            "value": "Das PDF konnte nicht exportiert werden."
           }
         },
         "es": {
@@ -34380,7 +34380,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Verschlüsselte PDFs können nicht gedruckt werden. Öffnen Sie eine entsperrte Kopie."
+            "value": "Verschlüsselte PDFs können nicht gedruckt werden. Öffne eine entsperrte Kopie."
           }
         },
         "es": {
@@ -34486,7 +34486,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die Ränder sind für diese Seite zu groß. Ändern Sie sie in den Einstellungen."
+            "value": "Die Ränder sind für diese Seite zu groß. Ändere sie in den Einstellungen."
           }
         },
         "es": {
@@ -34592,7 +34592,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Das Dokument konnte nicht in Seiten aufgeteilt werden. Laden Sie es erneut."
+            "value": "Das Dokument konnte nicht in Seiten aufgeteilt werden. Lade es erneut."
           }
         },
         "es": {
@@ -34698,7 +34698,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zeitüberschreitung beim Laden oder Paginieren. Laden Sie das Dokument erneut."
+            "value": "Zeitüberschreitung beim Laden oder Aufteilen in Seiten. Lade das Dokument erneut."
           }
         },
         "es": {
@@ -35282,7 +35282,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開けなかった画像: %@"
+            "value": "開けなかった画像：%@"
           }
         },
         "en": {
@@ -37006,7 +37006,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Alle Einstellungen dieses Dokuments zurücksetzen"
+            "value": "Dokumenteinstellungen zurücksetzen"
           }
         },
         "es": {
@@ -38359,7 +38359,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Alle Einstellungen dieses Dokuments zurücksetzen"
+            "value": "Dokumenteinstellungen zurücksetzen"
           }
         },
         "es": {
@@ -38412,7 +38412,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dieses ZIP-Archiv wurde geändert. Schließen und öffnen Sie es erneut, um die neuen Bilder zu sehen."
+            "value": "Dieses ZIP-Archiv wurde geändert. Schließe und öffne es erneut, um die neuen Bilder zu sehen."
           }
         },
         "es": {
@@ -38429,7 +38429,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "画像が変わり続けています。読み直してください。"
+            "value": "画像が変わり続けています。再読み込みしてください。"
           }
         },
         "en": {
@@ -38465,7 +38465,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die Bilder ändern sich fortlaufend. Laden Sie das Dokument erneut."
+            "value": "Die Bilder ändern sich fortlaufend. Lade das Dokument erneut."
           }
         },
         "es": {
@@ -39319,7 +39319,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ quer · ganz innen (Mittelseiten)"
+            "value": "%@ quer · ganz innen (mittlere Doppelseite)"
           }
         },
         "es": {
@@ -39607,7 +39607,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ページ %1$lld、%2$@"
+            "value": "%1$lld ページ、%2$@"
           }
         },
         "de": {
@@ -39866,7 +39866,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "用紙 %1$lld / %2$lld 枚"
+            "value": "用紙 %1$lld / %2$lld"
           }
         },
         "en": {
@@ -40325,7 +40325,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@-Broschüre, gefaltet"
+            "value": "Broschüre %@, gefaltet"
           }
         },
         "es": {
@@ -40537,7 +40537,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mittelseiten (Heftposition)"
+            "value": "Mittlere Doppelseite (Heftposition)"
           }
         },
         "es": {
@@ -42137,7 +42137,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "1 枚・見開き"
+            "value": "単ページ・見開き"
           }
         },
         "en": {
@@ -43762,7 +43762,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Webseite im aktuellen Zustand drucken"
+            "value": "Webseite wird im aktuellen Zustand gedruckt"
           }
         },
         "es": {
@@ -43868,7 +43868,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Seite wie beim Öffnen drucken, ohne Ihre Änderungen"
+            "value": "Seite wie beim Öffnen drucken, ohne deine Änderungen"
           }
         },
         "es": {
@@ -43921,7 +43921,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Seite wie beim Öffnen drucken"
+            "value": "Seite wird wie beim Öffnen gedruckt"
           }
         },
         "es": {
@@ -45069,7 +45069,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "An GitHub werden keine Informationen über Ihre Dokumente gesendet."
+            "value": "An GitHub werden keine Informationen über deine Dokumente gesendet."
           }
         },
         "es": {
@@ -45934,7 +45934,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ をお気に入りに入れる"
+            "value": "%@ をお気に入りに追加"
           }
         },
         "en": {
@@ -46182,7 +46182,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ ausprobieren"
+            "value": "%@ wird ausprobiert"
           }
         },
         "es": {
@@ -46235,7 +46235,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aus Vorschauen wählen …"
+            "value": "Aus Beispielen wählen …"
           }
         },
         "es": {
@@ -46411,7 +46411,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ にしました。表示に戻ると紙に当てはまります。"
+            "value": "%@ にしました。表示に戻ると紙に反映されます。"
           }
         },
         "en": {
@@ -46765,7 +46765,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aus Vergleich entfernen"
+            "value": "Aus dem Vergleich entfernen"
           }
         },
         "es": {
@@ -46924,7 +46924,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ aus Vergleich entfernen"
+            "value": "%@ aus dem Vergleich entfernen"
           }
         },
         "es": {
@@ -47363,7 +47363,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "原稿で指定されたクラス『%@』には対応していないため、標準の体裁で表示しています。"
+            "value" : "原稿で指定されたクラス「%@」には対応していないため、標準の体裁で表示しています。"
           }
         },
         "zh-Hans" : {
@@ -48073,7 +48073,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Die neue Sprache gilt nach dem Neustart. Offene Fenster werden geschlossen; möglicherweise müssen Sie Dokumente erneut öffnen. Wählen Sie „Später“, um weiterzuarbeiten."
+            "value" : "Die neue Sprache gilt nach dem Neustart. Offene Fenster werden geschlossen; möglicherweise musst du Dokumente erneut öffnen. Wähle „Später“, um weiterzuarbeiten."
           }
         },
         "es" : {
@@ -48251,7 +48251,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "次回Surimonoを開いたときに言語が切り替わります。"
+            "value" : "次回 Surimono を開いたときに言語が切り替わります。"
           }
         },
         "zh-Hans" : {
@@ -49805,7 +49805,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Prüfen Sie die Mermaid-Syntax und vereinfachen Sie das Diagramm im Quelldokument."
+            "value": "Prüfe die Mermaid-Syntax und vereinfache das Diagramm im Quelldokument."
           }
         },
         "es": {
@@ -49961,7 +49961,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Prüfen Sie die Schreibweise und die Definition des Befehls im Quelldokument."
+            "value": "Prüfe die Schreibweise und die Definition des Befehls im Quelldokument."
           }
         },
         "es": {
@@ -50025,7 +50025,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "読み取れなかった RST の記法：%@ 件"
+            "value": "読み取れなかった RST の記法：%@"
           }
         },
         "ko": {
@@ -50377,7 +50377,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Prüfen Sie, ob das Bild lesbar ist und ein unterstütztes Format hat."
+            "value": "Prüfe, ob das Bild lesbar ist und ein unterstütztes Format hat."
           }
         },
         "es": {
@@ -50429,7 +50429,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Versuchen Sie Querformat oder kleinere Schrift, oder passen Sie dieses Element im Quelldokument an."
+            "value": "Versuche Querformat oder kleinere Schrift, oder passe dieses Element im Quelldokument an."
           }
         },
         "es": {
@@ -50481,7 +50481,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Prüfen Sie die Syntax der Formel und verwenden Sie unterstützte Befehle im Quelldokument."
+            "value": "Prüfe die Syntax der Formel und verwende unterstützte Befehle im Quelldokument."
           }
         },
         "es": {
@@ -50533,7 +50533,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ersetzen Sie diesen Teil im Quelldokument durch ein Bild oder unterstütztes LaTeX."
+            "value": "Ersetze diesen Teil im Quelldokument durch ein Bild oder unterstütztes LaTeX."
           }
         },
         "es": {
@@ -50637,7 +50637,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bilddatei nicht gefunden: Prüfen Sie ihren Namen und Speicherort im Quelldokument."
+            "value": "Bilddatei nicht gefunden: Prüfe ihren Namen und Speicherort im Quelldokument."
           }
         },
         "es": {
@@ -51002,7 +51002,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "文書を1つも開けませんでした。"
+            "value": "文書を 1 つも開けませんでした。"
           }
         },
         "de": {
@@ -51114,7 +51114,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wählen Sie Markdown-, Org-, Text-, CSV-, LaTeX-, HTML-, PDF- oder Bilddateien. Ordner und ZIP-Archive können nicht zusammengefügt werden."
+            "value": "Wähle Markdown-, Org-, Text-, CSV-, LaTeX-, HTML-, PDF- oder Bilddateien. Ordner und ZIP-Archive können nicht zusammengefügt werden."
           }
         },
         "es": {
@@ -51349,7 +51349,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Für %@ gemerkt. Letztes Blatt zuerst hält Blätter mit der Schrift nach oben in Seitenreihenfolge."
+            "value": "Für %@ gespeichert. „Letztes Blatt zuerst“ hält Blätter mit der Schrift nach oben in Seitenreihenfolge."
           }
         },
         "es": {
@@ -51471,7 +51471,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Letztes Blatt zuerst hält Blätter mit der Schrift nach oben in Seitenreihenfolge."
+            "value": "„Letztes Blatt zuerst“ hält Blätter mit der Schrift nach oben in Seitenreihenfolge."
           }
         },
         "en": {
@@ -52336,7 +52336,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "1ページ分"
+            "value": "1 ページ分"
           }
         },
         "ko": {
@@ -52388,7 +52388,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "2ページ分"
+            "value": "2 ページ分"
           }
         },
         "ko": {
@@ -52736,7 +52736,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "用紙と余白・ヘッダー / フッター・改ページ・目次・ノートページ"
+            "value": "用紙と余白・ヘッダーとフッター・改ページ・目次・ノートページ"
           }
         },
         "zh-Hans": {
@@ -53918,7 +53918,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Seitenzahl"
+            "value": "Seitenanzahl"
           }
         },
         "es": {
@@ -55188,7 +55188,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dieses Dokument hat kein [TOC]. Wählen Sie „Inhalt vorn hinzufügen“, um eines hinzuzufügen."
+            "value": "Dieses Dokument hat kein [TOC]. Wähle „Inhalt vorn hinzufügen“, um eines hinzuzufügen."
           }
         },
         "es": {
@@ -59479,7 +59479,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld か所 変わりました"
+            "value": "%lld か所変わりました"
           }
         },
         "zh-Hans": {
@@ -59928,7 +59928,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld つの文書を読み込めます"
+            "value": "%lld 件の文書を読み込めます"
           }
         },
         "zh-Hans": {
@@ -60240,7 +60240,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ペーストボード: %@"
+            "value": "ペーストボード：%@"
           }
         },
         "zh-Hans": {
@@ -60530,7 +60530,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Diese Linien passen nicht auf die Seite. Verringern Sie Rand oder Abstand."
+            "value": "Diese Linien passen nicht auf die Seite. Verringere Rand oder Abstand."
           }
         },
         "es": {
@@ -63846,7 +63846,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "1 枚・見開き"
+            "value": "単ページ・見開き"
           }
         },
         "ko": {
@@ -64510,7 +64510,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Geschlossenes Dokument aus der Zwischenablage erneut öffnen"
+            "value": "Geschlossenes Zwischenablage-Dokument erneut öffnen"
           }
         },
         "es": {
@@ -64666,7 +64666,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Geschlossene Dokumente aus der Zwischenablage löschen"
+            "value": "Geschlossene Zwischenablage-Dokumente löschen"
           }
         },
         "es": {
@@ -64718,7 +64718,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Geschlossene Dokumente aus der Zwischenablage bis zum Beenden behalten"
+            "value": "Geschlossene Zwischenablage-Dokumente bis zum Beenden behalten"
           }
         },
         "es": {
@@ -65082,7 +65082,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Das Dokument konnte nicht geladen werden."
+            "value": "Das Dokument konnte nicht heruntergeladen werden."
           }
         },
         "es": {
@@ -65134,7 +65134,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "In welchem Format soll der geladene Text geöffnet werden?"
+            "value": "In welchem Format soll der heruntergeladene Text geöffnet werden?"
           }
         },
         "es": {
@@ -65628,7 +65628,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fügt %lld Notizseiten nach den Kapiteln hinzu, ohne Kapitel am Ende."
+            "value": "Fügt %lld Notizseiten nach den Kapiteln hinzu, bei Dokumenten ohne Kapitel am Ende."
           }
         },
         "es": {
@@ -66304,7 +66304,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Leer (Rückseite)"
+            "value": "Leer (Rückdeckel)"
           }
         },
         "es": {
@@ -66564,7 +66564,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kapitel auf rechter Seite"
+            "value": "Kapitel ab rechter Seite"
           }
         },
         "es": {
@@ -67574,7 +67574,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sein Fenster zeigen"
+            "value" : "Fenster nach vorne bringen"
           }
         },
         "en" : {
@@ -67733,7 +67733,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Macht aus den Bildern einen Sammelband und fügt am Ende hinzu"
+            "value" : "Macht aus dem Bilderstapel einen Sammelband und fügt die Dokumente am Ende hinzu"
           }
         },
         "en" : {
@@ -68051,7 +68051,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ZIP-Archive können nicht in einen Sammelband"
+            "value" : "ZIP-Archive können keinem Sammelband hinzugefügt werden"
           }
         },
         "en" : {
@@ -68552,7 +68552,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ここに落とすと足せます"
+            "value" : "ここにドロップすると足せます"
           }
         },
         "ko" : {
@@ -68952,7 +68952,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ein Dokument ohne Datei kann nicht in einen Sammelband"
+            "value" : "Ein Dokument ohne Datei kann keinem Sammelband hinzugefügt werden"
           }
         },
         "en" : {
@@ -69111,7 +69111,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Seitenumbrüche und Inhaltsverzeichnis"
+            "value" : "Seitenumbrüche und Inhaltsseite"
           }
         },
         "en" : {
@@ -69323,7 +69323,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "%3$@-Broschüre, %4$@, aus %2$@ %1$@"
+            "value": "Broschüre %3$@, %4$@, aus %2$@ %1$@"
           }
         },
         "en": {
@@ -69638,7 +69638,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Menü löschen"
+            "value": "Einträge löschen"
           }
         },
         "en": {
@@ -71413,7 +71413,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wählen Sie einen Stil anhand der Beispiele"
+            "value": "Wähle einen Stil anhand der Beispiele"
           }
         },
         "es": {
@@ -71595,7 +71595,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "例: 1-5, 8"
+            "value": "例：1-5, 8"
           }
         },
         "zh-Hans": {
@@ -72672,7 +72672,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Stil beim Zeigen auf das Muster auf dem Papier ausprobieren"
+            "value": "Stil beim Zeigen auf ein Beispiel auf dem Papier ausprobieren"
           }
         },
         "es": {
@@ -73009,7 +73009,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "このキーは印刷画面の準備後にシステムの印刷ダイアログを開きます。"
+            "value": "このキーは印刷画面の準備後にシステムの印刷画面を開きます。"
           }
         },
         "zh-Hans": {
@@ -73039,7 +73039,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Diese Taste öffnet nach der Vorbereitung des Druckbildschirms den Druckdialog des Systems."
+            "value": "Diese Taste öffnet nach der Vorbereitung des Druckbildschirms den Systemdruckdialog."
           }
         },
         "es": {
@@ -73062,7 +73062,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "このキーは印刷画面を準備し、PDFの保存ダイアログを開きます。"
+            "value": "このキーは印刷画面を準備し、PDF の保存画面を開きます。"
           }
         },
         "zh-Hans": {
@@ -73092,7 +73092,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Diese Taste bereitet den Druckbildschirm vor und öffnet den Dialog zum Speichern als PDF."
+            "value": "Diese Taste bereitet den Druckbildschirm vor und öffnet den Dialog zum Sichern als PDF."
           }
         },
         "es": {
@@ -74150,7 +74150,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Es wurden keine Zeichen eines Formats gefunden."
+            "value": "Es wurden keine Formatierungszeichen gefunden."
           }
         },
         "en": {
@@ -74486,7 +74486,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "長い文なので、始めの部分だけを読みました。"
+            "value": "長い文なので、初めの部分だけを読みました。"
           }
         },
         "ko": {
@@ -75214,7 +75214,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "途中で切れているらしい"
+            "value": "途中で切れているようです"
           }
         },
         "ko": {
@@ -75242,7 +75242,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Enthält auch Zeichen eines anderen Formats"
+            "value": "Enthält auch Formatierungszeichen eines anderen Formats"
           }
         },
         "en": {
@@ -75346,7 +75346,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zeichen unverändert angezeigt"
+            "value": "Formatierungszeichen unverändert angezeigt"
           }
         },
         "en": {
@@ -75398,7 +75398,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Keine Zeichen dieses Formats gefunden"
+            "value": "Keine Formatierungszeichen dieses Formats gefunden"
           }
         },
         "en": {
@@ -75606,7 +75606,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wählen Sie ein anderes Format, um denselben Text erneut zu öffnen."
+            "value": "Wähle ein anderes Format, um denselben Text erneut zu öffnen."
           }
         },
         "en": {
@@ -75890,7 +75890,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "文の始め"
+            "value": "文の初め"
           }
         },
         "ko": {
@@ -76282,7 +76282,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Immer in einem Format öffnen"
+            "value": "Immer im selben Format öffnen"
           }
         },
         "en": {
@@ -76386,7 +76386,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wie bereitwillig formatiert wird"
+            "value": "Formatierungsverhalten"
           }
         },
         "en": {
@@ -77114,7 +77114,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Drucker ohne gemerkte Einstellungen"
+            "value": "Drucker ohne gespeicherte Einstellungen"
           }
         },
         "en": {
@@ -77929,7 +77929,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "角ばった"
+            "value": "四角い"
           }
         },
         "ko": {
@@ -78645,7 +78645,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die Datei mit den Einstellungen konnte nicht gelesen werden."
+            "value": "Die Einstellungssatz-Datei konnte nicht gelesen werden."
           }
         },
         "es": {
@@ -78697,7 +78697,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die Datei mit den Einstellungen konnte nicht gesichert werden."
+            "value": "Die Einstellungssatz-Datei konnte nicht gesichert werden."
           }
         },
         "es": {
