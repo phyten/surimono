@@ -222,8 +222,34 @@ extension BandSeparatorTests {
         #expect(result.bottom?.requiredWidth == 87)
         #expect(result.unusedAvailable == [.layout])
         let bare = plan([.part(.style), .part(.outline)])
-        #expect(bare.bottom?.requiredWidth == 78)
+        #expect(bare.bottom?.geometry.usesStandardSpacing == true)
+        #expect(bare.bottom?.requiredWidth == 86)  // Two standard 8-point gaps, no rule.
         #expect(bare.bottom?.geometry.separatorsBefore == [])
+    }
+
+    @Test(
+        "保存配置から先頭の部品または一群をすべて外しても標準の余白を保つ",
+        arguments: [[BandLayout.Item.presentation], [.style, .outline]])
+    func standardGapsAfterRemovingParts(_ removed: [BandLayout.Item]) throws {
+        var arrangement = BandArrangement.standard(for: .split)
+        for part in removed { arrangement = try arrangement.moving(part, to: .unused, for: .split) }
+        let restored = try JSONDecoder().decode(BandArrangement.self, from: JSONEncoder().encode(arrangement))
+        let plan = BandLayout.resolve(
+            arrangement: restored, mode: .split, availableItems: Set(BandLayout.Item.allCases),
+            measurements: .init(items: [:], name: 0), metrics: .init(topFixed: 0, bottomFixed: 0, separator: 9),
+            availableWidth: 1000)
+        let geometry = try #require(plan.bottom?.geometry)
+        #expect(geometry.usesStandardSpacing)
+        var expected: [BandLayout.Item: CGFloat] = [
+            .layout: 8, .zoom: 8, .thumbnails: 8, .chapter: 8, .pageIndicator: 8, .pageTurn: 8, .readingSettings: 8,
+        ]
+        if removed == [.presentation] {
+            expected[.style] = 8
+            expected[.outline] = 8
+        } else {
+            expected[.presentation] = 8
+        }
+        #expect(geometry.gapsBefore == expected)
     }
 
     @Test("標準の配置に余分な線を足しても実際の帯の余白・必要幅・折りたたみは同じ")

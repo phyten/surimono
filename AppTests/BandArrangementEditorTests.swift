@@ -687,6 +687,48 @@ struct BandArrangementEditorTests {
         #expect(target(85, 87) == .zone(.topRight, index: 1))
     }
 
+    @Test("印刷の前は固定の「…」より手前に線とマーカーを置く", arguments: [false, true])
+    func insertBeforeDockedPrint(wrapped: Bool) {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let session = environment.session
+        let zone = BandZoneID.topRight
+        let band = CGRect(x: 10, y: 20, width: 200, height: 80)
+        session.layoutFrames = ["topBand": band, zone.rawValue: band]
+        let lock = CGRect(x: 3, y: 3, width: 24, height: 26)
+        let button = CGRect(x: wrapped ? 3 : 30, y: wrapped ? 33 : 3, width: 40, height: 26)
+        session.dockedMoreFrame = lock
+        session.chipFrames[zone] = [button]
+        for local in [CGPoint(x: lock.maxX - 1, y: lock.midY), CGPoint(x: button.minX + 1, y: button.midY)] {
+            let placement = BandEditorDrop.placement(
+                at: CGPoint(x: local.x + band.minX, y: local.y + band.minY), in: session)
+            #expect(placement.target == .zone(zone, index: 0))
+            #expect(placement.marker == CGRect(x: 0.25, y: 3, width: 2.5, height: 26))
+            #expect(session.drop(session.beginDrag(.newSeparator), on: placement.target))
+            #expect(session.arrangement[zone] == [.separator, .part(.print)])
+            session.undo()
+        }
+    }
+
+    @Test("VoiceOverの移動先を次の操作の起点にすると連続する線を越え、別の領域にも進める")
+    func accessibilityMoveDestination() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let session = environment.session
+        session.select(.part(.formatBadge))
+        session.insertSeparatorAfterSelection()
+        session.insertSeparatorAfterSelection()
+        session.performAccessibilityAction(on: .separator(.topLeft, 2)) { session.moveSelection(by: -1) }
+        #expect(session.accessibilityFocusDestination == .separator(.topLeft, 1))
+        session.performAccessibilityAction(on: session.accessibilityFocusDestination) { session.moveSelection(by: -1) }
+        #expect(session.accessibilityFocusDestination == .separator(.topLeft, 0))
+        #expect(session.arrangement.topLeft == [.separator, .part(.formatBadge), .separator])
+        session.performAccessibilityAction(on: session.accessibilityFocusDestination) {
+            session.moveSelection(to: .zone(.topRight))
+        }
+        #expect(session.accessibilityFocusDestination == .separator(.topRight, 1))
+    }
+
     @Test("同じ領域の連続する線を越えて選択を動かし、キー操作で端から端まで移せる")
     func movingPastIdenticalSeparators() {
         let environment = Environment()

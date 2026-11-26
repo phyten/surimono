@@ -105,6 +105,7 @@ final class BandArrangementEditorSession {
     /// Recorded layout, independent of SwiftUI accessibility nodes and editor history.
     @ObservationIgnored var layoutFrames: [String: CGRect] = [:]
 
+    var dockedMoreFrame: CGRect?
     var chipFrames: [BandZoneID: [CGRect]] = [:]
 
     /// Why leaving the draft needs an answer first.
@@ -293,6 +294,15 @@ final class BandArrangementEditorSession {
 
     var selectedEntry: BandEntry? {
         selectedLocation.map { arrangement[$0.destination][$0.index] }
+    }
+
+    /// A VoiceOver move may land on a different node even when two identical separators merely trade places.
+    var accessibilityFocusDestination: BandEditorSelection?
+
+    func performAccessibilityAction(on source: BandEditorSelection?, _ action: () -> Void) {
+        select(source)
+        action()
+        accessibilityFocusDestination = selection
     }
 
     func select(_ selection: BandEditorSelection?) {

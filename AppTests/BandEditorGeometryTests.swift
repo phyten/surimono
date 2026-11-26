@@ -37,6 +37,80 @@ struct BandEditorGeometryTests {
         }
     }
 
+    #if DEBUG
+        @Test(
+            "実測座標を使う撮影コマンドで新しい線と配置済みの線を落とし、一手で元に戻せる",
+            arguments: ["fixed", "space", "empty", "wrap", "outside"])
+        func coordinateDrop(scenario: String) async throws {
+            let layouts =
+                scenario == "empty"
+                ? try #require(DebugSnapshot.bandArrangementFixture(named: "sparse")).activeLayouts
+                : BandArrangementVariants()
+            let fixture = try Fixture(width: 820, layouts: layouts)
+            defer { fixture.close() }
+            let session = fixture.session
+            if scenario == "fixed" || scenario == "wrap" { session.mode = .top }
+            let keys = session.zones.map(\.rawValue) + ["topBand"]
+            try await fixture.waitForFrames(keys)
+            if scenario == "space" {
+                let scroll = try #require(fixture.scrollViews.first)
+                scroll.contentView.scroll(to: CGPoint(x: 0, y: 20))
+                scroll.reflectScrolledClipView(scroll.contentView)
+                try await fixture.waitForFrames(keys)
+                #expect(scroll.contentView.bounds.minY > 0)
+            }
+            let band = try #require(session.layoutFrames["topBand"])
+            let left = try #require(session.layoutFrames["topLeft"])
+            let right = try #require(session.layoutFrames["topRight"])
+            let before = session.draft
+            var zone = BandZoneID.topLeft
+            var source = "new"
+            var index = 0
+            let point: CGPoint
+            switch scenario {
+            case "fixed":
+                zone = .topRight
+                let lock = try #require(session.dockedMoreFrame)
+                index = try #require(session.arrangement.topRight.firstIndex(of: .part(.print)))
+                point = CGPoint(x: right.minX + lock.midX, y: right.minY + lock.midY)
+            case "space":
+                zone = .topRight
+                source = "bottomLeft:1"
+                #expect(right.minX > left.maxX)
+                point = CGPoint(x: right.minX - (right.minX - left.maxX) / 4, y: right.midY)
+            case "empty":
+                point = CGPoint(x: left.midX, y: left.midY)
+            case "wrap":
+                zone = .topRight
+                let frames = try #require(session.chipFrames[zone])
+                let first = try #require(frames.first)
+                index = try #require(frames.firstIndex { $0.midY > first.midY + 1 })
+                point = CGPoint(x: right.minX + frames[index - 1].maxX + 1, y: right.minY + first.midY)
+            default:
+                source = "bottomLeft:1"
+                point = CGPoint(x: band.midX, y: band.maxY + 10)
+            }
+            let frame = try #require(session.layoutFrames[zone.rawValue])
+            let command = "drop:\(source)@\(zone.rawValue):\(point.x - frame.minX),\(point.y - frame.minY)"
+            try await DebugSnapshot.configureArrangementEditor(command, editor: session)
+            if scenario == "outside" {
+                #expect(session.message == .separatorDeleted)
+            } else {
+                #expect(session.selection == .separator(zone, index))
+                var expected = before.arrangement(for: session.mode)[zone]
+                expected.insert(.separator, at: index)
+                #expect(session.arrangement[zone] == expected)
+            }
+            if source != "new" {
+                var remaining = before.split.bottomLeft
+                remaining.remove(at: 1)
+                #expect(session.arrangement.bottomLeft == remaining)
+            }
+            session.undo()
+            #expect(session.draft == before)
+        }
+    #endif
+
     private func crowdedArrangement() throws -> BandArrangementVariants {
         var layouts = BandArrangementVariants()
         for item in BandTestCatalog.addedItems {

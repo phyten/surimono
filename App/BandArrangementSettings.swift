@@ -6,12 +6,20 @@ import UniformTypeIdentifiers
 /// parts and separators are dragged between the zones and "Parts to Add", or moved with the inspector's buttons.
 struct BandArrangementSettings: View {
     @Bindable var session: BandArrangementEditorSession
+    @AccessibilityFocusState(for: .voiceOver) private var focusedAccessibleChip: BandEditorSelection?
 
     var body: some View {
         ScrollViewReader { proxy in
             GeometryReader { pane in
                 editorScroll(paneWidth: pane.size.width)
                     .modifier(SettingsSearchReveal(proxy: proxy, isForm: false))
+            }
+            .task(id: session.accessibilityFocusDestination) {
+                guard let destination = session.accessibilityFocusDestination else { return }
+                await Task.yield()
+                guard !Task.isCancelled else { return }
+                focusedAccessibleChip = destination
+                session.accessibilityFocusDestination = nil
             }
             .task(id: session.selectionRevealRevision) {
                 guard session.selectionRevealRevision > 0 else { return }
@@ -53,12 +61,16 @@ struct BandArrangementSettings: View {
                     }
                     .disabled(session.needsRecovery)
                 }
-                ArrangementMiniature(session: session).settingSearchRow("Toolbar Arrangement")
-                    .disabled(session.needsRecovery)
+                ArrangementMiniature(session: session, accessibilityFocus: $focusedAccessibleChip).settingSearchRow(
+                    "Toolbar Arrangement"
+                )
+                .disabled(session.needsRecovery)
                 MiniatureNotes(session: session)
                     .disabled(session.needsRecovery)
-                UnusedPalette(session: session).settingSearchRow("Parts to Add")
-                    .disabled(session.needsRecovery)
+                UnusedPalette(session: session, accessibilityFocus: $focusedAccessibleChip).settingSearchRow(
+                    "Parts to Add"
+                )
+                .disabled(session.needsRecovery)
                 Inspector(session: session).settingSearchRow("Move To")
                     .disabled(session.needsRecovery)
             }
@@ -368,6 +380,7 @@ private enum MiniatureMetrics {
 
 private struct ArrangementMiniature: View {
     let session: BandArrangementEditorSession
+    let accessibilityFocus: AccessibilityFocusState<BandEditorSelection?>.Binding
 
     var body: some View {
         VStack(spacing: 0) {
@@ -381,8 +394,8 @@ private struct ArrangementMiniature: View {
                     .help("The file name always follows the traffic lights.")
                     .accessibilityLabel(Text("File Name"))
                     .accessibilityValue(Text("Fixed"))
-                ZoneEditor(session: session, zone: .topLeft)
-                ZoneEditor(session: session, zone: .topRight)
+                ZoneEditor(session: session, accessibilityFocus: accessibilityFocus, zone: .topLeft)
+                ZoneEditor(session: session, accessibilityFocus: accessibilityFocus, zone: .topRight)
                 if !docksMore { MoreLock() }
             }
             .padding(.horizontal, 8)
@@ -399,8 +412,8 @@ private struct ArrangementMiniature: View {
                 .frame(height: session.mode == .split ? 46 : 72)
             if session.mode == .split {
                 MiniatureBandLayout(fixedPrefix: 0) {
-                    ZoneEditor(session: session, zone: .bottomLeft)
-                    ZoneEditor(session: session, zone: .bottomRight)
+                    ZoneEditor(session: session, accessibilityFocus: accessibilityFocus, zone: .bottomLeft)
+                    ZoneEditor(session: session, accessibilityFocus: accessibilityFocus, zone: .bottomRight)
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 6)
@@ -487,6 +500,7 @@ private struct Paper: View {
 /// drag hovers, and "…" before Print when Print is last on the top right.
 private struct ZoneEditor: View {
     let session: BandArrangementEditorSession
+    let accessibilityFocus: AccessibilityFocusState<BandEditorSelection?>.Binding
     let zone: BandZoneID
     @FocusState private var focusedChip: BandEditorSelection?
 
@@ -498,9 +512,16 @@ private struct ZoneEditor: View {
             ForEach(Self.identified(entries), id: \.id) { index, entry, _ in
                 if zone == .topRight, entry == .part(.print), entries[(index + 1)...].allSatisfy({ $0 == .separator }) {
                     MoreLock()
+                        .background {
+                            GeometryReader { geometry in
+                                Color.clear.preference(
+                                    key: DockedMoreFrame.self, value: geometry.frame(in: .named(space)))
+                            }
+                        }
                 }
                 EntryChip(
-                    session: session, location: BandEntryLocation(destination: .zone(zone), index: index), entry: entry,
+                    session: session, accessibilityFocus: accessibilityFocus,
+                    location: BandEntryLocation(destination: .zone(zone), index: index), entry: entry,
                     didMoveWithKeys: { focusedChip = session.selection }
                 )
                 .focused($focusedChip, equals: entry.item.map(BandEditorSelection.part) ?? .separator(zone, index))
@@ -538,7 +559,7 @@ private struct ZoneEditor: View {
         .overlay(alignment: .topLeading) {
             if case .zone(zone, let index) = session.dropTarget,
                 let marker = session.dropMarker
-                    ?? BandEditorDrop.marker(at: index, frames: session.chipFrames[zone, default: []])
+                    ?? BandEditorDrop.Slots(zone: zone, session: session).marker(at: index)
             {
                 AppCornerShape.capsule.fill(Color.accentColor)
                     .frame(width: 2.5, height: marker.height)
@@ -552,6 +573,9 @@ private struct ZoneEditor: View {
             session.layoutFrames[zone.rawValue] = $0
         }
         .coordinateSpace(.named(space))
+        .onPreferenceChange(DockedMoreFrame.self) { frame in
+            if zone == .topRight { session.dockedMoreFrame = frame }
+        }
         .onPreferenceChange(BandChipFrames.self) { frames in
             // Publish one complete layout. An unmeasured zone accepts drops at its end.
             let ordered = (0..<entries.count).compactMap { frames[$0] }
@@ -620,6 +644,7 @@ private struct MiniatureNotes: View {
 /// One entry of the draft: a part drawn as on the band, or a separator. Click or Space selects it, and it drags.
 private struct EntryChip: View {
     let session: BandArrangementEditorSession
+    let accessibilityFocus: AccessibilityFocusState<BandEditorSelection?>.Binding
     let location: BandEntryLocation
     let entry: BandEntry
     var showsName = false
@@ -693,6 +718,7 @@ private struct EntryChip: View {
             .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
             .accessibilityAction { session.select(selection) }
             .accessibilityActions { BandEntryActions(session: session, selection: selection) }
+            .accessibilityFocused(accessibilityFocus, equals: selection)
     }
 
     /// The miniature's parts on the band need no chip of their own around a separator or the vermilion Print.
@@ -755,8 +781,7 @@ private struct BandEntryActions: View {
     }
 
     private func act(_ action: () -> Void) {
-        session.select(selection)
-        action()
+        session.performAccessibilityAction(on: selection, action)
     }
 }
 
@@ -775,6 +800,7 @@ private struct SeparatorMark: View {
 
 private struct UnusedPalette: View {
     let session: BandArrangementEditorSession
+    let accessibilityFocus: AccessibilityFocusState<BandEditorSelection?>.Binding
 
     private var heading: some View {
         VStack(alignment: .leading, spacing: 1) {
@@ -814,7 +840,7 @@ private struct UnusedPalette: View {
                         FlowLayout(spacing: 6, constrainsChips: true) {
                             ForEach(group.parts) { part in
                                 EntryChip(
-                                    session: session, location: part.location,
+                                    session: session, accessibilityFocus: accessibilityFocus, location: part.location,
                                     entry: .part(part.id), showsName: true
                                 )
                                 .onGeometryChange(for: CGRect.self) {
@@ -1233,6 +1259,13 @@ struct FlowLayout: Layout {
 
 // MARK: - Drag and drop
 
+private struct DockedMoreFrame: PreferenceKey {
+    static let defaultValue: CGRect? = nil
+    static func reduce(value: inout CGRect?, nextValue: () -> CGRect?) {
+        value = nextValue() ?? value
+    }
+}
+
 private struct BandChipFrames: PreferenceKey {
     static let defaultValue: [Int: CGRect] = [:]
 
@@ -1242,6 +1275,37 @@ private struct BandChipFrames: PreferenceKey {
 }
 
 enum BandEditorDrop {
+    /// The lock occupies a place in the flow, but inserts before and after it both land before Print.
+    struct Slots {
+        let frames: [CGRect]
+        let lockIndex: Int?
+
+        init(zone: BandZoneID, session: BandArrangementEditorSession) {
+            var frames = session.chipFrames[zone, default: []]
+            let entries = session.arrangement[zone]
+            if zone == .topRight, let lock = session.dockedMoreFrame, frames.count == entries.count,
+                let last = entries.lastIndex(where: { $0.item != nil }), entries[last] == .part(.print)
+            {
+                frames.insert(lock, at: last)
+                lockIndex = last
+            } else {
+                lockIndex = nil
+            }
+            self.frames = frames
+        }
+
+        func index(at point: CGPoint) -> Int {
+            let slot = BandEditorDrop.insertionIndex(at: point, frames: frames)
+            if let lockIndex, slot > lockIndex { return slot - 1 }
+            return slot
+        }
+
+        func marker(at index: Int, pointerY: CGFloat? = nil) -> CGRect? {
+            let slot = lockIndex.map { index > $0 ? index + 1 : index } ?? index
+            return BandEditorDrop.marker(at: slot, frames: frames, pointerY: pointerY)
+        }
+    }
+
     /// All coordinates except the chip frames are in the scroll view's named space.
     static func placement(at point: CGPoint, in session: BandArrangementEditorSession) -> (
         target: BandEditorDropTarget, marker: CGRect?
@@ -1261,8 +1325,9 @@ enum BandEditorDrop {
                 return (.zone(zone, index: count), nil)
             }
             let local = CGPoint(x: point.x - rect.minX, y: point.y - rect.minY)
-            let index = insertionIndex(at: local, frames: chips)
-            return (.zone(zone, index: index), marker(at: index, frames: chips, pointerY: local.y))
+            let slots = Slots(zone: zone, session: session)
+            let index = slots.index(at: local)
+            return (.zone(zone, index: index), slots.marker(at: index, pointerY: local.y))
         }
         return (frames["palette"]?.contains(point) == true ? .unused : .outside, nil)
     }
@@ -1312,19 +1377,26 @@ enum BandEditorDrop {
     }
 
     /// Reads the one payload of a drop and hands it to the session; nothing else is accepted.
-    static func perform(_ info: DropInfo, on target: BandEditorDropTarget, session: BandArrangementEditorSession)
-        -> Bool
-    {
-        let providers = info.itemProviders(for: [.utf8PlainText])
+    static func perform(
+        _ providers: [NSItemProvider], at point: CGPoint, in session: BandArrangementEditorSession,
+        completion: (@MainActor @Sendable (Bool) -> Void)? = nil
+    ) -> Bool {
+        let target = placement(at: point, in: session).target
+        guard session.proposal(for: target) != .forbidden else {
+            session.dropTarget = nil
+            return false
+        }
         guard providers.count == 1, let provider = providers.first else { return session.refuseDrop() }
         provider.loadDataRepresentation(forTypeIdentifier: UTType.utf8PlainText.identifier) { data, _ in
             let text = data.flatMap { String(data: $0, encoding: .utf8) }
             Task { @MainActor in
                 guard let text, let payload = BandEditorPayload(string: text) else {
                     session.refuseDrop()
+                    completion?(false)
                     return
                 }
-                session.drop(payload, on: target)
+                let placed = session.drop(payload, on: target)
+                completion?(placed)
             }
         }
         return true
@@ -1348,11 +1420,6 @@ struct BandEditorDropDelegate: DropDelegate {
     }
 
     func performDrop(info: DropInfo) -> Bool {
-        let target = BandEditorDrop.placement(at: info.location, in: session).target
-        guard session.proposal(for: target) != .forbidden else {
-            session.dropTarget = nil
-            return false
-        }
-        return BandEditorDrop.perform(info, on: target, session: session)
+        BandEditorDrop.perform(info.itemProviders(for: [.utf8PlainText]), at: info.location, in: session)
     }
 }
