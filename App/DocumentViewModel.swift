@@ -152,7 +152,9 @@ final class DocumentViewModel {
     /// `selectCodePalette(_:)`.
     var codePaletteID: String
     private var chosenCodeBlock: CodeBlockOptions?
-    private var defaultCodeBlock: CodeBlockOptions { sourceLanguage == nil ? CodeBlockOptions() : .sourcePage }
+    private var defaultCodeBlock: CodeBlockOptions {
+        preferences.codeLineNumbers.options(sourcePage: sourceLanguage != nil)
+    }
     var codeBlock: CodeBlockOptions {
         get { chosenCodeBlock ?? defaultCodeBlock }
         set { chosenCodeBlock = newValue == defaultCodeBlock ? nil : newValue }
@@ -1113,6 +1115,7 @@ final class DocumentViewModel {
         if usesPrintTheme {
             settings.code = CodeStyle(
                 palette: library.codePalette(codePaletteID), block: chosenCodeBlock,
+                lineNumbers: preferences.codeLineNumbers,
                 cutFormat: String(localized: "+%d characters"))
         }
         return settings
@@ -3100,7 +3103,7 @@ final class DocumentViewModel {
             binderStartsOnFront: binder != nil ? binderStartsOnFront : nil,
             printFinish: finishAppliesToText ? printFinish : nil,
             codePaletteID: usesPrintTheme ? codePaletteID : nil,
-            codeBlock: usesPrintTheme && codeBlock != defaultCodeBlock ? codeBlock : nil,
+            codeBlock: usesPrintTheme ? chosenCodeBlock : nil,
             bandVisibility: bandVisibility == defaultBandVisibility ? nil : bandVisibility,
             notes: offersNotes && notes != NotePages() ? notes : nil, bookletBinding: bookletBinding,
             pageRange: pageRange.isAll ? nil : pageRange, bookmarks: bookmarks.isEmpty ? nil : bookmarks,

@@ -52,21 +52,46 @@ public struct CodeBlockOptions: Codable, Equatable, Sendable {
     }
 }
 
+/// The converter classifies a source page after reading its contents, including a script's shebang.
+public struct CodeLineNumberDefaults: Equatable, Sendable {
+    public var source: CodeBlockOptions.LineNumbers
+    public var blocks: CodeBlockOptions.LineNumbers
+
+    public init(
+        source: CodeBlockOptions.LineNumbers = CodeBlockOptions.sourcePage.lineNumbers,
+        blocks: CodeBlockOptions.LineNumbers = CodeBlockOptions().lineNumbers
+    ) {
+        self.source = source
+        self.blocks = blocks
+    }
+
+    public func options(sourcePage: Bool) -> CodeBlockOptions {
+        var options = sourcePage ? CodeBlockOptions.sourcePage : CodeBlockOptions()
+        options.lineNumbers = sourcePage ? source : blocks
+        return options
+    }
+}
+
 /// The look of a document's code: the palette and the block's options, layered between the theme and the text size.
 public struct CodeStyle: Equatable, Sendable {
     /// nil matches the print theme.
     public var palette: CodePalette?
+    private let lineNumbers: CodeLineNumberDefaults
     private var chosenBlock: CodeBlockOptions?
     public var block: CodeBlockOptions {
-        get { chosenBlock ?? CodeBlockOptions() }
+        get { chosenBlock ?? lineNumbers.options(sourcePage: false) }
         set { chosenBlock = newValue }
     }
-    package var sourceBlock: CodeBlockOptions { chosenBlock ?? .sourcePage }
+    package var sourceBlock: CodeBlockOptions { chosenBlock ?? lineNumbers.options(sourcePage: true) }
     /// The mark on a cut line; `%d` stands for the characters left out.
     public var cutFormat: String
 
-    public init(palette: CodePalette? = nil, block: CodeBlockOptions? = nil, cutFormat: String = "+%d") {
+    public init(
+        palette: CodePalette? = nil, block: CodeBlockOptions? = nil, lineNumbers: CodeLineNumberDefaults = .init(),
+        cutFormat: String = "+%d"
+    ) {
         self.palette = palette
+        self.lineNumbers = lineNumbers
         self.chosenBlock = block
         self.cutFormat = cutFormat
     }

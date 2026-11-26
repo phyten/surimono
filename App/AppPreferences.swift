@@ -304,7 +304,20 @@ final class AppPreferences {
     }
 
     /// Kept for this app run, including when the Settings window is closed and reopened.
-    var settingsSection: SettingsSection = .general
+    private var selectedSettingsChapter = SettingsSection.general
+    var settingsDocumentFormat = DocumentFormat.markdown
+    var settingsSection: SettingsSection {
+        get { selectedSettingsChapter }
+        set {
+            switch newValue {
+            case .org, .html:
+                settingsDocumentFormat = newValue == .org ? .org : .html
+                selectedSettingsChapter = .documents
+            default: selectedSettingsChapter = newValue
+            }
+        }
+    }
+
     // An explicit request can point to the current section while a search hides its contents.
     var settingsNavigationRevision = 0
 
@@ -318,6 +331,17 @@ final class AppPreferences {
     var themeID: String { didSet { defaults.set(themeID, forKey: "theme") } }
     /// The code palette a document starts with; `CodePalette.matchesStyleID` follows its style.
     var defaultCodePaletteID: String { didSet { defaults.set(defaultCodePaletteID, forKey: "codePalette") } }
+    var codeLineNumbers: CodeLineNumberDefaults {
+        didSet {
+            let shipped = CodeLineNumberDefaults()
+            defaults.set(
+                codeLineNumbers.source == shipped.source ? nil : codeLineNumbers.source.rawValue,
+                forKey: "sourceLineNumbers")
+            defaults.set(
+                codeLineNumbers.blocks == shipped.blocks ? nil : codeLineNumbers.blocks.rawValue,
+                forKey: "codeBlockLineNumbers")
+        }
+    }
     var triesThemeOnHover: Bool {
         didSet { defaults.set(triesThemeOnHover, forKey: "triesThemeOnHover") }
     }
@@ -654,6 +678,12 @@ final class AppPreferences {
             defaults.string(forKey: "themeSampleSource").flatMap(ThemeSampleSource.init(rawValue:)) ?? .specimen
         triesThemeOnHover = defaults.object(forKey: "triesThemeOnHover") as? Bool ?? true
         hasSeenPrintStyleTip = defaults.bool(forKey: "hasSeenPrintStyleTip")
+        let numbers = CodeLineNumberDefaults()
+        codeLineNumbers = CodeLineNumberDefaults(
+            source: defaults.string(forKey: "sourceLineNumbers").flatMap(CodeBlockOptions.LineNumbers.init(rawValue:))
+                ?? numbers.source,
+            blocks: defaults.string(forKey: "codeBlockLineNumbers").flatMap(
+                CodeBlockOptions.LineNumbers.init(rawValue:)) ?? numbers.blocks)
         defaultCodePaletteID = defaults.string(forKey: "codePalette") ?? CodePalette.matchesStyleID
         presetID = defaults.string(forKey: "preset") ?? "none"
         margin = defaults.object(forKey: "margin") as? Double ?? 15
@@ -891,7 +921,12 @@ final class AppPreferences {
 
     var printFinish: PrintFinish { finishDefaults?.finish ?? PrintFinish() }
 
-    var headlessPrintFinish: PrintFinish { finishDefaults?.finish ?? .manuscriptContents }
+    func headlessPrintFinish(for format: DocumentFormat) -> PrintFinish {
+        if let finish = finishDefaults?.finish { return finish }
+        // Preserve the shortcut's manuscript layout until a reading default applies to this format.
+        let lead = formatReadingDefaults.resolve(.tableOfContents, for: format)
+        return lead?.isChanged == true ? PrintFinish() : .manuscriptContents
+    }
 
     /// New documents start with these margins, header and footer, page breaks and contents.
     func setFinishDefaults(options: PrintOptions, finish: PrintFinish) {

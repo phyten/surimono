@@ -96,7 +96,7 @@ struct SettingsSearchRevealTests {
             func translate(_ key: String) -> String { bundle.localizedString(forKey: key, value: nil, table: nil) }
             let query = translate(anchor)
             let results = SettingsCatalogue.search(query, in: SettingsCatalogue.rows, localize: translate)
-            let anchors = results.rows.filter { $0.section == .org }.map(\.anchor)
+            let anchors = results.rows.filter { $0.format == .org }.map(\.anchor)
             try #require(anchors.first == anchor)
             let visit = SettingsSearchVisit()
             if !canReveal { visit.cancel() }
@@ -139,7 +139,7 @@ struct SettingsSearchRevealTests {
         let search: FilterSearch
 
         var body: some View {
-            SettingsDetail(section: .org, hits: search.hits) { _ in
+            SettingsDetail(section: .documents, hits: search.hits) { _ in
                 OrgReadingDefaultsPane(preferences: preferences, filter: .init(isOn: true))
                     .overlay { ReceivedQuery(search: search) }
                     .environment(\.settingsRowFrames, search.frames)
@@ -174,7 +174,7 @@ struct SettingsSearchRevealTests {
         let search: Search
 
         var body: some View {
-            SettingsDetail(section: .org, hits: search.hits) { _ in
+            SettingsDetail(section: .documents, hits: search.hits) { _ in
                 ReadingDefaultsControls(
                     defaults: OrgReadingDefaultsPane.defaults(.surimono),
                     resetQuestion: "Reset Org settings to defaults?",

@@ -12,15 +12,15 @@ struct SettingsSearchTests {
     func orgSettings(query: String) {
         let names = ["Heading Numbers": "見出しの番号", "Table of Contents at the Top": "先頭の目次"]
         let results = SettingsCatalogue.search(query, in: SettingsCatalogue.rows, localize: { names[$0] ?? $0 })
-        #expect(results.bestSection(keeping: .pageNumbers) == .org)
-        if query == "num" { #expect(results.rows.contains { $0.section == .org && $0.anchor == "Heading Numbers" }) }
+        #expect(results.bestSection(keeping: .pageNumbers) == .documents)
+        if query == "num" { #expect(results.rows.contains { $0.format == .org && $0.anchor == "Heading Numbers" }) }
     }
 
     @Test("Emacs とリセットの検索で Org の対応する一括操作が見つかる")
     func orgDefaultsActions() {
         for (query, action) in [("Emacs", "Use Emacs Defaults…"), ("reset", "Reset to Defaults…")] {
             let hits = SettingsCatalogue.search(query, in: SettingsCatalogue.rows)
-            #expect(hits.rows.contains { $0.section == .org && $0.anchor == action })
+            #expect(hits.rows.contains { $0.format == .org && $0.anchor == action })
         }
     }
 
@@ -31,7 +31,7 @@ struct SettingsSearchTests {
         for id in ids {
             for query in [id.label.key, id.token, id.token + ":"] {
                 let hits = SettingsCatalogue.search(query, in: SettingsCatalogue.rows)
-                #expect(hits.rows.contains { $0.section == .org && $0.anchor == id.label.key }, "query=\(query)")
+                #expect(hits.rows.contains { $0.format == .org && $0.anchor == id.label.key }, "query=\(query)")
             }
         }
     }
@@ -122,12 +122,12 @@ struct SettingsSearchTests {
         ] {
             for query in [oldNames[index], translate(new)] {
                 let hits = SettingsCatalogue.search(query, in: rows, localize: translate)
-                #expect(hits.rows.contains { $0.section == .org && $0.anchor == anchor }, "\(language) \(query)")
+                #expect(hits.rows.contains { $0.format == .org && $0.anchor == anchor }, "\(language) \(query)")
             }
         }
         for group in OrgReadingGroup.allCases {
             let hits = SettingsCatalogue.search(translate(group.title.key), in: rows, localize: translate)
-            let anchors = Set(hits.rows.filter { $0.section == .org }.map(\.anchor))
+            let anchors = Set(hits.rows.filter { $0.format == .org }.map(\.anchor))
             #expect(group.settings.allSatisfy { anchors.contains($0.label.key) })
         }
         #expect(

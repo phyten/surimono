@@ -11,6 +11,8 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     case pageNumbers = "Page Numbers"
     case settingSets = "Setting Sets"
     case clipboard = "Clipboard"
+    case documents = "Documents"
+    // Legacy navigation targets are resolved before selecting a sidebar chapter.
     case html = "HTML"
     case org = "Org"
 
@@ -26,7 +28,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .settingSets: "slider.horizontal.3"
         // "textformat" is drawn as kana in Japanese, beside line icons; the band's palette is the same in every language.
         case .styles: "paintpalette"
-        case .org: "doc.text"
+        case .documents, .org: "doc.text"
         case .html: "globe"
         case .clipboard: "doc.on.clipboard"
         }
@@ -44,13 +46,14 @@ enum SettingsGroup: String, CaseIterable {
         case .general: [.general, .keyboardShortcuts]
         case .viewing: [.view, .toolbarArrangement, .styles]
         case .printing: [.printing, .pageNumbers, .settingSets]
-        case .opening: [.clipboard, .org, .html]
+        case .opening: [.clipboard, .documents]
         }
     }
 }
 
 struct SettingsSearchRow {
     let section: SettingsSection
+    let format: DocumentFormat?
     let label: String
     let anchor: String
     let words: [String]
@@ -58,10 +61,12 @@ struct SettingsSearchRow {
     let heading: String?
 
     init(
-        _ section: SettingsSection, _ label: String, anchor: String? = nil, words: [String] = [],
+        _ section: SettingsSection, _ label: String, format: DocumentFormat? = nil, anchor: String? = nil,
+        words: [String] = [],
         identifiers: [String] = [], heading: String? = nil
     ) {
         self.section = section
+        self.format = format
         self.label = label
         self.anchor = anchor ?? label
         self.identifiers = identifiers
@@ -85,6 +90,27 @@ struct SettingsSearchSelection {
 struct SettingsSearchResults {
     var rows: [SettingsSearchRow] = []
     fileprivate var ranks: [SettingsSection: Rank] = [:]
+
+    fileprivate var documentMatches: [DocumentFormat: [(anchor: String, rank: Rank)]] = [:]
+
+    var formats: [DocumentFormat] { DocumentsChapter.formats.filter { documentMatches[$0] != nil } }
+
+    func bestFormat(keeping current: DocumentFormat) -> DocumentFormat? {
+        guard let best = ranks[.documents] else { return nil }
+        func hasBestMatch(_ format: DocumentFormat) -> Bool {
+            documentMatches[format]?.contains { $0.rank == best } == true
+        }
+        return hasBestMatch(current) ? current : formats.first(where: hasBestMatch)
+    }
+
+    func hits(for section: SettingsSection, format: DocumentFormat, query: String) -> SettingsSearchHits {
+        if section == .documents {
+            let matches = documentMatches[format] ?? []
+            return SettingsSearchHits(
+                query: query, anchors: matches.sorted { $0.rank < $1.rank }.map(\.anchor), format: format)
+        }
+        return SettingsSearchHits(query: query, anchors: rows.filter { $0.section == section }.map(\.anchor))
+    }
 
     fileprivate struct Rank: Comparable {
         enum Source: Int { case identifier, section, setting, command }
@@ -152,12 +178,6 @@ enum SettingsCatalogue {
             .init(.styles, "Default Typeface", words: ["LaTeX Typeface", "As the Style"]),
             .init(.styles, "Open Styles Folder"),
             .init(.styles, "Reload", anchor: "Open Styles Folder"),
-            .init(.org, "Use Emacs Defaults…"),
-            .init(.org, "Reset to Defaults…"),
-            .init(.html, "Default HTML Preset"),
-            .init(.html, "Allow JavaScript in HTML"),
-            .init(.html, "Open Presets Folder"),
-            .init(.html, "Reload", anchor: "Open Presets Folder"),
             .init(.clipboard, "Keep Closed Clipboard Documents Until Quit"),
             .init(.clipboard, "Also Keep Them After Quitting"),
             .init(.clipboard, "Choosing the Format"),
@@ -184,15 +204,49 @@ enum SettingsCatalogue {
         rows += BandLayout.Item.allCases.map {
             .init(.toolbarArrangement, $0.editorNameResource.key, anchor: $0.rawValue)
         }
+        for format in DocumentsChapter.formats {
+            let controls = DocumentsChapter.rows(for: format)
+            if !controls.isEmpty {
+                rows += controls.map { row in
+                    .init(
+                        .documents, row.id.label.key, format: format,
+                        identifiers: row.instructions.map { $0.syntax.lowercased() }
+                            + DocumentsChapter.extensions(for: format))
+                }
+                // Manuscript-only syntax locates the format's header without offering an ineffective control.
+                let shown = Set(controls.map(\.id))
+                let otherSyntax = ReadingCatalogue.rows(for: format).filter { !shown.contains($0.id) }
+                    .flatMap(\.instructions).map { $0.syntax.lowercased() }
+                rows.append(.init(.documents, "Defaults for New Documents", format: format, identifiers: otherSyntax))
+            }
+            if format == .plainText {
+                rows += CodeNumberRow.allCases.map { .init(.documents, $0.label.key, format: format) }
+            }
+            if format != .org && format != .html {
+                rows.append(.init(.documents, "Reset to Defaults…", format: format))
+            }
+        }
         for group in OrgReadingGroup.allCases {
             rows += group.settings.map { id in
                 let token = id.token.lowercased()
                 let aliases = orgSearchWords(for: id) + (group == .textAndMarkup ? formerOrgTextHeadings : [])
                 return .init(
-                    .org, id.label.key, words: aliases, identifiers: [token, token + ":", ".org"],
+                    .documents, id.label.key, format: .org, words: aliases,
+                    identifiers: [token, token + ":", ".org"]
+                        + (ReadingCatalogue.rows(for: .org).first { $0.id == id }?.instructions.map {
+                            $0.syntax.lowercased()
+                        } ?? []),
                     heading: group.title.key)
             }
         }
+        rows += [
+            .init(.documents, "Use Emacs Defaults…", format: .org),
+            .init(.documents, "Reset to Defaults…", format: .org),
+            .init(.documents, "Default HTML Preset", format: .html, identifiers: [".html", ".htm"]),
+            .init(.documents, "Allow JavaScript in HTML", format: .html),
+            .init(.documents, "Open Presets Folder", format: .html),
+            .init(.documents, "Reload", format: .html, anchor: "Open Presets Folder"),
+        ]
         rows += ClipboardSettings.recognizable.map {
             .init(
                 .clipboard, ClipboardSettings.labelKey($0),
@@ -329,6 +383,8 @@ enum SettingsCatalogue {
             let rank: Rank
             if row.identifiers.contains(needle) {
                 rank = Rank(source: .identifier, match: .exact)
+            } else if let quality = row.format.flatMap({ match(DocumentsChapter.title($0)) }) {
+                rank = Rank(source: .section, match: quality)
             } else if match(row.section.rawValue) != nil {
                 rank = Rank(source: .section, match: .exact)
             } else {
@@ -338,13 +394,16 @@ enum SettingsCatalogue {
                     quality = min(heading, match(row.label) ?? heading)
                 } else if let label = match(row.label) {
                     quality = label
-                } else if row.words.contains(where: { match($0) != nil }) {
+                } else if row.words.contains(where: { match($0) != nil })
+                    || (row.format != nil && needle.count >= 3 && row.identifiers.contains { $0.contains(needle) })
+                {
                     quality = .keyword
                 } else {
                     continue
                 }
                 rank = Rank(source: isCommand ? .command : .setting, match: quality)
             }
+            if let format = row.format { results.documentMatches[format, default: []].append((row.anchor, rank)) }
             results.rows.append(row)
             results.ranks[row.section] = min(results.ranks[row.section] ?? rank, rank)
         }

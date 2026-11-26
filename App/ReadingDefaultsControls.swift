@@ -30,8 +30,7 @@ struct ReadingDefaults<Value: Equatable> {
         return anchors
     }
 
-    var status: LocalizedStringResource? {
-        guard !alternatives.isEmpty else { return nil }
+    var status: LocalizedStringResource {
         if current == builtIn { return "Surimono defaults" }
         return alternatives.first { $0.values == current }?.status ?? "Custom"
     }
@@ -84,9 +83,7 @@ struct ReadingDefaultsControls<Value: Equatable, Header: View, Rows: View>: View
                         HStack {
                             header
                             Spacer()
-                            if let status = defaults.status {
-                                Text(status).foregroundStyle(.secondary)
-                            }
+                            Text(defaults.status).foregroundStyle(.secondary)
                         }
                         .font(.body).textCase(nil)
                         .accessibilityElement(children: .contain)
