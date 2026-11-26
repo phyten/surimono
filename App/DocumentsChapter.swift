@@ -58,10 +58,10 @@ struct DocumentsChapterView<Page: View>: View {
                 }
             } else {
                 VStack(spacing: 0) {
-                    Picker("Format", selection: $selection) {
-                        ForEach(formats, id: \.self) { format in
-                            Text(LocalizedStringKey(DocumentsChapter.title(format))).tag(format)
-                        }
+                    HStack {
+                        Text("Format")
+                        DocumentFormatPicker(formats: formats, selection: $selection)
+                            .fixedSize()
                     }
                     .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 20).padding(.vertical, 8)
                     Divider()
@@ -69,6 +69,44 @@ struct DocumentsChapterView<Page: View>: View {
                 }
             }
         }
+    }
+}
+
+/// A menu choice is an explicit visit even when search already displays the selected item.
+private struct DocumentFormatPicker: NSViewRepresentable {
+    let formats: [DocumentFormat]
+    @Binding var selection: DocumentFormat
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    func makeNSView(context: Context) -> NSPopUpButton {
+        let button = NSPopUpButton(frame: .zero, pullsDown: false)
+        button.target = context.coordinator
+        button.action = #selector(Coordinator.choose)
+        return button
+    }
+
+    func updateNSView(_ button: NSPopUpButton, context: Context) {
+        let locale = context.environment.locale
+        let titles = formats.map {
+            String(
+                localized: LocalizedStringResource(
+                    String.LocalizationValue(stringLiteral: DocumentsChapter.title($0)), locale: locale))
+        }
+        if button.itemTitles != titles {
+            button.removeAllItems()
+            button.addItems(withTitles: titles)
+        }
+        button.setAccessibilityLabel(String(localized: LocalizedStringResource("Format", locale: locale)))
+        if let index = formats.firstIndex(of: selection) { button.selectItem(at: index) }
+        context.coordinator.chooseIndex = { index in
+            if formats.indices.contains(index) { selection = formats[index] }
+        }
+    }
+
+    final class Coordinator: NSObject {
+        var chooseIndex: ((Int) -> Void)?
+        @objc func choose(_ button: NSPopUpButton) { chooseIndex?(button.indexOfSelectedItem) }
     }
 }
 
@@ -80,13 +118,14 @@ private struct DocumentFormatList: NSViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     func makeNSView(context: Context) -> NSScrollView {
-        let table = NSTableView()
+        let table = FormatTable()
         table.style = .sourceList
         table.headerView = nil
         table.intercellSpacing = .zero
         table.allowsEmptySelection = false
         table.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
         table.addTableColumn(NSTableColumn(identifier: .init("format")))
+        table.reselect = context.coordinator.choose
         table.delegate = context.coordinator
         table.dataSource = context.coordinator
         let scroll = NSScrollView()
@@ -114,6 +153,16 @@ private struct DocumentFormatList: NSViewRepresentable {
             table.scrollRowToVisible(index)
         }
         coordinator.select = { selection = $0 }
+    }
+
+    private final class FormatTable: NSTableView {
+        var reselect: ((Int) -> Void)?
+
+        override func mouseDown(with event: NSEvent) {
+            let clicked = row(at: convert(event.locationInWindow, from: nil))
+            if clicked >= 0, clicked == selectedRow { reselect?(clicked) }
+            super.mouseDown(with: event)
+        }
     }
 
     final class Coordinator: NSObject, NSTableViewDataSource, NSTableViewDelegate {
@@ -148,9 +197,11 @@ private struct DocumentFormatList: NSViewRepresentable {
         }
 
         func tableViewSelectionDidChange(_ notification: Notification) {
-            guard let table = notification.object as? NSTableView, rows.indices.contains(table.selectedRow),
-                let format = rows[table.selectedRow]
-            else { return }
+            if let table = notification.object as? NSTableView { choose(table.selectedRow) }
+        }
+
+        func choose(_ row: Int) {
+            guard rows.indices.contains(row), let format = rows[row] else { return }
             select?(format)
         }
     }

@@ -88,6 +88,7 @@ struct HeadlessExport {
             settings.code = CodeStyle(
                 palette: palette, lineNumbers: preferences.codeLineNumbers,
                 cutFormat: String(localized: "+%d characters"))
+            settings.restrictReadingDefaults(to: [format])
         }
         return settings
     }

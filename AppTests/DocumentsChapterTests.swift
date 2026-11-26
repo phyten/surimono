@@ -1,4 +1,6 @@
+import PDFKit
 import SurimonoCore
+import SurimonoRendering
 import SwiftUI
 import Testing
 
@@ -49,6 +51,9 @@ struct DocumentsChapterTests {
         let prefs = AppPreferences(defaults: suite.defaults)
         FormatDefaultsPane(format: .markdown, preferences: prefs).set(
             .outline(present: true, depth: .levels(2)), for: .tableOfContents)
+        let markdownDefaults = prefs.formatReadingDefaults
+        FormatDefaultsPane(format: .quarto, preferences: prefs).set(
+            .outline(present: true, depth: .all), for: .tableOfContents)
         let library = UserLibrary(root: root)
         let model = DocumentViewModel(
             data: Data("# Title".utf8), fileURL: nil, format: .markdown, preferences: prefs, library: library)
@@ -56,10 +61,10 @@ struct DocumentsChapterTests {
         #expect(model.leadContents == .levels(2))
         #expect(model.rememberedSettings.formatReading.isEmpty)
         let render = try #require(model.renderSettings)
-        #expect(render.formatReadingDefaults == prefs.formatReadingDefaults && render.finish.legacyTOC == nil)
+        #expect(render.formatReadingDefaults == markdownDefaults && render.finish.legacyTOC == nil)
         let shortcut = try HeadlessExport(preferences: prefs, library: library).settings(
             format: .markdown, name: "Title", layoutID: nil, style: nil)
-        #expect(shortcut.formatReadingDefaults == prefs.formatReadingDefaults && shortcut.finish.legacyTOC == nil)
+        #expect(shortcut.formatReadingDefaults == markdownDefaults && shortcut.finish.legacyTOC == nil)
         var saved = DocumentSettings()
         saved.formatReading.set(
             .outline(present: false, depth: .levels(2)), for: .tableOfContents, format: .markdown,
@@ -110,6 +115,55 @@ struct DocumentsChapterTests {
                 && suite.defaults.object(forKey: "codeBlockLineNumbers") == nil)
     }
 
+    @Test("開いた Markdown は自分が継承する目次と行番号だけで再組版する", arguments: [false, true])
+    func renderInheritedDefaults(storedCode: Bool) async throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let prefs = AppPreferences(defaults: suite.defaults)
+        var calls = 0
+        let page = TestFixtures.pdf("Defaults", pages: 1)
+        let renderer = DocumentRenderer(paginate: { _ in
+            calls += 1
+            return try #require(PDFDocument(data: page))
+        })
+        let model = DocumentViewModel(
+            data: Data("# Heading\n\n```swift\nlet n = 1\n```".utf8), fileURL: nil, format: .markdown,
+            preferences: prefs, library: UserLibrary(root: root), renderer: renderer)
+        defer { model.stop() }
+        if storedCode { model.restoreClosedDocument(.init(codeBlock: .init(lineNumbers: .everyFive))) }
+        func settle() async throws {
+            let deadline = ContinuousClock.now + .seconds(10)
+            while model.isRendering {
+                try #require(ContinuousClock.now < deadline)
+                try await Task.sleep(for: .milliseconds(10))
+            }
+            try #require(model.isUpToDate)
+        }
+        model.render()
+        try await settle()
+        let original = try #require(model.renderSettings)
+        let starts = model.renderStartCount
+        prefs.formatReadingDefaults.set(.outline(present: true, depth: .all), for: .tableOfContents, format: .quarto)
+        prefs.codeLineNumbers.source = .none
+        #expect(model.renderSettings == original)
+        model.renderForChangedSettings()
+        #expect(model.renderStartCount == starts && calls == 1)
+
+        prefs.codeLineNumbers.blocks = .all
+        #expect((model.renderSettings == original) == storedCode)
+        model.renderForChangedSettings()
+        try await settle()
+        #expect(model.renderStartCount == starts + (storedCode ? 0 : 1))
+        #expect(calls == (storedCode ? 1 : 2))
+
+        prefs.formatReadingDefaults.set(.outline(present: true, depth: .all), for: .tableOfContents, format: .markdown)
+        model.renderForChangedSettings()
+        try await settle()
+        #expect(calls == (storedCode ? 2 : 3))
+    }
+
     @Test("拡張子・原稿の指定・項目名で文書の章と形式と表示する行が決まる")
     func search() {
         let contents = "Table of Contents at the Top"
@@ -130,6 +184,86 @@ struct DocumentsChapterTests {
             #expect(
                 results.hits(for: .documents, format: format, query: query).scrollTarget(excluding: []) == row,
                 "\(query)")
+        }
+    }
+
+    @Test("検索で表示した Quarto を選び直したときだけ検索解除後もそのページに残る", arguments: [820, 1120])
+    func reselectSearchFormat(width: CGFloat) async throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let preferences = AppPreferences(defaults: suite.defaults)
+        preferences.settingsSection = .documents
+        preferences.settingsDocumentFormat = .markdown
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let screen = OrgReadingTestWindow(width: width, height: 540) {
+            SettingsView(
+                preferences: preferences, library: UserLibrary(root: root),
+                arrangementEditor: BandArrangementEditorSession(preferences: preferences)
+            ).environment(\.locale, Locale(identifier: "en"))
+        }
+        defer { screen.window.close() }
+
+        func control<T: NSView>(_ type: T.Type, in view: NSView, matching: (T) -> Bool) -> T? {
+            if let candidate = view as? T, matching(candidate) { return candidate }
+            for child in view.subviews {
+                if let found = control(type, in: child, matching: matching) { return found }
+            }
+            return nil
+        }
+        func list() -> NSTableView? {
+            control(NSTableView.self, in: screen.host) { $0.accessibilityLabel() == "Format" }
+        }
+        func picker() -> NSPopUpButton? {
+            control(NSPopUpButton.self, in: screen.host) { $0.accessibilityLabel() == "Format" }
+        }
+        func shows(_ title: String, filtered: Bool) -> Bool {
+            if width == 820, let button = picker() {
+                return button.titleOfSelectedItem == title && (button.numberOfItems == 1) == filtered
+            }
+            guard let table = list(), table.selectedRow >= 0,
+                let cell = table.view(atColumn: 0, row: table.selectedRow, makeIfNecessary: true) as? NSTableCellView
+            else { return false }
+            return cell.textField?.stringValue == title && (table.numberOfRows == 1) == filtered
+        }
+        func query(_ text: String) throws {
+            let field = try #require(control(NSTextField.self, in: screen.host) { $0.isEditable })
+            field.stringValue = text
+            field.delegate?.controlTextDidChange?(
+                Notification(name: NSControl.textDidChangeNotification, object: field))
+        }
+
+        try await screen.wait("Markdown before search") { shows("Markdown", filtered: false) }
+        for explicitlySelected in [false, true] {
+            try query(".qmd")
+            try await screen.wait("Quarto search hit") { shows("Quarto", filtered: true) }
+            #expect(preferences.settingsDocumentFormat == .markdown)
+            if explicitlySelected {
+                if width == 820 {
+                    let button = try #require(picker())
+                    let menu = try #require(button.menu)
+                    menu.performActionForItem(at: button.indexOfSelectedItem)
+                } else {
+                    let table = try #require(list())
+                    let rect = table.convert(table.rect(ofRow: table.selectedRow), to: nil)
+                    let point = CGPoint(x: rect.midX, y: rect.midY)
+                    func event(_ type: NSEvent.EventType) throws -> NSEvent {
+                        try #require(
+                            NSEvent.mouseEvent(
+                                with: type, location: point, modifierFlags: [],
+                                timestamp: ProcessInfo.processInfo.systemUptime,
+                                windowNumber: screen.window.windowNumber, context: nil, eventNumber: 0, clickCount: 1,
+                                pressure: type == .leftMouseDown ? 1 : 0))
+                    }
+                    // Native row tracking can consume mouse-up synchronously inside mouseDown.
+                    screen.window.postEvent(try event(.leftMouseUp), atStart: true)
+                    table.mouseDown(with: try event(.leftMouseDown))
+                }
+                try #require(preferences.settingsDocumentFormat == .quarto)
+            }
+            try query("")
+            let expected = explicitlySelected ? "Quarto" : "Markdown"
+            try await screen.wait("Page after clearing search") { shows(expected, filtered: false) }
         }
     }
 

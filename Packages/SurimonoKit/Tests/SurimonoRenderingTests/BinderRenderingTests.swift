@@ -24,7 +24,7 @@ struct BinderRenderingTests {
         ]
     }
 
-    @Test("合本の子は文書と全体の目次設定を引き継がず、原稿の目次を従来の個数で組む")
+    @Test("合本の子は親の目次設定を引き継がず、その形式の既定を変えた子だけ組み直す")
     func childContents() async throws {
         let wiki = DocumentSource(
             data: Data("__FORCETOC__\n== Alpha ==\n__TOC__\n== Bravo ==".utf8), format: .mediawiki)
@@ -40,10 +40,17 @@ struct BinderRenderingTests {
         var settings = settings
         settings.finish.legacyPresetContents.mode = .front
         settings.formatReading.set(.outline(present: true, depth: .all), for: .tableOfContents, format: .mediawiki)
+        let binder = DocumentSource.binder([wiki, md])
+        _ = try await renderer.prepare(binder, settings: settings)
+        #expect(lists == [1, 0])
+        settings.formatReadingDefaults.set(
+            .outline(present: true, depth: .all), for: .tableOfContents, format: .quarto)
+        _ = try await renderer.prepare(binder, settings: settings)
+        #expect(renderer.logicalRenderCount == 1 && lists == [1, 0])
         settings.formatReadingDefaults.set(
             .outline(present: true, depth: .all), for: .tableOfContents, format: .markdown)
-        let result = try await renderer.prepare(.binder([wiki, md]), settings: settings)
-        #expect(lists == [1, 0])
+        let result = try await renderer.prepare(binder, settings: settings)
+        #expect(renderer.logicalRenderCount == 2 && lists == [1, 0, 1])
         #expect(result.logicalDocument.pageCount == 2 && result.addedContentsPages == 0)
     }
 

@@ -55,6 +55,11 @@ public struct DocumentSource: Equatable, Sendable {
         }
     }
 
+    fileprivate var documentFormats: Set<DocumentFormat> {
+        guard let children else { return [format] }
+        return children.reduce(into: []) { $0.formUnion($1.documentFormats) }
+    }
+
     public static func binder(_ children: [DocumentSource]) -> Self {
         Self(
             data: Data(), fileURL: nil, format: .pdf, isLiveSnapshot: false,
@@ -162,6 +167,12 @@ public struct RenderSettings: Equatable, Sendable {
 
     public var formatReading = FormatReadingChoices()
     public var formatReadingDefaults = FormatReadingChoices()
+
+    /// Use the same inputs for the window's change observation and the renderer's logical-page cache.
+    public mutating func restrictReadingDefaults(to formats: Set<DocumentFormat>) {
+        formatReadingDefaults = formatReadingDefaults.restricted(to: formats)
+        code.restrictLineNumberDefaults(to: formats)
+    }
 
     func leadContents(for format: DocumentFormat, facts: DocumentFacts) -> ReadingDepth? {
         if format == .org {
@@ -698,6 +709,7 @@ public final class DocumentRenderer {
         do {
             let requestedSettings = settings
             var settings = settings
+            settings.restrictReadingDefaults(to: source.documentFormats)
             if source.children != nil || source.format != .latex || settings.theme.formats != [.latex] {
                 settings.latexComposition = .document
             }
@@ -1207,9 +1219,14 @@ public final class DocumentRenderer {
             do {
                 var childSettings = settings
                 childSettings.binderStartsOnFront = false
-                childSettings.finish.legacyPresetContents = PaperTOC()
+                childSettings.restrictReadingDefaults(to: child.documentFormats)
                 childSettings.formatReading = .init()
-                childSettings.formatReadingDefaults = .init()
+                // Keep manuscript-only layout until this child's format has a reading default of its own.
+                if childSettings.formatReadingDefaults.isEmpty {
+                    childSettings.finish.legacyPresetContents = PaperTOC()
+                } else {
+                    childSettings.finish.contents = ContentsFinish()
+                }
                 childSettings.finish.footnotes = .end
                 childSettings.markdownChanges = []
                 // Left and right belong to the bound pages, which a document on its own does not know.

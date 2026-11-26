@@ -76,13 +76,34 @@ public struct CodeLineNumberDefaults: Equatable, Sendable {
 public struct CodeStyle: Equatable, Sendable {
     /// nil matches the print theme.
     public var palette: CodePalette?
-    private let lineNumbers: CodeLineNumberDefaults
-    private var chosenBlock: CodeBlockOptions?
-    public var block: CodeBlockOptions {
-        get { chosenBlock ?? lineNumbers.options(sourcePage: false) }
-        set { chosenBlock = newValue }
+    private enum Blocks: Equatable, Sendable {
+        case chosen(CodeBlockOptions)
+        case inherited(CodeLineNumberDefaults)
+
+        func options(sourcePage: Bool) -> CodeBlockOptions {
+            switch self {
+            case .chosen(let options): options
+            case .inherited(let defaults): defaults.options(sourcePage: sourcePage)
+            }
+        }
     }
-    package var sourceBlock: CodeBlockOptions { chosenBlock ?? lineNumbers.options(sourcePage: true) }
+
+    private var blocks: Blocks
+    public var block: CodeBlockOptions {
+        get { blocks.options(sourcePage: false) }
+        set { blocks = .chosen(newValue) }
+    }
+    package var sourceBlock: CodeBlockOptions { blocks.options(sourcePage: true) }
+
+    package mutating func restrictLineNumberDefaults(to formats: Set<DocumentFormat>) {
+        guard case .inherited(var defaults) = blocks else { return }
+        if !formats.contains(.plainText) { defaults.source = CodeBlockOptions.sourcePage.lineNumbers }
+        if !formats.contains(where: { $0 != .plainText && $0.usesPrintTheme }) {
+            defaults.blocks = CodeBlockOptions().lineNumbers
+        }
+        blocks = .inherited(defaults)
+    }
+
     /// The mark on a cut line; `%d` stands for the characters left out.
     public var cutFormat: String
 
@@ -91,8 +112,7 @@ public struct CodeStyle: Equatable, Sendable {
         cutFormat: String = "+%d"
     ) {
         self.palette = palette
-        self.lineNumbers = lineNumbers
-        self.chosenBlock = block
+        blocks = block.map(Blocks.chosen) ?? .inherited(lineNumbers)
         self.cutFormat = cutFormat
     }
 
