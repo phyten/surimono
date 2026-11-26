@@ -63,6 +63,17 @@ extension FinderPreviewTests {
         }
     }
 
+    @Test("MediaWiki の数式は上限や verb の原文を保ち、後続の式を SVG で表示する")
+    func mediaWikiMath() throws {
+        let oversized = String(repeating: "x+", count: 2_048) + "y"
+        let html = try mathPreview(
+            #"<math>\verb|a  b|</math> <math>\#(oversized)</math> <math>z^2</math> Tail."#, suffix: "wikitext")
+        #expect(html.contains(#"<code class="math-error">\verb|a  b|</code>"#))
+        #expect(html.contains("<code class=\"math-error\">\(oversized)</code>"))
+        #expect(html.components(separatedBy: "<svg ").count - 1 == 1)
+        #expect(html.contains(#"aria-label="z^2""#) && html.contains("Tail."))
+    }
+
     @Test("本文と定義が単独の上限を超えた式だけ原文に戻す")
     func oversizedFormula() throws {
         let expression = String(repeating: "x+", count: 2_048) + "y"

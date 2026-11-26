@@ -26,6 +26,7 @@ extension WikiReader {
             }
         }
         while index < lines.count {
+            if PreviewConversion.expired { return "" }
             let raw = lines[index]
             let line = raw.wikiTrim
             index += 1
@@ -112,6 +113,7 @@ extension WikiReader {
             if let last = stack.popLast() { output += "</\(last.item)></\(last.list)>" }
         }
         while index < lines.count {
+            if PreviewConversion.expired { return "" }
             let line = lines[index]
             let prefix = line.prefix { "*#;:".contains($0) }
             guard !prefix.isEmpty else { break }

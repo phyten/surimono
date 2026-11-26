@@ -63,7 +63,8 @@ public struct FinderPreview: Sendable {
                     DocumentFormat(fileExtension: url.pathExtension)
                     ?? (try? url.resourceValues(forKeys: [.contentTypeKey]).contentType).flatMap(
                         DocumentFormat.init(contentType:))
-                guard let format, [.markdown, .org, .rst, .latex, .notebook, .quarto, .rMarkdown].contains(format)
+                guard let format,
+                    [.markdown, .org, .rst, .latex, .notebook, .quarto, .rMarkdown, .mediawiki].contains(format)
                 else {
                     throw Failure.unsupported
                 }
@@ -160,6 +161,9 @@ public struct FinderPreview: Sendable {
         return switch format {
         case .markdown: MarkdownConverter.convert(text)
         case .org: OrgConverter.convert(text, fileName: url.lastPathComponent)
+        case .mediawiki:
+            // The image predicate excludes the directory itself, disabling the reader's directory listing fallback.
+            MediaWikiConverter.convert(text, directory: directory, imageExists: imageExists)
         case .rst:
             RSTConverter.convert(text, directory: directory, readsIncludes: false, permitsFile: imageExists)
         case .latex:

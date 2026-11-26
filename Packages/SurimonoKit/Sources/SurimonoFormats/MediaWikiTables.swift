@@ -20,6 +20,7 @@ extension WikiReader {
             }
         }
         while index < lines.count {
+            if PreviewConversion.expired { return "" }
             let line = lines[index]
             index += 1
             if line.hasPrefix("|}") { break }

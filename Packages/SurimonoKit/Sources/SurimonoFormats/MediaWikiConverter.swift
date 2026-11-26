@@ -97,6 +97,8 @@ final class WikiReader {
         let hasMarker = source.contains("\u{E000}")
         let prepared = tokenize(hasMarker ? source.replacingOccurrences(of: "\u{E000}", with: escapedMarker) : source)
         var result = blocks(prepared)
+        defer { deferred.removeAll() }
+        if PreviewConversion.expired { return HTMLFragment(body: "") }
         if forceTOC && !hideTOC && !explicitTOC,
             let first = result.range(of: #"<h[1-6] id=""#, options: .regularExpression)
         {
@@ -120,7 +122,6 @@ final class WikiReader {
                 guard let index = Int(parts[1]), deferred.indices.contains(index) else { return "" }
                 return deferred[index]()
             }
-            deferred.removeAll()
         }
         if hasMarker {
             result = result.replacingOccurrences(of: escapedMarker, with: "\u{E000}")
@@ -160,6 +161,7 @@ struct WikiPattern {
         var output = ""
         var cursor = 0
         for match in regex?.matches(in: input, range: NSRange(location: 0, length: source.length)) ?? [] {
+            if PreviewConversion.expired { return "" }
             output += plain(source.substring(with: NSRange(location: cursor, length: match.range.location - cursor)))
             output += transform(
                 (0..<match.numberOfRanges).map {

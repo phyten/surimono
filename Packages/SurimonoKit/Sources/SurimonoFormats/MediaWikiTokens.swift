@@ -64,6 +64,7 @@ extension WikiReader {
         var tokens: [Token] = []
         var opens: [String: [Int]] = [:]
         for match in Self.tags.regex?.matches(in: input, range: NSRange(location: 0, length: source.length)) ?? [] {
+            if PreviewConversion.expired { return "" }
             let raw = source.substring(with: match.range)
             let closing = raw.hasPrefix("</") || raw == "-->"
             let tag =
@@ -99,6 +100,7 @@ extension WikiReader {
             var cursor = bounds.location
             var i = start
             while i < end {
+                if PreviewConversion.expired { return "" }
                 let t = tokens[i]
                 let raw = source.substring(with: t.range)
                 text += source.substring(with: NSRange(location: cursor, length: t.range.location - cursor))
@@ -146,6 +148,7 @@ extension WikiReader {
             var pos = m.range.location
             let end = NSMaxRange(m.range)
             while end - pos >= 2 {
+                if PreviewConversion.expired { return "" }
                 let triple =
                     !link
                     && (closing
@@ -167,6 +170,7 @@ extension WikiReader {
             var cursor = begin
             var i = start
             while i < end {
+                if PreviewConversion.expired { return "" }
                 let t = tokens[i]
                 if let close = t.mate, close < end {
                     output += source.substring(with: NSRange(location: cursor, length: t.range.location - cursor))
