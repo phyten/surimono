@@ -620,6 +620,34 @@
             // A restored window can finish rendering before the requested download.
             if openURLArgument != nil, firstDocument !== model { return }
             if firstDocument == nil { firstDocument = model }
+            if flag("SurimonoMenuTiming") {
+                guard firstDocument === model, !scheduled, !captured, model.window != nil, model.isUpToDate else {
+                    return
+                }
+                scheduled = true
+                Task { @MainActor in
+                    do {
+                        guard let path = argument("SurimonoMenuTimingPath"), path.hasPrefix("/") else {
+                            throw CocoaError(.fileWriteInvalidFileName)
+                        }
+                        model.window?.makeKeyAndOrderFront(nil)
+                        guard DocumentWindows.shared.currentModel === model, let main = NSApp.mainMenu else {
+                            throw CocoaError(.coderValueNotFound)
+                        }
+                        let destination = URL(fileURLWithPath: path)
+                        let sources = DocumentWindows.shared.openModels.flatMap(\.protectedSourceURLs)
+                        guard DocumentViewModel.canExport(to: destination, sourceURLs: sources) else {
+                            throw CocoaError(.fileWriteNoPermission)
+                        }
+                        try writeMenuTiming(main, to: destination)
+                        captured = true
+                        if flag("SurimonoSnapshotQuit") { quitAfterCapture() }
+                    } catch {
+                        DebugSnapshotProgress.failed(error)
+                    }
+                }
+                return
+            }
             if let path = ShownDocumentsProbe.path {
                 guard firstDocument === model, !scheduled, !captured, model.window != nil else { return }
                 scheduled = true
@@ -1127,6 +1155,43 @@
                 logger.error("Unknown export kind")
                 return false
             }
+        }
+
+        private static func writeMenuTiming(_ main: NSMenu, to destination: URL) throws {
+            struct Timing: Encodable {
+                let medianMS: Double
+                let maximumMS: Double
+            }
+            struct Measurement: Encodable {
+                let menu: String
+                let menuNeedsUpdate: Timing?
+                let appKitUpdate: Timing
+            }
+            struct Report: Encodable {
+                let iterations: Int
+                let menus: [Measurement]
+            }
+            let iterations = 20
+            func measure(_ update: () -> Void) -> Timing {
+                let samples = (0..<iterations).map { _ in
+                    let start = DispatchTime.now().uptimeNanoseconds
+                    update()
+                    return Double(DispatchTime.now().uptimeNanoseconds - start) / 1_000_000
+                }.sorted()
+                let middle = samples.count / 2
+                return Timing(medianMS: (samples[middle - 1] + samples[middle]) / 2, maximumMS: samples[iterations - 1])
+            }
+            let menus = main.items.compactMap(\.submenu)
+            guard !menus.isEmpty else { throw CocoaError(.coderValueNotFound) }
+            let measurements = menus.map { menu in
+                // Keep the application delegate cost distinguishable from AppKit's native validation.
+                let delegate = menu.delegate?.menuNeedsUpdate.map { update in measure { update(menu) } }
+                return Measurement(menu: menu.title, menuNeedsUpdate: delegate, appKitUpdate: measure { menu.update() })
+            }
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            let report = Report(iterations: iterations, menus: measurements)
+            try encoder.encode(report).write(to: destination, options: .atomic)
         }
 
         private static func quitAfterCapture() {

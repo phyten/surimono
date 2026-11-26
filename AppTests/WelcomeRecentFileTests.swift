@@ -50,6 +50,22 @@ struct WelcomeRecentFileTests {
         Attachment.record(measurements.joined(separator: "\n"), named: "welcome-formats-widths.txt")
     }
 
+    @Test("最近使ったファイルを読み直すのは開始画面自身がキーウインドウになったときだけ")
+    func refreshOnWelcomeFocus() {
+        let welcome = NSWindow()
+        let document = NSWindow()
+        var reads = 0
+        func notify(_ key: NSWindow, welcome: NSWindow?) {
+            let note = Notification(name: NSWindow.didBecomeKeyNotification, object: key)
+            WelcomeController.refreshRecents(whenKey: note, window: welcome) { reads += 1 }
+        }
+        notify(document, welcome: nil)
+        notify(document, welcome: welcome)
+        #expect(reads == 0)
+        notify(welcome, welcome: welcome)
+        #expect(reads == 1)
+    }
+
     @Test("最近使ったファイルの場所は、ホームの中なら ~ から書き、外ならそのまま書く")
     func folderNames() {
         let home = "/Users/reader"

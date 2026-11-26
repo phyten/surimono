@@ -39,6 +39,9 @@ struct ViewOptionsPopover: View {
     }
 
     var body: some View {
+        let map = SpreadMap(units: model.displayUnits, page: model.currentPageIndex + 1, limit: Self.spreadMapLimit) {
+            if let first = $0.pages.first { model.paper.goToPage(index: first - 1) }
+        }
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -51,15 +54,7 @@ struct ViewOptionsPopover: View {
             }
             Grid(alignment: .leading, horizontalSpacing: Self.columnSpacing, verticalSpacing: stacksLabels ? 10 : 12) {
                 // The pages as the options below arrange them: it changes as they do, with the current unit marked.
-                if !model.displayUnits.isEmpty {
-                    // How the pages stand under these options; a click on one goes there, but it arranges nothing.
-                    row("Page Arrangement", fills: true) {
-                        SpreadMap(units: model.displayUnits, current: currentUnitIndex, limit: Self.spreadMapLimit) {
-                            unit in
-                            if let first = unit.pages.first { model.paper.goToPage(index: first - 1) }
-                        }
-                    }
-                }
+                if let map { row("Page Arrangement", fills: true) { map } }
                 row("Reading Direction") { directionPicker(option(\.direction)) }
                 row("Scroll Direction") {
                     CornerSegments(
@@ -100,10 +95,6 @@ struct ViewOptionsPopover: View {
         .background(alignment: .topLeading) { measurements }
         .paperOverlayBackground(nil, tintOpacity: 0.985)
         .clearsInitialFocus()
-    }
-
-    private var currentUnitIndex: Int? {
-        SpreadLayout.unitIndex(containing: model.currentPageIndex + 1, in: model.displayUnits)
     }
 
     /// A setting with its label: beside it, right-aligned in a column as wide as the longest label, or over it.
@@ -355,8 +346,16 @@ struct SpreadMap: View {
     let units: [DisplayUnit]
     let current: Int?
     /// The most units shown at once; a long row of small pages only repeats the numbers.
-    var limit: Int?
+    let limit: Int?
     let onSelect: (DisplayUnit) -> Void
+
+    init?(units: [DisplayUnit], page: Int, limit: Int?, onSelect: @escaping (DisplayUnit) -> Void) {
+        guard !units.isEmpty else { return nil }
+        self.units = units
+        current = SpreadLayout.unitIndex(containing: page, in: units)
+        self.limit = limit
+        self.onSelect = onSelect
+    }
 
     static let spacing: CGFloat = 8
     static let ellipsisWidth: CGFloat = 12
