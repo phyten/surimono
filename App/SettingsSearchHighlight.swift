@@ -12,10 +12,15 @@ struct SettingsSearchHits: Equatable {
     var anchors: [String] = []
     var visit: SettingsSearchVisit?
     var canReveal: Bool { visit?.isCurrent != false }
+
+    func scrollTarget(excluding fixedAnchors: Set<String>) -> String? {
+        guard let first = anchors.first, !fixedAnchors.contains(first) else { return nil }
+        return first
+    }
 }
 
 // Read the last layout when a query changes. Scrolling by hand must not trigger another reveal.
-private final class SettingsRowFrames {
+final class SettingsRowFrames {
     var viewport = CGRect.null
     var scroll: ScrollGeometry?
     var rows: [String: CGRect] = [:]
@@ -38,21 +43,39 @@ private final class SettingsRowFrames {
 extension EnvironmentValues {
     @Entry var settingsSearchHits = SettingsSearchHits()
     @Entry var settingsRowVerticalInset: CGFloat = 0
-    @Entry fileprivate var highlightedSettings: Set<String> = []
+    @Entry var highlightedSettings: Set<String> = []
     @Entry fileprivate var settingsRowFrames: SettingsRowFrames?
+}
+
+/// Matches can be anywhere in the pane, including controls outside the scrolling viewport.
+struct SettingsSearchHighlights: ViewModifier {
+    @Environment(\.settingsSearchHits) private var hits
+    @State private var highlighted: Set<String> = []
+
+    func body(content: Content) -> some View {
+        content
+            .environment(\.highlightedSettings, highlighted)
+            .task(id: hits) {
+                guard hits.canReveal else { return }
+                highlighted = Set(hits.anchors)
+                guard !highlighted.isEmpty else { return }
+                try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled, hits.canReveal else { return }
+                withAnimation(.easeOut(duration: 0.25)) { highlighted = [] }
+            }
+    }
 }
 
 struct SettingsSearchReveal: ViewModifier {
     let proxy: ScrollViewProxy
     var isForm = true
+    var fixedAnchors: Set<String> = []
     @Environment(\.settingsSearchHits) private var hits
-    @State private var highlighted: Set<String> = []
     @State private var frames = SettingsRowFrames()
     @State private var bottomRoom: CGFloat?
 
     func body(content: Content) -> some View {
         content
-            .environment(\.highlightedSettings, highlighted)
             .environment(\.settingsRowFrames, frames)
             // Grouped forms leave ten points above and below each row's content on macOS.
             .environment(\.settingsRowVerticalInset, isForm ? 10 : 0)
@@ -69,9 +92,8 @@ struct SettingsSearchReveal: ViewModifier {
             }
             .task(id: hits) {
                 guard hits.canReveal else { return }
-                highlighted = []
-                guard let first = hits.anchors.first else {
-                    bottomRoom = nil
+                guard let first = hits.scrollTarget(excluding: fixedAnchors) else {
+                    if hits.anchors.isEmpty { bottomRoom = nil }
                     return
                 }
                 // The Form needs a layout pass when searching takes the reader to another section.
@@ -84,10 +106,6 @@ struct SettingsSearchReveal: ViewModifier {
                     guard !Task.isCancelled, hits.canReveal else { return }
                     proxy.scrollTo(first, anchor: UnitPoint(x: 0.5, y: 1.0 / 3))
                 }
-                highlighted = Set(hits.anchors)
-                try? await Task.sleep(for: .seconds(1))
-                guard !Task.isCancelled, hits.canReveal else { return }
-                withAnimation(.easeOut(duration: 0.25)) { highlighted = [] }
             }
     }
 }
@@ -95,6 +113,7 @@ struct SettingsSearchReveal: ViewModifier {
 private struct SettingsSearchHighlight: ViewModifier {
     let anchor: String
     let fillsRow: Bool
+    let additionalHighlights: [String]
     @Environment(\.settingsRowVerticalInset) private var verticalInset
     @Environment(\.highlightedSettings) private var highlighted
     @Environment(\.settingsRowFrames) private var frames
@@ -103,7 +122,7 @@ private struct SettingsSearchHighlight: ViewModifier {
         content
             .frame(maxWidth: fillsRow ? .infinity : nil, alignment: .leading)
             .background {
-                if highlighted.contains(anchor) {
+                if highlighted.contains(anchor) || !highlighted.isDisjoint(with: additionalHighlights) {
                     CornerRole.control.shape
                         .fill(
                             DisplayAccessibility.shared.options.fill(
@@ -128,7 +147,8 @@ private struct SettingsSearchHighlight: ViewModifier {
 }
 
 extension View {
-    func settingSearchRow(_ anchor: String, fillsRow: Bool = true) -> some View {
-        modifier(SettingsSearchHighlight(anchor: anchor, fillsRow: fillsRow))
+    func settingSearchRow(_ anchor: String, fillsRow: Bool = true, additionalHighlights: [String] = []) -> some View {
+        modifier(
+            SettingsSearchHighlight(anchor: anchor, fillsRow: fillsRow, additionalHighlights: additionalHighlights))
     }
 }

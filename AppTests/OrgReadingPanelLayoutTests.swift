@@ -123,7 +123,7 @@ struct OrgReadingPanelLayoutTests {
             + (1...6).map {
                 String(format: translated("Up to Level %lld"), Int64($0))
             }
-        let scripts = ["Only in { }", "With or without Braces", "Leave as Written"].map(translated)
+        let scripts = ["Only in { }", "Even without { }", "Leave as Written"].map(translated)
         // The two 12 pt insets belong to SidePanel, outside the rows' proposal.
         let available = CGSize(width: OrgReadingPanel.width - 24, height: 1_000)
         for id in OrgReadingGroup.allCases.flatMap(\.settings) {
@@ -136,8 +136,8 @@ struct OrgReadingPanelLayoutTests {
             case .tags: choices = ["On", "Off", "Except in Contents"].map(translated)
             case .math: choices = ["Typeset", "None", "Show Source"].map(translated)
             case .tasks: choices = ["All", "None", "Unfinished Only", "Completed Only"].map(translated)
-            case .drawers: choices = ["None", "All", "Except LOGBOOK"].map(translated)
-            case .properties: choices = ["None", "All"].map(translated)
+            case .drawers: choices = ["Don't Show", "Show All", "Show All Except LOGBOOK"].map(translated)
+            case .properties: choices = ["Don't Show", "Show All"].map(translated)
             case .archived: choices = ["Entire Tree", "Heading Only", "None"].map(translated)
             case .timestamps: choices = ["All", "None", "Active Only", "Inactive Only"].map(translated)
             default: choices = []

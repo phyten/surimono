@@ -303,8 +303,8 @@ struct DocumentSettingsFlowTests {
         #expect(model.orgDocumentReading.optionsLine == "#+OPTIONS: num:2 toc:t")
     }
 
-    @Test("プリセットは変更済みの値を実際に置き換える場合だけ確認する")
-    func orgPresetConfirmation() {
+    @Test("Emacs の初期値を読み方の既定として保存し、リセットで保存値を消す")
+    func orgDefaultsPersistence() {
         let emacs = OrgReadingDefaults.emacs
         #expect(emacs.sectionNumbers == .all && emacs.tableOfContents == .all && emacs.scripts == .all)
         #expect(
@@ -318,15 +318,8 @@ struct DocumentSettingsFlowTests {
         let preferences = AppPreferences(defaults: suite.defaults)
         preferences.setOrgDefaults(emacs)
         #expect(AppPreferences(defaults: suite.defaults).orgReadingDefaults == emacs)
-        var custom = OrgReadingDefaults.surimono
-        custom.headlineLevels = 5
-        #expect(OrgReadingDefaultsPane.overwritesChanges(custom, with: emacs))
-        #expect(!OrgReadingDefaultsPane.overwritesChanges(.surimono, with: emacs))
-        #expect(!OrgReadingDefaultsPane.overwritesChanges(emacs, with: emacs))
-        #expect(
-            !OrgReadingDefaultsPane.overwritesChanges(
-                .init(sectionNumbers: .all, tableOfContents: .off, scripts: .braces), with: emacs))
-        #expect(OrgReadingDefaultsPane.overwritesChanges(emacs, with: .surimono))
+        preferences.setOrgDefaults(.surimono)
+        #expect(AppPreferences(defaults: suite.defaults).orgReadingDefaults == nil)
     }
 
     @Test("縦書きの右から左へのページ送りと冊子の右とじは既定で、文書に保存した向きととじ側を優先する")
