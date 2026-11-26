@@ -85,7 +85,7 @@
           "stringSet": {
             "state": "translated",
             "values": [
-              "${applicationName}の印刷モードで開く"
+              "${applicationName}の印刷画面で開く"
             ]
           }
         },

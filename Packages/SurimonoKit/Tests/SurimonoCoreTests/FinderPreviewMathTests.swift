@@ -63,6 +63,30 @@ extension FinderPreviewTests {
         }
     }
 
+    @Test("MediaWiki の数式は上限や verb の原文を保ち、後続の式を SVG で表示する")
+    func mediaWikiMath() throws {
+        let oversized = String(repeating: "x+", count: 2_048) + "y"
+        let html = try mathPreview(
+            #"<math>\verb|a  b|</math> <math>\#(oversized)</math> <math>z^2</math> Tail."#, suffix: "wikitext")
+        #expect(html.contains(#"<code class="math-error">\verb|a  b|</code>"#))
+        #expect(html.contains("<code class=\"math-error\">\(oversized)</code>"))
+        #expect(html.components(separatedBy: "<svg ").count - 1 == 1)
+        #expect(html.contains(#"aria-label="z^2""#) && html.contains("Tail."))
+    }
+
+    @Test("MediaWiki で文書全体の数式予算128 KiBを使い切ると、後続の式を原文に戻して本文を最後まで読む")
+    func mediaWikiDocumentMathBudget() throws {
+        // Whitespace fills each 4 KiB input reservation without increasing SVG size.
+        let formula = "<math>x" + String(repeating: " ", count: 4095) + "</math>"
+        let displays = Array(repeating: formula, count: 32).joined(separator: "\n")
+        let html = try mathPreview(
+            displays + "\nThen <math>y</math> and <math>z</math>. Final paragraph.", suffix: "wiki")
+        #expect(html.components(separatedBy: "<svg ").count - 1 == 32)
+        #expect(
+            html.contains(
+                #"Then <code class="math-error">y</code> and <code class="math-error">z</code>. Final paragraph."#))
+    }
+
     @Test("本文と定義が単独の上限を超えた式だけ原文に戻す")
     func oversizedFormula() throws {
         let expression = String(repeating: "x+", count: 2_048) + "y"

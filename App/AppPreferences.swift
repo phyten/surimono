@@ -598,9 +598,15 @@ final class AppPreferences {
         changeFollowing =
             Self.screenshotChoice("SurimonoChanges")
             ?? ChangeFollowing(rawValue: defaults.string(forKey: "changeFollowing") ?? "") ?? .jump
-        orgReadingDefaults = defaults.data(forKey: "orgReadingDefaults").flatMap {
+        let storedOrgDefaults = defaults.data(forKey: "orgReadingDefaults").flatMap {
             try? JSONDecoder().decode(OrgReadingDefaults.self, from: $0)
         }
+        #if DEBUG
+            // Initialization bypasses the persistence observer for this screenshot fixture.
+            orgReadingDefaults = DebugSnapshot.orgDefaultsFixture?.current ?? storedOrgDefaults
+        #else
+            orgReadingDefaults = storedOrgDefaults
+        #endif
         defaultTypeface = defaults.string(forKey: "defaultTypeface").flatMap(Typeface.init(rawValue:)) ?? .style
         // Any whole percent of the range, as the Settings field takes it; earlier versions kept one of the steps.
         let scale = defaults.double(forKey: "defaultTextScale")
