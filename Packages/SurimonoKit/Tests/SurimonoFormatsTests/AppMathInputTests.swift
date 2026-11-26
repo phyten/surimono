@@ -1,4 +1,5 @@
 import Foundation
+import SwaTex
 import Testing
 
 @testable import SurimonoFormats
@@ -36,7 +37,7 @@ struct AppMathInputTests {
                 #"\pick "# + String(repeating: "y", count: 4_100) + ";", definitions: #"\def\pick#1;{#1#1}"#))
     }
 
-    @Test("引数の読み方によらない上界が実際の展開トークン数・バイト数・作業量を覆う")
+    @Test("通常表示の上界が同じ式に対するプレビュー展開器のトークン数・バイト数・作業量を覆う")
     func countingProof() throws {
         for (declarations, formula) in [
             (#"\def\field#1{[#1]}\def\plane{\field{R}}\def\point{\plane^2}"#, #"\point+\plane"#),
@@ -50,8 +51,32 @@ struct AppMathInputTests {
             let output = try expander.expand(formula, definitions: declarations)
             let tokens = try PreviewMathExpansion.tokens(output)
             #expect(proof.bytes >= tokens.count && proof.bytes >= output.utf8.count)
+            #expect(proof.bytes >= expander.peakPendingBytes)
             #expect(proof.work >= expander.scheduledBytes && proof.steps >= expander.steps)
             #expect(proof.bytes <= 8_192 && proof.work <= 65_536 && proof.steps < 1_000)
+        }
+    }
+
+    @Test("通常表示の上界が固定版 SwaTex で数式を解析した実展開回数を覆う")
+    func nativeExpansionCount() throws {
+        let branches = #"\def\firstword{x}\def\secondword{\firstword}"#
+        for (definitions, formula, calls) in [
+            (#"\def\word{ab}"#, #"\boxed\word"#, 2),
+            (#"\def\word{x}"#, #"\argmin_{\word} f(x)"#, 7),
+            (#"\def\prefix{\nextop}\def\nextop#1{[#1]}"#, #"\prefix{x}+\prefix y"#, 4),
+            (branches, #"\TextOrMath{\firstword}{\secondword}"#, 3),
+            (branches, #"\text{\TextOrMath{\firstword}{\secondword}}"#, 2),
+            (#"\newcommand{\expect}[2][P]{\mathbb E_{#1}[#2]}"#, #"\expect[Q]{X^2}"#, 2),
+            (#"\def\pair#1{#1#1}"#, #"\pair{\pair{x}}+\pair{z}"#, 4),
+        ] {
+            let bound = try #require(NativeMathBound.bound(formula, definitions: definitions))
+            let parser = Parser(definitions + formula)
+            let nodes = try parser.parse()
+            #expect(!nodes.isEmpty)
+            // 0.6.0 keeps its counter private and maxExpand fixed at 1000. Read the stored
+            // counter after the real parse. A renamed or unavailable field must fail the test.
+            let count = try #require(Mirror(reflecting: parser).descendant("gullet", "expansionCount") as? Int)
+            #expect(count == calls && count <= bound.steps, "\(formula)")
         }
     }
 

@@ -13,7 +13,7 @@ struct PreviewMathMacro {
     private typealias Refusal = PreviewMathExpansion.Refusal
 
     static func read(_ source: String) throws -> [String: Self] {
-        var input = try PreviewMathExpansion.tokens(source)[...]
+        var input = try PreviewMathExpansion.tokens(source, forPreview: true)[...]
         var macros: [String: Self] = [:]
         while let kind = input.popFirst() {
             if kind == " " { continue }

@@ -51,6 +51,17 @@ xparse、カウンター、利用者環境は数式リーダーが先に扱う�
 
 Finder は 4,096 バイト以内の式と選ばれた定義を自身で展開する。SwaTex に渡す利用者定義は空。引数をそのまま取る、文字列・寸法を読む、または次のトークンを先読みする位置に利用者マクロが来たら、その式を原文表示にする。展開本文から出た命令にも同じ判定を行う。固定個数で読み終わりを確認できる引数に限り、その後の展開を再開する。生の引数や任意引数、未分類の命令、読み取り命令を返し得る `\TextOrMath` の先まで判断できない場合は、その式の残りでも利用者マクロを展開しない。`^`・`_` の引数も検査する。[Finder の展開器](Sources/SurimonoFormats/PreviewMathExpansion.swift)
 
+出力時には 8 KiB の予算に計上したトークンの綴りを記録し、完成した文字列を同じ Lexer で再度読む。各トークンの UTF-8 バイト列と個数が一致し、最後に EOF に達した場合だけ SwaTex に渡す。制御綴りの直後で消える空白、連続する空白、置換の境界を越えて直前の文字と一つのトークンになる結合文字を、この照合で検出する。再構成した式の端に空白や対のドル記号が現れるときは、予算内で両端にトークンを生まないコメントを置いてから照合する。これで SwaTex の構文解析入口がその空白や記号を取り除くのを防ぐ。[構文解析前の区切り処理](https://github.com/PhraseHQ/SwaTex/blob/153738a2bcdcb62450ead9ab292989e3de0a449f/Sources/SwaTex/Parser/Parser.swift#L1076)
+
+| 固定版で確認した命令 | 引数の読み方と Finder の扱い |
+| --- | --- |
+| `\url`・`\href` | この 2 命令の URL 引数だけが `parseURLGroup` を通り、入力 Lexer の `%` を 14 から 13、`~` を 13 から 12 に変えてから引数を読む。Finder は式と選択済みの利用者定義の両方で、命令に達した時点で原文表示にする。通常の Lexer で URL を読むと、出力を照合する時点ではコメント部分がすでに失われている。[引数の登録](https://github.com/PhraseHQ/SwaTex/blob/153738a2bcdcb62450ead9ab292989e3de0a449f/Sources/SwaTex/Parser/Functions/Href.swift#L3)・[カテゴリコードの変更と復元](https://github.com/PhraseHQ/SwaTex/blob/153738a2bcdcb62450ead9ab292989e3de0a449f/Sources/SwaTex/Parser/Parser.swift#L732) |
+| `\verb`・`\verb*` | Lexer 自身が区切りまでの内容を一つのトークンにする。Finder はこのトークンも原文表示にする。[専用の読み取り](https://github.com/PhraseHQ/SwaTex/blob/153738a2bcdcb62450ead9ab292989e3de0a449f/Sources/SwaTex/Lexer/Lexer.swift#L123) |
+| `\color`・`\textcolor` の色モデル、`\htmlStyle` のスタイル、`\color`・`\textcolor`・`\colorbox`・`\fcolorbox` の色名 | `.raw` と `.color` の引数は元のカテゴリコードでトークンを読み、綴りを連結する。既存の引数位置の保護と出力の再照合を適用する。[文字列引数](https://github.com/PhraseHQ/SwaTex/blob/153738a2bcdcb62450ead9ab292989e3de0a449f/Sources/SwaTex/Parser/Parser.swift#L745) |
+| `\htmlId`・`\htmlClass`・`\htmlData`、`\char` | HTML 属性の 3 命令は既存の 2 引数を取り、第 2 引数を返す。`\char` の十進・八進・十六進・逆引用符形式も元のトークンを先読みまたは消費する。入力 Lexer の設定は同じ。[HTML 属性](https://github.com/PhraseHQ/SwaTex/blob/153738a2bcdcb62450ead9ab292989e3de0a449f/Sources/SwaTex/Parser/MacroExpander.swift#L807)・[文字コード引数](https://github.com/PhraseHQ/SwaTex/blob/153738a2bcdcb62450ead9ab292989e3de0a449f/Sources/SwaTex/Parser/MacroExpander.swift#L690) |
+| `\message`・`\errmessage`、寸法引数を持つ `\kern`・`\mkern`・`\hskip`・`\mskip`・`\hspace`・`\rule`・`\raisebox`・`\genfrac`・`\above`・内部命令 `\\abovefrac` | メッセージは引数を取り捨てる。寸法はグループまたは後続の数値・単位を取る。どちらも通常の字句規則を使う。[メッセージ](https://github.com/PhraseHQ/SwaTex/blob/153738a2bcdcb62450ead9ab292989e3de0a449f/Sources/SwaTex/Parser/MacroExpander.swift#L797)・[寸法引数](https://github.com/PhraseHQ/SwaTex/blob/153738a2bcdcb62450ead9ab292989e3de0a449f/Sources/SwaTex/Parser/Parser.swift#L691) |
+| `\ce`・`\pu` | 通常のトークンで引数を読み、化学表記から生成した別の TeX 文字列を字句解析する。Finder は既存の短いリテラル入力の検査も行う。[mhchem ハンドラー](https://github.com/PhraseHQ/SwaTex/blob/153738a2bcdcb62450ead9ab292989e3de0a449f/Sources/SwaTex/Parser/MacroExpander.swift#L919) |
+
 <details>
 <summary>固定版の関数登録 318 件のうち、必須または任意の引数を宣言する 179 命令</summary>
 
@@ -113,5 +124,7 @@ Finder は 4,096 バイト以内の式と選ばれた定義を自身で展開す
 論文の生の定義を使う差分テストは 232 式。230 式が静的検査を通り、元の定義＋原式を SwaTex に渡す。そのうち 229 式が組まれ、インライン・別行の 458 SVG が旧経路とバイト一致する。残る 3 式は、既定を省いた `\expect{X}`、生の `\newcommand*` で定義した `\density{x}`、置換本文を波括弧で囲まない `\def` の `\unitdx`。最初の 1 式は上界の検査後に SwaTex が構文エラーを返し、後者 2 式は検査で拒否する。3 式とも旧パーサーで同じ入力の構文エラーを独立に確認する。別に、LaTeX リーダーで正規化される星・既定引数の 10 式も比較する。[差分テスト](Tests/SurimonoFormatsTests/AppMathDifferentialTests.swift)
 
 [計数テスト](Tests/SurimonoFormatsTests/AppMathInputTests.swift) は通常式の実展開と上界、拒否直前の回数・バイト、名前解決後の式の独立性を調べる。[子プロセステスト](Tests/SurimonoCoreTests/MathWorkProcessTests.swift) は引数の入れ子複写と引数なしの倍増列を Markdown と LaTeX の両方で開く。該当式の原文、後続の `a+b` と利用者マクロの SVG、末尾の本文を検査する。上限は実時間 15 秒、CPU 8 秒、最大 RSS 512 MiB。
+
+通常表示の展開回数は、固定版 SwaTex で元の定義と式を解析し終えた `Parser` から、テスト内だけで `Mirror` を使って `gullet.expansionCount` を取得して照合する。組み込みとその内部呼び出し、末尾で引数を待つ本文、`\TextOrMath` の両モード、生の既定引数付き宣言、複数の複写候補を対象とする。`maxExpand` は 1,000 固定。置換トークン列の最大バイト数と累計コピー量について、SwaTex は履歴を保持しない。この 2 値の実測比較は Finder の展開器に限る。[SwaTex のカウンター](https://github.com/PhraseHQ/SwaTex/blob/153738a2bcdcb62450ead9ab292989e3de0a449f/Sources/SwaTex/Parser/MacroExpander.swift#L368)
 
 元の前文と原式の合計が 64 KiB を超える場合は、使わない定義があってもその入力を渡せない。未監査の組み込みと利用者マクロを組み合わせた場合も原文表示になり得る。上界の単位は、扱うトークンの UTF-8 長と展開回数。Swift のアロケーターの使用バイト数、配列挿入に伴う要素移動、SwaTex 全体の構文解析・描画時間、WebKit や Finder を含むプロセス全体の RSS・実時間までは証明しない。
