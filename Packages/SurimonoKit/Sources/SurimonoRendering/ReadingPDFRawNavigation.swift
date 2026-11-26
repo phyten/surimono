@@ -74,7 +74,9 @@ struct ReadingPDFRawNavigation: Sendable {
         return try await capture(pdf)
     }
 
-    static func capture(_ pdf: CGPDFDocument, isolation: isolated (any Actor)? = #isolation)
+    static func capture(
+        _ pdf: CGPDFDocument, includesOutline: Bool = true, isolation: isolated (any Actor)? = #isolation
+    )
         async throws -> Self
     {
         try Task.checkCancellation()
@@ -232,7 +234,7 @@ struct ReadingPDFRawNavigation: Sendable {
         }
         var outline: [Entry] = []
         var countsValid = true
-        var stack = dictionary(catalog, "Outlines").map { [branch($0)] } ?? []
+        var stack = includesOutline ? dictionary(catalog, "Outlines").map { [branch($0)] } ?? [] : []
         var seenOutline = Set<CGPDFDictionaryRef>()
         while let top = stack.last {
             try await checkpoint()

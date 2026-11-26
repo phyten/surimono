@@ -15,6 +15,12 @@ private struct ReadingChoice: Codable, Equatable, Sendable {
 public enum ReadingRowResolution: Equatable, Sendable {
     case toggle(ReadingResolution<Bool>)
     case outline(present: ReadingResolution<Bool>, depth: ReadingResolution<ReadingDepth>)
+
+    public func allowsOutline(present enabled: Bool, depth limit: ReadingDepth) -> Bool {
+        guard case .outline(let present, let depth) = self else { return false }
+        if enabled, case .levels(let count) = limit, count < 0 { return false }
+        return (!present.isLocked || enabled == present.value) && (!enabled || !depth.isLocked || limit == depth.value)
+    }
 }
 
 /// DocumentSettings.formatReading and AppPreferences.formatReadingDefaults use the same sparse map:
@@ -55,6 +61,17 @@ public struct FormatReadingChoices: Codable, Equatable, Sendable {
         }
     }
 
+    public func leadContents(
+        for format: DocumentFormat, file: ReadingFileInstructions = .init(), defaults: Self = .init()
+    ) -> ReadingDepth? {
+        guard
+            case .outline(let present, let depth) = resolve(
+                .tableOfContents, for: format, file: file, defaults: defaults),
+            present.value
+        else { return nil }
+        return depth.value
+    }
+
     /// Write only on an edit. The file can constrain presence, depth, or both, each with its own reason.
     /// An app-default edit uses the same method with the shipped defaults and no file instructions.
     public mutating func set(
@@ -70,9 +87,7 @@ public struct FormatReadingChoices: Codable, Equatable, Sendable {
             present.set(value, in: &choice.present)
         case (.outline(let enabled, let limit), .outline(let present, let depth)):
             // Refuse the whole edit when either locked component would have to change: no partial writes.
-            guard !present.isLocked || enabled == present.value else { return }
-            guard !enabled || !depth.isLocked || limit == depth.value else { return }
-            if enabled, case .levels(let count) = limit, count < 0 { return }
+            guard row.allowsOutline(present: enabled, depth: limit) else { return }
             // One control carries both components. Write only the one the reader touched, so choosing a
             // depth never drops a stored presence, and switching off keeps the depth for switching back on.
             if !enabled || !present.value { present.set(enabled, in: &choice.present) }

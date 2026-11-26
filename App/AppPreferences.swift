@@ -274,6 +274,35 @@ final class AppPreferences {
     var defaultPaperOrientation: PaperOrientation {
         didSet { defaults.set(defaultPaperOrientation.rawValue, forKey: "defaultPaperOrientation") }
     }
+    var settingsContentSize: CGSize? {
+        get {
+            guard let size = defaults.array(forKey: "settingsContentSize") as? [Double], size.count == 2,
+                size.allSatisfy({ $0.isFinite && $0 > 0 })
+            else { return nil }
+            return CGSize(width: size[0], height: size[1])
+        }
+        set { defaults.set(newValue.map { [Double($0.width), Double($0.height)] }, forKey: "settingsContentSize") }
+    }
+
+    func migrateSettingsContentSize(chrome: CGSize) {
+        let migrated = "didMigrateSettingsContentSize"
+        guard !defaults.bool(forKey: migrated) else { return }
+        defer { defaults.set(true, forKey: migrated) }
+        guard settingsContentSize == nil else { return }
+        // Both old autosaves stored x, y, width, height followed by the screen rectangle.
+        // Read the dimensions without applying the old origin or constraining them to today's screen.
+        // The old layout chose its height at runtime and did not record whether the user resized it.
+        for key in ["NSWindow Frame SurimonoSettings", "NSWindow Frame com_apple_SwiftUI_Settings_window"] {
+            guard let descriptor = defaults.string(forKey: key) else { continue }
+            let fields = descriptor.split(whereSeparator: \.isWhitespace)
+            guard fields.count >= 4, let width = Double(fields[2]), let height = Double(fields[3]),
+                width.isFinite, height.isFinite, width > chrome.width, height > chrome.height
+            else { continue }
+            settingsContentSize = CGSize(width: width - chrome.width, height: height - chrome.height)
+            return
+        }
+    }
+
     /// Kept for this app run, including when the Settings window is closed and reopened.
     var settingsSection: SettingsSection = .general
     // An explicit request can point to the current section while a search hides its contents.
@@ -331,7 +360,7 @@ final class AppPreferences {
         layoutID = layout.counterpart(in: series).id
     }
     /// What the reader made the default from the tray; the margin and header above stay for Settings.
-    private var finishDefaults: FinishDefaults? {
+    private var finishDefaults: PrintFinishDefaults? {
         didSet {
             if let data = try? JSONEncoder().encode(finishDefaults) {
                 defaults.set(data, forKey: "printFinishDefaults")
@@ -629,7 +658,7 @@ final class AppPreferences {
         presetID = defaults.string(forKey: "preset") ?? "none"
         margin = defaults.object(forKey: "margin") as? Double ?? 15
         let storedFinish = defaults.data(forKey: "printFinishDefaults").flatMap {
-            try? JSONDecoder().decode(FinishDefaults.self, from: $0)
+            try? JSONDecoder().decode(PrintFinishDefaults.self, from: $0)
         }
         // Earlier versions kept a switch for the page number beside the defaults made from the tray.
         defaultFurniture =
@@ -854,11 +883,6 @@ final class AppPreferences {
         recentBinders.clear()
     }
 
-    private struct FinishDefaults: Codable {
-        var options: PrintOptions
-        var finish: PrintFinish
-    }
-
     var printOptions: PrintOptions {
         var options = finishDefaults?.options ?? PrintOptions(marginsInMillimeters: margin)
         options.furniture = defaultFurniture
@@ -867,11 +891,13 @@ final class AppPreferences {
 
     var printFinish: PrintFinish { finishDefaults?.finish ?? PrintFinish() }
 
+    var headlessPrintFinish: PrintFinish { finishDefaults?.finish ?? .manuscriptContents }
+
     /// New documents start with these margins, header and footer, page breaks and contents.
     func setFinishDefaults(options: PrintOptions, finish: PrintFinish) {
         var options = options
         options.rotatesBackSides = false
-        finishDefaults = FinishDefaults(options: options, finish: finish)
+        finishDefaults = PrintFinishDefaults(options: options, finish: finish.forNewDocuments)
         if let margin = options.margins.uniformValue { self.margin = margin }
         defaultFurniture = options.furniture
     }

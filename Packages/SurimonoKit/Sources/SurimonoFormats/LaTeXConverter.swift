@@ -104,7 +104,8 @@ public enum LaTeXConverter {
             return HTMLFragment(
                 body: html, title: document.plainTitle, language: document.classInfo.mainLanguage,
                 readingIssues: document.readingIssues,
-                latexClass: document.typesettingInfo)
+                latexClass: document.typesettingInfo
+            ).recordingContents()
         }
         let fragment = read(composition)
         // A saved choice can outlive a change of class, conference package or body (including an input file).

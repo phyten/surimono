@@ -116,6 +116,30 @@ struct MarkdownExtensionTests {
         #expect(html.contains("<h2 id=\"custom\">名前</h2>"))
     }
 
+    // Expected bodies captured from the default converter at 2d1153b5.
+    @Test("先頭と本文中に目次があるMarkdownの既定HTMLは公開版とバイト単位で一致する")
+    func defaultContentsWithMarker() {
+        let source = "---\ntoc: true\n---\n# One\n\n[TOC]\n\n# Two"
+        let expected = """
+            <nav class="toc"><ul><li><a href="#one">One</a></li><li><a href="#two">Two</a></li></ul></nav>
+            <h1 id="one">One</h1>
+            <nav class="toc"><ul><li><a href="#one">One</a></li><li><a href="#two">Two</a></li></ul></nav>
+            <h1 id="two">Two</h1>\n
+            """
+        #expect(MarkdownConverter.convert(source).body.utf8.elementsEqual(expected.utf8))
+    }
+
+    @Test("引用符のある見出しと目次を含むMarkdownの既定HTMLは公開版とバイト単位で一致する")
+    func defaultContentsWithQuotes() {
+        let source = "---\ntoc: true\n---\n# Say \"yes\"\n\n# It's paper"
+        let expected = """
+            <nav class="toc"><ul><li><a href="#say-yes">Say &quot;yes&quot;</a></li><li><a href="#its-paper">It&#39;s paper</a></li></ul></nav>
+            <h1 id="say-yes">Say &quot;yes&quot;</h1>
+            <h1 id="its-paper">It&#39;s paper</h1>\n
+            """
+        #expect(MarkdownConverter.convert(source).body.utf8.elementsEqual(expected.utf8))
+    }
+
     @Test("[TOC] の段落を見出しへのリンクの入れ子にし、一つだけの表題は外す")
     func tableOfContents() {
         let html = body("# 表題\n\n[TOC]\n\n## 一\n### 一の一\n## 二")

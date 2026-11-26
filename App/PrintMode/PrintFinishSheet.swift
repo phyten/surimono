@@ -13,6 +13,7 @@ struct PrintFinishSheet: View {
     @Bindable var model: DocumentViewModel
     /// In a popover, which draws the panel's background and edge itself.
     let isInPopover: Bool
+    @Environment(\.locale) private var locale
     @State private var slot = PageFurniture.Slot.bottomCenter
     @State private var customLine = ""
     @FocusState private var isEditingCustomLine: Bool
@@ -106,12 +107,11 @@ struct PrintFinishSheet: View {
                     breakDetails
                 }
                 .id(PrintFinishSection.breaks)
-                section("Contents Page") {
-                    PrintContentsChoice(model: model)
-                    hint(contentsHint)
-                    contentsDetails
+                if model.offersContentsFinish {
+                    section("Contents") { contentsDetails }
+                        .disabled(model.printFinish.legacyTOC != nil && model.contentsFacts == nil)
+                        .id(PrintFinishSection.contents)
                 }
-                .id(PrintFinishSection.contents)
                 if model.format == .markdown, model.binder == nil {
                     section("Proof Marks") {
                         Picker("Proof Marks", selection: model.controlBinding(\.printFinish.proof)) {
@@ -250,7 +250,7 @@ struct PrintFinishSheet: View {
     }
 
     private func switchRow(_ title: LocalizedStringKey, isOn: Binding<Bool>, count: String? = nil) -> some View {
-        PrintSwitchRow(isOn: isOn) {
+        PrintSwitchRow(isOn: isOn, title: title) {
             HStack(spacing: 8) {
                 Text(title).font(.system(size: 13))
                 if let count {
@@ -492,41 +492,87 @@ struct PrintFinishSheet: View {
 
     // MARK: Contents
 
-    private var contentsHint: LocalizedStringKey? {
-        let hasSource = facts?.hasSourceContents == true
-        switch model.printFinish.toc.mode {
-        case .hidden: return hasSource ? "The text's [TOC] does not print." : nil
-        case .source:
-            return hasSource ? nil : "This document has no [TOC]. Choose “Add Contents to Front” to add one."
-        case .front: return nil
+    private func contentsChoice<Choice: View>(
+        _ title: LocalizedStringKey, locked: Bool = false, @ViewBuilder choice: () -> Choice
+    ) -> some View {
+        choiceRow {
+            HStack(spacing: 4) {
+                Text(title).fixedSize(horizontal: false, vertical: true)
+                if locked { Image(systemName: "lock.fill").accessibilityHidden(true) }
+            }
+            #if DEBUG
+                .reportPrintFinishFrame(.label(title))
+            #endif
+        } choice: {
+            choice()
         }
     }
 
     @ViewBuilder private var contentsDetails: some View {
-        choiceRow {
-            Text("Depth").font(.system(size: 13))
-        } choice: {
-            PrintSegments(
-                label: "Depth", options: [.init(PaperTOC.Depth.chapters, "Chapters"), .init(.sections, "Sections")],
-                selection: model.printFinish.toc.depth
-            ) { model.printFinish.toc.depth = $0 }
-        }
-        .padding(.top, 8)
-        choiceRow {
-            Text("Look").font(.system(size: 13))
-        } choice: {
-            PrintSegments(
-                label: "Look",
-                options: [
-                    .init(PaperTOC.Look.dotted, "Dotted"), .init(.plain, "No Lines"), .init(.ruled, "Chapter Lines"),
-                ],
-                selection: model.printFinish.toc.look
-            ) { model.printFinish.toc.look = $0 }
-        }
-        if model.printFinish.toc.mode == .front, facts?.hasSourceContents == true {
-            switchRow("Keep the Text's [TOC] as Well", isOn: model.controlBinding(\.printFinish.toc.keepsSourceTOC))
+        let rows = model.contentsFinishRows
+        if model.format == .latex {
+            latexLists(rows)
+        } else {
+            if rows.contains(.lead), let row = model.leadContentsResolution, case .outline(let present, let depth) = row
+            {
+                let title = LocalizedStringKey(OrgSettingID.tableOfContents.label.key)
+                contentsChoice(title, locked: present.isLocked || depth.isLocked) {
+                    let choices = OrgReadingDefaults.Depth(depth.value).choices
+                    Picker(
+                        title,
+                        selection: model.controlBinding(get: \.leadContents, set: { $0.setLeadContents($1) })
+                    ) {
+                        ForEach(choices, id: \.self) { value in
+                            Text(value.titleResource(locale: locale)).tag(value)
+                                .disabled(
+                                    !row.allowsOutline(present: value != .off, depth: value.readingDepth ?? .all))
+                        }
+                    }.labelsHidden()
+                        #if DEBUG
+                            .reportPrintFinishFrame(.picker(title))
+                        #endif
+                        .disabled(model.contentsFacts == nil || present.isLocked && (depth.isLocked || !present.value))
+                }
+            }
+            if rows.contains(.layout) {
+                contentsChoice("Placement") { PrintContentsChoice(model: model) }
+            }
+            if rows.contains(.look) {
+                contentsChoice("Look") {
+                    PrintSegments(
+                        label: "Look",
+                        options: [
+                            .init(PaperTOC.Look.dotted, "Dotted"), .init(.plain, "No Lines"),
+                            .init(.ruled, "Chapter Lines"),
+                        ], selection: model.printFinish.contents.look
+                    ) { model.editContents(\.look, $0) }
+                }
+            }
+            if rows.contains(.inText) {
+                contentsChoice("Contents in Text") {
+                    PrintSegments(
+                        label: "Contents in Text",
+                        options: [
+                            .init(ContentsFinish.InText.asWritten, "As Written"), .init(.hidden, "Don't Print"),
+                        ], selection: model.printFinish.contents.inText
+                    ) { model.editContents(\.inText, $0) }
+                }
+            }
         }
     }
+
+    @ViewBuilder private func latexLists(_ rows: Set<ContentsFinishRow>) -> some View {
+        if rows.contains(.contents) {
+            switchRow("Print Contents", isOn: model.latexContentsBinding)
+        }
+        if rows.contains(.figures) {
+            switchRow("Print List of Figures", isOn: model.contentsBinding(\.showsFigures))
+        }
+        if rows.contains(.tables) {
+            switchRow("Print List of Tables", isOn: model.contentsBinding(\.showsTables))
+        }
+    }
+
 }
 
 #if DEBUG
@@ -540,6 +586,8 @@ struct PrintFinishSheet: View {
             case row(LocalizedStringKey)
             case menu(LocalizedStringKey)
             case picker(LocalizedStringKey)
+            case label(LocalizedStringKey)
+            case toggle(LocalizedStringKey)
         }
 
         let element: Element
@@ -574,10 +622,12 @@ struct PrintFinishSheet: View {
     }
 
     extension View {
-        func reportPrintFinishFrame(_ element: PrintFinishFrame.Element, selected: LocalizedStringKey? = nil)
+        func reportPrintFinishFrame(_ element: PrintFinishFrame.Element?, selected: LocalizedStringKey? = nil)
             -> some View
         {
-            background { PrintFinishFrameReader(element: element, selected: selected) }
+            background {
+                if let element { PrintFinishFrameReader(element: element, selected: selected) }
+            }
         }
     }
 #endif
@@ -586,14 +636,21 @@ struct PrintFinishSheet: View {
 /// row, the switch sent the eye to the right for the control and back to the left for its name.
 struct PrintSwitchRow<Name: View>: View {
     @Binding var isOn: Bool
+    var title: LocalizedStringKey?
     @ViewBuilder var label: Name
     @Environment(\.isEnabled) private var isEnabled
 
     var body: some View {
         HStack(spacing: 8) {
             Toggle(isOn: $isOn) { label }.toggleStyle(.switch).controlSize(.small).labelsHidden()
+                #if DEBUG
+                    .reportPrintFinishFrame(title.map { .toggle($0) })
+                #endif
             // The switch carries the name for accessibility; the visible name only lends it a larger place to click.
             label
+                #if DEBUG
+                    .reportPrintFinishFrame(title.map { .label($0) })
+                #endif
                 .contentShape(Rectangle())
                 .onTapGesture { if isEnabled { isOn.toggle() } }
                 .accessibilityHidden(true)

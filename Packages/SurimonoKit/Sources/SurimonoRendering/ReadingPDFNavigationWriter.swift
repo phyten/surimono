@@ -21,6 +21,30 @@ enum ReadingPDFNavigationWriter {
                 arguments: [point.x, point.y, zoom].map { $0 == kPDFDestinationUnspecifiedValue ? nil : $0 })
         }
 
+        /// Translates only positions in page space. Null coordinates and the XYZ zoom retain their PDF meaning.
+        func offsetBy(dx: CGFloat, dy: CGFloat) -> Self {
+            var moved = arguments
+            func shift(_ index: Int, by offset: CGFloat) {
+                if let value = arguments[index] { moved[index] = value + offset }
+            }
+            switch mode {
+            case "XYZ":
+                shift(0, by: dx)
+                shift(1, by: dy)
+            case "FitH", "FitBH":
+                shift(0, by: dy)
+            case "FitV", "FitBV":
+                shift(0, by: dx)
+            case "FitR":
+                shift(0, by: dx)
+                shift(1, by: dy)
+                shift(2, by: dx)
+                shift(3, by: dy)
+            default: break  // Fit and FitB have no coordinates.
+            }
+            return Self(page: page, mode: mode, arguments: moved)
+        }
+
         static func argumentCount(for mode: String) -> Int? {
             switch mode {
             case "Fit", "FitB": 0

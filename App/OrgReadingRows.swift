@@ -44,15 +44,17 @@ extension Int: OrgReadingChoice {
 }
 
 extension OrgReadingDefaults.Depth: OrgReadingChoice {
-    fileprivate var title: String {
+    func titleResource(locale: Locale = .current) -> LocalizedStringResource {
         switch self {
-        case .off: String(localized: "None")
-        case .all: String(localized: "All Levels")
-        case .levels(let depth): String(localized: "Up to Level \(depth)")
+        case .off: LocalizedStringResource("None", locale: locale)
+        case .all: LocalizedStringResource("All Levels", locale: locale)
+        case .levels(let depth): LocalizedStringResource("Up to Level \(depth)", locale: locale)
         }
     }
 
-    fileprivate var choices: [Self] {
+    var title: String { String(localized: titleResource()) }
+
+    var choices: [Self] {
         var values: [Self] = [.off, .all] + (1...6).map { .levels($0) }
         // A file may specify a depth outside the menu's usual range.
         if !values.contains(self) { values.append(self) }

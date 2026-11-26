@@ -190,8 +190,7 @@ struct ReadingResolutionTests {
                 switch format {
                 case .markdown: [.sectionNumbers, .tableOfContents, .preserveBreaks]
                 case .quarto, .rMarkdown, .rst, .asciidoc: [.sectionNumbers, .tableOfContents]
-                case .mediawiki: [.tableOfContents]
-                default: []
+                default: format.usesPrintTheme && format != .latex ? [.tableOfContents] : []
                 }
             #expect(ReadingCatalogue.rows(for: format).map(\.id) == ids)
         }

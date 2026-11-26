@@ -219,6 +219,8 @@ enum SettingsCatalogue {
 
     private static func orgSearchWords(for id: OrgSettingID) -> [String] {
         switch id {
+        case .tableOfContents:
+            ["Lead Contents", "Sommaire en début de document", "문서 앞의 목차", "文首目录", "文件開頭的目錄"]
         case .headlineLevels:
             [
                 "Heading Depth", "見出しの深さ", "Gliederungstiefe", "Profundidad de los títulos", "Profondeur des titres",

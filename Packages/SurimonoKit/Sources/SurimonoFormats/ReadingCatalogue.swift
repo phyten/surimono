@@ -69,7 +69,7 @@ public struct ReadingSyntax: Equatable, Sendable {
     }
 }
 
-/// Syntax describes the setting contract, not a parser. New formats do not feed the resolver yet.
+/// Syntax describes the setting contract. Readers supply the instructions they actually recognized.
 /// Copy templates are format syntax (YAML fragments belong in the header), never localized UI text.
 public struct ReadingCatalogueRow: Equatable, Sendable {
     public let id: ReadingSettingID
@@ -98,7 +98,9 @@ public enum ReadingCatalogue {
         case .rst: rst
         case .asciidoc: asciidoc
         case .mediawiki: mediawiki
-        default: []
+        default:
+            format.usesPrintTheme && format != .latex
+                ? [.init(.tableOfContents, .outline(present: false, depth: .all), [], copy: [])] : []
         }
     }
 
@@ -109,7 +111,7 @@ public enum ReadingCatalogue {
     ]
     private static let yamlTOCCopy = ["toc: {true|false}", "toc-depth: {n}"]
 
-    // MarkdownMetadata currently reads only toc; MarkdownExtensions lists three levels from the chapter.
+    // MarkdownMetadata currently reads only toc; the native list defaults to three levels from the chapter.
     private static let markdown: [ReadingCatalogueRow] = [
         .init(
             .sectionNumbers, .outline(present: false, depth: .all),
@@ -171,14 +173,14 @@ public enum ReadingCatalogue {
             copy: [".. sectnum::", "   :depth: {n}"]),
         .init(
             .tableOfContents, .outline(present: false, depth: .levels(6)),
-            [.init(".. contents::", .presence), .init("contents :depth:", .depth), .init("contents :local:", .note)],
+            [.init(".. contents::", .note), .init("contents :depth:", .note), .init("contents :local:", .note)],
             copy: [".. contents::", "   :depth: {n}"]),
     ]
 
     // https://docs.asciidoctor.org/asciidoc/latest/attributes/assignment-precedence/
     // Hard API attributes precede header entries; an @ suffix makes an API default overridable.
     // https://docs.asciidoctor.org/asciidoc/latest/sections/numbers/ documents the regional sectnums exception.
-    // asciidoc-bridge.js passes none of these four attributes and returns HTML/metadata without source locations.
+    // The bridge reads header attributes after Asciidoctor resolves them. Macro placement belongs to the body.
     private static let asciidoc: [ReadingCatalogueRow] = [
         .init(
             .sectionNumbers, .outline(present: false, depth: .levels(3)),

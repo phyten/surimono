@@ -38,6 +38,20 @@ struct FinderPreviewTests {
         }
     }
 
+    @Test("Finderのプレビューは原稿の先頭と本文の目次を元の位置に残す")
+    func manuscriptContents() throws {
+        try withDirectory { directory in
+            let url = directory.appendingPathComponent("note.md")
+            try "---\ntoc: true\n---\n# First\n\nSome text\n\n[TOC]\n\n# Last".write(
+                to: url, atomically: true, encoding: .utf8)
+            let html = FinderPreview.make(for: url).html
+            let parts = html.components(separatedBy: "<nav class=\"toc\"")
+            #expect(parts.count == 3)
+            #expect(parts.dropFirst().first?.contains("Some text") == true)
+            #expect(!html.contains("paper-toc-title") && !html.contains("data-surimono-hidden"))
+        }
+    }
+
     @Test("登録する全形式を本文のあるプレビューに変換する")
     func formats() throws {
         try withDirectory { directory in

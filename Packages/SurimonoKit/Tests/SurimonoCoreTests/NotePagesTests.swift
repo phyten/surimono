@@ -152,7 +152,7 @@ struct NotePagesTests {
         #expect(set.notes == NotePages())
         let options = PrintOptions()
         var finish = PrintFinish()
-        finish.toc.mode = .hidden
+        finish.legacyPresetContents.mode = .hidden
         var settings = DocumentSettings(layoutID: "a4Single", printOptions: options, printFinish: finish)
         #expect(set.matches(settings))
         settings.notes = NotePages(isEnabled: true)

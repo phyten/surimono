@@ -23,9 +23,9 @@ public struct ReadingInstructionSource: Equatable, Sendable {
 
 public struct ReadingInstruction<Value: Equatable & Sendable>: Equatable, Sendable {
     public let value: Value
-    public let source: ReadingInstructionSource
+    public let source: ReadingInstructionSource?
 
-    public init(_ value: Value, source: ReadingInstructionSource) {
+    public init(_ value: Value, source: ReadingInstructionSource? = nil) {
         self.value = value
         self.source = source
     }
@@ -62,9 +62,16 @@ public struct ReadingResolution<Value: Equatable & Sendable>: Equatable, Sendabl
 }
 
 /// The enabled depth is independent of whether contents or numbers are present.
-public enum ReadingDepth: Codable, Equatable, Sendable {
+public enum ReadingDepth: Codable, Hashable, Sendable {
     case all
     case levels(Int)
+
+    public var headingLevels: Int {
+        switch self {
+        case .levels(let n): min(6, max(0, n))
+        case .all: 6
+        }
+    }
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.singleValueContainer()
