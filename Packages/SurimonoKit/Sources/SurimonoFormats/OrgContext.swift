@@ -107,10 +107,8 @@ final class OrgContext {
         {
             if mathDefinitions.preview != nil {
                 if discovering { mathDefinitions.preview?.appendHeader(value) }
-            } else if let definition = OrgMath.definition(value),
-                MathRenderer.html("x", display: false, macros: mathDefinitions.source + definition) != nil
-            {
-                mathDefinitions.source += definition
+            } else if let definition = OrgMath.definition(value) {
+                mathDefinitions.app.appendHeader(definition)
             }
         }
         if OrgTaskKeywords.directives.contains(key) { taskKeywords.declare(value) }

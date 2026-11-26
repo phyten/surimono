@@ -75,13 +75,24 @@ public enum MathRenderer {
             guard let expanded = try? expansion.expand(source, definitions: macros) else { return nil }
             input = expanded
         } else {
-            input = macros + source
+            guard let prepared = AppMathInput.prepare(source, definitions: macros) else { return nil }
+            input = prepared.input
         }
         guard !PreviewConversion.expired, !source.isEmpty,
             let parsed = try? parseLaTeX(input)
         else {
             return nil
         }
+        return renderParsed(
+            parsed, source: source, original: originalSource ?? latex, display: display, rowNumberHTML: rowNumberHTML,
+            measureRows: measureRows, reportTruncation: reportTruncation, sansMathAlphabet: sansMathAlphabet)
+    }
+
+    static func renderParsed(
+        _ parsed: [ParseNode], source: String, original: String, display: Bool, rowNumberHTML: [String?] = [],
+        measureRows: Bool = false, reportTruncation: Bool = true, sansMathAlphabet: Bool = false
+    ) -> String? {
+        let preview = PreviewConversion.current
         let nodes = sansMathAlphabet ? parsed.map { sansLetter($0, depth: 0) } : parsed
         let options = LayoutOptions(style: display ? .display : .text)
         guard let box = checkedLayout(nodes, options: options) else { return nil }
@@ -113,7 +124,6 @@ public enum MathRenderer {
         // reach past the layout box (a fraction's descenders) are not clipped.
         // cmark still parses the enclosing block. Literal newlines in an attribute can
         // end a list item; keep the original UTF-8 bytes outside Markdown's grammar.
-        let original = originalSource ?? latex
         let savedSource =
             preview != nil || original == source
             ? "" : " data-formula-source=\"\(Data(original.utf8).base64EncodedString())\""

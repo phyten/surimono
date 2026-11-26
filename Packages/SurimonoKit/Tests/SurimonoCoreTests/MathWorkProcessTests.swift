@@ -48,6 +48,32 @@ struct MathWorkProcessTests {
                     else { throw CocoaError(.coderInvalidValue) }
                 }
             }
+            // Four copies of this fixed literal are just over 8 KiB even without a guard.
+            // Cross the real byte boundary without relying on a slow or memory-hungry test.
+            let literal = String(repeating: "x", count: 2_049)
+            let examples = [
+                (#"\def\twice#1{#1#1}"#, "\\twice{\\twice{" + literal + "}}"),
+                (#"\def\leaf{"# + literal + "}" + #"\def\pair{\leaf\leaf}\def\fourwords{\pair\pair}"#, #"\fourwords"#),
+            ]
+            for (definitions, call) in examples {
+                let markdown = "$$" + definitions + call + "$$"
+                let latex = "$" + call + "$"
+                let documents = [
+                    (MarkdownConverter.convert("Before.\n\n" + markdown + "\n\nAfter $a+b$. Tail.").body, markdown),
+                    (
+                        LaTeXConverter.convert(
+                            definitions + "\\begin{document}Before. " + latex + " After $a+b$. Tail.\\end{document}"
+                        ).body, latex
+                    ),
+                ]
+                for (html, source) in documents {
+                    guard html.contains("class=\"math-error\">" + HTML.escape(source)),
+                        html.components(separatedBy: "class=\"math-error\"").count == 2,
+                        html.contains(#"aria-label="a+b""#), html.contains("Tail."),
+                        html.components(separatedBy: "<svg ").count == 2
+                    else { throw CocoaError(.coderInvalidValue) }
+                }
+            }
             checkMemory()
         }
     }

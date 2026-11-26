@@ -385,6 +385,7 @@ final class LaTeXDocument {
     var expansionWork = 0
     /// Plain source continues to print after expansion stops; the fragment reports the limit once.
     var stopsExpanding = false
+    var mathExpansionLimitReached = false
     let nonce = String((0..<12).map { _ in "abcdefghijklmnopqrstuvwxyz".randomElement() ?? "x" })
 
     /// The print check panel can explain omissions here without putting diagnostic text on the paper.
@@ -400,7 +401,7 @@ final class LaTeXDocument {
             issues += style.diagnostics.map { "\(style.requestedName): unknown option \($0)" }
         }
         issues.append(contentsOf: failedFormulas)
-        if stopsExpanding { issues.append("LaTeX expansion limit reached") }
+        if stopsExpanding || mathExpansionLimitReached { issues.append("LaTeX expansion limit reached") }
         return issues
     }
 

@@ -50,19 +50,20 @@ struct PreviewMathExpansion {
     private var pendingBytes = 0
     private var output = ""
     private var afterControlWord = false
+    private var afterWhitespace = false
     private var specialUses = 0
     private var hasChemistry = false
     private var hasBraket = false
     private var bars = 0
 
-    mutating func expand(_ formula: String, definitions: String) throws -> String {
+    mutating func expand(_ formula: String, definitions: String, app: Bool = false) throws -> String {
         self = Self()
-        let limit = PreviewConversion.maximumFormulaBytes
+        let limit = app ? Self.maximumBytes : PreviewConversion.maximumFormulaBytes
         guard formula.utf8.count <= limit, definitions.utf8.count <= limit - formula.utf8.count else {
             throw Refusal.size
         }
-        let macros = try PreviewMathMacro.read(definitions)
-        let tokens = try Self.tokens(formula)
+        let macros = try PreviewMathMacro.read(definitions, app: app)
+        let tokens = try Self.tokens(formula, limit: limit)
         for (index, token) in tokens.enumerated().reversed() {
             guard Self.permitted(token) else { throw Refusal.unsupported }
             try push(Item(text: token, call: nil, sourceIndex: index))
@@ -102,7 +103,7 @@ struct PreviewMathExpansion {
                     }
                 }
             } else {
-                try emit(item.text)
+                try emit(item.text, preserveSpaces: app)
             }
         }
         if hasChemistry { try Self.checkChemistry(output) }
@@ -148,23 +149,28 @@ struct PreviewMathExpansion {
         throw Refusal.unsupported
     }
 
-    private mutating func emit(_ text: String) throws {
+    private mutating func emit(_ text: String, preserveSpaces: Bool) throws {
         // These public braket/set commands use fixed delimiters. tmspace copies its sign into both mode branches.
         if text == "\\ce" || text == "\\pu" { hasChemistry = true }
         if text == "\\Braket" { hasBraket = true }
         if text == "|" { bars += 1 }
         if hasBraket && bars > 64 { throw Refusal.size }
-        if ["\\tmspace", "\\Braket", "\\Set", "\\set", "\\ce", "\\pu"].contains(text) {
+        if Self.specialBuiltins.contains(text) {
             specialUses += 1
             guard specialUses <= 4 else { throw Refusal.size }
         }
         let separates = afterControlWord && text.utf8.first.map(Self.wordByte) == true
-        let bytes = text.utf8.count + (separates ? 1 : 0)
+        // Substitution can put a real space after a control word, or place two space tokens
+        // together. A zero-token comment keeps a second lex from eating or coalescing the space.
+        let protectsSpace = preserveSpaces && text == " " && (afterControlWord || afterWhitespace)
+        let separator = protectsSpace ? "%\n" : (separates ? " " : "")
+        let bytes = text.utf8.count + separator.utf8.count
         guard bytes <= Self.maximumBytes - outputBytes else { throw Refusal.size }
-        if separates { output += " " }
+        output += separator
         output += text
         outputBytes += bytes
         afterControlWord = Self.controlWord(text)
+        afterWhitespace = text == " " || text == "\\ "
     }
 
     /// mhchem re-lexes generated TeX. Accept short literal chemical notation, with no TeX or nested input.
@@ -196,9 +202,9 @@ struct PreviewMathExpansion {
         text.utf8.first == 92 && text.utf8.count > 1 && text.utf8.dropFirst().allSatisfy(wordByte)
     }
 
-    static func tokens(_ source: String) throws -> [String] {
+    static func tokens(_ source: String, limit: Int = PreviewConversion.maximumFormulaBytes) throws -> [String] {
         // Every lexer token consumes at least one byte of this already bounded source.
-        guard source.utf8.count <= PreviewConversion.maximumFormulaBytes else { throw Refusal.size }
+        guard source.utf8.count <= limit else { throw Refusal.size }
         var lexer = Lexer(source)
         var result: [String] = []
         while true {
@@ -213,6 +219,10 @@ struct PreviewMathExpansion {
         // Internal braket helpers accept arbitrary replacement delimiters.
         return !token.contains("@") && !token.hasPrefix("\\verb") && !forbidden.contains(token)
     }
+
+    private static let specialBuiltins: Set<String> = [#"\tmspace"#, #"\Braket"#, #"\Set"#, #"\set"#, #"\ce"#, #"\pu"#]
+    static let inspectedWords = forbidden.union(specialBuiltins)
+    static let longestInspectedWord = inspectedWords.map { $0.utf8.count }.max() ?? 0
 
     private static let forbidden: Set<String> = [
         "\\", "\\def", "\\gdef", "\\edef", "\\xdef", "\\let", "\\futurelet", "\\global", "\\long",
