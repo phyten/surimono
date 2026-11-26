@@ -18,12 +18,26 @@ public enum StandalonePage {
         return reopened(assembled, from: assembled.dataRepresentation())
     }
 
-    static func reopenBinder(_ assembled: PDFDocument, boundLinks: ReadingPDFNavigation.PageLinks = [:]) async throws
+    static func binderForDisplay(_ assembled: PDFDocument, boundLinks: ReadingPDFNavigation.PageLinks) async throws
         -> PDFDocument
     {
+        if assembled.binderNavigation == nil, !boundLinks.isEmpty {
+            assembled.binderNavigation = .bound(boundLinks)
+        }
+        // XYZ can be installed in memory. PDFKit cannot author a Fit view from a point and zoom.
+        if #available(macOS 26, *) {
+            let needsFitView = assembled.boundLinkRecords.values.contains { links in
+                links.values.contains { $0.action.target?.mode != "XYZ" }
+            }
+            if !needsFitView { return assembled }
+        }
+        return try await reopenBinder(assembled)
+    }
+
+    static func reopenBinder(_ assembled: PDFDocument) async throws -> PDFDocument {
         // PDFKit can move a copied page's origin without adjusting the coordinates of links into it.
         do {
-            let data = try await ReadingPDFExporter.data(from: assembled, boundLinks: boundLinks)
+            let data = try await ReadingPDFExporter.data(from: assembled)
             if let copy = reopened(assembled, from: data) { return copy }
         } catch is CancellationError {
             throw CancellationError()
@@ -33,13 +47,21 @@ public enum StandalonePage {
         try Task.checkCancellation()
         Logger(subsystem: "app.surimono.Surimono", category: "Binder")
             .warning("Navigation verification failed while reopening a binder for display. Using the native PDF.")
-        if let copy = reopened(assembled, from: assembled.dataRepresentation()) { return copy }
-        if #available(macOS 26, *) { return assembled }
-        throw DocumentRenderer.RenderingError.invalidPDF
+        let display: PDFDocument
+        if let copy = reopened(assembled, from: assembled.dataRepresentation()) {
+            display = copy
+        } else if #available(macOS 26, *) {
+            display = assembled
+        } else {
+            throw DocumentRenderer.RenderingError.invalidPDF
+        }
+        display.binderNavigation = .displayFallback
+        return display
     }
 
     private static func reopened(_ assembled: PDFDocument, from data: Data?) -> PDFDocument? {
         guard let data, let copy = PDFDocument(data: data), copy.pageCount == assembled.pageCount else { return nil }
+        copy.inheritDisplayFallback(from: assembled)
         SourcePaperText.include(assembled, in: copy, startingAt: 0)
         return copy
     }

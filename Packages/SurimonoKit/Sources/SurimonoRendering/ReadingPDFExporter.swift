@@ -5,11 +5,14 @@ import SurimonoCore
 @MainActor
 public enum ReadingPDFExporter {
     public enum ExportError: LocalizedError {
+        case unverifiedBinderNavigation
         case cannotCopyDocument
         case navigation(String)
 
         public var errorDescription: String? {
             switch self {
+            case .unverifiedBinderNavigation:
+                return String(localized: "The original link destinations in this binder could not be verified.")
             case .cannotCopyDocument: return String(localized: "The PDF could not be exported.")
             case .navigation(let detail): return detail
             }
@@ -47,11 +50,7 @@ public enum ReadingPDFExporter {
 
     /// Captures navigation before PDFKit can drop weak destinations during its native write.
     public static func data(from document: PDFDocument) async throws -> Data {
-        try await data(from: document, boundLinks: [:])
-    }
-
-    static func data(from document: PDFDocument, boundLinks: ReadingPDFNavigation.PageLinks) async throws -> Data {
-        let expected = try await ReadingPDFNavigation(document, stage: "export", boundLinks: boundLinks)
+        let expected = try await ReadingPDFNavigation(document, stage: "export")
         guard let bytes = document.dataRepresentation() else { throw ExportError.cannotCopyDocument }
         return try await expected.verified(bytes, pageCount: document.pageCount, stage: "export → saved")
     }

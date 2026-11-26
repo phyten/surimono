@@ -784,11 +784,7 @@ public final class DocumentRenderer {
                 if let children = source.children {
                     let output = try await binder(children, settings: settings)
                     binderOutput = output
-                    if #available(macOS 26, *), output.boundLinks.isEmpty {
-                        document = output.document
-                    } else {
-                        document = try await StandalonePage.reopenBinder(output.document, boundLinks: output.boundLinks)
-                    }
+                    document = try await StandalonePage.binderForDisplay(output.document, boundLinks: output.boundLinks)
                     unreadable = []
                     candidates = []
                     issues = output.issues
@@ -1097,6 +1093,7 @@ public final class DocumentRenderer {
         from child: PDFDocument, to pages: [PDFPage], in binder: PDFDocument,
         dictionaries: ReadingPDFNavigation.PageLinks, offset: Int, bound: inout ReadingPDFNavigation.PageLinks
     ) {
+        let inheritedLinks = child.boundLinkRecords
         for (index, page) in pages.enumerated() {
             guard let source = child.page(at: index) else { continue }
             // PDFKit may insert a Popup next to a copied Text annotation.
@@ -1113,14 +1110,19 @@ public final class DocumentRenderer {
                     let index = child.index(for: target)
                     return pages.indices.contains(index) ? index : nil
                 }
-                let record = dictionaries[index]?[sourceSlot]
+                let inherited = inheritedLinks[index]?[sourceSlot]
+                let record = inherited ?? dictionaries[index]?[sourceSlot]
                 let raw = record.flatMap {
                     ReadingPDFNavigation.sameBounds($0.bounds, original.bounds) ? $0.action.target : nil
                 }
                 guard let targetIndex = nativeIndex ?? raw?.page, pages.indices.contains(targetIndex) else { continue }
                 let targetPage = pages[targetIndex]
+                let unspecified = CGFloat(kPDFDestinationUnspecifiedValue)
+                var point = destination?.point ?? CGPoint(x: unspecified, y: unspecified)
+                var zoom = destination?.zoom ?? unspecified
                 if let raw, raw.page == targetIndex,
                     nativeIndex == nil || raw.mode != "XYZ" || record?.action == .namedDestination(raw)
+                        || inherited != nil
                 {
                     // A PDFDestination only exposes a point and zoom. Keep the full array for the verified write.
                     let target = ReadingPDFNavigationWriter.Destination(
@@ -1128,13 +1130,18 @@ public final class DocumentRenderer {
                     bound[offset + index, default: [:]][copySlot] = .init(
                         page: offset + index, annotation: copySlot, bounds: copy.bounds,
                         action: .internalDestination(target))
+                    if raw.mode == "XYZ" {
+                        point = CGPoint(x: raw.arguments[0] ?? unspecified, y: raw.arguments[1] ?? unspecified)
+                        // PDF zoom zero, like null, keeps the current zoom; the bound array retains the distinction.
+                        zoom = raw.arguments[2] == 0 ? unspecified : raw.arguments[2] ?? unspecified
+                    }
                 }
                 let copiedTarget = (copy.action as? PDFActionGoTo)?.destination ?? copy.destination
-                guard copiedTarget?.page !== targetPage else { continue }
-                let unspecified = CGFloat(kPDFDestinationUnspecifiedValue)
-                let point = destination?.point ?? CGPoint(x: unspecified, y: unspecified)
+                if copiedTarget?.page === targetPage, copiedTarget?.point == point, copiedTarget?.zoom == zoom {
+                    continue
+                }
                 let moved = binder.destination(on: targetPage, at: point)
-                moved.zoom = destination?.zoom ?? unspecified
+                moved.zoom = zoom
                 if action != nil {
                     copy.action = PDFActionGoTo(destination: moved)
                 } else {
@@ -1212,6 +1219,7 @@ public final class DocumentRenderer {
                 Self.bindLinks(
                     from: document, to: pages, in: output.document, dictionaries: dictionaries, offset: offset,
                     bound: &output.boundLinks)
+                output.document.inheritDisplayFallback(from: document)
                 SourcePaperText.include(document, in: output.document, startingAt: offset)
                 if let url = child.fileURL {
                     output.documents[url] = document

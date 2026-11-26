@@ -308,18 +308,115 @@ struct ReadingPDFDestinationTests {
         try await check(#require(PDFDocument(data: bytes)), stage: "exported")
     }
 
-    @Test("しおりを検証できない PDF も合本の表示用には開き直せる")
+    @Test("名前付き XYZ だけの合本は macOS 26 以降で開き直さず、表示と書き出しの宛先を保つ", arguments: [0.0, 1.5])
+    func boundXYZInMemory(zoom: CGFloat) async throws {
+        // A legacy name alongside a name tree can leave PDFKit without a destination page.
+        let child = DocumentSource(
+            data: pdf([
+                "<< /Type /Catalog /Pages 2 0 R /Dests << /point [4 0 R /XYZ 73 null \(zoom)] >> /Names << /Dests << /Names [] >> >> >>",
+                "<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>",
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 300] /Resources << >> /Annots [5 0 R] >>",
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 300] /Resources << >> >>",
+                "<< /Type /Annot /Subtype /Link /Rect [10 10 20 20] /Dest /point >>",
+            ]), format: .pdf)
+        var settings = RenderSettings(
+            layout: .a4Single, theme: PrintTheme(id: "test", name: "Test", css: ""),
+            preset: HTMLCleanupPreset(id: "none", name: "None"))
+        settings.binderStartsOnFront = false
+        let prepared = try await DocumentRenderer().prepare(.binder([child, child]), settings: settings)
+        let view = prepared.viewDocument
+        if #available(macOS 26, *) {
+            // Only the assembled instance carries the occurrence records; a verified reopen has its own dictionaries.
+            guard case .bound = view.binderNavigation else {
+                Issue.record("The XYZ binder was reopened.")
+                return
+            }
+        }
+        let bytes = try await ReadingPDFExporter.data(from: view, entries: [], title: "Binder")
+        let raw = try await ReadingPDFRawNavigation.read(bytes)
+        for index in [0, 2] {
+            let link = try #require(view.page(at: index)?.annotations.first)
+            let target = try #require((link.action as? PDFActionGoTo)?.destination ?? link.destination)
+            #expect(target.page === view.page(at: index + 1))
+            #expect(target.point == CGPoint(x: 73, y: kPDFDestinationUnspecifiedValue))
+            if zoom == 0 {
+                #expect(target.zoom == kPDFDestinationUnspecifiedValue || target.zoom == 0)
+            } else {
+                #expect(target.zoom == zoom)
+            }
+            #expect(
+                raw.links.first { $0.page == index }?.action.target
+                    == .init(page: index + 1, mode: "XYZ", arguments: [73, nil, zoom]))
+        }
+    }
+
+    @Test("しおりを検証できない合本は表示でき、表示用のリンクを基準に読むための PDF を書き出さない")
     func binderReopenWithInvalidOutline() async throws {
-        let document = try #require(PDFDocument(data: file(link: "/Dest [3 0 R /Fit]", bookmark: "/Dest [null /Fit]")))
+        let manuscript = try #require(PDFDocument(data: markedPages(rotated: false)))
+        let document = PDFDocument()
+        for index in 0..<manuscript.pageCount {
+            let source = try #require(manuscript.page(at: index))
+            document.insert(try #require(StandalonePage.copy(of: source)), at: index)
+        }
+        let first = try #require(document.page(at: 0))
+        let target = try #require(document.page(at: 1))
+        let link = try #require(first.annotations.first)
+        let destination = document.destination(on: target, at: CGPoint(x: 70, y: 110))
+        destination.zoom = 1
+        link.action = PDFActionGoTo(destination: destination)
+        #expect(target.bounds(for: .mediaBox).origin == CGPoint(x: 7, y: 29))
+        try checkMarkedLink(document, from: 0)
+
+        // A released bookmark page fails verification. A native write can drop the broken action and
+        // leave a perfectly readable link whose coordinates still refer to the old page origin.
+        let lost = autoreleasepool { PDFDestination(page: PDFPage(), at: .zero) }
+        try #require(lost.page == nil)
+        let root = PDFOutline()
+        let leaf = PDFOutline()
+        leaf.label = "Lost"
+        root.insertChild(leaf, at: 0)
+        leaf.action = PDFActionGoTo(destination: lost)
+        document.outlineRoot = root
         await #expect(throws: ReadingPDFExporter.ExportError.self) {
             _ = try await ReadingPDFExporter.data(from: document)
         }
         let reopened = try await StandalonePage.reopenBinder(document)
         #expect(reopened !== document)
-        #expect(reopened.pageCount == 1)
-        let page = try #require(reopened.page(at: 0))
-        let link = try #require(page.annotations.first)
-        #expect(link.type == "Link")
+        #expect(reopened.pageCount == 2)
+        let displayedTarget = try #require(reopened.page(at: 1))
+        #expect(try markOnPaper(displayedTarget) == CGRect(x: 59, y: 78, width: 8, height: 6))
+
+        // Both the plain exporter and the app's metadata/decorations entry point must refuse the display copy.
+        for withMetadata in [false, true] {
+            do {
+                if withMetadata {
+                    _ = try await ReadingPDFExporter.data(from: reopened, entries: [], title: "Binder")
+                } else {
+                    _ = try await ReadingPDFExporter.data(from: reopened)
+                }
+                Issue.record("Export accepted a display-only binder.")
+            } catch ReadingPDFExporter.ExportError.unverifiedBinderNavigation {}
+        }
+    }
+
+    @Test("表示用に退避した文書を合本に含めると、表示番号を加えた後も書き出しを断る")
+    func derivedDisplayFallback() async throws {
+        let source = try #require(PDFDocument(data: file(bookmark: "/Dest [null /Fit]")))
+        let fallback = try await StandalonePage.reopenBinder(source)
+        let renderer = DocumentRenderer(paginate: { _ in fallback })
+        let settings = RenderSettings(
+            layout: .a4Single, theme: PrintTheme(id: "test", name: "Test", css: ""),
+            preset: HTMLCleanupPreset(id: "none", name: "None"))
+        let child = DocumentSource(data: Data("Child".utf8), format: .markdown)
+        let prepared = try await renderer.prepare(.binder([child]), settings: settings)
+        try #require(prepared.viewDocument.pageCount == 1)
+        let options = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .instant, showsCoverAlone: false)
+        let plan = ViewPageLayout(pageCount: 1, options: options, hasLogicalMargins: true, showsNumbers: true)
+        let decorated = try #require(ViewPageDocument.make(prepared.viewDocument, plan: plan, margin: 0))
+        do {
+            _ = try await ReadingPDFExporter.data(from: decorated, entries: [], title: "Binder")
+            Issue.record("Export accepted a copy derived from a display-only binder.")
+        } catch ReadingPDFExporter.ExportError.unverifiedBinderNavigation {}
     }
 
     @Test("座標差が 1・4 ULP なら保存値を保ち、5 ULP なら宛先を修復して書き出す", arguments: [1, 4, 5])

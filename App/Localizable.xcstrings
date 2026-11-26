@@ -33881,6 +33881,59 @@
         }
       }
     },
+    "The original link destinations in this binder could not be verified.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この合本のリンク先が元の文書と一致するか確認できませんでした。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The original link destinations in this binder could not be verified."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法验证此合订本中链接的原始目标位置。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法驗證此合訂本中連結的原始目標位置。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 합본에 있는 링크의 원래 대상을 확인할 수 없습니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de vérifier les destinations d’origine des liens de ce recueil."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die ursprünglichen Linkziele in diesem Sammelband konnten nicht überprüft werden."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se han podido verificar los destinos originales de los enlaces de esta compilación."
+          }
+        }
+      }
+    },
     "The PDF could not be exported.": {
       "extractionState": "manual",
       "localizations": {

@@ -103,7 +103,12 @@ struct ReadingPDFNavigation: Sendable {
     }
 
     @MainActor
-    init(_ document: PDFDocument, stage: String = "view", boundLinks: PageLinks = [:]) async throws {
+    init(_ document: PDFDocument, stage: String = "view") async throws {
+        try Task.checkCancellation()
+        if case .displayFallback = document.binderNavigation {
+            throw ReadingPDFExporter.ExportError.unverifiedBinderNavigation
+        }
+        let boundLinks = document.boundLinkRecords
         let checkpoint = Self.makeCheckpoint(for: document)
         let live = try await Self.projection(of: document)
         let backing = try await Self.dictionaries(in: document, includesOutline: true)
