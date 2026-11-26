@@ -77,6 +77,7 @@ struct ViewModeView: View {
         .modifier(
             BandHintHost(
                 session: hints,
+                bandHeights: .full(for: model.menuArrangement, top: model.topBandHeight),
                 blocked: !bandVisible || model.hasDocumentPopover || model.isReviewingSmartRemoval
                     || model.isGoToPagePresented)
         )

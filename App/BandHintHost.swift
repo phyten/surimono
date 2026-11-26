@@ -147,7 +147,7 @@ final class BandHintSession {
     private(set) var hover: String?
     private(set) var visible: String?
     private var timing = BandHintTiming()
-    @ObservationIgnored private var footprint: BandHintFootprint?
+    @ObservationIgnored private(set) var footprint: BandHintFootprint?
     private var overHint = false
 
     func setFootprint(_ value: BandHintFootprint) {
@@ -329,6 +329,7 @@ final class BandHintSession {
 struct BandHintHost: ViewModifier {
     let session: BandHintSession
     var editor = false
+    var bandHeights = BandRoom()
     var blocked = false
     @FocusedValue(\.bandHintID) private var focus
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -338,7 +339,7 @@ struct BandHintHost: ViewModifier {
             .onPreferenceChange(BandSegmentRects.self) { session.updateSegments($0) }
             .onPreferenceChange(BandHintTargets.self) { session.update($0) }
             .overlay {
-                if !editor { BandHintLayer(session: session) }
+                if !editor { BandHintLayer(session: session, bandHeights: bandHeights) }
             }
             .coordinateSpace(name: "band-hint-host")
             .background { BandHintEvents(session: session) }
@@ -353,6 +354,7 @@ struct BandHintHost: ViewModifier {
 /// split view so a card can extend across the sidebar without crossing the window edge.
 struct BandHintLayer: View {
     let session: BandHintSession
+    var bandHeights = BandRoom()
     var editorFrame: CGRect?
     private var editor: Bool { editorFrame != nil }
 
@@ -369,7 +371,7 @@ struct BandHintLayer: View {
             let target = session.targets[id] ?? (id == "pageTurn" ? session.targets["pageTurn.next"] : nil)
         {
             let rect = target.rect.offsetBy(dx: editorFrame?.minX ?? 0, dy: editorFrame?.minY ?? 0)
-            BandHintPlacement(rect: rect, above: target.above, canFlip: editor) {
+            BandHintPlacement(rect: rect, above: target.above, canFlip: editor, bandHeights: bandHeights) {
                 BandHintCard(content: target.content, showName: !target.showsName)
                     .onGeometryChange(for: BandHintFootprint.self) {
                         BandHintFootprint(

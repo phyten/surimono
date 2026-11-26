@@ -224,6 +224,47 @@ struct BandStatePlateTests {
         #expect(!hints.holdsBand)
     }
 
+    @Test("上下どちらの帯でも縁から説明カードまで6pt空き、その隙間でカードと帯を保持する", arguments: [false, true])
+    func bandEdgeGap(bottom: Bool) async throws {
+        let hints = BandHintSession()
+        let band = BandZone(edge: bottom ? .bottom : .top, isShown: true, height: bottom ? 38 : 32) {
+            Color.clear.frame(width: 22, height: 22)
+                .bandHint("pin", .init(name: "Pin", detail: "A short description."), above: bottom)
+        }
+        let host = NSHostingView(
+            rootView: Color.white.frame(width: 360, height: 160)
+                .overlay(alignment: bottom ? .bottom : .top) { band }
+                .modifier(BandHintHost(session: hints, bandHeights: BandRoom(top: 32, bottom: 38))))
+        let window = NSWindow(
+            contentRect: CGRect(x: 0, y: 0, width: 360, height: 160),
+            styleMask: .borderless, backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.contentView = host
+        window.alphaValue = 0
+        window.orderFrontRegardless()
+        defer { window.close() }
+        host.layoutSubtreeIfNeeded()
+        hints.move(to: CGPoint(x: 180, y: bottom ? 141 : 16))
+        let deadline = ContinuousClock.now + .seconds(3)
+        while hints.footprint == nil && ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        let card = try #require(hints.footprint).rect
+        #expect(bottom ? card.maxY == 116 : card.minY == 38)
+        for offset in 0...6 {
+            hints.move(to: CGPoint(x: 180, y: bottom ? 122 - offset : 32 + offset))
+            #expect(hints.hover == nil && hints.holdsBand)
+            if offset == 3 {
+                try await Task.sleep(for: .milliseconds(250))
+                #expect(hints.visible == "pin")
+            }
+        }
+        hints.move(to: CGPoint(x: card.midX, y: card.midY))
+        #expect(hints.visible == "pin" && hints.holdsBand)
+        hints.move(to: CGPoint(x: 0, y: 80))
+        #expect(!hints.holdsBand)
+    }
+
     @Test("部品に静止している間は帯を保持し、離れると元の自動非表示が働く")
     func idlePause() async throws {
         let menu = OverlayMenuState()
