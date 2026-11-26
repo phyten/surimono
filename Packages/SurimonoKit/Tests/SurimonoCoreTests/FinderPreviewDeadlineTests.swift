@@ -24,7 +24,7 @@ extension FinderPreviewTests {
         #expect(tags > 0 && tags <= 1_025)
     }
 
-    @Test("実際の数式組版・RST の走査・Notebook の出力処理中に期限を迎える", arguments: ["org", "rst", "ipynb"])
+    @Test("数式組版・RST と MediaWiki の走査・Notebook の出力処理中に期限を迎える", arguments: ["org", "rst", "wiki", "ipynb"])
     func nativeDeadline(suffix: String) throws {
         try withDirectory { directory in
             let file = directory.appendingPathComponent("paper." + suffix)
@@ -38,6 +38,10 @@ extension FinderPreviewTests {
             case "rst":
                 bytes = Data(("a" + String(repeating: #"\x"#, count: 32_768)).utf8)
                 // The single block has entered the repeated-escape scanner by this point.
+                polls = 12
+            case "wiki":
+                bytes = Data(String(repeating: "{{small|paper}} ", count: 100).utf8)
+                // Expire while pairing template delimiters, before rendering the paragraph.
                 polls = 12
             default:
                 let output = ["output_type": "stream", "name": "stdout", "text": String(repeating: "x", count: 65_536)]

@@ -245,6 +245,8 @@ public enum BandLayout {
         availableItems: Set<Item>, measurements: BandMeasurementsValue, metrics: BandMetrics, availableWidth: CGFloat,
         names: Names
     ) -> BandRowPlan {
+        let leading = leading.toolbarEntries
+        let trailing = trailing.toolbarEntries
         let standard = BandArrangement.builtIn(for: mode, includesLegacyParts: true)
         let standardLeading = position == .top ? standard.topLeft : standard.bottomLeft
         let standardTrailing = position == .top ? standard.topRight : standard.bottomRight
@@ -252,7 +254,7 @@ public enum BandLayout {
         // Reordering, crossing zones or editing separators uses adjacency gaps instead of the legacy stacks.
         func follows(_ entries: [BandEntry], order: [BandEntry]) -> Bool {
             let parts = Set(entries.compactMap(\.item))
-            let expected = order.filter { $0.item.map(parts.contains) ?? true }
+            let expected = order.filter { $0.item.map(parts.contains) ?? true }.toolbarEntries
             if expected == entries { return true }
             return availableItems.contains(.thumbnails) && !availableItems.contains(.outline)
                 && expected.withBundleEntryAtContents == entries

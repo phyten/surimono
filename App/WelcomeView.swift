@@ -169,6 +169,11 @@ final class WelcomeController {
         #endif
     }
 
+    static func refreshRecents(whenKey note: Notification, window: NSWindow?, refresh: () -> Void) {
+        guard let window, note.object as? NSWindow === window else { return }
+        refresh()
+    }
+
     func close() { window?.close() }
 }
 
@@ -202,8 +207,8 @@ private struct WelcomeView: View {
             isTargeted = $0
         }
         .background(WindowReader { window = $0 })
-        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
-            recent = RecentFileHistory.welcomeURLs
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { note in
+            WelcomeController.refreshRecents(whenKey: note, window: window) { recent = RecentFileHistory.welcomeURLs }
         }
     }
 

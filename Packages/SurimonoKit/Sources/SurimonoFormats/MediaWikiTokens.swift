@@ -63,7 +63,7 @@ extension WikiReader {
         let source = input as NSString
         var tokens: [Token] = []
         var opens: [String: [Int]] = [:]
-        for match in Self.tags.regex?.matches(in: input, range: NSRange(location: 0, length: source.length)) ?? [] {
+        Self.tags.forEachMatch(in: input) { match in
             let raw = source.substring(with: match.range)
             let closing = raw.hasPrefix("</") || raw == "-->"
             let tag =
@@ -82,10 +82,14 @@ extension WikiReader {
             tokens.append(token)
         }
 
+        if PreviewConversion.expired { return "" }
+
         // Verbatim content ends at the next closing tag, even if its literal text looks like another opener.
         var nextClose: [String: Int] = [:]
-        for i in tokens.indices.reversed()
-        where ["!--", "nowiki", "pre", "source", "syntaxhighlight", "math", "chem"].contains(tokens[i].kind) {
+        for i in tokens.indices.reversed() {
+            if i.isMultiple(of: 128), PreviewConversion.expired { return "" }
+            guard ["!--", "nowiki", "pre", "source", "syntaxhighlight", "math", "chem"].contains(tokens[i].kind)
+            else { continue }
             let token = tokens[i]
             if token.closing {
                 nextClose[token.kind] = i
@@ -99,6 +103,7 @@ extension WikiReader {
             var cursor = bounds.location
             var i = start
             while i < end {
+                if PreviewConversion.expired { return "" }
                 let t = tokens[i]
                 let raw = source.substring(with: t.range)
                 text += source.substring(with: NSRange(location: cursor, length: t.range.location - cursor))
@@ -139,13 +144,14 @@ extension WikiReader {
         let source = input as NSString
         var tokens: [Token] = []
         var stack: [Int] = []
-        for m in Self.braces.regex?.matches(in: input, range: NSRange(location: 0, length: source.length)) ?? [] {
+        Self.braces.forEachMatch(in: input) { m in
             let char = source.character(at: m.range.location)
             let closing = char == 125 || char == 93
             let link = char == 91 || char == 93
             var pos = m.range.location
             let end = NSMaxRange(m.range)
             while end - pos >= 2 {
+                if tokens.count.isMultiple(of: 128), PreviewConversion.expired { return }
                 let triple =
                     !link
                     && (closing
@@ -162,11 +168,13 @@ extension WikiReader {
                 pos += size
             }
         }
+        if PreviewConversion.expired { return "" }
         func region(_ start: Int, _ end: Int, _ begin: Int, _ finish: Int, _ nesting: Int) -> String {
             var output = ""
             var cursor = begin
             var i = start
             while i < end {
+                if PreviewConversion.expired { return "" }
                 let t = tokens[i]
                 if let close = t.mate, close < end {
                     output += source.substring(with: NSRange(location: cursor, length: t.range.location - cursor))

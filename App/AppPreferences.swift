@@ -248,6 +248,17 @@ final class AppPreferences {
     var changeFollowing: ChangeFollowing {
         didSet { defaults.set(changeFollowing.rawValue, forKey: "changeFollowing") }
     }
+    // Org keeps its original, flat UserDefaults record. Other formats share the sparse, format-keyed schema.
+    var formatReadingDefaults: FormatReadingChoices {
+        didSet {
+            if formatReadingDefaults.isEmpty {
+                defaults.removeObject(forKey: "formatReadingDefaults")
+            } else if let data = try? JSONEncoder().encode(formatReadingDefaults) {
+                defaults.set(data, forKey: "formatReadingDefaults")
+            }
+        }
+    }
+
     var orgReadingDefaults: OrgReadingDefaults? {
         didSet {
             defaults.set(orgReadingDefaults.flatMap { try? JSONEncoder().encode($0) }, forKey: "orgReadingDefaults")
@@ -583,9 +594,19 @@ final class AppPreferences {
         changeFollowing =
             Self.screenshotChoice("SurimonoChanges")
             ?? ChangeFollowing(rawValue: defaults.string(forKey: "changeFollowing") ?? "") ?? .jump
-        orgReadingDefaults = defaults.data(forKey: "orgReadingDefaults").flatMap {
+        formatReadingDefaults =
+            defaults.data(forKey: "formatReadingDefaults").flatMap {
+                try? JSONDecoder().decode(FormatReadingChoices.self, from: $0)
+            } ?? .init()
+        let storedOrgDefaults = defaults.data(forKey: "orgReadingDefaults").flatMap {
             try? JSONDecoder().decode(OrgReadingDefaults.self, from: $0)
         }
+        #if DEBUG
+            // Initialization bypasses the persistence observer for this screenshot fixture.
+            orgReadingDefaults = DebugSnapshot.orgDefaultsFixture?.current ?? storedOrgDefaults
+        #else
+            orgReadingDefaults = storedOrgDefaults
+        #endif
         defaultTypeface = defaults.string(forKey: "defaultTypeface").flatMap(Typeface.init(rawValue:)) ?? .style
         // Any whole percent of the range, as the Settings field takes it; earlier versions kept one of the steps.
         let scale = defaults.double(forKey: "defaultTextScale")

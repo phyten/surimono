@@ -454,9 +454,10 @@ extension BandArrangement {
         let zone: BandZoneID = mode == .split ? .bottomLeft : .topRight
         let entries = self[zone]
         // Respect saved placements. Only the built-in tools row borrows the document's Contents position.
+        let toolbarEntries = entries.toolbarEntries
         guard
-            entries == Self.standard(for: mode)[zone]
-                || entries == Self.builtIn(for: mode, includesLegacyParts: true)[zone]
+            toolbarEntries == Self.standard(for: mode)[zone]
+                || toolbarEntries == Self.builtIn(for: mode, includesLegacyParts: true)[zone]
         else { return self }
         var result = self
         result[zone] = entries.withBundleEntryAtContents
@@ -465,6 +466,22 @@ extension BandArrangement {
 }
 
 extension Array where Element == BandEntry {
+    /// The drawing order, before measuring the row or choosing its spacing. The editor keeps the original entries.
+    var toolbarEntries: Self {
+        var result: Self = []
+        var pending = false
+        for entry in self {
+            if entry == .separator {
+                pending = !result.isEmpty
+            } else {
+                if pending { result.append(.separator) }
+                result.append(entry)
+                pending = false
+            }
+        }
+        return result
+    }
+
     var withBundleEntryAtContents: Self {
         guard let contents = firstIndex(of: .part(.outline)), let pages = firstIndex(of: .part(.thumbnails)) else {
             return self
