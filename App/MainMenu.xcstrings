@@ -596,7 +596,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Minimiser"
+            "value": "Placer dans le Dock"
           }
         },
         "ja": {
@@ -932,7 +932,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "設定⋯"
+            "value": "設定…"
           }
         }
       }

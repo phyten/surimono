@@ -19,19 +19,19 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "无法在不丢失数据的情况下读取此文本编码。"
+            "value": "无法确定能完整读取文本的字符编码。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "無法在不遺失資料的情況下讀取此文字編碼。"
+            "value": "無法判定能完整讀取文字的字元編碼。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "데이터 손실 없이 텍스트 인코딩을 읽을 수 없습니다."
+            "value": "문자 손실 없이 읽을 수 있는 텍스트 인코딩을 판별할 수 없습니다."
           }
         },
         "fr": {
@@ -84,7 +84,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "지원하지 않는 문서 포맷입니다."
+            "value": "지원하지 않는 문서 형식입니다."
           }
         },
         "fr": {
