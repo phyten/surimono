@@ -35,21 +35,8 @@ public struct MarkdownMetadata: Equatable, Sendable {
                 }
                 index += 1
             }
-            let values: [String]
             let scalar = Self.withoutComment(raw)
-            if scalar.isEmpty {
-                values = lines[start..<index].compactMap { line in
-                    let item = line.trimmingCharacters(in: .whitespaces)
-                    guard item.hasPrefix("- ") else { return nil }
-                    return ComputationalMetadata.scalar(Self.withoutComment(String(item.dropFirst(2))))
-                }
-            } else if scalar.hasPrefix("["), scalar.hasSuffix("]") {
-                values = ComputationalMetadata.items(String(scalar.dropFirst().dropLast())).map(
-                    ComputationalMetadata.scalar)
-            } else {
-                values = [ComputationalMetadata.scalar(scalar)]
-            }
-            let items = values.filter { !$0.isEmpty }
+            let items = Self.items(scalar, children: lines[start..<index])
             func instruction<Value>(_ value: Value) -> ReadingInstruction<Value> {
                 .init(value, source: ReadingInstructionSource(lines: lines, index: start - 1))
             }
@@ -67,7 +54,7 @@ public struct MarkdownMetadata: Equatable, Sendable {
                     tableOfContents = items.first?.lowercased() == "true"
                     continue
                 }
-                contentsInstructions.present = Bool(scalar.lowercased()).map(instruction)
+                contentsInstructions.present = Self.contentsPresence(scalar, items: items).map(instruction)
                 tableOfContents = contentsInstructions.present?.value == true
             case "number-sections" where plainMarkdown:
                 numberInstructions.present = Bool(scalar.lowercased()).map(instruction)
@@ -86,6 +73,28 @@ public struct MarkdownMetadata: Equatable, Sendable {
             default: break
             }
         }
+    }
+
+    static func items(_ scalar: String, children: ArraySlice<String>) -> [String] {
+        let values: [String]
+        if scalar.isEmpty {
+            values = children.compactMap { line in
+                let item = line.trimmingCharacters(in: .whitespaces)
+                guard item.hasPrefix("- ") else { return nil }
+                return ComputationalMetadata.scalar(Self.withoutComment(String(item.dropFirst(2))))
+            }
+        } else if scalar.hasPrefix("["), scalar.hasSuffix("]") {
+            values = ComputationalMetadata.items(String(scalar.dropFirst().dropLast())).map(
+                ComputationalMetadata.scalar)
+        } else {
+            values = [ComputationalMetadata.scalar(scalar)]
+        }
+        return values.filter { !$0.isEmpty }
+    }
+
+    // Earlier readers enabled contents when the first decoded item was true, including quoted values.
+    static func contentsPresence(_ scalar: String, items: [String]) -> Bool? {
+        items.first?.lowercased() == "true" ? true : Bool(ComputationalMetadata.scalar(scalar).lowercased())
     }
 
     static func withoutComment(_ value: String) -> String {

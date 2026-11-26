@@ -22,7 +22,9 @@ public enum ComputationalMarkdown {
             source, pageBreakLine: pageBreakLine, proof: proof,
             options: .init(numberDepth: options.numbers, unnumbered: document.unnumbered))
         let fragment = rendered.fragment
-        if options.numbers != nil { document.applyNumbers(rendered.embeddedHeadings) }
+        if options.numbers != nil || options.lead != nil || proposedLeadDepth != nil || !document.labels.isEmpty {
+            document.resolveHeadings(rendered.embeddedHeadings, numbered: options.numbers != nil)
+        }
         if PreviewConversion.expired { return HTMLFragment(body: "") }
         let fallback = metadata.unreadable.map { MarkupHTML.listing($0, language: "yaml") } ?? ""
         let lead = file.contents.present?.value == true ? options.lead : nil
@@ -102,7 +104,7 @@ struct ComputationalBody {
     var labels: [String: ComputationalLabel] = [:]
     var insertions: [ComputationalInsertion] = []
     var headings: [(level: Int, id: String, text: String)] = []
-    var headingIDs: Set<String> = []
+    var headingSuffixes: [String: Int] = [:]
     var unnumbered: Set<String> = []
     var unlisted: Set<String> = []
     // A document cannot collide with the deferred references and generated footnote IDs.

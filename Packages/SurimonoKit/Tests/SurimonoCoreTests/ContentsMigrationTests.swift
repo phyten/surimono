@@ -3,6 +3,113 @@ import SurimonoCore
 import Testing
 
 struct ContentsMigrationTests {
+    private func readingFacts(for format: DocumentFormat) -> DocumentFacts {
+        let header =
+            format == .rMarkdown
+            ? "output:\n  pdf_document:\n    toc: true\n    number_sections: true"
+            : "toc: true\nnumber-sections: true"
+        let source = "---\n" + header + "\n---\n# A"
+        return DocumentFacts(
+            fragment: format == .markdown
+                ? MarkdownConverter.convert(source)
+                : ComputationalMarkdown.convert(source, format: format))
+    }
+
+    @Test("固定を戻す確認は承認まで保存せず、設定・原稿世代の変化で古い承認を無効にする", arguments: [DocumentFormat.markdown, .quarto, .rMarkdown])
+    func markdownLockConfirmation(format: DocumentFormat) throws {
+        let facts = readingFacts(for: format)
+        var document = DocumentSettings()
+        document.formatReading.setAllowsFileChanges(true, for: format)
+        document.formatReading.set(
+            .outline(present: false, depth: .all), for: .tableOfContents, format: format,
+            file: facts.contentsInstructions)
+        func proposal(_ result: MarkdownFileLockResult) throws -> MarkdownDiscardConfirmation {
+            let value: MarkdownDiscardConfirmation? =
+                if case .needsConfirmation(let pending) = result { pending } else { nil }
+            return try #require(value)
+        }
+        let original = document
+        let canceled = try proposal(
+            document.lockMarkdownFileInstructions(for: format, facts: facts, generation: 1, defaults: .init()))
+        #expect(canceled.count == 1 && document == original)
+        // Cancel simply drops the proposal. Asking again must leave exactly the same settings.
+        let again = try proposal(
+            document.lockMarkdownFileInstructions(for: format, facts: facts, generation: 1, defaults: .init()))
+        #expect(again == canceled && document == original)
+        document.formatReading.set(.toggle(true), for: .preserveBreaks, format: .markdown)
+        let changed = document
+        let revised = try proposal(
+            document.lockMarkdownFileInstructions(
+                for: format, facts: facts, generation: 1, defaults: .init(), confirming: again))
+        #expect(revised != again && document == changed)
+        #expect(
+            document.lockMarkdownFileInstructions(
+                for: format, facts: nil, generation: 2, defaults: .init(), confirming: revised)
+                == .awaitingInstructions)
+        let reloaded = try proposal(
+            document.lockMarkdownFileInstructions(
+                for: format, facts: facts, generation: 2, defaults: .init(), confirming: revised))
+        #expect(reloaded != revised && document == changed)
+        var defaults = FormatReadingChoices()
+        defaults.set(
+            format == .rMarkdown ? .toggle(true) : .outline(present: true, depth: .all), for: .sectionNumbers,
+            format: format)
+        let current = try proposal(
+            document.lockMarkdownFileInstructions(
+                for: format, facts: facts, generation: 2, defaults: defaults, confirming: reloaded)
+        )
+        #expect(current != reloaded && document == changed)
+        #expect(
+            document.lockMarkdownFileInstructions(
+                for: format, facts: facts, generation: 2, defaults: defaults, confirming: current)
+                == .finished)
+        var expected = FormatReadingChoices()
+        expected.set(.toggle(true), for: .preserveBreaks, format: .markdown)
+        #expect(document.formatReading == expected)
+    }
+
+    @Test(
+        "固定を戻すと原稿が指定した成分だけを消し、旧仕上げから移した深さか文書で選んだ深さを保つ",
+        arguments: [DocumentFormat.markdown, .quarto, .rMarkdown], [false, true])
+    func markdownLockMigratesContents(format: DocumentFormat, editedDepth: Bool) throws {
+        let facts = readingFacts(for: format)
+        var finish = PrintFinish()
+        finish.legacyPresetContents.mode = .front
+        finish.legacyPresetContents.depth = .sections
+        var document = DocumentSettings(printFinish: finish)
+        document.formatReading.setAllowsFileChanges(true, for: format)
+        if editedDepth {
+            document.formatReading.set(
+                .outline(present: true, depth: .levels(4)), for: .tableOfContents, format: format,
+                file: facts.contentsInstructions)
+        }
+        let off = ReadingSettingValue.outline(present: false, depth: .all)
+        document.formatReading.set(off, for: .tableOfContents, format: format, file: facts.contentsInstructions)
+        document.formatReading.set(
+            format == .rMarkdown ? .toggle(false) : off, for: .sectionNumbers, format: format,
+            file: facts.numberInstructions)
+        document.formatReading.set(.toggle(true), for: .preserveBreaks, format: .markdown)
+        let original = document
+        let result = document.lockMarkdownFileInstructions(for: format, facts: facts, generation: 1, defaults: .init())
+        guard case .needsConfirmation(let approval) = result else {
+            Issue.record("原稿の指定に戻す確認がない")
+            return
+        }
+        #expect(approval.count == 2 && document == original)
+        #expect(
+            document.lockMarkdownFileInstructions(
+                for: format, facts: facts, generation: 1, defaults: .init(), confirming: approval)
+                == .finished)
+        #expect(!document.formatReading.allowsFileChanges(for: format))
+        #expect(document.printFinish?.legacyTOC == nil && document.printFinish?.contents.placement == .page)
+        var expected = FormatReadingChoices()
+        expected.set(
+            .outline(present: true, depth: .levels(editedDepth ? 4 : 2)), for: .tableOfContents,
+            format: format, file: facts.contentsInstructions)
+        expected.set(.toggle(true), for: .preserveBreaks, format: .markdown)
+        #expect(document.formatReading == expected)
+    }
+
     @Test("旧目次の全モード・深さ・外観・本文併記を原稿ごとに移行し、保留時は本文と前付けを保つ")
     func migration() throws {
         let heading = "# Alpha\n\n## Bravo\n\n### Charlie"

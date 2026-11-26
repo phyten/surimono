@@ -1,7 +1,7 @@
 import Foundation
 
 struct ComputationalLabel {
-    let id: String
+    var id: String
     let kind: String
     var number: String
     let name: String

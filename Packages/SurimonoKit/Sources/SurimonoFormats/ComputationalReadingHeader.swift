@@ -1,6 +1,6 @@
 import Foundation
 
-/// Only the selected output's direct scalar options are file instructions.
+/// Read shared Quarto options and the first output format's own options.
 struct ComputationalReadingHeader {
     var numbers = ReadingFileInstructions()
     var contents = ReadingFileInstructions()
@@ -13,20 +13,30 @@ struct ComputationalReadingHeader {
         let container = root.last { $0.name == (quarto ? "format" : "output") }
         let selected = container?.children(in: lines).first?.children(in: lines) ?? []
         let options = (quarto ? root : []) + selected
-        func instruction<T>(_ key: String, parse: (String) -> T?) -> ReadingInstruction<T>? {
-            guard let field = options.last(where: { $0.name == key }), let value = parse(field.value) else {
+        func instruction<T>(_ key: String, parse: (Field) -> T?) -> ReadingInstruction<T>? {
+            guard let field = options.last(where: { $0.name == key }), let value = parse(field) else {
                 return nil
             }
             return .init(value, source: ReadingInstructionSource(lines: lines, index: field.index))
         }
-        func boolean(_ value: String) -> Bool? { Bool(value.lowercased()) }
-        func depth(_ value: String) -> ReadingDepth? {
-            guard let n = Int(value), n >= 0 else { return nil }
+        func boolean(_ field: Field) -> Bool? { Bool(field.value.lowercased()) }
+        func depth(_ field: Field) -> ReadingDepth? {
+            guard let n = Int(field.value), n >= 0 else { return nil }
             return .levels(n)
         }
         numbers.present = instruction(quarto ? "number-sections" : "number_sections", parse: boolean)
         if quarto { numbers.depth = instruction("number-depth", parse: depth) }
-        contents.present = instruction("toc", parse: boolean)
+        contents.present = instruction("toc") { field in
+            let children = lines[field.block]
+            if field.value.isEmpty {
+                let first = children.lazy.map { $0.drop(while: \.isWhitespace) }.first {
+                    !$0.isEmpty && !$0.hasPrefix("#")
+                }
+                guard first?.hasPrefix("- ") == true else { return nil }
+            }
+            let items = MarkdownMetadata.items(field.value, children: children)
+            return MarkdownMetadata.contentsPresence(field.value, items: items)
+        }
         contents.depth = instruction(quarto ? "toc-depth" : "toc_depth", parse: depth)
     }
 
@@ -74,8 +84,9 @@ struct ComputationalReadingHeader {
             while index < lines.endIndex {
                 let next = lines[index]
                 let content = next.drop(while: \.isWhitespace)
+                let nextIndent = next.distance(from: next.startIndex, to: content.startIndex)
                 if !content.isEmpty, !content.hasPrefix("#"),
-                    next.distance(from: next.startIndex, to: content.startIndex) <= indent
+                    nextIndent < indent || (nextIndent == indent && !content.hasPrefix("- "))
                 {
                     break
                 }

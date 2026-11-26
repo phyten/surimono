@@ -31,12 +31,11 @@ public struct MarkdownReadingSettings: Sendable {
         switch document.resolve(.sectionNumbers, for: format, file: numbers, defaults: defaults) {
         case .toggle(let present):
             result.numbers = present.value ? .all : nil
-            result.ownsNumbers = present.value || present.source != nil || present.layer == .document
         case .outline(let present, let depth):
             result.numbers = present.value ? depth.value : nil
-            result.ownsNumbers = present.value || present.source != nil || present.layer == .document
         case nil: break
         }
+        result.ownsNumbers = !document.usesStyleForMarkdownNumbers(for: format, file: numbers, defaults: defaults)
         if case .toggle(let breaks) = document.resolve(.preserveBreaks, for: format, defaults: defaults) {
             result.preservesBreaks = breaks.value
         }
@@ -147,7 +146,7 @@ public enum MarkdownConverter {
         var lines = original
         let mapping = mapsSource ? BlockMapping(original: original) : nil
         var metadata = MarkdownMetadata()
-        if let end = frontMatterEnd(in: lines) {
+        if let end = frontMatterEnd(in: lines, allowsBOM: reading != nil) {
             metadata = MarkdownMetadata(lines: lines[1..<end], plainMarkdown: reading != nil)
             lines.removeFirst(end + 1)
             source = MarkdownSourceLines(lines, origins: Array(source.origins.dropFirst(end + 1)))
@@ -176,7 +175,7 @@ public enum MarkdownConverter {
             preservesBreaks: options.preservesBreaks, contentsTitle: metadata.contentsTitle)
         if PreviewConversion.expired { return MarkdownMappedDocument(fragment: HTMLFragment(body: ""), blocks: []) }
         let firstTitle = firstHeading(in: document, formulas: formulas)
-        let titlePrefix = anchors.first { $0.level == 1 }?.number ?? ""
+        let titlePrefix = embedded.numberDepth == nil ? "" : anchors.first { $0.level == 1 }?.number ?? ""
         let title = metadata.title ?? firstTitle.map { titlePrefix + $0 }
         let leadingHeading = document.child(at: 0) as? Heading
         var html =
@@ -203,11 +202,13 @@ public enum MarkdownConverter {
             var headings = DocumentOutline.headings(inHTML: fragment.body)
             fragment = fragment.addingLeadContents(headings: &headings, depth: lead)
         }
-        return MarkdownMappedDocument(fragment: fragment, blocks: mapping?.blocks ?? [], embeddedHeadings: anchors)
+        return MarkdownMappedDocument(
+            fragment: fragment, blocks: mapping?.blocks ?? [],
+            embeddedHeadings: reading == nil && notebookTOC == nil ? anchors : [])
     }
 
-    package static func frontMatterEnd(in lines: [String]) -> Int? {
-        guard lines.first == "---" || lines.first == "\u{FEFF}---", lines.count > 1,
+    package static func frontMatterEnd(in lines: [String], allowsBOM: Bool = false) -> Int? {
+        guard lines.first == "---" || (allowsBOM && lines.first == "\u{FEFF}---"), lines.count > 1,
             !lines[1].trimmingCharacters(in: .whitespaces).isEmpty,
             let end = lines.dropFirst().firstIndex(where: { $0 == "---" || $0 == "..." })
         else { return nil }
@@ -315,7 +316,10 @@ public enum MarkdownConverter {
             referencesMarker: formulas.citations?.referencesMarker)
         let document = MarkdownNesting.document(
             parsing: source.lines.joined(separator: "\n"), options: [.disableSmartOpts])
-        var anchors = anchorsHeadings ? MarkdownExtensions.headingAnchors(in: document, formulas: formulas) : []
+        var anchors =
+            anchorsHeadings
+            ? MarkdownExtensions.headingAnchors(
+                in: document, formulas: formulas, hasFootnotes: !footnotes.order.isEmpty) : []
         let computational = embedded.numberDepth != nil
         if let depth = embedded.numberDepth ?? numberDepth,
             let top = computational ? 1 : MarkdownExtensions.sectionLevel(in: anchors)
@@ -323,7 +327,8 @@ public enum MarkdownConverter {
             var numbers = SectionNumbers()
             for index in anchors.indices {
                 let level = anchors[index].level - top + 1
-                if level > 0, level <= depth.headingLevels, !embedded.unnumbered.contains(anchors[index].id) {
+                if level > 0, level <= depth.headingLevels, !embedded.unnumbered.contains(anchors[index].customID ?? "")
+                {
                     anchors[index].number = numbers.next(level: level, compact: computational) + " "
                 }
             }
@@ -336,7 +341,7 @@ public enum MarkdownConverter {
         context.notebookTOC = embedded.notebookTOC
         let toc = leadDepth.map { ReaderContentsKind.lead.mark(context.tableOfContents(levels: $0)) } ?? ""
         let body = render(document, context)
-        return (toc + body, document, context.contentsMarker, computational ? anchors : [])
+        return (toc + body, document, context.contentsMarker, anchors)
     }
 
     private static func sourceLines(of node: any Markup, _ context: Context) -> Set<Int> {

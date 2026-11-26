@@ -55,10 +55,13 @@ for (const dots of document.querySelectorAll('nav.toc .latex-page-entry > .latex
 }
 // Quartz copies the page marks from each capture but drops its annotations. Measure the
 // original anchor fragments while all columns are still visible in strip coordinates.
-const links = document.body.hasAttribute('data-latex-hyperref');
+const hyperref = document.body.hasAttribute('data-latex-hyperref');
 const destinations = new Set();
-if (links) for (const strip of strips) for (const a of strip.querySelectorAll('a[href^="#"]'))
+// The reader's contents is navigable even in a manuscript without hyperref.
+const selector = hyperref ? 'a[href^="#"]' : 'nav.toc a[href^="#"]';
+for (const strip of strips) for (const a of strip.querySelectorAll(selector))
     destinations.add(a.getAttribute('href').slice(1));
+const links = hyperref || destinations.size !== 0;
 for (const [id, unique] of byStrip) {
     const entries = [...unique.values()];
     const origin = origins[id].y;
@@ -102,6 +105,7 @@ for (const [id, unique] of byStrip) {
             }
             const href = el.getAttribute('href');
             if (el.localName !== 'a' || !href || !/^(?:#|https?:|mailto:)/i.test(href)) continue;
+            if (!hyperref && !el.matches(selector)) continue;
             for (const r of el.getClientRects()) if (r.height && r.width)
                 record(r, (r.top+r.bottom)/2, {href, pageTop:el.hasAttribute('data-latex-backref')});
         }

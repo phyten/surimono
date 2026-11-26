@@ -105,10 +105,39 @@ extension ComputationalReadingTests {
     func invalidScalars(format: DocumentFormat) {
         let header =
             format == .quarto
-            ? "toc: 'false'\nnumber-sections: 1\ntoc-depth: -1\nnumber-depth: nope"
-            : "output:\n  pdf_document:\n    toc: [true]\n    number_sections: yes-please\n    toc_depth: 1.5"
+            ? "toc: perhaps\nnumber-sections: 1\ntoc-depth: -1\nnumber-depth: nope"
+            : "output:\n  pdf_document:\n    toc: [unknown]\n    number_sections: yes-please\n    toc_depth: 1.5"
         let fragment = ComputationalMarkdown.convert("---\n" + header + "\n---\n# One", format: format)
         #expect(fragment.contentsInstructions == .init() && fragment.numberInstructions == .init())
+    }
+
+    @Test(
+        "引用やリストに入った真は先頭の目次だけを有効にし、BOM のある原稿でも行を保つ",
+        arguments: [DocumentFormat.quarto, .rMarkdown], ["'true'", "\"true\"", "True", "[true]", "'false'", "yes"])
+    func contentsValues(format: DocumentFormat, value: String) {
+        let options =
+            format == .quarto
+            ? "format:\n  pdf:\n    toc: \(value)\n    number-sections: \(value)"
+            : "output:\n  pdf_document:\n    toc: \(value)\n    number_sections: \(value)"
+        let source = "\u{FEFF}---\n" + options + "\n---\n# Heading"
+        let fragment = ComputationalMarkdown.convert(source, format: format)
+        let expected: Bool? = value == "yes" ? nil : value != "'false'"
+        #expect(fragment.contentsInstructions.present?.value == expected)
+        #expect(fragment.body.contains("<nav ") == (expected == true))
+        #expect(fragment.numberInstructions.present?.value == (value == "True" ? true : nil))
+        #expect(fragment.contentsInstructions.present?.source?.lineNumber == (expected == nil ? nil : 4))
+        #expect(!fragment.body.contains("pdf") && !fragment.body.contains("toc:"))
+    }
+
+    @Test("目次のリストは直下の値を読み、別のキーのリストは読まない", arguments: [DocumentFormat.quarto, .rMarkdown])
+    func contentsList(format: DocumentFormat) {
+        let parent = format == .quarto ? "format:\n  pdf:" : "output:\n  pdf_document:"
+        for (children, expected) in [("    - true", true), ("      nested:\n        - true", false)] {
+            let text = "---\n" + parent + "\n    toc:\n" + children + "\n---\n# Title"
+            let fragment = ComputationalMarkdown.convert(text, format: format)
+            #expect(fragment.contentsInstructions.present?.value == (expected ? true : nil))
+            #expect(fragment.body.contains("<nav ") == expected)
+        }
     }
 
     @Test("一行の出力形式でも宣言順と指定の行を保つ")

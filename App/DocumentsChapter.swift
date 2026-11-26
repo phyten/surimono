@@ -1,10 +1,6 @@
 import SurimonoCore
 import SwiftUI
 
-extension DocumentFormat {
-    var usesMarkdownReadingPanel: Bool { self == .markdown || self == .quarto || self == .rMarkdown }
-}
-
 enum DocumentsChapter {
     // Plain text is the renderer's format for recognized source files.
     static let formats: [DocumentFormat] = [
@@ -252,10 +248,16 @@ struct FormatDefaultsPane: View {
     }
 
     private func description(_ row: ReadingRowResolution, id: ReadingSettingID) -> String {
+        let inheritsStyle = format.usesMarkdownReadingSettings && id == .sectionNumbers
         switch row {
-        case .toggle(let flag): return String(localized: id.toggleTitle(flag.value))
+        case .toggle(let flag):
+            return String(localized: id.toggleTitle(flag.value(inheritsStyle: inheritsStyle)))
         case .outline(let present, let depth):
-            let title = String(localized: ReadingOutlinePicker.title(for: present.value ? depth.value : nil))
+            let followsStyle = present.value(inheritsStyle: inheritsStyle) == nil
+            let title =
+                followsStyle
+                ? String(localized: "From Style")
+                : String(localized: ReadingOutlinePicker.title(for: present.value ? depth.value : nil))
             if !present.value, depth.layer == .document {
                 // The remembered depth also applies when a file requests a contents list.
                 return title + " · " + String(localized: ReadingOutlinePicker.title(for: depth.value))
@@ -283,6 +285,7 @@ struct FormatDefaultsPane: View {
                         FormatReadingControl(
                             id: entry.id, row: row, resetHelp: String(localized: "Restore Default"),
                             documentName: "", fileURL: nil, allowsFileChanges: false,
+                            inheritsStyle: format.usesMarkdownReadingSettings && entry.id == .sectionNumbers,
                             set: { set($0, for: entry.id) },
                             revert: { preferences.formatReadingDefaults.revert(entry.id, for: format) }
                         )

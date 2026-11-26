@@ -79,7 +79,7 @@ extension MarkdownReadingTests {
             #expect(html.contains(breaks ? "First<br>\nnext" : "First\nnext"))
             #expect(html.contains(breaks ? "Foot<br>\nnote" : "Foot\nnote"))
             #expect(fragment.contentsInstructions == .init())
-            #expect(fragment.decidesHeadingNumbers == numbered)
+            #expect(fragment.decidesHeadingNumbers)
         }
     }
 
@@ -99,13 +99,41 @@ extension MarkdownReadingTests {
         #expect(fragment.numberInstructions == .init() && !fragment.decidesHeadingNumbers)
     }
 
-    @Test("真偽値でない有無と整数でない深さは設定を固定しない", arguments: ["maybe", "1.5", "[true]", "'true'", ""])
+    @Test("真偽値でない有無と整数でない深さは設定を固定しない", arguments: ["maybe", "1.5", "[unknown]", ""])
     func invalid(_ value: String) {
         let text = "---\ntoc: \(value)\nnumber-sections: \(value)\ntoc-depth: \(value)\n---\n[TOC]\n\n# A"
         let fragment = MarkdownConverter.convert(text)
         #expect(fragment.contentsInstructions == .init() && fragment.numberInstructions == .init())
         #expect(fragment.readingIssues.isEmpty && !fragment.decidesHeadingNumbers)
         #expect(fragment.body.components(separatedBy: "<nav ").count == 2)
+    }
+
+    @Test(
+        "従来の先頭目次が受け付けた真偽値は同じ目次を出し、番号と深さには流用しない",
+        arguments: ["'true'", "\"true\"", "True", "[true]", "yes"])
+    func legacyContents(_ value: String) {
+        let source = "---\ntoc: \(value)\nnumber-sections: \(value)\ntoc-depth: \(value)\n---\n# Book\n## A"
+        let fragment = MarkdownConverter.convert(source)
+        #expect(fragment.body.contains("<nav ") == (value != "yes"))
+        #expect(fragment.contentsInstructions.present?.value == (value == "yes" ? nil : true))
+        #expect(fragment.numberInstructions.present?.value == (value == "True" ? true : nil))
+        #expect(fragment.contentsInstructions.depth == nil)
+    }
+
+    @Test("セルの Markdown に渡された先頭 BOM はフロントマターを始めず、従来の本文を保つ")
+    func notebookBOM() throws {
+        let cell = "\u{FEFF}---\ntitle: Keep me\n---\n# A"
+        var notebook = NotebookContext(language: "en", pageBreakLine: "", proof: .shown)
+        let expected = "<hr>\n<h2 id=\"nb-1-title-keep-me\">title: Keep me</h2>\n<h1 id=\"nb-1-a\">A</h1>\n"
+        #expect(notebook.markdown(cell).body == expected)
+        #expect(MarkdownConverter.convert(cell).body == "<h1 id=\"a\">A</h1>\n")
+
+        // Foundation versions can consume a leading BOM when decoding the JSON string itself.
+        let json = #"{"nbformat":4,"cells":[{"cell_type":"markdown","source":"\uFEFF---\ntitle: Keep me\n---\n# A"}]}"#
+        let decodedJSON = try JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any]
+        let cells = try #require(decodedJSON?["cells"] as? [[String: String]])
+        let preservesBOM = try #require(cells.first?["source"]).hasPrefix("\u{FEFF}")
+        #expect(try NotebookConverter.convert(json).body == (preservesBOM ? expected : "<h1 id=\"nb-1-a\">A</h1>\n"))
     }
 
     @Test("保存済みの目次の値を引き継ぎ、上書きを許可して保存し直せる")
@@ -118,6 +146,7 @@ extension MarkdownReadingTests {
         let restored = try JSONDecoder().decode(FormatReadingChoices.self, from: JSONEncoder().encode(choices))
         let html = MarkdownConverter.convert(text, reading: .init(document: restored)).body
         #expect(html.contains("href=\"#one\"") && !html.contains("href=\"#child\""))
+        #expect(restored.restricted(to: [.markdown]) == restored)
         #expect(restored.restricted(to: [.quarto]).isEmpty)
     }
 }

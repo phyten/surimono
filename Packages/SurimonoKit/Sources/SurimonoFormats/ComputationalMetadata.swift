@@ -16,7 +16,7 @@ struct ComputationalMetadata {
         let count = end.map { $0 + 1 } ?? lines.count
         let header = Array(lines.prefix(count))
         lines.removeFirst(count)
-        guard let end, MarkdownConverter.frontMatterEnd(in: header) != nil else {
+        guard let end, MarkdownConverter.frontMatterEnd(in: header, allowsBOM: true) != nil else {
             unreadable = header.joined(separator: "\n")
             return
         }

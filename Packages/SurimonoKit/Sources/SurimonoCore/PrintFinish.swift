@@ -363,20 +363,28 @@ public enum PaperContents {
     }
 
     public static func entries(headings: [DocumentHeading], pageNumbers: [Int?], depth: ReadingDepth) -> [Entry] {
+        legacyRows(headings: headings, pageNumbers: pageNumbers, depth: depth).map(\.entry)
+    }
+
+    package static func legacyRows(
+        headings: [DocumentHeading], pageNumbers: [Int?], depth: ReadingDepth
+    ) -> [(entry: Entry, id: String?)] {
         legacySelection(headings, depth: depth).map { index, heading in
-            Entry(
-                depth: heading.level, text: heading.text,
-                page: pageNumbers.indices.contains(index) ? pageNumbers[index] : nil)
+            (
+                Entry(
+                    depth: heading.level, text: heading.text,
+                    page: pageNumbers.indices.contains(index) ? pageNumbers[index] : nil), heading.id
+            )
         }
     }
 
     package static func readerEntries(facts: DocumentFacts, pageNumbers: [Int?]) -> [Entry] {
-        var pagesByID: [String: Int] = [:]
-        for (heading, page) in zip(facts.headings, pageNumbers) {
-            if let id = heading.id, let page, pagesByID[id] == nil { pagesByID[id] = page }
+        var targets: [String: Int] = [:]
+        for (index, heading) in facts.headings.enumerated() where pageNumbers.indices.contains(index) {
+            if let id = heading.id, let page = pageNumbers[index], targets[id] == nil { targets[id] = page }
         }
         return (facts.leadEntries ?? []).map { item in
-            Entry(depth: item.level, text: item.text, page: item.id.flatMap { pagesByID[$0] })
+            Entry(depth: item.level, text: item.text, page: item.id.flatMap { targets[$0] })
         }
     }
 

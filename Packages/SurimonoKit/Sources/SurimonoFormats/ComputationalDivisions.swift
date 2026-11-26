@@ -126,16 +126,8 @@ extension ComputationalBody {
             let level = match.1.count
             let attrs = ComputationalAttributes(match.3.map(String.init) ?? "")
             let title = String(match.2)
-            let base = MarkdownExtensions.slug(title)
-            var id = attrs.id.isEmpty ? base : attrs.id
-            if attrs.id.isEmpty {
-                var index = 1
-                while headingIDs.contains(id) {
-                    id = "\(base)-\(index)"
-                    index += 1
-                }
-            }
-            headingIDs.insert(id)
+            let requested = attrs.id.isEmpty ? MarkdownExtensions.slug(title) : attrs.id
+            let id = MarkdownExtensions.headingID(requested, used: &headingSuffixes)
             if ComputationalLabel.kind(id) == "sec" { _ = register(id, kind: "sec") }
             if attrs.classes.contains("unnumbered") { unnumbered.insert(id) }
             if attrs.classes.contains("unlisted") { unlisted.insert(id) } else { headings.append((level, id, title)) }
@@ -164,15 +156,18 @@ extension ComputationalBody {
         }
     }
 
-    mutating func applyNumbers(_ anchors: [MarkdownExtensions.HeadingAnchor]) {
+    mutating func resolveHeadings(_ anchors: [MarkdownExtensions.HeadingAnchor], numbered: Bool) {
         // Keep the native list's original title spelling, including inline markup.
-        let titles = Dictionary(headings.map { ($0.id, $0.text) }, uniquingKeysWith: { first, _ in first })
+        let titles = Dictionary(uniqueKeysWithValues: headings.map { ($0.id, $0.text) })
         headings = anchors.compactMap { anchor in
-            if !anchor.number.isEmpty, labels[anchor.id]?.kind == "sec" {
-                labels[anchor.id]?.number = String(anchor.number.dropLast())
+            if let requested = anchor.customID, var label = labels[requested], label.kind == "sec" {
+                label.id = anchor.id
+                if !anchor.number.isEmpty { label.number = String(anchor.number.dropLast()) }
+                labels[requested] = label
             }
-            guard !unlisted.contains(anchor.id) else { return nil }
-            return (anchor.level, anchor.id, anchor.number + (titles[anchor.id] ?? anchor.text))
+            let title = anchor.customID.flatMap { titles[$0] }
+            guard numbered || title != nil, !unlisted.contains(anchor.customID ?? "") else { return nil }
+            return (anchor.level, anchor.id, anchor.number + (title ?? anchor.text))
         }
     }
 

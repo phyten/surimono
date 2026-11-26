@@ -32,6 +32,49 @@ enum FootnotePlacer {
         var firstStockPage: Int { stock.map(\.page).min() ?? 0 }
     }
 
+    /// Recover a Quartz stock link even if its /Dest object was never written. The
+    /// two original corner marks, reserve and references all name the same object.
+    nonisolated static func recoverStock(in data: Data, expected: [WebPaginator.FootnotePass.Note]) throws -> Data? {
+        typealias Writer = ReadingPDFNavigationWriter
+        typealias Mark = Writer.AnnotationLocation
+        guard !expected.isEmpty else { return nil }
+        return try Writer.restoringMissingDestinations(in: data) { marksByDestination in
+            // Stock follows the body. Each note is unbroken, with its two square marks on
+            // the same left edge. Its optional reservation mark and every reference precede stock.
+            let groups = marksByDestination.compactMap {
+                id, marks -> (id: Writer.Ref, top: Mark, bottom: Mark, body: [Mark])? in
+                guard let last = marks.last?.page else { return nil }
+                let stock = marks.filter { $0.page == last }.sorted { $0.bounds.maxY > $1.bounds.maxY }
+                guard stock.count == 2, stock.allSatisfy({ isSquare($0.bounds) }),
+                    abs(stock[0].bounds.minX - stock[1].bounds.minX) < 0.25,
+                    abs(stock[0].bounds.width - stock[1].bounds.width) < 0.25,
+                    stock[0].bounds.minY >= stock[1].bounds.maxY
+                else { return nil }
+                return (id, stock[0], stock[1], marks.filter { $0.page < last })
+            }.sorted { a, b in
+                a.top.page == b.top.page ? a.top.bounds.maxY > b.top.bounds.maxY : a.top.page < b.top.page
+            }
+            guard groups.count == expected.count, let first = groups.first?.top.page else { return [:] }
+            var destinations: [Writer.Ref: Writer.Destination] = [:]
+            for (i, group) in groups.enumerated() {
+                let note = expected[i]
+                let reserves = group.body.filter { isSquare($0.bounds) }.count
+                guard group.body.allSatisfy({ $0.page < first }), note.references > 0,
+                    group.body.count - reserves == note.references, reserves == (note.reservesRoom ? 1 : 0)
+                else { return [:] }
+                if i > 0, groups[i - 1].top.page == group.top.page,
+                    groups[i - 1].bottom.bounds.minY < group.top.bounds.maxY
+                {
+                    return [:]
+                }
+                let top = group.top
+                destinations[group.id] = .init(
+                    page: top.page, mode: "XYZ", arguments: [top.bounds.minX, top.bounds.maxY, nil])
+            }
+            return destinations
+        }
+    }
+
     static func measure(_ document: PDFDocument, plan: PageFootnotes.Plan, placing: Set<Int>) throws -> Measurement {
         var marks: [(page: Int, annotation: PDFAnnotation)] = []
         for index in 0..<document.pageCount {
@@ -127,9 +170,28 @@ enum FootnotePlacer {
         let reserved: CGFloat
     }
 
+    struct Composition {
+        let document: PDFDocument
+        let geometry: [Int: FootnoteGeometry]
+
+        func bodyLocation(_ target: PrintedFragmentLinks.Region) -> PrintedFragmentLinks.Region? {
+            guard target.page < document.pageCount else { return nil }
+            guard let layout = geometry[target.page] else { return target }
+            guard let shift = layout.shift(at: target.bounds.midY) else { return nil }
+            return .init(page: target.page, bounds: target.bounds.offsetBy(dx: 0, dy: shift))
+        }
+    }
+
     static func compose(
         _ document: PDFDocument, plan: PageFootnotes.Plan, groups: [PageFootnotes.Group], margins: WebPaginator.Margins
     ) throws -> PDFDocument {
+        try composition(document, plan: plan, groups: groups, margins: margins).document
+    }
+
+    static func composition(
+        _ document: PDFDocument, annotationSource: PDFDocument? = nil, plan: PageFootnotes.Plan,
+        groups: [PageFootnotes.Group], margins: WebPaginator.Margins
+    ) throws -> Composition {
         let measured = try measure(document, plan: plan, placing: Set(groups.flatMap(\.notes)))
         let layouts = try layouts(document, measured: measured, plan: plan, groups: groups, margins: margins)
         let output = PDFDocument()
@@ -147,25 +209,28 @@ enum FootnotePlacer {
             for annotation in copy.annotations { copy.removeAnnotation(annotation) }
             output.insert(copy, at: output.pageCount)
         }
+        // The raw print determines all placement. Only copy the reader's annotations
+        // after the reserved bands have been measured, checked for ink and drawn.
+        let links = annotationSource ?? document
         for index in 0..<output.pageCount {
-            guard let source = document.page(at: index), let target = output.page(at: index) else {
+            guard let source = links.page(at: index), let target = output.page(at: index) else {
                 throw PlacementError.cannotDraw
             }
             try carryAnnotations(
                 from: source, to: target, clip: source.bounds(for: .mediaBox),
-                shift: nil, geometry: layouts[index]?.geometry, original: document, output: output, layouts: layouts,
+                shift: nil, geometry: layouts[index]?.geometry, original: links, output: output, layouts: layouts,
                 lift: measured.destinationLift)
             if let layout = layouts[index] {
                 for (note, bottom) in zip(layout.notes, layout.bottoms) {
-                    guard let stockPage = document.page(at: note.page) else { throw PlacementError.cannotDraw }
+                    guard let stockPage = links.page(at: note.page) else { throw PlacementError.cannotDraw }
                     try carryAnnotations(
                         from: stockPage, to: target, clip: note.rect,
-                        shift: bottom - note.rect.minY, geometry: nil, original: document, output: output,
+                        shift: bottom - note.rect.minY, geometry: nil, original: links, output: output,
                         layouts: layouts, lift: measured.destinationLift)
                 }
             }
         }
-        return output
+        return Composition(document: output, geometry: layouts.mapValues(\.geometry))
     }
 
     private static func layouts(
@@ -378,9 +443,11 @@ enum FootnotePlacer {
     }
 
     private static func isSquare(_ annotation: PDFAnnotation) -> Bool {
-        let box = annotation.bounds
-        return annotation.type == "Link" && box.width > 0 && box.height > 0
-            && box.width <= 12 && abs(box.width - box.height) < 0.25
+        annotation.type == "Link" && isSquare(annotation.bounds)
+    }
+
+    private nonisolated static func isSquare(_ box: CGRect) -> Bool {
+        box.width > 0 && box.height > 0 && box.width <= 12 && abs(box.width - box.height) < 0.25
     }
 
     private static func stockTarget(
