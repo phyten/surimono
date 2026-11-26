@@ -50,6 +50,10 @@ struct SnapshotCase: Codable {
             "-SurimonoIncreaseContrast", "-SurimonoCorners", "-SurimonoSettings", "-SurimonoSettingsSize",
             "-SurimonoUpdating", "-SurimonoAppearance", "-SurimonoPaperSeries", "-SurimonoViewLayout",
             "-SurimonoOutlineDrawer", "-SurimonoContentsTab", "-SurimonoProseFinding", "-SurimonoMenuArrangement",
+            "-SurimonoBandParts", "-SurimonoBandNames", "-SurimonoBandHint", "-SurimonoBandHover",
+            "-SurimonoBandCaptureWidth",
+            "-SurimonoAlwaysOnTop", "-SurimonoShowsOnAllSpaces", "-SurimonoSelectText", "-SurimonoAlwaysShowToolbar",
+            "-SurimonoCoverAlone", "-SurimonoSlides", "-SurimonoPresentation", "-SurimonoArrangementEditor",
             "-SurimonoScrub", "-SurimonoReadingPanel",
             "-SurimonoScrubRoom", "-SurimonoPage",
             "-SurimonoTraySize", "-SurimonoTraySheet", "-SurimonoFolderNotice", "-SurimonoPaletteJump",
@@ -68,6 +72,12 @@ struct SnapshotCase: Codable {
                 else { throw SnapshotError("Invalid input: \(path)") }
             }
             for i in stride(from: 0, to: item.arguments.count, by: 2) {
+                if item.arguments[i] == "-SurimonoArrangementEditor" {
+                    let state = item.arguments[i + 1]
+                    guard state.hasPrefix("hint:"), validID(String(state.dropFirst(5)).lowercased()) else {
+                        throw SnapshotError("Expected an arrangement chip hint in \(item.id)")
+                    }
+                }
                 guard allowed.contains(item.arguments[i]), !item.arguments[i + 1].hasPrefix("-") else {
                     throw SnapshotError("Unsupported option in \(item.id): \(item.arguments[i])")
                 }

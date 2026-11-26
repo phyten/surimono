@@ -117,6 +117,22 @@ struct PrintPaletteContrastTests {
         }
     }
 
+    @Test("帯の説明カードのオン・オフと無効理由は両方の地色で4.5対1以上になる", arguments: [false, true], [false, true])
+    @MainActor func hintContrast(dark: Bool, increased: Bool) throws {
+        let colors = BandHintCard.Colors(dark: dark, increasedContrast: increased)
+        func rgb(_ color: Color) throws -> NSColor { try #require(NSColor(color).usingColorSpace(.sRGB)) }
+        let paper = try rgb(colors.paper)
+        let active = try rgb(colors.active)
+        let secondary = try rgb(colors.secondary)
+        #expect(paper.alphaComponent == 1)
+        #expect(hex(paper) == (dark ? "#27313d" : "#fbfaf7"))
+        if dark { #expect(hex(active) == "#93c0f0") }
+        for ink in [active, secondary] {
+            let ratio = try #require(CodeColor.contrast(hex(over(ink, paper)), hex(paper)))
+            #expect(ratio >= 4.5)
+        }
+    }
+
     @Test("表示設定の通知を受けるたびに二つの設定を個別に読み直す")
     @MainActor func followsChanges() {
         let center = NotificationCenter()

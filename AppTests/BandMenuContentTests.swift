@@ -207,14 +207,16 @@ struct BandMenuContentTests {
         let pdf = try fixture.make(.pdf)
         try await render(pdf)
         pdf.viewOptions.layout = .single
-        try verifyArrangements(
-            pdf,
-            expected: [
-                [.outline, .previousPage, .nextPage, .documentInfo], [.layout, .transition],
-                [.readingDirection, .scrollDirection, .selectText], [.paperOrientation],
-                [.floatOnTop, .showOnAllSpaces, .alwaysShowToolbar, .viewOptions], [.printSettings, .print],
-                [.keysAndGestures],
-            ])
+        // Single-page mode retains a PDF's enabled cover setting so the reader can still turn it off.
+        let pdfIndex: [[ID]] = [
+            [.outline, .previousPage, .nextPage, .documentInfo], [.layout, .transition],
+            [.readingDirection, .scrollDirection, .cover, .selectText], [.paperOrientation],
+            [.floatOnTop, .showOnAllSpaces, .alwaysShowToolbar, .viewOptions], [.printSettings, .print],
+            [.keysAndGestures],
+        ]
+        try verifyArrangements(pdf, expected: pdfIndex)
+        pdf.viewOptions.showsCoverAlone = false
+        try verify(pdf, pdfIndex.map { $0.filter { $0 != .cover } })
         let image = try fixture.make(.image)
         try await render(image)
         image.viewOptions.layout = .single
@@ -232,7 +234,7 @@ struct BandMenuContentTests {
             bundle,
             expected: [
                 [.thumbnails, .previousPage, .nextPage, .documentInfo], [.layout, .transition],
-                [.readingDirection, .scrollDirection], [.paperOrientation, .margins],
+                [.readingDirection, .scrollDirection, .cover], [.paperOrientation, .margins],
                 [.floatOnTop, .showOnAllSpaces, .alwaysShowToolbar, .viewOptions], [.printSettings, .print],
                 [.keysAndGestures],
             ])
@@ -251,7 +253,6 @@ struct BandMenuContentTests {
         ]
         try verifyArrangements(model, expected: web)
         #expect(BandMenuContent(model: model).header == "Menu Fixture · HTML")
-        #expect(BandMenuContent(model: model).moreHelp() == String(localized: "More · View Options"))
         model.slideDeckDidChange(SlideDeck(size: CGSize(width: 1280, height: 720), count: 6, currentIndex: 2))
         try verifyArrangements(
             model,
@@ -365,7 +366,7 @@ struct BandMenuContentTests {
         )
     }
 
-    @Test("その他のヒントは割当変更と解除に従いウェブでは紙用のキーを示さない")
+    @Test("表示オプションのヒントは割当変更と解除に従いウェブでは紙用のキーを示さない")
     func shortcutHint() throws {
         let fixture = Fixture()
         defer { fixture.cleanUp() }
@@ -380,15 +381,16 @@ struct BandMenuContentTests {
             keyboardLayout: { ShortcutKeyboardLayout.project { code, _ in code == 40 ? "k" : nil } })
         controller.start(preferences: fixture.preferences)
         try controller.edit(.viewOptions, keys: [.init(key: .character("k"), modifiers: .command)])
-        let content = BandMenuContent(model: model)
-        #expect(content.moreHelp(controller: controller).contains("⌘K"))
+        func viewOptionsKeys(_ document: DocumentViewModel) -> String {
+            ShortcutHints.keys(BandMenuContent(model: document).operations(for: .viewOptions), controller: controller)
+        }
+        #expect(viewOptionsKeys(model).contains("⌘K"))
         try controller.edit(.viewOptions, keys: [])
-        #expect(content.moreHelp(controller: controller) == String(localized: "More · View Options"))
+        #expect(viewOptionsKeys(model).isEmpty)
         controller.setExternalMenuKeys([.viewOptions: .init(key: .character("k"), modifiers: .command)])
-        #expect(content.moreHelp(controller: controller).contains("⌘K"))
+        #expect(viewOptionsKeys(model).contains("⌘K"))
         let html = try fixture.make(.html)
-        #expect(
-            BandMenuContent(model: html).moreHelp(controller: controller) == String(localized: "More · View Options"))
+        #expect(viewOptionsKeys(html).isEmpty)
     }
 
     @Test("索引の印刷は印刷画面を開くだけで再度呼ばれても送信しない")

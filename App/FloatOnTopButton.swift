@@ -1,36 +1,6 @@
 import SurimonoCore
 import SwiftUI
 
-/// The band's switch for keeping the window above other apps: a pushpin, tilted and drawn in outline while the window
-/// floats freely, standing upright and filled while it is pinned on top.
-struct FloatOnTopButton: View {
-    @Bindable var model: DocumentViewModel
-
-    var body: some View {
-        Toggle(BandLayout.Item.floatOnTop.bandAccessibilityName, isOn: $model.isAlwaysOnTop)
-            .toggleStyle(PinToggleStyle())
-            .help("Float on Top")
-    }
-}
-
-private struct PinToggleStyle: ToggleStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        Button {
-            configuration.isOn.toggle()
-        } label: {
-            PinGlyph(isPinned: configuration.isOn)
-                .foregroundStyle(configuration.isOn ? AnyShapeStyle(PrintPalette.ai) : AnyShapeStyle(PrintPalette.ink))
-                // The whole square takes the click, not only the strokes of the outline.
-                .frame(width: 22, height: 22)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityRepresentation {
-            Toggle(isOn: configuration.$isOn) { configuration.label }
-        }
-    }
-}
-
 /// A pushpin drawn on a 16-point grid with the stroke weight of the band's other symbols.
 struct PinGlyph: View {
     let isPinned: Bool

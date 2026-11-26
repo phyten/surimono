@@ -66,11 +66,6 @@ struct BandMenuContent {
         [.header(header)] + groups.flatMap { [.divider] + $0.entries.map(Row.entry) }
     }
 
-    func moreHelp(controller: ShortcutController = .shared) -> String {
-        ShortcutHints.help(
-            String(localized: "More · View Options"), model.showsWeb ? [] : [.viewOptions], controller: controller)
-    }
-
     func help(for entry: Entry) -> String {
         if entry.id == .outline, model.isPreparingWholeDocument { return PageIndicatorText.preparingHelp }
         if entry.id == .textFormat {
@@ -82,29 +77,36 @@ struct BandMenuContent {
         if entry.id == .scrollDirection, !entry.isEnabled {
             return entry.title + " · " + String(localized: "Not used by the current page turn.")
         }
-        let operations: [ShortcutOperationID] =
-            switch entry.id {
-            case .outline: [.viewOutline]
-            case .thumbnails: [.listToggle]
-            case .previousPage: [.readingPrevious]
-            case .nextPage: [.readingNext]
-            case .documentInfo: [.viewDocumentInfo]
-            case .zoom: [.viewZoomFit]
-            case .selectText: [.viewSelectText]
-            case .alwaysShowToolbar: [.viewToolbarAlways]
-            case .viewOptions: model.showsWeb ? [] : [.viewOptions]
-            case .ignoreSlides: [.viewIgnoreSlides]
-            case .printSettings: [.printSettings]
-            case .beforePrinting: [.printReviewIssues]
-            case .print: [.documentPrint]
-            case .saveAsFile: [.documentSaveAsFile]
-            case .keysAndGestures: [.appKeyGuide]
-            default: []
-            }
         let title =
             entry.id == .saveAsFile
             ? entry.title + " · " + String(localized: "Saves the original document to a new file.") : entry.title
-        return ShortcutHints.help(title, operations)
+        return ShortcutHints.help(title, operations(for: entry.id))
+    }
+
+    func operations(for id: ID) -> [ShortcutOperationID] {
+        switch id {
+        case .floatOnTop: [.viewFloatOnTop]
+        case .showOnAllSpaces: [.viewShowOnAllSpaces]
+        case .presentation: [.viewHtmlPresentation]
+        case .layout: [.viewSingle, .viewSpread]
+        case .style: model.usesPrintTheme && model.binder == nil ? [.styleChoose] : []
+        case .outline: [.viewOutline]
+        case .thumbnails: [.listToggle]
+        case .previousPage: [.readingPrevious]
+        case .nextPage: [.readingNext]
+        case .documentInfo: [.viewDocumentInfo]
+        case .zoom: [.viewZoomFit]
+        case .selectText: [.viewSelectText]
+        case .alwaysShowToolbar: [.viewToolbarAlways]
+        case .viewOptions: model.showsWeb ? [] : [.viewOptions]
+        case .ignoreSlides: [.viewIgnoreSlides]
+        case .printSettings: [.printSettings]
+        case .beforePrinting: [.printReviewIssues]
+        case .print: [.documentPrint]
+        case .saveAsFile: [.documentSaveAsFile]
+        case .keysAndGestures: [.appKeyGuide]
+        default: []
+        }
     }
 
     private func isApplicable(_ id: ID) -> Bool {
@@ -306,6 +308,8 @@ struct BandMoreButton<Items: View>: View {
             items
         } label: {
             Label(BandAccessibility.more, systemImage: "ellipsis.circle").labelStyle(.iconOnly)
+                .accessibilityLabel(Text(BandAccessibility.more))
+                .accessibilityHint(Text(verbatim: BandHintContent.more.accessibilityHint))
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
@@ -336,7 +340,6 @@ struct BandMoreMenu: View {
                 }
             }
         }
-        .help(content.moreHelp())
     }
 }
 
