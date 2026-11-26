@@ -51,11 +51,7 @@ public struct MarkdownMetadata: Equatable, Sendable {
             }
             let items = values.filter { !$0.isEmpty }
             func instruction<Value>(_ value: Value) -> ReadingInstruction<Value> {
-                var source = ReadingInstructionSource(fileName: nil, lineNumber: start, rawText: line)
-                source.excerpt = .init(
-                    previous: start - 2 >= lines.startIndex ? lines[start - 2] : nil, line: line,
-                    next: start < lines.endIndex ? lines[start] : nil, tokenOffset: 0)
-                return .init(value, source: source)
+                .init(value, source: ReadingInstructionSource(lines: lines, index: start - 1))
             }
             switch ComputationalMetadata.scalar(key) {
             case "title": title = items.first
@@ -92,7 +88,7 @@ public struct MarkdownMetadata: Equatable, Sendable {
         }
     }
 
-    private static func withoutComment(_ value: String) -> String {
+    static func withoutComment(_ value: String) -> String {
         var quote: Character?
         var escaped = false
         var previousWasSpace = true

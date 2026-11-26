@@ -175,8 +175,8 @@ struct PrintFinishRenderingTests {
         let cases: [(DocumentFormat, String, Int)] = [
             (.org, "* Alpha\n** Bravo", 0), (.org, "#+OPTIONS: toc:1\n* Alpha\n** Bravo", 1),
             (.markdown, header + markdown, 2), (.quarto, header + markdown, 2),
-            (.rMarkdown, "---\noutput:\n  html_document:\n    toc: true\n---\n" + markdown, 1),
-            (.rMarkdown, header + markdown, 2),
+            (.rMarkdown, "---\noutput:\n  html_document:\n    toc: true\n---\n" + markdown, 2),
+            (.rMarkdown, "---\noutput: html_document\n---\n" + markdown, 1),
         ]
         let modes: [(PaperTOC.Mode, Bool, Bool, Int)] = [
             (.hidden, false, true, 0), (.source, false, false, 0),
@@ -283,7 +283,8 @@ struct PrintFinishRenderingTests {
         let qmd = "# A {#first}\n## B\n# Skip {.unlisted}\n# A {#last}"
         let cases: [(DocumentFormat, String, [String])] = [
             (.quarto, yaml + "# A\n## B", ["A"]),
-            (.quarto, yaml + qmd, ["A", "A"]), (.rMarkdown, yaml + qmd, ["A", "A"]),
+            (.quarto, yaml + qmd, ["A", "A"]),
+            (.rMarkdown, "---\noutput:\n  html_document:\n    toc: true\n    toc_depth: 1\n---\n" + qmd, ["A", "A"]),
             (.quarto, qmd, ["A", "A"]), (.quarto, yaml + "# Skip {.unlisted}", []),
             (.org, "* A\n** B\n* Skip\n:PROPERTIES:\n:UNNUMBERED: notoc\n:END:\n* C", ["A", "C"]),
             (.markdown, "---\ntoc: true\n---\n# A\n## B\n### C", ["B"]),
@@ -617,5 +618,53 @@ extension PrintFinishRenderingTests {
         settings.finish.contents.placement = .page
         let paper = try await renderer.prepare(source, settings: settings)
         #expect(paper.addedContentsPages == 1 && captured.contains(">List &amp; Notes</h1>"))
+    }
+}
+
+extension PrintFinishRenderingTests {
+    @Test(
+        "Quarto と R Markdown は原稿・文書・既定の順で番号と目次を組み、しおりにも同じ番号を渡す",
+        arguments: [DocumentFormat.quarto, .rMarkdown])
+    func computationalReadingLayers(format: DocumentFormat) async throws {
+        let header =
+            format == .quarto
+            ? "format:\n  pdf:\n    number-sections: true\n    toc-depth: 2"
+            : "output:\n  html_document:\n    number_sections: true\n    toc_depth: 2"
+        let body = "[TOC]\n\n# Book\n\n## One\n\n### Child"
+        let source = DocumentSource(data: Data(("---\n" + header + "\n---\n" + body).utf8), format: format)
+        var captured = ""
+        let renderer = DocumentRenderer(paginate: { request in
+            if case .html(let html, _) = request.source { captured = html }
+            return try RenderingFixtures.pdf(pages: [["1 Book", "1.1 One", "1.1.1 Child"]], size: request.pageSize)
+        })
+        var settings = try settings()
+        func numbering(_ enabled: Bool) -> ReadingSettingValue {
+            format == .quarto ? .outline(present: enabled, depth: .all) : .toggle(enabled)
+        }
+        settings.formatReadingDefaults.set(numbering(true), for: .sectionNumbers, format: format)
+        settings.formatReading.set(
+            numbering(false), for: .sectionNumbers, format: format, defaults: settings.formatReadingDefaults)
+        settings.formatReadingDefaults.set(.outline(present: true, depth: .all), for: .tableOfContents, format: format)
+        let prepared = try await renderer.prepare(source, settings: settings)
+        let facts = try #require(prepared.facts)
+        #expect(facts.headings.map(\.text) == ["1 Book", "1.1 One", "1.1.1 Child"])
+        #expect(facts.leadEntries?.map(\.text) == ["1 Book", "1.1 One"])
+        #expect(DocumentOutline.contentsHeadings(in: captured, navIndex: 1).map(\.text) == ["1.1 One", "1.1.1 Child"])
+        let outline = await ReadingPDFExporter.outline(
+            of: source, in: prepared.logicalDocument, proof: .shown,
+            includesSourceContents: true, facts: facts)
+        let book = try #require(ReadingBookmark.tree(from: outline.entries).first)
+        #expect(book.entry.title == "1 Book" && book.children.first?.children.first?.entry.title == "1.1.1 Child")
+
+        settings.formatReading.setAllowsFileChanges(true, for: format)
+        settings.formatReading.set(
+            .outline(present: true, depth: .levels(1)), for: .tableOfContents, format: format,
+            file: facts.contentsInstructions, defaults: settings.formatReadingDefaults)
+        let changed = try await renderer.prepare(source, settings: settings)
+        #expect(changed.facts?.headings.map(\.text) == ["Book", "One", "Child"])
+        #expect(changed.facts?.leadEntries?.map(\.text) == ["Book"])
+        settings.formatReading.revert(.sectionNumbers, for: format)
+        let restored = try await renderer.prepare(source, settings: settings)
+        #expect(restored.facts?.headings.first?.text == "1 Book")
     }
 }

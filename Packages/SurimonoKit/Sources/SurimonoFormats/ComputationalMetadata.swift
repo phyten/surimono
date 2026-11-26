@@ -8,8 +8,10 @@ struct ComputationalMetadata {
     var japanese: Bool = false
     private(set) var keys: Set<String> = []
 
-    init(lines: inout [String]) {
-        guard lines.first == "---" else { return }
+    var reading = ComputationalReadingHeader()
+
+    init(lines: inout [String], format: DocumentFormat? = nil) {
+        guard lines.first == "---" || lines.first == "\u{FEFF}---" else { return }
         let end = lines.dropFirst().firstIndex { $0 == "---" || $0 == "..." }
         let count = end.map { $0 + 1 } ?? lines.count
         let header = Array(lines.prefix(count))
@@ -75,6 +77,7 @@ struct ComputationalMetadata {
                 values[key] = Self.scalar(raw)
             }
         }
+        if let format { reading = ComputationalReadingHeader(header[1..<end], format: format) }
     }
 
     static func blockScalar(_ lines: ArraySlice<String>, folded: Bool) -> String {

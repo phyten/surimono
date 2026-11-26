@@ -108,6 +108,11 @@ struct PrintFinishFlowTests {
         #expect(rows(.markdown, lead, true, .init()) == [.layout])
         #expect(rows(.markdown, marker, false, page) == [.inText])
         #expect(rows(.markdown, both, true, page) == [.layout, .look, .inText])
+        for format in [DocumentFormat.quarto, .rMarkdown] {
+            #expect(rows(format, plain, false, page).isEmpty)
+            #expect(rows(format, both, true, page) == [.layout, .look, .inText])
+        }
+        #expect(rows(.rst, plain, false, page) == [.lead])
         let org = DocumentFacts(fragment: OrgConverter.convert("* Alpha"))
         let orgMarker = DocumentFacts(fragment: OrgConverter.convert("* Alpha\n#+TOC: headlines 1"))
         #expect(rows(.org, org, false, page).isEmpty)
@@ -219,7 +224,7 @@ struct PrintFinishFlowTests {
     func leadControlWithLockedDepth() async throws {
         let environment = Environment()
         defer { environment.cleanUp() }
-        let model = environment.model("---\ntoc-depth: 2\n---\n# One\n\n## Two", format: .quarto)
+        let model = environment.model("= Title\n:toclevels: 2\n\n== One\n\n=== Two", format: .asciidoc)
         model.printFinish.legacyPresetContents.mode = .front
         model.start()
         try await waitUntil { model.contentsFacts != nil && model.contentHash != nil }

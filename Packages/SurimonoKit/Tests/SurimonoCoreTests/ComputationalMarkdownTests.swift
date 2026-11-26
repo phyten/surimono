@@ -24,13 +24,15 @@ struct ComputationalMarkdownTests {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         let source = try String(contentsOf: root.appending(path: "Samples/sample." + suffix), encoding: .utf8)
-        let fragment = ComputationalMarkdown.convert(source)
         let theme = try #require(try PrintThemeLibrary.load().first { $0.id == "standard" })
         let format = try #require(DocumentFormat(fileExtension: suffix))
+        let fragment = ComputationalMarkdown.convert(source, format: format)
         let html = HTMLDocumentBuilder.build(fragment: fragment, format: format, theme: theme)
         #expect(
             html.contains(
-                suffix == "qmd" ? "body class=\"surimono format-quarto\"" : "body class=\"surimono format-rmarkdown\""))
+                suffix == "qmd"
+                    ? "body class=\"surimono format-quarto own-heading-numbers\""
+                    : "body class=\"surimono format-rmarkdown\""))
         #expect(html.contains("default-src 'none'"))
         #expect(fragment.body.contains("chunk-result-note"))
         #expect(fragment.body.contains(suffix == "qmd" ? "href=\"#fig-count\"" : "href=\"#fig:widths\""))

@@ -1,6 +1,10 @@
 import SurimonoCore
 import SwiftUI
 
+extension DocumentFormat {
+    var usesMarkdownReadingPanel: Bool { self == .markdown || self == .quarto || self == .rMarkdown }
+}
+
 enum DocumentsChapter {
     // Plain text is the renderer's format for recognized source files.
     static let formats: [DocumentFormat] = [
@@ -32,8 +36,8 @@ enum DocumentsChapter {
     /// ReadingSyntax.readToday describes manuscript instructions, not app preferences.
     static func rows(for format: DocumentFormat) -> [ReadingCatalogueRow] {
         switch format {
-        case .markdown: ReadingCatalogue.rows(for: format)
-        case .quarto, .rMarkdown, .rst, .asciidoc, .mediawiki:
+        case .markdown, .quarto, .rMarkdown: ReadingCatalogue.rows(for: format)
+        case .rst, .asciidoc, .mediawiki:
             ReadingCatalogue.rows(for: format).filter { $0.id == .tableOfContents }
         default: []
         }
@@ -247,9 +251,9 @@ struct FormatDefaultsPane: View {
         for row in rows { preferences.formatReadingDefaults.revert(row.id, for: format) }
     }
 
-    private func description(_ row: ReadingRowResolution) -> String {
+    private func description(_ row: ReadingRowResolution, id: ReadingSettingID) -> String {
         switch row {
-        case .toggle(let flag): return String(localized: flag.value ? "On" : "Off")
+        case .toggle(let flag): return String(localized: id.toggleTitle(flag.value))
         case .outline(let present, let depth):
             let title = String(localized: ReadingOutlinePicker.title(for: present.value ? depth.value : nil))
             if !present.value, depth.layer == .document {
@@ -266,7 +270,7 @@ struct FormatDefaultsPane: View {
             guard let from = current.resolve(row.id, for: format), let to = target.resolve(row.id, for: format),
                 from != to
             else { return nil }
-            return (String(localized: row.id.label), description(from), description(to))
+            return (String(localized: row.id.label), description(from, id: row.id), description(to, id: row.id))
         }
     }
 

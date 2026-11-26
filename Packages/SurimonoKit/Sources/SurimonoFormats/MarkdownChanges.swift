@@ -9,6 +9,8 @@ public struct MarkdownBlock: Equatable, Sendable {
 public struct MarkdownMappedDocument: Sendable {
     public let fragment: HTMLFragment
     public let blocks: [MarkdownBlock]
+    /// Numbered anchors for the computational reader's native contents and cross-references.
+    var embeddedHeadings: [MarkdownExtensions.HeadingAnchor] = []
 }
 
 /// A short mark denotes a deletion at the nearest surviving block.

@@ -654,7 +654,7 @@ struct PrintModeTests {
 
         @Test(
             "幅460ptの印刷設定は八言語・左右両方向で各見出し・区切り線・選択欄が両端に収まる",
-            arguments: [DocumentFormat.markdown, .quarto, .latex], [true, false])
+            arguments: [DocumentFormat.markdown, .quarto, .rMarkdown, .asciidoc, .latex], [true, false])
         func finishPanelFrames(format: DocumentFormat, hasContents: Bool) async throws {
             let fixture = Fixture()
             fixture.preferences.layoutID = PrintLayout.a4Single.id
@@ -662,6 +662,12 @@ struct PrintModeTests {
             if format == .latex {
                 let lists = hasContents ? #"\tableofcontents\listoffigures\listoftables"# : ""
                 source = #"\documentclass{article}\begin{document}\section{Alpha}\#(lists)\end{document}"#
+            } else if format == .asciidoc {
+                source = hasContents ? "= Book\n:toc:\n\n== Alpha\n\ntoc::[]\n\n=== Bravo" : "= Book\n\n== Alpha"
+            } else if format == .rMarkdown {
+                source =
+                    hasContents
+                    ? "---\noutput:\n  html_document:\n    toc: true\n---\n# Alpha\n\n[TOC]\n\n## Bravo" : "# Alpha"
             } else {
                 source = hasContents ? "---\ntoc: true\n---\n# Alpha\n\n[TOC]\n\n## Bravo" : "# Alpha"
             }
@@ -673,7 +679,7 @@ struct PrintModeTests {
             model.printFinish.contents.placement = .page
             model.start()
             try await waitUntil { model.contentsFacts != nil }
-            let hasLeadPicker = format == .quarto
+            let hasLeadPicker = format == .asciidoc
             let hasSection = hasLeadPicker || hasContents
             #expect(PrintFinishStrip(model: model).applicableItems.contains(.contents) == hasSection)
             var sections: [LocalizedStringKey] = ["Paper & Margins", "Header & Footer", "Page Breaks"]

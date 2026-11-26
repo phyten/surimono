@@ -27,7 +27,8 @@ struct AppMathCorpusTests {
                     body =
                         LaTeXConverter.convert(text, directory: url.deletingLastPathComponent(), documentURL: url).body
                 case "md", "markdown", "mkd", "mkdn", "mdown": body = MarkdownConverter.convert(text).body
-                case "qmd", "rmd", "rmarkdown": body = ComputationalMarkdown.convert(text).body
+                case "qmd": body = ComputationalMarkdown.convert(text, format: .quarto).body
+                case "rmd", "rmarkdown": body = ComputationalMarkdown.convert(text, format: .rMarkdown).body
                 case "org": body = OrgConverter.convert(text).body
                 case "rst", "rest": body = RSTConverter.convert(text).body
                 case "ipynb": body = try NotebookConverter.convert(text).body

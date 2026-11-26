@@ -220,7 +220,8 @@ struct NotebookContext: Sendable {
     mutating func markdown(_ source: String, attachments: [String: Any] = [:]) -> HTMLFragment {
         cellIndex += 1
         let fragment = MarkdownConverter.embeddedBody(
-            source, pageBreakLine: pageBreakLine, proof: proof, toc: tocMarker)
+            source, pageBreakLine: pageBreakLine, proof: proof, options: .init(notebookTOC: tocMarker)
+        ).fragment
         if fragment.readingIssues.contains(StackSpace.limitIssue) { reachedLimit = true }
         let prefix = "nb-\(cellIndex)-"
         var body = ""

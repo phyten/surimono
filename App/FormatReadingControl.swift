@@ -11,8 +11,15 @@ enum ReadingResetHelp {
     }
 }
 
+extension ReadingSettingID {
+    func toggleTitle(_ value: Bool) -> LocalizedStringResource {
+        if self == .sectionNumbers { return value ? "All" : "None" }
+        return value ? "On" : "Off"
+    }
+}
+
 extension ReadingRowResolution {
-    func resetHelp(format: String) -> String {
+    func resetHelp(format: String, id: ReadingSettingID) -> String {
         func help<Value>(_ component: ReadingResolution<Value>, _ value: String) -> String {
             component.source == nil
                 ? ReadingResetHelp.app(format: format, value: value) : ReadingResetHelp.file(value: value)
@@ -22,7 +29,7 @@ extension ReadingRowResolution {
         }
         switch self {
         case .toggle(let present):
-            return toggle(present)
+            return help(present, String(localized: id.toggleTitle(present.inherited)))
         case .outline(let present, let depth):
             if (present.source == nil) != (depth.source == nil) {
                 let levels = String(localized: ReadingOutlinePicker.title(for: depth.inherited))
@@ -62,8 +69,19 @@ struct FormatReadingControl: View {
             switch row {
             case .toggle(let present):
                 control(locked: present.isLocked) {
-                    Toggle(isOn: Binding(get: { present.value }, set: { set(.toggle($0)) })) { Text(id.label) }
-                        .labelsHidden().toggleStyle(.checkbox)
+                    if id == .sectionNumbers {
+                        let selection = Binding(get: { present.value }, set: { set(.toggle($0)) })
+                        ReadingMenu(
+                            label: id.label, selection: selection,
+                            valueLabel: Text(id.toggleTitle(present.value))
+                        ) {
+                            Text(id.toggleTitle(false)).tag(false)
+                            Text(id.toggleTitle(true)).tag(true)
+                        }
+                    } else {
+                        Toggle(isOn: Binding(get: { present.value }, set: { set(.toggle($0)) })) { Text(id.label) }
+                            .labelsHidden().toggleStyle(.checkbox)
+                    }
                 }
                 reason(present.source, changed: present.layer == .document)
             case .outline(let present, let depth):

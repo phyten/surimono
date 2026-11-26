@@ -11,17 +11,17 @@ extension DocumentViewModel {
     }
 
     func markdownResolution(_ id: ReadingSettingID) -> ReadingRowResolution? {
-        formatReading.resolve(id, for: .markdown, file: markdownFile(id), defaults: preferences.formatReadingDefaults)
+        formatReading.resolve(id, for: format, file: markdownFile(id), defaults: preferences.formatReadingDefaults)
     }
 
     func setMarkdownValue(_ value: ReadingSettingValue, for id: ReadingSettingID) {
-        guard offersReadingPanel, format == .markdown, contentsFacts != nil else { return }
+        guard offersReadingPanel, format.usesMarkdownReadingPanel, contentsFacts != nil else { return }
         if id == .tableOfContents, case .outline(let present, let depth) = value {
             setLeadContents(present ? .init(depth) : .off)
             return
         }
         formatReading.set(
-            value, for: id, format: .markdown, file: markdownFile(id), defaults: preferences.formatReadingDefaults)
+            value, for: id, format: format, file: markdownFile(id), defaults: preferences.formatReadingDefaults)
     }
 }
 
@@ -36,14 +36,14 @@ struct MarkdownReadingPanel: View {
         let count: Int
     }
 
-    private var ids: [ReadingSettingID] { DocumentsChapter.rows(for: .markdown).map(\.id) }
-    private var unlocked: Bool { model.formatReading.allowsFileChanges(for: .markdown) }
+    private var ids: [ReadingSettingID] { DocumentsChapter.rows(for: model.format).map(\.id) }
+    private var unlocked: Bool { model.formatReading.allowsFileChanges(for: model.format) }
 
     private func revert(_ id: ReadingSettingID) {
         if id == .tableOfContents, model.markdownResolution(id)?.isChanged == true {
             model.migrateContents(editing: true)
         }
-        model.formatReading.revert(id, for: .markdown)
+        model.formatReading.revert(id, for: model.format)
     }
 
     private func lock(confirming approval: Discard? = nil) {
@@ -52,10 +52,10 @@ struct MarkdownReadingPanel: View {
         var count = 0
         for id in ids {
             let before = changes
-            changes.revert(id, for: .markdown, fileOnly: model.markdownFile(id))
+            changes.revert(id, for: model.format, fileOnly: model.markdownFile(id))
             if changes != before { count += 1 }
         }
-        changes.setAllowsFileChanges(false, for: .markdown)
+        changes.setAllowsFileChanges(false, for: model.format)
         if count == 0
             || (approval?.generation == model.dataGeneration && approval?.before == model.formatReading
                 && approval?.after == changes)
@@ -72,13 +72,14 @@ struct MarkdownReadingPanel: View {
         return Binding(
             get: { unlocked },
             set: { allow in
-                if allow { model.formatReading.setAllowsFileChanges(true, for: .markdown) } else { lock() }
+                if allow { model.formatReading.setAllowsFileChanges(true, for: model.format) } else { lock() }
             })
     }
 
     var body: some View {
         ReadingPanel(
-            title: "Markdown", ready: model.contentsFacts != nil, changed: model.readingChangedCount,
+            title: LocalizedStringKey(model.format.displayName), ready: model.contentsFacts != nil,
+            changed: model.readingChangedCount,
             countInFooter: true, allowsFileChanges: permission, close: { model.isReadingPanelOpen = false },
             revert: { for id in ids { revert(id) } }
         ) {
@@ -88,7 +89,7 @@ struct MarkdownReadingPanel: View {
                 if let row = model.markdownResolution(id) {
                     VStack(alignment: .leading, spacing: 4) {
                         FormatReadingControl(
-                            id: id, row: row, resetHelp: row.resetHelp(format: "Markdown"),
+                            id: id, row: row, resetHelp: row.resetHelp(format: model.format.displayName, id: id),
                             documentName: model.displayName,
                             fileURL: model.fileURL, allowsFileChanges: unlocked,
                             set: { model.setMarkdownValue($0, for: id) }, revert: { revert(id) })

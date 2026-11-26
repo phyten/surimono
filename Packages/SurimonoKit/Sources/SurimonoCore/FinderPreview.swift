@@ -169,7 +169,7 @@ public struct FinderPreview: Sendable {
         case .latex:
             LaTeXConverter.convert(
                 text, directory: directory, imageExists: imageExists, canProbePictureFallback: { _ in false })
-        case .quarto, .rMarkdown: ComputationalMarkdown.convert(text)
+        case .quarto, .rMarkdown: ComputationalMarkdown.convert(text, format: format)
         case .notebook: try NotebookConverter.convert(text)
         default: throw Failure.unsupported
         }

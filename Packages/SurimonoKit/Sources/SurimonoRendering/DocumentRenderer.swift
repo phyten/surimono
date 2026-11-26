@@ -2329,7 +2329,8 @@ public final class DocumentRenderer {
             DiagramConverter.convert(try decodedText(source.data), format: source.format)
         case .quarto, .rMarkdown:
             ComputationalMarkdown.convert(
-                try decodedText(source.data), pageBreakLine: pageBreakLine, proof: proof, contentsDepth: contentsDepth,
+                try decodedText(source.data), format: source.format, reading: markdownReading,
+                pageBreakLine: pageBreakLine, proof: proof, contentsDepth: contentsDepth,
                 proposedLeadDepth: proposedLeadDepth)
         case .docx: try DocxConverter.convert(source.data)
         case .djot:

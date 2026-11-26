@@ -124,11 +124,10 @@ public enum ReadingCatalogue {
     ]
 
     // https://quarto.org/docs/output-formats/html-basics.html documents number-depth.
-    // ComputationalDivisions ignores it, numbers every eligible heading and uses absolute levels for toc-depth.
     private static let quarto: [ReadingCatalogueRow] = [
         .init(
             .sectionNumbers, .outline(present: false, depth: .all),
-            [yamlNumbers, .init("number-depth", .depth, readToday: false), .init(".unnumbered", .note)],
+            [yamlNumbers, .init("number-depth", .depth), .init(".unnumbered", .note)],
             copy: ["number-sections: {true|false}", "number-depth: {n}"]),
         .init(
             .tableOfContents, .outline(present: false, depth: .levels(3)),
@@ -137,23 +136,21 @@ public enum ReadingCatalogue {
 
     // https://rmarkdown.rstudio.com/docs/reference/render.html selects the first output unless explicitly told otherwise.
     // https://rmarkdown.rstudio.com/docs/reference/html_document.html defines the underscore keys.
-    // ComputationalMetadata skips the entire output/format mapping, including every output in a multi-format file.
-    // The shared reader currently honors the Quarto top-level keys and body markers instead.
     private static let rMarkdown: [ReadingCatalogueRow] = [
         .init(
             .sectionNumbers, .toggle(false),
             [
-                .init("output.<first>.number_sections", .presence, readToday: false), yamlNumbers,
+                .init("output.<first>.number_sections", .presence),
                 .init(".unnumbered", .note),
             ],
             copy: ["output:\n  {format}:\n    number_sections: {true|false}"]),
         .init(
             .tableOfContents, .outline(present: false, depth: .levels(3)),
             [
-                .init("output.<first>.toc", .presence, readToday: false),
-                .init("output.<first>.toc_depth", .depth, readToday: false),
+                .init("output.<first>.toc", .presence),
+                .init("output.<first>.toc_depth", .depth),
             ]
-                + yamlContents + bodyMarkers + [.init(".unlisted", .note)],
+                + bodyMarkers + [.init(".unlisted", .note)],
             copy: ["output:\n  {format}:\n    toc: {true|false}", "    toc_depth: {n}"]),
     ]
 

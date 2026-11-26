@@ -151,8 +151,8 @@ struct OrgReadingPanelLayoutTests {
         }
     }
 
-    @Test("Markdown の実幅のパネルで有無が固定された目次の深さだけを変えられる")
-    func markdownPanel() async throws {
+    @Test("原稿が先頭の目次を指定したときはパネルで深さだけを変えられる", arguments: [DocumentFormat.markdown, .quarto, .rMarkdown])
+    func markdownPanel(format: DocumentFormat) async throws {
         let suite = TestDefaultsSuite()
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer {
@@ -163,8 +163,11 @@ struct OrgReadingPanelLayoutTests {
             try #require(PDFDocument(data: TestFixtures.pdf("A", pages: 1)))
         })
         let model = DocumentViewModel(
-            data: Data("---\ntoc: true\n---\n# A".utf8), fileURL: nil,
-            format: .markdown, preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: root),
+            data: Data(
+                (format == .rMarkdown
+                    ? "---\noutput:\n  pdf_document:\n    toc: true\n---\n# A" : "---\ntoc: true\n---\n# A").utf8),
+            fileURL: nil,
+            format: format, preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: root),
             renderer: renderer)
         defer { model.stop() }
         model.render()
@@ -205,6 +208,25 @@ struct OrgReadingPanelLayoutTests {
                 source: try #require(source), changed: false, partialLock: partialLock)
             #expect(view.reason(locale: locale) == expected)
         }
+    }
+
+    @Test("計算文書の指定行には固定した成分と変更できる成分を同じ行に示す", arguments: [DocumentFormat.quarto, .rMarkdown])
+    func computationalReason(format: DocumentFormat) throws {
+        let header =
+            format == .quarto ? "format:\n  html:\n    number-depth: 2" : "output:\n  pdf_document:\n    toc: true"
+        let fragment = ComputationalMarkdown.convert("---\n" + header + "\n---\n# One", format: format)
+        let source = try #require(
+            format == .quarto
+                ? fragment.numberInstructions.depth?.source : fragment.contentsInstructions.present?.source)
+        let reason = ReadingFileReason(
+            documentName: "test", fileURL: nil, allowsFileChanges: false, source: source,
+            changed: false, partialLock: format == .quarto ? .depth : .enabled)
+        let expected =
+            format == .quarto
+            ? "Specified in file: number-depth: 2 (can be turned on or off)"
+            : "Specified in file: toc: true (depth can be changed)"
+        #expect(reason.reason(locale: Locale(identifier: "en")) == expected)
+        #expect(source.lineNumber == 4)
     }
 
     @Test("読み方の全項目は八言語で選択値と戻す矢印が収まり、横に収まる行は一列を保つ", arguments: UILanguage.supported)

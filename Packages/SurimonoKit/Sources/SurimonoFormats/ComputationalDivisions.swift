@@ -125,7 +125,7 @@ extension ComputationalBody {
         } else if line.hasPrefix("#"), let match = line.wholeMatch(of: /^(#{1,6})\s+(.*?)(?:\s+\{([^{}]+)\})?\s*$/) {
             let level = match.1.count
             let attrs = ComputationalAttributes(match.3.map(String.init) ?? "")
-            var title = String(match.2)
+            let title = String(match.2)
             let base = MarkdownExtensions.slug(title)
             var id = attrs.id.isEmpty ? base : attrs.id
             if attrs.id.isEmpty {
@@ -137,14 +137,8 @@ extension ComputationalBody {
             }
             headingIDs.insert(id)
             if ComputationalLabel.kind(id) == "sec" { _ = register(id, kind: "sec") }
-            if metadata.values["number-sections"]?.lowercased() == "true" && !attrs.classes.contains("unnumbered") {
-                sectionNumbers[level - 1] += 1
-                for deeper in level..<6 { sectionNumbers[deeper] = 0 }
-                let number = sectionNumbers.prefix(level).filter { $0 > 0 }.map(String.init).joined(separator: ".")
-                title = "\(number) \(title)"
-                if labels[id] != nil { labels[id]?.number = number }
-            }
-            if !attrs.classes.contains("unlisted") { headings.append((level, id, title)) }
+            if attrs.classes.contains("unnumbered") { unnumbered.insert(id) }
+            if attrs.classes.contains("unlisted") { unlisted.insert(id) } else { headings.append((level, id, title)) }
             output.append("\(match.1) \(inline(title)) {#\(id)}")
         } else if line.contains("{#fig-"),
             let match = line.wholeMatch(of: /^\s*(!\[([^\]]*)\]\(.+\))\s*\{#(fig-[\w:.-]+)\}\s*$/)
@@ -170,8 +164,19 @@ extension ComputationalBody {
         }
     }
 
-    func contents(depth fallback: Int?) -> String {
-        let depth = Int(metadata.values["toc-depth"] ?? "") ?? fallback ?? 3
+    mutating func applyNumbers(_ anchors: [MarkdownExtensions.HeadingAnchor]) {
+        // Keep the native list's original title spelling, including inline markup.
+        let titles = Dictionary(headings.map { ($0.id, $0.text) }, uniquingKeysWith: { first, _ in first })
+        headings = anchors.compactMap { anchor in
+            if !anchor.number.isEmpty, labels[anchor.id]?.kind == "sec" {
+                labels[anchor.id]?.number = String(anchor.number.dropLast())
+            }
+            guard !unlisted.contains(anchor.id) else { return nil }
+            return (anchor.level, anchor.id, anchor.number + (titles[anchor.id] ?? anchor.text))
+        }
+    }
+
+    func contents(depth: Int) -> String {
         let items = headings.filter { $0.level <= depth }.map {
             "<li><a href=\"#\(HTML.escape($0.id))\">\(HTML.escape($0.text))</a></li>"
         }

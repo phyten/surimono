@@ -185,17 +185,19 @@ struct BandMenuContentTests {
         }
     }
 
-    @Test("見出しと複数ページの索引は配置と窓幅と上下の組み方によらず、見開きでは表紙だけ増える")
-    func markdownIndex() async throws {
+    @Test("見出しと複数ページの索引は配置と窓幅と上下の組み方によらず、見開きでは表紙だけ増える", arguments: [DocumentFormat.markdown, .quarto, .rMarkdown])
+    func markdownIndex(format: DocumentFormat) async throws {
         let fixture = Fixture()
         defer { fixture.cleanUp() }
-        let model = try fixture.make(.markdown)
+        let model = try fixture.make(format)
         try await render(model, outline: true)
         model.viewOptions.layout = .single
-        try verifyArrangements(model, expected: markdown)
-        #expect(BandMenuContent(model: model).header == "Menu Fixture · MD · 1 / 2")
+        var expected = markdown
+        if format != .markdown { expected[0].removeAll { $0 == .checkWriting } }
+        try verifyArrangements(model, expected: expected)
+        #expect(BandMenuContent(model: model).header == "Menu Fixture · \(format.badge) · 1 / 2")
         model.viewOptions.layout = .spread
-        var spread = markdown
+        var spread = expected
         spread[2] = [.readingSettings, .readingDirection, .scrollDirection, .cover, .selectText]
         try verifyArrangements(model, expected: spread)
     }

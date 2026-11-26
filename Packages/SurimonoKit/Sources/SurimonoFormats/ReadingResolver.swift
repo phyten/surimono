@@ -19,6 +19,17 @@ public struct ReadingInstructionSource: Equatable, Sendable {
         self.lineNumber = lineNumber
         self.rawText = rawText
     }
+
+    init(lines: ArraySlice<String>, index: Int) {
+        let line = lines[index]
+        let token = line.drop(while: \.isWhitespace)
+        self.init(fileName: nil, lineNumber: index + 1, rawText: String(token))
+        excerpt = .init(
+            previous: index > lines.startIndex ? lines[index - 1] : nil, line: line,
+            next: index + 1 < lines.endIndex ? lines[index + 1] : nil,
+            tokenOffset: line.distance(from: line.startIndex, to: token.startIndex))
+    }
+
 }
 
 public struct ReadingInstruction<Value: Equatable & Sendable>: Equatable, Sendable {
