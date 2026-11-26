@@ -368,7 +368,7 @@ struct LanguageTests {
             ("zh-Hans", "Open the print screen", "打开打印界面"),
             ("zh-Hans", "In binders and image bundles", "在合订本和图像集中"),
             ("zh-Hant", "Open the print screen", "打開列印畫面"),
-            ("zh-Hant", "Export Shortcuts…", "輸出快捷鍵…"),
+            ("zh-Hant", "Export Shortcuts…", "輸出快速鍵…"),
             ("zh-Hant", "In binders and image bundles", "在合訂本與影像集中"),
             ("de", "PDF of Sheets…", "Blätter als PDF …"),
             ("de", "Export the sheets as a PDF", "Blätter wie angeordnet als PDF exportieren"),

@@ -38,7 +38,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ (퍼센트)"
+            "value": "%@(퍼센트)"
           }
         },
         "zh-Hans": {
@@ -97,13 +97,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "还原%@"
+            "value": "还原 %@"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "還原%@"
+            "value": "還原 %@"
           }
         }
       }
@@ -992,7 +992,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "원문의 줄바꿈 유지"
+            "value": "원문의 줄 바꿈 유지"
           }
         },
         "zh-Hans": {
@@ -3035,7 +3035,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "番号なしに指定された見出しが %lld つあります"
+            "value": "番号なしに指定された見出しが %lld 件あります"
           }
         },
         "de": {
@@ -3088,7 +3088,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "目次から外した見出しが %lld つあります"
+            "value": "目次から外した見出しが %lld 件あります"
           }
         },
         "de": {
@@ -3577,7 +3577,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ファイルの指定を上書きした %lld 項目の変更を破棄します。ほかの変更は残ります。"
+            "value": "ファイルの指定を上書きした %lld 項目の変更を破棄しますか？ほかの変更は残ります。"
           }
         },
         "de": {
@@ -5429,19 +5429,19 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "찾은 부분이 없습니다"
+            "value": "찾은 부분이 없습니다."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "未找到匹配内容"
+            "value": "未发现重复词语或长句。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "找不到相符的內容"
+            "value": "未發現重複用詞或長句。"
           }
         }
       }
@@ -5482,7 +5482,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "페이지에서 이 부분을 찾을 수 없습니다"
+            "value": "페이지에서 이 부분을 찾을 수 없습니다."
           }
         },
         "zh-Hans": {
@@ -5511,7 +5511,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "確認しています"
+            "value": "確認しています…"
           }
         },
         "de": {
@@ -5825,13 +5825,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "汉字 %1$@・假名 %2$@・拉丁字母 %3$@"
+            "value": "汉字 %1$@ · 假名 %2$@ · 拉丁字母 %3$@"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "漢字 %1$@・假名 %2$@・拉丁字母 %3$@"
+            "value": "漢字 %1$@ · 假名 %2$@ · 拉丁字母 %3$@"
           }
         }
       }
@@ -5848,7 +5848,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "原稿のテーマ『%@』には対応していないため、beamer の標準の体裁で表示しています。"
+            "value": "原稿のテーマ「%@」には対応していないため、beamer の標準の体裁で表示しています。"
           }
         },
         "de": {
@@ -5860,7 +5860,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le thème « %@ » n’est pas pris en charge. Le thème par défaut de beamer est utilisé."
+            "value": "Le thème « %@ » n’est pas pris en charge. Le thème par défaut de beamer est utilisé."
           }
         },
         "es": {
@@ -6013,7 +6013,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bei einer Folie werden alle Schritte zusammen angezeigt, weil ihre Überblendbefehle nicht gelesen werden konnten."
+            "value": "Bei einer Folie werden alle Schritte zusammen angezeigt, weil ihre Overlay-Befehle nicht gelesen werden konnten."
           }
         },
         "fr": {
@@ -6025,7 +6025,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Una diapositiva muestra todos sus pasos a la vez porque no se pudieron interpretar sus órdenes de superposición."
+            "value": "Una diapositiva muestra todos sus pasos a la vez porque no se pudieron interpretar sus comandos de superposición."
           }
         },
         "ko": {
@@ -6066,7 +6066,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bei %lld Folien werden alle Schritte zusammen angezeigt, weil ihre Überblendbefehle nicht gelesen werden konnten."
+            "value": "Bei %lld Folien werden alle Schritte zusammen angezeigt, weil ihre Overlay-Befehle nicht gelesen werden konnten."
           }
         },
         "fr": {
@@ -6078,7 +6078,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld diapositivas muestran todos sus pasos a la vez porque no se pudieron interpretar sus órdenes de superposición."
+            "value": "%lld diapositivas muestran todos sus pasos a la vez porque no se pudieron interpretar sus comandos de superposición."
           }
         },
         "ko": {
@@ -6543,7 +6543,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "分栏与排版"
+            "value": "排版方式"
           }
         },
         "zh-Hant": {
@@ -6671,13 +6671,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "有 %lld 个图未能及时绘制。"
+            "value": "有 %lld 个图表未能及时绘制。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "有 %lld 個圖未能及時繪製。"
+            "value": "有 %lld 個圖表未能及時繪製。"
           }
         }
       }
@@ -6804,7 +6804,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La table des matières est trop volumineuse et sera omise en partie ou en totalité à l’impression."
+            "value": "Le sommaire est trop volumineux et sera omis en partie ou en totalité à l’impression."
           }
         },
         "de": {
@@ -6972,7 +6972,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "図を SVG で保存…"
+            "value": "図を SVG として保存…"
           }
         },
         "ko": {
@@ -7024,7 +7024,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "図を PNG で保存…"
+            "value": "図を PNG として保存…"
           }
         },
         "ko": {
@@ -7284,7 +7284,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "図を PNG でコピー"
+            "value": "図を PNG としてコピー"
           }
         },
         "ko": {
@@ -7636,13 +7636,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "收到新文字后会替换"
+            "value": "收到新文字后会被替换"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "收到新文字後會取代"
+            "value": "收到新文字後會被取代"
           }
         },
         "ko": {
@@ -7868,7 +7868,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Öffnen Sie ein unverschlüsseltes Word-Dokument (.docx)."
+            "value": "Öffne ein unverschlüsseltes Word-Dokument (.docx)."
           }
         },
         "es": {
@@ -8798,7 +8798,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Retour"
+            "value": "Précédent"
           }
         },
         "de": {
@@ -8850,7 +8850,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Avancer"
+            "value": "Suivant"
           }
         },
         "de": {
@@ -8902,7 +8902,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Marquer cette page"
+            "value": "Ajouter un signet"
           }
         },
         "de": {
@@ -9382,7 +9382,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Filtrar encabezados"
+            "value": "Filtrar títulos"
           }
         }
       }
@@ -9434,7 +9434,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "No hay encabezados coincidentes"
+            "value": "No hay títulos coincidentes"
           }
         }
       }
@@ -9508,7 +9508,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "显示正在阅读的章节；点击打开目录。"
+            "value": "显示正在阅读的章节；点按打开目录。"
           }
         },
         "zh-Hant": {
@@ -9520,25 +9520,25 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "읽고 있는 장을 표시하며 목차를 엽니다."
+            "value": "읽고 있는 장을 표시합니다. 누르면 목차를 엽니다."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Affiche le chapitre en cours et ouvre la table des matières."
+            "value": "Affiche le chapitre en cours et ouvre le sommaire."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zeigt das aktuelle Kapitel und öffnet das Inhaltsverzeichnis."
+            "value": "Zeigt das aktuelle Kapitel und öffnet den Inhalt."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Muestra el capítulo que está leyendo y abre el índice."
+            "value": "Muestra el capítulo que estás leyendo y abre el índice."
           }
         }
       }
@@ -9688,7 +9688,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Drucken und Speichern"
+            "value": "Drucken und Sichern"
           }
         },
         "es": {
@@ -10184,7 +10184,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在跨页视图中单独显示第一页。"
+            "value": "在双页视图中单独显示第一页。"
           }
         },
         "zh-Hant": {
@@ -10196,7 +10196,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "펼침 보기에서 첫 페이지를 단독으로 표시합니다."
+            "value": "두 페이지 보기에서 첫 페이지를 단독으로 표시합니다."
           }
         },
         "fr": {
@@ -10214,7 +10214,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Muestra la primera página sola en la vista de páginas enfrentadas."
+            "value": "Muestra la primera página sola en doble página."
           }
         }
       }
@@ -10416,7 +10416,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Öffnet das Druckeinstellungsfenster."
+            "value": "Öffnet die Druckeinstellungen."
           }
         },
         "es": {
@@ -10578,7 +10578,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abre las opciones de visualización."
+            "value": "Abre las opciones de vista."
           }
         }
       }
@@ -10624,7 +10624,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Speichert das Originaldokument in einer neuen Datei."
+            "value": "Sichert das Originaldokument in einer neuen Datei."
           }
         },
         "es": {
@@ -10652,19 +10652,19 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "打开按键与手势指南。"
+            "value": "打开按键与操作指南。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "打開按鍵與手勢指南。"
+            "value": "打開按鍵與操作指南。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "키와 동작 안내를 엽니다."
+            "value": "키와 조작 안내를 엽니다."
           }
         },
         "fr": {
@@ -10722,7 +10722,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Non utilisé par le mode actuel de changement de page."
+            "value": "Non utilisé par la transition des pages actuelle."
           }
         },
         "de": {
@@ -10774,7 +10774,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Visible sur papier ; désactivé si le changement de page ne défile pas."
+            "value": "Visible sur papier ; désactivé si la transition des pages est sans défilement."
           }
         },
         "de": {
@@ -10786,7 +10786,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aparece en papel; se desactiva si el cambio de página no desplaza."
+            "value": "Aparece en papel; se desactiva si el cambio de página no usa desplazamiento."
           }
         }
       }
@@ -10860,13 +10860,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "适用于文本文档及包含它们的合订文档。"
+            "value": "适用于文本文档及包含它们的合订本。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "適用於文字文件及包含它們的合訂文件。"
+            "value": "適用於文字文件及包含它們的合訂本。"
           }
         },
         "ko": {
@@ -11062,7 +11062,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "スライドが検出されたHTML文書で使えます。"
+            "value": "スライドが検出された HTML 文書で使えます。"
           }
         },
         "zh-Hans": {
@@ -11196,7 +11196,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Erscheint bei Dokumenten, die als neue Datei gespeichert werden können."
+            "value": "Erscheint bei Dokumenten, die als neue Datei gesichert werden können."
           }
         },
         "es": {
@@ -11270,7 +11270,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "合本が1文書になったとき"
+            "value": "合本が 1 文書になったとき"
           }
         },
         "zh-Hans": {
@@ -11381,13 +11381,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "LaTeX-Dokumente verwenden den Stil ihrer Dokumentklasse, bis Sie für das jeweilige Dokument einen Stil auswählen."
+            "value": "LaTeX-Dokumente verwenden den Stil ihrer Dokumentklasse, bis du für das jeweilige Dokument einen Stil auswählst."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Los documentos LaTeX usan el estilo de su clase hasta que elijas un estilo para ese documento."
+            "value": "Cada documento LaTeX usa el estilo de su clase hasta que elijas un estilo para él."
           }
         },
         "fr": {
@@ -11531,7 +11531,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "この合本には1文書だけ残っています"
+            "value": "この合本には 1 文書だけ残っています"
           }
         },
         "zh-Hans": {
@@ -11601,7 +11601,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "합본을 해제하고 개별 문서로 표시할까요?"
+            "value": "합본을 해제하고 개별 문서로 표시하겠습니까?"
           }
         },
         "fr": {
@@ -11803,7 +11803,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "套用前請確認全域快捷鍵與列印快捷鍵的變更。"
+            "value": "套用前請確認全域快速鍵與列印快速鍵的變更。"
           }
         },
         "ko": {
@@ -11821,7 +11821,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bestätigen Sie vor dem Anwenden die Änderungen an globalen und Druckkurzbefehlen."
+            "value": "Bestätige vor dem Anwenden die Änderungen an globalen Kurzbefehlen und Druckkurzbefehlen."
           }
         },
         "es": {
@@ -11879,7 +11879,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Restaurar todos los valores"
+            "value": "Restaurar valores predeterminados"
           }
         }
       }
@@ -11907,7 +11907,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "快捷鍵操作"
+            "value": "快速鍵操作"
           }
         },
         "ko": {
@@ -12063,7 +12063,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "匯入快捷鍵…"
+            "value": "匯入快速鍵…"
           }
         },
         "ko": {
@@ -12115,7 +12115,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "輸出快捷鍵…"
+            "value": "輸出快速鍵…"
           }
         },
         "ko": {
@@ -12191,7 +12191,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Restaurar todos los valores…"
+            "value": "Restaurar valores predeterminados…"
           }
         }
       }
@@ -12225,7 +12225,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "모두 기본값으로 복원할까요?"
+            "value": "모두 기본값으로 복원하겠습니까?"
           }
         },
         "fr": {
@@ -12243,7 +12243,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "¿Restaurar todos los valores?"
+            "value": "¿Restaurar valores predeterminados?"
           }
         }
       }
@@ -12323,7 +12323,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "App 內快捷鍵回復預設值，全域快捷鍵取消配置。macOS 配置保持不變。"
+            "value": "App 內快速鍵回復預設值，全域快速鍵取消配置。macOS 配置保持不變。"
           }
         },
         "ko": {
@@ -12445,7 +12445,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nicht enthaltene Vorgänge behalten ihre Tasten. Erst beim Anwenden wird etwas geändert."
+            "value": "Nicht enthaltene Aktionen behalten ihre Tasten. Erst beim Anwenden wird etwas geändert."
           }
         },
         "es": {
@@ -12601,7 +12601,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Unbekannter oder fester Vorgang: %@"
+            "value": "Unbekannte oder feste Aktion: %@"
           }
         },
         "es": {
@@ -12681,7 +12681,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "我了解全局按键在其他应用中也生效，打印按键可能将页面发送到打印机。"
+            "value": "我了解全局快捷键在其他应用中也生效，打印快捷键可能将页面发送到打印机。"
           }
         },
         "zh-Hant": {
@@ -12699,13 +12699,13 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Je comprends que les touches globales fonctionnent dans d’autres apps et que les touches d’impression peuvent envoyer des pages à une imprimante."
+            "value": "Je comprends que les raccourcis globaux fonctionnent dans d’autres apps et que les raccourcis d’impression peuvent envoyer des pages à une imprimante."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ich verstehe, dass globale Tasten in anderen Apps wirken und Drucktasten Seiten an einen Drucker senden können."
+            "value": "Ich verstehe, dass globale Kurzbefehle in anderen Apps wirken und Druckkurzbefehle Seiten an einen Drucker senden können."
           }
         },
         "es": {
@@ -12727,7 +12727,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "この版では変更できない操作か、macOS が管理する割り当てです。"
+            "value": "このビルドでは変更できない操作か、macOS が管理する割り当てです。"
           }
         },
         "zh-Hans": {
@@ -12757,7 +12757,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dieser Vorgang kann in dieser Version nicht geändert werden oder wird von macOS verwaltet."
+            "value": "Diese Aktion kann in dieser Version nicht geändert werden oder wird von macOS verwaltet."
           }
         },
         "es": {
@@ -12779,7 +12779,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "このショートカットファイルの形式の版には対応していません。Surimono をアップデートして読み込んでください。"
+            "value": "このショートカットファイルの形式のバージョンには対応していません。Surimono をアップデートして読み込んでください。"
           }
         },
         "zh-Hans": {
@@ -12791,7 +12791,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "不支援此快捷鍵檔案的版本。請更新 Surimono 後匯入。"
+            "value": "不支援此快速鍵檔案的版本。請更新 Surimono 後匯入。"
           }
         },
         "ko": {
@@ -12843,7 +12843,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "快捷鍵檔案無效或超出匯入限制。未做任何變更。"
+            "value": "快速鍵檔案無效或超出匯入限制。未做任何變更。"
           }
         },
         "ko": {
@@ -12895,7 +12895,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "無法讀取或儲存快捷鍵檔案。未做任何變更。"
+            "value": "無法讀取或儲存快速鍵檔案。未做任何變更。"
           }
         },
         "ko": {
@@ -12913,7 +12913,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die Kurzbefehldatei konnte nicht gelesen oder gespeichert werden. Es wurde nichts geändert."
+            "value": "Die Kurzbefehldatei konnte nicht gelesen oder gesichert werden. Es wurde nichts geändert."
           }
         },
         "es": {
@@ -12960,7 +12960,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Exporter les feuilles en PDF avec leur disposition actuelle"
+            "value": "Exporter les feuilles en PDF"
           }
         },
         "de": {
@@ -13118,7 +13118,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aucune imprimante configurée : Imprimer ouvre le dialogue système"
+            "value": "Aucune imprimante configurée : Imprimer ouvre la fenêtre d’impression du système"
           }
         },
         "de": {
@@ -13171,7 +13171,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ : Imprimer ouvre le dialogue système"
+            "value": "%@ : Imprimer ouvre la fenêtre d’impression du système"
           }
         },
         "de": {
@@ -13355,7 +13355,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOSで管理されています"
+            "value": "macOS で管理されています"
           }
         },
         "zh-Hans": {
@@ -13407,19 +13407,19 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@が使用しています。この操作はまだショートカットの変更に対応していません。"
+            "value": "%@ が使用しています。この操作はまだショートカットの変更に対応していません。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ 已在使用。此操作尚未接入可自定义快捷键。"
+            "value": "“%@”正在使用此键。此操作暂不支持自定义快捷键。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ 已在使用。此操作尚未接入可自訂快捷鍵。"
+            "value": "「%@」正在使用此鍵。此操作尚不支援自訂快速鍵。"
           }
         },
         "ko": {
@@ -13437,7 +13437,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bereits von %@ verwendet. Diese Aktion unterstützt noch keine anpassbaren Kurzbefehle."
+            "value": "Bereits von „%@“ verwendet. Diese Aktion unterstützt noch keine anpassbaren Kurzbefehle."
           }
         },
         "es": {
@@ -13867,7 +13867,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Los datos tal como se leyeron se apartan la próxima vez que guardes."
+            "value": "Los datos leídos se guardan aparte la próxima vez que guardes."
           }
         }
       }
@@ -13914,7 +13914,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Diese Anordnung wurde anderswo geändert, während du sie bearbeitet hast. Duplizieren behält deine Änderungen als neue Anordnung."
+            "value": "Diese Anordnung wurde anderswo geändert, während du sie bearbeitet hast. „Duplizieren“ behält deine Änderungen als neue Anordnung."
           }
         },
         "es": {
@@ -13967,7 +13967,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Diese Anordnung wurde anderswo geändert. Sichern behält deine Änderungen als neue Anordnung."
+            "value": "Diese Anordnung wurde anderswo geändert. „Sichern“ behält deine Änderungen als neue Anordnung."
           }
         },
         "es": {
@@ -14067,7 +14067,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Utiliser l’enregistrée"
+            "value": "Utiliser la version enregistrée"
           }
         },
         "de": {
@@ -14096,19 +14096,19 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@を「%2$@」の %3$lld 番目に移しました（%4$lld 個中）。"
+            "value": "%1$@ を「%2$@」の %3$lld 番目に移しました（%4$lld 個中）。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "已将%1$@移到“%2$@”，第 %3$lld 个（共 %4$lld 个）。"
+            "value": "已将 %1$@ 移到“%2$@”，第 %3$lld 个（共 %4$lld 个）。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "已將%1$@移到「%2$@」，第 %3$lld 個（共 %4$lld 個）。"
+            "value": "已將 %1$@ 移到「%2$@」，第 %3$lld 個（共 %4$lld 個）。"
           }
         },
         "ko": {
@@ -14255,31 +14255,31 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@をツールバーから外しました。「…」から使えます。"
+            "value": "%@ をツールバーから外しました。「…」から使えます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "已从工具栏移除%@，仍可在“…”中使用。"
+            "value": "已从工具栏移除 %@，仍可在“…”中使用。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "已從工具列移除%@，仍可在「…」中使用。"
+            "value": "已從工具列移除 %@，仍可在「…」中使用。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@을(를) 도구 막대에서 뺐습니다. “…”에서 쓸 수 있습니다."
+            "value": "%@을(를) 도구 막대에서 뺐습니다. ‘…’에서 쓸 수 있습니다."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ n’est plus utilisé. Il reste accessible dans « … »."
+            "value": "%@ n’est plus utilisé. Il reste accessible dans « … »."
           }
         },
         "de": {
@@ -14762,13 +14762,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Erscheint bei Dokumenten mit Druckstil oder HTML-Vorgabe."
+            "value": "Erscheint bei Dokumenten mit Druckstil oder HTML-Voreinstellung."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aparece en documentos que usan un estilo de impresión o un ajuste HTML."
+            "value": "Aparece en documentos que usan un estilo de impresión o un preajuste HTML."
           }
         }
       }
@@ -14821,7 +14821,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aparece en documentos con varias páginas, encabezados o marcadores."
+            "value": "Aparece en documentos con varias páginas, títulos o marcadores."
           }
         }
       }
@@ -15080,7 +15080,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Erscheint nur beim Vergrößern."
+            "value": "Erscheint nur bei vergrößerter Ansicht."
           }
         },
         "es": {
@@ -15507,7 +15507,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Volver al estándar"
+            "value": "Volver a la estándar"
           }
         }
       }
@@ -15554,13 +15554,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zurück zu Standard, noch nicht gesichert. Widerrufen holt deine Anordnung zurück."
+            "value": "Zurück zu „Standard“, noch nicht gesichert. „Widerrufen“ holt deine Anordnung zurück."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vuelta al estándar, aún sin guardar. Deshacer recupera tu disposición."
+            "value": "Vuelta a la estándar, aún sin guardar. Deshacer recupera tu disposición."
           }
         }
       }
@@ -15765,13 +15765,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wählt einen Druckstil oder eine HTML-Bereinigungsvorgabe."
+            "value": "Wählt einen Druckstil oder eine Voreinstellung zur HTML-Bereinigung."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Elige un estilo de impresión o un ajuste de limpieza HTML."
+            "value": "Elige un estilo de impresión o un preajuste de limpieza HTML."
           }
         }
       }
@@ -15918,7 +15918,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Supprimer « %@ » ?"
+            "value": "Supprimer « %@ » ?"
           }
         },
         "de": {
@@ -16124,13 +16124,13 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "모든 작업은 “…”에서도 사용할 수 있습니다."
+            "value": "모든 작업은 ‘…’에서도 사용할 수 있습니다."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Toutes les opérations sont aussi accessibles dans « … »."
+            "value": "Toutes les opérations sont aussi accessibles dans « … »."
           }
         },
         "de": {
@@ -16377,13 +16377,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "正在编辑"
+            "value": "要编辑的布局"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "正在編輯"
+            "value": "要編輯的版面"
           }
         },
         "ko": {
@@ -16978,7 +16978,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Avancer"
+            "value": "Déplacer avant"
           }
         },
         "de": {
@@ -17007,19 +17007,19 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "前へ (⌥←)"
+            "value": "前へ（⌥←）"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "前移 (⌥←)"
+            "value": "前移（⌥←）"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "前移 (⌥←)"
+            "value": "前移（⌥←）"
           }
         },
         "ko": {
@@ -17031,7 +17031,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Avancer (⌥←)"
+            "value": "Déplacer avant (⌥←)"
           }
         },
         "de": {
@@ -17084,7 +17084,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reculer"
+            "value": "Déplacer après"
           }
         },
         "de": {
@@ -17113,19 +17113,19 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "後ろへ (⌥→)"
+            "value": "後ろへ（⌥→）"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "后移 (⌥→)"
+            "value": "后移（⌥→）"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "後移 (⌥→)"
+            "value": "後移（⌥→）"
           }
         },
         "ko": {
@@ -17137,7 +17137,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reculer (⌥→)"
+            "value": "Déplacer après (⌥→)"
           }
         },
         "de": {
@@ -17302,7 +17302,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Geht zur vorigen oder nächsten Seite."
+            "value": "Geht zur vorherigen oder nächsten Seite."
           }
         },
         "es": {
@@ -17648,7 +17648,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "打开图像集中的图片或合订本中的文档列表。"
+            "value": "打开图像集中的图像或合订本中的文档列表。"
           }
         },
         "zh-Hant": {
@@ -17990,7 +17990,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vorige / nächste Seite"
+            "value": "Vorherige / nächste Seite"
           }
         },
         "es": {
@@ -18037,7 +18037,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "« Imprimer » peut être déplacé, mais pas retiré."
+            "value": "« Imprimer » peut être déplacé, mais pas retiré."
           }
         },
         "de": {
@@ -18102,7 +18102,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Devuelve las dos variantes al estándar sin guardar"
+            "value": "Devuelve las dos variantes a la estándar sin guardar"
           }
         }
       }
@@ -18137,7 +18137,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "다시 실행"
+            "value": "실행 복귀"
           }
         },
         "fr": {
@@ -18172,19 +18172,19 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "やり直す (⇧⌘Z)"
+            "value": "やり直す（⇧⌘Z）"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "重做 (⇧⌘Z)"
+            "value": "重做（⇧⌘Z）"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "重做 (⇧⌘Z)"
+            "value": "重做（⇧⌘Z）"
           }
         },
         "ko": {
@@ -18390,7 +18390,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "存储为新排列"
+            "value": "保存为新排列"
           }
         },
         "zh-Hant": {
@@ -18514,13 +18514,13 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Enregistrer remplace « %@ » par vos modifications. Abandonner la garde telle qu’enregistrée."
+            "value": "Enregistrer remplace « %@ » par vos modifications. Abandonner la garde telle qu’enregistrée."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sichern ersetzt „%@“ durch deine Änderungen. Verwerfen lässt sie wie gesichert."
+            "value": "„Sichern“ ersetzt „%@“ durch deine Änderungen. „Verwerfen“ behält den gesicherten Stand bei."
           }
         },
         "es": {
@@ -18673,7 +18673,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "« %@ » enregistrée. Toutes les fenêtres d’affichage l’utilisent."
+            "value": "« %@ » enregistrée. Toutes les fenêtres d’affichage l’utilisent."
           }
         },
         "de": {
@@ -19079,7 +19079,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "放大时显示缩放比例；点按可适合窗口。"
+            "value": "放大时显示缩放比例；点按可使纸张适合窗口。"
           }
         },
         "zh-Hant": {
@@ -19103,7 +19103,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zeigt beim Vergrößern den Zoom; ein Klick passt an das Fenster an."
+            "value": "Zeigt bei vergrößerter Ansicht den Zoom; ein Klick passt die Seite ans Fenster an."
           }
         },
         "es": {
@@ -19262,7 +19262,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Standard lässt sich nicht überschreiben. Dupliziere es, um deine Änderungen zu behalten."
+            "value": "„Standard“ lässt sich nicht überschreiben. Dupliziere die Anordnung, um deine Änderungen zu behalten."
           }
         },
         "es": {
@@ -19315,7 +19315,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Standard ändert sich nicht. Sichern behält deine Änderungen als neue Anordnung."
+            "value": "„Standard“ ändert sich nicht. „Sichern“ behält deine Änderungen als neue Anordnung."
           }
         },
         "es": {
@@ -19468,7 +19468,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fait passer un document HTML de l’affichage web à l’affichage papier."
+            "value": "Bascule un document HTML entre l’affichage web et l’affichage papier."
           }
         },
         "de": {
@@ -19692,7 +19692,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Por ahora la barra de herramientas usa la estándar y no se guarda nada. Empezar de nuevo aparta los datos ilegibles en lugar de borrarlos."
+            "value": "Por ahora la barra de herramientas usa la estándar y no se guarda nada. Empezar de nuevo guarda aparte los datos ilegibles en lugar de borrarlos."
           }
         }
       }
@@ -19868,19 +19868,19 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "取り消す (⌘Z)"
+            "value": "取り消す（⌘Z）"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "撤销 (⌘Z)"
+            "value": "撤销（⌘Z）"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "還原 (⌘Z)"
+            "value": "還原（⌘Z）"
           }
         },
         "ko": {
@@ -20151,13 +20151,13 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "“…”는 고정되어 있습니다. 모든 작업은 여기서도 사용할 수 있습니다."
+            "value": "‘…’는 고정되어 있습니다. 모든 작업은 여기서도 사용할 수 있습니다."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "« … » est fixe. Toutes les opérations y sont aussi accessibles."
+            "value": "« … » est fixe. Toutes les opérations y sont aussi accessibles."
           }
         },
         "de": {
@@ -20291,7 +20291,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@。範囲: %2$@。ショートカット: %3$@。"
+            "value": "%1$@。範囲：%2$@。ショートカット：%3$@。"
           }
         },
         "zh-Hans": {
@@ -20403,25 +20403,25 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "“%@”正在使用此键。暂时无法更改本地快捷键。"
+            "value": "“%@”正在使用此键。暂时无法更改应用内快捷键。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "「%@」正在使用此鍵。暫時無法變更本機快速鍵。"
+            "value": "「%@」正在使用此鍵。暫時無法變更App 內快速鍵。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "‘%@’에서 사용 중입니다. 로컬 단축키는 아직 변경할 수 없습니다."
+            "value": "‘%@’에서 사용 중입니다. 앱 내 단축키는 아직 변경할 수 없습니다."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Déjà utilisé par « %@ ». Les raccourcis locaux ne sont pas encore modifiables."
+            "value": "Déjà utilisé par « %@ ». Les raccourcis locaux ne sont pas encore modifiables."
           }
         },
         "de": {
@@ -21222,7 +21222,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dokument speichern"
+            "value": "Dokument sichern"
           }
         },
         "es": {
@@ -21799,7 +21799,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Globaux"
+            "value": "Partout"
           }
         },
         "de": {
@@ -21828,7 +21828,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Surimono を隠す"
+            "value": "Surimono を非表示"
           }
         },
         "zh-Hans": {
@@ -22258,13 +22258,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在小册子打印预览中"
+            "value": "在小册子的折叠预览中"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "在小冊子列印預覽中"
+            "value": "在小冊子的摺疊預覽中"
           }
         },
         "ko": {
@@ -22276,7 +22276,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dans l’aperçu des livrets"
+            "value": "Dans l’aperçu plié des livrets"
           }
         },
         "de": {
@@ -22311,19 +22311,19 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在从内存创建的文档中"
+            "value": "在从剪贴板等打开的文档中"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "在從記憶體建立的文件中"
+            "value": "在從剪貼簿等打開的文件中"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "메모리에서 만든 문서에서"
+            "value": "클립보드 등에서 연 문서에서"
           }
         },
         "fr": {
@@ -22364,13 +22364,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在可添加内容的文档中"
+            "value": "在可添加文档的窗口中"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "在可新增內容的文件中"
+            "value": "在可加入文件的視窗中"
           }
         },
         "ko": {
@@ -22388,7 +22388,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "In Dokumenten, die Ergänzungen erlauben"
+            "value": "In Fenstern, die weitere Dokumente annehmen"
           }
         },
         "es": {
@@ -22570,7 +22570,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "文書の数字が使える表示モードで"
+            "value": "文書の情報が見られる表示モードで"
           }
         },
         "zh-Hans": {
@@ -22700,7 +22700,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Conserver pour « %@ »"
+            "value": "Conserver pour « %@ »"
           }
         },
         "de": {
@@ -22812,13 +22812,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Erhält Standardaktionen und Texteingaben."
+            "value": "Hält Standardaktionen und das Bestätigen von Eingaben verfügbar."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Conserva los botones predeterminados y el envío de texto."
+            "value": "Mantiene disponibles los botones predeterminados y el envío de texto."
           }
         }
       }
@@ -23159,7 +23159,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "由 macOS 窗口和应用控制管理。"
+            "value": "由 macOS 管理，用于窗口和应用操作。"
           }
         },
         "zh-Hant": {
@@ -23218,7 +23218,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "縮小"
+            "value": "縮到最小"
           }
         },
         "ko": {
@@ -23230,13 +23230,13 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Réduire"
+            "value": "Placer dans le Dock"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Minimieren"
+            "value": "Im Dock ablegen"
           }
         },
         "es": {
@@ -23477,25 +23477,25 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在有页面的纸面上"
+            "value": "在有页面的纸张上"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "在有頁面的紙面上"
+            "value": "在有頁面的紙張上"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "페이지가 있는 종이에서"
+            "value": "페이지가 있는 용지에서"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sur un papier paginé"
+            "value": "Sur le papier paginé"
           }
         },
         "de": {
@@ -23530,25 +23530,25 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在可选择文本的纸面上"
+            "value": "在可选择文本的纸张上"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "在可選取文字的紙面上"
+            "value": "在可選取文字的紙張上"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "텍스트를 선택할 수 있는 종이에서"
+            "value": "텍스트를 선택할 수 있는 용지에서"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sur du papier au texte sélectionnable"
+            "value": "Sur le papier avec texte sélectionnable"
           }
         },
         "de": {
@@ -23583,19 +23583,19 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在查看模式的纸面上"
+            "value": "在查看模式的纸张上"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "在檢視模式的紙面上"
+            "value": "在檢視模式的紙張上"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "보기 모드의 종이에서"
+            "value": "보기 모드의 용지에서"
           }
         },
         "fr": {
@@ -23742,13 +23742,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "下一页"
+            "value": "Page Down"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "下一頁"
+            "value": "Page Down"
           }
         },
         "ko": {
@@ -23795,13 +23795,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "上一页"
+            "value": "Page Up"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "上一頁"
+            "value": "Page Up"
           }
         },
         "ko": {
@@ -24001,7 +24001,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "以前のショートカット: %@"
+            "value": "以前のショートカット：%@"
           }
         },
         "zh-Hans": {
@@ -24219,7 +24219,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "已为 Spotlight 保留。"
+            "value": "已为 “聚焦” 保留。"
           }
         },
         "zh-Hant": {
@@ -24378,13 +24378,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "已为 macOS 应用和工作区控制保留。"
+            "value": "已为 macOS 的应用切换和空间切换保留。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "已為 macOS 應用程式與工作空間控制保留。"
+            "value": "已為 macOS 應用程式與空間控制保留。"
           }
         },
         "ko": {
@@ -24696,13 +24696,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在搜索栏中用 Return 和 Shift-Return 移动到下一个或上一个结果。"
+            "value": "在查找栏中用 Return 和 Shift-Return 移动到下一个或上一个结果。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "在搜尋欄中以 Return 和 Shift-Return 移至下一個或上一個結果。"
+            "value": "在尋找欄中以 Return 和 Shift-Return 移至下一個或上一個結果。"
           }
         },
         "ko": {
@@ -24867,7 +24867,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "모두 선택"
+            "value": "전체 선택"
           }
         },
         "fr": {
@@ -25038,13 +25038,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kurzbefehle konnten nicht gespeichert werden. Öffne diese Seite erneut; vorhandene Daten bleiben erhalten."
+            "value": "Kurzbefehle konnten nicht gesichert werden. Öffne diese Seite erneut; vorhandene Daten bleiben erhalten."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "No se pudieron guardar los atajos. Abre esta página de nuevo; los datos existentes se conservan."
+            "value": "No se pudieron guardar los atajos. Vuelve a abrir esta página e inténtalo de nuevo; los datos existentes se conservan."
           }
         }
       }
@@ -25067,13 +25067,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "显示／隐藏工具栏"
+            "value": "显示 / 隐藏工具栏"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "顯示／隱藏工具列"
+            "value": "顯示 / 隱藏工具列"
           }
         },
         "ko": {
@@ -25226,13 +25226,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "转到搜索结果"
+            "value": "转到查找结果"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "移至搜尋結果"
+            "value": "移至尋找結果"
           }
         },
         "ko": {
@@ -25438,19 +25438,19 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tab 用于焦点导航和纸面工具栏。"
+            "value": "Tab 用于焦点导航和纸张工具栏。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tab 用於焦點導覽和紙面工具列。"
+            "value": "Tab 用於焦點導覽和紙張工具列。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tab은 포커스 이동과 종이 도구 막대에 사용됩니다."
+            "value": "Tab은 포커스 이동과 용지 도구 막대에 사용됩니다."
           }
         },
         "fr": {
@@ -25756,19 +25756,19 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "向左翻折叠预览"
+            "value": "在折叠预览中向左翻页"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "向左翻摺疊預覽"
+            "value": "在摺疊預覽中向左翻頁"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "접기 미리보기 왼쪽으로 넘기기"
+            "value": "접은 모습 왼쪽으로 넘기기"
           }
         },
         "fr": {
@@ -25809,19 +25809,19 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "向右翻折叠预览"
+            "value": "在折叠预览中向右翻页"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "向右翻摺疊預覽"
+            "value": "在摺疊預覽中向右翻頁"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "접기 미리보기 오른쪽으로 넘기기"
+            "value": "접은 모습 오른쪽으로 넘기기"
           }
         },
         "fr": {
@@ -25856,7 +25856,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "大きい用紙に2ページ配置"
+            "value": "大きい用紙に 2 ページ配置"
           }
         },
         "zh-Hans": {
@@ -25874,7 +25874,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "큰 용지에 2페이지"
+            "value": "큰 용지에 2쪽"
           }
         },
         "fr": {
@@ -25909,7 +25909,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "小さい用紙に2ページ配置"
+            "value": "小さい用紙に 2 ページ配置"
           }
         },
         "zh-Hans": {
@@ -25927,7 +25927,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "작은 용지에 2페이지"
+            "value": "작은 용지에 2쪽"
           }
         },
         "fr": {
@@ -26145,7 +26145,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Utiliser pour « %@ »"
+            "value": "Utiliser pour « %@ »"
           }
         },
         "de": {
@@ -26180,13 +26180,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在可更新时"
+            "value": "更新功能可用时"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "在可更新時"
+            "value": "更新功能可用時"
           }
         },
         "ko": {
@@ -26198,7 +26198,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Si la mise à jour est disponible"
+            "value": "Si la fonction de mise à jour est disponible"
           }
         },
         "de": {
@@ -26245,7 +26245,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "어떤 작업에 이 키를 유지할까요?"
+            "value": "어떤 작업에 이 키를 유지하겠습니까?"
           }
         },
         "fr": {
@@ -26286,19 +26286,19 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "纸面获得焦点时；翻页取决于阅读方向、缩放和滚动方式。"
+            "value": "纸张获得焦点时；翻页取决于阅读方向、缩放和滚动方式。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "紙面取得焦點時；翻頁取決於閱讀方向、縮放與捲動方式。"
+            "value": "紙張取得焦點時；翻頁取決於閱讀方向、縮放與捲動方式。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "종이에 포커스가 있을 때 읽기 방향, 확대 및 스크롤 방식에 따라 페이지를 넘깁니다."
+            "value": "용지에 포커스가 있을 때 읽기 방향, 확대 및 스크롤 방식에 따라 페이지를 넘깁니다."
           }
         },
         "fr": {
@@ -26410,13 +26410,13 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "R/V manuel"
+            "value": "Recto verso manuel"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hand-Duplex"
+            "value": "Manueller Duplexdruck"
           }
         },
         "es": {
@@ -26765,7 +26765,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "等待所有紙張輸出。"
+            "value": "等待所有紙張印出。"
           }
         },
         "ko": {
@@ -26783,13 +26783,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Warten Sie, bis alle Blätter ausgegeben wurden."
+            "value": "Warte, bis alle Blätter ausgegeben wurden."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Espere a que salgan todas las hojas."
+            "value": "Espera a que salgan todas las hojas."
           }
         }
       }
@@ -26836,13 +26836,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Legen Sie den Stapel in derselben Reihenfolge wieder in das Fach."
+            "value": "Lege den Stapel in derselben Reihenfolge wieder in das Fach."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vuelva a colocar la pila en la bandeja sin cambiar el orden."
+            "value": "Vuelve a colocar la pila en la bandeja sin cambiar el orden."
           }
         }
       }
@@ -26889,13 +26889,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Legen Sie das Papier so ein, dass die leeren Seiten bedruckt werden. Drehen Sie bei Bedarf den ganzen Stapel."
+            "value": "Lege das Papier so ein, dass die leeren Seiten bedruckt werden. Drehe bei Bedarf den ganzen Stapel."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cargue el papel para imprimir en las caras en blanco. Si necesita girarlo, gire toda la pila."
+            "value": "Carga el papel para imprimir en las caras en blanco. Si necesitas girarlo, gira toda la pila."
           }
         }
       }
@@ -27071,7 +27071,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "裏を 180° 回す"
+            "value": "裏を 180° 回転"
           }
         },
         "zh-Hans": {
@@ -27095,7 +27095,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tourner les versos de 180°"
+            "value": "Faire pivoter les versos de 180°"
           }
         },
         "de": {
@@ -27160,7 +27160,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Si los reversos se imprimieron boca abajo"
+            "value": "Si los reversos se imprimieron invertidos"
           }
         }
       }
@@ -27418,13 +27418,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ ist nicht verfügbar. Verbinden Sie den Drucker und klicken Sie auf Rückseiten drucken."
+            "value": "%@ ist nicht verfügbar. Verbinde den Drucker und klicke auf „Rückseiten drucken“."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "No se encuentra %@. Conecte la impresora y pulse Imprimir los reversos."
+            "value": "No se encuentra %@. Conecta la impresora y pulsa Imprimir los reversos."
           }
         }
       }
@@ -27494,7 +27494,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "印刷を送れなかったか、取り消されました。プリンターの待ち行列と用紙を確かめてから、やり直してください。"
+            "value": "印刷を送れなかったか、キャンセルされました。プリントキューと用紙を確かめてから、やり直してください。"
           }
         },
         "zh-Hans": {
@@ -27524,13 +27524,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Der Druckauftrag konnte nicht gesendet werden oder wurde abgebrochen. Prüfen Sie die Warteschlange und das Papier, bevor Sie es erneut versuchen."
+            "value": "Der Druckauftrag konnte nicht gesendet werden oder wurde abgebrochen. Prüfe die Warteschlange und das Papier, bevor du es erneut versuchst."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "No se pudo enviar el trabajo de impresión o se canceló. Revise la cola de impresión y el papel antes de volver a intentarlo."
+            "value": "No se pudo enviar el trabajo de impresión o se canceló. Revisa la cola de impresión y el papel antes de volver a intentarlo."
           }
         }
       }
@@ -27618,7 +27618,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ (앞면)"
+            "value": "%@(앞면)"
           }
         },
         "fr": {
@@ -27671,7 +27671,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ (뒷면)"
+            "value": "%@(뒷면)"
           }
         },
         "fr": {
@@ -27827,7 +27827,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "페이지 아래에 배치 (베타)"
+            "value": "페이지 아래에 배치(베타)"
           }
         },
         "fr": {
@@ -27971,7 +27971,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "打印接受后的版本"
+            "value": "打印接受修订后的版本"
           }
         },
         "zh-Hant": {
@@ -27995,7 +27995,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Änderungen übernommen drucken"
+            "value": "Mit übernommenen Änderungen drucken"
           }
         },
         "es": {
@@ -28139,7 +28139,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "종이에 표시할 링크"
+            "value": "용지에 표시할 링크"
           }
         },
         "fr": {
@@ -28393,7 +28393,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "清除快捷鍵"
+            "value": "清除快速鍵"
           }
         },
         "ko": {
@@ -28445,7 +28445,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "無法註冊此快捷鍵。請嘗試其他組合。"
+            "value": "無法註冊此快速鍵。請嘗試其他組合。"
           }
         },
         "ko": {
@@ -28497,7 +28497,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "全域快捷鍵"
+            "value": "全域快速鍵"
           }
         },
         "ko": {
@@ -28537,7 +28537,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "HTML: %@"
+            "value": "HTML %@"
           }
         },
         "zh-Hans": {
@@ -28653,7 +28653,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "錄製快捷鍵"
+            "value": "錄製快速鍵"
           }
         },
         "ko": {
@@ -28723,13 +28723,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "样式、字号和字体"
+            "value": "样式、文字大小和字体"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "樣式、字級與字體"
+            "value": "樣式、文字大小與字體"
           }
         }
       }
@@ -28751,13 +28751,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "边距 %@ mm"
+            "value": "边距 %@ 毫米"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "邊界 %@ mm"
+            "value": "邊界 %@ 公釐"
           }
         },
         "ko": {
@@ -28971,7 +28971,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "메모 없음"
+            "value": "노트 없음"
           }
         },
         "fr": {
@@ -29081,7 +29081,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Texte : %lld%%"
+            "value": "Texte : %lld %%"
           }
         },
         "de": {
@@ -29139,7 +29139,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Integrierte Sets"
+            "value": "Integrierte"
           }
         },
         "es": {
@@ -29225,7 +29225,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "輸入快捷鍵"
+            "value": "輸入快速鍵"
           }
         },
         "ko": {
@@ -29329,7 +29329,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "請包含 Command、Option 或 Control，並為每個操作使用不同的快捷鍵。"
+            "value": "請包含 Command、Option 或 Control，並為每個操作使用不同的快速鍵。"
           }
         },
         "ko": {
@@ -29399,7 +29399,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Eigene Sets"
+            "value": "Eigene"
           }
         },
         "es": {
@@ -29421,7 +29421,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "用紙とレイアウト・余白・ヘッダーとフッター・仕上げ・ノート・スタイルと文字の大きさ・HTML プリセットをまとめて当てます。1 枚・見開きと拡大率は含みません。"
+            "value": "用紙とレイアウト・余白・ヘッダーとフッター・仕上げ・ノート・スタイルと文字の大きさ・HTML プリセットをまとめて当てます。単ページ・見開きと拡大率は含みません。"
           }
         },
         "zh-Hans": {
@@ -29433,13 +29433,13 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "一次套用紙張與版面、邊界、頁首與頁尾、分頁等處理、筆記頁、樣式與文字大小及 HTML 預設。不包含檢視版面和縮放比例。"
+            "value": "一次套用紙張與佈局、邊界、頁首與頁尾、分頁等處理、筆記頁、樣式與文字大小及 HTML 預設。不包含檢視版面和縮放比例。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "용지와 레이아웃, 여백, 머리말과 꼬리말, 마무리, 메모, 스타일과 글자 크기, HTML 프리셋을 한 번에 적용합니다. 보기 레이아웃과 확대 비율은 포함하지 않습니다."
+            "value": "용지와 레이아웃, 여백, 머리말과 꼬리말, 마무리, 노트, 스타일과 텍스트 크기, HTML 프리셋을 한 번에 적용합니다. 보기 레이아웃과 확대 비율은 포함하지 않습니다."
           }
         },
         "fr": {
@@ -29451,7 +29451,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wendet Papier und Layout, Ränder, Kopf- und Fußzeilen, Verarbeitung, Notizen, Stil und Textgröße sowie HTML-Vorlagen in einem Schritt an. Ansichtslayout und Zoom sind nicht enthalten."
+            "value": "Wendet Papier und Layout, Ränder, Kopf- und Fußzeilen, Verarbeitung, Notizen, Stil und Textgröße sowie HTML-Voreinstellungen in einem Schritt an. Ansichtslayout und Zoom sind nicht enthalten."
           }
         },
         "es": {
@@ -29503,13 +29503,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Noch keine. Sichern Sie eines über Dokument › Einstellungssätze › Aktuelle Einstellungen sichern … oder über Einstellungssätze im Druckbildschirm."
+            "value": "Noch keine. Sichere einen über Dokument › Einstellungssätze › Aktuelle Einstellungen sichern … oder über Einstellungssätze im Druckbildschirm."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aún no hay. Guarda uno con Documento › Conjuntos de ajustes › Guardar ajustes actuales… o con Conjuntos de ajustes en la pantalla de impresión."
+            "value": "Aún no hay ninguno. Guarda uno desde Documento › Conjuntos de ajustes › Guardar ajustes actuales… o desde Conjuntos de ajustes en la pantalla de impresión."
           }
         }
       }
@@ -29699,13 +29699,13 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Remplacer « %@ » par les réglages actuels"
+            "value": "Remplacer « %@ » par les réglages actuels"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "“%@”을(를) 현재 설정으로 덮어쓰기"
+            "value": "‘%@’을(를) 현재 설정으로 덮어쓰기"
           }
         },
         "zh-Hans": {
@@ -30011,13 +30011,13 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Remplacer « %@ » ?"
+            "value": "Remplacer « %@ » ?"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "“%@”을(를) 덮어쓸까요?"
+            "value": "‘%@’을(를) 덮어쓰겠습니까?"
           }
         },
         "zh-Hans": {
@@ -30051,7 +30051,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Der gespeicherte Einstellungssatz wird durch die aktuellen Einstellungen ersetzt."
+            "value": "Der gesicherte Einstellungssatz wird durch die aktuellen Einstellungen ersetzt."
           }
         },
         "es": {
@@ -30519,7 +30519,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Una guía breve para ver, imprimir y doblar como folleto"
+            "value": "Una guía breve para ver, imprimir y plegar en un folleto"
           }
         },
         "fr": {
@@ -30699,13 +30699,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "请先复制 Markdown、文本或图像，然后重试。"
+            "value": "请先拷贝 Markdown、文本或图像，然后重试。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "請先複製 Markdown、文字或影像，然後重試。"
+            "value": "請先拷貝 Markdown、文字或影像，然後重試。"
           }
         }
       }
@@ -30871,7 +30871,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wählen Sie einen Ordner, der dieses Dokument enthält"
+            "value": "Wähle einen Ordner, der dieses Dokument enthält"
           }
         },
         "en": {
@@ -30923,7 +30923,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wählen Sie den Ordner des Dokuments oder einen übergeordneten Ordner, um Bilder und andere Ressourcen anzuzeigen."
+            "value": "Wähle den Ordner des Dokuments oder einen übergeordneten Ordner, um Bilder und andere Ressourcen anzuzeigen."
           }
         },
         "en": {
@@ -30975,7 +30975,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Der Ordnerzugriff konnte nicht gespeichert werden"
+            "value": "Der Ordnerzugriff konnte nicht gesichert werden"
           }
         },
         "en": {
@@ -31339,7 +31339,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "表示モードで出す"
+            "value": "表示モードのとき"
           }
         },
         "en": {
@@ -31357,7 +31357,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "顯示模式"
+            "value": "檢視模式"
           }
         },
         "ko": {
@@ -31381,7 +31381,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "En modo de lectura"
+            "value": "En modo de vista"
           }
         }
       }
@@ -31421,7 +31421,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Joindre les pages en défilement simple"
+            "value": "Joindre les pages en défilement en page simple"
           }
         },
         "de": {
@@ -31473,7 +31473,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les numéros de page sont masqués en défilement simple."
+            "value": "Les numéros de page sont masqués en défilement en page simple."
           }
         },
         "de": {
@@ -31652,7 +31652,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ページのあいだを詰める"
+            "value": "ページをつなぐ"
           }
         },
         "en": {
@@ -32218,7 +32218,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Diese PDF konnte nicht geöffnet werden."
+            "value": "Dieses PDF konnte nicht geöffnet werden."
           }
         },
         "es": {
@@ -33013,7 +33013,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Diese Taste öffnet den Speicherdialog für ein PDF in Lesereihenfolge."
+            "value": "Diese Taste öffnet den Dialog zum Sichern eines PDFs in Lesereihenfolge."
           }
         },
         "es": {
@@ -33331,13 +33331,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sobald das gesamte Dokument vorbereitet ist, können Sie es drucken und den Inhalt aufrufen."
+            "value": "Sobald das gesamte Dokument vorbereitet ist, kannst du es drucken und den Inhalt aufrufen."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cuando termine de prepararse todo el documento, podrá imprimirlo y consultar el índice."
+            "value": "Cuando termine de prepararse todo el documento, podrás imprimirlo y consultar el índice."
           }
         }
       }
@@ -33749,7 +33749,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pivoter les versos de 180°"
+            "value": "Faire pivoter les versos de 180°"
           }
         },
         "de": {
@@ -34089,7 +34089,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ユーザープリセットのフォルダを開く"
+            "value": "自分のプリセットのフォルダを開く"
           }
         },
         "en": {
@@ -34602,7 +34602,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Druckstile konnten nicht geladen werden. Laden Sie sie in den Einstellungen neu."
+            "value": "Druckstile konnten nicht geladen werden. Lade sie in den Einstellungen neu."
           }
         },
         "es": {
@@ -34814,7 +34814,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die PDF konnte nicht exportiert werden."
+            "value": "Das PDF konnte nicht exportiert werden."
           }
         },
         "es": {
@@ -34914,7 +34914,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "양면, 긴 가장자리"
+            "value": "양면, 긴 쪽 제본"
           }
         },
         "zh-Hans": {
@@ -34967,7 +34967,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "양면, 짧은 가장자리"
+            "value": "양면, 짧은 쪽 제본"
           }
         },
         "zh-Hans": {
@@ -35271,7 +35271,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Verschlüsselte PDFs können nicht gedruckt werden. Öffnen Sie eine entsperrte Kopie."
+            "value": "Verschlüsselte PDFs können nicht gedruckt werden. Öffne eine entsperrte Kopie."
           }
         },
         "es": {
@@ -35300,19 +35300,19 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "无法在不丢失数据的情况下读取此文本编码。"
+            "value": "无法确定能完整读取文本的字符编码。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "無法在不遺失資料的情況下讀取此文字編碼。"
+            "value": "無法判定能完整讀取文字的字元編碼。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "데이터 손실 없이 텍스트 인코딩을 읽을 수 없습니다."
+            "value": "문자 손실 없이 읽을 수 있는 텍스트 인코딩을 판별할 수 없습니다."
           }
         },
         "fr": {
@@ -35377,7 +35377,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die Ränder sind für diese Seite zu groß. Ändern Sie sie in den Einstellungen."
+            "value": "Die Ränder sind für diese Seite zu groß. Ändere sie in den Einstellungen."
           }
         },
         "es": {
@@ -35418,7 +35418,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "지원하지 않는 문서 포맷입니다."
+            "value": "지원하지 않는 문서 형식입니다."
           }
         },
         "fr": {
@@ -35483,7 +35483,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Das Dokument konnte nicht in Seiten aufgeteilt werden. Laden Sie es erneut."
+            "value": "Das Dokument konnte nicht in Seiten aufgeteilt werden. Lade es erneut."
           }
         },
         "es": {
@@ -35589,7 +35589,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zeitüberschreitung beim Laden oder Paginieren. Laden Sie das Dokument erneut."
+            "value": "Zeitüberschreitung beim Laden oder Aufteilen in Seiten. Lade das Dokument erneut."
           }
         },
         "es": {
@@ -36003,13 +36003,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ 等另外 %lld 项"
+            "value": "%@，另有 %lld 张"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ 等另外 %lld 項"
+            "value": "%@，另有 %lld 張"
           }
         },
         "ko": {
@@ -36173,7 +36173,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "開けなかった画像: %@"
+            "value": "開けなかった画像：%@"
           }
         },
         "en": {
@@ -36565,7 +36565,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "모든 Spaces에 표시"
+            "value": "모든 데스크탑에 표시"
           }
         },
         "fr": {
@@ -36712,7 +36712,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "视图"
+            "value": "显示"
           }
         },
         "zh-Hant": {
@@ -37310,7 +37310,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "문서의 일부가 너무 깊게 중첩되어 읽을 수 없습니다. 해당 부분은 원문 그대로 인쇄됩니다."
+            "value": "문서의 일부가 너무 깊게 중첩되어 있습니다. 해당 부분은 원문 그대로 인쇄됩니다."
           }
         },
         "zh-Hans": {
@@ -37891,19 +37891,19 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Réinitialiser tous les réglages de ce document"
+            "value": "Réinitialiser ce document"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Alle Einstellungen dieses Dokuments zurücksetzen"
+            "value": "Dokumenteinstellungen zurücksetzen"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Restablecer todos los ajustes de este documento"
+            "value": "Restablecer ajustes del documento"
           }
         }
       }
@@ -39244,19 +39244,19 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Réinitialiser tous les réglages de ce document"
+            "value": "Réinitialiser les réglages du document"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Alle Einstellungen dieses Dokuments zurücksetzen"
+            "value": "Dokumenteinstellungen zurücksetzen"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Restablecer todos los ajustes de este documento"
+            "value": "Restablecer ajustes del documento"
           }
         }
       }
@@ -39303,7 +39303,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dieses ZIP-Archiv wurde geändert. Schließen und öffnen Sie es erneut, um die neuen Bilder zu sehen."
+            "value": "Dieses ZIP-Archiv wurde geändert. Schließe und öffne es erneut, um die neuen Bilder zu sehen."
           }
         },
         "es": {
@@ -39320,7 +39320,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "画像が変わり続けています。読み直してください。"
+            "value": "画像が変わり続けています。再読み込みしてください。"
           }
         },
         "en": {
@@ -39356,7 +39356,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die Bilder ändern sich fortlaufend. Laden Sie das Dokument erneut."
+            "value": "Die Bilder ändern sich fortlaufend. Lade das Dokument erneut."
           }
         },
         "es": {
@@ -39391,7 +39391,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "返回顯示"
+            "value": "返回檢視"
           }
         },
         "ko": {
@@ -39444,7 +39444,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "返回顯示模式（Esc）"
+            "value": "返回檢視模式（Esc）"
           }
         },
         "ko": {
@@ -39468,7 +39468,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Volver al modo de lectura (Esc)"
+            "value": "Volver al modo de vista (Esc)"
           }
         }
       }
@@ -39898,7 +39898,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ver el resultado doblado"
+            "value": "Ver el resultado plegado"
           }
         }
       }
@@ -40186,7 +40186,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ 横向 · 最内侧（中心跨页）"
+            "value": "%@ 横向 · 最内侧（中心双页）"
           }
         },
         "zh-Hant": {
@@ -40210,7 +40210,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ quer · ganz innen (Mittelseiten)"
+            "value": "%@ quer · ganz innen (mittlere Doppelseite)"
           }
         },
         "es": {
@@ -40498,7 +40498,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ページ %1$lld、%2$@"
+            "value": "%1$lld ページ、%2$@"
           }
         },
         "de": {
@@ -40757,7 +40757,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "用紙 %1$lld / %2$lld 枚"
+            "value": "用紙 %1$lld / %2$lld"
           }
         },
         "en": {
@@ -41204,7 +41204,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ 소책자, 접힘"
+            "value": "%@ 소책자 접은 모습"
           }
         },
         "fr": {
@@ -41216,7 +41216,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@-Broschüre, gefaltet"
+            "value": "Broschüre %@, gefaltet"
           }
         },
         "es": {
@@ -41316,7 +41316,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "**Dos**  %@"
+            "value": "**4e de couverture**  %@"
           }
         },
         "de": {
@@ -41404,7 +41404,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "中心跨页（装订位置）"
+            "value": "中心双页（装订位置）"
           }
         },
         "zh-Hant": {
@@ -41428,7 +41428,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mittelseiten (Heftposition)"
+            "value": "Mittlere Doppelseite (Heftposition)"
           }
         },
         "es": {
@@ -41510,7 +41510,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "上一双页"
+            "value": "上一组双页"
           }
         },
         "zh-Hant": {
@@ -41563,7 +41563,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "下一双页"
+            "value": "下一组双页"
           }
         },
         "zh-Hant": {
@@ -41722,13 +41722,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "智能移除（Beta）"
+            "value": "智能移除（测试版）"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "智慧移除（Beta）"
+            "value": "智慧移除（測試版）"
           }
         },
         "ko": {
@@ -42635,7 +42635,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Imprimer via le dialogue système…"
+            "value": "Imprimer via la fenêtre système…"
           }
         },
         "de": {
@@ -43028,7 +43028,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "1 枚・見開き"
+            "value": "単ページ・見開き"
           }
         },
         "en": {
@@ -43052,7 +43052,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "한 쪽 또는 두 쪽"
+            "value": "단일 페이지 또는 두 페이지"
           }
         },
         "fr": {
@@ -43918,7 +43918,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$lld vertical · %2$lld horizontal"
+            "value": "%1$lld en vertical · %2$lld en horizontal"
           }
         }
       }
@@ -44653,7 +44653,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Webseite im aktuellen Zustand drucken"
+            "value": "Webseite wird im aktuellen Zustand gedruckt"
           }
         },
         "es": {
@@ -44735,13 +44735,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "按文件打开时的状态打印，不包含您的更改"
+            "value": "按文件打开时的状态打印，不包含你的更改"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "依檔案打開時的狀態列印，不包含您的更改"
+            "value": "依檔案打開時的狀態列印，不包含你的更改"
           }
         },
         "ko": {
@@ -44759,7 +44759,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Seite wie beim Öffnen drucken, ohne Ihre Änderungen"
+            "value": "Seite wie beim Öffnen drucken, ohne deine Änderungen"
           }
         },
         "es": {
@@ -44812,7 +44812,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Seite wie beim Öffnen drucken"
+            "value": "Seite wird wie beim Öffnen gedruckt"
           }
         },
         "es": {
@@ -44969,13 +44969,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld 个折叠详情"
+            "value": "%lld 处内容已折叠"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld 個摺疊詳細資訊"
+            "value": "%lld 個已摺疊區塊"
           }
         },
         "ko": {
@@ -45153,13 +45153,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在纸上展开所有折叠详情；网页保持不变"
+            "value": "在纸上展开所有折叠内容；网页保持不变"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "在紙上展開所有摺疊詳細資訊；網頁保持不變"
+            "value": "在紙上展開所有已摺疊區塊；網頁保持不變"
           }
         },
         "ko": {
@@ -45183,7 +45183,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abrir todos los detalles en el papel; la web no cambia"
+            "value": "Abrir todos los detalles cerrados en el papel; la web no cambia"
           }
         }
       }
@@ -45228,13 +45228,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "展开 %lld 个折叠详情后打印"
+            "value": "展开 %lld 处折叠内容后打印"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "展開 %lld 個摺疊詳細資訊後列印"
+            "value": "展開 %lld 個已摺疊區塊後列印"
           }
         },
         "ko": {
@@ -45377,7 +45377,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Garder fermés"
+            "value": "Les garder fermés"
           }
         },
         "de": {
@@ -45552,7 +45552,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "슬라이드 %lld개, 페이지당 하나"
+            "value": "슬라이드 %lld장, 페이지당 1장"
           }
         },
         "fr": {
@@ -45960,7 +45960,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "An GitHub werden keine Informationen über Ihre Dokumente gesendet."
+            "value": "An GitHub werden keine Informationen über deine Dokumente gesendet."
           }
         },
         "es": {
@@ -46319,7 +46319,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "나의 스타일"
+            "value": "내 스타일"
           }
         },
         "fr": {
@@ -46584,13 +46584,13 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "“%@” 검색 결과"
+            "value": "‘%@’ 검색 결과"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Résultats pour « %@ »"
+            "value": "Résultats pour « %@ »"
           }
         },
         "de": {
@@ -46690,7 +46690,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "별표한 스타일이 여기에 표시됩니다."
+            "value": "별표를 붙인 스타일이 여기에 표시됩니다."
           }
         },
         "fr": {
@@ -46825,7 +46825,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ をお気に入りに入れる"
+            "value": "%@ をお気に入りに追加"
           }
         },
         "en": {
@@ -47073,7 +47073,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ ausprobieren"
+            "value": "%@ wird ausprobiert"
           }
         },
         "es": {
@@ -47102,7 +47102,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "从示例中选择…"
+            "value": "从样张中选择…"
           }
         },
         "zh-Hant": {
@@ -47126,7 +47126,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aus Vorschauen wählen …"
+            "value": "Aus Beispielen wählen …"
           }
         },
         "es": {
@@ -47302,7 +47302,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ にしました。表示に戻ると紙に当てはまります。"
+            "value": "%@ にしました。表示に戻ると紙に反映されます。"
           }
         },
         "en": {
@@ -47597,7 +47597,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Supprimer %@"
+            "value": "Retirer %@"
           }
         },
         "de": {
@@ -47656,7 +47656,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aus Vergleich entfernen"
+            "value": "Aus dem Vergleich entfernen"
           }
         },
         "es": {
@@ -47815,7 +47815,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ aus Vergleich entfernen"
+            "value": "%@ aus dem Vergleich entfernen"
           }
         },
         "es": {
@@ -47908,7 +47908,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ (제출용)"
+            "value" : "%@(제출용)"
           }
         },
         "fr" : {
@@ -47960,7 +47960,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ (최종본)"
+            "value" : "%@(최종본)"
           }
         },
         "fr" : {
@@ -48012,7 +48012,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ (출판 전 원고)"
+            "value" : "%@(출판 전 원고)"
           }
         },
         "fr" : {
@@ -48052,7 +48052,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@（审稿答辩）"
+            "value" : "%@（审稿回复）"
           }
         },
         "zh-Hant" : {
@@ -48064,7 +48064,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ (심사 답변)"
+            "value" : "%@(심사 답변)"
           }
         },
         "fr" : {
@@ -48116,7 +48116,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ (초안)"
+            "value" : "%@(초안)"
           }
         },
         "fr" : {
@@ -48254,7 +48254,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "原稿で指定されたクラス『%@』には対応していないため、標準の体裁で表示しています。"
+            "value" : "原稿で指定されたクラス「%@」には対応していないため、標準の体裁で表示しています。"
           }
         },
         "zh-Hans" : {
@@ -48278,7 +48278,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La classe « %@ » n’est pas prise en charge. La mise en page standard est utilisée."
+            "value" : "La classe « %@ » n’est pas prise en charge. La mise en page standard est utilisée."
           }
         },
         "de" : {
@@ -48428,7 +48428,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "모양"
+            "value" : "화면 모드"
           }
         },
         "fr" : {
@@ -48900,7 +48900,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "언어를 변경하려면 다시 실행할까요?"
+            "value" : "언어를 변경하려면 다시 실행하겠습니까?"
           }
         },
         "fr" : {
@@ -48940,13 +48940,13 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "新语言将在重新启动后生效。打开的窗口将关闭，您可能需要重新打开文档。选择“稍后”以继续工作。"
+            "value" : "新语言将在重新启动后生效。打开的窗口将关闭，你可能需要重新打开文档。选择“稍后”以继续工作。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "新語言將在重新啟動後生效。打開的視窗將關閉，您可能需要重新打開文件。選擇「稍後」以繼續工作。"
+            "value" : "新語言將在重新啟動後生效。打開的視窗將關閉，你可能需要重新打開文件。選擇「稍後」以繼續工作。"
           }
         },
         "ko" : {
@@ -48958,13 +48958,13 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La nouvelle langue s’appliquera après la relance. Les fenêtres ouvertes seront fermées ; vous devrez peut-être rouvrir vos documents. Choisissez « Plus tard » pour continuer."
+            "value" : "La nouvelle langue s’appliquera après la relance. Les fenêtres ouvertes seront fermées ; vous devrez peut-être rouvrir vos documents. Choisissez « Plus tard » pour continuer."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Die neue Sprache gilt nach dem Neustart. Offene Fenster werden geschlossen; möglicherweise müssen Sie Dokumente erneut öffnen. Wählen Sie „Später“, um weiterzuarbeiten."
+            "value" : "Die neue Sprache gilt nach dem Neustart. Offene Fenster werden geschlossen; möglicherweise musst du Dokumente erneut öffnen. Wähle „Später“, um weiterzuarbeiten."
           }
         },
         "es" : {
@@ -49142,7 +49142,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "次回Surimonoを開いたときに言語が切り替わります。"
+            "value" : "次回 Surimono を開いたときに言語が切り替わります。"
           }
         },
         "zh-Hans" : {
@@ -49408,7 +49408,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "点击纸张边缘"
+            "value": "点按纸张边缘"
           }
         },
         "zh-Hant": {
@@ -49420,7 +49420,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "종이 가장자리 클릭"
+            "value": "용지 가장자리 클릭"
           }
         },
         "fr": {
@@ -49628,7 +49628,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "텍스트 선택 ⇄ 종이 이동"
+            "value": "텍스트 선택 ⇄ 용지 이동"
           }
         },
         "fr": {
@@ -49680,7 +49680,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "종이 드래그 동작 바꾸기"
+            "value": "용지 드래그 동작 바꾸기"
           }
         },
         "fr": {
@@ -49778,7 +49778,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "放大 ⇄ 配合視窗"
+            "value": "放大 ⇄ 符合視窗"
           }
         },
         "ko": {
@@ -49934,7 +49934,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "選擇版面並打開列印畫面"
+            "value": "選擇佈局並打開列印畫面"
           }
         },
         "ko": {
@@ -50032,13 +50032,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "关闭文字选择时，边缘点击和双击缩放才有效。边缘点击还需要适合窗口的缩放比例及非连续翻页。"
+            "value": "关闭文字选择时，边缘点按和双击缩放才有效。边缘点按还要求页面适合窗口，且不使用连续滚动。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "關閉文字選取時，邊緣點按和按兩下縮放才有效。邊緣點按還需要配合視窗的縮放比例及非連續翻頁。"
+            "value": "關閉文字選取時，邊緣點按和按兩下縮放才有效。邊緣點按還需要符合視窗的縮放比例及非連續翻頁。"
           }
         },
         "ko": {
@@ -50050,7 +50050,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le clic au bord et le zoom par double-clic fonctionnent sans sélection de texte. Le clic au bord exige aussi l’ajustement à la fenêtre et un défilement non continu."
+            "value": "Le clic au bord et le zoom par double-clic fonctionnent quand la sélection de texte est désactivée. Le clic au bord exige aussi l’ajustement à la fenêtre et une transition autre que le défilement."
           }
         },
         "de": {
@@ -50062,7 +50062,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "El clic en el borde y el zoom con doble clic funcionan sin selección de texto. El clic en el borde requiere además ajuste a la ventana y avance no continuo."
+            "value": "El clic en el borde y el zoom con doble clic funcionan con la selección de texto desactivada. El clic en el borde requiere además ajuste a la ventana y avance no continuo."
           }
         }
       }
@@ -50114,7 +50114,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "En la pantalla de impresión, Esc cierra primero la vista doblada si está abierta."
+            "value": "En la pantalla de impresión, Esc cierra primero la vista plegada si está abierta."
           }
         }
       }
@@ -50494,7 +50494,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reducir el texto"
+            "value": "Reducir tamaño del texto"
           }
         },
         "fr": {
@@ -50506,7 +50506,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "글자 크기 줄이기"
+            "value": "텍스트 크기 줄이기"
           }
         },
         "zh-Hans": {
@@ -50564,7 +50564,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "无法读取图片：%@"
+            "value": "无法读取图像：%@"
           }
         },
         "zh-Hant": {
@@ -50644,7 +50644,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Prüfen Sie die Mermaid-Syntax und vereinfachen Sie das Diagramm im Quelldokument."
+            "value": "Prüfe die Mermaid-Syntax und vereinfache das Diagramm im Quelldokument."
           }
         },
         "es": {
@@ -50754,7 +50754,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Comandos LaTeX no leídos: %@"
+            "value": "Comandos LaTeX no reconocidos: %@"
           }
         },
         "fr": {
@@ -50800,13 +50800,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Prüfen Sie die Schreibweise und die Definition des Befehls im Quelldokument."
+            "value": "Prüfe die Schreibweise und die Definition des Befehls im Quelldokument."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Comprueba la ortografía y la definición del comando en el documento de origen."
+            "value": "Comprueba la ortografía y la definición del comando en el documento original."
           }
         },
         "fr": {
@@ -50830,7 +50830,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "請檢查來源文件中的指令拼字與定義。"
+            "value": "請檢查原始文件中的指令拼字與定義。"
           }
         }
       }
@@ -50864,7 +50864,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "読み取れなかった RST の記法：%@ 件"
+            "value": "読み取れなかった RST の記法：%@"
           }
         },
         "ko": {
@@ -50986,7 +50986,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "表格超出本文寬度"
+            "value": "表格超出內文寬度"
           }
         }
       }
@@ -51032,13 +51032,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "图片超出正文宽度"
+            "value": "图像超出正文宽度"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "影像超出本文寬度"
+            "value": "影像超出內文寬度"
           }
         }
       }
@@ -51090,7 +51090,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "圖形超出本文寬度"
+            "value": "圖形超出內文寬度"
           }
         }
       }
@@ -51142,7 +51142,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "程式碼超出本文寬度"
+            "value": "程式碼超出內文寬度"
           }
         }
       }
@@ -51194,7 +51194,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "公式超出本文寬度"
+            "value": "公式超出內文寬度"
           }
         }
       }
@@ -51216,7 +51216,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Prüfen Sie, ob das Bild lesbar ist und ein unterstütztes Format hat."
+            "value": "Prüfe, ob das Bild lesbar ist und ein unterstütztes Format hat."
           }
         },
         "es": {
@@ -51240,7 +51240,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "请检查图片是否可读取且格式受支持。"
+            "value": "请检查图像是否可读取且格式受支持。"
           }
         },
         "zh-Hant": {
@@ -51268,7 +51268,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Versuchen Sie Querformat oder kleinere Schrift, oder passen Sie dieses Element im Quelldokument an."
+            "value": "Versuche Querformat oder kleinere Schrift, oder passe dieses Element im Quelldokument an."
           }
         },
         "es": {
@@ -51286,7 +51286,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "용지를 가로로 바꾸거나 글자를 줄이거나 원본 문서에서 이 부분을 조정하세요."
+            "value": "용지를 가로로 바꾸거나 텍스트 크기를 줄이거나 원본 문서에서 이 부분을 조정하세요."
           }
         },
         "zh-Hans": {
@@ -51320,7 +51320,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Prüfen Sie die Syntax der Formel und verwenden Sie unterstützte Befehle im Quelldokument."
+            "value": "Prüfe die Syntax der Formel und verwende unterstützte Befehle im Quelldokument."
           }
         },
         "es": {
@@ -51350,7 +51350,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "請在原始文件中檢查公式語法並使用受支援的命令。"
+            "value": "請在原始文件中檢查公式語法並使用受支援的指令。"
           }
         }
       }
@@ -51372,7 +51372,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ersetzen Sie diesen Teil im Quelldokument durch ein Bild oder unterstütztes LaTeX."
+            "value": "Ersetze diesen Teil im Quelldokument durch ein Bild oder unterstütztes LaTeX."
           }
         },
         "es": {
@@ -51396,7 +51396,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "请在源文档中将此部分替换为图片或受支持的 LaTeX。"
+            "value": "请在源文档中将此部分替换为图像或受支持的 LaTeX。"
           }
         },
         "zh-Hant": {
@@ -51448,7 +51448,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在 Finder 中显示"
+            "value": "在访达中显示"
           }
         },
         "zh-Hant": {
@@ -51476,7 +51476,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bilddatei nicht gefunden: Prüfen Sie ihren Namen und Speicherort im Quelldokument."
+            "value": "Bilddatei nicht gefunden: Prüfe ihren Namen und Speicherort im Quelldokument."
           }
         },
         "es": {
@@ -51500,7 +51500,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "未找到图片文件：请在源文档中检查其名称和位置。"
+            "value": "未找到图像文件：请在源文档中检查其名称和位置。"
           }
         },
         "zh-Hant": {
@@ -51841,7 +51841,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "文書を1つも開けませんでした。"
+            "value": "文書を 1 つも開けませんでした。"
           }
         },
         "de": {
@@ -51953,7 +51953,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wählen Sie Markdown-, Org-, Text-, CSV-, LaTeX-, HTML-, PDF- oder Bilddateien. Ordner und ZIP-Archive können nicht zusammengefügt werden."
+            "value": "Wähle Markdown-, Org-, Text-, CSV-, LaTeX-, HTML-, PDF- oder Bilddateien. Ordner und ZIP-Archive können nicht zusammengefügt werden."
           }
         },
         "es": {
@@ -51977,13 +51977,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "请选择 Markdown、Org、文本、CSV、LaTeX、HTML、PDF 或图像文件。无法合并文件夹和 ZIP 压缩包。"
+            "value": "请选择 Markdown、Org、文本、CSV、LaTeX、HTML、PDF 或图像文件。无法合并文件夹和 ZIP 归档。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "請選擇 Markdown、Org、文字、CSV、LaTeX、HTML、PDF 或影像檔案。無法合併檔案夾和 ZIP 壓縮檔。"
+            "value": "請選擇 Markdown、Org、文字、CSV、LaTeX、HTML、PDF 或影像檔案。無法合併檔案夾和 ZIP 封存檔。"
           }
         }
       }
@@ -52071,7 +52071,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Choisissez une mise en page recto verso pour tester l’orientation du verso."
+            "value": "Choisissez une disposition recto verso pour tester l’orientation du verso."
           }
         },
         "ko": {
@@ -52089,7 +52089,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "選擇雙面配置以測試背面方向。"
+            "value": "選擇雙面佈局以測試背面方向。"
           }
         }
       }
@@ -52188,7 +52188,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Für %@ gemerkt. Letztes Blatt zuerst hält Blätter mit der Schrift nach oben in Seitenreihenfolge."
+            "value": "Für %@ gespeichert. „Letztes Blatt zuerst“ hält Blätter mit der Schrift nach oben in Seitenreihenfolge."
           }
         },
         "es": {
@@ -52241,13 +52241,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "记住 %@ 使用长边装订时的设置。"
+            "value": "已为 %@ 记住长边装订时的设置。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "記住 %@ 使用長邊裝訂時的設定。"
+            "value": "已為 %@ 記住長邊裝訂時的設定。"
           }
         }
       }
@@ -52294,13 +52294,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "记住 %@ 使用短边装订时的设置。"
+            "value": "已为 %@ 记住短边装订时的设置。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "記住 %@ 使用短邊裝訂時的設定。"
+            "value": "已為 %@ 記住短邊裝訂時的設定。"
           }
         }
       }
@@ -52310,7 +52310,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Letztes Blatt zuerst hält Blätter mit der Schrift nach oben in Seitenreihenfolge."
+            "value": "„Letztes Blatt zuerst“ hält Blätter mit der Schrift nach oben in Seitenreihenfolge."
           }
         },
         "en": {
@@ -52658,7 +52658,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "뒷면 화살표는 어느 쪽을 향했나요?"
+            "value": "뒷면 화살표는 어느 쪽을 향했습니까?"
           }
         },
         "zh-Hans": {
@@ -52711,7 +52711,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "위 (앞면과 같음)"
+            "value": "위(앞면과 같음)"
           }
         },
         "zh-Hans": {
@@ -52764,7 +52764,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "아래 (거꾸로)"
+            "value": "아래(거꾸로)"
           }
         },
         "zh-Hans": {
@@ -52921,7 +52921,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "기본 글자 크기"
+            "value": "기본 텍스트 크기"
           }
         },
         "zh-Hans": {
@@ -53025,7 +53025,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "첫 페이지를 단독 표시할 때의 창 폭"
+            "value": "첫 페이지를 단독 표시할 때의 창 너비"
           }
         },
         "zh-Hans": {
@@ -53175,7 +53175,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "1ページ分"
+            "value": "1 ページ分"
           }
         },
         "ko": {
@@ -53227,7 +53227,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "2ページ分"
+            "value": "2 ページ分"
           }
         },
         "ko": {
@@ -53337,7 +53337,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "창 폭은 이미 열린 창에도 적용됩니다."
+            "value": "창 너비는 이미 열린 창에도 적용됩니다."
           }
         },
         "zh-Hans": {
@@ -53575,7 +53575,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "用紙と余白・ヘッダー / フッター・改ページ・目次・ノートページ"
+            "value": "用紙と余白・ヘッダーとフッター・改ページ・目次・ノートページ"
           }
         },
         "zh-Hans": {
@@ -53633,19 +53633,19 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "A4・A3"
+            "value": "A4 / A3"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "A4・A3"
+            "value": "A4 / A3"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "A4・A3"
+            "value": "A4 / A3"
           }
         },
         "fr": {
@@ -53685,19 +53685,19 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "B5・B4"
+            "value": "B5 / B4"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "B5・B4"
+            "value": "B5 / B4"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "B5・B4"
+            "value": "B5 / B4"
           }
         },
         "fr": {
@@ -54757,7 +54757,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Seitenzahl"
+            "value": "Seitenanzahl"
           }
         },
         "es": {
@@ -54945,7 +54945,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "跨页时交换左右"
+            "value": "双页时交换左右"
           }
         },
         "zh-Hant": {
@@ -54975,7 +54975,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Intercambiar izquierda y derecha en páginas enfrentadas"
+            "value": "Intercambiar izquierda y derecha en dobles páginas"
           }
         }
       }
@@ -56021,13 +56021,13 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ce document n’a pas de [TOC]. Pour en ajouter un, choisissez « Ajouter le sommaire au début »."
+            "value": "Ce document n’a pas de [TOC]. Pour en ajouter un, choisissez « Ajouter le sommaire au début »."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dieses Dokument hat kein [TOC]. Wählen Sie „Inhalt vorn hinzufügen“, um eines hinzuzufügen."
+            "value": "Dieses Dokument hat kein [TOC]. Wähle „Inhalt vorn hinzufügen“, um eines hinzuzufügen."
           }
         },
         "es": {
@@ -56268,13 +56268,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "虚线"
+            "value": "点线"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "虛線"
+            "value": "點線"
           }
         },
         "ko": {
@@ -56321,13 +56321,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "无线"
+            "value": "无线条"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "無線"
+            "value": "無線條"
           }
         },
         "ko": {
@@ -57289,7 +57289,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Se choisit à part du style"
+            "value": "Se choisit indépendamment du style"
           }
         },
         "de": {
@@ -57393,7 +57393,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Encre : assez élevée"
+            "value": "Encre : un peu forte"
           }
         },
         "de": {
@@ -57405,7 +57405,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tinta: algo alta"
+            "value": "Uso de tinta: algo alto"
           }
         }
       }
@@ -57445,7 +57445,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Encre : élevée"
+            "value": "Encre : forte"
           }
         },
         "de": {
@@ -57457,7 +57457,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tinta: alta"
+            "value": "Uso de tinta: alto"
           }
         }
       }
@@ -58167,7 +58167,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "글자 줄이기"
+            "value": "텍스트 크기 줄이기"
           }
         },
         "fr": {
@@ -58185,7 +58185,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reducir el texto"
+            "value": "Reducir tamaño del texto"
           }
         }
       }
@@ -59010,7 +59010,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Afficher le sommaire en"
+            "value": "Affichage du sommaire"
           }
         },
         "de": {
@@ -59063,7 +59063,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Popover"
+            "value": "Panneau flottant"
           }
         },
         "de": {
@@ -59110,7 +59110,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "왼쪽 서랍"
+            "value": "왼쪽 패널"
           }
         },
         "fr": {
@@ -59392,7 +59392,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "詢問是否跳轉"
+            "value": "詢問是否跳到變更處"
           }
         }
       }
@@ -59639,7 +59639,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "파일이 바뀌면 다시 읽기"
+            "value": "파일이 바뀌면 다시 로드"
           }
         },
         "fr": {
@@ -60079,7 +60079,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Unos %lld min"
+            "value": "Aprox. %lld min"
           }
         }
       }
@@ -60318,7 +60318,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld か所 変わりました"
+            "value": "%lld か所変わりました"
           }
         },
         "zh-Hans": {
@@ -60767,7 +60767,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld つの文書を読み込めます"
+            "value": "%lld 件の文書を読み込めます"
           }
         },
         "zh-Hans": {
@@ -61079,7 +61079,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ペーストボード: %@"
+            "value": "ペーストボード：%@"
           }
         },
         "zh-Hans": {
@@ -61219,7 +61219,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Con"
+            "value": "Con notas"
           }
         }
       }
@@ -61369,7 +61369,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Diese Linien passen nicht auf die Seite. Verringern Sie Rand oder Abstand."
+            "value": "Diese Linien passen nicht auf die Seite. Verringere Rand oder Abstand."
           }
         },
         "es": {
@@ -61449,7 +61449,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "跨页左侧为笔记"
+            "value": "双页左侧为笔记"
           }
         },
         "zh-Hant": {
@@ -61501,7 +61501,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "跨页右侧为笔记"
+            "value": "双页右侧为笔记"
           }
         },
         "zh-Hant": {
@@ -61709,13 +61709,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "每页3张＋笔记已有笔记栏，不会加入笔记页。"
+            "value": "“3 页＋笔记栏”已有笔记栏，不会加入笔记页。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "每頁3張＋筆記已有筆記欄，不會加入筆記頁。"
+            "value": "「3 頁＋筆記欄」已有筆記欄，不會加入筆記頁。"
           }
         },
         "ko": {
@@ -61843,7 +61843,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Prácticos"
+            "value": "Prácticas"
           }
         }
       }
@@ -61895,7 +61895,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bonitos"
+            "value": "Bonitas"
           }
         }
       }
@@ -63113,7 +63113,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "已从 %@ 更改"
+            "value": "已在 %@ 基础上修改"
           }
         },
         "zh-Hant": {
@@ -63131,7 +63131,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Modifié depuis %@"
+            "value": "Modifié à partir de %@"
           }
         },
         "de": {
@@ -63143,7 +63143,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cambiado desde %@"
+            "value": "Cambios respecto a %@"
           }
         }
       }
@@ -63229,13 +63229,13 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "덮어쓰면 “%@”이(가) 바뀝니다."
+            "value": "덮어쓰면 ‘%@’이(가) 바뀝니다."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Remplacer écrase « %@ »."
+            "value": "Écraser remplace « %@ »."
           }
         },
         "de": {
@@ -63281,13 +63281,13 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "“%@” 사용 중입니다."
+            "value": "‘%@’ 사용 중입니다."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "« %@ » est utilisé."
+            "value": "« %@ » est utilisé."
           }
         },
         "de": {
@@ -64685,13 +64685,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "1 枚・見開き"
+            "value": "単ページ・見開き"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "한 쪽 또는 두 쪽"
+            "value": "단일 페이지 또는 두 페이지"
           }
         },
         "zh-Hans": {
@@ -65349,7 +65349,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Geschlossenes Dokument aus der Zwischenablage erneut öffnen"
+            "value": "Geschlossenes Zwischenablage-Dokument erneut öffnen"
           }
         },
         "es": {
@@ -65505,7 +65505,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Geschlossene Dokumente aus der Zwischenablage löschen"
+            "value": "Geschlossene Zwischenablage-Dokumente löschen"
           }
         },
         "es": {
@@ -65557,7 +65557,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Geschlossene Dokumente aus der Zwischenablage bis zum Beenden behalten"
+            "value": "Geschlossene Zwischenablage-Dokumente bis zum Beenden behalten"
           }
         },
         "es": {
@@ -65731,7 +65731,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "문서가 20MB를 초과합니다."
+            "value": "문서가 20 MB를 초과합니다."
           }
         },
         "zh-Hans": {
@@ -65921,7 +65921,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Das Dokument konnte nicht geladen werden."
+            "value": "Das Dokument konnte nicht heruntergeladen werden."
           }
         },
         "es": {
@@ -65973,7 +65973,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "In welchem Format soll der geladene Text geöffnet werden?"
+            "value": "In welchem Format soll der heruntergeladene Text geöffnet werden?"
           }
         },
         "es": {
@@ -65991,7 +65991,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "다운로드한 텍스트를 어떤 형식으로 열까요?"
+            "value": "다운로드한 텍스트를 어떤 형식으로 열겠습니까?"
           }
         },
         "zh-Hans": {
@@ -66467,7 +66467,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fügt %lld Notizseiten nach den Kapiteln hinzu, ohne Kapitel am Ende."
+            "value": "Fügt %lld Notizseiten nach den Kapiteln hinzu, bei Dokumenten ohne Kapitel am Ende."
           }
         },
         "es": {
@@ -66651,7 +66651,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在成品的跨页上添加 %lld 页笔记。"
+            "value": "在成品的双页上添加 %lld 页笔记。"
           }
         },
         "zh-Hant": {
@@ -67143,7 +67143,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Leer (Rückseite)"
+            "value": "Leer (Rückdeckel)"
           }
         },
         "es": {
@@ -67171,13 +67171,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "纸张 %lld/%lld"
+            "value": "第 %lld/%lld 张"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "紙張 %lld/%lld"
+            "value": "第 %lld/%lld 張"
           }
         },
         "ko": {
@@ -67403,7 +67403,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kapitel auf rechter Seite"
+            "value": "Kapitel ab rechter Seite"
           }
         },
         "es": {
@@ -67535,13 +67535,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@ 等 %2$lld 个其他文档"
+            "value": "%1$@，另有 %2$lld 个文档"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@ 等 %2$lld 份其他文件"
+            "value": "%1$@，另有 %2$lld 份文件"
           }
         },
         "ko": {
@@ -67593,13 +67593,13 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$lld 份文件・%2$lld 頁"
+            "value": "%1$lld 份文件 · %2$lld 頁"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "문서 %1$lld개 · %2$lld페이지"
+            "value": "문서 %1$lld개 · %2$lld쪽"
           }
         },
         "fr": {
@@ -67691,7 +67691,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld 张图片"
+            "value": "%lld 张图像"
           }
         },
         "zh-Hant": {
@@ -67847,7 +67847,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "图片 %lld"
+            "value": "图像 %lld"
           }
         },
         "zh-Hant": {
@@ -68055,7 +68055,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "移动选中的文档或图片"
+            "value": "移动选中的文档或图像"
           }
         },
         "zh-Hant": {
@@ -68413,7 +68413,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sein Fenster zeigen"
+            "value" : "Fenster nach vorne bringen"
           }
         },
         "en" : {
@@ -68572,7 +68572,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Macht aus den Bildern einen Sammelband und fügt am Ende hinzu"
+            "value" : "Macht aus dem Bilderstapel einen Sammelband und fügt die Dokumente am Ende hinzu"
           }
         },
         "en" : {
@@ -68890,7 +68890,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ZIP-Archive können nicht in einen Sammelband"
+            "value" : "ZIP-Archive können keinem Sammelband hinzugefügt werden"
           }
         },
         "en" : {
@@ -69391,7 +69391,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ここに落とすと足せます"
+            "value" : "ここにドロップすると足せます"
           }
         },
         "ko" : {
@@ -69703,7 +69703,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Revenez à l’affichage pour ajouter des documents"
+            "value" : "Revenez au mode lecture pour ajouter des documents"
           }
         },
         "ja" : {
@@ -69721,13 +69721,13 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "请返回视图后再添加"
+            "value" : "请返回查看模式后再添加"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "請回到檢視後再加入"
+            "value" : "請返回檢視模式後再加入"
           }
         }
       }
@@ -69774,13 +69774,13 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ZIP 的图像集保持原样"
+            "value" : "无法向 ZIP 图像集添加图像"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ZIP 的影像集保持原樣"
+            "value" : "無法將檔案加入 ZIP 影像集"
           }
         }
       }
@@ -69791,7 +69791,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ein Dokument ohne Datei kann nicht in einen Sammelband"
+            "value" : "Ein Dokument ohne Datei kann keinem Sammelband hinzugefügt werden"
           }
         },
         "en" : {
@@ -69827,7 +69827,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "没有文件的文档无法做成合订本"
+            "value" : "没有文件的文档无法加入合订本"
           }
         },
         "zh-Hant" : {
@@ -69915,7 +69915,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Marques de changement"
+            "value" : "Marques de modification"
           }
         },
         "ja" : {
@@ -69950,7 +69950,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Seitenumbrüche und Inhaltsverzeichnis"
+            "value" : "Seitenumbrüche und Inhaltsseite"
           }
         },
         "en" : {
@@ -69962,7 +69962,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Saltos de página y contenido"
+            "value" : "Saltos de página e índice"
           }
         },
         "fr" : {
@@ -69980,7 +69980,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "페이지 나눔과 목차"
+            "value" : "페이지 나누기와 목차 페이지"
           }
         },
         "zh-Hans" : {
@@ -70021,7 +70021,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ ne s’appliquent pas dans un recueil"
+            "value" : "Sans effet dans un recueil : %@"
           }
         },
         "ja" : {
@@ -70045,7 +70045,7 @@
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ 在合訂本中不起作用"
+            "value" : "%@ 在合訂本中不適用"
           }
         }
       }
@@ -70074,7 +70074,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La page entre telle que son fichier la contient"
+            "value" : "La page est ajoutée telle qu’elle figure dans le fichier"
           }
         },
         "ja" : {
@@ -70162,7 +70162,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "%3$@-Broschüre, %4$@, aus %2$@ %1$@"
+            "value": "Broschüre %3$@, %4$@, aus %2$@ %1$@"
           }
         },
         "en": {
@@ -70192,7 +70192,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@ %2$@으로 %3$@ 소책자 (%4$@)"
+            "value": "%1$@ %2$@으로 %3$@ 소책자(%4$@)"
           }
         },
         "zh-Hans": {
@@ -70477,7 +70477,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Menü löschen"
+            "value": "Einträge löschen"
           }
         },
         "en": {
@@ -70489,7 +70489,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Borrar menú"
+            "value": "Vaciar menú"
           }
         },
         "fr": {
@@ -70645,7 +70645,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Encabezados"
+            "value": "Títulos"
           }
         },
         "fr": {
@@ -70749,7 +70749,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hace que cada página empiece en el mismo encabezado o código"
+            "value": "Hace que cada página empiece en el mismo título o código"
           }
         },
         "fr": {
@@ -70867,7 +70867,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "확대·축소. 다 보이지 않는 종이는 드래그해서 옮기기"
+            "value": "확대·축소. 다 보이지 않는 용지는 드래그해서 옮기기"
           }
         },
         "fr": {
@@ -70914,7 +70914,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "顯示比例。列印尺寸不變。按一下可讓紙張配合視窗。"
+            "value": "顯示比例。列印尺寸不變。按一下可讓紙張符合視窗。"
           }
         },
         "ko": {
@@ -72031,13 +72031,13 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "“%@”을(를) 삭제했습니다"
+            "value": "‘%@’을(를) 삭제했습니다"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "« %@ » supprimé"
+            "value": "« %@ » supprimé"
           }
         },
         "de": {
@@ -72188,13 +72188,13 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "예제 문서"
+            "value": "예시 문서"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Document exemple"
+            "value": "Document d’exemple"
           }
         },
         "de": {
@@ -72206,7 +72206,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Documento de ejemplo"
+            "value": "Documento de muestra"
           }
         }
       }
@@ -72228,7 +72228,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "从示例中选择样式"
+            "value": "从样张中选择样式"
           }
         },
         "zh-Hant": {
@@ -72240,19 +72240,19 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "예제에서 스타일을 선택하세요"
+            "value": "견본에서 스타일을 선택하세요"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Choisissez un style parmi les exemples"
+            "value": "Choisissez un style parmi les aperçus"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wählen Sie einen Stil anhand der Beispiele"
+            "value": "Wähle einen Stil anhand der Beispiele"
           }
         },
         "es": {
@@ -72293,7 +72293,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "매수"
+            "value": "부수"
           }
         },
         "fr": {
@@ -72434,7 +72434,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "例: 1-5, 8"
+            "value": "例：1-5, 8"
           }
         },
         "zh-Hans": {
@@ -72511,7 +72511,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pages illisibles"
+            "value": "Plage de pages invalide"
           }
         },
         "de": {
@@ -72523,7 +72523,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "No se pueden leer las páginas"
+            "value": "Intervalo de páginas no válido"
           }
         }
       }
@@ -72776,7 +72776,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@. Imprimer ouvre le dialogue système."
+            "value": "%@. Imprimer ouvre la fenêtre d’impression du système."
           }
         },
         "de": {
@@ -73070,19 +73070,19 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "每张纸4页"
+            "value": "4 页合 1 张"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "每張紙4頁"
+            "value": "4 頁合 1 張"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "한 장에 4쪽"
+            "value": "4쪽을 1장에"
           }
         },
         "fr": {
@@ -73499,7 +73499,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "견본을 가리키면 종이에 스타일 적용해 보기"
+            "value": "견본을 가리키면 용지에 스타일 적용해 보기"
           }
         },
         "fr": {
@@ -73511,7 +73511,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Stil beim Zeigen auf das Muster auf dem Papier ausprobieren"
+            "value": "Stil beim Zeigen auf ein Beispiel auf dem Papier ausprobieren"
           }
         },
         "es": {
@@ -73643,13 +73643,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "工具栏显示时，会在纸张之外占用自己的位置。"
+            "value": "工具栏显示时会占用纸张外的空间。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "工具列顯示時，會在紙張之外佔用自己的位置。"
+            "value": "工具列顯示時，會佔用紙張外的空間。"
           }
         },
         "ko": {
@@ -73760,7 +73760,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "단축키 할당"
+            "value": "단축키 지정"
           }
         },
         "fr": {
@@ -73813,7 +73813,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "인쇄 단축키 할당"
+            "value": "인쇄 단축키 지정"
           }
         },
         "fr": {
@@ -73848,7 +73848,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "このキーは印刷画面の準備後にシステムの印刷ダイアログを開きます。"
+            "value": "このキーは印刷画面の準備後にシステムの印刷画面を開きます。"
           }
         },
         "zh-Hans": {
@@ -73878,7 +73878,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Diese Taste öffnet nach der Vorbereitung des Druckbildschirms den Druckdialog des Systems."
+            "value": "Diese Taste öffnet nach der Vorbereitung des Druckbildschirms den Systemdruckdialog."
           }
         },
         "es": {
@@ -73901,7 +73901,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "このキーは印刷画面を準備し、PDFの保存ダイアログを開きます。"
+            "value": "このキーは印刷画面を準備し、PDF の保存画面を開きます。"
           }
         },
         "zh-Hans": {
@@ -73931,7 +73931,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Diese Taste bereitet den Druckbildschirm vor und öffnet den Dialog zum Speichern als PDF."
+            "value": "Diese Taste bereitet den Druckbildschirm vor und öffnet den Dialog zum Sichern als PDF."
           }
         },
         "es": {
@@ -74967,7 +74967,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "공백과 줄바꿈만 있습니다."
+            "value": "공백과 줄 바꿈만 있습니다."
           }
         },
         "zh-Hans": {
@@ -74989,7 +74989,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Es wurden keine Zeichen eines Formats gefunden."
+            "value": "Es wurden keine Formatierungszeichen gefunden."
           }
         },
         "en": {
@@ -75077,13 +75077,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "可以明确读作一种格式。"
+            "value": "可明确识别为一种格式。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "可以明確讀作一種格式。"
+            "value": "可明確辨識為一種格式。"
           }
         }
       }
@@ -75209,7 +75209,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "El texto se lee tanto como %1$@ como %2$@."
+            "value": "El texto se lee como %1$@ y como %2$@."
           }
         },
         "fr": {
@@ -75233,13 +75233,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "既可读作 %1$@，也可读作 %2$@。"
+            "value": "可按 %1$@ 或 %2$@ 格式读取。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "既可讀作 %1$@，也可讀作 %2$@。"
+            "value": "可依 %1$@ 或 %2$@ 格式讀取。"
           }
         }
       }
@@ -75285,13 +75285,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "可以读作多种格式。"
+            "value": "可按多种格式读取。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "可以讀作多種格式。"
+            "value": "可依多種格式讀取。"
           }
         }
       }
@@ -75325,7 +75325,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "長い文なので、始めの部分だけを読みました。"
+            "value": "長い文なので、初めの部分だけを読みました。"
           }
         },
         "ko": {
@@ -75423,7 +75423,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les réglages demandent de poser la question à chaque fois."
+            "value": "Réglage actuel : toujours demander."
           }
         },
         "ja": {
@@ -75469,13 +75469,13 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Los ajustes indican abrir siempre en un formato."
+            "value": "Los ajustes indican abrir siempre en el mismo formato."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les réglages demandent de toujours ouvrir dans un seul format."
+            "value": "Réglage actuel : toujours ouvrir dans un seul format."
           }
         },
         "ja": {
@@ -75759,7 +75759,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "命令 %lld 個"
+            "value": "指令 %lld 個"
           }
         }
       }
@@ -75961,7 +75961,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "以完整文档的开头开始"
+            "value": "带有完整文档的开头"
           }
         },
         "zh-Hant": {
@@ -76013,7 +76013,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "从电子表格作为表格拷贝"
+            "value": "从电子表格中以表格形式拷贝"
           }
         },
         "zh-Hant": {
@@ -76053,7 +76053,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "途中で切れているらしい"
+            "value": "途中で切れているようです"
           }
         },
         "ko": {
@@ -76081,7 +76081,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Enthält auch Zeichen eines anderen Formats"
+            "value": "Enthält auch Formatierungszeichen eines anderen Formats"
           }
         },
         "en": {
@@ -76185,7 +76185,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zeichen unverändert angezeigt"
+            "value": "Formatierungszeichen unverändert angezeigt"
           }
         },
         "en": {
@@ -76237,7 +76237,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Keine Zeichen dieses Formats gefunden"
+            "value": "Keine Formatierungszeichen dieses Formats gefunden"
           }
         },
         "en": {
@@ -76445,7 +76445,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wählen Sie ein anderes Format, um denselben Text erneut zu öffnen."
+            "value": "Wähle ein anderes Format, um denselben Text erneut zu öffnen."
           }
         },
         "en": {
@@ -76457,7 +76457,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Elija otro formato para volver a abrir el mismo texto."
+            "value": "Elige otro formato para volver a abrir el mismo texto."
           }
         },
         "fr": {
@@ -76613,7 +76613,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "¿En qué formato se abre el texto del portapapeles?"
+            "value": "¿En qué formato quieres abrir el texto del portapapeles?"
           }
         },
         "fr": {
@@ -76631,7 +76631,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "클립보드의 텍스트를 어떤 형식으로 열까요?"
+            "value": "클립보드의 텍스트를 어떤 형식으로 열겠습니까?"
           }
         },
         "zh-Hans": {
@@ -76665,7 +76665,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "¿En qué formato se abre el texto seleccionado?"
+            "value": "¿En qué formato quieres abrir el texto seleccionado?"
           }
         },
         "fr": {
@@ -76683,7 +76683,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "선택한 텍스트를 어떤 형식으로 열까요?"
+            "value": "선택한 텍스트를 어떤 형식으로 열겠습니까?"
           }
         },
         "zh-Hans": {
@@ -76729,7 +76729,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "文の始め"
+            "value": "文の初め"
           }
         },
         "ko": {
@@ -77121,7 +77121,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Immer in einem Format öffnen"
+            "value": "Immer im selben Format öffnen"
           }
         },
         "en": {
@@ -77133,7 +77133,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abrir siempre en un formato"
+            "value": "Abrir siempre en el mismo formato"
           }
         },
         "fr": {
@@ -77225,7 +77225,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wie bereitwillig formatiert wird"
+            "value": "Formatierungsverhalten"
           }
         },
         "en": {
@@ -77237,13 +77237,13 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Facilidad para dar formato"
+            "value": "Tendencia a dar formato"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Facilité de mise en forme"
+            "value": "Degré de mise en forme"
           }
         },
         "ja": {
@@ -77255,19 +77255,19 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "정리 정도"
+            "value": "서식 적용 정도"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "整理程度"
+            "value": "自动排版倾向"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "整理程度"
+            "value": "自動排版傾向"
           }
         }
       }
@@ -77347,7 +77347,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Volontiers"
+            "value": "Audacieux"
           }
         },
         "ja": {
@@ -77399,7 +77399,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Met en forme moins que « Standard ». Une note faite de titres, de phrases et d’une liste peut rester telle quelle."
+            "value": "Met en forme moins que « Standard ». Une note faite de titres, de phrases et d’une liste peut rester telle quelle."
           }
         },
         "ja": {
@@ -77411,19 +77411,19 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "‘표준’보다 적게 정리합니다. 제목과 문장, 목록으로 된 메모는 정리하지 않을 수 있습니다."
+            "value": "‘표준’보다 신중하게 서식을 적용합니다. 제목과 문장, 목록으로 된 메모에는 서식을 적용하지 않을 수 있습니다."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "整理得比“标准”少。由标题、句子和列表组成的笔记可能不会整理。"
+            "value": "排版比“标准”更谨慎。由标题、句子和列表组成的笔记可能不会排版。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "整理得比「標準」少。由標題、句子和清單組成的筆記可能不會整理。"
+            "value": "排版比「標準」更謹慎。由標題、句子和清單組成的筆記可能不會排版。"
           }
         }
       }
@@ -77463,19 +77463,19 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "제목과 문장, 목록으로 된 메모도 대개 정리합니다."
+            "value": "제목과 문장, 목록으로 된 메모에도 대개 서식을 적용합니다."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "由标题、句子和列表组成的笔记通常也会整理。"
+            "value": "由标题、句子和列表组成的笔记通常也会排版。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "由標題、句子和清單組成的筆記通常也會整理。"
+            "value": "由標題、句子和清單組成的筆記通常也會排版。"
           }
         }
       }
@@ -77515,19 +77515,19 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "제목과 번호 매긴 단계만 있어도 정리할 수 있습니다."
+            "value": "제목과 번호 매긴 단계만 있어도 서식을 적용할 수 있습니다."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "即使只有标题和编号步骤，也可能会整理。"
+            "value": "即使只有标题和编号步骤，也可能会排版。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "即使只有標題和編號步驟，也可能會整理。"
+            "value": "即使只有標題和編號步驟，也可能會排版。"
           }
         }
       }
@@ -77705,7 +77705,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un formato desactivado se puede elegir igualmente al preguntarse y en el menú de formato tras abrir."
+            "value": "Un formato desactivado se puede elegir igualmente cuando se te pregunte y en el menú de formato tras abrir."
           }
         },
         "fr": {
@@ -77913,13 +77913,13 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "«Automático» sigue al documento."
+            "value": "«Automático» se adapta al documento."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "« Automatique » suit le document."
+            "value": "« Automatique » suit le document."
           }
         },
         "ja": {
@@ -77953,7 +77953,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Drucker ohne gemerkte Einstellungen"
+            "value": "Drucker ohne gespeicherte Einstellungen"
           }
         },
         "en": {
@@ -78069,7 +78069,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ejemplos de"
+            "value": "Muestras de"
           }
         },
         "fr": {
@@ -78087,13 +78087,13 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "예제로 쓸 문서"
+            "value": "견본에 쓸 문서"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "示例取自"
+            "value": "样张取自"
           }
         },
         "zh-Hant": {
@@ -78334,7 +78334,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "复制为 HTML"
+            "value": "拷贝为 HTML"
           }
         },
         "zh-Hant": {
@@ -78387,7 +78387,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "复制为富文本"
+            "value": "拷贝为富文本"
           }
         },
         "zh-Hant": {
@@ -78493,7 +78493,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "已复制"
+            "value": "已拷贝"
           }
         },
         "zh-Hant": {
@@ -78658,7 +78658,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "此快捷鍵依閱讀順序輸出或分享文件。"
+            "value": "此快速鍵依閱讀順序輸出或分享文件。"
           }
         },
         "ko": {
@@ -78768,7 +78768,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "角ばった"
+            "value": "四角い"
           }
         },
         "ko": {
@@ -78786,7 +78786,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "方角"
+            "value": "直角"
           }
         }
       }
@@ -78936,7 +78936,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "常规"
+            "value": "通用"
           }
         },
         "zh-Hant": {
@@ -78970,13 +78970,13 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Imprimir"
+            "value": "Impresión"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Imprimer"
+            "value": "Impression"
           }
         },
         "ko": {
@@ -79358,7 +79358,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "輸入…"
+            "value": "匯入…"
           }
         }
       }
@@ -79438,13 +79438,13 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "La versión de este archivo de ajustes no es compatible."
+            "value": "La versión de este archivo de conjunto de ajustes no es compatible."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La version de ce fichier de réglages n’est pas prise en charge."
+            "value": "La version de ce fichier de jeux de réglages n’est pas prise en charge."
           }
         },
         "ko": {
@@ -79484,19 +79484,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die Datei mit den Einstellungen konnte nicht gelesen werden."
+            "value": "Die Einstellungssatz-Datei konnte nicht gelesen werden."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "No se pudo leer el archivo de ajustes."
+            "value": "No se pudo leer el archivo de conjunto de ajustes."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Impossible de lire le fichier de réglages."
+            "value": "Impossible de lire le fichier de jeux de réglages."
           }
         },
         "ko": {
@@ -79536,19 +79536,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die Datei mit den Einstellungen konnte nicht gesichert werden."
+            "value": "Die Einstellungssatz-Datei konnte nicht gesichert werden."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "No se pudo guardar el archivo de ajustes."
+            "value": "No se pudo guardar el archivo de conjunto de ajustes."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Impossible d’enregistrer le fichier de réglages."
+            "value": "Impossible d’enregistrer le fichier de jeux de réglages."
           }
         },
         "ko": {
