@@ -22,6 +22,15 @@ struct SpreadMapTests {
         }
     }
 
+    @Test("組み地図は受け取ったページ組で現在位置を決め、ページがなければ表示しない")
+    func mapUsesDisplayedUnits() throws {
+        let units: [DisplayUnit] = [.single(1), .spread(left: 2, right: 3), .single(4)]
+        let map = try #require(SpreadMap(units: units, page: 3, limit: 8) { _ in })
+        #expect(map.units == units)
+        #expect(map.current == 1)
+        #expect(SpreadMap(units: [], page: 1, limit: 8) { _ in } == nil)
+    }
+
     @Test("1 ページだけの文書は、見開きの設定でも紙 1 枚の幅になる")
     func onePageDocumentIsOneSheetWide() {
         #expect(SpreadMap.tileWidth(for: units(1, .spread, cover: false)) == 22)

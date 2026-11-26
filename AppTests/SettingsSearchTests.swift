@@ -16,6 +16,14 @@ struct SettingsSearchTests {
         if query == "num" { #expect(results.rows.contains { $0.section == .org && $0.anchor == "Heading Numbers" }) }
     }
 
+    @Test("Emacs とリセットの検索で Org の対応する一括操作が見つかる")
+    func orgDefaultsActions() {
+        for (query, action) in [("Emacs", "Use Emacs Defaults…"), ("reset", "Reset to Defaults…")] {
+            let hits = SettingsCatalogue.search(query, in: SettingsCatalogue.rows)
+            #expect(hits.rows.contains { $0.section == .org && $0.anchor == action })
+        }
+    }
+
     @Test("読み方の全行に表示名と区切り付きの Org キーの両方で移動できる")
     func allOrgRows() {
         let ids = OrgReadingGroup.allCases.flatMap(\.settings)

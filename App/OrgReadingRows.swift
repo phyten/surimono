@@ -66,7 +66,7 @@ extension OrgReadingDefaults.Scripts: OrgReadingChoice {
     fileprivate var title: String {
         switch self {
         case .braces: String(localized: "Only in { }")
-        case .all: String(localized: "With or without Braces")
+        case .all: String(localized: "Even without { }")
         case .off: String(localized: "Leave as Written")
         }
     }
@@ -138,9 +138,9 @@ extension OrgReadingDefaults.Tasks: OrgReadingChoice {
 extension OrgReadingDefaults.Names: OrgReadingChoice {
     fileprivate var title: String {
         switch self {
-        case .all: String(localized: "All")
-        case .off: String(localized: "None")
-        case .excluding(["LOGBOOK"]): String(localized: "Except LOGBOOK")
+        case .all: String(localized: "Show All")
+        case .off: String(localized: "Don't Show")
+        case .excluding(["LOGBOOK"]): String(localized: "Show All Except LOGBOOK")
         case .including, .excluding: token
         }
     }
@@ -156,6 +156,56 @@ extension OrgReadingDefaults.Names: OrgReadingChoice {
         } label: {
             Text(label)
         }.labelsHidden().pickerStyle(.menu)
+    }
+}
+
+/// Keep the typed key and its value titles identical in the row and in the confirmation.
+private protocol OrgReadingField {
+    func row(in rows: OrgReadingRows) -> AnyView
+    func difference(from current: OrgReadingDefaults, to target: OrgReadingDefaults) -> ReadingSettingChange?
+}
+
+extension OrgSetting: OrgReadingField where Value: OrgReadingChoice {
+    fileprivate func row(in rows: OrgReadingRows) -> AnyView { AnyView(rows.setting(self)) }
+
+    fileprivate func difference(from current: OrgReadingDefaults, to target: OrgReadingDefaults)
+        -> ReadingSettingChange?
+    {
+        let old = current[keyPath: fallback]
+        let new = target[keyPath: fallback]
+        guard old != new else { return nil }
+        return (String(localized: id.label), old.title, new.title)
+    }
+}
+
+extension OrgSettingID {
+    fileprivate var field: any OrgReadingField {
+        switch self {
+        case .sectionNumbers: OrgSetting.sectionNumbers
+        case .tableOfContents: OrgSetting.tableOfContents
+        case .headlineLevels: OrgSetting.headlineLevels
+        case .tags: OrgSetting.tags
+        case .scripts: OrgSetting.scripts
+        case .preserveBreaks: OrgSetting.preserveBreaks
+        case .emphasis: OrgSetting.emphasis
+        case .math: OrgSetting.math
+        case .planning: OrgSetting.planning
+        case .clocks: OrgSetting.clocks
+        case .priority: OrgSetting.priority
+        case .todo: OrgSetting.todo
+        case .statistics: OrgSetting.statistics
+        case .tasks: OrgSetting.tasks
+        case .title: OrgSetting.title
+        case .author: OrgSetting.author
+        case .date: OrgSetting.date
+        case .drawers: OrgSetting.drawers
+        case .properties: OrgSetting.properties
+        case .timestamps: OrgSetting.timestamps
+        case .footnotes: OrgSetting.footnotes
+        case .tables: OrgSetting.tables
+        case .fixedWidth: OrgSetting.fixedWidth
+        case .archived: OrgSetting.archived
+        }
     }
 }
 
@@ -179,7 +229,7 @@ struct OrgReadingRows: View {
                 let ids = group.settings.filter { !changedOnly || changed.contains($0) }
                 if !ids.isEmpty {
                     let title = Text(group.title).font(.subheadline.bold()).accessibilityAddTraits(.isHeader)
-                    let rows = ForEach(ids, id: \.self) { row($0) }
+                    let rows = ForEach(ids, id: \.self) { $0.field.row(in: self) }
                     if let model, group == .tasks || group == .details {
                         DisclosureGroup(
                             isExpanded: Binding(
@@ -200,36 +250,7 @@ struct OrgReadingRows: View {
         }
     }
 
-    @ViewBuilder private func row(_ id: OrgSettingID) -> some View {
-        switch id {
-        case .sectionNumbers: setting(OrgSetting.sectionNumbers)
-        case .tableOfContents: setting(OrgSetting.tableOfContents)
-        case .headlineLevels: setting(OrgSetting.headlineLevels)
-        case .tags: setting(OrgSetting.tags)
-        case .scripts: setting(OrgSetting.scripts)
-        case .preserveBreaks: setting(OrgSetting.preserveBreaks)
-        case .emphasis: setting(OrgSetting.emphasis)
-        case .math: setting(OrgSetting.math)
-        case .planning: setting(OrgSetting.planning)
-        case .clocks: setting(OrgSetting.clocks)
-        case .priority: setting(OrgSetting.priority)
-        case .todo: setting(OrgSetting.todo)
-        case .statistics: setting(OrgSetting.statistics)
-        case .tasks: setting(OrgSetting.tasks)
-        case .title: setting(OrgSetting.title)
-        case .author: setting(OrgSetting.author)
-        case .date: setting(OrgSetting.date)
-        case .drawers: setting(OrgSetting.drawers)
-        case .properties: setting(OrgSetting.properties)
-        case .timestamps: setting(OrgSetting.timestamps)
-        case .footnotes: setting(OrgSetting.footnotes)
-        case .tables: setting(OrgSetting.tables)
-        case .fixedWidth: setting(OrgSetting.fixedWidth)
-        case .archived: setting(OrgSetting.archived)
-        }
-    }
-
-    @ViewBuilder private func setting<Value: OrgReadingChoice>(_ key: OrgSetting<Value>) -> some View {
+    @ViewBuilder fileprivate func setting<Value: OrgReadingChoice>(_ key: OrgSetting<Value>) -> some View {
         let label = key.id.label
         let token = key.id.token
         let path = key.fallback
@@ -353,49 +374,66 @@ struct OrgReadingChoiceRow<Title: View, Choice: View, Reset: View>: View {
     }
 }
 
+struct OrgChangedSettingsFilter {
+    var isOn = false
+
+    func showsEmpty(_ current: OrgReadingDefaults) -> Bool { isOn && current == .surimono }
+
+    mutating func didApply(_ values: OrgReadingDefaults) {
+        if values == .surimono { isOn = false }
+    }
+}
+
 struct OrgReadingDefaultsPane: View {
     let preferences: AppPreferences
-    @State private var pending: OrgReadingDefaults?
-    @State private var changedOnly = false
+    #if DEBUG
+        @State private var filter = OrgChangedSettingsFilter(
+            isOn: DebugSnapshot.orgDefaultsFixture?.changedOnly == true)
+    #else
+        @State private var filter = OrgChangedSettingsFilter()
+    #endif
+
+    static func defaults(_ current: OrgReadingDefaults) -> ReadingDefaults<OrgReadingDefaults> {
+        ReadingDefaults(
+            builtIn: .surimono,
+            alternatives: [
+                .init(
+                    values: .emacs, status: "Emacs defaults", action: "Use Emacs Defaults…",
+                    confirmation: "Use Emacs Defaults", question: "Use Emacs defaults?")
+            ],
+            current: current)
+    }
+
+    static func differences(from current: OrgReadingDefaults, to target: OrgReadingDefaults) -> [ReadingSettingChange] {
+        OrgReadingGroup.allCases.flatMap(\.settings).compactMap { $0.field.difference(from: current, to: target) }
+    }
 
     var body: some View {
-        Section {
-            OrgReadingRows(preferences: preferences, changedOnly: changedOnly)
-        } header: {
-            HStack {
-                Toggle("Show Only Changed Settings", isOn: $changedOnly)
-                    .toggleStyle(.checkbox).fixedSize()
-                Spacer()
-                Menu("Preset") {
-                    Button("Surimono Defaults") { choose(.surimono) }
-                    Button("Emacs Defaults") {
-                        choose(.emacs)
-                    }
-                }.fixedSize()
-            }
-            .font(.body).textCase(nil)
-        }
-        .alert(
-            "Replace changed Org defaults?",
-            isPresented: Binding(
-                get: { pending != nil },
-                set: { if !$0 { pending = nil } }), presenting: pending
-        ) { preset in
-            Button("Apply") { preferences.setOrgDefaults(preset) }
-            Button("Cancel", role: .cancel) {}
-        }
-    }
-
-    private func choose(_ preset: OrgReadingDefaults) {
         let current = preferences.orgReadingDefaults ?? .surimono
-        if Self.overwritesChanges(current, with: preset) {
-            pending = preset
-        } else {
-            preferences.setOrgDefaults(preset)
-        }
-    }
-
-    static func overwritesChanges(_ current: OrgReadingDefaults, with preset: OrgReadingDefaults) -> Bool {
-        preset.overwritesChanges(in: current)
+        let controls = ReadingDefaultsControls(
+            defaults: Self.defaults(current), resetQuestion: "Reset Org settings to defaults?",
+            differences: Self.differences,
+            apply: { values in
+                preferences.setOrgDefaults(values)
+                filter.didApply(values)
+            },
+            header: {
+                Toggle("Show Only Changed Settings", isOn: $filter.isOn)
+                    .toggleStyle(.checkbox)
+            },
+            rows: {
+                if filter.showsEmpty(current) {
+                    Text("No settings differ from Surimono defaults").foregroundStyle(.secondary)
+                } else {
+                    OrgReadingRows(preferences: preferences, changedOnly: filter.isOn)
+                }
+            })
+        #if DEBUG
+            var preview = controls
+            preview.snapshotTarget = DebugSnapshot.orgDefaultsFixture?.target
+            return preview
+        #else
+            return controls
+        #endif
     }
 }
