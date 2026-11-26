@@ -213,12 +213,9 @@ struct ViewerFileDocumentTests {
         gate.enter()
         var render: Task<Void, Never>?
         var resumed = false
-        defer {
-            if !resumed {
-                gate.leave()
-                await render?.value
-            }
-        }
+        // The Xcode 26.6 compiler rejects `await` in a defer body. Releasing the gate is what a failing
+        // test needs; the cancelled render then finishes on its own.
+        defer { if !resumed { gate.leave() } }
         let bundle = ImageBundleModel(urls: [directory.appendingPathComponent("image.png")]) { _ in
             reading.withLock { $0 = true }
             gate.wait()
