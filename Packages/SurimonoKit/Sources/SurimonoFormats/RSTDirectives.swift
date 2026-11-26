@@ -117,8 +117,9 @@ extension RSTDocument {
             let name = d.argument.isEmpty ? "contents" : d.argument
             let id = references.id(name, kind: "topic")
             references.targets[RSTReferences.name(name)] = .address("#" + id)
+            let fileDepth = Int(d.options["depth"] ?? "").map { max(1, $0) }
             let toc = RSTDirectiveState.Contents(
-                id: id, label: d.argument, depth: max(1, Int(d.options["depth"] ?? "") ?? 6),
+                id: id, label: d.argument, depth: fileDepth ?? 6,
                 local: d.options["local"] != nil, position: anchors.count)
             let index = directives.contents.count
             directives.contents.append(toc)

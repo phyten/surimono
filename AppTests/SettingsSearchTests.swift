@@ -8,12 +8,20 @@ import Testing
 struct SettingsSearchTests {
     @Test(
         "Org は読み方の名前とキーと拡張子から対応する設定行を開く",
-        arguments: ["見出しの番号", "先頭の目次", "Subscripts and Superscripts", "num", "toc", "^", ".org"])
+        arguments: ["見出しの番号", "先頭の目次", "Lead Contents", "Subscripts and Superscripts", "num", "toc", "^", ".org"])
     func orgSettings(query: String) {
         let names = ["Heading Numbers": "見出しの番号", "Table of Contents at the Top": "先頭の目次"]
         let results = SettingsCatalogue.search(query, in: SettingsCatalogue.rows, localize: { names[$0] ?? $0 })
         #expect(results.bestSection(keeping: .pageNumbers) == .org)
         if query == "num" { #expect(results.rows.contains { $0.section == .org && $0.anchor == "Heading Numbers" }) }
+    }
+
+    @Test("Emacs とリセットの検索で Org の対応する一括操作が見つかる")
+    func orgDefaultsActions() {
+        for (query, action) in [("Emacs", "Use Emacs Defaults…"), ("reset", "Reset to Defaults…")] {
+            let hits = SettingsCatalogue.search(query, in: SettingsCatalogue.rows)
+            #expect(hits.rows.contains { $0.section == .org && $0.anchor == action })
+        }
     }
 
     @Test("読み方の全行に表示名と区切り付きの Org キーの両方で移動できる")
@@ -37,6 +45,13 @@ struct SettingsSearchTests {
         let languages = ["en", "ja", "de", "es", "fr", "ko", "zh-Hans", "zh-Hant"]
         let index = try #require(languages.firstIndex(of: language))
         for (anchor, new, oldNames) in [
+            (
+                "Table of Contents at the Top", "Table of Contents at the Top",
+                [
+                    "Table of Contents at the Top", "先頭の目次", "Inhaltsverzeichnis am Anfang", "Índice al principio",
+                    "Sommaire en début de document", "문서 앞의 목차", "文首目录", "文件開頭的目錄",
+                ]
+            ),
             (
                 "Levels Shown as Headings", "Levels Shown as Headings",
                 [

@@ -142,6 +142,37 @@ struct BandMeasurementAgreementTests {
         .readingDirection, .scrollDirection, .paperOrientation, .margins, .printSettings, .saveAsFile,
     ]
 
+    @Test("状態を切り替えても帯の実寸と全形態の計測幅は変わらない", arguments: CornerPreset.allCases)
+    func stateChangesPreserveWidth(corners: CornerPreset) async throws {
+        let items: [BandLayout.Item] = [
+            .floatOnTop, .showOnAllSpaces, .selectText, .cover, .alwaysShowToolbar, .viewOptions,
+        ]
+        let fixture = try Fixture(parts: items, width: 1500, corners: corners)
+        defer { fixture.close() }
+        let model = fixture.model
+        model.updateViewOptions { $0.layout = .spread }
+        for names in [BandLayout.Names.shown, .hidden] {
+            model.preferences.bandNames = names
+            try await settle(fixture, width: 1500)
+            let before = fixture.menu.bandWidths
+            let frames = model.bandAnchors.frames
+            model.isAlwaysOnTop.toggle()
+            model.showsOnAllSpaces.toggle()
+            model.isSelectingText.toggle()
+            model.updateViewOptions { $0.showsCoverAlone.toggle() }
+            model.isBandAlwaysVisible.toggle()
+            model.isViewOptionsPresented.toggle()
+            try await settle(fixture, width: 1500)
+            for item in items {
+                let frame = try #require(frames[.item(item)])
+                #expect(model.bandAnchors.frames[.item(item)] == frame)
+                for form in [BandLayout.Form.full, .withoutSuffix, .compact] {
+                    #expect(fixture.menu.bandWidths[.item(item, form)] == before[.item(item, form)])
+                }
+            }
+        }
+    }
+
     @Test("部品の表示を変えると開いている画像の束の上下の帯は同じ幅のまま切り替わる")
     func namesChangeInOpenWindow() async throws {
         let fixture = try Fixture(parts: [], width: 1000, imageBundle: true)
@@ -263,9 +294,9 @@ struct BandMeasurementAgreementTests {
                 let excess = drawn.width - measured
                 let label = fixture.labels.drawn[item]
                 if [.selectText, .viewOptions].contains(item) {
-                    // Both controls add only a three-point gap and the title to their compact symbol.
-                    let compact = try #require(fixture.menu.bandWidths[.item(item, .compact)])
-                    let minimum = form == .full ? max(1, measured - compact - 3 - 2) : 1
+                    // Measure the title independently of the shared glyph, gap and plate insets.
+                    let insets = BandPlateMetrics(corners: corners, compact: false).padding * 2
+                    let minimum = form == .full ? max(1, measured - 16 - 4 - insets - 1) : 1
                     #expect(
                         label?.form == form && (label?.width ?? 0) >= minimum,
                         "\(item): 計画 \(form)、実際の文字またはアイコン \(String(describing: label))、必要幅 \(minimum)")

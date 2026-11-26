@@ -3,6 +3,29 @@ import PDFKit
 
 @MainActor
 extension PDFDocument {
+    enum BinderNavigation {
+        case bound(ReadingPDFNavigation.PageLinks)
+        case displayFallback
+    }
+
+    private static var binderNavigationKey: UInt8 = 0
+
+    /// Travels with the document consumed by both reading export entry points.
+    var binderNavigation: BinderNavigation? {
+        get { objc_getAssociatedObject(self, &Self.binderNavigationKey) as? BinderNavigation }
+        set { objc_setAssociatedObject(self, &Self.binderNavigationKey, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
+    }
+
+    var boundLinkRecords: ReadingPDFNavigation.PageLinks {
+        if case .bound(let records) = binderNavigation { return records }
+        return [:]
+    }
+
+    /// Page indices can change in derived documents. Only the display restriction transfers verbatim.
+    func inheritDisplayFallback(from source: PDFDocument) {
+        if case .displayFallback = source.binderNavigation { binderNavigation = .displayFallback }
+    }
+
     private final class DestinationPages {
         var pages: [ObjectIdentifier: PDFPage] = [:]
     }

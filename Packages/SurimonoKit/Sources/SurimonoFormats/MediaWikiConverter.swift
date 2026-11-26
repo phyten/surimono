@@ -4,14 +4,18 @@ public enum MediaWikiConverter {
     /// The callbacks run on the converter's own thread while the caller waits for it (`StackSpace.onLargeStack`):
     /// they must not need the caller's thread or actor, and do not see its task-local values.
     public static func convert(
-        _ source: String, directory: URL? = nil,
+        _ source: String, directory: URL? = nil, contentsDepth: Int = 3,
         imageExists: @escaping @Sendable (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
     ) -> HTMLFragment {
         // On a stack of known size, so a document reads the same on every thread.
-        StackSpace.onLargeStack { convertInPlace(source, directory: directory, imageExists: imageExists) }
+        StackSpace.onLargeStack {
+            convertInPlace(source, directory: directory, contentsDepth: contentsDepth, imageExists: imageExists)
+        }
     }
 
-    private static func convertInPlace(_ source: String, directory: URL?, imageExists: @escaping (URL) -> Bool)
+    private static func convertInPlace(
+        _ source: String, directory: URL?, contentsDepth: Int, imageExists: @escaping (URL) -> Bool
+    )
         -> HTMLFragment
     {
         guard source.utf8.count <= DocumentSizeLimits.markupReaderBytes else {
@@ -19,7 +23,7 @@ public enum MediaWikiConverter {
             return HTMLFragment(body: "<p>\(HTML.escape(message))</p>" + PlainTextConverter.convert(source).body)
         }
         let reader = WikiReader(directory: directory, imageExists: imageExists)
-        return reader.document(TextDecoding.normalizeNewlines(source))
+        return reader.document(TextDecoding.normalizeNewlines(source), contentsDepth: contentsDepth)
     }
 
     package static func detects(_ text: String) -> Bool {
@@ -43,6 +47,20 @@ extension String {
     fileprivate var wikiPlain: String {
         HTML.unescape(replacingOccurrences(of: #"<[^>]+>"#, with: "", options: .regularExpression))
     }
+
+    // Keep empty fields, including the trailing one, without splitting an entire row before its first deadline check.
+    func wikiFields(separatedBy separator: String) -> some Sequence<String> {
+        let source = self as NSString
+        return sequence(state: 0) { cursor -> String? in
+            guard cursor <= source.length else { return nil }
+            let remaining = NSRange(location: cursor, length: source.length - cursor)
+            let delimiter = source.range(of: separator, options: .literal, range: remaining)
+            let end = delimiter.location == NSNotFound ? source.length : delimiter.location
+            defer { cursor = delimiter.location == NSNotFound ? source.length + 1 : NSMaxRange(delimiter) }
+            return source.substring(with: NSRange(location: cursor, length: end - cursor))
+        }
+    }
+
     var wikiTrim: String { trimmingCharacters(in: .whitespacesAndNewlines) }
 }
 
@@ -91,16 +109,21 @@ final class WikiReader {
         return "\u{E002}\(nonce)\(deferred.count - 1)\u{E003}"
     }
 
-    func document(_ source: String) -> HTMLFragment {
+    func document(_ source: String, contentsDepth: Int) -> HTMLFragment {
         japanese = source.prefix(8192).range(of: #"[ぁ-ヿ]"#, options: .regularExpression) != nil
         // Keep literal private-use characters, including inside nowiki, distinct from parser tokens.
         let hasMarker = source.contains("\u{E000}")
         let prepared = tokenize(hasMarker ? source.replacingOccurrences(of: "\u{E000}", with: escapedMarker) : source)
         var result = blocks(prepared)
+        defer { deferred.removeAll() }
+        if PreviewConversion.expired { return HTMLFragment(body: "") }
         if forceTOC && !hideTOC && !explicitTOC,
             let first = result.range(of: #"<h[1-6] id=""#, options: .regularExpression)
         {
-            result.insert(contentsOf: MarkdownExtensions.tableOfContents(anchors), at: first.lowerBound)
+            result.insert(
+                contentsOf: ReaderContentsKind.lead.mark(
+                    MarkdownExtensions.tableOfContents(anchors, levels: contentsDepth)),
+                at: first.lowerBound)
         }
         result += references.remainder()
         if !categories.isEmpty {
@@ -120,16 +143,20 @@ final class WikiReader {
                 guard let index = Int(parts[1]), deferred.indices.contains(index) else { return "" }
                 return deferred[index]()
             }
-            deferred.removeAll()
         }
         if hasMarker {
             result = result.replacingOccurrences(of: escapedMarker, with: "\u{E000}")
             title = title?.replacingOccurrences(of: escapedMarker, with: "\u{E000}")
         }
         let fonts = MathRenderer.fontFaces(for: result)
-        return HTMLFragment(
+        var fragment = HTMLFragment(
             body: result + (fonts.isEmpty ? "" : "<style>\(fonts)</style>"), title: title,
-            readingIssues: reachedNestingLimit ? [StackSpace.limitIssue] : [])
+            readingIssues: reachedNestingLimit ? [StackSpace.limitIssue] : []
+        ).recordingContents(
+            .init(
+                present: hideTOC ? .init(false) : (forceTOC ? .init(true) : nil)))
+        fragment.coalescesContentsInLegacy = forceTOC && explicitTOC && !hideTOC
+        return fragment
     }
 
     func heading(_ level: Int, _ source: String) -> String {
@@ -152,14 +179,31 @@ final class WikiReader {
 
 // ICU offsets stay in UTF-16 throughout a pass, including when the page contains non-ASCII text.
 struct WikiPattern {
-    let regex: NSRegularExpression?
+    private let regex: NSRegularExpression?
     init(_ pattern: String) { regex = try? NSRegularExpression(pattern: pattern) }
+
+    func forEachMatch(in input: String, _ visit: (NSTextCheckingResult) -> Void) {
+        guard !PreviewConversion.expired else { return }
+        let preview = PreviewConversion.isActive
+        let options: NSRegularExpression.MatchingOptions = preview ? [.reportProgress] : []
+        withoutActuallyEscaping(visit) { visit in
+            regex?.enumerateMatches(in: input, options: options, range: NSRange(input.startIndex..., in: input)) {
+                match, _, stop in
+                // ICU reports progress even when it has found no matches.
+                if preview, PreviewConversion.expired {
+                    stop.pointee = true
+                } else if let match {
+                    visit(match)
+                }
+            }
+        }
+    }
 
     func replace(_ input: String, plain: (String) -> String = { $0 }, _ transform: ([String]) -> String) -> String {
         let source = input as NSString
         var output = ""
         var cursor = 0
-        for match in regex?.matches(in: input, range: NSRange(location: 0, length: source.length)) ?? [] {
+        forEachMatch(in: input) { match in
             output += plain(source.substring(with: NSRange(location: cursor, length: match.range.location - cursor)))
             output += transform(
                 (0..<match.numberOfRanges).map {
@@ -168,6 +212,7 @@ struct WikiPattern {
                 })
             cursor = NSMaxRange(match.range)
         }
+        guard !PreviewConversion.expired else { return "" }
         return output + plain(source.substring(from: cursor))
     }
 }

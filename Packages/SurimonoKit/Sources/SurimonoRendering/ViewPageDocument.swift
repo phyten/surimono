@@ -101,6 +101,7 @@ public enum ViewPageDocument {
                 annotation.destination = target
             }
         }
+        result.inheritDisplayFallback(from: source)
         return sourcePages.isEmpty ? result : StandalonePage.selectableDocument(result)
     }
 

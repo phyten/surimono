@@ -7,6 +7,7 @@ import SwiftUI
 // window is the paper alone in between. Where the window cannot grow, they lie over the paper's edges.
 struct ViewModeView: View {
     @Bindable var model: DocumentViewModel
+    @State private var hints = BandHintSession()
     @State private var menu: OverlayMenuState
 
     init(model: DocumentViewModel, menu: OverlayMenuState? = nil) {
@@ -28,6 +29,7 @@ struct ViewModeView: View {
 
     var body: some View {
         let plans = BandPlans(model: model, menu: menu)
+        let followsEdges = !model.isBandAlwaysVisible
         ZStack(alignment: .top) {
             HStack(spacing: 0) {
                 if model.showsOutlineDrawer {
@@ -72,6 +74,13 @@ struct ViewModeView: View {
             ThemePaletteAnchor(model: model)
             PrintSettingsAnchor(model: model)
         }
+        .modifier(
+            BandHintHost(
+                session: hints,
+                bandHeights: .full(for: model.menuArrangement, top: model.topBandHeight),
+                blocked: !bandVisible || model.hasDocumentPopover || model.isReviewingSmartRemoval
+                    || model.isGoToPagePresented)
+        )
         .coordinateSpace(name: BandAnchors.coordinateSpace)
         .ignoresSafeArea()
         .background(Color(nsColor: .underPageBackgroundColor))
@@ -84,13 +93,16 @@ struct ViewModeView: View {
             if let model { GoToPageSheet(model: model) }
         }
         .background {
-            PointerTracker(isActive: !model.isBandAlwaysVisible) { [menu] point, contentHeight in
+            PointerTracker { [menu, hints] point, contentHeight in
+                hints.move(to: point)
+                guard followsEdges else { return }
                 menu.contentHeight = contentHeight
                 if let point { menu.pointerMoved(to: point) } else { menu.pointerExited() }
             }
         }
         .onAppear { [menu] in menu.startTrackingMenus() }
         .onDisappear { [menu] in menu.stopTrackingMenus() }
+        .onChange(of: hints.holdsBand, initial: true) { _, held in menu.hasActivePart = held }
         .onChange(of: isSplit, initial: true) { _, split in menu.hasBottomBand = split }
         .onChange(of: hoverBandShown) { _, shown in
             model.bandRevealDidChange(shown)
@@ -180,7 +192,7 @@ struct ViewModeView: View {
 
     private func bottomZone(_ row: BandRowPlan) -> some View {
         BandZone(edge: .bottom, isShown: bandVisible, height: ViewerWindow.bandHeight) {
-            BottomBand(model: model, row: row)
+            BottomBand(model: model, row: row).environment(\.hintsAboveBand, true)
         }
     }
 }

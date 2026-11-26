@@ -63,37 +63,72 @@ public enum DocumentOutline {
     /// Link labels in print order, with an empty string between separate tables of contents.
     public static func sourceContentsEntries(inHTML html: String) -> [String] {
         var entries: [String] = []
+        visitContentsLinks(in: html, navIndex: nil) { entry, startsTable in
+            if startsTable && !entries.isEmpty { entries.append("") }
+            entries.append(entry.text)
+        }
+        return entries
+    }
+
+    /// A native list controls its own selection, order, labels and nesting. Its links identify the
+    /// corresponding headings even when several headings have the same printed title.
+    package static func contentsHeadings(in html: String, navIndex: Int) -> [DocumentHeading] {
+        var entries: [DocumentHeading] = []
+        visitContentsLinks(in: html, navIndex: navIndex) { entry, _ in entries.append(entry) }
+        return entries
+    }
+
+    private static func visitContentsLinks(
+        in html: String, navIndex: Int?, visit: (DocumentHeading, Bool) -> Void
+    ) {
+        var nextNav = 0
+        var nesting = 0
+        var listLevel = 0
         var startsTable = false
-        var depth = 0
         var link: String?
-        for token in HTMLScanner.tokens(html) {
+        var id: String?
+        HTMLScanner.forEachToken(html) { token in
             switch token {
             case .text(let text): link? += text
             case .opaque: break
             case .tag(let tag):
                 if tag.name == "nav" {
-                    let isContents = tag.attribute("class")?.split(separator: " ").contains("toc") == true
                     if tag.isClosing {
-                        if depth > 0 { depth -= 1 }
-                    } else if depth > 0 || isContents {
-                        if depth == 0 { startsTable = true }
-                        depth += 1
+                        if nesting > 0 { nesting -= 1 }
+                    } else {
+                        let selected =
+                            navIndex.map { $0 == nextNav }
+                            ?? (tag.attribute("class")?.split(separator: " ").contains("toc") == true)
+                        nextNav += 1
+                        if nesting > 0 || selected {
+                            if nesting == 0 {
+                                startsTable = true
+                                listLevel = 0
+                            }
+                            nesting += 1
+                        }
                     }
-                } else if depth > 0, tag.name == "a" {
-                    if tag.isClosing, let text = link {
-                        link = nil
-                        let label = HTMLScanner.decodingEntities(text).trimmingCharacters(in: .whitespacesAndNewlines)
-                        guard !label.isEmpty else { continue }
-                        if startsTable && !entries.isEmpty { entries.append("") }
-                        startsTable = false
-                        entries.append(label)
-                    } else if !tag.isClosing {
-                        link = ""
+                } else if nesting > 0 {
+                    switch tag.name {
+                    case "ul", "ol": listLevel = max(0, listLevel + (tag.isClosing ? -1 : 1))
+                    case "a":
+                        if !tag.isClosing {
+                            link = ""
+                            id = tag.attribute("href").flatMap { $0.first == "#" ? String($0.dropFirst()) : nil }
+                        } else if let text = link {
+                            link = nil
+                            let label = HTMLScanner.decodingEntities(text).trimmingCharacters(
+                                in: .whitespacesAndNewlines)
+                            if !label.isEmpty {
+                                visit(.init(level: max(1, listLevel), text: label, id: id), startsTable)
+                                startsTable = false
+                            }
+                        }
+                    default: break
                     }
                 }
             }
         }
-        return entries
     }
 
     /// The text of the first `<title>` element that has a closing tag: the first match of the expression

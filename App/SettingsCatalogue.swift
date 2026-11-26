@@ -152,6 +152,8 @@ enum SettingsCatalogue {
             .init(.styles, "Default Typeface", words: ["LaTeX Typeface", "As the Style"]),
             .init(.styles, "Open Styles Folder"),
             .init(.styles, "Reload", anchor: "Open Styles Folder"),
+            .init(.org, "Use Emacs Defaults…"),
+            .init(.org, "Reset to Defaults…"),
             .init(.html, "Default HTML Preset"),
             .init(.html, "Allow JavaScript in HTML"),
             .init(.html, "Open Presets Folder"),
@@ -217,6 +219,8 @@ enum SettingsCatalogue {
 
     private static func orgSearchWords(for id: OrgSettingID) -> [String] {
         switch id {
+        case .tableOfContents:
+            ["Lead Contents", "Sommaire en début de document", "문서 앞의 목차", "文首目录", "文件開頭的目錄"]
         case .headlineLevels:
             [
                 "Heading Depth", "見出しの深さ", "Gliederungstiefe", "Profundidad de los títulos", "Profondeur des titres",

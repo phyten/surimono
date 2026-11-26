@@ -61,7 +61,7 @@ public struct PageBreakRules: Codable, Hashable, Sendable {
     }
 }
 
-/// How the printed pages show a table of contents.
+/// Legacy print finish. Its single visibility switch also covered every manuscript list.
 public struct PaperTOC: Codable, Hashable, Sendable {
     public enum Mode: String, CaseIterable, Codable, Sendable {
         /// No table of contents, not even the one the text asks for with `[TOC]`.
@@ -101,19 +101,92 @@ public struct PaperTOC: Codable, Hashable, Sendable {
 /// laid out, so unlike the header and footer it belongs to the pages rather than the sheets.
 public struct PrintFinish: Codable, Hashable, Sendable {
     public var breaks = PageBreakRules()
-    public var toc = PaperTOC()
+    // A safe migration is specific to its manuscript. Keep the portable original until a contents control is edited.
+    private enum ContentsRecord: Hashable, Sendable {
+        case legacy(PaperTOC)
+        case migrated(PaperTOC)
+        case current(ContentsFinish)
+    }
+    private var record = ContentsRecord.current(.init())
+
+    public var legacyTOC: PaperTOC? {
+        if case .legacy(let toc) = record { return toc }
+        return nil
+    }
+    /// The portable legacy preset survives automatic migration until a contents control is edited.
+    public var originalPresetContents: PaperTOC? {
+        if case .migrated(let toc) = record { return toc }
+        return legacyTOC
+    }
+
+    public var contents: ContentsFinish {
+        get {
+            switch record {
+            case .legacy(let toc), .migrated(let toc): ContentsFinish(legacy: toc)
+            case .current(let contents): contents
+            }
+        }
+        set { record = .current(newValue) }
+    }
+
+    mutating func adoptContents(editing: Bool) {
+        if editing {
+            record = .current(contents)
+        } else if case .legacy(let toc) = record {
+            record = .migrated(toc)
+        }
+    }
+
+    public var forNewDocuments: Self {
+        var copy = self
+        if case .migrated(let toc) = record { copy.legacyPresetContents = toc }
+        return copy
+    }
+
+    /// Applying the same legacy contents should still apply any other fields supplied by the preset.
+    public func preservingMigratedContents(from active: Self) -> Self {
+        var copy = self
+        if case .migrated(let original) = active.record, legacyTOC == original { copy.record = active.record }
+        return copy
+    }
+
+    // New sets carry the chosen lead separately. Their finish comparison uses the active, document-specific shape.
+    var forSettingSet: Self {
+        var copy = self
+        if case .migrated = record { copy.contents = contents }
+        return copy
+    }
+
+    /// Compatibility for the original presets and legacy rendering fixtures.
+    public var legacyPresetContents: PaperTOC {
+        get { originalPresetContents ?? PaperTOC() }
+        set { record = .legacy(newValue) }
+    }
+
+    public static var manuscriptContents: Self {
+        var finish = Self()
+        finish.legacyPresetContents = PaperTOC()
+        return finish
+    }
+
     public var links = PaperLinks.asIs
     public var proof = ProofMarks.shown
     public var footnotes = FootnotePlacement.end
 
     public init() {}
 
-    private enum CodingKeys: String, CodingKey { case breaks, toc, links, proof, footnotes }
+    private enum CodingKeys: String, CodingKey { case breaks, toc, contents, migratedTOC, links, proof, footnotes }
 
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         breaks = (try? values.decodeIfPresent(PageBreakRules.self, forKey: .breaks)) ?? PageBreakRules()
-        toc = (try? values.decodeIfPresent(PaperTOC.self, forKey: .toc)) ?? PaperTOC()
+        if let finish = try? values.decode(ContentsFinish.self, forKey: .contents) {
+            contents = finish
+        } else if let toc = try? values.decode(PaperTOC.self, forKey: .migratedTOC) {
+            record = .migrated(toc)
+        } else if let toc = try? values.decode(PaperTOC.self, forKey: .toc) {
+            record = .legacy(toc)
+        }
         links = (try? values.decodeIfPresent(PaperLinks.self, forKey: .links)) ?? .asIs
         proof = (try? values.decodeIfPresent(ProofMarks.self, forKey: .proof)) ?? .shown
         footnotes = (try? values.decodeIfPresent(FootnotePlacement.self, forKey: .footnotes)) ?? .end
@@ -122,7 +195,11 @@ public struct PrintFinish: Codable, Hashable, Sendable {
     public func encode(to encoder: any Encoder) throws {
         var values = encoder.container(keyedBy: CodingKeys.self)
         try values.encode(breaks, forKey: .breaks)
-        try values.encode(toc, forKey: .toc)
+        switch record {
+        case .legacy(let toc): try values.encode(toc, forKey: .toc)
+        case .migrated(let toc): try values.encode(toc, forKey: .migratedTOC)
+        case .current(let finish): try values.encode(finish, forKey: .contents)
+        }
         if links != .asIs { try values.encode(links, forKey: .links) }
         if proof != .shown { try values.encode(proof, forKey: .proof) }
         if footnotes != .end { try values.encode(footnotes, forKey: .footnotes) }
@@ -162,8 +239,11 @@ public struct PrintFinish: Codable, Hashable, Sendable {
             // A table that fits on a page already moves as a whole (common.css); a longer one breaks between its rows.
             rules.append("table, tr { break-inside: avoid; page-break-inside: avoid; }")
         }
-        if !toc.showsSourceContents {
+        if legacyTOC?.showsSourceContents == false {
             rules.append("nav.toc { display: none !important; }")
+        }
+        if legacyTOC == nil, contents.inText == .hidden {
+            rules.append("nav[data-surimono-hidden] { display: none !important; }")
         }
         return rules.joined(separator: "\n")
     }
@@ -279,13 +359,38 @@ public enum PaperContents {
     /// The entries of the headings. The chapters are the largest headings of the text, unless the largest is a single
     /// title over everything else; `pageNumbers` holds the printed number of each heading.
     public static func entries(headings: [DocumentHeading], pageNumbers: [Int?], depth: PaperTOC.Depth) -> [Entry] {
-        guard let top = DocumentOutline.chapterLevel(of: headings.map(\.level)) else { return [] }
-        let deepest = depth == .chapters ? top : top + 1
-        return headings.enumerated().compactMap { index, heading in
-            guard (top...deepest).contains(heading.level) else { return nil }
-            return Entry(
-                depth: heading.level - top + 1, text: heading.text,
+        entries(headings: headings, pageNumbers: pageNumbers, depth: depth == .chapters ? .levels(1) : .levels(2))
+    }
+
+    public static func entries(headings: [DocumentHeading], pageNumbers: [Int?], depth: ReadingDepth) -> [Entry] {
+        legacySelection(headings, depth: depth).map { index, heading in
+            Entry(
+                depth: heading.level, text: heading.text,
                 page: pageNumbers.indices.contains(index) ? pageNumbers[index] : nil)
+        }
+    }
+
+    package static func readerEntries(facts: DocumentFacts, pageNumbers: [Int?]) -> [Entry] {
+        var pagesByID: [String: Int] = [:]
+        for (heading, page) in zip(facts.headings, pageNumbers) {
+            if let id = heading.id, let page, pagesByID[id] == nil { pagesByID[id] = page }
+        }
+        return (facts.leadEntries ?? []).map { item in
+            Entry(depth: item.level, text: item.text, page: item.id.flatMap { pagesByID[$0] })
+        }
+    }
+
+    static func legacyHeadings(_ headings: [DocumentHeading], depth: ReadingDepth) -> [DocumentHeading] {
+        legacySelection(headings, depth: depth).map { $0.1 }
+    }
+
+    private static func legacySelection(_ headings: [DocumentHeading], depth: ReadingDepth) -> [(Int, DocumentHeading)]
+    {
+        guard let top = DocumentOutline.chapterLevel(of: headings.map(\.level)) else { return [] }
+        return headings.enumerated().compactMap { index, heading in
+            let level = heading.level - top
+            guard level >= 0, level < depth.headingLevels else { return nil }
+            return (index, DocumentHeading(level: level + 1, text: heading.text, id: heading.id))
         }
     }
 
@@ -318,6 +423,10 @@ public enum PaperContents {
             .paper-toc-row { display: flex; justify-content: space-between; align-items: baseline; gap: 1em; \
             padding-block: 0.25em; }
             .paper-toc-depth-2 { padding-left: 1.2em; font-size: 0.92em; }
+            .paper-toc-depth-3 { padding-left: 2.4em; }
+            .paper-toc-depth-4 { padding-left: 3.6em; }
+            .paper-toc-depth-5 { padding-left: 4.8em; }
+            .paper-toc-depth-6 { padding-left: 6em; }
             .paper-toc-page { font-variant-numeric: tabular-nums; }
             \(borders)
             </style>
@@ -325,5 +434,16 @@ public enum PaperContents {
             \(rows.joined(separator: "\n"))
             """
         return HTMLFragment(body: body, title: title)
+    }
+}
+
+/// The saved "Use for New Documents" envelope. Legacy contents can only be migrated in a particular manuscript.
+public struct PrintFinishDefaults: Codable, Equatable, Sendable {
+    public var options: PrintOptions
+    public var finish: PrintFinish
+
+    public init(options: PrintOptions, finish: PrintFinish) {
+        self.options = options
+        self.finish = finish
     }
 }

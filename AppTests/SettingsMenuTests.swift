@@ -10,20 +10,34 @@ struct SettingsMenuTests {
         Bundle.main.localizedString(forKey: key, value: key, table: nil)
     }
 
-    @Test("設定窓は最初に理想幅で開き、ペインを変えると窓の題名がその翻訳に変わる")
-    func paneWindow() async throws {
+    // The controller constrains this window to the supplied visible frame. AppKit would otherwise constrain
+    // it a second time to the physical display when ordering or resizing it.
+    private final class PlacementWindow: NSWindow {
+        override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect { frameRect }
+    }
+
+    @Test(
+        "設定窓は画面に収まる寸法で開き、ペインを変えても寸法を保ち題名を更新する",
+        arguments: [CGSize(width: 1440, height: 900), CGSize(width: 800, height: 500)])
+    func paneWindow(visibleSize: CGSize) async throws {
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
         let preferences = AppPreferences(defaults: suite.defaults)
         preferences.settingsSection = .printing
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
+        let editor = BandArrangementEditorSession(preferences: preferences)
         let view = SettingsView(
-            preferences: preferences, library: UserLibrary(root: directory),
-            arrangementEditor: BandArrangementEditorSession(preferences: preferences))
-        let window = SettingsWindowController.makeWindow(for: view)
-        defer { window.close() }
+            preferences: preferences, library: UserLibrary(root: directory), arrangementEditor: editor)
+        let window = SettingsWindowController.makeWindow(
+            for: view, hostingWindow: PlacementWindow.init(contentViewController:))
+        let controller = SettingsWindowController(window: window, editor: editor)
+        defer { controller.close() }
+        controller.placeWindow(in: CGRect(origin: .zero, size: visibleSize))
         window.orderBack(nil)
+        let smallContent = window.contentRect(forFrameRect: CGRect(x: 12, y: 12, width: 776, height: 476)).size
+        let expectedSize = visibleSize.width == 800 ? smallContent : CGSize(width: 1040, height: 760)
+        let expectedMinimum = visibleSize.width == 800 ? smallContent : CGSize(width: 820, height: 540)
         for (section, title) in [(SettingsSection.printing, "Printing"), (.general, "General")] {
             preferences.settingsSection = section
             let expected = localized(title)
@@ -33,10 +47,139 @@ struct SettingsMenuTests {
                 try await Task.sleep(for: .milliseconds(10))
             }
             #expect(window.title == expected)
-            #expect(window.frame.width == 860)
-            #expect(window.contentRect(forFrameRect: window.frame).height >= 540)
-            #expect(window.contentMinSize == NSSize(width: 820, height: 540))
+            #expect(window.contentRect(forFrameRect: window.frame).size == expectedSize)
+            #expect(window.contentMinSize == expectedMinimum)
         }
+    }
+
+    @Test("開いている設定窓は動かさず、閉じた後は手で変えた寸法で同じ窓を中央に開く")
+    func reopenSettings() throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let preferences = AppPreferences(defaults: suite.defaults)
+        let editor = BandArrangementEditorSession(preferences: preferences)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let window = SettingsWindowController.makeWindow(
+            for: SettingsView(
+                preferences: preferences, library: UserLibrary(root: directory), arrangementEditor: editor))
+        let controller = SettingsWindowController(window: window, editor: editor)
+        defer { controller.close() }
+        #expect(!window.isRestorable)
+        #expect(window.collectionBehavior.contains(.moveToActiveSpace))
+        controller.showWindow(nil)
+        let screen = try #require(window.screen)
+        #expect(abs(window.frame.midX - screen.visibleFrame.midX) <= 1)
+        #expect(abs(window.frame.midY - screen.visibleFrame.midY) <= 1)
+        let size = window.contentMinSize
+        window.setContentSize(size)
+        controller.windowDidEndLiveResize(Notification(name: NSWindow.didEndLiveResizeNotification, object: window))
+        #expect(AppPreferences(defaults: suite.defaults).settingsContentSize == size)
+        window.setFrameOrigin(CGPoint(x: screen.visibleFrame.minX, y: screen.visibleFrame.minY))
+        let moved = window.frame
+        controller.showWindow(nil)
+        #expect(window.frame == moved)
+        controller.close()
+        #expect(!window.isVisible)
+        controller.showWindow(nil)
+        #expect(controller.window === window && window.isVisible)
+        let reopenedScreen = try #require(window.screen)
+        let expected = SettingsWindowPlacement(
+            in: reopenedScreen.visibleFrame, savedContentSize: size,
+            chrome: window.frameRect(forContentRect: .zero).size)
+        #expect(window.frame.size == expected.frame.size)
+        #expect(abs(window.frame.midX - reopenedScreen.visibleFrame.midX) <= 1)
+        #expect(abs(window.frame.midY - reopenedScreen.visibleFrame.midY) <= 1)
+    }
+
+    @Test("小画面では設定全体を端までスクロールでき、大きい画面に戻すと保存寸法で開く")
+    func smallScreenViewport() async throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let preferences = AppPreferences(defaults: suite.defaults)
+        let preferred = CGSize(width: 950, height: 630)
+        preferences.settingsContentSize = preferred
+        let editor = BandArrangementEditorSession(preferences: preferences)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let window = SettingsWindowController.makeWindow(
+            for: SettingsView(
+                preferences: preferences, library: UserLibrary(root: directory), arrangementEditor: editor),
+            hostingWindow: PlacementWindow.init(contentViewController:))
+        let controller = SettingsWindowController(window: window, editor: editor)
+        defer { controller.close() }
+        window.orderBack(nil)
+        let small = CGRect(x: 40, y: 60, width: 800, height: 500)
+        controller.placeWindow(in: small)
+
+        func outerScroll() -> NSScrollView? {
+            guard let content = window.contentView, let pane = settingsPaneContainer(in: content) else { return nil }
+            var ancestor = pane.superview
+            while let view = ancestor {
+                if let scroll = view as? NSScrollView, let document = scroll.documentView,
+                    document.bounds.width >= 820, document.bounds.height >= 540,
+                    scroll.documentVisibleRect.width < 820, scroll.documentVisibleRect.height < 540
+                {
+                    return scroll
+                }
+                ancestor = view.superview
+            }
+            return nil
+        }
+        let deadline = ContinuousClock.now + .seconds(5)
+        while outerScroll() == nil && ContinuousClock.now < deadline {
+            window.contentView?.layoutSubtreeIfNeeded()
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(window.frame == CGRect(x: 52, y: 72, width: 776, height: 476))
+        #expect(window.contentMinSize == window.contentRect(forFrameRect: window.frame).size)
+        let scroll = try #require(outerScroll())
+        let document = try #require(scroll.documentView)
+        let corner = CGRect(x: document.bounds.maxX - 2, y: document.bounds.maxY - 2, width: 1, height: 1)
+        document.scrollToVisible(corner)
+        #expect(scroll.documentVisibleRect.contains(corner))
+        #expect(AppPreferences(defaults: suite.defaults).settingsContentSize == preferred)
+        controller.placeWindow(in: CGRect(x: 0, y: 0, width: 1400, height: 900))
+        #expect(window.contentMinSize == CGSize(width: 820, height: 540))
+        #expect(window.contentRect(forFrameRect: window.frame).size == preferred)
+    }
+
+    @Test("旧枠が二つあればAppKitの寸法を一度だけ引き継ぐ")
+    func migrateFrame() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let defaults = suite.defaults
+        // Frame descriptors recorded by the two old Settings windows.
+        defaults.set("414 256 820 572 0 0 1728 1084 ", forKey: "NSWindow Frame com_apple_SwiftUI_Settings_window")
+        defaults.set("313 92 1100 884 0 0 1728 1084 ", forKey: "NSWindow Frame SurimonoSettings")
+        let preferences = AppPreferences(defaults: defaults)
+        preferences.migrateSettingsContentSize(chrome: CGSize(width: 0, height: 32))
+        #expect(preferences.settingsContentSize == CGSize(width: 1100, height: 852))
+        preferences.settingsContentSize = nil
+        AppPreferences(defaults: defaults).migrateSettingsContentSize(chrome: .zero)
+        #expect(preferences.settingsContentSize == nil)
+    }
+
+    @Test("旧SwiftUIの枠だけでも寸法を移し、旧既定幅の高さも保持する", arguments: [820, 860])
+    func migrateLegacyWidth(width: Int) {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        suite.defaults.set(
+            "414 256 \(width) 572 0 0 1728 1084 ", forKey: "NSWindow Frame com_apple_SwiftUI_Settings_window")
+        let preferences = AppPreferences(defaults: suite.defaults)
+        preferences.migrateSettingsContentSize(chrome: CGSize(width: 0, height: 32))
+        #expect(preferences.settingsContentSize == CGSize(width: width, height: 540))
+    }
+
+    @Test("現行の保存寸法があれば旧枠で置き換えない")
+    func preferCurrentSize() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        suite.defaults.set("313 92 1100 884 0 0 1728 1084 ", forKey: "NSWindow Frame SurimonoSettings")
+        let preferences = AppPreferences(defaults: suite.defaults)
+        preferences.settingsContentSize = CGSize(width: 970, height: 650)
+        preferences.migrateSettingsContentSize(chrome: .zero)
+        #expect(preferences.settingsContentSize == CGSize(width: 970, height: 650))
     }
 
     @Test("新しい表示・ウィンドウ・印刷の既定値は保存され再読み込みできる")

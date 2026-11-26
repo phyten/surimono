@@ -82,7 +82,8 @@ struct HeadlessExport {
         settings.documentName = name
         settings.pageLanguage = language
         if format.usesPrintTheme {
-            settings.finish = preferences.printFinish
+            settings.finish = preferences.headlessPrintFinish
+            settings.formatReadingDefaults = preferences.formatReadingDefaults
             let palette = library.codePalette(preferences.defaultCodePaletteID)
             settings.code = CodeStyle(
                 palette: palette, cutFormat: String(localized: "+%d characters"))

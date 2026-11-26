@@ -532,7 +532,7 @@ struct ViewBandTests {
         #expect(abs(back.maxY - hover.paperOnly.maxY) <= 3)
     }
 
-    @Test("ポインタの監視は窓に載っている間だけで、窓から外れると止まり、常に表示では張らない")
+    @Test("ポインタの監視は有効な間だけで、窓から外れると止まる")
     func trackerStopsWithWindow() throws {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 300, height: 200), styleMask: [.titled], backing: .buffered,
@@ -801,7 +801,7 @@ struct ViewBandTests {
         model.layoutID = PrintLayout.a4BookletA5.id
         model.printOptions.mirrorsMargins = true
         model.printFinish.breaks.h1 = .rightPage
-        model.printFinish.toc.mode = .front
+        model.printFinish.legacyPresetContents.mode = .front
         let reading = try #require(model.renderSettings)
         #expect(reading.layout == .a4BookletA5)
         model.mode = .print

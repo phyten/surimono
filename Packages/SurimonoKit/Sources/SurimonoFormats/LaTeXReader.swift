@@ -1034,7 +1034,13 @@ final class LaTeXReader {
         let nav =
             "<nav class=\"toc\"\(opening)\(mark)\(bookMark)\(measure)>\(title)"
             + document.contentsPlaceholder(list) + "</nav>\n"
-        appendBlock(styledLinks(nav, block: true))
+        let kind: ReaderContentsKind =
+            switch list {
+            case .figures: .figures
+            case .tables: .tables
+            case .headings: .contents
+            }
+        appendBlock(styledLinks(kind.mark(nav), block: true))
     }
 
     private func ruleLength(_ source: String) -> String? {

@@ -6,18 +6,20 @@ extension WikiReader {
             + #"|(?:https?://|mailto:)[^\s"<>\[\]\uE000]+"#
             + #"|&(?:#\d+|#[xX][a-fA-F0-9]+|[a-zA-Z][a-zA-Z0-9]*);|__[A-Z][A-Z0-9_]*?__"#
     )
-    private static let bracketLink = WikiPattern(#"\[((?:https?://|mailto:)[^\s\[\]<>]+)(?:[ \t]+([^\[\]\n]*))?\]"#)
+    // Separator whitespace never belongs to the label, even when the closing bracket is missing.
+    private static let bracketLink = WikiPattern(#"\[((?:https?://|mailto:)[^\s\[\]<>]++)(?:[ \t]++([^\[\]\n]*+))?\]"#)
     private static let quotes = WikiPattern("'{2,}")
     private static let languages = Set(Locale.LanguageCode.isoLanguageCodes.map(\.identifier))
 
     func inline(_ sourceText: String) -> String {
+        if PreviewConversion.expired { return "" }
         // Templates, links and references nest through here; when the stack runs short the rest stays as text.
         guard StackSpace.hasRoom else {
             reachedNestingLimit = true
             return HTML.escape(sourceText)
         }
         if sourceText.contains("\n") {
-            return sourceText.components(separatedBy: "\n").map(inline).joined(separator: " ")
+            return inlineLines(sourceText, separator: " ")
         }
         let text =
             sourceText.contains("[")
@@ -26,21 +28,27 @@ extension WikiReader {
             } : sourceText
         guard text.contains("''") else { return pieces(text) }
         let source = text as NSString
-        let matches = Self.quotes.regex?.matches(in: text, range: NSRange(location: 0, length: source.length)) ?? []
+        var runs: [(range: NSRange, count: Int)] = []
+        var oddBold = false
+        var oddItalic = false
+        var best: (index: Int, rank: Int)?
         // Four quotes carry one literal apostrophe. If both styles have odd parity, MediaWiki
         // prefers a contraction after a single letter, then a longer word, then whitespace.
-        var runs = matches.map { $0.range.length == 4 ? 3 : min($0.range.length, 5) }
-        if !runs.filter({ $0 != 2 }).count.isMultiple(of: 2), !runs.filter({ $0 != 3 }).count.isMultiple(of: 2) {
-            var best: (index: Int, rank: Int)?
-            for i in runs.indices where runs[i] == 3 {
-                let pos = matches[i].range.location
+        Self.quotes.forEachMatch(in: text) { match in
+            let count = match.range.length == 4 ? 3 : min(match.range.length, 5)
+            if count != 2 { oddBold.toggle() }
+            if count != 3 { oddItalic.toggle() }
+            if count == 3 {
+                let pos = match.range.location
                 let rank =
                     pos == 0 || source.character(at: pos - 1) == 32
                     ? 2 : (pos == 1 || source.character(at: pos - 2) == 32 ? 0 : 1)
-                if rank < (best?.rank ?? 3) { best = (i, rank) }
+                if rank < (best?.rank ?? 3) { best = (runs.count, rank) }
             }
-            if let best { runs[best.index] = 2 }
+            runs.append((match.range, count))
         }
+        if PreviewConversion.expired { return "" }
+        if oddBold, oddItalic, let best { runs[best.index].count = 2 }
         var stack: [String] = []
         var output = ""
         var cursor = 0
@@ -58,25 +66,36 @@ extension WikiReader {
                 stack.append(tag)
             }
         }
-        for (i, match) in matches.enumerated() {
-            output += pieces(source.substring(with: NSRange(location: cursor, length: match.range.location - cursor)))
-            let run = runs[i]
-            output += String(repeating: "&#39;", count: match.range.length - run)
+        for (i, mark) in runs.enumerated() {
+            if i.isMultiple(of: 128), PreviewConversion.expired { return "" }
+            output += pieces(source.substring(with: NSRange(location: cursor, length: mark.range.location - cursor)))
+            let run = mark.count
+            output += String(repeating: "&#39;", count: mark.range.length - run)
             if run == 5 {
                 if stack.count == 2 {
                     for tag in stack.reversed() { output += "</\(tag)>" }
                     stack.removeAll()
                 } else {
-                    let first = stack.last ?? (i + 1 < runs.count && runs[i + 1] == 2 ? "strong" : "em")
+                    let first = stack.last ?? (i + 1 < runs.count && runs[i + 1].count == 2 ? "strong" : "em")
                     toggle(first)
                     toggle(first == "em" ? "strong" : "em")
                 }
             } else {
                 toggle(run == 2 ? "em" : "strong")
             }
-            cursor = NSMaxRange(match.range)
+            cursor = NSMaxRange(mark.range)
         }
         return output + pieces(source.substring(from: cursor)) + stack.reversed().map { "</\($0)>" }.joined()
+    }
+
+    private func inlineLines(_ text: String, separator: String) -> String {
+        var output = ""
+        for (index, line) in text.wikiFields(separatedBy: "\n").enumerated() {
+            if index.isMultiple(of: 128), PreviewConversion.expired { return "" }
+            if index > 0 { output += separator }
+            output += inline(line)
+        }
+        return output
     }
 
     private func pieces(_ text: String) -> String {
@@ -99,10 +118,17 @@ extension WikiReader {
                 return ""
             }
             var url = m[0][...]
-            var excess = url.reduce(0) { count, c in count + (c == ")" ? 1 : c == "(" ? -1 : 0) }
+            var excess = 0
+            for (index, char) in url.enumerated() {
+                if index.isMultiple(of: 128), PreviewConversion.expired { return "" }
+                if char == ")" { excess += 1 } else if char == "(" { excess -= 1 }
+            }
+            var removed = 0
             while let last = url.last {
+                if removed.isMultiple(of: 128), PreviewConversion.expired { return "" }
                 if last == ")" && excess > 0 { excess -= 1 } else if !".,;:!?。、「」".contains(last) { break }
                 url = url.dropLast()
+                removed += 1
             }
             return anchor(String(url), HTML.escape(String(url))) + HTML.escape(String(m[0].dropFirst(url.count)))
         }
@@ -163,7 +189,7 @@ extension WikiReader {
         case "chem": return "<code>\(HTML.escape(a.body))</code>"
         case "poem":
             return "<div class=\"wiki-poem\">"
-                + a.body.components(separatedBy: "\n").map(inline).joined(separator: "<br>") + "</div>"
+                + inlineLines(a.body, separator: "<br>") + "</div>"
         case "syntaxhighlight", "source": return MarkupHTML.listing(a.body, language: a.attrs["lang"]?.lowercased())
         case "math":
             let block = display || a.attrs["display"] == "block"
@@ -175,7 +201,11 @@ extension WikiReader {
         case "link": return link(a.body)
         case "template", "parameter": return template(a.body, block: block)
         case "gallery":
-            let figures = a.body.split(separator: "\n").map { "<li>" + link(String($0).wikiTrim) + "</li>" }.joined()
+            var figures = ""
+            for (index, line) in a.body.wikiFields(separatedBy: "\n").enumerated() {
+                if index.isMultiple(of: 128), PreviewConversion.expired { return "" }
+                if !line.isEmpty { figures += "<li>" + link(line.wikiTrim) + "</li>" }
+            }
             return "<ul class=\"wiki-gallery\">" + figures + "</ul>"
         default:
             let tag = HTML.escape(a.body)

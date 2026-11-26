@@ -1,36 +1,25 @@
 import AppKit
 import SwiftUI
 
-final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSWindowRestoration {
+final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     static let windowID = NSUserInterfaceItemIdentifier("surimono.settings.v1")
 
-    static func makeWindow(for view: SettingsView) -> NSWindow {
-        #if DEBUG
-            let host = NSHostingController(rootView: view.snapshotControlAppearance())
-        #else
-            let host = NSHostingController(rootView: view)
-        #endif
+    static func makeWindow(
+        for view: SettingsView,
+        hostingWindow: @MainActor (NSViewController) -> NSWindow = NSWindow.init(contentViewController:)
+    ) -> NSWindow {
+        let host = NSHostingController(rootView: view)
         host.sceneBridgingOptions = [.toolbars]
-        // `.minSize` keeps the window's minimum at the content's 820 × 540; other options let SwiftUI clear it.
+        // SwiftUI can update the window minimum after layout. Give both layers the same screen-specific floor.
         host.sizingOptions = [.minSize]
-        let window = NSWindow(contentViewController: host)
+        let window = hostingWindow(host)
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         window.isReleasedWhenClosed = false
-        window.contentMinSize = SettingsView.minimumSize
-        // The Settings scene supplied an ideal width but no ideal height. Let the content choose its height.
-        window.setContentSize(
-            NSSize(
-                width: SettingsView.idealWidth,
-                height: max(SettingsView.minimumSize.height, host.view.fittingSize.height)))
+        window.contentMinSize = SettingsWindowPlacement.minimumContentSize
+        window.collectionBehavior.insert(.moveToActiveSpace)
+        view.preferences.migrateSettingsContentSize(chrome: window.frameRect(forContentRect: .zero).size)
+        window.setContentSize(SettingsWindowPlacement.defaultContentSize)
         return window
-    }
-
-    static func restoreWindow(
-        withIdentifier identifier: NSUserInterfaceItemIdentifier, state: NSCoder,
-        completionHandler: @escaping (NSWindow?, (any Error)?) -> Void
-    ) {
-        // AppKit will order the restored window relative to the other windows.
-        completionHandler(identifier == windowID ? AppKitShell.current?.settingsController().window : nil, nil)
     }
 
     private let editor: BandArrangementEditorSession
@@ -39,14 +28,52 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSWi
         self.editor = editor
         super.init(window: window)
         window.identifier = Self.windowID
-        window.restorationClass = Self.self
-        window.isRestorable = true
+        window.isRestorable = false
         window.delegate = self
         editor.settingsController = self
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { nil }
+
+    override func showWindow(_ sender: Any?) {
+        guard let window else { return }
+        let key = NSApp.keyWindow
+        let screen = SettingsWindowPlacement.screen(
+            key: key?.isOnActiveSpace == true ? key?.screen : nil,
+            screens: NSScreen.screens, pointer: NSEvent.mouseLocation, frame: { $0.frame })
+        if let screen,
+            SettingsWindowPlacement.needsPlacement(
+                isVisible: window.isVisible, isMiniaturized: window.isMiniaturized,
+                onActiveSpace: window.isOnActiveSpace, onTargetScreen: window.screen == screen)
+        {
+            placeWindow(in: screen.visibleFrame)
+        }
+        // Apply the same full-screen role as other auxiliaries before AppKit chooses a Space on ordering.
+        AuxiliaryWindowLevel.shared.refresh(windows: [window], presenting: window)
+        if window.isMiniaturized { window.deminiaturize(sender) }
+        window.makeKeyAndOrderFront(sender)
+    }
+
+    func placeWindow(in visibleFrame: CGRect) {
+        guard let window else { return }
+        let placement = SettingsWindowPlacement(
+            in: visibleFrame, savedContentSize: editor.preferences.settingsContentSize,
+            chrome: window.frameRect(forContentRect: .zero).size)
+        if let host = window.contentViewController as? NSHostingController<SettingsView>,
+            host.rootView.windowMinimum != placement.contentMinimum
+        {
+            host.rootView.windowMinimum = placement.contentMinimum
+            host.view.layoutSubtreeIfNeeded()
+        }
+        if window.contentMinSize != placement.contentMinimum { window.contentMinSize = placement.contentMinimum }
+        if window.frame != placement.frame { window.setFrame(placement.frame, display: false) }
+    }
+
+    func windowDidEndLiveResize(_ notification: Notification) {
+        guard let window else { return }
+        editor.preferences.settingsContentSize = window.contentRect(forFrameRect: window.frame).size
+    }
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         guard editor.isDirty else { return true }

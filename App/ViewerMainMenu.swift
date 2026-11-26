@@ -2,6 +2,10 @@ import AppKit
 import Observation
 import SwiftUI
 
+#if DEBUG
+    import OSLog
+#endif
+
 /// Only descriptor-owned rows participate in reconciliation. AppKit keeps its Services, Help and Window entries.
 final class ViewerMainMenu: NSObject, NSMenuDelegate, NSMenuItemValidation {
     static let shareIdentifier = "surimono.menu.documentShare"
@@ -29,6 +33,8 @@ final class ViewerMainMenu: NSObject, NSMenuDelegate, NSMenuItemValidation {
 
     private let sharing = FileShareMenu()
     #if DEBUG
+        private static let log = OSLog(subsystem: "io.github.phyten.Surimono", category: "Menu")
+
         // The host checks the actual rows we installed independently of OS-provided Services,
         // Help search, window-management and input-method rows on its particular macOS version.
         let installedItems = NSHashTable<NSMenuItem>.weakObjects()
@@ -85,7 +91,7 @@ final class ViewerMainMenu: NSObject, NSMenuDelegate, NSMenuItemValidation {
         app.addItem(afterInfo)
         sections.append((.appInfo, Group(app, before: afterInfo)))
         let settings = native(
-            app, Self.standardTitle("Settings…"), #selector(AppKitShell.toggleSettings(_:)), ",", target: shell)
+            app, Self.standardTitle("Settings…"), #selector(AppKitShell.openSettings(_:)), ",", target: shell)
         ShortcutDispatcher.shared.menus.register(settings, for: .appSettings)
         app.addItem(.separator())
         let services = submenu(Self.standardTitle("Services"), in: app)
@@ -201,6 +207,11 @@ final class ViewerMainMenu: NSObject, NSMenuDelegate, NSMenuItemValidation {
         awaitingClose = true
         DispatchQueue.main.async {
             self.awaitingClose = false
+            #if DEBUG
+                let id = OSSignpostID(log: Self.log)
+                os_signpost(.begin, log: Self.log, name: "Menu refresh after close", signpostID: id)
+                defer { os_signpost(.end, log: Self.log, name: "Menu refresh after close", signpostID: id) }
+            #endif
             self.refresh()
         }
     }
@@ -223,6 +234,11 @@ final class ViewerMainMenu: NSObject, NSMenuDelegate, NSMenuItemValidation {
     #endif
 
     func menuNeedsUpdate(_ menu: NSMenu) {
+        #if DEBUG
+            let id = OSSignpostID(log: Self.log)
+            os_signpost(.begin, log: Self.log, name: "Menu update", signpostID: id, "%{public}@", menu.title)
+            defer { os_signpost(.end, log: Self.log, name: "Menu update", signpostID: id) }
+        #endif
         refresh()
         #if DEBUG
             if menu === recent { DebugMenuDump.recentMenuPresented(menu) }

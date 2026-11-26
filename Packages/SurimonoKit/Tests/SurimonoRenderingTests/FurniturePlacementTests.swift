@@ -214,7 +214,7 @@ struct FurniturePlacementTests {
             layout: .a4Duplex, theme: try #require(themes.first { $0.id == "standard" }),
             preset: HTMLCleanupPreset(id: "none", name: "None"))
         settings.finish.breaks.h1 = .rightPage
-        settings.finish.toc.mode = .front
+        settings.finish.legacyPresetContents.mode = .front
         settings.options.furniture = .name
         let source = DocumentSource(
             data: Data("# 第一章\n\n本文一\n\n# 第二章\n\n本文二\n\n# 第三章\n\n本文三\n".utf8), format: .markdown)

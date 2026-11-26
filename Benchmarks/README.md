@@ -19,6 +19,34 @@ make bench-compare BASE=Benchmarks/baseline.json NEW=build/bench/local.json BENC
 
 結果は `build/bench/<UTC日時>-<8桁SHA>.json` に保存し、最後に絶対パスを表示します。`SURIMONO_BENCH_OUT` の相対パスはリポジトリルート基準です。処理に失敗した場合は不完全な結果を基準値として保存しません。
 
+## メニューバーを開くときの更新
+
+ログイン中の Mac で Debug ビルドと計測用の文書を指定する。最初の文書窓の組版が終わると、各トップレベルメニューのデリゲート（実装がある場合）の `menuNeedsUpdate` と AppKit の `NSMenu.update()` をそれぞれ 20 回呼ぶ。JSON の `menus[]` に、各呼び出しの中央値 `medianMS` と最大値 `maximumMS` をミリ秒で記録する。
+
+```sh
+make build
+app="$PWD/build/DerivedData/Build/Products/Debug/Surimono.app"
+open -n -W -a "$app" "$PWD/Samples/booklet-demo.md" --args \
+  -ApplePersistenceIgnoreState YES -SurimonoMenuTiming YES \
+  -SurimonoMenuTimingPath /tmp/surimono-menu.json -SurimonoSnapshotQuit YES
+```
+
+実際に操作したときの更新時間は、Debug ビルドで Instruments の os_signpost を使うか、次のコマンドで開始と終了を確認する。`Menu update` は `menuNeedsUpdate` の呼び出しを、`Menu refresh after close` はメニューを閉じた後にメインキューで実行する `refresh()` の処理時間を測る。
+
+```sh
+/usr/bin/log stream --signpost --predicate 'subsystem == "io.github.phyten.Surimono" AND category == "Menu"'
+```
+
+### 2026-11-26 の実測（macOS 27.2.1、Debug、booklet-demo.md）
+
+| 測り方 | 結果 |
+| --- | --- |
+| 上記の JSON 計測、同期更新 | 各メニューの `menuNeedsUpdate` は中央値 2.6–2.7 ms、最大 3.9 ms。`NSMenu.update()` は 0.02–0.1 ms。 |
+| File メニューのタイトルを CGEvent のマウス押下・解放で開き、Escape で閉じる操作を 6 回。1 ms 間隔の `sample` でスタックを集計 | 同期更新では Surimono のメニュー関連フレームが計 38 ms（1 往復あたり約 6 ms）。すべて閉じた後の `ViewerMainMenu.ended` → `refresh()` にあり、うち 20 ms が `RecentDocumentsMenu.refresh`。事前準備を試した版では 6 回で計 1 ms。 |
+| AX の press アクションから AppKit のメニュートラッキング開始まで（各条件 1 ラン） | Surimono は同期更新・事前準備ともに 15–21 ms。同じ方法で電卓は約 26 ms。 |
+
+開く際に観測されたのは AppKit の `NSPopupMenuWindow` 生成、`NSContextMenuImpl._populateMenuPresentationIfNeeded`、レイアウト、AppKit 内の SwiftUI 描画、`sendBeginTrackingNotifications` のオブザーバーだった。この区間に Surimono のフレームは見つからず、事前準備で短くなったのは閉じた後の更新だったため、同期更新を採用した。
+
 ## 大容量ログと CSV の変換
 
 `make bench-large-text` は、1・10・50 MB のログと、見出し込み 1 万・10 万・50 万行の CSV を生成し、入力ごとに新しいテストプロセスで 1 回測る。ログは 1 行 100 バイトの UTF-8、CSV は CRLF 区切りの 4 列で、引用符内にカンマを含む。1 MB は 1,000,000 バイト。

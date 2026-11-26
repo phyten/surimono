@@ -17,7 +17,7 @@ struct QuickLookBundleTests {
         let identifiers = try #require(attributes["QLSupportedContentTypes"] as? [String])
         let expected: Set<String> = [
             "net.daringfireball.markdown", "org.orgmode.org", "app.surimono.restructuredtext", "org.tug.tex",
-            "org.jupyter.ipynb", "org.quarto.qmarkdown", "org.rstudio.rmarkdown",
+            "org.jupyter.ipynb", "org.quarto.qmarkdown", "org.rstudio.rmarkdown", "org.mediawiki.wikitext",
         ]
         #expect(Set(identifiers) == expected && identifiers.count == expected.count)
         // Bundle.module in the provider resolves resources relative to the extension.

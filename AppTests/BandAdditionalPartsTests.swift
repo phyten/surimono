@@ -513,8 +513,12 @@ struct BandAdditionalPartsTests {
     @Test("全ての新部品に実在するシンボルと名前と説明と小さい形がある")
     func catalogPresentation() throws {
         for item in BandTestCatalog.addedItems {
-            let symbol = try #require(item.additionalSymbol)
-            #expect(NSImage(systemSymbolName: symbol, accessibilityDescription: nil) != nil)
+            if item == .alwaysShowToolbar {
+                #expect(item.additionalSymbol == nil)
+            } else {
+                let symbol = try #require(item.additionalSymbol)
+                #expect(NSImage(systemSymbolName: symbol, accessibilityDescription: nil) != nil)
+            }
             #expect(!item.editorName.isEmpty && !item.editorDescription.isEmpty)
             #expect(item.hasCompactForm)
         }

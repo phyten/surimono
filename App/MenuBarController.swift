@@ -69,7 +69,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         guard let id = sender.representedObject as? String, let operation = ShortcutOperationID(rawValue: id) else {
             return
         }
-        NSApp.activate()
+        // The Settings command activates after ordering the window onto the current Space.
+        if operation != .appSettings { NSApp.activate() }
         ShortcutDispatcher.shared.perform(operation)
     }
 

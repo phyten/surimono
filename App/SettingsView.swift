@@ -3,14 +3,15 @@ import SurimonoRendering
 import SwiftUI
 
 struct SettingsView: View {
-    static let minimumSize = NSSize(width: 820, height: 540)
-    static let idealWidth: CGFloat = 860
-
+    var windowMinimum = SettingsWindowPlacement.minimumContentSize
     @Bindable var preferences: AppPreferences
     @Bindable var library: UserLibrary
     let arrangementEditor: BandArrangementEditorSession
     @State private var initialTextWell = InitialTextWell()
     @State private var query = ""
+    @State private var bandHints = BandHintSession()
+    @State private var editorFrame = CGRect.zero
+    @State private var hintLayerFrame = CGRect.zero
     @State private var searchSelection = SettingsSearchSelection()
     @State private var pendingSearchPick: SettingsSection?
     private let updater = AppUpdater.shared
@@ -114,15 +115,22 @@ struct SettingsView: View {
             SettingsDetail(section: shown, hits: hits) { selected in
                 switch selected {
                 case .toolbarArrangement:
-                    BandArrangementSettings(session: arrangementEditor)
+                    BandArrangementSettings(session: arrangementEditor, hints: bandHints)
                 case .keyboardShortcuts:
                     ShortcutSettingsView(controller: .shared)
+                case .org:
+                    OrgReadingDefaultsPane(preferences: preferences)
                 default:
-                    ScrollViewReader { proxy in form(selected).modifier(SettingsSearchReveal(proxy: proxy)) }
+                    ScrollViewReader { proxy in
+                        form(selected).modifier(SettingsSearchReveal(proxy: proxy))
+                    }
                 }
             }
             // The split column allocates the viewport independently of the visited editor's ideal size.
             .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
+            .background {
+                if shown == .toolbarArrangement { BandHintWindowFrame(frame: $editorFrame) }
+            }
             .onChange(of: shown, initial: true) {
                 switch shown {
                 case .toolbarArrangement: arrangementEditor.didAppear()
@@ -152,6 +160,35 @@ struct SettingsView: View {
                         : Bundle.main.localizedString(
                             forKey: preferences.settingsSection.rawValue, value: nil, table: nil)))
         }
+        .modifier(SettingsViewport(windowMinimum: windowMinimum))
+        .frame(
+            minWidth: windowMinimum.width, idealWidth: SettingsWindowPlacement.defaultContentSize.width,
+            minHeight: windowMinimum.height
+        )
+        .overlay {
+            if !visible.isEmpty, preferences.settingsSection == .toolbarArrangement {
+                BandHintLayer(
+                    session: bandHints,
+                    editorFrame: editorFrame.offsetBy(dx: -hintLayerFrame.minX, dy: -hintLayerFrame.minY)
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background { BandHintWindowFrame(frame: $hintLayerFrame) }
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            }
+        }
+        .onContinuousHover { phase in
+            guard preferences.settingsSection == .toolbarArrangement else { return }
+            let point: CGPoint?
+            switch phase {
+            case .active(let p):
+                point = CGPoint(
+                    x: p.x + hintLayerFrame.minX - editorFrame.minX,
+                    y: p.y + hintLayerFrame.minY - editorFrame.minY)
+            case .ended: point = nil
+            }
+            bandHints.moveInEditor(to: point, dragging: NSEvent.pressedMouseButtons != 0)
+        }
         .onChange(of: query) {
             guard !query.isEmpty, let best = results.bestSection(keeping: preferences.settingsSection) else { return }
             arrangementEditor.showSection(best)
@@ -175,13 +212,13 @@ struct SettingsView: View {
             if case .section = previous, pending == nil, !visible.contains(preferences.settingsSection) { query = "" }
         }
         .onChange(of: preferences.settingsSection) {
+            bandHints.dismiss()
             if !visible.contains(preferences.settingsSection) { query = "" }
         }
         .onDisappear {
             initialTextWell.deactivate()
             query = ""
         }
-        .frame(minWidth: Self.minimumSize.width, idealWidth: Self.idealWidth, minHeight: Self.minimumSize.height)
         .background {
             WindowReader { window in
                 let editor = arrangementEditor
@@ -191,6 +228,9 @@ struct SettingsView: View {
                     undo: { editor.undo() }, redo: { editor.redo() })
             }
         }
+        #if DEBUG
+            .snapshotControlAppearance()
+        #endif
     }
 
     private func selectSection(_ section: SettingsSection) {
@@ -513,7 +553,6 @@ struct SettingsView: View {
                     .settingSearchRow("Open Styles Folder")
                     libraryError
                 }
-            case .org: OrgReadingDefaultsPane(preferences: preferences)
             case .html:
                 Section {
                     Picker("Default HTML Preset", selection: $preferences.presetID) {
@@ -548,9 +587,7 @@ struct SettingsView: View {
                 }
             case .clipboard:
                 ClipboardSettings(preferences: preferences)
-            case .keyboardShortcuts: EmptyView()
-            case .toolbarArrangement:
-                EmptyView()
+            case .org, .keyboardShortcuts, .toolbarArrangement: EmptyView()
             }
         }
         .formStyle(.grouped)
@@ -561,6 +598,26 @@ struct SettingsView: View {
     @ViewBuilder private var libraryError: some View {
         if let error = library.error {
             Text(verbatim: error).foregroundStyle(PrintPalette.warn).textSelection(.enabled)
+        }
+    }
+}
+
+/// Keep both split-view columns and their controls reachable when the display is smaller than their usual minimum.
+private struct SettingsViewport: ViewModifier {
+    let windowMinimum: CGSize
+
+    func body(content: Content) -> some View {
+        let usual = SettingsWindowPlacement.minimumContentSize
+        if windowMinimum == usual {
+            content
+        } else {
+            GeometryReader { viewport in
+                // A non-overlay scroller can consume room on the other axis as well.
+                ScrollView([.horizontal, .vertical]) {
+                    content.frame(
+                        width: max(viewport.size.width, usual.width), height: max(viewport.size.height, usual.height))
+                }
+            }
         }
     }
 }

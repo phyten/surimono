@@ -62,10 +62,8 @@ struct BandAdditionalPart: View {
                 .accessibilityHidden(hidesIssues)
                 .allowsHitTesting(!hidesIssues)
                 .disabled(!entry.isEnabled || hidesIssues)
-                .help(help(entry, content: content))
                 .accessibilityIdentifier("band.part." + item.rawValue)
                 .accessibilityLabel(Text(item.bandAccessibilityName))
-                .accessibilityValue(Text(verbatim: accessibilityValue(entry)))
         }
     }
 
@@ -83,7 +81,14 @@ struct BandAdditionalPart: View {
             ) {
                 label(entry)
             }
-            .toggleStyle(BandPartToggleStyle())
+            .toggleStyle(BandSwitchStyle(compact: form != .full, name: item.bandAccessibilityName))
+        } else if item == .viewOptions || item == .printSettings {
+            Button {
+                perform(entry.id)
+            } label: {
+                label(entry)
+            }
+            .buttonStyle(BandStatePlate(on: isOpen, compact: form != .full))
         } else {
             Button {
                 perform(entry.id)
@@ -95,11 +100,24 @@ struct BandAdditionalPart: View {
     }
 
     @ViewBuilder private func label(_ entry: BandMenuContent.Entry) -> some View {
-        let content = HStack(spacing: 3) {
-            let icon = Image(systemName: symbol)
+        let hasPlate = entry.isChecked != nil || item == .printSettings || item == .viewOptions
+        let content = HStack(spacing: 4) {
+            let icon = Group {
+                if hasPlate {
+                    BandStateGlyph(item: item, on: entry.isChecked ?? isOpen)
+                } else {
+                    Image(systemName: symbol)
+                }
+            }
             if form == .full {
                 icon
-                inspected(Text(verbatim: labelText(entry)).lineLimit(1).monospacedDigit())
+                let title = Text(verbatim: labelText(entry)).lineLimit(1).monospacedDigit()
+                if hasPlate {
+                    // Centre a single text line on the same 16pt track as its neighbouring glyphs.
+                    inspected(title.font(.system(size: 12, weight: .regular)).frame(height: 16))
+                } else {
+                    inspected(title)
+                }
             } else {
                 inspected(icon)
             }
@@ -160,20 +178,6 @@ struct BandAdditionalPart: View {
         }
     }
 
-    private func accessibilityValue(_ entry: BandMenuContent.Entry) -> String {
-        item.bandAccessibilityValue(
-            choice: entry.value, checked: entry.isChecked, isOpen: isOpen, issueCount: model.printIssueCount)
-    }
-
-    private func help(_ entry: BandMenuContent.Entry, content: BandMenuContent) -> String {
-        let title =
-            entry.isChecked != nil || item == .viewOptions || item == .printSettings
-            ? choice(item.editorName, accessibilityValue(entry)) : entry.title
-        return content.help(
-            for: .init(
-                id: entry.id, title: title, value: entry.value, isChecked: entry.isChecked, isEnabled: entry.isEnabled))
-    }
-
     private func perform(_ id: BandMenuContent.ID) {
         if id == .viewOptions {
             model.isViewOptionsPresented.toggle()
@@ -199,7 +203,6 @@ extension BandLayout.Item {
         case .paperSeries: "doc.on.doc"
         case .cover: "book.closed"
         case .selectText: "character.cursor.ibeam"
-        case .alwaysShowToolbar: "rectangle.topthird.inset.filled"
         case .margins: "rectangle.dashed"
         case .printSettings: "doc.badge.gearshape"
         case .ignoreSlides: "play.rectangle"
@@ -208,24 +211,6 @@ extension BandLayout.Item {
         case .saveAsFile: "square.and.arrow.down"
         case .keysAndGestures: "keyboard"
         default: nil
-        }
-    }
-}
-
-/// Match the pin: ordinary ink off, indigo on, with AppKit dimming only disabled controls.
-private struct BandPartToggleStyle: ToggleStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        Button {
-            configuration.isOn.toggle()
-        } label: {
-            configuration.label
-                .selectionRule(configuration.isOn)
-                .foregroundStyle(configuration.isOn ? AnyShapeStyle(PrintPalette.ai) : AnyShapeStyle(PrintPalette.ink))
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityRepresentation {
-            Toggle(isOn: configuration.$isOn) { configuration.label }
         }
     }
 }

@@ -1232,13 +1232,13 @@ enum MarkdownExtensions {
     }
 
     /// Nested links to the headings. The top level is the highest heading level, or the next one when a single
-    /// heading (usually the title) has the highest level; three levels are listed.
-    static func tableOfContents(_ anchors: [HeadingAnchor]) -> String {
+    /// heading (usually the title) has the highest level.
+    static func tableOfContents(_ anchors: [HeadingAnchor], levels: Int = 3) -> String {
         guard let highest = anchors.map(\.level).min() else { return "" }
         let top =
             anchors.filter { $0.level == highest }.count == 1 && anchors.contains(where: { $0.level > highest })
             ? anchors.filter { $0.level > highest }.map(\.level).min() ?? highest : highest
-        let entries = anchors.filter { $0.level >= top && $0.level < top + 3 }
+        let entries = anchors.filter { $0.level >= top && $0.level - top < levels }
         guard !entries.isEmpty else { return "" }
         var html = "<nav class=\"toc\">"
         var depth = 0
