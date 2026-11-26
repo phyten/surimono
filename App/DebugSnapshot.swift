@@ -198,11 +198,17 @@
         /// `top`, `draft` (edits with separators the toolbar does not draw), `select:<part>`, `drop:<zone>:<index>`
         /// (the insertion marker of a hovering drag), `refused` (Print taken off), `unsaved` (the question before
         /// switching to Standard), `delete` and `new` (their sheets).
-        static func configureArrangementEditor() {
-            guard let states = argument("SurimonoArrangementEditor"), let editor = BandArrangementEditorSession.app
-            else { return }
-            for state in states.split(separator: ",") {
-                let fields = state.split(separator: ":").map(String.init)
+        /// A coordinate drop is `drop:new@topLeft:x,y` or `drop:bottomLeft:1@topRight:x,y`. Source indices are
+        /// zero-based; offsets are points from the named zone's top-left, including negative offsets and overflow.
+        static func configureArrangementEditor(_ states: String, editor: BandArrangementEditorSession) async throws {
+            var commands = states.split(separator: ",").makeIterator()
+            while let state = commands.next() {
+                if state.hasPrefix("drop:"), state.contains("@") {
+                    guard let y = commands.next() else { throw CocoaError(.coderInvalidValue) }
+                    try await performEditorDrop(state.dropFirst(5), y: y, editor: editor)
+                    continue
+                }
+                let fields = state.components(separatedBy: ":")
                 switch fields[0] {
                 case "top": editor.mode = .top
                 case "split": editor.mode = .split
@@ -227,6 +233,63 @@
                 case "new": editor.dialog = .new
                 default: logger.error("Unknown editor state \(state, privacy: .public)")
                 }
+            }
+        }
+
+        private static func performEditorDrop(
+            _ command: Substring, y: Substring, editor: BandArrangementEditorSession
+        ) async throws {
+            let pair = command.split(separator: "@", omittingEmptySubsequences: false)
+            guard pair.count == 2 else { throw CocoaError(.coderInvalidValue) }
+            let destination = pair[1].split(separator: ":")
+            guard destination.count == 2, let zone = BandZoneID(rawValue: String(destination[0])),
+                editor.zones.contains(zone), let x = Double(destination[1]), x.isFinite, let y = Double(y), y.isFinite
+            else { throw CocoaError(.coderInvalidValue) }
+
+            // Earlier commands and window resizing can change wrapping. Let SwiftUI publish each zone's geometry.
+            let deadline = ContinuousClock.now + .seconds(3)
+            repeat {
+                try await Task.sleep(for: .milliseconds(30))
+                if editor.zones.allSatisfy({ zone in
+                    editor.layoutFrames[zone.rawValue]?.isEmpty == false
+                        && editor.chipFrames[zone, default: []].count == editor.arrangement[zone].count
+                }), editor.layoutFrames["topBand"] != nil,
+                    editor.mode == .top || editor.layoutFrames["bottomBand"] != nil,
+                    editor.arrangement.topRight.last(where: { $0.item != nil }) != .part(.print)
+                        || editor.dockedMoreFrame != nil
+                {
+                    break
+                }
+                guard ContinuousClock.now < deadline else { throw SnapshotDeadline(stage: "Toolbar drop geometry") }
+            } while true
+            guard let frame = editor.layoutFrames[zone.rawValue] else { throw CocoaError(.coderInvalidValue) }
+            let source: BandEditorPayload.Source
+            if pair[0] == "new" {
+                source = .newSeparator
+            } else {
+                let fields = pair[0].split(separator: ":")
+                guard fields.count == 2, let from = BandZoneID(rawValue: String(fields[0])),
+                    editor.zones.contains(from), let index = Int(fields[1])
+                else { throw CocoaError(.coderInvalidValue) }
+                let location = BandEntryLocation(destination: .zone(from), index: index)
+                guard editor.entry(at: location) == .separator else { throw CocoaError(.coderInvalidValue) }
+                source = .entry(location, .separator)
+            }
+            let point = CGPoint(x: frame.minX + x, y: frame.minY + y)
+            let provider = BandEditorDrop.provider(editor.beginDrag(source))
+            let placed = await withCheckedContinuation { continuation in
+                if !BandEditorDrop.perform(
+                    [provider], at: point, in: editor,
+                    completion: { result in
+                        continuation.resume(returning: result)
+                    })
+                {
+                    continuation.resume(returning: false)
+                }
+            }
+            guard placed else {
+                throw CocoaError(
+                    .coderInvalidValue, userInfo: [NSLocalizedDescriptionKey: "Toolbar drop refused: \(command),\(y)"])
             }
         }
 
@@ -971,7 +1034,6 @@
                     // The Settings window in place of the document's, opened as from the app menu.
                     model.preferences.settingsSection =
                         SettingsSection.allCases.first { String(describing: $0) == name } ?? .general
-                    configureArrangementEditor()
                     DebugSnapshotProgress.report("Opening Settings: " + name)
                     AppKitShell.current?.showSettings(nil)
                     let deadline = ContinuousClock.now + .seconds(8)
@@ -993,6 +1055,15 @@
                     {
                         settingsWindow?.setContentSize(NSSize(width: size[0], height: size[1]))
                         try? await Task.sleep(for: .milliseconds(500))
+                    }
+                    if let states = argument("SurimonoArrangementEditor"), let editor = BandArrangementEditorSession.app
+                    {
+                        do {
+                            try await configureArrangementEditor(states, editor: editor)
+                        } catch {
+                            DebugSnapshotProgress.failed(error)
+                            return
+                        }
                     }
                     if let settingsWindow { probeArrangementUndo(in: settingsWindow) }
                     if quitsArrangementEditor {
