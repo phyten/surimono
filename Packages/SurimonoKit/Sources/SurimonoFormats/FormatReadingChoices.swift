@@ -69,10 +69,14 @@ public struct FormatReadingChoices: Codable, Equatable, Sendable {
         case (.toggle(let value), .toggle(let present)):
             present.set(value, in: &choice.present)
         case (.outline(let enabled, let limit), .outline(let present, let depth)):
+            // Refuse the whole edit when either locked component would have to change: no partial writes.
             guard !present.isLocked || enabled == present.value else { return }
+            guard !enabled || !depth.isLocked || limit == depth.value else { return }
             if enabled, case .levels(let count) = limit, count < 0 { return }
-            present.set(enabled, in: &choice.present)
-            depth.set(enabled ? limit : depth.inherited, in: &choice.depth)
+            // One control carries both components. Write only the one the reader touched, so choosing a
+            // depth never drops a stored presence, and switching off keeps the depth for switching back on.
+            if !enabled || !present.value { present.set(enabled, in: &choice.present) }
+            if enabled { depth.set(limit, in: &choice.depth) }
         default: return
         }
         if choice == ReadingChoice() {

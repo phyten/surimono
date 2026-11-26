@@ -38,6 +38,13 @@ struct ReadingStorageTests {
             .outline(present: true, depth: .levels(3)), for: .tableOfContents, format: .quarto, file: file)
         restored.formatReading.set(
             .outline(present: false, depth: .levels(3)), for: .tableOfContents, format: .markdown)
+        // Switching off keeps the chosen depth for switching back on; only choosing the inherited depth drops it.
+        let kept = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(restored)) as? [String: Any])
+        #expect(kept["formatReading"] as? NSDictionary == ["markdown": ["tableOfContents": ["depth": "all"]]])
+        restored.formatReading.set(
+            .outline(present: true, depth: .levels(3)), for: .tableOfContents, format: .markdown)
+        restored.formatReading.set(
+            .outline(present: false, depth: .levels(3)), for: .tableOfContents, format: .markdown)
         let empty = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(restored)) as? [String: Any])
         #expect(empty["formatReading"] == nil)
     }
