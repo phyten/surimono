@@ -784,10 +784,11 @@ public final class DocumentRenderer {
                 if let children = source.children {
                     let output = try await binder(children, settings: settings)
                     binderOutput = output
-                    guard let selectable = StandalonePage.selectableDocument(output.document) else {
-                        throw RenderingError.invalidPDF
+                    if #available(macOS 26, *) {
+                        document = output.document
+                    } else {
+                        document = try await StandalonePage.reopenBinder(output.document)
                     }
-                    document = selectable
                     unreadable = []
                     candidates = []
                     issues = output.issues
@@ -1089,6 +1090,34 @@ public final class DocumentRenderer {
         var diagrams: [RenderedDiagram] = []
     }
 
+    /// A copied link can lose its target page on insertion. Resolve it in this occurrence of the child,
+    /// even when the binder contains several copies of the same document.
+    private static func bindLinks(from child: PDFDocument, to pages: [PDFPage], in binder: PDFDocument) {
+        for (index, page) in pages.enumerated() {
+            guard let source = child.page(at: index) else { continue }
+            for (original, copy) in zip(source.annotations, page.annotations) {
+                guard original.type == "Link", copy.type == "Link", original.bounds == copy.bounds else { continue }
+                let action = original.action
+                let goTo = action as? PDFActionGoTo
+                guard action == nil || goTo != nil, let destination = goTo?.destination ?? original.destination,
+                    let target = destination.page,
+                    target.document === child
+                else { continue }
+                let targetIndex = child.index(for: target)
+                guard pages.indices.contains(targetIndex) else { continue }
+                let copiedTarget = (copy.action as? PDFActionGoTo)?.destination ?? copy.destination
+                guard copiedTarget?.page !== pages[targetIndex] else { continue }
+                let moved = binder.destination(on: pages[targetIndex], at: destination.point)
+                moved.zoom = destination.zoom
+                if action != nil {
+                    copy.action = PDFActionGoTo(destination: moved)
+                } else {
+                    copy.destination = moved
+                }
+            }
+        }
+    }
+
     private func binder(_ children: [DocumentSource], settings: RenderSettings) async throws -> BinderOutput {
         var output = BinderOutput()
         var occurrences: [String: Int] = [:]
@@ -1141,6 +1170,7 @@ public final class DocumentRenderer {
                 if prepared.formulaIndex != nil { output.hasFormulas = true }
                 output.pageSizes += Self.pageSizes(of: document)
                 for page in pages { output.document.insert(page, at: output.document.pageCount) }
+                Self.bindLinks(from: document, to: pages, in: output.document)
                 SourcePaperText.include(document, in: output.document, startingAt: offset)
                 if let url = child.fileURL {
                     output.documents[url] = document

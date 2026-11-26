@@ -226,6 +226,29 @@ struct ReadingPDFDestinationTests {
         try checkMarkedLink(saved, from: 1)
     }
 
+    @Test("合本の表示用 PDF で、二つ目の文書のリンクがその文書の目印に着地する")
+    func boundViewMarks() async throws {
+        let children = [
+            DocumentSource(data: try RenderingFixtures.pdfData(count: 1), format: .pdf),
+            DocumentSource(data: markedPages(rotated: false), format: .pdf),
+        ]
+        var settings = RenderSettings(
+            layout: .a4Single, theme: PrintTheme(id: "test", name: "Test", css: ""),
+            preset: HTMLCleanupPreset(id: "none", name: "None"))
+        settings.binderStartsOnFront = false
+        let prepared = try await DocumentRenderer().prepare(.binder(children), settings: settings)
+        try #require(prepared.viewDocument.pageCount == 3)
+        try checkMarkedLink(prepared.viewDocument, from: 1)
+
+        // Exercise the Sequoia write and reopen even on systems where prepare can return the assembled pages.
+        let reopened = try await StandalonePage.reopenBinder(prepared.viewDocument)
+        try checkMarkedLink(reopened, from: 1)
+        let first = try #require(reopened.page(at: 0))
+        let selection = try #require(first.selection(for: NSRange(location: 0, length: first.numberOfCharacters)))
+        #expect(selection.pages.first === first)
+        #expect(selection.string?.contains("PAGE-1") == true)
+    }
+
     @Test("座標差が 1・4 ULP なら保存値を保ち、5 ULP なら宛先を修復して書き出す", arguments: [1, 4, 5])
     func coordinateTolerance(ulps: Int) async throws {
         // Keep the saved operand exactly representable and set the live operand in memory.

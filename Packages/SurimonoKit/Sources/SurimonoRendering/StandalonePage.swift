@@ -14,9 +14,18 @@ public enum StandalonePage {
     /// in-memory document. Reopen the finished page tree once, after all links and boxes are installed.
     static func selectableDocument(_ assembled: PDFDocument) -> PDFDocument? {
         if #available(macOS 26, *) { return assembled }
-        guard let data = assembled.dataRepresentation(), let copy = PDFDocument(data: data),
-            copy.pageCount == assembled.pageCount
-        else { return nil }
+        return reopened(assembled, from: assembled.dataRepresentation())
+    }
+
+    static func reopenBinder(_ assembled: PDFDocument) async throws -> PDFDocument {
+        // PDFKit can move a copied page's origin without adjusting the coordinates of links into it.
+        let data = try await ReadingPDFExporter.data(from: assembled)
+        guard let copy = reopened(assembled, from: data) else { throw DocumentRenderer.RenderingError.invalidPDF }
+        return copy
+    }
+
+    private static func reopened(_ assembled: PDFDocument, from data: Data?) -> PDFDocument? {
+        guard let data, let copy = PDFDocument(data: data), copy.pageCount == assembled.pageCount else { return nil }
         SourcePaperText.include(assembled, in: copy, startingAt: 0)
         return copy
     }
