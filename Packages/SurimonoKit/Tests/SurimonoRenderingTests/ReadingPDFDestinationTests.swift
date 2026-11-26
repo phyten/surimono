@@ -117,6 +117,165 @@ struct ReadingPDFDestinationTests {
         }
     }
 
+    private func markedPages(rotated: Bool) -> Data {
+        func stream(_ commands: String) -> String {
+            "<< /Length \(commands.utf8.count) >>\nstream\n\(commands)\nendstream"
+        }
+        return pdf([
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>",
+            """
+            << /Type /Page /Parent 2 0 R /MediaBox [11 13 171 213] /CropBox [17 21 155 191]
+            /Rotate \(rotated ? 90 : 0) /Resources << >> /Contents 5 0 R /Annots [7 0 R] >>
+            """,
+            """
+            << /Type /Page /Parent 2 0 R /MediaBox [7 29 167 229] /CropBox [19 33 151 207]
+            /Rotate \(rotated ? 270 : 0) /Resources << >> /Contents 6 0 R >>
+            """,
+            stream("1 0 0 rg 41 53 18 10 re f"), stream("1 0 0 rg 66 107 8 6 re f"),
+            "<< /Type /Annot /Subtype /Link /Rect [41 53 59 63] /Border [0 0 0] /Dest [4 0 R /XYZ 70 110 1] >>",
+        ])
+    }
+
+    // Rasterize just the content stream in default user space. Only the red mark contributes to its bounds,
+    // even when the exporter draws a footer on the same page.
+    private func markOnPaper(_ page: PDFPage) throws -> CGRect {
+        let box = page.bounds(for: .mediaBox)
+        let width = Int(box.width)
+        let height = Int(box.height)
+        let bitmap = try #require(
+            CGContext(
+                data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue))
+        bitmap.translateBy(x: -box.minX, y: -box.minY)
+        bitmap.drawPDFPage(try #require(page.pageRef))
+        let pixels = try #require(bitmap.data).assumingMemoryBound(to: UInt8.self)
+        var ink = CGRect.null
+        for row in 0..<height {
+            for x in 0..<width {
+                let i = (row * width + x) * 4
+                if pixels[i] > 200 && pixels[i + 1] < 50 && pixels[i + 2] < 50 {
+                    ink = ink.union(CGRect(x: x, y: height - row - 1, width: 1, height: 1))
+                }
+            }
+        }
+        try #require(!ink.isNull)
+        return ink
+    }
+
+    private func checkMarkedLink(_ document: PDFDocument, from index: Int) throws {
+        let source = try #require(document.page(at: index))
+        let target = try #require(document.page(at: index + 1))
+        let mark = try markOnPaper(source)
+        let landing = try markOnPaper(target)
+        #expect(mark == CGRect(x: 30, y: 40, width: 18, height: 10))
+        #expect(landing == CGRect(x: 59, y: 78, width: 8, height: 6))
+
+        let annotation = try #require(source.annotations.first)
+        let sourceBox = source.bounds(for: .mediaBox)
+        #expect(annotation.bounds.offsetBy(dx: -sourceBox.minX, dy: -sourceBox.minY) == mark)
+        let destination = try #require((annotation.action as? PDFActionGoTo)?.destination ?? annotation.destination)
+        #expect(destination.page === target)
+        let targetBox = target.bounds(for: .mediaBox)
+        #expect(destination.point.x - targetBox.minX == landing.midX)
+        #expect(destination.point.y - targetBox.minY == landing.midY)
+    }
+
+    @Test("表示範囲が用紙と異なるページを複製しても、回転と縦横の原点差によらずリンクが本文の目印に重なる", arguments: [false, true])
+    func exportedMarks(rotated: Bool) async throws {
+        let original = try #require(PDFDocument(data: markedPages(rotated: rotated)))
+        try checkMarkedLink(original, from: 0)
+        var options = PrintOptions()
+        options.furniture = .name
+        let footer = try #require(
+            PDFComposer.furniture(
+                onPage: 0, at: 0, pageCount: 2, layout: .a4Single, options: options,
+                context: .init(fileName: "Marks.pdf")))
+        let bytes = try await ReadingPDFExporter.data(
+            from: original, entries: [], title: "Marks", preservesOutline: true, furniture: [0: footer])
+        let saved = try #require(PDFDocument(data: bytes))
+        try checkMarkedLink(saved, from: 0)
+        for i in 0..<2 {
+            let before = try #require(original.page(at: i))
+            let after = try #require(saved.page(at: i))
+            #expect(after.rotation == before.rotation)
+            let crop = before.bounds(for: .cropBox)
+            let media = before.bounds(for: .mediaBox)
+            let savedMedia = after.bounds(for: .mediaBox)
+            #expect(
+                after.bounds(for: .cropBox).offsetBy(dx: -savedMedia.minX, dy: -savedMedia.minY)
+                    == crop.offsetBy(dx: -media.minX, dy: -media.minY))
+        }
+    }
+
+    @Test("別の PDF を前にとじても、元文書のリンクが合本内の正しいページの目印を指す")
+    func boundMarks() async throws {
+        let children = [
+            DocumentSource(data: try RenderingFixtures.pdfData(count: 1), format: .pdf),
+            DocumentSource(data: markedPages(rotated: false), format: .pdf),
+        ]
+        var settings = RenderSettings(
+            layout: .a4Single, theme: PrintTheme(id: "test", name: "Test", css: ""),
+            preset: HTMLCleanupPreset(id: "none", name: "None"))
+        settings.binderStartsOnFront = false
+        let binder = try await DocumentRenderer().prepare(.binder(children), settings: settings)
+        let bytes = try await ReadingPDFExporter.data(from: binder.viewDocument, entries: [], title: "Binder")
+        let saved = try #require(PDFDocument(data: bytes))
+        try #require(saved.pageCount == 3)
+        try checkMarkedLink(saved, from: 1)
+    }
+
+    @Test("座標差が 1・4 ULP なら保存値を保ち、5 ULP なら宛先を修復して書き出す", arguments: [1, 4, 5])
+    func coordinateTolerance(ulps: Int) async throws {
+        // Keep the saved operand exactly representable and set the live operand in memory.
+        // Otherwise a PDF decimal parser can round a boundary case before the comparison even starts.
+        for base: CGFloat in [96, -96, 0.0009765625] {
+            let bytes = file(link: "/Dest [3 0 R /XYZ \(base) 80 1]", bookmark: "/Dest [3 0 R /Fit]")
+            let document = try #require(PDFDocument(data: bytes))
+            let page = try #require(document.page(at: 0))
+            let annotation = try #require(page.annotations.first)
+            let wanted = base + CGFloat(ulps) * base.ulp
+            let destination = document.destination(on: page, at: CGPoint(x: wanted, y: 80))
+            destination.zoom = 1
+            annotation.action = PDFActionGoTo(destination: destination)
+            let capture = try await ReadingPDFNavigation(document)
+            try #require(capture.links.first?.action.target?.arguments[0] == wanted)
+            let stored = try await ReadingPDFRawNavigation.read(bytes)
+            try #require(stored.links.first?.action.target?.arguments[0] == base)
+            let result = try await capture.verified(bytes, pageCount: 1, stage: "export")
+            if ulps <= 4 {
+                #expect(result == bytes)
+            } else {
+                #expect(result.count > bytes.count)
+                let repaired = try await ReadingPDFRawNavigation.read(result)
+                let x = try #require(repaired.links.first?.action.target?.arguments[0])
+                #expect(x != base && abs(x - wanted) <= wanted.ulp)
+            }
+        }
+    }
+
+    @Test("未指定の座標とゼロの入れ替わり、および 1 ULP のズーム差を修復する")
+    func exactNullAndZoom() async throws {
+        for (wanted, saved) in [
+            ("null 80 1", "0 80 1"), ("0 80 1", "null 80 1"), ("16 80 1", "16 80 1.0000000000000002"),
+        ] {
+            func input(_ operands: String) -> Data {
+                file(link: "/Dest [3 0 R /XYZ " + operands + "]", bookmark: "/Dest [3 0 R /Fit]")
+            }
+            let original = input(wanted)
+            let candidate = input(saved)
+            let capture = try await ReadingPDFNavigation(#require(PDFDocument(data: original)))
+            let before = try await ReadingPDFRawNavigation.read(candidate)
+            let expected = try await ReadingPDFRawNavigation.read(original)
+            try #require(before.links != expected.links)
+            let result = try await capture.verified(candidate, pageCount: 1, stage: "export")
+            #expect(result.count > candidate.count)
+            let repaired = try await ReadingPDFRawNavigation.read(result)
+            #expect(repaired.links == expected.links)
+        }
+    }
+
     @Test("原点が変わる保存と変わらない保存のどちらでも、各表示方法の座標だけを移す")
     func destinationOperands() async throws {
         // Supply both layouts explicitly so coverage does not depend on the host PDFKit's choice of origin.
