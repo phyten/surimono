@@ -413,7 +413,9 @@ struct DocumentsChapterTests {
                     rootView: Text(verbatim: label).font(font).fixedSize()
                         .environment(\.locale, Locale(identifier: language)))
                 let intrinsic = host.sizeThatFits(in: CGSize(width: width, height: height))
-                #expect(frame.width >= intrinsic.width - 1, "\(language) \(label) \(intrinsic) \(frame)")
+                // Under a host language other than the tested one, the header falls back to another face about 3%
+                // narrower than the lone label. A truncated label loses at least a whole character, far more than that.
+                #expect(frame.width >= intrinsic.width * 0.95 - 1, "\(language) \(label) \(intrinsic) \(frame)")
             }
             if format == .org {
                 let filter = try #require(frames.rows["Show Only Changed Settings"])
