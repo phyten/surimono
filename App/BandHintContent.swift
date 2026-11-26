@@ -20,6 +20,10 @@ struct BandHintContent: Equatable {
 
     var accessibilityHint: String { reason ?? detail }
 
+    static var more: Self {
+        Self(name: String(localized: "More"), detail: String(localized: "All operations are also available in “…”."))
+    }
+
     static func editor(_ item: BandLayout.Item) -> Self {
         Self(name: item.editorName, detail: item.editorDescription)
     }

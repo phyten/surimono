@@ -382,7 +382,7 @@ private enum MiniatureMetrics {
     static let bandHeight: CGFloat = 38
 }
 
-private struct ArrangementMiniature: View {
+struct ArrangementMiniature: View {
     let session: BandArrangementEditorSession
     let accessibilityFocus: AccessibilityFocusState<BandEditorSelection?>.Binding
 
@@ -725,11 +725,7 @@ private struct EntryChip: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text(verbatim: name))
             .accessibilityValue(Text(verbatim: positionText))
-            .accessibilityHint(
-                Text(
-                    verbatim: entry == .part(.print)
-                        ? hint.detail + " " + String(localized: "Required; cannot be removed.") : hint.detail)
-            )
+            .accessibilityHint(Text(verbatim: hint.accessibilityHint))
             .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
             .accessibilityAction { session.select(selection) }
             .accessibilityActions { BandEntryActions(session: session, selection: selection) }
@@ -804,7 +800,7 @@ private struct SeparatorMark: View {
 
 // MARK: - Parts to Add
 
-private struct UnusedPalette: View {
+struct UnusedPalette: View {
     let session: BandArrangementEditorSession
     let accessibilityFocus: AccessibilityFocusState<BandEditorSelection?>.Binding
 
@@ -893,6 +889,11 @@ private struct SeparatorSource: View {
     let session: BandArrangementEditorSession
 
     var body: some View {
+        let detail = String(localized: "Drag into a zone, or select a part and press to add a separator after it.")
+        let insertion =
+            hasZoneSelection
+            ? String(localized: "Adds a separator after the selected part.")
+            : choice(String(localized: "Add Separator"), BandZoneID.topLeft.editorName)
         Button {
             session.insertSeparatorAfterSelection()
         } label: {
@@ -918,14 +919,9 @@ private struct SeparatorSource: View {
         }
         .bandHint(
             "separator",
-            .init(
-                name: String(localized: "Separator"),
-                detail: String(localized: "Drag into a zone, or select a part and press to add a separator after it."))
+            .init(name: String(localized: "Separator"), detail: detail)
         )
-        .accessibilityHint(
-            hasZoneSelection
-                ? Text("Adds a separator after the selected part.")
-                : Text(verbatim: choice(String(localized: "Add Separator"), BandZoneID.topLeft.editorName)))
+        .accessibilityHint(Text(verbatim: detail + " " + insertion))
     }
 
     private var hasZoneSelection: Bool {

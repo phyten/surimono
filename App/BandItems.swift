@@ -73,6 +73,7 @@ struct BandItemView: View {
     let item: BandLayout.Item
     let form: BandLayout.Form
     var trailing = false
+    var choiceHint = ""
 
     var body: some View { control.environment(\.bandPlateCorners, model.preferences.corners) }
 
@@ -111,11 +112,11 @@ struct BandItemView: View {
                 selected: model.isOutlineShown
             ) { model.toggleOutline() }
             .disabled(!model.hasContents)
-        case .presentation: PresentationPicker(model: model, showsNames: form == .full)
+        case .presentation: PresentationPicker(model: model, showsNames: form == .full, hint: choiceHint)
         case .style:
             StyleMenu(model: model, showsName: form == .full).accessibilityLabel(
                 Text(model.bandStyleAccessibility.name))
-        case .layout: LayoutPicker(model: model)
+        case .layout: LayoutPicker(model: model, hint: choiceHint)
         case .transition: TransitionMenu(model: model, showsName: form == .full)
         case .zoom:
             Button {
@@ -161,6 +162,7 @@ struct BandItemView: View {
 struct PresentationPicker: View {
     @Bindable var model: DocumentViewModel
     let showsNames: Bool
+    let hint: String
 
     var body: some View {
         HStack(spacing: 1) {
@@ -189,6 +191,7 @@ struct PresentationPicker: View {
         .buttonStyle(BandStatePlate(on: selected, compact: !showsNames))
         .modifier(BandSegmentInteraction(segment: presentation == .paper ? .paper : .web))
         .accessibilityLabel(Text(presentation.title))
+        .accessibilityHint(Text(verbatim: hint))
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }

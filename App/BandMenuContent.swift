@@ -308,6 +308,8 @@ struct BandMoreButton<Items: View>: View {
             items
         } label: {
             Label(BandAccessibility.more, systemImage: "ellipsis.circle").labelStyle(.iconOnly)
+                .accessibilityLabel(Text(BandAccessibility.more))
+                .accessibilityHint(Text(verbatim: BandHintContent.more.accessibilityHint))
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)

@@ -18319,59 +18319,6 @@
         }
       }
     },
-    "Required; cannot be removed.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Required; cannot be removed."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "必須の部品です。外せません。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "必需部件，不能移除。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "必要部件，不能移除。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "필수 부품이라 뺄 수 없습니다."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Obligatoire : ne peut pas être retiré."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Erforderlich, kann nicht entfernt werden."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Obligatorio: no se puede quitar."
-          }
-        }
-      }
-    },
     "Save as a New Arrangement": {
       "extractionState": "manual",
       "localizations": {

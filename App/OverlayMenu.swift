@@ -397,7 +397,7 @@ struct BandPart: View {
         let reserved =
             item == .beforePrinting && model.previewPageCountForBand != nil
             && (model.readingPreview != nil || model.printIssueCount == 0)
-        BandItemView(model: model, item: item, form: form, trailing: trailing)
+        BandItemView(model: model, item: item, form: form, trailing: trailing, choiceHint: hint.accessibilityHint)
             .environment(\.bandPartHovered, hints?.hover == id || BandDesign.argument("SurimonoBandHover") == id)
             .accessibilityLabel(
                 Text(item.bandAccessibilityName), isEnabled: !grouped && item != .print && item != .style
@@ -406,7 +406,8 @@ struct BandPart: View {
                 Text(verbatim: hint.accessibilityValue ?? ""),
                 isEnabled: !grouped && item != .zoom && hint.accessibilityValue != nil
             )
-            .accessibilityHint(Text(verbatim: hint.accessibilityHint))
+            // Each choice and page-turn button speaks its own hint. A parent hint overrides disabled reasons.
+            .accessibilityHint(Text(verbatim: hint.accessibilityHint), isEnabled: !grouped)
             .bandHint(
                 id, hint, above: above, enabled: !reserved && item != .pageTurn,
                 showsName: displaysName(hint.name)
@@ -552,14 +553,17 @@ struct OverlayBand: View {
     private func title(_ row: BandRowPlan) -> some View {
         HStack(spacing: row.geometry.usesStandardSpacing ? Self.titleSpacing : 0) {
             if row.showsName {
+                let detail = model.fileURL?.path ?? model.displayName
                 Text(verbatim: model.displayName)
                     .font(Self.nameFont)
                     .lineLimit(1)
                     .truncationMode(.middle)
                     .frame(maxWidth: row.nameWidth + 0.5, alignment: .leading)
                     .bandHint(
-                        "name", .init(name: model.displayName, detail: model.fileURL?.path ?? model.displayName),
-                        showsName: (menu.bandWidths[.name] ?? .infinity) <= row.nameWidth + 0.5)
+                        "name", .init(name: model.displayName, detail: detail),
+                        showsName: (menu.bandWidths[.name] ?? .infinity) <= row.nameWidth + 0.5
+                    )
+                    .accessibilityHint(Text(verbatim: detail))
             }
             bandParts(row.leading, row: row, model: model)
         }
@@ -572,13 +576,9 @@ struct OverlayBand: View {
         return HStack(spacing: spacing) {
             HStack(spacing: spacing) { bandParts(items, row: row, model: model) }.fixedSize()
             BandMoreMenu(model: model)
-                .bandHint(
-                    "more",
-                    .init(
-                        name: String(localized: "More"),
-                        detail: String(localized: "All operations are also available in “…”."))
-                )
-                .accessibilityHint(Text("All operations are also available in “…”."))
+                .bandHint("more", .more)
+                // The hosted menu button reads AXHelp from the control, even when its icon label has a hint.
+                .accessibilityHint(Text(verbatim: BandHintContent.more.accessibilityHint))
                 .bandAnchor(.more, in: model.bandAnchors)
                 // The plan's gap before "…"; in the Standard order the stack's spacing draws it instead.
                 .padding(.leading, row.geometry.moreGap)
@@ -877,6 +877,7 @@ struct SmartRemovalMenuItems: View {
 
 struct LayoutPicker: View {
     @Bindable var model: DocumentViewModel
+    let hint: String
 
     var body: some View {
         CornerSegments(
@@ -888,6 +889,19 @@ struct LayoutPicker: View {
         }
         .labelStyle(.iconOnly)
         .fixedSize()
+        // The native segmented picker drops AXHelp from its options. Radio choices expose it on each
+        // selectable element and keep the same selection binding and radio roles.
+        .accessibilityRepresentation {
+            Picker(BandLayout.Item.layout.bandAccessibilityName, selection: model.viewOption(\.layout)) {
+                ForEach(ViewOptions.Layout.displayOrder, id: \.self) { layout in
+                    Text(layout.title).tag(layout)
+                        .accessibilityHint(Text(verbatim: hint))
+                }
+            }
+            .pickerStyle(.radioGroup)
+            .horizontalRadioGroupLayout()
+            .labelsHidden()
+        }
     }
 }
 
