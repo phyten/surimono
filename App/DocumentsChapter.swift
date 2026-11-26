@@ -29,11 +29,11 @@ enum DocumentsChapter {
         }
     }
 
-    /// Only lead contents reaches the renderer through FormatReadingChoices today.
     /// ReadingSyntax.readToday describes manuscript instructions, not app preferences.
     static func rows(for format: DocumentFormat) -> [ReadingCatalogueRow] {
         switch format {
-        case .markdown, .quarto, .rMarkdown, .rst, .asciidoc, .mediawiki:
+        case .markdown: ReadingCatalogue.rows(for: format)
+        case .quarto, .rMarkdown, .rst, .asciidoc, .mediawiki:
             ReadingCatalogue.rows(for: format).filter { $0.id == .tableOfContents }
         default: []
         }

@@ -56,7 +56,7 @@ extension BandLayout.Item {
             case .style: paper && (model.usesPrintTheme || model.usesHTMLPreset)
             // Whether the band shows them is the arrangement's business; these say only what the document allows.
             case .chapter: paper && model.hasOutline && model.chapterEntries.contains { $0.pageIndex != nil }
-            case .readingSettings: model.offersOrgReading
+            case .readingSettings: model.offersReadingPanel
             case .outline: (model.hasContents || model.reservesPreviewControls) && model.imageBundle == nil
             case .pageTurn: paper && (model.paperPageCount > 1 || model.reservesPreviewControls)
             case .zoom: paper ? model.zoom > 1.001 : abs(model.webZoom - 1) > 0.001
@@ -99,7 +99,7 @@ struct BandItemView: View {
         case .readingSettings:
             BandDrawerButton(
                 item: item, showsName: form == .full,
-                selected: model.isReadingPanelOpen, hasChanges: model.orgChangedCount > 0
+                selected: model.isReadingPanelOpen, hasChanges: model.readingChangedCount > 0
             ) {
                 model.isReadingPanelOpen.toggle()
             }

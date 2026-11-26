@@ -2917,108 +2917,108 @@
         }
       }
     },
-    "Changes how this Org document is read.": {
+    "Changes how this document is read.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Changes how this Org document is read."
+            "value": "Changes how this document is read."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "この Org 文書の読み方を変えます。"
+            "value": "この文書の読み方を変えます。"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ändert die Leseeinstellungen dieses Org-Dokuments."
+            "value": "Ändert die Leseeinstellungen dieses Dokuments."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cambia cómo se lee este documento Org."
+            "value": "Cambia cómo se lee este documento."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Modifie les réglages de lecture de ce document Org."
+            "value": "Modifie les réglages de lecture de ce document."
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "이 Org 문서를 읽는 방식을 변경합니다."
+            "value": "이 문서를 읽는 방식을 변경합니다."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "更改此 Org 文档的阅读方式。"
+            "value": "更改此文档的阅读方式。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "更改這份 Org 文件的閱讀設定。"
+            "value": "更改這份文件的閱讀設定。"
           }
         }
       }
     },
-    "Appears for individual Org documents.": {
+    "Appears for individual Markdown and Org documents.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Appears for individual Org documents."
+            "value": "Appears for individual Markdown and Org documents."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "単独の Org 文書で表示されます。"
+            "value": "単独の Markdown・Org 文書で表示されます。"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Erscheint bei einzelnen Org-Dokumenten."
+            "value": "Erscheint bei einzelnen Markdown- und Org-Dokumenten."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aparece en documentos Org individuales."
+            "value": "Aparece en documentos Markdown y Org individuales."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apparaît pour les documents Org ouverts individuellement."
+            "value": "Apparaît pour les documents Markdown et Org ouverts individuellement."
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "개별 Org 문서에 표시됩니다."
+            "value": "개별 Markdown 및 Org 문서에 표시됩니다."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在单独打开的 Org 文档中显示。"
+            "value": "在单独打开的 Markdown 和 Org 文档中显示。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "在單獨打開的 Org 文件中顯示。"
+            "value": "在單獨打開的 Markdown 和 Org 文件中顯示。"
           }
         }
       }
@@ -4124,6 +4124,165 @@
           "stringUnit": {
             "state": "translated",
             "value": "內文中的 #+TOC: 處會顯示目錄。"
+          }
+        }
+      }
+    },
+    "Specified in file: %@ (depth can be changed)": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Specified in file: %@ (depth can be changed)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ファイルで指定：%@（階層は変更可）"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In der Datei festgelegt: %@ (Tiefe änderbar)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Definido en el archivo: %@ (profundidad editable)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spécifié dans le fichier : %@ (profondeur modifiable)"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "파일에서 지정: %@ (깊이 변경 가능)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文件指定：%@（可更改深度）"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "檔案指定：%@（可更改深度）"
+          }
+        }
+      }
+    },
+    "Specified in file: %@ (can be turned on or off)": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Specified in file: %@ (can be turned on or off)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ファイルで指定：%@（オン・オフは変更可）"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In der Datei festgelegt: %@ (ein-/ausschaltbar)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Definido en el archivo: %@ (se puede activar o desactivar)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spécifié dans le fichier : %@ (activation modifiable)"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "파일에서 지정: %@ (켜기·끄기 가능)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文件指定：%@（可开启或关闭）"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "檔案指定：%@（可打開或關閉）"
+          }
+        }
+      }
+    },
+    "Specified in file: %@ (off is fixed)": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Specified in file: %@ (off is fixed)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ファイルで指定：%@（オフに固定）"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In der Datei festgelegt: %@ (fest ausgeschaltet)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Definido en el archivo: %@ (desactivado en el archivo)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spécifié dans le fichier : %@ (désactivé par le fichier)"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "파일에서 지정: %@ (꺼짐으로 고정)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文件指定：%@（固定为关闭）"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "檔案指定：%@（固定為關閉）"
           }
         }
       }

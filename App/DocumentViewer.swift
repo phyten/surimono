@@ -157,7 +157,8 @@ private struct DocumentWindowChanges: ViewModifier {
                 if (old == .single) != (new == .single) { model.sizeWindowToPaper(keepHeight: true) }
             }
             // At once, in the same update as the list: an animation would first take the room from the paper.
-            .onChange(of: model.sideInset) { _, _ in model.sizeWindowToPaper(keepsRightEdge: !model.offersOrgReading) }
+            .onChange(of: model.sideInset) { _, _ in model.sizeWindowToPaper(keepsRightEdge: !model.offersReadingPanel)
+            }
             .onChange(of: model.showsNarrowCover) { _, _ in model.coverWidthDidChange() }
             .onChange(of: model.menuArrangement) { old, _ in model.menuArrangementDidChange(from: old) }
             .onChange(of: model.isAlwaysOnTop) { _, onTop in

@@ -457,7 +457,7 @@
         }
 
         static func configure(_ model: DocumentViewModel) {
-            if flag("SurimonoReadingPanel"), model.offersOrgReading || model.previewsMarkdownReading {
+            if flag("SurimonoReadingPanel"), model.offersReadingPanel {
                 model.isReadingPanelOpen = true
             }
             if flag("SurimonoFolderNotice") { model.showToast(.folderAccess) }

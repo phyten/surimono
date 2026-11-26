@@ -15,7 +15,9 @@ struct DocumentsChapterTests {
             DocumentsChapter.formats == [
                 .markdown, .quarto, .rMarkdown, .rst, .asciidoc, .mediawiki, .org, .html, .plainText,
             ])
-        for format in DocumentsChapter.formats.prefix(6) {
+        #expect(
+            DocumentsChapter.rows(for: .markdown).map(\.id) == [.sectionNumbers, .tableOfContents, .preserveBreaks])
+        for format in DocumentsChapter.formats.prefix(6).dropFirst() {
             #expect(DocumentsChapter.rows(for: format).map(\.id) == [.tableOfContents])
         }
         #expect(CodeNumberRow.allCases.map(\.label.key) == ["Line Numbers", "Code Block Line Numbers"])
@@ -168,7 +170,7 @@ struct DocumentsChapterTests {
     func search() {
         let contents = "Table of Contents at the Top"
         let cases: [(String, DocumentFormat, String)] = [
-            (".md", .markdown, contents), (".qmd", .quarto, contents), (".Rmd", .rMarkdown, contents),
+            (".md", .markdown, "Heading Numbers"), (".qmd", .quarto, contents), (".Rmd", .rMarkdown, contents),
             (".rst", .rst, contents), (".adoc", .asciidoc, contents), (".wiki", .mediawiki, contents),
             (".mediawiki", .mediawiki, contents), (".org", .org, "Heading Numbers"),
             (".html", .html, "Default HTML Preset"), ("toc-depth", .markdown, contents),

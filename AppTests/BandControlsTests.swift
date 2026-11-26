@@ -6,7 +6,7 @@ import Testing
 
 @MainActor
 struct BandControlsTests {
-    @Test("読み方の設定は単独の Org 文書でだけ帯とメニューから開ける")
+    @Test("読み方の設定は単独の Markdown・Org 文書でだけ帯とメニューから開ける")
     func orgPanelAvailability() {
         let suite = TestDefaultsSuite()
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -18,7 +18,8 @@ struct BandControlsTests {
         let library = UserLibrary(root: directory)
         let binder = BinderModel(orderedURLs: ["a.org", "b.org"].map { directory.appendingPathComponent($0) })
         for (format, collection, expected) in [
-            (DocumentFormat.org, nil, true), (.org, binder, false), (.markdown, nil, false),
+            (DocumentFormat.org, nil, true), (.org, binder, false), (.markdown, nil, true), (.markdown, binder, false),
+            (.quarto, nil, false), (.rMarkdown, nil, false), (.pdf, nil, false),
         ] {
             let model = DocumentViewModel(
                 data: Data(), fileURL: nil, format: format, preferences: preferences, library: library,
@@ -47,7 +48,7 @@ struct BandControlsTests {
             BandLayout.Item.applicable(for: model) == [
                 .formatBadge, .style, .outline, .layout, .transition, .floatOnTop, .showOnAllSpaces, .print,
                 .readingDirection, .scrollDirection, .paperOrientation, .paperSeries, .cover, .selectText,
-                .alwaysShowToolbar, .margins, .printSettings, .viewOptions, .keysAndGestures,
+                .alwaysShowToolbar, .margins, .printSettings, .viewOptions, .keysAndGestures, .readingSettings,
             ])
         model.layoutID = PrintLayout.a4BookletA5.id
         model.choosePaperSeries(.letter)

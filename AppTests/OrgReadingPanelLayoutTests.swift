@@ -1,5 +1,7 @@
 import AppKit
+import PDFKit
 import SurimonoCore
+import SurimonoRendering
 import SwiftUI
 import Testing
 
@@ -149,28 +151,61 @@ struct OrgReadingPanelLayoutTests {
         }
     }
 
-    #if DEBUG
-        @Test("Markdown の三行を実幅に並べ、原稿が有効にした目次では深さを選べる")
-        func markdownPreview() throws {
-            let file = MarkdownConverter.convert("---\ntoc: true\n---\n# A").contentsInstructions
-            let preview = MarkdownReadingPreview(
-                documentName: "test.md", fileURL: nil, contents: file, defaults: .init(), close: {})
-            #expect(preview.ids == [.sectionNumbers, .tableOfContents, .preserveBreaks])
-            let row = try #require(preview.resolution(.tableOfContents))
-            guard case .outline(let present, let depth) = row else {
-                Issue.record("目次の選択欄がない")
-                return
-            }
-            #expect(present.isLocked && !depth.isLocked && present.source?.rawText == "toc: true")
-            let picker = ReadingOutlinePicker(
-                label: ReadingSettingID.tableOfContents.label, present: present, depth: depth, set: { _ in })
-            #expect(picker.hasAlternative && !picker.allows(nil))
-            #expect(picker.allows(.levels(1)) && picker.allows(.all))
-            let host = NSHostingController(rootView: preview.environment(\.locale, Locale(identifier: "en")))
-            let size = host.sizeThatFits(in: CGSize(width: ReadingPanelMetrics.width, height: 600))
-            #expect(size.width == ReadingPanelMetrics.width && size.height > 0)
+    @Test("Markdown の実幅のパネルで有無が固定された目次の深さだけを変えられる")
+    func markdownPanel() async throws {
+        let suite = TestDefaultsSuite()
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer {
+            suite.remove()
+            try? FileManager.default.removeItem(at: root)
         }
-    #endif
+        let renderer = DocumentRenderer(paginate: { _ in
+            try #require(PDFDocument(data: TestFixtures.pdf("A", pages: 1)))
+        })
+        let model = DocumentViewModel(
+            data: Data("---\ntoc: true\n---\n# A".utf8), fileURL: nil,
+            format: .markdown, preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: root),
+            renderer: renderer)
+        defer { model.stop() }
+        model.render()
+        let deadline = ContinuousClock.now + .seconds(10)
+        while model.contentsFacts == nil {
+            try #require(ContinuousClock.now < deadline)
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        let row = try #require(model.markdownResolution(.tableOfContents))
+        guard case .outline(let present, let depth) = row else {
+            Issue.record("目次の選択欄がない")
+            return
+        }
+        let picker = ReadingOutlinePicker(
+            label: ReadingSettingID.tableOfContents.label, present: present, depth: depth, set: { _ in })
+        #expect(picker.hasAlternative && !picker.allows(nil) && picker.allows(.levels(1)) && picker.allows(.all))
+        model.setMarkdownValue(.outline(present: true, depth: .levels(1)), for: .tableOfContents)
+        #expect(model.leadContents == .levels(1) && model.readingChangedCount == 1)
+        model.setMarkdownValue(.outline(present: false, depth: .all), for: .tableOfContents)
+        #expect(model.leadContents == .levels(1))
+        let host = NSHostingController(
+            rootView: MarkdownReadingPanel(model: model).environment(\.locale, Locale(identifier: "en")))
+        let size = host.sizeThatFits(in: CGSize(width: ReadingPanelMetrics.width, height: 600))
+        #expect(size.width == ReadingPanelMetrics.width && size.height > 0)
+    }
+
+    @Test("Markdown の目次の理由は原稿行と変更できる成分を一行に示す")
+    func markdownReason() throws {
+        let file = MarkdownConverter.convert("---\ntoc: true\ntoc-depth: 2\n---\n# A").contentsInstructions
+        let locale = Locale(identifier: "en")
+        for (source, partialLock, expected): (ReadingInstructionSource?, ReadingFileReason.PartialLock?, String) in [
+            (file.present?.source, .enabled, "Specified in file: toc: true (depth can be changed)"),
+            (file.depth?.source, .depth, "Specified in file: toc-depth: 2 (can be turned on or off)"),
+            (file.present?.source, nil, "Specified in file: toc: true"),
+        ] {
+            let view = ReadingFileReason(
+                documentName: "test.md", fileURL: nil, allowsFileChanges: false,
+                source: try #require(source), changed: false, partialLock: partialLock)
+            #expect(view.reason(locale: locale) == expected)
+        }
+    }
 
     @Test("読み方の全項目は八言語で選択値と戻す矢印が収まり、横に収まる行は一列を保つ", arguments: UILanguage.supported)
     func choicesFit(language: String) throws {

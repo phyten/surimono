@@ -103,11 +103,11 @@ struct PrintFinishFlowTests {
         > {
             ContentsFinishRow.visible(format: format, hasLead: lead, finish: finish, facts: facts)
         }
-        #expect(rows(.markdown, plain, false, page) == [.lead])
-        #expect(rows(.markdown, plain, true, page) == [.lead, .layout, .look])
-        #expect(rows(.markdown, lead, true, .init()) == [.lead, .layout])
-        #expect(rows(.markdown, marker, false, page) == [.lead, .inText])
-        #expect(rows(.markdown, both, true, page) == [.lead, .layout, .look, .inText])
+        #expect(rows(.markdown, plain, false, page) == [])
+        #expect(rows(.markdown, plain, true, page) == [.layout, .look])
+        #expect(rows(.markdown, lead, true, .init()) == [.layout])
+        #expect(rows(.markdown, marker, false, page) == [.inText])
+        #expect(rows(.markdown, both, true, page) == [.layout, .look, .inText])
         let org = DocumentFacts(fragment: OrgConverter.convert("* Alpha"))
         let orgMarker = DocumentFacts(fragment: OrgConverter.convert("* Alpha\n#+TOC: headlines 1"))
         #expect(rows(.org, org, false, page).isEmpty)
@@ -126,8 +126,8 @@ struct PrintFinishFlowTests {
         var old = PrintFinish()
         old.legacyPresetContents.mode = .front
         old.legacyPresetContents.keepsSourceTOC = true
-        #expect(rows(.markdown, marker, false, old) == [.lead, .layout, .look, .inText])
-        #expect(rows(.markdown, lead, true, old) == [.lead, .layout, .look])
+        #expect(rows(.markdown, marker, false, old) == [.layout, .look, .inText])
+        #expect(rows(.markdown, lead, true, old) == [.layout, .look])
         #expect(rows(.latex, latex, false, old) == [.contents])
     }
 
@@ -140,23 +140,25 @@ struct PrintFinishFlowTests {
         let model = environment.model(marked)
         model.start()
         try await waitUntil { model.contentsFacts != nil && model.contentHash != nil }
-        #expect(model.contentsFinishRows == [.lead, .inText])
+        #expect(model.contentsFinishRows == [.inText])
         model.setLeadContents(.levels(2))
-        #expect(model.contentsFinishRows == [.lead, .layout, .inText])
+        #expect(model.contentsFinishRows == [.layout, .inText])
         model.editContents(\.placement, .page)
-        #expect(model.contentsFinishRows == [.lead, .layout, .look, .inText])
+        #expect(model.contentsFinishRows == [.layout, .look, .inText])
         model.setLeadContents(.off)
-        #expect(model.contentsFinishRows == [.lead, .inText])
+        #expect(model.contentsFinishRows == [.inText])
         model.editContents(\.inText, .hidden)
         model.render()
         try await waitUntil { model.isUpToDate && model.contentsFacts != nil }
-        #expect(model.contentsFinishRows == [.lead, .inText])
+        #expect(model.contentsFinishRows == [.inText])
         model.replaceContent(Data(plain.utf8), format: .markdown)
         try await waitUntil { model.contentsFacts != nil }
-        #expect(model.contentsFinishRows == [.lead] && model.rememberedSettings.printFinish?.contents.inText == .hidden)
+        #expect(model.contentsFinishRows.isEmpty)
+        #expect(model.rememberedSettings.printFinish?.contents.inText == .hidden)
         model.replaceContent(Data(marked.utf8), format: .markdown)
         try await waitUntil { model.contentsFacts != nil }
-        #expect(model.contentsFinishRows == [.lead, .inText] && model.printFinish.contents.inText == .hidden)
+        #expect(model.contentsFinishRows == [.inText])
+        #expect(model.printFinish.contents.inText == .hidden)
     }
 
     @Test("旧LaTeXの前付けだけを外しても原稿の図目次・表目次は残る", arguments: [true, false], [true, false])
@@ -199,7 +201,7 @@ struct PrintFinishFlowTests {
         marked.start()
         try await waitUntil { marked.contentsFacts != nil }
         #expect(marked.printFinish.legacyTOC?.keepsSourceTOC == true)
-        #expect(marked.contentsFinishRows == [.lead, .layout, .look, .inText])
+        #expect(marked.contentsFinishRows == [.layout, .look, .inText])
         let set = PrintSettingSet(name: "Original", settings: DocumentSettings(printFinish: prefs.printFinish))
         marked.applyPrintSettingSet(set)
         #expect(marked.printFinish.legacyTOC?.mode == .front)
@@ -222,6 +224,7 @@ struct PrintFinishFlowTests {
         model.start()
         try await waitUntil { model.contentsFacts != nil && model.contentHash != nil }
         let legacy = model.rememberedSettings
+        #expect(model.contentsFinishRows.contains(.lead))
         model.setLeadContents(.levels(1))
         #expect(model.rememberedSettings == legacy && model.printFinish.legacyTOC?.mode == .front)
         model.setLeadContents(.levels(2))

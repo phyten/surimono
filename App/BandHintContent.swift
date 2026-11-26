@@ -75,8 +75,9 @@ struct BandHintContent: Equatable {
             if model.isPreparingWholeDocument { result.reason = PageIndicatorText.preparingHelp }
         case .readingSettings:
             open(model.isReadingPanelOpen)
-            if model.orgChangedCount > 0 {
-                result.accessibilityDetail = String(localized: BandAccessibility.readingChanges(model.orgChangedCount))
+            if model.readingChangedCount > 0 {
+                result.accessibilityDetail = String(
+                    localized: BandAccessibility.readingChanges(model.readingChangedCount))
             }
         case .outline:
             open(model.isOutlineShown)

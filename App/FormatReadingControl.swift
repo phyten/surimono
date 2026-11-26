@@ -71,10 +71,22 @@ struct FormatReadingControl: View {
                 control(locked: !picker.hasAlternative) { picker }
                 reason(
                     present.source,
-                    changed: present.layer == .document || present.source == depth.source && depth.layer == .document)
-                if present.source != depth.source { reason(depth.source, changed: depth.layer == .document) }
+                    changed: present.layer == .document || present.source == depth.source && depth.layer == .document,
+                    partialLock: presenceHint(present, depth: depth))
+                if present.source != depth.source {
+                    reason(
+                        depth.source, changed: depth.layer == .document,
+                        partialLock: depth.isLocked && !present.isLocked ? .depth : nil)
+                }
             }
         }
+    }
+
+    private func presenceHint(_ present: ReadingResolution<Bool>, depth: ReadingResolution<ReadingDepth>)
+        -> ReadingFileReason.PartialLock?
+    {
+        guard present.isLocked, !depth.isLocked else { return nil }
+        return present.value ? .enabled : .disabled
     }
 
     private func control<Picker: View>(locked: Bool, @ViewBuilder picker: () -> Picker) -> some View {
@@ -83,11 +95,13 @@ struct FormatReadingControl: View {
             reset: revert, control: picker)
     }
 
-    @ViewBuilder private func reason(_ source: ReadingInstructionSource?, changed: Bool) -> some View {
+    @ViewBuilder private func reason(
+        _ source: ReadingInstructionSource?, changed: Bool, partialLock: ReadingFileReason.PartialLock? = nil
+    ) -> some View {
         if let source {
             ReadingFileReason(
                 documentName: documentName, fileURL: fileURL, allowsFileChanges: allowsFileChanges, source: source,
-                changed: changed)
+                changed: changed, partialLock: partialLock)
         }
     }
 }

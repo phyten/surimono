@@ -139,7 +139,7 @@ struct BandMenuContentTests {
     private let markdown: [[ID]] = [
         [.outline, .checkWriting, .previousPage, .nextPage, .documentInfo],
         [.layout, .transition],
-        [.readingDirection, .scrollDirection, .selectText],
+        [.readingSettings, .readingDirection, .scrollDirection, .selectText],
         [.style, .paperOrientation, .paperSeries, .margins],
         [.floatOnTop, .showOnAllSpaces, .alwaysShowToolbar, .viewOptions],
         [.printSettings, .print],
@@ -196,7 +196,7 @@ struct BandMenuContentTests {
         #expect(BandMenuContent(model: model).header == "Menu Fixture · MD · 1 / 2")
         model.viewOptions.layout = .spread
         var spread = markdown
-        spread[2] = [.readingDirection, .scrollDirection, .cover, .selectText]
+        spread[2] = [.readingSettings, .readingDirection, .scrollDirection, .cover, .selectText]
         try verifyArrangements(model, expected: spread)
     }
 
