@@ -5,11 +5,14 @@ import SurimonoCore
 @MainActor
 public enum ReadingPDFExporter {
     public enum ExportError: LocalizedError {
+        case unverifiedBinderNavigation
         case cannotCopyDocument
         case navigation(String)
 
         public var errorDescription: String? {
             switch self {
+            case .unverifiedBinderNavigation:
+                return String(localized: "The original link destinations in this binder could not be verified.")
             case .cannotCopyDocument: return String(localized: "The PDF could not be exported.")
             case .navigation(let detail): return detail
             }
@@ -109,8 +112,9 @@ public enum ReadingPDFExporter {
         // PDFDestination.page is weak; this independent writer owns its target wrappers until serialization.
         var targets = PageTargets()
         if !preservesOutline {
+            expected = try original.rebased(to: document)
             expected.links = try repairLinks(
-                in: document, original: original.links, headings: headings, entries: entries, sourceURL: sourceURL,
+                in: document, original: expected.links, headings: headings, entries: entries, sourceURL: sourceURL,
                 snapshotURLs: snapshotURLs, targets: &targets)
             expected.outline = try setOutline(in: document, entries: entries, targets: &targets)
         }
