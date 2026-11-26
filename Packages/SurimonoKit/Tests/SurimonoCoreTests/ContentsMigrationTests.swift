@@ -68,6 +68,38 @@ struct ContentsMigrationTests {
         #expect(document.formatReading == expected)
     }
 
+    @Test("確認の間に破棄するものがなくなったら、古い承認のままでも固定を戻す", arguments: [false, true])
+    func markdownLockAfterNothingLeft(instructionRemoved: Bool) throws {
+        let facts = DocumentFacts(fragment: MarkdownConverter.convert("---\ntoc: true\n---\n# A"))
+        var document = DocumentSettings()
+        document.formatReading.setAllowsFileChanges(true, for: .markdown)
+        document.formatReading.set(
+            .outline(present: false, depth: .all), for: .tableOfContents, format: .markdown,
+            file: facts.contentsInstructions)
+        document.formatReading.set(.toggle(true), for: .preserveBreaks, format: .markdown)
+        guard
+            case .needsConfirmation(let pending) = document.lockMarkdownFileInstructions(
+                facts: facts, generation: 1, defaults: .init())
+        else {
+            Issue.record("The first request asks before discarding")
+            return
+        }
+        var later = facts
+        if instructionRemoved {
+            later = DocumentFacts(fragment: MarkdownConverter.convert("# A"))
+        } else {
+            document.formatReading.revert(.tableOfContents, for: .markdown)
+        }
+        var expected = document.formatReading
+        expected.setAllowsFileChanges(false, for: .markdown)
+        #expect(
+            document.lockMarkdownFileInstructions(facts: later, generation: 2, defaults: .init(), confirming: pending)
+                == .finished)
+        // Only the permission goes: the remaining choices no longer contradict the file.
+        #expect(document.formatReading == expected)
+        #expect(!document.formatReading.allowsFileChanges(for: .markdown))
+    }
+
     @Test(
         "固定を戻すと原稿が指定した成分だけを消し、旧仕上げから移した深さか文書で選んだ深さを保つ",
         arguments: [DocumentFormat.markdown, .quarto, .rMarkdown], [false, true])
