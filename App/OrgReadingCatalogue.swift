@@ -1,9 +1,7 @@
 import Foundation
 import SurimonoCore
 
-enum OrgReadingGroup: CaseIterable {
-    case structure, information, text, tasks, details
-
+extension OrgReadingGroup {
     var title: LocalizedStringResource {
         switch self {
         case .structure: "Structure"
@@ -14,15 +12,6 @@ enum OrgReadingGroup: CaseIterable {
         }
     }
 
-    var settings: [OrgSettingID] {
-        switch self {
-        case .structure: [.sectionNumbers, .tableOfContents, .headlineLevels, .tags]
-        case .text: [.scripts, .preserveBreaks, .emphasis, .math]
-        case .tasks: [.planning, .clocks, .priority, .todo, .statistics, .tasks]
-        case .information: [.title, .author, .date]
-        case .details: [.drawers, .properties, .timestamps, .footnotes, .tables, .fixedWidth, .archived]
-        }
-    }
 }
 
 extension OrgSettingID {

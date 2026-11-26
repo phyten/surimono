@@ -66,6 +66,30 @@ struct DocumentSettingsFlowTests {
         try await waitUntil { model.contentHash != nil && model.result != nil && !model.isRendering }
     }
 
+    @Test("形式別の全体既定は別のキーで往復し、Org の旧記録と文書の保存値を保つ")
+    func formatReadingPreferences() throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        let defaults = fixture.suite.defaults
+        let old = Data(#"{"sectionNumbers":{"all":{}},"title":false}"#.utf8)
+        defaults.set(old, forKey: "orgReadingDefaults")
+        let prefs = AppPreferences(defaults: defaults)
+        prefs.formatReadingDefaults.set(.toggle(true), for: .preserveBreaks, format: .markdown)
+        let reloaded = AppPreferences(defaults: defaults)
+        #expect(reloaded.formatReadingDefaults == prefs.formatReadingDefaults)
+        #expect(reloaded.orgReadingDefaults?.sectionNumbers == .all && reloaded.orgReadingDefaults?.title == false)
+        #expect(defaults.data(forKey: "orgReadingDefaults") == old)
+        let model = DocumentViewModel(
+            data: Data("# Reading".utf8), fileURL: nil, format: .markdown, preferences: prefs,
+            library: fixture.library, settingsStore: fixture.store)
+        defer { model.stop() }
+        let saved = DocumentSettings(formatReading: prefs.formatReadingDefaults)
+        model.restoreClosedDocument(saved)
+        #expect(model.rememberedSettings.formatReading == saved.formatReading)
+        reloaded.formatReadingDefaults.set(.toggle(false), for: .preserveBreaks, format: .markdown)
+        #expect(defaults.data(forKey: "formatReadingDefaults") == nil)
+    }
+
     @Test("Org の全体既定は文書に保存せず、変更した項目だけを内容ハッシュから復元する", .timeLimit(.minutes(1)))
     func orgReadingPreferences() async throws {
         let fixture = try environment()

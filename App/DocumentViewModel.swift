@@ -175,6 +175,12 @@ final class DocumentViewModel {
     var showsReadingPanel: Bool { mode == .view && offersOrgReading && isReadingPanelOpen }
     private(set) var orgFileInstructions: OrgFileInstructions?
     var orgDocumentReading = OrgDocumentReadingSettings()
+    var orgChangedCount: Int {
+        orgFileInstructions.map { orgDocumentReading.changedCount(file: $0) } ?? 0
+    }
+
+    private var formatReading = FormatReadingChoices()
+
     var orgReading: OrgReadingSettings {
         OrgReadingSettings(
             defaults: preferences.orgReadingDefaults ?? .surimono,
@@ -3067,7 +3073,8 @@ final class DocumentViewModel {
             pageRange: pageRange.isAll ? nil : pageRange, bookmarks: bookmarks.isEmpty ? nil : bookmarks,
             latexComposition: format == .latex && savedComposition != .document ? savedComposition : nil,
             contentsPanel: contentsPanel == .init() ? nil : contentsPanel,
-            orgReading: format == .org && binder == nil && orgDocumentReading != .init() ? orgDocumentReading : nil)
+            orgReading: format == .org && binder == nil && orgDocumentReading != .init() ? orgDocumentReading : nil,
+            formatReading: formatReading)
     }
 
     var currentPrintSettingSet: PrintSettingSet {
@@ -3392,6 +3399,7 @@ final class DocumentViewModel {
         binderStartsOnFront = saved.binderStartsOnFront ?? false
         bandVisibility = saved.bandVisibility ?? defaultBandVisibility
         if let order = saved.binderOrder { binder?.applyOrder(order) }
+        formatReading = saved.formatReading
         orgDocumentReading = saved.orgReading ?? .init()
         savedComposition = saved.latexComposition ?? .document
         setTypeface(saved.typeface ?? .style)
@@ -3611,6 +3619,7 @@ final class DocumentViewModel {
         defaultBandVisibility = preferences.defaultBandVisibility
         bandVisibility = defaultBandVisibility
         orgDocumentReading = .init()
+        formatReading = .init()
         savedComposition = .document
         typeface = usesPrintTheme ? defaultTypeface : .style
         textScale = usesPrintTheme ? defaultTextScale : 1
