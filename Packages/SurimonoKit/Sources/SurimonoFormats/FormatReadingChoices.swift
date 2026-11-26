@@ -49,14 +49,6 @@ public struct FormatReadingChoices: Codable, Equatable, Sendable {
         return result
     }
 
-    public func restricted(to included: Set<DocumentFormat>) -> Self {
-        var result = Self()
-        for format in included {
-            result.formats[format.rawValue] = formats[format.rawValue]
-        }
-        return result
-    }
-
     public func resolve(
         _ id: ReadingSettingID, for format: DocumentFormat, file: ReadingFileInstructions = .init(),
         defaults: Self = .init(), allowsFileChanges: Bool? = nil
