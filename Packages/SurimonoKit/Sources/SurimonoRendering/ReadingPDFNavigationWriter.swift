@@ -46,12 +46,14 @@ enum ReadingPDFNavigationWriter {
     }
 
     /// Pages and annotations are zero-based. A nil outline leaves the catalog's original outline intact.
-    static func repair(_ data: Data, links: [Link], bookmarks: [Bookmark]?) throws -> Data {
+    static func repair(_ data: Data, links: [Link], bookmarks: [Bookmark]?, removingAnnotations: [Int: Set<Int>] = [:])
+        throws -> Data
+    {
         try Task.checkCancellation()
-        guard !links.isEmpty || bookmarks != nil else { return data }
+        guard !links.isEmpty || bookmarks != nil || !removingAnnotations.isEmpty else { return data }
         return try data.withUnsafeBytes { buffer in
             var file = try File(bytes: buffer.bindMemory(to: UInt8.self))
-            return try file.repair(data, links: links, bookmarks: bookmarks)
+            return try file.repair(data, links: links, bookmarks: bookmarks, removingAnnotations: removingAnnotations)
         }
     }
 
@@ -477,7 +479,9 @@ enum ReadingPDFNavigationWriter {
             return ("/First \(first.operand) /Last \(last.operand) /Count \(count)", visibleChildren)
         }
 
-        mutating func repair(_ base: Data, links: [Link], bookmarks: [Bookmark]?) throws -> Data {
+        mutating func repair(_ base: Data, links: [Link], bookmarks: [Bookmark]?, removingAnnotations: [Int: Set<Int>])
+            throws -> Data
+        {
             let catalog = try dictionary(root)
             var type = try field("Type", of: catalog)
             guard try type.name() == "Catalog" else { throw Failure.unsupported }
@@ -501,6 +505,16 @@ enum ReadingPDFNavigationWriter {
                     revisions[ref] = dict.editing(
                         ["A", "Dest"], adding: "/Dest \(try operand(link.destination))", in: bytes)
                 }
+            }
+            for (source, removed) in removingAnnotations {
+                try Task.checkCancellation()
+                guard pages.indices.contains(source) else { throw Failure.unsupported }
+                let ref = pages[source]
+                let dict = try dictionary(ref)
+                let annotations = try references("Annots", in: dict)
+                guard removed.allSatisfy(annotations.indices.contains) else { throw Failure.unsupported }
+                let kept = annotations.indices.filter { !removed.contains($0) }.map { annotations[$0].operand }
+                revisions[ref] = dict.editing(["Annots"], adding: "/Annots [\(kept.joined(separator: " "))]", in: bytes)
             }
             if let bookmarks {
                 var entry = ""

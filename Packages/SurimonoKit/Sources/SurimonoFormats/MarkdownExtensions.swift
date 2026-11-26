@@ -1181,25 +1181,39 @@ enum MarkdownExtensions {
         return String(String.UnicodeScalarView(kept)).replacingOccurrences(of: " ", with: "-")
     }
 
+    /// `fn-` or `fnref-` and then only digits and hyphens: every id the footnotes use, and every suffix of one.
+    static func isNoteID(_ id: String) -> Bool {
+        guard let prefix = ["fnref-", "fn-"].first(where: id.hasPrefix) else { return false }
+        let rest = id.dropFirst(prefix.count)
+        return !rest.isEmpty && rest.allSatisfy { $0.isNumber || $0 == "-" }
+    }
+
+    /// Reserve each final ID, including IDs that already look like a generated suffix.
+    static func headingID(_ requested: String, used: inout [String: Int], hasFootnotes: Bool = false) -> String {
+        let base = requested.isEmpty ? "section" : requested
+        func headingName(_ candidate: String) -> String {
+            hasFootnotes && isNoteID(candidate) ? "section-" + candidate : candidate
+        }
+        var suffix = used[base] ?? 0
+        var id = headingName(base)
+        while used[id] != nil {
+            suffix += 1
+            id = headingName("\(base)-\(suffix)")
+        }
+        used[base] = suffix
+        used[id] = 0
+        return id
+    }
+
     /// Every heading's anchor in document order; a repeated id gets `-1`, `-2`… as on GitHub.
-    static func headingAnchors(in document: any Markup, formulas: Formulas? = nil) -> [HeadingAnchor] {
+    static func headingAnchors(in document: any Markup, formulas: Formulas?, hasFootnotes: Bool) -> [HeadingAnchor] {
         var anchors: [HeadingAnchor] = []
         var used: [String: Int] = [:]
         func visit(_ node: any Markup) {
             if PreviewConversion.expired { return }
             if let heading = node as? Heading {
                 let (text, custom) = splitCustomID(plainText(heading, formulas: formulas))
-                let base = custom ?? (slug(text).isEmpty ? "section" : slug(text))
-                var id = base
-                if let count = used[base] {
-                    var next = count
-                    repeat {
-                        next += 1
-                        id = "\(base)-\(next)"
-                    } while used[id] != nil
-                    used[base] = next
-                }
-                used[id] = used[id] ?? 0
+                let id = headingID(custom ?? slug(text), used: &used, hasFootnotes: hasFootnotes)
                 anchors.append(HeadingAnchor(level: heading.level, id: id, text: text))
                 return
             }

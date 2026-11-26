@@ -433,9 +433,11 @@ public final class WebPaginator: NSObject {
         }
         if flow == .vertical {
             if indexesFormulas { try await installFormulaIndex() }
+            let links = try await PrintedFragmentLinks.install(
+                in: session.webView, source: source, until: .now + timeout)
             let document = try await VerticalPaginator.pages(
                 in: session.webView, pageSize: pageSize, margins: margins, timeout: printTimeout,
-                booklet: verticalBooklet, textScale: verticalTextScale)
+                booklet: verticalBooklet, textScale: verticalTextScale, fragmentLinks: links)
             try session.checkPrintNavigation()
             if session.localHandler != nil { LocalResourceSchemeHandler.restoreFileLinks(in: document) }
             var result = Result(
@@ -639,7 +641,15 @@ public final class WebPaginator: NSObject {
                 await inspectPrintLayout(webView)
                 webView.mediaType = media
             }
-            let pageData = try await pageDataForPass(indexFormulas: indexesFormulas)
+            // Flow pagination writes its own destinations after assigning columns. Native printing needs
+            // the markers only in the final pass, after page reference fields and source anchors are in place.
+            let links =
+                capturesLaTeXFlow
+                ? nil
+                : try await PrintedFragmentLinks.install(
+                    in: session.webView, source: source, until: min(layoutDeadline, .now + timeout))
+            let printed = try await pageDataForPass(indexFormulas: indexesFormulas)
+            let pageData = try await links?.resolve(in: printed) ?? printed
             try await recordLines(final: true)
             guard let document = PDFDocument(data: pageData) else { throw PaginationError.emptyDocument }
             if session.localHandler != nil { LocalResourceSchemeHandler.restoreFileLinks(in: document) }

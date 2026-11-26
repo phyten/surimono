@@ -151,6 +151,9 @@ struct LaTeXFlowPrintingTests {
         let (pdf, route) = try await renderContents(
             DocumentSource(data: Data(tex.utf8), format: .latex), settings: settings)
         let page = try #require(pdf.page(at: 0))
+        let body = try #require(pdf.findString(heading).compactMap { $0.pages.first }.first { $0 !== page })
+        #expect(
+            page.annotations.contains { (($0.action as? PDFActionGoTo)?.destination ?? $0.destination)?.page === body })
         let title = try #require(pdf.findString(heading).first { $0.pages.first == page }).bounds(for: page)
         try checkLeader(
             page, title: title, startX: title.maxX + 1, count: report ? 45 : nil,

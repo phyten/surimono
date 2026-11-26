@@ -349,7 +349,7 @@ struct OrgOutline {
     /// Keep the established heading stems, including the section prefix for a title that looks like a note ID.
     mutating func id(for text: String) -> String {
         let slug = MarkdownExtensions.slug(text.trimmingCharacters(in: .whitespaces))
-        let base = slug.isEmpty ? "section" : (Self.isNoteID(slug) ? "section-" + slug : slug)
+        let base = slug.isEmpty ? "section" : (MarkdownExtensions.isNoteID(slug) ? "section-" + slug : slug)
         return allocateID(base)
     }
 
@@ -366,13 +366,6 @@ struct OrgOutline {
         nextSuffix[base] = suffix
         usedIDs.insert(candidate)
         return candidate
-    }
-
-    /// `fn-` or `fnref-` and then only digits and hyphens: every id the footnotes use, and every suffix of one.
-    private static func isNoteID(_ id: String) -> Bool {
-        guard let prefix = ["fnref-", "fn-"].first(where: id.hasPrefix) else { return false }
-        let rest = id.dropFirst(prefix.count)
-        return !rest.isEmpty && rest.allSatisfy { $0.isNumber || $0 == "-" }
     }
 
 }

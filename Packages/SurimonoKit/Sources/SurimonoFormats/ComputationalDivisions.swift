@@ -126,16 +126,8 @@ extension ComputationalBody {
             let level = match.1.count
             let attrs = ComputationalAttributes(match.3.map(String.init) ?? "")
             var title = String(match.2)
-            let base = MarkdownExtensions.slug(title)
-            var id = attrs.id.isEmpty ? base : attrs.id
-            if attrs.id.isEmpty {
-                var index = 1
-                while headingIDs.contains(id) {
-                    id = "\(base)-\(index)"
-                    index += 1
-                }
-            }
-            headingIDs.insert(id)
+            let requested = attrs.id.isEmpty ? MarkdownExtensions.slug(title) : attrs.id
+            let id = MarkdownExtensions.headingID(requested, used: &headingSuffixes)
             if ComputationalLabel.kind(id) == "sec" { _ = register(id, kind: "sec") }
             if metadata.values["number-sections"]?.lowercased() == "true" && !attrs.classes.contains("unnumbered") {
                 sectionNumbers[level - 1] += 1
