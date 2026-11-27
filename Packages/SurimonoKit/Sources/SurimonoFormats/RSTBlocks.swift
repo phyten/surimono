@@ -304,6 +304,7 @@ final class RSTBlockReader {
             lines[index + 1].rstIndent > 0, !Self.blank(lines[index + 1]), listMarker(lines[index]) == nil,
             !lines[index].hasPrefix(".. "), field(lines[index]) == nil, option(lines[index]) == nil
         {
+            blockStart = index
             let terms = lines[index].components(separatedBy: " : ")
             html += "<dt>" + document.inline(terms[0])
             for classifier in terms.dropFirst() {

@@ -71,6 +71,30 @@ struct RSTWikiReadingTests {
         #expect(RSTConverter.convert(".. code:: rst\n\n   .. contents::").contentsInstructions == .init())
     }
 
+    @Test("指示行の末尾が空白やタブでも固定し、出典には元の行を残す", arguments: ["", " ", "\t"], [false, true])
+    func rstTrailingWhitespace(suffix: String, hasDepth: Bool) {
+        for directive in [".. sectnum::", ".. section-numbering::", ".. contents:: Map"] {
+            let line = directive + suffix
+            let fragment = RSTConverter.convert(line + (hasDepth ? "\n   :depth: 2" : "") + "\n\nOne\n===\n\nTwo\n===")
+            let file = directive == ".. contents:: Map" ? fragment.contentsInstructions : fragment.numberInstructions
+            #expect(file.present?.value == true)
+            #expect(file.present?.source?.lineNumber == 1)
+            #expect(file.present?.source?.excerpt?.line == line)
+            #expect(file.depth?.value == (hasDepth ? .levels(2) : nil))
+            #expect(file.depth?.source?.lineNumber == (hasDepth ? 2 : nil))
+        }
+    }
+
+    @Test("定義リストで後の項目にある同名の指示は、その項目の行と深さで固定する", arguments: [1, 2])
+    func rstDefinitionSource(secondDepth: Int) {
+        let fragment = RSTConverter.convert(
+            "First term\n   .. sectnum::\n      :depth: 1\n\nSecond term\n   .. sectnum::\n      :depth: \(secondDepth)"
+        )
+        #expect(fragment.numberInstructions.present?.source?.lineNumber == 6)
+        #expect(fragment.numberInstructions.depth?.source?.lineNumber == 7)
+        #expect(fragment.numberInstructions.depth?.value == .levels(secondDepth))
+    }
+
     @Test("題と著者の後の目次は先頭の設定に入り、字下げされた引用の指示は原稿の行を指す")
     func rstFrontMatterAndQuote() throws {
         let title = "Book\n====\n\n:Author: Reader\n\n.. contents:: Map\n\nFirst\n-----\n\nSecond\n------"

@@ -4,6 +4,9 @@ public struct FormatReadingSettings: Sendable {
     /// A saved legacy finish still owns the lead list until its first edit.
     public var manuscriptContents: Bool
 
+    /// Older finishes hid manuscript directives and could add a separate lead from the document settings.
+    package var keepsRSTLeadInText = false
+
     public init(
         document: FormatReadingChoices = .init(), defaults: FormatReadingChoices = .init(),
         manuscriptContents: Bool = false

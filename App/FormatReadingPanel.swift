@@ -31,7 +31,7 @@ extension DocumentViewModel {
 
     func revertReadingValue(_ id: ReadingSettingID) {
         if id == .tableOfContents, readingResolution(id)?.isChanged == true {
-            migrateContents(editing: true)
+            migrateContents(editing: .lead)
         }
         formatReading.revert(id, for: format)
     }

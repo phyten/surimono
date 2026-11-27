@@ -1,14 +1,14 @@
 import Foundation
 
 extension RSTDocument {
-    func finishDirectives(_ html: String, options: FormatReadingSettings.Options) -> String {
+    func finishDirectives(_ html: String, options: FormatReadingSettings.Options, leadID: String?) -> String {
         guard options.numbers != nil || !directives.contents.isEmpty else { return html }
         let sections = anchors.filter { !promotedHeadingIDs.contains($0.id) }
         let numbers = rstSectionNumbers(sections, depth: options.numbers)
         var nextEntry = 1
         var rendered: [String] = []
         for toc in directives.contents {
-            let isLead = toc.id == directives.lead?.id
+            let isLead = toc.id == leadID
             if isLead && options.lead == nil {
                 rendered.append("")
                 continue

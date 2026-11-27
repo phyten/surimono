@@ -182,14 +182,16 @@ public struct RenderSettings: Equatable, Sendable {
             case .levels(let count): return .levels(count)
             }
         }
-        return formatReading.leadContents(
-            for: format, file: facts.contentsInstructions, defaults: formatReadingDefaults)
+        let file = format == .rst && finish.keepsRSTLeadInText ? ReadingFileInstructions() : facts.contentsInstructions
+        return formatReading.leadContents(for: format, file: file, defaults: formatReadingDefaults)
     }
 
     var readingSettings: FormatReadingSettings {
-        FormatReadingSettings(
+        var reading = FormatReadingSettings(
             document: formatReading, defaults: formatReadingDefaults,
             manuscriptContents: finish.legacyTOC != nil || finish.originalPresetContents?.mode == .source)
+        reading.keepsRSTLeadInText = finish.keepsRSTLeadInText
+        return reading
     }
 
     var includesOrgLead: Bool { finish.legacyTOC != nil || finish.contents.placement == .inline }

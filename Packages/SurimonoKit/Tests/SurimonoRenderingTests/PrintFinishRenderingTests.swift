@@ -248,12 +248,76 @@ struct PrintFinishRenderingTests {
         }
     }
 
-    @Test("ファイルの先頭指定と本文の目次が同時にあるとき、配置は先頭だけを移す")
-    func fileLeadAndMarker() async throws {
+    private func oldHiddenContents() throws -> DocumentSettings {
+        let json = """
+            {"printFinish":{"contents":{"placement":"inline","look":"dotted","inText":"hidden",
+            "showsContents":true,"showsFigures":true,"showsTables":true}}}
+            """
+        return try JSONDecoder().decode(DocumentSettings.self, from: Data(json.utf8))
+    }
+
+    @Test("旧版の本文目次の非表示は、先頭目次を編集するまで原稿先頭の目次にも効く", arguments: [false, true])
+    func rstSavedHiddenContents(separatePage: Bool) async throws {
+        let text = ".. contents:: Map\n\nOne\n===\n\n.. contents:: Local\n   :local:\n\nChild\n-----\n\nTwo\n==="
+        let source = DocumentSource(data: Data(text.utf8), format: .rst)
+        var document = try oldHiddenContents()
+        if separatePage { document.printFinish?.contents.placement = .page }
+        let base = try settings()
+        var html = ""
+        let renderer = DocumentRenderer(paginate: { request in
+            if case .html(let body, _) = request.source, !body.contains("paper-toc-title") { html = body }
+            return try RenderingFixtures.pdf(size: request.pageSize)
+        })
+        func render(_ document: DocumentSettings) async throws -> PreparedRender {
+            var settings = base
+            settings.finish = try #require(document.printFinish)
+            settings.formatReading = document.formatReading
+            return try await renderer.prepare(source, settings: settings)
+        }
+        let old = try await render(document)
+        let facts = try #require(old.facts)
+        #expect(facts.contentsInstructions.present?.value == true)
+        #expect(facts.visibleContentsEntries.isEmpty && old.addedContentsPages == 0)
+        #expect(html.components(separatedBy: " data-surimono-hidden>").count - 1 == 2)
+        #expect(html.contains("nav[data-surimono-hidden] { display: none !important; }"))
+        #expect(html.contains(">Map</p>") && html.contains(">Local</p>"))
+
+        let before = document
+        let migrated = document.migrateContents(format: .rst, facts: facts)
+        #expect(!migrated)
+        document.setLeadContents(.off, format: .rst, facts: facts, defaults: .init(), orgDefaults: .surimono)
+        #expect(document == before)
+
+        // A lead already chosen in the old finish was separate from both manuscript directives.
+        var oldWithLead = document
+        oldWithLead.formatReading.set(.outline(present: true, depth: .all), for: .tableOfContents, format: .rst)
+        let extra = try await render(oldWithLead)
+        #expect(extra.addedContentsPages == (separatePage ? 1 : 0))
+        #expect(html.components(separatedBy: "<nav class=\"toc\"").count - 1 == (separatePage ? 2 : 3))
+        #expect(html.components(separatedBy: " data-surimono-hidden>").count - 1 == 2)
+
+        document.printFinish?.contents.look = .plain
+        document = try JSONDecoder().decode(DocumentSettings.self, from: JSONEncoder().encode(document))
+        let reopened = try await render(document)
+        #expect(reopened.facts?.visibleContentsEntries.isEmpty == true && reopened.addedContentsPages == 0)
+        #expect(html.components(separatedBy: " data-surimono-hidden>").count - 1 == 2)
+
+        document.setLeadContents(.levels(1), format: .rst, facts: facts, defaults: .init(), orgDefaults: .surimono)
+        document = try JSONDecoder().decode(DocumentSettings.self, from: JSONEncoder().encode(document))
+        let edited = try await render(document)
+        #expect(edited.addedContentsPages == (separatePage ? 1 : 0))
+        #expect(edited.facts?.contentsKinds == [.lead, .text])
+        #expect(html.contains(">Map</p>") == !separatePage)
+        #expect(html.contains(">Local</p>") && html.components(separatedBy: " data-surimono-hidden>").count - 1 == 1)
+    }
+
+    @Test("ファイルの先頭指定と本文の目次が同時にあるとき、配置は先頭だけを移す", arguments: [false, true])
+    func fileLeadAndMarker(oldHidden: Bool) async throws {
         let cases: [(DocumentFormat, String)] = [
             (.org, "#+OPTIONS: toc:1\n* Alpha\n#+TOC: headlines 1\n* Bravo"),
             (.markdown, "---\ntoc: true\n---\n# Alpha\n\n[TOC]\n\n# Bravo"),
             (.quarto, "---\ntoc: true\n---\n# Alpha\n\n[TOC]\n\n# Bravo"),
+            (.rMarkdown, "---\noutput:\n  html_document:\n    toc: true\n---\n# Alpha\n\n[TOC]\n\n# Bravo"),
             (.asciidoc, "= Title\n:toc:\n\n== Alpha\n\ntoc::[]\n\n== Bravo"),
             (.mediawiki, "__FORCETOC__\n== Alpha ==\n__TOC__\n== Bravo =="),
         ]
@@ -267,11 +331,13 @@ struct PrintFinishRenderingTests {
             let source = DocumentSource(data: Data(text.utf8), format: format)
             for page in [false, true] {
                 var settings = base
+                if oldHidden { settings.finish = try #require(try oldHiddenContents().printFinish) }
                 settings.finish.contents.placement = page ? .page : .inline
                 let prepared = try await renderer.prepare(source, settings: settings)
                 #expect(prepared.facts?.contentsKinds.contains(.text) == true, "\(format)")
                 #expect(html.components(separatedBy: "<nav class=\"toc\"").count - 1 == (page ? 1 : 2), "\(format)")
-                #expect(html.components(separatedBy: " data-surimono-in-text>").count - 1 == 1, "\(format)")
+                let attribute = oldHidden ? " data-surimono-hidden>" : " data-surimono-in-text>"
+                #expect(html.components(separatedBy: attribute).count - 1 == 1, "\(format)")
                 #expect(prepared.addedContentsPages == (page ? 1 : 0), "\(format)")
             }
         }
