@@ -536,7 +536,7 @@ MediaWiki は先頭の目次に対応する。`__FORCETOC__` は有効、`__NOTO
 ## コーディング規約
 
 - Swift 6 言語モード。アプリターゲットは既定で MainActor 分離（`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`）。Kit では UI / WebKit を触る型に明示的に `@MainActor` を付ける。
-- デプロイメントターゲットは macOS 15.0。
+- デプロイメントターゲットは macOS 15.6。確かめているのは macOS 15.6 以降（検証用の仮想マシンは 15.6.1）なので、名乗る下限をそれに合わせている。
 - 依存パッケージは最小限。追加するときは理由とライセンス（MIT と両立するか）を PR に書く。現在の外部依存: mammoth.js 1.13.0（BSD-2-Clause、ブラウザー版を未変更で同梱）、@djot/djot 0.3.2 と textile-js 2.1.1（MIT、配布版 JavaScript を未変更で同梱）、@asciidoctor/core 4.2.1（MIT、ブラウザー版を未変更で同梱）、@viz-js/viz 3.31.0（MIT、同梱 Graphviz 16.1.0 は EPL-2.0、Expat 2.8.5 は MIT。公式 npm の dist/viz-global.js を未変更で Resources に同梱）、@plantuml/core 1.2026.9（MIT。公式 npm の plantuml.js を未変更で同梱。両者の表示は App/Acknowledgements/。bump = re-copy、版を上げたら JS・ライセンスを写し直し、export 宣言のアダプターを検証）、mermaid.js 12.2.0（MIT。公式 npm tarball の `dist/mermaid.min.js` を変更せず SurimonoRendering の `Resources` に同梱し、ライセンス文を `App/Acknowledgements/` に置く。版を上げたら両方を差し替える）、swift-markdown（Apache-2.0。LICENSE と NOTICE を、依存の swift-cmark の COPYING とともに `App/Acknowledgements/` に同梱している。版を上げたら差し替える）、Sparkle（MIT。アプリだけ。版は `Surimono.xcodeproj` で固定し、ライセンス文を `App/Acknowledgements/` に同梱している。版を上げたら差し替える）、SwaTex（MIT。SurimonoCore の数式。0.x なので版を固定している。ライセンス文と第三者表示（THIRD_PARTY_NOTICES）を `App/Acknowledgements/` に同梱している）。同梱したライセンス文がアプリに入っていることは `AcknowledgementsTests` で固定している。本文用の Computer Modern Unicode 0.7.0（SIL OFL 1.1）は CTAN の cm-unicode にある OTF 15 本を未変更で SurimonoFormats の Resources に同梱し、著作権表示を含む原本の OFL.txt を App/Acknowledgements/CMU-Fonts-OFL.txt に置く。数式用の Surimono Math は、SwaTex の KaTeX 書体の文字対応と送りを保ち、照合できた字形を AMSFonts の 10pt 原図に替えた OTF。両者の表示（SIL OFL 1.1）を `App/Acknowledgements/` に同梱している。SwaTex 更新時は `Tools/MathFonts/build.py` で生成して対応・配置・検索を再検証する。
 - UI 文言は英語をキーにして String Catalog（`App/Localizable.xcstrings`）で日本語訳を付ける。
 - 訳語は [GLOSSARY.md](GLOSSARY.md) の対訳表に従う。同じものに 2 つの語を使わない（合本を Sammelband と Sammlung に、Compilación と Recopilación に分けない）。文言を足す前に表を見て、表にない概念（新しい画面・機能・形式に固有の名前）を足すときは、8 言語の語を決めて先に表へ 1 行足す。表の各行は文言カタログのキーを 1 つ指していて、`GlossaryTests` がその訳に表の語が入っていることを確かめる。使わなくなった語は `LanguageTests.consistentTerms` が見張る。母語でない言語の語を決めるときは、推測で決めず、その言語に通じたレビュー（ChatGPT Pro と Gemini）に実際の文言と件数を見せて決めてもらう。
@@ -576,12 +576,16 @@ MediaWiki は先頭の目次に対応する。`__FORCETOC__` は有効、`__NOTO
 - メンテナの Mac には、対応する macOS を確かめるための仮想マシン（UTM。macOS 15 と macOS 26）がある。ホストはいちばん新しい macOS。
 - **仮想マシンの中は、確認を取らずに操作してよい**（メンテナの許可、2026-11-25）。起動・停止・再起動、中の設定の変更、アプリやテストの実行、ファイルの作成と削除、画面の操作のどれも、その仮想マシンの中で完結する限り、エージェントの判断で進める。中にあるのは検証用の環境だけで、利用者のデータはない。
 - この許可は仮想マシンの中だけのもの。ホストの設定、ホストにつながったプリンター、ホストに入っている公開版のアプリ、仮想マシンそのものの削除や作り直しには及ばない。
+- **対応する macOS（15・26・27）のそれぞれで、テストを走らせて確かめる**。配る成果物は Xcode 27.2 で組んだ 1 つで、同じ物が 3 つの macOS で動く。ただし画面の部品・WebKit・PDFKit は OS が持つ物を使うので、同じコードでも OS によって動きが変わる（macOS 27 では読める濃さで描かれた文字が、macOS 26 と 15 では薄く描かれたことがある）。PR の CI が走るのは macOS 27 だけなので、macOS 26 と 15 は仮想マシンで確かめる。
+  - **手元でテストを走らせるときは、仮想マシンの中で走らせる**。macOS 26 は、仮想マシンの中の Xcode 27.2 でビルドして走らせる。macOS 15 は、仮想マシンの Xcode（26.3。macOS 15 で動くいちばん新しい版）ではこのプロジェクトをビルドできないので、ホストの Xcode 27.2 で組んだアプリとテストを送り、`xcodebuild test-without-building` と `Tools/CI/run-prebuilt-kit.py` で走らせる（CI の `macos15-tests` と同じ形）。確かめたいのは「配る物と同じ作りの成果物が、その OS で動くか」で、古い Xcode でビルドできるかではない。古い Xcode のためにコードを書き換えない。
+  - **いつ走らせるか**: 画面・描画・印刷・読み上げに触れる変更は、マージの前に macOS 26 と 15 の両方で、変更に関わるテストを走らせる。公開の前には、3 つの macOS のすべてでアプリのテストと Rendering のテストを全部走らせ、公開した成果物（ZIP）をそれぞれで起動して確かめる。走らせていない OS があるときは、報告にそう書く。
+  - CI でも確かめられる: `gh workflow run ci.yml --ref <ブランチ> -f os=macos-15`（または `macos-26`）。仮想マシンが使えないときの代わりにする。
 - テストは 1 台ずつ順に流す。WebKit を使うテストを複数の仮想マシンやホストで同時に走らせると、時間切れで落ちやすい（「テスト」を参照）。
 - 仮想マシンのアドレス・アカウント・鍵の場所は、このリポジトリに書かない（ローカルの `.docs/` に置く）。
 
 ## Git / PR
 
-- `master` は保護されている。topic ブランチ → PR → CI（`build-and-test`）成功でマージ。CI が毎回確かめるのはビルドだけなので、テストは手元で走らせる。CI でも走らせたい PR（CI の runner での時間切れを見たいときなど）にはラベル `ci:test` を付ける。CI の runner は手元より遅く、時間の上限のあるテストや実 TeX との照合が落ちることがある（2026-11-24 時点で未解決）。
+- `master` は保護されている。topic ブランチ → PR → CI（`build-and-test`）成功でマージ。CI が毎回確かめるのはビルドだけなので、テストは手元の仮想マシンで走らせる（「検証用の仮想マシン」）。CI でも走らせたい PR（CI の runner での時間切れを見たいときなど）にはラベル `ci:test` を付ける。CI の runner は手元より遅く、時間の上限のあるテストや実 TeX との照合が落ちることがある（2026-11-24 時点で未解決）。
 - コミットは論理的な最小単位ごと。メッセージは**日本語の Conventional Commits**（例: `feat(print): A5 冊子レイアウトを追加`）。AI と協業したコミットには `Co-Authored-By` を付ける。
 - **エージェントは明示的に頼まれない限り commit / push / merge をしない**。
 - PR を出したら、CI の結果まで利用者に声をかけさせずにエージェントが待つ。落ちたら原因を調べて直し、通ったら頼まれた範囲（マージ・リリース）まで進める。

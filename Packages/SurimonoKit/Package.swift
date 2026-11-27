@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "SurimonoKit",
-    platforms: [.macOS(.v15)],
+    platforms: [.macOS("15.6")],
     products: [
         .library(name: "SurimonoFormats", targets: ["SurimonoFormats"]),
         .library(name: "SurimonoCore", targets: ["SurimonoCore"]),

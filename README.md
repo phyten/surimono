@@ -134,7 +134,7 @@ Source pages show line numbers by default. Choose **View > Go to Line…** (⌃G
 
 ## Requirements
 
-- macOS 15 Sequoia or later
+- macOS 15.6 Sequoia or later
 
 ## Install
 
@@ -147,7 +147,7 @@ Recent files are also saved by Surimono, including bookmarks to follow moved fil
 
 ## Building from source
 
-Building requires Xcode 27 (Swift 6.4); the app itself runs on macOS 15 or later. Select Xcode as the active developer directory before building. CI and releases are built with Xcode 27.2, and older Xcode versions are no longer checked.
+Building requires Xcode 27 (Swift 6.4); the app itself runs on macOS 15.6 or later. Select Xcode as the active developer directory before building. CI and releases are built with Xcode 27.2, and older Xcode versions are no longer checked.
 
 ```bash
 make build                      # Debug build in build/DerivedData
