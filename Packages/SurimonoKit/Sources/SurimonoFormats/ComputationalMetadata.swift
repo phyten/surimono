@@ -85,11 +85,6 @@ struct ComputationalMetadata {
         return lines.map { String($0.dropFirst(indent)) }.joined(separator: folded ? " " : "\n").trimmed
     }
 
-    static func blockScalar(_ lines: ArraySlice<String>, folded: Bool) -> String {
-        let indent = lines.filter { !$0.trimmed.isEmpty }.map { $0.prefix(while: \.isWhitespace).count }.min() ?? 0
-        return lines.map { String($0.dropFirst(indent)) }.joined(separator: folded ? " " : "\n").trimmed
-    }
-
     static func pair(_ text: String) -> (String, String)? {
         guard let split = text.firstIndex(of: ":") else { return nil }
         return (String(text[..<split]).trimmed, String(text[text.index(after: split)...]).trimmed)
