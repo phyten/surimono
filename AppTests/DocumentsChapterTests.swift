@@ -356,6 +356,8 @@ struct DocumentsChapterTests {
         func table(in view: NSView) -> NSTableView? {
             (view as? NSTableView) ?? view.subviews.lazy.compactMap { table(in: $0) }.first
         }
+        screen.window.alphaValue = 0
+        screen.window.orderFront(nil)
         try await screen.wait("format list") { table(in: screen.host)?.numberOfRows == 10 }
         let list = try #require(table(in: screen.host))
         let column = try #require(list.enclosingScrollView)
@@ -364,17 +366,28 @@ struct DocumentsChapterTests {
         let ordinary = Array(rects.prefix(8)) + [rects[9]]
         #expect(ordinary.allSatisfy { (30...32).contains($0.height) }, "\(rects)")
         #expect((10...12).contains(rects[9].minY - rects[7].maxY), "\(rects)")
-        let cell = try #require(list.view(atColumn: 0, row: 3, makeIfNecessary: false) as? NSTableCellView)
-        let text = try #require(cell.textField)
-        #expect(text.stringValue == "reStructuredText")
-        #expect(text.frame.width >= text.intrinsicContentSize.width)
-        let label = text.convert(text.bounds, to: nil)
-        let bounds = column.convert(column.bounds, to: nil)
-        #expect(bounds.maxX - label.maxX >= 16)
-        let source = try #require(list.view(atColumn: 0, row: 9, makeIfNecessary: false) as? NSTableCellView)
         let url = try #require(Bundle.main.url(forResource: language, withExtension: "lproj"))
         let strings = try #require(Bundle(url: url))
-        #expect(source.textField?.stringValue == strings.localizedString(forKey: "Source Code", value: nil, table: nil))
+        screen.window.layoutIfNeeded()
+        let clip = column.contentView
+        let titles: [String?] = [
+            "Markdown", "Quarto", "R Markdown", "reStructuredText", "AsciiDoc", "MediaWiki", "Org", "HTML", nil,
+            "Source Code",
+        ]
+        for (row, title) in titles.enumerated() {
+            guard let title else { continue }
+            let cell = try #require(list.view(atColumn: 0, row: row, makeIfNecessary: false) as? NSTableCellView)
+            let text = try #require(cell.textField)
+            #expect(text.stringValue == strings.localizedString(forKey: title, value: title, table: nil))
+            try await screen.wait(
+                "\(language) \(title) clip=\(clip.bounds) table=\(list.bounds) column=\(list.rect(ofColumn: 0)) "
+                    + "cell=\(cell.bounds) label=\(text.convert(text.bounds, to: clip)) intrinsic=\(text.intrinsicContentSize)"
+            ) {
+                let label = text.convert(text.bounds, to: clip)
+                return label.width >= text.intrinsicContentSize.width && clip.bounds.contains(label)
+                    && clip.bounds.maxX - label.maxX >= 16
+            }
+        }
         #expect(list.effectiveStyle == .sourceList && list.selectedRow == 3)
         #expect(list.delegate?.tableView?(list, shouldSelectRow: 8) == false)
         list.selectRowIndexes(IndexSet(integer: 9), byExtendingSelection: false)
@@ -391,8 +404,6 @@ struct DocumentsChapterTests {
         let settings = SettingsView(
             preferences: prefs, library: UserLibrary(root: root),
             arrangementEditor: BandArrangementEditorSession(preferences: prefs))
-        let url = try #require(Bundle.main.url(forResource: language, withExtension: "lproj"))
-        let strings = try #require(Bundle(url: url))
         let height = SettingsWindowPlacement.minimumContentSize.height
         let pages =
             DocumentsChapter.formats.map { ($0, "Surimono defaults") } + [(.org, "Emacs defaults"), (.org, "Custom")]
@@ -405,6 +416,8 @@ struct DocumentsChapterTests {
             }
             let frames = SettingsRowFrames()
             var viewport = CGRect.null
+            var labels: [Text.Layout] = []
+            frames.inspectDocumentHeader = { labels = $0.map(\.layout) }
             let screen = OrgReadingTestWindow(width: width, height: height) {
                 DocumentsChapterView(formats: DocumentsChapter.formats, selection: .constant(format)) {
                     settings.documentSettingsPage(format)
@@ -427,8 +440,8 @@ struct DocumentsChapterTests {
                     ["Heading Numbers", "Table of Contents at the Top", "Reset to Defaults…"]
                 default: ["Table of Contents at the Top", "Reset to Defaults…"]
                 }
-            try await screen.wait("\(language), \(width), \(format), \(frames.rows)") {
-                !viewport.isNull && keys.allSatisfy { frames.rows[$0] != nil }
+            try await screen.wait("\(language), \(width), \(format), header labels=\(labels.count), \(frames.rows)") {
+                !viewport.isNull && labels.count == 2 && keys.allSatisfy { frames.rows[$0] != nil }
             }
             #expect(viewport.size == CGSize(width: width, height: height))
             for key in keys {
@@ -440,17 +453,10 @@ struct DocumentsChapterTests {
             let right = try #require(frames.rows[status])
             #expect(!left.isEmpty && !right.isEmpty && left.maxX < right.minX)
             #expect(abs(left.midY - right.midY) <= 1)
-            let title = DocumentsChapter.title(format)
-            for (key, font, frame) in [(title, Font.headline, left), (status, Font.body, right)] {
-                let label = strings.localizedString(forKey: key, value: key, table: nil)
-                let host = NSHostingController(
-                    rootView: Text(verbatim: label).font(font).fixedSize()
-                        .environment(\.locale, Locale(identifier: language)))
-                let intrinsic = host.sizeThatFits(in: CGSize(width: width, height: height))
-                // Under a host language other than the tested one, the header falls back to another face about 3%
-                // narrower than the lone label. A truncated label loses at least a whole character, far more than that.
-                #expect(frame.width >= intrinsic.width * 0.95 - 1, "\(language) \(label) \(intrinsic) \(frame)")
-            }
+            let header = "\(language) \(width) \(format) \(status) title=\(left) status=\(right)"
+            #expect(viewport.contains(left) && viewport.contains(right), "\(header)")
+            #expect(labels.map(\.count) == [1, 1], "\(header)")
+            #expect(labels.map(\.isTruncated) == [false, false], "\(header)")
             if format == .org {
                 let filter = try #require(frames.rows["Show Only Changed Settings"])
                 #expect(filter.midY > left.midY)
