@@ -1055,6 +1055,9 @@ public final class WebPaginator: NSObject {
 /// print thread is done with them.
 @MainActor
 final class PaginationSession {
+    /// Lets a test change each new web view before it loads, such as its device scale (restored by the test).
+    static var prepareForTesting: (@MainActor (WKWebView) -> Void)?
+
     let webView: WKWebView
     private let window: NSWindow
     private let navigationTracker = NavigationTracker()
@@ -1129,6 +1132,7 @@ final class PaginationSession {
         let frame = CGRect(x: 0, y: 0, width: printableWidth, height: pageSize.height)
         webView = WKWebView(frame: frame, configuration: configuration)
         if !drawsBackground { WebPaginator.clearBackground?(webView) }
+        Self.prepareForTesting?(webView)
         // WebKit only produces non-blank print output for a view that lives in a window.
         window = NSWindow(contentRect: frame, styleMask: [.borderless], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false

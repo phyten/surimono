@@ -159,6 +159,13 @@ enum TableFit {
                 set(item.table, 'zoom', String(zoom));
                 keepRight(item, zoom);
             }
+            for (const item of wide) item.wrapped = item.width;
+            // Not every WebKit holds a table to its max-width (macOS 15 kept the author's fixed width), so
+            // the width itself is first set to the column, still at the table's own size. Only what its
+            // contents keep wider than that is zoomed.
+            for (const item of over) zoomTable(item);
+            over = overflowing(over);
+            for (const item of wide) item.clamped = item.width;
             let stalled = [];
             for (let pass = 0; pass < passes && over.length; pass++) {
                 for (const item of over) {
@@ -194,22 +201,34 @@ enum TableFit {
             // Only a table whose painted grid lies inside its container's content box counts as fitted;
             // anything else is still reported as wider than the page. The table's own box is measured, not
             // its container's overflow, which other content may cause.
-            const fitted = wide.filter(item => paintedInside(item));
-            function paintedInside(item) {
-                const table = item.table, parent = table.parentElement, css = getComputedStyle(parent);
-                // offsetLeft is in each element's own pixels, and measured from the offset parent's padding
-                // edge, or from the page when that parent is the body. It is rounded to whole pixels, hence
-                // the pixel of slack (the reserve keeps the print clear of it).
-                let start = table.offsetLeft * zoomOf(table);
-                if (table.offsetParent !== parent || parent === document.body) {
-                    start -= parent.offsetLeft + px(css.borderLeftWidth);
-                }
-                start -= px(css.paddingLeft);
+            //
+            // The content box is taken from a block put beside the table for the measurement, the width of
+            // the container and no height. Siblings share their offset parent, so their offsetLeft values
+            // start from the same origin whatever the container is: the body (whose own offsetLeft stays 0
+            // while its children's include its place), a positioned element, or a right-to-left root that
+            // the measuring width pushes out to the left. offsetLeft and offsetWidth are rounded to whole
+            // pixels, hence the pixel of slack (the reserve keeps the print clear of it).
+            const probes = wide.map(item => {
+                const probe = document.createElement('div');
+                probe.style.cssText = 'display:block!important;height:0!important;margin:0!important;'
+                    + 'padding:0!important;border:0!important;float:none!important;position:static!important;'
+                    + 'zoom:1!important;width:auto!important;min-width:0!important;max-width:none!important';
+                item.table.before(probe);
+                return probe;
+            });
+            const fitted = wide.filter((item, index) => {
+                const probe = probes[index], table = item.table;
+                const start = table.offsetLeft * zoomOf(table) - probe.offsetLeft;
                 const width = outer(table), painted = width * item.narrowing;
                 const left = item.fromRight ? start + width - painted : start;
-                return left >= -1 && left + painted <= contentWidth(parent, css) + 1;
-            }
+                item.inside = left >= -1 && left + painted <= probe.offsetWidth + 1;
+                return item.inside;
+            });
+            for (const probe of probes) probe.remove();
             globalThis.surimonoFittedTables = new WeakSet(fitted.map(item => item.table));
+            // What each step measured, for a test that fails on a WebKit it cannot run on to report.
+            globalThis.surimonoTableFitLog = wide.map(({ room, wrapped, clamped, scale, narrowing, inside }) =>
+                ({ room, wrapped, clamped, scale, narrowing, inside, devicePixelRatio }));
             return true;
         }
         """#

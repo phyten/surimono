@@ -72,6 +72,34 @@ struct TableFitTests {
         return try #require(document.page(at: 0))
     }
 
+    /// Whether the first table of the printed DOM counts as fitted, so that it is not reported as too wide.
+    @MainActor
+    private final class Fitted {
+        var value = false
+        func record(_ view: WKWebView) async {
+            let fitted = try? await view.evaluateForPrinting(
+                "return globalThis.surimonoFittedTables?.has(document.querySelector('table')) === true",
+                until: .now + .seconds(10))
+            value = fitted as? Bool == true
+        }
+    }
+
+    /// What TableFit measured at each step for the first table, and how the table was left, to explain a failure on
+    /// a system these tests are not run on here.
+    @MainActor
+    private final class FitLog {
+        var text = ""
+        func record(_ view: WKWebView) async {
+            let json = try? await view.evaluateForPrinting(
+                """
+                const t = document.querySelector('table'), css = getComputedStyle(t);
+                return JSON.stringify({steps: globalThis.surimonoTableFitLog ?? null, zoom: css.zoom,
+                    maxWidth: css.maxWidth, style: t.getAttribute('style'), offsetWidth: t.offsetWidth});
+                """, until: .now + .seconds(10))
+            text = (json as? String ?? "unavailable") + " on " + ProcessInfo.processInfo.operatingSystemVersionString
+        }
+    }
+
     /// Whether the last table of the printed DOM was narrowed by a transform, the last resort.
     @MainActor
     private final class Transformed {
@@ -116,26 +144,31 @@ struct TableFitTests {
             return result
         }
 
-        /// Row markers from top to bottom: 0 magenta, 1 cyan, 2 yellow, one entry per marker.
+        /// Row numbers read from the row markers, top to bottom: a marker of blue 30 + 3n marks row n. The edges of
+        /// a marker blend with the paper and are not pure blue, so only its inside is read.
         func markers() -> [Int] {
             let height = data.count / 4 / width
             var result: [Int] = []
-            var previous: Int?
+            var levels: [Int: Int] = [:]
+            func close() {
+                guard let level = levels.max(by: { $0.value < $1.value })?.key else { return }
+                result.append(Int((Double(level - 30) / 3).rounded()))
+                levels = [:]
+            }
             data.withUnsafeBytes { (bytes: UnsafeRawBufferPointer) in
                 for y in 0..<height {
-                    var found: Int?
+                    var found = false
                     for x in 0..<width {
                         let i = (y * width + x) * 4
-                        let (r, g, b) = (bytes[i], bytes[i + 1], bytes[i + 2])
-                        if r > 200 && g < 60 && b > 200 { found = 0 }
-                        if r < 60 && g > 200 && b > 200 { found = 1 }
-                        if r > 200 && g > 200 && b < 60 { found = 2 }
-                        if found != nil { break }
+                        if bytes[i] < 16 && bytes[i + 1] < 16 && bytes[i + 2] > 20 {
+                            levels[Int(bytes[i + 2]), default: 0] += 1
+                            found = true
+                        }
                     }
-                    if let found, found != previous { result.append(found) }
-                    previous = found
+                    if !found { close() }
                 }
             }
+            close()
             return result
         }
 
@@ -183,14 +216,14 @@ struct TableFitTests {
     private func wideTable(rows: Int) -> String {
         func row(_ cells: [String]) -> String { "|" + cells.joined(separator: "|") + "|\n" }
         let head = row((1...40).map { "c\($0)" }) + row(Array(repeating: "---", count: 40))
-        let colors = ["#ff00ff", "#00ffff", "#ffff00"]
         return head
             + (0..<rows).map { index in
-                // Each row starts with a marker whose colour follows the row number, so a lost, repeated or
-                // reordered row shows. A single glyph in the outside column measures its printed type
-                // independently of the border.
+                // Each row starts with a marker whose blue gives its number, so a lost, repeated or reordered
+                // row shows. A single glyph in the outside column measures its printed type independently of
+                // the border.
                 let marker =
-                    "<span style='display:inline-block;width:10px;height:10px;background:\(colors[index % 3])'></span>"
+                    "<span style='display:inline-block;width:10px;height:10px;background:rgb(0,0,\(30 + 3 * index))'>"
+                    + "</span>"
                 return row([marker] + (2..<40).map(String.init) + ["<span style='color:lime'>H</span>"])
             }.joined()
     }
@@ -210,29 +243,64 @@ struct TableFitTests {
         checkOutsideRule(border, pageWidth: page.bounds(for: .mediaBox).width)
     }
 
-    @Test("右から左に読む40列表も表だけを縮め、両端の外罫を本文の幅の中に刷る", .timeLimit(.minutes(1)))
-    func rightToLeft() async throws {
+    /// Prints with web views of the given device scale: CI's screen is not Retina, and zoomed rules and rounded
+    /// offsets come out differently there.
+    private func atDeviceScale<T>(_ scale: CGFloat, _ body: () async throws -> T) async throws -> T {
+        let selector = NSSelectorFromString("_setOverrideDeviceScaleFactor:")
+        try #require(WKWebView.instancesRespond(to: selector))
+        typealias Setter = @convention(c) (AnyObject, Selector, CGFloat) -> Void
+        PaginationSession.prepareForTesting = { view in
+            unsafeBitCast(view.method(for: selector), to: Setter.self)(view, selector, scale)
+        }
+        defer { PaginationSession.prepareForTesting = nil }
+        return try await body()
+    }
+
+    @Test(
+        "右から左に読む40列表も表だけを縮め、両端の外罫を本文の幅の中に刷り、収まった表として扱う", .timeLimit(.minutes(1)),
+        arguments: [1.0, 2.0])
+    func rightToLeft(scale: Double) async throws {
         func row(_ cells: [String]) -> String { "|" + cells.joined(separator: "|") + "|\n" }
         let lead = "مرحبا بالعالم\n\n"
         let table =
             row((1...40).map { "عمود\($0)" }) + row(Array(repeating: "---", count: 40))
             + row((1...40).map { "ق\($0)" })
         // Both outside rules are red here; the right one of the theme above marks an inner rule in this direction.
+        // They are thick enough to stay wider than the cells' rules once zoomed and rounded to a device pixel, so
+        // they win where they meet.
         let css =
-            "th:last-child, td:last-child { border-right-color: black !important } "
-            + "table { border-left: 5px solid red !important; border-right: 5px solid red !important }"
-        let control = try await Raster(printPage(lead, css: css))
-        let page = try await printPage(lead + table, css: css)
+            "th:last-child, td:last-child { border-right: 1px solid black !important } "
+            + "table { border-left: 12px solid red !important; border-right: 12px solid red !important }"
+        let log = FitLog()
+        let fitted = Fitted()
+        let (control, result) = try await atDeviceScale(CGFloat(scale)) {
+            (
+                try await Raster(printPage(lead, css: css)),
+                try await printed(
+                    lead + table, css: css,
+                    inspect: { view in
+                        await log.record(view)
+                        await fitted.record(view)
+                    })
+            )
+        }
+        let page = try #require(result.logicalDocument.page(at: 0))
         let actual = try Raster(page)
         let body = try control.bounds(channel: 2)
-        #expect(actual.rows(through: body.maxY + 4) == control.rows(through: body.maxY + 4))
+        // A page shrunk as a whole moves and narrows the body text; a table off the page loses its rules.
+        let detail = Comment(
+            rawValue: "scale \(scale), pages \(result.logicalDocument.pageCount), page \(page.bounds(for: .mediaBox)), "
+                + "body \(body) → \((try? actual.bounds(channel: 2)) ?? .null): " + log.text)
+        #expect(fitted.value, detail)
+        #expect(result.issues.isEmpty, detail)
+        #expect(actual.rows(through: body.maxY + 4) == control.rows(through: body.maxY + 4), detail)
         let rules = try actual.bounds(channel: 0)
         let margin = 15 * 72 / 25.4 * 2
         let rightEdge = page.bounds(for: .mediaBox).width * 2 - margin
-        #expect(rules.minX >= floor(margin) - 1)
-        #expect(rules.maxX <= floor(rightEdge) - 1)
+        #expect(rules.minX >= floor(margin) - 1, detail)
+        #expect(rules.maxX <= floor(rightEdge) - 1, detail)
         // The table takes the whole column rather than being shrunk with the page.
-        #expect(rules.width > rightEdge - margin - 24)
+        #expect(rules.width > rightEdge - margin - 24, detail)
     }
 
     private func checkOutsideRule(_ border: CGRect, pageWidth: CGFloat) {
@@ -267,7 +335,7 @@ struct TableFitTests {
             }
         }
         // Every row is printed once, in order, across the pages.
-        #expect(markers == (0..<75).map { $0 % 3 })
+        #expect(markers == Array(0..<75))
         // Sample each occupied half on the actual imposed sheets, including booklet backs.
         for (index, side) in result.plan.sides.enumerated() {
             let sheet = try #require(result.sheetDocument.page(at: index))
@@ -382,13 +450,16 @@ struct TableFitTests {
     @Test("最小の幅だけで広い表は、最小の幅を外せば等倍で収まるので縮めない", .timeLimit(.minutes(1)))
     func minimumWidthOnly() async throws {
         let cell = "<td style='border-right:5px solid red'><span style='color:lime'>short text</span></td>"
-        let wide = try await Raster(
-            printPage("<table style='width:1200px;min-width:1200px'><tr>\(cell)</tr></table>\n"))
+        let log = FitLog()
+        let result = try await printed(
+            "<table style='width:1200px;min-width:1200px'><tr>\(cell)</tr></table>\n", inspect: log.record)
+        let wide = try Raster(#require(result.logicalDocument.page(at: 0)))
         let narrow = try await Raster(printPage("<table><tr>\(cell)</tr></table>\n"))
         let text = try wide.bounds(channel: 1)
         let expected = try narrow.bounds(channel: 1)
-        #expect(text.size == expected.size)
-        #expect(wide.pixels(in: text) == narrow.pixels(in: expected))
+        // Room, the widths after wrapping and after setting the width, the zoom found and the table as printed.
+        #expect(text.size == expected.size, Comment(rawValue: log.text))
+        #expect(wide.pixels(in: text) == narrow.pixels(in: expected), Comment(rawValue: log.text))
         let pageWidth = PrintLayout.a4Single.logicalPageSize.width
         checkOutsideRule(try wide.bounds(channel: 0), pageWidth: pageWidth)
     }
@@ -415,6 +486,28 @@ struct TableFitTests {
         let style = try await session.webView.evaluateForPrinting(
             "return document.querySelector('table').getAttribute('style')", until: .now + .seconds(10))
         #expect(style as? String == "width:440px")
+    }
+
+    @Test(
+        "ルートに内側の余白があり本文の直下で縮める表も、本文の幅の中に刷り、収まった表として扱う", .timeLimit(.minutes(1)),
+        arguments: [0, 40])
+    func rootPaddingFitted(bodyMargin: Int) async throws {
+        let cells = (1...40).map { "<td>c\($0)</td>" }.joined()
+        let table = "<table style='border-left:5px solid red'><tr>\(cells)</tr></table>\n"
+        let css = "html { padding: 0 30px } body { margin-left: \(bodyMargin)px !important }"
+        let fitted = Fitted()
+        let result = try await printed(table, css: css, inspect: fitted.record)
+        #expect(fitted.value)
+        #expect(result.issues.isEmpty)
+        let page = try #require(result.logicalDocument.page(at: 0))
+        let rules = try Raster(page).bounds(channel: 0)
+        // The body's content box, in pixels of the 144 dpi raster: a CSS pixel is 0.8 points.
+        let margin = 15 * 72 / 25.4
+        let left = (margin + Double(30 + bodyMargin) * 0.8) * 2
+        let right = (page.bounds(for: .mediaBox).width - margin - 30 * 0.8) * 2
+        #expect(rules.minX >= floor(left) - 1)
+        #expect(rules.maxX <= floor(right) - 1)
+        #expect(rules.width > right - left - 24)
     }
 
     @Test("脚注をページの下に置く文書でも表だけを縮め、本文は表のない文書と同じ画素で刷る", .timeLimit(.minutes(1)))
