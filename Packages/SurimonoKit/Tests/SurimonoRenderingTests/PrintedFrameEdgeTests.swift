@@ -167,7 +167,8 @@ struct PrintedFrameEdgeTests {
             // PDFKit's text extraction is not dependable on every system, so look at the sheet itself.
             let sheet = try ink(page, topOnly: true)
             try #require(sheet.drawn > 0, "\(theme.id) の表の本文")
-            check(sheet, id: theme.id, requiresFrame: false)
+            // The standard style rules its tables on every side, so losing both rules must not pass.
+            check(sheet, id: theme.id, requiresFrame: theme.id == "standard")
         }
     }
 
@@ -182,6 +183,20 @@ struct PrintedFrameEdgeTests {
         // Applying it to its own result must change nothing that matters.
         let again = margins.wholeColumn(in: size)
         #expect(abs(again.right - margins.right) < 0.0001)
+    }
+
+    @Test(
+        "本文の幅が整数ちょうどでも端数つきでも、標準スタイルの表は左右の罫を刷る", .timeLimit(.minutes(1)),
+        arguments: [510.0, 510.004, 510.24])
+    func printedColumn(column: Double) async throws {
+        _ = NSApplication.shared
+        let html = HTMLDocumentBuilder.build(
+            fragment: MarkdownConverter.convert(Self.markdown), format: .markdown, theme: try standard(),
+            finish: Self.colors)
+        let result = try await WebPaginator().paginateWithResult(
+            .html(html, baseURL: nil), pageSize: CGSize(width: column + 84, height: 842),
+            margins: .init(top: 42, left: 42, bottom: 42, right: 42), allowsJavaScript: false)
+        check(try ink(#require(result.document.page(at: 0))), id: "column \(column)", requiresFrame: true)
     }
 
     @Test("右の余白がないページの幅は変えない")

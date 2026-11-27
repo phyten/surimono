@@ -58,7 +58,10 @@ public final class WebPaginator: NSObject {
         /// instead. The column stays a hundredth above the whole point, so single-precision arithmetic in
         /// WebKit cannot land just under it; a column that is already there is left as it is. A page without
         /// a right margin has no column edge to save, and narrowing it would only shrink a full-bleed page.
-        public func wholeColumn(in pageSize: CGSize) -> Margins {
+        ///
+        /// Only for the margins handed to the print: code that measures or places things before printing
+        /// keeps the margins it was given.
+        func wholeColumn(in pageSize: CGSize) -> Margins {
             guard right > 0 else { return self }
             let column = pageSize.width - left - right
             let whole = (column - 0.005).rounded(.down) + 0.01
