@@ -394,11 +394,14 @@ struct PageTextPDFViewTests {
                     let center = window.convertPoint(toScreen: view.convert(local, to: nil))
                     let box = leaf.accessibilityFrame(for: range)
                     #expect(box.contains(center), "\(selectionDetail(page, range: range))")
-                    // After rotation the advance is vertical. Font ascent and descent can change on a
-                    // serialized page, but the selection must stay in this 40-point line and 16-point column.
                     #expect(abs(box.height - 16 * scale) < 1)
-                    #expect(box.width >= 15 * scale)
-                    #expect(box.minX > center.x - 20 * scale && box.maxX < center.x + 20 * scale)
+                    if #available(macOS 26, *) {
+                        #expect(abs(box.width - 16 * scale) < 1)
+                    } else {
+                        // The macOS 15 serialization fallback can shift font ascent and descent.
+                        #expect(box.width >= 15 * scale)
+                        #expect(box.minX > center.x - 20 * scale && box.maxX < center.x + 20 * scale)
+                    }
                     #expect(leaf.accessibilityRange(for: center) == range)
                 }
             }
