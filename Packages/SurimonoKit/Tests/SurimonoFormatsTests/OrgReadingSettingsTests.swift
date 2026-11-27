@@ -68,10 +68,38 @@ struct OrgReadingSettingsTests {
         #expect(quoted.excerpt?.tokenOffset == 2)
     }
 
-    @Test("ブロックやプロパティ内の外部指定と本文中の類似文字列は注記にならない")
+    @Test("引用・中央寄せ・特別ブロック内の外部指定は原稿の行で示し、中の OPTIONS は設定に使わない", arguments: ["quote", "center", "notice"])
+    func externalSettingsInBlocks(block: String) throws {
+        let lines = [
+            "#+TITLE: 原稿", "#+SETUPFILE: base.org", "", "#+begin_\(block)", "#+OPTIONS: num:t",
+            "  #+INCLUDE: \"chapter.org\"", "#+end_\(block)",
+        ]
+        let file = try #require(
+            OrgConverter.convert(lines.joined(separator: "\n"), fileName: "main.org").orgInstructions)
+        #expect(file.externalSettingsSources.map(\.lineNumber) == [2, 6])
+        let source = try #require(file.externalSettingsSources.last)
+        #expect(source.fileName == "main.org" && source.excerpt?.line == lines[5])
+        #expect(source.excerpt?.previous == lines[4] && source.excerpt?.next == lines[6])
+        #expect(!file.hasWholeDocumentInstructions)
+    }
+
+    @Test("リストの外部指定は引用や項目を入れ子にしても元の行番号と字下げを保つ")
+    func externalSettingsInList() throws {
+        let lines = [
+            "- 項目", "  #+include: a.org", "", "  - 内側", "    #+begin_quote",
+            "      #+include: b.org", "    #+end_quote", "    #+begin_src org",
+            "    #+include: 見本.org", "    #+end_src", "- #+include: 本文.org", "#+SETUPFILE: c.org",
+        ]
+        let file = try #require(OrgConverter.convert(lines.joined(separator: "\r\n")).orgInstructions)
+        #expect(file.externalSettingsSources.map(\.lineNumber) == [2, 6, 12])
+        #expect(file.externalSettingsSources.compactMap(\.excerpt?.line) == [lines[1], lines[5], lines[11]])
+        #expect(file.externalSettingsSources.compactMap(\.excerpt?.tokenOffset) == [2, 6, 0])
+    }
+
+    @Test("リテラルブロックや詩・プロパティ内の外部指定と本文中の類似文字列は注記にならない")
     func ignoresLiteralExternalSettings() throws {
         let directives = "#+SETUPFILE: example.org\n#+INCLUDE: other.org"
-        let blocks = ["src", "example", "export", "comment", "quote"].map {
+        let blocks = ["src", "example", "export", "comment", "verse"].map {
             "#+begin_\($0)\n\(directives)\n#+end_\($0)"
         }
         let text = (blocks + ["* 見出し", ":PROPERTIES:", directives, ":END:", "本文 #+SETUPFILE: x", "#+INCLUDES: y"])

@@ -4287,6 +4287,59 @@
         }
       }
     },
+    "Settings and text in the referenced files are not brought into the display or print.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings and text in the referenced files are not brought into the display or print."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "参照先のファイルに書かれた設定や本文は、表示・印刷に取り込みません。"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vorgaben und Text aus den referenzierten Dateien werden weder bei der Anzeige noch beim Drucken übernommen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los ajustes y el texto de los archivos referenciados no se incluyen al mostrar ni al imprimir el documento."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les réglages et le texte des fichiers référencés ne sont pas inclus à l’affichage ni à l’impression."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "참조한 파일의 설정과 본문은 화면 표시와 인쇄에 포함하지 않습니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "显示和打印时，不会载入所引用文件中的设置和正文。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "顯示和列印時，不會載入所引用檔案中的設定和內文。"
+          }
+        }
+      }
+    },
     "Settings in another file are not read": {
       "extractionState": "manual",
       "localizations": {

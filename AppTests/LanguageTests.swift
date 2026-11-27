@@ -107,6 +107,11 @@ struct LanguageTests {
         let value = bundle.localizedString(forKey: key, value: "MISSING", table: nil)
         #expect(value != "MISSING")
         if language == "ja" { #expect(value == "別のファイルの指定は読み込みません") }
+        let explanation = bundle.localizedString(
+            forKey: "Settings and text in the referenced files are not brought into the display or print.",
+            value: "MISSING", table: nil)
+        #expect(explanation != "MISSING")
+        if language == "ja" { #expect(explanation == "参照先のファイルに書かれた設定や本文は、表示・印刷に取り込みません。") }
     }
 
     @Test("語数の中央値は各言語で1語と小数と複数の単位を選ぶ")

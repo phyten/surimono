@@ -196,7 +196,7 @@ struct ReadingFileReason: View {
     }
 
     var body: some View {
-        ReadingSourceButton(documentName: documentName, fileURL: fileURL, sources: [source]) {
+        ReadingSourceButton(documentName: documentName, fileURL: fileURL, sources: .instruction(source)) {
             let text = reason(locale: locale)
             Text(verbatim: text).underline()
                 .lineLimit(partialLock == nil ? nil : 1).truncationMode(.middle)
@@ -206,10 +206,14 @@ struct ReadingFileReason: View {
 }
 
 struct ReadingSourceButton<Label: View>: View {
+    enum Sources {
+        case instruction(ReadingInstructionSource)
+        case externalSettings([ReadingInstructionSource], additionalCount: Int)
+    }
+
     let documentName: String
     let fileURL: URL?
-    let sources: [ReadingInstructionSource]
-    var additionalCount = 0
+    let sources: Sources
     @ViewBuilder let label: Label
     @State private var showsSource = false
 
@@ -220,8 +224,16 @@ struct ReadingSourceButton<Label: View>: View {
             label
         }
         .buttonStyle(.link).font(.caption)
-        .popover(isPresented: $showsSource) {
-            Group {
+        .popover(isPresented: $showsSource) { popoverContent }
+    }
+
+    var popoverContent: some View {
+        Group {
+            switch sources {
+            case .instruction(let source):
+                ReadingSourceExcerpt(documentName: documentName, fileURL: fileURL, source: source)
+            case .externalSettings(let sources, let additionalCount):
+                let excerpts = externalSettingsExcerpts(sources, additionalCount: additionalCount)
                 if sources.count == 1 {
                     excerpts
                 } else {
@@ -232,12 +244,14 @@ struct ReadingSourceButton<Label: View>: View {
                     .frame(maxHeight: 360)
                 }
             }
-            .padding(12).frame(width: 360).controlSize(.small)
         }
+        .padding(12).frame(width: 360).controlSize(.small)
     }
 
-    private var excerpts: some View {
+    private func externalSettingsExcerpts(_ sources: [ReadingInstructionSource], additionalCount: Int) -> some View {
         VStack(alignment: .leading, spacing: 8) {
+            Text("Settings and text in the referenced files are not brought into the display or print.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             ForEach(sources, id: \.lineNumber) { source in
                 ReadingSourceExcerpt(documentName: documentName, fileURL: fileURL, source: source)
             }

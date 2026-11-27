@@ -228,7 +228,8 @@ struct OrgReadingRows: View {
             if !file.externalSettingsSources.isEmpty {
                 ReadingSourceButton(
                     documentName: model.displayName, fileURL: model.fileURL,
-                    sources: file.externalSettingsSources, additionalCount: file.additionalExternalSettingsCount
+                    sources: .externalSettings(
+                        file.externalSettingsSources, additionalCount: file.additionalExternalSettingsCount)
                 ) {
                     Text("Settings in another file are not read").underline()
                 }
