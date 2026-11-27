@@ -3,6 +3,37 @@ import SurimonoCore
 import Testing
 
 struct BandResolvedPlanTests {
+    @Test("英語幅の上下の帯は380ptまで収まり、下段は読み方の設定から名前を省く")
+    func splitBandWithEnglishLabels() throws {
+        var layout = BandArrangement.standard(for: .split)
+        for item: BandLayout.Item in [.readingDirection, .scrollDirection] {
+            layout = try layout.moving(item, to: .zone(.topRight), before: .print, for: .split)
+        }
+        let widths: [BandLayout.Item: BandLayout.Widths] = [
+            .formatBadge: .init(full: 27), .readingDirection: .init(full: 110, compact: 31),
+            .scrollDirection: .init(full: 115, compact: 27), .print: .init(full: 80, compact: 43),
+            .style: .init(full: 99, compact: 22), .outline: .init(full: 84, compact: 22),
+            .layout: .init(full: 56), .readingSettings: .init(full: 128, compact: 22),
+        ]
+        func plan(at width: CGFloat) -> BandResolvedPlan {
+            BandLayout.resolve(
+                arrangement: layout, mode: .split, availableItems: Set(widths.keys),
+                measurements: .init(items: widths, name: 120),
+                metrics: .init(topFixed: 138, bottomFixed: 28, separator: 7, titleGap: 6, toolGap: 6, outerGap: 6),
+                availableWidth: width)
+        }
+        for width in stride(from: CGFloat(760), through: 380, by: -1) {
+            let split = plan(at: width)
+            let bottom = try #require(split.bottom)
+            #expect(split.top.requiredWidth <= width && bottom.requiredWidth <= width)
+            #expect(bottom.forms[.readingSettings] == (width >= 426 ? .full : .compact))
+            #expect(bottom.forms[.style] == .full && bottom.forms[.outline] == .full)
+        }
+        let narrow = plan(at: 180)
+        #expect(narrow.overflow.contains(.readingSettings))
+        #expect(narrow.bottom?.forms == [.style: .compact, .outline: .compact, .layout: .full])
+    }
+
     @Test("画像の束の標準の入口は上下配置でも上だけでも目次の位置に来る", arguments: MenuArrangement.allCases)
     func bundlePlacement(mode: MenuArrangement) {
         let original = BandArrangement.standard(for: mode)
