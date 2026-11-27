@@ -37,6 +37,7 @@ struct BandAdditionalPartsTests {
         let controller: NSWindowController
         let window: NSWindow
         var saveDestinationRequests = 0
+        var lastClick = ""
 
         init(
             parts: [BandLayout.Item], compact: Bool = false, measurementsOnly: Bool = false,
@@ -129,25 +130,12 @@ struct BandAdditionalPartsTests {
         try #require(
             condition(),
             Comment(
-                rawValue: "待機: \(reason); visible=\(fixture.window.isVisible), key=\(fixture.window.isKeyWindow), "
+                rawValue:
+                    "待機: \(reason); \(TestWindowMouse.diagnostic(in: fixture.window)), lastClick=\(fixture.lastClick), "
                     + "applicable=\(BandLayout.Item.applicable(for: fixture.model)), top=\(plan.top.forms), "
-                    + "drawnPlan=\(String(describing: fixture.model.bandAnchors.plan)), width=\(fixture.menu.bandWidth), saveRequests=\(fixture.saveDestinationRequests), AX=\((fixture.window.contentView.map(elements) ?? []).compactMap { $0.accessibilityIdentifier() })"
+                    + "drawnPlan=\(String(describing: fixture.model.bandAnchors.plan)), width=\(fixture.menu.bandWidth), saveRequests=\(fixture.saveDestinationRequests), AX=\((fixture.window.contentView.map(OrgReadingTestWindow.elements(in:)) ?? []).compactMap { $0.accessibilityIdentifier() })"
             ),
             sourceLocation: sourceLocation)
-    }
-
-    private func elements(_ root: Any) -> [any NSAccessibilityProtocol] {
-        var visited = Set<ObjectIdentifier>()
-        func walk(_ value: Any) -> [any NSAccessibilityProtocol] {
-            guard let element = value as? any NSAccessibilityProtocol,
-                visited.insert(ObjectIdentifier(element)).inserted
-            else { return [] }
-            if let view = value as? NSView, view.isHiddenOrHasHiddenAncestor { return [] }
-            // Native menus and SwiftUI's virtual nodes do not necessarily share the window's AX children.
-            let children = (element.accessibilityChildren() ?? []) + ((value as? NSView)?.subviews ?? [])
-            return [element] + children.flatMap(walk)
-        }
-        return walk(root)
     }
 
     /// Where the real chip stands, in window coordinates (bottom-left origin), once the band has drawn it.
@@ -168,22 +156,25 @@ struct BandAdditionalPartsTests {
     private func click(_ item: BandLayout.Item, in fixture: Fixture) throws {
         let frame = try #require(chipFrame(item, in: fixture))
         let point = NSPoint(x: frame.midX, y: frame.midY)
-        if let button = fixture.window.contentView?.hitTest(point) as? NSButton {
-            // The native button tracks synchronously. Exercise the action of the control actually hit at the chip.
-            button.performClick(nil)
-            return
-        }
-        try TestWindowMouse.click(at: point, in: fixture.window)
+        fixture.lastClick = TestWindowMouse.diagnostic(in: fixture.window, at: point)
+        let screenPoint = fixture.window.convertPoint(toScreen: point)
+        try #require(
+            fixture.window.screen?.visibleFrame.contains(screenPoint) == true,
+            "表示中のチップ: \(TestWindowMouse.diagnostic(in: fixture.window, at: point))")
+        try TestWindowMouse.click(at: point, in: fixture.window, queueRelease: true)
     }
 
     @Test(
         "配置した切り替えは、実際のチップをクリックするとモデルの状態が変わる",
         arguments: [BandLayout.Item.selectText, .alwaysShowToolbar, .cover, .ignoreSlides])
     func toggleThroughChip(item: BandLayout.Item) async throws {
-        let fixture = try Fixture(parts: [item])
+        let focus = TestWindowMouse.Focus()
+        defer { focus.restore() }
+        let fixture = try Fixture(parts: [item], width: min(NSScreen.main?.visibleFrame.width ?? 800, 1000) - 40)
         defer { fixture.close() }
-        // The test host is the active app on a CI runner and a background app on a developer's Mac, so the check is
-        // that the clicks leave the app's activation as it was.
+        fixture.window.center()
+        try await focus.prepare(fixture.window)
+        // Clicking the control must preserve this session's activation.
         let wasActive = NSApp.isActive
         #expect(BandLayout.Item.applicable(for: fixture.model).contains(item))
         #expect(BandPlans(model: fixture.model, menu: fixture.menu).band(of: item) == .top)
@@ -262,7 +253,7 @@ struct BandAdditionalPartsTests {
                 fixture.menu.bandWidths[.item($0, .full)] != nil && fixture.menu.bandWidths[.item($0, .compact)] != nil
             }
         }
-        let measuredNodes = (fixture.window.contentView.map(elements) ?? []).filter {
+        let measuredNodes = (fixture.window.contentView.map(OrgReadingTestWindow.elements(in:)) ?? []).filter {
             $0.accessibilityIdentifier()?.hasPrefix("band.part.") == true
         }
         #expect(measuredNodes.isEmpty)
@@ -307,6 +298,8 @@ struct BandAdditionalPartsTests {
 
     @Test("ファイル保存チップは注入した保存先選択だけを呼ぶ")
     func saveThroughChip() async throws {
+        let focus = TestWindowMouse.Focus()
+        defer { focus.restore() }
         let fixture = try Fixture(
             parts: [.saveAsFile], width: min(NSScreen.main?.visibleFrame.width ?? 800, 1000) - 40,
             accessibilityEnabled: true)
@@ -316,31 +309,38 @@ struct BandAdditionalPartsTests {
         try await waitUntil("帯が保存チップの位置を記録する", fixture: fixture) {
             chipFrame(.saveAsFile, in: fixture) != nil
         }
+        fixture.window.center()
         if #available(macOS 26, *) {
             try click(.saveAsFile, in: fixture)
         } else {
-            // On the Sequoia runner the synthetic down reaches the hosting view but does not activate its
-            // SwiftUI button. Press the actual visible control through its public accessibility action.
             let host = try #require(fixture.window.contentView)
-            let frame = try #require(chipFrame(.saveAsFile, in: fixture))
-            func controls() -> [any NSAccessibilityProtocol] {
-                let buttons = elements(host).filter {
+            func saveButtons() -> [any NSAccessibilityProtocol] {
+                guard let frame = chipFrame(.saveAsFile, in: fixture) else { return [] }
+                let center = CGPoint(x: frame.midX, y: frame.midY)
+                let controls = OrgReadingTestWindow.elements(in: host).filter {
                     $0.isAccessibilityEnabled()
-                        && fixture.window.convertFromScreen($0.accessibilityFrame()).contains(
-                            CGPoint(x: frame.midX, y: frame.midY))
+                        && fixture.window.convertFromScreen($0.accessibilityFrame()).contains(center)
                 }
-                let marked = buttons.filter { $0.accessibilityIdentifier() == "band.part.saveAsFile" }
+                let marked = controls.filter { $0.accessibilityIdentifier() == "band.part.saveAsFile" }
                 if !marked.isEmpty { return marked }
-                return buttons.filter {
+                return controls.filter {
                     $0.accessibilityRole() == .button
-                        && [$0.accessibilityTitle(), $0.accessibilityLabel()].contains(
+                        && [$0.accessibilityLabel(), $0.accessibilityTitle()].contains(
                             BandLayout.Item.saveAsFile.editorName)
                 }
             }
-            try await waitUntil("表示中の保存ボタンがアクセシビリティ操作を公開する", fixture: fixture) { !controls().isEmpty }
-            let matches = controls()
-            try #require(matches.count == 1, "\(OrgReadingTestWindow.diagnostic(in: host))")
-            try #require(matches[0].accessibilityPerformPress(), "保存チップが押下を受理する")
+            let before = "key=\(fixture.window.isKeyWindow) active=\(NSApp.isActive) AX=\(saveButtons().count)"
+            try await focus.prepare(fixture.window)
+            await nextLayout(in: fixture.window)
+            let buttons = saveButtons()
+            print("保存チップ: \(before) -> key=\(fixture.window.isKeyWindow) active=\(NSApp.isActive) AX=\(buttons.count)")
+            try #require(buttons.count <= 1, "\(OrgReadingTestWindow.diagnostic(in: host))")
+            if let button = buttons.first {
+                try #require(button.accessibilityPerformPress(), "表示中の保存チップが押下を受理する")
+            } else {
+                // The host has no AX client. Exercise the same visible control through the window.
+                try click(.saveAsFile, in: fixture)
+            }
         }
         try await waitUntil("実保存チップから注入した保存先選択を1回呼ぶ", fixture: fixture) {
             fixture.saveDestinationRequests == 1

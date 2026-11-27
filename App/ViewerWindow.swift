@@ -165,8 +165,14 @@ enum ViewerWindow {
     /// The paper size for a newly opened document: as tall as comfortably fits the screen, at the unit's aspect.
     static func initialPaperSize(unit: CGSize, on screen: NSScreen?, side: CGFloat = 0) -> CGSize {
         let visible = (screen ?? NSScreen.main)?.visibleFrame.size ?? CGSize(width: 1440, height: 900)
+        return initialPaperSize(unit: unit, visible: visible, side: side)
+    }
+
+    static func initialPaperSize(unit: CGSize, visible: CGSize, side: CGFloat = 0) -> CGSize {
         guard unit.width > 0, unit.height > 0 else { return CGSize(width: 600, height: 800) }
-        var height = min(visible.height * 0.86, 1000)
+        // Subsequent pagination preserves the actual, whole-point height. Use that same height
+        // for the first width or the window can move a point on its first reflow.
+        var height = min(visible.height * 0.86, 1000).rounded()
         var width = height * unit.width / unit.height
         let maximumWidth = max(1, visible.width * 0.9 - side)
         if width > maximumWidth {
