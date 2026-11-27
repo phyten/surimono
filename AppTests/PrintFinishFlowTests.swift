@@ -108,6 +108,11 @@ struct PrintFinishFlowTests {
         #expect(rows(.markdown, lead, true, .init()) == [.layout])
         #expect(rows(.markdown, marker, false, page) == [.inText])
         #expect(rows(.markdown, both, true, page) == [.layout, .look, .inText])
+        for format in [DocumentFormat.quarto, .rMarkdown] {
+            #expect(rows(format, plain, false, page).isEmpty)
+            #expect(rows(format, both, true, page) == [.layout, .look, .inText])
+        }
+        #expect(rows(.rst, plain, false, page) == [.lead])
         let org = DocumentFacts(fragment: OrgConverter.convert("* Alpha"))
         let orgMarker = DocumentFacts(fragment: OrgConverter.convert("* Alpha\n#+TOC: headlines 1"))
         #expect(rows(.org, org, false, page).isEmpty)
@@ -161,43 +166,50 @@ struct PrintFinishFlowTests {
         #expect(model.printFinish.contents.inText == .hidden)
     }
 
-    @Test("Markdown の番号なしはこの文書の変更になり、戻すとスタイルかアプリ既定に従う")
-    func markdownNumberChanges() async throws {
+    @Test("番号なしはこの文書の変更になり、戻すとスタイルかアプリ既定に従う", arguments: [DocumentFormat.markdown, .quarto, .rMarkdown])
+    func markdownNumberChanges(format: DocumentFormat) async throws {
         let environment = Environment()
         defer { environment.cleanUp() }
-        let model = environment.model("# Book\n## One")
+        let model = environment.model("# Book\n## One", format: format)
         defer { model.stop() }
         model.start()
         try await waitUntil { model.contentsFacts != nil }
-        let off = ReadingSettingValue.outline(present: false, depth: .all)
-        let all = ReadingSettingValue.outline(present: true, depth: .all)
-        func picker() throws -> ReadingOutlinePicker {
+        let off: ReadingSettingValue = format == .rMarkdown ? .toggle(false) : .outline(present: false, depth: .all)
+        let all: ReadingSettingValue = format == .rMarkdown ? .toggle(true) : .outline(present: true, depth: .all)
+        func selection() throws -> ReadingOutlinePicker.Selection {
             let row = try #require(model.markdownResolution(.sectionNumbers))
+            if case .toggle(let present) = row {
+                guard let enabled = present.value(inheritsStyle: model.markdownNumbersInheritStyle) else {
+                    return .style
+                }
+                return .outline(enabled ? .all : nil)
+            }
             guard case .outline(let present, let depth) = row else { throw CocoaError(.coderInvalidValue) }
             return ReadingOutlinePicker(
                 label: ReadingSettingID.sectionNumbers.label, present: present, depth: depth,
-                restoreStyle: model.markdownNumbersInheritStyle ? {} : nil, set: { _ in })
+                restoreStyle: model.markdownNumbersInheritStyle ? {} : nil, set: { _ in }
+            ).selection
         }
-        #expect(try picker().selection == .style)
+        #expect(try selection() == .style)
         #expect(model.readingChangedCount == 0)
         model.setMarkdownValue(off, for: .sectionNumbers)
-        #expect(try picker().selection == .outline(nil))
+        #expect(try selection() == .outline(nil))
         #expect(model.markdownResolution(.sectionNumbers)?.isChanged == true && model.readingChangedCount == 1)
         model.revertMarkdownValue(.sectionNumbers)
-        #expect(try picker().selection == .style)
+        #expect(try selection() == .style)
         #expect(model.markdownResolution(.sectionNumbers)?.isChanged == false && model.readingChangedCount == 0)
-        let settings = FormatDefaultsPane(format: .markdown, preferences: model.preferences)
+        let settings = FormatDefaultsPane(format: format, preferences: model.preferences)
         settings.set(all, for: .sectionNumbers)
         model.setMarkdownValue(off, for: .sectionNumbers)
-        #expect(try picker().selection == .outline(nil))
+        #expect(try selection() == .outline(nil))
         #expect(model.readingChangedCount == 1)
         model.revertMarkdownValue(.sectionNumbers)
-        #expect(try picker().selection == .outline(.all))
+        #expect(try selection() == .outline(.all))
         settings.set(off, for: .sectionNumbers)
-        #expect(try picker().selection == .outline(nil))
+        #expect(try selection() == .outline(nil))
         #expect(model.readingChangedCount == 0)
         settings.reset()
-        #expect(try picker().selection == .style)
+        #expect(try selection() == .style)
     }
 
     @Test("旧LaTeXの前付けだけを外しても原稿の図目次・表目次は残る", arguments: [true, false], [true, false])
@@ -258,7 +270,7 @@ struct PrintFinishFlowTests {
     func leadControlWithLockedDepth() async throws {
         let environment = Environment()
         defer { environment.cleanUp() }
-        let model = environment.model("---\ntoc-depth: 2\n---\n# One\n\n## Two", format: .quarto)
+        let model = environment.model("= Title\n:toclevels: 2\n\n== One\n\n=== Two", format: .asciidoc)
         model.printFinish.legacyPresetContents.mode = .front
         model.start()
         try await waitUntil { model.contentsFacts != nil && model.contentHash != nil }

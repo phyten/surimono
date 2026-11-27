@@ -17,7 +17,10 @@ struct DocumentsChapterTests {
             ])
         #expect(
             DocumentsChapter.rows(for: .markdown).map(\.id) == [.sectionNumbers, .tableOfContents, .preserveBreaks])
-        for format in DocumentsChapter.formats.prefix(6).dropFirst() {
+        for format in [DocumentFormat.quarto, .rMarkdown] {
+            #expect(DocumentsChapter.rows(for: format).map(\.id) == [.sectionNumbers, .tableOfContents])
+        }
+        for format in [DocumentFormat.rst, .asciidoc, .mediawiki] {
             #expect(DocumentsChapter.rows(for: format).map(\.id) == [.tableOfContents])
         }
         #expect(CodeNumberRow.allCases.map(\.label.key) == ["Line Numbers", "Code Block Line Numbers"])
@@ -42,6 +45,31 @@ struct DocumentsChapterTests {
         #expect(AppPreferences(defaults: suite.defaults).formatReadingDefaults == prefs.formatReadingDefaults)
         wiki.reset()
         #expect(suite.defaults.object(forKey: "formatReadingDefaults") == nil)
+    }
+
+    @Test("Quarto と R Markdown の番号と目次の既定を別々に保存して戻せる")
+    func computationalDefaults() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let preferences = AppPreferences(defaults: suite.defaults)
+        let quarto = FormatDefaultsPane(format: .quarto, preferences: preferences)
+        let rmd = FormatDefaultsPane(format: .rMarkdown, preferences: preferences)
+        quarto.set(.outline(present: true, depth: .levels(2)), for: .sectionNumbers)
+        rmd.set(.toggle(true), for: .sectionNumbers)
+        rmd.set(.outline(present: true, depth: .levels(1)), for: .tableOfContents)
+        let saved = AppPreferences(defaults: suite.defaults).formatReadingDefaults
+        guard case .outline(let present, let depth) = saved.resolve(.sectionNumbers, for: .quarto),
+            case .toggle(let all) = saved.resolve(.sectionNumbers, for: .rMarkdown)
+        else {
+            Issue.record("見出し番号の選択がない")
+            return
+        }
+        #expect(present.value && depth.value == .levels(2) && all.value)
+        #expect(saved.leadContents(for: .quarto) == nil && saved.leadContents(for: .rMarkdown) == .levels(1))
+        quarto.reset()
+        #expect(quarto.defaults.status.key == "Surimono defaults" && rmd.defaults.status.key == "Custom")
+        rmd.reset()
+        #expect(preferences.formatReadingDefaults.isEmpty)
     }
 
     @Test("Markdown の新規文書とショートカットは設定画面の目次を引き継ぎ、文書に保存した選択は残る")
@@ -170,10 +198,12 @@ struct DocumentsChapterTests {
     func search() {
         let contents = "Table of Contents at the Top"
         let cases: [(String, DocumentFormat, String)] = [
-            (".md", .markdown, "Heading Numbers"), (".qmd", .quarto, contents), (".Rmd", .rMarkdown, contents),
+            (".md", .markdown, "Heading Numbers"), (".qmd", .quarto, "Heading Numbers"),
+            (".Rmd", .rMarkdown, "Heading Numbers"),
             (".rst", .rst, contents), (".adoc", .asciidoc, contents), (".wiki", .mediawiki, contents),
             (".mediawiki", .mediawiki, contents), (".org", .org, "Heading Numbers"),
             (".html", .html, "Default HTML Preset"), ("toc-depth", .markdown, contents),
+            ("number-depth", .quarto, "Heading Numbers"), ("number_sections", .rMarkdown, "Heading Numbers"),
             ("toc_depth", .rMarkdown, contents), ("__NOTOC__", .mediawiki, contents),
             (":toclevels:", .asciidoc, contents),
             (":sectnums:", .asciidoc, "Defaults for New Documents"),
@@ -393,6 +423,7 @@ struct DocumentsChapterTests {
                 case .org: ["Heading Numbers", "Use Emacs Defaults…", "Reset to Defaults…"]
                 case .html: ["Default HTML Preset", "Allow JavaScript in HTML", "Open Presets Folder"]
                 case .plainText: ["Line Numbers", "Code Block Line Numbers", "Reset to Defaults…"]
+                case .quarto, .rMarkdown: ["Heading Numbers", "Table of Contents at the Top", "Reset to Defaults…"]
                 default: ["Table of Contents at the Top", "Reset to Defaults…"]
                 }
             try await screen.wait("\(language), \(width), \(format), \(frames.rows)") {

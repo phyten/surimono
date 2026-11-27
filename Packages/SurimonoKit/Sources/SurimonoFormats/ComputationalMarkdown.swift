@@ -2,36 +2,46 @@ import Foundation
 
 public enum ComputationalMarkdown {
     public static func convert(
-        _ text: String, pageBreakLine: String = "", proof: ProofMarks = .shown, contentsDepth: Int? = nil,
+        _ text: String, format: DocumentFormat = .quarto, reading: MarkdownReadingSettings = .init(),
+        pageBreakLine: String = "", proof: ProofMarks = .shown, contentsDepth: Int? = nil,
         proposedLeadDepth: Int? = nil
     ) -> HTMLFragment {
         var lines = TextDecoding.normalizeNewlines(text).components(separatedBy: "\n")
-        var metadata = ComputationalMetadata(lines: &lines)
+        var metadata = ComputationalMetadata(lines: &lines, format: format)
         let language =
             metadata.values["lang"].flatMap(DocumentLanguage.normalized)
             ?? proseLanguage(lines, metadata: metadata)
         metadata.japanese = DocumentLanguage.primary(language) == "ja"
+        let file = metadata.reading
+        let options = reading.resolve(
+            for: format, numbers: file.numbers, contents: file.contents, contentsDepth: contentsDepth)
         var document = ComputationalBody(metadata: metadata)
         let source = document.prepare(lines)
         if PreviewConversion.expired { return HTMLFragment(body: "") }
-        let fragment = MarkdownConverter.embeddedBody(source, pageBreakLine: pageBreakLine, proof: proof)
+        let rendered = MarkdownConverter.embeddedBody(
+            source, pageBreakLine: pageBreakLine, proof: proof,
+            options: .init(numberDepth: options.numbers, unnumbered: document.unnumbered))
+        let fragment = rendered.fragment
+        if options.numbers != nil || options.lead != nil || proposedLeadDepth != nil || !document.labels.isEmpty {
+            document.resolveHeadings(rendered.embeddedHeadings, numbered: options.numbers != nil)
+        }
         if PreviewConversion.expired { return HTMLFragment(body: "") }
         let fallback = metadata.unreadable.map { MarkupHTML.listing($0, language: "yaml") } ?? ""
+        let lead = file.contents.present?.value == true ? options.lead : nil
         var result = HTMLFragment(
             body: fallback + metadata.header
-                + (metadata.values["toc"]?.lowercased() == "true"
-                    ? ReaderContentsKind.lead.mark(document.contents(depth: contentsDepth)) : "")
+                + (lead.map { ReaderContentsKind.lead.mark(document.contents(depth: $0.headingLevels)) } ?? "")
                 + document.resolve(fragment.body),
             title: metadata.values["title"]
                 ?? fragment.title.map { HTML.unescape(document.resolve($0, plainText: true)) }, language: language,
-            readingIssues: fragment.readingIssues
-        ).recordingContents(
-            .init(
-                present: metadata.values["toc"].map { .init($0.lowercased() == "true") },
-                depth: metadata.values["toc-depth"].flatMap(Int.init).map { .init(.levels(max(0, $0))) }))
-        if metadata.values["toc"] == nil, let proposedLeadDepth {
-            result.proposedLeadContents = .init(
-                depth: proposedLeadDepth, html: document.contents(depth: proposedLeadDepth))
+            readingIssues: fragment.readingIssues, decidesHeadingNumbers: options.ownsNumbers
+        ).recordingContents(file.contents)
+        result.numberInstructions = file.numbers
+        result.markdownContentsMarker = fragment.markdownContentsMarker
+        if file.contents.present?.value != true, let depth = options.lead?.headingLevels ?? proposedLeadDepth {
+            let html = document.contents(depth: depth)
+            result.proposedLeadContents = .init(depth: depth, html: html)
+            if options.lead != nil { result = result.prependingLead(html) }
         }
         return result
     }
@@ -95,7 +105,8 @@ struct ComputationalBody {
     var insertions: [ComputationalInsertion] = []
     var headings: [(level: Int, id: String, text: String)] = []
     var headingSuffixes: [String: Int] = [:]
-    var sectionNumbers = Array(repeating: 0, count: 6)
+    var unnumbered: Set<String> = []
+    var unlisted: Set<String> = []
     // A document cannot collide with the deferred references and generated footnote IDs.
     let token = "surimono" + UUID().uuidString.replacingOccurrences(of: "-", with: "")
     var previousHiddenResult = false

@@ -3,13 +3,46 @@ import SurimonoCore
 import Testing
 
 struct ContentsMigrationTests {
-    @Test("Markdown の固定を戻す確認は承認まで保存せず、設定・原稿世代の変化で古い承認を無効にする")
-    func markdownLockConfirmation() throws {
-        let facts = DocumentFacts(fragment: MarkdownConverter.convert("---\ntoc: true\n---\n# A"))
+    private func readingFacts(for format: DocumentFormat) -> DocumentFacts {
+        let header =
+            format == .rMarkdown
+            ? "output:\n  pdf_document:\n    toc: true\n    number_sections: true"
+            : "toc: true\nnumber-sections: true"
+        let source = "---\n" + header + "\n---\n# A"
+        return DocumentFacts(
+            fragment: format == .markdown
+                ? MarkdownConverter.convert(source)
+                : ComputationalMarkdown.convert(source, format: format))
+    }
+
+    @Test("読めない出力形式で固定を戻しても文書の番号と目次は残る", arguments: [DocumentFormat.quarto, .rMarkdown])
+    func malformedOutputKeepsChoices(format: DocumentFormat) {
+        let header =
+            format == .quarto
+            ? "format:\n  html:\n      toc: true\n    number-sections: true"
+            : "output:\n  - html_document:\n      toc: true\n      number_sections: true"
+        let facts = DocumentFacts(
+            fragment: ComputationalMarkdown.convert("---\n" + header + "\n---\n# A", format: format))
         var document = DocumentSettings()
-        document.formatReading.setAllowsFileChanges(true, for: .markdown)
+        document.formatReading.set(.outline(present: true, depth: .levels(2)), for: .tableOfContents, format: format)
         document.formatReading.set(
-            .outline(present: false, depth: .all), for: .tableOfContents, format: .markdown,
+            format == .quarto ? .outline(present: false, depth: .all) : .toggle(false), for: .sectionNumbers,
+            format: format)
+        let expected = document
+        document.formatReading.setAllowsFileChanges(true, for: format)
+        #expect(
+            document.lockMarkdownFileInstructions(for: format, facts: facts, generation: 1, defaults: .init())
+                == .finished)
+        #expect(document == expected)
+    }
+
+    @Test("固定を戻す確認は承認まで保存せず、設定・原稿世代の変化で古い承認を無効にする", arguments: [DocumentFormat.markdown, .quarto, .rMarkdown])
+    func markdownLockConfirmation(format: DocumentFormat) throws {
+        let facts = readingFacts(for: format)
+        var document = DocumentSettings()
+        document.formatReading.setAllowsFileChanges(true, for: format)
+        document.formatReading.set(
+            .outline(present: false, depth: .all), for: .tableOfContents, format: format,
             file: facts.contentsInstructions)
         func proposal(_ result: MarkdownFileLockResult) throws -> MarkdownDiscardConfirmation {
             let value: MarkdownDiscardConfirmation? =
@@ -18,30 +51,38 @@ struct ContentsMigrationTests {
         }
         let original = document
         let canceled = try proposal(
-            document.lockMarkdownFileInstructions(facts: facts, generation: 1, defaults: .init()))
+            document.lockMarkdownFileInstructions(for: format, facts: facts, generation: 1, defaults: .init()))
         #expect(canceled.count == 1 && document == original)
         // Cancel simply drops the proposal. Asking again must leave exactly the same settings.
-        let again = try proposal(document.lockMarkdownFileInstructions(facts: facts, generation: 1, defaults: .init()))
+        let again = try proposal(
+            document.lockMarkdownFileInstructions(for: format, facts: facts, generation: 1, defaults: .init()))
         #expect(again == canceled && document == original)
         document.formatReading.set(.toggle(true), for: .preserveBreaks, format: .markdown)
         let changed = document
         let revised = try proposal(
-            document.lockMarkdownFileInstructions(facts: facts, generation: 1, defaults: .init(), confirming: again))
+            document.lockMarkdownFileInstructions(
+                for: format, facts: facts, generation: 1, defaults: .init(), confirming: again))
         #expect(revised != again && document == changed)
         #expect(
-            document.lockMarkdownFileInstructions(facts: nil, generation: 2, defaults: .init(), confirming: revised)
+            document.lockMarkdownFileInstructions(
+                for: format, facts: nil, generation: 2, defaults: .init(), confirming: revised)
                 == .awaitingInstructions)
         let reloaded = try proposal(
-            document.lockMarkdownFileInstructions(facts: facts, generation: 2, defaults: .init(), confirming: revised))
+            document.lockMarkdownFileInstructions(
+                for: format, facts: facts, generation: 2, defaults: .init(), confirming: revised))
         #expect(reloaded != revised && document == changed)
         var defaults = FormatReadingChoices()
-        defaults.set(.outline(present: true, depth: .all), for: .sectionNumbers, format: .markdown)
+        defaults.set(
+            format == .rMarkdown ? .toggle(true) : .outline(present: true, depth: .all), for: .sectionNumbers,
+            format: format)
         let current = try proposal(
-            document.lockMarkdownFileInstructions(facts: facts, generation: 2, defaults: defaults, confirming: reloaded)
+            document.lockMarkdownFileInstructions(
+                for: format, facts: facts, generation: 2, defaults: defaults, confirming: reloaded)
         )
         #expect(current != reloaded && document == changed)
         #expect(
-            document.lockMarkdownFileInstructions(facts: facts, generation: 2, defaults: defaults, confirming: current)
+            document.lockMarkdownFileInstructions(
+                for: format, facts: facts, generation: 2, defaults: defaults, confirming: current)
                 == .finished)
         var expected = FormatReadingChoices()
         expected.set(.toggle(true), for: .preserveBreaks, format: .markdown)
@@ -81,41 +122,43 @@ struct ContentsMigrationTests {
     }
 
     @Test(
-        "Markdown の破棄は原稿が指定した成分だけを消し、旧仕上げから移した深さか文書で選んだ深さを保つ",
-        arguments: [false, true])
-    func markdownLockMigratesContents(editedDepth: Bool) throws {
-        let facts = DocumentFacts(
-            fragment: MarkdownConverter.convert("---\ntoc: true\nnumber-sections: true\n---\n# A"))
+        "固定を戻すと原稿が指定した成分だけを消し、旧仕上げから移した深さか文書で選んだ深さを保つ",
+        arguments: [DocumentFormat.markdown, .quarto, .rMarkdown], [false, true])
+    func markdownLockMigratesContents(format: DocumentFormat, editedDepth: Bool) throws {
+        let facts = readingFacts(for: format)
         var finish = PrintFinish()
         finish.legacyPresetContents.mode = .front
         finish.legacyPresetContents.depth = .sections
         var document = DocumentSettings(printFinish: finish)
-        document.formatReading.setAllowsFileChanges(true, for: .markdown)
+        document.formatReading.setAllowsFileChanges(true, for: format)
         if editedDepth {
             document.formatReading.set(
-                .outline(present: true, depth: .levels(4)), for: .tableOfContents, format: .markdown,
+                .outline(present: true, depth: .levels(4)), for: .tableOfContents, format: format,
                 file: facts.contentsInstructions)
         }
         let off = ReadingSettingValue.outline(present: false, depth: .all)
-        document.formatReading.set(off, for: .tableOfContents, format: .markdown, file: facts.contentsInstructions)
-        document.formatReading.set(off, for: .sectionNumbers, format: .markdown, file: facts.numberInstructions)
+        document.formatReading.set(off, for: .tableOfContents, format: format, file: facts.contentsInstructions)
+        document.formatReading.set(
+            format == .rMarkdown ? .toggle(false) : off, for: .sectionNumbers, format: format,
+            file: facts.numberInstructions)
         document.formatReading.set(.toggle(true), for: .preserveBreaks, format: .markdown)
         let original = document
-        let result = document.lockMarkdownFileInstructions(facts: facts, generation: 1, defaults: .init())
+        let result = document.lockMarkdownFileInstructions(for: format, facts: facts, generation: 1, defaults: .init())
         guard case .needsConfirmation(let approval) = result else {
             Issue.record("原稿の指定に戻す確認がない")
             return
         }
         #expect(approval.count == 2 && document == original)
         #expect(
-            document.lockMarkdownFileInstructions(facts: facts, generation: 1, defaults: .init(), confirming: approval)
+            document.lockMarkdownFileInstructions(
+                for: format, facts: facts, generation: 1, defaults: .init(), confirming: approval)
                 == .finished)
-        #expect(!document.formatReading.allowsFileChanges(for: .markdown))
+        #expect(!document.formatReading.allowsFileChanges(for: format))
         #expect(document.printFinish?.legacyTOC == nil && document.printFinish?.contents.placement == .page)
         var expected = FormatReadingChoices()
         expected.set(
             .outline(present: true, depth: .levels(editedDepth ? 4 : 2)), for: .tableOfContents,
-            format: .markdown, file: facts.contentsInstructions)
+            format: format, file: facts.contentsInstructions)
         expected.set(.toggle(true), for: .preserveBreaks, format: .markdown)
         #expect(document.formatReading == expected)
     }

@@ -97,54 +97,68 @@ struct ResourceLibraryTests {
         #expect(checked >= 23)
     }
 
-    @Test("Markdown の採番は未設定ならスタイルに従い、明示した「なし」は保存し直しても番号を消す")
-    func markdownHeadingNumbers() throws {
+    @Test("見出し番号は未設定ならスタイルに従い、明示した「なし」は保存し直しても番号を消す", arguments: [DocumentFormat.markdown, .quarto, .rMarkdown])
+    func markdownHeadingNumbers(format: DocumentFormat) throws {
         let theme = try #require(PrintThemeLibrary.load().first { $0.id == "report" })
         #expect(
             theme.css.contains(#"body:not(.format-latex):not(.own-heading-numbers) h2::before { content: counter(h2)"#))
         let source = "# Book\n\n## Heading"
         var reading = MarkdownReadingSettings()
         func check(owned: Bool, numbered: Bool) {
-            let fragment = MarkdownConverter.convert(source, reading: reading)
+            let fragment =
+                format == .markdown
+                ? MarkdownConverter.convert(source, reading: reading)
+                : ComputationalMarkdown.convert(source, format: format, reading: reading)
             #expect(fragment.decidesHeadingNumbers == owned)
-            #expect(
-                fragment.body.contains(
-                    numbered ? #"<h2 id="heading">1. Heading</h2>"# : #"<h2 id="heading">Heading</h2>"#))
-            let html = HTMLDocumentBuilder.build(fragment: fragment, format: .markdown, theme: theme)
+            let prefix = numbered ? (format == .markdown ? "1. " : "1.1 ") : ""
+            #expect(fragment.body.contains("<h2 id=\"heading\">" + prefix + "Heading</h2>"))
+            let html = HTMLDocumentBuilder.build(fragment: fragment, format: format, theme: theme)
             #expect(
                 html.contains(
                     owned
-                        ? #"<body class="surimono format-markdown own-heading-numbers">"#
-                        : #"<body class="surimono format-markdown">"#))
+                        ? #"<body class="surimono format-\#(format.rawValue) own-heading-numbers">"#
+                        : #"<body class="surimono format-\#(format.rawValue)">"#))
         }
-        let off = ReadingSettingValue.outline(present: false, depth: .all)
-        let all = ReadingSettingValue.outline(present: true, depth: .all)
+        let off: ReadingSettingValue = format == .rMarkdown ? .toggle(false) : .outline(present: false, depth: .all)
+        let all: ReadingSettingValue = format == .rMarkdown ? .toggle(true) : .outline(present: true, depth: .all)
         check(owned: false, numbered: false)
         for enableFirst in [false, true] {
             if enableFirst {
-                reading.document.set(all, for: .sectionNumbers, format: .markdown)
+                reading.document.set(all, for: .sectionNumbers, format: format)
                 check(owned: true, numbered: true)
             }
-            reading.document.set(off, for: .sectionNumbers, format: .markdown)
+            reading.document.set(off, for: .sectionNumbers, format: format)
             check(owned: true, numbered: false)
             let data = try JSONEncoder().encode(reading.document)
             let record = try JSONDecoder().decode([String: [String: [String: Bool]]].self, from: data)
-            #expect(record == ["markdown": ["sectionNumbers": ["present": false]]])
+            #expect(record == [format.rawValue: ["sectionNumbers": ["present": false]]])
             reading.document = try JSONDecoder().decode(FormatReadingChoices.self, from: data)
             check(owned: true, numbered: false)
-            reading.document.revert(.sectionNumbers, for: .markdown)
+            reading.document.revert(.sectionNumbers, for: format)
             check(owned: false, numbered: false)
         }
-        reading.defaults.set(all, for: .sectionNumbers, format: .markdown)
+        reading.defaults.set(all, for: .sectionNumbers, format: format)
         check(owned: true, numbered: true)
-        reading.document.set(off, for: .sectionNumbers, format: .markdown, defaults: reading.defaults)
+        reading.document.set(off, for: .sectionNumbers, format: format, defaults: reading.defaults)
         check(owned: true, numbered: false)
-        reading.document.revert(.sectionNumbers, for: .markdown)
+        reading.document.revert(.sectionNumbers, for: format)
         check(owned: true, numbered: true)
-        reading.defaults.set(off, for: .sectionNumbers, format: .markdown)
+        reading.defaults.set(off, for: .sectionNumbers, format: format)
         check(owned: true, numbered: false)
-        reading.defaults.revert(.sectionNumbers, for: .markdown)
+        reading.defaults.revert(.sectionNumbers, for: format)
         check(owned: false, numbered: false)
+    }
+
+    @Test("Quarto の原稿で番号を切ると report の自動採番も止まる")
+    func quartoFileNumbering() throws {
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "report" })
+        for header in ["", "---\nnumber-sections: false\n---\n"] {
+            let fragment = ComputationalMarkdown.convert(header + "# Book\n\n## Heading")
+            let html = HTMLDocumentBuilder.build(fragment: fragment, format: .quarto, theme: theme)
+            #expect(html.contains(#"<body class="surimono format-quarto own-heading-numbers">"#) == !header.isEmpty)
+            #expect(html.contains(#"<body class="surimono format-quarto">"#) == header.isEmpty)
+            #expect(html.contains(#"<h2 id="heading">Heading</h2>"#))
+        }
     }
 
     @Test("番号付きテーマでも Org は出荷時は番号なし、全階層を選ぶと見出しに一度だけ番号が付く")

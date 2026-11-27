@@ -6,8 +6,8 @@ import Testing
 
 @MainActor
 struct BandControlsTests {
-    @Test("読み方の設定は単独の Markdown・Org 文書でだけ帯とメニューから開ける")
-    func orgPanelAvailability() {
+    @Test("読み方の設定は単独の Markdown・Quarto・R Markdown・Org 文書でだけ帯とメニューから開ける")
+    func readingPanelAvailability() {
         let suite = TestDefaultsSuite()
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer {
@@ -19,7 +19,8 @@ struct BandControlsTests {
         let binder = BinderModel(orderedURLs: ["a.org", "b.org"].map { directory.appendingPathComponent($0) })
         for (format, collection, expected) in [
             (DocumentFormat.org, nil, true), (.org, binder, false), (.markdown, nil, true), (.markdown, binder, false),
-            (.quarto, nil, false), (.rMarkdown, nil, false), (.pdf, nil, false),
+            (.quarto, nil, true), (.quarto, binder, false), (.rMarkdown, nil, true), (.rMarkdown, binder, false),
+            (.notebook, nil, false), (.pdf, nil, false),
         ] {
             let model = DocumentViewModel(
                 data: Data(), fileURL: nil, format: format, preferences: preferences, library: library,

@@ -84,7 +84,8 @@ extension BandLayout.Item {
         case .presentation: String(localized: "Appears only for HTML documents.")
         case .style: String(localized: "Appears for documents that use a print style or an HTML preset.")
         case .chapter: String(localized: "Appears for documents with chapters.")
-        case .readingSettings: String(localized: "Appears for individual Markdown and Org documents.")
+        case .readingSettings:
+            String(localized: "Appears for individual Markdown, Quarto, R Markdown and Org documents.")
         case .outline: String(localized: "Appears for documents with multiple pages, headings, or bookmarks.")
         case .layout, .transition: String(localized: "Appears on paper, not on a live web page.")
         case .zoom: String(localized: "Appears only while zoomed in.")

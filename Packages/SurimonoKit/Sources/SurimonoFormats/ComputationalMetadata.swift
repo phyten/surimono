@@ -8,13 +8,15 @@ struct ComputationalMetadata {
     var japanese: Bool = false
     private(set) var keys: Set<String> = []
 
-    init(lines: inout [String]) {
-        guard lines.first == "---" else { return }
+    var reading = ComputationalReadingHeader()
+
+    init(lines: inout [String], format: DocumentFormat? = nil) {
+        guard lines.first == "---" || lines.first == "\u{FEFF}---" else { return }
         let end = lines.dropFirst().firstIndex { $0 == "---" || $0 == "..." }
         let count = end.map { $0 + 1 } ?? lines.count
         let header = Array(lines.prefix(count))
         lines.removeFirst(count)
-        guard let end, MarkdownConverter.frontMatterEnd(in: header) != nil else {
+        guard let end, MarkdownConverter.frontMatterEnd(in: header, allowsBOM: true) != nil else {
             unreadable = header.joined(separator: "\n")
             return
         }
@@ -75,6 +77,7 @@ struct ComputationalMetadata {
                 values[key] = Self.scalar(raw)
             }
         }
+        if let format { reading = ComputationalReadingHeader(header[1..<end], format: format, metadata: values) }
     }
 
     static func blockScalar(_ lines: ArraySlice<String>, folded: Bool) -> String {
@@ -108,13 +111,26 @@ struct ComputationalMetadata {
     }
 
     static func items(_ text: String) -> [String] {
+        var valid = true
+        return items(text, valid: &valid)
+    }
+
+    /// A malformed flow collection cannot supply file instructions.
+    static func flowItems(_ text: String) -> [String]? {
+        var valid = true
+        var result = items(text, valid: &valid)
+        if result.last == "" { result.removeLast() }
+        return valid ? result : nil
+    }
+
+    private static func items(_ text: String, valid: inout Bool) -> [String] {
         var quote: Character?
-        var depth = 0
+        var closing: [Character] = []
         var escaped = false
         var parts: [String] = []
         var current = ""
         for char in text {
-            if char == ",", quote == nil, depth == 0 {
+            if char == ",", quote == nil, closing.isEmpty {
                 parts.append(current.trimmed)
                 current = ""
             } else {
@@ -128,14 +144,15 @@ struct ComputationalMetadata {
                     if char == "\"" || char == "'" {
                         quote = char
                     } else if char == "{" || char == "[" {
-                        depth += 1
+                        closing.append(char == "{" ? "}" : "]")
                     } else if char == "}" || char == "]" {
-                        depth = max(0, depth - 1)
+                        if closing.popLast() != char { valid = false }
                     }
                 }
                 current.append(char)
             }
         }
+        valid = valid && quote == nil && closing.isEmpty
         parts.append(current.trimmed)
         return parts
     }

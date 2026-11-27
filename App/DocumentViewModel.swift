@@ -180,15 +180,17 @@ final class DocumentViewModel {
     }
 
     var offersOrgReading: Bool { format == .org && binder == nil && imageBundle == nil }
-    var offersReadingPanel: Bool { (format == .org || format == .markdown) && binder == nil && imageBundle == nil }
+    var offersReadingPanel: Bool {
+        (format == .org || format.usesMarkdownReadingSettings) && binder == nil && imageBundle == nil
+    }
     var showsReadingPanel: Bool { mode == .view && isReadingPanelOpen && offersReadingPanel }
 
     private(set) var orgFileInstructions: OrgFileInstructions?
     var orgDocumentReading = OrgDocumentReadingSettings()
     var readingChangedCount: Int {
-        if format == .markdown {
+        if format.usesMarkdownReadingSettings {
             guard contentsFacts != nil else { return 0 }
-            return DocumentsChapter.rows(for: .markdown).count { markdownResolution($0.id)?.isChanged == true }
+            return DocumentsChapter.rows(for: format).count { markdownResolution($0.id)?.isChanged == true }
         }
         return orgChangedCount
     }

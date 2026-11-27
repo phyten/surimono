@@ -28,35 +28,17 @@ struct ReadingInstructionTests {
         #expect(html.contains(">1.1. Bravo</h3>"))
     }
 
-    @Test("Quarto の目次は絶対段で切り、本文の目次とは別に置く。number-depth は番号を制限しない")
+    @Test("Quarto の目次は絶対段で切り、本文の目次とは別に置く。number-depth で番号を止める")
     func quarto() throws {
         let header = "---\ntoc: true\ntoc-depth: 2\ntoc-title: Custom\nnumber-sections: true\nnumber-depth: 1\n---\n"
         let html = ComputationalMarkdown.convert(header + headings + "\n\n[TOC]").body
         let navs = contents(html)
         #expect(navs.count == 2)
         let first = try #require(navs.first)
-        #expect(first.contains("Custom") && first.contains("1 Root") && first.contains("1.1 Alpha"))
+        #expect(first.contains("Custom") && first.contains("1 Root") && first.contains(">Alpha</a>"))
         #expect(!first.contains("Bravo"))
         #expect(navs.last?.contains("Charlie") == true)
-        #expect(html.contains(">1.1.1 Bravo</h3>"))
-    }
-
-    @Test(
-        "Quarto の format と R Markdown の複数の output の下は読まず、最上位の指定は読む",
-        arguments: [
-            "format:\n  html:\n    toc: true\n    number-sections: true",
-            "output:\n  html_document:\n    toc: true\n    toc_depth: 1\n    number_sections: true\n  pdf_document:\n    toc: true",
-        ])
-    func computationalMetadata(nested: String) throws {
-        let html = ComputationalMarkdown.convert("---\n" + nested + "\n---\n" + headings).body
-        #expect(contents(html).isEmpty && html.contains(">Bravo</h3>"))
-        let top = ComputationalMarkdown.convert(
-            "---\n" + nested + "\ntoc: true\nnumber-sections: true\n---\n" + headings
-        ).body
-        let navs = contents(top)
-        #expect(navs.count == 1)
-        let nav = try #require(navs.first)
-        #expect(nav.contains("1.1.1 Bravo") && !nav.contains("Charlie"))
+        #expect(html.contains(">Bravo</h3>"))
     }
 
     @Test("Org の先頭と本文の目次はそれぞれの深さを使い、番号は num の深さで止まる")

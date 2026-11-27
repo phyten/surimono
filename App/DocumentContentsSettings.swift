@@ -18,7 +18,7 @@ enum ContentsFinishRow: Hashable {
                 rows.insert(.contents)
             }
         } else if format.usesPrintTheme {
-            if format != .org && format != .markdown { rows.insert(.lead) }
+            if format != .org && !format.usesMarkdownReadingSettings { rows.insert(.lead) }
             if hasLead || finish.legacyTOC?.mode == .front {
                 rows.insert(.layout)
                 if finish.contents.placement == .page { rows.insert(.look) }

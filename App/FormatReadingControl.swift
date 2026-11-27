@@ -11,8 +11,22 @@ enum ReadingResetHelp {
     }
 }
 
+extension ReadingResolution<Bool> {
+    func value(inheritsStyle: Bool) -> Bool? {
+        inheritsStyle && layer == .app ? nil : value
+    }
+}
+
+extension ReadingSettingID {
+    func toggleTitle(_ value: Bool?) -> LocalizedStringResource {
+        guard let value else { return "From Style" }
+        if self == .sectionNumbers { return value ? "All" : "None" }
+        return value ? "On" : "Off"
+    }
+}
+
 extension ReadingRowResolution {
-    func resetHelp(format: String, inheritsStyle: Bool = false) -> String {
+    func resetHelp(format: String, id: ReadingSettingID, inheritsStyle: Bool = false) -> String {
         func help<Value>(_ component: ReadingResolution<Value>, _ value: String) -> String {
             component.source == nil
                 ? ReadingResetHelp.app(format: format, value: value) : ReadingResetHelp.file(value: value)
@@ -20,11 +34,11 @@ extension ReadingRowResolution {
         func toggle(_ present: ReadingResolution<Bool>) -> String {
             help(present, present.inherited ? String(localized: "On") : String(localized: "Off"))
         }
+        if inheritsStyle { return ReadingResetHelp.app(format: format, value: String(localized: "From Style")) }
         switch self {
         case .toggle(let present):
-            return toggle(present)
+            return help(present, String(localized: id.toggleTitle(present.inherited)))
         case .outline(let present, let depth):
-            if inheritsStyle { return ReadingResetHelp.app(format: format, value: String(localized: "From Style")) }
             if (present.source == nil) != (depth.source == nil) {
                 let levels = String(localized: ReadingOutlinePicker.title(for: depth.inherited))
                 if depth.layer == .document {
@@ -64,8 +78,24 @@ struct FormatReadingControl: View {
             switch row {
             case .toggle(let present):
                 control(locked: present.isLocked) {
-                    Toggle(isOn: Binding(get: { present.value }, set: { set(.toggle($0)) })) { Text(id.label) }
-                        .labelsHidden().toggleStyle(.checkbox)
+                    if id == .sectionNumbers {
+                        let selection = Binding<Bool?>(
+                            get: { present.value(inheritsStyle: inheritsStyle) },
+                            set: { choice in
+                                if let choice { set(.toggle(choice)) } else { revert() }
+                            })
+                        ReadingMenu(
+                            label: id.label, selection: selection,
+                            valueLabel: Text(id.toggleTitle(selection.wrappedValue))
+                        ) {
+                            if inheritsStyle { Text("From Style").tag(nil as Bool?) }
+                            Text(id.toggleTitle(false)).tag(Optional(false))
+                            Text(id.toggleTitle(true)).tag(Optional(true))
+                        }
+                    } else {
+                        Toggle(isOn: Binding(get: { present.value }, set: { set(.toggle($0)) })) { Text(id.label) }
+                            .labelsHidden().toggleStyle(.checkbox)
+                    }
                 }
                 reason(present.source, changed: present.layer == .document)
             case .outline(let present, let depth):
@@ -123,8 +153,8 @@ struct ReadingOutlinePicker: View {
     }
 
     var selection: Selection {
-        if restoreStyle != nil, present.layer == .app { return .style }
-        return .outline(present.value ? depth.value : nil)
+        guard let enabled = present.value(inheritsStyle: restoreStyle != nil) else { return .style }
+        return .outline(enabled ? depth.value : nil)
     }
 
     func allows(_ choice: ReadingDepth?) -> Bool {

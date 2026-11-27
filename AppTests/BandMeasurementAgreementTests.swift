@@ -44,9 +44,10 @@ struct BandMeasurementAgreementTests {
         let window: NSWindow
 
         /// A Markdown file named as in the screenshots, with the given parts before Print at the top right of Split.
-        init(parts: [BandLayout.Item], width: CGFloat, corners: CornerPreset = .standard, imageBundle: Bool = false)
-            throws
-        {
+        init(
+            parts: [BandLayout.Item], width: CGFloat, corners: CornerPreset = .standard, imageBundle: Bool = false,
+            viewMode: Bool = false
+        ) throws {
             let preferences = AppPreferences(defaults: defaults.defaults)
             preferences.corners = corners
             preferences.menuArrangement = .split
@@ -71,19 +72,27 @@ struct BandMeasurementAgreementTests {
                 imageBundle: bundle,
                 settingsStore: DocumentSettingsStore(directory: directory.appendingPathComponent("Settings")))
             model.isolateBandTestOutput()
-            menu.hasReadTrafficLights = true
+            menu.hasReadTrafficLights = !viewMode
             model.isBandAlwaysVisible = true
             window = NSWindow(
                 contentRect: NSRect(x: 20, y: 20, width: width, height: 300), styleMask: [.titled, .closable],
                 backing: .buffered, defer: false)
             window.isReleasedWhenClosed = false
             controller = NSWindowController(window: window)
-            let host = NSHostingView(rootView: TestBands(model: model, menu: menu, labels: labels))
+            let host = NSHostingView(rootView: content(viewMode: viewMode))
             // As the view mode's window: the band never widens the window to fit what the plan folded away.
             host.sizingOptions = []
             window.contentView = host
             window.alphaValue = 0
             window.orderFrontRegardless()
+        }
+
+        @ViewBuilder private func content(viewMode: Bool) -> some View {
+            if viewMode {
+                ViewModeView(model: model, menu: menu)
+            } else {
+                TestBands(model: model, menu: menu, labels: labels)
+            }
         }
 
         func close() {
@@ -116,6 +125,9 @@ struct BandMeasurementAgreementTests {
 
     /// Lays the band out at the width until its plan, measurements and drawn places stop changing.
     private func settle(_ fixture: Fixture, width: CGFloat) async throws {
+        let content = try #require(fixture.window.contentView)
+        let slots: [BandSlot] =
+            [.name, .more] + BandLayout.Item.applicable(for: fixture.model).map { .item($0, .full) }
         fixture.window.setContentSize(CGSize(width: width, height: 300))
         var previous: (BandResolvedPlan?, [BandSlot: CGFloat], [BandAnchors.Anchor: CGRect])?
         var unchanged = 0
@@ -123,7 +135,10 @@ struct BandMeasurementAgreementTests {
         while unchanged < 3, ContinuousClock.now < deadline {
             await nextLayout(in: fixture.window)
             let current = (fixture.plan, fixture.menu.bandWidths, fixture.model.bandAnchors.frames)
-            let ready = fixture.menu.bandWidth == width && current.0 != nil && fixture.menu.bandWidths[.name] != nil
+            let actualWidth = content.bounds.width
+            let ready =
+                abs(actualWidth - width) < 1 && fixture.menu.bandWidth == actualWidth
+                && fixture.menu.hasReadTrafficLights && current.0 != nil && slots.allSatisfy { current.1[$0] != nil }
             if ready, let previous, previous.0 == current.0, previous.1 == current.1, previous.2 == current.2 {
                 unchanged += 1
             } else {
@@ -131,12 +146,44 @@ struct BandMeasurementAgreementTests {
             }
             previous = current
         }
-        try #require(unchanged >= 3, "幅 \(width) で帯が落ち着かない")
+        try #require(unchanged >= 3, "指定 \(width) pt、文書 \(content.bounds.width) pt、帯 \(fixture.menu.bandWidth) pt")
     }
 
     nonisolated private static let sixParts: [BandLayout.Item] = [
         .readingDirection, .scrollDirection, .paperOrientation, .margins, .printSettings, .saveAsFile,
     ]
+
+    @Test("文書の幅を縮めると下段の部品が畳まれ、広げると元に戻る", .timeLimit(.minutes(1)))
+    func bandsFollowDocumentWidth() async throws {
+        let wideWidth: CGFloat = 760
+        let fixture = try Fixture(parts: [.readingDirection, .scrollDirection], width: wideWidth, viewMode: true)
+        defer { fixture.close() }
+        let content = try #require(fixture.window.contentView)
+
+        func plan(at width: CGFloat) async throws -> BandResolvedPlan {
+            try await settle(fixture, width: width)
+            let documentWidth = content.bounds.width
+            let plan = try #require(fixture.plan)
+            let bottom = try #require(plan.bottom)
+            #expect(fixture.menu.bandWidth == documentWidth)
+            #expect(plan.top.requiredWidth <= documentWidth)
+            #expect(bottom.requiredWidth <= documentWidth)
+            return plan
+        }
+
+        let wide = try await plan(at: wideWidth)
+        let bottom = try #require(wide.bottom)
+        try #require(bottom.forms[.readingSettings] == .full)
+        let narrow = try await plan(at: bottom.requiredWidth - 2)
+        let folded = bottom.forms.keys.filter { item in
+            (bottom.forms[item] == .full && narrow.bottom?.forms[item] == .compact) || narrow.overflow.contains(item)
+        }
+        #expect(!folded.isEmpty)
+
+        let restored = try await plan(at: wideWidth)
+        #expect(restored.bottom == bottom)
+        #expect(restored.overflow == wide.overflow)
+    }
 
     @Test("状態を切り替えても帯の実寸と全形態の計測幅は変わらない", arguments: CornerPreset.allCases)
     func stateChangesPreserveWidth(corners: CornerPreset) async throws {

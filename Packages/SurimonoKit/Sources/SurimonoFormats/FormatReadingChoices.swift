@@ -1,3 +1,7 @@
+extension DocumentFormat {
+    public var usesMarkdownReadingSettings: Bool { self == .markdown || self == .quarto || self == .rMarkdown }
+}
+
 /// One persisted row in the new formats. Missing components follow the layer below.
 private struct ReadingChoice: Codable, Equatable, Sendable {
     var present: Bool?
@@ -35,9 +39,11 @@ public struct FormatReadingChoices: Codable, Equatable, Sendable {
     public var isEmpty: Bool { formats.isEmpty && unlockedFormats.isEmpty }
 
     /// Without a presence choice at any layer, Markdown keeps the style's heading counters.
-    public func usesStyleForMarkdownNumbers(file: ReadingFileInstructions = .init(), defaults: Self = .init()) -> Bool {
-        file.present == nil && choice(.sectionNumbers, for: .markdown)?.present == nil
-            && defaults.choice(.sectionNumbers, for: .markdown)?.present == nil
+    public func usesStyleForMarkdownNumbers(
+        for format: DocumentFormat = .markdown, file: ReadingFileInstructions = .init(), defaults: Self = .init()
+    ) -> Bool {
+        file.present == nil && choice(.sectionNumbers, for: format)?.present == nil
+            && defaults.choice(.sectionNumbers, for: format)?.present == nil
     }
 
     private func choice(_ id: ReadingSettingID, for format: DocumentFormat) -> ReadingChoice? {
@@ -110,20 +116,23 @@ public struct FormatReadingChoices: Codable, Equatable, Sendable {
             let row = resolve(id, for: format, file: file, defaults: defaults, allowsFileChanges: allowsFileChanges)
         else { return }
         var choice = formats[format.rawValue]?[field] ?? ReadingChoice()
+        func setPresence(_ value: Bool, _ present: ReadingResolution<Bool>) {
+            if format.usesMarkdownReadingSettings, id == .sectionNumbers, !value, !present.isLocked {
+                // An explicit None suppresses the style's counters even when the inherited value is false.
+                choice.present = false
+            } else {
+                present.set(value, in: &choice.present)
+            }
+        }
         switch (value, row) {
         case (.toggle(let value), .toggle(let present)):
-            present.set(value, in: &choice.present)
+            setPresence(value, present)
         case (.outline(let enabled, let limit), .outline(let present, let depth)):
             // Refuse the whole edit when either locked component would have to change: no partial writes.
             guard row.allowsOutline(present: enabled, depth: limit) else { return }
             // One control carries both components. Write only the one the reader touched, so choosing a
             // depth never drops a stored presence, and switching off keeps the depth for switching back on.
-            if format == .markdown, id == .sectionNumbers, !enabled, !present.isLocked {
-                // An explicit None suppresses style counters even when the shipped presence is also false.
-                choice.present = false
-            } else if !enabled || !present.value {
-                present.set(enabled, in: &choice.present)
-            }
+            if !enabled || !present.value { setPresence(enabled, present) }
             if enabled { depth.set(limit, in: &choice.depth) }
         default: return
         }

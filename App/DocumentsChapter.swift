@@ -32,8 +32,8 @@ enum DocumentsChapter {
     /// ReadingSyntax.readToday describes manuscript instructions, not app preferences.
     static func rows(for format: DocumentFormat) -> [ReadingCatalogueRow] {
         switch format {
-        case .markdown: ReadingCatalogue.rows(for: format)
-        case .quarto, .rMarkdown, .rst, .asciidoc, .mediawiki:
+        case .markdown, .quarto, .rMarkdown: ReadingCatalogue.rows(for: format)
+        case .rst, .asciidoc, .mediawiki:
             ReadingCatalogue.rows(for: format).filter { $0.id == .tableOfContents }
         default: []
         }
@@ -248,10 +248,12 @@ struct FormatDefaultsPane: View {
     }
 
     private func description(_ row: ReadingRowResolution, id: ReadingSettingID) -> String {
+        let inheritsStyle = format.usesMarkdownReadingSettings && id == .sectionNumbers
         switch row {
-        case .toggle(let flag): return String(localized: flag.value ? "On" : "Off")
+        case .toggle(let flag):
+            return String(localized: id.toggleTitle(flag.value(inheritsStyle: inheritsStyle)))
         case .outline(let present, let depth):
-            let followsStyle = format == .markdown && id == .sectionNumbers && present.layer == .app
+            let followsStyle = present.value(inheritsStyle: inheritsStyle) == nil
             let title =
                 followsStyle
                 ? String(localized: "From Style")
@@ -283,7 +285,7 @@ struct FormatDefaultsPane: View {
                         FormatReadingControl(
                             id: entry.id, row: row, resetHelp: String(localized: "Restore Default"),
                             documentName: "", fileURL: nil, allowsFileChanges: false,
-                            inheritsStyle: format == .markdown && entry.id == .sectionNumbers,
+                            inheritsStyle: format.usesMarkdownReadingSettings && entry.id == .sectionNumbers,
                             set: { set($0, for: entry.id) },
                             revert: { preferences.formatReadingDefaults.revert(entry.id, for: format) }
                         )

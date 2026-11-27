@@ -99,7 +99,8 @@ struct ContentsLinkTests {
                     """#
                 ).body
         case .quarto, .rMarkdown:
-            html = ComputationalMarkdown.convert("---\ntoc: true\n---\n" + headings).body
+            let header = format == .quarto ? "toc: true" : "output:\n  html_document:\n    toc: true"
+            html = ComputationalMarkdown.convert("---\n" + header + "\n---\n" + headings, format: format).body
         case .notebook:
             let cells = ["[TOC]\n\n# 見本\n\n## *日本語*", "## 日本語\n\n### 2番目\n\n###### 深い節"]
             let data = try JSONSerialization.data(withJSONObject: [
@@ -124,6 +125,26 @@ struct ContentsLinkTests {
     func computationalIDs() {
         let html = ComputationalMarkdown.convert("---\ntoc: true\n---\n# !!!\n# 一 {#sample}\n# 二 {#sample}").body
         #expect(targets(in: html, minimumLinks: 3) == ["section", "sample", "sample-1"])
+    }
+
+    @Test("脚注と同名の見出しは番号を外しても目次から見出しへ飛べる", arguments: [DocumentFormat.quarto, .rMarkdown], [true, false])
+    func computationalFootnoteIDs(format: DocumentFormat, numbered: Bool) {
+        let header =
+            format == .quarto
+            ? "toc: true\nnumber-sections: \(numbered)"
+            : "output:\n  pdf_document:\n    toc: true\n    number_sections: \(numbered)"
+        let source = "---\n" + header + "\n---\n# fn-1 {.unnumbered}\n\n# fnref-1\n\nNote[^a].\n\n[^a]: Text."
+        let html = ComputationalMarkdown.convert(source, format: format).body
+        #expect(targets(in: html, minimumLinks: 3) == ["section-fn-1", "section-fnref-1", "fn-1"])
+        #expect(html.contains(#"<h1 id="section-fn-1">fn-1</h1>"#))
+    }
+
+    @Test("下線見出しと同名の節を参照しても、採番した節のリンクと番号が一致する")
+    func computationalSectionReference() {
+        let source = "---\nnumber-sections: true\ntoc: true\n---\nsec-end\n=======\n\n## End {#sec-end}\n\n@sec-end"
+        let html = ComputationalMarkdown.convert(source).body
+        #expect(targets(in: html, minimumLinks: 3) == ["sec-end", "sec-end-1", "sec-end-1"])
+        #expect(html.contains(##"<a href="#sec-end-1">Section 1.1</a>"##))
     }
 
     @Test("Djot・Textile・Word の本文から見出しやブックマークに移れる")

@@ -365,11 +365,12 @@ struct OrgOutline {
 struct SectionNumbers {
     private var counters: [Int] = []
 
-    /// The next number at `level`, such as `1.2.`. A skipped level counts as 0, as in Emacs.
-    mutating func next(level: Int) -> String {
+    /// Org and Markdown retain skipped levels and a final dot. Computational documents use the compact form (1.2).
+    mutating func next(level: Int, compact: Bool = false) -> String {
         while counters.count < level { counters.append(0) }
         counters.removeLast(counters.count - level)
         counters[level - 1] += 1
+        if compact { return counters.filter { $0 > 0 }.map(String.init).joined(separator: ".") }
         return counters.map(String.init).joined(separator: ".") + "."
     }
 }

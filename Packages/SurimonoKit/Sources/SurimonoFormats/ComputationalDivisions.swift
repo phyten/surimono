@@ -125,18 +125,12 @@ extension ComputationalBody {
         } else if line.hasPrefix("#"), let match = line.wholeMatch(of: /^(#{1,6})\s+(.*?)(?:\s+\{([^{}]+)\})?\s*$/) {
             let level = match.1.count
             let attrs = ComputationalAttributes(match.3.map(String.init) ?? "")
-            var title = String(match.2)
+            let title = String(match.2)
             let requested = attrs.id.isEmpty ? MarkdownExtensions.slug(title) : attrs.id
             let id = MarkdownExtensions.headingID(requested, used: &headingSuffixes)
-            if ComputationalLabel.kind(id) == "sec" { _ = register(id, kind: "sec") }
-            if metadata.values["number-sections"]?.lowercased() == "true" && !attrs.classes.contains("unnumbered") {
-                sectionNumbers[level - 1] += 1
-                for deeper in level..<6 { sectionNumbers[deeper] = 0 }
-                let number = sectionNumbers.prefix(level).filter { $0 > 0 }.map(String.init).joined(separator: ".")
-                title = "\(number) \(title)"
-                if labels[id] != nil { labels[id]?.number = number }
-            }
-            if !attrs.classes.contains("unlisted") { headings.append((level, id, title)) }
+            if ComputationalLabel.kind(id) == "sec" { _ = register(id, kind: "sec", heading: title) }
+            if attrs.classes.contains("unnumbered") { unnumbered.insert(id) }
+            if attrs.classes.contains("unlisted") { unlisted.insert(id) } else { headings.append((level, id, title)) }
             output.append("\(match.1) \(inline(title)) {#\(id)}")
         } else if line.contains("{#fig-"),
             let match = line.wholeMatch(of: /^\s*(!\[([^\]]*)\]\(.+\))\s*\{#(fig-[\w:.-]+)\}\s*$/)
@@ -152,7 +146,7 @@ extension ComputationalBody {
         } else if line.contains("{#eq-"), let match = line.wholeMatch(of: /^(.*\$\$)\s*\{#(eq-[\w:.-]+)\}\s*$/) {
             let target = register(String(match.2), kind: "eq")
             output.append(String(match.1))
-            block("<div\(target.attribute) class=\"equation-number\">(\(target.number))</div>")
+            block("<div\(target.attribute) class=\"equation-number\">(\(target.shortText))</div>")
         } else if line.hasPrefix("| "), !line.dropFirst().contains("|") {
             output.append(inline(String(line.dropFirst(2))) + "  ")
         } else if line.hasPrefix("    ") || line.hasPrefix("\t") {
@@ -162,8 +156,27 @@ extension ComputationalBody {
         }
     }
 
-    func contents(depth fallback: Int?) -> String {
-        let depth = Int(metadata.values["toc-depth"] ?? "") ?? fallback ?? 3
+    mutating func resolveHeadings(_ anchors: [MarkdownExtensions.HeadingAnchor], numbered: Bool) {
+        // Keep the native list's original title spelling, including inline markup.
+        let titles = Dictionary(uniqueKeysWithValues: headings.map { ($0.id, $0.text) })
+        headings = anchors.compactMap { anchor in
+            if let requested = anchor.customID, var label = labels[requested], label.kind == "sec" {
+                label.id = anchor.id
+                if !anchor.number.isEmpty {
+                    label.value = .number(String(anchor.number.dropLast()))
+                } else if !anchor.text.contains(token) {
+                    // With deferred inline markup, keep the original title rather than its placeholder.
+                    label.value = .heading(anchor.text)
+                }
+                labels[requested] = label
+            }
+            let title = anchor.customID.flatMap { titles[$0] }
+            guard numbered || title != nil, !unlisted.contains(anchor.customID ?? "") else { return nil }
+            return (anchor.level, anchor.id, anchor.number + (title ?? anchor.text))
+        }
+    }
+
+    func contents(depth: Int) -> String {
         let items = headings.filter { $0.level <= depth }.map {
             "<li><a href=\"#\(HTML.escape($0.id))\">\(HTML.escape($0.text))</a></li>"
         }

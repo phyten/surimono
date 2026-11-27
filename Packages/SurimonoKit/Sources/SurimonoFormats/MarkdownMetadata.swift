@@ -35,27 +35,10 @@ public struct MarkdownMetadata: Equatable, Sendable {
                 }
                 index += 1
             }
-            let values: [String]
             let scalar = Self.withoutComment(raw)
-            if scalar.isEmpty {
-                values = lines[start..<index].compactMap { line in
-                    let item = line.trimmingCharacters(in: .whitespaces)
-                    guard item.hasPrefix("- ") else { return nil }
-                    return ComputationalMetadata.scalar(Self.withoutComment(String(item.dropFirst(2))))
-                }
-            } else if scalar.hasPrefix("["), scalar.hasSuffix("]") {
-                values = ComputationalMetadata.items(String(scalar.dropFirst().dropLast())).map(
-                    ComputationalMetadata.scalar)
-            } else {
-                values = [ComputationalMetadata.scalar(scalar)]
-            }
-            let items = values.filter { !$0.isEmpty }
+            let items = Self.items(scalar, children: lines[start..<index])
             func instruction<Value>(_ value: Value) -> ReadingInstruction<Value> {
-                var source = ReadingInstructionSource(fileName: nil, lineNumber: start, rawText: line)
-                source.excerpt = .init(
-                    previous: start - 2 >= lines.startIndex ? lines[start - 2] : nil, line: line,
-                    next: start < lines.endIndex ? lines[start] : nil, tokenOffset: 0)
-                return .init(value, source: source)
+                .init(value, source: ReadingInstructionSource(lines: lines, index: start - 1))
             }
             switch ComputationalMetadata.scalar(key) {
             case "title": title = items.first
@@ -71,10 +54,7 @@ public struct MarkdownMetadata: Equatable, Sendable {
                     tableOfContents = items.first?.lowercased() == "true"
                     continue
                 }
-                // Earlier readers enabled contents when the first decoded item was true, including quoted values.
-                let presence =
-                    items.first?.lowercased() == "true" ? true : Bool(ComputationalMetadata.scalar(scalar).lowercased())
-                contentsInstructions.present = presence.map(instruction)
+                contentsInstructions.present = Self.contentsPresence(scalar, items: items).map(instruction)
                 tableOfContents = contentsInstructions.present?.value == true
             case "number-sections" where plainMarkdown:
                 numberInstructions.present = Bool(scalar.lowercased()).map(instruction)
@@ -95,7 +75,29 @@ public struct MarkdownMetadata: Equatable, Sendable {
         }
     }
 
-    private static func withoutComment(_ value: String) -> String {
+    static func items(_ scalar: String, children: ArraySlice<String>) -> [String] {
+        let values: [String]
+        if scalar.isEmpty {
+            values = children.compactMap { line in
+                let item = line.trimmingCharacters(in: .whitespaces)
+                guard item.hasPrefix("- ") else { return nil }
+                return ComputationalMetadata.scalar(Self.withoutComment(String(item.dropFirst(2))))
+            }
+        } else if scalar.hasPrefix("["), scalar.hasSuffix("]") {
+            values = ComputationalMetadata.items(String(scalar.dropFirst().dropLast())).map(
+                ComputationalMetadata.scalar)
+        } else {
+            values = [ComputationalMetadata.scalar(scalar)]
+        }
+        return values.filter { !$0.isEmpty }
+    }
+
+    // Earlier readers enabled contents when the first decoded item was true, including quoted values.
+    static func contentsPresence(_ scalar: String, items: [String]) -> Bool? {
+        items.first?.lowercased() == "true" ? true : Bool(ComputationalMetadata.scalar(scalar).lowercased())
+    }
+
+    static func withoutComment(_ value: String) -> String {
         var quote: Character?
         var escaped = false
         var previousWasSpace = true

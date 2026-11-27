@@ -23,7 +23,7 @@ package enum FormatsReader {
         return switch format {
         case .markdown: MarkdownConverter.convert(text, directory: directory, readFile: readFile)
         case .graphviz, .plantuml: DiagramConverter.convert(text, format: format)
-        case .quarto, .rMarkdown: ComputationalMarkdown.convert(text)
+        case .quarto, .rMarkdown: ComputationalMarkdown.convert(text, format: format)
         case .djot: try DjotConverter.convert(text)
         case .rst: RSTConverter.convert(text, directory: directory)
         case .mediawiki: MediaWikiConverter.convert(text, directory: directory, imageExists: { _ in false })

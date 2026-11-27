@@ -11,37 +11,37 @@ extension DocumentViewModel {
     }
 
     func markdownResolution(_ id: ReadingSettingID) -> ReadingRowResolution? {
-        formatReading.resolve(id, for: .markdown, file: markdownFile(id), defaults: preferences.formatReadingDefaults)
+        formatReading.resolve(id, for: format, file: markdownFile(id), defaults: preferences.formatReadingDefaults)
     }
 
     var markdownNumbersInheritStyle: Bool {
         FormatReadingChoices().usesStyleForMarkdownNumbers(
-            file: markdownFile(.sectionNumbers), defaults: preferences.formatReadingDefaults)
+            for: format, file: markdownFile(.sectionNumbers), defaults: preferences.formatReadingDefaults)
     }
 
     func setMarkdownValue(_ value: ReadingSettingValue, for id: ReadingSettingID) {
-        guard offersReadingPanel, format == .markdown, contentsFacts != nil else { return }
+        guard offersReadingPanel, format.usesMarkdownReadingSettings, contentsFacts != nil else { return }
         if id == .tableOfContents, case .outline(let present, let depth) = value {
             setLeadContents(present ? .init(depth) : .off)
             return
         }
         formatReading.set(
-            value, for: id, format: .markdown, file: markdownFile(id), defaults: preferences.formatReadingDefaults)
+            value, for: id, format: format, file: markdownFile(id), defaults: preferences.formatReadingDefaults)
     }
 
     func revertMarkdownValue(_ id: ReadingSettingID) {
         if id == .tableOfContents, markdownResolution(id)?.isChanged == true {
             migrateContents(editing: true)
         }
-        formatReading.revert(id, for: .markdown)
+        formatReading.revert(id, for: format)
     }
 
     func lockMarkdownFileInstructions(confirming approval: MarkdownDiscardConfirmation? = nil) -> MarkdownFileLockResult
     {
-        guard offersReadingPanel, format == .markdown else { return .finished }
+        guard offersReadingPanel, format.usesMarkdownReadingSettings else { return .finished }
         var document = DocumentSettings(printFinish: printFinish, formatReading: formatReading)
         let result = document.lockMarkdownFileInstructions(
-            facts: contentsFacts, generation: dataGeneration, defaults: preferences.formatReadingDefaults,
+            for: format, facts: contentsFacts, generation: dataGeneration, defaults: preferences.formatReadingDefaults,
             confirming: approval)
         if result == .finished {
             if let finish = document.printFinish, finish != printFinish { printFinish = finish }
@@ -56,8 +56,8 @@ struct MarkdownReadingPanel: View {
     @State private var confirmation: MarkdownDiscardConfirmation?
     @State private var retryLock = false
 
-    private var ids: [ReadingSettingID] { DocumentsChapter.rows(for: .markdown).map(\.id) }
-    private var unlocked: Bool { model.formatReading.allowsFileChanges(for: .markdown) }
+    private var ids: [ReadingSettingID] { DocumentsChapter.rows(for: model.format).map(\.id) }
+    private var unlocked: Bool { model.formatReading.allowsFileChanges(for: model.format) }
 
     private func lock(confirming approval: MarkdownDiscardConfirmation? = nil) {
         switch model.lockMarkdownFileInstructions(confirming: approval) {
@@ -73,13 +73,14 @@ struct MarkdownReadingPanel: View {
         return Binding(
             get: { unlocked },
             set: { allow in
-                if allow { model.formatReading.setAllowsFileChanges(true, for: .markdown) } else { lock() }
+                if allow { model.formatReading.setAllowsFileChanges(true, for: model.format) } else { lock() }
             })
     }
 
     var body: some View {
         ReadingPanel(
-            title: "Markdown", ready: model.contentsFacts != nil, changed: model.readingChangedCount,
+            title: LocalizedStringKey(model.format.displayName), ready: model.contentsFacts != nil,
+            changed: model.readingChangedCount,
             countInFooter: true, allowsFileChanges: permission, close: { model.isReadingPanelOpen = false },
             revert: { for id in ids { model.revertMarkdownValue(id) } }
         ) {
@@ -91,7 +92,8 @@ struct MarkdownReadingPanel: View {
                     VStack(alignment: .leading, spacing: 4) {
                         FormatReadingControl(
                             id: id, row: row,
-                            resetHelp: row.resetHelp(format: "Markdown", inheritsStyle: inheritsStyle),
+                            resetHelp: row.resetHelp(
+                                format: model.format.displayName, id: id, inheritsStyle: inheritsStyle),
                             documentName: model.displayName,
                             fileURL: model.fileURL, allowsFileChanges: unlocked, inheritsStyle: inheritsStyle,
                             set: { model.setMarkdownValue($0, for: id) }, revert: { model.revertMarkdownValue(id) })

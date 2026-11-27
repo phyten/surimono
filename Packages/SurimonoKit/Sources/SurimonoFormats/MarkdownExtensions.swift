@@ -1134,6 +1134,7 @@ enum MarkdownExtensions {
         let level: Int
         let id: String
         let text: String
+        var customID: String?
     }
 
     private static let customID = try? NSRegularExpression(pattern: #"\s*\{#([^}\s]+)\}\s*$"#)
@@ -1215,7 +1216,7 @@ enum MarkdownExtensions {
             if let heading = node as? Heading {
                 let (text, custom) = splitCustomID(plainText(heading, formulas: formulas))
                 let id = headingID(custom ?? slug(text), used: &used, hasFootnotes: hasFootnotes)
-                anchors.append(HeadingAnchor(level: heading.level, id: id, text: text))
+                anchors.append(HeadingAnchor(level: heading.level, id: id, text: text, customID: custom))
                 return
             }
             for child in node.children { visit(child) }
