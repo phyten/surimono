@@ -17,7 +17,7 @@ li > p { margin-block: 0.3em; }
 h1, h2, h3, h4, h5, h6 { break-after: avoid; page-break-after: avoid; }
 pre, table, img, blockquote { break-inside: avoid; page-break-inside: avoid; }
 p { orphans: 3; widows: 3; }
-img { max-width: 100%; height: auto; }
+img { box-sizing: border-box; max-width: 100%; height: auto; }
 pre { white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 4; }
 code, pre { font-family: "SFMono-Regular", Menlo, monospace; }
 pre code { font-size: inherit; }
