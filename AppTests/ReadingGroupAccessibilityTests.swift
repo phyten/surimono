@@ -7,6 +7,35 @@ import Testing
 
 @MainActor
 struct ReadingGroupAccessibilityTests {
+    @Test("出典のポップオーバーは外部参照のときだけ、設定と本文を取り込まない説明を表示する", arguments: ["ja", "en"])
+    func externalReferenceExplanation(language: String) async throws {
+        let bundle = try #require(
+            Bundle.main.url(forResource: language, withExtension: "lproj").flatMap(Bundle.init(url:)))
+        let key = "Settings and text in the referenced files are not brought into the display or print."
+        let explanation = bundle.localizedString(forKey: key, value: "MISSING", table: nil)
+        try #require(explanation != "MISSING")
+        let fileName = "main.org"
+        let file = try #require(
+            OrgConverter.convert("#+SETUPFILE: a.org\n#+OPTIONS: num:t", fileName: fileName).orgInstructions)
+        let fixed = try #require(OrgReadingSettings().resolve(.sectionNumbers, file: file).source)
+        for (sources, explains): (ReadingSourceButton<EmptyView>.Sources, Bool) in [
+            (.instruction(fixed), false), (.externalSettings(file.externalSettingsSources, additionalCount: 0), true),
+        ] {
+            let content = ReadingSourceButton(documentName: fileName, fileURL: nil, sources: sources) { EmptyView() }
+                .popoverContent.environment(\.locale, Locale(identifier: language))
+            let size = NSHostingView(rootView: content).fittingSize
+            let screen = OrgReadingTestWindow(width: size.width, height: size.height) { content }
+            defer { screen.window.close() }
+            func hasText(_ text: String) -> Bool {
+                nodes(of: screen.host).contains { spokenName($0).contains(text) }
+            }
+            try await screen.wait("language=\(language) external=\(explains)") {
+                hasText(fileName) && (!explains || hasText(explanation))
+            }
+            #expect(hasText(explanation) == explains)
+        }
+    }
+
     @Observable fileprivate final class Expansion {
         var isOpen = false
     }

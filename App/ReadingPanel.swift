@@ -172,7 +172,6 @@ struct ReadingFileReason: View {
     let source: ReadingInstructionSource
     let changed: Bool
     @Environment(\.locale) private var locale
-    @State private var showsSource = false
 
     enum PartialLock { case enabled, disabled, depth }
     var partialLock: PartialLock?
@@ -197,43 +196,101 @@ struct ReadingFileReason: View {
     }
 
     var body: some View {
-        Button {
-            showsSource.toggle()
-        } label: {
+        ReadingSourceButton(documentName: documentName, fileURL: fileURL, sources: .instruction(source)) {
             let text = reason(locale: locale)
             Text(verbatim: text).underline()
                 .lineLimit(partialLock == nil ? nil : 1).truncationMode(.middle)
                 .help(text)
         }
+    }
+}
+
+struct ReadingSourceButton<Label: View>: View {
+    enum Sources {
+        case instruction(ReadingInstructionSource)
+        case externalSettings([ReadingInstructionSource], additionalCount: Int)
+    }
+
+    let documentName: String
+    let fileURL: URL?
+    let sources: Sources
+    @ViewBuilder let label: Label
+    @State private var showsSource = false
+
+    var body: some View {
+        Button {
+            showsSource.toggle()
+        } label: {
+            label
+        }
         .buttonStyle(.link).font(.caption)
-        .popover(isPresented: $showsSource) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text(verbatim: source.fileName ?? documentName)
-                    Text("Line \(source.lineNumber)").foregroundStyle(.secondary)
-                }
-                if let excerpt = source.excerpt {
-                    ScrollView(.horizontal) {
-                        VStack(alignment: .leading, spacing: 3) {
-                            if let previous = excerpt.previous {
-                                sourceLine(source.lineNumber - 1, Text(verbatim: previous))
-                            }
-                            sourceLine(source.lineNumber, highlighted(excerpt))
-                            if let next = excerpt.next { sourceLine(source.lineNumber + 1, Text(verbatim: next)) }
-                        }
-                    }
-                    HStack {
-                        Spacer()
-                        if let url = fileURL, url.isFileURL {
-                            Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
-                        }
-                        Button("Copy Line") { copyReadingLine(excerpt.line) }
-                    }
+        .popover(isPresented: $showsSource) { popoverContent }
+    }
+
+    var popoverContent: some View {
+        Group {
+            switch sources {
+            case .instruction(let source):
+                ReadingSourceExcerpt(documentName: documentName, fileURL: fileURL, source: source)
+            case .externalSettings(let sources, let additionalCount):
+                let excerpts = externalSettingsExcerpts(sources, additionalCount: additionalCount)
+                if sources.count == 1 {
+                    excerpts
                 } else {
-                    Text(verbatim: source.rawText).font(.system(.caption, design: .monospaced))
+                    ViewThatFits(in: .vertical) {
+                        excerpts
+                        ScrollView { excerpts }
+                    }
+                    .frame(maxHeight: 360)
                 }
             }
-            .padding(12).frame(width: 360).controlSize(.small)
+        }
+        .padding(12).frame(width: 360).controlSize(.small)
+    }
+
+    private func externalSettingsExcerpts(_ sources: [ReadingInstructionSource], additionalCount: Int) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Settings and text in the referenced files are not brought into the display or print.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            ForEach(sources, id: \.lineNumber) { source in
+                ReadingSourceExcerpt(documentName: documentName, fileURL: fileURL, source: source)
+            }
+            if additionalCount > 0 { Text("\(additionalCount) more").font(.caption).foregroundStyle(.secondary) }
+        }
+    }
+}
+
+private struct ReadingSourceExcerpt: View {
+    let documentName: String
+    let fileURL: URL?
+    let source: ReadingInstructionSource
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(verbatim: source.fileName ?? documentName)
+                Text("Line \(source.lineNumber)").foregroundStyle(.secondary)
+            }
+            if let excerpt = source.excerpt {
+                ScrollView(.horizontal) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        if let previous = excerpt.previous {
+                            sourceLine(source.lineNumber - 1, Text(verbatim: previous))
+                        }
+                        sourceLine(source.lineNumber, highlighted(excerpt))
+                        if let next = excerpt.next { sourceLine(source.lineNumber + 1, Text(verbatim: next)) }
+                    }
+                }
+                HStack {
+                    Spacer()
+                    if let url = fileURL, url.isFileURL {
+                        Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+                    }
+                    Button("Copy Line") { copyReadingLine(excerpt.line) }
+                }
+            } else {
+                Text(verbatim: source.rawText).font(.system(.caption, design: .monospaced))
+            }
         }
     }
 

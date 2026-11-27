@@ -3,6 +3,18 @@ import SurimonoCore
 import Testing
 
 struct OrgPrintContractTests {
+    @Test("BOM と CRLF のある Org 原稿でも、先頭と末尾の外部指定の行が文書情報に届く")
+    func externalSettingsReachFacts() throws {
+        let bytes = Data("\u{FEFF}#+setupfile: a.org\r\n* 本文\r\n#+include: \"b.org\"".utf8)
+        let fragment = OrgConverter.convert(TextDecoding.decode(bytes).text, fileName: "親.org")
+        let file = try #require(DocumentFacts(fragment: fragment).orgInstructions)
+        #expect(file == fragment.orgInstructions)
+        #expect(file.externalSettingsSources.map(\.lineNumber) == [1, 3])
+        #expect(file.externalSettingsSources.map(\.fileName) == ["親.org", "親.org"])
+        #expect(
+            file.externalSettingsSources.compactMap(\.excerpt?.line) == ["#+setupfile: a.org", "#+include: \"b.org\""])
+    }
+
     @Test("脚注は最初の参照順で番号を付け再参照IDを区別する")
     func footnotes() throws {
         let body = OrgConverter.convert("本文[fn:b]、[fn:a]、[fn:b]。\n\n[fn:a] 二番\n続き\n[fn:b] *一番*\n\n[fn:unused] 不要").body

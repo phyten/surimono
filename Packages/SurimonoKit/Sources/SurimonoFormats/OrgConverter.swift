@@ -150,6 +150,7 @@ public enum OrgConverter {
 struct OrgParser {
     let lines: [String]
     let depth: Int
+    private let sourceOffset: Int
     private let headlines: [Int: OrgHeadline]
     private let regionEnds: [Int: Int]
     var index = 0
@@ -161,9 +162,10 @@ struct OrgParser {
     /// need not search again.
     private var unclosedEnvironments: [String: Range<Int>] = [:]
 
-    init(lines: [String], depth: Int = 0, context: OrgContext = OrgContext()) {
+    init(lines: [String], depth: Int = 0, sourceOffset: Int = 0, context: OrgContext = OrgContext()) {
         self.lines = lines
         self.depth = depth
+        self.sourceOffset = sourceOffset
         self.context = context
         // Pair blocks once, respecting literal regions and same-name nesting.
         var outline: [Int: OrgHeadline] = [:]
@@ -214,19 +216,24 @@ struct OrgParser {
 
     private struct Child {
         let lines: [String]
+        /// Child text may be de-indented, but its lines are contiguous in the parent.
+        let startInParent: Int
         var isListItem = false
         // Discovery renders note definitions for their side effects only.
         var closing: String?
     }
 
     mutating func render() -> String {
+        let manuscript = lines
         var parents: [(parser: OrgParser, isListItem: Bool, savedOutput: String?, closing: String?)] = []
         var isListItem = false
         var output = ""
         while true {
-            if let child = renderSegment(isListItem: isListItem, into: &output) {
+            if let child = renderSegment(isListItem: isListItem, manuscript: manuscript, into: &output) {
                 parents.append((self, isListItem, child.closing == nil ? output : nil, child.closing))
-                self = OrgParser(lines: child.lines, depth: depth + 1, context: context)
+                self = OrgParser(
+                    lines: child.lines, depth: depth + 1, sourceOffset: sourceOffset + child.startInParent,
+                    context: context)
                 isListItem = child.isListItem
                 if child.closing == nil { output = "" }
             } else if let parent = parents.popLast() {
@@ -242,7 +249,7 @@ struct OrgParser {
 
     // Yield only at block boundaries, after flushing the paragraph. The parent's next unread line and
     // pending list survive on the heap; a nested block inherits the same discovery and numbering context.
-    private mutating func renderSegment(isListItem: Bool, into output: inout String) -> Child? {
+    private mutating func renderSegment(isListItem: Bool, manuscript: [String], into output: inout String) -> Child? {
         guard depth < 32 else {
             StackSpace.noteLimitReached()
             output += "<p>\(HTML.escape(lines.joined(separator: "\n")))</p>\n"
@@ -308,6 +315,7 @@ struct OrgParser {
                 index += 1
             } else if let note = orgCaptures(#"^\[fn:([^]:\s]+)\]\s+(.*)$"#, line) {
                 flush()
+                let start = index
                 var definition = [note[1]]
                 index += 1
                 while index < lines.count, !lines[index].trimmingCharacters(in: .whitespaces).isEmpty,
@@ -319,7 +327,7 @@ struct OrgParser {
                 }
                 if context.discovering {
                     context.definitions[note[0]] = definition.joined(separator: "\n")
-                    return Child(lines: definition, closing: nil)
+                    return Child(lines: definition, startInParent: start, closing: nil)
                 }
                 caption = nil
             } else if let region = delimitedRegion(at: index) {
@@ -333,7 +341,7 @@ struct OrgParser {
                         if name.uppercased() == "PROPERTIES" {
                             output += propertyDrawer(lines[start..<end])
                         } else if context.discovering || context.drawerNames.includes(name) {
-                            return Child(lines: Array(lines[start..<end]), closing: "")
+                            return Child(lines: Array(lines[start..<end]), startInParent: start, closing: "")
                         }
                     } else if case .block(let kind, let arguments) = region {
                         let content = Array(lines[start..<end])
@@ -342,7 +350,7 @@ struct OrgParser {
                         } else {
                             let wrapper = blockWrapper(kind)
                             output += wrapper.opening
-                            return Child(lines: content, closing: wrapper.closing)
+                            return Child(lines: content, startInParent: start, closing: wrapper.closing)
                         }
                     }
                 } else {
@@ -443,6 +451,14 @@ struct OrgParser {
             } else if let directive = orgCaptures(#"^#\+([A-Za-z_]+):\s*(.*)$"#, trimmed) {
                 flush()
                 let key = directive[0].uppercased()
+                if context.discovering, !context.repeatingDiscovery, key == "SETUPFILE" || key == "INCLUDE" {
+                    let original = sourceOffset + index
+                    // A list marker or footnote label can precede keyword-like text on the same physical line.
+                    if manuscript[original].drop(while: \.isWhitespace).hasPrefix("#+") {
+                        context.options.file.noteExternalSettings(
+                            lines: manuscript, index: original, fileName: context.fileName)
+                    }
+                }
                 if depth == 0, context.discovering {
                     context.directive(key, value: directive[1], lineNumber: index + 1, line: trimmed, lines: lines)
                 }
@@ -761,15 +777,16 @@ struct OrgParser {
         let definition = item.definition
         let term = definition.map { inline($0[0]) }
         let firstLine = definition?[1] ?? item.content
+        let start = index
         index += 1
         let content = [firstLine] + collectListItemContinuation(indent: item.indent)
         if let term {
             output += "<dt>\(term)</dt><dd>"
-            return Child(lines: content, closing: "</dd>")
+            return Child(lines: content, startInParent: start, closing: "</dd>")
         }
         let task = orgCaptures(#"^\[([ Xx-])\]\s*([\s\S]*)$"#, firstLine) != nil
         output += task ? "<li class=\"task-list-item\">" : "<li>"
-        return Child(lines: content, isListItem: true, closing: "</li>")
+        return Child(lines: content, startInParent: start, isListItem: true, closing: "</li>")
     }
 
     private enum DelimitedRegion {

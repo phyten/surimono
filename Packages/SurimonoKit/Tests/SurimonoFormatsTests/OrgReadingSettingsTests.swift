@@ -50,6 +50,80 @@ struct OrgReadingSettingsTests {
         #expect(excerpt.tokenOffset == prefix.count && source.rawText == "toc:2")
     }
 
+    @Test("外部の設定の出典は原稿順に五行まで残し、再走査しても残りの件数が増えない")
+    func externalSettingsSources() throws {
+        let directives = [
+            "#+SETUPFILE: local.org", "  #+SetupFile: \"two words.org\"  ", "#+sEtUpFiLe: https://example.org/a",
+            "#+iNcLuDe: \"chapter.org\" :lines \"2-8\"", "#+INCLUDE: chapter.org",
+        ]
+        let lines = directives + Array(repeating: "#+setupfile: local.org", count: 100) + ["* Hidden :noexport:"]
+        let file = try #require(
+            OrgConverter.convert(lines.joined(separator: "\r\n"), fileName: "親.org").orgInstructions)
+        #expect(file.externalSettingsSources.map(\.lineNumber) == [1, 2, 3, 4, 5])
+        #expect(file.externalSettingsSources.allSatisfy { $0.fileName == "親.org" })
+        #expect(file.externalSettingsSources.compactMap(\.excerpt?.line) == directives)
+        #expect(file.additionalExternalSettingsCount == 100)
+        let quoted = try #require(file.externalSettingsSources.dropFirst().first)
+        #expect(quoted.excerpt?.previous == directives[0] && quoted.excerpt?.next == directives[2])
+        #expect(quoted.excerpt?.tokenOffset == 2)
+    }
+
+    @Test("引用・中央寄せ・特別ブロック内の外部指定は原稿の行で示し、中の OPTIONS は設定に使わない", arguments: ["quote", "center", "notice"])
+    func externalSettingsInBlocks(block: String) throws {
+        let lines = [
+            "#+TITLE: 原稿", "#+SETUPFILE: base.org", "", "#+begin_\(block)", "#+OPTIONS: num:t",
+            "  #+INCLUDE: \"chapter.org\"", "#+end_\(block)",
+        ]
+        let file = try #require(
+            OrgConverter.convert(lines.joined(separator: "\n"), fileName: "main.org").orgInstructions)
+        #expect(file.externalSettingsSources.map(\.lineNumber) == [2, 6])
+        let source = try #require(file.externalSettingsSources.last)
+        #expect(source.fileName == "main.org" && source.excerpt?.line == lines[5])
+        #expect(source.excerpt?.previous == lines[4] && source.excerpt?.next == lines[6])
+        #expect(!file.hasWholeDocumentInstructions)
+    }
+
+    @Test("リストの外部指定は引用や項目を入れ子にしても元の行番号と字下げを保つ")
+    func externalSettingsInList() throws {
+        let lines = [
+            "- 項目", "  #+include: a.org", "", "  - 内側", "    #+begin_quote",
+            "      #+include: b.org", "    #+end_quote", "    #+begin_src org",
+            "    #+include: 見本.org", "    #+end_src", "- #+include: 本文.org", "#+SETUPFILE: c.org",
+        ]
+        let file = try #require(OrgConverter.convert(lines.joined(separator: "\r\n")).orgInstructions)
+        #expect(file.externalSettingsSources.map(\.lineNumber) == [2, 6, 12])
+        #expect(file.externalSettingsSources.compactMap(\.excerpt?.line) == [lines[1], lines[5], lines[11]])
+        #expect(file.externalSettingsSources.compactMap(\.excerpt?.tokenOffset) == [2, 6, 0])
+    }
+
+    @Test("リテラルブロックや詩・プロパティ内の外部指定と本文中の類似文字列は注記にならない")
+    func ignoresLiteralExternalSettings() throws {
+        let directives = "#+SETUPFILE: example.org\n#+INCLUDE: other.org"
+        let blocks = ["src", "example", "export", "comment", "verse"].map {
+            "#+begin_\($0)\n\(directives)\n#+end_\($0)"
+        }
+        let text = (blocks + ["* 見出し", ":PROPERTIES:", directives, ":END:", "本文 #+SETUPFILE: x", "#+INCLUDES: y"])
+            .joined(separator: "\n")
+        let file = try #require(OrgConverter.convert(text).orgInstructions)
+        #expect(file.externalSettingsSources.isEmpty && file.additionalExternalSettingsCount == 0)
+    }
+
+    @Test("別のファイルの指定は本文・設定の変更件数・固定に影響しない")
+    func externalSettingsDoNotChangeReading() throws {
+        let body = "* One\n** Two"
+        var settings = OrgReadingSettings()
+        settings.set(.all, for: .sectionNumbers, file: .init())
+        let original = OrgConverter.convert(body, settings: settings)
+        let withNote = OrgConverter.convert(
+            "#+SETUPFILE: settings.org\n#+INCLUDE: other.org\n" + body, settings: settings)
+        let file = try #require(withNote.orgInstructions)
+        #expect(withNote.body == original.body && withNote.readingIssues == original.readingIssues)
+        #expect(!file.hasWholeDocumentInstructions)
+        #expect(!settings.resolve(.sectionNumbers, file: file).isLocked)
+        #expect(settings.document.changedCount(file: file) == 1 && settings.fileOverrideCount(file: file) == 0)
+        #expect(settings.document.optionsLine == "#+OPTIONS: num:t")
+    }
+
     @Test("見出しと本文位置の指定は注記になり、その項目を固定しない")
     func localNotes() throws {
         let source = "* One\n:PROPERTIES:\n:UNNUMBERED: t\n:END:\n#+TOC: headlines 2 local"
