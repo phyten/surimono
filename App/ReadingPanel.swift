@@ -339,6 +339,11 @@ struct ReadingMenu<Value: Hashable, Options: View>: View {
 }
 
 struct LockedReadingBadge: View {
+    /// The menu-style pop-up it stands in for is 24 pt tall from macOS 26 and 20 pt on macOS 15.
+    static var height: CGFloat {
+        if #available(macOS 26, *) { 24 } else { 20 }
+    }
+
     let valueLabel: Text
     let display: DisplayAccessibility.Options
 
@@ -353,7 +358,7 @@ struct LockedReadingBadge: View {
                 .frame(width: 10).fixedSize().accessibilityHidden(true)
         }
         .padding(.leading, 12).padding(.trailing, 8)
-        .frame(height: 24)
+        .frame(height: Self.height)
         .background(PrintPalette.color(.hover, options: display), in: CornerRole.control.shape)
         .overlay {
             if display.increasedContrast {
