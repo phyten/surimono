@@ -1,5 +1,5 @@
 extension DocumentFormat {
-    public var usesMarkdownReadingSettings: Bool { self == .markdown || self == .quarto || self == .rMarkdown }
+    public var usesFormatReadingSettings: Bool { [.markdown, .quarto, .rMarkdown, .rst, .mediawiki].contains(self) }
 }
 
 /// One persisted row in the new formats. Missing components follow the layer below.
@@ -38,9 +38,9 @@ public struct FormatReadingChoices: Codable, Equatable, Sendable {
     public init() {}
     public var isEmpty: Bool { formats.isEmpty && unlockedFormats.isEmpty }
 
-    /// Without a presence choice at any layer, Markdown keeps the style's heading counters.
-    public func usesStyleForMarkdownNumbers(
-        for format: DocumentFormat = .markdown, file: ReadingFileInstructions = .init(), defaults: Self = .init()
+    /// Without a presence choice at any layer, the reader keeps the style's heading counters.
+    public func usesStyleForSectionNumbers(
+        for format: DocumentFormat, file: ReadingFileInstructions = .init(), defaults: Self = .init()
     ) -> Bool {
         file.present == nil && choice(.sectionNumbers, for: format)?.present == nil
             && defaults.choice(.sectionNumbers, for: format)?.present == nil
@@ -87,9 +87,9 @@ public struct FormatReadingChoices: Codable, Equatable, Sendable {
             return .toggle(presence(shipped))
         case .outline(let present, let depth):
             return .outline(
-                present: presence(present),
+                present: presence(file.manuscriptDepth != nil || present),
                 depth: ReadingResolution(
-                    file: file.depth, document: document?.depth, app: app?.depth ?? depth,
+                    file: file.depth, document: document?.depth, app: app?.depth ?? file.manuscriptDepth ?? depth,
                     allowsFileChanges: allowsFileChanges))
         default: return nil
         }
@@ -117,7 +117,7 @@ public struct FormatReadingChoices: Codable, Equatable, Sendable {
         else { return }
         var choice = formats[format.rawValue]?[field] ?? ReadingChoice()
         func setPresence(_ value: Bool, _ present: ReadingResolution<Bool>) {
-            if format.usesMarkdownReadingSettings, id == .sectionNumbers, !value, !present.isLocked {
+            if format.usesFormatReadingSettings, id == .sectionNumbers, !value, !present.isLocked {
                 // An explicit None suppresses the style's counters even when the inherited value is false.
                 choice.present = false
             } else {

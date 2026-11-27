@@ -105,7 +105,7 @@ public struct PrintFinish: Codable, Hashable, Sendable {
     private enum ContentsRecord: Hashable, Sendable {
         case legacy(PaperTOC)
         case migrated(PaperTOC)
-        case current(ContentsFinish)
+        case current(ContentsFinish, rstLeadInText: Bool = false)
     }
     private var record = ContentsRecord.current(.init())
 
@@ -123,15 +123,23 @@ public struct PrintFinish: Codable, Hashable, Sendable {
         get {
             switch record {
             case .legacy(let toc), .migrated(let toc): ContentsFinish(legacy: toc)
-            case .current(let contents): contents
+            case .current(let contents, _): contents
             }
         }
-        set { record = .current(newValue) }
+        set { record = .current(newValue, rstLeadInText: keepsRSTLeadInText) }
     }
 
-    mutating func adoptContents(editing: Bool) {
-        if editing {
-            record = .current(contents)
+    /// Before the rST reading panel, even a leading manuscript directive was an in-text list.
+    package var keepsRSTLeadInText: Bool {
+        switch record {
+        case .legacy(let toc), .migrated(let toc): !toc.showsSourceContents
+        case .current(_, let rstLeadInText): rstLeadInText
+        }
+    }
+
+    mutating func adoptContents(editing: ContentsFinish.Edit?, format: DocumentFormat) {
+        if let editing {
+            record = .current(contents, rstLeadInText: keepsRSTLeadInText && !(format == .rst && editing == .lead))
         } else if case .legacy(let toc) = record {
             record = .migrated(toc)
         }
@@ -175,13 +183,16 @@ public struct PrintFinish: Codable, Hashable, Sendable {
 
     public init() {}
 
-    private enum CodingKeys: String, CodingKey { case breaks, toc, contents, migratedTOC, links, proof, footnotes }
+    private enum CodingKeys: String, CodingKey {
+        case breaks, toc, contents, migratedTOC, rstLeadInText, links, proof, footnotes
+    }
 
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         breaks = (try? values.decodeIfPresent(PageBreakRules.self, forKey: .breaks)) ?? PageBreakRules()
         if let finish = try? values.decode(ContentsFinish.self, forKey: .contents) {
-            contents = finish
+            let inText = (try? values.decode(Bool.self, forKey: .rstLeadInText)) ?? (finish.inText == .hidden)
+            record = .current(finish, rstLeadInText: inText)
         } else if let toc = try? values.decode(PaperTOC.self, forKey: .migratedTOC) {
             record = .migrated(toc)
         } else if let toc = try? values.decode(PaperTOC.self, forKey: .toc) {
@@ -198,7 +209,11 @@ public struct PrintFinish: Codable, Hashable, Sendable {
         switch record {
         case .legacy(let toc): try values.encode(toc, forKey: .toc)
         case .migrated(let toc): try values.encode(toc, forKey: .migratedTOC)
-        case .current(let finish): try values.encode(finish, forKey: .contents)
+        case .current(let finish, let rstLeadInText):
+            try values.encode(finish, forKey: .contents)
+            if finish.inText == .hidden || rstLeadInText {
+                try values.encode(rstLeadInText, forKey: .rstLeadInText)
+            }
         }
         if links != .asIs { try values.encode(links, forKey: .links) }
         if proof != .shown { try values.encode(proof, forKey: .proof) }

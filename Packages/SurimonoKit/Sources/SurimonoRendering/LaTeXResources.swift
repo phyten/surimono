@@ -52,7 +52,7 @@ extension DocumentRenderer {
 
     nonisolated static func markdownFragment(
         _ source: DocumentSource, pageBreakLine: String, proof: ProofMarks, mapsSource: Bool, contentsDepth: Int?,
-        reading: MarkdownReadingSettings,
+        reading: FormatReadingSettings,
         access: LocalResourceAccess?, onDenied: @escaping @Sendable () -> Void
     ) throws -> HTMLFragment {
         let text = try decodedText(source.data)

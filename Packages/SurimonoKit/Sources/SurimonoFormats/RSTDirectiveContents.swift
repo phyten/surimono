@@ -1,13 +1,19 @@
 import Foundation
 
 extension RSTDocument {
-    func finishDirectives(_ html: String) -> String {
-        guard directives.numbering != nil || !directives.contents.isEmpty else { return html }
+    func finishDirectives(_ html: String, options: FormatReadingSettings.Options, leadID: String?) -> String {
+        guard options.numbers != nil || !directives.contents.isEmpty else { return html }
         let sections = anchors.filter { !promotedHeadingIDs.contains($0.id) }
-        let numbers = rstSectionNumbers(sections)
+        let numbers = rstSectionNumbers(sections, depth: options.numbers)
         var nextEntry = 1
         var rendered: [String] = []
         for toc in directives.contents {
+            let isLead = toc.id == leadID
+            if isLead && options.lead == nil {
+                rendered.append("")
+                continue
+            }
+            let limit = isLead ? options.lead?.headingLevels ?? toc.depth : toc.depth
             let position = min(anchors.count, toc.position)
             var entries: [MarkdownExtensions.HeadingAnchor]
             if toc.local, position > 0, !promotedHeadingIDs.contains(anchors[position - 1].id) {
@@ -20,7 +26,7 @@ extension RSTDocument {
                 rendered.append("")
                 continue
             }
-            entries = entries.filter { $0.level - top < toc.depth }
+            entries = entries.filter { $0.level - top < limit }
             var body = ""
             var depth = 0
             for entry in entries {
@@ -41,7 +47,7 @@ extension RSTDocument {
             let label = toc.label.isEmpty ? (toc.local ? "" : "Contents") : toc.label
             let heading = label.isEmpty ? "" : "<p class=\"topic-title\">\(inline(label))</p>"
             let nav = "<nav class=\"toc\" id=\"\(HTML.escape(toc.id))\" role=\"doc-toc\">\(heading)\(body)</nav>"
-            rendered.append(ReaderContentsKind.text.mark(nav))
+            rendered.append((isLead ? ReaderContentsKind.lead : .text).mark(nav))
         }
         var result = html
         if !numbers.isEmpty {
@@ -59,23 +65,19 @@ extension RSTDocument {
         }
     }
 
-    private func rstSectionNumbers(_ entries: [MarkdownExtensions.HeadingAnchor]) -> [String: String] {
-        guard let options = directives.numbering, let top = entries.map(\.level).min() else { return [:] }
+    private func rstSectionNumbers(_ entries: [MarkdownExtensions.HeadingAnchor], depth: ReadingDepth?) -> [String:
+        String]
+    {
+        guard let depth, let top = entries.map(\.level).min() else { return [:] }
+        let options = directives.numbering ?? [:]
         let first = min(1_000_000, max(1, Int(options["start"] ?? "") ?? 1))
-        let maximum = max(0, Int(options["depth"] ?? "") ?? 6)
-        var counters: [Int] = []
+        var counters = SectionNumbers(start: first)
         var numbers: [String: String] = [:]
         for entry in entries {
             let index = entry.level - top
-            guard index < maximum else { continue }
-            counters = Array(counters.prefix(index + 1))
-            if counters.count <= index {
-                counters += Array(repeating: 0, count: index + 1 - counters.count)
-                if index == 0 { counters[0] = first - 1 }
-            }
-            counters[index] += 1
+            guard index < depth.headingLevels else { continue }
             numbers[entry.id] =
-                (options["prefix"] ?? "") + counters.map(String.init).joined(separator: ".")
+                (options["prefix"] ?? "") + counters.next(level: index + 1, trailingDot: false)
                 + (options["suffix"] ?? "") + " "
         }
         return numbers

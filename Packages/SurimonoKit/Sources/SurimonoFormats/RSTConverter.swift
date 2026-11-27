@@ -5,27 +5,27 @@ public enum RSTConverter {
     /// The callbacks run on the converter's own thread while the caller waits for it (`StackSpace.onLargeStack`):
     /// they must not need the caller's thread or actor, and do not see its task-local values.
     public static func convert(
-        _ source: String, directory: URL? = nil,
+        _ source: String, directory: URL? = nil, reading: FormatReadingSettings = .init(),
         permitsFile: @escaping @Sendable (URL) -> Bool = { _ in true }
     ) -> HTMLFragment {
         convert(
-            source, directory: directory, readsIncludes: true, permitsFile: permitsFile)
+            source, directory: directory, readsIncludes: true, reading: reading, permitsFile: permitsFile)
     }
 
     package static func convert(
-        _ source: String, directory: URL?, readsIncludes: Bool,
+        _ source: String, directory: URL?, readsIncludes: Bool, reading: FormatReadingSettings = .init(),
         permitsFile: @escaping @Sendable (URL) -> Bool = { _ in true }
     ) -> HTMLFragment {
         // On a stack of known size, so a document reads the same on every thread.
         StackSpace.onLargeStack {
             convertInPlace(
-                source, directory: directory, readsIncludes: readsIncludes,
+                source, directory: directory, readsIncludes: readsIncludes, reading: reading,
                 permitsFile: permitsFile)
         }
     }
 
     private static func convertInPlace(
-        _ source: String, directory: URL?, readsIncludes: Bool,
+        _ source: String, directory: URL?, readsIncludes: Bool, reading: FormatReadingSettings,
         permitsFile: @escaping (URL) -> Bool
     )
         -> HTMLFragment
@@ -34,19 +34,32 @@ public enum RSTConverter {
         var normalized = TextDecoding.normalizeNewlines(source)
         if normalized.first == "\u{feff}" { normalized.removeFirst() }
         var lines: [String] = []
-        for line in normalized.components(separatedBy: "\n") {
+        document.sourceLines = normalized.components(separatedBy: "\n")[...]
+        for line in document.sourceLines {
             if PreviewConversion.expired { return HTMLFragment(body: "") }
             lines.append(RSTDocument.expandTabs(line))
         }
         let body = document.blocks(lines)
         if PreviewConversion.expired { return HTMLFragment(body: "") }
         document.finishHeadingText()
-        let html = document.finishReferences(document.finishDirectives(body))
+        let directive = document.directives.lead
+        let lead = reading.keepsRSTLeadInText ? nil : directive
+        let options = reading.resolve(
+            for: .rst, numbers: document.directives.numbers, contents: lead?.instructions ?? .init(), contentsDepth: nil
+        )
+        let html = document.finishReferences(document.finishDirectives(body, options: options, leadID: lead?.id))
         let fonts = MathRenderer.fontFaces(for: html)
-        return HTMLFragment(
+        var fragment = HTMLFragment(
             body: html + (fonts.isEmpty ? "" : "<style>\(fonts)</style>"), title: document.title,
-            readingIssues: document.issueCount > 0 ? [String(document.issueCount)] : []
-        ).recordingContents()
+            readingIssues: document.issueCount > 0 ? [String(document.issueCount)] : [],
+            decidesHeadingNumbers: options.ownsNumbers
+        ).recordingContents(directive?.instructions ?? .init())
+        fragment.numberInstructions = document.directives.numbers
+        fragment.contentsTitle = lead.flatMap { $0.label.isEmpty ? nil : $0.label }
+        fragment.inTextContentsMarker = document.directives.contents.first(where: { $0.id != directive?.id }).map {
+            $0.local ? ":local:" : ($0.instructions.present?.source?.rawText ?? ".. contents::")
+        }
+        return lead == nil ? fragment.addingLeadContents(depth: options.lead) : fragment
     }
 }
 
@@ -56,6 +69,8 @@ final class RSTDocument {
     let readsIncludes: Bool
     var references = RSTReferences()
     var directives = RSTDirectiveState()
+    var sourceLines: ArraySlice<String> = []
+    weak var blockReader: RSTBlockReader?
     var anchors: [MarkdownExtensions.HeadingAnchor] = []
     var title: String?
     var promotedHeadingIDs: Set<String> = []
@@ -126,11 +141,18 @@ final class RSTDocument {
         }
         var output = ""
         var front = depth == 1
+        var beforeSections = front
         var open: [Int] = []
         for part in parts {
             switch part {
             case .body(let body):
+                if beforeSections, let first = directives.contents.first, !first.local,
+                    body == directives.marker(0)
+                {
+                    directives.lead = first
+                }
                 output += body
+                beforeSections = false
                 front = false
             case .fields(let rows, let attributes):
                 let html = renderFields(rows, docinfo: front)
@@ -149,6 +171,7 @@ final class RSTDocument {
                         ? "<h1 class=\"title\" id=\"\(id)\">\(content)</h1>"
                         : "<p class=\"subtitle\" id=\"\(id)\">\(content)</p>"
                 } else {
+                    beforeSections = false
                     front = false
                     while let last = open.last, last >= level {
                         open.removeLast()

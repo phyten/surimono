@@ -17,10 +17,10 @@ struct DocumentsChapterTests {
             ])
         #expect(
             DocumentsChapter.rows(for: .markdown).map(\.id) == [.sectionNumbers, .tableOfContents, .preserveBreaks])
-        for format in [DocumentFormat.quarto, .rMarkdown] {
+        for format in [DocumentFormat.quarto, .rMarkdown, .rst] {
             #expect(DocumentsChapter.rows(for: format).map(\.id) == [.sectionNumbers, .tableOfContents])
         }
-        for format in [DocumentFormat.rst, .asciidoc, .mediawiki] {
+        for format in [DocumentFormat.asciidoc, .mediawiki] {
             #expect(DocumentsChapter.rows(for: format).map(\.id) == [.tableOfContents])
         }
         #expect(CodeNumberRow.allCases.map(\.label.key) == ["Line Numbers", "Code Block Line Numbers"])
@@ -200,7 +200,9 @@ struct DocumentsChapterTests {
         let cases: [(String, DocumentFormat, String)] = [
             (".md", .markdown, "Heading Numbers"), (".qmd", .quarto, "Heading Numbers"),
             (".Rmd", .rMarkdown, "Heading Numbers"),
-            (".rst", .rst, contents), (".adoc", .asciidoc, contents), (".wiki", .mediawiki, contents),
+            (".rst", .rst, "Heading Numbers"), (".. sectnum::", .rst, "Heading Numbers"),
+            (".adoc", .asciidoc, contents),
+            (".wiki", .mediawiki, contents),
             (".mediawiki", .mediawiki, contents), (".org", .org, "Heading Numbers"),
             (".html", .html, "Default HTML Preset"), ("toc-depth", .markdown, contents),
             ("number-depth", .quarto, "Heading Numbers"), ("number_sections", .rMarkdown, "Heading Numbers"),
@@ -423,7 +425,8 @@ struct DocumentsChapterTests {
                 case .org: ["Heading Numbers", "Use Emacs Defaults…", "Reset to Defaults…"]
                 case .html: ["Default HTML Preset", "Allow JavaScript in HTML", "Open Presets Folder"]
                 case .plainText: ["Line Numbers", "Code Block Line Numbers", "Reset to Defaults…"]
-                case .quarto, .rMarkdown: ["Heading Numbers", "Table of Contents at the Top", "Reset to Defaults…"]
+                case .quarto, .rMarkdown, .rst:
+                    ["Heading Numbers", "Table of Contents at the Top", "Reset to Defaults…"]
                 default: ["Table of Contents at the Top", "Reset to Defaults…"]
                 }
             try await screen.wait("\(language), \(width), \(format), \(frames.rows)") {

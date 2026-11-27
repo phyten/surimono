@@ -8,7 +8,13 @@ extension RSTDocument {
         }
         depth += 1
         defer { depth -= 1 }
-        return RSTBlockReader(lines: lines, document: self, classes: classes).read()
+        let origin: Int?
+        if let parent = blockReader {
+            origin = parent.origin(forChild: lines)
+        } else {
+            origin = sourceLines.startIndex
+        }
+        return RSTBlockReader(lines: lines, document: self, classes: classes, origin: origin).read()
     }
 }
 
@@ -17,11 +23,25 @@ final class RSTBlockReader {
     let lines: [String]
     let document: RSTDocument
     private let classes: [String]
+    let origin: Int?
     var index = 0
+    var blockStart = 0
+    var sourceLine: Int? { origin.map { $0 + blockStart } }
+
+    /// Children can remove indentation, list markers and intervening blank lines.
+    /// Search only the consumed parent block, and only for children that can contribute a directive.
+    func origin(forChild child: [String]) -> Int? {
+        guard let origin, let offset = child.firstIndex(where: { $0.contains(".. ") }) else { return nil }
+        let consumed = blockStart..<min(lines.count, max(blockStart + 1, index))
+        let token = child[offset].rstStripped
+        return lines[consumed].firstIndex { $0.contains(token) }.map { origin + $0 - offset }
+    }
+
     private var parts: [RSTDocument.Part] = []
     lazy var simpleEnds = indexSimpleTables()
 
-    init(lines: [String], document: RSTDocument, classes: [String] = []) {
+    init(lines: [String], document: RSTDocument, classes: [String] = [], origin: Int?) {
+        self.origin = origin
         self.classes = classes
         self.lines = lines
         self.document = document
@@ -34,9 +54,13 @@ final class RSTBlockReader {
     }
 
     private func readParts() -> [RSTDocument.Part] {
+        let parent = document.blockReader
+        document.blockReader = self
+        defer { document.blockReader = parent }
         while index < lines.count {
             if PreviewConversion.expired { return [] }
             let first = lines[index]
+            blockStart = index
             if Self.blank(first) {
                 index += 1
                 continue
@@ -64,7 +88,9 @@ final class RSTBlockReader {
                     { nested in
                         document.directives.nextClasses = attributes.classes
                         document.references.pendingTargets = attributes.targets
-                        parts += RSTBlockReader(lines: nested, document: document, classes: classes).readParts()
+                        parts += RSTBlockReader(
+                            lines: nested, document: document, classes: classes, origin: document.sourceLines.startIndex
+                        ).readParts()
                     })
                 {
                     continue
@@ -278,6 +304,7 @@ final class RSTBlockReader {
             lines[index + 1].rstIndent > 0, !Self.blank(lines[index + 1]), listMarker(lines[index]) == nil,
             !lines[index].hasPrefix(".. "), field(lines[index]) == nil, option(lines[index]) == nil
         {
+            blockStart = index
             let terms = lines[index].components(separatedBy: " : ")
             html += "<dt>" + document.inline(terms[0])
             for classifier in terms.dropFirst() {

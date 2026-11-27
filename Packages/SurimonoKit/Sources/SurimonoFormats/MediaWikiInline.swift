@@ -1,11 +1,11 @@
 import Foundation
 
 extension WikiReader {
-    private static let pieces = WikiPattern(
+    static let inlineTokenPattern =
         "\u{E000}([0-9]+)\u{E001}([a-z]*)"
-            + #"|(?:https?://|mailto:)[^\s"<>\[\]\uE000]+"#
-            + #"|&(?:#\d+|#[xX][a-fA-F0-9]+|[a-zA-Z][a-zA-Z0-9]*);|__[A-Z][A-Z0-9_]*?__"#
-    )
+        + #"|(?:https?://|mailto:)[^\s"<>\[\]\uE000]+"#
+        + #"|&(?:#\d+|#[xX][a-fA-F0-9]+|[a-zA-Z][a-zA-Z0-9]*);|(__[A-Z][A-Z0-9_]*?__)"#
+    static let inlineTokens = WikiPattern(inlineTokenPattern)
     // Separator whitespace never belongs to the label, even when the closing bracket is missing.
     private static let bracketLink = WikiPattern(#"\[((?:https?://|mailto:)[^\s\[\]<>]++)(?:[ \t]++([^\[\]\n]*+))?\]"#)
     private static let quotes = WikiPattern("'{2,}")
@@ -100,19 +100,23 @@ extension WikiReader {
 
     private func pieces(_ text: String) -> String {
         guard !text.isEmpty else { return "" }
-        return Self.pieces.replace(text, plain: HTML.escape) { m in
+        return renderedInlineTokens.replace(text, plain: HTML.escape) { m in
             if let i = Int(m[1]), atoms.indices.contains(i) {
                 let a = atoms[i]
-                return a.kind == "link" ? link(a.body, trail: m[2]) : render(a) + m[2]
+                return a.kind == "link" ? render(a, trail: m[2]) : render(a) + m[2]
             }
             if m[0].hasPrefix("&") { return m[0] }
-            if m[0].hasPrefix("__") {
-                switch m[0] {
-                case "__FORCETOC__": forceTOC = true
+            if !m[3].isEmpty {
+                let word = m[3]
+                if permitsFileInstructions, switchOffsets[word] == nil, let offset = Int(m[4]) {
+                    switchOffsets[word] = offset
+                }
+                switch word {
+                case "__FORCETOC__":
+                    forceTOC = true
                 case "__TOC__" where !explicitTOC:
                     explicitTOC = true
-                    return later { [self] in hideTOC ? "" : MarkdownExtensions.tableOfContents(anchors) }
-                case "__NOTOC__": hideTOC = true
+                    return later { [self] in ReaderContentsKind.text.mark(MarkdownExtensions.tableOfContents(anchors)) }
                 default: break
                 }
                 return ""
@@ -141,11 +145,11 @@ extension WikiReader {
 
     func link(_ body: String, trail: String = "") -> String {
         let parts = body.components(separatedBy: "|")
-        let target = parts[0].wikiTrim
+        let target = untag(parts[0].wikiTrim)
         let ns = target.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
         let prefix = ns.count == 2 ? ns[0].lowercased() : ""
         if ["file", "image", "ファイル", "画像"].contains(prefix) {
-            return image(String(ns[1]), options: Array(parts.dropFirst())) + trail
+            return image(String(ns[1]), options: parts.dropFirst().map(untag)) + trail
         }
         if ["category", "カテゴリ", "カテゴリー"].contains(prefix) {
             let category = String(ns[1])
@@ -153,10 +157,11 @@ extension WikiReader {
             return trail
         }
         if Self.languages.contains(prefix) { return trail }
-        let page = target.hasPrefix(":") ? String(target.dropFirst()) : target
+        let marked = parts[0].wikiTrim
+        let page = marked.hasPrefix(":") ? String(marked.dropFirst()) : marked
         var label = parts.count == 1 ? page : parts.dropFirst().joined(separator: "|")
         if label.isEmpty {
-            label = (ns.last.map(String.init) ?? page).replacingOccurrences(
+            label = (ns.last.map(String.init) ?? untag(page)).replacingOccurrences(
                 of: #"\s*\([^()]*\)$|,.*$"#, with: "", options: .regularExpression)
         }
         let content = inline(label) + trail
@@ -178,7 +183,13 @@ extension WikiReader {
         return plain
     }
 
-    func render(_ a: Atom, block: Bool = false, display: Bool = false) -> String {
+    func render(_ a: Atom, block: Bool = false, display: Bool = false, trail: String = "") -> String {
+        let permitted = permitsFileInstructions
+        permitsFileInstructions =
+            permitted && a.permitsFileInstructions && a.kind != "template" && a.kind != "parameter"
+        defer {
+            permitsFileInstructions = permitted
+        }
         switch a.kind {
         case "external":
             if a.body.isEmpty { external += 1 }
@@ -198,7 +209,7 @@ extension WikiReader {
             let content = a.body.isEmpty ? nil : inline(a.body)
             return references.add(content, name: a.attrs["name"], group: a.attrs["group"] ?? "")
         case "references": return referenceList(a.attrs["group"] ?? "")
-        case "link": return link(a.body)
+        case "link": return link(a.body, trail: trail)
         case "template", "parameter": return template(a.body, block: block)
         case "gallery":
             var figures = ""

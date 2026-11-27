@@ -98,15 +98,35 @@ extension WikiReader {
             }
         }
 
-        func region(_ start: Int, _ end: Int, _ bounds: NSRange, _ nesting: Int) -> String {
+        // Tag source words before grouping. Only words actually consumed by the inline reader can fix a row.
+        func plain(_ range: NSRange, tracksSwitches: Bool) -> String {
+            let text = source.substring(with: range)
+            guard tracksSwitches, text.contains("__") else { return text }
+            let part = text as NSString
+            var tagged = ""
+            var cursor = 0
+            Self.inlineTokens.forEachMatch(in: text) { match in
+                let word = part.substring(with: match.range)
+                guard word == "__NOTOC__" || word == "__FORCETOC__" else { return }
+                let end = NSMaxRange(match.range)
+                tagged += part.substring(with: NSRange(location: cursor, length: end - cursor))
+                tagged += switchTag + String(range.location + match.range.location) + "\u{E007}"
+                cursor = end
+            }
+            return cursor == 0 ? text : tagged + part.substring(from: cursor)
+        }
+
+        func region(_ start: Int, _ end: Int, _ bounds: NSRange, _ nesting: Int, permitsInstructions: Bool) -> String {
             var text = ""
+            var tracksSwitches = permitsInstructions
             var cursor = bounds.location
             var i = start
             while i < end {
                 if PreviewConversion.expired { return "" }
                 let t = tokens[i]
                 let raw = source.substring(with: t.range)
-                text += source.substring(with: NSRange(location: cursor, length: t.range.location - cursor))
+                text += plain(
+                    NSRange(location: cursor, length: t.range.location - cursor), tracksSwitches: tracksSwitches)
                 cursor = NSMaxRange(t.range)
                 let name = t.kind
                 if Self.allowed.contains(name) {
@@ -122,20 +142,25 @@ extension WikiReader {
                     } else if name != "!--" {
                         let content =
                             ["ref", "poem", "gallery"].contains(name) && nesting < 24
-                            ? region(i + 1, close, interior, nesting + 1) : source.substring(with: interior)
+                            ? region(i + 1, close, interior, nesting + 1, permitsInstructions: tracksSwitches)
+                            : source.substring(with: interior)
                         text += atom(name, content, Self.attributes(raw))
                     }
                     cursor = NSMaxRange(tokens[close].range)
                     i = close
                 } else {
                     text += atom("literal", raw)
+                    if !t.closing, t.mate == nil, ["!--", "nowiki", "pre", "syntaxhighlight", "source"].contains(name) {
+                        tracksSwitches = false
+                    }
                 }
                 i += 1
             }
-            text += source.substring(with: NSRange(location: cursor, length: NSMaxRange(bounds) - cursor))
+            text += plain(
+                NSRange(location: cursor, length: NSMaxRange(bounds) - cursor), tracksSwitches: tracksSwitches)
             return groupBraces(text)
         }
-        return region(0, tokens.count, NSRange(location: 0, length: source.length), 0)
+        return region(0, tokens.count, NSRange(location: 0, length: source.length), 0, permitsInstructions: true)
     }
 
     // Pair delimiters before descending. An unmatched opener costs one stack entry and never rescans its suffix.
@@ -183,8 +208,9 @@ extension WikiReader {
                         let body = region(i + 1, close, NSMaxRange(t.range), tail.location, nesting + 1)
                         output += atom(t.kind, body)
                     } else {
-                        output += source.substring(
-                            with: NSRange(location: t.range.location, length: NSMaxRange(tail) - t.range.location))
+                        output += withoutFileInstructions(
+                            source.substring(
+                                with: NSRange(location: t.range.location, length: NSMaxRange(tail) - t.range.location)))
                     }
                     cursor = NSMaxRange(tail)
                     i = close
@@ -193,6 +219,23 @@ extension WikiReader {
             }
             return output + source.substring(with: NSRange(location: cursor, length: finish - cursor))
         }
-        return region(0, tokens.count, 0, source.length, 0)
+        // An unmatched opener stays literal in the permissive parser. Its apparent
+        // arguments cannot authorize discarding a document setting.
+        guard let unmatched = stack.first else { return region(0, tokens.count, 0, source.length, 0) }
+        let boundary = tokens[unmatched].range.location
+        let before = region(0, unmatched, 0, boundary, 0)
+        let remainder = region(unmatched, tokens.count, boundary, source.length, 0)
+        return before + withoutFileInstructions(remainder)
+    }
+
+    private func withoutFileInstructions(_ remainder: String) -> String {
+        let text = remainder as NSString
+        Self.inlineTokens.forEachMatch(in: remainder) { match in
+            let id = match.range(at: 1)
+            if id.location != NSNotFound, let index = Int(text.substring(with: id)), atoms.indices.contains(index) {
+                atoms[index].permitsFileInstructions = false
+            }
+        }
+        return untag(remainder)
     }
 }

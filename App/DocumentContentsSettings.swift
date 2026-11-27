@@ -18,7 +18,7 @@ enum ContentsFinishRow: Hashable {
                 rows.insert(.contents)
             }
         } else if format.usesPrintTheme {
-            if format != .org && !format.usesMarkdownReadingSettings { rows.insert(.lead) }
+            if format != .org && !format.usesFormatReadingSettings { rows.insert(.lead) }
             if hasLead || finish.legacyTOC?.mode == .front {
                 rows.insert(.layout)
                 if finish.contents.placement == .page { rows.insert(.look) }
@@ -80,8 +80,8 @@ extension DocumentViewModel {
         formatReading = document.formatReading
     }
 
-    func migrateContents(editing: Bool = false) {
-        guard editing || printFinish.originalPresetContents != nil, let contentsFacts else { return }
+    func migrateContents(editing: ContentsFinish.Edit? = nil) {
+        guard editing != nil || printFinish.originalPresetContents != nil, let contentsFacts else { return }
         var document = rememberedSettings
         guard
             document.migrateContents(
@@ -99,7 +99,7 @@ extension DocumentViewModel {
     }
 
     func editContents<Value>(_ key: WritableKeyPath<ContentsFinish, Value>, _ value: Value) {
-        if printFinish.legacyTOC != nil { migrateContents(editing: true) }
+        if printFinish.legacyTOC != nil { migrateContents(editing: .finish) }
         printFinish.contents[keyPath: key] = value
     }
 }

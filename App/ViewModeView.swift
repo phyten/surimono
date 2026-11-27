@@ -53,7 +53,7 @@ struct ViewModeView: View {
                     if model.offersOrgReading {
                         OrgReadingPanel(model: model)
                     } else {
-                        MarkdownReadingPanel(model: model)
+                        FormatReadingPanel(model: model)
                     }
                 }
             }

@@ -654,7 +654,8 @@ struct PrintModeTests {
 
         @Test(
             "幅460ptの印刷設定は八言語・左右両方向で各見出し・区切り線・選択欄が両端に収まる",
-            arguments: [DocumentFormat.markdown, .quarto, .rMarkdown, .asciidoc, .latex], [true, false])
+            arguments: [DocumentFormat.markdown, .quarto, .rMarkdown, .rst, .mediawiki, .asciidoc, .latex],
+            [true, false])
         func finishPanelFrames(format: DocumentFormat, hasContents: Bool) async throws {
             let fixture = Fixture()
             fixture.preferences.layoutID = PrintLayout.a4Single.id
@@ -662,6 +663,13 @@ struct PrintModeTests {
             if format == .latex {
                 let lists = hasContents ? #"\tableofcontents\listoffigures\listoftables"# : ""
                 source = #"\documentclass{article}\begin{document}\section{Alpha}\#(lists)\end{document}"#
+            } else if format == .rst {
+                source =
+                    hasContents
+                    ? ".. contents::\n\nAlpha\n=====\n\n.. contents::\n   :local:\n\nBravo\n-----\n\nOther\n====="
+                    : "Alpha\n====="
+            } else if format == .mediawiki {
+                source = hasContents ? "__FORCETOC__\n== Alpha ==\n__TOC__\n=== Bravo ===" : "== Alpha =="
             } else if format == .asciidoc {
                 source = hasContents ? "= Book\n:toc:\n\n== Alpha\n\ntoc::[]\n\n=== Bravo" : "= Book\n\n== Alpha"
             } else if format == .rMarkdown {

@@ -2,7 +2,7 @@ import Foundation
 
 public enum ComputationalMarkdown {
     public static func convert(
-        _ text: String, format: DocumentFormat = .quarto, reading: MarkdownReadingSettings = .init(),
+        _ text: String, format: DocumentFormat = .quarto, reading: FormatReadingSettings = .init(),
         pageBreakLine: String = "", proof: ProofMarks = .shown, contentsDepth: Int? = nil,
         proposedLeadDepth: Int? = nil
     ) -> HTMLFragment {
@@ -37,7 +37,7 @@ public enum ComputationalMarkdown {
             readingIssues: fragment.readingIssues, decidesHeadingNumbers: options.ownsNumbers
         ).recordingContents(file.contents)
         result.numberInstructions = file.numbers
-        result.markdownContentsMarker = fragment.markdownContentsMarker
+        result.inTextContentsMarker = fragment.inTextContentsMarker
         if file.contents.present?.value != true, let depth = options.lead?.headingLevels ?? proposedLeadDepth {
             let html = document.contents(depth: depth)
             result.proposedLeadContents = .init(depth: depth, html: html)

@@ -131,6 +131,7 @@ extension RSTBlockReader {
         var next = first
         var value = first.value
         while true {
+            blockStart = index
             index += 1
             var item = [next.body]
             let separated = index < lines.count && Self.blank(lines[index])
@@ -164,6 +165,7 @@ extension RSTBlockReader {
     func fields() -> [(String, String)] {
         var rows: [(String, String)] = []
         while index < lines.count, let (name, first) = field(lines[index]) {
+            blockStart = index
             index += 1
             let separated = index < lines.count && Self.blank(lines[index])
             let content = document.blocks([first] + (separated ? [""] : []) + indented())
@@ -192,6 +194,7 @@ extension RSTBlockReader {
     func options() -> String {
         var html = "<dl class=\"option-list\">"
         while index < lines.count, let option = option(lines[index]) {
+            blockStart = index
             index += 1
             let terms = option.terms.components(separatedBy: ", ").map { term -> String in
                 guard let sep = term.firstIndex(where: { $0 == " " || $0 == "=" }) else { return HTML.escape(term) }

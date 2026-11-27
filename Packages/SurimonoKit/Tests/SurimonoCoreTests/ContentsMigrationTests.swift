@@ -4,6 +4,10 @@ import Testing
 
 struct ContentsMigrationTests {
     private func readingFacts(for format: DocumentFormat) -> DocumentFacts {
+        if format == .rst {
+            return DocumentFacts(fragment: RSTConverter.convert(".. sectnum::\n\n.. contents::\n\nA\n==="))
+        }
+        if format == .mediawiki { return DocumentFacts(fragment: MediaWikiConverter.convert("__FORCETOC__\n== A ==")) }
         let header =
             format == .rMarkdown
             ? "output:\n  pdf_document:\n    toc: true\n    number_sections: true"
@@ -31,66 +35,150 @@ struct ContentsMigrationTests {
         let expected = document
         document.formatReading.setAllowsFileChanges(true, for: format)
         #expect(
-            document.lockMarkdownFileInstructions(for: format, facts: facts, generation: 1, defaults: .init())
+            document.lockReadingFileInstructions(for: format, facts: facts, generation: 1, defaults: .init())
                 == .finished)
         #expect(document == expected)
     }
 
-    @Test("固定を戻す確認は承認まで保存せず、設定・原稿世代の変化で古い承認を無効にする", arguments: [DocumentFormat.markdown, .quarto, .rMarkdown])
-    func markdownLockConfirmation(format: DocumentFormat) throws {
+    @Test(
+        "読めない rST と Wiki の指定で固定を戻しても他形式を含む保存値が残る",
+        arguments: [DocumentFormat.rst, .mediawiki])
+    func ambiguousManuscriptKeepsChoices(format: DocumentFormat) {
+        let fragment =
+            format == .rst
+            ? RSTConverter.convert(".. sectnum::\n   :depth: 0\n\n.. contents::\n   :unknown: yes\n\nA\n===")
+            : MediaWikiConverter.convert("{{nowrap|__FORCETOC__}}\n== A ==")
+        var document = DocumentSettings()
+        let formats: [DocumentFormat] = [.markdown, .quarto, .rMarkdown, .rst, .mediawiki]
+        let facts = DocumentFacts(fragment: fragment)
+        for (index, other) in formats.enumerated() {
+            document.formatReading.set(
+                .outline(present: true, depth: .levels(index + 1)), for: .tableOfContents, format: other)
+            document.formatReading.set(
+                other == .rMarkdown ? .toggle(false) : .outline(present: false, depth: .all), for: .sectionNumbers,
+                format: other)
+        }
+        let expected = document
+        document.formatReading.setAllowsFileChanges(true, for: format)
+        #expect(
+            document.lockReadingFileInstructions(for: format, facts: facts, generation: 1, defaults: .init())
+                == .finished)
+        #expect(document == expected)
+    }
+
+    @Test("五形式の読み手は同じ設定から自分の形式の目次だけを選ぶ")
+    func separateReaderSettings() throws {
+        let formats: [DocumentFormat] = [.markdown, .quarto, .rMarkdown, .rst, .mediawiki]
+        for selected in formats {
+            var reading = FormatReadingSettings()
+            reading.defaults.set(.outline(present: true, depth: .levels(1)), for: .tableOfContents, format: selected)
+            for format in formats {
+                let fragment: HTMLFragment
+                switch format {
+                case .markdown: fragment = MarkdownConverter.convert("# A\n\n# B", reading: reading)
+                case .rst: fragment = RSTConverter.convert("One\n===\n\nTwo\n===", reading: reading)
+                case .mediawiki: fragment = MediaWikiConverter.convert("== A ==\n== B ==", reading: reading)
+                default: fragment = ComputationalMarkdown.convert("# A\n\n# B", format: format, reading: reading)
+                }
+                #expect(
+                    fragment.contentsKinds.values.contains(.lead) == (format == selected), "\(selected) → \(format)")
+            }
+        }
+    }
+
+    @Test(
+        "固定を戻す確認は承認まで保存せず、設定・原稿世代の変化で古い承認を無効にする",
+        arguments: [DocumentFormat.markdown, .quarto, .rMarkdown, .rst, .mediawiki])
+    func readingLockConfirmation(format: DocumentFormat) throws {
         let facts = readingFacts(for: format)
         var document = DocumentSettings()
         document.formatReading.setAllowsFileChanges(true, for: format)
         document.formatReading.set(
             .outline(present: false, depth: .all), for: .tableOfContents, format: format,
             file: facts.contentsInstructions)
-        func proposal(_ result: MarkdownFileLockResult) throws -> MarkdownDiscardConfirmation {
-            let value: MarkdownDiscardConfirmation? =
+        func proposal(_ result: ReadingFileLockResult) throws -> ReadingDiscardConfirmation {
+            let value: ReadingDiscardConfirmation? =
                 if case .needsConfirmation(let pending) = result { pending } else { nil }
             return try #require(value)
         }
         let original = document
         let canceled = try proposal(
-            document.lockMarkdownFileInstructions(for: format, facts: facts, generation: 1, defaults: .init()))
+            document.lockReadingFileInstructions(for: format, facts: facts, generation: 1, defaults: .init()))
         #expect(canceled.count == 1 && document == original)
         // Cancel simply drops the proposal. Asking again must leave exactly the same settings.
         let again = try proposal(
-            document.lockMarkdownFileInstructions(for: format, facts: facts, generation: 1, defaults: .init()))
+            document.lockReadingFileInstructions(for: format, facts: facts, generation: 1, defaults: .init()))
         #expect(again == canceled && document == original)
-        document.formatReading.set(.toggle(true), for: .preserveBreaks, format: .markdown)
+        document.formatReading.set(
+            .outline(present: true, depth: .levels(1)), for: .tableOfContents, format: format,
+            file: facts.contentsInstructions)
+        document.formatReading.set(
+            .outline(present: false, depth: .levels(1)), for: .tableOfContents, format: format,
+            file: facts.contentsInstructions)
         let changed = document
         let revised = try proposal(
-            document.lockMarkdownFileInstructions(
+            document.lockReadingFileInstructions(
                 for: format, facts: facts, generation: 1, defaults: .init(), confirming: again))
         #expect(revised != again && document == changed)
         #expect(
-            document.lockMarkdownFileInstructions(
+            document.lockReadingFileInstructions(
                 for: format, facts: nil, generation: 2, defaults: .init(), confirming: revised)
                 == .awaitingInstructions)
         let reloaded = try proposal(
-            document.lockMarkdownFileInstructions(
+            document.lockReadingFileInstructions(
                 for: format, facts: facts, generation: 2, defaults: .init(), confirming: revised))
         #expect(reloaded != revised && document == changed)
         var defaults = FormatReadingChoices()
-        defaults.set(
-            format == .rMarkdown ? .toggle(true) : .outline(present: true, depth: .all), for: .sectionNumbers,
-            format: format)
+        defaults.set(.outline(present: true, depth: .levels(2)), for: .tableOfContents, format: format)
         let current = try proposal(
-            document.lockMarkdownFileInstructions(
+            document.lockReadingFileInstructions(
                 for: format, facts: facts, generation: 2, defaults: defaults, confirming: reloaded)
         )
         #expect(current != reloaded && document == changed)
         #expect(
-            document.lockMarkdownFileInstructions(
+            document.lockReadingFileInstructions(
                 for: format, facts: facts, generation: 2, defaults: defaults, confirming: current)
                 == .finished)
         var expected = FormatReadingChoices()
-        expected.set(.toggle(true), for: .preserveBreaks, format: .markdown)
+        expected.set(
+            .outline(present: true, depth: .levels(1)), for: .tableOfContents, format: format,
+            file: facts.contentsInstructions)
         #expect(document.formatReading == expected)
     }
 
+    @Test("別形式の承認では固定を戻せず、承認した形式の変更だけが消える")
+    func confirmationBelongsToFormat() throws {
+        var document = DocumentSettings()
+        let formats: [DocumentFormat] = [.rst, .mediawiki]
+        for format in formats {
+            document.formatReading.setAllowsFileChanges(true, for: format)
+            document.formatReading.set(
+                .outline(present: false, depth: .all), for: .tableOfContents,
+                format: format, file: readingFacts(for: format).contentsInstructions)
+        }
+        let original = document
+        func ask(_ format: DocumentFormat, confirming: ReadingDiscardConfirmation? = nil) -> ReadingFileLockResult {
+            document.lockReadingFileInstructions(
+                for: format, facts: readingFacts(for: format), generation: 3,
+                defaults: .init(), confirming: confirming)
+        }
+        guard case .needsConfirmation(let rst) = ask(.rst),
+            case .needsConfirmation(let wiki) = ask(.mediawiki, confirming: rst)
+        else {
+            Issue.record("形式ごとの承認が必要")
+            return
+        }
+        #expect(document == original && rst != wiki)
+        #expect(ask(.mediawiki, confirming: wiki) == .finished)
+        #expect(document.formatReading.restricted(to: [.rst]) == original.formatReading.restricted(to: [.rst]))
+        #expect(document.formatReading.restricted(to: [.mediawiki]).isEmpty)
+        // Completing the Wiki confirmation must not invalidate the pending rST confirmation.
+        #expect(ask(.rst, confirming: rst) == .finished)
+        #expect(document.formatReading.isEmpty)
+    }
+
     @Test("確認の間に破棄するものがなくなったら、古い承認のままでも固定を戻す", arguments: [false, true])
-    func markdownLockAfterNothingLeft(instructionRemoved: Bool) throws {
+    func readingLockAfterNothingLeft(instructionRemoved: Bool) throws {
         let facts = DocumentFacts(fragment: MarkdownConverter.convert("---\ntoc: true\n---\n# A"))
         var document = DocumentSettings()
         document.formatReading.setAllowsFileChanges(true, for: .markdown)
@@ -99,8 +187,8 @@ struct ContentsMigrationTests {
             file: facts.contentsInstructions)
         document.formatReading.set(.toggle(true), for: .preserveBreaks, format: .markdown)
         guard
-            case .needsConfirmation(let pending) = document.lockMarkdownFileInstructions(
-                facts: facts, generation: 1, defaults: .init())
+            case .needsConfirmation(let pending) = document.lockReadingFileInstructions(
+                for: .markdown, facts: facts, generation: 1, defaults: .init())
         else {
             Issue.record("The first request asks before discarding")
             return
@@ -114,7 +202,8 @@ struct ContentsMigrationTests {
         var expected = document.formatReading
         expected.setAllowsFileChanges(false, for: .markdown)
         #expect(
-            document.lockMarkdownFileInstructions(facts: later, generation: 2, defaults: .init(), confirming: pending)
+            document.lockReadingFileInstructions(
+                for: .markdown, facts: later, generation: 2, defaults: .init(), confirming: pending)
                 == .finished)
         // Only the permission goes: the remaining choices no longer contradict the file.
         #expect(document.formatReading == expected)
@@ -123,8 +212,8 @@ struct ContentsMigrationTests {
 
     @Test(
         "固定を戻すと原稿が指定した成分だけを消し、旧仕上げから移した深さか文書で選んだ深さを保つ",
-        arguments: [DocumentFormat.markdown, .quarto, .rMarkdown], [false, true])
-    func markdownLockMigratesContents(format: DocumentFormat, editedDepth: Bool) throws {
+        arguments: [DocumentFormat.markdown, .quarto, .rMarkdown, .rst, .mediawiki], [false, true])
+    func readingLockMigratesContents(format: DocumentFormat, editedDepth: Bool) throws {
         let facts = readingFacts(for: format)
         var finish = PrintFinish()
         finish.legacyPresetContents.mode = .front
@@ -143,14 +232,14 @@ struct ContentsMigrationTests {
             file: facts.numberInstructions)
         document.formatReading.set(.toggle(true), for: .preserveBreaks, format: .markdown)
         let original = document
-        let result = document.lockMarkdownFileInstructions(for: format, facts: facts, generation: 1, defaults: .init())
+        let result = document.lockReadingFileInstructions(for: format, facts: facts, generation: 1, defaults: .init())
         guard case .needsConfirmation(let approval) = result else {
             Issue.record("原稿の指定に戻す確認がない")
             return
         }
-        #expect(approval.count == 2 && document == original)
+        #expect(approval.count == (format == .mediawiki ? 1 : 2) && document == original)
         #expect(
-            document.lockMarkdownFileInstructions(
+            document.lockReadingFileInstructions(
                 for: format, facts: facts, generation: 1, defaults: .init(), confirming: approval)
                 == .finished)
         #expect(!document.formatReading.allowsFileChanges(for: format))
@@ -229,10 +318,27 @@ struct ContentsMigrationTests {
             let automatic = document.migrateContents(format: format, facts: facts)
             #expect(!automatic)
             #expect(finish.contentsBody(fragment, facts: facts, format: format, lead: .all) == fragment.body)
-            let edited = document.migrateContents(format: format, facts: facts, editing: true)
+            let edited = document.migrateContents(format: format, facts: facts, editing: .lead)
             #expect(edited)
             #expect(document.printFinish?.legacyTOC == nil)
         }
+    }
+
+    @Test("旧版の目次は仕上げや別形式の編集で移行せず、rST の先頭目次を戻すと移行する", arguments: ["toc", "migratedTOC"])
+    func rstLeadMigration(record: String) throws {
+        let json = "{\"\(record)\":{\"mode\":\"hidden\"}}"
+        let finish = try JSONDecoder().decode(PrintFinish.self, from: Data(json.utf8))
+        var document = DocumentSettings(printFinish: finish)
+        let facts = DocumentFacts(fragment: RSTConverter.convert(".. contents:: Map\n\nOne\n===\n\nTwo\n==="))
+        _ = document.migrateContents(format: .rst, facts: facts, editing: .finish)
+        document.printFinish?.contents.inText = .asWritten
+        document = try JSONDecoder().decode(DocumentSettings.self, from: JSONEncoder().encode(document))
+        document.printFinish?.contents.inText = .hidden
+        document.setLeadContents(.levels(1), format: .markdown, facts: nil, defaults: .init(), orgDefaults: .surimono)
+        #expect(document.printFinish?.keepsRSTLeadInText == true)
+        let adopted = document.migrateContents(format: .rst, facts: facts, editing: .lead)
+        #expect(adopted && document.printFinish?.keepsRSTLeadInText == false)
+        #expect(document.printFinish?.contents.inText == .hidden)
     }
 
     @Test("旧形式の文書・新規文書の仕上げ・設定セットを再保存しても保留中の目次を失わない")
@@ -267,10 +373,10 @@ struct ContentsMigrationTests {
         var saved = DocumentSettings(printFinish: old)
         let automatic = saved.migrateContents(format: .markdown, facts: facts)
         #expect(!automatic)
-        let first = saved.migrateContents(format: .markdown, facts: facts, editing: true)
+        let first = saved.migrateContents(format: .markdown, facts: facts, editing: .lead)
         #expect(first)
         saved.printFinish?.contents.inText = .asWritten
-        let second = saved.migrateContents(format: .markdown, facts: facts, editing: true)
+        let second = saved.migrateContents(format: .markdown, facts: facts, editing: .lead)
         #expect(!second)
         #expect(saved.formatReading.leadContents(for: .markdown, file: facts.contentsInstructions) == .levels(3))
         #expect(saved.printFinish?.contents.inText == .asWritten)
