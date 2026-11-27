@@ -79,6 +79,9 @@ enum PrintIssueAnchors {
           });
           const overflowing = blocks.filter(({el}) => {
             if (!visible(el) || (el.tagName === 'IMG' && el.naturalWidth === 0)) return false;
+            // TableFit has fitted this table to the printed column, which is wider than
+            // the view this check measures in; on paper it no longer overflows.
+            if (globalThis.surimonoFittedTables?.has(el)) return false;
             const container = el.parentElement;
             if (!container) return false;
             const width = Math.min(contentWidth(container), contentWidth(document.body));

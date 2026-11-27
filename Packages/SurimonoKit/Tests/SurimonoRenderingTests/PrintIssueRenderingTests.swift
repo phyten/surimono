@@ -143,7 +143,7 @@ struct PrintIssueRenderingTests {
         #expect(PrintIssueAnchors.imageFailure(file, access: nil) == .missing)
     }
 
-    @Test("画像と表と壊れた数式のページを返し出力には専用リンクを残さない", .timeLimit(.minutes(1)))
+    @Test("画像と幅の広い図と壊れた数式のページを返し出力には専用リンクを残さない", .timeLimit(.minutes(1)))
     func actualPages() async throws {
         _ = NSApplication.shared
         let markdown = """
@@ -151,7 +151,7 @@ struct PrintIssueRenderingTests {
 
             <p style="break-before:page"><img src="file:///surimono-missing/flow.png" alt="Flow"></p>
 
-            <table style="break-before:page; width:1200px; min-width:1200px"><tr><td>Wide table</td></tr></table>
+            <figure style="break-before:page; width:1200px; min-width:1200px">Wide figure</figure>
 
             <p style="break-before:page">Formula</p>
 
@@ -175,7 +175,7 @@ struct PrintIssueRenderingTests {
         }
     }
 
-    @Test("80・120・200パーセントでも収まるコードと表は報告せず本文より広い表だけを検出する", .timeLimit(.minutes(1)))
+    @Test("80・120・200パーセントでも調整した表は報告せず本文より広い図だけを検出する", .timeLimit(.minutes(1)))
     func overflowAtTextScales() async throws {
         _ = NSApplication.shared
         let source = DocumentSource(
@@ -184,7 +184,8 @@ struct PrintIssueRenderingTests {
                 <section style="padding:12px 24px;border:2px solid transparent">
                 <pre style="width:100%;box-sizing:border-box">Fits</pre>
                 <table style="width:100%;box-sizing:border-box"><tr><td>Fits</td></tr></table>
-                <table style="width:115%;min-width:115%;max-width:none"><tr><td>Too wide</td></tr></table>
+                <table style="width:115%;min-width:115%;max-width:none"><tr><td>Fitted</td></tr></table>
+                <figure style="width:115%;margin:0">Too wide</figure>
                 </section>
                 """.utf8), format: .markdown)
         let renderer = DocumentRenderer()
@@ -194,7 +195,7 @@ struct PrintIssueRenderingTests {
             settings.textScale = scale
             let result = try await renderer.render(source, settings: settings)
             #expect(result.issues.map(\.kind) == [.overflow])
-            #expect(result.issues.map(\.element) == [.table])
+            #expect(result.issues.map(\.element) == [.figure])
             keys.append(try #require(result.issues.first?.locationKey))
         }
         #expect(Set(keys).count == 1)
@@ -210,7 +211,7 @@ struct PrintIssueRenderingTests {
 
                 ![Second](file:///surimono-missing/flow.png)
 
-                <table style="width:400px;min-width:400px;max-width:none"><tr><td>Table</td></tr></table>
+                <figure style="width:400px;margin:0">Figure</figure>
 
                 $$\\frac{1$$
 

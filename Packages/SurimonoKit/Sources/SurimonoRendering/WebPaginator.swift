@@ -268,7 +268,8 @@ public final class WebPaginator: NSObject {
     public func paginateWithResult(
         _ source: Source, pageSize: CGSize, margins: Margins, allowsJavaScript: Bool,
         printsBackgrounds: Bool = true, preparationScript: String? = nil, readsPageRules: Bool = false,
-        drawsBackground: Bool = true, rendersMermaid: Bool = false, rendersDiagrams: Bool = false,
+        drawsBackground: Bool = true, fitsTables: Bool = false, rendersMermaid: Bool = false,
+        rendersDiagrams: Bool = false,
         collectsDiagrams: Bool = false, indexesFormulas: Bool = false, exportHTMLTitle: String? = nil,
         richText: Bool = false,
         richTextTypeface: Typeface = .style, htmlComposition: HTMLComposition? = nil,
@@ -365,6 +366,18 @@ public final class WebPaginator: NSObject {
                 ) { script in
                     try await self.runPreparationScript(script, in: session.webView, timeout: timeout)
                 }
+            }
+            if fitsTables {
+                // Measured as the print lays the page out: print media, and the column the print keeps, cut
+                // back to whole points (`Margins.wholeColumn(in:)`). Before the preparation, so that what it
+                // measures and places sees the fitted tables.
+                let printed = margins.wholeColumn(in: pageSize)
+                let column = (pageSize.width - printed.left - printed.right).rounded(.down)
+                let media = session.webView.mediaType
+                session.webView.mediaType = "print"
+                defer { session.webView.mediaType = media }
+                try await TableFit.fit(
+                    in: session.webView, width: column * Self.printPixelsPerPoint, until: .now + timeout)
             }
             // Before the preparation, whose presets may remove the document's style elements.
             pageRules =
@@ -784,7 +797,8 @@ public final class WebPaginator: NSObject {
                 source, pageSize: pageSize, margins: margins,
                 allowsJavaScript: allowsJavaScript, printsBackgrounds: printsBackgrounds,
                 preparationScript: cleanPreparation,
-                readsPageRules: readsPageRules, drawsBackground: drawsBackground, rendersMermaid: rendersMermaid,
+                readsPageRules: readsPageRules, drawsBackground: drawsBackground, fitsTables: fitsTables,
+                rendersMermaid: rendersMermaid,
                 rendersDiagrams: rendersDiagrams, collectsDiagrams: collectsDiagrams, indexesFormulas: indexesFormulas,
                 latexPageNumbers: lostReferences ? nil : latexPageNumbers,
                 restartsAfterTitle: restartsAfterTitle, composesLaTeXParagraphs: composesLatin,
@@ -1041,6 +1055,9 @@ public final class WebPaginator: NSObject {
 /// print thread is done with them.
 @MainActor
 final class PaginationSession {
+    /// Lets a test change each new web view before it loads, such as its device scale (restored by the test).
+    static var prepareForTesting: (@MainActor (WKWebView) -> Void)?
+
     let webView: WKWebView
     private let window: NSWindow
     private let navigationTracker = NavigationTracker()
@@ -1115,6 +1132,7 @@ final class PaginationSession {
         let frame = CGRect(x: 0, y: 0, width: printableWidth, height: pageSize.height)
         webView = WKWebView(frame: frame, configuration: configuration)
         if !drawsBackground { WebPaginator.clearBackground?(webView) }
+        Self.prepareForTesting?(webView)
         // WebKit only produces non-blank print output for a view that lives in a window.
         window = NSWindow(contentRect: frame, styleMask: [.borderless], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
