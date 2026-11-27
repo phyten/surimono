@@ -78,7 +78,7 @@ struct ViewDefaultPreferencesTests {
 
     @Test("自動は文書の種類・寸法・PDFヒントごとの従来の既定値を変えない")
     func automaticPreservesDocumentDefaults() {
-        for kind in [ViewDefaultsContext.Kind.flowingText, .image, .imageBundle, .pdf] {
+        for kind in [ViewDefaultsContext.Kind.flowingText, .slides, .image, .imageBundle, .pdf] {
             for pages in [1, 2, 10] {
                 for size in [CGSize(width: 100, height: 200), CGSize(width: 200, height: 100)] {
                     for hint in [
@@ -101,14 +101,14 @@ struct ViewDefaultPreferencesTests {
         let context = ViewDefaultsContext(kind: .flowingText, pageCount: 10, firstPageSize: .zero)
         let layoutOnly = ViewOptions.resolved(for: context, preferences: ViewDefaultPreferences(layout: .spread))
         #expect(layoutOnly.layout == .spread)
-        #expect(layoutOnly.transition == .slide)
+        #expect(layoutOnly.transition == .scroll)
         let transitionOnly = ViewOptions.resolved(
-            for: context, preferences: ViewDefaultPreferences(transition: .scroll))
+            for: context, preferences: ViewDefaultPreferences(transition: .fade))
         #expect(transitionOnly.layout == .single)
-        #expect(transitionOnly.transition == .scroll)
+        #expect(transitionOnly.transition == .fade)
         let joinsOnly = ViewOptions.resolved(for: context, preferences: ViewDefaultPreferences(joinsPages: false))
         #expect(joinsOnly.layout == .single)
-        #expect(joinsOnly.transition == .slide)
+        #expect(joinsOnly.transition == .scroll)
         #expect(!joinsOnly.joinsPages)
     }
 

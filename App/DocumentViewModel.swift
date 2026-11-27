@@ -890,11 +890,14 @@ final class DocumentViewModel {
         presetID = Self.defaultPresetID(preferences, library)
         printOptions = preferences.printOptions.defaults(for: themeFormat)
         printFinish = preferences.printFinish
-        // A guess until the pages are known; most documents have more than two pages.
+        // A guess until the pages are known; most documents have more than two pages. A beamer deck is known from its
+        // class already: a choice made during the first layout keeps the guess's page turn, which must be the deck's.
+        let isSlideDeck =
+            source.map { $0.format == .latex && renderer.latexClassInfo(for: $0).beamerPageSize != nil } ?? false
         let guess = ViewOptions.resolved(
             for: ViewDefaultsContext(
-                kind: Self.viewKind(format: format, isBundle: imageBundle != nil), pageCount: 3,
-                firstPageSize: PaperSize.a4.size), preferences: preferences.viewDefaults)
+                kind: isSlideDeck ? .slides : Self.viewKind(format: format, isBundle: imageBundle != nil),
+                pageCount: 3, firstPageSize: PaperSize.a4.size), preferences: preferences.viewDefaults)
         viewOptions = guess.following(
             library.theme(initialTheme, for: themeFormat, classStyle: inferredStyle)?.flow ?? .horizontal,
             preferredScrollAxis: preferences.viewDefaults.scrollAxis)
@@ -3068,8 +3071,10 @@ final class DocumentViewModel {
         }
         // A PDF can say how it wants to be shown (for example a right-to-left book).
         let hints = format == .pdf && imageBundle == nil ? PDFViewerHints.read(from: document) : PDFViewerHints()
+        let kind = Self.viewKind(format: format, isBundle: imageBundle != nil)
         return ViewDefaultsContext(
-            kind: Self.viewKind(format: format, isBundle: imageBundle != nil), pageCount: document.pageCount,
+            kind: kind == .flowingText && result?.facts?.beamerPageSize != nil ? .slides : kind,
+            pageCount: document.pageCount,
             firstPageSize: size ?? PaperSize.a4.size, pdfPageLayout: hints.pageLayout, pdfDirection: hints.direction)
     }
 

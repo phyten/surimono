@@ -8,12 +8,29 @@ struct BandLayoutTests {
         .margins, .printSettings, .ignoreSlides, .beforePrinting, .viewOptions, .saveAsFile, .keysAndGestures,
     ]
     static let standardUnused: [BandLayout.Item] = [.transition, .floatOnTop, .showOnAllSpaces] + addedItems
+    static let standardSplitUnused: [BandLayout.Item] = [
+        .transition, .floatOnTop, .showOnAllSpaces, .readingDirection, .scrollDirection, .paperOrientation,
+        .paperSeries, .cover, .alwaysShowToolbar, .margins, .printSettings, .ignoreSlides, .beforePrinting, .saveAsFile,
+        .keysAndGestures,
+    ]
     // Freeze these independently of the arrangement model so later refactors cannot redefine Standard unnoticed.
     static let standardSplit: [[BandLayout.Item]] = [
-        [.formatBadge], [.print],
-        [.presentation, .style, .outline, .layout, .zoom, .thumbnails],
-        [.chapter, .pageIndicator, .pageTurn, .readingSettings], standardUnused,
+        [.formatBadge], [.selectText, .layout, .zoom, .viewOptions, .print],
+        [.presentation, .style, .readingSettings, .outline, .thumbnails],
+        [.chapter, .pageIndicator, .pageTurn], standardSplitUnused,
     ]
+    /// The Split standard before the current one. Saved sets that copied it must keep drawing as they did.
+    static var quietSplit: BandArrangement {
+        BandArrangement(
+            entries: [
+                .topLeft: [.part(.formatBadge)], .topRight: [.part(.print)],
+                .bottomLeft: [
+                    .part(.presentation), .separator, .part(.style), .part(.outline), .separator, .part(.layout),
+                    .separator, .part(.zoom), .part(.thumbnails),
+                ],
+                .bottomRight: [.part(.chapter), .part(.pageIndicator), .part(.pageTurn), .part(.readingSettings)],
+            ], unused: standardUnused)
+    }
     static let standardTop: [[BandLayout.Item]] = [
         [.formatBadge, .pageIndicator, .chapter],
         [.presentation, .style, .outline, .layout, .zoom, .thumbnails, .readingSettings, .print],
@@ -63,17 +80,20 @@ struct BandLayoutTests {
         #expect(bottom.filter { $0.group == nil } == [.pageIndicator, .pageTurn])
     }
 
-    @Test("標準の三つの幅は従来と同じ表示形と名前幅になる", arguments: [1000, 650, 250])
+    @Test("上だけの標準と前の上下配置の標準の三つの幅は従来と同じ表示形と名前幅になる", arguments: [1000, 650, 250])
     func workedStandard(available: Int) {
         let topItems = Self.standardTop[0] + Self.standardTop[1]
         let top = BandLayout.plan(
             widths: Self.workedWidths.filter { topItems.contains($0.key) }, fixed: 150, separator: 10,
             name: 120, available: CGFloat(available))
+        let split = Self.quietSplit
+        let splitTopItems = (split.topLeft + split.topRight).compactMap(\.item)
+        let bottomItems = (split.bottomLeft + split.bottomRight).compactMap(\.item)
         let splitTop = BandLayout.plan(
-            widths: Self.workedWidths.filter { Self.standardSplit[0...1].joined().contains($0.key) },
+            widths: Self.workedWidths.filter { splitTopItems.contains($0.key) },
             fixed: 150, separator: 10, name: 120, available: CGFloat(available))
         let bottom = BandLayout.plan(
-            widths: Self.workedWidths.filter { Self.standardSplit[2...3].joined().contains($0.key) },
+            widths: Self.workedWidths.filter { bottomItems.contains($0.key) },
             fixed: 30, separator: 10, name: 0, available: CGFloat(available), steps: BandLayout.bottomSteps)
         switch available {
         case 1000:

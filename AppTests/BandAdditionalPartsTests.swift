@@ -45,7 +45,8 @@ struct BandAdditionalPartsTests {
         ) throws {
             preferences = AppPreferences(defaults: defaults.defaults)
             preferences.menuArrangement = .split
-            var layouts = BandArrangementVariants()
+            // The previous Split standard keeps the top right to Print and the bottom band as these cases expect.
+            var layouts = BandTestCatalog.quietLayouts
             for item in parts {
                 layouts.split = try layouts.split.moving(item, to: .zone(.topRight), before: .print, for: .split)
             }

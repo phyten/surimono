@@ -286,6 +286,8 @@ public struct BandArrangementStore: Codable, Equatable, Sendable {
         }
         if let selection = try? values.decode(BandArrangementSelection.self, forKey: .active), contains(selection) {
             active = selection
+            // Only the key's presence is read, never its value: any store that chose Standard since the key was
+            // written follows whatever Standard the code defines now. Raising the number changes nothing.
             usesPreviousStandard = selection == .standard && !values.contains(.standardRevision)
         } else {
             active = .standard

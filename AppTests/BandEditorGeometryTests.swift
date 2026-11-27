@@ -123,7 +123,7 @@ struct BandEditorGeometryTests {
     #endif
 
     private func crowdedArrangement() throws -> BandArrangementVariants {
-        var layouts = BandArrangementVariants()
+        var layouts = BandTestCatalog.quietLayouts
         for item in BandTestCatalog.addedItems {
             layouts.split = try layouts.split.moving(item, to: .zone(.topRight), before: .print, for: .split)
         }

@@ -158,11 +158,18 @@ struct BandArrangementRenderingTests {
         return (row(top: true), mode == .split ? row(top: false) : nil)
     }
 
-    @Test("標準配置の部品を帯へ順に渡し、どの幅でも部品とファイル名が収まる", arguments: MenuArrangement.allCases)
+    @Test(
+        "上だけの標準と保存した前の上下配置の標準の部品を帯へ順に渡し、どの幅でも部品とファイル名が収まる",
+        arguments: MenuArrangement.allCases)
     func standardFeedsRenderer(mode: MenuArrangement) async throws {
         let environment = Environment()
         defer { environment.cleanUp() }
         environment.preferences.menuArrangement = mode
+        if mode == .split {
+            // The current Split standard is not a legacy stack; the previous one, saved, still prices as before.
+            try environment.preferences.saveBandArrangement(
+                BandArrangementSet(name: "Quiet", layouts: BandTestCatalog.quietLayouts))
+        }
         let model = environment.chapters()
         defer { model.stop() }
         try await open(model)
@@ -202,6 +209,40 @@ struct BandArrangementRenderingTests {
             }
             let pushedOut = Set(reference.top.overflow + (reference.bottom?.overflow ?? []))
             #expect(Set(plans.resolved.overflow) == pushedOut, "overflow at \(width)")
+        }
+    }
+
+    @Test("上下配置の標準は文字の選択と表示の道具を上の右に、読む道具を下に並べ、どの幅でも帯に収まる")
+    func splitStandardFeedsRenderer() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        environment.preferences.menuArrangement = .split
+        let model = environment.chapters()
+        defer { model.stop() }
+        try await open(model)
+
+        let wide = BandPlans(model: model, menu: menu(width: 2000))
+        #expect(wide.top.leading == [.formatBadge])
+        #expect(wide.top.trailing == [.selectText, .layout, .viewOptions, .print])
+        #expect(wide.bottom?.leading == [.style, .readingSettings, .outline])
+        #expect(wide.bottom?.trailing == [.chapter, .pageIndicator, .pageTurn])
+        #expect(!wide.top.geometry.usesStandardSpacing && wide.bottom?.geometry.usesStandardSpacing == false)
+        #expect(wide.top.geometry.moreDock == .beforePrint)
+        #expect(wide.resolved.overflow == [])
+        // Presentation, Zoom, List, Cover, Ignore Slides and Before Printing do not apply to this document.
+        #expect(
+            wide.resolved.unusedAvailable == [
+                .transition, .floatOnTop, .showOnAllSpaces, .readingDirection, .scrollDirection, .paperOrientation,
+                .paperSeries, .alwaysShowToolbar, .margins, .printSettings, .saveAsFile, .keysAndGestures,
+            ])
+
+        for width in stride(from: CGFloat(1), through: 900, by: 1) {
+            let plans = BandPlans(model: model, menu: menu(width: width))
+            #expect(plans.top.requiredWidth <= max(width, plans.top.minimumWidth), "top footprint at \(width)")
+            if let bottom = plans.bottom {
+                #expect(bottom.requiredWidth <= max(width, bottom.minimumWidth), "bottom footprint at \(width)")
+            }
+            #expect(plans.top.forms[.print] != nil, "print at \(width)")
         }
     }
 
@@ -272,7 +313,7 @@ struct BandArrangementRenderingTests {
         environment.preferences.menuArrangement = .split
         environment.preferences.defaultBandVisibility = .always
         // Contents and the page indicator on the top band, where they fold at a width the window still allows.
-        var layouts = BandArrangementVariants()
+        var layouts = BandTestCatalog.quietLayouts
         layouts.split = try layouts.split.moving(.pageIndicator, to: .zone(.topLeft), for: .split)
         layouts.split = try layouts.split.moving(.outline, to: .zone(.topLeft), for: .split)
         layouts.split = try layouts.split.moving(.viewOptions, to: .zone(.topLeft), for: .split)
@@ -382,33 +423,52 @@ struct BandArrangementRenderingTests {
         let window = try #require(controller.window)
         window.orderFrontRegardless()
         try await open(model)
+        // The window opens as large as the screen lets the paper be. On a small 1x screen (a CI runner's) that is too
+        // narrow for the top band once View Options joins Standard's parts there, and the band folds it into "…" as it
+        // should. This test is about the popover surviving the moves, so it starts from a width that holds every part.
+        let opened = window.contentRect(forFrameRect: window.frame).size
+        window.setContentSize(NSSize(width: max(opened.width, 1200), height: opened.height))
         let anchors = model.bandAnchors
-        try await waitUntil {
+        var base = popoverCount(window)
+        // What the bands drew and what is open, so that a wait that times out says why.
+        func state() -> String {
+            let plan = anchors.plan
+            func row(_ row: BandRowPlan?) -> String {
+                guard let row else { return "nil" }
+                return "\(row.leading.map(\.rawValue))|\(row.trailing.map(\.rawValue)) "
+                    + "forms=\(row.forms.mapValues { "\($0)" }) required=\(row.requiredWidth)"
+            }
+            return "content=\(window.contentRect(forFrameRect: window.frame).size) top=\(row(plan?.top)) "
+                + "bottom=\(row(plan?.bottom)) overflow=\((plan?.overflow ?? []).map(\.rawValue)) "
+                + "frame=\(String(describing: anchors.frames[.item(.viewOptions)])) topBand=\(model.topBandHeight) "
+                + "popovers=\(popoverCount(window)) base=\(base) presented=\(model.isViewOptionsPresented)"
+        }
+        try await waitUntil(state()) {
             anchors.plan?.band(of: .viewOptions) == .bottom && anchors.frames[.item(.viewOptions)] != nil
         }
-        let base = popoverCount(window)
+        base = popoverCount(window)
         model.isViewOptionsPresented = true
-        try await waitUntil { popoverCount(window) == base + 1 }
+        try await waitUntil(state()) { popoverCount(window) == base + 1 }
 
         var layouts = BandArrangementVariants()
         layouts.split = try layouts.split.moving(.viewOptions, to: .zone(.topLeft), for: .split)
         try environment.preferences.saveBandArrangement(BandArrangementSet(name: "Top Contents", layouts: layouts))
-        try await waitUntil {
+        try await waitUntil(state()) {
             anchors.plan?.band(of: .viewOptions) == .top
                 && (anchors.frames[.item(.viewOptions)]?.maxY ?? .infinity) <= model.topBandHeight + 1
         }
-        #expect(model.isViewOptionsPresented)
-        #expect(popoverCount(window) == base + 1)
+        #expect(model.isViewOptionsPresented, "\(state())")
+        #expect(popoverCount(window) == base + 1, "\(state())")
 
         layouts.split = try layouts.split.moving(.viewOptions, to: .unused, for: .split)
         try environment.preferences.saveBandArrangement(BandArrangementSet(name: "No Contents", layouts: layouts))
-        try await waitUntil { anchors.plan != nil && anchors.plan?.band(of: .viewOptions) == nil }
-        #expect(anchors.plan?.unusedAvailable.contains(.viewOptions) == true)
-        #expect(model.isViewOptionsPresented)
-        #expect(popoverCount(window) == base + 1)
+        try await waitUntil(state()) { anchors.plan != nil && anchors.plan?.band(of: .viewOptions) == nil }
+        #expect(anchors.plan?.unusedAvailable.contains(.viewOptions) == true, "\(state())")
+        #expect(model.isViewOptionsPresented, "\(state())")
+        #expect(popoverCount(window) == base + 1, "\(state())")
 
         model.isViewOptionsPresented = false
-        try await waitUntil { popoverCount(window) == base }
+        try await waitUntil(state()) { popoverCount(window) == base }
     }
 
     @Test("帯にない部品のポップオーバーは「…」から出し、下の帯の部品なら上向きに出す")

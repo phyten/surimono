@@ -532,6 +532,35 @@ struct ViewBandTests {
         #expect(abs(back.maxY - hover.paperOnly.maxY) <= 3)
     }
 
+    @Test("ポインタを追うビューはタイトルバーの下にある上の帯まで覆い、クリックやドラッグを受け取らない")
+    func trackerCoversTitleBar() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        environment.preferences.defaultBandVisibility = .always
+        let model = environment.model(TestFixtures.pdf("Title"))
+        defer { model.stop() }
+        let controller = MemoryDocumentWindowController(model: model, onClose: {})
+        defer { controller.close() }
+        let window = try #require(controller.window)
+        try await open(model)
+        let content = try #require(window.contentView)
+        // The title bar lies over the content, where the top band is drawn.
+        try await waitUntil { content.safeAreaInsets.top > 0 }
+        content.layoutSubtreeIfNeeded()
+        let tracker = try #require(pointerTracker(in: window))
+        let covered = tracker.convert(tracker.bounds, to: nil)
+        #expect(abs(covered.maxY - content.convert(content.bounds, to: nil).maxY) <= 0.5, "\(covered)")
+        #expect(covered.minY <= 0.5, "\(covered)")
+        // Covering the title bar must not take its clicks: the band, the empty room and the traffic lights keep them.
+        let frame = tracker.frame
+        for point in [
+            NSPoint(x: frame.midX, y: frame.minY + 1), NSPoint(x: frame.midX, y: frame.maxY - 1),
+            NSPoint(x: frame.minX + 1, y: frame.midY),
+        ] {
+            #expect(tracker.hitTest(point) == nil, "\(point)")
+        }
+    }
+
     @Test("ポインタの監視は有効な間だけで、窓から外れると止まる")
     func trackerStopsWithWindow() throws {
         let window = NSWindow(

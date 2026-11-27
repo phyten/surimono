@@ -25,6 +25,13 @@ struct BandArrangementEditorTests {
         }
 
         func cleanUp() { suite.remove() }
+
+        /// A store whose active set is the previous Split standard, whose top right holds only Print.
+        static var quiet: Data {
+            var store = BandArrangementStore()
+            try! store.insert(BandArrangementSet(name: "Quiet", layouts: BandTestCatalog.quietLayouts))
+            return try! JSONEncoder().encode(store)
+        }
     }
 
     private func location(_ destination: BandDestination, _ index: Int) -> BandEntryLocation {
@@ -93,9 +100,9 @@ struct BandArrangementEditorTests {
         #expect(groups.map(\.id) == [.display, .reading, .bodyAndPaper, .window, .printingAndSaving, .help])
         #expect(
             groups.map { $0.parts.map(\.id) } == [
-                [.transition], [.readingDirection, .scrollDirection, .cover, .selectText],
+                [.transition], [.readingDirection, .scrollDirection, .cover],
                 [.paperOrientation, .paperSeries, .margins, .ignoreSlides],
-                [.floatOnTop, .showOnAllSpaces, .alwaysShowToolbar, .viewOptions],
+                [.floatOnTop, .showOnAllSpaces, .alwaysShowToolbar],
                 [.printSettings, .beforePrinting, .saveAsFile],
                 [.keysAndGestures],
             ])
@@ -112,18 +119,18 @@ struct BandArrangementEditorTests {
         let before = session.draft
         let part = try #require(
             BandPaletteGroup.project(session.arrangement.unused)
-                .flatMap(\.parts).first { $0.id == .viewOptions })
+                .flatMap(\.parts).first { $0.id == .margins })
         #expect(part.location.index > 0)
         let payload = session.beginDrag(.entry(part.location, .part(part.id)))
         #expect(session.drop(payload, on: .zone(.topLeft, index: 0)))
-        #expect(session.arrangement.topLeft.first == .part(.viewOptions))
-        #expect(!session.arrangement.unused.contains(.viewOptions))
-        #expect(session.selection == .part(.viewOptions))
+        #expect(session.arrangement.topLeft.first == .part(.margins))
+        #expect(!session.arrangement.unused.contains(.margins))
+        #expect(session.selection == .part(.margins))
         #expect(session.selectionRevealRevision == 0)
         session.undo()
         #expect(session.draft == before && !session.canUndo)
         session.redo()
-        #expect(session.selection == .part(.viewOptions))
+        #expect(session.selection == .part(.margins))
     }
 
     @Test("群の部品をボタンで往復し領域内の前後にも動かすと選択と一操作の履歴を保つ", arguments: [MenuArrangement.top, .split])
@@ -162,7 +169,7 @@ struct BandArrangementEditorTests {
         }
     }
 
-    @Test("標準復帰は両配置の追加部品と最前面とめくり方を未使用へ戻し一度の取り消しで変更と閉じる前の確認を戻す")
+    @Test("標準復帰は両配置の追加部品と最前面とめくり方を標準の場所へ戻し一度の取り消しで変更と閉じる前の確認を戻す")
     func restoreGroupedParts() throws {
         let environment = Environment()
         defer { environment.cleanUp() }
@@ -182,7 +189,7 @@ struct BandArrangementEditorTests {
         session.cancelLeave()
         session.backToStandard()
         #expect(session.draft.top.unused == [.pageTurn] + BandTestCatalog.standardUnused)
-        #expect(session.draft.split.unused == BandTestCatalog.standardUnused)
+        #expect(session.draft.split.unused == BandTestCatalog.standardSplitUnused)
         #expect(!session.isDirty && controller.windowShouldClose(window))
         session.undo()
         #expect(session.draft == before)
@@ -199,15 +206,15 @@ struct BandArrangementEditorTests {
         defer { environment.cleanUp() }
         let session = environment.session
         #expect(session.mode == .split)
-        // Standard bottom left: presentation | style outline | layout | zoom thumbnails.
+        // Standard bottom left: presentation | style readingSettings | outline thumbnails.
         #expect(session.move(location(.zone(.bottomLeft), 2), to: .zone(.bottomLeft), at: 6))
         #expect(
             session.draft.split.bottomLeft == [
-                .part(.presentation), .separator, .part(.outline), .separator, .part(.layout), .part(.style),
-                .separator, .part(.zoom), .part(.thumbnails),
+                .part(.presentation), .separator, .part(.readingSettings), .separator, .part(.outline),
+                .part(.style), .part(.thumbnails),
             ])
         #expect(session.selection == .part(.style))
-        #expect(session.message == .moved(BandLayout.Item.style.editorName, BandZoneID.bottomLeft.editorName, 6, 9))
+        #expect(session.message == .moved(BandLayout.Item.style.editorName, BandZoneID.bottomLeft.editorName, 6, 7))
         #expect(session.isDirty)
         #expect(environment.preferences.bandArrangementStore.activeLayouts == BandArrangementVariants())
         #expect(environment.suite.defaults.object(forKey: "bandArrangementStore") == nil)
@@ -225,14 +232,18 @@ struct BandArrangementEditorTests {
         // A trailing separator and a doubled one stay in the draft, though the toolbar draws neither.
         #expect(session.separatorIsIdle(at: 1, in: .topLeft) && session.separatorIsIdle(at: 2, in: .topLeft))
         #expect(session.hasIdleSeparators)
+        let standardTopRight: [BandEntry] = [
+            .part(.selectText), .separator, .part(.layout), .part(.zoom), .separator, .part(.viewOptions),
+            .part(.print),
+        ]
         session.select(.part(.floatOnTop))
         session.moveSelection(to: .zone(.topRight))
-        #expect(session.move(location(.zone(.topLeft), 2), to: .zone(.topRight), at: 1))
-        #expect(session.draft.split.topRight == [.part(.print), .separator, .part(.floatOnTop)])
-        #expect(session.selection == .separator(.topRight, 1))
-        #expect(!session.separatorIsIdle(at: 1, in: .topRight))
+        #expect(session.move(location(.zone(.topLeft), 2), to: .zone(.topRight), at: 7))
+        #expect(session.draft.split.topRight == standardTopRight + [.separator, .part(.floatOnTop)])
+        #expect(session.selection == .separator(.topRight, 7))
+        #expect(!session.separatorIsIdle(at: 7, in: .topRight))
         session.removeSelection()
-        #expect(session.draft.split.topRight == [.part(.print), .part(.floatOnTop)])
+        #expect(session.draft.split.topRight == standardTopRight + [.part(.floatOnTop)])
         #expect(session.message == .separatorDeleted)
         #expect(!session.draft.split.unused.contains(.print))
     }
@@ -246,24 +257,24 @@ struct BandArrangementEditorTests {
         session.moveSelection(by: -1)
         #expect(
             session.draft.split.bottomRight == [
-                .part(.chapter), .part(.pageTurn), .part(.pageIndicator), .part(.readingSettings),
+                .part(.chapter), .part(.pageTurn), .part(.pageIndicator),
             ])
         #expect(!session.canMove(location(.zone(.bottomRight), 0), by: -1))
         session.moveSelection(by: -1)
         #expect(
             session.draft.split.bottomRight == [
-                .part(.pageTurn), .part(.chapter), .part(.pageIndicator), .part(.readingSettings),
+                .part(.pageTurn), .part(.chapter), .part(.pageIndicator),
             ])
         session.moveSelection(by: -1)
         #expect(
             session.draft.split.bottomRight == [
-                .part(.pageTurn), .part(.chapter), .part(.pageIndicator), .part(.readingSettings),
+                .part(.pageTurn), .part(.chapter), .part(.pageIndicator),
             ])
         session.moveSelection(by: 1)
         session.moveSelection(by: 1)
         #expect(
             session.draft.split.bottomRight == [
-                .part(.chapter), .part(.pageIndicator), .part(.pageTurn), .part(.readingSettings),
+                .part(.chapter), .part(.pageIndicator), .part(.pageTurn),
             ])
         session.moveSelection(to: .zone(.topLeft))
         #expect(session.draft.split.topLeft == [.part(.formatBadge), .part(.pageTurn)])
@@ -284,7 +295,7 @@ struct BandArrangementEditorTests {
         session.moveSelection(to: .zone(.bottomRight))
         #expect(
             session.draft.split.bottomRight == [
-                .part(.chapter), .part(.pageIndicator), .part(.pageTurn), .part(.readingSettings), .part(.print),
+                .part(.chapter), .part(.pageIndicator), .part(.pageTurn), .part(.print),
             ])
     }
 
@@ -301,7 +312,7 @@ struct BandArrangementEditorTests {
         #expect(!session.move(location(.zone(.topRight), 0), to: .zone(.bottomLeft), at: 0))
         #expect(session.move(location(.unused, 0), to: .zone(.topLeft), at: 0))
         #expect(session.draft.top.topLeft.first == .part(.pageTurn))
-        #expect(session.draft.split.unused == BandTestCatalog.standardUnused + [.outline])
+        #expect(session.draft.split.unused == BandTestCatalog.standardSplitUnused + [.outline])
     }
 
     // MARK: - History
@@ -334,7 +345,11 @@ struct BandArrangementEditorTests {
         let session = environment.session
         let payload = session.beginDrag(.entry(location(.zone(.bottomLeft), 0), .part(.presentation)))
         #expect(session.drop(payload, on: .zone(.topRight, index: 0)))
-        #expect(session.draft.split.topRight == [.part(.presentation), .part(.print)])
+        #expect(
+            session.draft.split.topRight == [
+                .part(.presentation), .part(.selectText), .separator, .part(.layout), .part(.zoom), .separator,
+                .part(.viewOptions), .part(.print),
+            ])
         session.undo()
         #expect(session.draft == BandArrangementVariants())
         #expect(!session.canUndo)
@@ -371,7 +386,7 @@ struct BandArrangementEditorTests {
         session.request(.section(.general))
         #expect(environment.preferences.settingsSection == .general && session.pendingLeave == nil)
         environment.preferences.settingsSection = .toolbarArrangement
-        session.select(.part(.zoom))
+        session.select(.part(.presentation))
         session.moveSelection(to: .unused)
         session.request(.selectSet(.standard))
         #expect(session.pendingLeave == .selectSet(.standard))
@@ -390,7 +405,7 @@ struct BandArrangementEditorTests {
         let session = environment.session
         #expect(session.duplicate(named: "Reading") == nil)
         let saved = environment.preferences.bandArrangementStore
-        session.select(.part(.zoom))
+        session.select(.part(.presentation))
         session.moveSelection(to: .unused)
         let edited = session.draft
         session.request(.selectSet(.standard))
@@ -410,7 +425,7 @@ struct BandArrangementEditorTests {
         let session = environment.session
         #expect(session.duplicate(named: "Reading") == nil)
         let reading = try #require(environment.preferences.bandArrangementStore.sets.first)
-        session.select(.part(.zoom))
+        session.select(.part(.presentation))
         session.moveSelection(to: .unused)
         session.request(.selectSet(.standard))
         #expect(session.saveForLeaving())
@@ -418,7 +433,7 @@ struct BandArrangementEditorTests {
         #expect(session.active == .standard)
         let saved = try #require(environment.preferences.bandArrangementStore.sets.first)
         #expect(saved.id == reading.id && saved.name == "Reading")
-        #expect(saved.layouts.split.unused == BandTestCatalog.standardUnused + [.zoom])
+        #expect(saved.layouts.split.unused == BandTestCatalog.standardSplitUnused + [.presentation])
     }
 
     @Test("標準を変えて保存すると名前を付けた複製になり標準は変わらない")
@@ -440,7 +455,7 @@ struct BandArrangementEditorTests {
         let copy = try #require(environment.preferences.bandArrangementStore.sets.first)
         #expect(
             session.active == .user(copy.id)
-                && copy.layouts.split.unused == BandTestCatalog.standardUnused + [.formatBadge])
+                && copy.layouts.split.unused == BandTestCatalog.standardSplitUnused + [.formatBadge])
         #expect(environment.preferences.bandArrangementStore.contains(.standard))
     }
 
@@ -457,7 +472,7 @@ struct BandArrangementEditorTests {
         let store = environment.preferences.bandArrangementStore
         let reading = try #require(store.sets.first)
         #expect(reading.name == "Reading" && store.active == .user(reading.id))
-        #expect(reading.layouts.split.unused == BandTestCatalog.standardUnused + [.thumbnails])
+        #expect(reading.layouts.split.unused == BandTestCatalog.standardSplitUnused + [.thumbnails])
         #expect(!session.isDirty)
         #expect(session.duplicate(named: "reading") != nil)
         let newName = String(localized: "New Arrangement")
@@ -485,7 +500,7 @@ struct BandArrangementEditorTests {
         let saved = try #require(environment.preferences.bandArrangementStore.sets.first)
         #expect(
             saved.id == id && saved.name == "Reading"
-                && saved.layouts.split.unused == BandTestCatalog.standardUnused + [.style])
+                && saved.layouts.split.unused == BandTestCatalog.standardSplitUnused + [.style])
         #expect(session.rename(to: "Slides") == nil)
         #expect(environment.preferences.bandArrangementStore.active == .user(id))
         #expect(session.activeName == "Slides")
@@ -527,7 +542,7 @@ struct BandArrangementEditorTests {
         session.undo()
         #expect(session.active == reading)
         #expect(environment.preferences.bandArrangementStore.sets.map(\.name) == ["Printing", "Reading"])
-        #expect(session.draft.split.unused == BandTestCatalog.standardUnused + [.outline])
+        #expect(session.draft.split.unused == BandTestCatalog.standardSplitUnused + [.outline])
         session.redo()
         #expect(session.active == printing)
     }
@@ -545,17 +560,29 @@ struct BandArrangementEditorTests {
             data: Data("# First\n".utf8), fileURL: nil, format: .markdown, preferences: environment.preferences,
             library: UserLibrary(root: directory.appendingPathComponent("Library")), renderer: renderer,
             settingsStore: DocumentSettingsStore(directory: directory.appendingPathComponent("Settings")))
+        // A fixed width that holds every part, so that nothing folds and each row compares whole.
         let menu = OverlayMenuState()
-        #expect(BandPlans(model: model, menu: menu).top.trailing == [.print])
+        menu.bandWidth = 4000
+        menu.bandWidths = [.name: 120, .more: 24]
+        let before = BandPlans(model: model, menu: menu).resolved
+        let bottomBefore = try #require(before.bottom)
+        #expect(before.top.trailing.last == .print && before.overflow.isEmpty)
         let session = environment.session
         #expect(session.duplicate(named: "Reading") == nil)
         session.select(.part(.print))
         session.moveSelection(to: .zone(.bottomLeft))
-        #expect(BandPlans(model: model, menu: menu).top.trailing == [.print])
+        let draft = BandPlans(model: model, menu: menu).resolved
+        #expect(draft.top == before.top)
+        #expect(draft.bottom == bottomBefore)
         #expect(session.overwrite() == nil)
-        let plans = BandPlans(model: model, menu: menu)
-        #expect(plans.top.trailing.isEmpty)
-        #expect(plans.bottom?.leading.last == .print)
+        let saved = BandPlans(model: model, menu: menu).resolved
+        let bottomSaved = try #require(saved.bottom)
+        // Only Print moved: from the end of the top right to the end of the bottom left.
+        #expect(saved.top.leading == before.top.leading)
+        #expect(saved.top.trailing == before.top.trailing.filter { $0 != .print })
+        #expect(bottomSaved.leading == bottomBefore.leading + [.print])
+        #expect(bottomSaved.trailing == bottomBefore.trailing)
+        #expect(saved.overflow.isEmpty && saved.unusedAvailable == before.unusedAvailable)
     }
 
     // MARK: - Drops
@@ -570,30 +597,32 @@ struct BandArrangementEditorTests {
         #expect(session.drop(payload, on: .zone(.topLeft, index: 0)))
         #expect(session.draft.split.topLeft == [.part(.pageTurn), .part(.formatBadge)])
         payload = session.beginDrag(.entry(location(.zone(.topLeft), 0), .part(.pageTurn)))
-        #expect(session.drop(payload, on: .zone(.topRight, index: 1)))
-        #expect(session.draft.split.topRight == [.part(.print), .part(.pageTurn)])
-        payload = session.beginDrag(.entry(location(.zone(.topRight), 1), .part(.pageTurn)))
+        // At the end of the top right, after Print.
+        #expect(session.drop(payload, on: .zone(.topRight, index: 7)))
+        #expect(
+            session.draft.split.topRight == [
+                .part(.selectText), .separator, .part(.layout), .part(.zoom), .separator, .part(.viewOptions),
+                .part(.print), .part(.pageTurn),
+            ])
+        payload = session.beginDrag(.entry(location(.zone(.topRight), 7), .part(.pageTurn)))
         #expect(session.drop(payload, on: .unused))
-        #expect(session.draft.split.unused == BandTestCatalog.standardUnused + [.pageTurn])
+        #expect(session.draft.split.unused == BandTestCatalog.standardSplitUnused + [.pageTurn])
         payload = session.beginDrag(.newSeparator)
-        #expect(session.proposal(for: .zone(.bottomRight, index: 2)) == .copy)
+        #expect(session.proposal(for: .zone(.bottomRight, index: 1)) == .copy)
         #expect(session.proposal(for: .unused) == .copy)
         #expect(session.drop(payload, on: .unused))
         payload = session.beginDrag(.newSeparator)
-        #expect(session.drop(payload, on: .zone(.bottomRight, index: 2)))
-        #expect(
-            session.draft.split.bottomRight == [
-                .part(.chapter), .part(.pageIndicator), .separator, .part(.readingSettings),
-            ])
+        #expect(session.drop(payload, on: .zone(.bottomRight, index: 1)))
+        #expect(session.draft.split.bottomRight == [.part(.chapter), .separator, .part(.pageIndicator)])
         // A separator dragged off the zones is taken away; a part dragged there stays.
-        payload = session.beginDrag(.entry(location(.zone(.bottomRight), 2), .separator))
+        payload = session.beginDrag(.entry(location(.zone(.bottomRight), 1), .separator))
         #expect(session.proposal(for: .outside) == .move)
         #expect(session.drop(payload, on: .outside))
-        #expect(session.draft.split.bottomRight == [.part(.chapter), .part(.pageIndicator), .part(.readingSettings)])
+        #expect(session.draft.split.bottomRight == [.part(.chapter), .part(.pageIndicator)])
         payload = session.beginDrag(.entry(location(.zone(.bottomRight), 1), .part(.pageIndicator)))
         #expect(session.proposal(for: .outside) == .forbidden)
         #expect(!session.drop(payload, on: .outside))
-        #expect(session.draft.split.bottomRight == [.part(.chapter), .part(.pageIndicator), .part(.readingSettings)])
+        #expect(session.draft.split.bottomRight == [.part(.chapter), .part(.pageIndicator)])
     }
 
     @Test("新しい区切り線と配置済みの区切り線を各領域のすべての挿入位置へ落とせる")
@@ -660,7 +689,8 @@ struct BandArrangementEditorTests {
 
     @Test("帯の端・余白・左右の間も近い領域へ入り、未計測のチップは末尾へ入る")
     func wholeBandDropTarget() {
-        let environment = Environment()
+        // The previous Split standard keeps Print alone at the top right.
+        let environment = Environment(stored: Environment.quiet)
         defer { environment.cleanUp() }
         let session = environment.session
         session.layoutFrames = [
@@ -689,7 +719,8 @@ struct BandArrangementEditorTests {
 
     @Test("印刷の前は固定の「…」より手前に線とマーカーを置く", arguments: [false, true])
     func insertBeforeDockedPrint(wrapped: Bool) {
-        let environment = Environment()
+        // The previous Split standard keeps Print alone at the top right.
+        let environment = Environment(stored: Environment.quiet)
         defer { environment.cleanUp() }
         let session = environment.session
         let zone = BandZoneID.topRight
@@ -712,7 +743,8 @@ struct BandArrangementEditorTests {
 
     @Test("VoiceOverの移動先を次の操作の起点にすると連続する線を越え、別の領域にも進める")
     func accessibilityMoveDestination() {
-        let environment = Environment()
+        // The previous Split standard keeps Print alone at the top right.
+        let environment = Environment(stored: Environment.quiet)
         defer { environment.cleanUp() }
         let session = environment.session
         session.select(.part(.formatBadge))
@@ -756,19 +788,21 @@ struct BandArrangementEditorTests {
 
     @Test("印刷を使わない部品へ落とすと断って理由を伝える")
     func printDropRefused() {
-        let environment = Environment()
+        // The previous Split standard keeps Print alone at the top right.
+        let environment = Environment(stored: Environment.quiet)
         defer { environment.cleanUp() }
         let session = environment.session
         let payload = session.beginDrag(.entry(location(.zone(.topRight), 0), .part(.print)))
         #expect(session.proposal(for: .unused) == .forbidden)
         #expect(session.message == .printIsRequired)
         #expect(!session.drop(payload, on: .unused))
-        #expect(session.draft == BandArrangementVariants() && !session.canUndo)
+        #expect(session.draft == BandTestCatalog.quietLayouts && !session.canUndo)
     }
 
     @Test("古いドラッグやほかの編集画面と他のアプリの内容は受け付けない")
     func stalePayloads() throws {
-        let environment = Environment()
+        // The previous Split standard keeps Print alone at the top right.
+        let environment = Environment(stored: Environment.quiet)
         defer { environment.cleanUp() }
         let session = environment.session
         let stale = session.beginDrag(.entry(location(.zone(.topRight), 0), .part(.print)))
@@ -916,7 +950,7 @@ struct BandArrangementEditorTests {
         let first = environment.session
         #expect(first.duplicate(named: "A") == nil)
         let a = first.active
-        first.select(.part(.zoom))
+        first.select(.part(.presentation))
         first.moveSelection(to: .unused)
         let second = BandArrangementEditorSession(preferences: environment.preferences)
         #expect(second.createSet(named: "B") == nil)
@@ -939,7 +973,7 @@ struct BandArrangementEditorTests {
         defer { environment.cleanUp() }
         let session = environment.session
         #expect(session.duplicate(named: "A") == nil)
-        session.select(.part(.zoom))
+        session.select(.part(.presentation))
         session.moveSelection(to: .unused)
         var outside = BandArrangementVariants()
         outside.split = try outside.split.moving(.style, to: .unused, for: .split)
@@ -1140,15 +1174,15 @@ struct BandArrangementEditorTests {
         let session = environment.session
         #expect(session.duplicate(named: "Reading") == nil)
         let replies = quitting(session)
-        session.select(.part(.zoom))
+        session.select(.part(.presentation))
         session.moveSelection(to: .unused)
         #expect(session.shouldTerminate() == .terminateLater)
         #expect(session.saveForLeaving())
         session.proceed()
         #expect(replies.values == [true])
         #expect(
-            environment.preferences.bandArrangementStore.activeLayouts.split.unused == BandTestCatalog.standardUnused
-                + [.zoom])
+            environment.preferences.bandArrangementStore.activeLayouts.split.unused
+                == BandTestCatalog.standardSplitUnused + [.presentation])
     }
 
     @Test("標準を変えて終了するとき複製の名前を取り消すと終了しない")
@@ -1229,13 +1263,13 @@ struct BandArrangementEditorTests {
         let copy = try #require(environment.preferences.bandArrangementStore.sets.first)
         #expect(copy.name == String(format: String(localized: "%@ Copy"), String(localized: "Standard")))
         #expect(copy.layouts.split.topLeft.first == .separator && record.dirtyAtLaunch == false)
-        session.select(.part(.zoom))
+        session.select(.part(.presentation))
         session.moveSelection(to: .unused)
         #expect(try await relaunch(environment, answer: .save, record: record))
         #expect(environment.preferences.bandArrangementStore.sets.count == 1)
         #expect(
-            environment.preferences.bandArrangementStore.activeLayouts.split.unused == BandTestCatalog.standardUnused
-                + [.zoom])
+            environment.preferences.bandArrangementStore.activeLayouts.split.unused
+                == BandTestCatalog.standardSplitUnused + [.presentation])
         #expect(record.launched == 2 && record.terminated == 2)
     }
 
