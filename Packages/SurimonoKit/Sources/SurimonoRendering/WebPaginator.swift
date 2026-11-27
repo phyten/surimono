@@ -51,6 +51,23 @@ public final class WebPaginator: NSObject {
 
         public static func uniform(millimeters: Double) -> Margins { Margins(.uniform(millimeters)) }
 
+        /// These margins with the text column brought down to a whole number of points.
+        ///
+        /// WebKit's printing view cuts the page rect back to whole points and keeps the left edge, so a rule
+        /// on the last fraction of a point of the column is not drawn. The fraction joins the right margin
+        /// instead. The column stays a hundredth above the whole point, so single-precision arithmetic in
+        /// WebKit cannot land just under it; a column that is already there is left as it is. A page without
+        /// a right margin has no column edge to save, and narrowing it would only shrink a full-bleed page.
+        public func wholeColumn(in pageSize: CGSize) -> Margins {
+            guard right > 0 else { return self }
+            let column = pageSize.width - left - right
+            let whole = (column - 0.005).rounded(.down) + 0.01
+            guard whole > 0, whole < column else { return self }
+            var result = self
+            result.right += column - whole
+            return result
+        }
+
         /// The margins of a left-hand page, whose outer side is on the left.
         public var mirrored: Margins { Margins(top: top, left: right, bottom: bottom, right: left) }
     }
@@ -1216,15 +1233,9 @@ final class PaginationSession {
         printInfo.leftMargin = margins.left
         // The allowance goes into the bottom margin, so a document laid out with these margins keeps its height.
         printInfo.bottomMargin = margins.bottom + Self.pageHeightAllowance
-        printInfo.rightMargin = margins.right
-        // WebKit's printing view cuts the page rect back to whole points and keeps the left edge, so
-        // a rule on the last fraction of a point of the text column is not drawn. Ask for a column
-        // that is a whole number of points; the fraction joins the right margin. A page without a
-        // right margin has no column edge to save, and narrowing it would only shrink a full-bleed page.
-        let column = pageSize.width - margins.left - margins.right
-        if margins.right > 0 {
-            printInfo.rightMargin = margins.right + max(0, column - column.rounded(.down) - Self.columnSlack)
-        }
+        // Only the print asks for the whole column: the layout before it keeps its measure, and the
+        // LaTeX margin path below prints the whole paper, where the column edge is not at the cut.
+        printInfo.rightMargin = margins.wholeColumn(in: pageSize).right
         if latexMarginInk {
             // NSPrintOperation clips to the printable width before Quartz sees the page. Give the root
             // the horizontal white space instead, so a number outside its pre or a frame on the last
@@ -1320,9 +1331,6 @@ final class PaginationSession {
     /// page of its own. Pages are laid out this much taller and then cut back to the paper, keeping their top. In the
     /// measured setup 0.5 pt was rounded back to the standard paper size and 1 pt was enough.
     static let pageHeightAllowance: CGFloat = 2
-
-    /// Kept above a whole point so floating-point error cannot drop the column to the point below.
-    static let columnSlack: CGFloat = 0.01
 
     /// Cuts the pages back to the paper unless something is drawn in the strip the cut would take off. With the
     /// allowance added to the bottom margin, only a document whose own `@page` margin leaves less than that at the

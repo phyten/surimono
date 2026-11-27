@@ -171,6 +171,25 @@ struct PrintedFrameEdgeTests {
         }
     }
 
+    @Test(
+        "本文の幅は整数のポイントのすぐ上まで詰め、端数は右の余白に回す",
+        arguments: [(510.24, 510.01), (510.9, 510.01), (510.0, 509.01), (510.004, 509.01), (510.01, 510.01)])
+    func wholeColumn(column: Double, expected: Double) {
+        let size = CGSize(width: column + 80, height: 800)
+        let margins = WebPaginator.Margins(top: 30, left: 40, bottom: 30, right: 40).wholeColumn(in: size)
+        #expect(abs(size.width - margins.left - margins.right - expected) < 0.0001)
+        #expect(margins.left == 40 && margins.top == 30 && margins.bottom == 30)
+        // Applying it to its own result must change nothing that matters.
+        let again = margins.wholeColumn(in: size)
+        #expect(abs(again.right - margins.right) < 0.0001)
+    }
+
+    @Test("右の余白がないページの幅は変えない")
+    func fullBleedColumn() {
+        let margins = WebPaginator.Margins(top: 0, left: 0, bottom: 0, right: 0)
+        #expect(margins.wholeColumn(in: CGSize(width: 362.83, height: 272.13)) == margins)
+    }
+
     @Test("標準スタイルの折り返す表は本文幅いっぱいに左右の罫を刷る", .timeLimit(.minutes(1)))
     func fullWidth() async throws {
         let pdf = try await printed(Self.markdown, theme: standard())
