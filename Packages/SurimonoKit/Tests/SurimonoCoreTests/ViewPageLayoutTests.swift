@@ -271,4 +271,45 @@ struct ViewPageLayoutTests {
         #expect(short.documentKey(margin: 0).requiresCopy)
         #expect(short.cropInsets(at: 0, pageHeight: 842, margin: 0) == ViewPageLayout.CropInsets(top: 0, bottom: 290))
     }
+
+    @Test("文字の大きさに合わせて継ぎ目の余白を増減し範囲外は丸めてキーに反映する")
+    func seamTrailingPaddingFollowsTextScale() {
+        let options = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false)
+        let small = ViewPageLayout(
+            pageCount: 2, options: options, hasLogicalMargins: true, showsNumbers: false,
+            contentBottoms: [0: 300], textScale: 0.8)
+        let normal = ViewPageLayout(
+            pageCount: 2, options: options, hasLogicalMargins: true, showsNumbers: false,
+            contentBottoms: [0: 300], textScale: 1)
+        let large = ViewPageLayout(
+            pageCount: 2, options: options, hasLogicalMargins: true, showsNumbers: false,
+            contentBottoms: [0: 300], textScale: 2)
+        let invalid = ViewPageLayout(
+            pageCount: 2, options: options, hasLogicalMargins: true, showsNumbers: false,
+            contentBottoms: [0: 300], textScale: .nan)
+        // 300 - 8 = 292, 300 - 10 = 290, 300 - 20 = 280.
+        #expect(
+            small.cropInsets(at: 0, pageHeight: 842, margin: 42) == ViewPageLayout.CropInsets(top: 0, bottom: 292))
+        #expect(
+            normal.cropInsets(at: 0, pageHeight: 842, margin: 42) == ViewPageLayout.CropInsets(top: 0, bottom: 290))
+        #expect(
+            large.cropInsets(at: 0, pageHeight: 842, margin: 42) == ViewPageLayout.CropInsets(top: 0, bottom: 280))
+        #expect(
+            invalid.cropInsets(at: 0, pageHeight: 842, margin: 42) == ViewPageLayout.CropInsets(top: 0, bottom: 290))
+        #expect(small.documentKey(margin: 42) != normal.documentKey(margin: 42))
+        #expect(large.documentKey(margin: 42) != normal.documentKey(margin: 42))
+    }
+
+    @Test("上限を超える大文書では下端の追加切り詰めを省いて通常の余白切り取りへフォールバックする")
+    func largeDocumentSkipsExtraBottomTrim() {
+        let options = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false)
+        let atLimit = ViewPageLayout(
+            pageCount: ViewPageLayout.seamTrimPageLimit, options: options, hasLogicalMargins: true, showsNumbers: false)
+        let overLimit = ViewPageLayout(
+            pageCount: ViewPageLayout.seamTrimPageLimit + 1, options: options, hasLogicalMargins: true,
+            showsNumbers: false)
+        #expect(atLimit.trimmableBottomPages.count == ViewPageLayout.seamTrimPageLimit - 1)
+        #expect(overLimit.trimmableBottomPages.isEmpty)
+        #expect(overLimit.cropsMargins)
+    }
 }

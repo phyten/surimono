@@ -597,12 +597,278 @@ struct ViewPageDocumentTests {
             context.setFillColor(CGColor(gray: 0.1, alpha: 1))
             context.fill(CGRect(x: 42, y: 340, width: 200, height: 80))
             context.endPDFPage()
+            context.beginPDFPage(nil)
+            context.setFillColor(CGColor(gray: 0.1, alpha: 1))
+            context.fill(CGRect(x: 42, y: 340, width: 200, height: 80))
+            context.endPDFPage()
         }
         let mark = ChangeMark(
             pageIndex: 0, rect: CGRect(x: 42, y: 200, width: 200, height: 20), isShort: true, afterBlock: true)
         let bottoms = ViewPageDocument.contentBottoms(of: source, pages: [0], margin: 42, changeMarks: [mark])
         // Short afterBlock mark extends 3 pt below rect.minY -> 197.
         #expect(bottoms[0] == 197)
+        let options = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false)
+        let plan = ViewPageLayout(
+            pageCount: 2, options: options, hasLogicalMargins: true, showsNumbers: false, contentBottoms: bottoms)
+        let copy = try #require(ViewPageDocument.make(source, plan: plan, margin: 42, changeMarks: [mark]))
+        let visible = try #require(copy.page(at: 0)?.bounds(for: .cropBox))
+        #expect(visible.minY == 187)
+        #expect(visible.contains(mark.highlight(in: CGRect(x: 0, y: 0, width: 300, height: 500))))
+    }
+
+    @Test("方眼紙や回転ページの途中ページに変更の印があっても下端を切り詰めない")
+    func unmeasuredPagesWithChangeMarksStayUntrimmed() throws {
+        let source = try drawTestDocument(size: CGSize(width: 300, height: 500)) { context in
+            // Page 0: normal page.
+            context.beginPDFPage(nil)
+            context.setFillColor(CGColor(gray: 0.1, alpha: 1))
+            context.fill(CGRect(x: 42, y: 320, width: 200, height: 80))
+            context.endPDFPage()
+            // Page 1: middle page with 2D grid background.
+            context.beginPDFPage(nil)
+            context.setStrokeColor(CGColor(srgbRed: 0.85, green: 0.9, blue: 0.95, alpha: 1))
+            context.setLineWidth(1)
+            for y in stride(from: 10, to: 500, by: 20) {
+                context.move(to: CGPoint(x: 0, y: y))
+                context.addLine(to: CGPoint(x: 300, y: y))
+            }
+            context.strokePath()
+            context.endPDFPage()
+            // Page 2: middle page that will be rotated to 90 degrees.
+            context.beginPDFPage(nil)
+            context.setFillColor(CGColor(gray: 0.1, alpha: 1))
+            context.fill(CGRect(x: 42, y: 320, width: 200, height: 80))
+            context.endPDFPage()
+            // Page 3: last page.
+            context.beginPDFPage(nil)
+            context.setFillColor(CGColor(gray: 0.1, alpha: 1))
+            context.fill(CGRect(x: 42, y: 320, width: 200, height: 80))
+            context.endPDFPage()
+        }
+        source.page(at: 2)?.rotation = 90
+        let marks = [
+            ChangeMark(pageIndex: 1, rect: CGRect(x: 42, y: 200, width: 200, height: 20)),
+            ChangeMark(pageIndex: 2, rect: CGRect(x: 42, y: 200, width: 200, height: 20)),
+        ]
+        let options = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false)
+        let base = ViewPageLayout(pageCount: 4, options: options, hasLogicalMargins: true, showsNumbers: false)
+        let bottoms = ViewPageDocument.contentBottoms(
+            of: source, pages: base.trimmableBottomPages, margin: 42, changeMarks: marks)
+        #expect(bottoms[1] == nil)
+        #expect(bottoms[2] == nil)
+        let plan = ViewPageLayout(
+            pageCount: 4, options: options, hasLogicalMargins: true, showsNumbers: false, contentBottoms: bottoms)
+        let copy = try #require(ViewPageDocument.make(source, plan: plan, margin: 42, changeMarks: marks))
+        #expect(copy.page(at: 1)?.bounds(for: .cropBox) == CGRect(x: 0, y: 42, width: 300, height: 416))
+        #expect(copy.page(at: 2)?.bounds(for: .cropBox) == CGRect(x: 0, y: 42, width: 300, height: 416))
+    }
+
+    @Test("濃い本文より下まで続くごく薄い背景の囲みや細線を切り落とさない")
+    func faintBoxAndHairlineBelowDarkInkArePreserved() throws {
+        let source = try drawTestDocument(size: CGSize(width: 300, height: 500)) { context in
+            // Page 0: faint (252,252,252) box spanning y = 220..400 with dark ink ending at y = 340.
+            context.beginPDFPage(nil)
+            context.setFillColor(CGColor(srgbRed: 252.0 / 255, green: 252.0 / 255, blue: 252.0 / 255, alpha: 1))
+            context.fill(CGRect(x: 42, y: 220, width: 216, height: 180))
+            context.setFillColor(CGColor(gray: 0.1, alpha: 1))
+            context.fill(CGRect(x: 52, y: 340, width: 180, height: 50))
+            context.endPDFPage()
+            // Page 1: dark ink ending at y = 360 with a pale 0.5 pt hairline at y = 240.
+            context.beginPDFPage(nil)
+            context.setFillColor(CGColor(gray: 0.1, alpha: 1))
+            context.fill(CGRect(x: 42, y: 360, width: 200, height: 60))
+            context.setStrokeColor(CGColor(srgbRed: 0.92, green: 0.92, blue: 0.92, alpha: 1))
+            context.setLineWidth(0.5)
+            context.move(to: CGPoint(x: 42, y: 240))
+            context.addLine(to: CGPoint(x: 258, y: 240))
+            context.strokePath()
+            context.endPDFPage()
+            // Page 2: last page.
+            context.beginPDFPage(nil)
+            context.setFillColor(CGColor(gray: 0.1, alpha: 1))
+            context.fill(CGRect(x: 42, y: 360, width: 200, height: 60))
+            context.endPDFPage()
+        }
+        let options = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false)
+        let base = ViewPageLayout(pageCount: 3, options: options, hasLogicalMargins: true, showsNumbers: false)
+        let bottoms = ViewPageDocument.contentBottoms(of: source, pages: base.trimmableBottomPages, margin: 42)
+        #expect(abs((bottoms[0] ?? -1) - 220) <= 1)
+        #expect(abs((bottoms[1] ?? -1) - 240) <= 1)
+        let plan = ViewPageLayout(
+            pageCount: 3, options: options, hasLogicalMargins: true, showsNumbers: false, contentBottoms: bottoms)
+        let copy = try #require(ViewPageDocument.make(source, plan: plan, margin: 42))
+        let firstBox = try #require(copy.page(at: 0)?.bounds(for: .cropBox))
+        let secondBox = try #require(copy.page(at: 1)?.bounds(for: .cropBox))
+        #expect(firstBox.minY <= 220 && firstBox.minY >= 209)
+        #expect(secondBox.minY <= 240 && secondBox.minY >= 229)
+    }
+
+    @Test("4pt未満の余白・下余白より上の横罫・縦グラデーションは切り詰めない")
+    func conservativePaperUniformityExclusions() throws {
+        let source = try drawTestDocument(size: CGSize(width: 300, height: 500)) { context in
+            // Page 0: ordinary short white page (tested with margins 0, 1, 3 pt).
+            context.beginPDFPage(nil)
+            context.setFillColor(CGColor(gray: 0.1, alpha: 1))
+            context.fill(CGRect(x: 42, y: 320, width: 200, height: 80))
+            context.endPDFPage()
+            // Page 1: sparse horizontal rule starting above the 42 pt bottom margin (y = 80, 180, 280, 380).
+            context.beginPDFPage(nil)
+            context.setStrokeColor(CGColor(srgbRed: 0.85, green: 0.9, blue: 0.95, alpha: 1))
+            context.setLineWidth(1)
+            for y in stride(from: 80, to: 420, by: 100) {
+                context.move(to: CGPoint(x: 0, y: y))
+                context.addLine(to: CGPoint(x: 300, y: y))
+            }
+            context.strokePath()
+            context.setFillColor(CGColor(gray: 0.1, alpha: 1))
+            context.fill(CGRect(x: 42, y: 320, width: 200, height: 80))
+            context.endPDFPage()
+            // Page 2: subtle vertical gradient over the full page (white at bottom to 245 at top).
+            context.beginPDFPage(nil)
+            let space = CGColorSpaceCreateDeviceRGB()
+            let colors =
+                [
+                    CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 1),
+                    CGColor(srgbRed: 245.0 / 255, green: 245.0 / 255, blue: 245.0 / 255, alpha: 1),
+                ] as CFArray
+            if let gradient = CGGradient(colorsSpace: space, colors: colors, locations: [0, 1]) {
+                context.drawLinearGradient(
+                    gradient, start: CGPoint(x: 0, y: 0), end: CGPoint(x: 0, y: 500), options: [])
+            }
+            context.setFillColor(CGColor(gray: 0.1, alpha: 1))
+            context.fill(CGRect(x: 42, y: 320, width: 200, height: 80))
+            context.endPDFPage()
+        }
+        for smallMargin: CGFloat in [0, 1, 3] {
+            #expect(ViewPageDocument.contentBottoms(of: source, pages: [0], margin: smallMargin).isEmpty)
+        }
+        let bottoms = ViewPageDocument.contentBottoms(of: source, pages: [0, 1, 2], margin: 42)
+        #expect(abs((bottoms[0] ?? -1) - 320) <= 1)
+        #expect(bottoms[1] == nil)
+        #expect(bottoms[2] == nil)
+    }
+
+    @Test("極端に大きい有限の余白や寸法でも異常終了せず測定を断念する")
+    func extremeFiniteDimensionsAndMarginDoNotCrash() throws {
+        let source = try drawTestDocument(size: CGSize(width: 300, height: 500)) { context in
+            context.beginPDFPage(nil)
+            context.setFillColor(CGColor(gray: 0.1, alpha: 1))
+            context.fill(CGRect(x: 42, y: 320, width: 200, height: 80))
+            context.endPDFPage()
+        }
+        #expect(ViewPageDocument.contentBottoms(of: source, pages: [0], margin: .greatestFiniteMagnitude).isEmpty)
+        #expect(ViewPageDocument.contentBottoms(of: source, pages: [0], margin: 1e20).isEmpty)
+        let huge = CGRect(x: 0, y: 0, width: 1e20, height: 1e20)
+        source.page(at: 0)?.setBounds(huge, for: .mediaBox)
+        source.page(at: 0)?.setBounds(huge, for: .cropBox)
+        #expect(ViewPageDocument.contentBottoms(of: source, pages: [0], margin: 42).isEmpty)
+    }
+
+    @Test("ページの差し替え・並べ替え・回転変更でキャッシュが古い測定値を返さない")
+    func contentBottomCacheInvalidatesOnPageMutation() throws {
+        let source = try drawTestDocument(size: CGSize(width: 300, height: 500)) { context in
+            context.beginPDFPage(nil)
+            context.setFillColor(CGColor(gray: 0.1, alpha: 1))
+            context.fill(CGRect(x: 42, y: 340, width: 200, height: 80))
+            context.endPDFPage()
+            context.beginPDFPage(nil)
+            context.setFillColor(CGColor(gray: 0.1, alpha: 1))
+            context.fill(CGRect(x: 42, y: 120, width: 200, height: 80))
+            context.endPDFPage()
+        }
+        let initial = ViewPageDocument.contentBottoms(of: source, pages: [0, 1], margin: 42)
+        #expect(abs((initial[0] ?? -1) - 340) <= 1)
+        #expect(abs((initial[1] ?? -1) - 120) <= 1)
+
+        // Replace page 0 with a same-size page whose ink reaches y = 80.
+        let replacement = try drawTestDocument(size: CGSize(width: 300, height: 500)) { context in
+            context.beginPDFPage(nil)
+            context.setFillColor(CGColor(gray: 0.1, alpha: 1))
+            context.fill(CGRect(x: 42, y: 80, width: 200, height: 80))
+            context.endPDFPage()
+        }
+        source.removePage(at: 0)
+        source.insert(try #require(StandalonePage.first(of: replacement)), at: 0)
+        let afterReplace = ViewPageDocument.contentBottoms(of: source, pages: [0, 1], margin: 42)
+        #expect(abs((afterReplace[0] ?? -1) - 80) <= 1)
+        #expect(abs((afterReplace[1] ?? -1) - 120) <= 1)
+
+        // Reorder pages 0 and 1.
+        let moved = try #require(source.page(at: 0))
+        source.removePage(at: 0)
+        source.insert(moved, at: 1)
+        let afterSwap = ViewPageDocument.contentBottoms(of: source, pages: [0, 1], margin: 42)
+        #expect(abs((afterSwap[0] ?? -1) - 120) <= 1)
+        #expect(abs((afterSwap[1] ?? -1) - 80) <= 1)
+
+        // Rotate page 0 in place.
+        source.page(at: 0)?.rotation = 90
+        let afterRotate = ViewPageDocument.contentBottoms(of: source, pages: [0, 1], margin: 42)
+        #expect(afterRotate[0] == nil)
+        #expect(abs((afterRotate[1] ?? -1) - 80) <= 1)
+    }
+
+    @Test("非ゼロ原点と小数寸法のcropBoxでも下端を正しく切り取る")
+    func nonZeroOriginAndFractionalCropBox() throws {
+        let source = try drawTestDocument(size: CGSize(width: 310, height: 510)) { context in
+            // Page 0: dark block at PDF y = 322..442 (320 pt above cropBox.minY = 2.0).
+            context.beginPDFPage(nil)
+            context.setFillColor(CGColor(gray: 0.1, alpha: 1))
+            context.fill(CGRect(x: 50, y: 322, width: 200, height: 120))
+            context.endPDFPage()
+            // Page 1: last page.
+            context.beginPDFPage(nil)
+            context.setFillColor(CGColor(gray: 0.1, alpha: 1))
+            context.fill(CGRect(x: 50, y: 322, width: 200, height: 120))
+            context.endPDFPage()
+        }
+        let crop = CGRect(x: 3.5, y: 2.0, width: 300.4, height: 500.7)
+        source.page(at: 0)?.setBounds(crop, for: .cropBox)
+        source.page(at: 1)?.setBounds(crop, for: .cropBox)
+        let options = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false)
+        let base = ViewPageLayout(pageCount: 2, options: options, hasLogicalMargins: true, showsNumbers: false)
+        let bottoms = ViewPageDocument.contentBottoms(of: source, pages: base.trimmableBottomPages, margin: 42)
+        #expect(abs((bottoms[0] ?? -1) - 320) <= 1)
+        let plan = ViewPageLayout(
+            pageCount: 2, options: options, hasLogicalMargins: true, showsNumbers: false, contentBottoms: bottoms)
+        let copy = try #require(ViewPageDocument.make(source, plan: plan, margin: 42))
+        let visible = try #require(copy.page(at: 0)?.bounds(for: .cropBox))
+        #expect(abs(visible.minX - 3.5) <= 0.1)
+        #expect(abs(visible.minY - 312) <= 1)
+        #expect(abs(visible.maxY - 502.7) <= 0.1)
+    }
+
+    @Test("300ページの合成テキストPDFの描画下端計測とキャッシュ再利用が素早く完了する")
+    func threeHundredTextPagesScanTiming() throws {
+        let pageCount = 300
+        let font = NSFont.systemFont(ofSize: 10.5)
+        let line = CTLineCreateWithAttributedString(
+            NSAttributedString(
+                string: "The quick brown fox jumps over the lazy dog — 0123456789 継ぎ目の確認用テキスト行",
+                attributes: [.font: font]))
+        let source = try drawTestDocument(size: PaperSize.a4.size) { context in
+            for page in 0..<pageCount {
+                context.beginPDFPage(nil)
+                let lines = page.isMultiple(of: 3) ? 12 : 36
+                for row in 0..<lines {
+                    context.textPosition = CGPoint(x: 42, y: 785 - CGFloat(row) * 20)
+                    CTLineDraw(line, context)
+                }
+                context.endPDFPage()
+            }
+        }
+        let targets = Array(0..<(pageCount - 1))
+        let clock = ContinuousClock()
+        let cold = clock.measure {
+            let bottoms = ViewPageDocument.contentBottoms(of: source, pages: targets, margin: 42)
+            #expect(bottoms.count == targets.count)
+        }
+        let warm = clock.measure {
+            let bottoms = ViewPageDocument.contentBottoms(of: source, pages: targets, margin: 42)
+            #expect(bottoms.count == targets.count)
+        }
+        #expect(cold < .seconds(2))
+        #expect(warm < .milliseconds(50))
     }
 
     private func drawTestDocument(size: CGSize, draw: (CGContext) -> Void) throws -> PDFDocument {

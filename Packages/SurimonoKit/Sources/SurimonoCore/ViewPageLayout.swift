@@ -3,8 +3,14 @@ import Foundation
 /// A presentation-only plan. Indices are zero-based; nil slots are unnumbered paper.
 /// Slots follow reading order; PDFKit mirrors each pair when displaysRTL is set.
 public struct ViewPageLayout: Equatable, Sendable {
-    /// Breathing room kept below a page's lowest drawn content when trimming unused paper at a scroll seam.
+    /// Base breathing room (at 100% text scale) kept below a page's lowest drawn content when trimming unused paper
+    /// at a scroll seam.
     public static let seamTrailingPadding: CGFloat = 10
+
+    /// Breathing room below the lowest drawn content at a scroll seam, scaled with the document's text size.
+    public static func seamTrailingPadding(for textScale: Double) -> CGFloat {
+        seamTrailingPadding * CGFloat(TextScale.clamped(textScale))
+    }
 
     public let logicalIndices: [Int?]
     public let cropsMargins: Bool
@@ -15,6 +21,7 @@ public struct ViewPageLayout: Equatable, Sendable {
     private let keptEdges: [Int: CropEdges]
     /// Distance in points from the bottom of a logical page's crop box to its lowest drawn content.
     private let contentBottoms: [Int: CGFloat]
+    private let seamPadding: CGFloat
 
     public struct CropEdges: Equatable, Sendable {
         public var top = false
@@ -60,7 +67,7 @@ public struct ViewPageLayout: Equatable, Sendable {
                 guard crops(at: viewIndex).bottom, let index = logicalIndex(at: viewIndex),
                     let bottom = contentBottoms[index], bottom.isFinite
                 else { continue }
-                let trimmed = Double(bottom - Self.seamTrailingPadding)
+                let trimmed = Double(bottom - seamPadding)
                 if trimmed > baseMargin { trimmedBottoms[viewIndex] = trimmed }
             }
         }
@@ -75,12 +82,14 @@ public struct ViewPageLayout: Equatable, Sendable {
     ///     stands in them. A page without one has its margins cut at the seams as before.
     ///   - contentBottoms: Distance from the bottom of a logical page's crop box to its lowest drawn content, in
     ///     points, used to trim unused paper below the last content on non-final pages in vertical Scroll mode.
+    ///   - textScale: Content magnification for print themes (1.0 at 100%), used to scale the trailing seam room.
     public init(
         pageCount: Int, options: ViewOptions, hasLogicalMargins: Bool, showsNumbers: Bool, pageSizes: [CGSize] = [],
-        keptEdges: [Int: CropEdges] = [:], contentBottoms: [Int: CGFloat] = [:]
+        keptEdges: [Int: CropEdges] = [:], contentBottoms: [Int: CGFloat] = [:], textScale: Double = 1
     ) {
         self.keptEdges = keptEdges
         self.contentBottoms = contentBottoms
+        seamPadding = Self.seamTrailingPadding(for: textScale)
         var indices = (0..<max(0, pageCount)).map(Optional.some)
         if options.layout == .spread && !indices.isEmpty {
             if options.showsCoverAlone { indices.insert(nil, at: 0) }
@@ -145,9 +154,12 @@ public struct ViewPageLayout: Equatable, Sendable {
         return CropEdges(top: viewIndex > 0 && !kept.top, bottom: viewIndex < logicalIndices.count - 1 && !kept.bottom)
     }
 
+    /// Maximum page count for synchronous seam-bottom trimming; larger documents fall back to the plain margin crop.
+    public static let seamTrimPageLimit = 300
+
     /// Logical page indices whose unused bottom paper can be trimmed at a scroll seam.
     public var trimmableBottomPages: [Int] {
-        guard cropsMargins else { return [] }
+        guard cropsMargins, logicalIndices.count <= Self.seamTrimPageLimit else { return [] }
         return logicalIndices.indices.compactMap { viewIndex in
             guard crops(at: viewIndex).bottom else { return nil }
             return logicalIndex(at: viewIndex)
@@ -167,7 +179,7 @@ public struct ViewPageLayout: Equatable, Sendable {
         if edges.bottom, let index = logicalIndex(at: viewIndex), let contentBottom = contentBottoms[index],
             contentBottom.isFinite, contentBottom > 0
         {
-            let trimmed = contentBottom - Self.seamTrailingPadding
+            let trimmed = contentBottom - seamPadding
             if trimmed > bottom {
                 let maximum = pageHeight - top - 1
                 if maximum > bottom { bottom = min(trimmed, maximum) }

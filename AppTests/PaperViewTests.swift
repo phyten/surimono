@@ -1,6 +1,7 @@
 import AppKit
 import PDFKit
 import SurimonoCore
+import SurimonoRendering
 import SwiftUI
 import Testing
 
@@ -516,6 +517,118 @@ struct PaperViewTests {
         #expect(view.zoom == 2)
         #expect(view.document?.page(at: 2)?.bounds(for: .cropBox) == originalBox)
         #expect(source.page(at: 2)?.bounds(for: .cropBox) == originalBox)
+        withExtendedLifetime(window) {}
+    }
+
+    @Test("縦スクロール結合の短・長・短の実文字PDFで移動・内部リンク・変更マーク・スクロール往復が保たれる")
+    func scrollSeamShortLongShortTextPages() throws {
+        let data = NSMutableData()
+        var box = CGRect(x: 0, y: 0, width: 595, height: 842)
+        let consumer = try #require(CGDataConsumer(data: data as CFMutableData))
+        let context = try #require(CGContext(consumer: consumer, mediaBox: &box, nil))
+        let font = NSFont.systemFont(ofSize: 12)
+        func drawLine(_ text: String, y: CGFloat) {
+            let line = CTLineCreateWithAttributedString(NSAttributedString(string: text, attributes: [.font: font]))
+            context.textPosition = CGPoint(x: 72, y: y)
+            CTLineDraw(line, context)
+        }
+        // Page 0 (short): two lines near the top so a large blank band would appear without trimming.
+        context.beginPDFPage(nil)
+        drawLine("Short opening heading", y: 760)
+        drawLine("Jump to ending", y: 740)
+        context.endPDFPage()
+        // Page 1 (long): lines filling the full text area down to the 42 pt bottom margin.
+        context.beginPDFPage(nil)
+        for row in 0..<37 {
+            drawLine(String(format: "Long body line %02d", row + 1), y: 770 - CGFloat(row) * 20)
+        }
+        context.endPDFPage()
+        // Page 2 (short last page): keeps its full bottom.
+        context.beginPDFPage(nil)
+        drawLine("Short ending heading", y: 760)
+        drawLine("Final paragraph line", y: 740)
+        context.endPDFPage()
+        context.closePDF()
+
+        let source = try #require(PDFDocument(data: data as Data))
+        let sourcePage0 = try #require(source.page(at: 0))
+        let sourcePage2 = try #require(source.page(at: 2))
+        let link = PDFAnnotation(
+            bounds: CGRect(x: 72, y: 736, width: 120, height: 18), forType: .link, withProperties: nil)
+        link.action = PDFActionGoTo(destination: PDFDestination(page: sourcePage2, at: CGPoint(x: 72, y: 760)))
+        sourcePage0.addAnnotation(link)
+
+        let mark = ChangeMark(pageIndex: 0, rect: CGRect(x: 72, y: 736, width: 160, height: 18))
+        let (view, window) = try makeSinglePagePaper(document: source)
+        let scroll = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false)
+        view.configure(
+            source, at: 0, options: scroll, logicalMargin: 42, showsPageNumbers: false, changeMarks: [mark])
+        view.layoutSubtreeIfNeeded()
+
+        let copy = try #require(view.document)
+        #expect(copy !== source)
+        let page0 = try #require(copy.page(at: 0))
+        let page1 = try #require(copy.page(at: 1))
+        let page2 = try #require(copy.page(at: 2))
+        let box0 = page0.bounds(for: .cropBox)
+        let box1 = page1.bounds(for: .cropBox)
+        let box2 = page2.bounds(for: .cropBox)
+        // Page 0 trimmed well below full height, while Page 1 (full) and Page 2 (last) keep their expected boxes.
+        #expect(box0.height < 200 && box0.minY > 650)
+        #expect(box1 == CGRect(x: 0, y: 42, width: 595, height: 758))
+        #expect(box2 == CGRect(x: 0, y: 0, width: 595, height: 800))
+        #expect(page0.string?.contains("Short opening heading") == true)
+        #expect(page1.string?.contains("Long body line 37") == true)
+        #expect(page2.string?.contains("Short ending heading") == true)
+
+        // The change mark survives inside the trimmed crop box and is painted onto the view copy.
+        #expect(box0.contains(mark.highlight(in: CGRect(x: 0, y: 0, width: 595, height: 842))))
+        let width = Int(box0.width.rounded(.up))
+        let height = Int(box0.height.rounded(.up))
+        let bitmap = try #require(
+            CGContext(
+                data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        bitmap.setFillColor(CGColor(gray: 1, alpha: 1))
+        bitmap.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        page0.draw(with: .cropBox, to: bitmap)
+        let pixels = try #require(bitmap.data).assumingMemoryBound(to: UInt8.self)
+        let sampleX = 210
+        let sampleY = Int(745 - box0.minY)
+        let offset = ((height - 1 - sampleY) * width + sampleX) * 4
+        #expect(pixels[offset] > 240 && pixels[offset + 1] > 225 && pixels[offset + 2] < 200)
+
+        // Navigation across long and last pages updates currentPageIndex; going to the short first page brings it into view.
+        view.goToPage(index: 1)
+        view.layoutSubtreeIfNeeded()
+        #expect(view.currentPageIndex == 1)
+        view.goToPage(index: 2)
+        view.layoutSubtreeIfNeeded()
+        #expect(view.currentPageIndex == 2)
+        view.goToPage(index: 0)
+        view.layoutSubtreeIfNeeded()
+        #expect(view.visiblePages.contains(page0))
+
+        // Internal link on the trimmed page targets the view copy's last page and jumps there.
+        let action = try #require(page0.annotations.first?.action as? PDFActionGoTo)
+        #expect(action.destination.page === page2)
+        view.perform(action)
+        view.layoutSubtreeIfNeeded()
+        #expect(view.currentPageIndex == 2)
+
+        // Leaving Scroll and re-entering Scroll preserves the reading page.
+        view.goToPage(index: 1)
+        view.layoutSubtreeIfNeeded()
+        #expect(view.currentPageIndex == 1)
+        let paged = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .instant, showsCoverAlone: false)
+        view.configure(
+            source, at: 0, options: paged, logicalMargin: 42, showsPageNumbers: false, changeMarks: [mark])
+        view.layoutSubtreeIfNeeded()
+        #expect(view.currentPageIndex == 1)
+        view.configure(
+            source, at: 0, options: scroll, logicalMargin: 42, showsPageNumbers: false, changeMarks: [mark])
+        view.layoutSubtreeIfNeeded()
+        #expect(view.currentPageIndex == 1)
         withExtendedLifetime(window) {}
     }
 

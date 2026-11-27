@@ -19,7 +19,9 @@ extension PDFDocument {
 
     final class ContentBottomCache {
         struct Entry {
+            weak var page: PDFPage?
             let cropBox: CGRect
+            let rotation: Int
             let bottom: CGFloat?
         }
         var margin: CGFloat = -1
@@ -259,61 +261,81 @@ public enum ViewPageDocument {
 
     /// Measures the distance from the bottom of each requested page's crop box to its lowest drawn content (in points).
     ///
-    /// Blank pages and pages with vertically patterned backgrounds (such as grids or dot grids) are omitted so they keep
-    /// their normal margin crop. Results for the underlying PDF pages are cached on `source`.
+    /// Conservative by design: blank pages, rotated pages, oversized pages, pages without a verifiable margin band
+    /// (`margin < 4` pt), and pages whose background varies vertically (grids, dot grids, gradients) are omitted so they
+    /// keep their normal margin crop. A `ChangeMark` can only extend the protected area downward; it never causes an
+    /// unmeasured page to be trimmed.
+    ///
+    /// Results for the underlying PDF pages are cached on `source` under the contract that `source` is a read-only
+    /// snapshot (`PreparedRender.viewDocument`, `ReadingPreview.document`, `ThemeTrial.document`), while each entry also
+    /// verifies page object identity, crop box, and rotation.
     public static func contentBottoms(
         of source: PDFDocument, pages: [Int], margin: CGFloat, changeMarks: [ChangeMark] = []
     ) -> [Int: CGFloat] {
-        guard !pages.isEmpty, margin.isFinite, margin >= 0 else { return [:] }
+        guard !pages.isEmpty, margin.isFinite, margin >= 4 else { return [:] }
         let cache = source.contentBottomCache
         if cache.margin != margin {
             cache.margin = margin
             cache.entries.removeAll(keepingCapacity: true)
         }
         let marksByPage = Dictionary(grouping: changeMarks, by: \.pageIndex)
+        var scratchPixels: [UInt8] = []
         var result: [Int: CGFloat] = [:]
         for index in pages {
             guard let page = source.page(at: index) else { continue }
             let box = page.bounds(for: .cropBox)
+            let rotation = page.rotation
             let measured: CGFloat?
-            if let entry = cache.entries[index], entry.cropBox == box {
+            if let entry = cache.entries[index], entry.page === page, entry.cropBox == box, entry.rotation == rotation {
                 measured = entry.bottom
             } else {
-                let value = measureContentBottom(of: page, margin: margin)
-                cache.entries[index] = .init(cropBox: box, bottom: value)
+                let value = measureContentBottom(of: page, margin: margin, scratchPixels: &scratchPixels)
+                cache.entries[index] = .init(page: page, cropBox: box, rotation: rotation, bottom: value)
                 measured = value
             }
-            var bottom = measured
+            // When measurement declined to trim (blank, rotated, patterned, or oversized), never fabricate a trim from
+            // a change mark alone.
+            guard var bottom = measured else { continue }
             if let marks = marksByPage[index] {
                 for mark in marks {
                     let rect = mark.highlight(in: box)
                     guard !rect.isNull, !rect.isEmpty else { continue }
                     let markBottom = rect.minY - box.minY
-                    if markBottom >= 0 {
-                        bottom = bottom.map { min($0, markBottom) } ?? markBottom
-                    }
+                    if markBottom >= 0 { bottom = min(bottom, markBottom) }
                 }
             }
-            if let bottom { result[index] = bottom }
+            result[index] = bottom
         }
         return result
     }
 
-    /// Renders `page` at 1 pt resolution to find the lowest row above the bottom margin that differs from bare paper.
-    private static func measureContentBottom(of page: PDFPage, margin: CGFloat) -> CGFloat? {
+    /// Renders `page` at 1 pt resolution to find the lowest row above the bottom margin that differs at all from a
+    /// verified vertically-uniform paper background.
+    private static func measureContentBottom(
+        of page: PDFPage, margin: CGFloat, scratchPixels: inout [UInt8]
+    ) -> CGFloat? {
         guard page.rotation == 0, let pageRef = page.pageRef else { return nil }
         let box = page.bounds(for: .cropBox)
-        guard box.width.isFinite, box.height.isFinite, box.width >= 1, box.height >= 1 else { return nil }
-        let width = Int(box.width.rounded(.up))
-        let height = Int(box.height.rounded(.up))
-        let scanWidth = Int(box.width.rounded(.down))
-        let scanHeight = Int(box.height.rounded(.down))
-        guard width > 0, height > 0, scanWidth > 0, scanHeight > 0,
-            width <= 8192, height <= 8192, width * height <= 16_000_000
+        let maxDimension: CGFloat = 8192
+        let maxPixels = 16_000_000
+        guard box.width.isFinite, box.height.isFinite, box.minX.isFinite, box.minY.isFinite,
+            box.width >= 1, box.height >= 1, box.width <= maxDimension, box.height <= maxDimension,
+            margin.isFinite, margin >= 4, margin < box.height, margin < box.width,
+            let width = Int(exactly: box.width.rounded(.up)),
+            let height = Int(exactly: box.height.rounded(.up)),
+            let scanWidth = Int(exactly: box.width.rounded(.down)),
+            let scanHeight = Int(exactly: box.height.rounded(.down)),
+            let marginPoints = Int(exactly: margin.rounded(.down)),
+            width > 0, height > 0, scanWidth > 0, scanHeight > 0,
+            width * height <= maxPixels,
+            marginPoints >= 4, marginPoints * 2 < scanHeight, marginPoints * 2 < scanWidth
         else { return nil }
         let bytesPerRow = width * 4
-        var pixels = [UInt8](repeating: 255, count: bytesPerRow * height)
-        let drawn = pixels.withUnsafeMutableBytes { buffer -> Bool in
+        let byteCount = bytesPerRow * height
+        if scratchPixels.count < byteCount {
+            scratchPixels = [UInt8](repeating: 255, count: byteCount)
+        }
+        let drawn = scratchPixels.withUnsafeMutableBytes { buffer -> Bool in
             guard
                 let context = CGContext(
                     data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8,
@@ -327,57 +349,42 @@ public enum ViewPageDocument {
             return true
         }
         guard drawn else { return nil }
-        // Memory row 0 is the top of the bitmap; `y` counts upward in points from `box.minY`.
-        func rowOffset(_ y: Int) -> Int { (height - 1 - y) * bytesPerRow }
-        let tolerance = 4
-        let marginPoints = Int(margin.rounded(.down))
-        if marginPoints >= 4, marginPoints < scanHeight {
-            let reference = rowOffset(1)
-            // Verify that the bottom margin is vertically uniform (solid paper or continuous vertical rules).
-            // A 2D grid, gradient, or margin ink varies across rows and leaves the page untrimmed.
-            for y in 2..<(marginPoints - 1) {
+        return scratchPixels.withUnsafeBufferPointer { pixels -> CGFloat? in
+            guard let base = pixels.baseAddress else { return nil }
+            // Memory row 0 is the top of the bitmap; `y` counts upward in points from `box.minY`.
+            @inline(__always) func rowOffset(_ y: Int) -> Int { (height - 1 - y) * bytesPerRow }
+            let reference = base + rowOffset(0)
+            // The canvas is filled with opaque white before drawing, so alpha stays 255 on every pixel and memcmp
+            // compares exact RGB equality across a span in one pass.
+            @inline(__always) func matches(_ row: Int, startColumn: Int, columnCount: Int) -> Bool {
+                let offset = startColumn * 4
+                return memcmp(base + row + offset, reference + offset, columnCount * 4) == 0
+            }
+            // Verify vertical paper uniformity across the bottom margin, the top margin, and narrow outer strips along
+            // the full height of both side margins. Any 2D grid, dot grid, gradient, or margin ink fails here and leaves
+            // the page untrimmed.
+            for y in 1..<(marginPoints - 1) {
+                if !matches(rowOffset(y), startColumn: 0, columnCount: scanWidth) { return nil }
+            }
+            for y in (scanHeight - marginPoints + 1)..<scanHeight {
+                if !matches(rowOffset(y), startColumn: 0, columnCount: scanWidth) { return nil }
+            }
+            let edgeWidth = min(marginPoints - 1, 8)
+            let rightStart = scanWidth - edgeWidth
+            for y in (marginPoints - 1)...(scanHeight - marginPoints) {
                 let row = rowOffset(y)
-                for column in 0..<scanWidth {
-                    let offset = column * 4
-                    let a = row + offset
-                    let b = reference + offset
-                    if abs(Int(pixels[a]) - Int(pixels[b])) > tolerance
-                        || abs(Int(pixels[a + 1]) - Int(pixels[b + 1])) > tolerance
-                        || abs(Int(pixels[a + 2]) - Int(pixels[b + 2])) > tolerance
-                    {
-                        return nil
-                    }
+                if !matches(row, startColumn: 0, columnCount: edgeWidth)
+                    || !matches(row, startColumn: rightStart, columnCount: edgeWidth)
+                {
+                    return nil
                 }
             }
+            // Any pixel that differs from the verified paper reference counts as drawn, preserving faint boxes and rules.
             for y in marginPoints..<scanHeight {
-                let row = rowOffset(y)
-                for column in 0..<scanWidth {
-                    let offset = column * 4
-                    let a = row + offset
-                    let b = reference + offset
-                    if abs(Int(pixels[a]) - Int(pixels[b])) > tolerance
-                        || abs(Int(pixels[a + 1]) - Int(pixels[b + 1])) > tolerance
-                        || abs(Int(pixels[a + 2]) - Int(pixels[b + 2])) > tolerance
-                    {
-                        return CGFloat(y)
-                    }
-                }
+                if !matches(rowOffset(y), startColumn: 0, columnCount: scanWidth) { return CGFloat(y) }
             }
             return nil
         }
-        // Without a bottom margin band to sample, treat only pure white as bare paper so a tinted box at y = 0 stays.
-        for y in 0..<scanHeight {
-            let row = rowOffset(y)
-            for column in 0..<scanWidth {
-                let offset = row + column * 4
-                if 255 - Int(pixels[offset]) > tolerance || 255 - Int(pixels[offset + 1]) > tolerance
-                    || 255 - Int(pixels[offset + 2]) > tolerance
-                {
-                    return CGFloat(y)
-                }
-            }
-        }
-        return nil
     }
 
     /// The part of a page the copy shows: its crop box, less the margins and unused seam paper cut where pages join.
