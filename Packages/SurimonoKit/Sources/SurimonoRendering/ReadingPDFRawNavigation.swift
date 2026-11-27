@@ -193,6 +193,7 @@ struct ReadingPDFRawNavigation: Sendable {
             guard CGPDFArrayGetName(dest, 1, &kind), let kind else { return invalid("missing view mode") }
             let mode = String(cString: kind)
             if mode == "XYZ", CGPDFArrayGetCount(dest) == 4, isLink, type == .array, object(dict, "Dest") == nil,
+                let action = dictionary(dict, "A"), CGPDFDictionaryGetCount(action) == 2,
                 let abbreviated = Self.pdfKitXYZ(in: dest)
             {
                 return abbreviated
@@ -347,8 +348,8 @@ struct ReadingPDFRawNavigation: Sendable {
         return true
     }
 
-    // PDFKit can synthesize [/#23N /XYZ x y] for a live GoTo. Only the owning document can
-    // confirm N, and this four-element representation never qualifies as a saved destination.
+    // PDFKit can synthesize [/#23N /XYZ x y] for a live GoTo. A lone marker needs a matching
+    // live destination. A verified duplicate pair also has a canonical /Dest in the second block.
     private static func pdfKitXYZ(in array: CGPDFArrayRef) -> Action? {
         var mode: UnsafePointer<CChar>?
         var marker: UnsafePointer<CChar>?

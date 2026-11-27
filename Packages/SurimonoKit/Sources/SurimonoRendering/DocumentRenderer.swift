@@ -869,6 +869,11 @@ public final class DocumentRenderer {
                     diagrams = result.diagrams
                     composingSource = result.drawingBytes
                     document = result.document
+                    if source.format == .pdf {
+                        document.viewPageOrigin = .file(source.data)
+                    } else if source.format.isWebRendered {
+                        document.viewPageOrigin = .typeset(result.drawingBytes)
+                    }
                     finishing = result.finishing
                     candidates =
                         source.format == .html && settings.smartRemoval != nil

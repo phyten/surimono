@@ -1,5 +1,21 @@
+import ObjectiveC
 import PDFKit
 import SurimonoCore
+
+@MainActor
+extension PDFDocument {
+    enum ViewPageOrigin {
+        case file(Data)
+        case typeset(Data?)
+    }
+
+    private static var viewPageOriginKey: UInt8 = 0
+
+    var viewPageOrigin: ViewPageOrigin? {
+        get { objc_getAssociatedObject(self, &Self.viewPageOriginKey) as? ViewPageOrigin }
+        set { objc_setAssociatedObject(self, &Self.viewPageOriginKey, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
+    }
+}
 
 /// Builds ordinary PDF pages, retaining vector text and separate annotations without editing the render result.
 /// Numbers and the printed header and footer are baked into the view copy on the main actor, so PDFKit's tile workers
@@ -16,6 +32,8 @@ public enum ViewPageDocument {
     ) -> PDFDocument? {
         // What each decorated page draws, by its index in the copy.
         var decorations: [Int: Decoration] = [:]
+        let origin = source.viewPageOrigin
+        var needsPrivatePages = false
         let sourcePages = SourcePaperText.pageIndices(in: source)
         for (viewIndex, logicalIndex) in plan.logicalIndices.enumerated() {
             guard let logicalIndex else { continue }
@@ -25,11 +43,21 @@ public enum ViewPageDocument {
             let placement = furniture[logicalIndex]
             // The printed footer takes the place of the screen's own page number.
             let number = placement?.lines.bottom.contains { !$0.isEmpty } == true ? nil : plan.number(at: viewIndex)
-            // Replacing annotations on PDFPage.copy() can prepend them to the source page's /Annots.
-            // Rebuild annotated pages on independent Quartz pages before installing their view links.
-            let hasBackedAnnotations = !original.annotations.isEmpty && original.pageRef != nil
-            guard scale != 1 || number != nil || !marks.isEmpty || placement != nil || hasBackedAnnotations
-            else { continue }
+            if scale == 1, number == nil, marks.isEmpty, placement == nil {
+                let annotations = original.annotations
+                guard !annotations.isEmpty, original.pageRef != nil else { continue }
+                // Reuse immutable page content when available. Only a typeset page without
+                // those bytes needs drawing to isolate its local links from the view copy.
+                guard case .typeset(nil) = origin,
+                    annotations.contains(where: { link in
+                        link.type == "Link"
+                            && ((link.action as? PDFActionGoTo)?.destination ?? link.destination)?.page != nil
+                    })
+                else {
+                    needsPrivatePages = true
+                    continue
+                }
+            }
             decorations[viewIndex] = Decoration(
                 original: original, number: number, outlinesNumber: sourcePages.contains(logicalIndex),
                 furniture: placement, furnitureAsText: furnitureAsText,
@@ -39,10 +67,33 @@ public enum ViewPageDocument {
         guard let decorated = decoratedPages(decorations, margin: margin, sharesResources: sharesResources) else {
             return nil
         }
-        let result = PDFDocument()
+        // Editing the annotations of PDFPage.copy() can edit the source /Annots. Work on an
+        // independent page tree. For an opened file its original bytes also retain the structure tree.
+        let native: PDFDocument?
+        var serializedLivePages = false
+        switch origin {
+        case .file(let bytes): native = PDFDocument(data: bytes)
+        case .typeset(let bytes?) where needsPrivatePages: native = PDFDocument(data: bytes)
+        default:
+            serializedLivePages = needsPrivatePages
+            native = needsPrivatePages ? source.dataRepresentation().flatMap(PDFDocument.init(data:)) : nil
+        }
+        if needsPrivatePages || native != nil {
+            guard native?.pageCount == source.pageCount else { return nil }
+        }
+        let result = native ?? PDFDocument()
         // A copied link resolves page references against whichever document owns it.
         // Read its destination on the source before attaching the copy to a different PDF.
-        var internalLinks: [(PDFAnnotation, PDFDestination, Bool)] = []
+        var internalLinks: [(PDFAnnotation, PDFDestination, Int, Bool)] = []
+        func rememberLink(_ original: PDFAnnotation, on copy: PDFAnnotation, onlyReplacedTargets: Bool = false) {
+            let action = original.action as? PDFActionGoTo
+            guard let destination = action?.destination ?? original.destination, let page = destination.page,
+                let index = plan.viewIndex(for: source.index(for: page)),
+                !onlyReplacedTargets || decorated[index] != nil
+            else { return }
+            internalLinks.append((copy, destination, index, action != nil))
+        }
+        var offsets: [Int: CGPoint] = [:]
         for (viewIndex, logicalIndex) in plan.logicalIndices.enumerated() {
             let scale = plan.scale(at: viewIndex)
             let transform = CGAffineTransform(scaleX: scale, y: scale)
@@ -54,24 +105,51 @@ public enum ViewPageDocument {
                 if let decoratedPage = decorated[viewIndex] {
                     page = decoratedPage
                     StandalonePage.retainSources(of: original, on: page)
+                    if native != nil { result.removePage(at: viewIndex) }
+                    result.insert(page, at: viewIndex)
+                } else if let native {
+                    guard let existing = native.page(at: viewIndex) else { return nil }
+                    page = existing
+                    if case .file = origin {
+                        // Native references follow inserted blanks. Only targets replaced by a
+                        // decorated page need to be redirected in the private document.
+                        if !decorated.isEmpty {
+                            let copies = page.annotations
+                            guard copies.count == annotations.count else { return nil }
+                            for (original, copy) in zip(annotations, copies) {
+                                rememberLink(original, on: copy, onlyReplacedTargets: true)
+                            }
+                        }
+                        if page.bounds(for: .cropBox) != box { page.setBounds(box, for: .cropBox) }
+                        continue
+                    }
+                    StandalonePage.retainSources(of: original, on: page)
+                    if serializedLivePages {
+                        // PDFKit can translate each page of an assembled binder independently on write.
+                        let before = original.bounds(for: .mediaBox).origin
+                        let after = page.bounds(for: .mediaBox).origin
+                        if before != after {
+                            offsets[viewIndex] = CGPoint(x: after.x - before.x, y: after.y - before.y)
+                        }
+                    }
                 } else {
                     guard let copy = StandalonePage.copy(of: original) else { return nil }
                     page = copy
+                    result.insert(page, at: viewIndex)
                 }
                 // Some PDFKit versions reload a copied page's annotations on insertion.
                 // Install the independent copies on the page in its final document.
-                result.insert(page, at: viewIndex)
                 for annotation in page.annotations { page.removeAnnotation(annotation) }
                 for annotation in annotations {
                     guard let copy = annotationCopy(annotation, scale: scale) else { return nil }
-                    if let action = annotation.action as? PDFActionGoTo {
-                        internalLinks.append((copy, action.destination, true))
-                    } else if let target = annotation.destination {
-                        internalLinks.append((copy, target, false))
+                    if let offset = offsets[viewIndex] {
+                        copy.bounds = copy.bounds.offsetBy(dx: offset.x, dy: offset.y)
                     }
+                    rememberLink(annotation, on: copy)
                     page.addAnnotation(copy)
                 }
-                page.setBounds(box.applying(transform), for: .cropBox)
+                let offset = offsets[viewIndex] ?? .zero
+                page.setBounds(box.applying(transform).offsetBy(dx: offset.x, dy: offset.y), for: .cropBox)
             } else {
                 guard let neighbor = plan.readingIndex(at: viewIndex), let page = source.page(at: neighbor) else {
                     return nil
@@ -83,22 +161,24 @@ public enum ViewPageDocument {
                 result.insert(blank, at: viewIndex)
             }
         }
-        func moved(_ destination: PDFDestination?) -> PDFDestination? {
-            guard let destination, let page = destination.page,
-                let index = plan.viewIndex(for: source.index(for: page)), let target = result.page(at: index)
-            else { return nil }
+        while result.pageCount > plan.logicalIndices.count { result.removePage(at: result.pageCount - 1) }
+        func moved(_ destination: PDFDestination, to index: Int) -> PDFDestination? {
+            guard let target = result.page(at: index) else { return nil }
             let scale = plan.scale(at: index)
             // Unspecified coordinates and zoom mean "keep the current value", not a position to scale.
-            func scaled(_ value: CGFloat, by factor: CGFloat) -> CGFloat {
-                value == kPDFDestinationUnspecifiedValue ? value : value * factor
+            func scaled(_ value: CGFloat, by factor: CGFloat, offset: CGFloat = 0) -> CGFloat {
+                value == kPDFDestinationUnspecifiedValue ? value : value * factor + offset
             }
-            let point = CGPoint(x: scaled(destination.point.x, by: scale), y: scaled(destination.point.y, by: scale))
+            let offset = offsets[index] ?? .zero
+            let point = CGPoint(
+                x: scaled(destination.point.x, by: scale, offset: offset.x),
+                y: scaled(destination.point.y, by: scale, offset: offset.y))
             let copy = result.destination(on: target, at: point)
             copy.zoom = scaled(destination.zoom, by: 1 / scale)
             return copy
         }
-        for (annotation, original, usesAction) in internalLinks {
-            guard let target = moved(original) else { continue }
+        for (annotation, original, index, usesAction) in internalLinks {
+            guard let target = moved(original, to: index) else { return nil }
             if usesAction {
                 annotation.action = PDFActionGoTo(destination: target)
             } else {
@@ -228,10 +308,21 @@ public enum ViewPageDocument {
 
     /// The decorated page's boxes and rotation, which the drawing leaves out.
     private static func finish(_ page: PDFPage, as decoration: Decoration) {
+        let original = decoration.original
         let scaling = CGAffineTransform(scaleX: decoration.scale, y: decoration.scale)
-        page.setBounds(decoration.original.bounds(for: .mediaBox).applying(scaling), for: .mediaBox)
-        page.setBounds(decoration.original.bounds(for: .cropBox).applying(scaling), for: .cropBox)
-        page.rotation = decoration.original.rotation
+        let crop = original.bounds(for: .cropBox)
+        page.setBounds(original.bounds(for: .mediaBox).applying(scaling), for: .mediaBox)
+        page.setBounds(crop.applying(scaling), for: .cropBox)
+        // Absent production boxes follow the crop, including a later crop at a page seam.
+        for (box, key): (PDFDisplayBox, String) in [
+            (.bleedBox, "BleedBox"), (.trimBox, "TrimBox"), (.artBox, "ArtBox"),
+        ] {
+            let bounds = original.bounds(for: box)
+            if bounds != crop || original.pageRef?.dictionary.map({ CGPDFDictionaryGetArray($0, key, nil) }) == true {
+                page.setBounds(bounds.applying(scaling), for: box)
+            }
+        }
+        page.rotation = original.rotation
     }
 
     /// Draws one decorated page as a page of `context`.

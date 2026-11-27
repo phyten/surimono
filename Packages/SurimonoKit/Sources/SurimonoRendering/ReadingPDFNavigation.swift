@@ -143,6 +143,8 @@ struct ReadingPDFNavigation: Sendable {
                     let x = target.arguments[0], let y = target.arguments[1],
                     Self.sameBounds(link.bounds, retained.bounds), bound == nil || bound?.action.target == target
                 else { throw ReadingPDFExporter.ExportError.navigation("\(detail): PDFKit copy identity differs.") }
+                // Only a proven pair in a reopened 2N array has a canonical /Dest of its own to
+                // recover a released page. A lone marker or an N-slot live view needs a live target.
                 if total == count || link.action != .releasedPage {
                     _ = try Self.resolve(
                         link.action, original: .pdfKitXYZ(pageNumber: target.page + 1, point: CGPoint(x: x, y: y)),
