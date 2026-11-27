@@ -17,12 +17,10 @@ struct DocumentsChapterTests {
             ])
         #expect(
             DocumentsChapter.rows(for: .markdown).map(\.id) == [.sectionNumbers, .tableOfContents, .preserveBreaks])
-        for format in [DocumentFormat.quarto, .rMarkdown, .rst] {
+        for format in [DocumentFormat.quarto, .rMarkdown, .rst, .asciidoc] {
             #expect(DocumentsChapter.rows(for: format).map(\.id) == [.sectionNumbers, .tableOfContents])
         }
-        for format in [DocumentFormat.asciidoc, .mediawiki] {
-            #expect(DocumentsChapter.rows(for: format).map(\.id) == [.tableOfContents])
-        }
+        #expect(DocumentsChapter.rows(for: .mediawiki).map(\.id) == [.tableOfContents])
         #expect(CodeNumberRow.allCases.map(\.label.key) == ["Line Numbers", "Code Block Line Numbers"])
     }
 
@@ -201,14 +199,14 @@ struct DocumentsChapterTests {
             (".md", .markdown, "Heading Numbers"), (".qmd", .quarto, "Heading Numbers"),
             (".Rmd", .rMarkdown, "Heading Numbers"),
             (".rst", .rst, "Heading Numbers"), (".. sectnum::", .rst, "Heading Numbers"),
-            (".adoc", .asciidoc, contents),
+            (".adoc", .asciidoc, "Heading Numbers"),
             (".wiki", .mediawiki, contents),
             (".mediawiki", .mediawiki, contents), (".org", .org, "Heading Numbers"),
             (".html", .html, "Default HTML Preset"), ("toc-depth", .markdown, contents),
             ("number-depth", .quarto, "Heading Numbers"), ("number_sections", .rMarkdown, "Heading Numbers"),
             ("toc_depth", .rMarkdown, contents), ("__NOTOC__", .mediawiki, contents),
             (":toclevels:", .asciidoc, contents),
-            (":sectnums:", .asciidoc, "Defaults for New Documents"),
+            (":sectnums:", .asciidoc, "Heading Numbers"),
             ("Code Block Line Numbers", .plainText, "Code Block Line Numbers"), ("num:", .org, "Heading Numbers"),
         ]
         for (query, format, row) in cases {
@@ -425,7 +423,7 @@ struct DocumentsChapterTests {
                 case .org: ["Heading Numbers", "Use Emacs Defaults…", "Reset to Defaults…"]
                 case .html: ["Default HTML Preset", "Allow JavaScript in HTML", "Open Presets Folder"]
                 case .plainText: ["Line Numbers", "Code Block Line Numbers", "Reset to Defaults…"]
-                case .quarto, .rMarkdown, .rst:
+                case .quarto, .rMarkdown, .rst, .asciidoc:
                     ["Heading Numbers", "Table of Contents at the Top", "Reset to Defaults…"]
                 default: ["Table of Contents at the Top", "Reset to Defaults…"]
                 }

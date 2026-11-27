@@ -31,12 +31,7 @@ enum DocumentsChapter {
 
     /// ReadingSyntax.readToday describes manuscript instructions, not app preferences.
     static func rows(for format: DocumentFormat) -> [ReadingCatalogueRow] {
-        switch format {
-        case .markdown, .quarto, .rMarkdown, .rst, .mediawiki: ReadingCatalogue.rows(for: format)
-        case .asciidoc:
-            ReadingCatalogue.rows(for: format).filter { $0.id == .tableOfContents }
-        default: []
-        }
+        format.usesFormatReadingSettings ? ReadingCatalogue.rows(for: format) : []
     }
 }
 
@@ -283,7 +278,7 @@ struct FormatDefaultsPane: View {
                 ForEach(rows, id: \.id) { entry in
                     if let row = preferences.formatReadingDefaults.resolve(entry.id, for: format) {
                         FormatReadingControl(
-                            id: entry.id, row: row, resetHelp: String(localized: "Restore Default"),
+                            format: format, id: entry.id, row: row, resetHelp: String(localized: "Restore Default"),
                             documentName: "", fileURL: nil, allowsFileChanges: false,
                             inheritsStyle: format.usesFormatReadingSettings && entry.id == .sectionNumbers,
                             set: { set($0, for: entry.id) },

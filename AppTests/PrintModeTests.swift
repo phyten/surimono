@@ -687,11 +687,9 @@ struct PrintModeTests {
             model.printFinish.contents.placement = .page
             model.start()
             try await waitUntil { model.contentsFacts != nil }
-            let hasLeadPicker = format == .asciidoc
-            let hasSection = hasLeadPicker || hasContents
-            #expect(PrintFinishStrip(model: model).applicableItems.contains(.contents) == hasSection)
+            #expect(PrintFinishStrip(model: model).applicableItems.contains(.contents) == hasContents)
             var sections: [LocalizedStringKey] = ["Paper & Margins", "Header & Footer", "Page Breaks"]
-            if hasSection { sections.append("Contents") }
+            if hasContents { sections.append("Contents") }
             if format == .markdown { sections.append("Proof Marks") }
             sections += ["Footnotes", "Links on Paper", "Note Pages", "Printer Adjustments"]
 
@@ -707,10 +705,10 @@ struct PrintModeTests {
                     #expect(host.bounds.width == 460)
                     let elements = layout.frames.map(\.element)
                     #expect(elements.contains(.content))
-                    #expect(elements.contains(.heading("Contents")) == hasSection)
-                    #expect(elements.contains(.divider("Contents")) == hasSection)
-                    #expect(elements.contains(.label("Table of Contents at the Top")) == hasLeadPicker)
-                    #expect(elements.contains(.picker("Table of Contents at the Top")) == hasLeadPicker)
+                    #expect(elements.contains(.heading("Contents")) == hasContents)
+                    #expect(elements.contains(.divider("Contents")) == hasContents)
+                    #expect(!elements.contains(.label("Table of Contents at the Top")))
+                    #expect(!elements.contains(.picker("Table of Contents at the Top")))
                     for (index, title) in sections.enumerated() {
                         #expect(elements.contains(.heading(title)))
                         if index > 0 { #expect(elements.contains(.divider(title))) }

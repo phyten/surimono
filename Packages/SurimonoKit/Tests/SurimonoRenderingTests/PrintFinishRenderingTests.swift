@@ -818,6 +818,84 @@ extension PrintFinishRenderingTests {
         #expect(restored.facts?.headings.first?.text == "1 Book")
     }
 
+    @Test("AsciiDoc の原稿・文書・既定の番号と深さが二つの目次としおりに届く")
+    func asciiDocReadingLayers() async throws {
+        let text = "= Book\n:toc:\n:sectnums:\n:toclevels: 1\n\n== One\n\ntoc::[levels=2]\n\n=== Child"
+        let source = DocumentSource(data: Data(text.utf8), format: .asciidoc)
+        var html = ""
+        let renderer = DocumentRenderer(paginate: { request in
+            if case .html(let body, _) = request.source { html = body }
+            return try RenderingFixtures.pdf(pages: [["Book", "1. One", "1.1. Child"]], size: request.pageSize)
+        })
+        var settings = try settings()
+        settings.formatReadingDefaults.set(
+            .outline(present: true, depth: .all), for: .sectionNumbers, format: .asciidoc)
+        settings.formatReading.set(
+            .outline(present: false, depth: .all), for: .sectionNumbers, format: .asciidoc,
+            defaults: settings.formatReadingDefaults)
+        settings.formatReadingDefaults.set(
+            .outline(present: true, depth: .all), for: .tableOfContents, format: .asciidoc)
+        let pages = try await renderer.prepare(source, settings: settings)
+        let facts = try #require(pages.facts)
+        #expect(facts.headings.map(\.text) == ["Book", "1. One", "1.1. Child"])
+        #expect(facts.leadEntries?.map(\.text) == ["1. One"])
+        #expect(DocumentOutline.contentsHeadings(in: html, navIndex: 1).map(\.text) == ["1. One", "1.1. Child"])
+        let outline = await ReadingPDFExporter.outline(
+            of: source, in: pages.logicalDocument, proof: .shown, includesSourceContents: true, facts: facts)
+        #expect(
+            ReadingBookmark.tree(from: outline.entries).first?.children.first?.children.first?.entry.title
+                == "1.1. Child")
+        settings.formatReading.setAllowsFileChanges(true, for: .asciidoc)
+        settings.formatReading.set(
+            .outline(present: true, depth: .levels(2)), for: .tableOfContents, format: .asciidoc,
+            file: facts.contentsInstructions, defaults: settings.formatReadingDefaults)
+        let changed = try await renderer.prepare(source, settings: settings)
+        #expect(changed.facts?.leadEntries?.map(\.text) == ["One", "Child"])
+        #expect(
+            changed.facts?.headings.map(\.text) == ["Book", "One", "Child"] && html.contains(" own-heading-numbers"))
+        settings.formatReading.revert(.sectionNumbers, for: .asciidoc)
+        let plain = DocumentSource(data: Data("== One\n\n=== Child".utf8), format: .asciidoc)
+        let inherited = try await renderer.prepare(plain, settings: settings)
+        #expect(inherited.facts?.headings.map(\.text) == ["1. One", "1.1. Child"])
+    }
+
+    @Test("AsciiDoc に独立見出ししかなければ本文にも別ページにも先頭目次を作らない")
+    func asciiDocEmptySectionList() async throws {
+        let source = DocumentSource(data: Data("[discrete]\n== Aside".utf8), format: .asciidoc)
+        var html = ""
+        let renderer = DocumentRenderer(paginate: { request in
+            if case .html(let body, _) = request.source { html = body }
+            return try RenderingFixtures.pdf(pages: [["Aside"]], size: request.pageSize)
+        })
+        var settings = try settings()
+        settings.formatReading.set(.outline(present: true, depth: .levels(2)), for: .tableOfContents, format: .asciidoc)
+        for placement in [ContentsFinish.Placement.inline, .page] {
+            settings.finish.contents.placement = placement
+            let result = try await renderer.prepare(source, settings: settings)
+            #expect(result.addedContentsPages == 0)
+            #expect(result.facts?.leadEntries == nil)
+            #expect(!html.contains("<nav class=\"toc\""))
+        }
+    }
+
+    @Test("前文がない原稿でも目次を別ページに移せて原稿の題が残る")
+    func asciiDocPreamblePage() async throws {
+        let source = DocumentSource(
+            data: Data("= Book\n:toc: preamble\n:toc-title: Map\n\n== One".utf8), format: .asciidoc)
+        var front = ""
+        let renderer = DocumentRenderer(paginate: { request in
+            if case .html(let body, _) = request.source, body.contains("paper-toc-title") { front = body }
+            return try RenderingFixtures.pdf(pages: [["Book", "One"]], size: request.pageSize)
+        })
+        var settings = try settings()
+        let original = try await renderer.prepare(source, settings: settings)
+        #expect(original.facts?.leadEntries == nil)
+        settings.finish.contents.placement = .page
+        let separate = try await renderer.prepare(source, settings: settings)
+        #expect(separate.facts?.leadEntries?.map(\.text) == ["One"] && separate.addedContentsPages == 1)
+        #expect(front.contains(">Map</h1>"))
+    }
+
     @Test("rST の原稿・文書・既定の番号が本文・二つの目次・しおりに届く")
     func rstReadingLayers() async throws {
         let source = DocumentSource(

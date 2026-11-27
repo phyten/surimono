@@ -38,7 +38,7 @@ public enum HTMLExporter {
                     operation: {
                         try DocumentRenderer.themedFragment(
                             source, pageBreakLine: input.finish.breaks.customLine, proof: input.finish.proof,
-                            orgReading: input.orgReading, includesOrgLead: input.includesOrgLead,
+                            orgReading: input.orgReading,
                             readingSettings: input.readingSettings,
                             contentsDepth: input.readerDepth(for: source.format),
                             proposedLeadDepth: input.proposedLeadDepth(for: source.format),

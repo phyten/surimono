@@ -189,12 +189,11 @@ public struct RenderSettings: Equatable, Sendable {
     var readingSettings: FormatReadingSettings {
         var reading = FormatReadingSettings(
             document: formatReading, defaults: formatReadingDefaults,
-            manuscriptContents: finish.legacyTOC != nil || finish.originalPresetContents?.mode == .source)
+            manuscriptContents: finish.legacyTOC != nil || finish.originalPresetContents?.mode == .source,
+            separateContentsPage: finish.legacyTOC == nil && finish.contents.placement == .page)
         reading.keepsRSTLeadInText = finish.keepsRSTLeadInText
         return reading
     }
-
-    var includesOrgLead: Bool { finish.legacyTOC != nil || finish.contents.placement == .inline }
 
     func proposedLeadDepth(for format: DocumentFormat) -> Int? {
         if let legacy = finish.legacyTOC { return legacy.mode == .front ? legacy.readingDepth.headingLevels : nil }
@@ -1717,7 +1716,7 @@ public final class DocumentRenderer {
         guard
             let fragment = try Self.themedFragment(
                 source, pageBreakLine: settings.finish.breaks.customLine, proof: settings.finish.proof,
-                orgReading: settings.orgReading, includesOrgLead: settings.includesOrgLead,
+                orgReading: settings.orgReading,
                 readingSettings: settings.readingSettings,
                 contentsDepth: settings.readerDepth(for: source.format),
                 proposedLeadDepth: settings.proposedLeadDepth(for: source.format),
@@ -2431,7 +2430,7 @@ public final class DocumentRenderer {
     /// The HTML of a format that prints with a theme, or nil for the formats that print as they are.
     nonisolated static func themedFragment(
         _ source: DocumentSource, pageBreakLine: String = "", proof: ProofMarks = .shown,
-        orgReading: OrgReadingSettings = .init(), includesOrgLead: Bool = true,
+        orgReading: OrgReadingSettings = .init(),
         readingSettings: FormatReadingSettings = .init(), contentsDepth: Int? = nil,
         proposedLeadDepth: Int? = nil,
         composition: LaTeXComposition = .document, textWidthPoints: Double? = nil, textScale: Double = 1,
@@ -2481,7 +2480,8 @@ public final class DocumentRenderer {
         case .textile:
             try TextileConverter.convert(try decodedText(source.data))
         case .asciidoc:
-            try AsciiDocConverter.convert(try decodedText(source.data), contentsDepth: contentsDepth)
+            try AsciiDocConverter.convert(
+                try decodedText(source.data), contentsDepth: contentsDepth, reading: readingSettings)
         case .notebook:
             try NotebookConverter.convert(try decodedText(source.data), pageBreakLine: pageBreakLine, proof: proof)
         case .latex:
@@ -2491,7 +2491,8 @@ public final class DocumentRenderer {
         case .org:
             OrgConverter.convert(
                 try decodedText(source.data), settings: orgReading,
-                fileName: source.fileURL?.lastPathComponent ?? source.name, includesLeadContents: includesOrgLead,
+                fileName: source.fileURL?.lastPathComponent ?? source.name,
+                includesLeadContents: !readingSettings.separateContentsPage,
                 proposedLeadDepth: proposedLeadDepth)
         case .plainText, .csv:
             try DecodedPages(source, textWidthPoints: textWidthPoints, textScale: textScale).fragment()

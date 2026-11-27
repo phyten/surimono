@@ -63,6 +63,7 @@ extension ReadingRowResolution {
 
 /// A single outline picker edits two independently resolved components.
 struct FormatReadingControl: View {
+    let format: DocumentFormat
     let id: ReadingSettingID
     let row: ReadingRowResolution
     let resetHelp: String
@@ -100,7 +101,8 @@ struct FormatReadingControl: View {
                 reason(present.source, changed: present.layer == .document)
             case .outline(let present, let depth):
                 let picker = ReadingOutlinePicker(
-                    label: id.label, present: present, depth: depth, restoreStyle: inheritsStyle ? revert : nil,
+                    label: id.label, present: present, depth: depth, levels: format == .asciidoc ? 0...5 : 1...6,
+                    restoreStyle: inheritsStyle ? revert : nil,
                     set: set)
                 control(locked: !picker.hasAlternative) { picker }
                 reason(
@@ -144,6 +146,7 @@ struct ReadingOutlinePicker: View {
     let label: LocalizedStringResource
     let present: ReadingResolution<Bool>
     let depth: ReadingResolution<ReadingDepth>
+    var levels = 1...6
     var restoreStyle: (() -> Void)?
     let set: @MainActor @Sendable (ReadingSettingValue) -> Void
 
@@ -163,7 +166,7 @@ struct ReadingOutlinePicker: View {
     }
 
     private var choices: [ReadingDepth?] {
-        var values: [ReadingDepth?] = [nil] + (1...6).map { .levels($0) } + [.all]
+        var values: [ReadingDepth?] = [nil] + levels.map { .levels($0) } + [.all]
         if !values.contains(depth.value) { values.append(depth.value) }
         return values
     }

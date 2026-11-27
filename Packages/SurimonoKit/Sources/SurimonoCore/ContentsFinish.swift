@@ -78,7 +78,7 @@ extension PrintFinish {
             return contents.placement == .page ? fragment : fragment.prependingLead(proposed.html)
         }
         // An empty native list may mean the reader explicitly excluded every heading.
-        guard format != .org,
+        guard format != .org, format != .asciidoc,
             facts.contentsInstructions.present?.value != true
                 || fragment.coalescesContentsInLegacy && format == .mediawiki
         else { return fragment }
