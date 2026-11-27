@@ -8,6 +8,7 @@ struct ReadingPDFRawNavigation: Sendable {
         case none
         case other
         case unresolved(String)
+        case pdfKitXYZ(pageNumber: Int, point: CGPoint)
         case releasedPage
         case missingPage(mode: String, arguments: [CGFloat?])
         case internalDestination(ReadingPDFNavigationWriter.Destination)
@@ -20,11 +21,21 @@ struct ReadingPDFRawNavigation: Sendable {
             }
         }
 
+        func matchesPDFKitXYZ(_ target: ReadingPDFNavigationWriter.Destination) -> Bool {
+            guard case .pdfKitXYZ(let page, let point) = self, page == target.page + 1, target.mode == "XYZ",
+                target.arguments[2] == nil, let x = target.arguments[0], let y = target.arguments[1]
+            else { return false }
+            return ReadingPDFRawNavigation.sameStoredPosition(point.x, x)
+                && ReadingPDFRawNavigation.sameStoredPosition(point.y, y)
+        }
+
         var summary: String {
             switch self {
             case .internalDestination(let target), .namedDestination(let target):
                 let args = target.arguments.map { $0.map { String(format: "%.8g", Double($0)) } ?? "null" }
                 return "\(target.mode)(\(args.joined(separator: ",")))→p\(target.page + 1)"
+            case .pdfKitXYZ(let number, let point):
+                return "/A/D [/#23\(number) /XYZ \(point.x) \(point.y)] (4 elements)"
             case .none: return "none"
             case .other: return "other"
             case .missingPage(let mode, _): return "\(mode)→missing"
@@ -35,7 +46,7 @@ struct ReadingPDFRawNavigation: Sendable {
 
         var isInternal: Bool {
             switch self {
-            case .internalDestination, .namedDestination, .unresolved, .missingPage, .releasedPage: true
+            case .internalDestination, .namedDestination, .unresolved, .pdfKitXYZ, .missingPage, .releasedPage: true
             case .none, .other: false
             }
         }
@@ -56,6 +67,9 @@ struct ReadingPDFRawNavigation: Sendable {
     }
 
     let pageCount: Int
+    let annotationCounts: [Int]
+    // Number of leading PDFKit copies when the complete page consists of two matching blocks.
+    let pdfKitCopyCounts: [Int: Int]
     let links: [Link]
     let outline: [Entry]
     let hasValidOutlineCounts: Bool
@@ -130,7 +144,7 @@ struct ReadingPDFRawNavigation: Sendable {
             }
         }
         let legacy = dictionary(catalog, "Dests")
-        func action(_ dict: CGPDFDictionaryRef) -> Action {
+        func action(_ dict: CGPDFDictionaryRef, isLink: Bool) -> Action {
             let target: CGPDFObjectRef
             if let dest = object(dict, "Dest") {
                 target = dest
@@ -142,8 +156,10 @@ struct ReadingPDFRawNavigation: Sendable {
             } else {
                 return object(dict, "A") == nil ? .none : .unresolved("invalid A")
             }
+            let type = CGPDFObjectGetType(target)
+            let isNamed = type == .name || type == .string
             var resolved: CGPDFObjectRef?
-            switch CGPDFObjectGetType(target) {
+            switch type {
             case .name:
                 var key: UnsafePointer<CChar>?
                 if CGPDFObjectGetValue(target, .name, &key), let key, let legacy {
@@ -156,54 +172,67 @@ struct ReadingPDFRawNavigation: Sendable {
             }
             // Named destinations can hold an explicit array or a dictionary containing /D.
             var wrapper: CGPDFDictionaryRef?
-            if let candidate = resolved, CGPDFObjectGetValue(candidate, .dictionary, &wrapper),
-                let wrapper
-            {
+            if isNamed, let candidate = resolved, CGPDFObjectGetValue(candidate, .dictionary, &wrapper), let wrapper {
                 resolved = object(wrapper, "D")
+            }
+            func invalid(_ reason: String) -> Action {
+                let source = object(dict, "Dest") == nil ? "/A/D" : "/Dest"
+                var raw = Self.describe(target, pages: pages)
+                if let resolved, resolved != target {
+                    raw += " → " + Self.describe(resolved, pages: pages)
+                }
+                return .unresolved("\(reason): \(source) \(raw)")
             }
             var dest: CGPDFArrayRef?
             guard let resolved, CGPDFObjectGetValue(resolved, .array, &dest), let dest, CGPDFArrayGetCount(dest) >= 2
             else {
-                return .unresolved("missing destination array or name")
+                return invalid("missing destination array or name")
             }
             var targetPage: CGPDFDictionaryRef?
             var kind: UnsafePointer<CChar>?
-            guard CGPDFArrayGetName(dest, 1, &kind), let kind else { return .unresolved("missing view mode") }
+            guard CGPDFArrayGetName(dest, 1, &kind), let kind else { return invalid("missing view mode") }
             let mode = String(cString: kind)
+            if mode == "XYZ", CGPDFArrayGetCount(dest) == 4, isLink, type == .array, object(dict, "Dest") == nil,
+                let abbreviated = Self.pdfKitXYZ(in: dest)
+            {
+                return abbreviated
+            }
             guard let count = ReadingPDFNavigationWriter.Destination.argumentCount(for: mode),
                 CGPDFArrayGetCount(dest) == 2 + count
-            else { return .unresolved("unknown view or operand count") }
+            else { return invalid("unknown view or operand count") }
             var arguments: [CGFloat?] = []
             for i in 0..<count {
                 var operand: CGPDFObjectRef?
                 var number: CGPDFReal = 0
                 guard CGPDFArrayGetObject(dest, i + 2, &operand), let operand else {
-                    return .unresolved("missing operand \(i)")
+                    return invalid("missing operand \(i)")
                 }
                 if CGPDFObjectGetType(operand) == .null && mode != "FitR" {
                     arguments.append(nil)
                 } else if CGPDFArrayGetNumber(dest, i + 2, &number), number.isFinite {
                     arguments.append(number)
                 } else {
-                    return .unresolved("invalid operand \(i)")
+                    return invalid("invalid operand \(i)")
                 }
             }
             guard CGPDFArrayGetDictionary(dest, 0, &targetPage), let targetPage, let index = pages[targetPage] else {
                 return .missingPage(mode: mode, arguments: arguments)
             }
             let record = ReadingPDFNavigationWriter.Destination(page: index, mode: mode, arguments: arguments)
-            switch CGPDFObjectGetType(target) {
-            case .name, .string: return .namedDestination(record)
-            default: return .internalDestination(record)
-            }
+            return isNamed ? .namedDestination(record) : .internalDestination(record)
         }
 
         var links: [Link] = []
+        var annotationCounts = Array(repeating: 0, count: pageCount)
+        var copyCounts: [Int: Int] = [:]
         for p in 0..<pageCount {
             try await checkpoint()
             guard let page = pdf.page(at: p + 1)?.dictionary else { throw Failure.page }
             guard let annots = array(page, "Annots") else { continue }
-            for i in 0..<CGPDFArrayGetCount(annots) {
+            let count = CGPDFArrayGetCount(annots)
+            annotationCounts[p] = count
+            let start = links.count
+            for i in 0..<count {
                 try await checkpoint()
                 var ref: CGPDFDictionaryRef?
                 guard CGPDFArrayGetDictionary(annots, i, &ref), let ref else { throw Failure.annotation }
@@ -218,7 +247,14 @@ struct ReadingPDFRawNavigation: Sendable {
                 }
                 let bounds = CGRect(
                     x: coords[0], y: coords[1], width: coords[2] - coords[0], height: coords[3] - coords[1])
-                links.append(Link(page: p, annotation: i, bounds: bounds.standardized, action: action(ref)))
+                links.append(
+                    Link(page: p, annotation: i, bounds: bounds.standardized, action: action(ref, isLink: true)))
+            }
+            if count > 0, count.isMultiple(of: 2), links.count - start == count,
+                case .pdfKitXYZ = links[start].action,
+                try Self.hasPDFKitCopies(in: annots, links: links[start...])
+            {
+                copyCounts[p] = count / 2
             }
         }
 
@@ -247,7 +283,7 @@ struct ReadingPDFRawNavigation: Sendable {
                 outline.append(
                     Entry(
                         level: stack.count, title: title.flatMap { CGPDFStringCopyTextString($0) as String? },
-                        isOpen: child.next != nil && (child.count ?? 0) > 0, action: action(node)))
+                        isOpen: child.next != nil && (child.count ?? 0) > 0, action: action(node, isLink: false)))
                 stack.append(child)
             } else {
                 stack.removeLast()
@@ -267,7 +303,109 @@ struct ReadingPDFRawNavigation: Sendable {
             }
         }
         return Self(
-            pageCount: pageCount, links: links, outline: outline, hasValidOutlineCounts: countsValid)
+            pageCount: pageCount, annotationCounts: annotationCounts, pdfKitCopyCounts: copyCounts, links: links,
+            outline: outline, hasValidOutlineCounts: countsValid)
+    }
+
+    static func sameStoredPosition(_ expected: CGFloat, _ stored: CGFloat) -> Bool {
+        abs(expected - stored) <= min(0.001, 4 * expected.ulp)
+    }
+
+    // Editing annotations on a native page copy can prepend a block to the source /Annots.
+    // Each generated shell must match both the private action and the real /Dest on its counterpart.
+    private static func hasPDFKitCopies(in array: CGPDFArrayRef, links: ArraySlice<Link>) throws -> Bool {
+        let half = links.count / 2
+        for (copy, original) in zip(links.prefix(half), links.suffix(half)) {
+            try Task.checkCancellation()
+            let a = copy.bounds
+            let b = original.bounds
+            guard sameStoredPosition(a.minX, b.minX),
+                sameStoredPosition(a.maxX, b.maxX),
+                sameStoredPosition(a.minY, b.minY),
+                sameStoredPosition(a.maxY, b.maxY),
+                case .internalDestination(let target) = original.action, copy.action.matchesPDFKitXYZ(target)
+            else { return false }
+            var shell: CGPDFDictionaryRef?
+            var source: CGPDFDictionaryRef?
+            guard CGPDFArrayGetDictionary(array, copy.annotation, &shell), let shell,
+                CGPDFArrayGetDictionary(array, original.annotation, &source), let source,
+                let action = dictionary(source, "A"), CGPDFDictionaryGetCount(action) == 2, name(action, "S") == "GoTo",
+                let dest = Self.array(action, "D"), CGPDFArrayGetCount(dest) == 4,
+                pdfKitXYZ(in: dest)?.matchesPDFKitXYZ(target) == true
+            else { return false }
+            // A distinct annotation may have its own appearance, events or metadata. The native
+            // shell is a plain printable, borderless link with only a modification date.
+            var flags = 0
+            var width: CGPDFReal = 0
+            guard CGPDFDictionaryGetCount(shell) == 7, object(shell, "M").map(CGPDFObjectGetType) == .string,
+                name(shell, "H") == "I", CGPDFDictionaryGetInteger(shell, "F", &flags), flags == 4,
+                let border = dictionary(shell, "BS"), CGPDFDictionaryGetCount(border) == 1,
+                CGPDFDictionaryGetNumber(border, "W", &width), width == 0,
+                let goTo = dictionary(shell, "A"), CGPDFDictionaryGetCount(goTo) == 2
+            else { return false }
+        }
+        return true
+    }
+
+    // PDFKit can synthesize [/#23N /XYZ x y] for a live GoTo. Only the owning document can
+    // confirm N, and this four-element representation never qualifies as a saved destination.
+    private static func pdfKitXYZ(in array: CGPDFArrayRef) -> Action? {
+        var mode: UnsafePointer<CChar>?
+        var marker: UnsafePointer<CChar>?
+        var x: CGPDFReal = 0
+        var y: CGPDFReal = 0
+        guard CGPDFArrayGetName(array, 1, &mode), let mode, String(cString: mode) == "XYZ",
+            CGPDFArrayGetName(array, 0, &marker), let marker,
+            CGPDFArrayGetNumber(array, 2, &x), x.isFinite, CGPDFArrayGetNumber(array, 3, &y), y.isFinite
+        else { return nil }
+        let name = String(cString: marker)
+        guard name.hasPrefix("#23"), let number = Int(name.dropFirst(3)), number > 0, name == "#23\(number)"
+        else { return nil }
+        return .pdfKitXYZ(pageNumber: number, point: CGPoint(x: x, y: y))
+    }
+
+    // Describe only the first few operands. A page dictionary can point back to the entire page tree.
+    private static func describe(_ object: CGPDFObjectRef, pages: [CGPDFDictionaryRef: Int]) -> String {
+        func token(_ value: CGPDFObjectRef) -> String {
+            switch CGPDFObjectGetType(value) {
+            case .null: return "null"
+            case .name:
+                var name: UnsafePointer<CChar>?
+                guard CGPDFObjectGetValue(value, .name, &name), let name else { return "name" }
+                return "/" + String(cString: name).prefix(64)
+            case .string:
+                var string: CGPDFStringRef?
+                guard CGPDFObjectGetValue(value, .string, &string), let string, let ptr = CGPDFStringGetBytePtr(string)
+                else { return "string" }
+                let size = CGPDFStringGetLength(string)
+                let hex = (0..<min(size, 32)).map { String(format: "%02X", ptr[$0]) }.joined()
+                return "<" + hex + (size > 32 ? "…>" : ">")
+            case .dictionary:
+                var dict: CGPDFDictionaryRef?
+                if CGPDFObjectGetValue(value, .dictionary, &dict), let dict, let page = pages[dict] {
+                    return "p\(page + 1)"
+                }
+                return "dict"
+            case .integer:
+                var n: CGPDFInteger = 0
+                return CGPDFObjectGetValue(value, .integer, &n) ? String(n) : "integer"
+            case .real:
+                var n: CGPDFReal = 0
+                return CGPDFObjectGetValue(value, .real, &n) ? String(Double(n)) : "real"
+            case .boolean: return "boolean"
+            case .stream: return "stream"
+            case .array: return "array"
+            @unknown default: return "?"
+            }
+        }
+        var array: CGPDFArrayRef?
+        guard CGPDFObjectGetValue(object, .array, &array), let array else { return token(object) }
+        let size = CGPDFArrayGetCount(array)
+        let values = (0..<min(size, 8)).map { i in
+            var operand: CGPDFObjectRef?
+            return CGPDFArrayGetObject(array, i, &operand) ? operand.map(token) ?? "?" : "?"
+        }
+        return "[" + values.joined(separator: " ") + (size > 8 ? " …]" : "]") + " (\(size) elements)"
     }
 
     private static func dictionary(_ parent: CGPDFDictionaryRef, _ key: String) -> CGPDFDictionaryRef? {

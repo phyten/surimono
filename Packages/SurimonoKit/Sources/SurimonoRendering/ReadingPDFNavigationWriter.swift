@@ -66,6 +66,8 @@ enum ReadingPDFNavigationWriter {
         let page: Int
         let bounds: CGRect
         let destination: Destination
+        // Index in the original annotation array. Nil appends after any annotations copied from a PDF slice.
+        var beforeAnnotation: Int? = nil
     }
 
     struct Bookmark: Equatable, Sendable {
@@ -73,6 +75,12 @@ enum ReadingPDFNavigationWriter {
         let destination: Destination?
         let isOpen: Bool
         let children: [Bookmark]
+    }
+
+    /// The flow compositor hands off the closed Quartz PDF before opening it for display.
+    @concurrent
+    static func adding(_ links: [NewLink], to data: Data) async throws -> Data {
+        try repair(data, links: [], bookmarks: nil, adding: links)
     }
 
     /// Pages and annotations are zero-based. A nil outline leaves the catalog's original outline intact.
@@ -611,7 +619,7 @@ enum ReadingPDFNavigationWriter {
                 let dict = try dictionary(ref)
                 let annotations = dict.fields["Annots"] == nil ? [] : try references("Annots", in: dict)
                 guard removed.allSatisfy(annotations.indices.contains) else { throw Failure.unsupported }
-                var kept = annotations.indices.filter { !removed.contains($0) }.map { annotations[$0].operand }
+                var inserted: [Int: [String]] = [:]
                 for link in additions[source] ?? [] {
                     try Task.checkCancellation()
                     let ref = try allocate()
@@ -620,8 +628,16 @@ enum ReadingPDFNavigationWriter {
                     revisions[ref] = Data(
                         "<< /Type /Annot /Subtype /Link /Rect [\(rect)] /Border [0 0 0] /Dest \(try operand(link.destination)) >>"
                             .utf8)
-                    kept.append(ref.operand)
+                    let index = link.beforeAnnotation ?? annotations.count
+                    guard (0...annotations.count).contains(index) else { throw Failure.unsupported }
+                    inserted[index, default: []].append(ref.operand)
                 }
+                var kept: [String] = []
+                for (index, annotation) in annotations.enumerated() {
+                    if let links = inserted[index] { kept.append(contentsOf: links) }
+                    if !removed.contains(index) { kept.append(annotation.operand) }
+                }
+                if let last = inserted[annotations.count] { kept.append(contentsOf: last) }
                 revisions[ref] = dict.editing(["Annots"], adding: "/Annots [\(kept.joined(separator: " "))]", in: bytes)
             }
             if let bookmarks {

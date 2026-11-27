@@ -25,7 +25,11 @@ public enum ViewPageDocument {
             let placement = furniture[logicalIndex]
             // The printed footer takes the place of the screen's own page number.
             let number = placement?.lines.bottom.contains { !$0.isEmpty } == true ? nil : plan.number(at: viewIndex)
-            guard scale != 1 || number != nil || !marks.isEmpty || placement != nil else { continue }
+            // Replacing annotations on PDFPage.copy() can prepend them to the source page's /Annots.
+            // Rebuild annotated pages on independent Quartz pages before installing their view links.
+            let hasBackedAnnotations = !original.annotations.isEmpty && original.pageRef != nil
+            guard scale != 1 || number != nil || !marks.isEmpty || placement != nil || hasBackedAnnotations
+            else { continue }
             decorations[viewIndex] = Decoration(
                 original: original, number: number, outlinesNumber: sourcePages.contains(logicalIndex),
                 furniture: placement, furnitureAsText: furnitureAsText,
