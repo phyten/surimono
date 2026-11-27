@@ -2,6 +2,24 @@ import PDFKit
 import SurimonoCore
 import SwiftUI
 
+/// Frames the scrubber rail with a band separator at each end so it reads as a bounded track between its neighbours.
+/// Shared by `BottomBand` and `BandMeasurements` so the measured width matches the visible band.
+struct PageScrubberContainer<Content: View>: View {
+    // Computed: a generic type cannot hold static stored properties.
+    private static var barSpacing: CGFloat { 8 }
+    private static var outerPadding: CGFloat { 2 }
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        HStack(spacing: Self.barSpacing) {
+            BandSeparator().accessibilityHidden(true)
+            content
+            BandSeparator().accessibilityHidden(true)
+        }
+        .padding(.horizontal, Self.outerPadding)
+    }
+}
+
 /// The measuring copy draws only this rail; input and preview belong to the visible band.
 struct PageScrubberRail: View {
     let current: CGFloat

@@ -236,6 +236,7 @@ private struct PaperArea: View {
                     options: model.viewOptions,
                     zoom: model.zoom, wheelSensitivity: model.preferences.wheelSensitivity,
                     selectsText: model.isSelectingText, logicalMargin: model.viewLogicalMargin,
+                    textScale: model.viewTextScale,
                     showsPageNumbers: model.preferences.viewPageNumbers, changeMarks: model.paperChangeMarks,
                     formulaIndex: model.paperFormulaIndex, diagrams: model.paperDiagrams,
                     onDiagram: { [weak model] diagram, action in

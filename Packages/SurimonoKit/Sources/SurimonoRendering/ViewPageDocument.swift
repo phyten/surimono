@@ -10,10 +10,31 @@ extension PDFDocument {
     }
 
     private static var viewPageOriginKey: UInt8 = 0
+    private static var contentBottomCacheKey: UInt8 = 0
 
     var viewPageOrigin: ViewPageOrigin? {
         get { objc_getAssociatedObject(self, &Self.viewPageOriginKey) as? ViewPageOrigin }
         set { objc_setAssociatedObject(self, &Self.viewPageOriginKey, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
+    }
+
+    final class ContentBottomCache {
+        struct Entry {
+            weak var page: PDFPage?
+            let cropBox: CGRect
+            let rotation: Int
+            let bottom: CGFloat?
+        }
+        var margin: CGFloat = -1
+        var entries: [Int: Entry] = [:]
+    }
+
+    var contentBottomCache: ContentBottomCache {
+        if let existing = objc_getAssociatedObject(self, &Self.contentBottomCacheKey) as? ContentBottomCache {
+            return existing
+        }
+        let cache = ContentBottomCache()
+        objc_setAssociatedObject(self, &Self.contentBottomCacheKey, cache, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        return cache
     }
 }
 
@@ -238,17 +259,143 @@ public enum ViewPageDocument {
         return copy
     }
 
-    /// The part of a page the copy shows: its crop box, less the margins cut where pages are joined.
+    /// Measures the distance from the bottom of each requested page's crop box to its lowest drawn content (in points).
+    ///
+    /// Conservative by design: blank pages, rotated pages, oversized pages, pages without a verifiable margin band
+    /// (`margin < 4` pt), and pages whose background varies vertically (grids, dot grids, gradients) are omitted so they
+    /// keep their normal margin crop. A `ChangeMark` can only extend the protected area downward; it never causes an
+    /// unmeasured page to be trimmed.
+    ///
+    /// Results for the underlying PDF pages are cached on `source` under the contract that `source` is a read-only
+    /// snapshot (`PreparedRender.viewDocument`, `ReadingPreview.document`, `ThemeTrial.document`), while each entry also
+    /// verifies page object identity, crop box, and rotation.
+    public static func contentBottoms(
+        of source: PDFDocument, pages: [Int], margin: CGFloat, changeMarks: [ChangeMark] = []
+    ) -> [Int: CGFloat] {
+        guard !pages.isEmpty, margin.isFinite, margin >= 4 else { return [:] }
+        let cache = source.contentBottomCache
+        if cache.margin != margin {
+            cache.margin = margin
+            cache.entries.removeAll(keepingCapacity: true)
+        }
+        let marksByPage = Dictionary(grouping: changeMarks, by: \.pageIndex)
+        var scratchPixels: [UInt8] = []
+        var result: [Int: CGFloat] = [:]
+        for index in pages {
+            guard let page = source.page(at: index) else { continue }
+            let box = page.bounds(for: .cropBox)
+            let rotation = page.rotation
+            let measured: CGFloat?
+            if let entry = cache.entries[index], entry.page === page, entry.cropBox == box, entry.rotation == rotation {
+                measured = entry.bottom
+            } else {
+                let value = measureContentBottom(of: page, margin: margin, scratchPixels: &scratchPixels)
+                cache.entries[index] = .init(page: page, cropBox: box, rotation: rotation, bottom: value)
+                measured = value
+            }
+            // When measurement declined to trim (blank, rotated, patterned, or oversized), never fabricate a trim from
+            // a change mark alone.
+            guard var bottom = measured else { continue }
+            if let marks = marksByPage[index] {
+                for mark in marks {
+                    let rect = mark.highlight(in: box)
+                    guard !rect.isNull, !rect.isEmpty else { continue }
+                    let markBottom = rect.minY - box.minY
+                    if markBottom >= 0 { bottom = min(bottom, markBottom) }
+                }
+            }
+            result[index] = bottom
+        }
+        return result
+    }
+
+    /// Renders `page` at 1 pt resolution to find the lowest row above the bottom margin that differs at all from a
+    /// verified vertically-uniform paper background.
+    private static func measureContentBottom(
+        of page: PDFPage, margin: CGFloat, scratchPixels: inout [UInt8]
+    ) -> CGFloat? {
+        guard page.rotation == 0, let pageRef = page.pageRef else { return nil }
+        let box = page.bounds(for: .cropBox)
+        let maxDimension: CGFloat = 8192
+        let maxPixels = 16_000_000
+        guard box.width.isFinite, box.height.isFinite, box.minX.isFinite, box.minY.isFinite,
+            box.width >= 1, box.height >= 1, box.width <= maxDimension, box.height <= maxDimension,
+            margin.isFinite, margin >= 4, margin < box.height, margin < box.width,
+            let width = Int(exactly: box.width.rounded(.up)),
+            let height = Int(exactly: box.height.rounded(.up)),
+            let scanWidth = Int(exactly: box.width.rounded(.down)),
+            let scanHeight = Int(exactly: box.height.rounded(.down)),
+            let marginPoints = Int(exactly: margin.rounded(.down)),
+            width > 0, height > 0, scanWidth > 0, scanHeight > 0,
+            width * height <= maxPixels,
+            marginPoints >= 4, marginPoints * 2 < scanHeight, marginPoints * 2 < scanWidth
+        else { return nil }
+        let bytesPerRow = width * 4
+        let byteCount = bytesPerRow * height
+        if scratchPixels.count < byteCount {
+            scratchPixels = [UInt8](repeating: 255, count: byteCount)
+        }
+        let drawn = scratchPixels.withUnsafeMutableBytes { buffer -> Bool in
+            guard
+                let context = CGContext(
+                    data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8,
+                    bytesPerRow: bytesPerRow, space: CGColorSpaceCreateDeviceRGB(),
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+            else { return false }
+            context.setFillColor(CGColor(gray: 1, alpha: 1))
+            context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+            context.translateBy(x: -box.minX, y: -box.minY)
+            context.drawPDFPage(pageRef)
+            return true
+        }
+        guard drawn else { return nil }
+        return scratchPixels.withUnsafeBufferPointer { pixels -> CGFloat? in
+            guard let base = pixels.baseAddress else { return nil }
+            // Memory row 0 is the top of the bitmap; `y` counts upward in points from `box.minY`.
+            @inline(__always) func rowOffset(_ y: Int) -> Int { (height - 1 - y) * bytesPerRow }
+            let reference = base + rowOffset(0)
+            // The canvas is filled with opaque white before drawing, so alpha stays 255 on every pixel and memcmp
+            // compares exact RGB equality across a span in one pass.
+            @inline(__always) func matches(_ row: Int, startColumn: Int, columnCount: Int) -> Bool {
+                let offset = startColumn * 4
+                return memcmp(base + row + offset, reference + offset, columnCount * 4) == 0
+            }
+            // Verify vertical paper uniformity across the bottom margin, the top margin, and narrow outer strips along
+            // the full height of both side margins. Any 2D grid, dot grid, gradient, or margin ink fails here and leaves
+            // the page untrimmed.
+            for y in 1..<(marginPoints - 1) {
+                if !matches(rowOffset(y), startColumn: 0, columnCount: scanWidth) { return nil }
+            }
+            for y in (scanHeight - marginPoints + 1)..<scanHeight {
+                if !matches(rowOffset(y), startColumn: 0, columnCount: scanWidth) { return nil }
+            }
+            let edgeWidth = min(marginPoints - 1, 8)
+            let rightStart = scanWidth - edgeWidth
+            for y in (marginPoints - 1)...(scanHeight - marginPoints) {
+                let row = rowOffset(y)
+                if !matches(row, startColumn: 0, columnCount: edgeWidth)
+                    || !matches(row, startColumn: rightStart, columnCount: edgeWidth)
+                {
+                    return nil
+                }
+            }
+            // Any pixel that differs from the verified paper reference counts as drawn, preserving faint boxes and rules.
+            for y in marginPoints..<scanHeight {
+                if !matches(rowOffset(y), startColumn: 0, columnCount: scanWidth) { return CGFloat(y) }
+            }
+            return nil
+        }
+    }
+
+    /// The part of a page the copy shows: its crop box, less the margins and unused seam paper cut where pages join.
     private static func visibleBox(of original: PDFPage, at viewIndex: Int, plan: ViewPageLayout, margin: CGFloat)
         -> CGRect
     {
-        let crop = plan.crops(at: viewIndex)
         var box = original.bounds(for: .cropBox)
-        let top = crop.top ? margin : 0
-        let bottom = crop.bottom ? margin : 0
-        if margin.isFinite, margin >= 0, top + bottom < box.height {
-            box.origin.y += bottom
-            box.size.height -= top + bottom
+        let insets = plan.cropInsets(at: viewIndex, pageHeight: box.height, margin: margin)
+        if insets.top + insets.bottom > 0, insets.top + insets.bottom < box.height {
+            box.origin.y += insets.bottom
+            box.size.height -= insets.top + insets.bottom
         }
         return box
     }

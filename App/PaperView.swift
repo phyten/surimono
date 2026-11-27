@@ -88,6 +88,7 @@ struct PaperView: NSViewRepresentable {
     var wheelSensitivity: WheelPageTurner.Sensitivity = .normal
     var selectsText = false
     var logicalMargin: CGFloat? = nil
+    var textScale: Double = 1
     var showsPageNumbers = false
     var changeMarks: [ChangeMark] = []
     var displayOptions = DisplayAccessibility.shared.options
@@ -161,7 +162,7 @@ struct PaperView: NSViewRepresentable {
         view.narrowsLoneCover = narrowsLoneCover
         view.configure(
             document, at: initialPageIndex, options: options, logicalMargin: logicalMargin,
-            showsPageNumbers: showsPageNumbers, changeMarks: changeMarks, furniture: furniture,
+            textScale: textScale, showsPageNumbers: showsPageNumbers, changeMarks: changeMarks, furniture: furniture,
             keepsSpotInPage: keepsSpotInPage || view.wasReadingPreview)
         view.wasReadingPreview = isReadingPreview
         view.wheelSensitivity = wheelSensitivity
@@ -266,6 +267,9 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
     private var pagePlan: ViewPageLayout?
     private var documentKey: ViewPageLayout.DocumentKey?
     /// A displayed copy and its source stay together through PDFKit's document replacement.
+    /// Source documents (`PreparedRender.viewDocument`, `ReadingPreview.document`, `ThemeTrial.document`) are
+    /// immutable snapshots while cached here and in `ViewPageDocument.contentBottoms`; any document update supplies a
+    /// new `PDFDocument` instance.
     /// Published accessibility elements own their text and geometry, so they do not need this pair afterward.
     private struct ShownDocument {
         let source: PDFDocument
@@ -309,6 +313,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
         }
     }
     private var logicalMargin: CGFloat?
+    private var textScale: Double = 1
     private var showsPageNumbers = false
     fileprivate weak var changeController: PaperController?
     private var changeMarks: [ChangeMark] = []
@@ -446,11 +451,13 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
     }
 
     func configure(
-        _ source: PDFDocument, at index: Int, options: ViewOptions, logicalMargin: CGFloat?, showsPageNumbers: Bool,
+        _ source: PDFDocument, at index: Int, options: ViewOptions, logicalMargin: CGFloat?,
+        textScale: Double = 1, showsPageNumbers: Bool,
         changeMarks: [ChangeMark] = [], furniture: [Int: FurniturePlacement] = [:], keepsSpotInPage: Bool = false
     ) {
         guard
             sourceDocument !== source || self.options != options || self.logicalMargin != logicalMargin
+                || self.textScale != textScale
                 || self.showsPageNumbers != showsPageNumbers || self.changeMarks != changeMarks
                 || self.furniture != furniture
         else { return }
@@ -458,6 +465,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
         let position = sourceDocument === source ? currentPageIndex : index
         isUpdatingDocument = true
         self.logicalMargin = logicalMargin
+        self.textScale = textScale
         self.showsPageNumbers = showsPageNumbers
         self.changeMarks = changeMarks
         self.furniture = furniture
@@ -637,9 +645,21 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
                 top: placement.lines.top.contains { !$0.isEmpty },
                 bottom: placement.lines.bottom.contains { !$0.isEmpty })
         }
-        let plan = ViewPageLayout(
+        let basePlan = ViewPageLayout(
             pageCount: source.pageCount, options: effectiveOptions, hasLogicalMargins: logicalMargin != nil,
-            showsNumbers: showsPageNumbers, pageSizes: sizes, keptEdges: keptEdges)
+            showsNumbers: showsPageNumbers, pageSizes: sizes, keptEdges: keptEdges, textScale: textScale)
+        let trimmable = basePlan.trimmableBottomPages
+        let plan: ViewPageLayout
+        if trimmable.isEmpty {
+            plan = basePlan
+        } else {
+            let contentBottoms = ViewPageDocument.contentBottoms(
+                of: source, pages: trimmable, margin: logicalMargin ?? 0, changeMarks: changeMarks)
+            plan = ViewPageLayout(
+                pageCount: source.pageCount, options: effectiveOptions, hasLogicalMargins: logicalMargin != nil,
+                showsNumbers: showsPageNumbers, pageSizes: sizes, keptEdges: keptEdges,
+                contentBottoms: contentBottoms, textScale: textScale)
+        }
         let key = plan.documentKey(margin: Double(logicalMargin ?? 0))
         if sourceDocument === source, documentKey == key, drawnChangeMarks == changeMarks,
             drawnFurniture == furniture, document != nil
@@ -791,7 +811,8 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
         if let sourceDocument {
             configure(
                 sourceDocument, at: currentPageIndex, options: options, logicalMargin: logicalMargin,
-                showsPageNumbers: showsPageNumbers, changeMarks: changeMarks, furniture: furniture)
+                textScale: textScale, showsPageNumbers: showsPageNumbers, changeMarks: changeMarks,
+                furniture: furniture)
         } else {
             self.options = options
             configureDisplay(options)

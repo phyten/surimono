@@ -187,4 +187,129 @@ struct ViewPageLayoutTests {
         options.joinsPages = false
         #expect(try JSONDecoder().decode(ViewOptions.self, from: JSONEncoder().encode(options)) == options)
     }
+
+    @Test("縦スクロールの結合では途中のページの未使用の下端を詰め、満杯のページと最終ページは維持する")
+    func trimsUnusedBottomOnNonFinalPages() {
+        let options = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false)
+        // Page 0 ends early at y = 300; page 1 is full down to y = 45; page 2 is the last page ending at y = 500.
+        let plan = ViewPageLayout(
+            pageCount: 3, options: options, hasLogicalMargins: true, showsNumbers: false,
+            contentBottoms: [0: 300, 1: 45, 2: 500])
+        #expect(plan.trimmableBottomPages == [0, 1])
+        // 300 - 10 (seamTrailingPadding) = 290
+        #expect(plan.cropInsets(at: 0, pageHeight: 842, margin: 42) == ViewPageLayout.CropInsets(top: 0, bottom: 290))
+        // 45 - 10 = 35 <= 42, so the full page keeps the regular 42 pt bottom margin crop.
+        #expect(plan.cropInsets(at: 1, pageHeight: 842, margin: 42) == ViewPageLayout.CropInsets(top: 42, bottom: 42))
+        // The last page keeps its full bottom untouched.
+        #expect(plan.cropInsets(at: 2, pageHeight: 842, margin: 42) == ViewPageLayout.CropInsets(top: 42, bottom: 0))
+    }
+
+    @Test("フッターがあるページは下端の未使用領域を詰めない")
+    func footerPreventsBottomTrimming() {
+        let options = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false)
+        typealias Edges = ViewPageLayout.CropEdges
+        let plan = ViewPageLayout(
+            pageCount: 3, options: options, hasLogicalMargins: true, showsNumbers: false,
+            keptEdges: [0: Edges(bottom: true), 1: Edges(top: true)],
+            contentBottoms: [0: 400, 1: 400])
+        #expect(plan.trimmableBottomPages == [1])
+        #expect(plan.cropInsets(at: 0, pageHeight: 842, margin: 42) == ViewPageLayout.CropInsets(top: 0, bottom: 0))
+        #expect(plan.cropInsets(at: 1, pageHeight: 842, margin: 42) == ViewPageLayout.CropInsets(top: 0, bottom: 390))
+    }
+
+    @Test("見開きや横スクロールや結合オフや余白なし文書は下端を詰めない")
+    func bottomTrimAppliesOnlyToJoinedVerticalScroll() {
+        let cases: [(ViewOptions, Bool)] = [
+            (ViewOptions(layout: .spread, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false), true),
+            (ViewOptions(layout: .single, scrollAxis: .horizontal, transition: .scroll, showsCoverAlone: false), true),
+            (ViewOptions(layout: .single, scrollAxis: .vertical, transition: .slide, showsCoverAlone: false), true),
+            (
+                ViewOptions(
+                    layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false,
+                    joinsPages: false),
+                true
+            ),
+            (ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false), false),
+        ]
+        for (options, hasMargins) in cases {
+            let plan = ViewPageLayout(
+                pageCount: 3, options: options, hasLogicalMargins: hasMargins, showsNumbers: false,
+                contentBottoms: [0: 400, 1: 400])
+            #expect(plan.trimmableBottomPages.isEmpty)
+            #expect(plan.cropInsets(at: 0, pageHeight: 842, margin: 42) == ViewPageLayout.CropInsets())
+            #expect(plan.cropInsets(at: 1, pageHeight: 842, margin: 42) == ViewPageLayout.CropInsets())
+        }
+    }
+
+    @Test("白紙ページは通常の余白切り取りを保ち上端付近の本文は可視高さを1pt以上残す")
+    func blankAndNearTopBottomTrimBounds() {
+        let options = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false)
+        // Page 0 is blank (omitted from contentBottoms); page 1 has content at the very top edge.
+        let plan = ViewPageLayout(
+            pageCount: 3, options: options, hasLogicalMargins: true, showsNumbers: false,
+            contentBottoms: [1: 840])
+        #expect(plan.cropInsets(at: 0, pageHeight: 842, margin: 42) == ViewPageLayout.CropInsets(top: 0, bottom: 42))
+        // Maximum bottom inset on page 1 is 842 - 42 (top) - 1 = 799.
+        #expect(plan.cropInsets(at: 1, pageHeight: 842, margin: 42) == ViewPageLayout.CropInsets(top: 42, bottom: 799))
+    }
+
+    @Test("余白0でも縦スクロール結合の未使用下端を切り取り表示用PDFキーに反映する")
+    func zeroMarginTrimsUnusedBottomAndUpdatesDocumentKey() {
+        let options = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false)
+        let plain = ViewPageLayout(pageCount: 2, options: options, hasLogicalMargins: true, showsNumbers: false)
+        let full = ViewPageLayout(
+            pageCount: 2, options: options, hasLogicalMargins: true, showsNumbers: false,
+            contentBottoms: [0: 45])
+        let short = ViewPageLayout(
+            pageCount: 2, options: options, hasLogicalMargins: true, showsNumbers: false,
+            contentBottoms: [0: 300])
+        // Full page produces the exact same key as no contentBottoms at margin 42.
+        #expect(full.documentKey(margin: 42) == plain.documentKey(margin: 42))
+        #expect(short.documentKey(margin: 42) != plain.documentKey(margin: 42))
+        // Even with margin 0, the short page requires a cropped copy and trims 290 pt.
+        #expect(!plain.documentKey(margin: 0).requiresCopy)
+        #expect(short.documentKey(margin: 0).requiresCopy)
+        #expect(short.cropInsets(at: 0, pageHeight: 842, margin: 0) == ViewPageLayout.CropInsets(top: 0, bottom: 290))
+    }
+
+    @Test("文字の大きさに合わせて継ぎ目の余白を増減し範囲外は丸めてキーに反映する")
+    func seamTrailingPaddingFollowsTextScale() {
+        let options = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false)
+        let small = ViewPageLayout(
+            pageCount: 2, options: options, hasLogicalMargins: true, showsNumbers: false,
+            contentBottoms: [0: 300], textScale: 0.8)
+        let normal = ViewPageLayout(
+            pageCount: 2, options: options, hasLogicalMargins: true, showsNumbers: false,
+            contentBottoms: [0: 300], textScale: 1)
+        let large = ViewPageLayout(
+            pageCount: 2, options: options, hasLogicalMargins: true, showsNumbers: false,
+            contentBottoms: [0: 300], textScale: 2)
+        let invalid = ViewPageLayout(
+            pageCount: 2, options: options, hasLogicalMargins: true, showsNumbers: false,
+            contentBottoms: [0: 300], textScale: .nan)
+        // 300 - 8 = 292, 300 - 10 = 290, 300 - 20 = 280.
+        #expect(
+            small.cropInsets(at: 0, pageHeight: 842, margin: 42) == ViewPageLayout.CropInsets(top: 0, bottom: 292))
+        #expect(
+            normal.cropInsets(at: 0, pageHeight: 842, margin: 42) == ViewPageLayout.CropInsets(top: 0, bottom: 290))
+        #expect(
+            large.cropInsets(at: 0, pageHeight: 842, margin: 42) == ViewPageLayout.CropInsets(top: 0, bottom: 280))
+        #expect(
+            invalid.cropInsets(at: 0, pageHeight: 842, margin: 42) == ViewPageLayout.CropInsets(top: 0, bottom: 290))
+        #expect(small.documentKey(margin: 42) != normal.documentKey(margin: 42))
+        #expect(large.documentKey(margin: 42) != normal.documentKey(margin: 42))
+    }
+
+    @Test("上限を超える大文書では下端の追加切り詰めを省いて通常の余白切り取りへフォールバックする")
+    func largeDocumentSkipsExtraBottomTrim() {
+        let options = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false)
+        let atLimit = ViewPageLayout(
+            pageCount: ViewPageLayout.seamTrimPageLimit, options: options, hasLogicalMargins: true, showsNumbers: false)
+        let overLimit = ViewPageLayout(
+            pageCount: ViewPageLayout.seamTrimPageLimit + 1, options: options, hasLogicalMargins: true,
+            showsNumbers: false)
+        #expect(atLimit.trimmableBottomPages.count == ViewPageLayout.seamTrimPageLimit - 1)
+        #expect(overLimit.trimmableBottomPages.isEmpty)
+        #expect(overLimit.cropsMargins)
+    }
 }

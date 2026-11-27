@@ -2269,6 +2269,13 @@ final class DocumentViewModel {
             settings.layout.logicalMargins(options: result?.options ?? settings.options).smallest * 72 / 25.4)
     }
 
+    /// Text magnification of the pages currently displayed in view mode, used to scale trailing seam spacing.
+    var viewTextScale: Double {
+        guard imageBundle == nil, format.usesPrintTheme else { return 1 }
+        // A style being tried keeps the document's text size, so the rendered settings speak for every page shown.
+        return renderedSettings?.textScale ?? textScale
+    }
+
     /// Whether the margin shows on the pages view mode displays. PDFs keep their own margins, and the 3-up handout
     /// insets the sheet instead of its logical pages.
     var marginsApply: Bool { (binder != nil || format != .pdf) && renderLayout.kind != .handout3 }

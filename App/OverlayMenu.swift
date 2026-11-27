@@ -617,7 +617,7 @@ struct BottomBand: View {
         HStack(spacing: spacing) {
             HStack(spacing: spacing) { bandParts(row.leading, row: row, model: model) }.fixedSize()
             if row.showsScrubber {
-                Group {
+                PageScrubberContainer {
                     if model.offersScrubber {
                         PageScrubber(model: model)
                     } else {

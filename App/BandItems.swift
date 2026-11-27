@@ -428,7 +428,9 @@ struct BandMeasurements: View {
             measure(.name) { Text(verbatim: model.displayName).font(OverlayBand.nameFont).lineLimit(1) }
             if model.showsScrubberSlot {
                 measure(.scrubber) {
-                    PageScrubberRail(current: 0, hover: nil, ticks: []).frame(width: BandLayout.scrubberMinimum)
+                    PageScrubberContainer {
+                        PageScrubberRail(current: 0, hover: nil, ticks: []).frame(width: BandLayout.scrubberMinimum)
+                    }
                 }
             }
             measure(.more) { BandMoreButton { EmptyView() } }
