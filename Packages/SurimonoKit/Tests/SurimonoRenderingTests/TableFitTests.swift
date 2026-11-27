@@ -617,9 +617,10 @@ struct TableFitTests {
         let step = try #require((record["steps"] as? [[String: Any]])?.first)
         let scale = try #require(step["scale"] as? Double)
         let narrowing = try #require(step["narrowing"] as? Double)
-        // The table is zoomed as far as its text shrinks, and narrowed alone for the rest only.
+        // The table is zoomed as far as its text shrinks, and narrowed alone for the rest only. Throwing the
+        // zoom away narrows to about 0.35; keeping it gives 0.45 at 1x and 0.49 at 2x, where glyphs round differently.
         #expect(scale < 0.9, Comment(rawValue: log.text))
-        #expect(narrowing > 0.45, Comment(rawValue: log.text))
+        #expect(narrowing > 0.4, Comment(rawValue: log.text))
     }
 
     @Test("内側の余白と外罫を幅に含めない指定の表も、本文の幅の中に刷る", .timeLimit(.minutes(1)))
