@@ -159,6 +159,13 @@ struct PrintTopBar: View {
         HStack(spacing: 0) {
             backButton(backForm(fold))
                 .keyboardShortcut(cancelsWithEscape ? .cancelAction : nil)
+                #if DEBUG
+                    .background {
+                        if #unavailable(macOS 26) {
+                            PrintBackButtonBounds().allowsHitTesting(false).accessibilityHidden(true)
+                        }
+                    }
+                #endif
             HStack(spacing: 8) {
                 badge
                 name
@@ -511,3 +518,17 @@ private struct OptionalStyleTip: ViewModifier {
         if isEnabled { content.modifier(PrintStyleTip(model: model)) } else { content }
     }
 }
+
+#if DEBUG
+    // The hit test needs the bounds of the visible button, excluding the three hidden copies used for folding.
+    struct PrintBackButtonBounds: NSViewRepresentable {
+        final class Marker: NSView {
+            override func hitTest(_ point: NSPoint) -> NSView? { nil }
+        }
+        func makeNSView(context: Context) -> Marker { Marker() }
+        func updateNSView(_ view: Marker, context: Context) {}
+        func sizeThatFits(_ proposal: ProposedViewSize, nsView: Marker, context: Context) -> CGSize? {
+            proposal.replacingUnspecifiedDimensions(by: .zero)
+        }
+    }
+#endif

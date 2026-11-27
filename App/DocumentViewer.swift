@@ -64,9 +64,7 @@ struct DocumentContent: View {
             }
         }
         // The tray's and the stage's top bars need the taller title bar of a window with a toolbar.
-        .toolbar { [mode = model.mode] in
-            if mode != .view { PrintModeToolbarPlaceholder() }
-        }
+        .documentStageToolbar(model)
         .background(
             WindowReader { [weak model] window in
                 guard let model, !model.isWindowClosed else { return }

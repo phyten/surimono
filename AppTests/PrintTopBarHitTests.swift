@@ -18,6 +18,7 @@ struct PrintTopBarHitTests {
         let directory: URL
         let suite: TestDefaultsSuite
         let focus: TestWindowMouse.Focus
+        let readingToolbarStyle: NSWindow.ToolbarStyle
 
         func close() {
             controller.close()
@@ -61,8 +62,17 @@ struct PrintTopBarHitTests {
         controller.showWindow(nil)
         model.start()
         try await waitUntil("組版完了") { model.result != nil && !model.isRendering }
+        let readingToolbarStyle = window.toolbarStyle
         if compare { model.enterCompareMode() } else { model.enterPrintMode() }
-        try await waitUntil("画面の切替: \(TestWindowMouse.diagnostic(in: window))") {
+        if #unavailable(macOS 26), !compare {
+            let display = try #require(window.screen)
+            var frame = window.frame
+            frame.size = NSSize(width: 760, height: min(871, display.visibleFrame.height))
+            frame.origin.x = min(max(frame.minX, display.visibleFrame.minX), display.visibleFrame.maxX - frame.width)
+            frame.origin.y = min(max(frame.minY, display.visibleFrame.minY), display.visibleFrame.maxY - frame.height)
+            ViewerWindow.setStageFrame(frame, of: window)
+        }
+        try await waitUntil("画面の切替: \(Self.chrome(in: window)) \(TestWindowMouse.diagnostic(in: window))") {
             model.mode == (compare ? .compare : .print) && window.toolbar != nil
                 && window.frame.width == (compare ? 900 : 760)
                 && TrafficLights(window: window)?.centerY == PrintTopBar.height / 2
@@ -72,7 +82,14 @@ struct PrintTopBarHitTests {
         window.displayIfNeeded()
         handedOff = true
         return Screen(
-            model: model, controller: controller, window: window, directory: directory, suite: suite, focus: focus)
+            model: model, controller: controller, window: window, directory: directory, suite: suite, focus: focus,
+            readingToolbarStyle: readingToolbarStyle)
+    }
+
+    private static func chrome(in window: NSWindow) -> String {
+        let items = window.toolbar?.items.map { $0.itemIdentifier.rawValue }
+        return "toolbar=\(String(describing: items)) style=\(window.toolbarStyle.rawValue) "
+            + "lights=\(String(describing: TrafficLights(window: window)))"
     }
 
     /// The window's root view, which holds the title bar in front of the content.
@@ -90,6 +107,17 @@ struct PrintTopBarHitTests {
         override var mouseDownCanMoveWindow: Bool { false }
         override func mouseDown(with event: NSEvent) { received = event.locationInWindow }
         override func mouseUp(with event: NSEvent) {}
+    }
+
+    // Only after a real button failed: dispatch at the same point with a responder immediately below
+    // the title bar, in the same window. A raw frame-view hit alone cannot identify the event recipient.
+    private func probeAfterMiss(at point: NSPoint, in window: NSWindow) throws -> String {
+        let content = try #require(window.contentView)
+        let probe = ClickProbe(frame: content.bounds)
+        content.addSubview(probe, positioned: .above, relativeTo: nil)
+        defer { probe.removeFromSuperview() }
+        try TestWindowMouse.click(at: point, in: window, queueRelease: true)
+        return "本文側の対照点に mouseDown が届いた=\(probe.received == point)"
     }
 
     @Test("印刷画面と見比べ台の上のバーは、信号機のほかはどこもタイトルバーに取られない", arguments: [false, true])
@@ -164,11 +192,48 @@ struct PrintTopBarHitTests {
         let height = try #require(root(of: window)).bounds.height
         // "Back to View" starts 14pt after the green button. The placeholder's viewer stood 92…136pt from the window's
         // left edge, over the button's left part.
-        let point = NSPoint(x: lights.titleLeading + 20, y: height - lights.centerY)
+        var point = NSPoint(x: lights.titleLeading + 20, y: height - lights.centerY)
+        var buttonFrame: CGRect?
+        if #unavailable(macOS 26) {
+            let toolbar = try #require(window.toolbar)
+            #expect(toolbar.items.isEmpty, "\(Self.chrome(in: window))")
+            if !compare {
+                // Reproduce the observed window-local position regardless of where the VM places the window.
+                try #require(window.frame.width == 760)
+                point = NSPoint(x: 100, y: height - 19)
+                #if DEBUG
+                    func marker(in view: NSView) -> NSView? {
+                        if view is PrintBackButtonBounds.Marker { return view }
+                        return view.subviews.lazy.compactMap { marker(in: $0) }.first
+                    }
+                    try await waitUntil(
+                        "戻るボタンの配置: frame=\(String(describing: buttonFrame)), point=\(point), \(Self.chrome(in: window))"
+                    ) {
+                        guard let root = window.contentView, let view = marker(in: root) else { return false }
+                        buttonFrame = view.convert(view.bounds, to: nil)
+                        return buttonFrame?.contains(point) == true
+                    }
+                #endif
+            }
+        }
         #expect(point.x > 92 && point.x < 136)
+        let before = TestWindowMouse.diagnostic(in: window, at: point)
         try TestWindowMouse.click(at: point, in: window)
-        try await waitUntil("表示へ戻る: \(TestWindowMouse.diagnostic(in: window, at: point))") {
-            screen.model.mode == .view
+        do {
+            try await waitUntil(
+                "表示へ戻る: button=\(String(describing: buttonFrame)) local=\(point), before=[\(before)], after=[\(TestWindowMouse.diagnostic(in: window, at: point))] \(Self.chrome(in: window))"
+            ) { screen.model.mode == .view }
+        } catch {
+            if #unavailable(macOS 26) {
+                let result = try probeAfterMiss(at: point, in: window)
+                Issue.record("同じ窓の同じ点での再測定: \(result)")
+            }
+            throw error
+        }
+        if #unavailable(macOS 26) {
+            try await waitUntil("表示用タイトルバーの復元: \(Self.chrome(in: window))") {
+                window.toolbar == nil && window.toolbarStyle == screen.readingToolbarStyle
+            }
         }
     }
 }

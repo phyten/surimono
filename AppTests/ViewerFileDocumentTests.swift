@@ -84,15 +84,18 @@ struct ViewerFileDocumentTests {
             }
         } catch {
             guard let observeOwners else { throw error }
-            // The original requirement has failed. Unwind the setup frame and all fixture owners
-            // except the paper, then drop the paper too. The tile grace must expire in both samples.
-            (retainedPaper?.tileClock as? ManualPaperTileClock)?.advance(by: .seconds(1))
-            try await Task.sleep(for: .seconds(1))
+            // Once the check has failed, sample after dropping the fixture, after the tile deadline,
+            // and after dropping the deliberately retained paper. These samples do not affect the verdict.
+            let setupReleased = autoreleasepool(invoking: observeOwners)
+            autoreleasepool { (retainedPaper?.tileClock as? ManualPaperTileClock)?.advance(by: .seconds(1)) }
+            await Self.drainCloseTurn()
             let paperHeld = autoreleasepool(invoking: observeOwners)
             retainedPaper = nil
-            try await Task.sleep(for: .seconds(1))
+            await Self.drainCloseTurn()
             let fixtureReleased = autoreleasepool(invoking: observeOwners)
-            Issue.record("閉じた窓の所有関係: paperHeld=[\(paperHeld)], fixtureReleased=[\(fixtureReleased)]")
+            Issue.record(
+                "閉じた窓の所有関係: setupReleased=[\(setupReleased)], paperHeld=[\(paperHeld)], fixtureReleased=[\(fixtureReleased)]"
+            )
             throw error
         }
     }
@@ -153,28 +156,7 @@ struct ViewerFileDocumentTests {
         switch kind {
         case .document:
             defer { NSDocumentController.shared.document(for: url)?.close() }
-            do {
-                let (document, _) = try await open(url)
-                let window = try #require(document.windowControllers.first?.window)
-                // NSMapTable returns the model through Objective-C. Drain the lookup's temporary
-                // ownership separately from the Swift reference that ends before the release checks.
-                let model = try autoreleasepool { try #require(DocumentWindows.shared.model(for: window)) }
-                content = try await ClosedContent(window: window, model: model, holdingPaper: holdingPaper)
-                content.fileDocument = document
-                // Exercise a second display generation without saving layout settings for the bundled fixture.
-                try autoreleasepool {
-                    let paper = try #require(content.paper)
-                    var options = model.viewOptions
-                    let spread = paper.displayMode == .twoUp || paper.displayMode == .twoUpContinuous
-                    options.layout = spread ? .single : .spread
-                    options.showsCoverAlone = false
-                    paper.apply(options)
-                    let displayed: PDFDocument = try #require(paper.document)
-                    try #require(displayed !== content.pdf)
-                    content.lastDisplay = displayed
-                }
-                autoreleasepool { window.performClose(nil) }
-            }
+            content = try await closeFile(at: url, holdingPaper: holdingPaper)
             #expect(NSDocumentController.shared.document(for: url) == nil)
             try await check(content)
         case .imageBundle:
@@ -197,6 +179,33 @@ struct ViewerFileDocumentTests {
             }
             try await check(content)
         }
+    }
+
+    // Return from the async setup before testing weak references. Only ClosedContent's deliberate owners
+    // should survive the document-open completion, the registry lookup and performClose.
+    private func closeFile(at url: URL, holdingPaper: Bool) async throws -> ClosedContent {
+        let (document, _) = try await open(url)
+        let window = try #require(document.windowControllers.first?.window)
+        // NSMapTable returns the model through Objective-C. Drain the lookup's temporary
+        // ownership separately from the Swift reference that ends before the release checks.
+        let model = try autoreleasepool { try #require(DocumentWindows.shared.model(for: window)) }
+        let content = try await ClosedContent(window: window, model: model, holdingPaper: holdingPaper)
+        content.fileDocument = document
+        // Exercise a second display generation without saving layout settings for the bundled fixture.
+        try autoreleasepool {
+            let paper = try #require(content.paper)
+            var options = model.viewOptions
+            let spread = paper.displayMode == .twoUp || paper.displayMode == .twoUpContinuous
+            options.layout = spread ? .single : .spread
+            options.showsCoverAlone = false
+            paper.apply(options)
+            let displayed: PDFDocument = try #require(paper.document)
+            try #require(displayed !== content.pdf)
+            content.lastDisplay = displayed
+        }
+        autoreleasepool { window.performClose(nil) }
+        if #unavailable(macOS 26) { content.tracesFileRelease = true }
+        return content
     }
 
     @Test("画像の読み込みが戻る前に束を閉じても、表示モデルと描画器を解放する", .timeLimit(.minutes(1)))
@@ -276,6 +285,14 @@ struct ViewerFileDocumentTests {
         }
     }
 
+    // AppKit gets a default-mode turn with a local pool, then SwiftUI and other main-actor tasks can resume.
+    private static func drainCloseTurn() async {
+        autoreleasepool {
+            _ = RunLoop.main.run(mode: .default, before: Date(timeIntervalSinceNow: 0.01))
+        }
+        await Task.yield()
+    }
+
     /// Hold the objects AppKit can cache. Keep a native picker selection alive as well, as in the closing-window trace.
     @MainActor
     private final class ClosedContent {
@@ -288,6 +305,7 @@ struct ViewerFileDocumentTests {
         let publishedPage: PageTextElement
         let retainedPaper: PaperPDFView?
         let pointerOverPaper: Bool
+        var tracesFileRelease = false
         weak var fileDocument: NSDocument?
         weak var model: DocumentViewModel?
         weak var renderer: DocumentRenderer?
@@ -371,18 +389,27 @@ struct ViewerFileDocumentTests {
             lastDisplay = displayed
         }
 
-        func waitForRelease(_ stillAlive: () -> [String?]) async throws {
+        func waitForRelease(_ phase: String, _ stillAlive: () -> [String?]) async throws {
             let deadline = ContinuousClock.now + .seconds(6)
-            while autoreleasepool(invoking: { stillAlive().contains(where: { $0 != nil }) }),
-                ContinuousClock.now < deadline
-            {
-                try await Task.sleep(for: .milliseconds(10))
+            var remaining = autoreleasepool { stillAlive().compactMap { $0 } }
+            var turns = 0
+            // Trace transitions only. Turn zero is after the file-open/close setup returned, with the host
+            // and the window still retained. The observer must not carry temporary owners across turns.
+            if tracesFileRelease { print("文書窓の解放 \(phase) turn=0 remaining=\(remaining)") }
+            while !remaining.isEmpty, ContinuousClock.now < deadline {
+                await ViewerFileDocumentTests.drainCloseTurn()
+                turns += 1
+                let next = autoreleasepool { stillAlive().compactMap { $0 } }
+                if tracesFileRelease, next != remaining {
+                    print("文書窓の解放 \(phase) turn=\(turns) remaining=\(next)")
+                }
+                remaining = next
             }
-            let remaining = stillAlive().compactMap { $0 }
             try #require(
                 remaining.isEmpty,
                 Comment(
-                    rawValue: "still alive: \(remaining); closed=\(String(describing: model?.isWindowClosed)), "
+                    rawValue:
+                        "\(phase) still alive: \(remaining); closed=\(String(describing: model?.isWindowClosed)), "
                         + "hostAttached=\(window.contentViewController === host), viewAttached=\(hostingView.window != nil), "
                         + "registered=\(DocumentWindows.shared.model(for: window) != nil), "
                         + "activeModel=\(model != nil && DocumentWindows.shared.activeModel === model), "
@@ -407,17 +434,21 @@ struct ViewerFileDocumentTests {
         }
 
         func checkReleaseOrder() async throws {
-            try await waitForRelease {
+            try await waitForRelease("窓を閉じた後、タイルの猶予中") {
                 [
+                    window.contentViewController === host ? "attached host" : nil,
+                    hostingView.window != nil ? "attached hostingView" : nil,
                     remainingPaperContent, fileDocument == nil ? nil : "document", model == nil ? nil : "model",
                     renderer == nil ? nil : "renderer", trialRenderer == nil ? nil : "trialRenderer",
                 ]
             }
-            tileClock.advance(by: .milliseconds(999))
-            #expect(pdf != nil)
-            #expect(lastDisplay != nil)
-            tileClock.advance(by: .milliseconds(1))
-            try await waitForRelease {
+            autoreleasepool {
+                tileClock.advance(by: .milliseconds(999))
+                #expect(pdf != nil)
+                #expect(lastDisplay != nil)
+                tileClock.advance(by: .milliseconds(1))
+            }
+            try await waitForRelease("タイルの猶予終了後") {
                 [
                     pdf == nil ? nil : "pdf", lastDisplay == nil ? nil : "lastDisplay",
                     logicalPDF == nil ? nil : "logicalPDF",
