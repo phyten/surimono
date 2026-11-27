@@ -56,6 +56,7 @@ public final class ThemeSampler {
     private let timeout: Duration
     private var session: Session?
     private var paperSession: Session?
+    private var resetsAfterSample = false
     private var appliedTheme: PrintTheme?
     private var appliedHasPaper: Bool?
     /// Kept for as long as the sampler lives, because WebKit drops a world nothing holds, and the next one of that name
@@ -109,7 +110,7 @@ public final class ThemeSampler {
     // an older specimen. Length prefixes keep adjacent fields unambiguous without persisting their contents.
     public func cacheKey(for theme: PrintTheme, language: String, sourceHash: String = "") -> String {
         let effectiveMargins = margins(for: theme)
-        let version = theme.flow == .vertical ? "theme-sample-vertical-v3-\(booklet)" : "theme-sample-v2"
+        let version = theme.flow == .vertical ? "theme-sample-vertical-v3-\(booklet)" : "theme-sample-v3"
         let fields = [
             version, theme.id,
             language, sourceHash, html, format.rawValue,
@@ -155,7 +156,7 @@ public final class ThemeSampler {
         var succeeded = false
         defer {
             isBusy = false
-            if !succeeded { resetSessions() }
+            if !succeeded || resetsAfterSample { resetSessions() }
         }
         let requestedMargins = margins(for: theme)
         if margins != requestedMargins {
@@ -383,6 +384,7 @@ public final class ThemeSampler {
     }
 
     private func resetSessions() {
+        resetsAfterSample = false
         session?.close()
         session = nil
         paperSession?.close()
@@ -481,6 +483,11 @@ public final class ThemeSampler {
             } catch {
                 try Task.checkCancellation()
             }
+        }
+        if TableFit.applies(to: format, theme: theme, latexMargins: marginMode, body: html) {
+            // Fit at the specimen's capture width and media, keeping its surrounding text at the same size.
+            // A fitted DOM belongs to this theme until its sample and place have been captured.
+            resetsAfterSample = try await TableFit.fit(in: webView, until: .now + timeout)
         }
         let detection = try await webView.evaluateForPrinting(
             PaperBackground.detectionScript, arguments: [:], world: world, until: .now + timeout)

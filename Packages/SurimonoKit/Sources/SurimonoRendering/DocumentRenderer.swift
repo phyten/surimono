@@ -290,6 +290,7 @@ public struct PaginationRequest: Sendable {
     /// Whether a page without a background of its own is laid on white; false leaves it clear, for a paper laid under
     /// it (`WebPaginator.drawsClearPages`).
     public var drawsBackground = true
+    var fitsTables = false
     public var rendersMermaid = false
     public var rendersDiagrams = false
     public var latexPageNumbers: LaTeXPageNumbers?
@@ -313,7 +314,8 @@ extension WebPaginator {
             request.source, pageSize: request.pageSize, margins: request.margins,
             allowsJavaScript: request.allowsJavaScript, preparationScript: request.preparationScript,
             readsPageRules: request.readsPageRules, drawsBackground: request.drawsBackground,
-            rendersMermaid: request.rendersMermaid, rendersDiagrams: request.rendersDiagrams,
+            fitsTables: request.fitsTables, rendersMermaid: request.rendersMermaid,
+            rendersDiagrams: request.rendersDiagrams,
             collectsDiagrams: request.collectsDiagrams, indexesFormulas: request.indexesFormulas,
             latexPageNumbers: request.latexPageNumbers,
             restartsAfterTitle: request.restartsAfterTitle,
@@ -1602,6 +1604,9 @@ public final class DocumentRenderer {
                         allowsJavaScript: false,
                         preparationScript: preparation,
                         readsPageRules: false, drawsBackground: !separatesPaper,
+                        fitsTables: TableFit.applies(
+                            to: source.format, theme: settings.theme, latexMargins: settings.options.latexMargins,
+                            body: page.paper.body),
                         rendersMermaid: page.mermaid, rendersDiagrams: page.diagrams,
                         latexPageNumbers: page.numbering, restartsAfterTitle: page.restartsAfterTitle,
                         collectsDiagrams: page.collectsDiagrams && settings.markdownChanges.isEmpty,
@@ -2272,6 +2277,9 @@ public final class DocumentRenderer {
                     source: sandboxSource(.html(html, baseURL: directory), for: source), pageSize: pageSize,
                     margins: margins, allowsJavaScript: false, preparationScript: preparation,
                     readsPageRules: false, drawsBackground: !WebPaginator.drawsClearPages,
+                    fitsTables: TableFit.applies(
+                        to: source.format, theme: settings.theme, latexMargins: settings.options.latexMargins,
+                        body: page.paper.body),
                     rendersMermaid: page.mermaid, rendersDiagrams: page.diagrams,
                     latexPageNumbers: page.numbering, restartsAfterTitle: page.restartsAfterTitle,
                     collectsDiagrams: collectsDiagrams && page.collectsDiagrams && settings.markdownChanges.isEmpty,
@@ -2327,7 +2335,8 @@ public final class DocumentRenderer {
             preparationScript: PrintIssueAnchors.following(
                 request.preparationScript, themed: source.format.usesPrintTheme),
             readsPageRules: request.readsPageRules, drawsBackground: request.drawsBackground,
-            rendersMermaid: request.rendersMermaid, rendersDiagrams: request.rendersDiagrams,
+            fitsTables: request.fitsTables, rendersMermaid: request.rendersMermaid,
+            rendersDiagrams: request.rendersDiagrams,
             latexPageNumbers: request.latexPageNumbers, restartsAfterTitle: request.restartsAfterTitle,
             collectsDiagrams: request.collectsDiagrams, indexesFormulas: request.indexesFormulas,
             composesLaTeXParagraphs: source.format == .latex,

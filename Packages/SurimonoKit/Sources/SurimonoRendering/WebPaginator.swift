@@ -248,7 +248,8 @@ public final class WebPaginator: NSObject {
     public func paginateWithResult(
         _ source: Source, pageSize: CGSize, margins: Margins, allowsJavaScript: Bool,
         printsBackgrounds: Bool = true, preparationScript: String? = nil, readsPageRules: Bool = false,
-        drawsBackground: Bool = true, rendersMermaid: Bool = false, rendersDiagrams: Bool = false,
+        drawsBackground: Bool = true, fitsTables: Bool = false, rendersMermaid: Bool = false,
+        rendersDiagrams: Bool = false,
         collectsDiagrams: Bool = false, indexesFormulas: Bool = false, exportHTMLTitle: String? = nil,
         richText: Bool = false,
         richTextTypeface: Typeface = .style, htmlComposition: HTMLComposition? = nil,
@@ -344,6 +345,26 @@ public final class WebPaginator: NSObject {
                     height: (pageSize.height - margins.top - margins.bottom) * Self.printPixelsPerPoint
                 ) { script in
                     try await self.runPreparationScript(script, in: session.webView, timeout: timeout)
+                }
+            }
+            // Geometry-dependent paper, change marks and issue anchors must see the fitted grid.
+            // Restore the native view size before asking WebKit to make its print operation.
+            let view = session.webView
+            let size = view.frame.size
+            let media = view.mediaType
+            defer {
+                if fitsTables {
+                    view.setFrameSize(size)
+                    view.mediaType = media
+                }
+            }
+            if fitsTables {
+                view.mediaType = "print"
+                let width = floor((pageSize.width - margins.left - margins.right) * Self.printPixelsPerPoint)
+                view.setFrameSize(CGSize(width: max(1, width), height: size.height))
+                if try await !TableFit.fit(in: view, until: .now + timeout) {
+                    view.setFrameSize(size)
+                    view.mediaType = media
                 }
             }
             // Before the preparation, whose presets may remove the document's style elements.
@@ -764,7 +785,8 @@ public final class WebPaginator: NSObject {
                 source, pageSize: pageSize, margins: margins,
                 allowsJavaScript: allowsJavaScript, printsBackgrounds: printsBackgrounds,
                 preparationScript: cleanPreparation,
-                readsPageRules: readsPageRules, drawsBackground: drawsBackground, rendersMermaid: rendersMermaid,
+                readsPageRules: readsPageRules, drawsBackground: drawsBackground, fitsTables: fitsTables,
+                rendersMermaid: rendersMermaid,
                 rendersDiagrams: rendersDiagrams, collectsDiagrams: collectsDiagrams, indexesFormulas: indexesFormulas,
                 latexPageNumbers: lostReferences ? nil : latexPageNumbers,
                 restartsAfterTitle: restartsAfterTitle, composesLaTeXParagraphs: composesLatin,

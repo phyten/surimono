@@ -178,6 +178,7 @@ const fits = [];
 const readableBoxes = new WeakSet();
 const retryAtFloor = [];
 const bodyFont = parseFloat(getComputedStyle(strip).fontSize);
+if (!latex && strip.querySelector('table')) fitTables(width / zoom);
 trace.call = 'fit boxes / Range bounds';
 for (const box of strip.querySelectorAll(atomic)) {
     if (box.parentElement.closest(atomic)) continue;
@@ -187,6 +188,11 @@ for (const box of strip.querySelectorAll(atomic)) {
     const padding = line ? 2 * parseFloat(getComputedStyle(line).paddingTop) * zoom : 0;
     const scale = Math.min(width / (rect.width * unit), Math.max(1, height - padding) / (rect.height * unit));
     if (scale >= 1) continue;
+    // Width was fitted on the intact grid. Continue tall rows at that same type size.
+    if (globalThis.surimonoFittedTables?.has(box)) {
+        readableBoxes.add(box);
+        continue;
+    }
     const textBoxes = box.matches('table,pre') ? [box] : [...box.querySelectorAll('table,pre')];
     if (line && textBoxes.length) {
         // Sequoia can report a zoomed descendant's DOMRect in its own coordinate system.
