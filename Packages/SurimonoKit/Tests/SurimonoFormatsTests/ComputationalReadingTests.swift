@@ -205,6 +205,33 @@ extension ComputationalReadingTests {
     }
 
     @Test(
+        "複数行文字列のタブがあっても目次と見出し番号の原稿指定を保つ",
+        arguments: [DocumentFormat.quarto, .rMarkdown], ["|", ">", "|-", ">+", "|2-", ">+2"])
+    func tabsInBlockScalar(format: DocumentFormat, indicator: String) {
+        let header =
+            format == .quarto
+            ? "toc: true\nnumber-sections: false\nformat:\n  html:"
+            : "output:\n  html_document:\n    toc: true\n    number_sections: false"
+        let depth = format == .quarto ? "toc-depth" : "toc_depth"
+        let source = """
+            ---
+            \(header)
+                include-in-header:
+                  text: \(indicator)
+                    <style>
+                    \tbody { color: red }
+                    </style>
+                \(depth): 2
+            ---
+            # One
+            """
+        let fragment = ComputationalMarkdown.convert(source, format: format)
+        #expect(fragment.contentsInstructions.present?.value == true)
+        #expect(fragment.numberInstructions.present?.value == false)
+        #expect(fragment.contentsInstructions.depth?.value == .levels(2))
+    }
+
+    @Test(
         "先頭形式や形式の配下を読めないときは原稿から何も固定しない",
         arguments: [
             "format: {[html, pdf]: {}, pdf: {toc: true}}", "format: {html: [default], pdf: {toc: false}}",
@@ -212,6 +239,7 @@ extension ComputationalReadingTests {
             "format:\n  html:\n      toc: true\n    number-sections: true",
             "format:\n  html:\n    toc: true\n      number-sections: true",
             "format:\n  html:\n\t  toc: true", "format:\n  -\thtml:\n      toc: true",
+            "format:\n  html:\n    include-in-header:\n      text: |\n        css\n    \ttoc: true",
         ])
     func unsupportedFormat(container: String) {
         let source = "---\ntoc: true\nnumber-sections: true\n" + container + "\n---\n# A"

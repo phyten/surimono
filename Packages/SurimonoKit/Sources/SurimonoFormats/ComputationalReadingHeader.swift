@@ -134,6 +134,43 @@ struct ComputationalReadingHeader {
         return (ComputationalMetadata.scalar(String(key)), value.trimmingCharacters(in: .whitespaces))
     }
 
+    /// A tab after a block scalar's indentation is part of the text.
+    private static func nextStructuralLine(after index: Int, in lines: ArraySlice<String>) -> Int {
+        let line = lines[index]
+        var next = index + 1
+        guard line.contains("|") || line.contains(">") else { return next }
+        var entry = line.drop(while: { $0 == " " })
+        var sequenceIndent: Int?
+        while entry.first == "-", entry.dropFirst().first?.isWhitespace == true {
+            sequenceIndent = line.distance(from: line.startIndex, to: entry.startIndex)
+            entry = entry.dropFirst().drop(while: \.isWhitespace)
+        }
+        let indicator: String
+        let indent: Int
+        if let (_, value) = pair(String(entry)) {
+            indicator = value
+            indent = line.distance(from: line.startIndex, to: entry.startIndex)
+        } else if let sequenceIndent {
+            indicator = MarkdownMetadata.withoutComment(entry.trimmingCharacters(in: .whitespaces))
+            indent = sequenceIndent
+        } else {
+            return next
+        }
+        guard indicator.wholeMatch(of: /^[|>](?:[1-9][+-]?|[+-][1-9]?)?$/) != nil else { return next }
+        var contentIndent = indicator.compactMap(\.wholeNumberValue).first.map { indent + $0 }
+        while next < lines.endIndex {
+            let body = lines[next]
+            let text = body.drop(while: { $0 == " " })
+            if !text.isEmpty {
+                let spaces = body.distance(from: body.startIndex, to: text.startIndex)
+                guard spaces >= (contentIndent ?? (indent + 1)) else { break }
+                if contentIndent == nil { contentIndent = spaces }
+            }
+            next += 1
+        }
+        return next
+    }
+
     private static func fields(in lines: ArraySlice<String>, topLevel: Bool = false) -> [Field]? {
         var siblingIndent: Int?
         var result: [Field] = []
@@ -150,6 +187,7 @@ struct ComputationalReadingHeader {
                 let (name, value) = pair(line)
             else { return nil }
             siblingIndent = indent
+            index = nextStructuralLine(after: start, in: lines)
             while index < lines.endIndex {
                 let next = lines[index]
                 let content = next.drop(while: \.isWhitespace)
@@ -164,7 +202,7 @@ struct ComputationalReadingHeader {
                 {
                     break
                 }
-                index += 1
+                index = nextStructuralLine(after: index, in: lines)
             }
             let field = Field(index: start, name: name, value: value, block: (start + 1)..<index)
             if !topLevel, !value.isEmpty, !value.hasPrefix("|"), !value.hasPrefix(">"), field.hasChildren(in: lines) {
