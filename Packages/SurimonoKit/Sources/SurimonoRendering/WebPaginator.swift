@@ -254,6 +254,7 @@ public final class WebPaginator: NSObject {
         richTextTypeface: Typeface = .style, htmlComposition: HTMLComposition? = nil,
         latexPageNumbers: LaTeXPageNumbers? = nil, restartsAfterTitle: Bool = false,
         composesLaTeXParagraphs: Bool = false, latexFlow: Bool = false, latexMarginInk: Bool = false,
+        protectsFrameEdges: Bool = false,
         checksVerticalLaTeXInk: Bool = false,
         verticalBooklet: Bool = false, verticalTextScale: Double = 1, flow: PrintFlow = .horizontal,
         contentsHeadingIDs: [String] = [], footnotePass: FootnotePass? = nil,
@@ -568,7 +569,9 @@ public final class WebPaginator: NSObject {
                         """, arguments: ["width": width], until: layoutDeadline)
                 }
                 let data = try await session.printToPDF(
-                    checkingBelowPaper: mayDrawBelowPaper, latexMarginInk: latexMarginInk, footnotePass: footnotePass,
+                    checkingBelowPaper: mayDrawBelowPaper, latexMarginInk: latexMarginInk,
+                    protectsFrameEdges: protectsFrameEdges,
+                    footnotePass: footnotePass,
                     deadline: latexPageNumbers == nil ? nil : layoutDeadline)
                 if composesLatin {
                     _ = try await session.webView.evaluateForPrinting("surimonoRestoreLatin()", until: layoutDeadline)
@@ -768,7 +771,8 @@ public final class WebPaginator: NSObject {
                 rendersDiagrams: rendersDiagrams, collectsDiagrams: collectsDiagrams, indexesFormulas: indexesFormulas,
                 latexPageNumbers: lostReferences ? nil : latexPageNumbers,
                 restartsAfterTitle: restartsAfterTitle, composesLaTeXParagraphs: composesLatin,
-                latexMarginInk: latexMarginInk, contentsHeadingIDs: contentsHeadingIDs, footnotePass: footnotePass,
+                latexMarginInk: latexMarginInk, protectsFrameEdges: protectsFrameEdges,
+                contentsHeadingIDs: contentsHeadingIDs, footnotePass: footnotePass,
                 timeout: timeout)
             if lostReferences { fallback.issues.append(.unresolvedLaTeXPages) }
             if usedFlow {
@@ -1020,7 +1024,7 @@ public final class WebPaginator: NSObject {
 /// Owns the web view, its window, and the temporary files for one pagination, so they outlive the call until the
 /// print thread is done with them.
 @MainActor
-private final class PaginationSession {
+final class PaginationSession {
     let webView: WKWebView
     private let window: NSWindow
     private let navigationTracker = NavigationTracker()
@@ -1204,7 +1208,8 @@ private final class PaginationSession {
     /// - Parameter checkingBelowPaper: Whether the document may draw below the paper, so that the pages are cut back
     ///   to the paper only after finding nothing there.
     func printToPDF(
-        checkingBelowPaper: Bool, latexMarginInk: Bool = false, footnotePass: WebPaginator.FootnotePass? = nil,
+        checkingBelowPaper: Bool, latexMarginInk: Bool = false, protectsFrameEdges: Bool = false,
+        footnotePass: WebPaginator.FootnotePass? = nil,
         deadline: ContinuousClock.Instant? = nil
     ) async throws -> Data {
         let deadline = deadline ?? .now + printTimeout
@@ -1217,28 +1222,8 @@ private final class PaginationSession {
         // The allowance goes into the bottom margin, so a document laid out with these margins keeps its height.
         printInfo.bottomMargin = margins.bottom + Self.pageHeightAllowance
         printInfo.rightMargin = margins.right
-        if latexMarginInk {
-            // NSPrintOperation clips to the printable width before Quartz sees the page. Give the root
-            // the horizontal white space instead, so a number outside its pre or a frame on the last
-            // fractional pixel can still paint. The text keeps exactly the same physical measure.
-            _ = try await webView.evaluateForPrinting(
-                """
-                if (globalThis.surimonoMarginInk) globalThis.surimonoMarginInk.remove();
-                const zoom = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
-                const style = document.createElement('style');
-                style.textContent = `@media print { html { box-sizing: border-box !important;
-                  padding-left: ${left / zoom}px !important; padding-right: ${right / zoom}px !important; } }`;
-                document.head.append(style);
-                globalThis.surimonoMarginInk = style;
-                """,
-                arguments: [
-                    "left": margins.left * WebPaginator.printPixelsPerPoint,
-                    "right": margins.right * WebPaginator.printPixelsPerPoint,
-                ],
-                until: deadline)
-            printInfo.leftMargin = 0
-            printInfo.rightMargin = 0
-        }
+        let movedMargins = try await preparePrintMargins(
+            printInfo, latexMarginInk: latexMarginInk, protectsFrameEdges: protectsFrameEdges, deadline: deadline)
         printInfo.horizontalPagination = .fit
         printInfo.verticalPagination = .automatic
         printInfo.isHorizontallyCentered = false
@@ -1252,7 +1237,9 @@ private final class PaginationSession {
         // A separate print thread keeps the main run loop free for WebKit's callbacks.
         operation.canSpawnSeparateThread = true
         var printBounds = webView.bounds
-        if latexMarginInk { printBounds.size.width = pageSize.width }
+        if movedMargins {
+            printBounds.size.width = pageSize.width - printInfo.leftMargin - printInfo.rightMargin
+        }
         operation.view?.frame = printBounds
 
         // The completion keeps this session alive (and the session keeps the completion) until printing ends.
@@ -1298,13 +1285,100 @@ private final class PaginationSession {
             throw WebPaginator.PaginationError.loadFailed(message)
         }
         guard completion.result == true else { throw WebPaginator.PaginationError.printFailed }
-        if latexMarginInk {
+        if movedMargins {
             _ = try await webView.evaluateForPrinting(
                 "globalThis.surimonoMarginInk.remove(); delete globalThis.surimonoMarginInk;",
                 arguments: [:], until: deadline)
         }
         return try await Self.cutToPaper(
             at: outputURL, pageSize: pageSize, checkingBelowPaper: checkingBelowPaper, footnotePass: footnotePass)
+    }
+
+    /// WKPrintingView truncates the physical clip width. Extend only its right edge: moving the
+    /// left origin also moves the rounding grid WebKit uses for PDF link rectangles.
+    private func preparePrintMargins(
+        _ info: NSPrintInfo, latexMarginInk: Bool, protectsFrameEdges: Bool, deadline: ContinuousClock.Instant
+    ) async throws -> Bool {
+        let pixelsPerPoint = WebPaginator.printPixelsPerPoint
+        var leftPadding: CGFloat = 0
+        var rightPadding: CGFloat = 0
+        if latexMarginInk {
+            // Margin notes already use the full sheet, with the original margins on the root.
+            leftPadding = margins.left * pixelsPerPoint
+            rightPadding = margins.right * pixelsPerPoint
+            info.leftMargin = 0
+            info.rightMargin = 0
+        }
+        let available = info.paperSize.width - info.leftMargin - info.rightMargin
+        let width = Float(available)
+        let columns = floor(width * Float(pixelsPerPoint))
+        let extend = protectsFrameEdges && columns > 0 && rightPadding < 2
+        guard latexMarginInk || extend else { return false }
+        let media = webView.mediaType
+        let frame = webView.frame
+        webView.mediaType = "print"
+        defer {
+            webView.frame = frame
+            webView.mediaType = media
+        }
+        var minimum: Float = 0
+        if extend {
+            // PrintContext first lays out at floor(width * 1.25). An intrinsically wider block
+            // gets a second layout, up to WebKit's maximum shrink of two CSS pixels per point.
+            webView.frame.size.width = CGFloat(columns)
+            func scrollWidth() async throws -> Float {
+                let measured = try await webView.evaluateForPrinting(
+                    "globalThis.surimonoMarginInk?.remove(); return document.documentElement.scrollWidth;",
+                    until: deadline)
+                guard let width = measured as? NSNumber else { throw WebPaginator.PaginationError.printFailed }
+                return width.floatValue
+            }
+            let limit = floor(columns * (2 / Float(pixelsPerPoint)))
+            let fitted = min(max(columns, try await scrollWidth()), limit)
+            let capped = fitted == limit
+            // At the shrink limit, five more initial columns produce exactly eight fitted columns.
+            var extra: Float = capped ? 8 : 2
+            if fitted > columns {
+                webView.frame.size.width = CGFloat(fitted)
+                if !capped {
+                    // A 100%-wide table with side margins still overflows after WebKit's second layout.
+                    extra += max(0, try await scrollWidth() - fitted)
+                }
+                minimum = fitted + extra
+            }
+            let scale = width / fitted
+            var extended = scale * (fitted + extra)
+            if fitted == columns || capped {
+                let newColumns = columns + (capped ? 5 : extra)
+                // Stay on the same side of both layout-rounding boundaries.
+                extended = min(
+                    max(extended, newColumns / Float(pixelsPerPoint)),
+                    ((newColumns + 1) / Float(pixelsPerPoint)).nextDown)
+            }
+            // The paper itself clips a negative right margin on this intermediate PDF.
+            info.rightMargin -= CGFloat(extended) - available
+            rightPadding += CGFloat(extra)
+        }
+        _ = try await webView.evaluateForPrinting(
+            """
+            const root = document.documentElement;
+            globalThis.surimonoMarginInk?.remove();
+            const css = getComputedStyle(root);
+            const zoom = parseFloat(css.zoom) || 1;
+            // Resolve percentage padding at the original print width, before extending the clip.
+            const leftPadding = wholeMargin ? left / zoom + 'px' : css.paddingLeft;
+            const rightPadding = wholeMargin ? '0px' : css.paddingRight;
+            const minWidth = minimum ? `min-width: ${minimum / zoom}px !important;` : '';
+            const style = document.createElement('style');
+            style.textContent = `@media print { html { box-sizing: border-box !important; ${minWidth}
+              padding-left: ${leftPadding} !important;
+              padding-right: calc(${rightPadding} + ${right / zoom}px) !important; } }`;
+            document.head.append(style);
+            globalThis.surimonoMarginInk = style;
+            """,
+            arguments: ["wholeMargin": latexMarginInk, "left": leftPadding, "right": rightPadding, "minimum": minimum],
+            until: deadline)
+        return true
     }
 
     /// WebKit cuts the printable height into pages of whole CSS pixels and lets a document's `@page` size and margins

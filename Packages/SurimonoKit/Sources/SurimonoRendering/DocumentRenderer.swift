@@ -284,7 +284,7 @@ public struct PaginationRequest: Sendable {
     public let pageSize: CGSize
     public let margins: WebPaginator.Margins
     public let allowsJavaScript: Bool
-    public let preparationScript: String?
+    public internal(set) var preparationScript: String?
     /// Whether the result should carry the document's `@page` rules.
     public let readsPageRules: Bool
     /// Whether a page without a background of its own is laid on white; false leaves it clear, for a paper laid under
@@ -298,6 +298,7 @@ public struct PaginationRequest: Sendable {
     var indexesFormulas = false
     public var composesLaTeXParagraphs = false
     public var latexFlow = false
+    var protectsFrameEdges = false
     public var latexMarginInk = false
     public var checksVerticalLaTeXInk = false
     var verticalBooklet = false
@@ -319,7 +320,8 @@ extension WebPaginator {
             restartsAfterTitle: request.restartsAfterTitle,
             composesLaTeXParagraphs: request.composesLaTeXParagraphs,
             latexFlow: request.latexFlow,
-            latexMarginInk: request.latexMarginInk, checksVerticalLaTeXInk: request.checksVerticalLaTeXInk,
+            latexMarginInk: request.latexMarginInk, protectsFrameEdges: request.protectsFrameEdges,
+            checksVerticalLaTeXInk: request.checksVerticalLaTeXInk,
             verticalBooklet: request.verticalBooklet, verticalTextScale: request.verticalTextScale, flow: request.flow,
             contentsHeadingIDs: request.contentsHeadingIDs, footnotePass: request.footnotePass)
     }
@@ -1588,7 +1590,7 @@ public final class DocumentRenderer {
                         latexPageNumbers: page.numbering, restartsAfterTitle: page.restartsAfterTitle,
                         collectsDiagrams: page.collectsDiagrams && settings.markdownChanges.isEmpty,
                         indexesFormulas: settings.indexesFormulas,
-                        latexFlow: latexFlow,
+                        latexFlow: latexFlow, protectsFrameEdges: true,
                         latexMarginInk: source.format == .latex && settings.theme.formats == [.latex]
                             && (checksVerticalLaTeXInk || LaTeXFlowPaginator.hasMarginInk(in: fragment.body)),
                         checksVerticalLaTeXInk: checksVerticalLaTeXInk,
@@ -2257,7 +2259,8 @@ public final class DocumentRenderer {
                     latexPageNumbers: page.numbering, restartsAfterTitle: page.restartsAfterTitle,
                     collectsDiagrams: collectsDiagrams && page.collectsDiagrams && settings.markdownChanges.isEmpty,
                     indexesFormulas: collectsDiagrams && settings.indexesFormulas,
-                    contentsHeadingIDs: collectsDiagrams ? page.contentsHeadingIDs : [], footnotePass: pass)
+                    protectsFrameEdges: true, contentsHeadingIDs: collectsDiagrams ? page.contentsHeadingIDs : [],
+                    footnotePass: pass)
             }
             try Task.checkCancellation()
             let measured = try await paginateCheckingIssues(request(), source: source)
@@ -2302,20 +2305,10 @@ public final class DocumentRenderer {
     ) async throws
         -> WebPaginator.Result
     {
-        let wrapped = PaginationRequest(
-            source: request.source, pageSize: request.pageSize, margins: request.margins,
-            allowsJavaScript: request.allowsJavaScript,
-            preparationScript: PrintIssueAnchors.following(
-                request.preparationScript, themed: source.format.usesPrintTheme),
-            readsPageRules: request.readsPageRules, drawsBackground: request.drawsBackground,
-            rendersMermaid: request.rendersMermaid, rendersDiagrams: request.rendersDiagrams,
-            latexPageNumbers: request.latexPageNumbers, restartsAfterTitle: request.restartsAfterTitle,
-            collectsDiagrams: request.collectsDiagrams, indexesFormulas: request.indexesFormulas,
-            composesLaTeXParagraphs: source.format == .latex,
-            latexFlow: request.latexFlow,
-            latexMarginInk: request.latexMarginInk, checksVerticalLaTeXInk: request.checksVerticalLaTeXInk,
-            verticalBooklet: request.verticalBooklet, verticalTextScale: request.verticalTextScale, flow: request.flow,
-            contentsHeadingIDs: request.contentsHeadingIDs, footnotePass: request.footnotePass)
+        var wrapped = request
+        wrapped.preparationScript = PrintIssueAnchors.following(
+            request.preparationScript, themed: source.format.usesPrintTheme)
+        wrapped.composesLaTeXParagraphs = source.format == .latex
         let output = try await paginate(wrapped)
         let preparation = output.preparationResult.flatMap {
             try? JSONDecoder().decode(PrintIssueAnchors.Preparation.self, from: Data($0.utf8))

@@ -537,10 +537,7 @@ struct ChangeMarkRenderingTests {
             })
         var found = Set<String>()
         let renderer = DocumentRenderer(paginateWithResult: { request in
-            let result = try await WebPaginator().paginateWithResult(
-                request.source, pageSize: request.pageSize, margins: request.margins,
-                allowsJavaScript: request.allowsJavaScript, preparationScript: request.preparationScript,
-                readsPageRules: request.readsPageRules, drawsBackground: request.drawsBackground)
+            let result = try await WebPaginator().paginate(request)
             for index in 0..<result.document.pageCount {
                 for annotation in result.document.page(at: index)?.annotations ?? [] {
                     if let url = annotation.url, url.scheme == "surimono-mark" {
