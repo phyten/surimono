@@ -133,10 +133,11 @@ struct BandArrangementTests {
         case .split:
             #expect(
                 repaired.arrangement.unused == [
-                    .layout, .zoom, .thumbnails, .scrollDirection, .paperSeries, .cover, .margins, .printSettings,
-                    .ignoreSlides, .beforePrinting, .saveAsFile, .keysAndGestures, .readingSettings, .readingDirection,
+                    .transition, .floatOnTop, .scrollDirection, .paperOrientation, .paperSeries, .cover,
+                    .alwaysShowToolbar, .margins, .printSettings, .ignoreSlides, .beforePrinting, .saveAsFile,
+                    .keysAndGestures, .showOnAllSpaces, .readingDirection,
                 ])
-            #expect(repaired.notices == [.addedToUnused(.readingDirection)])
+            #expect(repaired.notices == [.addedToUnused(.showOnAllSpaces), .addedToUnused(.readingDirection)])
         }
         #expect(repaired.stored.topRight == wire.topRight)
     }

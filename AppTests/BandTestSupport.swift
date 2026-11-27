@@ -46,8 +46,9 @@ enum BandTestCatalog {
         .margins, .printSettings, .ignoreSlides, .beforePrinting, .viewOptions, .saveAsFile, .keysAndGestures,
     ]
     nonisolated static let standardSplitUnused: [BandLayout.Item] = [
-        .layout, .zoom, .thumbnails, .readingDirection, .scrollDirection, .paperSeries, .cover, .margins,
-        .printSettings, .ignoreSlides, .beforePrinting, .saveAsFile, .keysAndGestures, .readingSettings,
+        .transition, .floatOnTop, .showOnAllSpaces, .readingDirection, .scrollDirection, .paperOrientation,
+        .paperSeries, .cover, .alwaysShowToolbar, .margins, .printSettings, .ignoreSlides, .beforePrinting, .saveAsFile,
+        .keysAndGestures,
     ]
     /// The Split standard before the current one, for tests about saved layouts rather than about Standard itself.
     nonisolated static var quietSplit: BandArrangement {

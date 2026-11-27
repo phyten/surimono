@@ -9,13 +9,14 @@ struct BandLayoutTests {
     ]
     static let standardUnused: [BandLayout.Item] = [.transition, .floatOnTop, .showOnAllSpaces] + addedItems
     static let standardSplitUnused: [BandLayout.Item] = [
-        .layout, .zoom, .thumbnails, .readingDirection, .scrollDirection, .paperSeries, .cover, .margins,
-        .printSettings, .ignoreSlides, .beforePrinting, .saveAsFile, .keysAndGestures, .readingSettings,
+        .transition, .floatOnTop, .showOnAllSpaces, .readingDirection, .scrollDirection, .paperOrientation,
+        .paperSeries, .cover, .alwaysShowToolbar, .margins, .printSettings, .ignoreSlides, .beforePrinting, .saveAsFile,
+        .keysAndGestures,
     ]
     // Freeze these independently of the arrangement model so later refactors cannot redefine Standard unnoticed.
     static let standardSplit: [[BandLayout.Item]] = [
-        [.formatBadge], [.floatOnTop, .showOnAllSpaces, .alwaysShowToolbar, .selectText, .viewOptions, .print],
-        [.paperOrientation, .presentation, .style, .outline, .transition],
+        [.formatBadge], [.selectText, .layout, .zoom, .viewOptions, .print],
+        [.presentation, .style, .readingSettings, .outline, .thumbnails],
         [.chapter, .pageIndicator, .pageTurn], standardSplitUnused,
     ]
     /// The Split standard before the current one. Saved sets that copied it must keep drawing as they did.

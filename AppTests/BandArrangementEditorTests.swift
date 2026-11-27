@@ -97,11 +97,12 @@ struct BandArrangementEditorTests {
         let session = environment.session
         let before = session.draft
         let groups = BandPaletteGroup.project(session.arrangement.unused)
-        #expect(groups.map(\.id) == [.movement, .display, .reading, .bodyAndPaper, .printingAndSaving, .help])
+        #expect(groups.map(\.id) == [.display, .reading, .bodyAndPaper, .window, .printingAndSaving, .help])
         #expect(
             groups.map { $0.parts.map(\.id) } == [
-                [.thumbnails], [.layout, .zoom], [.readingDirection, .scrollDirection, .cover, .readingSettings],
-                [.paperSeries, .margins, .ignoreSlides],
+                [.transition], [.readingDirection, .scrollDirection, .cover],
+                [.paperOrientation, .paperSeries, .margins, .ignoreSlides],
+                [.floatOnTop, .showOnAllSpaces, .alwaysShowToolbar],
                 [.printSettings, .beforePrinting, .saveAsFile],
                 [.keysAndGestures],
             ])
@@ -205,12 +206,12 @@ struct BandArrangementEditorTests {
         defer { environment.cleanUp() }
         let session = environment.session
         #expect(session.mode == .split)
-        // Standard bottom left: paperOrientation | presentation | style outline transition.
-        #expect(session.move(location(.zone(.bottomLeft), 4), to: .zone(.bottomLeft), at: 6))
+        // Standard bottom left: presentation | style readingSettings | outline thumbnails.
+        #expect(session.move(location(.zone(.bottomLeft), 2), to: .zone(.bottomLeft), at: 6))
         #expect(
             session.draft.split.bottomLeft == [
-                .part(.paperOrientation), .separator, .part(.presentation), .separator, .part(.outline),
-                .part(.style), .part(.transition),
+                .part(.presentation), .separator, .part(.readingSettings), .separator, .part(.outline),
+                .part(.style), .part(.thumbnails),
             ])
         #expect(session.selection == .part(.style))
         #expect(session.message == .moved(BandLayout.Item.style.editorName, BandZoneID.bottomLeft.editorName, 6, 7))
@@ -232,17 +233,17 @@ struct BandArrangementEditorTests {
         #expect(session.separatorIsIdle(at: 1, in: .topLeft) && session.separatorIsIdle(at: 2, in: .topLeft))
         #expect(session.hasIdleSeparators)
         let standardTopRight: [BandEntry] = [
-            .part(.floatOnTop), .separator, .part(.showOnAllSpaces), .part(.alwaysShowToolbar), .part(.selectText),
-            .separator, .part(.viewOptions), .part(.print),
+            .part(.selectText), .separator, .part(.layout), .part(.zoom), .separator, .part(.viewOptions),
+            .part(.print),
         ]
-        session.select(.part(.zoom))
+        session.select(.part(.floatOnTop))
         session.moveSelection(to: .zone(.topRight))
-        #expect(session.move(location(.zone(.topLeft), 2), to: .zone(.topRight), at: 8))
-        #expect(session.draft.split.topRight == standardTopRight + [.separator, .part(.zoom)])
-        #expect(session.selection == .separator(.topRight, 8))
-        #expect(!session.separatorIsIdle(at: 8, in: .topRight))
+        #expect(session.move(location(.zone(.topLeft), 2), to: .zone(.topRight), at: 7))
+        #expect(session.draft.split.topRight == standardTopRight + [.separator, .part(.floatOnTop)])
+        #expect(session.selection == .separator(.topRight, 7))
+        #expect(!session.separatorIsIdle(at: 7, in: .topRight))
         session.removeSelection()
-        #expect(session.draft.split.topRight == standardTopRight + [.part(.zoom)])
+        #expect(session.draft.split.topRight == standardTopRight + [.part(.floatOnTop)])
         #expect(session.message == .separatorDeleted)
         #expect(!session.draft.split.unused.contains(.print))
     }
@@ -342,12 +343,12 @@ struct BandArrangementEditorTests {
         let environment = Environment()
         defer { environment.cleanUp() }
         let session = environment.session
-        let payload = session.beginDrag(.entry(location(.zone(.bottomLeft), 2), .part(.presentation)))
+        let payload = session.beginDrag(.entry(location(.zone(.bottomLeft), 0), .part(.presentation)))
         #expect(session.drop(payload, on: .zone(.topRight, index: 0)))
         #expect(
             session.draft.split.topRight == [
-                .part(.presentation), .part(.floatOnTop), .separator, .part(.showOnAllSpaces),
-                .part(.alwaysShowToolbar), .part(.selectText), .separator, .part(.viewOptions), .part(.print),
+                .part(.presentation), .part(.selectText), .separator, .part(.layout), .part(.zoom), .separator,
+                .part(.viewOptions), .part(.print),
             ])
         session.undo()
         #expect(session.draft == BandArrangementVariants())
@@ -465,13 +466,13 @@ struct BandArrangementEditorTests {
         let environment = Environment()
         defer { environment.cleanUp() }
         let session = environment.session
-        session.select(.part(.transition))
+        session.select(.part(.thumbnails))
         session.moveSelection(to: .unused)
         #expect(session.duplicate(named: "  Reading ") == nil)
         let store = environment.preferences.bandArrangementStore
         let reading = try #require(store.sets.first)
         #expect(reading.name == "Reading" && store.active == .user(reading.id))
-        #expect(reading.layouts.split.unused == BandTestCatalog.standardSplitUnused + [.transition])
+        #expect(reading.layouts.split.unused == BandTestCatalog.standardSplitUnused + [.thumbnails])
         #expect(!session.isDirty)
         #expect(session.duplicate(named: "reading") != nil)
         let newName = String(localized: "New Arrangement")
@@ -559,17 +560,29 @@ struct BandArrangementEditorTests {
             data: Data("# First\n".utf8), fileURL: nil, format: .markdown, preferences: environment.preferences,
             library: UserLibrary(root: directory.appendingPathComponent("Library")), renderer: renderer,
             settingsStore: DocumentSettingsStore(directory: directory.appendingPathComponent("Settings")))
+        // A fixed width that holds every part, so that nothing folds and each row compares whole.
         let menu = OverlayMenuState()
-        #expect(BandPlans(model: model, menu: menu).top.trailing.last == .print)
+        menu.bandWidth = 4000
+        menu.bandWidths = [.name: 120, .more: 24]
+        let before = BandPlans(model: model, menu: menu).resolved
+        let bottomBefore = try #require(before.bottom)
+        #expect(before.top.trailing.last == .print && before.overflow.isEmpty)
         let session = environment.session
         #expect(session.duplicate(named: "Reading") == nil)
         session.select(.part(.print))
         session.moveSelection(to: .zone(.bottomLeft))
-        #expect(BandPlans(model: model, menu: menu).top.trailing.last == .print)
+        let draft = BandPlans(model: model, menu: menu).resolved
+        #expect(draft.top == before.top)
+        #expect(draft.bottom == bottomBefore)
         #expect(session.overwrite() == nil)
-        let plans = BandPlans(model: model, menu: menu)
-        #expect(!plans.top.trailing.contains(.print))
-        #expect(plans.bottom?.leading.last == .print)
+        let saved = BandPlans(model: model, menu: menu).resolved
+        let bottomSaved = try #require(saved.bottom)
+        // Only Print moved: from the end of the top right to the end of the bottom left.
+        #expect(saved.top.leading == before.top.leading)
+        #expect(saved.top.trailing == before.top.trailing.filter { $0 != .print })
+        #expect(bottomSaved.leading == bottomBefore.leading + [.print])
+        #expect(bottomSaved.trailing == bottomBefore.trailing)
+        #expect(saved.overflow.isEmpty && saved.unusedAvailable == before.unusedAvailable)
     }
 
     // MARK: - Drops
@@ -585,13 +598,13 @@ struct BandArrangementEditorTests {
         #expect(session.draft.split.topLeft == [.part(.pageTurn), .part(.formatBadge)])
         payload = session.beginDrag(.entry(location(.zone(.topLeft), 0), .part(.pageTurn)))
         // At the end of the top right, after Print.
-        #expect(session.drop(payload, on: .zone(.topRight, index: 8)))
+        #expect(session.drop(payload, on: .zone(.topRight, index: 7)))
         #expect(
             session.draft.split.topRight == [
-                .part(.floatOnTop), .separator, .part(.showOnAllSpaces), .part(.alwaysShowToolbar),
-                .part(.selectText), .separator, .part(.viewOptions), .part(.print), .part(.pageTurn),
+                .part(.selectText), .separator, .part(.layout), .part(.zoom), .separator, .part(.viewOptions),
+                .part(.print), .part(.pageTurn),
             ])
-        payload = session.beginDrag(.entry(location(.zone(.topRight), 8), .part(.pageTurn)))
+        payload = session.beginDrag(.entry(location(.zone(.topRight), 7), .part(.pageTurn)))
         #expect(session.drop(payload, on: .unused))
         #expect(session.draft.split.unused == BandTestCatalog.standardSplitUnused + [.pageTurn])
         payload = session.beginDrag(.newSeparator)

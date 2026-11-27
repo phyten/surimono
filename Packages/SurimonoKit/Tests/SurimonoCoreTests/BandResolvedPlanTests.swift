@@ -59,18 +59,51 @@ struct BandResolvedPlanTests {
         #expect(!plan.top.geometry.usesStandardSpacing && !bottom.geometry.usesStandardSpacing)
         #expect(
             plan.top.geometry.gapsBefore == [
-                .formatBadge: 6, .floatOnTop: 0, .showOnAllSpaces: 8, .alwaysShowToolbar: 8, .selectText: 8,
-                .viewOptions: 8, .print: 10,
+                .formatBadge: 6, .selectText: 0, .layout: 8, .zoom: 8, .viewOptions: 8, .print: 10,
             ])
-        #expect(plan.top.geometry.separatorsBefore == [.showOnAllSpaces, .viewOptions])
+        #expect(plan.top.geometry.separatorsBefore == [.layout, .viewOptions])
         #expect(plan.top.geometry.moreDock == .beforePrint && plan.top.geometry.moreGap == 8)
         #expect(
             bottom.geometry.gapsBefore == [
-                .paperOrientation: 0, .presentation: 8, .style: 8, .outline: 8, .transition: 8, .chapter: 0,
+                .presentation: 0, .style: 8, .readingSettings: 8, .outline: 8, .thumbnails: 8, .chapter: 0,
                 .pageIndicator: 10, .pageTurn: 10,
             ])
-        #expect(bottom.geometry.separatorsBefore == [.presentation, .style])
+        #expect(bottom.geometry.separatorsBefore == [.style, .outline])
         #expect(plan.overflow == [])
+    }
+
+    @Test("上下配置の標準は Markdown で出ない部品が抜けても区切りを重ねず端にも残さない")
+    func splitStandardWithoutMarkdownParts() throws {
+        let available = Set(BandLayout.Item.allCases).subtracting([.presentation, .thumbnails, .zoom])
+        let plan = BandLayout.resolve(
+            arrangement: .standard(for: .split), mode: .split, availableItems: available,
+            measurements: .init(items: [:], name: 0), metrics: .init(topFixed: 0, bottomFixed: 0, separator: 9),
+            availableWidth: 2000)
+        let bottom = try #require(plan.bottom)
+        #expect(plan.top.trailing == [.selectText, .layout, .viewOptions, .print])
+        #expect(plan.top.geometry.separatorsBefore == [.layout, .viewOptions])
+        #expect(bottom.leading == [.style, .readingSettings, .outline])
+        #expect(bottom.geometry.separatorsBefore == [.outline])
+        #expect(bottom.geometry.gapsBefore[.style] == 0)
+    }
+
+    @Test("画像の束では上下配置の標準のページ一覧が目次の位置に来て、前に区切りを残さない")
+    func splitStandardForImageBundle() throws {
+        let placed = BandArrangement.standard(for: .split).forImageBundle(in: .split)
+        #expect(
+            placed.bottomLeft == [
+                .part(.presentation), .separator, .part(.style), .part(.readingSettings), .separator,
+                .part(.thumbnails), .part(.outline),
+            ])
+        let plan = BandLayout.resolve(
+            arrangement: placed, mode: .split, availableItems: [.layout, .zoom, .viewOptions, .thumbnails, .print],
+            measurements: .init(items: [:], name: 0), metrics: .init(topFixed: 0, bottomFixed: 0, separator: 9),
+            availableWidth: 2000)
+        let bottom = try #require(plan.bottom)
+        #expect(plan.top.trailing == [.layout, .zoom, .viewOptions, .print])
+        #expect(plan.top.geometry.separatorsBefore == [.viewOptions])
+        #expect(bottom.leading == [.thumbnails])
+        #expect(bottom.geometry.separatorsBefore == [])
     }
 
     @Test("カスタムの並びで一覧を置いた場所は画像の束でも保つ")

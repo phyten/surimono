@@ -1114,6 +1114,69 @@ struct DocumentSettingsFlowTests {
         #expect(fresh.viewOptions.joinsPages)
     }
 
+    private func beamer(_ environment: Environment) -> DocumentViewModel {
+        DocumentViewModel(
+            data: Data(
+                #"\documentclass{beamer}\begin{document}\frame{North gauge}\frame{South gauge}\end{document}"#.utf8),
+            fileURL: nil, format: .latex, preferences: environment.preferences, library: environment.library,
+            settingsStore: environment.store)
+    }
+
+    @Test(
+        "beamer の組版中に表示の型か読む向きだけを変えても、組版のあとの送り方はスライドのまま", .timeLimit(.minutes(1)),
+        arguments: ["layout", "direction"])
+    func beamerChangeDuringLayout(change: String) async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let model = beamer(environment)
+        defer { model.stop() }
+        model.start()
+        // The first layout has started and cannot finish before this test yields the main actor.
+        try #require(model.result == nil)
+        if change == "layout" {
+            model.setLayout(.spread)
+        } else {
+            model.updateViewOptions { $0.direction = .rightToLeft }
+        }
+        try await waitUntil { model.result != nil && !model.isRendering }
+        try #require(model.slideDeck != nil)
+        #expect(model.viewOptions.transition == .slide)
+        if change == "layout" {
+            #expect(model.viewOptions.layout == .spread)
+        } else {
+            #expect(model.viewOptions.direction == .rightToLeft)
+        }
+    }
+
+    @Test("beamer でも文書に保存したスクロールで開く", .timeLimit(.minutes(1)))
+    func beamerSavedScroll() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let first = beamer(environment)
+        defer { first.stop() }
+        try await open(first)
+        #expect(first.viewOptions.transition == .slide)
+        first.updateViewOptions { $0.transition = .scroll }
+        first.rememberedSettingsDidChange()
+        try await waitUntil { first.hasSavedSettings }
+        let reopened = beamer(environment)
+        defer { reopened.stop() }
+        try await open(reopened)
+        #expect(reopened.viewOptions.transition == .scroll)
+    }
+
+    @Test("beamer でもアプリの既定に選んだフェードで開く", .timeLimit(.minutes(1)))
+    func beamerChosenDefault() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        environment.preferences.defaultPageTurn = .fade
+        let model = beamer(environment)
+        defer { model.stop() }
+        #expect(model.viewOptions.transition == .fade)
+        try await open(model)
+        #expect(model.viewOptions.transition == .fade)
+    }
+
     @Test("用紙の向きは操作したときだけ保存して復元し既定に戻すと自動になる", .timeLimit(.minutes(1)))
     func paperOrientationPersistence() async throws {
         let environment = try environment()

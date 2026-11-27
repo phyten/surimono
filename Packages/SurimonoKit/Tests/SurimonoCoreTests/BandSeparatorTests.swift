@@ -153,15 +153,10 @@ extension BandSeparatorTests {
         let split = StoredBandArrangement(BandArrangement.standard(for: .split))
         let top = StoredBandArrangement(BandArrangement.standard(for: .top))
         #expect(split.topLeft == ["formatBadge"])
-        #expect(
-            split.topRight == [
-                "floatOnTop", "@separator", "showOnAllSpaces", "alwaysShowToolbar", "selectText", "@separator",
-                "viewOptions", "print",
-            ])
-        // The zone's last rule draws nothing, so Standard does not store one.
+        #expect(split.topRight == ["selectText", "@separator", "layout", "zoom", "@separator", "viewOptions", "print"])
         #expect(
             split.bottomLeft == [
-                "paperOrientation", "@separator", "presentation", "@separator", "style", "outline", "transition",
+                "presentation", "@separator", "style", "readingSettings", "@separator", "outline", "thumbnails",
             ])
         #expect(split.bottomRight == ["chapter", "pageIndicator", "pageTurn"])
         #expect(top.topLeft == ["formatBadge", "pageIndicator", "chapter"])

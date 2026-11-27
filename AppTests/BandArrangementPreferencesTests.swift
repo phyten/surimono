@@ -57,7 +57,7 @@ struct BandArrangementPreferencesTests {
         #expect(loaded.bandArrangementStore.sets == [set])
         #expect(
             loaded.bandArrangementStore.activeLayouts.split.bottomLeft.compactMap(\.item) == [
-                .paperOrientation, .presentation, .style, .outline, .transition, .print,
+                .presentation, .style, .readingSettings, .outline, .thumbnails, .print,
             ])
         #expect(loaded.menuArrangement == originalMode && loaded.layoutID == originalLayout)
         #expect(loaded.showsOutlineOnBand)

@@ -94,18 +94,15 @@ public struct BandArrangement: Codable, Equatable, Sendable {
     ) -> Self {
         switch mode {
         case .split:
-            // Layout, Zoom, Thumbnails and Reading Settings stay in the palette. To bring one back, put it here:
-            // Layout after Transition, Zoom and Thumbnails as their own group after it, Reading Settings last on
-            // the bottom right.
             let arrangement = Self(entries: [
                 .topLeft: [.part(.formatBadge)],
                 .topRight: [
-                    .part(.floatOnTop), .separator, .part(.showOnAllSpaces), .part(.alwaysShowToolbar),
-                    .part(.selectText), .separator, .part(.viewOptions), .part(.print),
+                    .part(.selectText), .separator, .part(.layout), .part(.zoom), .separator, .part(.viewOptions),
+                    .part(.print),
                 ],
                 .bottomLeft: [
-                    .part(.paperOrientation), .separator, .part(.presentation), .separator, .part(.style),
-                    .part(.outline), .part(.transition),
+                    .part(.presentation), .separator, .part(.style), .part(.readingSettings), .separator,
+                    .part(.outline), .part(.thumbnails),
                 ],
                 .bottomRight: [.part(.chapter), .part(.pageIndicator), .part(.pageTurn)],
             ])
@@ -486,7 +483,7 @@ extension BandArrangement {
             Self.standard(for: mode), Self.builtIn(for: mode, includesLegacyParts: false),
             Self.builtIn(for: mode, includesLegacyParts: true),
         ]
-        guard builtIns.contains(where: { $0[zone].toolbarEntries == toolbarEntries }) else { return self }
+        guard builtIns.contains(where: { $0[zone] == toolbarEntries }) else { return self }
         var result = self
         result[zone] = entries.withBundleEntryAtContents
         return result

@@ -186,10 +186,10 @@ extension BandArrangementStoreTests {
         let reloaded = try JSONDecoder().decode(BandArrangementStore.self, from: JSONEncoder().encode(store))
         #expect(
             reloaded.activeLayouts.split.topRight == [
-                .part(.floatOnTop), .separator, .part(.showOnAllSpaces), .part(.alwaysShowToolbar),
-                .part(.selectText), .separator, .part(.viewOptions), .part(.print),
+                .part(.selectText), .separator, .part(.layout), .part(.zoom), .separator, .part(.viewOptions),
+                .part(.print),
             ])
         #expect(reloaded.activeLayouts.top.unused.contains(.floatOnTop))
-        #expect(reloaded.activeLayouts.split.unused.contains(.layout))
+        #expect(reloaded.activeLayouts.split.unused.contains(.transition))
     }
 }
