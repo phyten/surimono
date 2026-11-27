@@ -492,13 +492,15 @@ struct PrintModeTests {
         @MainActor private final class FinishLayout {
             private(set) var frames: [PrintFinishFrame] = []
 
-            func host(_ content: some View) -> NSView {
-                let panel =
-                    content
+            func panel(_ content: some View) -> some View {
+                content
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .coordinateSpace(name: "printFinishPanel")
                     .onPreferenceChange(PrintFinishFrames.self) { self.frames = $0 }
-                return NSHostingView(rootView: panel)
+            }
+
+            func host(_ content: some View) -> NSView {
+                NSHostingView(rootView: panel(content))
             }
 
             func checkNativeControls(in host: NSView) {
@@ -564,7 +566,7 @@ struct PrintModeTests {
         }
 
         @Test("切り替わる幅の前後では、三択を変えても形を保ち、読み上げの名前と値がモデルに合う", arguments: UILanguage.supported)
-        func finishSelectionAtBoundary(language: String) throws {
+        func finishSelectionAtBoundary(language: String) async throws {
             let fixture = Fixture()
             let model = fixture.model(format: .markdown)
             let locale = Locale(identifier: language)
@@ -572,64 +574,75 @@ struct PrintModeTests {
             let strings = try #require(Bundle(url: url))
 
             // SwiftUI's virtual children can expose the public AX selectors without NSAccessibilityProtocol conformance.
-            func containsChoice(in children: [Any], name: String, value: String) -> Bool {
-                for child in children {
+            func accessibilityChoices(in children: [Any]) -> [(names: [String], values: [String])] {
+                children.flatMap { child in
                     let node = child as AnyObject
                     let rawValue: Any? = node.accessibilityValue?()
-                    if [node.accessibilityLabel?(), node.accessibilityTitle?()].contains(name),
-                        node.accessibilityValueDescription?() == value || rawValue as? String == value
-                    {
-                        return true
-                    }
-                    if containsChoice(in: node.accessibilityChildren?() ?? [], name: name, value: value) { return true }
+                    let names = [node.accessibilityLabel?(), node.accessibilityTitle?()].compactMap { $0 }
+                    let values = [
+                        node.accessibilityValueDescription?(), rawValue as? String,
+                        (rawValue as? NSAttributedString)?.string,
+                    ]
+                    .compactMap { $0 }
+                    return [(names, values)] + accessibilityChoices(in: node.accessibilityChildren?() ?? [])
                 }
-                return false
             }
 
             func check<Value: Equatable>(
                 _ control: some View, label: String, selection: Binding<Value>, choices: [(Value, String)]
-            ) throws {
+            ) async throws {
                 let layout = FinishLayout()
                 let localized = control.environment(\.locale, locale).environment(\.accessibilityEnabled, true)
                 let boundary = NSHostingView(rootView: localized.fixedSize()).fittingSize.width
-                let host = layout.host(localized)
+                let screen = OrgReadingTestWindow(width: 1200, height: 100) { layout.panel(localized) }
+                defer { screen.window.close() }
+                screen.window.alphaValue = 0
+                screen.window.orderFront(nil)
+                let host = screen.host
                 let key = LocalizedStringKey(label)
-                host.setFrameSize(CGSize(width: 1200, height: 100))
-                host.layoutSubtreeIfNeeded()
+                try await screen.wait("wide \(label) row") { layout.frames.contains { $0.element == .row(key) } }
                 let row = try #require(layout.frames.first { $0.element == .row(key) })
                 let name = strings.localizedString(forKey: label, value: nil, table: nil)
+                func placed() -> [PrintFinishFrame] {
+                    layout.frames.filter { $0.element == .menu(key) || $0.element == .row(key) }
+                }
+                func choicesInTree() -> [(names: [String], values: [String])] {
+                    accessibilityChoices(in: host.accessibilityChildren() ?? [])
+                }
                 for delta: CGFloat in [-1, 1] {
-                    host.setFrameSize(CGSize(width: boundary + delta, height: 100))
+                    screen.window.setContentSize(CGSize(width: boundary + delta, height: 100))
                     for (value, title) in choices {
                         selection.wrappedValue = value
-                        host.layoutSubtreeIfNeeded()
-                        let placed = layout.frames.filter { $0.element == .menu(key) || $0.element == .row(key) }
                         #expect(selection.wrappedValue == value)
-                        #expect(placed.map(\.element) == [delta < 0 ? .menu(key) : .row(key)])
-                        #expect(placed.first?.selected == LocalizedStringKey(title))
-                        if delta > 0 { #expect(placed.first?.rect.width == row.rect.width) }
                         let spoken = strings.localizedString(forKey: title, value: nil, table: nil)
-                        #expect(
-                            containsChoice(in: host.accessibilityChildren() ?? [], name: name, value: spoken),
-                            "language=\(language) name=\(name) value=\(spoken) delta=\(delta)")
+                        let expected: PrintFinishFrame.Element = delta < 0 ? .menu(key) : .row(key)
+                        let detail = "\(language) \(name)=\(spoken) width=\(host.bounds.width) delta=\(delta)"
+                        try await screen.wait("\(detail) frames=\(placed())") {
+                            placed().map(\.element) == [expected]
+                                && placed().first?.selected == LocalizedStringKey(title)
+                        }
+                        if delta > 0 { #expect(placed().first?.rect.width == row.rect.width) }
+                        try await screen.wait("\(detail) AX=\(choicesInTree())") {
+                            choicesInTree().contains { $0.names.contains(name) && $0.values.contains(spoken) }
+                        }
                     }
                 }
             }
-            try check(
+            try await check(
                 PrintChapterBreakChoice(model: model), label: "Page Breaks",
                 selection: model.controlBinding(\.printFinish.breaks.h1),
                 choices: [
                     (.none, "Do Not Break at Headings"), (.page, "New Page for Each Chapter"),
                     (.rightPage, "Chapters from Right Page"),
                 ])
-            try check(
+            try await check(
                 PrintContentsChoice(model: model), label: "Placement",
                 selection: model.controlBinding(\.printFinish.contents.placement),
                 choices: [
                     (.inline, "Same Page as Text"), (.page, "Separate Page"),
                 ])
             let rule = model.controlBinding(\.printFinish.breaks.h2)
-            try check(
+            try await check(
                 HeadingBreakTestRow(model: model), label: "Page Breaks", selection: rule,
                 choices: [(.none, "None"), (.page, "Page Break"), (.rightPage, "From Right Page")])
         }
@@ -774,7 +787,7 @@ struct PrintModeTests {
         }
 
         @Test("フランス語の出力順はプリンターの有無にかかわらず右列に収まる", arguments: PrintPageOrder.allCases, [false, true])
-        func frenchPrinterOrderFits(order: PrintPageOrder, hasPrinter: Bool) {
+        func frenchPrinterOrderFits(order: PrintPageOrder, hasPrinter: Bool) throws {
             let fixture = Fixture()
             fixture.preferences.printPageOrder = order
             let model = fixture.model()
@@ -789,12 +802,17 @@ struct PrintModeTests {
             let controller = NSHostingController(rootView: picker)
             let layout = FinishLayout()
             let host = layout.host(picker)
-            for width: CGFloat in [256, 273] {
+            host.setFrameSize(CGSize(width: 1200, height: 100))
+            host.layoutSubtreeIfNeeded()
+            let row = try #require(layout.frames.first { $0.element == .row("Output Order") })
+            let rowWidth = row.rect.width
+            for width: CGFloat in [256, 273, rowWidth - 1, rowWidth + 1] {
                 let size = CGSize(width: width, height: 100)
                 #expect(controller.sizeThatFits(in: size).width <= width)
                 host.setFrameSize(size)
                 host.layoutSubtreeIfNeeded()
-                #expect(layout.frames.map(\.element) == [.menu("Output Order")])
+                let expected: PrintFinishFrame.Element = width < rowWidth ? .menu("Output Order") : .row("Output Order")
+                #expect(layout.frames.map(\.element) == [expected], "width=\(width) rowWidth=\(rowWidth)")
                 #expect(layout.frames.first?.isEnabled == hasPrinter)
                 layout.checkBounds(in: host)
             }

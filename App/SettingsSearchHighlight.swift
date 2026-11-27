@@ -26,6 +26,7 @@ final class SettingsRowFrames {
     var viewport = CGRect.null
     var scroll: ScrollGeometry?
     var rows: [String: CGRect] = [:]
+    var inspectDocumentHeader: (([Text.LayoutKey.AnchoredLayout]) -> Void)?
 
     func fullyShows(_ anchor: String) -> Bool {
         guard let row = rows[anchor], !row.isEmpty, !viewport.isEmpty else { return false }
