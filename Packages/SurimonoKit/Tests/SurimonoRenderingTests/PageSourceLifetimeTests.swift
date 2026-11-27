@@ -56,6 +56,40 @@ struct PageSourceLifetimeTests {
         #expect(page.annotations.first?.hasAppearanceStream == true)
     }
 
+    @Test("開き直した紙のリンクは見開きに移っても注釈の元を持ち、最後の紙とともに手放す")
+    func reopenedPaperKeepsAnnotationSource() throws {
+        weak var backing: CGPDFDocument?
+        weak var sourceDocument: PDFDocument?
+        weak var reopenedDocument: PDFDocument?
+        var reopened: PDFDocument? = try autoreleasepool {
+            let source = try #require(PDFDocument(data: Self.linkedPDF()))
+            sourceDocument = source
+            backing = source.page(at: 0)?.pageRef?.document
+            let composed = try #require(PaperComposer.compose(source, paper: nil, rebuildingPageTree: true))
+            let data = try #require(composed.dataRepresentation())
+            let reopened = try #require(PaperComposer.reopenedPaper(from: data, annotationSources: source))
+            reopenedDocument = reopened
+            return reopened
+        }
+        #expect(sourceDocument == nil)
+        try #require(backing != nil)
+        var view: PDFDocument? = try autoreleasepool {
+            let paper = try #require(reopened)
+            return try #require(ViewPageDocument.make(paper, plan: plan(), margin: 0))
+        }
+        autoreleasepool { reopened = nil }
+        #expect(reopenedDocument == nil)
+        try #require(backing != nil)
+        try autoreleasepool {
+            let page = try #require(view?.page(at: 1))
+            #expect(page.string?.contains("LINK SOURCE") == true)
+            #expect(page.annotations.first?.url?.absoluteString == "https://example.com/")
+            #expect(page.annotations.first?.hasAppearanceStream == true)
+        }
+        autoreleasepool { view = nil }
+        #expect(backing == nil)
+    }
+
     @Test("表示用の写しは元を解放しても再コピーでき、最後の写しとともに元も解放する", arguments: [false, true])
     func viewCopiesKeepSources(numbers: Bool) throws {
         weak var backing: CGPDFDocument?

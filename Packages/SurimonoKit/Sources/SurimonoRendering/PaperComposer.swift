@@ -23,13 +23,28 @@ enum PaperComposer {
         // Preserve the authored destinations when materializing the tree for Sequoia's text selections.
         do {
             let bytes = try await ReadingPDFExporter.data(from: composed)
-            return PDFDocument(data: bytes) ?? composed
+            return reopenedPaper(from: bytes, annotationSources: document) ?? composed
         } catch is CancellationError {
             throw CancellationError()
         } catch {
             // Keep the live links if PDFKit cannot serialize them faithfully.
             return composed
         }
+    }
+
+    static func reopenedPaper(from data: Data, annotationSources source: PDFDocument) -> PDFDocument? {
+        guard let reopened = PDFDocument(data: data), reopened.pageCount == source.pageCount else { return nil }
+        for index in 0..<source.pageCount {
+            guard let original = source.page(at: index) else { return nil }
+            guard !original.annotations.isEmpty else { continue }
+            guard let page = reopened.page(at: index) else { return nil }
+            // Serialization does not carry StandalonePage's owners. The next view copy inherits
+            // them from this wrapper even if the theme trial has already evicted its source.
+            StandalonePage.retainSources(of: original, on: page)
+            reopened.retainPage(page)
+        }
+        reopened.inheritDisplayFallback(from: source)
+        return reopened
     }
 
     /// Each page of `document` drawn over `paper`, as vectors. The paper is stretched to each page, which it matches
