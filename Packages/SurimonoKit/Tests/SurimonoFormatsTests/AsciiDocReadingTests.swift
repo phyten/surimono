@@ -145,6 +145,80 @@ extension AsciiDocReadingTests {
         #expect(edited.body.components(separatedBy: "<nav ").count == (nativeLead ? 2 : 3))
     }
 
+    @Test("下線の題より前にメタデータがあってもヘッダーの原稿指定がアプリ既定に勝つ", arguments: ["[[book]]", ":lang: en"])
+    func metadataBeforeUnderlinedTitle(_ metadata: String) throws {
+        var reading = FormatReadingSettings()
+        reading.defaults.set(.outline(present: true, depth: .levels(2)), for: .sectionNumbers, format: .asciidoc)
+        reading.defaults.set(.outline(present: false, depth: .levels(2)), for: .tableOfContents, format: .asciidoc)
+        let result = try AsciiDocConverter.convert(
+            metadata + "\nBook\n====\n:sectnums!:\n:toc:\n\n== One", reading: reading)
+        #expect(result.numberInstructions.present?.value == false)
+        #expect(result.numberInstructions.present?.source?.lineNumber == 4)
+        #expect(result.contentsInstructions.present?.value == true)
+        #expect(result.contentsInstructions.present?.source?.lineNumber == 5)
+        #expect(result.body.contains(">One</h2>"))
+        #expect(DocumentOutline.contentsHeadings(in: result.body, navIndex: 0).map(\.text) == ["One"])
+    }
+
+    @Test("先頭目次の深さを変えても本文目次はその位置の深さとマクロの指定に従う", arguments: ["auto", "preamble"])
+    func localMacroDepth(placement: String) throws {
+        let source = """
+            = Book
+            :toc: \(placement)
+            :toclevels: 2
+
+            Preface
+
+            == One
+
+            toc::[]
+
+            :toclevels: 1
+            toc::[]
+
+            toc::[levels=2]
+
+            === Child
+
+            ==== Grandchild
+            """
+        var reading = FormatReadingSettings()
+        reading.document.setAllowsFileChanges(true, for: .asciidoc)
+        let file = try AsciiDocConverter.convert(source).contentsInstructions
+        reading.document.set(
+            .outline(present: true, depth: .levels(3)), for: .tableOfContents, format: .asciidoc, file: file)
+        let result = try AsciiDocConverter.convert(source, reading: reading)
+        let lists = (0..<4).map { DocumentOutline.contentsHeadings(in: result.body, navIndex: $0).map(\.text) }
+        #expect(lists == [["One", "Child", "Grandchild"], ["One", "Child"], ["One"], ["One", "Child"]])
+    }
+
+    @Test("追加した先頭目次には題のない文書の親節が残り独立見出しは入らない", arguments: [1, 2, 3, 4, 5])
+    func nativeLeadSections(depth: Int) throws {
+        var reading = FormatReadingSettings()
+        reading.defaults.set(.outline(present: true, depth: .levels(depth)), for: .tableOfContents, format: .asciidoc)
+        let source = "== One\n\n=== Child\n\n==== Three\n\n===== Four\n\n====== Five\n\n[discrete]\n==== Aside"
+        let result = try AsciiDocConverter.convert(source, reading: reading)
+        #expect(result.contentsKinds[0] == .lead)
+        #expect(
+            DocumentOutline.contentsHeadings(in: result.body, navIndex: 0).map(\.text)
+                == Array(["One", "Child", "Three", "Four", "Five"].prefix(depth)))
+        #expect(result.body.contains(">Aside</h4>"))
+    }
+
+    @Test("原稿が節の自動 ID を切っても追加した目次のリンクはそれぞれの節へ向く")
+    func addedLeadTargets() throws {
+        let source = "= Book\n:!sectids:\n\n[[surimono-heading-1]]\n== One\n\n[id=]\n=== *Child*\n\n=== Child"
+        var reading = FormatReadingSettings()
+        reading.defaults.set(.outline(present: true, depth: .levels(2)), for: .tableOfContents, format: .asciidoc)
+        let result = try AsciiDocConverter.convert(source, reading: reading)
+        let entries = DocumentOutline.contentsHeadings(in: result.body, navIndex: 0)
+        #expect(entries.map(\.text) == ["One", "Child", "Child"])
+        #expect(entries.first?.id == "surimono-heading-1")
+        let ids = entries.compactMap(\.id)
+        #expect(!ids.contains("") && Set(ids).count == 3)
+        #expect(DocumentOutline.headings(inHTML: result.body).dropFirst().map(\.id) == entries.map(\.id))
+    }
+
     @Test("深さゼロの先頭目次は記事なら最上位の節、複数部の本なら部だけを載せる")
     func partsOnly() throws {
         var reading = FormatReadingSettings()

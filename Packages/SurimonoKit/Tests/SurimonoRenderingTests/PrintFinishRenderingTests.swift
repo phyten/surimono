@@ -709,6 +709,25 @@ extension PrintFinishRenderingTests {
         #expect(inherited.facts?.headings.map(\.text) == ["1. One", "1.1. Child"])
     }
 
+    @Test("AsciiDoc に独立見出ししかなければ本文にも別ページにも先頭目次を作らない")
+    func asciiDocEmptySectionList() async throws {
+        let source = DocumentSource(data: Data("[discrete]\n== Aside".utf8), format: .asciidoc)
+        var html = ""
+        let renderer = DocumentRenderer(paginate: { request in
+            if case .html(let body, _) = request.source { html = body }
+            return try RenderingFixtures.pdf(pages: [["Aside"]], size: request.pageSize)
+        })
+        var settings = try settings()
+        settings.formatReading.set(.outline(present: true, depth: .levels(2)), for: .tableOfContents, format: .asciidoc)
+        for placement in [ContentsFinish.Placement.inline, .page] {
+            settings.finish.contents.placement = placement
+            let result = try await renderer.prepare(source, settings: settings)
+            #expect(result.addedContentsPages == 0)
+            #expect(result.facts?.leadEntries == nil)
+            #expect(!html.contains("<nav class=\"toc\""))
+        }
+    }
+
     @Test("前文がない原稿でも目次を別ページに移せて原稿の題が残る")
     func asciiDocPreamblePage() async throws {
         let source = DocumentSource(

@@ -84,10 +84,14 @@ function beginReading(source) {
     regionalNumbers = undefined;
     contentsTitle = undefined;
     readingEdits = {};
+    scanHeader(0);
+}
+
+function scanHeader(start) {
     // With a missing blank line the native reader can consume a block delimiter as an
     // author or revision. It can also skip blank lines in a titleless header.
-    let firstContent = -1, comment;
-    for (headerEnd = 0; headerEnd < readingLines.length; headerEnd++) {
+    let hasContent = start > 0, comment;
+    for (headerEnd = start; headerEnd < readingLines.length; headerEnd++) {
         const line = readingLines[headerEnd].trimEnd();
         if (comment) {
             if (line === comment) comment = undefined;
@@ -95,19 +99,25 @@ function beginReading(source) {
             comment = line;
         } else if (line.startsWith('//')) {
             continue;
-        } else if (/^={2,}$/.test(line) && headerEnd === firstContent + 1 && firstContent >= 0
-                && Parser.setextSectionTitle(readingLines[firstContent], line) === 0
-                && Parser.atxSectionTitle(readingLines[firstContent]) == null) {
-            // An underlined document title can precede the attributes.
-            continue;
         } else if (!line || /^(?:-{2,}|\.{4,}|\+{4,}|={4,}|\*{4,}|_{4,}|[|,:!]={3,})$/.test(line)) {
-            if (firstContent >= 0 || line) break;
+            if (hasContent || line) break;
         } else {
-            if (firstContent < 0) firstContent = headerEnd;
+            hasContent = true;
             if (line.startsWith(':')) candidates.add(headerEnd + 1);
         }
     }
 }
+
+// The parser enters header metadata just after consuming the actual document title.
+// If its underline stopped our block guard, resume at the parser's next source line.
+const parseHeaderMetadata = Parser.parseHeaderMetadata;
+Parser.parseHeaderMetadata = function(reader, doc, ...args) {
+    const underline = reader.lineno - 2; // The reader counts lines from one and is past the title.
+    if (doc && !doc.parentDocument && underline === headerEnd && readingLines?.[underline]?.trim()) {
+        scanHeader(underline + 1);
+    }
+    return parseHeaderMetadata.call(this, reader, doc, ...args);
+};
 
 function validReadingValue(key, value, unset) {
     if (unset) return value === '' && (key === 'sectnums' || key === 'toc');
@@ -210,17 +220,22 @@ async function documentParts(source, contentsDepth) {
     for (const section of beyondNumberDepth) {
         if (!section.caption) section.numbered = false;
     }
-    const outline = document.converter.convert_outline;
-    document.converter.convert_outline = function(node, options) {
-        return outline.call(this, node, {...options, sectnumlevels: Infinity});
-    };
     const macro = document.getAttribute('toc-placement') === 'macro';
     const lead = document.hasAttribute('toc') && !macro;
     const hasMacro = document.hasAttribute('toc') && document.findBy({context: 'toc'}).length > 0;
     const combined = lead && document.hasSections() && hasMacro;
     const fileDepth = document.getAttribute('toclevels');
     const leadDepth = readingEdits.toclevels ?? (fileDepth == null ? contentsDepth : null);
-    if (lead && leadDepth != null) document.setAttribute('toclevels', String(leadDepth));
+    const depthForOutline = depth => document.isMultipart() ? depth : Math.max(1, depth);
+    const outline = document.converter.convert_outline;
+    document.converter.convert_outline = function(node, options) {
+        // Automatic and preamble lists omit options. A toc macro passes its own options,
+        // even when empty, so its outline can read the attributes at that position.
+        if (lead && node === document && options == null && leadDepth != null) {
+            options = {toclevels: depthForOutline(leadDepth)};
+        }
+        return outline.call(this, node, {...options, sectnumlevels: Infinity});
+    };
     if (lead && readingEdits.toc === 0) {
         document.setAttribute('toc-placement', 'macro');
     } else if (lead && readingEdits.separatePage && document.hasAttribute('toc-placement', 'preamble')) {
@@ -232,11 +247,6 @@ async function documentParts(source, contentsDepth) {
         const convertToc = document.converter.convert_toc;
         document.converter.convert_toc = async function(node) {
             const placement = document.attributes['toc-placement'];
-            const depth = document.attributes.toclevels;
-            if (readingEdits.toclevels != null) {
-                if (fileDepth == null) delete document.attributes.toclevels;
-                else document.attributes.toclevels = fileDepth;
-            }
             document.attributes['toc-placement'] = 'macro';
             try {
                 let toc = await convertToc.call(this, node);
@@ -246,23 +256,30 @@ async function documentParts(source, contentsDepth) {
                 return toc.replace('<div ', '<div data-surimono-in-text="1" ');
             } finally {
                 document.attributes['toc-placement'] = placement;
-                if (depth == null) delete document.attributes.toclevels;
-                else document.attributes.toclevels = depth;
             }
         };
     }
-    let html = await document.convert();
-    // A zero-level lead lists book parts, or the first section level in an article.
-    // The generic heading list cannot distinguish a part from the document title.
-    const partsOnly = !lead && readingEdits.partsOnly && document.hasSections();
-    if (partsOnly) {
-        const list = await document.converter.convert(document, 'outline', {toclevels: document.isMultipart() ? 0 : 1});
+    let addedLead = '';
+    if (!lead && readingEdits.addedLeadDepth != null && document.hasSections()) {
+        // A generated lead still needs link targets when the manuscript disables automatic IDs.
+        let nextID = 0;
+        const missingTargets = document.findBy({context: 'section'}, section => section !== document.header && !section.id);
+        for (const section of missingTargets) {
+            let id;
+            do { id = 'surimono-heading-' + ++nextID; } while (id in document.catalog.refs);
+            section.id = id;
+            await section.precomputeTitle();
+        }
+        const list = await document.converter.convert(document, 'outline', {
+            toclevels: depthForOutline(readingEdits.addedLeadDepth)
+        });
         const title = contentsTitle == null ? '' : '<div class="title">' + contentsTitle + '</div>';
-        html = '<div class="toc">' + title + list + '</div>' + html;
+        addedLead = '<div class="toc">' + title + list + '</div>';
     }
+    const html = addedLead + await document.convert();
     return {
         combinedContents: String(combined),
-        leadContents: String((lead && readingEdits.toc !== 0) || partsOnly),
+        leadContents: String((lead && readingEdits.toc !== 0) || addedLead !== ''),
         hasContentsMacro: String(hasMacro && (macro || combined)),
         regionalNumbers,
         contentsTitle,

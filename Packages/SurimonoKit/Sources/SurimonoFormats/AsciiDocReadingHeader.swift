@@ -6,7 +6,6 @@ struct AsciiDocReadingHeader {
     var numbers = ReadingFileInstructions()
     var contents = ReadingFileInstructions()
     var ownsNumbers = false
-    var lead: ReadingDepth?
 
     static func install(
         in context: JSContext, source: String, reading: FormatReadingSettings, contentsDepth: Int?
@@ -39,7 +38,6 @@ struct AsciiDocReadingHeader {
             let options = reading.resolve(
                 for: .asciidoc, numbers: header.numbers, contents: header.contents, contentsDepth: contentsDepth)
             header.ownsNumbers = options.ownsNumbers
-            header.lead = options.lead
             var changes: [String: Int] = [:]
             func apply(_ id: ReadingSettingID, file: ReadingFileInstructions, presence: String, levels: String) {
                 let edits = reading.document.outlineOverrides(
@@ -52,7 +50,7 @@ struct AsciiDocReadingHeader {
                 apply(.tableOfContents, file: header.contents, presence: "toc", levels: "toclevels")
             }
             if reading.separateContentsPage { changes["separatePage"] = 1 }
-            if header.lead == .levels(0) { changes["partsOnly"] = 1 }
+            if !nativeLead { changes["addedLeadDepth"] = options.lead?.headingLevels }
             return changes
         }
         context.setObject(resolve, forKeyedSubscript: "surimonoReadingHeader" as NSString)

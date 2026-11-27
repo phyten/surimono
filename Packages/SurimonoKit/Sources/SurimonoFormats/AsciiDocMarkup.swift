@@ -42,7 +42,7 @@ enum AsciiDocMarkup {
             fragment.inTextContentsMarker = parts.hasContentsMacro ? "toc::[]" : nil
             fragment.inTextNumberMarker = parts.regionalNumbers
             fragment.coalescesContentsInLegacy = parts.combinedContents
-            return parts.leadContents == "true" ? fragment : fragment.addingLeadContents(depth: header.lead)
+            return fragment
         }
     }
 
