@@ -1020,7 +1020,7 @@ public final class WebPaginator: NSObject {
 /// Owns the web view, its window, and the temporary files for one pagination, so they outlive the call until the
 /// print thread is done with them.
 @MainActor
-private final class PaginationSession {
+final class PaginationSession {
     let webView: WKWebView
     private let window: NSWindow
     private let navigationTracker = NavigationTracker()
@@ -1217,6 +1217,14 @@ private final class PaginationSession {
         // The allowance goes into the bottom margin, so a document laid out with these margins keeps its height.
         printInfo.bottomMargin = margins.bottom + Self.pageHeightAllowance
         printInfo.rightMargin = margins.right
+        // WebKit's printing view cuts the page rect back to whole points and keeps the left edge, so
+        // a rule on the last fraction of a point of the text column is not drawn. Ask for a column
+        // that is a whole number of points; the fraction joins the right margin. A page without a
+        // right margin has no column edge to save, and narrowing it would only shrink a full-bleed page.
+        let column = pageSize.width - margins.left - margins.right
+        if margins.right > 0 {
+            printInfo.rightMargin = margins.right + max(0, column - column.rounded(.down) - Self.columnSlack)
+        }
         if latexMarginInk {
             // NSPrintOperation clips to the printable width before Quartz sees the page. Give the root
             // the horizontal white space instead, so a number outside its pre or a frame on the last
@@ -1312,6 +1320,9 @@ private final class PaginationSession {
     /// page of its own. Pages are laid out this much taller and then cut back to the paper, keeping their top. In the
     /// measured setup 0.5 pt was rounded back to the standard paper size and 1 pt was enough.
     static let pageHeightAllowance: CGFloat = 2
+
+    /// Kept above a whole point so floating-point error cannot drop the column to the point below.
+    static let columnSlack: CGFloat = 0.01
 
     /// Cuts the pages back to the paper unless something is drawn in the strip the cut would take off. With the
     /// allowance added to the bottom margin, only a document whose own `@page` margin leaves less than that at the
