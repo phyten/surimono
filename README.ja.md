@@ -133,7 +133,7 @@ Surimono はオフラインで使えます。通信するのは「URL から開�
 
 ## 動作環境
 
-- macOS 15 Sequoia 以降
+- macOS 15.6 Sequoia 以降
 
 ## インストール
 
@@ -146,7 +146,7 @@ Surimono はオフラインで使えます。通信するのは「URL から開�
 
 ## ソースからのビルド
 
-ビルドには Xcode 27（Swift 6.4）が必要です（アプリ自体は macOS 15 以降で動きます）。Xcode を使用する開発者ディレクトリに選択してからビルドしてください。CI とリリースは Xcode 27.2 で組み、それより古い Xcode では確かめていません。
+ビルドには Xcode 27（Swift 6.4）が必要です（アプリ自体は macOS 15.6 以降で動きます）。Xcode を使用する開発者ディレクトリに選択してからビルドしてください。CI とリリースは Xcode 27.2 で組み、それより古い Xcode では確かめていません。
 
 ```bash
 make build                      # Debug ビルド（build/DerivedData）
