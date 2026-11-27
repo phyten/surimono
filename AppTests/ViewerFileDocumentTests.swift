@@ -67,15 +67,33 @@ struct ViewerFileDocumentTests {
 
     @Test("窓を閉じると紙面を保持していても表示を終了し、モデル・描画器・PDFを解放する", .timeLimit(.minutes(1)), arguments: WindowKind.allCases)
     func closingWindowReleasesContent(kind: WindowKind) async throws {
-        try await withClosedContent(in: kind, holdingPaper: true) { content in
-            let paper = try #require(content.retainedPaper)
-            #expect(paper.isRetired)
-            #expect(paper.document == nil)
-            #expect(DocumentWindows.shared.model(for: content.window) == nil)
-            #expect(content.publishedPage.accessibilityParent() == nil)
-            #expect(content.publishedPage.accessibilityFrame() == .zero)
-            try await content.checkReleaseOrder()
-            withExtendedLifetime(paper) {}
+        var retainedPaper: PaperPDFView?
+        var observeOwners: (() -> String)?
+        do {
+            try await withClosedContent(in: kind, holdingPaper: true) { content in
+                let paper = try #require(content.retainedPaper)
+                retainedPaper = paper
+                observeOwners = autoreleasepool { content.observeRelease() }
+                #expect(paper.isRetired)
+                #expect(paper.document == nil)
+                #expect(DocumentWindows.shared.model(for: content.window) == nil)
+                #expect(content.publishedPage.accessibilityParent() == nil)
+                #expect(content.publishedPage.accessibilityFrame() == .zero)
+                try await content.checkReleaseOrder()
+                withExtendedLifetime(paper) {}
+            }
+        } catch {
+            guard let observeOwners else { throw error }
+            // The original requirement has failed. Unwind the setup frame and all fixture owners
+            // except the paper, then drop the paper too. The tile grace must expire in both samples.
+            (retainedPaper?.tileClock as? ManualPaperTileClock)?.advance(by: .seconds(1))
+            try await Task.sleep(for: .seconds(1))
+            let paperHeld = autoreleasepool(invoking: observeOwners)
+            retainedPaper = nil
+            try await Task.sleep(for: .seconds(1))
+            let fixtureReleased = autoreleasepool(invoking: observeOwners)
+            Issue.record("閉じた窓の所有関係: paperHeld=[\(paperHeld)], fixtureReleased=[\(fixtureReleased)]")
+            throw error
         }
     }
 
@@ -267,6 +285,7 @@ struct ViewerFileDocumentTests {
         let tileClock: ManualPaperTileClock
         let publishedPage: PageTextElement
         let retainedPaper: PaperPDFView?
+        let pointerOverPaper: Bool
         weak var fileDocument: NSDocument?
         weak var model: DocumentViewModel?
         weak var renderer: DocumentRenderer?
@@ -275,6 +294,25 @@ struct ViewerFileDocumentTests {
         weak var pdf: PDFDocument?
         weak var logicalPDF: PDFDocument?
         weak var lastDisplay: PDFDocument?
+
+        // This probe survives the fixture without keeping any of its owners alive.
+        func observeRelease() -> () -> String {
+            {
+                [
+                    weak model, weak renderer, weak trialRenderer, weak paper, weak host, weak window,
+                    weak hostingView, weak pdf, weak logicalPDF, weak lastDisplay, pointerOverPaper
+                ] in
+                [
+                    "pointerOverPaperBeforeClose=\(pointerOverPaper)",
+                    model == nil ? nil : "model", renderer == nil ? nil : "renderer",
+                    trialRenderer == nil ? nil : "trialRenderer", paper == nil ? nil : "paper",
+                    window == nil ? nil : "window", host == nil ? nil : "host",
+                    hostingView == nil ? nil : "hostingView", pdf == nil ? nil : "pdf",
+                    logicalPDF == nil ? nil : "logicalPDF",
+                    lastDisplay == nil ? nil : "lastDisplay",
+                ].compactMap { $0 }.joined(separator: ", ")
+            }
+        }
 
         init(window: NSWindow, model: DocumentViewModel, holdingPaper: Bool) async throws {
             self.window = window
@@ -294,6 +332,8 @@ struct ViewerFileDocumentTests {
             trialRenderer = model.themeTrial.renderer
             let view = try #require(model.paper.view)
             try await ShortcutMenuBaselineTests.waitForMenu { !view.visiblePages.isEmpty }
+            let pointer = window.convertPoint(fromScreen: NSEvent.mouseLocation)
+            pointerOverPaper = view.visibleRect.contains(view.convert(pointer, from: nil))
             publishedPage = try #require(view.accessibilityChildren()?.first as? PageTextElement)
             try #require(publishedPage.accessibilityParent() as? NSView === view)
             let displayed: PDFDocument = try #require(view.document)

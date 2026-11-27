@@ -26,23 +26,27 @@ extension PDFDocument {
         if case .displayFallback = source.binderNavigation { binderNavigation = .displayFallback }
     }
 
-    private final class DestinationPages {
+    private final class RetainedPages {
         var pages: [ObjectIdentifier: PDFPage] = [:]
     }
-    private static var destinationPagesKey: UInt8 = 0
+    private static var retainedPagesKey: UInt8 = 0
 
-    /// PDFDestination.page is weak. A document loaded from bytes can discard and recreate
-    /// its PDFPage wrappers before a link is followed or serialized. The owner must keep
-    /// each target; keeping it on the annotation instead would form a cycle for self-links.
-    func destination(on page: PDFPage, at point: CGPoint) -> PDFDestination {
-        let targets: DestinationPages
-        if let existing = objc_getAssociatedObject(self, &Self.destinationPagesKey) as? DestinationPages {
-            targets = existing
+    /// A document loaded from bytes can discard and recreate its PDFPage wrappers.
+    /// Keep the wrapper when a destination or an annotation source depends on its identity.
+    func retainPage(_ page: PDFPage) {
+        let retained: RetainedPages
+        if let existing = objc_getAssociatedObject(self, &Self.retainedPagesKey) as? RetainedPages {
+            retained = existing
         } else {
-            targets = DestinationPages()
-            objc_setAssociatedObject(self, &Self.destinationPagesKey, targets, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            retained = RetainedPages()
+            objc_setAssociatedObject(self, &Self.retainedPagesKey, retained, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
         }
-        targets.pages[ObjectIdentifier(page)] = page
+        retained.pages[ObjectIdentifier(page)] = page
+    }
+
+    /// PDFDestination.page is weak. Keeping its target on the annotation would form a cycle for self-links.
+    func destination(on page: PDFPage, at point: CGPoint) -> PDFDestination {
+        retainPage(page)
         return PDFDestination(page: page, at: point)
     }
 }
