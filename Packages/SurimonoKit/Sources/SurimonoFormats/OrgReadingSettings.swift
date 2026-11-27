@@ -193,8 +193,18 @@ public struct OrgFileInstructions: Equatable, Sendable {
     fileprivate var notes: [OrgSettingID: [OrgInstructionNote]] = [:]
     /// A subtree can exclude several headings with a single property drawer.
     public internal(set) var excludedHeadingCount = 0
+    public private(set) var externalSettingsSources: [OrgInstructionSource] = []
+    public private(set) var additionalExternalSettingsCount = 0
 
     public init() {}
+
+    mutating func noteExternalSettings(lines: [String], index: Int, fileName: String?) {
+        if externalSettingsSources.count < 5 {
+            externalSettingsSources.append(.init(lines: lines[...], index: index, fileName: fileName))
+        } else {
+            additionalExternalSettingsCount += 1
+        }
+    }
 
     public mutating func record<Value>(_ value: Value, for key: OrgSetting<Value>, source: OrgInstructionSource) {
         values[keyPath: key.choice] = value

@@ -4287,6 +4287,59 @@
         }
       }
     },
+    "Settings in another file are not read": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings in another file are not read"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "別のファイルの指定は読み込みません"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vorgaben aus einer anderen Datei werden nicht gelesen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se leen las instrucciones de otro archivo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les instructions d’un autre fichier ne sont pas lues"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다른 파일의 설정은 읽지 않습니다"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不读取其他文件的设置"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不讀取其他檔案的設定"
+          }
+        }
+      }
+    },
     "Specified in file: %@": {
       "extractionState": "manual",
       "localizations": {

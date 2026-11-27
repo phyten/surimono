@@ -99,6 +99,16 @@ struct LanguageTests {
         }
     }
 
+    @Test("別のファイルの指定を読み込まない注記を八言語で表示できる", arguments: UILanguage.supported)
+    func externalSettingsNote(language: String) throws {
+        let url = try #require(Bundle.main.url(forResource: language, withExtension: "lproj"))
+        let bundle = try #require(Bundle(url: url))
+        let key = "Settings in another file are not read"
+        let value = bundle.localizedString(forKey: key, value: "MISSING", table: nil)
+        #expect(value != "MISSING")
+        if language == "ja" { #expect(value == "別のファイルの指定は読み込みません") }
+    }
+
     @Test("語数の中央値は各言語で1語と小数と複数の単位を選ぶ")
     func medianWords() throws {
         for (language, expected) in [

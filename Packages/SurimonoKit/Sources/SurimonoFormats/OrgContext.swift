@@ -89,6 +89,9 @@ final class OrgContext {
             options.file.note(.bodyContents, source: .init(fileName: fileName, lineNumber: lineNumber, rawText: line))
         }
         guard !repeatingDiscovery else { return }
+        if key == "SETUPFILE" || key == "INCLUDE" {
+            options.file.noteExternalSettings(lines: lines, index: lineNumber - 1, fileName: fileName)
+        }
         if key == "FILETAGS" {
             subtrees.fileTags.formUnion(value.split { $0 == ":" || $0.isWhitespace }.map(String.init))
         }

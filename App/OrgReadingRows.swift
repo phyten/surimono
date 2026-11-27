@@ -225,6 +225,14 @@ struct OrgReadingRows: View {
                     counts: model.orgGroupCounts(group), ids: group.settings
                 ) { $0.field.row(in: self) }
             }
+            if !file.externalSettingsSources.isEmpty {
+                ReadingSourceButton(
+                    documentName: model.displayName, fileURL: model.fileURL,
+                    sources: file.externalSettingsSources, additionalCount: file.additionalExternalSettingsCount
+                ) {
+                    Text("Settings in another file are not read").underline()
+                }
+            }
         } else {
             let changed = preferences.orgReadingDefaults?.changedIDs(from: .surimono) ?? []
             VStack(alignment: .leading, spacing: 16) {
