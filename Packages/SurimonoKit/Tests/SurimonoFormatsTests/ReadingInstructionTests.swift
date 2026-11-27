@@ -11,18 +11,21 @@ struct ReadingInstructionTests {
     private let headings = "# Root\n\n## Alpha\n\n### Bravo\n\n#### Charlie\n\n##### Delta"
 
     @Test(
-        "Markdown は YAML と本文の両位置に章から三段の目次を置き、番号・深さ・題の指定を読まない",
+        "Markdown は先頭の目次だけを指定の深さにし、本文の目次にも番号と題を載せる",
         arguments: ["[TOC]", "[[toc]]", "[[_TOC_]]"])
-    func markdown(marker: String) {
+    func markdown(marker: String) throws {
         let header = "---\ntoc: true\ntoc-depth: 1\ntoc-title: Custom\nnumber-sections: true\n---\n"
-        let html = MarkdownConverter.convert(header + headings + "\n\n" + marker).body
+        let fragment = MarkdownConverter.convert(header + headings + "\n\n" + marker)
+        #expect(fragment.markdownContentsMarker?.lowercased() == marker.lowercased())
+        let html = fragment.body
         let navs = contents(html)
-        #expect(navs.count == 2)
+        try #require(navs.count == 2)
         for nav in navs {
-            #expect(nav.contains("Alpha") && nav.contains("Bravo") && nav.contains("Charlie"))
-            #expect(!nav.contains("Root") && !nav.contains("Delta") && !nav.contains("Custom"))
+            #expect(nav.contains("1. Alpha") && nav.contains(">Custom</p>"))
+            #expect(!nav.contains("Root") && !nav.contains("Delta"))
         }
-        #expect(html.contains(">Bravo</h3>"))
+        #expect(!navs[0].contains("Bravo") && navs[1].contains("1.1. Bravo"))
+        #expect(html.contains(">1.1. Bravo</h3>"))
     }
 
     @Test("Quarto の目次は絶対段で切り、本文の目次とは別に置く。number-depth は番号を制限しない")

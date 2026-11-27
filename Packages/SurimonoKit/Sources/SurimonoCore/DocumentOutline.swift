@@ -425,6 +425,8 @@ public struct DocumentFacts: Equatable, Sendable {
         }
     }
     public var coalescesContentsInLegacy: Bool
+    public var markdownContentsMarker: String?
+    public var numberInstructions: ReadingFileInstructions
     public var contentsInstructions: ReadingFileInstructions
     var proposedLeadDepth: Int?
     /// The lead list in print order, independent of the full outline used for bookmarks and page lookup.
@@ -437,6 +439,8 @@ public struct DocumentFacts: Equatable, Sendable {
         offersLaTeXComposition = fragment.latexClass?.offersCompositionChoice == true
         latexRecognition = fragment.latexClass?.recognition
         coalescesContentsInLegacy = fragment.coalescesContentsInLegacy
+        markdownContentsMarker = fragment.markdownContentsMarker
+        numberInstructions = fragment.numberInstructions
         contentsInstructions = fragment.contentsInstructions
         proposedLeadDepth = fragment.proposedLeadContents?.depth
         leadEntries = fragment.leadEntries

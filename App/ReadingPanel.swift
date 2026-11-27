@@ -171,21 +171,39 @@ struct ReadingFileReason: View {
     let allowsFileChanges: Bool
     let source: ReadingInstructionSource
     let changed: Bool
+    @Environment(\.locale) private var locale
     @State private var showsSource = false
 
-    private var reason: String {
+    enum PartialLock { case enabled, disabled, depth }
+    var partialLock: PartialLock?
+
+    func reason(locale: Locale = .current) -> String {
         if changed { return String(localized: "Changed (file: \(source.rawText))") }
         if allowsFileChanges {
             return String(localized: "Keeping file instruction: \(source.rawText)")
         }
-        return String(localized: "Specified in file: \(source.rawText)")
+        let label: LocalizedStringResource =
+            switch partialLock {
+            case .enabled:
+                LocalizedStringResource("Specified in file: \(source.rawText) (depth can be changed)", locale: locale)
+            case .depth:
+                LocalizedStringResource(
+                    "Specified in file: \(source.rawText) (can be turned on or off)", locale: locale)
+            case .disabled:
+                LocalizedStringResource("Specified in file: \(source.rawText) (off is fixed)", locale: locale)
+            case nil: LocalizedStringResource("Specified in file: \(source.rawText)", locale: locale)
+            }
+        return String(localized: label)
     }
 
     var body: some View {
         Button {
             showsSource.toggle()
         } label: {
-            Text(verbatim: reason).underline()
+            let text = reason(locale: locale)
+            Text(verbatim: text).underline()
+                .lineLimit(partialLock == nil ? nil : 1).truncationMode(.middle)
+                .help(text)
         }
         .buttonStyle(.link).font(.caption)
         .popover(isPresented: $showsSource) {

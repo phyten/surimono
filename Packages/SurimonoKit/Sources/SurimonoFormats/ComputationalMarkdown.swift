@@ -14,7 +14,7 @@ public enum ComputationalMarkdown {
         var document = ComputationalBody(metadata: metadata)
         let source = document.prepare(lines)
         if PreviewConversion.expired { return HTMLFragment(body: "") }
-        let fragment = MarkdownConverter.convert(source, pageBreakLine: pageBreakLine, proof: proof)
+        let fragment = MarkdownConverter.embeddedBody(source, pageBreakLine: pageBreakLine, proof: proof)
         if PreviewConversion.expired { return HTMLFragment(body: "") }
         let fallback = metadata.unreadable.map { MarkupHTML.listing($0, language: "yaml") } ?? ""
         var result = HTMLFragment(

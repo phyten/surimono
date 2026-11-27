@@ -1130,6 +1130,7 @@ enum MarkdownExtensions {
     // MARK: - Headings
 
     struct HeadingAnchor: Equatable {
+        var number: String = ""
         let level: Int
         let id: String
         let text: String
@@ -1231,16 +1232,21 @@ enum MarkdownExtensions {
         return ["[toc]", "[[toc]]"].contains(text)
     }
 
-    /// Nested links to the headings. The top level is the highest heading level, or the next one when a single
-    /// heading (usually the title) has the highest level.
-    static func tableOfContents(_ anchors: [HeadingAnchor], levels: Int = 3) -> String {
-        guard let highest = anchors.map(\.level).min() else { return "" }
-        let top =
+    static func sectionLevel(in anchors: [HeadingAnchor]) -> Int? {
+        guard let highest = anchors.map(\.level).min() else { return nil }
+        return
             anchors.filter { $0.level == highest }.count == 1 && anchors.contains(where: { $0.level > highest })
             ? anchors.filter { $0.level > highest }.map(\.level).min() ?? highest : highest
+    }
+
+    /// Nested links to the headings. The top level is the highest heading level, or the next one when a single
+    /// heading (usually the title) has the highest level.
+    static func tableOfContents(_ anchors: [HeadingAnchor], levels: Int = 3, title: String? = nil) -> String {
+        guard let top = sectionLevel(in: anchors) else { return "" }
         let entries = anchors.filter { $0.level >= top && $0.level - top < levels }
         guard !entries.isEmpty else { return "" }
         var html = "<nav class=\"toc\">"
+        if let title { html += "<p class=\"toc-title\">\(HTML.escape(title))</p>" }
         var depth = 0
         var open: [Bool] = []
         for entry in entries {
@@ -1256,7 +1262,7 @@ enum MarkdownExtensions {
                 depth -= 1
             }
             if open.last == true { html += "</li>" }
-            html += "<li><a href=\"#\(HTML.escape(entry.id))\">\(HTML.escape(entry.text))</a>"
+            html += "<li><a href=\"#\(HTML.escape(entry.id))\">\(entry.number)\(HTML.escape(entry.text))</a>"
             open[open.count - 1] = true
         }
         while depth > 0 {

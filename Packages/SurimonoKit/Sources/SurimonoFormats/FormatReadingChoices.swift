@@ -29,26 +29,46 @@ public enum ReadingRowResolution: Equatable, Sendable {
 public struct FormatReadingChoices: Codable, Equatable, Sendable {
     private var formats: [String: [String: ReadingChoice]] = [:]
 
+    private var unlockedFormats: Set<DocumentFormat> = []
+
     public init() {}
-    public var isEmpty: Bool { formats.isEmpty }
+    public var isEmpty: Bool { formats.isEmpty && unlockedFormats.isEmpty }
+
+    /// Without a presence choice at any layer, Markdown keeps the style's heading counters.
+    public func usesStyleForMarkdownNumbers(file: ReadingFileInstructions = .init(), defaults: Self = .init()) -> Bool {
+        file.present == nil && choice(.sectionNumbers, for: .markdown)?.present == nil
+            && defaults.choice(.sectionNumbers, for: .markdown)?.present == nil
+    }
+
+    private func choice(_ id: ReadingSettingID, for format: DocumentFormat) -> ReadingChoice? {
+        id.formatField.flatMap { formats[format.rawValue]?[$0] }
+    }
+
+    public func allowsFileChanges(for format: DocumentFormat) -> Bool { unlockedFormats.contains(format) }
+
+    public mutating func setAllowsFileChanges(_ allows: Bool, for format: DocumentFormat) {
+        if allows { unlockedFormats.insert(format) } else { unlockedFormats.remove(format) }
+    }
 
     public func restricted(to included: Set<DocumentFormat>) -> Self {
         var result = Self()
         for format in included {
             result.formats[format.rawValue] = formats[format.rawValue]
         }
+        result.unlockedFormats = unlockedFormats.intersection(included)
         return result
     }
 
     public func resolve(
         _ id: ReadingSettingID, for format: DocumentFormat, file: ReadingFileInstructions = .init(),
-        defaults: Self = .init(), allowsFileChanges: Bool = false
+        defaults: Self = .init(), allowsFileChanges: Bool? = nil
     ) -> ReadingRowResolution? {
-        guard let field = id.formatField, format != .org,
+        guard id.formatField != nil, format != .org,
             let row = ReadingCatalogue.rows(for: format).first(where: { $0.id == id })
         else { return nil }
-        let document = formats[format.rawValue]?[field]
-        let app = defaults.formats[format.rawValue]?[field]
+        let allowsFileChanges = allowsFileChanges ?? self.allowsFileChanges(for: format)
+        let document = choice(id, for: format)
+        let app = defaults.choice(id, for: format)
 
         func presence(_ shipped: Bool) -> ReadingResolution<Bool> {
             ReadingResolution(
@@ -84,7 +104,7 @@ public struct FormatReadingChoices: Codable, Equatable, Sendable {
     /// An app-default edit uses the same method with the shipped defaults and no file instructions.
     public mutating func set(
         _ value: ReadingSettingValue, for id: ReadingSettingID, format: DocumentFormat,
-        file: ReadingFileInstructions = .init(), defaults: Self = .init(), allowsFileChanges: Bool = false
+        file: ReadingFileInstructions = .init(), defaults: Self = .init(), allowsFileChanges: Bool? = nil
     ) {
         guard let field = id.formatField,
             let row = resolve(id, for: format, file: file, defaults: defaults, allowsFileChanges: allowsFileChanges)
@@ -98,7 +118,12 @@ public struct FormatReadingChoices: Codable, Equatable, Sendable {
             guard row.allowsOutline(present: enabled, depth: limit) else { return }
             // One control carries both components. Write only the one the reader touched, so choosing a
             // depth never drops a stored presence, and switching off keeps the depth for switching back on.
-            if !enabled || !present.value { present.set(enabled, in: &choice.present) }
+            if format == .markdown, id == .sectionNumbers, !enabled, !present.isLocked {
+                // An explicit None suppresses style counters even when the shipped presence is also false.
+                choice.present = false
+            } else if !enabled || !present.value {
+                present.set(enabled, in: &choice.present)
+            }
             if enabled { depth.set(limit, in: &choice.depth) }
         default: return
         }
@@ -115,6 +140,17 @@ public struct FormatReadingChoices: Codable, Equatable, Sendable {
         store(choice, field: field, format: format)
     }
 
+    /// A legacy finish supplies only components that have no newer document choice.
+    package mutating func inheritMissingLeadContents(from migrated: Self, for format: DocumentFormat) {
+        guard let field = ReadingSettingID.tableOfContents.formatField,
+            let legacy = migrated.choice(.tableOfContents, for: format)
+        else { return }
+        var lead = choice(.tableOfContents, for: format) ?? ReadingChoice()
+        lead.present = lead.present ?? legacy.present
+        lead.depth = lead.depth ?? legacy.depth
+        store(lead, field: field, format: format)
+    }
+
     private mutating func store(_ choice: ReadingChoice, field: String, format: DocumentFormat) {
         if choice == ReadingChoice() {
             formats[format.rawValue]?[field] = nil
@@ -125,8 +161,16 @@ public struct FormatReadingChoices: Codable, Equatable, Sendable {
     }
 
     public func encode(to encoder: any Encoder) throws {
-        var container = encoder.singleValueContainer()
-        try container.encode(formats)
+        var container = encoder.container(keyedBy: Field.self)
+        for name in Set(formats.keys).union(unlockedFormats.map(\.rawValue)) {
+            var fields = container.nestedContainer(keyedBy: Field.self, forKey: Field(stringValue: name))
+            for (field, choice) in formats[name] ?? [:] {
+                try fields.encode(choice, forKey: Field(stringValue: field))
+            }
+            if let format = DocumentFormat(rawValue: name), allowsFileChanges(for: format) {
+                try fields.encode(true, forKey: Field(stringValue: "allowsFileChanges"))
+            }
+        }
     }
 
     /// An unrecognized format, setting or future value cannot invalidate its siblings.
@@ -136,6 +180,9 @@ public struct FormatReadingChoices: Codable, Equatable, Sendable {
             guard let format = DocumentFormat(rawValue: key.stringValue), format != .org,
                 let fields = try? formats.nestedContainer(keyedBy: Field.self, forKey: key)
             else { continue }
+            if (try? fields.decode(Bool.self, forKey: Field(stringValue: "allowsFileChanges"))) == true {
+                unlockedFormats.insert(format)
+            }
             for row in ReadingCatalogue.rows(for: format) {
                 guard let name = row.id.formatField,
                     var choice = try? fields.decode(ReadingChoice.self, forKey: Field(stringValue: name))

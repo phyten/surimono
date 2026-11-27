@@ -576,3 +576,46 @@ struct PrintFinishRenderingTests {
         }
     }
 }
+
+extension PrintFinishRenderingTests {
+    @Test("Markdown は既定・文書・原稿を成分ごとに解決し、目次と PDF のしおりに同じ番号を渡す")
+    func markdownReadingLayers() async throws {
+        let source = markdown(
+            "---\nnumber-sections: true\ntoc-depth: 1\ntoc-title: List & Notes\n---\n# Book\n\n## *One*\n\n### Child\n\nFirst\nsecond"
+        )
+        var captured = ""
+        let renderer = DocumentRenderer(paginate: { request in
+            if case .html(let html, _) = request.source { captured = html }
+            return try RenderingFixtures.pdf(pages: [["Book", "1. One", "1.1. Child"]], size: request.pageSize)
+        })
+        var settings = try settings()
+        settings.formatReadingDefaults.set(.toggle(true), for: .preserveBreaks, format: .markdown)
+        settings.formatReadingDefaults.set(
+            .outline(present: true, depth: .all), for: .tableOfContents, format: .markdown)
+        settings.formatReadingDefaults.set(
+            .outline(present: true, depth: .all), for: .sectionNumbers, format: .markdown)
+        settings.formatReading.set(
+            .outline(present: false, depth: .all), for: .sectionNumbers, format: .markdown,
+            defaults: settings.formatReadingDefaults)
+        let prepared = try await renderer.prepare(source, settings: settings)
+        #expect(captured.contains(" own-heading-numbers") && captured.contains("First<br>\nsecond"))
+        let facts = try #require(prepared.facts)
+        #expect(facts.headings.map(\.text) == ["Book", "1. One", "1.1. Child"])
+        #expect(facts.leadEntries?.map(\.text) == ["1. One"])
+        let outline = await ReadingPDFExporter.outline(
+            of: source, in: prepared.logicalDocument, proof: .shown,
+            includesSourceContents: true, facts: facts)
+        let chapter = try #require(ReadingBookmark.tree(from: outline.entries).first?.children.first)
+        #expect(chapter.entry.title == "1. One" && chapter.children.first?.entry.title == "1.1. Child")
+
+        settings.formatReading.setAllowsFileChanges(true, for: .markdown)
+        settings.formatReading.set(
+            .toggle(false), for: .preserveBreaks, format: .markdown, defaults: settings.formatReadingDefaults)
+        let changed = try await renderer.prepare(source, settings: settings)
+        #expect(changed.facts?.headings.map(\.text) == ["Book", "One", "Child"])
+        #expect(captured.contains("First\nsecond") && !captured.contains("First<br>"))
+        settings.finish.contents.placement = .page
+        let paper = try await renderer.prepare(source, settings: settings)
+        #expect(paper.addedContentsPages == 1 && captured.contains(">List &amp; Notes</h1>"))
+    }
+}

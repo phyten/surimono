@@ -51,7 +51,8 @@ extension DocumentRenderer {
     }
 
     nonisolated static func markdownFragment(
-        _ source: DocumentSource, pageBreakLine: String, proof: ProofMarks, mapsSource: Bool, contentsDepth: Int,
+        _ source: DocumentSource, pageBreakLine: String, proof: ProofMarks, mapsSource: Bool, contentsDepth: Int?,
+        reading: MarkdownReadingSettings,
         access: LocalResourceAccess?, onDenied: @escaping @Sendable () -> Void
     ) throws -> HTMLFragment {
         let text = try decodedText(source.data)
@@ -68,12 +69,14 @@ extension DocumentRenderer {
         }
         if mapsSource {
             return MarkdownConverter.convertWithSourceMap(
-                text, pageBreakLine: pageBreakLine, proof: proof, contentsDepth: contentsDepth, directory: directory,
+                text, pageBreakLine: pageBreakLine, proof: proof, contentsDepth: contentsDepth, reading: reading,
+                directory: directory,
                 readFile: readBibliography
             ).fragment
         }
         return MarkdownConverter.convert(
-            text, pageBreakLine: pageBreakLine, proof: proof, contentsDepth: contentsDepth, directory: directory,
+            text, pageBreakLine: pageBreakLine, proof: proof, contentsDepth: contentsDepth, reading: reading,
+            directory: directory,
             readFile: readBibliography)
     }
 

@@ -12,7 +12,7 @@ enum ReadingResetHelp {
 }
 
 extension ReadingRowResolution {
-    func resetHelp(format: String) -> String {
+    func resetHelp(format: String, inheritsStyle: Bool = false) -> String {
         func help<Value>(_ component: ReadingResolution<Value>, _ value: String) -> String {
             component.source == nil
                 ? ReadingResetHelp.app(format: format, value: value) : ReadingResetHelp.file(value: value)
@@ -24,6 +24,7 @@ extension ReadingRowResolution {
         case .toggle(let present):
             return toggle(present)
         case .outline(let present, let depth):
+            if inheritsStyle { return ReadingResetHelp.app(format: format, value: String(localized: "From Style")) }
             if (present.source == nil) != (depth.source == nil) {
                 let levels = String(localized: ReadingOutlinePicker.title(for: depth.inherited))
                 if depth.layer == .document {
@@ -54,6 +55,7 @@ struct FormatReadingControl: View {
     let documentName: String
     let fileURL: URL?
     let allowsFileChanges: Bool
+    var inheritsStyle = false
     let set: @MainActor @Sendable (ReadingSettingValue) -> Void
     let revert: () -> Void
 
@@ -67,14 +69,28 @@ struct FormatReadingControl: View {
                 }
                 reason(present.source, changed: present.layer == .document)
             case .outline(let present, let depth):
-                let picker = ReadingOutlinePicker(label: id.label, present: present, depth: depth, set: set)
+                let picker = ReadingOutlinePicker(
+                    label: id.label, present: present, depth: depth, restoreStyle: inheritsStyle ? revert : nil,
+                    set: set)
                 control(locked: !picker.hasAlternative) { picker }
                 reason(
                     present.source,
-                    changed: present.layer == .document || present.source == depth.source && depth.layer == .document)
-                if present.source != depth.source { reason(depth.source, changed: depth.layer == .document) }
+                    changed: present.layer == .document || present.source == depth.source && depth.layer == .document,
+                    partialLock: presenceHint(present, depth: depth))
+                if present.source != depth.source {
+                    reason(
+                        depth.source, changed: depth.layer == .document,
+                        partialLock: depth.isLocked && !present.isLocked ? .depth : nil)
+                }
             }
         }
+    }
+
+    private func presenceHint(_ present: ReadingResolution<Bool>, depth: ReadingResolution<ReadingDepth>)
+        -> ReadingFileReason.PartialLock?
+    {
+        guard present.isLocked, !depth.isLocked else { return nil }
+        return present.value ? .enabled : .disabled
     }
 
     private func control<Picker: View>(locked: Bool, @ViewBuilder picker: () -> Picker) -> some View {
@@ -83,11 +99,13 @@ struct FormatReadingControl: View {
             reset: revert, control: picker)
     }
 
-    @ViewBuilder private func reason(_ source: ReadingInstructionSource?, changed: Bool) -> some View {
+    @ViewBuilder private func reason(
+        _ source: ReadingInstructionSource?, changed: Bool, partialLock: ReadingFileReason.PartialLock? = nil
+    ) -> some View {
         if let source {
             ReadingFileReason(
                 documentName: documentName, fileURL: fileURL, allowsFileChanges: allowsFileChanges, source: source,
-                changed: changed)
+                changed: changed, partialLock: partialLock)
         }
     }
 }
@@ -96,9 +114,18 @@ struct ReadingOutlinePicker: View {
     let label: LocalizedStringResource
     let present: ReadingResolution<Bool>
     let depth: ReadingResolution<ReadingDepth>
+    var restoreStyle: (() -> Void)?
     let set: @MainActor @Sendable (ReadingSettingValue) -> Void
 
-    private var value: ReadingDepth? { present.value ? depth.value : nil }
+    enum Selection: Hashable {
+        case style
+        case outline(ReadingDepth?)
+    }
+
+    var selection: Selection {
+        if restoreStyle != nil, present.layer == .app { return .style }
+        return .outline(present.value ? depth.value : nil)
+    }
 
     func allows(_ choice: ReadingDepth?) -> Bool {
         ReadingRowResolution.outline(present: present, depth: depth)
@@ -119,17 +146,23 @@ struct ReadingOutlinePicker: View {
         }
     }
 
-    var hasAlternative: Bool { choices.contains { $0 != value && allows($0) } }
+    var hasAlternative: Bool { restoreStyle != nil || choices.contains { .outline($0) != selection && allows($0) } }
 
     var body: some View {
-        let selection = Binding(
-            get: { value },
+        let binding = Binding(
+            get: { selection },
             set: { choice in
-                set(.outline(present: choice != nil, depth: choice ?? depth.value))
+                switch choice {
+                case .style: restoreStyle?()
+                case .outline(let limit): set(.outline(present: limit != nil, depth: limit ?? depth.value))
+                }
             })
-        ReadingMenu(label: label, selection: selection, valueLabel: Text(Self.title(for: value))) {
+        let title: LocalizedStringResource =
+            selection == .style ? "From Style" : Self.title(for: present.value ? depth.value : nil)
+        ReadingMenu(label: label, selection: binding, valueLabel: Text(title)) {
+            if restoreStyle != nil { Text("From Style").tag(Selection.style) }
             ForEach(choices, id: \.self) { choice in
-                Text(Self.title(for: choice)).tag(choice).disabled(!allows(choice))
+                Text(Self.title(for: choice)).tag(Selection.outline(choice)).disabled(!allows(choice))
             }
         }
     }

@@ -180,22 +180,18 @@ final class DocumentViewModel {
     }
 
     var offersOrgReading: Bool { format == .org && binder == nil && imageBundle == nil }
-    var showsReadingPanel: Bool {
-        guard mode == .view && isReadingPanelOpen else { return false }
-        #if DEBUG
-            if previewsMarkdownReading { return true }
-        #endif
-        return offersOrgReading
-    }
+    var offersReadingPanel: Bool { (format == .org || format == .markdown) && binder == nil && imageBundle == nil }
+    var showsReadingPanel: Bool { mode == .view && isReadingPanelOpen && offersReadingPanel }
 
-    #if DEBUG
-        var previewsMarkdownReading: Bool {
-            format == .markdown && binder == nil && imageBundle == nil
-                && DebugSnapshot.flag("SurimonoReadingPanel")
-        }
-    #endif
     private(set) var orgFileInstructions: OrgFileInstructions?
     var orgDocumentReading = OrgDocumentReadingSettings()
+    var readingChangedCount: Int {
+        if format == .markdown {
+            guard contentsFacts != nil else { return 0 }
+            return DocumentsChapter.rows(for: .markdown).count { markdownResolution($0.id)?.isChanged == true }
+        }
+        return orgChangedCount
+    }
     var orgChangedCount: Int {
         orgFileInstructions.map { orgDocumentReading.changedCount(file: $0) } ?? 0
     }

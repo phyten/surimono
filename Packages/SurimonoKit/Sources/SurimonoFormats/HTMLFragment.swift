@@ -22,6 +22,9 @@ public struct HTMLFragment: Equatable, Sendable {
     }
 
     package var proposedLeadContents: ProposedLead?
+    public var numberInstructions = ReadingFileInstructions()
+    public var markdownContentsMarker: String?
+    public var contentsTitle: String?
     public var contentsInstructions = ReadingFileInstructions()
     public internal(set) var contentsKinds: [Int: ReaderContentsKind] = [:]
     public var orgInstructions: OrgFileInstructions?

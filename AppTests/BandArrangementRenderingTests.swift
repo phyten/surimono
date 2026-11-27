@@ -89,6 +89,7 @@ struct BandArrangementRenderingTests {
         .item(.style, .full): 90, .item(.style, .compact): 40,
         .item(.outline, .full): 60, .item(.outline, .compact): 30,
         .item(.layout, .full): 60, .item(.transition, .full): 100, .item(.transition, .compact): 40,
+        .item(.readingSettings, .full): 80, .item(.readingSettings, .compact): 30,
         .item(.floatOnTop, .full): 28, .item(.pageTurn, .full): 60,
         .item(.print, .full): 70, .item(.print, .compact): 34,
     ]
@@ -109,7 +110,8 @@ struct BandArrangementRenderingTests {
         let topItems: Set<BandLayout.Item> = [.formatBadge, .floatOnTop, .print]
         // The previous/next buttons start on the split band only.
         let applicable = BandLayout.Item.applicable(for: model).filter {
-            !BandTestCatalog.standardUnused.contains($0) && (mode == .split || $0 != .pageTurn)
+            !BandTestCatalog.standardUnused.contains($0) && $0 != .readingSettings
+                && (mode == .split || $0 != .pageTurn)
         }
         func widths(top: Bool) -> [BandLayout.Item: BandLayout.Widths] {
             var result: [BandLayout.Item: BandLayout.Widths] = [:]
@@ -122,17 +124,35 @@ struct BandArrangementRenderingTests {
             }
             return result
         }
-        // Title starts at 83pt. Three further 6pt gaps, 8pt spacer, 8pt padding and 24pt More total 141pt.
-        // A separator costs its 1pt rule and a 6pt gap.
-        let top = BandLayout.plan(
-            widths: widths(top: true), fixed: 141, separator: 7, name: 120,
-            available: width)
-        let bottom =
-            mode == .split
-            ? BandLayout.plan(
-                widths: widths(top: false), fixed: 28, separator: 7, name: 0, available: width,
-                steps: BandLayout.bottomSteps) : nil
-        return (top, bottom)
+        func row(top: Bool) -> BandLayout.Plan {
+            // Title starts at 83pt. Three further 6pt gaps, 8pt spacer, 8pt padding and 24pt More total 141pt.
+            let fixed: CGFloat = top ? 141 : 28
+            let name: CGFloat = top ? 120 : 0
+            let items = widths(top: top)
+            func plan(reserving extra: CGFloat = 0) -> BandLayout.Plan {
+                BandLayout.plan(
+                    widths: items, fixed: fixed + extra, separator: 7, name: name, available: width,
+                    steps: top ? BandLayout.steps : BandLayout.bottomSteps)
+            }
+            guard mode == .top || !top else { return plan() }
+            // Reading Settings has a 6pt gap and, on the top band, its own 7pt separator.
+            let gap: CGFloat = top ? 13 : 6
+            var full = plan(reserving: Self.widths[.item(.readingSettings, .full)]! + gap)
+            if full.forms.values.allSatisfy({ $0 == .full }), full.overflow.isEmpty, full.nameWidth == name {
+                full.forms[.readingSettings] = .full
+                return full
+            }
+            // Its label folds before the name shrinks; its icon leaves after Chapter and before the other tools.
+            var compact = plan(reserving: Self.widths[.item(.readingSettings, .compact)]! + gap)
+            if compact.overflow.allSatisfy({ $0 == .chapter }), compact.nameWidth >= min(name, BandLayout.nameMinimum) {
+                compact.forms[.readingSettings] = .compact
+                return compact
+            }
+            var folded = plan()
+            folded.overflow.append(.readingSettings)
+            return folded
+        }
+        return (row(top: true), mode == .split ? row(top: false) : nil)
     }
 
     @Test("標準配置の部品を帯へ順に渡し、どの幅でも部品とファイル名が収まる", arguments: MenuArrangement.allCases)
@@ -151,13 +171,13 @@ struct BandArrangementRenderingTests {
             #expect(wide.top.leading == [.formatBadge])
             #expect(wide.top.trailing == [.print])
             #expect(wide.bottom?.leading == [.style, .outline, .layout])
-            #expect(wide.bottom?.trailing == [.chapter, .pageIndicator, .pageTurn])
+            #expect(wide.bottom?.trailing == [.chapter, .pageIndicator, .pageTurn, .readingSettings])
             #expect(wide.bottom?.geometry.usesStandardSpacing == true)
             #expect(
                 wide.resolved.unusedAvailable == [.transition, .floatOnTop, .showOnAllSpaces] + Self.availableAdded)
         case .top:
             #expect(wide.top.leading == [.formatBadge, .pageIndicator, .chapter])
-            #expect(wide.top.trailing == [.style, .outline, .layout, .print])
+            #expect(wide.top.trailing == [.style, .outline, .layout, .readingSettings, .print])
             #expect(wide.bottom == nil)
             // Standard Top Only leaves Page Turn off the band; "…" now offers its two actions.
             #expect(
@@ -567,17 +587,15 @@ struct BandArrangementRenderingTests {
 
         let wide = BandPlans(model: model, menu: menu(width: 2000))
         // Presentation, Zoom and List do not apply to this document.
-        #expect(
-            wide.resolved.unusedAvailable == [.formatBadge, .style, .transition, .floatOnTop, .showOnAllSpaces]
-                + Self.availableAdded + [.chapter])
+        let unused: [BandLayout.Item] =
+            [.formatBadge, .style, .transition, .floatOnTop, .showOnAllSpaces] + Self.availableAdded
+            + [.chapter, .readingSettings]
+        #expect(wide.resolved.unusedAvailable == unused)
         // Narrow, the bottom band gives way; unused and overflow remain separate.
         let narrow = BandPlans(model: model, menu: menu(width: 140))
         #expect(narrow.bottom?.forms == [.outline: .compact, .pageIndicator: .full])
         #expect(narrow.resolved.overflow == [.layout, .pageTurn])
-        #expect(
-            narrow.resolved.unusedAvailable == [.formatBadge, .style, .transition, .floatOnTop, .showOnAllSpaces]
-                + Self.availableAdded
-                + [.chapter])
+        #expect(narrow.resolved.unusedAvailable == unused)
         #expect(!narrow.resolved.overflow.contains(.print))
         #expect(narrow.top.forms[.print] != nil)
 

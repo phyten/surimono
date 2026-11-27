@@ -50,20 +50,16 @@ struct ViewModeView: View {
                 // A page turn moves the pages past the paper's edge, where the panel beside it must stay in front.
                 PaperArea(model: model, menu: menu).clipped()
                 if model.showsReadingPanel {
-                    if model.offersOrgReading { OrgReadingPanel(model: model) }
-                    #if DEBUG
-                        if model.previewsMarkdownReading {
-                            MarkdownReadingPreview(
-                                documentName: model.displayName, fileURL: model.fileURL,
-                                contents: model.contentsFacts?.contentsInstructions,
-                                defaults: model.preferences.formatReadingDefaults,
-                                close: { model.isReadingPanelOpen = false })
-                        }
-                    #endif
+                    if model.offersOrgReading {
+                        OrgReadingPanel(model: model)
+                    } else {
+                        MarkdownReadingPanel(model: model)
+                    }
                 }
             }
             .padding(.top, model.currentBandRoom.top)
             .padding(.bottom, model.currentBandRoom.bottom)
+            .trackingBandWidth(in: menu)
             // Overlays, so that a band without room draws over the paper's own view. The zones stay the same views
             // whether or not they have room, and so do the band and the popovers it anchors when the room comes or
             // goes.
@@ -193,11 +189,6 @@ struct ViewModeView: View {
                 if menu.trafficLights != lights { menu.trafficLights = lights }
                 if !menu.hasReadTrafficLights { menu.hasReadTrafficLights = true }
             }
-        }
-        .onGeometryChange(for: CGFloat.self) {
-            $0.size.width
-        } action: { width in
-            if menu.bandWidth != width { menu.bandWidth = width }
         }
     }
 

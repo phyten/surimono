@@ -255,6 +255,16 @@ final class BandAnchors {
 }
 
 extension View {
+    /// Both bands fold to the width offered by the window, even while their previous plan still draws wider labels.
+    func trackingBandWidth(in menu: OverlayMenuState) -> some View {
+        frame(minWidth: 0, maxWidth: .infinity)
+            .onGeometryChange(for: CGFloat.self) {
+                $0.size.width
+            } action: { width in
+                if menu.bandWidth != width { menu.bandWidth = width }
+            }
+    }
+
     func recordingBandPlan(_ plan: BandResolvedPlan, in anchors: BandAnchors) -> Self {
         #if DEBUG
             // Sequoia can drop onChange deliveries when measurement produces several plans in one frame.

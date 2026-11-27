@@ -653,16 +653,17 @@ struct PrintModeTests {
         }
 
         @Test(
-            "幅460ptの印刷設定は八言語・左右両方向で各見出し・区切り線・選択欄が両端に収まる", arguments: [DocumentFormat.markdown, .latex], [true, false])
+            "幅460ptの印刷設定は八言語・左右両方向で各見出し・区切り線・選択欄が両端に収まる",
+            arguments: [DocumentFormat.markdown, .quarto, .latex], [true, false])
         func finishPanelFrames(format: DocumentFormat, hasContents: Bool) async throws {
             let fixture = Fixture()
             fixture.preferences.layoutID = PrintLayout.a4Single.id
             let source: String
-            if format == .markdown {
-                source = hasContents ? "---\ntoc: true\n---\n# Alpha\n\n[TOC]\n\n## Bravo" : "# Alpha"
-            } else {
+            if format == .latex {
                 let lists = hasContents ? #"\tableofcontents\listoffigures\listoftables"# : ""
                 source = #"\documentclass{article}\begin{document}\section{Alpha}\#(lists)\end{document}"#
+            } else {
+                source = hasContents ? "---\ntoc: true\n---\n# Alpha\n\n[TOC]\n\n## Bravo" : "# Alpha"
             }
             let model = DocumentViewModel(
                 data: Data(source.utf8), fileURL: nil, format: format, preferences: fixture.preferences,
@@ -672,7 +673,8 @@ struct PrintModeTests {
             model.printFinish.contents.placement = .page
             model.start()
             try await waitUntil { model.contentsFacts != nil }
-            let hasSection = format == .markdown || hasContents
+            let hasLeadPicker = format == .quarto
+            let hasSection = hasLeadPicker || hasContents
             #expect(PrintFinishStrip(model: model).applicableItems.contains(.contents) == hasSection)
             var sections: [LocalizedStringKey] = ["Paper & Margins", "Header & Footer", "Page Breaks"]
             if hasSection { sections.append("Contents") }
@@ -693,6 +695,8 @@ struct PrintModeTests {
                     #expect(elements.contains(.content))
                     #expect(elements.contains(.heading("Contents")) == hasSection)
                     #expect(elements.contains(.divider("Contents")) == hasSection)
+                    #expect(elements.contains(.label("Table of Contents at the Top")) == hasLeadPicker)
+                    #expect(elements.contains(.picker("Table of Contents at the Top")) == hasLeadPicker)
                     for (index, title) in sections.enumerated() {
                         #expect(elements.contains(.heading(title)))
                         if index > 0 { #expect(elements.contains(.divider(title))) }
@@ -709,10 +713,8 @@ struct PrintModeTests {
                     }
                     choice("Page Breaks", selected: "New Page for Each Chapter")
                     if ["en", "fr"].contains(language) { #expect(elements.contains(.menu("Page Breaks"))) }
-                    if format == .markdown {
-                        #expect(elements.contains(.label("Table of Contents at the Top")))
-                        #expect(elements.contains(.picker("Table of Contents at the Top")))
-                        #expect(elements.contains(.picker("Proof Marks")))
+                    if format != .latex {
+                        #expect(elements.contains(.picker("Proof Marks")) == (format == .markdown))
                         for label: LocalizedStringKey in ["Placement", "Look", "Contents in Text"] {
                             #expect(elements.contains(.label(label)) == hasContents)
                             #expect((elements.contains(.row(label)) || elements.contains(.menu(label))) == hasContents)
@@ -731,7 +733,6 @@ struct PrintModeTests {
                             #expect(elements.contains(.label(label)) == hasContents)
                             #expect(elements.contains(.toggle(label)) == hasContents)
                         }
-                        #expect(!elements.contains(.picker("Table of Contents at the Top")))
                     }
                     for picker: LocalizedStringKey in ["Footnotes", "Links on Paper"] {
                         #expect(elements.contains(.picker(picker)))
