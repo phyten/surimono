@@ -15,6 +15,27 @@ struct ContentsMigrationTests {
                 : ComputationalMarkdown.convert(source, format: format))
     }
 
+    @Test("読めない出力形式で固定を戻しても文書の番号と目次は残る", arguments: [DocumentFormat.quarto, .rMarkdown])
+    func malformedOutputKeepsChoices(format: DocumentFormat) {
+        let header =
+            format == .quarto
+            ? "format:\n  html:\n      toc: true\n    number-sections: true"
+            : "output:\n  - html_document:\n      toc: true\n      number_sections: true"
+        let facts = DocumentFacts(
+            fragment: ComputationalMarkdown.convert("---\n" + header + "\n---\n# A", format: format))
+        var document = DocumentSettings()
+        document.formatReading.set(.outline(present: true, depth: .levels(2)), for: .tableOfContents, format: format)
+        document.formatReading.set(
+            format == .quarto ? .outline(present: false, depth: .all) : .toggle(false), for: .sectionNumbers,
+            format: format)
+        let expected = document
+        document.formatReading.setAllowsFileChanges(true, for: format)
+        #expect(
+            document.lockMarkdownFileInstructions(for: format, facts: facts, generation: 1, defaults: .init())
+                == .finished)
+        #expect(document == expected)
+    }
+
     @Test("固定を戻す確認は承認まで保存せず、設定・原稿世代の変化で古い承認を無効にする", arguments: [DocumentFormat.markdown, .quarto, .rMarkdown])
     func markdownLockConfirmation(format: DocumentFormat) throws {
         let facts = readingFacts(for: format)

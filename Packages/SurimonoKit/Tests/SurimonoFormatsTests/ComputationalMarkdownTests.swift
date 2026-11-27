@@ -50,7 +50,7 @@ struct ComputationalMarkdownTests {
             ("Inline `{python} 2+2`", "inline-expression", "{python}"),
             ("Note^[Body]", "footnotes", "^["),
             ("{{< include other.qmd >}}", "other.qmd", "{{<"),
-            ("Reference @sec-end\n\n# End {#sec-end}", "Section 1", "@sec-end"),
+            ("Reference @sec-end\n\n# End {#sec-end}", "End</a>", "@sec-end"),
             ("---\nbroken YAML\n---\nBody", "<pre>", "chunk-result-note"),
         ])
     func markup(source: String, present: String, absent: String) {
@@ -104,7 +104,7 @@ struct ComputationalMarkdownTests {
             ("tbl-a", "| A | B |\n|---|---|\n| 1 | 2 |\n\n: Caption {#tbl-a}", "Table 1"),
             ("fig-a", "::: {#fig-a}\nBody\n\nCaption\n:::", "Figure 1"),
             ("tbl-a", "::: {#tbl-a}\nBody\n\nCaption\n:::", "Table 1"),
-            ("sec-a", "# Chapter {#sec-a}", "Section 1"),
+            ("sec-a", "# Chapter {#sec-a}", "Chapter"),
             ("eq-a", "$$\nx^2\n$$ {#eq-a}", "Equation 1"),
             ("thm-a", "::: {#thm-a}\nBody\n:::", "Theorem 1"),
             ("lem-a", "::: {#lem-a}\nBody\n:::", "Lemma 1"),
@@ -114,7 +114,7 @@ struct ComputationalMarkdownTests {
     func reference(id: String, source: String, name: String) {
         let html = ComputationalMarkdown.convert("[@\(id)] [-@\(id)] @unknown\n\n" + source).body
         #expect(html.contains("<a href=\"#\(id)\">\(name)</a>"))
-        #expect(html.contains("<a href=\"#\(id)\">1</a>"))
+        #expect(html.contains("<a href=\"#\(id)\">\(id == "sec-a" ? name : "1")</a>"))
         #expect(html.contains("id=\"\(id)\""))
         #expect(html.contains("@unknown"))
     }

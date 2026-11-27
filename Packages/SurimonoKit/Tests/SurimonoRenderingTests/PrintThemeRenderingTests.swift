@@ -47,6 +47,18 @@ struct PrintThemeRenderingTests {
         #expect(compact.filter(\.isNumber) == "1")
     }
 
+    @Test("Quarto の原稿で番号なしを指定すると report スタイルの紙にも番号を振らない", .timeLimit(.minutes(1)))
+    func quartoHeadingNumbersOnPaper() async throws {
+        let source = "# Book\n\n## Heading"
+        for header in ["", "---\nnumber-sections: false\n---\n"] {
+            let pdf = try await render(header + source, theme: "report", format: .quarto)
+            let text = try #require(pdf.page(at: 0)?.string).filter { !$0.isWhitespace }
+            #expect(text.contains("Heading"))
+            #expect(text.contains("1.Heading") == header.isEmpty)
+            #expect(text.contains(where: \.isNumber) == header.isEmpty)
+        }
+    }
+
     /// The page drawn on white at twice its size, as RGB rows from the top.
     private func pixels(of page: PDFPage) throws -> (width: Int, height: Int, data: [UInt8]) {
         let bounds = page.bounds(for: .mediaBox)

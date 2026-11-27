@@ -182,3 +182,72 @@ extension ComputationalReadingTests {
         #expect(html.contains(">1.1 Chapter</a>") && html.contains(">Section 1.2</a>"))
     }
 }
+
+extension ComputationalReadingTests {
+    @Test("先頭の出力が既定・null・空マップなら後続の目次指定を読まない", arguments: ["default", "\"default\"", "null", "{}"], ["", " "])
+    func firstFlowOutput(value: String, space: String) {
+        let source = "---\noutput: {\"html_document\":\(space)\(value), pdf_document: {toc: true}}\n---\n# A"
+        let fragment = ComputationalMarkdown.convert(source, format: .rMarkdown)
+        #expect(fragment.contentsInstructions == .init())
+        #expect(!fragment.body.contains("<nav"))
+        let quarto = "---\ntoc: true\nformat: {\"html\":\(space)\(value), pdf: {toc: false}}\n---\n# A"
+        #expect(ComputationalMarkdown.convert(quarto).contentsInstructions.present?.value == true)
+    }
+
+    @Test("引用キーの直後の値を読み、入れ子や引用中のコンマとコロンでは切らない")
+    func compactFlow() {
+        let line = #"format: {"html":{"x: y":[{"label":"one, two"}],"toc":false},pdf: {toc: true}}"#
+        let source = "---\ntoc: true\n" + line + "\n---\n# A"
+        let fragment = ComputationalMarkdown.convert(source)
+        #expect(fragment.contentsInstructions.present?.value == false)
+        #expect(fragment.contentsInstructions.present?.source?.lineNumber == 3)
+        #expect(!fragment.body.contains("<nav"))
+    }
+
+    @Test(
+        "先頭形式や形式の配下を読めないときは原稿から何も固定しない",
+        arguments: [
+            "format: {[html, pdf]: {}, pdf: {toc: true}}", "format: {html: [default], pdf: {toc: false}}",
+            "format: {html: {toc: true], pdf: {toc: false}}", "format:\n  - html:\n      toc: true",
+            "format:\n  html:\n      toc: true\n    number-sections: true",
+            "format:\n  html:\n    toc: true\n      number-sections: true",
+            "format:\n  html:\n\t  toc: true", "format:\n  -\thtml:\n      toc: true",
+        ])
+    func unsupportedFormat(container: String) {
+        let source = "---\ntoc: true\nnumber-sections: true\n" + container + "\n---\n# A"
+        let fragment = ComputationalMarkdown.convert(source)
+        #expect(fragment.numberInstructions == .init() && fragment.contentsInstructions == .init())
+    }
+
+    @Test("Quarto 最上位の引用符つきの番号と目次の深さを旧版と同じに読む", arguments: ["\"", "'", ""])
+    func quotedQuarto(quote: String) {
+        let source =
+            "---\nnumber-sections: \(quote)true\(quote)\ntoc: true\ntoc-depth: \(quote)1\(quote)\n---\n# Root\n\n## Child {#sec-child}\n\n@sec-child"
+        let fragment = ComputationalMarkdown.convert(source)
+        #expect(
+            fragment.numberInstructions.present?.value == true
+                && fragment.contentsInstructions.depth?.value == .levels(1))
+        #expect(fragment.body.contains(">1.1 Child</h2>") && fragment.body.contains(">Section 1.1</a>"))
+        let nav = fragment.body.components(separatedBy: "</nav>").first ?? ""
+        #expect(nav.contains(">1 Root</a>") && !nav.contains("Child"))
+    }
+
+    @Test("番号の深さ・無番号の見出し・文書の「なし」では素の節名をリンクに使う", arguments: ["depth", "unnumbered", "document"])
+    func unnumberedReferences(reason: String) {
+        var reading = MarkdownReadingSettings()
+        var options = "toc: true"
+        if reason == "document" {
+            reading.document.set(.outline(present: false, depth: .all), for: .sectionNumbers, format: .quarto)
+        } else {
+            options += "\nnumber-sections: true"
+            if reason == "depth" { options += "\nnumber-depth: 1" }
+        }
+        let attrs = reason == "unnumbered" ? "#sec-child .unnumbered" : "#sec-child"
+        let source = "---\n" + options + "\n---\n# Root\n\n## A & *B* {\(attrs)}\n\n@sec-child and [-@sec-child]"
+        let body = ComputationalMarkdown.convert(source, reading: reading).body
+        #expect(body.contains(#"<h2 id="sec-child">A &amp; <em>B</em></h2>"#))
+        let link = ##"<a href="#sec-child">A &amp; B</a>"##
+        #expect(body.contains("<p>" + link + " and " + link + "</p>"))
+        #expect(!body.contains("Section 1") && body.contains(">A &amp; *B*</a>"))
+    }
+}

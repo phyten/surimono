@@ -149,6 +149,18 @@ struct ResourceLibraryTests {
         check(owned: false, numbered: false)
     }
 
+    @Test("Quarto の原稿で番号を切ると report の自動採番も止まる")
+    func quartoFileNumbering() throws {
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "report" })
+        for header in ["", "---\nnumber-sections: false\n---\n"] {
+            let fragment = ComputationalMarkdown.convert(header + "# Book\n\n## Heading")
+            let html = HTMLDocumentBuilder.build(fragment: fragment, format: .quarto, theme: theme)
+            #expect(html.contains(#"<body class="surimono format-quarto own-heading-numbers">"#) == !header.isEmpty)
+            #expect(html.contains(#"<body class="surimono format-quarto">"#) == header.isEmpty)
+            #expect(html.contains(#"<h2 id="heading">Heading</h2>"#))
+        }
+    }
+
     @Test("番号付きテーマでも Org は出荷時は番号なし、全階層を選ぶと見出しに一度だけ番号が付く")
     func ownHeadingNumbers() throws {
         let theme = try #require(PrintThemeLibrary.load().first { $0.id == "academic" })
