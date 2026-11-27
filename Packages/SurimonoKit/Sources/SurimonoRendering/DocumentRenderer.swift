@@ -182,7 +182,7 @@ public struct RenderSettings: Equatable, Sendable {
             case .levels(let count): return .levels(count)
             }
         }
-        let file = format == .rst && finish.keepsRSTLeadInText ? ReadingFileInstructions() : facts.contentsInstructions
+        let file = facts.leadContentsInstructions(for: format, finish: finish)
         return formatReading.leadContents(for: format, file: file, defaults: formatReadingDefaults)
     }
 

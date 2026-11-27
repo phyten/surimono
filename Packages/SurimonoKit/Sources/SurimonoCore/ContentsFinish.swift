@@ -109,6 +109,13 @@ extension PrintFinish {
     }
 }
 
+extension DocumentFacts {
+    package func leadContentsInstructions(for format: DocumentFormat, finish: PrintFinish?) -> ReadingFileInstructions {
+        if format == .rst, finish?.keepsRSTLeadInText == true { return .init() }
+        return contentsInstructions
+    }
+}
+
 extension OrgReadingDefaults.Depth {
     public init(_ depth: ReadingDepth?) {
         switch depth {
@@ -159,7 +166,8 @@ extension DocumentSettings {
         } else {
             formatReading.set(
                 .outline(present: value != .off, depth: value.readingDepth ?? .all),
-                for: .tableOfContents, format: format, file: facts?.contentsInstructions ?? .init(), defaults: defaults)
+                for: .tableOfContents, format: format,
+                file: facts?.leadContentsInstructions(for: format, finish: printFinish) ?? .init(), defaults: defaults)
         }
     }
 
@@ -190,6 +198,9 @@ extension DocumentSettings {
             return true
         }
         guard editing != nil || legacy.canMigrate(format: format, facts: facts) else { return false }
+        // Write the legacy choice against the same manuscript instructions the adopted finish will render.
+        finish.adoptContents(editing: editing, format: format)
+        printFinish = finish
         if format != .latex {
             let value: OrgReadingDefaults.Depth?
             switch legacy.mode {
@@ -211,8 +222,6 @@ extension DocumentSettings {
                 writeLeadContents(value, format: format, facts: facts, defaults: defaults, orgDefaults: orgDefaults)
             }
         }
-        finish.adoptContents(editing: editing, format: format)
-        printFinish = finish
         return true
     }
 }
