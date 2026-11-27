@@ -145,7 +145,7 @@ public final class WebPaginator: NSObject {
 
     /// CSS pixels to a point of the printed page. WebKit lays a page out 1.25 times as wide as its paper and shrinks
     /// it to fit (a page wider than that shrinks further).
-    public static let printPixelsPerPoint = 1.25
+    public nonisolated static let printPixelsPerPoint = 1.25
 
     // Only the distribution app may opt into platform-specific background removal.
     public static var clearBackground: (@MainActor (WKWebView) -> Void)?
@@ -323,6 +323,17 @@ public final class WebPaginator: NSObject {
         } else {
             try await Self.waitForResources(
                 in: session.webView, timeout: stoppedResources ? min(timeout, .seconds(1)) : timeout)
+        }
+        // Inspect the input before adding Surimono's own absolutely positioned measurement anchors.
+        var extendsFrame = false
+        if protectsFrameEdges, !latexMarginInk, !allowsJavaScript, flow == .horizontal, exportHTMLTitle == nil {
+            do {
+                extendsFrame =
+                    try await runPreparationScript(
+                        Self.frameStyleProbe, in: session.webView, timeout: min(timeout, .milliseconds(300))) == "true"
+            } catch PaginationError.timedOut {
+                extendsFrame = false
+            }
         }
         let pageRules: [PageRule]
         let preparationResult: String?
@@ -570,7 +581,7 @@ public final class WebPaginator: NSObject {
                 }
                 let data = try await session.printToPDF(
                     checkingBelowPaper: mayDrawBelowPaper, latexMarginInk: latexMarginInk,
-                    protectsFrameEdges: protectsFrameEdges,
+                    protectsFrameEdges: extendsFrame,
                     footnotePass: footnotePass,
                     deadline: latexPageNumbers == nil ? nil : layoutDeadline)
                 if composesLatin {
@@ -815,17 +826,38 @@ public final class WebPaginator: NSObject {
         return adjusted
     }
 
+    /// The renderer opts in only for its built-in sheets. A fragment may still supply layout CSS of its own.
+    private static let frameStyleProbe = #"""
+        if (document.adoptedStyleSheets.length || document.querySelector('link[rel~="stylesheet" i], [srcset], iframe, object, embed')) return 'false';
+        for (const sheet of document.styleSheets) {
+          // Readers append the font faces for formulas in the body.
+          if (document.body.contains(sheet.ownerNode)
+              && !Array.from(sheet.cssRules).every(rule => rule.type === CSSRule.FONT_FACE_RULE)) return 'false';
+        }
+        for (const node of document.querySelectorAll('[style]')) {
+          const style = node.style;
+          // These can move ink within an otherwise unchanged body when the viewport gets wider.
+          if (/[0-9.][dls]?v(?:w|h|i|b|min|max)\b|(?:if|env|attr)\(/i.test(style.cssText)
+              || (style.position && !['static', 'relative'].includes(style.position))) return 'false';
+        }
+        return 'true';
+        """#
+
     /// Returns "true" when a style sheet of the document, including those a script adopted, has an `@page` rule or
     /// cannot be read, and "false" otherwise.
     static let pageRuleProbe = """
         const hasPageRule = list => Array.from(list || []).some(rule => {
           if (rule.type === CSSRule.PAGE_RULE) return true;
-          try { if (rule.styleSheet && hasPageRule(rule.styleSheet.cssRules)) return true; } catch (_) { return true; }
-          try { return hasPageRule(rule.cssRules); } catch (_) { return false; }
+          if (rule.type === CSSRule.IMPORT_RULE) {
+            const imported = rule.styleSheet?.cssRules;
+            return !imported || hasPageRule(imported);
+          }
+          return hasPageRule(rule.cssRules);
         });
         const sheets = Array.from(document.styleSheets).concat(Array.from(document.adoptedStyleSheets || []));
-        return String(sheets.some(sheet => {
-          try { return hasPageRule(sheet.cssRules); } catch (_) { return true; }
+        const missingSheet = Array.from(document.querySelectorAll('link[rel~="stylesheet" i]')).some(link => !link.sheet);
+        return String(missingSheet || sheets.some(sheet => {
+          try { return !sheet.cssRules || hasPageRule(sheet.cssRules); } catch (_) { return true; }
         }));
         """
 
@@ -1223,7 +1255,8 @@ final class PaginationSession {
         printInfo.bottomMargin = margins.bottom + Self.pageHeightAllowance
         printInfo.rightMargin = margins.right
         let movedMargins = try await preparePrintMargins(
-            printInfo, latexMarginInk: latexMarginInk, protectsFrameEdges: protectsFrameEdges, deadline: deadline)
+            printInfo, latexMarginInk: latexMarginInk, protectsFrameEdges: protectsFrameEdges && !checkingBelowPaper,
+            deadline: deadline)
         printInfo.horizontalPagination = .fit
         printInfo.verticalPagination = .automatic
         printInfo.isHorizontallyCentered = false
@@ -1299,21 +1332,7 @@ final class PaginationSession {
     private func preparePrintMargins(
         _ info: NSPrintInfo, latexMarginInk: Bool, protectsFrameEdges: Bool, deadline: ContinuousClock.Instant
     ) async throws -> Bool {
-        let pixelsPerPoint = WebPaginator.printPixelsPerPoint
-        var leftPadding: CGFloat = 0
-        var rightPadding: CGFloat = 0
-        if latexMarginInk {
-            // Margin notes already use the full sheet, with the original margins on the root.
-            leftPadding = margins.left * pixelsPerPoint
-            rightPadding = margins.right * pixelsPerPoint
-            info.leftMargin = 0
-            info.rightMargin = 0
-        }
-        let available = info.paperSize.width - info.leftMargin - info.rightMargin
-        let width = Float(available)
-        let columns = floor(width * Float(pixelsPerPoint))
-        let extend = protectsFrameEdges && columns > 0 && rightPadding < 2
-        guard latexMarginInk || extend else { return false }
+        guard latexMarginInk || protectsFrameEdges else { return false }
         let media = webView.mediaType
         let frame = webView.frame
         webView.mediaType = "print"
@@ -1321,64 +1340,104 @@ final class PaginationSession {
             webView.frame = frame
             webView.mediaType = media
         }
-        var minimum: Float = 0
-        if extend {
-            // PrintContext first lays out at floor(width * 1.25). An intrinsically wider block
-            // gets a second layout, up to WebKit's maximum shrink of two CSS pixels per point.
-            webView.frame.size.width = CGFloat(columns)
-            func scrollWidth() async throws -> Float {
-                let measured = try await webView.evaluateForPrinting(
-                    "globalThis.surimonoMarginInk?.remove(); return document.documentElement.scrollWidth;",
-                    until: deadline)
-                guard let width = measured as? NSNumber else { throw WebPaginator.PaginationError.printFailed }
-                return width.floatValue
-            }
-            let limit = floor(columns * (2 / Float(pixelsPerPoint)))
-            let fitted = min(max(columns, try await scrollWidth()), limit)
-            let capped = fitted == limit
-            // At the shrink limit, five more initial columns produce exactly eight fitted columns.
-            var extra: Float = capped ? 8 : 2
-            if fitted > columns {
-                webView.frame.size.width = CGFloat(fitted)
-                if !capped {
-                    // A 100%-wide table with side margins still overflows after WebKit's second layout.
-                    extra += max(0, try await scrollWidth() - fitted)
-                }
-                minimum = fitted + extra
-            }
-            let scale = width / fitted
-            var extended = scale * (fitted + extra)
-            if fitted == columns || capped {
-                let newColumns = columns + (capped ? 5 : extra)
-                // Stay on the same side of both layout-rounding boundaries.
-                extended = min(
-                    max(extended, newColumns / Float(pixelsPerPoint)),
-                    ((newColumns + 1) / Float(pixelsPerPoint)).nextDown)
-            }
-            // The paper itself clips a negative right margin on this intermediate PDF.
-            info.rightMargin -= CGFloat(extended) - available
-            rightPadding += CGFloat(extra)
+
+        if latexMarginInk {
+            // Margin notes use the full sheet. Their padding participates in shrink-to-fit.
+            let pixels = WebPaginator.printPixelsPerPoint
+            try await installPrintPadding(left: margins.left * pixels, right: margins.right * pixels, until: deadline)
+            info.leftMargin = 0
+            info.rightMargin = 0
+            return true
         }
+
+        let available = info.paperSize.width - info.leftMargin - info.rightMargin
+        let width = Float(available)
+        let initial = PrintFrameExtension.columns(width)
+        guard initial > 0, let first = try await measureFrame(at: initial, until: deadline)
+        else { return false }
+        let fitted = PrintFrameExtension.fitted(initial, scrollWidth: first.scrollWidth)
+        let original = fitted == initial ? first : try await measureFrame(at: fitted, until: deadline)
+        guard let original,
+            let plan = PrintFrameExtension.calculate(
+                width: width, height: Float(info.paperSize.height - info.topMargin - info.bottomMargin),
+                firstScroll: first.scrollWidth, fittedScroll: original.scrollWidth)
+        else { return false }
+
+        try await installPrintPadding(right: CGFloat(plan.padding), minimum: plan.minimumWidth, until: deadline)
+        // Check the actual overflow at WebKit's first layout and the body box at its final layout.
+        // A measured width can disagree with the model, e.g. for a leftward overflow in RTL.
+        let newInitial = PrintFrameExtension.columns(plan.width)
+        let target = fitted + plan.padding
+        if let first = try await measureFrame(at: newInitial, extended: true, until: deadline),
+            PrintFrameExtension.fitted(newInitial, scrollWidth: first.scrollWidth) == target,
+            let last = newInitial == target
+                ? first : try await measureFrame(at: target, extended: true, until: deadline),
+            last.body == original.body
+        {
+            info.rightMargin -= CGFloat(plan.width) - available
+            return true
+        }
+        _ = try await webView.evaluateForPrinting("globalThis.surimonoMarginInk.remove();", until: deadline)
+        return false
+    }
+
+    private struct FrameMeasurement {
+        let scrollWidth: Float
+        let body: CGRect
+    }
+
+    private func measureFrame(
+        at columns: Float, extended: Bool = false,
+        until deadline: ContinuousClock.Instant
+    ) async throws -> FrameMeasurement? {
+        webView.frame.size.width = CGFloat(columns)
+        let readyBy = min(deadline, .now + .milliseconds(300))
+        let script = """
+            if (innerWidth !== columns || !matchMedia('print').matches) return 'pending';
+            const root = document.documentElement;
+            const css = root.computedStyleMap?.();
+            if (!css || String(css.get('width')) !== 'auto' || String(css.get('max-width')) !== 'none'
+                || String(css.get('writing-mode')) !== 'horizontal-tb') return null;
+            if (!extended && (!['auto', '0px'].includes(String(css.get('min-width')))
+                || ['padding-left', 'padding-right', 'margin-left', 'margin-right'].some(
+                    key => String(css.get(key)) !== '0px'))) return null;
+            const body = document.body.getBoundingClientRect();
+            return [root.scrollWidth, body.x, body.y, body.width, body.height];
+            """
+        repeat {
+            let result: Any
+            do {
+                result = try await webView.evaluateForPrinting(
+                    script, arguments: ["columns": columns, "extended": extended], until: readyBy)
+            } catch WebPaginator.PaginationError.timedOut where readyBy < deadline {
+                return nil
+            }
+            if let values = result as? [Double], values.count == 5 {
+                return FrameMeasurement(
+                    scrollWidth: Float(values[0]),
+                    body: CGRect(x: values[1], y: values[2], width: values[3], height: values[4]))
+            }
+            guard result as? String == "pending", ContinuousClock.now < readyBy else { return nil }
+            try await Task.sleep(for: .milliseconds(10))
+        } while ContinuousClock.now < readyBy
+        return nil
+    }
+
+    private func installPrintPadding(
+        left: CGFloat = 0, right: CGFloat, minimum: Float = 0, until deadline: ContinuousClock.Instant
+    ) async throws {
         _ = try await webView.evaluateForPrinting(
             """
             const root = document.documentElement;
             globalThis.surimonoMarginInk?.remove();
-            const css = getComputedStyle(root);
-            const zoom = parseFloat(css.zoom) || 1;
-            // Resolve percentage padding at the original print width, before extending the clip.
-            const leftPadding = wholeMargin ? left / zoom + 'px' : css.paddingLeft;
-            const rightPadding = wholeMargin ? '0px' : css.paddingRight;
+            const zoom = parseFloat(getComputedStyle(root).zoom) || 1;
             const minWidth = minimum ? `min-width: ${minimum / zoom}px !important;` : '';
             const style = document.createElement('style');
             style.textContent = `@media print { html { box-sizing: border-box !important; ${minWidth}
-              padding-left: ${leftPadding} !important;
-              padding-right: calc(${rightPadding} + ${right / zoom}px) !important; } }`;
+              padding-left: ${left / zoom}px !important; padding-right: ${right / zoom}px !important; } }`;
             document.head.append(style);
             globalThis.surimonoMarginInk = style;
-            """,
-            arguments: ["wholeMargin": latexMarginInk, "left": leftPadding, "right": rightPadding, "minimum": minimum],
-            until: deadline)
-        return true
+            """, arguments: ["left": left, "right": right, "minimum": minimum], until: deadline)
     }
 
     /// WebKit cuts the printable height into pages of whole CSS pixels and lets a document's `@page` size and margins

@@ -1590,7 +1590,7 @@ public final class DocumentRenderer {
                         latexPageNumbers: page.numbering, restartsAfterTitle: page.restartsAfterTitle,
                         collectsDiagrams: page.collectsDiagrams && settings.markdownChanges.isEmpty,
                         indexesFormulas: settings.indexesFormulas,
-                        latexFlow: latexFlow, protectsFrameEdges: true,
+                        latexFlow: latexFlow, protectsFrameEdges: settings.theme.isBuiltIn,
                         latexMarginInk: source.format == .latex && settings.theme.formats == [.latex]
                             && (checksVerticalLaTeXInk || LaTeXFlowPaginator.hasMarginInk(in: fragment.body)),
                         checksVerticalLaTeXInk: checksVerticalLaTeXInk,
@@ -2259,7 +2259,8 @@ public final class DocumentRenderer {
                     latexPageNumbers: page.numbering, restartsAfterTitle: page.restartsAfterTitle,
                     collectsDiagrams: collectsDiagrams && page.collectsDiagrams && settings.markdownChanges.isEmpty,
                     indexesFormulas: collectsDiagrams && settings.indexesFormulas,
-                    protectsFrameEdges: true, contentsHeadingIDs: collectsDiagrams ? page.contentsHeadingIDs : [],
+                    protectsFrameEdges: settings.theme.isBuiltIn,
+                    contentsHeadingIDs: collectsDiagrams ? page.contentsHeadingIDs : [],
                     footnotePass: pass)
             }
             try Task.checkCancellation()
