@@ -6,7 +6,7 @@ import SwiftUI
 enum PrintPalette {
     static var chrome: Color { color(.chrome) }
     static var stage: Color { color(.stage) }
-    static var stageColor: NSColor { dynamicColor(.stage) }
+    static var stageColor: NSColor { dynamicColor(.stage, options: DisplayAccessibility.shared.options) }
     static var raised: Color { color(.raised) }
     static var hover: Color { color(.hover) }
     static var press: Color { color(.press) }
@@ -131,7 +131,11 @@ enum PrintPalette {
         }
     }
 
-    private static func color(_ swatch: Swatch) -> Color { Color(nsColor: dynamicColor(swatch)) }
+    static func color(_ swatch: Swatch, options: DisplayAccessibility.Options = DisplayAccessibility.shared.options)
+        -> Color
+    {
+        Color(nsColor: dynamicColor(swatch, options: options))
+    }
 
     private struct ProviderKey: Hashable {
         let swatch: Swatch
@@ -142,8 +146,7 @@ enum PrintPalette {
     // Reuse each provider so reading the same role in consecutive layout passes produces the same SwiftUI color.
     private static var providers: [ProviderKey: NSColor] = [:]
 
-    private static func dynamicColor(_ swatch: Swatch) -> NSColor {
-        let options = DisplayAccessibility.shared.options
+    private static func dynamicColor(_ swatch: Swatch, options: DisplayAccessibility.Options) -> NSColor {
         let key = ProviderKey(
             swatch: swatch, increasedContrast: options.increasedContrast, reduceTransparency: options.reduceTransparency
         )

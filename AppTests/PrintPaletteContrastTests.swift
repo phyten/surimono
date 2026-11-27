@@ -27,11 +27,26 @@ struct PrintPaletteContrastTests {
     @MainActor
     @Test("暗い読み方パネルの固定値は札とパネルの両方で三対一以上になり、有効な値より薄い")
     func lockedReadingValue() throws {
-        let locked = try renderedContrast(locked: true)
-        let enabled = try renderedContrast(locked: false)
+        let locked = try renderedContrast(readingMenu("2 levels", locked: true))
+        let enabled = try renderedContrast(readingMenu("2 levels", locked: false))
         let detail = "locked \(locked), enabled \(enabled)"
         #expect(locked.onFill >= 3 && locked.onPanel >= 3, "\(detail)")
         #expect(locked.onFill < enabled.onFill && locked.onPanel < enabled.onPanel, "\(detail)")
+    }
+
+    @MainActor
+    @Test("暗い札の文字は四つの表示設定で読め、高コントラスト時は枠をパネルから見分けられる", arguments: [false, true], [false, true])
+    func lockedBadgeContrast(increased: Bool, reduced: Bool) throws {
+        let display = DisplayAccessibility.Options(increasedContrast: increased, reduceTransparency: reduced)
+        let sample = try renderedContrast(
+            LockedReadingBadge(valueLabel: Text(verbatim: "2 levels"), display: display).disabled(true))
+        let detail = "increased=\(increased) reduced=\(reduced) \(sample)"
+        #expect(sample.onFill >= 3 && sample.onPanel >= 3, "\(detail)")
+        if increased {
+            #expect(sample.edgeOnPanel >= 3, "\(detail)")
+        } else {
+            #expect(sample.edge == sample.fill, "\(detail)")
+        }
     }
 
     @MainActor
@@ -51,18 +66,21 @@ struct PrintPaletteContrastTests {
     }
 
     @MainActor
-    @Test("札の幅を絞ると長い値だけが一行で省略され、矢印との間に余白が残る", arguments: UILanguage.supported)
+    @Test("札の自然幅では値が収まり、文字の幅を半分にすると省略されても矢印との間に余白が残る", arguments: UILanguage.supported)
     func lockedReadingValueTruncation(language: String) throws {
         let strings = try #require(
             Bundle.main.url(forResource: language, withExtension: "lproj").flatMap(Bundle.init(url:)))
         for (key, shouldTruncate) in [("None", false), ("Show All Except LOGBOOK", true)] {
             let value = strings.localizedString(forKey: key, value: nil, table: nil)
+            let menu = readingMenu(value, locked: true)
+            let natural = NSHostingView(rootView: menu).fittingSize.width
+            let title = NSHostingView(rootView: Text(verbatim: value)).fittingSize.width
+            let width = shouldTruncate ? floor(natural - title / 2) : ceil(natural)
             var truncated: Bool?
-            let badge = readingMenu(value, locked: true)
-                .textRenderer(ObservedTitle { truncated = $0 })
-                .frame(maxWidth: 108, alignment: .trailing)
+            let badge = menu.textRenderer(ObservedTitle { truncated = $0 })
+                .frame(maxWidth: width, alignment: .trailing)
             let image = try bitmap(badge)
-            #expect(truncated == shouldTruncate, "\(language) \(value)")
+            #expect(truncated == shouldTruncate, "\(language) \(value) width=\(width) natural=\(natural)")
             // Both samples are relative to the trailing edge, even when the title fits naturally.
             let fill = try image.color(x: image.size.width - 25, y: 2)
             #expect(try image.matches(fill, trailing: 19..<32), "\(value): the gap contains ink")
@@ -98,12 +116,13 @@ struct PrintPaletteContrastTests {
     }
 
     @MainActor
-    private func renderedContrast(locked: Bool) throws -> (
-        ink: String, fill: String, panel: String, onFill: Double, onPanel: Double
+    private func renderedContrast(_ content: some View) throws -> (
+        ink: String, fill: String, panel: String, edge: String, onFill: Double, onPanel: Double, edgeOnPanel: Double
     ) {
-        let image = try bitmap(readingMenu("2 levels", locked: locked).padding(8))
+        let image = try bitmap(content.padding(8))
         let panel = hex(try image.color(x: 2, y: 2))
         let fill = hex(try image.color(x: 12, y: image.size.height / 2))
+        let edge = hex(try image.color(x: 8, y: image.size.height / 2))
         var ink = fill
         var onFill = 1.0
         // The leading half contains the first glyphs and excludes the trailing indicator.
@@ -114,7 +133,10 @@ struct PrintPaletteContrastTests {
                 if ratio > onFill { (ink, onFill) = (color, ratio) }
             }
         }
-        return (ink, fill, panel, onFill, try #require(CodeColor.contrast(ink, panel)))
+        return (
+            ink, fill, panel, edge, onFill, try #require(CodeColor.contrast(ink, panel)),
+            try #require(CodeColor.contrast(edge, panel))
+        )
     }
 
     @Test("刷り台の文字と枠は両方の外観と表示設定で背景から読み分けられる", arguments: [false, true], [false, true])
