@@ -217,6 +217,36 @@ struct DocumentSettingsFlowTests {
         #expect(panelHeight(next) == initial)
     }
 
+    @Test("Org パネルはグループを開かずに外部指定の注記を一つだけ表示し、指定が消えると行を詰める")
+    func orgPanelExternalSettingsNote() async throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        let body = "* 本文"
+        let page = pdf("本文", pages: 1)
+        let model = DocumentViewModel(
+            data: Data(body.utf8), fileURL: nil, format: .org, preferences: fixture.preferences,
+            library: fixture.library,
+            renderer: DocumentRenderer(paginate: { _ in PDFDocument(data: page)! }), settingsStore: fixture.store)
+        defer { model.stop() }
+        try await open(model)
+        func height() -> CGFloat {
+            let rows = VStack { OrgReadingRows(model: model, preferences: fixture.preferences) }
+            return NSHostingView(rootView: rows.fixedSize()).fittingSize.height
+        }
+        func reload(_ lines: [String]) async throws -> CGFloat {
+            model.replaceContent(Data((lines + [body]).joined(separator: "\n").utf8), format: .org)
+            try await waitUntil { model.orgFileInstructions != nil && !model.isRendering }
+            #expect(model.orgDocumentReading.changedCount == 0)
+            return height()
+        }
+        let plain = height()
+        let withNote = try await reload(["#+SETUPFILE: a.org"])
+        #expect(withNote > plain)
+        #expect(try await reload(["#+INCLUDE: b.org"]) == withNote)
+        #expect(try await reload(["#+INCLUDE: b.org", "#+SETUPFILE: a.org"]) == withNote)
+        #expect(try await reload([]) == plain)
+    }
+
     @Test("Org の既定には変更した値だけを写し、上書きを切ってもファイルが指定しない項目は残る", .timeLimit(.minutes(1)))
     func promoteOrgChanges() async throws {
         let fixture = try environment()

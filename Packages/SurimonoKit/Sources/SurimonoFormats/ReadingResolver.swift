@@ -20,10 +20,10 @@ public struct ReadingInstructionSource: Equatable, Sendable {
         self.rawText = rawText
     }
 
-    init(lines: ArraySlice<String>, index: Int) {
+    init(lines: ArraySlice<String>, index: Int, fileName: String? = nil) {
         let line = lines[index]
         let token = line.drop(while: \.isWhitespace)
-        self.init(fileName: nil, lineNumber: index + 1, rawText: String(token))
+        self.init(fileName: fileName, lineNumber: index + 1, rawText: String(token))
         excerpt = .init(
             previous: index > lines.startIndex ? lines[index - 1] : nil, line: line,
             next: index + 1 < lines.endIndex ? lines[index + 1] : nil,
