@@ -67,15 +67,35 @@ public enum StandalonePage {
     }
 
     public static func copy(of page: PDFPage) -> PDFPage? {
-        let annotations = page.annotations
+        if !page.annotations.isEmpty || hasStoredAnnotations(page) {
+            return independentCopy(of: page)
+        }
         guard let copy = page.copy() as? PDFPage else { return nil }
         retainSources(of: page, on: copy)
-        // A native page copy may reload annotations from its backing PDF instead of
-        // including annotations installed on the in-memory page after it was inserted.
+        return copy
+    }
+
+    static func hasStoredAnnotations(_ page: PDFPage) -> Bool {
+        guard let dict = page.pageRef?.dictionary else { return false }
+        var array: CGPDFArrayRef?
+        guard CGPDFDictionaryGetArray(dict, "Annots", &array), let array else { return false }
+        return CGPDFArrayGetCount(array) > 0
+    }
+
+    // Never edit a native page copy's annotations: its /Annots can still belong to the source.
+    // A single-page serialization can move the media origin. Callers rebind internal targets
+    // on their completed page tree; preserve live annotations if the native write omitted any.
+    static func independentCopy(of page: PDFPage) -> PDFPage? {
+        guard let data = page.dataRepresentation, let copy = first(of: data) else { return nil }
+        retainSources(of: page, on: copy)
+        let annotations = page.annotations
         if copy.annotations.count != annotations.count {
+            let before = page.bounds(for: .mediaBox).origin
+            let after = copy.bounds(for: .mediaBox).origin
             for old in copy.annotations { copy.removeAnnotation(old) }
             for original in annotations {
                 guard let annotation = original.copy() as? PDFAnnotation else { return nil }
+                annotation.bounds = original.bounds.offsetBy(dx: after.x - before.x, dy: after.y - before.y)
                 copy.addAnnotation(annotation)
             }
         }

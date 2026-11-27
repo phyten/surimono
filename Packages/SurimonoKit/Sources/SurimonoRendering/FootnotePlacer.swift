@@ -195,23 +195,26 @@ enum FootnotePlacer {
         let measured = try measure(document, plan: plan, placing: Set(groups.flatMap(\.notes)))
         let layouts = try layouts(document, measured: measured, plan: plan, groups: groups, margins: margins)
         let output = PDFDocument()
+        let links = annotationSource ?? document
         for index in 0..<measured.firstStockPage {
             try Task.checkCancellation()
             guard let page = document.page(at: index) else { throw PlacementError.cannotDraw }
             let copy: PDFPage
             if let layout = layouts[index] {
                 copy = try redraw(page, layout: layout, document: document, margins: margins)
+            } else if StandalonePage.hasStoredAnnotations(page) || !page.annotations.isEmpty
+                || links.page(at: index)?.annotations.isEmpty == false
+            {
+                guard let content = ViewPageDocument.contentPage(of: page) else { throw PlacementError.cannotDraw }
+                copy = content
             } else {
                 guard let duplicated = StandalonePage.copy(of: page) else { throw PlacementError.cannotDraw }
                 copy = duplicated
             }
-            // Rebuild every annotation only after all destination pages exist.
-            for annotation in copy.annotations { copy.removeAnnotation(annotation) }
             output.insert(copy, at: output.pageCount)
         }
         // The raw print determines all placement. Only copy the reader's annotations
         // after the reserved bands have been measured, checked for ink and drawn.
-        let links = annotationSource ?? document
         for index in 0..<output.pageCount {
             guard let source = links.page(at: index), let target = output.page(at: index) else {
                 throw PlacementError.cannotDraw

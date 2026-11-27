@@ -8,6 +8,7 @@ struct ReadingPDFNavigation: Sendable {
     typealias PageLinks = [Int: [Int: Raw.Link]]
 
     private var mediaOrigins: [CGPoint]
+    private let sourceAnnotationCounts: [Int]
     var links: [Raw.Link]
     var outline: [Raw.Entry]
 
@@ -30,7 +31,8 @@ struct ReadingPDFNavigation: Sendable {
 
     @MainActor
     private static func dictionaries(in document: PDFDocument, includesOutline: Bool) async throws -> (
-        origins: [CGPoint], links: PageLinks, outline: [Raw.Entry]
+        origins: [CGPoint], links: PageLinks, outline: [Raw.Entry], annotationCounts: [Int: Int],
+        duplicateLinkCounts: [Int: Int]
     ) {
         let count = document.pageCount
         let checkpoint = Self.makeCheckpoint(for: document)
@@ -57,6 +59,8 @@ struct ReadingPDFNavigation: Sendable {
         if let pdf = backing { sources[ObjectIdentifier(pdf)] = pdf }
         var byPage: [CGPDFDictionaryRef: [Int: Raw.Link]] = [:]
         var originalOutline: [Raw.Entry] = []
+        var annotationCounts: [Int: Int] = [:]
+        var duplicateLinkCounts: [Int: Int] = [:]
         for pdf in sources.values {
             let raw: Raw
             do {
@@ -77,6 +81,13 @@ struct ReadingPDFNavigation: Sendable {
                 if case .namedDestination = action { return .namedDestination(mapped) }
                 return .internalDestination(mapped)
             }
+            for (p, count) in raw.annotationCounts.enumerated() {
+                try await checkpoint()
+                if let key = pdf.page(at: p + 1)?.dictionary, let index = indexes[key] {
+                    annotationCounts[index] = count
+                    duplicateLinkCounts[index] = raw.duplicateLinkCounts[p]
+                }
+            }
             for link in raw.links {
                 try await checkpoint()
                 if let key = pdf.page(at: link.page + 1)?.dictionary, let index = indexes[key] {
@@ -94,7 +105,9 @@ struct ReadingPDFNavigation: Sendable {
             }
         }
 
-        return (origins, pageKeys.compactMapValues { byPage[$0] }, originalOutline)
+        return (
+            origins, pageKeys.compactMapValues { byPage[$0] }, originalOutline, annotationCounts, duplicateLinkCounts
+        )
     }
 
     @MainActor
@@ -112,6 +125,16 @@ struct ReadingPDFNavigation: Sendable {
         let checkpoint = Self.makeCheckpoint(for: document)
         let live = try await Self.projection(of: document)
         let backing = try await Self.dictionaries(in: document, includesOutline: true)
+        sourceAnnotationCounts = live.annotationCounts
+        if let (page, count) = backing.duplicateLinkCounts.min(by: { $0.key < $1.key }) {
+            guard live.annotationCounts.indices.contains(page) else {
+                throw ReadingPDFExporter.ExportError.cannotCopyDocument
+            }
+            throw ReadingPDFExporter.ExportError.navigation(
+                "\(stage) p\(page + 1): duplicate link annotation blocks "
+                    + "(PDFKit annotations=\(live.annotationCounts[page]), original /Annots=\(backing.annotationCounts[page] ?? 0), "
+                    + "original links=\(count)).")
+        }
         var originals = backing.links
         for (page, records) in boundLinks {
             originals[page, default: [:]].merge(records) { _, bound in bound }
@@ -143,8 +166,11 @@ struct ReadingPDFNavigation: Sendable {
             for link in records.values {
                 try await checkpoint()
                 if link.action.isInternal && visited[p]?.contains(link.annotation) != true {
+                    let liveCount = live.annotationCounts.indices.contains(p) ? live.annotationCounts[p] : 0
                     throw ReadingPDFExporter.ExportError.navigation(
-                        "\(stage) p\(p + 1) annotation=\(link.annotation): missing original link.")
+                        "\(stage) p\(p + 1) annotation=\(link.annotation): missing original link "
+                            + "(PDFKit annotations=\(liveCount), original /Annots=\(backing.annotationCounts[p] ?? 0), "
+                            + "bound links=\(boundLinks[p]?.count ?? 0)).")
                 }
             }
         }
@@ -212,7 +238,7 @@ struct ReadingPDFNavigation: Sendable {
     // The source is read on its owning actor. A saved file is independently opened and
     // inspected on the worker. Never use a Quartz fallback here: it would mask a broken GoTo.
     private static func projection(of document: PDFDocument, isolation: isolated (any Actor)? = #isolation)
-        async throws -> (links: [Raw.Link], outline: [Raw.Entry])
+        async throws -> (links: [Raw.Link], outline: [Raw.Entry], annotationCounts: [Int])
     {
         let count = document.pageCount
         var visited = 0
@@ -234,10 +260,13 @@ struct ReadingPDFNavigation: Sendable {
             return .internalDestination(target)
         }
         var links: [Raw.Link] = []
+        var annotationCounts: [Int] = []
         for p in 0..<count {
             try await checkpoint()
             guard let page = document.page(at: p) else { throw ReadingPDFExporter.ExportError.cannotCopyDocument }
-            for (i, annotation) in page.annotations.enumerated() {
+            let annotations = page.annotations
+            annotationCounts.append(annotations.count)
+            for (i, annotation) in annotations.enumerated() {
                 try await checkpoint()
                 if annotation.type == "Link" {
                     links.append(
@@ -267,12 +296,17 @@ struct ReadingPDFNavigation: Sendable {
                     action: action(child.action, child.destination)))
             stack.append((child, 0))
         }
-        return (links, entries)
+        return (links, entries, annotationCounts)
     }
 
-    private static func resolve(_ live: Raw.Action, original: Raw.Action?, detail: String) throws -> Raw.Action {
+    static func resolve(_ live: Raw.Action, original: Raw.Action?, detail: String) throws -> Raw.Action {
         func failure() -> ReadingPDFExporter.ExportError {
             .navigation("\(detail): PDFKit=\(live.summary), dictionary=\(original?.summary ?? "absent").")
+        }
+        if let original, case .pdfKitXYZ(_, let point) = original {
+            // The marker is not a page reference. Require independent agreement from the owning PDFDocument.
+            guard let target = live.target, original.matchesPDFKitXYZ(target) else { throw failure() }
+            return .internalDestination(.init(page: target.page, mode: "XYZ", arguments: [point.x, point.y, nil]))
         }
         if case .unresolved = original { throw failure() }
         guard let target = live.target else {
@@ -313,7 +347,7 @@ struct ReadingPDFNavigation: Sendable {
             switch entry.action {
             case .none: target = nil
             case .internalDestination(let dest), .namedDestination(let dest): target = dest
-            case .other, .unresolved, .missingPage, .releasedPage:
+            case .other, .unresolved, .pdfKitXYZ, .missingPage, .releasedPage:
                 throw ReadingPDFExporter.ExportError.navigation("Cannot reconstruct this bookmark action.")
             }
             var children: [Writer.Bookmark] = []
@@ -337,7 +371,7 @@ struct ReadingPDFNavigation: Sendable {
         // Keep the page, mode, nulls and zoom exact, and allow only floating-point roundoff for positions.
         for i in target.arguments.indices where target.arguments[i] != stored.arguments[i] {
             guard !(target.mode == "XYZ" && i == 2), let wanted = target.arguments[i], let got = stored.arguments[i],
-                abs(wanted - got) <= min(0.001, 4 * wanted.ulp)
+                Raw.sameStoredPosition(wanted, got)
             else { return false }
         }
         guard target.mode == "XYZ" else { return true }
@@ -367,8 +401,14 @@ struct ReadingPDFNavigation: Sendable {
         else {
             throw ReadingPDFExporter.ExportError.navigation("\(stage): cannot reopen \(pageCount) pages.")
         }
-        let native = try await Self.projection(of: document)
         let rebased = try self.rebased(to: document)
+        if let (page, count) = saved.duplicateLinkCounts.min(by: { $0.key < $1.key }) {
+            throw ReadingPDFExporter.ExportError.navigation(
+                "\(stage) p\(page + 1): duplicate link annotation blocks "
+                    + "(saved /Annots=\(saved.annotationCounts[page]), original PDFKit annotations=\(sourceAnnotationCounts[page]), "
+                    + "original links in the duplicated block=\(count)).")
+        }
+        let native = try await Self.projection(of: document)
         var observed: [Int: [Int: Raw.Link]] = [:]
         for link in native.links { observed[link.page, default: [:]][link.annotation] = link }
         var expected: [Int: [Int: Raw.Link]] = [:]
@@ -381,7 +421,9 @@ struct ReadingPDFNavigation: Sendable {
             guard let original = expected[link.page]?[link.annotation], let target = original.action.target else {
                 if link.action.isInternal {
                     throw ReadingPDFExporter.ExportError.navigation(
-                        "\(stage) p\(link.page + 1) annotation=\(link.annotation): unexpected internal link.")
+                        "\(stage) p\(link.page + 1) annotation=\(link.annotation): unexpected internal link "
+                            + "(saved /Annots=\(saved.annotationCounts[link.page]), original PDFKit annotations=\(sourceAnnotationCounts[link.page]))."
+                    )
                 }
                 continue
             }
