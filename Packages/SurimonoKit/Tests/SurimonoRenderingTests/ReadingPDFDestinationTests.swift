@@ -594,24 +594,39 @@ struct ReadingPDFDestinationTests {
             from: view, entries: [], title: "NeurIPS", furniture: footer ? [0: placement] : [:])
     }
 
-    private func checkCitations(from view: PDFDocument, against expected: [ReadingPDFRawNavigation.Link]) async throws {
-        let bytes = try await exportCitations(from: view)
+    private func checkCitations(
+        from view: PDFDocument, against expected: [ReadingPDFRawNavigation.Link], footer: Bool = false
+    ) async throws {
+        let bytes = try await exportCitations(from: view, footer: footer)
         let raw = try await ReadingPDFRawNavigation.read(bytes)
         let saved = try #require(PDFDocument(data: bytes))
         try #require(saved.pageCount == 3)
-        let annotations = try #require(saved.page(at: 0)?.annotations)
-        try #require(annotations.count == 10)
-        try #require(raw.links.filter { $0.page == 0 }.count == annotations.count)
+        #expect(raw.annotationCounts == [10, 0, 0])
+        try checkSavedCitations(in: saved, raw: raw, against: expected, start: 0)
+    }
+
+    private func checkSavedCitations(
+        in saved: PDFDocument, raw: ReadingPDFRawNavigation, against expected: [ReadingPDFRawNavigation.Link],
+        start: Int
+    ) throws {
+        let annotations = try #require(saved.page(at: start)?.annotations)
+        let links = raw.links.filter { $0.page == start }
+        try #require(expected.count == 10)
+        try #require(annotations.count == expected.count && links.count == expected.count)
         for (i, link) in expected.enumerated() {
             let target = try #require(link.action.target)
-            #expect(raw.links[i].annotation == i && raw.links[i].action.target == target)
+            let expectedPage = start + target.page
+            let expectedTarget = ReadingPDFNavigationWriter.Destination(
+                page: expectedPage, mode: target.mode, arguments: target.arguments)
+            let citation = "p\(start + 1) annotation=\(i)"
+            #expect(links[i].annotation == i && links[i].action.target == expectedTarget, "\(citation)")
             let annotation = annotations[i]
-            #expect(ReadingPDFNavigation.sameBounds(annotation.bounds, link.bounds))
+            #expect(ReadingPDFNavigation.sameBounds(annotation.bounds, link.bounds), "\(citation)")
             let dest = try #require((annotation.action as? PDFActionGoTo)?.destination ?? annotation.destination)
-            #expect(dest.page === saved.page(at: target.page))
-            #expect(abs(dest.point.x - (try #require(target.arguments[0]))) < 0.001)
-            #expect(abs(dest.point.y - (try #require(target.arguments[1]))) < 0.001)
-            #expect(dest.zoom == kPDFDestinationUnspecifiedValue)
+            #expect(dest.page === saved.page(at: expectedPage), "\(citation)")
+            #expect(abs(dest.point.x - (try #require(target.arguments[0]))) < 0.001, "\(citation)")
+            #expect(abs(dest.point.y - (try #require(target.arguments[1]))) < 0.001, "\(citation)")
+            #expect(dest.zoom == kPDFDestinationUnspecifiedValue, "\(citation)")
         }
     }
 
@@ -678,6 +693,7 @@ struct ReadingPDFDestinationTests {
     @Test("組版した子を二度とじても元の十件は増えず、引用はそれぞれの子のページへ飛ぶ")
     func binderKeepsSourceCitations() async throws {
         let bytes = citationPage(withCopies: false)
+        let expected = try await ReadingPDFRawNavigation.read(bytes)
         let original = try #require(PDFDocument(data: bytes))
         let renderer = DocumentRenderer(paginateWithResult: { _ in .init(document: original) })
         let child = DocumentSource(data: Data("Citations".utf8), format: .plainText)
@@ -687,10 +703,7 @@ struct ReadingPDFDestinationTests {
         let raw = try await ReadingPDFRawNavigation.read(output)
         #expect(raw.annotationCounts == [10, 0, 0, 10, 0, 0])
         for start in [0, 3] {
-            let link = try #require(native.page(at: start)?.annotations.first)
-            let dest = try #require((link.action as? PDFActionGoTo)?.destination ?? link.destination)
-            #expect(dest.page === native.page(at: start + 2))
-            #expect(abs(dest.point.x - 108) < 0.001 && abs(dest.point.y - 656.1506) < 0.001)
+            try checkSavedCitations(in: native, raw: raw, against: expected.links, start: start)
         }
         let backing = try await ReadingPDFRawNavigation.capture(try #require(original.documentRef))
         #expect(backing.annotationCounts == [10, 0, 0])
@@ -732,6 +745,16 @@ struct ReadingPDFDestinationTests {
         let backing = try await ReadingPDFRawNavigation.capture(try #require(source.documentRef))
         #expect(backing.annotationCounts == [10, 0, 0])
         try await checkCitations(from: source, against: expected.links)
+    }
+
+    @Test("フッターの有無にかかわらず引用十件の行き先を保って書き出し、元の注釈を増やさない", arguments: [false, true])
+    func exportsHealthyCitations(footer: Bool) async throws {
+        let bytes = citationPage(withCopies: false)
+        let expected = try await ReadingPDFRawNavigation.read(bytes)
+        let source = try #require(PDFDocument(data: bytes))
+        try await checkCitations(from: source, against: expected.links, footer: footer)
+        let backing = try await ReadingPDFRawNavigation.capture(try #require(source.documentRef))
+        #expect(backing.annotationCounts == [10, 0, 0])
     }
 
     @Test("二重の引用リンク配列は書き出さず、元の十件と二重になった件数を知らせる", arguments: [false, true])
