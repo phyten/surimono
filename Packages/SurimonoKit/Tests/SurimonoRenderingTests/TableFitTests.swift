@@ -38,7 +38,7 @@ struct TableFitTests {
 
     private func printed(
         _ body: String, layout: PrintLayout = .a4Single, fit: Bool = true, css: String = "",
-        theme chosen: PrintTheme? = nil, footnotes: FootnotePlacement = .end,
+        theme chosen: PrintTheme? = nil, footnotes: FootnotePlacement = .end, textScale: Double = 1,
         inspect: (@MainActor (WKWebView) async -> Void)? = nil,
         requested: (@MainActor (PaginationRequest) -> Void)? = nil
     ) async throws -> RenderResult {
@@ -59,6 +59,7 @@ struct TableFitTests {
                 formats: base.formats, script: base.script, flow: base.flow),
             preset: HTMLCleanupPreset(id: "none", name: "None"))
         settings.finish.footnotes = footnotes
+        settings.textScale = textScale
         return try await renderer.render(DocumentSource(data: Data(body.utf8), format: .markdown), settings: settings)
     }
 
@@ -70,6 +71,16 @@ struct TableFitTests {
             .logicalDocument
         try #require(document.pageCount == 1)
         return try #require(document.page(at: 0))
+    }
+
+    /// The device pixel ratio a print was laid out at.
+    @MainActor
+    private final class PixelRatio {
+        var value: Double?
+        func record(_ view: WKWebView) async {
+            value =
+                try? await view.evaluateForPrinting("return devicePixelRatio", until: .now + .seconds(10)) as? Double
+        }
     }
 
     /// Whether the first table of the printed DOM counts as fitted, so that it is not reported as too wide.
@@ -273,17 +284,23 @@ struct TableFitTests {
             + "table { border-left: 12px solid red !important; border-right: 12px solid red !important }"
         let log = FitLog()
         let fitted = Fitted()
+        let controlRatio = PixelRatio()
+        let actualRatio = PixelRatio()
         let (control, result) = try await atDeviceScale(CGFloat(scale)) {
             (
-                try await Raster(printPage(lead, css: css)),
+                try await Raster(
+                    #require(printed(lead, css: css, inspect: controlRatio.record).logicalDocument.page(at: 0))),
                 try await printed(
                     lead + table, css: css,
                     inspect: { view in
+                        await actualRatio.record(view)
                         await log.record(view)
                         await fitted.record(view)
                     })
             )
         }
+        // Both prints were laid out at the scale asked for.
+        #expect(controlRatio.value == scale && actualRatio.value == scale)
         let page = try #require(result.logicalDocument.page(at: 0))
         let actual = try Raster(page)
         let body = try control.bounds(channel: 2)
@@ -542,5 +559,111 @@ struct TableFitTests {
         let body = try control.bounds(channel: 2)
         #expect(actual.rows(through: body.maxY + 4) == control.rows(through: body.maxY + 4))
         checkOutsideRule(try actual.bounds(channel: 0), pageWidth: page.bounds(for: .mediaBox).width)
+    }
+
+    @Test("表の中の数式は、折り返さない指定を外すときも描いたまま刷る", .timeLimit(.minutes(1)))
+    func formulasKeepTheirLines() async throws {
+        // Only the nowrap cell makes the table too wide, so it is wrapped, not zoomed; the formula is drawn
+        // in the same place either way.
+        let table =
+            "| text | formula |\n|---|---|\n| " + String(repeating: "長いセル。", count: 30)
+            + " | $x^2 + \\frac{1}{2}$ |\n"
+        let css = "table { width: 90% !important; box-sizing: border-box } .math { color: lime }"
+        let reference = try await Raster(printPage(paragraph + table, fit: false, css: css))
+        let fitted = try await Raster(
+            printPage(paragraph + table, css: css + " td:first-child { white-space: nowrap }"))
+        let formula = try reference.bounds(channel: 1)
+        #expect(try fitted.bounds(channel: 1) == formula)
+        #expect(fitted.pixels(in: formula) == reference.pixels(in: formula))
+    }
+
+    @Test(
+        "本文の幅と内側の余白に端数があっても、収まる幅いっぱいの表は変えない", .timeLimit(.minutes(1)),
+        arguments: [531.25, 637.4])
+    func fractionalFit(width: Double) async throws {
+        _ = NSApplication.shared
+        let base = try theme
+        let padded = PrintTheme(id: base.id, name: base.name, css: base.css + "\nbody { padding: 0 10.3px }")
+        // In a column 531.25 pixels wide the body is 531.25 - 20.6 = 510.65; rounded to whole pixels, the table
+        // (511) would look wider than the body measured from its own rounded width (531 - 20.6 = 510.4).
+        let html = HTMLDocumentBuilder.build(
+            fragment: HTMLFragment(body: "<table style='width:100%'><tr><td>a</td><td>b</td></tr></table>"),
+            format: .markdown, theme: padded)
+        let source = WebPaginator.Source.html(html, baseURL: nil)
+        let session = PaginationSession(
+            source: source, pageSize: PrintLayout.a4Single.logicalPageSize, margins: .uniform(millimeters: 15),
+            allowsJavaScript: false, printsBackgrounds: true, printTimeout: .seconds(10),
+            onPrintStart: { _ in }, onPrintFinish: {}, onClose: {})
+        defer { session.requestClose() }
+        _ = try await session.loadForPrinting(source, timeout: .seconds(10), expireAfterCommit: nil)
+        session.webView.mediaType = "print"
+        let changed = try await TableFit.fit(
+            in: session.webView, width: CGFloat(width), until: .now + .seconds(10))
+        #expect(!changed)
+        let style = try await session.webView.evaluateForPrinting(
+            "return document.querySelector('table').getAttribute('style')", until: .now + .seconds(10))
+        #expect(style as? String == "width:100%")
+    }
+
+    @Test("文字が最小の大きさで止まる表は、等倍へ戻さず効いた所まで縮めてから横を詰める", .timeLimit(.minutes(1)))
+    func zoomKeptAtTextFloor() async throws {
+        // Single glyphs in bare cells: the text, which stops at WebKit's minimum size, is most of the width.
+        let cells = (1...130).map { _ in "<td style='padding:0'>8</td>" }.joined()
+        let log = FitLog()
+        _ = try await printed(
+            "<table style='font-size:12px'><tr>\(cells)</tr></table>\n", layout: .a4TwoUp, inspect: log.record)
+        let data = try #require(log.text.split(separator: " on ").first.map { Data($0.utf8) })
+        let record = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let step = try #require((record["steps"] as? [[String: Any]])?.first)
+        let scale = try #require(step["scale"] as? Double)
+        let narrowing = try #require(step["narrowing"] as? Double)
+        // The table is zoomed as far as its text shrinks, and narrowed alone for the rest only.
+        #expect(scale < 0.9, Comment(rawValue: log.text))
+        #expect(narrowing > 0.45, Comment(rawValue: log.text))
+    }
+
+    @Test("内側の余白と外罫を幅に含めない指定の表も、本文の幅の中に刷る", .timeLimit(.minutes(1)))
+    func contentBoxTable() async throws {
+        let css = "table { box-sizing: content-box !important; padding: 0 6px; border-left: 3px solid gray !important }"
+        let fitted = Fitted()
+        let result = try await printed(wideTable(rows: 1), css: css, inspect: fitted.record)
+        #expect(fitted.value)
+        #expect(result.issues.isEmpty)
+        let page = try #require(result.logicalDocument.page(at: 0))
+        checkOutsideRule(try Raster(page).bounds(channel: 0), pageWidth: page.bounds(for: .mediaBox).width)
+    }
+
+    @Test("語の途中で折り返さないスタイルでは、折り返さない指定を外すだけで収まる表の語を割らない", .timeLimit(.minutes(1)))
+    func wordsKeptWhole() async throws {
+        let table =
+            "<table style='width:90%;box-sizing:border-box'><tr><td>Status</td><td style='white-space:nowrap'>"
+            + String(repeating: "A long cell that should wrap between words. ", count: 12) + "</td></tr></table>"
+        let css = "td { overflow-wrap: normal }"
+        let reference = try await Raster(
+            printPage(paragraph + table.replacingOccurrences(of: "nowrap", with: "normal"), fit: false, css: css))
+        let fitted = try await Raster(printPage(paragraph + table, css: css))
+        #expect(fitted.data == reference.data)
+    }
+
+    @Test("文字の大きさが50%でも200%でも、右の外罫と本文の右端のすき間は紙の上で同じ", .timeLimit(.minutes(1)), arguments: [0.5, 2.0])
+    func reserveOnPaper(textScale: Double) async throws {
+        let result = try await printed(wideTable(rows: 1), textScale: textScale)
+        let page = try #require(result.logicalDocument.page(at: 0))
+        let rule = try Raster(page).bounds(channel: 0)
+        checkOutsideRule(rule, pageWidth: page.bounds(for: .mediaBox).width)
+        // The reserve is a length on paper: the same gap, between 1 and 2 points, at every text scale.
+        let gap = ((page.bounds(for: .mediaBox).width - 15 * 72 / 25.4) * 2 - rule.maxX) / 2
+        #expect(gap >= 1 && gap <= 2, "gap \(gap) pt")
+    }
+
+    @Test("横に並べる入れ物の中の表は測れないので、今までどおりにする", .timeLimit(.minutes(1)))
+    func flexContainerLeftAlone() async throws {
+        let cells = (1...40).map { "<td>c\($0)</td>" }.joined()
+        let source =
+            "<div style='display:flex;gap:12px'><span>!</span><div><table><tr>\(cells)</tr></table></div></div>\n"
+        let original = try await Raster(
+            #require(printed(source, fit: false).logicalDocument.page(at: 0)))
+        let fitted = try await Raster(#require(printed(source).logicalDocument.page(at: 0)))
+        #expect(original.data == fitted.data)
     }
 }
