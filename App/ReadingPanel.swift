@@ -325,18 +325,46 @@ struct ReadingMenu<Value: Hashable, Options: View>: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        Group {
-            if !isEnabled && colorScheme == .dark {
-                Picker(label, selection: $selection) {
-                    options
-                } currentValueLabel: {
-                    valueLabel.foregroundStyle(PrintPalette.disabledInk)
-                }
-            } else {
-                Picker(label, selection: $selection) { options }
+        if !isEnabled && colorScheme == .dark {
+            LockedReadingBadge(valueLabel: valueLabel, display: DisplayAccessibility.shared.options)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Text(label)).accessibilityValue(valueLabel)
+                .accessibilityAddTraits(.isStaticText)
+                .disabled(true)
+        } else {
+            Picker(label, selection: $selection) { options }
+                .labelsHidden().pickerStyle(.menu)
+        }
+    }
+}
+
+struct LockedReadingBadge: View {
+    /// The menu-style pop-up it stands in for is 24 pt tall from macOS 26 and 20 pt on macOS 15.
+    static var height: CGFloat {
+        if #available(macOS 26, *) { 24 } else { 20 }
+    }
+
+    let valueLabel: Text
+    let display: DisplayAccessibility.Options
+
+    var body: some View {
+        let ink = PrintPalette.color(.disabledInk, options: display)
+        HStack(spacing: 18) {
+            valueLabel.foregroundStyle(ink)
+                .lineLimit(1).truncationMode(.tail).clipped()
+            Image(systemName: "chevron.up.chevron.down")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(ink.opacity(0.6))
+                .frame(width: 10).fixedSize().accessibilityHidden(true)
+        }
+        .padding(.leading, 12).padding(.trailing, 8)
+        .frame(height: Self.height)
+        .background(PrintPalette.color(.hover, options: display), in: CornerRole.control.shape)
+        .overlay {
+            if display.increasedContrast {
+                CornerRole.control.shape.strokeBorder(PrintPalette.color(.line, options: display), lineWidth: 1)
             }
         }
-        .labelsHidden().pickerStyle(.menu)
     }
 }
 
