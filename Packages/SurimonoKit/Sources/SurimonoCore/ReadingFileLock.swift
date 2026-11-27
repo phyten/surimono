@@ -36,7 +36,7 @@ extension DocumentSettings {
         if after.restricted(to: [format]) != beforeContents {
             count += 1
             var migrated = self
-            if migrated.migrateContents(format: format, facts: facts, defaults: defaults, editing: true) {
+            if migrated.migrateContents(format: format, facts: facts, defaults: defaults, editing: .lead) {
                 finish = migrated.printFinish
                 after.inheritMissingLeadContents(from: migrated.formatReading, for: format)
                 after.revert(.tableOfContents, for: format, fileOnly: facts.contentsInstructions)

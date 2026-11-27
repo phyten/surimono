@@ -1,6 +1,7 @@
 import Foundation
 
 public struct ContentsFinish: Codable, Hashable, Sendable {
+    public enum Edit: Sendable { case lead, finish }
     public enum Placement: String, Codable, Sendable { case inline, page }
     public enum InText: String, Codable, Sendable { case asWritten, hidden }
 
@@ -108,6 +109,13 @@ extension PrintFinish {
     }
 }
 
+extension DocumentFacts {
+    package func leadContentsInstructions(for format: DocumentFormat, finish: PrintFinish?) -> ReadingFileInstructions {
+        if format == .rst, finish?.keepsRSTLeadInText == true { return .init() }
+        return contentsInstructions
+    }
+}
+
 extension OrgReadingDefaults.Depth {
     public init(_ depth: ReadingDepth?) {
         switch depth {
@@ -143,7 +151,7 @@ extension DocumentSettings {
             }
         }
         // A refused edit must not migrate a legacy finish. An accepted edit uses the pre-edit reading values.
-        printFinish?.adoptContents(editing: true)
+        printFinish?.adoptContents(editing: .lead, format: format)
         writeLeadContents(value, format: format, facts: facts, defaults: defaults, orgDefaults: orgDefaults)
     }
 
@@ -158,7 +166,8 @@ extension DocumentSettings {
         } else {
             formatReading.set(
                 .outline(present: value != .off, depth: value.readingDepth ?? .all),
-                for: .tableOfContents, format: format, file: facts?.contentsInstructions ?? .init(), defaults: defaults)
+                for: .tableOfContents, format: format,
+                file: facts?.leadContentsInstructions(for: format, finish: printFinish) ?? .init(), defaults: defaults)
         }
     }
 
@@ -166,27 +175,32 @@ extension DocumentSettings {
     @discardableResult
     public mutating func migrateContents(
         format: DocumentFormat, facts: DocumentFacts, defaults: FormatReadingChoices = .init(),
-        orgDefaults: OrgReadingDefaults = .surimono, editing: Bool = false
+        orgDefaults: OrgReadingDefaults = .surimono, editing: ContentsFinish.Edit? = nil
     ) -> Bool {
         guard var finish = printFinish else { return false }
         guard let legacy = finish.legacyTOC else {
-            guard let original = finish.originalPresetContents else { return false }
-            if !editing {
-                // Older automatic migrations treated the native depth of three as a file lock.
-                guard original.mode == .source, format == .markdown || format == .mediawiki,
-                    facts.contentsInstructions.present?.value == true, facts.contentsInstructions.depth == nil,
-                    formatReading.leadContents(for: format, file: facts.contentsInstructions, defaults: defaults)
-                        != .levels(3)
+            if let editing {
+                guard
+                    finish.originalPresetContents != nil
+                        || (format == .rst && editing == .lead && finish.keepsRSTLeadInText)
                 else { return false }
-                writeLeadContents(
-                    .levels(3), format: format, facts: facts, defaults: defaults, orgDefaults: orgDefaults)
+                finish.adoptContents(editing: editing, format: format)
+                printFinish = finish
                 return true
             }
-            finish.adoptContents(editing: true)
-            printFinish = finish
+            // Older automatic migrations treated the native depth of three as a file lock.
+            guard finish.originalPresetContents?.mode == .source, format == .markdown || format == .mediawiki,
+                facts.contentsInstructions.present?.value == true, facts.contentsInstructions.depth == nil,
+                formatReading.leadContents(for: format, file: facts.contentsInstructions, defaults: defaults)
+                    != .levels(3)
+            else { return false }
+            writeLeadContents(.levels(3), format: format, facts: facts, defaults: defaults, orgDefaults: orgDefaults)
             return true
         }
-        guard editing || legacy.canMigrate(format: format, facts: facts) else { return false }
+        guard editing != nil || legacy.canMigrate(format: format, facts: facts) else { return false }
+        // Write the legacy choice against the same manuscript instructions the adopted finish will render.
+        finish.adoptContents(editing: editing, format: format)
+        printFinish = finish
         if format != .latex {
             let value: OrgReadingDefaults.Depth?
             switch legacy.mode {
@@ -208,8 +222,6 @@ extension DocumentSettings {
                 writeLeadContents(value, format: format, facts: facts, defaults: defaults, orgDefaults: orgDefaults)
             }
         }
-        finish.adoptContents(editing: editing)
-        printFinish = finish
         return true
     }
 }

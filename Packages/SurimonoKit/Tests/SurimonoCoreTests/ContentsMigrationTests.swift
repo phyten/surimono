@@ -326,10 +326,27 @@ struct ContentsMigrationTests {
             let automatic = document.migrateContents(format: format, facts: facts)
             #expect(!automatic)
             #expect(finish.contentsBody(fragment, facts: facts, format: format, lead: .all) == fragment.body)
-            let edited = document.migrateContents(format: format, facts: facts, editing: true)
+            let edited = document.migrateContents(format: format, facts: facts, editing: .lead)
             #expect(edited)
             #expect(document.printFinish?.legacyTOC == nil)
         }
+    }
+
+    @Test("旧版の目次は仕上げや別形式の編集で移行せず、rST の先頭目次を戻すと移行する", arguments: ["toc", "migratedTOC"])
+    func rstLeadMigration(record: String) throws {
+        let json = "{\"\(record)\":{\"mode\":\"hidden\"}}"
+        let finish = try JSONDecoder().decode(PrintFinish.self, from: Data(json.utf8))
+        var document = DocumentSettings(printFinish: finish)
+        let facts = DocumentFacts(fragment: RSTConverter.convert(".. contents:: Map\n\nOne\n===\n\nTwo\n==="))
+        _ = document.migrateContents(format: .rst, facts: facts, editing: .finish)
+        document.printFinish?.contents.inText = .asWritten
+        document = try JSONDecoder().decode(DocumentSettings.self, from: JSONEncoder().encode(document))
+        document.printFinish?.contents.inText = .hidden
+        document.setLeadContents(.levels(1), format: .markdown, facts: nil, defaults: .init(), orgDefaults: .surimono)
+        #expect(document.printFinish?.keepsRSTLeadInText == true)
+        let adopted = document.migrateContents(format: .rst, facts: facts, editing: .lead)
+        #expect(adopted && document.printFinish?.keepsRSTLeadInText == false)
+        #expect(document.printFinish?.contents.inText == .hidden)
     }
 
     @Test("旧形式の文書・新規文書の仕上げ・設定セットを再保存しても保留中の目次を失わない")
@@ -364,10 +381,10 @@ struct ContentsMigrationTests {
         var saved = DocumentSettings(printFinish: old)
         let automatic = saved.migrateContents(format: .markdown, facts: facts)
         #expect(!automatic)
-        let first = saved.migrateContents(format: .markdown, facts: facts, editing: true)
+        let first = saved.migrateContents(format: .markdown, facts: facts, editing: .lead)
         #expect(first)
         saved.printFinish?.contents.inText = .asWritten
-        let second = saved.migrateContents(format: .markdown, facts: facts, editing: true)
+        let second = saved.migrateContents(format: .markdown, facts: facts, editing: .lead)
         #expect(!second)
         #expect(saved.formatReading.leadContents(for: .markdown, file: facts.contentsInstructions) == .levels(3))
         #expect(saved.printFinish?.contents.inText == .asWritten)

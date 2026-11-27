@@ -6,6 +6,9 @@ public struct FormatReadingSettings: Sendable {
     /// A separate contents page can use the native outline even when the manuscript omits its preamble.
     public var separateContentsPage: Bool
 
+    /// Older finishes hid manuscript directives and could add a separate lead from the document settings.
+    package var keepsRSTLeadInText = false
+
     public init(
         document: FormatReadingChoices = .init(), defaults: FormatReadingChoices = .init(),
         manuscriptContents: Bool = false, separateContentsPage: Bool = false

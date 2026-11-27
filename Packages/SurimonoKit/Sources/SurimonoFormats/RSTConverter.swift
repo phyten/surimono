@@ -42,20 +42,21 @@ public enum RSTConverter {
         let body = document.blocks(lines)
         if PreviewConversion.expired { return HTMLFragment(body: "") }
         document.finishHeadingText()
-        let lead = document.directives.lead
-        let file = lead?.instructions ?? .init()
+        let directive = document.directives.lead
+        let lead = reading.keepsRSTLeadInText ? nil : directive
         let options = reading.resolve(
-            for: .rst, numbers: document.directives.numbers, contents: file, contentsDepth: nil)
-        let html = document.finishReferences(document.finishDirectives(body, options: options))
+            for: .rst, numbers: document.directives.numbers, contents: lead?.instructions ?? .init(), contentsDepth: nil
+        )
+        let html = document.finishReferences(document.finishDirectives(body, options: options, leadID: lead?.id))
         let fonts = MathRenderer.fontFaces(for: html)
         var fragment = HTMLFragment(
             body: html + (fonts.isEmpty ? "" : "<style>\(fonts)</style>"), title: document.title,
             readingIssues: document.issueCount > 0 ? [String(document.issueCount)] : [],
             decidesHeadingNumbers: options.ownsNumbers
-        ).recordingContents(file)
+        ).recordingContents(directive?.instructions ?? .init())
         fragment.numberInstructions = document.directives.numbers
         fragment.contentsTitle = lead.flatMap { $0.label.isEmpty ? nil : $0.label }
-        fragment.inTextContentsMarker = document.directives.contents.first(where: { $0.id != lead?.id }).map {
+        fragment.inTextContentsMarker = document.directives.contents.first(where: { $0.id != directive?.id }).map {
             $0.local ? ":local:" : ($0.instructions.present?.source?.rawText ?? ".. contents::")
         }
         return lead == nil ? fragment.addingLeadContents(depth: options.lead) : fragment

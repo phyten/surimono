@@ -101,7 +101,7 @@ extension RSTDocument {
                 numbering ? ["depth", "start", "prefix", "suffix"] : ["depth", "local", "class", "backlinks"]
             guard let marker = first.range(of: "::"), first[marker.upperBound...].first?.isWhitespace != false,
                 let line = blockReader?.sourceLine, sourceLines.indices.contains(line),
-                Self.expandTabs(sourceLines[line]).rstStripped.hasSuffix(first),
+                Self.expandTabs(sourceLines[line]).rstStripped.hasSuffix(first.rstStripped),
                 numbering ? d.argument.isEmpty : d.argument.prefixMatch(of: /^:[\w-]+:(?:\s|$)/) == nil,
                 d.lines.isEmpty, d.options.keys.allSatisfy(keys.contains),
                 d.options["depth"] == nil || (parsedDepth ?? 0) > 0,
