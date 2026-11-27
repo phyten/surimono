@@ -65,9 +65,12 @@ struct BandArrangementRenderingTests {
         }
     }
 
-    private func waitUntil(_ condition: () -> Bool) async throws {
+    private func waitUntil(
+        _ detail: @autoclosure () -> String = "", _ condition: () -> Bool,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) async throws {
         for _ in 0..<500 where !condition() { try await Task.sleep(for: .milliseconds(10)) }
-        #expect(condition())
+        try #require(condition(), "\(detail())", sourceLocation: sourceLocation)
     }
 
     private func open(_ model: DocumentViewModel) async throws {
@@ -503,29 +506,41 @@ struct BandArrangementRenderingTests {
         let controller = MemoryDocumentWindowController(model: model, onClose: {})
         defer { controller.close() }
         let window = try #require(controller.window)
-        window.alphaValue = 0
-        window.orderFrontRegardless()
+        window.orderFront(nil)
         model.start()
-        try await waitUntil { model.contentHash != nil && model.result != nil && !model.isRendering }
-        model.sizeWindowToPaper(initialOnly: true)
-        // Measured: the traffic lights' room, "…" and Print as an icon, far more than the paper's own 140 pt minimum.
-        try await waitUntil { ViewerWindow.bandMinimumWidth(of: window) > 160 }
-        let minimum = ViewerWindow.bandMinimumWidth(of: window)
+        let anchors = model.bandAnchors
         let content = { window.contentRect(forFrameRect: window.frame) }
-        // The app's own smallest paper for this page, as a reader's remembered size or a narrow page would ask.
+        func geometry() -> String {
+            "content=\(content()) minimum=\(ViewerWindow.bandMinimumWidth(of: window)) contentMin=\(window.contentMinSize) "
+                + "lights=\(String(describing: TrafficLights(window: window))) frames=\(anchors.frames) "
+                + "form=\(String(describing: anchors.plan?.top.forms[.print])) band=\(model.bandInset)"
+        }
+        try await waitUntil("文書の組版: \(geometry())") {
+            model.contentHash != nil && model.result != nil && !model.isRendering
+        }
+        model.sizeWindowToPaper(initialOnly: true)
+        // This page at the minimum paper height is 140pt wide. Require a binding band minimum
+        // and real controls, without assuming a particular system's button or title bar metrics.
+        try await waitUntil("帯の測定: \(geometry())") {
+            ViewerWindow.bandMinimumWidth(of: window) > 140
+                && anchors.frames[.more]?.isEmpty == false && anchors.frames[.item(.print)]?.isEmpty == false
+        }
+        let minimum = ViewerWindow.bandMinimumWidth(of: window)
         ViewerWindow.setPaperSize(CGSize(width: 140, height: 280), band: model.bandInset, of: window, animate: false)
-        #expect(content().width >= minimum)
-        #expect(abs((content().height - model.bandInset) - content().width * 2) <= 2)
-        try await waitUntil {
-            let print = model.bandAnchors.frames[.item(.print)] ?? .null
-            return !print.isNull && print.minX >= 0 && print.maxX <= content().width + 0.5
-                && model.bandAnchors.plan?.top.forms[.print] != nil
+        #expect(content().width >= minimum, "\(geometry())")
+        #expect(abs((content().height - model.bandInset) - content().width * 2) <= 2, "\(geometry())")
+        try await waitUntil("最小幅で信号機・…・印刷が順に収まる: \(geometry())") {
+            guard let lights = TrafficLights(window: window), let more = anchors.frames[.more],
+                let print = anchors.frames[.item(.print)], !more.isEmpty, !print.isEmpty
+            else { return false }
+            return lights.trailingX <= more.minX && more.maxX <= print.minX && print.maxX <= content().width + 0.5
+                && anchors.plan?.top.forms[.print] != nil
         }
 
-        // Wider bands than the window: the window grows on its own after the update, keeping the paper's shape.
-        model.bandMinimumWidthDidChange(minimum + 60)
-        try await waitUntil { content().width >= minimum + 60 }
-        #expect(abs((content().height - model.bandInset) - content().width * 2) <= 2)
+        let wider = content().width + 60
+        model.bandMinimumWidthDidChange(wider)
+        try await waitUntil("帯を広げた後の窓幅 \(wider): \(geometry())") { content().width >= wider }
+        #expect(abs((content().height - model.bandInset) - content().width * 2) <= 2, "\(geometry())")
     }
 
     @Test("一覧のボタンの場所は一覧が帯にある間だけドロップの的になり、外した配置では残らない")

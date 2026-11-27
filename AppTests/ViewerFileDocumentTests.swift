@@ -138,7 +138,9 @@ struct ViewerFileDocumentTests {
             do {
                 let (document, _) = try await open(url)
                 let window = try #require(document.windowControllers.first?.window)
-                let model = try #require(DocumentWindows.shared.model(for: window))
+                // NSMapTable returns the model through Objective-C. Drain the lookup's temporary
+                // ownership separately from the Swift reference that ends before the release checks.
+                let model = try autoreleasepool { try #require(DocumentWindows.shared.model(for: window)) }
                 content = try await ClosedContent(window: window, model: model, holdingPaper: holdingPaper)
                 content.fileDocument = document
                 // Exercise a second display generation without saving layout settings for the bundled fixture.
@@ -153,7 +155,7 @@ struct ViewerFileDocumentTests {
                     try #require(displayed !== content.pdf)
                     content.lastDisplay = displayed
                 }
-                window.performClose(nil)
+                autoreleasepool { window.performClose(nil) }
             }
             #expect(NSDocumentController.shared.document(for: url) == nil)
             try await check(content)
@@ -331,11 +333,22 @@ struct ViewerFileDocumentTests {
 
         func waitForRelease(_ stillAlive: () -> [String?]) async throws {
             let deadline = ContinuousClock.now + .seconds(6)
-            while stillAlive().contains(where: { $0 != nil }), ContinuousClock.now < deadline {
+            while autoreleasepool(invoking: { stillAlive().contains(where: { $0 != nil }) }),
+                ContinuousClock.now < deadline
+            {
                 try await Task.sleep(for: .milliseconds(10))
             }
             let remaining = stillAlive().compactMap { $0 }
-            try #require(remaining.isEmpty, "still alive: \(remaining.joined(separator: ", "))")
+            try #require(
+                remaining.isEmpty,
+                Comment(
+                    rawValue: "still alive: \(remaining); closed=\(String(describing: model?.isWindowClosed)), "
+                        + "hostAttached=\(window.contentViewController === host), viewAttached=\(hostingView.window != nil), "
+                        + "registered=\(DocumentWindows.shared.model(for: window) != nil), "
+                        + "activeModel=\(model != nil && DocumentWindows.shared.activeModel === model), "
+                        + "dropBound=\(dropCatcher.model != nil), paper=\(remainingPaperContent ?? "retired or released")"
+                )
+            )
         }
 
         // On macOS 26 we observed AppKit's tracking-area hit test autorelease the paper into XCTest's

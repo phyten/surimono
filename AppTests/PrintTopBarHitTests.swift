@@ -11,23 +11,27 @@ import Testing
 @MainActor
 @Suite(.serialized, .timeLimit(.minutes(1)))
 struct PrintTopBarHitTests {
-    private struct Screen {
+    @MainActor private struct Screen {
         let model: DocumentViewModel
         let controller: MemoryDocumentWindowController
         let window: NSWindow
         let directory: URL
         let suite: TestDefaultsSuite
+        let focus: TestWindowMouse.Focus
 
         func close() {
             controller.close()
+            focus.restore()
             try? FileManager.default.removeItem(at: directory)
             suite.remove()
         }
     }
 
-    private func waitUntil(_ condition: () -> Bool) async throws {
+    private func waitUntil(
+        _ detail: @autoclosure () -> String, _ condition: () -> Bool, sourceLocation: SourceLocation = #_sourceLocation
+    ) async throws {
         for _ in 0..<500 where !condition() { try await Task.sleep(for: .milliseconds(10)) }
-        #expect(condition())
+        try #require(condition(), "\(detail())", sourceLocation: sourceLocation)
     }
 
     private func screen(compare: Bool) async throws -> Screen {
@@ -42,11 +46,13 @@ struct PrintTopBarHitTests {
         // Nothing here may reach a printer or a save panel.
         model.printSubmit = { _, _, _ in Issue.record("A print job was submitted") }
         model.outputOverride = { _, _ in Issue.record("An output was started") }
+        let focus = TestWindowMouse.Focus()
         let controller = MemoryDocumentWindowController(model: model, onClose: {})
         var handedOff = false
         defer {
             if !handedOff {
                 controller.close()
+                focus.restore()
                 try? FileManager.default.removeItem(at: directory)
                 suite.remove()
             }
@@ -54,14 +60,19 @@ struct PrintTopBarHitTests {
         let window = try #require(controller.window)
         controller.showWindow(nil)
         model.start()
-        try await waitUntil { model.result != nil && !model.isRendering }
+        try await waitUntil("組版完了") { model.result != nil && !model.isRendering }
         if compare { model.enterCompareMode() } else { model.enterPrintMode() }
-        // The stage takes its toolbar and its frame after the mode changes; the view mode's views must be gone.
-        try await Task.sleep(for: .milliseconds(800))
-        // A refused entry would leave the view mode, where the click test's "back to the view" is already true.
-        try #require(model.mode == (compare ? .compare : .print))
+        try await waitUntil("画面の切替: \(TestWindowMouse.diagnostic(in: window))") {
+            model.mode == (compare ? .compare : .print) && window.toolbar != nil
+                && window.frame.width == (compare ? 900 : 760)
+                && TrafficLights(window: window)?.centerY == PrintTopBar.height / 2
+        }
+        try await focus.prepare(window)
+        window.contentView?.layoutSubtreeIfNeeded()
+        window.displayIfNeeded()
         handedOff = true
-        return Screen(model: model, controller: controller, window: window, directory: directory, suite: suite)
+        return Screen(
+            model: model, controller: controller, window: window, directory: directory, suite: suite, focus: focus)
     }
 
     /// The window's root view, which holds the title bar in front of the content.
@@ -101,12 +112,21 @@ struct PrintTopBarHitTests {
         )
         let content = try #require(window.contentView)
         let bar = CGRect(x: 0, y: height - PrintTopBar.height, width: window.frame.width, height: PrintTopBar.height)
-        let probe = ClickProbe(frame: content.convert(bar, from: nil))
+        // Include a control point well below the title bar to distinguish a blocked toolbar from
+        // a host that cannot deliver synthetic clicks anywhere in this window.
+        let probe = ClickProbe(frame: content.bounds)
         content.addSubview(probe, positioned: .above, relativeTo: nil)
         defer { probe.removeFromSuperview() }
         let center = NSPoint(x: bar.midX, y: bar.midY)
         let parent = try #require(content.superview)
         try #require(content.hitTest(parent.convert(center, from: nil)) === probe, "本文側で押下を記録できる検査窓")
+        if #unavailable(macOS 26) {
+            let control = NSPoint(x: bar.midX, y: bar.minY - 40)
+            try TestWindowMouse.click(at: control, in: window, queueRelease: true)
+            try #require(
+                probe.received == control,
+                "本文の対照点への押下: \(TestWindowMouse.diagnostic(in: window, at: control))")
+        }
         var taken: [NSPoint] = []
         // Probe the usable interior, including the space on both sides of the traffic lights and between
         // controls. The top and side resize borders and the rounded window corners aren't content buttons:
@@ -123,35 +143,15 @@ struct PrintTopBarHitTests {
                 // On the newer systems the frame already returns the content responder across the bar.
                 // Reserve event tracking for points whose raw hit doesn't establish that.
                 if #available(macOS 26, *), frameView.hitTest(point) === probe { continue }
-                func event(_ type: NSEvent.EventType) throws -> NSEvent {
-                    try #require(
-                        NSEvent.mouseEvent(
-                            with: type, location: point, modifierFlags: [],
-                            timestamp: ProcessInfo.processInfo.systemUptime,
-                            windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1,
-                            pressure: type == .leftMouseDown ? 1 : 0))
-                }
                 probe.received = nil
-                // A real obstruction may track synchronously in mouseDown. Queue its matching release first;
-                // if the probe received the down, deliver the queued release before testing the next point.
-                let down = try event(.leftMouseDown)
-                let up = try event(.leftMouseUp)
-                window.postEvent(up, atStart: true)
-                NSApp.sendEvent(down)
-                if let next = NSApp.nextEvent(
-                    matching: .leftMouseUp, until: .distantPast, inMode: .default, dequeue: false),
-                    next.timestamp == up.timestamp && next.windowNumber == window.windowNumber,
-                    let release = NSApp.nextEvent(
-                        matching: .leftMouseUp, until: .distantPast, inMode: .default, dequeue: true)
-                {
-                    NSApp.sendEvent(release)
-                }
+                try TestWindowMouse.click(at: point, in: window, queueRelease: true)
                 if probe.received != point { taken.append(point) }
             }
         }
         if let point = taken.first {
-            let hit = root(of: window)?.hitTest(point)
-            Issue.record("本文に押下が届かなかった点は \(taken.count) 個、先頭 \(taken.prefix(10))、ビュー \(String(describing: hit))")
+            Issue.record(
+                "本文に押下が届かなかった点は \(taken.count) 個、先頭 \(taken.prefix(10))、\(TestWindowMouse.diagnostic(in: window, at: point))"
+            )
         }
     }
 
@@ -167,6 +167,8 @@ struct PrintTopBarHitTests {
         let point = NSPoint(x: lights.titleLeading + 20, y: height - lights.centerY)
         #expect(point.x > 92 && point.x < 136)
         try TestWindowMouse.click(at: point, in: window)
-        try await waitUntil { screen.model.mode == .view }
+        try await waitUntil("表示へ戻る: \(TestWindowMouse.diagnostic(in: window, at: point))") {
+            screen.model.mode == .view
+        }
     }
 }

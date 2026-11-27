@@ -155,7 +155,49 @@ struct PopoverCloseControlTests {
 /// A native button can run its own mouse-tracking loop synchronously inside mouseDown.
 @MainActor
 enum TestWindowMouse {
-    static func click(at point: NSPoint, in window: NSWindow) throws {
+    /// Sequoia may consume a background window's first down to activate it. Wait for the actual
+    /// editing session before sending test input, and give its owner back the focus afterwards.
+    @MainActor struct Focus {
+        private let previousApp = NSWorkspace.shared.frontmostApplication
+        private weak var previousKey = NSApp.keyWindow
+
+        func prepare(_ window: NSWindow) async throws {
+            if #unavailable(macOS 26) {
+                if !NSApp.isActive { NSApp.activate() }
+                window.makeKeyAndOrderFront(nil)
+                let deadline = ContinuousClock.now + .seconds(5)
+                while !(NSApp.isActive && window.isKeyWindow), ContinuousClock.now < deadline {
+                    try await Task.sleep(for: .milliseconds(20))
+                }
+                try #require(NSApp.isActive && window.isKeyWindow, "入力先の窓を選択: \(diagnostic(in: window))")
+            }
+        }
+
+        func restore() {
+            if #unavailable(macOS 26) {
+                if let previousKey, previousKey.isVisible { previousKey.makeKeyAndOrderFront(nil) }
+                if NSApp.isActive, let previousApp,
+                    previousApp.processIdentifier != ProcessInfo.processInfo.processIdentifier
+                {
+                    NSApp.yieldActivation(to: previousApp)
+                    previousApp.activate(options: [])
+                }
+            }
+        }
+    }
+
+    static func diagnostic(in window: NSWindow, at point: CGPoint? = nil) -> String {
+        var root = window.contentView
+        while let parent = root?.superview { root = parent }
+        let hit = point.flatMap { root?.hitTest($0) }
+        let screenPoint = point.map { window.convertPoint(toScreen: $0) }
+        return "active=\(NSApp.isActive) policy=\(NSApp.activationPolicy().rawValue) key=\(window.isKeyWindow) "
+            + "visible=\(window.isVisible) frame=\(window.frame) layout=\(window.contentLayoutRect) "
+            + "screen=\(String(describing: window.screen?.visibleFrame)) point=\(String(describing: screenPoint)) "
+            + "hit=\(String(describing: hit.map { type(of: $0) }))"
+    }
+
+    static func click(at point: NSPoint, in window: NSWindow, queueRelease: Bool = false) throws {
         func event(_ type: NSEvent.EventType, pressure: Float) throws -> NSEvent {
             try #require(
                 NSEvent.mouseEvent(
@@ -163,23 +205,24 @@ enum TestWindowMouse {
                     windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1,
                     pressure: pressure))
         }
-        if #available(macOS 26, *) {
+        if #available(macOS 26, *), !queueRelease {
             // Application dispatch delivers the pair to the numbered window even while the test host is inactive.
             NSApp.sendEvent(try event(.leftMouseDown, pressure: 1))
             NSApp.sendEvent(try event(.leftMouseUp, pressure: 1))
             return
         }
         // Sequoia can enter a synchronous tracking loop in mouseDown and needs the matching up already queued.
-        var root = window.contentView
-        while let parent = root?.superview { root = parent }
-        let hit = root.flatMap { $0.hitTest($0.convert(point, from: nil)) }
-        print(
-            "test click: window=\(window.windowNumber) point=\(point) hit=\(String(describing: hit.map { type(of: $0) }))"
-        )
         let down = try event(.leftMouseDown, pressure: 1)
-        window.postEvent(try event(.leftMouseUp, pressure: 0), atStart: true)
+        let up = try event(.leftMouseUp, pressure: 0)
+        window.postEvent(up, atStart: true)
         NSApp.sendEvent(down)
-        print("test click: mouseDown returned")
+        // SwiftUI controls that track asynchronously still need the release. Leave unrelated events alone.
+        if let next = NSApp.nextEvent(matching: .leftMouseUp, until: .distantPast, inMode: .default, dequeue: false),
+            next.windowNumber == up.windowNumber, next.timestamp == up.timestamp,
+            let release = NSApp.nextEvent(matching: .leftMouseUp, until: .distantPast, inMode: .default, dequeue: true)
+        {
+            NSApp.sendEvent(release)
+        }
     }
 }
 
