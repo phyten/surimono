@@ -354,19 +354,21 @@ struct PrintedFragmentBoundaryTests {
     @Test("WebKit の返信期限を過ぎても完成した本文を保ち、後から来た返信を捨てる")
     func missingWebReply() async throws {
         let paper = try RenderingFixtures.pdfData(pages: [["Finished"]])
-        // The print callback has already delivered bytes. Only the optional read shares
-        // this short deadline; WebKit may call its completion after its waiter has gone.
-        // Complete the same capture gate as the vertical compositor immediately before
-        // its deadline; the missing navigation reply outlives that original deadline.
-        let finished = try await VerticalPaginator.capturedData(timeout: .milliseconds(100)) { deadline in
-            try await Task.sleep(until: deadline - .milliseconds(15), clock: .continuous)
-            return paper
-        }
+        let finished = try await VerticalPaginator.capturedData(timeout: .seconds(10)) { _ in paper }
         var late: WebKitReply<String>.Completion?
-        let snapshot = try await PrintedFragmentLinks.read(budget: .milliseconds(40)) { deadline in
-            try await WebKitReply<String>.wait(until: deadline) { late = $0 }
+        let snapshot = try await PrintedFragmentLinks.read(budget: .seconds(10)) { deadline in
+            try await WebKitReply<String>.wait(until: deadline) { reply in
+                // Deliver the timeout before sending the WebKit reply, regardless of scheduling.
+                late = reply
+                reply(.failure(WebPaginator.PaginationError.timedOut))
+            }
         }
-        late?(.success("{}"))
+        let lateReply = try #require(late)
+        let next = try await WebKitReply<String>.wait(until: .now + .seconds(10)) { reply in
+            lateReply(.success(#"{"text":"Late","links":[],"anchors":[],"rows":[]}"#))
+            reply(.success("Next"))
+        }
+        #expect(next == "Next")
         #expect(snapshot == nil)
         let navigation = try await snapshot?.resolve(in: finished)
         let document = try #require(PDFDocument(data: navigation?.bytes ?? finished))
