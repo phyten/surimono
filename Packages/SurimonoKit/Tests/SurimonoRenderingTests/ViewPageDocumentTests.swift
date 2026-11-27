@@ -502,4 +502,116 @@ struct ViewPageDocumentTests {
         #expect(footer.bounds(for: after).minY >= 0)
         #expect(footer.bounds(for: after).maxY < (margin == 0 ? 15 : 42))
     }
+
+    @Test("縦スクロール結合は途中で終わったページの未使用下端を切り取り、満杯・最終・原本は変えない")
+    func scrollSeamBottomTrimming() throws {
+        let source = try drawTestDocument(size: CGSize(width: 300, height: 500)) { context in
+            // Page 0: content only in the upper half (y = 320..440), leaving blank paper below.
+            context.beginPDFPage(nil)
+            context.setFillColor(CGColor(gray: 0.1, alpha: 1))
+            context.fill(CGRect(x: 42, y: 320, width: 200, height: 120))
+            context.endPDFPage()
+            // Page 1: full page with a footnote-like element right above the bottom margin (y = 44..60).
+            context.beginPDFPage(nil)
+            context.setFillColor(CGColor(gray: 0.1, alpha: 1))
+            context.fill(CGRect(x: 42, y: 400, width: 200, height: 40))
+            context.fill(CGRect(x: 42, y: 44, width: 160, height: 16))
+            context.endPDFPage()
+            // Page 2: last page with content only near the top.
+            context.beginPDFPage(nil)
+            context.setFillColor(CGColor(gray: 0.1, alpha: 1))
+            context.fill(CGRect(x: 42, y: 380, width: 200, height: 60))
+            context.endPDFPage()
+        }
+        let options = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false)
+        let base = ViewPageLayout(pageCount: 3, options: options, hasLogicalMargins: true, showsNumbers: false)
+        let bottoms = ViewPageDocument.contentBottoms(of: source, pages: base.trimmableBottomPages, margin: 42)
+        let plan = ViewPageLayout(
+            pageCount: 3, options: options, hasLogicalMargins: true, showsNumbers: false, contentBottoms: bottoms)
+        let copy = try #require(ViewPageDocument.make(source, plan: plan, margin: 42))
+
+        // Page 0 trimmed from y = 0 up to 320 - 10 = 310 (leaving 10 pt breathing room below the ink).
+        let first = try #require(copy.page(at: 0)?.bounds(for: .cropBox))
+        #expect(abs(first.minY - 310) <= 1)
+        #expect(abs(first.maxY - 500) <= 0.1)
+        // Page 1 has bottom content at y = 44, so it keeps the regular top and bottom 42 pt margin crop.
+        #expect(copy.page(at: 1)?.bounds(for: .cropBox) == CGRect(x: 0, y: 42, width: 300, height: 416))
+        // Page 2 is the last page: top margin cut, bottom kept intact.
+        #expect(copy.page(at: 2)?.bounds(for: .cropBox) == CGRect(x: 0, y: 0, width: 300, height: 458))
+        // Original source pages stay completely untouched.
+        for index in 0..<3 {
+            #expect(source.page(at: index)?.bounds(for: .cropBox) == CGRect(x: 0, y: 0, width: 300, height: 500))
+        }
+    }
+
+    @Test("色付きの紙・縦線の紙・薄い背景の囲みは正しく測り、方眼紙と白紙は切り詰めない")
+    func contentBottomsPaperBackgroundsAndFaintBoxes() throws {
+        let source = try drawTestDocument(size: CGSize(width: 300, height: 500)) { context in
+            // Page 0: warm tinted paper (#fffdf7) with dark content at y = 260..420.
+            context.beginPDFPage(nil)
+            context.setFillColor(CGColor(srgbRed: 1, green: 253.0 / 255, blue: 247.0 / 255, alpha: 1))
+            context.fill(CGRect(x: 0, y: 0, width: 300, height: 500))
+            context.setFillColor(CGColor(gray: 0.15, alpha: 1))
+            context.fill(CGRect(x: 42, y: 260, width: 180, height: 160))
+            context.endPDFPage()
+            // Page 1: vertical rule running edge-to-edge (like Cornell notes) with content at y = 300..420.
+            context.beginPDFPage(nil)
+            context.setFillColor(CGColor(gray: 1, alpha: 1))
+            context.fill(CGRect(x: 0, y: 0, width: 300, height: 500))
+            context.setFillColor(CGColor(srgbRed: 0.5, green: 0.6, blue: 0.7, alpha: 1))
+            context.fill(CGRect(x: 80, y: 0, width: 1, height: 500))
+            context.setFillColor(CGColor(gray: 0.15, alpha: 1))
+            context.fill(CGRect(x: 100, y: 300, width: 140, height: 120))
+            context.endPDFPage()
+            // Page 2: pale code block background (#f7f7f7) down to y = 220.
+            context.beginPDFPage(nil)
+            context.setFillColor(CGColor(gray: 247.0 / 255, alpha: 1))
+            context.fill(CGRect(x: 42, y: 220, width: 216, height: 180))
+            context.endPDFPage()
+            // Page 3: 2D grid background (horizontal lines every 20 pt across the whole page).
+            context.beginPDFPage(nil)
+            context.setStrokeColor(CGColor(srgbRed: 0.85, green: 0.9, blue: 0.95, alpha: 1))
+            context.setLineWidth(1)
+            for y in stride(from: 10, to: 500, by: 20) {
+                context.move(to: CGPoint(x: 0, y: y))
+                context.addLine(to: CGPoint(x: 300, y: y))
+            }
+            context.strokePath()
+            context.endPDFPage()
+            // Page 4: completely blank page.
+            context.beginPDFPage(nil)
+            context.endPDFPage()
+        }
+        let bottoms = ViewPageDocument.contentBottoms(of: source, pages: [0, 1, 2, 3, 4], margin: 42)
+        #expect(abs((bottoms[0] ?? -1) - 260) <= 1)
+        #expect(abs((bottoms[1] ?? -1) - 300) <= 1)
+        #expect(abs((bottoms[2] ?? -1) - 220) <= 1)
+        #expect(bottoms[3] == nil)
+        #expect(bottoms[4] == nil)
+    }
+
+    @Test("変更の印が本文より下にあるときは印を切らない位置を下端とする")
+    func contentBottomsRespectChangeMarks() throws {
+        let source = try drawTestDocument(size: CGSize(width: 300, height: 500)) { context in
+            context.beginPDFPage(nil)
+            context.setFillColor(CGColor(gray: 0.1, alpha: 1))
+            context.fill(CGRect(x: 42, y: 340, width: 200, height: 80))
+            context.endPDFPage()
+        }
+        let mark = ChangeMark(
+            pageIndex: 0, rect: CGRect(x: 42, y: 200, width: 200, height: 20), isShort: true, afterBlock: true)
+        let bottoms = ViewPageDocument.contentBottoms(of: source, pages: [0], margin: 42, changeMarks: [mark])
+        // Short afterBlock mark extends 3 pt below rect.minY -> 197.
+        #expect(bottoms[0] == 197)
+    }
+
+    private func drawTestDocument(size: CGSize, draw: (CGContext) -> Void) throws -> PDFDocument {
+        let data = NSMutableData()
+        var box = CGRect(origin: .zero, size: size)
+        let consumer = try #require(CGDataConsumer(data: data as CFMutableData))
+        let context = try #require(CGContext(consumer: consumer, mediaBox: &box, nil))
+        draw(context)
+        context.closePDF()
+        return try #require(PDFDocument(data: data as Data))
+    }
 }

@@ -637,9 +637,21 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
                 top: placement.lines.top.contains { !$0.isEmpty },
                 bottom: placement.lines.bottom.contains { !$0.isEmpty })
         }
-        let plan = ViewPageLayout(
+        let basePlan = ViewPageLayout(
             pageCount: source.pageCount, options: effectiveOptions, hasLogicalMargins: logicalMargin != nil,
             showsNumbers: showsPageNumbers, pageSizes: sizes, keptEdges: keptEdges)
+        let trimmable = basePlan.trimmableBottomPages
+        let plan: ViewPageLayout
+        if trimmable.isEmpty {
+            plan = basePlan
+        } else {
+            let contentBottoms = ViewPageDocument.contentBottoms(
+                of: source, pages: trimmable, margin: logicalMargin ?? 0, changeMarks: changeMarks)
+            plan = ViewPageLayout(
+                pageCount: source.pageCount, options: effectiveOptions, hasLogicalMargins: logicalMargin != nil,
+                showsNumbers: showsPageNumbers, pageSizes: sizes, keptEdges: keptEdges,
+                contentBottoms: contentBottoms)
+        }
         let key = plan.documentKey(margin: Double(logicalMargin ?? 0))
         if sourceDocument === source, documentKey == key, drawnChangeMarks == changeMarks,
             drawnFurniture == furniture, document != nil
