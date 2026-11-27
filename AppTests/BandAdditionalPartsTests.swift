@@ -153,22 +153,34 @@ struct BandAdditionalPartsTests {
     }
 
     /// A click as AppKit delivers it, at the middle of the chip.
-    private func click(_ item: BandLayout.Item, in fixture: Fixture) throws {
+    private func click(_ item: BandLayout.Item, in fixture: Fixture, focus: TestWindowMouse.Focus) async throws {
+        let window = fixture.window
+        try await focus.prepare(window)
         let frame = try #require(chipFrame(item, in: fixture))
         let point = NSPoint(x: frame.midX, y: frame.midY)
-        fixture.lastClick = TestWindowMouse.diagnostic(in: fixture.window, at: point)
-        let screenPoint = fixture.window.convertPoint(toScreen: point)
+        fixture.lastClick = TestWindowMouse.diagnostic(in: window, at: point)
+        try #require(!NSApp.isActive || window.isKeyWindow, "クリック直前の入力先: \(fixture.lastClick)")
+        let screenPoint = window.convertPoint(toScreen: point)
         try #require(
-            fixture.window.screen?.visibleFrame.contains(screenPoint) == true,
-            "表示中のチップ: \(TestWindowMouse.diagnostic(in: fixture.window, at: point))")
-        try TestWindowMouse.click(at: point, in: fixture.window, queueRelease: true)
+            window.isVisible && window.screen?.visibleFrame.contains(screenPoint) == true,
+            "表示中のチップ: \(fixture.lastClick)")
+        if #available(macOS 26, *), let button = TestWindowMouse.hit(at: point, in: window) as? NSButton {
+            // A native button tracks synchronously. Press the enabled control hit at the visible chip.
+            try #require(button.isEnabled)
+            fixture.lastClick += " action=performClick"
+            button.performClick(nil)
+        } else {
+            // SwiftUI-hosted controls use a direct down/up pair on 26+, and a queued up for tracking on 15.
+            fixture.lastClick += " action=mouse"
+            try TestWindowMouse.click(at: point, in: window)
+        }
     }
 
     @Test(
         "配置した切り替えは、実際のチップをクリックするとモデルの状態が変わる",
         arguments: [BandLayout.Item.selectText, .alwaysShowToolbar, .cover, .ignoreSlides])
     func toggleThroughChip(item: BandLayout.Item) async throws {
-        let focus = TestWindowMouse.Focus()
+        let focus = TestWindowMouse.Focus(selectInActiveHost: true)
         defer { focus.restore() }
         let fixture = try Fixture(parts: [item], width: min(NSScreen.main?.visibleFrame.width ?? 800, 1000) - 40)
         defer { fixture.close() }
@@ -182,14 +194,14 @@ struct BandAdditionalPartsTests {
             chipFrame(item, in: fixture) != nil
         }
         let id = try #require(BandMenuContent.ID(rawValue: item.rawValue))
-        let before = try #require(BandMenuContent(model: fixture.model).entry(id).isChecked)
-        try click(item, in: fixture)
+        let before = try #require(BandMenuContent(model: fixture.model).entry(id).isChecked as Bool?)
+        try await click(item, in: fixture, focus: focus)
         try await waitUntil("\(item): クリックの後にモデルの状態が反転する", fixture: fixture) {
             BandMenuContent(model: fixture.model).entry(id).isChecked == !before
         }
         // A second click puts it back: the chip is bound to the state, not a one-way trigger.
         try await waitUntil("\(item): 反転後もチップが帯にある", fixture: fixture) { chipFrame(item, in: fixture) != nil }
-        try click(item, in: fixture)
+        try await click(item, in: fixture, focus: focus)
         try await waitUntil("\(item): もう一度のクリックで元に戻る", fixture: fixture) {
             BandMenuContent(model: fixture.model).entry(id).isChecked == before
         }
@@ -298,7 +310,7 @@ struct BandAdditionalPartsTests {
 
     @Test("ファイル保存チップは注入した保存先選択だけを呼ぶ")
     func saveThroughChip() async throws {
-        let focus = TestWindowMouse.Focus()
+        let focus = TestWindowMouse.Focus(selectInActiveHost: true)
         defer { focus.restore() }
         let fixture = try Fixture(
             parts: [.saveAsFile], width: min(NSScreen.main?.visibleFrame.width ?? 800, 1000) - 40,
@@ -311,7 +323,7 @@ struct BandAdditionalPartsTests {
         }
         fixture.window.center()
         if #available(macOS 26, *) {
-            try click(.saveAsFile, in: fixture)
+            try await click(.saveAsFile, in: fixture, focus: focus)
         } else {
             let host = try #require(fixture.window.contentView)
             func saveButtons() -> [any NSAccessibilityProtocol] {
@@ -339,7 +351,7 @@ struct BandAdditionalPartsTests {
                 try #require(button.accessibilityPerformPress(), "表示中の保存チップが押下を受理する")
             } else {
                 // The host has no AX client. Exercise the same visible control through the window.
-                try click(.saveAsFile, in: fixture)
+                try await click(.saveAsFile, in: fixture, focus: focus)
             }
         }
         try await waitUntil("実保存チップから注入した保存先選択を1回呼ぶ", fixture: fixture) {

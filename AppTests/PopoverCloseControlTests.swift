@@ -160,22 +160,34 @@ enum TestWindowMouse {
     @MainActor struct Focus {
         private let previousApp = NSWorkspace.shared.frontmostApplication
         private weak var previousKey = NSApp.keyWindow
+        private let selectInActiveHost: Bool
+
+        init(selectInActiveHost: Bool = false) {
+            self.selectInActiveHost = selectInActiveHost
+        }
 
         func prepare(_ window: NSWindow) async throws {
-            if #unavailable(macOS 26) {
-                if !NSApp.isActive { NSApp.activate() }
-                window.makeKeyAndOrderFront(nil)
-                let deadline = ContinuousClock.now + .seconds(5)
-                while !(NSApp.isActive && window.isKeyWindow), ContinuousClock.now < deadline {
-                    try await Task.sleep(for: .milliseconds(20))
-                }
-                try #require(NSApp.isActive && window.isKeyWindow, "入力先の窓を選択: \(diagnostic(in: window))")
+            if #available(macOS 26, *) {
+                // Newer hosts also accept a directly dispatched event pair in the background.
+                // When the app is active, a band click needs its particular fixture window to be key.
+                guard selectInActiveHost, NSApp.isActive else { return }
+            } else if !NSApp.isActive {
+                NSApp.activate()
             }
+            if !NSApp.isActive || !window.isKeyWindow { window.makeKeyAndOrderFront(nil) }
+            let deadline = ContinuousClock.now + .seconds(5)
+            while !(NSApp.isActive && window.isKeyWindow), ContinuousClock.now < deadline {
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            try #require(NSApp.isActive && window.isKeyWindow, "入力先の窓を選択: \(diagnostic(in: window))")
         }
 
         func restore() {
+            if #available(macOS 26, *) {
+                guard selectInActiveHost, NSApp.isActive else { return }
+            }
+            if let previousKey, previousKey.isVisible { previousKey.makeKeyAndOrderFront(nil) }
             if #unavailable(macOS 26) {
-                if let previousKey, previousKey.isVisible { previousKey.makeKeyAndOrderFront(nil) }
                 if NSApp.isActive, let previousApp,
                     previousApp.processIdentifier != ProcessInfo.processInfo.processIdentifier
                 {
@@ -186,10 +198,14 @@ enum TestWindowMouse {
         }
     }
 
-    static func diagnostic(in window: NSWindow, at point: CGPoint? = nil) -> String {
+    static func hit(at point: CGPoint, in window: NSWindow) -> NSView? {
         var root = window.contentView
         while let parent = root?.superview { root = parent }
-        let hit = point.flatMap { root?.hitTest($0) }
+        return root?.hitTest(point)
+    }
+
+    static func diagnostic(in window: NSWindow, at point: CGPoint? = nil) -> String {
+        let hit = point.flatMap { Self.hit(at: $0, in: window) }
         let screenPoint = point.map { window.convertPoint(toScreen: $0) }
         return "active=\(NSApp.isActive) policy=\(NSApp.activationPolicy().rawValue) key=\(window.isKeyWindow) "
             + "visible=\(window.isVisible) frame=\(window.frame) layout=\(window.contentLayoutRect) "
