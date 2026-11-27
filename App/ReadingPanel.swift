@@ -325,18 +325,26 @@ struct ReadingMenu<Value: Hashable, Options: View>: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        Group {
-            if !isEnabled && colorScheme == .dark {
-                Picker(label, selection: $selection) {
-                    options
-                } currentValueLabel: {
-                    valueLabel.foregroundStyle(PrintPalette.disabledInk)
-                }
-            } else {
-                Picker(label, selection: $selection) { options }
+        if !isEnabled && colorScheme == .dark {
+            HStack(spacing: 18) {
+                valueLabel.foregroundStyle(PrintPalette.disabledInk)
+                    .lineLimit(1).truncationMode(.tail).clipped()
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(PrintPalette.disabledInk.opacity(0.6))
+                    .frame(width: 10).fixedSize().accessibilityHidden(true)
             }
+            .padding(.leading, 12).padding(.trailing, 8)
+            .frame(height: 24)
+            .background(PrintPalette.hover, in: CornerRole.control.shape)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(label)).accessibilityValue(valueLabel)
+            .accessibilityAddTraits(.isStaticText)
+            .disabled(true)
+        } else {
+            Picker(label, selection: $selection) { options }
+                .labelsHidden().pickerStyle(.menu)
         }
-        .labelsHidden().pickerStyle(.menu)
     }
 }
 
