@@ -2,7 +2,9 @@ import AppKit
 import JavaScriptCore
 import PDFKit
 import SurimonoCore
+import SurimonoFormats
 import Testing
+import WebKit
 
 @testable import SurimonoRendering
 
@@ -35,25 +37,50 @@ struct TableFitTests {
     }
 
     private func printed(
-        _ body: String, layout: PrintLayout = .a4Single, fit: Bool = true, css: String = ""
+        _ body: String, layout: PrintLayout = .a4Single, fit: Bool = true, css: String = "",
+        theme chosen: PrintTheme? = nil, footnotes: FootnotePlacement = .end,
+        inspect: (@MainActor (WKWebView) async -> Void)? = nil,
+        requested: (@MainActor (PaginationRequest) -> Void)? = nil
     ) async throws -> RenderResult {
         _ = NSApplication.shared
         let renderer = DocumentRenderer(paginateWithResult: { request in
             var request = request
             if !fit { request.fitsTables = false }
-            return try await WebPaginator().paginate(request)
+            requested?(request)
+            let paginator = WebPaginator()
+            paginator.inspectPrintLayout = inspect
+            return try await paginator.paginate(request)
         })
-        let base = try theme
-        let settings = RenderSettings(
-            layout: layout, theme: PrintTheme(id: base.id, name: base.name, css: base.css + "\n" + css),
+        let base = try chosen ?? theme
+        var settings = RenderSettings(
+            layout: layout,
+            theme: PrintTheme(
+                id: base.id, name: base.name, css: base.css + "\n" + css, category: base.category,
+                formats: base.formats, script: base.script, flow: base.flow),
             preset: HTMLCleanupPreset(id: "none", name: "None"))
+        settings.finish.footnotes = footnotes
         return try await renderer.render(DocumentSource(data: Data(body.utf8), format: .markdown), settings: settings)
     }
 
-    private func printPage(_ body: String, fit: Bool = true, css: String = "") async throws -> PDFPage {
-        let document = try await printed(body, fit: fit, css: css).logicalDocument
+    private func printPage(
+        _ body: String, fit: Bool = true, css: String = "", theme: PrintTheme? = nil,
+        footnotes: FootnotePlacement = .end
+    ) async throws -> PDFPage {
+        let document = try await printed(body, fit: fit, css: css, theme: theme, footnotes: footnotes)
+            .logicalDocument
         try #require(document.pageCount == 1)
         return try #require(document.page(at: 0))
+    }
+
+    /// Whether the last table of the printed DOM was narrowed by a transform, the last resort.
+    @MainActor
+    private final class Transformed {
+        var value = false
+        func record(_ view: WKWebView) async {
+            let transform = try? await view.evaluateJavaScript(
+                "getComputedStyle([...document.querySelectorAll('table')].at(-1)).transform")
+            value = (transform as? String).map { $0 != "none" } ?? false
+        }
     }
 
     private struct Raster {
@@ -74,6 +101,42 @@ struct TableFitTests {
             context.translateBy(x: -bounds.minX, y: -bounds.minY)
             context.drawPDFPage(try #require(page.pageRef))
             data = Data(bytes: try #require(context.data), count: width * height * 4)
+        }
+
+        /// The first rows of pixels, down to and including `y`.
+        func rows(through y: CGFloat) -> Data { data.prefix((Int(y) + 1) * width * 4) }
+
+        /// The pixels inside `rect`, row by row.
+        func pixels(in rect: CGRect) -> [UInt8] {
+            var result: [UInt8] = []
+            for y in Int(rect.minY)..<Int(rect.maxY) {
+                let start = (y * width + Int(rect.minX)) * 4
+                result += data[start..<start + Int(rect.width) * 4]
+            }
+            return result
+        }
+
+        /// Row markers from top to bottom: 0 magenta, 1 cyan, 2 yellow, one entry per marker.
+        func markers() -> [Int] {
+            let height = data.count / 4 / width
+            var result: [Int] = []
+            var previous: Int?
+            data.withUnsafeBytes { (bytes: UnsafeRawBufferPointer) in
+                for y in 0..<height {
+                    var found: Int?
+                    for x in 0..<width {
+                        let i = (y * width + x) * 4
+                        let (r, g, b) = (bytes[i], bytes[i + 1], bytes[i + 2])
+                        if r > 200 && g < 60 && b > 200 { found = 0 }
+                        if r < 60 && g > 200 && b > 200 { found = 1 }
+                        if r > 200 && g > 200 && b < 60 { found = 2 }
+                        if found != nil { break }
+                    }
+                    if let found, found != previous { result.append(found) }
+                    previous = found
+                }
+            }
+            return result
         }
 
         func bounds(channel: Int) throws -> CGRect {
@@ -120,9 +183,16 @@ struct TableFitTests {
     private func wideTable(rows: Int) -> String {
         func row(_ cells: [String]) -> String { "|" + cells.joined(separator: "|") + "|\n" }
         let head = row((1...40).map { "c\($0)" }) + row(Array(repeating: "---", count: 40))
-        // A single glyph in the outside column measures its printed type independently of the border.
-        let cells = (1..<40).map(String.init) + ["<span style='color:lime'>H</span>"]
-        return head + String(repeating: row(cells), count: rows)
+        let colors = ["#ff00ff", "#00ffff", "#ffff00"]
+        return head
+            + (0..<rows).map { index in
+                // Each row starts with a marker whose colour follows the row number, so a lost, repeated or
+                // reordered row shows. A single glyph in the outside column measures its printed type
+                // independently of the border.
+                let marker =
+                    "<span style='display:inline-block;width:10px;height:10px;background:\(colors[index % 3])'></span>"
+                return row([marker] + (2..<40).map(String.init) + ["<span style='color:lime'>H</span>"])
+            }.joined()
     }
 
     @Test("40列表だけを縮めて最後の列を刷り、外罫と本文の右端の間に余裕を残す", .timeLimit(.minutes(1)))
@@ -131,8 +201,9 @@ struct TableFitTests {
         let control = try await Raster(printPage(lead))
         let page = try await printPage(lead + wideTable(rows: 1))
         let actual = try Raster(page)
-        let body = try actual.bounds(channel: 2)
-        #expect(try body == control.bounds(channel: 2))
+        let body = try control.bounds(channel: 2)
+        // Heading and body text, everything above the table, are the same pixels as without the table.
+        #expect(actual.rows(through: body.maxY + 4) == control.rows(through: body.maxY + 4))
         let last = try actual.bounds(channel: 1)
         let border = try actual.bounds(channel: 0)
         #expect(last.height < body.height && last.maxX <= border.minX)
@@ -153,7 +224,8 @@ struct TableFitTests {
         let control = try await Raster(printPage(lead, css: css))
         let page = try await printPage(lead + table, css: css)
         let actual = try Raster(page)
-        #expect(try actual.bounds(channel: 2) == control.bounds(channel: 2))
+        let body = try control.bounds(channel: 2)
+        #expect(actual.rows(through: body.maxY + 4) == control.rows(through: body.maxY + 4))
         let rules = try actual.bounds(channel: 0)
         let margin = 15 * 72 / 25.4 * 2
         let rightEdge = page.bounds(for: .mediaBox).width * 2 - margin
@@ -178,10 +250,12 @@ struct TableFitTests {
         let document = result.logicalDocument
         try #require(document.pageCount >= 2)
         var firstRule: CGRect?
+        var markers: [Int] = []
         for index in 0..<document.pageCount {
             let page = try #require(document.page(at: index))
             try #require(page.bounds(for: .mediaBox).width < 430)
             let pixels = try Raster(page)
+            markers += pixels.markers()
             let border = try pixels.bounds(channel: 0)
             let last = try pixels.bounds(channel: 1)
             #expect(last.maxX <= border.minX)
@@ -192,6 +266,8 @@ struct TableFitTests {
                 firstRule = border
             }
         }
+        // Every row is printed once, in order, across the pages.
+        #expect(markers == (0..<75).map { $0 % 3 })
         // Sample each occupied half on the actual imposed sheets, including booklet backs.
         for (index, side) in result.plan.sides.enumerated() {
             let sheet = try #require(result.sheetDocument.page(at: index))
@@ -229,7 +305,8 @@ struct TableFitTests {
         }
         let fitted = try await Raster(wide.firstPage(for: normal))
         let plain = try await Raster(control.firstPage(for: normal))
-        #expect(try fitted.bounds(channel: 2) == plain.bounds(channel: 2))
+        let body = try plain.bounds(channel: 2)
+        #expect(fitted.rows(through: body.maxY + 4) == plain.rows(through: body.maxY + 4))
         let edge = try fitted.bounds(channel: 0)
         let rightEdge = (wide.pageSize.width - wide.margins.right) * 2
         #expect(edge.maxX <= ceil(rightEdge) && edge.minX > rightEdge - 24)
@@ -244,5 +321,133 @@ struct TableFitTests {
         let original = try await Raster(printPage(source, fit: false))
         let fitted = try await Raster(printPage(source))
         #expect(original.data == fitted.data)
+    }
+
+    @Test("最後の手段で横に縮めた表も、表の中と後ろの段落は同じスタイルで刷る", .timeLimit(.minutes(1)))
+    func lastResortKeepsSelectors() async throws {
+        func row(_ cells: [String]) -> String { "|" + cells.joined(separator: "|") + "|\n" }
+        let wide =
+            row((1...40).map { "c\($0)" }) + row(Array(repeating: "---", count: 40))
+            + row((1..<40).map(String.init) + ["H"])
+        // Rules that only hold while the table is a child of the body, with the paragraph right after it.
+        let css = """
+            body > p { color: black } body > table + p { color: blue }
+            body > table td:last-child { color: lime }
+            """
+        let transformed = Transformed()
+        let result = try await printed(
+            wide + "\nAfter the table\n", layout: .a4TwoUp, css: css, inspect: transformed.record)
+        try #require(transformed.value)
+        #expect(result.issues.isEmpty)
+        let page = try Raster(#require(result.logicalDocument.page(at: 0)))
+        let narrow = try await printed("| a |\n|---|\n| H |\n\nAfter the table\n", layout: .a4TwoUp, css: css)
+        let control = try Raster(#require(narrow.logicalDocument.page(at: 0)))
+        let after = try page.bounds(channel: 2)
+        let expected = try control.bounds(channel: 2)
+        #expect(after.size == expected.size)
+        #expect(page.pixels(in: after) == control.pixels(in: expected))
+        let last = try page.bounds(channel: 1)
+        let border = try page.bounds(channel: 0)
+        #expect(last.maxX <= border.minX && last.maxY < after.minY)
+    }
+
+    @Test(
+        "向きの違う親の中の表も、最後の手段で縮めて両端の外罫と端のセルを本文の幅の中に刷る", .timeLimit(.minutes(1)),
+        arguments: [("ltr", "rtl"), ("rtl", "ltr")])
+    func mixedDirections(parent: String, table: String) async throws {
+        let ends = "<td><span style='color:lime'>H</span></td>"
+        let cells = ends + (2..<40).map { "<td>c\($0)</td>" }.joined() + ends
+        let html =
+            "<div dir='\(parent)'><table dir='\(table)' style='border-left:5px solid red;border-right:5px solid red'>"
+            + "<tr>\(cells)</tr></table></div>\n"
+        let transformed = Transformed()
+        let result = try await printed(
+            // A thinner cell rule loses to the table's outside rule where they meet.
+            html, layout: .a4TwoUp, css: "th:last-child, td:last-child { border-right: 1px solid black }",
+            inspect: transformed.record)
+        try #require(transformed.value)
+        #expect(result.issues.isEmpty)
+        let page = try #require(result.logicalDocument.page(at: 0))
+        let pixels = try Raster(page)
+        let rules = try pixels.bounds(channel: 0)
+        let margin = 15 * 72 / 25.4 * 2
+        let rightEdge = page.bounds(for: .mediaBox).width * 2 - margin
+        #expect(rules.minX >= floor(margin) - 1)
+        #expect(rules.maxX <= floor(rightEdge) - 1)
+        #expect(rules.width > rightEdge - margin - 24)
+        let edgeCells = try pixels.bounds(channel: 1)
+        #expect(edgeCells.minX > rules.minX && edgeCells.maxX < rules.maxX)
+    }
+
+    @Test("最小の幅だけで広い表は、最小の幅を外せば等倍で収まるので縮めない", .timeLimit(.minutes(1)))
+    func minimumWidthOnly() async throws {
+        let cell = "<td style='border-right:5px solid red'><span style='color:lime'>short text</span></td>"
+        let wide = try await Raster(
+            printPage("<table style='width:1200px;min-width:1200px'><tr>\(cell)</tr></table>\n"))
+        let narrow = try await Raster(printPage("<table><tr>\(cell)</tr></table>\n"))
+        let text = try wide.bounds(channel: 1)
+        let expected = try narrow.bounds(channel: 1)
+        #expect(text.size == expected.size)
+        #expect(wide.pixels(in: text) == narrow.pixels(in: expected))
+        let pageWidth = PrintLayout.a4Single.logicalPageSize.width
+        checkOutsideRule(try wide.bounds(channel: 0), pageWidth: pageWidth)
+    }
+
+    @Test("ルートに内側の余白があっても、収まる表は見本と本番のどちらの幅でも変えない", .timeLimit(.minutes(1)), arguments: [nil, 637.5])
+    func rootPadding(width: Double?) async throws {
+        _ = NSApplication.shared
+        let base = try theme
+        let padded = PrintTheme(id: base.id, name: base.name, css: base.css + "\nhtml { padding: 0 30px }")
+        // The view is 511 pixels wide, so its content is 451; the print's is 577.5. The table fits both.
+        let html = HTMLDocumentBuilder.build(
+            fragment: HTMLFragment(body: "<table style='width:440px'><tr><td>fits</td></tr></table>"),
+            format: .markdown, theme: padded)
+        let source = WebPaginator.Source.html(html, baseURL: nil)
+        let session = PaginationSession(
+            source: source, pageSize: PrintLayout.a4Single.logicalPageSize, margins: .uniform(millimeters: 15),
+            allowsJavaScript: false, printsBackgrounds: true, printTimeout: .seconds(10),
+            onPrintStart: { _ in }, onPrintFinish: {}, onClose: {})
+        defer { session.requestClose() }
+        _ = try await session.loadForPrinting(source, timeout: .seconds(10), expireAfterCommit: nil)
+        let changed = try await TableFit.fit(
+            in: session.webView, width: width.map { CGFloat($0) }, until: .now + .seconds(10))
+        #expect(!changed)
+        let style = try await session.webView.evaluateForPrinting(
+            "return document.querySelector('table').getAttribute('style')", until: .now + .seconds(10))
+        #expect(style as? String == "width:440px")
+    }
+
+    @Test("脚注をページの下に置く文書でも表だけを縮め、本文は表のない文書と同じ画素で刷る", .timeLimit(.minutes(1)))
+    func pageFootnotes() async throws {
+        let lead = "<span style='color:blue'>H</span> with a note[^n].\n\n[^n]: The note.\n\n"
+        // Only the marked glyph is blue: the note below the table is a paragraph too.
+        let css = "p { color: black }"
+        var measured = false
+        let control = try await Raster(printPage(lead, css: css, footnotes: .pageBottom))
+        let result = try await printed(
+            lead + wideTable(rows: 1), css: css, footnotes: .pageBottom,
+            requested: { if $0.footnotePass != nil && $0.fitsTables { measured = true } })
+        #expect(measured)
+        let page = try #require(result.logicalDocument.page(at: 0))
+        let actual = try Raster(page)
+        let body = try control.bounds(channel: 2)
+        #expect(actual.rows(through: body.maxY + 4) == control.rows(through: body.maxY + 4))
+        checkOutsideRule(try actual.bounds(channel: 0), pageWidth: page.bounds(for: .mediaBox).width)
+    }
+
+    @Test("飾りのスクリプトを持つ組み込みのスタイルでも、本文は表のない文書と同じ画素で、表は本文の幅に収める", .timeLimit(.minutes(1)))
+    func decoratedTheme() async throws {
+        let decorated = try #require(PrintThemeLibrary.load().first { $0.id == "emoji" })
+        try #require(decorated.script?.isEmpty == false)
+        let lead = "<span style='color:blue'>H</span> body text.\n\n"
+        let cells =
+            (1..<40).map { "<td>c\($0)</td>" }.joined() + "<td style='border-right:5px solid red'>c40</td>"
+        let table = "<table><tr>\(cells)</tr><tr>\(cells)</tr></table>\n"
+        let control = try await Raster(printPage(lead, theme: decorated))
+        let page = try await printPage(lead + table, theme: decorated)
+        let actual = try Raster(page)
+        let body = try control.bounds(channel: 2)
+        #expect(actual.rows(through: body.maxY + 4) == control.rows(through: body.maxY + 4))
+        checkOutsideRule(try actual.bounds(channel: 0), pageWidth: page.bounds(for: .mediaBox).width)
     }
 }

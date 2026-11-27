@@ -4,9 +4,10 @@ import WebKit
 /// Keeps a table that is wider than its text column inside the column, so that WebKit does not shrink the whole page
 /// to fit it (and cut off what the shrinking cannot reach).
 ///
-/// A wide table first loses its no-wrap rules and may break inside a word, at its own type size. Only a table that is
-/// still too wide is zoomed, alone, until its last column and rule are inside the column. Everything else on the page
-/// keeps its size, and a document without such a table is not touched.
+/// A wide table first loses its no-wrap rules and its minimum width and may break inside a word, at its own type size.
+/// Only a table that is still too wide is zoomed, alone, until its last column and rule are inside the column. The DOM
+/// keeps its shape, so selectors around the table go on matching. Everything else on the page keeps its size, and a
+/// document without such a table, or with tables that fit, is not touched.
 enum TableFit {
     /// Whether the document is one Surimono typesets for a theme, laid out horizontally, with a table in it. A page
     /// laid out as its author's HTML, LaTeX in its own page layout, and vertical writing (whose compositor fits boxes
@@ -55,14 +56,29 @@ enum TableFit {
         const px = value => parseFloat(value) || 0;
         const zoomOf = element => px(getComputedStyle(element).zoom) || 1;
         const set = (el, name, value) => el.style.setProperty(name, value, 'important');
+        const sides = (css, name) => px(css[name + 'Left']) + px(css[name + 'Right']);
+        const borders = css => px(css.borderLeftWidth) + px(css.borderRightWidth);
         try {
-            if (typeof width === 'number') root.style.width = width / zoomOf(root) + 'px';
+            if (typeof width === 'number') {
+                // The root's margin box takes the layout width, as it does in the print.
+                const css = getComputedStyle(root);
+                const outside = sides(css, 'margin')
+                    + (css.boxSizing === 'border-box' ? 0 : sides(css, 'padding') + borders(css));
+                root.style.width = Math.max(0, width / zoomOf(root) - outside) + 'px';
+            }
             await document.fonts.ready;
             return fitTables();
         } finally {
             root.style.cssText = prior;
         }
 
+        // An element's content width in its own pixels. documentElement.clientWidth is the viewport's,
+        // so the root's comes from its used width, which is the content box unless it sizes its border box.
+        function contentWidth(el, css) {
+            if (el !== root) return el.clientWidth - sides(css, 'padding');
+            const used = px(css.width);
+            return css.boxSizing === 'border-box' ? used - sides(css, 'padding') - borders(css) : used;
+        }
         // The width the table may take, in its parent's CSS pixels. offsetWidth and clientWidth are in each
         // element's own pixels (after its zoom, such as the text scale on the root), so each ancestor's
         // content width is converted down to the table's parent.
@@ -70,15 +86,13 @@ enum TableFit {
             let room = Infinity, ancestorZoom = 1;
             for (let p = table.parentElement; p; p = p.parentElement) {
                 const css = getComputedStyle(p);
-                // documentElement.clientWidth is the viewport's, not the root's own width.
-                const content = p === root ? px(css.width) : p.clientWidth;
-                if (content && css.display !== 'inline') {
-                    room = Math.min(room, (content - px(css.paddingLeft) - px(css.paddingRight)) / ancestorZoom);
+                if (css.display !== 'inline' && (p === root || p.clientWidth)) {
+                    room = Math.min(room, contentWidth(p, css) / ancestorZoom);
                 }
                 ancestorZoom *= zoomOf(p);
             }
             const css = getComputedStyle(table);
-            return room - Math.max(0, px(css.marginLeft) + px(css.marginRight)) * zoomOf(table);
+            return room - Math.max(0, sides(css, 'margin')) * zoomOf(table);
         }
         // The painted width of the grid in its parent's pixels. Overflow that is clipped draws nothing.
         function outer(table) {
@@ -96,31 +110,40 @@ enum TableFit {
                 if (room <= reserve || outer(table) <= room + 0.5) continue;
                 const css = getComputedStyle(table), zoom = zoomOf(table);
                 wide.push({
-                    table, room: room - reserve, zoom, scale: 1,
-                    rtl: css.direction === 'rtl', marginRight: px(css.marginRight) * zoom,
+                    table, room: room - reserve, zoom, scale: 1, narrowing: 1,
+                    // A block is placed from its container's start edge, whatever the direction of its own
+                    // cells, so the container's direction decides which edge stays put.
+                    fromRight: getComputedStyle(table.parentElement).direction === 'rtl',
+                    marginRight: px(css.marginRight) * zoom,
                 });
             }
             if (!wide.length) return false;
-            globalThis.surimonoFittedTables = new WeakSet(wide.map(item => item.table));
 
-            // First wrap at the table's own size. Inline styles keep the author's other choices; only
-            // what stops a line from breaking changes ('pre' keeps its spaces and line breaks).
             // The print cuts the column's right edge back to whole points, and half of a collapsed outside
-            // rule lies beyond the table's box. A right-to-left table starts at that edge, so its free
-            // pixels go on the right.
+            // rule lies beyond the table's box. A table placed from the right starts at that edge, so its
+            // free pixels go on the right.
             const keepRight = (item, zoom) => {
-                if (item.rtl) set(item.table, 'margin-right', (item.marginRight + reserve) / zoom + 'px');
+                if (item.fromRight) set(item.table, 'margin-right', (item.marginRight + reserve) / zoom + 'px');
             };
-            for (const item of wide) {
-                const { table, room, zoom } = item;
-                set(table, 'max-width', room / zoom + 'px');
-                keepRight(item, zoom);
+            // First wrap at the table's own size, without its minimum width. Inline styles keep the author's
+            // other choices; only what stops a line from breaking changes ('pre' keeps its spaces and line
+            // breaks). Every value is read before any is written, so styles are worked out once.
+            const changes = [];
+            for (const { table } of wide) {
                 for (const el of [table, ...table.querySelectorAll('*')]) {
                     const css = getComputedStyle(el);
-                    if (css.whiteSpace === 'nowrap') set(el, 'white-space', 'normal');
-                    else if (css.whiteSpace === 'pre') set(el, 'white-space', 'pre-wrap');
-                    if (css.overflowWrap !== 'anywhere') set(el, 'overflow-wrap', 'anywhere');
+                    const space = css.whiteSpace === 'nowrap' ? 'normal' : css.whiteSpace === 'pre' ? 'pre-wrap' : null;
+                    if (space || css.overflowWrap !== 'anywhere') changes.push([el, space, css.overflowWrap]);
                 }
+            }
+            for (const [el, space, wrap] of changes) {
+                if (space) set(el, 'white-space', space);
+                if (wrap !== 'anywhere') set(el, 'overflow-wrap', 'anywhere');
+            }
+            for (const item of wide) {
+                set(item.table, 'min-width', '0');
+                set(item.table, 'max-width', item.room / item.zoom + 'px');
+                keepRight(item, item.zoom);
             }
             // Geometry is read for all tables before any is written, so the page is laid out once per pass.
             const overflowing = items => items.filter(item => (item.width = outer(item.table)) > item.room + 0.5);
@@ -131,13 +154,12 @@ enum TableFit {
             // percentage widths and the layout width no longer change it.
             function zoomTable(item) {
                 const zoom = item.zoom * item.scale;
-                set(item.table, 'min-width', '0');
                 set(item.table, 'width', item.room / zoom + 'px');
                 set(item.table, 'max-width', item.room / zoom + 'px');
                 set(item.table, 'zoom', String(zoom));
                 keepRight(item, zoom);
             }
-            const stalled = [];
+            let stalled = [];
             for (let pass = 0; pass < passes && over.length; pass++) {
                 for (const item of over) {
                     item.last = { scale: item.scale, width: item.width };
@@ -151,7 +173,6 @@ enum TableFit {
                     // took off less than half of what it was meant to would only thin the rules: go back.
                     if (item.last.width - item.width < (item.last.width - item.room) / 2) {
                         item.scale = item.last.scale;
-                        item.width = item.last.width;
                         zoomTable(item);
                         stalled.push(item);
                     } else {
@@ -160,16 +181,35 @@ enum TableFit {
                 }
             }
 
-            // What still overflows is narrowed alone; a transform keeps the row heights, so the table
-            // still breaks between its lines across pages.
-            for (const { table, room, width, rtl } of [...stalled, ...over]) {
-                const frame = document.createElement('div');
-                frame.style.cssText = 'display:block!important; overflow:clip!important; max-width:100%!important';
-                table.before(frame);
-                frame.append(table);
-                set(table, 'transform-origin', rtl ? 'right top' : 'left top');
-                set(table, 'transform', 'scaleX(' + room / width + ')');
+            // What still overflows is narrowed alone, measured as it now stands. A transform keeps the row
+            // heights, so the table still breaks between its lines across pages, and the narrowed box is
+            // what counts towards the page's width. It is placed from its container's start edge.
+            const narrowed = overflowing([...stalled, ...over]);
+            for (const item of narrowed) {
+                item.narrowing = item.room / item.width;
+                set(item.table, 'transform-origin', item.fromRight ? 'right top' : 'left top');
+                set(item.table, 'transform', 'scaleX(' + item.narrowing + ')');
             }
+
+            // Only a table whose painted grid lies inside its container's content box counts as fitted;
+            // anything else is still reported as wider than the page. The table's own box is measured, not
+            // its container's overflow, which other content may cause.
+            const fitted = wide.filter(item => paintedInside(item));
+            function paintedInside(item) {
+                const table = item.table, parent = table.parentElement, css = getComputedStyle(parent);
+                // offsetLeft is in each element's own pixels, and measured from the offset parent's padding
+                // edge, or from the page when that parent is the body. It is rounded to whole pixels, hence
+                // the pixel of slack (the reserve keeps the print clear of it).
+                let start = table.offsetLeft * zoomOf(table);
+                if (table.offsetParent !== parent || parent === document.body) {
+                    start -= parent.offsetLeft + px(css.borderLeftWidth);
+                }
+                start -= px(css.paddingLeft);
+                const width = outer(table), painted = width * item.narrowing;
+                const left = item.fromRight ? start + width - painted : start;
+                return left >= -1 && left + painted <= contentWidth(parent, css) + 1;
+            }
+            globalThis.surimonoFittedTables = new WeakSet(fitted.map(item => item.table));
             return true;
         }
         """#
