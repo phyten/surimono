@@ -73,7 +73,11 @@ struct ThemePaletteTests {
                     page.addAnnotation(annotation)
                     let data = try #require(document.dataRepresentation())
                     let source = try #require(PDFDocument(data: data))
-                    if bodyCount == 1 { backing = source.page(at: 0)?.pageRef?.document }
+                    if bodyCount == 1 {
+                        let linked = try #require(source.page(at: 0))
+                        try #require(linked.annotations.first?.url?.absoluteString == "https://example.com/")
+                        backing = try #require(linked.pageRef?.document)
+                    }
                     return WebPaginator.Result(document: source, preparationResult: "paper")
                 }
                 return WebPaginator.Result(document: document)

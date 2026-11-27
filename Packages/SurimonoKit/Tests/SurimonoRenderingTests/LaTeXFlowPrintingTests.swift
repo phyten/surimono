@@ -173,14 +173,18 @@ struct LaTeXFlowPrintingTests {
             DocumentSource(data: try Data(contentsOf: file), format: .latex), settings: settings)
         let page = try #require(pdf.page(at: 2))
         if !koma {
-            // Reference 112 repeats the searchable label on the contents page and chapter opener.
-            let pages = pdf.findString("第 1 章", withOptions: []).compactMap { $0.pages.first }.map {
-                pdf.index(for: $0)
+            // PDFKit can infer different horizontal spacing between the Japanese label and its numeral.
+            // Use the opener's spelling for both searches: a reader must be able to find both occurrences.
+            let opener = try #require(pdf.page(at: 4))
+            let text = try #require(opener.string)
+            let range = try #require(
+                text.range(of: #"第\h*1\h*章"#, options: .regularExpression),
+                "\(route) p5 \(text.prefix(180).debugDescription)")
+            let label = String(text[range])
+            for target in [page, opener] {
+                let bounds = try RenderingFixtures.searchBounds(label, on: target, in: pdf, stage: "chapter")
+                #expect(target.bounds(for: .cropBox).contains(bounds))
             }
-            #expect(
-                pages.contains(2) && pages.contains(4),
-                "\(route)、検索ページ(0始まり)=\(pages)、第5ページ先頭=\(String((pdf.page(at: 4)?.string ?? "").prefix(180)).debugDescription)"
-            )
         }
         let chapter = try #require(pdf.findString(koma ? "The sliding strip" : "基壇").first { $0.pages.first == page })
         let bounds = chapter.bounds(for: page)
@@ -425,7 +429,7 @@ struct LaTeXFlowPrintingTests {
         try #require(normal.pageCount == 2 && proof.pageCount == 2)
 
         func rect(_ phrase: String, in pdf: PDFDocument, page: PDFPage) throws -> CGRect {
-            try #require(pdf.findString(phrase).first { $0.pages.first == page }).bounds(for: page)
+            try RenderingFixtures.searchBounds(phrase, on: page, in: pdf, stage: pdf === proof ? "proof" : "normal")
         }
         func inkArea(for digit: Int) throws -> Int {
             let context = try #require(

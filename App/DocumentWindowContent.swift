@@ -47,7 +47,12 @@ final class DocumentWindowContent: NSObject {
         self.onEnd = onEnd
         super.init()
         host.sizingOptions = []
-        host.sceneBridgingOptions = [.toolbars]
+        if #available(macOS 26, *) {
+            host.sceneBridgingOptions = [.toolbars]
+        } else {
+            // Sequoia's stage toolbar belongs to the window for its entire lifetime.
+            host.sceneBridgingOptions = []
+        }
         window.contentViewController = host
         model.window = window
         DocumentWindows.shared.register(model, for: window)

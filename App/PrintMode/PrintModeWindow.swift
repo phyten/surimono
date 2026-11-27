@@ -34,8 +34,8 @@ enum PrintModeWindow {
         } else {
             chrome = SavedChrome(window)
             saved.setObject(chrome, forKey: window)
-            // The tray draws its own top bar under the title bar. The window keeps its toolbar (SwiftUI observes and
-            // owns it); the print mode only hides the toolbar's items, so the traffic lights stay centered in the bar.
+            // The tray draws its controls under the transparent title bar. DocumentContent supplies the
+            // toolbar that centers the traffic lights in that bar.
             if window.titleVisibility != .hidden { window.titleVisibility = .hidden }
             if !window.titlebarAppearsTransparent { window.titlebarAppearsTransparent = true }
             if window.titlebarSeparatorStyle != .none { window.titlebarSeparatorStyle = .none }

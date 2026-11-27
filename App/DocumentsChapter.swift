@@ -114,6 +114,8 @@ private struct DocumentFormatList: NSViewRepresentable {
 
     func makeNSView(context: Context) -> NSScrollView {
         let table = FormatTable()
+        // Column autoresizing follows the table's width, which must track the enclosing clip view.
+        table.autoresizingMask = [.width]
         table.style = .sourceList
         table.headerView = nil
         table.intercellSpacing = .zero
@@ -185,7 +187,7 @@ private struct DocumentFormatList: NSViewRepresentable {
             cell.textField = label
             NSLayoutConstraint.activate([
                 label.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 8),
-                label.trailingAnchor.constraint(lessThanOrEqualTo: cell.trailingAnchor, constant: -16),
+                label.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -16),
                 label.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
             ])
             return cell
@@ -205,8 +207,17 @@ private struct DocumentFormatList: NSViewRepresentable {
 struct DocumentDefaultsHeader: View {
     let format: DocumentFormat
     let status: LocalizedStringResource
+    @Environment(\.settingsRowFrames) private var frames
 
     var body: some View {
+        if let inspectLayout = frames?.inspectDocumentHeader {
+            header.onPreferenceChange(Text.LayoutKey.self, perform: inspectLayout)
+        } else {
+            header
+        }
+    }
+
+    private var header: some View {
         HStack {
             Text(LocalizedStringKey(DocumentsChapter.title(format)))
                 .font(.headline)

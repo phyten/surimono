@@ -5,11 +5,53 @@ import PDFKit
 /// Lays a theme's paper under pages laid out without it, so the paper covers the margins too (see `PaperBackground`).
 @MainActor
 enum PaperComposer {
+    static func compose(
+        _ document: PDFDocument, paper: PDFPage?, bindsPrintedLinks: Bool, shift: (Int) -> CGFloat = { _ in 0 }
+    ) async throws -> PDFDocument? {
+        if #available(macOS 26, *) {
+            return compose(document, paper: paper, rebuildingPageTree: bindsPrintedLinks, shift: shift)
+        }
+        // Without annotations the Quartz output already has a complete, searchable page tree.
+        guard bindsPrintedLinks,
+            (0..<document.pageCount).contains(where: {
+                document.page(at: $0)?.annotations.isEmpty == false
+            })
+        else {
+            return compose(document, paper: paper, shift: shift)
+        }
+        guard let composed = compose(document, paper: paper, rebuildingPageTree: true, shift: shift) else { return nil }
+        // Preserve the authored destinations when materializing the tree for Sequoia's text selections.
+        do {
+            let bytes = try await ReadingPDFExporter.data(from: composed)
+            return reopenedPaper(from: bytes, annotationSources: document) ?? composed
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            // Keep the live links if PDFKit cannot serialize them faithfully.
+            return composed
+        }
+    }
+
+    static func reopenedPaper(from data: Data, annotationSources source: PDFDocument) -> PDFDocument? {
+        guard let reopened = PDFDocument(data: data), reopened.pageCount == source.pageCount else { return nil }
+        for index in 0..<source.pageCount {
+            guard let original = source.page(at: index) else { return nil }
+            guard !original.annotations.isEmpty else { continue }
+            guard let page = reopened.page(at: index) else { return nil }
+            // Serialization does not carry StandalonePage's owners. The next view copy inherits
+            // them from this wrapper even if the theme trial has already evicted its source.
+            StandalonePage.retainSources(of: original, on: page)
+            reopened.retainPage(page)
+        }
+        reopened.inheritDisplayFallback(from: source)
+        return reopened
+    }
+
     /// Each page of `document` drawn over `paper`, as vectors. The paper is stretched to each page, which it matches
     /// unless the page kept the paginator's allowance. Links and other annotations move along with their page.
     /// - Parameter shift: How far the content of the page at an index moves to the right, on a paper that stays.
     static func compose(
-        _ document: PDFDocument, paper: PDFPage?, bindsPrintedLinks: Bool = false, shift: (Int) -> CGFloat = { _ in 0 }
+        _ document: PDFDocument, paper: PDFPage?, rebuildingPageTree: Bool = false, shift: (Int) -> CGFloat = { _ in 0 }
     ) -> PDFDocument? {
         let paperBox = paper.map { $0.bounds(for: .cropBox).intersection($0.bounds(for: .mediaBox)) }
         if let paperBox, paperBox.width <= 0 || paperBox.height <= 0 { return nil }
@@ -39,7 +81,7 @@ enum PaperComposer {
         context.closePDF()
         guard let drawn = PDFDocument(data: data as Data), drawn.pageCount == boxes.count else { return nil }
         let composed: PDFDocument
-        if bindsPrintedLinks {
+        if rebuildingPageTree {
             // Reopening the drawn bytes and only adding annotations can leave PDFKit's
             // drawing as its saved data. A new page tree serializes the live annotations.
             let pages = (0..<drawn.pageCount).compactMap { drawn.page(at: $0) }
@@ -75,7 +117,7 @@ enum PaperComposer {
                     copy.action = PDFActionGoTo(destination: destination)
                     rebound = destination
                 }
-                if bindsPrintedLinks, let rebound, let page = rebound.page {
+                if rebuildingPageTree, let rebound, let page = rebound.page {
                     // These XYZ destinations were authored on the newly drawn pages. A
                     // copied annotation's backing array can still refer to the old page tree.
                     let record = ReadingPDFNavigationWriter.Destination(

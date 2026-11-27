@@ -132,7 +132,7 @@ class PageTextPDFView: PDFView {
 
     var selectionRetryTime: ContinuousClock.Instant { .now }
 
-    func withSelectionCopy(of page: PDFPage, matching text: NSString, read: (PDFPage) -> Void) {
+    func withSelectionCopy(of page: PDFPage, matching text: NSString, read: (PDFPage) -> Bool) {
         PageTextGeometry.withCopy(of: page, matching: text, read: read)
     }
 

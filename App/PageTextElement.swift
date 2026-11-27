@@ -75,6 +75,7 @@ nonisolated class PageTextElement: NSAccessibilityElement {
                     // A native copy can resolve all remaining ranges without keeping another document alive.
                     paper.withSelectionCopy(of: page, matching: text) { copy in
                         fillMissing { copy.selection(for: $0)?.bounds(for: copy) }
+                        return !needsBounds()
                     }
                 }
                 // Nonprinting characters may stay unresolved. Allow a full interval after the scan finishes
@@ -222,18 +223,26 @@ nonisolated class PageTextElement: NSAccessibilityElement {
             && !box.isInfinite && !box.isEmpty && box.maxX.isFinite && box.maxY.isFinite
     }
 
-    static func withCopy(of page: PDFPage, matching text: NSString, read: (PDFPage) -> Void) {
-        // Keep the native font metrics: serializing and reopening a PDF page can change its selection height.
-        guard let copy = page.copy() as? PDFPage, copy !== page else { return }
-        let document = PDFDocument()
-        document.insert(copy, at: 0)
-        // A range is only transferable when the copied text and page coordinate system still match.
-        guard let copiedText = copy.string,
-            text.compare(copiedText, options: .literal) == .orderedSame,
-            page.rotation == copy.rotation, page.bounds(for: .mediaBox) == copy.bounds(for: .mediaBox),
-            page.bounds(for: .cropBox) == copy.bounds(for: .cropBox)
-        else { return }
-        withExtendedLifetime(document) { read(copy) }
+    static func withCopy(of page: PDFPage, matching text: NSString, read: (PDFPage) -> Bool) {
+        func readMatchingPage(in document: PDFDocument) -> Bool {
+            guard let copy = document.page(at: 0), let copiedText = copy.string,
+                text.compare(copiedText, options: .literal) == .orderedSame,
+                page.rotation == copy.rotation, page.bounds(for: .mediaBox) == copy.bounds(for: .mediaBox),
+                page.bounds(for: .cropBox) == copy.bounds(for: .cropBox)
+            else { return false }
+            return withExtendedLifetime(document) { read(copy) }
+        }
+        // Prefer native font metrics. Serialization can change a selection's line height.
+        if let native = page.copy() as? PDFPage, native !== page {
+            let document = PDFDocument()
+            document.insert(native, at: 0)
+            if readMatchingPage(in: document) { return }
+        }
+        // On Sequoia an inserted page can have text but no owning page in its selections.
+        // Reopen only this page and transfer only the ranges that are still missing.
+        if #unavailable(macOS 26), let data = page.dataRepresentation, let reopened = PDFDocument(data: data) {
+            _ = readMatchingPage(in: reopened)
+        }
     }
 }
 

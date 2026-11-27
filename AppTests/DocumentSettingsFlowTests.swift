@@ -1181,6 +1181,13 @@ struct DocumentSettingsFlowTests {
         #expect(model.textScale == 1.25)
     }
 
+    @Test("画面から決めた最初の紙幅は、整数に丸めた紙の高さで再組版しても変わらない")
+    func initialPaperWidthAtFractionalScreenFit() {
+        let size = ViewerWindow.initialPaperSize(
+            unit: CGSize(width: 595, height: 842), visible: CGSize(width: 1440, height: 934))
+        #expect(size == CGSize(width: 567, height: 803))
+    }
+
     @Test("文字の大きさを内容ごとに保存して復元し、既定に戻すと消える", .timeLimit(.minutes(1)))
     func textScalePersistence() async throws {
         let environment = try environment()
@@ -1208,7 +1215,10 @@ struct DocumentSettingsFlowTests {
         first.render()
         try await waitUntil { !first.isRendering }
         first.sizeWindowToPaper()
-        #expect(window.frame == originalFrame)
+        #expect(
+            window.frame == originalFrame,
+            "screen=\(String(describing: window.screen?.visibleFrame)), unit=\(String(describing: first.paperUnitSize)), band=\(first.bandInset)"
+        )
         #expect(first.renderSettings?.textScale == 1.5)
         #expect(first.styleName.hasSuffix(" · 150%"))
         first.rememberedSettingsDidChange()

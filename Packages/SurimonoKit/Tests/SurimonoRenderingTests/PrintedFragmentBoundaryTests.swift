@@ -232,7 +232,7 @@ struct PrintedFragmentBoundaryTests {
         let repaired = try #require(output.bytes)
         let logical = try #require(PDFDocument(data: repaired))
         let mirrored = try #require(
-            PaperComposer.compose(logical, paper: nil, bindsPrintedLinks: true, shift: { $0 == 1 ? 15 : 0 }))
+            try await PaperComposer.compose(logical, paper: nil, bindsPrintedLinks: true, shift: { $0 == 1 ? 15 : 0 }))
         var documents = [logical, mirrored]
         for document in [logical, mirrored] {
             let saved = try await ReadingPDFExporter.data(from: document, entries: [], title: "Edge")
