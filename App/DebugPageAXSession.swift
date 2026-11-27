@@ -135,6 +135,7 @@
                         PageTextGeometry.withCopy(of: page, matching: text) { copy in
                             reference = markerBounds(copy, source: "copiedPage")
                             reason = "No finite marker selection on displayed page or matching page copy"
+                            return reference != nil
                         }
                     }
                     var bounds: CGRect?

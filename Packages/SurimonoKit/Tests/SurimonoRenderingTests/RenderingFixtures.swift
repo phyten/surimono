@@ -12,6 +12,49 @@ enum RenderingFixtures {
         return { $0.setValue(false, forKey: "drawsBackground") }
     }
 
+    static func searchBounds(
+        _ phrase: String, on page: PDFPage, in pdf: PDFDocument, stage: String,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) throws -> CGRect {
+        let index = pdf.index(for: page)
+        let hits = pdf.findString(phrase)
+        // Find uses the match's page index to navigate and that selection's own page to measure it.
+        let bounds = hits.lazy.compactMap { hit -> CGRect? in
+            guard let owner = hit.pages.first, pdf.index(for: owner) == index else {
+                return nil
+            }
+            let box = hit.bounds(for: owner)
+            return box.isEmpty || box.isInfinite ? nil : box
+        }.first
+        if let bounds { return bounds }
+        // Distinguish a missing phrase from a selection with no owning page, and compare the written tree.
+        func detail(_ doc: PDFDocument, page: PDFPage, hits: [PDFSelection]) -> String {
+            let text = page.string ?? ""
+            let range = (text as NSString).range(of: phrase)
+            let pages = hits.map { hit in
+                hit.pages.map { owner in
+                    "index=\(doc.index(for: owner)) samePage=\(owner === page) bounds=\(hit.bounds(for: owner))"
+                }
+            }
+            var selection = "nil"
+            if range.location != NSNotFound, NSMaxRange(range) <= page.numberOfCharacters,
+                let selected = page.selection(for: range)
+            {
+                selection = "\(selected.pages.map { doc.index(for: $0) }) \(selected.bounds(for: page))"
+            }
+            return "text=\(text.prefix(240).debugDescription) range=\(range) selection=\(selection) findPages=\(pages)"
+        }
+        let live = detail(pdf, page: page, hits: hits)
+        var written = "unavailable"
+        if let bytes = pdf.dataRepresentation(), let copy = PDFDocument(data: bytes), let target = copy.page(at: index)
+        {
+            written = detail(copy, page: target, hits: copy.findString(phrase))
+        }
+        return try #require(
+            bounds, "\(stage) p\(index + 1) query=\(phrase.debugDescription) live=[\(live)] reopened=[\(written)]",
+            sourceLocation: sourceLocation)
+    }
+
     static func latinSummary(_ json: String) -> String {
         guard let report = (try? JSONSerialization.jsonObject(with: Data(json.utf8))) as? [String: Any] else {
             return json

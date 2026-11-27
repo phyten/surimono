@@ -269,6 +269,63 @@ struct PaperFindTests {
         withExtendedLifetime(window) {}
     }
 
+    @Test(
+        "校正紙と左右の余白を入れ替えた目次付きの紙で、検索欄が本文を見つけ、その位置の文字を選択できる",
+        .timeLimit(.minutes(1)), arguments: [false, true])
+    func findOnComposedPaper(proof: Bool) async throws {
+        let source: DocumentSource
+        var settings = RenderSettings(
+            layout: .a4Duplex, theme: .init(id: "test", name: "Test", css: "#last { break-before: page }"),
+            preset: .init(id: "none", name: "None"))
+        let query: String
+        let index: Int
+        if proof {
+            let tex =
+                #"\documentclass[a4paper,twoside]{article}\usepackage[left=25mm,right=35mm]{geometry}\begin{document}Start\clearpage First proof line\end{document}"#
+            source = DocumentSource(data: Data(tex.utf8), format: .latex)
+            settings.theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
+            settings.latexComposition = .proof
+            query = "First proof line"
+            index = 1
+        } else {
+            let org =
+                "#+OPTIONS: toc:t num:nil\n* First\nSee [[#last][next]] and note[fn:1].\n* Last\n:PROPERTIES:\n:CUSTOM_ID: last\n:END:\nEnd.\n\n[fn:1] Footnote body"
+            source = DocumentSource(data: Data(org.utf8), format: .org)
+            settings.options.mirrorsMargins = true
+            settings.options.margins = .init(top: 12, left: 30, bottom: 12, right: 10)
+            settings.finish.contents.placement = .page
+            query = "Footnote body"
+            index = 2
+        }
+        let prepared = try await DocumentRenderer().prepare(source, settings: settings)
+        let view = PaperPDFView(frame: NSRect(x: 0, y: 0, width: 420, height: 594))
+        let window = NSWindow(contentRect: view.frame, styleMask: [.titled], backing: .buffered, defer: true)
+        window.contentView = view
+        defer { window.contentView = nil }
+        view.configure(
+            prepared.viewDocument, at: 0,
+            options: ViewOptions(layout: .single, scrollAxis: .vertical, transition: .instant, showsCoverAlone: false),
+            logicalMargin: nil, showsPageNumbers: false, furniture: prepared.viewFurniture)
+        view.selectsText = true
+        var found: [Int]?
+        view.onFindHits = { pages, _ in found = pages }
+        view.find(query)
+        try await waitUntil { found != nil }
+        let page = try #require(view.document?.page(at: index))
+        try #require(
+            found == [index], "query=\(query) text=\(page.string.debugDescription) hits=\(found.debugDescription)")
+        let hit = try #require(view.highlightedSelections?.first)
+        let owner = try #require(hit.pages.first)
+        #expect(view.document?.index(for: owner) == index && hit.string == query)
+        view.markFindHit(0, reveals: true)
+        #expect(view.currentPageIndex == index)
+        let box = hit.bounds(for: owner)
+        try #require(!box.isEmpty && page.bounds(for: .cropBox).contains(box))
+        let word = try #require(page.selectionForWord(at: CGPoint(x: box.maxX - 2, y: box.midY)))
+        view.setCurrentSelection(word, animate: false)
+        #expect(view.currentSelection?.string == query.components(separatedBy: " ").last)
+    }
+
     @Test("一致へ移ると、そのページへめくられ、今の一致だけが別の色になり、紙の中に見えている", .timeLimit(.minutes(1)))
     func revealsTheCurrentHit() async throws {
         let (view, _, window) = try makePaper(pages)

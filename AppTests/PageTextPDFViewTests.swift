@@ -198,12 +198,12 @@ struct PageTextPDFViewTests {
 
         override var selectionRetryTime: ContinuousClock.Instant { clock }
 
-        override func withSelectionCopy(of page: PDFPage, matching text: NSString, read: (PDFPage) -> Void) {
+        override func withSelectionCopy(of page: PDFPage, matching text: NSString, read: (PDFPage) -> Bool) {
             copyAttempts += 1
             guard copyIsAvailable else { return }
             super.withSelectionCopy(of: page, matching: text) { copy in
                 copyDocument = copy.document
-                read(copy)
+                return read(copy)
             }
         }
 
@@ -237,7 +237,7 @@ struct PageTextPDFViewTests {
         let reads = view.reads
         #expect(leaf.accessibilityFrame(for: range) == box)
         #expect(view.reads == reads)
-        #expect(box.contains(inside))
+        #expect(box.contains(inside), "\(selectionDetail(page, range: range))")
         #expect(abs(box.width - 16 * view.scaleFactor) < 1)
         #expect(leaf.accessibilityRange(for: inside) == range)
         #expect(view.accessibilityChildren()?.first as? PageTextElement === leaf)
@@ -393,8 +393,12 @@ struct PageTextPDFViewTests {
                     let local = view.convert(CGPoint(x: x, y: y), from: page)
                     let center = window.convertPoint(toScreen: view.convert(local, to: nil))
                     let box = leaf.accessibilityFrame(for: range)
-                    #expect(box.contains(center))
-                    #expect(abs(box.width - 16 * scale) < 1 && abs(box.height - 16 * scale) < 1)
+                    #expect(box.contains(center), "\(selectionDetail(page, range: range))")
+                    // After rotation the advance is vertical. Font ascent and descent can change on a
+                    // serialized page, but the selection must stay in this 40-point line and 16-point column.
+                    #expect(abs(box.height - 16 * scale) < 1)
+                    #expect(box.width >= 15 * scale)
+                    #expect(box.minX > center.x - 20 * scale && box.maxX < center.x + 20 * scale)
                     #expect(leaf.accessibilityRange(for: center) == range)
                 }
             }
@@ -413,6 +417,28 @@ struct PageTextPDFViewTests {
         let glyph = NSRange(location: 2, length: 2)
         #expect(leaf.accessibilityString(for: glyph) == "𠮷")
         #expect(leaf.accessibilityFrame(for: glyph) == .zero)
+    }
+
+    private func selectionDetail(_ page: PDFPage, range: NSRange) -> String {
+        func detail(_ page: PDFPage) -> String {
+            guard NSMaxRange(range) <= page.numberOfCharacters else {
+                return "text=\(page.string.debugDescription) characters=\(page.numberOfCharacters)"
+            }
+            let hit = page.selection(for: range)
+            let bounds = hit.map { $0.bounds(for: page) } ?? .null
+            return "text=\(page.string.debugDescription) selectionPages=\(hit?.pages.count ?? 0) bounds=\(bounds) "
+                + "glyph=\(page.characterBounds(at: range.location)) media=\(page.bounds(for: .mediaBox)) crop=\(page.bounds(for: .cropBox)) rotation=\(page.rotation)"
+        }
+        let inserted = PDFDocument()
+        var native = "unavailable"
+        if let clone = page.copy() as? PDFPage, clone !== page {
+            inserted.insert(clone, at: 0)
+            native = withExtendedLifetime(inserted) { detail(clone) }
+        }
+        let comparison = "range=\(range) live=[\(detail(page))] inserted=[\(native)]"
+        guard let data = page.dataRepresentation, let copy = PDFDocument(data: data), let first = copy.page(at: 0)
+        else { return comparison + " reopened=nil" }
+        return withExtendedLifetime(copy) { comparison + " reopened=[\(detail(first))]" }
     }
 
     private func makePaper(pages: [String]) throws -> (PageTextPDFView, NSWindow) {

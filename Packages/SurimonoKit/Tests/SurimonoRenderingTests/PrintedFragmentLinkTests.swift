@@ -137,8 +137,9 @@ struct PrintedFragmentLinkTests {
             try #require(bodyLinks.count == 2)
             for (label, dest) in zip(["Last", "Footnote body"], bodyLinks.sorted { $0.point.y > $1.point.y }) {
                 #expect(dest.page === last)
-                let line = try #require(pdf.findString(label).first { $0.pages.first === last })
-                #expect(abs(dest.point.y - line.bounds(for: last).maxY) < 2)
+                let line = try RenderingFixtures.searchBounds(
+                    label, on: last, in: pdf, stage: pdf === logical ? "logical" : "export")
+                #expect(abs(dest.point.y - line.maxY) < 2)
             }
             let rows = front.annotations.compactMap { ($0.action as? PDFActionGoTo)?.destination ?? $0.destination }
             #expect(rows.count == 2)

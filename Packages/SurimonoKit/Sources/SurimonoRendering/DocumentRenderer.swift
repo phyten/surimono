@@ -1408,7 +1408,7 @@ public final class DocumentRenderer {
             }
         }
         guard document.pageCount > 0 else { throw RenderingError.noReadableImages(unreadable) }
-        return (Self.mirroringMargins(of: document, settings: settings), unreadable)
+        return (try await Self.mirroringMargins(of: document, settings: settings), unreadable)
     }
 
     private func imagePageSize(_ settings: RenderSettings) -> CGSize {
@@ -1480,7 +1480,8 @@ public final class DocumentRenderer {
                     readsPageRules: true), source: source)
             guard settings.mirrorsLaidOutPages else { return page }
             var mirrored = WebPaginator.Result(
-                document: Self.mirroringMargins(of: page.document, settings: settings, bindsPrintedLinks: true),
+                document: try await Self.mirroringMargins(
+                    of: page.document, settings: settings, bindsPrintedLinks: true),
                 preparationResult: page.preparationResult, pageRules: page.pageRules,
                 requiredFolderAccess: page.requiredFolderAccess)
             mirrored.issues = page.issues
@@ -1645,7 +1646,7 @@ public final class DocumentRenderer {
                 return text
             }
             guard let paperPage = paper.document.page(at: 0),
-                let composed = PaperComposer.compose(text.document, paper: paperPage, bindsPrintedLinks: true)
+                let composed = try await PaperComposer.compose(text.document, paper: paperPage, bindsPrintedLinks: true)
             else { return text }
             var result = WebPaginator.Result(
                 document: composed, preparationResult: text.preparationResult, pageRules: text.pageRules,
@@ -1961,7 +1962,7 @@ public final class DocumentRenderer {
             text.document, contents: contents,
             links: rowLinks,
             plan: plan, settings: settings)
-        let mirrored = Self.mirroringMargins(
+        let mirrored = try await Self.mirroringMargins(
             of: document, settings: settings, plan: notes != nil ? plan : nil, bindsPrintedLinks: true)
         var finished = WebPaginator.Result(
             document: mirrored,
@@ -2118,7 +2119,7 @@ public final class DocumentRenderer {
     private static func mirroringMargins(
         of document: PDFDocument, settings: RenderSettings, plan: FinishedPagePlan? = nil,
         bindsPrintedLinks: Bool = false
-    ) -> PDFDocument {
+    ) async throws -> PDFDocument {
         guard settings.mirrorsLaidOutPages || plan != nil else { return document }
         guard settings.layout.mirrorsMargins(options: settings.options) else { return document }
         let shift = settings.layout.versoContentShift(options: settings.options)
@@ -2126,7 +2127,7 @@ public final class DocumentRenderer {
         guard shift != 0, document.pageCount > 1 || places != nil || settings.layout.isRightBound else {
             return document
         }
-        return PaperComposer.compose(
+        return try await PaperComposer.compose(
             document, paper: nil, bindsPrintedLinks: bindsPrintedLinks,
             shift: { index in
                 let place = places.flatMap { $0.indices.contains(index) ? $0[index] : nil } ?? index
