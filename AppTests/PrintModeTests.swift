@@ -593,8 +593,9 @@ struct PrintModeTests {
             ) async throws {
                 let layout = FinishLayout()
                 let localized = control.environment(\.locale, locale).environment(\.accessibilityEnabled, true)
-                let boundary = NSHostingView(rootView: localized.fixedSize()).fittingSize.width
-                let screen = OrgReadingTestWindow(width: 1200, height: 100) { layout.panel(localized) }
+                let screen = OrgReadingTestWindow(width: 1200, height: 100) {
+                    layout.panel(Color.clear.overlay { localized }.reportPrintFinishFrame(.content))
+                }
                 defer { screen.window.close() }
                 screen.window.alphaValue = 0
                 screen.window.orderFront(nil)
@@ -609,19 +610,42 @@ struct PrintModeTests {
                 func choicesInTree() -> [(names: [String], values: [String])] {
                     accessibilityChoices(in: host.accessibilityChildren() ?? [])
                 }
-                for delta: CGFloat in [-1, 1] {
-                    screen.window.setContentSize(CGSize(width: boundary + delta, height: 100))
+                func resize(to width: Int) async throws -> PrintFinishFrame {
+                    screen.window.setContentSize(CGSize(width: width, height: 100))
+                    // Read the choice and viewport from the same preference update after resizing.
+                    try await screen.wait("\(language) \(label) width=\(width) frames=\(layout.frames)") {
+                        layout.frames.contains { $0.element == .content && $0.rect.width == CGFloat(width) }
+                            && placed().count == 1
+                    }
+                    return try #require(placed().first)
+                }
+
+                // Find adjacent whole-point widths in this window with the selection held constant.
+                // The heading-level control also needs room for the label beside its choices.
+                var rowWidth = Int(host.bounds.width)
+                var menuWidth = Int(row.rect.width / 2)
+                let narrow = try await resize(to: menuWidth)
+                try #require(narrow.element == .menu(key))
+                while rowWidth - menuWidth > 1 {
+                    let middle = (menuWidth + rowWidth) / 2
+                    if try await resize(to: middle).element == .row(key) {
+                        rowWidth = middle
+                    } else {
+                        menuWidth = middle
+                    }
+                }
+                for (width, expected) in [(menuWidth, PrintFinishFrame.Element.menu(key)), (rowWidth, .row(key))] {
+                    _ = try await resize(to: width)
                     for (value, title) in choices {
                         selection.wrappedValue = value
                         #expect(selection.wrappedValue == value)
                         let spoken = strings.localizedString(forKey: title, value: nil, table: nil)
-                        let expected: PrintFinishFrame.Element = delta < 0 ? .menu(key) : .row(key)
-                        let detail = "\(language) \(name)=\(spoken) width=\(host.bounds.width) delta=\(delta)"
+                        let detail = "\(language) \(name)=\(spoken) width=\(width) menu=\(menuWidth) row=\(rowWidth)"
                         try await screen.wait("\(detail) frames=\(placed())") {
                             placed().map(\.element) == [expected]
                                 && placed().first?.selected == LocalizedStringKey(title)
                         }
-                        if delta > 0 { #expect(placed().first?.rect.width == row.rect.width) }
+                        if expected == .row(key) { #expect(placed().first?.rect.width == row.rect.width) }
                         try await screen.wait("\(detail) AX=\(choicesInTree())") {
                             choicesInTree().contains { $0.names.contains(name) && $0.values.contains(spoken) }
                         }
