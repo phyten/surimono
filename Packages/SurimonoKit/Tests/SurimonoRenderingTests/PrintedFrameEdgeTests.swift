@@ -187,6 +187,31 @@ struct PrintedFrameEdgeTests {
         #expect(abs(Double(sides.rightX) / 2 - (width - margin)) < 2)
     }
 
+    @Test("標準スタイルの印刷で補正を有効にすると本文幅の表の欠けた右罫が戻る", .timeLimit(.minutes(1)))
+    func recoversClippedRule() async throws {
+        _ = NSApplication.shared
+        let html = HTMLDocumentBuilder.build(
+            fragment: MarkdownConverter.convert(Self.markdown), format: .markdown, theme: try standard(),
+            finish: Self.colors)
+        func sides(protect: Bool) async throws -> Ink {
+            // The unprotected clip loses nearly a point here, even on a 1x display.
+            let result = try await WebPaginator().paginateWithResult(
+                .html(html, baseURL: nil), pageSize: PrintLayout.a4Single.logicalPageSize,
+                margins: .init(top: 42, left: 42.2, bottom: 42, right: 42.2), allowsJavaScript: false,
+                protectsFrameEdges: protect)
+            return try ink(#require(result.document.page(at: 0)))
+        }
+        let before = try await sides(protect: false)
+        let after = try await sides(protect: true)
+        let detail = Comment(
+            rawValue:
+                "補正前 左 \(before.leftCoverage) 右 \(before.rightCoverage)、補正後 左 \(after.leftCoverage) 右 \(after.rightCoverage)"
+        )
+        try #require(before.left >= 6 && before.rightCoverage < before.leftCoverage * 3 / 4, detail)
+        check(after, id: "standard", requiresFrame: true)
+        #expect(after.rightCoverage >= after.leftCoverage * 3 / 4 && after.rightCoverage > before.rightCoverage, detail)
+    }
+
     @Test("短い表は内容の幅のまま両端を閉じる", .timeLimit(.minutes(1)))
     func narrow() async throws {
         let pdf = try await printed("| a | b |\n|---|---|\n| 1 | 2 |", theme: standard())

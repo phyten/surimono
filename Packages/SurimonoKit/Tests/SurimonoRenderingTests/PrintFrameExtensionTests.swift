@@ -63,7 +63,15 @@ struct PrintFrameExtensionTests {
     enum Layout: CaseIterable {
         case standard, zeroMargins, wide, beforeLimit, atLimit, overLimit, wideRTL, latexMarginInk
         case roundingBoundary, fixedRoot, cappedRoot, paddedRoot, pageRule, unreadableSheet, embeddedStyle,
-            viewportLength
+            viewportLength, containerLength
+
+        var textIndent: String? {
+            switch self {
+            case .viewportLength: "20vw"
+            case .containerLength: "20cqw"
+            default: nil
+            }
+        }
 
         var margins: WebPaginator.Margins {
             switch self {
@@ -99,7 +107,7 @@ struct PrintFrameExtensionTests {
         var expectsOriginalClip: Bool {
             switch self {
             case .fixedRoot, .cappedRoot, .paddedRoot, .pageRule, .unreadableSheet, .embeddedStyle, .viewportLength,
-                .roundingBoundary, .latexMarginInk:
+                .containerLength, .roundingBoundary, .latexMarginInk:
                 true
             default: false
             }
@@ -128,8 +136,8 @@ struct PrintFrameExtensionTests {
         if layout == .wideRTL { fragment.language = "ar" }
         if layout == .embeddedStyle {
             fragment.body += "<style>@media (min-width: 626px) { p { color: red } }</style>"
-        } else if layout == .viewportLength {
-            fragment.body = fragment.body.replacingOccurrences(of: "<p>", with: "<p style='text-indent: 20vw'>")
+        } else if let indent = layout.textIndent {
+            fragment.body = fragment.body.replacingOccurrences(of: "<p>", with: "<p style='text-indent: \(indent)'>")
         }
         let html = HTMLDocumentBuilder.build(fragment: fragment, format: .markdown, theme: theme, finish: css)
         // Simulate an unreadable CSSOM in the same isolated world as the page-rule probe.
@@ -137,14 +145,22 @@ struct PrintFrameExtensionTests {
             "Object.defineProperty(document, 'styleSheets', {get() { throw new DOMException('Denied', 'SecurityError'); }});"
         func document(protect: Bool) async throws -> PDFDocument {
             let paginator = WebPaginator()
+            var styleAllowsExtension: Bool?
+            if protect, layout.textIndent != nil {
+                paginator.didCheckFrameStyle = { styleAllowsExtension = $0 }
+            }
             if layout == .pageRule || layout == .unreadableSheet {
                 paginator.didCheckPageRules = { mayHaveRules in #expect(mayHaveRules) }
             }
-            return try await paginator.paginateWithResult(
+            let result = try await paginator.paginateWithResult(
                 .html(html, baseURL: nil), pageSize: layout.paper, margins: layout.margins, allowsJavaScript: false,
                 preparationScript: layout == .unreadableSheet ? unreadable : nil,
                 latexMarginInk: layout == .latexMarginInk, protectsFrameEdges: protect
-            ).document
+            )
+            if protect, let indent = layout.textIndent {
+                #expect(styleAllowsExtension == false, "text-indent: \(indent)")
+            }
+            return result.document
         }
         let before = try await document(protect: false)
         let after = try await document(protect: true)

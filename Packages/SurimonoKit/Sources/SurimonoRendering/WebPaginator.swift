@@ -133,6 +133,8 @@ public final class WebPaginator: NSObject {
     var didStartExporting: (@MainActor (WKWebView) -> Void)?
     /// Receives whether the document may draw below the paper (observed by tests).
     var didCheckPageRules: (@MainActor (Bool) -> Void)?
+    /// Receives whether the input styles allow a wider print clip, before measuring the layout.
+    var didCheckFrameStyle: (@MainActor (Bool) -> Void)?
 
     /// One retained world: a world made by each `.world(name:)` call can be released between calls, which drops the
     /// globals a library loaded in one preparation call leaves for the next.
@@ -334,6 +336,7 @@ public final class WebPaginator: NSObject {
             } catch PaginationError.timedOut {
                 extendsFrame = false
             }
+            didCheckFrameStyle?(extendsFrame)
         }
         let pageRules: [PageRule]
         let preparationResult: String?
@@ -836,8 +839,8 @@ public final class WebPaginator: NSObject {
         }
         for (const node of document.querySelectorAll('[style]')) {
           const style = node.style;
-          // These can move ink within an otherwise unchanged body when the viewport gets wider.
-          if (/[0-9.][dls]?v(?:w|h|i|b|min|max)\b|(?:if|env|attr)\(/i.test(style.cssText)
+          // Container units also depend on the viewport on any axis without an eligible query container.
+          if (/[0-9.](?:[dls]?v|cq)(?:w|h|i|b|min|max)\b|(?:if|env|attr)\(/i.test(style.cssText)
               || (style.position && !['static', 'relative'].includes(style.position))) return 'false';
         }
         return 'true';
