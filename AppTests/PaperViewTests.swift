@@ -607,7 +607,11 @@ struct PaperViewTests {
         #expect(view.currentPageIndex == 2)
         view.goToPage(index: 0)
         view.layoutSubtreeIfNeeded()
-        #expect(view.visiblePages.contains(page0))
+        // PDFKit updates visiblePages after it draws, so right after a jump it can still name the pages of the last
+        // place. Where the page is drawn and what the scroll view shows are settled at once, and say more: the whole
+        // short page is in view.
+        let jumped = try shownPlace(of: page0, in: view)
+        #expect(jumped.isWhollyShown, Comment(rawValue: jumped.detail))
 
         // Internal link on the trimmed page targets the view copy's last page and jumps there.
         let action = try #require(page0.annotations.first?.action as? PDFActionGoTo)
@@ -629,7 +633,45 @@ struct PaperViewTests {
             source, at: 0, options: scroll, logicalMargin: 42, showsPageNumbers: false, changeMarks: [mark])
         view.layoutSubtreeIfNeeded()
         #expect(view.currentPageIndex == 1)
+
+        // From the short first page too. PDFKit's current page is the one across the middle of the view, which here
+        // is the next page, so it is asked only after PDFKit has handled the jump as it does while reading.
+        view.goToPage(index: 0)
+        view.layoutSubtreeIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.4))
+        let reading = try shownPlace(of: #require(view.document?.page(at: 0)), in: view)
+        #expect(view.currentPageIndex == 0, Comment(rawValue: reading.detail))
+        view.configure(
+            source, at: 0, options: paged, logicalMargin: 42, showsPageNumbers: false, changeMarks: [mark])
+        view.layoutSubtreeIfNeeded()
+        #expect(view.currentPageIndex == 0)
+        view.configure(
+            source, at: 0, options: scroll, logicalMargin: 42, showsPageNumbers: false, changeMarks: [mark])
+        view.layoutSubtreeIfNeeded()
+        let returned = try shownPlace(of: #require(view.document?.page(at: 0)), in: view)
+        #expect(view.currentPageIndex == 0, Comment(rawValue: returned.detail))
+        #expect(returned.isWhollyShown, Comment(rawValue: returned.detail))
         withExtendedLifetime(window) {}
+    }
+
+    /// Where a page is drawn and what the scroll view shows, both in the paper view's coordinates.
+    private struct ShownPlace {
+        let page: CGRect
+        let visible: CGRect
+        let detail: String
+        /// A pixel of slack for rounding to the display.
+        var isWhollyShown: Bool { visible.insetBy(dx: -1, dy: -1).contains(page) }
+    }
+
+    private func shownPlace(of page: PDFPage, in view: PaperPDFView) throws -> ShownPlace {
+        let clip = try #require(view.documentView?.enclosingScrollView?.contentView)
+        let frame = view.convert(page.bounds(for: view.displayBox), from: page)
+        let visible = view.convert(clip.bounds, from: clip)
+        let index = view.document.map { $0.index(for: page) } ?? -1
+        let detail =
+            "page \(index) crop \(page.bounds(for: .cropBox)) at \(frame), view shows \(visible), "
+            + "reading page \(view.currentPageIndex), on \(ProcessInfo.processInfo.operatingSystemVersionString)"
+        return ShownPlace(page: frame, visible: visible, detail: detail)
     }
 
     @Test("表示のページ番号は初期状態で無効で印刷の保存キーと独立して覚える")
