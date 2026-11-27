@@ -7,6 +7,33 @@ import Testing
 
 @MainActor
 struct ReadingGroupAccessibilityTests {
+    @Test("暗い読み方パネルの固定値は設定名と値を持つ一つの無効な要素になる")
+    func lockedValue() throws {
+        let id = ReadingSettingID.sectionNumbers
+        let value = "2 levels"
+        let host = NSHostingView(
+            rootView: ReadingSettingControl(id: id, changed: false, locked: true, resetHelp: "", reset: {}) {
+                ReadingMenu(label: id.label, selection: .constant(0), valueLabel: Text(verbatim: value)) {
+                    Text(verbatim: value).tag(0)
+                }
+            }
+            .environment(\.colorScheme, .dark).environment(\.accessibilityEnabled, true))
+        host.setFrameSize(host.fittingSize)
+        host.layoutSubtreeIfNeeded()
+        let matches = nodes(of: host).filter { $0.accessibilityIdentifier?() == id.rawValue }
+        try #require(matches.count == 1)
+        let badge = matches[0]
+        let name = String(localized: id.label)
+        let label: String? = badge.accessibilityLabel?()
+        let title: String? = badge.accessibilityTitle?()
+        let spokenValue: Any? = badge.accessibilityValue?()
+        #expect(label == name || title == name)
+        #expect(spokenValue as? String == value)
+        #expect(badge.accessibilityRole?() == .staticText)
+        #expect(badge.isAccessibilityEnabled?() == false)
+        #expect(badge.accessibilityChildren?()?.isEmpty != false)
+    }
+
     @Test("出典のポップオーバーは外部参照のときだけ、設定と本文を取り込まない説明を表示する", arguments: ["ja", "en"])
     func externalReferenceExplanation(language: String) async throws {
         let bundle = try #require(

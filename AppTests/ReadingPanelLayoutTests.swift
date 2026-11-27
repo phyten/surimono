@@ -263,6 +263,103 @@ struct ReadingPanelLayoutTests {
         #expect(source.lineNumber == 4)
     }
 
+    @Test("固定値の行は実幅と折り返し境界で札の右端を保ち、一列なら文字のベースラインが揃う", arguments: UILanguage.supported)
+    func lockedChoiceRow(language: String) throws {
+        let bundle = try #require(
+            Bundle.main.url(forResource: language, withExtension: "lproj").flatMap(Bundle.init(url:)))
+        func translated(_ key: String) -> String { bundle.localizedString(forKey: key, value: nil, table: nil) }
+        let locale = Locale(identifier: language)
+        let title = Text(verbatim: translated("Drawers"))
+        for key in ["None", "Show All Except LOGBOOK"] {
+            let menu = lockedMenu(translated(key))
+            let inline = HStack(spacing: 6) {
+                title
+                menu
+            }
+            let boundary = NSHostingView(rootView: inline.fixedSize().environment(\.locale, locale)).fittingSize.width
+            for width in [ReadingPanelMetrics.width - 24, boundary - 2, boundary + 2] {
+                let row = measureChoiceRow(title: title, menu: menu, width: width, locale: locale)
+                let detail = "\(language) \(key) width=\(width) boundary=\(boundary) row=\(row)"
+                try #require(row.baselines.count == 2, "\(detail)")
+                let difference = row.baselines[1] - row.baselines[0]
+                if width < boundary {
+                    #expect(row.badge.minY > row.baselines[0], "\(detail)")
+                } else {
+                    #expect(abs(difference) <= 1, "\(detail)")
+                }
+                #expect(abs(row.badge.maxX - width) <= 1, "\(detail)")
+            }
+        }
+    }
+
+    @Test("パネルより長い固定値は次の行で省略されず、札の右端まで横スクロールできる")
+    func longLockedChoiceRow() throws {
+        let width = ReadingPanelMetrics.width - 24
+        let menu = lockedMenu(String(repeating: "LOGBOOK ", count: 12))
+        let natural = NSHostingView(rootView: menu).fittingSize.width
+        let row = measureChoiceRow(title: Text(verbatim: "Drawers"), menu: menu, width: width)
+        let scroll = try #require(row.scroll)
+        try #require(row.baselines.count == 2)
+        #expect(row.badge.minY > row.baselines[0] && !row.truncated)
+        #expect(natural > width && abs(row.badge.width - natural) <= 1)
+        #expect(abs(scroll.containerSize.width - width) <= 1)
+        #expect(abs(scroll.contentSize.width - natural) <= 1)
+        #expect(abs(row.furthestVisibleX - natural) <= 1)
+    }
+
+    private func lockedMenu(_ value: String) -> some View {
+        ReadingMenu(label: "Drawers", selection: .constant(0), valueLabel: Text(verbatim: value)) {
+            Text(verbatim: value).tag(0)
+        }.disabled(true).environment(\.colorScheme, .dark)
+    }
+
+    private struct ChoiceGeometry {
+        var badge = CGRect.null
+        var baselines: [CGFloat] = []
+        var truncated = false
+        var scroll: ScrollGeometry?
+        var furthestVisibleX: CGFloat = 0
+    }
+
+    private func measureChoiceRow(title: Text, menu: some View, width: CGFloat, locale: Locale = .current)
+        -> ChoiceGeometry
+    {
+        var result = ChoiceGeometry()
+        let row = ReadingChoiceRow(
+            title: title,
+            picker: menu.onGeometryChange(for: CGRect.self) {
+                $0.frame(in: .global)
+            } action: {
+                result.badge = $0
+            }
+        ) { EmptyView() }
+        .onScrollGeometryChange(for: ScrollGeometry.self) {
+            $0
+        } action: { _, geometry in
+            result.scroll = geometry
+            result.furthestVisibleX = max(result.furthestVisibleX, geometry.visibleRect.maxX)
+        }
+        .scrollPosition(.constant(ScrollPosition(edge: .trailing)))
+        .environment(\.colorScheme, .dark).environment(\.locale, locale)
+        .frame(width: width)
+        .overlayPreferenceValue(Text.LayoutKey.self) { layouts in
+            GeometryReader { proxy in
+                // Each text exposes its first line's baseline relative to its own origin.
+                let baselines = layouts.compactMap { text in
+                    text.layout.first.map { proxy[text.origin].y + $0.origin.y }
+                }
+                Color.clear.onChange(of: baselines, initial: true) {
+                    result.baselines = baselines
+                    result.truncated = layouts.contains { $0.layout.isTruncated }
+                }
+            }
+        }
+        let host = NSHostingView(rootView: row)
+        host.setFrameSize(host.fittingSize)
+        host.layoutSubtreeIfNeeded()
+        return result
+    }
+
     @Test("読み方の全項目は八言語で選択値と戻す矢印が収まり、横に収まる行は一列を保つ", arguments: UILanguage.supported)
     func choicesFit(language: String) throws {
         let path = try #require(Bundle.main.path(forResource: language, ofType: "lproj"))

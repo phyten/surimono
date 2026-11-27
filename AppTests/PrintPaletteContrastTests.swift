@@ -25,45 +25,118 @@ struct PrintPaletteContrastTests {
     }
 
     @MainActor
-    @Test("暗い読み方パネルの固定値はパネル面と選択欄の両方で比が三以上になる", arguments: ["None", "2 levels"])
-    func lockedReadingValue(value: String) throws {
-        func bitmap(_ value: String) throws -> NSBitmapImageRep {
-            let menu = ReadingMenu(label: "Heading Numbers", selection: .constant(0), valueLabel: Text(verbatim: value))
-            {
-                Text(verbatim: "None").tag(0)
-                Text(verbatim: "2 levels").tag(1)
-            }
-            let host = NSHostingView(
-                rootView: menu.disabled(true).padding(8).background(PrintPalette.raised)
-                    .environment(\.colorScheme, .dark))
-            host.appearance = NSAppearance(named: .darkAqua)
-            host.setFrameSize(host.fittingSize)
-            host.layoutSubtreeIfNeeded()
-            let image = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
-            host.cacheDisplay(in: host.bounds, to: image)
-            return image
+    @Test("暗い読み方パネルの固定値は札とパネルの両方で三対一以上になり、有効な値より薄い")
+    func lockedReadingValue() throws {
+        let locked = try renderedContrast(readingMenu("2 levels", locked: true))
+        let enabled = try renderedContrast(readingMenu("2 levels", locked: false))
+        let detail = "locked \(locked), enabled \(enabled)"
+        #expect(locked.onFill >= 3 && locked.onPanel >= 3, "\(detail)")
+        #expect(locked.onFill < enabled.onFill && locked.onPanel < enabled.onPanel, "\(detail)")
+    }
+
+    @MainActor
+    @Test("暗い札の文字は四つの表示設定で読め、高コントラスト時は枠をパネルから見分けられる", arguments: [false, true], [false, true])
+    func lockedBadgeContrast(increased: Bool, reduced: Bool) throws {
+        let display = DisplayAccessibility.Options(increasedContrast: increased, reduceTransparency: reduced)
+        let sample = try renderedContrast(
+            LockedReadingBadge(valueLabel: Text(verbatim: "2 levels"), display: display).disabled(true))
+        let detail = "increased=\(increased) reduced=\(reduced) \(sample)"
+        #expect(sample.onFill >= 3 && sample.onPanel >= 3, "\(detail)")
+        if increased {
+            #expect(sample.edgeOnPanel >= 3, "\(detail)")
+        } else {
+            #expect(sample.edge == sample.fill, "\(detail)")
         }
-        let text = try bitmap(value)
-        let blank = try bitmap(" ")
-        try #require(text.pixelsWide == blank.pixelsWide && text.pixelsHigh == blank.pixelsHigh)
-        let panel = hex(try #require(text.colorAt(x: 2, y: 2)?.usingColorSpace(.sRGB)))
-        var contrast = 0.0
-        var contrastOnControl = 0.0
-        // Compare only pixels painted by the value, excluding the native bezel and arrows.
-        for y in 0..<text.pixelsHigh {
-            for x in 0..<text.pixelsWide {
-                guard let pixel = text.colorAt(x: x, y: y)?.usingColorSpace(.sRGB),
-                    let ground = blank.colorAt(x: x, y: y)?.usingColorSpace(.sRGB), pixel != ground
-                else { continue }
-                let ink = hex(pixel)
-                contrast = max(contrast, CodeColor.contrast(ink, panel) ?? 0)
-                contrastOnControl = max(contrastOnControl, CodeColor.contrast(ink, hex(ground)) ?? 0)
+    }
+
+    @MainActor
+    @Test("固定値の札には文字と矢印が収まり、選択欄と高さが揃う", arguments: UILanguage.supported)
+    func lockedReadingValueSize(language: String) throws {
+        let strings = try #require(
+            Bundle.main.url(forResource: language, withExtension: "lproj").flatMap(Bundle.init(url:)))
+        for key in ["None", "Show All Except LOGBOOK"] {
+            let value = strings.localizedString(forKey: key, value: nil, table: nil)
+            let badge = NSHostingView(rootView: readingMenu(value, locked: true)).fittingSize
+            let native = NSHostingView(rootView: readingMenu(value, locked: false)).fittingSize
+            let title = NSHostingView(rootView: Text(verbatim: value)).fittingSize
+            #expect(abs(badge.height - native.height) <= 1, "\(language) \(key): badge=\(badge), native=\(native)")
+            // Leading inset, gap, indicator and trailing inset.
+            #expect(abs(badge.width - title.width - (12 + 18 + 10 + 8)) <= 1, "\(badge), title=\(title)")
+        }
+    }
+
+    @MainActor
+    @Test("札の自然幅では値が収まり、文字の幅を半分にすると省略されても矢印との間に余白が残る", arguments: UILanguage.supported)
+    func lockedReadingValueTruncation(language: String) throws {
+        let strings = try #require(
+            Bundle.main.url(forResource: language, withExtension: "lproj").flatMap(Bundle.init(url:)))
+        for (key, shouldTruncate) in [("None", false), ("Show All Except LOGBOOK", true)] {
+            let value = strings.localizedString(forKey: key, value: nil, table: nil)
+            let menu = readingMenu(value, locked: true)
+            let natural = NSHostingView(rootView: menu).fittingSize.width
+            let title = NSHostingView(rootView: Text(verbatim: value)).fittingSize.width
+            let width = shouldTruncate ? floor(natural - title / 2) : ceil(natural)
+            var truncated: Bool?
+            let badge = menu.textRenderer(ObservedTitle { truncated = $0 })
+                .frame(maxWidth: width, alignment: .trailing)
+            let image = try bitmap(badge)
+            #expect(truncated == shouldTruncate, "\(language) \(value) width=\(width) natural=\(natural)")
+            // Both samples are relative to the trailing edge, even when the title fits naturally.
+            let fill = try image.color(x: image.size.width - 25, y: 2)
+            #expect(try image.matches(fill, trailing: 19..<32), "\(value): the gap contains ink")
+            #expect(try !image.matches(fill, trailing: 8..<18), "\(value): missing indicator")
+        }
+    }
+
+    private struct ObservedTitle: TextRenderer {
+        let report: (Bool) -> Void
+        func draw(layout: Text.Layout, in context: inout GraphicsContext) {
+            report(layout.isTruncated)
+            for line in layout { context.draw(line) }
+        }
+    }
+
+    @MainActor
+    private func readingMenu(_ value: String, locked: Bool) -> some View {
+        ReadingMenu(label: "Heading Numbers", selection: .constant(0), valueLabel: Text(verbatim: value)) {
+            Text(verbatim: value).tag(0)
+        }
+        .disabled(locked).environment(\.colorScheme, .dark)
+    }
+
+    @MainActor
+    private func bitmap(_ content: some View) throws -> NSBitmapImageRep {
+        let host = NSHostingView(rootView: content.background(PrintPalette.raised).environment(\.colorScheme, .dark))
+        host.appearance = NSAppearance(named: .darkAqua)
+        host.setFrameSize(host.fittingSize)
+        host.layoutSubtreeIfNeeded()
+        let image = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: image)
+        return image
+    }
+
+    @MainActor
+    private func renderedContrast(_ content: some View) throws -> (
+        ink: String, fill: String, panel: String, edge: String, onFill: Double, onPanel: Double, edgeOnPanel: Double
+    ) {
+        let image = try bitmap(content.padding(8))
+        let panel = hex(try image.color(x: 2, y: 2))
+        let fill = hex(try image.color(x: 12, y: image.size.height / 2))
+        let edge = hex(try image.color(x: 8, y: image.size.height / 2))
+        var ink = fill
+        var onFill = 1.0
+        // The leading half contains the first glyphs and excludes the trailing indicator.
+        for x in Int(16 * image.scaleX)..<image.pixelsWide / 2 {
+            for y in Int(13 * image.scaleY)..<image.pixelsHigh - Int(13 * image.scaleY) {
+                let color = hex(try #require(image.colorAt(x: x, y: y)?.usingColorSpace(.sRGB)))
+                let ratio = try #require(CodeColor.contrast(color, fill))
+                if ratio > onFill { (ink, onFill) = (color, ratio) }
             }
         }
-        let primary = Swatch.ink.resolved(dark: true, increasedContrast: false, reduceTransparency: false)
-        let enabled = try #require(CodeColor.contrast(hex(primary), panel))
-        #expect(contrastOnControl >= 3)
-        #expect(contrast >= 3 && contrast < enabled, "value=\(contrast) primary=\(enabled) panel=\(panel)")
+        return (
+            ink, fill, panel, edge, onFill, try #require(CodeColor.contrast(ink, panel)),
+            try #require(CodeColor.contrast(edge, panel))
+        )
     }
 
     @Test("刷り台の文字と枠は両方の外観と表示設定で背景から読み分けられる", arguments: [false, true], [false, true])
@@ -170,5 +243,25 @@ struct PrintPaletteContrastTests {
         let raised = Swatch.raised.resolved(dark: dark, increasedContrast: increased, reduceTransparency: false)
         let opaque = Swatch.hover.resolved(dark: dark, increasedContrast: increased, reduceTransparency: true)
         #expect(hex(opaque) == hex(over(normal, raised)))
+    }
+}
+
+extension NSBitmapImageRep {
+    fileprivate var scaleX: CGFloat { CGFloat(pixelsWide) / size.width }
+    fileprivate var scaleY: CGFloat { CGFloat(pixelsHigh) / size.height }
+
+    fileprivate func color(x: CGFloat, y: CGFloat) throws -> NSColor {
+        try #require(colorAt(x: Int(x * scaleX), y: Int(y * scaleY))?.usingColorSpace(.sRGB))
+    }
+
+    fileprivate func matches(_ fill: NSColor, trailing: Range<Int>) throws -> Bool {
+        let start = Int(ceil((size.width - CGFloat(trailing.upperBound)) * scaleX))
+        let end = Int(floor((size.width - CGFloat(trailing.lowerBound)) * scaleX))
+        for x in start..<end {
+            for y in pixelsHigh / 4..<pixelsHigh * 3 / 4 {
+                if try #require(colorAt(x: x, y: y)?.usingColorSpace(.sRGB)) != fill { return false }
+            }
+        }
+        return true
     }
 }
