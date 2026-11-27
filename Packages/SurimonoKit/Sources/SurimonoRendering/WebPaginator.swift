@@ -51,6 +51,26 @@ public final class WebPaginator: NSObject {
 
         public static func uniform(millimeters: Double) -> Margins { Margins(.uniform(millimeters)) }
 
+        /// These margins with the text column brought down to a whole number of points.
+        ///
+        /// WebKit's printing view cuts the page rect back to whole points and keeps the left edge, so a rule
+        /// on the last fraction of a point of the column is not drawn. The fraction joins the right margin
+        /// instead. The column stays a hundredth above the whole point, so single-precision arithmetic in
+        /// WebKit cannot land just under it; a column that is already there is left as it is. A page without
+        /// a right margin has no column edge to save, and narrowing it would only shrink a full-bleed page.
+        ///
+        /// Only for the margins handed to the print: code that measures or places things before printing
+        /// keeps the margins it was given.
+        func wholeColumn(in pageSize: CGSize) -> Margins {
+            guard right > 0 else { return self }
+            let column = pageSize.width - left - right
+            let whole = (column - 0.005).rounded(.down) + 0.01
+            guard whole > 0, whole < column else { return self }
+            var result = self
+            result.right += column - whole
+            return result
+        }
+
         /// The margins of a left-hand page, whose outer side is on the left.
         public var mirrored: Margins { Margins(top: top, left: right, bottom: bottom, right: left) }
     }
@@ -1020,7 +1040,7 @@ public final class WebPaginator: NSObject {
 /// Owns the web view, its window, and the temporary files for one pagination, so they outlive the call until the
 /// print thread is done with them.
 @MainActor
-private final class PaginationSession {
+final class PaginationSession {
     let webView: WKWebView
     private let window: NSWindow
     private let navigationTracker = NavigationTracker()
@@ -1216,7 +1236,9 @@ private final class PaginationSession {
         printInfo.leftMargin = margins.left
         // The allowance goes into the bottom margin, so a document laid out with these margins keeps its height.
         printInfo.bottomMargin = margins.bottom + Self.pageHeightAllowance
-        printInfo.rightMargin = margins.right
+        // Only the print asks for the whole column: the layout before it keeps its measure, and the
+        // LaTeX margin path below prints the whole paper, where the column edge is not at the cut.
+        printInfo.rightMargin = margins.wholeColumn(in: pageSize).right
         if latexMarginInk {
             // NSPrintOperation clips to the printable width before Quartz sees the page. Give the root
             // the horizontal white space instead, so a number outside its pre or a frame on the last
