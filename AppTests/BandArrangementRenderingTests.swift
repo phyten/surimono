@@ -158,11 +158,18 @@ struct BandArrangementRenderingTests {
         return (row(top: true), mode == .split ? row(top: false) : nil)
     }
 
-    @Test("標準配置の部品を帯へ順に渡し、どの幅でも部品とファイル名が収まる", arguments: MenuArrangement.allCases)
+    @Test(
+        "上だけの標準と保存した前の上下配置の標準の部品を帯へ順に渡し、どの幅でも部品とファイル名が収まる",
+        arguments: MenuArrangement.allCases)
     func standardFeedsRenderer(mode: MenuArrangement) async throws {
         let environment = Environment()
         defer { environment.cleanUp() }
         environment.preferences.menuArrangement = mode
+        if mode == .split {
+            // The current Split standard is not a legacy stack; the previous one, saved, still prices as before.
+            try environment.preferences.saveBandArrangement(
+                BandArrangementSet(name: "Quiet", layouts: BandTestCatalog.quietLayouts))
+        }
         let model = environment.chapters()
         defer { model.stop() }
         try await open(model)
@@ -202,6 +209,41 @@ struct BandArrangementRenderingTests {
             }
             let pushedOut = Set(reference.top.overflow + (reference.bottom?.overflow ?? []))
             #expect(Set(plans.resolved.overflow) == pushedOut, "overflow at \(width)")
+        }
+    }
+
+    @Test("上下配置の標準は窓の操作を上の右に、読む道具を下に並べ、どの幅でも帯に収まる")
+    func splitStandardFeedsRenderer() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        environment.preferences.menuArrangement = .split
+        let model = environment.chapters()
+        defer { model.stop() }
+        try await open(model)
+
+        let wide = BandPlans(model: model, menu: menu(width: 2000))
+        #expect(wide.top.leading == [.formatBadge])
+        #expect(
+            wide.top.trailing == [.floatOnTop, .showOnAllSpaces, .alwaysShowToolbar, .selectText, .viewOptions, .print])
+        #expect(wide.bottom?.leading == [.paperOrientation, .style, .outline, .transition])
+        #expect(wide.bottom?.trailing == [.chapter, .pageIndicator, .pageTurn])
+        #expect(!wide.top.geometry.usesStandardSpacing && wide.bottom?.geometry.usesStandardSpacing == false)
+        #expect(wide.top.geometry.moreDock == .beforePrint)
+        #expect(wide.resolved.overflow == [])
+        // Presentation, Zoom, List, Cover, Ignore Slides and Before Printing do not apply to this document.
+        #expect(
+            wide.resolved.unusedAvailable == [
+                .layout, .readingDirection, .scrollDirection, .paperSeries, .margins, .printSettings, .saveAsFile,
+                .keysAndGestures, .readingSettings,
+            ])
+
+        for width in stride(from: CGFloat(1), through: 900, by: 1) {
+            let plans = BandPlans(model: model, menu: menu(width: width))
+            #expect(plans.top.requiredWidth <= max(width, plans.top.minimumWidth), "top footprint at \(width)")
+            if let bottom = plans.bottom {
+                #expect(bottom.requiredWidth <= max(width, bottom.minimumWidth), "bottom footprint at \(width)")
+            }
+            #expect(plans.top.forms[.print] != nil, "print at \(width)")
         }
     }
 
@@ -272,7 +314,7 @@ struct BandArrangementRenderingTests {
         environment.preferences.menuArrangement = .split
         environment.preferences.defaultBandVisibility = .always
         // Contents and the page indicator on the top band, where they fold at a width the window still allows.
-        var layouts = BandArrangementVariants()
+        var layouts = BandTestCatalog.quietLayouts
         layouts.split = try layouts.split.moving(.pageIndicator, to: .zone(.topLeft), for: .split)
         layouts.split = try layouts.split.moving(.outline, to: .zone(.topLeft), for: .split)
         layouts.split = try layouts.split.moving(.viewOptions, to: .zone(.topLeft), for: .split)
@@ -565,13 +607,15 @@ struct BandArrangementRenderingTests {
         let window = try #require(controller.window)
         window.alphaValue = 0
         window.orderFrontRegardless()
+        // The current Split standard leaves the list in the palette; start from a set that has it on the bottom.
+        var layouts = BandTestCatalog.quietLayouts
+        try environment.preferences.saveBandArrangement(BandArrangementSet(name: "List", layouts: layouts))
         model.render()
         try await waitUntil { model.result != nil && !model.isRendering }
         try await waitUntil {
             model.bandAnchors.plan?.band(of: .thumbnails) == .bottom && model.drop.listButtonFrame != nil
         }
 
-        var layouts = BandArrangementVariants()
         layouts.split = try layouts.split.moving(.thumbnails, to: .unused, for: .split)
         try environment.preferences.saveBandArrangement(BandArrangementSet(name: "No List", layouts: layouts))
         try await waitUntil { model.bandAnchors.plan != nil && model.bandAnchors.plan?.band(of: .thumbnails) == nil }

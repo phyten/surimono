@@ -5,7 +5,7 @@ import Testing
 struct BandResolvedPlanTests {
     @Test("英語幅の上下の帯は380ptまで収まり、下段は読み方の設定から名前を省く")
     func splitBandWithEnglishLabels() throws {
-        var layout = BandArrangement.standard(for: .split)
+        var layout = BandLayoutTests.quietSplit
         for item: BandLayout.Item in [.readingDirection, .scrollDirection] {
             layout = try layout.moving(item, to: .zone(.topRight), before: .print, for: .split)
         }
@@ -34,9 +34,9 @@ struct BandResolvedPlanTests {
         #expect(narrow.bottom?.forms == [.style: .compact, .outline: .compact, .layout: .full])
     }
 
-    @Test("画像の束の標準の入口は上下配置でも上だけでも目次の位置に来る", arguments: MenuArrangement.allCases)
+    @Test("画像の束の入口は前の上下配置の標準でも上だけの標準でも目次の位置に来る", arguments: MenuArrangement.allCases)
     func bundlePlacement(mode: MenuArrangement) {
-        let original = BandArrangement.standard(for: mode)
+        let original = mode == .split ? BandLayoutTests.quietSplit : BandArrangement.standard(for: .top)
         let placed = original.forImageBundle(in: mode)
         let zone: BandZoneID = mode == .split ? .bottomLeft : .topRight
         #expect(placed[zone].firstIndex(of: .part(.thumbnails)) == original[zone].firstIndex(of: .part(.outline)))
@@ -49,9 +49,33 @@ struct BandResolvedPlanTests {
         #expect(row?.geometry.usesStandardSpacing == true)
     }
 
+    @Test("上下配置の標準は名前を付けて保存した並びと同じく隣り合う部品で間隔を決める")
+    func splitStandardSpacing() throws {
+        let plan = BandLayout.resolve(
+            arrangement: .standard(for: .split), mode: .split, availableItems: Set(BandLayout.Item.allCases),
+            measurements: .init(items: [:], name: 0), metrics: .init(topFixed: 0, bottomFixed: 0, separator: 9),
+            availableWidth: 2000)
+        let bottom = try #require(plan.bottom)
+        #expect(!plan.top.geometry.usesStandardSpacing && !bottom.geometry.usesStandardSpacing)
+        #expect(
+            plan.top.geometry.gapsBefore == [
+                .formatBadge: 6, .floatOnTop: 0, .showOnAllSpaces: 8, .alwaysShowToolbar: 8, .selectText: 8,
+                .viewOptions: 8, .print: 10,
+            ])
+        #expect(plan.top.geometry.separatorsBefore == [.showOnAllSpaces, .viewOptions])
+        #expect(plan.top.geometry.moreDock == .beforePrint && plan.top.geometry.moreGap == 8)
+        #expect(
+            bottom.geometry.gapsBefore == [
+                .paperOrientation: 0, .presentation: 8, .style: 8, .outline: 8, .transition: 8, .chapter: 0,
+                .pageIndicator: 10, .pageTurn: 10,
+            ])
+        #expect(bottom.geometry.separatorsBefore == [.presentation, .style])
+        #expect(plan.overflow == [])
+    }
+
     @Test("カスタムの並びで一覧を置いた場所は画像の束でも保つ")
     func customDrawer() throws {
-        let standard = BandArrangement.standard(for: .split)
+        let standard = BandLayoutTests.quietSplit
         let custom = try standard.moving(.thumbnails, to: .zone(.topRight), before: .print, for: .split)
         #expect(custom.forImageBundle(in: .split) == custom)
     }
@@ -119,10 +143,10 @@ struct BandResolvedPlanTests {
             metrics: metrics, availableWidth: width)
     }
 
-    @Test("新しい計画も標準の三つの幅で固定済みの表示形と名前幅を返す", arguments: [1000, 650, 250])
+    @Test("新しい計画も上だけの標準と前の上下配置の標準の三つの幅で固定済みの表示形と名前幅を返す", arguments: [1000, 650, 250])
     func workedExamples(width: Int) throws {
         let top = resolve(.standard(for: .top), mode: .top, width: CGFloat(width))
-        let split = resolve(.standard(for: .split), width: CGFloat(width))
+        let split = resolve(BandLayoutTests.quietSplit, width: CGFloat(width))
         let bottom = try #require(split.bottom)
         #expect(top.bottom == nil)
         #expect(
@@ -171,9 +195,9 @@ struct BandResolvedPlanTests {
         #expect(top.top.minimumWidth == 184 && split.top.minimumWidth == 184 && bottom.minimumWidth == 30)
     }
 
-    @Test("標準の実測間隔と予約された隙間はすべての幅で旧入口と一致する", arguments: MenuArrangement.allCases)
+    @Test("上だけの標準と前の上下配置の標準の実測間隔と予約された隙間はすべての幅で旧入口と一致する", arguments: MenuArrangement.allCases)
     func standardSpacing(mode: MenuArrangement) {
-        let layout = BandArrangement.standard(for: mode)
+        let layout = mode == .split ? BandLayoutTests.quietSplit : BandArrangement.standard(for: .top)
         let numeric = BandMetrics(topFixed: 150, bottomFixed: 28, separator: 9)
         var spaced = BandLayoutTests.workedWidths
         for item in BandLayout.Item.allCases {
@@ -303,7 +327,7 @@ struct BandResolvedPlanTests {
 
     @Test("使えない部品と使わない部品と幅で外れた部品を混ぜず印刷を残す")
     func availabilityAndUnused() throws {
-        let layout = try BandArrangement.standard(for: .split).moving(.outline, to: .unused, for: .split)
+        let layout = try BandLayoutTests.quietSplit.moving(.outline, to: .unused, for: .split)
         let plan = BandLayout.resolve(
             arrangement: layout, mode: .split, availableItems: [.style, .outline, .print],
             measurements: .init(items: BandLayoutTests.workedWidths, name: 120), metrics: metrics, availableWidth: 1)

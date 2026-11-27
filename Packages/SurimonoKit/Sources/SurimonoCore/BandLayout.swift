@@ -259,12 +259,14 @@ public enum BandLayout {
             return availableItems.contains(.thumbnails) && !availableItems.contains(.outline)
                 && expected.withBundleEntryAtContents == entries
         }
-        let current = BandArrangement.standard(for: mode)
-        let currentTrailing = position == .top ? current.topRight : current.bottomRight
+        // The quieter standard that followed keeps the legacy stacks too. The current Split standard is a reordering
+        // like any saved one, so it draws exactly as the same layout saved under a name.
+        let quiet = BandArrangement.builtIn(for: mode, includesLegacyParts: false)
+        let quietTrailing = position == .top ? quiet.topRight : quiet.bottomRight
         let standardSpacing =
             follows(leading, order: standardLeading)
             && (follows(trailing, order: standardTrailing)
-                || follows(trailing, order: currentTrailing))
+                || follows(trailing, order: quietTrailing))
         let widths = Dictionary(
             uniqueKeysWithValues: (leading + trailing).compactMap(\.item).filter(availableItems.contains).map {
                 ($0, measurements.items[$0] ?? Widths(full: 0))

@@ -3061,8 +3061,10 @@ final class DocumentViewModel {
         }
         // A PDF can say how it wants to be shown (for example a right-to-left book).
         let hints = format == .pdf && imageBundle == nil ? PDFViewerHints.read(from: document) : PDFViewerHints()
+        let kind = Self.viewKind(format: format, isBundle: imageBundle != nil)
         return ViewDefaultsContext(
-            kind: Self.viewKind(format: format, isBundle: imageBundle != nil), pageCount: document.pageCount,
+            kind: kind == .flowingText && result?.facts?.beamerPageSize != nil ? .slides : kind,
+            pageCount: document.pageCount,
             firstPageSize: size ?? PaperSize.a4.size, pdfPageLayout: hints.pageLayout, pdfDirection: hints.direction)
     }
 

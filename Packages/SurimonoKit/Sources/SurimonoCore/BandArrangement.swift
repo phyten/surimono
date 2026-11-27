@@ -92,10 +92,31 @@ public struct BandArrangement: Codable, Equatable, Sendable {
     public static func standard(
         for mode: MenuArrangement, knownItems: [BandLayout.Item] = BandLayout.Item.allCases
     ) -> Self {
-        builtIn(for: mode, knownItems: knownItems, includesLegacyParts: false)
+        switch mode {
+        case .split:
+            // Layout, Zoom, Thumbnails and Reading Settings stay in the palette. To bring one back, put it here:
+            // Layout after Transition, Zoom and Thumbnails as their own group after it, Reading Settings last on
+            // the bottom right.
+            let arrangement = Self(entries: [
+                .topLeft: [.part(.formatBadge)],
+                .topRight: [
+                    .part(.floatOnTop), .separator, .part(.showOnAllSpaces), .part(.alwaysShowToolbar),
+                    .part(.selectText), .separator, .part(.viewOptions), .part(.print),
+                ],
+                .bottomLeft: [
+                    .part(.paperOrientation), .separator, .part(.presentation), .separator, .part(.style),
+                    .part(.outline), .part(.transition),
+                ],
+                .bottomRight: [.part(.chapter), .part(.pageIndicator), .part(.pageTurn)],
+            ])
+            return arrangement.restricted(to: knownItems)
+        case .top:
+            return builtIn(for: mode, knownItems: knownItems, includesLegacyParts: false)
+        }
     }
 
-    // The old order also defines spacing for saved arrangements that still include both controls.
+    // The earlier standards also define spacing for saved arrangements that still follow them: the legacy order
+    // includes both window and page-turn controls, the quieter one replaced it until the current Split standard.
     static func builtIn(
         for mode: MenuArrangement, knownItems: [BandLayout.Item] = BandLayout.Item.allCases,
         includesLegacyParts: Bool
@@ -127,6 +148,12 @@ public struct BandArrangement: Codable, Equatable, Sendable {
             case .top: arrangement.topRight.insert(.part(.readingSettings), at: arrangement.topRight.count - 1)
             }
         }
+        return arrangement.restricted(to: knownItems)
+    }
+
+    /// Drops parts an older catalog does not know and lists every unplaced known part as unused, in catalog order.
+    private func restricted(to knownItems: [BandLayout.Item]) -> Self {
+        var arrangement = self
         let known = Set(knownItems).union([.print])
         for zone in BandZoneID.allCases {
             arrangement[zone].removeAll { entry in entry.item.map { !known.contains($0) } ?? false }
@@ -455,10 +482,11 @@ extension BandArrangement {
         let entries = self[zone]
         // Respect saved placements. Only the built-in tools row borrows the document's Contents position.
         let toolbarEntries = entries.toolbarEntries
-        guard
-            toolbarEntries == Self.standard(for: mode)[zone]
-                || toolbarEntries == Self.builtIn(for: mode, includesLegacyParts: true)[zone]
-        else { return self }
+        let builtIns = [
+            Self.standard(for: mode), Self.builtIn(for: mode, includesLegacyParts: false),
+            Self.builtIn(for: mode, includesLegacyParts: true),
+        ]
+        guard builtIns.contains(where: { $0[zone].toolbarEntries == toolbarEntries }) else { return self }
         var result = self
         result[zone] = entries.withBundleEntryAtContents
         return result

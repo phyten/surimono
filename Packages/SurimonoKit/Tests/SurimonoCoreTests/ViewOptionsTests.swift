@@ -156,10 +156,21 @@ struct ViewOptionsTests {
         #expect(options.slideEdge(forward: forward) == edge)
     }
 
-    @Test("流し込みの文書は単ページの縦のスライドで開く")
+    @Test("流し込みの文書は単ページの縦のスクロールで開く")
     func flowingTextDefaults() {
         let options = ViewOptions.defaults(
             for: ViewDefaultsContext(kind: .flowingText, pageCount: 30, firstPageSize: portrait))
+        #expect(
+            options
+                == ViewOptions(
+                    layout: .single, direction: .leftToRight, scrollAxis: .vertical, transition: .scroll,
+                    showsCoverAlone: false))
+    }
+
+    @Test("スライドの文書はスクロールせず単ページの縦のスライドで開く")
+    func slidesDefaults() {
+        let options = ViewOptions.defaults(
+            for: ViewDefaultsContext(kind: .slides, pageCount: 30, firstPageSize: CGSize(width: 363, height: 272)))
         #expect(
             options
                 == ViewOptions(

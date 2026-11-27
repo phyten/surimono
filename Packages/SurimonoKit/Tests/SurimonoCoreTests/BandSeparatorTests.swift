@@ -153,13 +153,17 @@ extension BandSeparatorTests {
         let split = StoredBandArrangement(BandArrangement.standard(for: .split))
         let top = StoredBandArrangement(BandArrangement.standard(for: .top))
         #expect(split.topLeft == ["formatBadge"])
-        #expect(split.topRight == ["print"])
+        #expect(
+            split.topRight == [
+                "floatOnTop", "@separator", "showOnAllSpaces", "alwaysShowToolbar", "selectText", "@separator",
+                "viewOptions", "print",
+            ])
+        // The zone's last rule draws nothing, so Standard does not store one.
         #expect(
             split.bottomLeft == [
-                "presentation", "@separator", "style", "outline", "@separator", "layout", "@separator",
-                "zoom", "thumbnails",
+                "paperOrientation", "@separator", "presentation", "@separator", "style", "outline", "transition",
             ])
-        #expect(split.bottomRight == ["chapter", "pageIndicator", "pageTurn", "readingSettings"])
+        #expect(split.bottomRight == ["chapter", "pageIndicator", "pageTurn"])
         #expect(top.topLeft == ["formatBadge", "pageIndicator", "chapter"])
         #expect(
             top.topRight == [
@@ -231,7 +235,7 @@ extension BandSeparatorTests {
         "保存配置から先頭の部品または一群をすべて外しても標準の余白を保つ",
         arguments: [[BandLayout.Item.presentation], [.style, .outline]])
     func standardGapsAfterRemovingParts(_ removed: [BandLayout.Item]) throws {
-        var arrangement = BandArrangement.standard(for: .split)
+        var arrangement = BandLayoutTests.quietSplit
         for part in removed { arrangement = try arrangement.moving(part, to: .unused, for: .split) }
         let restored = try JSONDecoder().decode(BandArrangement.self, from: JSONEncoder().encode(arrangement))
         let plan = BandLayout.resolve(

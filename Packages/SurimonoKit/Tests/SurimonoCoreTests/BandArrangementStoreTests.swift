@@ -79,9 +79,7 @@ struct BandArrangementStoreTests {
         #expect(store.active == .user(id))
         #expect(store.sets.first?.id == id && store.sets.first?.name == "Book")
         #expect(
-            store.activeLayouts.split.bottomRight.compactMap(\.item) == [
-                .chapter, .pageIndicator, .pageTurn, .readingSettings, .print,
-            ])
+            store.activeLayouts.split.bottomRight.compactMap(\.item) == [.chapter, .pageIndicator, .pageTurn, .print])
         #expect(throws: BandArrangementStoreError.duplicateIdentity) {
             try store.insert(BandArrangementSet(id: id, name: "Other"))
         }
@@ -186,8 +184,12 @@ extension BandArrangementStoreTests {
         #expect(store.activeLayouts == original)
         try store.select(.standard)
         let reloaded = try JSONDecoder().decode(BandArrangementStore.self, from: JSONEncoder().encode(store))
-        #expect(reloaded.activeLayouts.split.topRight == [.part(.print)])
+        #expect(
+            reloaded.activeLayouts.split.topRight == [
+                .part(.floatOnTop), .separator, .part(.showOnAllSpaces), .part(.alwaysShowToolbar),
+                .part(.selectText), .separator, .part(.viewOptions), .part(.print),
+            ])
         #expect(reloaded.activeLayouts.top.unused.contains(.floatOnTop))
-        #expect(reloaded.activeLayouts.split.unused.contains(.transition))
+        #expect(reloaded.activeLayouts.split.unused.contains(.layout))
     }
 }

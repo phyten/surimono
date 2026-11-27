@@ -106,6 +106,9 @@ struct ViewModeView: View {
                 menu.contentHeight = contentHeight
                 if let point { menu.pointerMoved(to: point) } else { menu.pointerExited() }
             }
+            // A background keeps to the safe area even behind a view that ignores it. Without this the tracking area
+            // stopped below the title bar, so pointing at a part of the top band never showed its description card.
+            .ignoresSafeArea()
         }
         .onAppear { [menu] in menu.startTrackingMenus() }
         .onDisappear { [menu] in menu.stopTrackingMenus() }

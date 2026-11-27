@@ -29,8 +29,7 @@ struct BandArrangementTests {
 
     @Test("同じ領域の後ろへ移すと削除後の位置へ正しく挿入する")
     func moveWithinZone() throws {
-        let moved = try BandArrangement.standard(for: .split).moving(
-            .style, to: .zone(.bottomLeft), before: .zoom, for: .split)
+        let moved = try BandLayoutTests.quietSplit.moving(.style, to: .zone(.bottomLeft), before: .zoom, for: .split)
         #expect(
             moved.bottomLeft.compactMap(\.item) == [
                 .presentation, .outline, .layout, .style, .zoom, .thumbnails,
@@ -55,8 +54,7 @@ struct BandArrangementTests {
 
     @Test("領域をまたぐ移動と使わない部品への移動は元の位置を空ける")
     func moveAcrossZones() throws {
-        let moved = try BandArrangement.standard(for: .split).moving(
-            .print, to: .zone(.bottomLeft), before: .style, for: .split)
+        let moved = try BandLayoutTests.quietSplit.moving(.print, to: .zone(.bottomLeft), before: .style, for: .split)
         #expect(moved.topRight.compactMap(\.item) == [])
         #expect(
             moved.bottomLeft.compactMap(\.item) == [
@@ -120,13 +118,27 @@ struct BandArrangementTests {
     @Test("追加された部品は既存の並びを変えず両方の使わない部品へ入る", arguments: MenuArrangement.allCases)
     func laterItem(mode: MenuArrangement) {
         var wire = StoredBandArrangement(BandArrangement.standard(for: mode))
-        wire.unused.removeAll { $0 == "floatOnTop" }
+        wire.unused.removeAll { $0 == "showOnAllSpaces" || $0 == "readingDirection" }
         let repaired = BandArrangementRepair.repair(wire, for: mode)
-        #expect(
-            repaired.arrangement.unused == (mode == .top ? [.pageTurn] : []) + [.transition, .showOnAllSpaces]
-                + BandLayoutTests.addedItems + [.floatOnTop])
+        let added: [BandLayout.Item] = [
+            .scrollDirection, .paperOrientation, .paperSeries, .cover, .selectText, .alwaysShowToolbar, .margins,
+            .printSettings, .ignoreSlides, .beforePrinting, .viewOptions, .saveAsFile, .keysAndGestures,
+        ]
+        switch mode {
+        case .top:
+            #expect(
+                repaired.arrangement.unused == [.pageTurn, .transition, .floatOnTop] + added
+                    + [.showOnAllSpaces, .readingDirection])
+            #expect(repaired.notices == [.addedToUnused(.showOnAllSpaces), .addedToUnused(.readingDirection)])
+        case .split:
+            #expect(
+                repaired.arrangement.unused == [
+                    .layout, .zoom, .thumbnails, .scrollDirection, .paperSeries, .cover, .margins, .printSettings,
+                    .ignoreSlides, .beforePrinting, .saveAsFile, .keysAndGestures, .readingSettings, .readingDirection,
+                ])
+            #expect(repaired.notices == [.addedToUnused(.readingDirection)])
+        }
         #expect(repaired.stored.topRight == wire.topRight)
-        #expect(repaired.notices == [.addedToUnused(.floatOnTop)])
     }
 
     @Test("未知の部品があっても既知の配置を読み込み生の位置を保存する")

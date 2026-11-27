@@ -75,6 +75,9 @@
             let parts = names.split(separator: ",").compactMap { BandLayout.Item(rawValue: String($0)) }
             guard !parts.isEmpty else { return nil }
             var layouts = BandArrangementVariants()
+            // Only the supplied parts stand before Print, whatever Standard keeps at the top right.
+            layouts.split.unused += layouts.split.topRight.compactMap(\.item).filter { $0 != .print }
+            layouts.split.topRight = [.part(.print)]
             do {
                 for part in parts {
                     layouts.split = try layouts.split.moving(part, to: .zone(.topRight), before: .print, for: .split)

@@ -7,7 +7,7 @@ struct BandChapterTests {
     func splitPlacement() {
         #expect(
             BandArrangement.standard(for: .split).bottomRight == [
-                .part(.chapter), .part(.pageIndicator), .part(.pageTurn), .part(.readingSettings),
+                .part(.chapter), .part(.pageIndicator), .part(.pageTurn),
             ])
     }
 
