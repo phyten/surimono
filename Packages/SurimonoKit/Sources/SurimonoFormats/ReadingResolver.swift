@@ -108,6 +108,10 @@ public enum ReadingDepth: Codable, Hashable, Sendable {
 public struct ReadingFileInstructions: Equatable, Sendable {
     public var present: ReadingInstruction<Bool>?
     public var depth: ReadingInstruction<ReadingDepth>?
+    /// The old reader may draw a list or numbers from incomplete markup. This is an editable
+    /// default for that manuscript; only present and depth can lock or discard a saved choice.
+    var manuscriptDepth: ReadingDepth?
+    public var hasInstructions: Bool { present != nil || depth != nil }
 
     public init(present: ReadingInstruction<Bool>? = nil, depth: ReadingInstruction<ReadingDepth>? = nil) {
         self.present = present

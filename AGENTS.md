@@ -485,9 +485,9 @@ WebKit の文書組版もメインディスプレイの倍率に影響される�
 
 Quarto と R Markdown のパネルと形式別の既定には、見出しの番号と先頭の目次を置く。Quarto は最上位の `number-sections`・`number-depth`・`toc`・`toc-depth` に、`format:` の先頭の形式が指定した項目を重ねる。R Markdown は `output:` の先頭の形式の `number_sections`・`toc`・`toc_depth` を読む。番号の未設定と明示の「なし」は Markdown と同じように保存・復元し、R Markdown では「スタイルに従う／なし／すべて」から選ぶ。用紙での配置・見た目・本文中の目次は印刷の仕上げで選ぶ。
 
-reStructuredText は見出しの番号と先頭の目次に対応する。文書先頭（題・副題・著者などの文書情報の直後を含む）の全体目次だけを先頭の目次とし、題と原稿内の位置を保つ。本文途中の目次と `:local:` は本文の目次。最後の `sectnum`（別名 `section-numbering`）が番号を指定する。`:depth:` はどちらも深さだけを固定し、番号の `:start:`・`:prefix:`・`:suffix:` は見出しにも目次にも使う。[Docutils の指示](https://docutils.sourceforge.io/docs/ref/rst/directives.html#automatic-section-numbering)
+reStructuredText は見出しの番号と先頭の目次に対応する。文書先頭（題・副題・著者などの文書情報の直後を含む）の全体目次だけを先頭の目次とし、題と原稿内の位置を保つ。本文途中の目次と `:local:` は本文の目次。最後の `sectnum`（別名 `section-numbering`）が番号を指定する。`:depth:` はどちらも深さだけを固定し、番号の `:start:`・`:prefix:`・`:suffix:` は見出しにも目次にも使う。オプションの字下げ・名前・値が読めないときや、同じオプションが重なるときは、従来の本文を保ち、その指示で文書の設定を固定しない。タブは従来どおり8桁の位置に展開する。[Docutils の指示](https://docutils.sourceforge.io/docs/ref/rst/directives.html#automatic-section-numbering)
 
-MediaWiki は先頭の目次に対応する。`__FORCETOC__` は有効、`__NOTOC__` は無効を固定する。両方あると強制表示を優先する。`__TOC__` は本文の指定位置に一つだけ置き、先頭の設定は固定しない。`__NOTOC__` と併記しても本文の目次は出る。[MediaWiki のマジックワード](https://www.mediawiki.org/wiki/Help:Magic_words#Behavior_switches)
+MediaWiki は先頭の目次に対応する。`__FORCETOC__` は有効、`__NOTOC__` は無効を固定する。両方あると強制表示を優先する。`__TOC__` は本文の指定位置に一つだけ置き、先頭の設定は固定しない。`__NOTOC__` と併記しても本文の目次は出る。固定の根拠は本文として実際に読んだ大文字の指定。テンプレート引数や閉じていない記法は従来どおり描画し、その中の語で設定を固定しない。[MediaWiki のマジックワード](https://www.mediawiki.org/wiki/Help:Magic_words#Behavior_switches)
 
 単独の Org 文書では帯の「読み方の設定」で紙の右にパネルを開く。「構成」「文書の情報」「タスクと日時」「文字と記法」「印刷に含める内容」の順は全体設定と共通。文書パネルでは後ろの3群を畳み、その文書で変更した行を含む群を開く。「タスクと日時」は原稿に予定行・CLOCK 行・優先度・進捗・タイムスタンプがあるときも開く。畳んだ見出しには変更とファイル指定による固定の件数を出す（0 件は省く）。利用者の開閉はその窓だけで覚える。全体設定ではすべて開く。読み方は、文書全体の `#+OPTIONS`、内容ハッシュに保存した利用者の変更、設定の「Org」の順で決まる。ファイル指定の変更を許すと、利用者が変えた項目だけが原稿に優先する。戻す矢印は実際の継承先に戻す。見出しの `:UNNUMBERED:` と本文の `#+TOC:` は注記として出す。出典の表示と行のコピーには組版時の原文を使う。
 

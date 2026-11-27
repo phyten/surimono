@@ -40,7 +40,7 @@ public struct FormatReadingChoices: Codable, Equatable, Sendable {
 
     /// Without a presence choice at any layer, the reader keeps the style's heading counters.
     public func usesStyleForSectionNumbers(
-        for format: DocumentFormat = .markdown, file: ReadingFileInstructions = .init(), defaults: Self = .init()
+        for format: DocumentFormat, file: ReadingFileInstructions = .init(), defaults: Self = .init()
     ) -> Bool {
         file.present == nil && choice(.sectionNumbers, for: format)?.present == nil
             && defaults.choice(.sectionNumbers, for: format)?.present == nil
@@ -87,9 +87,9 @@ public struct FormatReadingChoices: Codable, Equatable, Sendable {
             return .toggle(presence(shipped))
         case .outline(let present, let depth):
             return .outline(
-                present: presence(present),
+                present: presence(file.manuscriptDepth != nil || present),
                 depth: ReadingResolution(
-                    file: file.depth, document: document?.depth, app: app?.depth ?? depth,
+                    file: file.depth, document: document?.depth, app: app?.depth ?? file.manuscriptDepth ?? depth,
                     allowsFileChanges: allowsFileChanges))
         default: return nil
         }

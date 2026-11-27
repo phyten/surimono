@@ -59,6 +59,7 @@ struct ViewModeView: View {
             }
             .padding(.top, model.currentBandRoom.top)
             .padding(.bottom, model.currentBandRoom.bottom)
+            .trackingBandWidth(in: menu)
             // Overlays, so that a band without room draws over the paper's own view. The zones stay the same views
             // whether or not they have room, and so do the band and the popovers it anchors when the room comes or
             // goes.
@@ -188,11 +189,6 @@ struct ViewModeView: View {
                 if menu.trafficLights != lights { menu.trafficLights = lights }
                 if !menu.hasReadTrafficLights { menu.hasReadTrafficLights = true }
             }
-        }
-        .onGeometryChange(for: CGFloat.self) {
-            $0.size.width
-        } action: { width in
-            if menu.bandWidth != width { menu.bandWidth = width }
         }
     }
 

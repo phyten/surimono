@@ -128,7 +128,7 @@ extension ComputationalBody {
             let title = String(match.2)
             let requested = attrs.id.isEmpty ? MarkdownExtensions.slug(title) : attrs.id
             let id = MarkdownExtensions.headingID(requested, used: &headingSuffixes)
-            if ComputationalLabel.kind(id) == "sec" { _ = register(id, kind: "sec") }
+            if ComputationalLabel.kind(id) == "sec" { _ = register(id, kind: "sec", heading: title) }
             if attrs.classes.contains("unnumbered") { unnumbered.insert(id) }
             if attrs.classes.contains("unlisted") { unlisted.insert(id) } else { headings.append((level, id, title)) }
             output.append("\(match.1) \(inline(title)) {#\(id)}")
@@ -146,7 +146,7 @@ extension ComputationalBody {
         } else if line.contains("{#eq-"), let match = line.wholeMatch(of: /^(.*\$\$)\s*\{#(eq-[\w:.-]+)\}\s*$/) {
             let target = register(String(match.2), kind: "eq")
             output.append(String(match.1))
-            block("<div\(target.attribute) class=\"equation-number\">(\(target.number))</div>")
+            block("<div\(target.attribute) class=\"equation-number\">(\(target.shortText))</div>")
         } else if line.hasPrefix("| "), !line.dropFirst().contains("|") {
             output.append(inline(String(line.dropFirst(2))) + "  ")
         } else if line.hasPrefix("    ") || line.hasPrefix("\t") {
@@ -162,7 +162,12 @@ extension ComputationalBody {
         headings = anchors.compactMap { anchor in
             if let requested = anchor.customID, var label = labels[requested], label.kind == "sec" {
                 label.id = anchor.id
-                if !anchor.number.isEmpty { label.number = String(anchor.number.dropLast()) }
+                if !anchor.number.isEmpty {
+                    label.value = .number(String(anchor.number.dropLast()))
+                } else if !anchor.text.contains(token) {
+                    // With deferred inline markup, keep the original title rather than its placeholder.
+                    label.value = .heading(anchor.text)
+                }
                 labels[requested] = label
             }
             let title = anchor.customID.flatMap { titles[$0] }

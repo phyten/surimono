@@ -71,7 +71,7 @@ final class WikiReader {
         let kind: String
         let body: String
         var attrs: [String: String] = [:]
-        var switches: [String: Int] = [:]
+        var permitsFileInstructions = true
     }
     let directory: URL?
     let imageExists: (URL) -> Bool
@@ -91,10 +91,10 @@ final class WikiReader {
     var referencePlaces: [String] = []
     var deferred: [() -> String] = []
     lazy var switchTag = "\u{E006}" + nonce
-    private lazy var taggedSwitch = WikiPattern("(__FORCETOC__|__NOTOC__)" + switchTag + "([0-9]+)\u{E007}")
-    var activeSwitches: [String: Int] = [:]
+    private lazy var taggedOffset = WikiPattern(switchTag + "[0-9]+\u{E007}")
+    lazy var renderedInlineTokens = WikiPattern(Self.inlineTokenPattern + "(?:" + switchTag + "([0-9]+)\u{E007})?")
     var switchOffsets: [String: Int] = [:]
-    var hideTOC = false
+    var permitsFileInstructions = true
     var explicitTOC = false
     var forceTOC = false
     var depth = 0
@@ -107,11 +107,10 @@ final class WikiReader {
     }
 
     func atom(_ kind: String, _ body: String, _ attrs: [String: String] = [:]) -> String {
-        var switches: [String: Int] = [:]
-        let original = untag(body, switches: &switches)
-        // Bracketed external links become atoms during inline parsing, after tokenization.
-        if kind == "external" { switches = activeSwitches }
-        atoms.append(Atom(kind: kind, body: original, attrs: attrs, switches: switches))
+        // Template names and arguments may be inspected, ignored, reordered or expanded.
+        // Their rendered text stays compatible, but it cannot authorize a settings change.
+        let original = kind == "template" || kind == "parameter" ? untag(body) : body
+        atoms.append(Atom(kind: kind, body: original, attrs: attrs))
         return "\u{E000}\(atoms.count - 1)\u{E001}"
     }
 
@@ -120,12 +119,8 @@ final class WikiReader {
         return "\u{E002}\(nonce)\(deferred.count - 1)\u{E003}"
     }
 
-    private func untag(_ text: String, switches: inout [String: Int]) -> String {
-        guard text.contains(switchTag) else { return text }
-        return taggedSwitch.replace(text) { match in
-            if switches[match[1]] == nil { switches[match[1]] = Int(match[2]) }
-            return match[1]
-        }
+    func untag(_ text: String) -> String {
+        text.contains(switchTag) ? taggedOffset.replace(text) { _ in "" } : text
     }
 
     /// The lexer uses UTF-16 ranges. Keep the two adjacent original lines for the source popover.
@@ -160,18 +155,16 @@ final class WikiReader {
         // Keep literal private-use characters, including inside nowiki, distinct from parser tokens.
         let hasMarker = source.contains("\u{E000}")
         let escaped = hasMarker ? source.replacingOccurrences(of: "\u{E000}", with: escapedMarker) : source
-        let prepared = tokenize(escaped)
-        var switches: [String: Int] = [:]
-        let original = untag(prepared, switches: &switches)
-        activeSwitches = switches
-        var result = blocks(original)
+        var result = blocks(tokenize(escaped))
         defer { deferred.removeAll() }
         if PreviewConversion.expired { return HTMLFragment(body: "") }
+        var file = ReadingFileInstructions()
         let word = forceTOC ? "__FORCETOC__" : "__NOTOC__"
-        let presence = switchOffsets[word].map {
-            ReadingInstruction(forceTOC, source: switchSource(in: escaped as NSString, at: $0, word: word))
+        if let offset = switchOffsets[word] {
+            file.present = .init(forceTOC, source: switchSource(in: escaped as NSString, at: offset, word: word))
+        } else if forceTOC {
+            file.manuscriptDepth = .levels(contentsDepth ?? 3)
         }
-        let file = ReadingFileInstructions(present: presence ?? (forceTOC || hideTOC ? .init(forceTOC) : nil))
         let lead = reading.resolve(for: .mediawiki, numbers: .init(), contents: file, contentsDepth: contentsDepth).lead
         if forceTOC, !explicitTOC, let lead,
             let first = result.range(of: #"<h[1-6] id=""#, options: .regularExpression)
@@ -204,6 +197,7 @@ final class WikiReader {
             result = result.replacingOccurrences(of: escapedMarker, with: "\u{E000}")
             title = title?.replacingOccurrences(of: escapedMarker, with: "\u{E000}")
         }
+        result = untag(result)
         let fonts = MathRenderer.fontFaces(for: result)
         var fragment = HTMLFragment(
             body: result + (fonts.isEmpty ? "" : "<style>\(fonts)</style>"), title: title,
@@ -216,7 +210,7 @@ final class WikiReader {
 
     func heading(_ level: Int, _ source: String) -> String {
         let content = inline(source)
-        let text = content.replacingOccurrences(
+        let text = untag(content).replacingOccurrences(
             of: "\u{E002}" + nonce + "[0-9]+\u{E003}", with: "", options: .regularExpression
         ).wikiPlain.replacingOccurrences(of: escapedMarker, with: "\u{E000}")
         let slug = MarkdownExtensions.slug(text)

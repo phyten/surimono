@@ -84,7 +84,9 @@ extension WikiReader {
             } else if startsHTMLBlock(line) {
                 flush()
                 output += inline(line)
-            } else if ["__TOC__", "__FORCETOC__", "__NOTOC__", "__NOEDITSECTION__"].contains(line) {
+            } else if line.hasPrefix("__"),
+                ["__TOC__", "__FORCETOC__", "__NOTOC__", "__NOEDITSECTION__"].contains(untag(line))
+            {
                 flush()
                 output += inline(line)
             } else {

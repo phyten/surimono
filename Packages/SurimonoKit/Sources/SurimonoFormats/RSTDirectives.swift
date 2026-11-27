@@ -57,6 +57,24 @@ struct RSTDirective {
         options = params
         lines = Array(rest)
     }
+
+    /// Only an aligned field list is authoritative. The permissive block reader above still
+    /// supplies the original output for duplicates, stray content and misindented fields.
+    func hasUnambiguousOptions(_ body: [String]) -> Bool {
+        var fields = 0
+        for line in body {
+            if line.hasPrefix(" ") {
+                if line.rstStripped.hasPrefix(":") { return false }
+            } else {
+                guard line.hasPrefix(":"), let end = line.dropFirst().firstIndex(of: ":"),
+                    line[line.index(after: end)...].first?.isWhitespace != false
+                else { return false }
+                fields += 1
+            }
+        }
+        return fields == options.count
+    }
+
 }
 
 extension RSTDocument {
@@ -72,19 +90,40 @@ extension RSTDocument {
         } else {
             content = [d.argument, ""] + d.lines
         }
-        func instructions(minimum: Int) -> ReadingFileInstructions {
-            func source(_ offset: Int) -> ReadingInstructionSource? {
-                guard let line = blockReader?.sourceLine else { return nil }
-                let index = line + offset
-                guard sourceLines.indices.contains(index) else { return nil }
-                return ReadingInstructionSource(
+        func instructions(numbering: Bool) -> ReadingFileInstructions {
+            let minimum = numbering ? 0 : 1
+            let parsedDepth = d.options["depth"].flatMap(Int.init)
+            var legacy = ReadingFileInstructions()
+            let oldDepth = max(minimum, parsedDepth ?? 6)
+            if oldDepth > 0 { legacy.manuscriptDepth = .levels(oldDepth) }
+
+            let keys: Set<String> =
+                numbering ? ["depth", "start", "prefix", "suffix"] : ["depth", "local", "class", "backlinks"]
+            guard let marker = first.range(of: "::"), first[marker.upperBound...].first?.isWhitespace != false,
+                let line = blockReader?.sourceLine, sourceLines.indices.contains(line),
+                Self.expandTabs(sourceLines[line]).rstStripped.hasSuffix(first),
+                numbering ? d.argument.isEmpty : d.argument.prefixMatch(of: /^:[\w-]+:(?:\s|$)/) == nil,
+                d.lines.isEmpty, d.options.keys.allSatisfy(keys.contains),
+                d.options["depth"] == nil || (parsedDepth ?? 0) > 0,
+                d.options["start"].map({ (Int($0) ?? 0) > 0 }) ?? true,
+                d.options["local"].map(\.isEmpty) ?? true,
+                d.options["backlinks"].map({ ["none", "entry", "top"].contains($0) }) ?? true,
+                d.hasUnambiguousOptions(body)
+            else { return legacy }
+
+            func source(_ index: Int) -> ReadingInstructionSource {
+                ReadingInstructionSource(
                     lines: sourceLines, index: index, fileName: directives.includeStack.last?.lastPathComponent)
             }
-            let depth = d.options["depth"].flatMap(Int.init).map { value in
-                ReadingInstruction(
-                    ReadingDepth.levels(max(minimum, value)), source: d.optionOffsets["depth"].flatMap(source))
+            var instructions = ReadingFileInstructions(present: .init(true, source: source(line)))
+            if let value = parsedDepth, let offset = d.optionOffsets["depth"] {
+                let index = line + offset
+                guard sourceLines.indices.contains(index),
+                    Self.expandTabs(sourceLines[index]).rstStripped == body[offset - 1].rstStripped
+                else { return legacy }
+                instructions.depth = .init(.levels(value), source: source(index))
             }
-            return .init(present: .init(true, source: source(0)), depth: depth)
+            return instructions
         }
         switch d.name {
         case "image": rendered = rstImage(d.argument, options: d.options)
@@ -142,13 +181,13 @@ extension RSTDocument {
             let fileDepth = Int(d.options["depth"] ?? "").map { max(1, $0) }
             let toc = RSTDirectiveState.Contents(
                 id: id, label: d.argument, depth: fileDepth ?? 6,
-                local: d.options["local"] != nil, position: anchors.count, instructions: instructions(minimum: 1))
+                local: d.options["local"] != nil, position: anchors.count, instructions: instructions(numbering: false))
             let index = directives.contents.count
             directives.contents.append(toc)
             return directives.marker(index)
         case "sectnum", "section-numbering":
             directives.numbering = d.options
-            directives.numbers = instructions(minimum: 0)
+            directives.numbers = instructions(numbering: true)
             return ""
         case "header", "footer", "meta", "index": return ""
         case "raw":

@@ -68,7 +68,7 @@ struct FormatReadingPanel: View {
     }
 
     private var permission: Binding<Bool>? {
-        guard unlocked || ids.contains(where: { model.readingFile($0) != .init() }) else { return nil }
+        guard unlocked || ids.contains(where: { model.readingFile($0).hasInstructions }) else { return nil }
         return Binding(
             get: { unlocked },
             set: { allow in

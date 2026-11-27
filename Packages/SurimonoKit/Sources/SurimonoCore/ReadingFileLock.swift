@@ -20,7 +20,7 @@ public enum ReadingFileLockResult: Equatable, Sendable {
 extension DocumentSettings {
     /// Asking for confirmation leaves both the settings and the legacy finish untouched.
     public mutating func lockReadingFileInstructions(
-        for format: DocumentFormat = .markdown, facts: DocumentFacts?, generation: Int, defaults: FormatReadingChoices,
+        for format: DocumentFormat, facts: DocumentFacts?, generation: Int, defaults: FormatReadingChoices,
         confirming approval: ReadingDiscardConfirmation? = nil
     ) -> ReadingFileLockResult {
         guard format.usesFormatReadingSettings, formatReading.allowsFileChanges(for: format) else { return .finished }
