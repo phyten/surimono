@@ -8,15 +8,15 @@ import Testing
 
 @MainActor
 struct TableFitTests {
-    @Test("折り返した表は収まれば等倍で、幅を超えれば下限を設けず必要な比率に縮める")
+    @Test("収まる表は等倍のままで、はみ出す表ははみ出した比率だけ前の倍率から下限なしに縮める")
     func scale() throws {
         let js = try #require(JSContext())
         js.evaluateScript(TableFit.scaleFunction)
-        let scale = try #require(js.objectForKeyedSubscript("scaleToFit"))
-        #expect(scale.call(withArguments: [600, 500]).toDouble() == 1)
-        #expect(scale.call(withArguments: [600, 800]).toDouble() == 0.75)
-        #expect(scale.call(withArguments: [600, 1200]).toDouble() == 0.5)
-        #expect(scale.call(withArguments: [240, 2400]).toDouble() == 0.1)
+        let next = try #require(js.objectForKeyedSubscript("nextScale"))
+        #expect(next.call(withArguments: [1, 600, 500]).toDouble() == 1)
+        #expect(next.call(withArguments: [1, 600, 800]).toDouble() == 0.75)
+        #expect(next.call(withArguments: [0.5, 600, 1200]).toDouble() == 0.25)
+        #expect(next.call(withArguments: [1, 240, 2400]).toDouble() == 0.1)
         #expect(js.exception == nil)
     }
 
@@ -34,21 +34,24 @@ struct TableFitTests {
         }
     }
 
-    private func printed(_ body: String, layout: PrintLayout = .a4Single, fit: Bool = true) async throws -> RenderResult
-    {
+    private func printed(
+        _ body: String, layout: PrintLayout = .a4Single, fit: Bool = true, css: String = ""
+    ) async throws -> RenderResult {
         _ = NSApplication.shared
         let renderer = DocumentRenderer(paginateWithResult: { request in
             var request = request
             if !fit { request.fitsTables = false }
             return try await WebPaginator().paginate(request)
         })
+        let base = try theme
         let settings = RenderSettings(
-            layout: layout, theme: try theme, preset: HTMLCleanupPreset(id: "none", name: "None"))
+            layout: layout, theme: PrintTheme(id: base.id, name: base.name, css: base.css + "\n" + css),
+            preset: HTMLCleanupPreset(id: "none", name: "None"))
         return try await renderer.render(DocumentSource(data: Data(body.utf8), format: .markdown), settings: settings)
     }
 
-    private func printPage(_ body: String, fit: Bool = true) async throws -> PDFPage {
-        let document = try await printed(body, fit: fit).logicalDocument
+    private func printPage(_ body: String, fit: Bool = true, css: String = "") async throws -> PDFPage {
+        let document = try await printed(body, fit: fit, css: css).logicalDocument
         try #require(document.pageCount == 1)
         return try #require(document.page(at: 0))
     }
@@ -134,6 +137,30 @@ struct TableFitTests {
         let border = try actual.bounds(channel: 0)
         #expect(last.height < body.height && last.maxX <= border.minX)
         checkOutsideRule(border, pageWidth: page.bounds(for: .mediaBox).width)
+    }
+
+    @Test("右から左に読む40列表も表だけを縮め、両端の外罫を本文の幅の中に刷る", .timeLimit(.minutes(1)))
+    func rightToLeft() async throws {
+        func row(_ cells: [String]) -> String { "|" + cells.joined(separator: "|") + "|\n" }
+        let lead = "مرحبا بالعالم\n\n"
+        let table =
+            row((1...40).map { "عمود\($0)" }) + row(Array(repeating: "---", count: 40))
+            + row((1...40).map { "ق\($0)" })
+        // Both outside rules are red here; the right one of the theme above marks an inner rule in this direction.
+        let css =
+            "th:last-child, td:last-child { border-right-color: black !important } "
+            + "table { border-left: 5px solid red !important; border-right: 5px solid red !important }"
+        let control = try await Raster(printPage(lead, css: css))
+        let page = try await printPage(lead + table, css: css)
+        let actual = try Raster(page)
+        #expect(try actual.bounds(channel: 2) == control.bounds(channel: 2))
+        let rules = try actual.bounds(channel: 0)
+        let margin = 15 * 72 / 25.4 * 2
+        let rightEdge = page.bounds(for: .mediaBox).width * 2 - margin
+        #expect(rules.minX >= floor(margin) - 1)
+        #expect(rules.maxX <= floor(rightEdge) - 1)
+        // The table takes the whole column rather than being shrunk with the page.
+        #expect(rules.width > rightEdge - margin - 24)
     }
 
     private func checkOutsideRule(_ border: CGRect, pageWidth: CGFloat) {

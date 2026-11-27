@@ -79,8 +79,8 @@ enum PrintIssueAnchors {
           });
           const overflowing = blocks.filter(({el}) => {
             if (!visible(el) || (el.tagName === 'IMG' && el.naturalWidth === 0)) return false;
-            // Older WebKit returns the unzoomed DOMRect for a table even after the
-            // isolated print pass has measured and fitted its final outside edge.
+            // TableFit has fitted this table to the printed column, which is wider than
+            // the view this check measures in; on paper it no longer overflows.
             if (globalThis.surimonoFittedTables?.has(el)) return false;
             const container = el.parentElement;
             if (!container) return false;

@@ -367,25 +367,17 @@ public final class WebPaginator: NSObject {
                     try await self.runPreparationScript(script, in: session.webView, timeout: timeout)
                 }
             }
-            // Geometry-dependent paper, change marks and issue anchors must see the fitted grid.
-            // Restore the native view size before asking WebKit to make its print operation.
-            let view = session.webView
-            let size = view.frame.size
-            let media = view.mediaType
-            defer {
-                if fitsTables {
-                    view.setFrameSize(size)
-                    view.mediaType = media
-                }
-            }
             if fitsTables {
-                view.mediaType = "print"
-                let width = floor((pageSize.width - margins.left - margins.right) * Self.printPixelsPerPoint)
-                view.setFrameSize(CGSize(width: max(1, width), height: size.height))
-                if try await !TableFit.fit(in: view, until: .now + timeout) {
-                    view.setFrameSize(size)
-                    view.mediaType = media
-                }
+                // Measured as the print lays the page out: print media, and the column the print keeps, cut
+                // back to whole points (`Margins.wholeColumn(in:)`). Before the preparation, so that what it
+                // measures and places sees the fitted tables.
+                let printed = margins.wholeColumn(in: pageSize)
+                let column = (pageSize.width - printed.left - printed.right).rounded(.down)
+                let media = session.webView.mediaType
+                session.webView.mediaType = "print"
+                defer { session.webView.mediaType = media }
+                try await TableFit.fit(
+                    in: session.webView, width: column * Self.printPixelsPerPoint, until: .now + timeout)
             }
             // Before the preparation, whose presets may remove the document's style elements.
             pageRules =

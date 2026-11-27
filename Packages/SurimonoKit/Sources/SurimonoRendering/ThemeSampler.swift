@@ -484,10 +484,11 @@ public final class ThemeSampler {
                 try Task.checkCancellation()
             }
         }
-        if TableFit.applies(to: format, theme: theme, latexMargins: marginMode, body: html) {
-            // Fit at the specimen's capture width and media, keeping its surrounding text at the same size.
-            // A fitted DOM belongs to this theme until its sample and place have been captured.
-            resetsAfterSample = try await TableFit.fit(in: webView, until: .now + timeout)
+        let flow: PrintFlow = theme.flow == .vertical && !isSourcePage ? .vertical : .horizontal
+        if TableFit.applies(to: format, flow: flow, theme: theme, latexMargins: marginMode, body: html) {
+            // Fitted at the sample's own layout width, as the print fits them at its width. The fitted tables
+            // belong to this theme, so the next theme starts from a fresh page.
+            resetsAfterSample = try await TableFit.fit(in: webView, width: nil, until: .now + timeout)
         }
         let detection = try await webView.evaluateForPrinting(
             PaperBackground.detectionScript, arguments: [:], world: world, until: .now + timeout)

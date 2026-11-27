@@ -268,7 +268,7 @@ enum VerticalPaginator {
         booklet: Bool, rows: Int, until deadline: ContinuousClock.Instant
     ) async throws -> (VerticalCapturePlan, CGFloat) {
         let value = try await webView.evaluateForPrinting(
-            diagnosed(TableFit.function + "\n" + script, stage: "prepare vertical strip"),
+            diagnosed(script, stage: "prepare vertical strip"),
             arguments: [
                 "width": width, "height": height, "font": font, "booklet": booklet, "inkEdges": punctuationEdges,
             ],

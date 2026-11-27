@@ -1605,8 +1605,8 @@ public final class DocumentRenderer {
                         preparationScript: preparation,
                         readsPageRules: false, drawsBackground: !separatesPaper,
                         fitsTables: TableFit.applies(
-                            to: source.format, theme: settings.theme, latexMargins: settings.options.latexMargins,
-                            body: page.paper.body),
+                            to: source.format, flow: flow, theme: settings.theme,
+                            latexMargins: settings.options.latexMargins, body: page.paper.body),
                         rendersMermaid: page.mermaid, rendersDiagrams: page.diagrams,
                         latexPageNumbers: page.numbering, restartsAfterTitle: page.restartsAfterTitle,
                         collectsDiagrams: page.collectsDiagrams && settings.markdownChanges.isEmpty,
@@ -2278,8 +2278,8 @@ public final class DocumentRenderer {
                     margins: margins, allowsJavaScript: false, preparationScript: preparation,
                     readsPageRules: false, drawsBackground: !WebPaginator.drawsClearPages,
                     fitsTables: TableFit.applies(
-                        to: source.format, theme: settings.theme, latexMargins: settings.options.latexMargins,
-                        body: page.paper.body),
+                        to: source.format, flow: .horizontal, theme: settings.theme,
+                        latexMargins: settings.options.latexMargins, body: page.paper.body),
                     rendersMermaid: page.mermaid, rendersDiagrams: page.diagrams,
                     latexPageNumbers: page.numbering, restartsAfterTitle: page.restartsAfterTitle,
                     collectsDiagrams: collectsDiagrams && page.collectsDiagrams && settings.markdownChanges.isEmpty,
