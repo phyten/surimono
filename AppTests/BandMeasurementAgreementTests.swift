@@ -26,14 +26,10 @@ struct BandMeasurementAgreementTests {
                 Spacer()
                 if let row = plans.bottom { BottomBand(model: model, row: row) }
             }
+            .trackingBandWidth(in: menu)
             .environment(\.bandLabelMeasurements, labels)
             .background { BandMeasurements(model: model, items: BandLayout.Item.applicable(for: model), menu: menu) }
             .coordinateSpace(name: BandAnchors.coordinateSpace)
-            .onGeometryChange(for: CGFloat.self) {
-                $0.size.width
-            } action: { width in
-                if menu.bandWidth != width { menu.bandWidth = width }
-            }
             .recordingBandPlan(plans.resolved, in: model.bandAnchors)
         }
     }
