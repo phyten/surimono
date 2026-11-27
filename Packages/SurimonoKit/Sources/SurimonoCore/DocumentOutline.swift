@@ -425,6 +425,7 @@ public struct DocumentFacts: Equatable, Sendable {
         }
     }
     public var coalescesContentsInLegacy: Bool
+    public var inTextNumberMarker: String?
     public var inTextContentsMarker: String?
     public var numberInstructions: ReadingFileInstructions
     public var contentsInstructions: ReadingFileInstructions
@@ -439,6 +440,7 @@ public struct DocumentFacts: Equatable, Sendable {
         offersLaTeXComposition = fragment.latexClass?.offersCompositionChoice == true
         latexRecognition = fragment.latexClass?.recognition
         coalescesContentsInLegacy = fragment.coalescesContentsInLegacy
+        inTextNumberMarker = fragment.inTextNumberMarker
         inTextContentsMarker = fragment.inTextContentsMarker
         numberInstructions = fragment.numberInstructions
         contentsInstructions = fragment.contentsInstructions

@@ -23,6 +23,7 @@ public struct HTMLFragment: Equatable, Sendable {
 
     package var proposedLeadContents: ProposedLead?
     public var numberInstructions = ReadingFileInstructions()
+    public var inTextNumberMarker: String?
     public var inTextContentsMarker: String?
     public var contentsTitle: String?
     public var contentsInstructions = ReadingFileInstructions()

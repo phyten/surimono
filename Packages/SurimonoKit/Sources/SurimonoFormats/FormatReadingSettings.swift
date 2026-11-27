@@ -3,14 +3,17 @@ public struct FormatReadingSettings: Sendable {
     public var defaults: FormatReadingChoices
     /// A saved legacy finish still owns the lead list until its first edit.
     public var manuscriptContents: Bool
+    /// A separate contents page can use the native outline even when the manuscript omits its preamble.
+    public var separateContentsPage: Bool
 
     public init(
         document: FormatReadingChoices = .init(), defaults: FormatReadingChoices = .init(),
-        manuscriptContents: Bool = false
+        manuscriptContents: Bool = false, separateContentsPage: Bool = false
     ) {
         self.document = document
         self.defaults = defaults
         self.manuscriptContents = manuscriptContents
+        self.separateContentsPage = separateContentsPage
     }
     struct Options {
         var numbers: ReadingDepth?

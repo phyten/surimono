@@ -33,6 +33,7 @@ struct BandMenuContentTests {
             case .image: data = TestFixtures.png(red: 0.2)
             case .html: data = Data("<h1>First Chapter</h1><h1>Second Chapter</h1>".utf8)
             case .rst: data = Data("First Chapter\n=============\n\nSecond Chapter\n==============".utf8)
+            case .asciidoc: data = Data("== First Chapter\n\n== Second Chapter".utf8)
             case .mediawiki: data = Data("== First Chapter ==\n== Second Chapter ==".utf8)
             default: data = Data("# First Chapter\n\n# Second Chapter\n".utf8)
             }
@@ -189,7 +190,7 @@ struct BandMenuContentTests {
 
     @Test(
         "見出しと複数ページの索引は配置と窓幅と上下の組み方によらず、見開きでは表紙だけ増える",
-        arguments: [DocumentFormat.markdown, .quarto, .rMarkdown, .rst, .mediawiki])
+        arguments: [DocumentFormat.markdown, .quarto, .rMarkdown, .rst, .mediawiki, .asciidoc])
     func readingIndex(format: DocumentFormat) async throws {
         let fixture = Fixture()
         defer { fixture.cleanUp() }

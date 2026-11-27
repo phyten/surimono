@@ -1,5 +1,7 @@
 extension DocumentFormat {
-    public var usesFormatReadingSettings: Bool { [.markdown, .quarto, .rMarkdown, .rst, .mediawiki].contains(self) }
+    public var usesFormatReadingSettings: Bool {
+        [.markdown, .quarto, .rMarkdown, .rst, .mediawiki, .asciidoc].contains(self)
+    }
 }
 
 /// One persisted row in the new formats. Missing components follow the layer below.
@@ -93,6 +95,20 @@ public struct FormatReadingChoices: Codable, Equatable, Sendable {
                     allowsFileChanges: allowsFileChanges))
         default: return nil
         }
+    }
+
+    /// Only explicit, effective components override a delegated reader's native attributes.
+    func outlineOverrides(
+        _ id: ReadingSettingID, for format: DocumentFormat, file: ReadingFileInstructions, defaults: Self
+    ) -> (present: Bool?, depth: ReadingDepth?) {
+        guard case .outline(let present, let depth) = resolve(id, for: format, file: file, defaults: defaults)
+        else { return (nil, nil) }
+        let document = choice(id, for: format)
+        let app = defaults.choice(id, for: format)
+        return (
+            present.layer != .file && (document?.present ?? app?.present) != nil ? present.value : nil,
+            depth.layer != .file && (document?.depth ?? app?.depth) != nil ? depth.value : nil
+        )
     }
 
     public func leadContents(

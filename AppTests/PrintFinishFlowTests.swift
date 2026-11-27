@@ -108,11 +108,13 @@ struct PrintFinishFlowTests {
         #expect(rows(.markdown, lead, true, .init()) == [.layout])
         #expect(rows(.markdown, marker, false, page) == [.inText])
         #expect(rows(.markdown, both, true, page) == [.layout, .look, .inText])
-        for format in [DocumentFormat.quarto, .rMarkdown, .rst, .mediawiki] {
+        for format in [DocumentFormat.quarto, .rMarkdown, .rst, .mediawiki, .asciidoc] {
             #expect(rows(format, plain, false, page).isEmpty)
             #expect(rows(format, both, true, page) == [.layout, .look, .inText])
         }
-        #expect(rows(.asciidoc, plain, false, page) == [.lead])
+        for format in [DocumentFormat.djot, .textile, .docx, .csv, .plainText, .notebook, .graphviz, .plantuml] {
+            #expect(rows(format, plain, false, page) == [.lead])
+        }
         let org = DocumentFacts(fragment: OrgConverter.convert("* Alpha"))
         let orgMarker = DocumentFacts(fragment: OrgConverter.convert("* Alpha\n#+TOC: headlines 1"))
         #expect(rows(.org, org, false, page).isEmpty)
@@ -166,7 +168,8 @@ struct PrintFinishFlowTests {
         #expect(model.printFinish.contents.inText == .hidden)
     }
 
-    @Test("番号なしはこの文書の変更になり、戻すとスタイルかアプリ既定に従う", arguments: [DocumentFormat.markdown, .quarto, .rMarkdown, .rst])
+    @Test(
+        "番号なしはこの文書の変更になり、戻すとスタイルかアプリ既定に従う", arguments: [DocumentFormat.markdown, .quarto, .rMarkdown, .rst, .asciidoc])
     func sectionNumberChanges(format: DocumentFormat) async throws {
         let environment = Environment()
         defer { environment.cleanUp() }
@@ -266,7 +269,7 @@ struct PrintFinishFlowTests {
         #expect(marked.matchesPrintSettingSet(decoded))
     }
 
-    @Test("仕上げの先頭目次では深さだけを指定した原稿のロックを移行前にも守る")
+    @Test("パネルの先頭目次では深さだけを指定した原稿のロックを移行前にも守る")
     func leadControlWithLockedDepth() async throws {
         let environment = Environment()
         defer { environment.cleanUp() }
@@ -275,7 +278,7 @@ struct PrintFinishFlowTests {
         model.start()
         try await waitUntil { model.contentsFacts != nil && model.contentHash != nil }
         let legacy = model.rememberedSettings
-        #expect(model.contentsFinishRows.contains(.lead))
+        #expect(model.offersReadingPanel && !model.contentsFinishRows.contains(.lead))
         model.setLeadContents(.levels(1))
         #expect(model.rememberedSettings == legacy && model.printFinish.legacyTOC?.mode == .front)
         model.setLeadContents(.levels(2))

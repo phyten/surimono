@@ -374,7 +374,12 @@ struct SectionNumbers {
         while counters.count < level { counters.append(0) }
         counters.removeLast(counters.count - level)
         counters[level - 1] += 1
-        if compact { return counters.filter { $0 > 0 }.map(String.init).joined(separator: ".") }
-        return counters.map(String.init).joined(separator: ".") + (trailingDot ? "." : "")
+        let components = compact ? counters.filter { $0 > 0 } : counters
+        return Self.label(components.map(String.init), delimiter: ".", suffix: !compact && trailingDot ? "." : "")
+    }
+
+    /// Delegated readers can supply their native ordinals, including appendix letters and Roman part numbers.
+    static func label(_ components: [String], delimiter: String, suffix: String) -> String {
+        components.joined(separator: delimiter) + suffix
     }
 }

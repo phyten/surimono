@@ -3,7 +3,10 @@ import SurimonoCore
 import Testing
 
 struct ContentsMigrationTests {
-    private func readingFacts(for format: DocumentFormat) -> DocumentFacts {
+    private func readingFacts(for format: DocumentFormat) throws -> DocumentFacts {
+        if format == .asciidoc {
+            return DocumentFacts(fragment: try AsciiDocConverter.convert("= Book\n:sectnums:\n:toc:\n\n== A"))
+        }
         if format == .rst {
             return DocumentFacts(fragment: RSTConverter.convert(".. sectnum::\n\n.. contents::\n\nA\n==="))
         }
@@ -41,15 +44,18 @@ struct ContentsMigrationTests {
     }
 
     @Test(
-        "読めない rST と Wiki の指定で固定を戻しても他形式を含む保存値が残る",
-        arguments: [DocumentFormat.rst, .mediawiki])
-    func ambiguousManuscriptKeepsChoices(format: DocumentFormat) {
+        "読めない原稿の指定で固定を戻しても他形式を含む保存値が残る",
+        arguments: [DocumentFormat.rst, .mediawiki, .asciidoc])
+    func ambiguousManuscriptKeepsChoices(format: DocumentFormat) throws {
         let fragment =
-            format == .rst
-            ? RSTConverter.convert(".. sectnum::\n   :depth: 0\n\n.. contents::\n   :unknown: yes\n\nA\n===")
-            : MediaWikiConverter.convert("{{nowrap|__FORCETOC__}}\n== A ==")
+            switch format {
+            case .asciidoc:
+                try AsciiDocConverter.convert("= Book\n:sectnums: maybe\n:toc: unknown\n:toclevels: 6\n\n== A")
+            case .rst: RSTConverter.convert(".. sectnum::\n   :depth: 0\n\n.. contents::\n   :unknown: yes\n\nA\n===")
+            default: MediaWikiConverter.convert("{{nowrap|__FORCETOC__}}\n== A ==")
+            }
         var document = DocumentSettings()
-        let formats: [DocumentFormat] = [.markdown, .quarto, .rMarkdown, .rst, .mediawiki]
+        let formats: [DocumentFormat] = [.markdown, .quarto, .rMarkdown, .rst, .mediawiki, .asciidoc]
         let facts = DocumentFacts(fragment: fragment)
         for (index, other) in formats.enumerated() {
             document.formatReading.set(
@@ -66,9 +72,9 @@ struct ContentsMigrationTests {
         #expect(document == expected)
     }
 
-    @Test("五形式の読み手は同じ設定から自分の形式の目次だけを選ぶ")
+    @Test("六形式の読み手は同じ設定から自分の形式の目次だけを選ぶ")
     func separateReaderSettings() throws {
-        let formats: [DocumentFormat] = [.markdown, .quarto, .rMarkdown, .rst, .mediawiki]
+        let formats: [DocumentFormat] = [.markdown, .quarto, .rMarkdown, .rst, .mediawiki, .asciidoc]
         for selected in formats {
             var reading = FormatReadingSettings()
             reading.defaults.set(.outline(present: true, depth: .levels(1)), for: .tableOfContents, format: selected)
@@ -77,6 +83,7 @@ struct ContentsMigrationTests {
                 switch format {
                 case .markdown: fragment = MarkdownConverter.convert("# A\n\n# B", reading: reading)
                 case .rst: fragment = RSTConverter.convert("One\n===\n\nTwo\n===", reading: reading)
+                case .asciidoc: fragment = try AsciiDocConverter.convert("== A\n\n== B", reading: reading)
                 case .mediawiki: fragment = MediaWikiConverter.convert("== A ==\n== B ==", reading: reading)
                 default: fragment = ComputationalMarkdown.convert("# A\n\n# B", format: format, reading: reading)
                 }
@@ -88,9 +95,9 @@ struct ContentsMigrationTests {
 
     @Test(
         "固定を戻す確認は承認まで保存せず、設定・原稿世代の変化で古い承認を無効にする",
-        arguments: [DocumentFormat.markdown, .quarto, .rMarkdown, .rst, .mediawiki])
+        arguments: [DocumentFormat.markdown, .quarto, .rMarkdown, .rst, .mediawiki, .asciidoc])
     func readingLockConfirmation(format: DocumentFormat) throws {
-        let facts = readingFacts(for: format)
+        let facts = try readingFacts(for: format)
         var document = DocumentSettings()
         document.formatReading.setAllowsFileChanges(true, for: format)
         document.formatReading.set(
@@ -150,16 +157,17 @@ struct ContentsMigrationTests {
     func confirmationBelongsToFormat() throws {
         var document = DocumentSettings()
         let formats: [DocumentFormat] = [.rst, .mediawiki]
+        let knownFacts = try Dictionary(uniqueKeysWithValues: formats.map { ($0, try readingFacts(for: $0)) })
         for format in formats {
             document.formatReading.setAllowsFileChanges(true, for: format)
             document.formatReading.set(
                 .outline(present: false, depth: .all), for: .tableOfContents,
-                format: format, file: readingFacts(for: format).contentsInstructions)
+                format: format, file: try #require(knownFacts[format]).contentsInstructions)
         }
         let original = document
         func ask(_ format: DocumentFormat, confirming: ReadingDiscardConfirmation? = nil) -> ReadingFileLockResult {
             document.lockReadingFileInstructions(
-                for: format, facts: readingFacts(for: format), generation: 3,
+                for: format, facts: knownFacts[format], generation: 3,
                 defaults: .init(), confirming: confirming)
         }
         guard case .needsConfirmation(let rst) = ask(.rst),
@@ -212,9 +220,9 @@ struct ContentsMigrationTests {
 
     @Test(
         "固定を戻すと原稿が指定した成分だけを消し、旧仕上げから移した深さか文書で選んだ深さを保つ",
-        arguments: [DocumentFormat.markdown, .quarto, .rMarkdown, .rst, .mediawiki], [false, true])
+        arguments: [DocumentFormat.markdown, .quarto, .rMarkdown, .rst, .mediawiki, .asciidoc], [false, true])
     func readingLockMigratesContents(format: DocumentFormat, editedDepth: Bool) throws {
-        let facts = readingFacts(for: format)
+        let facts = try readingFacts(for: format)
         var finish = PrintFinish()
         finish.legacyPresetContents.mode = .front
         finish.legacyPresetContents.depth = .sections

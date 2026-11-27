@@ -152,7 +152,8 @@ struct ReadingPanelLayoutTests {
     }
 
     @Test(
-        "原稿が先頭の目次を指定したときはパネルで深さだけを変えられる", arguments: [DocumentFormat.markdown, .quarto, .rMarkdown, .rst, .mediawiki])
+        "原稿が先頭の目次を指定したときはパネルで深さだけを変えられる",
+        arguments: [DocumentFormat.markdown, .quarto, .rMarkdown, .rst, .mediawiki, .asciidoc])
     func formatPanel(format: DocumentFormat) async throws {
         let suite = TestDefaultsSuite()
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -166,6 +167,7 @@ struct ReadingPanelLayoutTests {
         let source =
             switch format {
             case .rst: ".. contents::\n\nA\n==="
+            case .asciidoc: "= Book\n:toc:\n\n== A"
             case .mediawiki: "__FORCETOC__\n== A =="
             case .rMarkdown: "---\noutput:\n  pdf_document:\n    toc: true\n---\n# A"
             default: "---\ntoc: true\n---\n# A"
@@ -216,10 +218,13 @@ struct ReadingPanelLayoutTests {
         }
     }
 
-    @Test("rST と Wiki の固定理由には原稿の指定と変更できる成分が一行で出る")
+    @Test("形式ごとの固定理由には原稿の指定と変更できる成分が一行で出る")
     func directiveReasons() throws {
         let rst = RSTConverter.convert(".. sectnum::\n\n.. contents:: Map")
+        let adoc = try AsciiDocConverter.convert("= Book\n:sectnums!:\n:toclevels: 2\n\n== One")
         let cases: [(ReadingInstructionSource?, ReadingFileReason.PartialLock, String)] = [
+            (adoc.numberInstructions.present?.source, .disabled, ":sectnums!: (off is fixed)"),
+            (adoc.contentsInstructions.depth?.source, .depth, ":toclevels: 2 (can be turned on or off)"),
             (rst.numberInstructions.present?.source, .enabled, ".. sectnum:: (depth can be changed)"),
             (rst.contentsInstructions.present?.source, .enabled, ".. contents:: Map (depth can be changed)"),
             (

@@ -76,6 +76,10 @@ struct FormatReadingPanel: View {
             })
     }
 
+    private func manuscriptNote(_ label: LocalizedStringKey, marker: String) -> some View {
+        (Text(label) + Text(verbatim: " · " + marker)).font(.caption).foregroundStyle(.secondary)
+    }
+
     var body: some View {
         ReadingPanel(
             title: LocalizedStringKey(model.format.displayName), ready: model.contentsFacts != nil,
@@ -90,15 +94,17 @@ struct FormatReadingPanel: View {
                     let inheritsStyle = id == .sectionNumbers && model.numbersInheritStyle
                     VStack(alignment: .leading, spacing: 4) {
                         FormatReadingControl(
-                            id: id, row: row,
+                            format: model.format, id: id, row: row,
                             resetHelp: row.resetHelp(
                                 format: model.format.displayName, id: id, inheritsStyle: inheritsStyle),
                             documentName: model.displayName,
                             fileURL: model.fileURL, allowsFileChanges: unlocked, inheritsStyle: inheritsStyle,
                             set: { model.setReadingValue($0, for: id) }, revert: { model.revertReadingValue(id) })
                         if id == .tableOfContents, let marker = model.contentsFacts?.inTextContentsMarker {
-                            (Text("Contents in Text") + Text(verbatim: " · " + marker)).font(.caption).foregroundStyle(
-                                .secondary)
+                            manuscriptNote("Contents in Text", marker: marker)
+                        }
+                        if id == .sectionNumbers, let marker = model.contentsFacts?.inTextNumberMarker {
+                            manuscriptNote("Numbering in Text", marker: marker)
                         }
                     }
                 }

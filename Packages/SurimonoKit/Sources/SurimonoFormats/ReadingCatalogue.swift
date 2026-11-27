@@ -179,14 +179,17 @@ public enum ReadingCatalogue {
         .init(
             .sectionNumbers, .outline(present: false, depth: .levels(3)),
             [
-                .init(":sectnums:", .presence), .init(":sectnums!:", .presence), .init(":sectnumlevels:", .depth),
+                .init(":sectnums:", .presence), .init(":sectnums!:", .presence), .init(":!sectnums:", .presence),
+                .init(":sectnumlevels:", .depth),
                 .init("sectnums in the body", .note),
             ],
             copy: [":sectnums:", ":sectnums!:", ":sectnumlevels: {n}"]),
         .init(
             .tableOfContents, .outline(present: false, depth: .levels(2)),
             [
-                .init(":toc:", .presence), .init(":toc!:", .presence), .init(":toclevels:", .depth),
+                .init(":toc:", .presence), .init(":toc!:", .presence), .init(":!toc:", .presence),
+                .init(":toclevels:", .depth),
+                .init(":toc-title:", .note),
                 .init(":toc: macro", .note), .init("toc::[]", .note),
             ],
             copy: [":toc:", ":toc!:", ":toclevels: {n}"]),

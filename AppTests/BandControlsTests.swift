@@ -21,7 +21,7 @@ struct BandControlsTests {
             (DocumentFormat.org, nil, true), (.org, binder, false), (.markdown, nil, true), (.markdown, binder, false),
             (.quarto, nil, true), (.quarto, binder, false), (.rMarkdown, nil, true), (.rMarkdown, binder, false),
             (.rst, nil, true), (.rst, binder, false), (.mediawiki, nil, true), (.mediawiki, binder, false),
-            (.asciidoc, nil, false), (.notebook, nil, false), (.pdf, nil, false),
+            (.asciidoc, nil, true), (.asciidoc, binder, false), (.notebook, nil, false), (.pdf, nil, false),
         ] {
             let model = DocumentViewModel(
                 data: Data(), fileURL: nil, format: format, preferences: preferences, library: library,

@@ -32,14 +32,17 @@ enum AsciiDocMarkup {
             if parts.leadContents == "true", let nav = html.range(of: "<nav class=\"toc\"") {
                 html.replaceSubrange(nav, with: ReaderContentsKind.lead.mark(String(html[nav])))
             }
+            let header = parts.readingHeader ?? .init()
             var fragment = HTMLFragment(
-                body: html, title: title?.text, language: parts.language == "und" ? nil : parts.language
-            ).recordingContents(
-                .init(
-                    present: parts.leadContents.map { .init($0 == "true") },
-                    depth: parts.contentsDepth.flatMap(Int.init).map { .init(.levels(max(1, $0))) }))
+                body: html, title: title?.text, language: parts.language == "und" ? nil : parts.language,
+                decidesHeadingNumbers: header.ownsNumbers || parts.regionalNumbers != nil
+            ).recordingContents(header.contents)
+            fragment.numberInstructions = header.numbers
+            fragment.contentsTitle = parts.contentsTitle.map(HTML.unescape)
+            fragment.inTextContentsMarker = parts.hasContentsMacro ? "toc::[]" : nil
+            fragment.inTextNumberMarker = parts.regionalNumbers
             fragment.coalescesContentsInLegacy = parts.combinedContents
-            return fragment
+            return parts.leadContents == "true" ? fragment : fragment.addingLeadContents(depth: header.lead)
         }
     }
 
