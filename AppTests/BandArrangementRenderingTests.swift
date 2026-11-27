@@ -423,33 +423,52 @@ struct BandArrangementRenderingTests {
         let window = try #require(controller.window)
         window.orderFrontRegardless()
         try await open(model)
+        // The window opens as large as the screen lets the paper be. On a small 1x screen (a CI runner's) that is too
+        // narrow for the top band once View Options joins Standard's parts there, and the band folds it into "…" as it
+        // should. This test is about the popover surviving the moves, so it starts from a width that holds every part.
+        let opened = window.contentRect(forFrameRect: window.frame).size
+        window.setContentSize(NSSize(width: max(opened.width, 1200), height: opened.height))
         let anchors = model.bandAnchors
-        try await waitUntil {
+        var base = popoverCount(window)
+        // What the bands drew and what is open, so that a wait that times out says why.
+        func state() -> String {
+            let plan = anchors.plan
+            func row(_ row: BandRowPlan?) -> String {
+                guard let row else { return "nil" }
+                return "\(row.leading.map(\.rawValue))|\(row.trailing.map(\.rawValue)) "
+                    + "forms=\(row.forms.mapValues { "\($0)" }) required=\(row.requiredWidth)"
+            }
+            return "content=\(window.contentRect(forFrameRect: window.frame).size) top=\(row(plan?.top)) "
+                + "bottom=\(row(plan?.bottom)) overflow=\((plan?.overflow ?? []).map(\.rawValue)) "
+                + "frame=\(String(describing: anchors.frames[.item(.viewOptions)])) topBand=\(model.topBandHeight) "
+                + "popovers=\(popoverCount(window)) base=\(base) presented=\(model.isViewOptionsPresented)"
+        }
+        try await waitUntil(state()) {
             anchors.plan?.band(of: .viewOptions) == .bottom && anchors.frames[.item(.viewOptions)] != nil
         }
-        let base = popoverCount(window)
+        base = popoverCount(window)
         model.isViewOptionsPresented = true
-        try await waitUntil { popoverCount(window) == base + 1 }
+        try await waitUntil(state()) { popoverCount(window) == base + 1 }
 
         var layouts = BandArrangementVariants()
         layouts.split = try layouts.split.moving(.viewOptions, to: .zone(.topLeft), for: .split)
         try environment.preferences.saveBandArrangement(BandArrangementSet(name: "Top Contents", layouts: layouts))
-        try await waitUntil {
+        try await waitUntil(state()) {
             anchors.plan?.band(of: .viewOptions) == .top
                 && (anchors.frames[.item(.viewOptions)]?.maxY ?? .infinity) <= model.topBandHeight + 1
         }
-        #expect(model.isViewOptionsPresented)
-        #expect(popoverCount(window) == base + 1)
+        #expect(model.isViewOptionsPresented, "\(state())")
+        #expect(popoverCount(window) == base + 1, "\(state())")
 
         layouts.split = try layouts.split.moving(.viewOptions, to: .unused, for: .split)
         try environment.preferences.saveBandArrangement(BandArrangementSet(name: "No Contents", layouts: layouts))
-        try await waitUntil { anchors.plan != nil && anchors.plan?.band(of: .viewOptions) == nil }
-        #expect(anchors.plan?.unusedAvailable.contains(.viewOptions) == true)
-        #expect(model.isViewOptionsPresented)
-        #expect(popoverCount(window) == base + 1)
+        try await waitUntil(state()) { anchors.plan != nil && anchors.plan?.band(of: .viewOptions) == nil }
+        #expect(anchors.plan?.unusedAvailable.contains(.viewOptions) == true, "\(state())")
+        #expect(model.isViewOptionsPresented, "\(state())")
+        #expect(popoverCount(window) == base + 1, "\(state())")
 
         model.isViewOptionsPresented = false
-        try await waitUntil { popoverCount(window) == base }
+        try await waitUntil(state()) { popoverCount(window) == base }
     }
 
     @Test("帯にない部品のポップオーバーは「…」から出し、下の帯の部品なら上向きに出す")
