@@ -52,15 +52,8 @@ public enum ReadingPDFExporter {
     /// Captures navigation before PDFKit can drop weak destinations during its native write.
     public static func data(from document: PDFDocument) async throws -> Data {
         let expected = try await ReadingPDFNavigation(document, stage: "export")
-        return try await verifiedSnapshot(of: document, navigation: expected, stage: "export → saved")
-    }
-
-    private static func verifiedSnapshot(of document: PDFDocument, navigation: ReadingPDFNavigation, stage: String)
-        async throws -> Data
-    {
         guard let bytes = document.dataRepresentation() else { throw ExportError.cannotCopyDocument }
-        let clean = try await navigation.removingPDFKitCopies(from: bytes)
-        return try await navigation.verified(clean, pageCount: document.pageCount, stage: stage)
+        return try await expected.verified(bytes, pageCount: document.pageCount, stage: "export → saved")
     }
 
     public static func document(
@@ -81,36 +74,24 @@ public enum ReadingPDFExporter {
         // Capture on the original. Decoration keeps page order and coordinates, but a copied
         // annotation can lose its target before PDFKit produces even the first set of bytes.
         let original = try await ReadingPDFNavigation(logical)
-        let bytes: Data
+        let pages: PDFDocument
         if furniture.isEmpty {
-            guard let saved = logical.dataRepresentation() else { throw ExportError.cannotCopyDocument }
-            bytes = try await original.removingPDFKitCopies(from: saved)
+            pages = logical
         } else {
             // Keep the source page order and links while adding the same searchable footer as the printed sheet.
             let options = ViewOptions(
                 layout: .single, scrollAxis: .vertical, transition: .instant, showsCoverAlone: false)
             let plan = ViewPageLayout(
                 pageCount: logical.pageCount, options: options, hasLogicalMargins: false, showsNumbers: false)
-            // Decoration copies live annotations. Give it the verified logical pages even when the
-            // input was reopened from bytes that expose the extra PDFKit annotations.
-            let source: PDFDocument
-            if original.hadPDFKitCopies {
-                let clean = try await verifiedSnapshot(of: logical, navigation: original, stage: "view → undecorated")
-                guard let reopened = PDFDocument(data: clean) else { throw ExportError.cannotCopyDocument }
-                source = reopened
-            } else {
-                source = logical
-            }
             guard
                 let decorated = ViewPageDocument.make(
-                    source, plan: plan, margin: 0, furniture: furniture, furnitureAsText: true),
-                let saved = decorated.dataRepresentation()
+                    logical, plan: plan, margin: 0, furniture: furniture, furnitureAsText: true)
             else { throw ExportError.cannotCopyDocument }
-            bytes = saved
+            pages = decorated
         }
+        guard let bytes = pages.dataRepresentation() else { throw ExportError.cannotCopyDocument }
         return try await finish(
-            bytes, original: original, pageCount: logical.pageCount,
-            entries: entries, title: title,
+            bytes, original: original, pageCount: logical.pageCount, entries: entries, title: title,
             preservesOutline: preservesOutline, headings: headings, sourceURL: sourceURL,
             snapshotURLs: [SnapshotSchemeHandler.rootURL, SnapshotSchemeHandler.pageURL])
     }

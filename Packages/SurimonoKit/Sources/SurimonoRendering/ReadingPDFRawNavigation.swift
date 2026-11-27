@@ -68,8 +68,8 @@ struct ReadingPDFRawNavigation: Sendable {
 
     let pageCount: Int
     let annotationCounts: [Int]
-    // Number of leading PDFKit copies when the complete page consists of two matching blocks.
-    let pdfKitCopyCounts: [Int: Int]
+    // Number of original links in a page with the known duplicate PDFKit annotation blocks.
+    let duplicateLinkCounts: [Int: Int]
     let links: [Link]
     let outline: [Entry]
     let hasValidOutlineCounts: Bool
@@ -225,7 +225,7 @@ struct ReadingPDFRawNavigation: Sendable {
 
         var links: [Link] = []
         var annotationCounts = Array(repeating: 0, count: pageCount)
-        var copyCounts: [Int: Int] = [:]
+        var duplicateLinkCounts: [Int: Int] = [:]
         for p in 0..<pageCount {
             try await checkpoint()
             guard let page = pdf.page(at: p + 1)?.dictionary else { throw Failure.page }
@@ -255,7 +255,7 @@ struct ReadingPDFRawNavigation: Sendable {
                 case .pdfKitXYZ = links[start].action,
                 try Self.hasPDFKitCopies(in: annots, links: links[start...])
             {
-                copyCounts[p] = count / 2
+                duplicateLinkCounts[p] = count / 2
             }
         }
 
@@ -304,7 +304,8 @@ struct ReadingPDFRawNavigation: Sendable {
             }
         }
         return Self(
-            pageCount: pageCount, annotationCounts: annotationCounts, pdfKitCopyCounts: copyCounts, links: links,
+            pageCount: pageCount, annotationCounts: annotationCounts, duplicateLinkCounts: duplicateLinkCounts,
+            links: links,
             outline: outline, hasValidOutlineCounts: countsValid)
     }
 
@@ -349,7 +350,7 @@ struct ReadingPDFRawNavigation: Sendable {
     }
 
     // PDFKit can synthesize [/#23N /XYZ x y] for a live GoTo. A lone marker needs a matching
-    // live destination. A verified duplicate pair also has a canonical /Dest in the second block.
+    // live destination. A duplicate block is rejected even when its second half has a canonical /Dest.
     private static func pdfKitXYZ(in array: CGPDFArrayRef) -> Action? {
         var mode: UnsafePointer<CChar>?
         var marker: UnsafePointer<CChar>?

@@ -1161,8 +1161,12 @@ public final class DocumentRenderer {
             // PDFKit may insert a Popup next to a copied Text annotation.
             let originals = source.annotations.enumerated().filter { $0.element.type == "Link" }
             let copies = page.annotations.enumerated().filter { $0.element.type == "Link" }
+            let sourceOrigin = source.bounds(for: .mediaBox).origin
+            let placedOrigin = page.bounds(for: .mediaBox).origin
             for ((sourceSlot, original), (copySlot, copy)) in zip(originals, copies) {
-                guard original.bounds == copy.bounds else { continue }
+                let bounds = original.bounds.offsetBy(
+                    dx: placedOrigin.x - sourceOrigin.x, dy: placedOrigin.y - sourceOrigin.y)
+                guard ReadingPDFNavigation.sameBounds(bounds, copy.bounds) else { continue }
                 let action = original.action
                 let goTo = action as? PDFActionGoTo
                 guard action == nil || goTo != nil else { continue }
@@ -1182,18 +1186,26 @@ public final class DocumentRenderer {
                 let unspecified = CGFloat(kPDFDestinationUnspecifiedValue)
                 var point = destination?.point ?? CGPoint(x: unspecified, y: unspecified)
                 var zoom = destination?.zoom ?? unspecified
+                guard let originalTarget = child.page(at: targetIndex) else { continue }
+                let before = originalTarget.bounds(for: .mediaBox).origin
+                let after = targetPage.bounds(for: .mediaBox).origin
+                let dx = after.x - before.x
+                let dy = after.y - before.y
+                if point.x != unspecified { point.x += dx }
+                if point.y != unspecified { point.y += dy }
                 if let raw, raw.page == targetIndex,
                     nativeIndex == nil || raw.mode != "XYZ" || record?.action == .namedDestination(raw)
                         || inherited != nil
                 {
                     // A PDFDestination only exposes a point and zoom. Keep the full array for the verified write.
                     let target = ReadingPDFNavigationWriter.Destination(
-                        page: offset + targetIndex, mode: raw.mode, arguments: raw.arguments)
+                        page: offset + targetIndex, mode: raw.mode, arguments: raw.arguments
+                    ).offsetBy(dx: dx, dy: dy)
                     bound[offset + index, default: [:]][copySlot] = .init(
                         page: offset + index, annotation: copySlot, bounds: copy.bounds,
                         action: .internalDestination(target))
                     if raw.mode == "XYZ" {
-                        point = CGPoint(x: raw.arguments[0] ?? unspecified, y: raw.arguments[1] ?? unspecified)
+                        point = CGPoint(x: target.arguments[0] ?? unspecified, y: target.arguments[1] ?? unspecified)
                         // PDF zoom zero, like null, keeps the current zoom; the bound array retains the distinction.
                         zoom = raw.arguments[2] == 0 ? unspecified : raw.arguments[2] ?? unspecified
                     }
@@ -2050,12 +2062,13 @@ public final class DocumentRenderer {
             case .note: continue
             case .body: bodyIndices.append(index)
             case .contents(let number):
-                if let page = contents?.page(at: number), let copy = StandalonePage.copy(of: page) {
-                    body.insert(copy, at: index)
-                    let original = page.bounds(for: .mediaBox).origin
-                    let placed = copy.bounds(for: .mediaBox).origin
-                    frontPages[number] = (index, CGPoint(x: placed.x - original.x, y: placed.y - original.y))
+                guard let page = contents?.page(at: number), let copy = StandalonePage.independentCopy(of: page) else {
+                    throw RenderingError.invalidPDF
                 }
+                body.insert(copy, at: index)
+                let original = page.bounds(for: .mediaBox).origin
+                let placed = copy.bounds(for: .mediaBox).origin
+                frontPages[number] = (index, CGPoint(x: placed.x - original.x, y: placed.y - original.y))
             case .blank:
                 let blank = PDFPage()
                 blank.setBounds(

@@ -225,6 +225,23 @@ struct FootnotePlacerTests {
         #expect(output.page(at: 1)?.annotations.contains { $0.url?.scheme == "surimono-issue" } == true)
     }
 
+    @Test("脚注を移さない本文ページのリンクを付け直しても元の注釈配列は増えない")
+    func placementKeepsOriginalLinks() async throws {
+        let planned = try #require(PageFootnotes.plan(for: html))
+        let document = try fixture()
+        let linked = try #require(PDFDocument(data: PageSourceLifetimeTests.linkedPDF()))
+        let page = try #require(linked.page(at: 0))
+        document.insert(page, at: 0)
+        let output = try FootnotePlacer.compose(
+            document, plan: planned, groups: [.init(firstReference: 0, notes: [1], heightPixels: 40)],
+            margins: .init(top: 40, left: 40, bottom: 40, right: 40))
+        let annotations = try #require(output.page(at: 0)).annotations
+        try #require(annotations.count == 1)
+        #expect(annotations.first?.url?.absoluteString == "https://example.com/")
+        let backing = try await ReadingPDFRawNavigation.capture(try #require(page.pageRef?.document))
+        #expect(backing.annotationCounts == [1])
+    }
+
     @Test("用紙の原点がゼロでなくても箱とリンク座標を保つ")
     func nonzeroOrigin() throws {
         let planned = try #require(PageFootnotes.plan(for: html))

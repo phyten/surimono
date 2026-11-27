@@ -45,10 +45,10 @@ public enum ViewPageDocument {
             let number = placement?.lines.bottom.contains { !$0.isEmpty } == true ? nil : plan.number(at: viewIndex)
             if scale == 1, number == nil, marks.isEmpty, placement == nil {
                 let annotations = original.annotations
-                guard !annotations.isEmpty, original.pageRef != nil else { continue }
+                guard !annotations.isEmpty || StandalonePage.hasStoredAnnotations(original) else { continue }
                 // Reuse immutable page content when available. Only a typeset page without
                 // those bytes needs drawing to isolate its local links from the view copy.
-                guard case .typeset(nil) = origin,
+                guard original.pageRef != nil, case .typeset(nil) = origin,
                     annotations.contains(where: { link in
                         link.type == "Link"
                             && ((link.action as? PDFActionGoTo)?.destination ?? link.destination)?.page != nil
@@ -133,9 +133,11 @@ public enum ViewPageDocument {
                         }
                     }
                 } else {
+                    // Only an undecorated page without live or stored annotations uses a native copy.
                     guard let copy = StandalonePage.copy(of: original) else { return nil }
-                    page = copy
-                    result.insert(page, at: viewIndex)
+                    result.insert(copy, at: viewIndex)
+                    copy.setBounds(box, for: .cropBox)
+                    continue
                 }
                 // Some PDFKit versions reload a copied page's annotations on insertion.
                 // Install the independent copies on the page in its final document.
@@ -260,6 +262,14 @@ public enum ViewPageDocument {
         let marks: [ChangeMark]
         let visibleBox: CGRect
         let scale: CGFloat
+    }
+
+    /// A typeset page whose annotations will be placed again in its original coordinate system.
+    static func contentPage(of original: PDFPage) -> PDFPage? {
+        let decoration = Decoration(
+            original: original, number: nil, outlinesNumber: false, furniture: nil, furnitureAsText: false,
+            marks: [], visibleBox: original.bounds(for: .cropBox), scale: 1)
+        return decoratedPages([0: decoration], margin: 0, sharesResources: false)?[0]
     }
 
     /// Draws the decorated pages and reads them back, by their index in the copy. In one PDF, the pages that draw the
