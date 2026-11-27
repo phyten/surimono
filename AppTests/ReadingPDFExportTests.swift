@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import PDFKit
 import SurimonoCore
@@ -48,6 +49,91 @@ struct ReadingPDFExportTests {
         model.completePDFExport(to: sourceURL)
         #expect(model.outputError != nil)
         #expect(try Data(contentsOf: sourceURL) == original)
+    }
+
+    @Test(
+        "表示中の NeurIPS 原稿を読む PDF に保存して開き直すと、最初の引用が 3 ページ目の文献行を指す",
+        .timeLimit(.minutes(1)), arguments: ["113-style-neurips", "114-style-neurips-final"])
+    func neuripsWindowExport(_ name: String) async throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let url = root.appendingPathComponent("Snapshots/corpus/latex/\(name)/main.tex")
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let suite = TestDefaultsSuite()
+        defer {
+            suite.remove()
+            try? FileManager.default.removeItem(at: directory)
+        }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let file = FileWrapper(regularFileWithContents: try Data(contentsOf: url))
+        file.preferredFilename = url.lastPathComponent
+        let input = try SurimonoDocument(file: file, contentType: .surimonoLaTeX)
+        let model = DocumentViewer.makeModel(
+            document: input, fileURL: url, preferences: AppPreferences(defaults: suite.defaults),
+            library: UserLibrary(root: directory), settingsStore: DocumentSettingsStore(directory: directory))
+        model.layoutID = PrintLayout.letterSingle.id
+        let window = NSWindow(
+            contentRect: CGRect(x: 0, y: 0, width: 760, height: 760),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+            backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        ViewerWindow.configure(window)
+        let presentation = DocumentWindowContent(model: model, in: window, usesSnapshotAppearance: true)
+        defer {
+            presentation.close()
+            window.close()
+        }
+        window.representedURL = url
+        window.orderBack(nil)
+        // Use the file window's real hosting and render lifecycle, including PDFKit's view copy.
+        while model.error == nil && (!model.isUpToDate || model.paper.view?.visiblePages.isEmpty != false) {
+            window.contentView?.layoutSubtreeIfNeeded()
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        try #require(model.isUpToDate && model.paper.view?.window === window, "\(model.error ?? name)")
+        try #require(model.layoutID == PrintLayout.letterSingle.id)
+        let settings = try #require(model.renderSettings(in: .view))
+        let source = try #require(model.themedSource)
+        let info = model.renderer.latexClassInfo(for: source, composition: settings.latexComposition)
+        try #require(model.mode == .view && settings == settings.forReadingLaTeX(info))
+        let displayed = try #require(model.paperDocument)
+        try #require(displayed === model.result?.viewDocument)
+        func destinations(in document: PDFDocument) throws -> [(page: Int, point: CGPoint)] {
+            try #require(document.pageCount == 3)
+            let links = try #require(document.page(at: 0)?.annotations)
+            if name == "113-style-neurips" { try #require(links.count == 10) }
+            let targets = try links.compactMap { link -> (page: Int, point: CGPoint)? in
+                guard link.type == "Link", !(link.action is PDFActionURL) else { return nil }
+                let dest = try #require((link.action as? PDFActionGoTo)?.destination ?? link.destination)
+                let page = try #require(dest.page)
+                #expect(dest.zoom == kPDFDestinationUnspecifiedValue)
+                return (page: document.index(for: page), point: dest.point)
+            }
+            if name == "113-style-neurips" { try #require(targets.count == 10) }
+            let first = try #require(targets.first)
+            try #require(first.page == 2)
+            let page = try #require(document.page(at: first.page))
+            let entry = try #require(document.findString("Model Rail Desk. 2025.").first)
+            try #require(entry.pages.first === page)
+            let line = entry.bounds(for: page)
+            #expect(abs(first.point.x - line.minX) < 6 && abs(first.point.y - line.maxY) < 6)
+            if name == "113-style-neurips" {
+                #expect(abs(first.point.x - 108) < 1 && abs(first.point.y - 656.15) < 1)
+            }
+            return targets
+        }
+        let original = try destinations(in: displayed)
+        let started = await model.beginReadingPDFExport()
+        try #require(started, "\(model.outputError ?? name)")
+        let output = directory.appendingPathComponent("Reading.pdf")
+        model.completePDFExport(to: output)
+        try #require(model.outputError == nil)
+        let reopened = try #require(PDFDocument(url: output))
+        let saved = try destinations(in: reopened)
+        try #require(original.count == saved.count)
+        for (before, after) in zip(original, saved) {
+            #expect(before.page == after.page)
+            #expect(abs(before.point.x - after.point.x) < 0.001 && abs(before.point.y - after.point.y) < 0.001)
+        }
     }
 
     @Test("読むPDFは印刷画面のページ範囲に依存せずモードを保つ", .timeLimit(.minutes(1)))

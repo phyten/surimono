@@ -578,7 +578,7 @@ public final class WebPaginator: NSObject {
             let pass = try await LaTeXFlowPaginator.paginate(
                 in: session.webView, pageSize: pageSize, margins: margins, timeout: remaining(),
                 scriptTimeout: timeout, evaluator: flowEvaluator, inspectPlan: inspectFlowPlan)
-            // Keep the page references written by Quartz until the viewer opens these bytes.
+            // Open the compositor's bytes directly so links retain their final page references.
             guard let data = pass.data else { throw PaginationError.emptyDocument }
             return data
         }

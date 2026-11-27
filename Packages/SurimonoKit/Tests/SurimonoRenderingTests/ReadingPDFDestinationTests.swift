@@ -186,6 +186,12 @@ struct ReadingPDFDestinationTests {
     func exportedMarks(rotated: Bool) async throws {
         let original = try #require(PDFDocument(data: markedPages(rotated: rotated)))
         try checkMarkedLink(original, from: 0)
+        let plan = ViewPageLayout(
+            pageCount: 2,
+            options: .init(layout: .single, scrollAxis: .vertical, transition: .instant, showsCoverAlone: false),
+            hasLogicalMargins: false, showsNumbers: false)
+        let copy = try #require(ViewPageDocument.make(original, plan: plan, margin: 0))
+        try checkMarkedLink(copy, from: 0)
         var options = PrintOptions()
         options.furniture = .name
         let footer = try #require(
@@ -209,17 +215,23 @@ struct ReadingPDFDestinationTests {
         }
     }
 
-    @Test("別の PDF を前にとじても、元文書のリンクが合本内の正しいページの目印を指す")
-    func boundMarks() async throws {
+    @Test("別の PDF を前にとじても、開いた PDF と組版したページのリンクが合本内の目印を指す", arguments: [false, true])
+    func boundMarks(typeset: Bool) async throws {
+        let marks = markedPages(rotated: false)
+        let renderer = DocumentRenderer(paginateWithResult: { _ in
+            .init(document: try #require(PDFDocument(data: marks)))
+        })
         let children = [
             DocumentSource(data: try RenderingFixtures.pdfData(count: 1), format: .pdf),
-            DocumentSource(data: markedPages(rotated: false), format: .pdf),
+            typeset
+                ? DocumentSource(data: Data("Marks".utf8), format: .plainText)
+                : DocumentSource(data: marks, format: .pdf),
         ]
         var settings = RenderSettings(
             layout: .a4Single, theme: PrintTheme(id: "test", name: "Test", css: ""),
             preset: HTMLCleanupPreset(id: "none", name: "None"))
         settings.binderStartsOnFront = false
-        let binder = try await DocumentRenderer().prepare(.binder(children), settings: settings)
+        let binder = try await renderer.prepare(.binder(children), settings: settings)
         let bytes = try await ReadingPDFExporter.data(from: binder.viewDocument, entries: [], title: "Binder")
         let saved = try #require(PDFDocument(data: bytes))
         try #require(saved.pageCount == 3)
@@ -239,6 +251,12 @@ struct ReadingPDFDestinationTests {
         let prepared = try await DocumentRenderer().prepare(.binder(children), settings: settings)
         try #require(prepared.viewDocument.pageCount == 3)
         try checkMarkedLink(prepared.viewDocument, from: 1)
+        let plan = ViewPageLayout(
+            pageCount: 3,
+            options: .init(layout: .spread, scrollAxis: .horizontal, transition: .slide, showsCoverAlone: true),
+            hasLogicalMargins: false, showsNumbers: false)
+        let copy = try #require(ViewPageDocument.make(prepared.viewDocument, plan: plan, margin: 0))
+        try checkMarkedLink(copy, from: 2)
 
         // Exercise the Sequoia write and reopen even on systems where prepare can return the assembled pages.
         let reopened = try await StandalonePage.reopenBinder(prepared.viewDocument)
@@ -507,6 +525,390 @@ struct ReadingPDFDestinationTests {
         }
     }
 
+    @Test("XYZ の倍率が欠けた引用リンクは、表示中の座標が読めても生の宛先を示して断る")
+    func missingCitationZoom() async throws {
+        let bytes = pdf([
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R] /Count 3 /MediaBox [0 0 612 792] /Resources << >> >>",
+            "<< /Type /Page /Parent 2 0 R /Annots [6 0 R] >>",
+            "<< /Type /Page /Parent 2 0 R >>", "<< /Type /Page /Parent 2 0 R >>",
+            "<< /Type /Annot /Subtype /Link /Rect [120 300 180 312] /Dest 7 0 R >>",
+            "[5 0 R /XYZ 108 656.1506]",
+        ])
+        let view = try #require(PDFDocument(data: bytes))
+        do {
+            _ = try await ReadingPDFExporter.data(from: view, entries: [], title: "Paper")
+            Issue.record("倍率を省略した XYZ が受理された")
+        } catch ReadingPDFExporter.ExportError.navigation(let detail) {
+            #expect(detail.contains("view p1 annotation=0"))
+            #expect(detail.contains("/Dest [p3 /XYZ 108 656.1506] (4 elements)"), "\(detail)")
+        }
+    }
+
+    // Match the two ordered blocks in the captured NeurIPS page, including PDFKit's escaped page markers.
+    private func citationPage(withCopies: Bool) -> Data {
+        let targets = [
+            (3, 656.1506), (3, 656.1506), (1, 229.7176), (2, 309.0377), (2, 149.261),
+            (3, 701.9779), (3, 701.9779), (3, 638.2182), (3, 638.2182), (1, 94.79188),
+        ]
+        var copies: [String] = []
+        var originals: [String] = []
+        for (i, target) in targets.enumerated() {
+            let rect = "/Subtype /Link /Rect [120 \(30 + 20 * i) 180 \(42 + 20 * i)]"
+            func action(_ page: Int) -> String { "/A << /S /GoTo /D [/#2323\(page) /XYZ 108 \(target.1)] >>" }
+            let attributes = "/H /I /F 4 /BS << /W 0 >> /M (D:20261127)"
+            copies.append("<< \(rect) \(attributes) \(action(target.0)) >>")
+            let dest = "/Dest [\(target.0 + 2) 0 R /XYZ 108 \(target.1) null]"
+            originals.append("<< \(rect) /Border [0 0 0] \(withCopies ? action(target.0) : "") \(dest) >>")
+        }
+        let annotations = (withCopies ? copies : []) + originals
+        let slots = annotations.indices.map { "\($0 + 6) 0 R" }.joined(separator: " ")
+        let stream = "BT /F1 12 Tf 120 300 Td /P <</MCID 0>> BDC (Citation text) Tj EMC ET"
+        let content = annotations.count + 6
+        let tree = content + 1
+        let element = content + 2
+        return pdf(
+            [
+                "<< /Type /Catalog /Pages 2 0 R /MarkInfo << /Marked true >> /StructTreeRoot \(tree) 0 R >>",
+                "<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R] /Count 3 /MediaBox [0 0 612 792] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> >>",
+                """
+                << /Type /Page /Parent 2 0 R /Contents \(content) 0 R /StructParents 0 /Annots [\(slots)]
+                /CropBox [5 6 607 786] /TrimBox [14 15 598 777] /BleedBox [9 10 603 782] /ArtBox [22 23 590 769] >>
+                """,
+                "<< /Type /Page /Parent 2 0 R >>", "<< /Type /Page /Parent 2 0 R >>",
+            ] + annotations + [
+                "<< /Length \(stream.utf8.count) >>\nstream\n\(stream)\nendstream",
+                "<< /Type /StructTreeRoot /K [\(element) 0 R] /ParentTree << /Nums [0 [\(element) 0 R]] >> >>",
+                "<< /Type /StructElem /S /P /P \(tree) 0 R /Pg 3 0 R /K 0 /Alt (Accessible citation) >>",
+            ])
+    }
+
+    private func exportCitations(from view: PDFDocument, footer: Bool = false) async throws -> Data {
+        var options = PrintOptions()
+        options.furniture = .name
+        let placement = try #require(
+            PDFComposer.furniture(
+                onPage: 0, at: 0, pageCount: 3, layout: .letterSingle, options: options,
+                context: .init(fileName: "NeurIPS")))
+        return try await ReadingPDFExporter.data(
+            from: view, entries: [], title: "NeurIPS", furniture: footer ? [0: placement] : [:])
+    }
+
+    private func checkCitations(
+        from view: PDFDocument, against expected: [ReadingPDFRawNavigation.Link], footer: Bool = false
+    ) async throws {
+        let bytes = try await exportCitations(from: view, footer: footer)
+        let raw = try await ReadingPDFRawNavigation.read(bytes)
+        let saved = try #require(PDFDocument(data: bytes))
+        try #require(saved.pageCount == 3)
+        #expect(raw.annotationCounts == [10, 0, 0])
+        try checkSavedCitations(in: saved, raw: raw, against: expected, start: 0)
+    }
+
+    private func checkSavedCitations(
+        in saved: PDFDocument, raw: ReadingPDFRawNavigation, against expected: [ReadingPDFRawNavigation.Link],
+        start: Int
+    ) throws {
+        let annotations = try #require(saved.page(at: start)?.annotations)
+        let links = raw.links.filter { $0.page == start }
+        try #require(expected.count == 10)
+        try #require(annotations.count == expected.count && links.count == expected.count)
+        for (i, link) in expected.enumerated() {
+            let target = try #require(link.action.target)
+            let expectedPage = start + target.page
+            let expectedTarget = ReadingPDFNavigationWriter.Destination(
+                page: expectedPage, mode: target.mode, arguments: target.arguments)
+            let citation = "p\(start + 1) annotation=\(i)"
+            #expect(links[i].annotation == i && links[i].action.target == expectedTarget, "\(citation)")
+            let annotation = annotations[i]
+            #expect(ReadingPDFNavigation.sameBounds(annotation.bounds, link.bounds), "\(citation)")
+            let dest = try #require((annotation.action as? PDFActionGoTo)?.destination ?? annotation.destination)
+            #expect(dest.page === saved.page(at: expectedPage), "\(citation)")
+            #expect(abs(dest.point.x - (try #require(target.arguments[0]))) < 0.001, "\(citation)")
+            #expect(abs(dest.point.y - (try #require(target.arguments[1]))) < 0.001, "\(citation)")
+            #expect(dest.zoom == kPDFDestinationUnspecifiedValue, "\(citation)")
+        }
+    }
+
+    private func checkViewPage(_ copy: PDFDocument, expected: [ReadingPDFRawNavigation.Link], first index: Int = 0)
+        throws
+    {
+        let page = try #require(copy.page(at: index))
+        #expect(page.bounds(for: .mediaBox) == CGRect(x: 0, y: 0, width: 612, height: 792))
+        #expect(page.bounds(for: .cropBox) == CGRect(x: 5, y: 6, width: 602, height: 780))
+        #expect(page.bounds(for: .trimBox) == CGRect(x: 14, y: 15, width: 584, height: 762))
+        #expect(page.bounds(for: .bleedBox) == CGRect(x: 9, y: 10, width: 594, height: 772))
+        #expect(page.bounds(for: .artBox) == CGRect(x: 22, y: 23, width: 568, height: 746))
+        #expect(page.string?.contains("Citation text") == true)
+        let hit = try #require(copy.findString("Citation text").first)
+        #expect(hit.pages.first === page && !hit.bounds(for: page).isEmpty)
+        let annotations = page.annotations
+        try #require(annotations.count == expected.count && annotations.count == 10)
+        for (link, annotation) in zip(expected, annotations) {
+            #expect(annotation.bounds == link.bounds)
+            let target = try #require(link.action.target)
+            let dest = try #require((annotation.action as? PDFActionGoTo)?.destination ?? annotation.destination)
+            #expect(dest.page === copy.page(at: index + target.page))
+            #expect(abs(dest.point.x - (try #require(target.arguments[0]))) < 0.001)
+            #expect(abs(dest.point.y - (try #require(target.arguments[1]))) < 0.001)
+            #expect(dest.zoom == kPDFDestinationUnspecifiedValue)
+        }
+    }
+
+    private var citationSettings: RenderSettings {
+        RenderSettings(
+            layout: .letterSingle, theme: PrintTheme(id: "test", name: "Test", css: ""),
+            preset: HTMLCleanupPreset(id: "none", name: "None"))
+    }
+
+    @Test("組版したページの表示用コピーは、元辞書の引用を増やさず、仕上がり寸法・本文検索・引用の位置を保つ", arguments: [false, true])
+    func viewCopyPreservesCitations(reusesBytes: Bool) async throws {
+        let bytes = citationPage(withCopies: false)
+        let expected = try await ReadingPDFRawNavigation.read(bytes)
+        let renderer = DocumentRenderer(paginateWithResult: { _ in
+            var result = WebPaginator.Result(document: try #require(PDFDocument(data: bytes)))
+            result.drawingBytes = reusesBytes ? bytes : nil
+            return result
+        })
+        let input = DocumentSource(data: Data(#"\begin{document}Citation text\end{document}"#.utf8), format: .latex)
+        let source = try await renderer.prepare(input, settings: citationSettings).viewDocument
+        let plan = ViewPageLayout(
+            pageCount: 3,
+            options: .init(layout: .single, scrollAxis: .vertical, transition: .instant, showsCoverAlone: false),
+            hasLogicalMargins: false, showsNumbers: false)
+        let copy = try #require(ViewPageDocument.make(source, plan: plan, margin: 0))
+        try checkViewPage(copy, expected: expected.links)
+        if reusesBytes {
+            let dict = try #require(copy.page(at: 0)?.pageRef?.dictionary)
+            var parent = -1
+            #expect(CGPDFDictionaryGetInteger(dict, "StructParents", &parent) && parent == 0)
+        }
+        try await checkCitations(from: copy, against: expected.links)
+        let backing = try await ReadingPDFRawNavigation.capture(try #require(source.documentRef))
+        #expect(backing.annotationCounts == [10, 0, 0])
+        #expect(source.page(at: 0)?.annotations.count == 10)
+        try await checkCitations(from: source, against: expected.links)
+    }
+
+    @Test("組版した子を二度とじても元の十件は増えず、引用はそれぞれの子のページへ飛ぶ")
+    func binderKeepsSourceCitations() async throws {
+        let bytes = citationPage(withCopies: false)
+        let expected = try await ReadingPDFRawNavigation.read(bytes)
+        let original = try #require(PDFDocument(data: bytes))
+        let renderer = DocumentRenderer(paginateWithResult: { _ in .init(document: original) })
+        let child = DocumentSource(data: Data("Citations".utf8), format: .plainText)
+        let prepared = try await renderer.prepare(.binder([child, child]), settings: citationSettings)
+        let output = try await exportCitations(from: prepared.viewDocument)
+        let native = try #require(PDFDocument(data: output))
+        let raw = try await ReadingPDFRawNavigation.read(output)
+        #expect(raw.annotationCounts == [10, 0, 0, 10, 0, 0])
+        for start in [0, 3] {
+            try checkSavedCitations(in: native, raw: raw, against: expected.links, start: start)
+        }
+        let backing = try await ReadingPDFRawNavigation.capture(try #require(original.documentRef))
+        #expect(backing.annotationCounts == [10, 0, 0])
+    }
+
+    @Test("開いた PDF の見開きは元の構造ツリーと代替テキストを残し、空白ページや飛び先の装飾があっても本文検索とリンクが働く", arguments: [false, true])
+    func importedPagesKeepStructure(decoratesTarget: Bool) async throws {
+        let bytes = citationPage(withCopies: false)
+        let prepared = try await DocumentRenderer().prepare(
+            .init(data: bytes, format: .pdf), settings: citationSettings)
+        let source = prepared.viewDocument
+        let plan = ViewPageLayout(
+            pageCount: 3,
+            options: .init(layout: .spread, scrollAxis: .horizontal, transition: .slide, showsCoverAlone: true),
+            hasLogicalMargins: false, showsNumbers: false)
+        var options = PrintOptions()
+        options.furniture = .name
+        let placement = try #require(
+            PDFComposer.furniture(
+                onPage: 2, at: 2, pageCount: 3, layout: .letterSingle, options: options,
+                context: .init(fileName: "NeurIPS")))
+        let copy = try #require(
+            ViewPageDocument.make(source, plan: plan, margin: 0, furniture: decoratesTarget ? [2: placement] : [:]))
+        let expected = try await ReadingPDFRawNavigation.read(bytes)
+        try checkViewPage(copy, expected: expected.links, first: 1)
+        let dict = try #require(copy.page(at: 1)?.pageRef?.dictionary)
+        let catalog = try #require(copy.documentRef?.catalog)
+        var parent = -1
+        var tree: CGPDFDictionaryRef?
+        var kids: CGPDFArrayRef?
+        var element: CGPDFDictionaryRef?
+        var alt: CGPDFStringRef?
+        try #require(CGPDFDictionaryGetInteger(dict, "StructParents", &parent) && parent == 0)
+        try #require(CGPDFDictionaryGetDictionary(catalog, "StructTreeRoot", &tree))
+        try #require(CGPDFDictionaryGetArray(try #require(tree), "K", &kids))
+        try #require(CGPDFArrayGetDictionary(try #require(kids), 0, &element))
+        try #require(CGPDFDictionaryGetString(try #require(element), "Alt", &alt))
+        #expect(alt.flatMap(CGPDFStringCopyTextString) as String? == "Accessible citation")
+        let backing = try await ReadingPDFRawNavigation.capture(try #require(source.documentRef))
+        #expect(backing.annotationCounts == [10, 0, 0])
+        try await checkCitations(from: source, against: expected.links)
+    }
+
+    @Test("フッターの有無にかかわらず引用十件の行き先を保って書き出し、元の注釈を増やさない", arguments: [false, true])
+    func exportsHealthyCitations(footer: Bool) async throws {
+        let bytes = citationPage(withCopies: false)
+        let expected = try await ReadingPDFRawNavigation.read(bytes)
+        let source = try #require(PDFDocument(data: bytes))
+        try await checkCitations(from: source, against: expected.links, footer: footer)
+        let backing = try await ReadingPDFRawNavigation.capture(try #require(source.documentRef))
+        #expect(backing.annotationCounts == [10, 0, 0])
+    }
+
+    @Test("二重の引用リンク配列は書き出さず、元の十件と二重になった件数を知らせる", arguments: [false, true])
+    func rejectsDuplicateCitations(footer: Bool) async throws {
+        let bytes = citationPage(withCopies: true)
+        let source = try #require(PDFDocument(data: bytes))
+        let liveCount = try #require(source.page(at: 0)).annotations.count
+        let raw = try await ReadingPDFRawNavigation.read(bytes)
+        try #require(raw.annotationCounts == [20, 0, 0])
+        do {
+            _ = try await exportCitations(from: source, footer: footer)
+            Issue.record("二重の配列を書き出した")
+        } catch ReadingPDFExporter.ExportError.navigation(let detail) {
+            #expect(detail.contains("p1: duplicate link annotation blocks"))
+            #expect(detail.contains("PDFKit annotations=\(liveCount), original /Annots=20, original links=10"))
+        }
+    }
+
+    @Test("十件の元文書の保存結果に二重配列が現れても、二十件と元の十件を示して拒否する")
+    func rejectsCopiesIntroducedOnWrite() async throws {
+        let original = try #require(PDFDocument(data: citationPage(withCopies: false)))
+        let navigation = try await ReadingPDFNavigation(original)
+        do {
+            _ = try await navigation.verified(citationPage(withCopies: true), pageCount: 3, stage: "test")
+            Issue.record("保存時に増えた注釈を受理した")
+        } catch ReadingPDFExporter.ExportError.navigation(let detail) {
+            #expect(detail.contains("saved /Annots=20, original PDFKit annotations=10"))
+        }
+    }
+
+    // PDF name escaping turns the file token /#23233 into the Core Graphics name "#233".
+    private func pdfKitCitation(extraActionEntry: String = "") -> Data {
+        pdf([
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R] /Count 3 /MediaBox [0 0 612 792] /Resources << >> >>",
+            "<< /Type /Page /Parent 2 0 R /Annots [6 0 R] >>",
+            "<< /Type /Page /Parent 2 0 R >>", "<< /Type /Page /Parent 2 0 R >>",
+            "<< /Subtype /Link /Rect [120 300 180 312] /A << /S /GoTo /D [/#23233 /XYZ 108.00000000000003 656.1505859375] \(extraActionEntry) >> >>",
+        ])
+    }
+
+    @Test("後続アクションを持つ短い GoTo は主の飛び先が一致していても書き換えない")
+    func rejectsChainedPDFKitCitation() async throws {
+        let bytes = pdfKitCitation(extraActionEntry: "/Next << /S /GoTo /D [3 0 R /Fit] >>")
+        let raw = try await ReadingPDFRawNavigation.read(bytes)
+        let original = try #require(raw.links.first?.action)
+        guard case .unresolved = original else {
+            Issue.record("後続アクションを持つ短い GoTo を受理した")
+            return
+        }
+        let live = ReadingPDFRawNavigation.Action.internalDestination(
+            .init(page: 2, mode: "XYZ", arguments: [108.00000000000003, 656.1505859375, nil]))
+        #expect(throws: ReadingPDFExporter.ExportError.self) {
+            _ = try ReadingPDFNavigation.resolve(live, original: original, detail: "view p1 annotation=0")
+        }
+        let source = try #require(PDFDocument(data: bytes))
+        await #expect(throws: ReadingPDFExporter.ExportError.self) {
+            _ = try await ReadingPDFExporter.data(from: source, entries: [], title: "Paper")
+        }
+    }
+
+    @Test("PDFKit が表示中の引用に合成した短い宛先を、読む PDF ではページ参照と null に直す")
+    func canonicalizesLiveCitation() async throws {
+        let bytes = pdfKitCitation()
+        let point = CGPoint(x: 108.00000000000003, y: 656.1505859375)
+        let raw = try await ReadingPDFRawNavigation.read(bytes)
+        let marker = ReadingPDFRawNavigation.Action.pdfKitXYZ(pageNumber: 3, point: point)
+        try #require(raw.links.map(\.action) == [marker])
+
+        // Install a native action on the page tree, just as the paper compositors do.
+        let view = try await PDFDrawing.document(pageSize: CGSize(width: 612, height: 792)) { context in
+            for _ in 0..<3 {
+                context.beginPDFPage(nil)
+                context.endPDFPage()
+            }
+        }
+        let page = try #require(view.page(at: 2))
+        let source = try #require(view.page(at: 0))
+        let annotation = PDFAnnotation(
+            bounds: CGRect(x: 120, y: 300, width: 60, height: 12), forType: .link, withProperties: nil)
+        annotation.action = PDFActionGoTo(destination: view.destination(on: page, at: point))
+        source.addAnnotation(annotation)
+        let target = ReadingPDFNavigationWriter.Destination(page: 2, mode: "XYZ", arguments: [point.x, point.y, nil])
+        let exported = try await ReadingPDFExporter.data(from: view, entries: [], title: "Paper")
+        // A reader that follows the abbreviated bytes still cannot make their dictionary valid.
+        let expected = try await ReadingPDFNavigation(view)
+        let repaired = try await expected.verified(bytes, pageCount: 3, stage: "export") { data in
+            PDFDocument(data: data == bytes ? exported : data)
+        }
+        for data in [repaired, exported] {
+            let raw = try await ReadingPDFRawNavigation.read(data)
+            #expect(raw.links.map(\.action) == [.internalDestination(target)])
+            let reopened = try #require(PDFDocument(data: data))
+            let link = try #require(reopened.page(at: 0)?.annotations.first)
+            let dest = try #require((link.action as? PDFActionGoTo)?.destination ?? link.destination)
+            #expect(dest.page === reopened.page(at: 2))
+            #expect(abs(dest.point.x - point.x) < 0.001 && abs(dest.point.y - point.y) < 0.001)
+            #expect(dest.zoom == kPDFDestinationUnspecifiedValue)
+        }
+    }
+
+    @Test("PDFKit の短い宛先は、表示のページ・座標・倍率が食い違うか行先を失っていれば断る")
+    func rejectsUnconfirmedCitation() async throws {
+        let raw = try await ReadingPDFRawNavigation.read(pdfKitCitation())
+        let original = try #require(raw.links.first?.action)
+        let y = CGFloat(656.1505859375)
+        // Compare the two observations independently: mutating a live annotation can regenerate its pageRef.
+        let live: [ReadingPDFRawNavigation.Action] = [
+            .releasedPage, .none, .other,
+            .internalDestination(.init(page: 1, mode: "XYZ", arguments: [108, y, nil])),
+            .internalDestination(.init(page: 2, mode: "XYZ", arguments: [109, y, nil])),
+            .internalDestination(.init(page: 2, mode: "XYZ", arguments: [108, y + 0.0001, nil])),
+            .internalDestination(.init(page: 2, mode: "XYZ", arguments: [108, y, 2])),
+        ]
+        for action in live {
+            #expect(throws: ReadingPDFExporter.ExportError.self) {
+                _ = try ReadingPDFNavigation.resolve(action, original: original, detail: "view p1 annotation=0")
+            }
+        }
+    }
+
+    @Test("引用の前後に外部リンクがあっても、読む PDF を開き直すと文献のページ・座標・倍率が保たれる")
+    func writtenCitationDestination() async throws {
+        let external = try #require(URL(string: "https://example.com/paper"))
+        let pageSize = CGSize(width: 612, height: 792)
+        let bytes = try await PDFDrawing.data(pageSize: pageSize) { context in
+            context.beginPDFPage(nil)
+            context.setURL(external as CFURL, for: CGRect(x: 100, y: 480, width: 60, height: 12))
+            context.setURL(external as CFURL, for: CGRect(x: 100, y: 320, width: 60, height: 12))
+            context.endPDFPage()
+            for _ in 0..<2 {
+                context.beginPDFPage(nil)
+                context.endPDFPage()
+            }
+        }
+        let rect = CGRect(x: 100, y: 400, width: 60, height: 12)
+        let destination = ReadingPDFNavigationWriter.Destination(page: 2, mode: "XYZ", arguments: [108, 656.1506, nil])
+        let linked = try await ReadingPDFNavigationWriter.adding(
+            [.init(page: 0, bounds: rect, destination: destination, beforeAnnotation: 1)], to: bytes)
+        let source = try #require(PDFDocument(data: linked))
+        let saved = try await ReadingPDFExporter.data(from: source, entries: [], title: "Paper")
+        let raw = try await ReadingPDFRawNavigation.read(saved)
+        #expect(raw.links.map(\.action) == [.other, .internalDestination(destination), .other])
+        let reopened = try #require(PDFDocument(data: saved))
+        let annotations = try #require(reopened.page(at: 0)?.annotations)
+        try #require(annotations.count == 3)
+        #expect(annotations[0].url == external && annotations[2].url == external)
+        #expect(annotations[1].bounds == rect)
+        let target = try #require((annotations[1].action as? PDFActionGoTo)?.destination ?? annotations[1].destination)
+        #expect(target.page === reopened.page(at: 2))
+        #expect(abs(target.point.x - 108) < 0.001 && abs(target.point.y - 656.1506) < 0.001)
+        #expect(target.zoom == kPDFDestinationUnspecifiedValue)
+    }
+
     @Test("解決できない内部リンクやしおりがあれば、宛先を持たない親項目として保存しない")
     func unresolvedTargets() async throws {
         for damaged in [
@@ -514,6 +916,7 @@ struct ReadingPDFDestinationTests {
             file(bookmark: "/Dest [null /Fit]"),
             file(bookmark: "/A << /S /GoTo >>"),
             file(link: "/Dest [3 0 R /Unknown 2]"),
+            file(link: "/Dest << /D [3 0 R /Fit] >>"),
             file(link: "/A << /S /GoTo /D [3 0 R /XYZ 0 100] >>"),
         ] {
             let document = try #require(PDFDocument(data: damaged))

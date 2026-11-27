@@ -216,31 +216,16 @@ enum LaTeXFlowPaginator {
     }
 
     private struct PageLinks {
-        enum Link {
-            case named(String, CGRect)
-            case external(URL, CGRect)
-        }
-
-        var destinations: [String: CGPoint] = [:]
-        var links: [Link] = []
-
-        func write(to context: CGContext) {
-            for (name, point) in destinations { context.addDestination(name as CFString, at: point) }
-            for link in links {
-                switch link {
-                case .named(let name, let rect): context.setDestination(name as CFString, for: rect)
-                case .external(let url, let rect): context.setURL(url as CFURL, for: rect)
-                }
-            }
-        }
+        var urls: [(URL, CGRect)] = []
+        var destinations: [ReadingPDFNavigationWriter.NewLink] = []
     }
 
-    // Write destinations and links while Quartz owns the page tree. Attaching GoTo actions
-    // to PDFKit wrappers after drawing can leave them without a target page on serialization.
+    // Keep the measured page and point through composition. A local XYZ destination needs a
+    // page reference from the finished page tree and an explicit zoom operand, even for "keep zoom".
     private static func pageLinks(
         pages: [LaTeXFlowLayout.Page], origins: [Origin], textOrigin: CGPoint
     ) -> [Int: PageLinks] {
-        var targets: [String: (page: Int, point: CGPoint, name: String)] = [:]
+        var targets: [String: (page: Int, point: CGPoint)] = [:]
         var links: [(page: Int, rect: CGRect, href: String, pageTop: Bool)] = []
         let grouped = origins.map { Dictionary(grouping: $0.linkMarks ?? [], by: \.start) }
         for (index, layout) in pages.enumerated() {
@@ -251,7 +236,7 @@ enum LaTeXFlowPaginator {
                     let top = textOrigin.y - piece.y / ratio - (mark.y - piece.slice.start) * scale
                     let left = textOrigin.x + piece.x / ratio + mark.x * scale
                     if let id = mark.id, targets[id] == nil {
-                        targets[id] = (index, CGPoint(x: left, y: top), "anchor-\(targets.count)")
+                        targets[id] = (index, CGPoint(x: left, y: top))
                     }
                     if let href = mark.href {
                         let rect = CGRect(
@@ -266,11 +251,14 @@ enum LaTeXFlowPaginator {
         for link in links {
             if link.href.hasPrefix("#") {
                 guard let target = targets[String(link.href.dropFirst())] else { continue }
-                let name = link.pageTop ? "page-\(target.page)" : target.name
-                result[target.page, default: PageLinks()].destinations[name] = link.pageTop ? textOrigin : target.point
-                result[link.page, default: PageLinks()].links.append(.named(name, link.rect))
+                let point = link.pageTop ? textOrigin : target.point
+                let destination = ReadingPDFNavigationWriter.Destination(
+                    page: target.page, mode: "XYZ", arguments: [point.x, point.y, nil])
+                let index = result[link.page]?.urls.count ?? 0
+                result[link.page, default: PageLinks()].destinations.append(
+                    .init(page: link.page, bounds: link.rect, destination: destination, beforeAnnotation: index))
             } else if let url = URL(string: link.href) {
-                result[link.page, default: PageLinks()].links.append(.external(url, link.rect))
+                result[link.page, default: PageLinks()].urls.append((url, link.rect))
             }
         }
         return result
@@ -430,7 +418,7 @@ enum LaTeXFlowPaginator {
                 }
                 context.beginPDFPage(nil)
                 defer { context.endPDFPage() }
-                links[pageIndex]?.write(to: context)
+                for (url, rect) in links[pageIndex]?.urls ?? [] { context.setURL(url as CFURL, for: rect) }
                 let edges = verticalEdges(of: page.pieces, width: width)
                 var position = 0
                 while position < page.pieces.count {
@@ -503,7 +491,8 @@ enum LaTeXFlowPaginator {
             }
         }
         _ = try await run("surimonoRestoreFlow()")
-        return Pass(data: pdf, pageCount: pages.count, locations: locations)
+        let linked = try await ReadingPDFNavigationWriter.adding(links.values.flatMap(\.destinations), to: pdf)
+        return Pass(data: linked, pageCount: pages.count, locations: locations)
     }
 
     /// Candidate displacements, relative to the first source band. The DOM checks ink ownership
