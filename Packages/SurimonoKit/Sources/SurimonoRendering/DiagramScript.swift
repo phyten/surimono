@@ -24,7 +24,7 @@ enum DiagramScript {
     }()
     static let viz = library("viz-global")
     static let plantuml = library("plantuml")
-    private static let renderer = library("diagrams") ?? ""
+    static let renderer = library("diagrams") ?? ""
 
     private static func library(_ name: String) -> String? {
         Bundle.module.url(forResource: name, withExtension: "js")

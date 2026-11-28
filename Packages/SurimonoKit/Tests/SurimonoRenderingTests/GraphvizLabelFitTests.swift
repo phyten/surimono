@@ -41,7 +41,49 @@ struct GraphvizLabelFitTests {
             overflow[text.textContent] = Math.max(left - box.x, box.x + box.width - right);
           }
         }
-        return JSON.stringify({overflow, errors: document.querySelectorAll('.diagram-error').length});
+        return JSON.stringify({overflow, errors: document.querySelectorAll('.diagram-error').length,
+          edges: document.querySelectorAll('.graphviz-block g.edge').length});
+        """
+
+    /// Runs the diagram script by itself on one new block, after `setup`, with `performance.now()` reading the
+    /// harness's `clock` (which `setup` may advance) and the given budget; `restore` runs afterwards in any case.
+    /// The page's own diagram has loaded the engines.
+    static func harness(
+        block: String, source: String, budget: Int, setup: String, restore: String, report: String
+    ) throws -> String {
+        let literal = String(decoding: try JSONSerialization.data(withJSONObject: [source]), as: UTF8.self)
+        return """
+            let clock = 0;
+            const performance = {now: () => clock};
+            const block = document.createElement('div');
+            block.className = '\(block)';
+            const source = document.createElement('pre');
+            source.className = 'diagram-source';
+            source.textContent = \(literal)[0];
+            block.append(source);
+            document.body.append(block);
+            \(setup)
+            try {
+              await (async () => {
+                const pageHeight = 800;
+                const budget = \(budget);
+                \(DiagramScript.renderer)
+              })();
+            } finally {
+              \(restore)
+            }
+            \(report)
+            """
+    }
+
+    /// The first layout's outlines, laid out directly with the defaults the diagram script passes.
+    private static let firstOutlines = """
+        const outlines = svg => Array.from(svg.querySelectorAll('g.node polygon,g.node ellipse'),
+          outline => outline.getAttribute('points') ?? outline.getAttribute('rx'));
+        const font = {fontname: 'Helvetica'};
+        const once = outlines(new DOMParser().parseFromString(globalThis.surimonoViz.renderString(source.textContent, {
+          format: 'svg', graphAttributes: {...font, overlap: 'false'}, nodeAttributes: font,
+          edgeAttributes: font}), 'image/svg+xml'));
         """
 
     @Test("日本語の節点の文字は枠と楕円の中に収まる", .timeLimit(.minutes(1)))
@@ -77,6 +119,86 @@ struct GraphvizLabelFitTests {
             let amount = try #require(overflow[label], "\(label) missing: \(overflow)")
             #expect(amount <= 0, "\(label) passes its outline by \(amount)")
         }
+    }
+
+    @Test("字下げした#の注釈の中の括弧を終わりと読まず、辺を残して節点を広げる", .timeLimit(.minutes(1)))
+    func hashCommentsKeepTheGraph() async throws {
+        let source = """
+            digraph {
+              node [shape=box]
+              a [label="受付窓口で記録を確認する"]; b;
+              # } "
+              a -> b;
+            }
+            # "
+            """
+        let values = try await prepare([source], script: Self.overflow)
+        #expect(values["errors"] as? Int == 0)
+        #expect(values["edges"] as? Int == 1)
+        let overflow = try #require(values["overflow"] as? [String: Double])
+        let amount = try #require(overflow["受付窓口で記録を確認する"], "\(overflow)")
+        #expect(amount <= 0, "the label passes its outline by \(amount)")
+    }
+
+    @Test("左寄せと右寄せの日本語のラベルも枠に収まる", .timeLimit(.minutes(1)))
+    func alignedLinesFit() async throws {
+        let values = try await prepare(
+            [
+                #"digraph { node [shape=box margin=0]; a [label="受付窓口で申請内容と記録者を確認する\lshort\l"]; b [label="右に寄せた申請内容と記録者を確認する\rshort\r"]; c [label="左に寄せる長い日本語の行\l右に寄せる行\r"]; a -> b -> c }"#
+            ], script: Self.overflow)
+        #expect(values["errors"] as? Int == 0)
+        let overflow = try #require(values["overflow"] as? [String: Double])
+        for label in ["受付窓口で申請内容と記録者を確認する", "右に寄せた申請内容と記録者を確認する", "左に寄せる長い日本語の行", "右に寄せる行"] {
+            let amount = try #require(overflow[label], "\(label) missing: \(overflow)")
+            #expect(amount <= 0, "\(label) passes its outline by \(amount)")
+        }
+    }
+
+    @Test("測ったあとに二回目の配置の時間が残っていなければ一回目のまま描く", .timeLimit(.minutes(1)))
+    func shortBudgetKeepsFirstLayout() async throws {
+        // Each layout takes 20 and the measuring 70 of the budget's 100: after measuring (at 90) a second layout
+        // would end past the budget, which would turn the whole diagram into a timeout.
+        let script = try Self.harness(
+            block: "graphviz-block", source: #"digraph { a [shape=box label="受付窓口で記録を確認する"] }"#, budget: 100,
+            setup: """
+                \(Self.firstOutlines)
+                const viz = globalThis.surimonoViz, layout = viz.renderFormats, measure = SVGTextContentElement.prototype.getComputedTextLength;
+                viz.renderFormats = function (...rest) { clock += 20; return layout.apply(this, rest); };
+                SVGTextContentElement.prototype.getComputedTextLength = function () { clock += 70; return measure.call(this); };
+                """,
+            restore: """
+                viz.renderFormats = layout;
+                SVGTextContentElement.prototype.getComputedTextLength = measure;
+                """,
+            report: """
+                return JSON.stringify({error: block.classList.contains('diagram-error'), drawn: outlines(block), once, clock});
+                """)
+        let values = try await prepare(["digraph { x }"], script: script)
+        #expect(values["error"] as? Bool == false)
+        let once = try #require(values["once"] as? [String])
+        #expect(once.count == 1)
+        #expect(values["drawn"] as? [String] == once)
+        #expect(values["clock"] as? Int == 90)
+    }
+
+    @Test("文字を測るのに失敗したら一回目の配置のまま描く", .timeLimit(.minutes(1)))
+    func measuringFailureKeepsFirstLayout() async throws {
+        let script = try Self.harness(
+            block: "graphviz-block", source: #"digraph { a [shape=box label="受付窓口で記録を確認する"] }"#, budget: 10000,
+            setup: """
+                \(Self.firstOutlines)
+                const measure = SVGTextContentElement.prototype.getComputedTextLength;
+                SVGTextContentElement.prototype.getComputedTextLength = () => { throw new Error('measuring failed'); };
+                """,
+            restore: "SVGTextContentElement.prototype.getComputedTextLength = measure;",
+            report: """
+                return JSON.stringify({error: block.classList.contains('diagram-error'), drawn: outlines(block), once});
+                """)
+        let values = try await prepare(["digraph { x }"], script: script)
+        #expect(values["error"] as? Bool == false)
+        let once = try #require(values["once"] as? [String])
+        #expect(once.count == 1)
+        #expect(values["drawn"] as? [String] == once)
     }
 
     @Test("書き換えられない形の図は一回目の配置のままエラーなく描く", .timeLimit(.minutes(1)))

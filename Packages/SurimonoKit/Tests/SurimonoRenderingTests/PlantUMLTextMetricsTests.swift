@@ -53,4 +53,43 @@ struct PlantUMLTextMetricsTests {
             #expect(gap >= 0, "\(label) passes the right edge by \(-gap)")
         }
     }
+
+    @Test("PlantUMLの引用符のない一般名だけに測った書体を添える", .timeLimit(.minutes(1)))
+    func onlyUnquotedGenericsAreNamed() async throws {
+        _ = NSApplication.shared
+        let families = [
+            "sans-serif", "'serif'", #""Acme, serif, Display""#, "monospace, 'Hiragino Sans'", "Arial", "SERIF",
+        ]
+        let texts = families.enumerated().map { index, family in
+            let escaped = family.replacingOccurrences(of: "\"", with: "&quot;")
+            return #"<text x="0" y="\#(index * 20 + 20)" font-family="\#(escaped)">x</text>"#
+        }
+        let svg = #"<svg xmlns="http://www.w3.org/2000/svg" width="100" height="140">"# + texts.joined() + "</svg>"
+        let literal = String(decoding: try JSONSerialization.data(withJSONObject: [svg]), as: UTF8.self)
+        // A stand-in engine returns the SVG above, so only the diagram script's handling is under test.
+        let script = try GraphvizLabelFitTests.harness(
+            block: "plantuml-block", source: "@startuml\nA -> B\n@enduml", budget: 10000,
+            setup: """
+                const engine = globalThis.surimonoPlantUML;
+                globalThis.surimonoPlantUML = {renderToString: (lines, resolve) => resolve(\(literal)[0])};
+                """,
+            restore: "globalThis.surimonoPlantUML = engine;",
+            report: """
+                return JSON.stringify(Array.from(block.querySelectorAll('text'), text => text.getAttribute('font-family')));
+                """)
+        let html = HTMLDocumentBuilder.build(
+            fragment: MarkdownConverter.convert("書体の名前を確かめる本文です。"), format: .markdown,
+            theme: PrintTheme(id: "test", name: "Test", css: ""))
+        let result = try await WebPaginator().paginateWithResult(
+            .html(html, baseURL: nil), pageSize: CGSize(width: 595, height: 842),
+            margins: .uniform(millimeters: 15), allowsJavaScript: false, preparationScript: script,
+            rendersDiagrams: true)
+        let json = try #require(result.preparationResult)
+        let named = try #require(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String])
+        #expect(
+            named == [
+                "Helvetica, sans-serif", "'serif'", #""Acme, serif, Display""#, "Courier, monospace, 'Hiragino Sans'",
+                "Arial", "Times, SERIF",
+            ])
+    }
 }
