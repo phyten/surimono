@@ -17,9 +17,11 @@ struct HeadingKeepPasses {
 
     /// What the headings did to one pagination, for diagnostics and measurements.
     struct Report: Sendable {
-        /// The first print, before any correction.
+        /// The first print, before any correction, and why it could not be read at all, if it could not.
         var initial: HeadingKeep.Summary?
-        /// The print that was kept.
+        var initialUnmeasured: HeadingKeep.Unmeasured?
+        /// The print that was kept, and why it could not be read at all, if it could not. A summary with no groups
+        /// and no reason is a text without headings; with a reason, nothing about its headings is known.
         var final: HeadingKeep.Summary?
         var unmeasured: HeadingKeep.Unmeasured?
         var extraPrints = 0
@@ -43,7 +45,7 @@ struct HeadingKeepPasses {
     private(set) var report = Report()
     private var collected: HeadingKeepProbe.Collected?
     /// The summary of each print by its breaks, so that the report describes the print that is returned.
-    private var summaries: [Set<Int>: HeadingKeep.Summary] = [:]
+    private var summaries: [Set<Int>: (summary: HeadingKeep.Summary, unmeasured: HeadingKeep.Unmeasured?)] = [:]
 
     init(view: WKWebView, mode: Mode, textArea: CGRect, deadline: ContinuousClock.Instant) {
         self.view = view
@@ -75,10 +77,11 @@ struct HeadingKeepPasses {
         let summary = HeadingKeep.Summary(observation.placements, limits: planner.limits)
         if report.initial == nil {
             report.initial = summary
-            report.unmeasured = observation.unmeasured
+            report.initialUnmeasured = observation.unmeasured
         }
         report.final = summary
-        summaries[planner.forced] = summary
+        report.unmeasured = observation.unmeasured
+        summaries[planner.forced] = (summary, observation.unmeasured)
         guard collectsDetails else { return observation }
         report.details = observation.placements.keys.sorted().compactMap { id in
             guard let placement = observation.placements[id], let groups = collected.groups,
@@ -97,24 +100,21 @@ struct HeadingKeepPasses {
         return observation
     }
 
-    /// What to do after `observation`: the breaks to print next, or to go back to; nil keeps the last print. Applies
-    /// the breaks to the DOM before returning them.
-    /// - Parameters:
-    ///   - mayPrint: Whether another print can follow.
-    ///   - mayReuse: Whether an earlier print can be returned without printing again.
-    mutating func decide(after observation: HeadingKeepProbe.Observation, mayPrint: Bool, mayReuse: Bool) async throws
+    /// What to do after `observation`: the breaks to print next, or of an earlier print to go back to; nil keeps the
+    /// last print. Every way of stopping, a spent budget, no time left or a print that could not be read, goes
+    /// through the planner's one choice of the best print. Applies the breaks to the DOM before returning them.
+    /// - Parameter mayPrint: Whether another print can follow.
+    mutating func decide(after observation: HeadingKeepProbe.Observation, mayPrint: Bool) async throws
         -> HeadingKeep.Decision?
     {
-        guard mode == .correct, observation.unmeasured == nil else { return nil }
+        guard mode == .correct else { return nil }
         var trial = planner
-        let decision = trial.next(after: observation.placements)
+        let decision = trial.next(
+            after: observation.unmeasured == nil ? observation.placements : nil, mayPrint: mayPrint)
         switch decision {
         case .finish(let stop):
             report.stop = stop
             planner = trial
-            return nil
-        case .print where !mayPrint, .reuse where !mayReuse && !mayPrint:
-            report.stop = .budget
             return nil
         case .print(let breaks), .reuse(let breaks):
             guard
@@ -127,10 +127,13 @@ struct HeadingKeepPasses {
             }
             planner = trial
             report.breaks = breaks
-            if case .reuse = decision, mayReuse {
+            if case .reuse = decision {
                 report.reused = true
                 report.stop = trial.stop
-                report.final = summaries[breaks] ?? report.final
+                if let adopted = summaries[breaks] {
+                    report.final = adopted.summary
+                    report.unmeasured = adopted.unmeasured
+                }
             } else {
                 report.extraPrints += 1
             }
@@ -150,7 +153,7 @@ struct HeadingKeepPasses {
             let observation = try await observe(bytes, recollect: false)
             // A new print must fit in the time that is left, with room to read it.
             let mayPrint = remaining() > lastPrint * 2 + Self.measureBudget
-            guard let decision = try await decide(after: observation, mayPrint: mayPrint, mayReuse: true) else {
+            guard let decision = try await decide(after: observation, mayPrint: mayPrint) else {
                 return bytes
             }
             switch decision {

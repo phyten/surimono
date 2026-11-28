@@ -232,12 +232,40 @@ struct HeadingKeepTests {
         #expect(planner.stop == .settled)
     }
 
-    @Test("未判定の見出しは、入れた改ページを保つ")
-    func unmeasuredKeepsBreak() {
+    @Test("離れていた見出しが補正の後で測れなくなっても、良くなったとは数えず最初の組版に戻る")
+    func unmeasuredIsNotAnImprovement() {
         var planner = HeadingKeep.Planner()
         #expect(planner.next(after: [0: .separated(move: 0.05, startsPage: false)]) == .print([0]))
-        #expect(planner.next(after: [0: .unmeasured(.ambiguous)]) == .finish(.settled))
-        #expect(planner.forced == [0])
+        #expect(planner.next(after: [0: .unmeasured(.ambiguous)]) == .reuse([]))
+        #expect(planner.forced.isEmpty)
+    }
+
+    @Test("補正した組版が測れなかったときは、その組版を使わず測れた組版に戻る")
+    func unreadablePrintIsNeverAdopted() {
+        var planner = HeadingKeep.Planner()
+        #expect(planner.next(after: [0: .separated(move: 0.05, startsPage: false)]) == .print([0]))
+        #expect(planner.next(after: nil) == .reuse([]))
+        #expect(planner.stop == .unmeasured)
+    }
+
+    @Test("最初の組版が測れなければ何も変えない")
+    func unreadableFirstPrintChangesNothing() {
+        var planner = HeadingKeep.Planner()
+        #expect(planner.next(after: nil) == .finish(.unmeasured))
+        #expect(planner.forced.isEmpty)
+    }
+
+    @Test("次を組む時間がないときは、組んだうちの一番良い組版を選ぶ")
+    func noTimeLeftStillChoosesTheBest() {
+        var planner = HeadingKeep.Planner()
+        #expect(planner.next(after: [0: .separated(move: 0.05, startsPage: false)]) == .print([0]))
+        let worse: [Int: HeadingKeep.Placement] = [
+            0: .together(precedingSpace: 0.04), 1: .separated(move: 0.05, startsPage: false),
+            2: .separated(move: 0.05, startsPage: false),
+        ]
+        #expect(planner.next(after: worse, mayPrint: false) == .reuse([]))
+        #expect(planner.stop == .budget)
+        #expect(planner.extraPasses == 1)
     }
 
     @Test("集計は離れた見出しのうち直せないものと未判定の理由を数える")

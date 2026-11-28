@@ -67,6 +67,14 @@ enum LaTeXPageReferences {
 
     struct MeasurementFailed: Error {}
 
+    /// The references measured on one print, kept so that a later choice of that print can fill them back.
+    struct Candidate {
+        let references: [String: String]
+        let scores: [ExamScore]
+        let locations: [Int: Int]
+        let pages: [Page]
+    }
+
     // This also runs in a fresh session when the disposable print fails. Building the labels
     // uses neither the destinations nor the measuring API that failed.
     static let prepareFields = """

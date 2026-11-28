@@ -132,9 +132,10 @@ public enum HeadingKeep {
         /// The most a correction may move to the next page, as a fraction of the text area. A larger move leaves
         /// more paper empty than a heading at the foot of a page costs.
         public var maximumMove = 0.25
-        /// A break the renderer added is withdrawn when the page before it ends with more room than this beyond what
-        /// the break was expected to leave: the heading and its first lines would have fit there, so the break only
-        /// moved the text along. (A heading before a picture that moved on by itself leaves that room anyway.)
+        /// A break the renderer added is withdrawn when the page before it ends with more room than the break was
+        /// expected to leave plus this fraction of the text area's height (an absolute margin, not a ratio of the
+        /// expected room): the heading and its first lines would have fit there, so the break only moved the text
+        /// along. A heading before a picture that moved on by itself leaves that picture's room anyway.
         public var maximumPrecedingSpace = 0.25
 
         public init() {}
@@ -144,8 +145,10 @@ public enum HeadingKeep {
     public enum Stop: Equatable, Sendable {
         /// The last print needs no other break.
         case settled
-        /// The prints allowed for headings are spent.
+        /// The prints allowed for headings are spent, or there is no time left for another.
         case budget
+        /// The last print could not be read, so it cannot be compared with the others.
+        case unmeasured
     }
 
     public enum Decision: Equatable, Sendable {
@@ -180,12 +183,13 @@ public enum HeadingKeep {
         public init(limits: Limits = Limits()) { self.limits = limits }
 
         /// How bad a print is: each heading apart from its text, and each added break that left most of the page
-        /// before it empty, which costs paper as well as a page that looks unfinished.
+        /// before it empty, which costs paper as well as a page that looks unfinished. A heading that could not be
+        /// judged counts as apart: a correction after which a heading can no longer be found is no improvement.
         func score(_ observations: [Int: Placement]) -> Int {
             var score = 0
             for (group, placement) in observations {
                 switch placement {
-                case .separated: score += 1
+                case .separated, .unmeasured: score += 1
                 case .together(let space?) where leftRoom(space, before: group):
                     score += 3
                 default: break
@@ -200,7 +204,15 @@ public enum HeadingKeep {
         }
 
         /// What to do after a print with the current breaks.
-        public mutating func next(after observations: [Int: Placement]) -> Decision {
+        /// - Parameters:
+        ///   - observations: What the print showed of each group; nil when the print could not be read at all.
+        ///   - mayPrint: Whether another print can follow; without one, the best print made is chosen.
+        public mutating func next(after observations: [Int: Placement]?, mayPrint: Bool = true) -> Decision {
+            guard let observations else {
+                // A print that could not be read is never chosen over one that could.
+                scores[forced] = .max
+                return conclude(.unmeasured)
+            }
             scores[forced] = score(observations)
             var next = forced
             func withdraw(_ group: Int) {
@@ -224,7 +236,7 @@ public enum HeadingKeep {
                 }
             }
             guard next != forced, !printed.contains(next) else { return conclude(.settled) }
-            guard extraPasses < limits.extraPasses else { return conclude(.budget) }
+            guard extraPasses < limits.extraPasses, mayPrint else { return conclude(.budget) }
             extraPasses += 1
             printed.insert(next)
             forced = next

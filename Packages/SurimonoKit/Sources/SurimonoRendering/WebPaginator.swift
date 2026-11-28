@@ -146,6 +146,8 @@ public final class WebPaginator: NSObject {
     var collectsHeadingKeepDetails = false
     /// What the heading passes did, one entry for each pagination that ran them (observed by tests).
     private(set) var headingKeepReports: [HeadingKeepPasses.Report] = []
+    /// The deadline handed to each native print, nil where the print took its own (observed by tests).
+    private(set) var printDeadlines: [ContinuousClock.Instant?] = []
     /// Test hooks that make the order of events around printing deterministic.
     // Tests can deliver the navigation deadline once a committed document reaches a particular parser state.
     var expireNavigationAfterCommit: (@MainActor (WKWebView) async throws -> Void)?
@@ -583,7 +585,9 @@ public final class WebPaginator: NSObject {
             latinLinePasses.append(record)
             if final { latinLineDiagnostics = record }
         }
-        func pageDataForPass(indexFormulas: Bool = false) async throws -> Data {
+        /// - Parameter sharesDeadline: Whether the print runs within `layoutDeadline` with the prints before it, as the
+        ///   page-reference prints and the heading prints do, rather than with a time of its own.
+        func pageDataForPass(indexFormulas: Bool = false, sharesDeadline: Bool = false) async throws -> Data {
             guard capturesLaTeXFlow else {
                 if composesLatin {
                     let width = (pageSize.width - margins.left - margins.right) * Self.printPixelsPerPoint
@@ -606,9 +610,11 @@ public final class WebPaginator: NSObject {
                         } finally { root.style.cssText = prior; }
                         """, arguments: ["width": width], until: layoutDeadline)
                 }
+                let deadline = latexPageNumbers != nil || sharesDeadline ? layoutDeadline : nil
+                printDeadlines.append(deadline)
                 let data = try await session.printToPDF(
                     checkingBelowPaper: mayDrawBelowPaper, latexMarginInk: latexMarginInk, footnotePass: footnotePass,
-                    deadline: latexPageNumbers == nil ? nil : layoutDeadline)
+                    deadline: deadline)
                 if composesLatin {
                     _ = try await session.webView.evaluateForPrinting("surimonoRestoreLatin()", until: layoutDeadline)
                 }
@@ -685,9 +691,13 @@ public final class WebPaginator: NSObject {
                         // print as the references, and buys one more measurement so that no reference is left stale.
                         var passes = 2
                         var pass = 0
-                        while pass < passes {
+                        // The references measured on each print, by the heading breaks it was made with, so that the
+                        // headings can go back to an earlier print together with the references that belong to it.
+                        var candidates: [Set<Int>: LaTeXPageReferences.Candidate] = [:]
+                        measuring: while pass < passes {
                             defer { pass += 1 }
                             var headingMoved = false
+                            var headingObservation: HeadingKeepProbe.Observation?
                             let locations: [Int: Int]
                             let count: Int
                             var blankPages: Set<Int> = []
@@ -710,12 +720,7 @@ public final class WebPaginator: NSObject {
                                     in: measured, token: token, count: targets.count)
                                 count = measured.pageCount
                                 if var keeping = headings {
-                                    let observation = try await keeping.observe(data, recollect: true)
-                                    let last = pass == passes - 1 && passes > 2
-                                    headingMoved =
-                                        try await keeping.decide(after: observation, mayPrint: !last, mayReuse: false)
-                                        != nil
-                                    if headingMoved, pass == passes - 1 { passes += 1 }
+                                    headingObservation = try await keeping.observe(data, recollect: true)
                                     headings = keeping
                                 }
                             }
@@ -727,6 +732,35 @@ public final class WebPaginator: NSObject {
                                 locations: locations, pageCount: count, restartsAfterTitle: restartsAfterTitle,
                                 blankPages: blankPages)
                             texPages = map.pages
+                            if var keeping = headings, let observation = headingObservation {
+                                candidates[keeping.planner.forced] = .init(
+                                    references: map.references, scores: map.examScores, locations: locations,
+                                    pages: map.pages)
+                                let last = pass == passes - 1 && passes > 2
+                                let decision = try await keeping.decide(after: observation, mayPrint: !last)
+                                headings = keeping
+                                switch decision {
+                                case .print?:
+                                    headingMoved = true
+                                    if pass == passes - 1 { passes += 1 }
+                                case .reuse(let breaks)?:
+                                    // Back to an earlier print: its breaks are in the DOM again, and so are the
+                                    // references measured on it.
+                                    guard let candidate = candidates[breaks] else { throw PaginationError.printFailed }
+                                    texPages = candidate.pages
+                                    incompleteReferences =
+                                        installation.missing != 0
+                                        || targets.indices.contains { candidate.locations[$0] == nil }
+                                    let layout = try await runPreparationScript(
+                                        try LaTeXPageReferences.fill(
+                                            candidate.references, physicalPages: candidate.locations,
+                                            examScores: candidate.scores), in: webView,
+                                        timeout: min(timeout, remaining()))
+                                    guard layout != nil else { throw PaginationError.printFailed }
+                                    break measuring
+                                default: break
+                                }
+                            }
                             if map.references == previous && map.examScores == previousScores
                                 && locations == previousLocations && !headingMoved
                             {
@@ -768,7 +802,7 @@ public final class WebPaginator: NSObject {
             if var keeping = headings, !headingsSettledWithReferences {
                 printed = try await keeping.run { first in
                     // The formula anchors stay in the DOM after the first print and move with their formulas.
-                    try await pageDataForPass(indexFormulas: first && indexesFormulas)
+                    try await pageDataForPass(indexFormulas: first && indexesFormulas, sharesDeadline: true)
                 }
                 headings = keeping
             } else {

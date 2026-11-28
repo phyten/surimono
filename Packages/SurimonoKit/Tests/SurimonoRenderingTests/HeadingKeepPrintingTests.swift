@@ -19,12 +19,15 @@ struct HeadingKeepPrintingTests {
 
     /// Variants that each start a page of their own (`\newpage`) with a block of `k` lines before a heading, so that
     /// for some `k` the heading falls at the foot of the page whatever the exact line height, and a correction in one
-    /// variant cannot move another. Each heading and the first word of its text carry a token of their own.
+    /// variant cannot move another. Each heading, the first word of its text and its third line carry a token of their own.
     private func variants(_ range: ClosedRange<Int>, heading: (Int) -> String) -> String {
         range.map { k in
             let filler = (0..<k).map { "Filler line \($0) of variant \(k)." }.joined(separator: "\\\n")
             let words = (0..<120).map { "word\($0 % 10)" }.joined(separator: " ")
-            return "\(filler)\n\n\(heading(k))\n\nHKB\(k)x \(words)\n"
+            // The first three lines of the text are broken by hand, so that its third line, which `p { orphans: 3 }`
+            // asks to share the heading's page, carries a token of its own whatever the line width.
+            let opening = "HKB\(k)x first line\\\nsecond line\\\nHKT\(k)x third line\\\n"
+            return "\(filler)\n\n\(heading(k))\n\n\(opening)\(words)\n"
         }.joined(separator: "\n\\newpage\n\n")
     }
 
@@ -48,7 +51,9 @@ struct HeadingKeepPrintingTests {
 
     private func separated(in document: PDFDocument) -> [Int] {
         lines.filter { n in
-            guard let heading = page(of: "HKH\(n)x", in: document), let text = page(of: "HKB\(n)x", in: document)
+            // The contract of `HeadingKeep.Follow.text(requiredLines:)`: as many lines as `orphans` asks share the
+            // heading's page.
+            guard let heading = page(of: "HKH\(n)x", in: document), let text = page(of: "HKT\(n)x", in: document)
             else { return true }
             return heading != text
         }
@@ -66,7 +71,7 @@ struct HeadingKeepPrintingTests {
         #expect(initial.separated == separated(in: document).count)
     }
 
-    @Test("組み直した後は、どの見出しも本文の最初の行と同じページにある", .timeLimit(.minutes(1)))
+    @Test("組み直した後は、どの見出しも本文の最初の 3 行と同じページにある", .timeLimit(.minutes(1)))
     func headingsShareTheirPage() async throws {
         let text = variants(lines) { "## Heading HKH\($0)x" }
         let (document, paginator) = try await render(text, settings: try settings())
@@ -83,8 +88,18 @@ struct HeadingKeepPrintingTests {
         for k in lines {
             let part = page(of: "HKP\(k)x", in: document)
             #expect(part != nil && part == page(of: "HKH\(k)x", in: document))
-            #expect(part != nil && part == page(of: "HKB\(k)x", in: document))
+            #expect(part != nil && part == page(of: "HKT\(k)x", in: document))
         }
+    }
+
+    @Test("見出しのための組み直しは、最初の印刷と同じ期限の中で組み、組むたびに時間を延ばさない", .timeLimit(.minutes(1)))
+    func correctionsShareOneDeadline() async throws {
+        let text = variants(lines) { "## Heading HKH\($0)x" }
+        let (_, paginator) = try await render(text, settings: try settings())
+        let report = try #require(paginator.headingKeepReports.last)
+        try #require(report.extraPrints > 0)
+        #expect(paginator.printDeadlines.count == 1 + report.extraPrints)
+        #expect(paginator.printDeadlines.allSatisfy { $0 != nil && $0 == paginator.printDeadlines.first })
     }
 
     @Test("離れた見出しのない文書は一度だけ組む", .timeLimit(.minutes(1)))

@@ -6,14 +6,15 @@ import PDFKit
 ///
 /// `PrintedTextIndex` proves an occurrence by requiring every DOM character in an order-preserving embedding, so a
 /// single lost glyph leaves a whole document without an index; this walks both texts together instead and
-/// resynchronizes on the nearest run of characters that both share. A character counts as placed only inside a run
-/// of matches, so a coincidental single match while resynchronizing places nothing.
+/// resynchronizes on the nearest run of characters that both share, from either end (`placements(dom:paper:)`). A
+/// character counts as placed only where both walks agree, inside a run of matches, so a coincidental match while
+/// resynchronizing places nothing.
 struct PrintedTextAlignment {
     let document: PDFDocument
     private let pages: [Int32]
     private let offsets: [Int32]
+    /// The printed character of each DOM character, -1 where it is not placed.
     private let matches: [Int32]
-    private let placed: [Bool]
 
     /// Characters on both sides that confirm a resynchronization.
     private static let anchor = 6
@@ -30,8 +31,9 @@ struct PrintedTextAlignment {
         var pages: [Int32] = []
         var offsets: [Int32] = []
         let spaces = CharacterSet.whitespacesAndNewlines
-        let texts = try await Self.pageTexts(of: data, count: document.pageCount)
-        guard texts.count == document.pageCount else { return nil }
+        guard let texts = try await Self.pageTexts(of: data, count: document.pageCount, limit: limit),
+            texts.count == document.pageCount
+        else { return nil }
         for (i, pageText) in texts.enumerated() {
             try Task.checkCancellation()
             guard pageText.count <= limit - paper.count else { return nil }
@@ -49,34 +51,31 @@ struct PrintedTextAlignment {
             }
         }
         let dom = text.utf16.map { Self.fold($0).first ?? $0 }
+        let matches = try Self.placements(dom: dom, paper: paper)
+        self.document = document
+        self.pages = pages
+        self.offsets = offsets
+        self.matches = matches
+    }
+
+    /// The printed character of each DOM character, -1 where it is not placed (both texts already folded).
+    ///
+    /// A resynchronization finds a run that both texts share, which is not yet the right occurrence of it: a term
+    /// repeated later, with the reading order of the page swapped (terms printed before their definitions), matches
+    /// the later occurrence. So the texts are walked from both ends, and a character is placed only where the two
+    /// walks put it on the same printed character: the walk from the start takes the earliest occurrence that fits,
+    /// the walk from the end the latest, and they agree only where no other occurrence fits between the anchors on
+    /// either side. Where they disagree, the heading that needs the character is left unmeasured.
+    static func placements(dom: [UInt16], paper: [UInt16]) throws -> [Int32] {
+        let forward = try walk(dom, paper)
+        let reversed = try walk(dom.reversed(), paper.reversed())
         var matches = [Int32](repeating: -1, count: dom.count)
-        var far: FarIndex?
-        var i = 0
-        var j = 0
-        var steps = 0
-        while i < dom.count {
-            steps += 1
-            if steps.isMultiple(of: 4096) { try Task.checkCancellation() }
-            if j < paper.count, paper[j] == dom[i] {
-                matches[i] = Int32(j)
-                i += 1
-                j += 1
-                continue
-            }
-            if let (di, dj) = Self.nearSync(dom, i, paper, j) {
-                i += di
-                j += dj
-                continue
-            }
-            if far == nil { far = FarIndex(paper, k: Self.anchor) }
-            if let far, let (di, dj) = far.sync(dom, i, j) {
-                i += di
-                j += dj
-                continue
-            }
-            i += 1
+        let last = Int32(paper.count - 1)
+        for i in dom.indices {
+            let back = reversed[dom.count - 1 - i]
+            if forward[i] >= 0, back >= 0, forward[i] == last - back { matches[i] = forward[i] }
         }
-        var placed = [Bool](repeating: false, count: dom.count)
+        var placed = [Int32](repeating: -1, count: dom.count)
         var start = 0
         while start < dom.count {
             guard matches[start] >= 0 else {
@@ -85,36 +84,82 @@ struct PrintedTextAlignment {
             }
             var end = start + 1
             while end < dom.count, matches[end] == matches[end - 1] + 1 { end += 1 }
-            if end - start >= Self.run { for k in start..<end { placed[k] = true } }
+            if end - start >= Self.run { for k in start..<end { placed[k] = matches[k] } }
             start = end
         }
-        self.document = document
-        self.pages = pages
-        self.offsets = offsets
-        self.matches = matches
-        self.placed = placed
+        return placed
     }
 
-    /// The text of each page. PDFKit takes most of the measurement extracting it, one page after another, so a long
-    /// document is read by a few workers, each from a document of its own (a `PDFDocument` is not shared across
-    /// threads).
-    private static func pageTexts(of data: Data, count: Int) async throws -> [String.UTF16View] {
+    /// One walk through both texts in reading order, matching where they agree and resynchronizing where not.
+    private static func walk(_ dom: [UInt16], _ paper: [UInt16]) throws -> [Int32] {
+        var matches = [Int32](repeating: -1, count: dom.count)
+        var far: FarIndex?
+        var i = 0
+        var j = 0
+        // A resynchronization costs up to a thousand comparisons and a few hundred lookups, so it counts for more
+        // than a match before the next check for cancellation.
+        var work = 0
+        while i < dom.count {
+            work += 1
+            if work >= 4096 {
+                work = 0
+                try Task.checkCancellation()
+            }
+            if j < paper.count, paper[j] == dom[i] {
+                matches[i] = Int32(j)
+                i += 1
+                j += 1
+                continue
+            }
+            work += 512
+            if let (di, dj) = Self.nearSync(dom, i, paper, j) {
+                i += di
+                j += dj
+                continue
+            }
+            work += 2048
+            if far == nil { far = try FarIndex(paper, k: Self.anchor) }
+            if let far, let (di, dj) = far.sync(dom, i, j) {
+                i += di
+                j += dj
+                continue
+            }
+            i += 1
+        }
+        return matches
+    }
+
+    /// The text of each page, nil when it is longer than `limit` UTF-16 units. PDFKit takes most of the measurement
+    /// extracting it, one page after another, so a long document is read by a few workers, each from a document of
+    /// its own (a `PDFDocument` is not shared across threads). A worker stops as soon as its own share is over the
+    /// limit, rather than after holding every page.
+    private static func pageTexts(of data: Data, count: Int, limit: Int) async throws -> [String.UTF16View]? {
         let workers = count < 16 ? 1 : min(4, ProcessInfo.processInfo.activeProcessorCount)
         let size = (count + workers - 1) / workers
-        return try await withThrowingTaskGroup(of: (Int, [String.UTF16View]).self) { group in
+        return try await withThrowingTaskGroup(of: (Int, [String.UTF16View]?).self) { group in
             for worker in 0..<workers {
                 group.addTask {
                     guard let document = PDFDocument(data: data) else { return (worker, []) }
                     var texts: [String.UTF16View] = []
+                    var units = 0
                     for page in (worker * size)..<min(count, (worker + 1) * size) {
                         try Task.checkCancellation()
-                        texts.append((document.page(at: page)?.string ?? "").utf16)
+                        let text = (document.page(at: page)?.string ?? "").utf16
+                        units += text.count
+                        guard units <= limit else { return (worker, nil) }
+                        texts.append(text)
                     }
                     return (worker, texts)
                 }
             }
             var parts = [[String.UTF16View]](repeating: [], count: workers)
-            for try await (worker, texts) in group { parts[worker] = texts }
+            for try await (worker, texts) in group {
+                guard let texts else {
+                    group.cancelAll()
+                    return nil
+                }
+                parts[worker] = texts
+            }
             return parts.flatMap { $0 }
         }
     }
@@ -161,13 +206,16 @@ struct PrintedTextAlignment {
         let k: Int
         private let keys: [(hash: UInt64, position: Int32)]
 
-        init(_ paper: [UInt16], k: Int) {
+        init(_ paper: [UInt16], k: Int) throws {
             self.paper = paper
             self.k = k
             var keys: [(UInt64, Int32)] = []
             if paper.count >= k {
                 keys.reserveCapacity(paper.count - k + 1)
-                for p in 0...(paper.count - k) { keys.append((Self.hash(paper, p, k), Int32(p))) }
+                for p in 0...(paper.count - k) {
+                    if p.isMultiple(of: 65536) { try Task.checkCancellation() }
+                    keys.append((Self.hash(paper, p, k), Int32(p)))
+                }
             }
             keys.sort { $0.0 != $1.0 ? $0.0 < $1.0 : $0.1 < $1.1 }
             self.keys = keys
@@ -221,13 +269,13 @@ struct PrintedTextAlignment {
 
     /// The printed glyph of a DOM character: its page and its UTF-16 offset in the page's text.
     func glyph(of offset: Int) -> (page: Int, offset: Int)? {
-        guard matches.indices.contains(offset), placed[offset] else { return nil }
+        guard matches.indices.contains(offset), matches[offset] >= 0 else { return nil }
         let p = Int(matches[offset])
         return (Int(pages[p]), Int(offsets[p]))
     }
 
     /// The share of DOM characters that were placed, for diagnostics.
     var placedShare: Double {
-        matches.isEmpty ? 1 : Double(placed.lazy.filter { $0 }.count) / Double(matches.count)
+        matches.isEmpty ? 1 : Double(matches.lazy.filter { $0 >= 0 }.count) / Double(matches.count)
     }
 }
