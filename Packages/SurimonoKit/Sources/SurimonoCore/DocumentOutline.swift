@@ -63,13 +63,34 @@ extension DocumentOutline {
 
         private(set) var done = 0
         let limit: Int
-        var isSpent: Bool { done >= limit }
+        /// Where the search under way stops: the text's limit, or less for one heading's share or the tables of
+        /// contents. Every count checks it, inside a formula's match too.
+        private var stop: Int
+
+        init(limit: Int) {
+            self.limit = limit
+            stop = limit
+        }
+
+        /// The search under way has done all it may.
+        var isSpent: Bool { done >= stop }
+        /// The whole text has done all it may.
+        var isExhausted: Bool { done >= limit }
 
         /// Counts `amount` and tells whether the search may go on.
         mutating func take(_ amount: Int = 1) -> Bool {
             done += amount
-            return done < limit
+            return done < stop
         }
+
+        /// Lets the search that follows do at most up to `end` in all, and returns what to give `widen(to:)` after it.
+        mutating func narrow(to end: Int) -> Int {
+            let saved = stop
+            stop = min(stop, end)
+            return saved
+        }
+
+        mutating func widen(to saved: Int) { stop = saved }
     }
 
     /// A heading or a contents entry as the page prints it: its letters and digits, in the pieces between its
@@ -185,17 +206,17 @@ extension DocumentOutline {
         /// the places reached after each piece are kept as a set, so no place is read twice for one formula. Returns
         /// false when `work` runs out; the caller tells that apart by `work.isSpent`.
         func matches(_ text: String, work: inout Work) -> Bool {
-            guard work.take() else { return false }
-            guard hasFormula else { return text == key }
+            guard hasFormula else { return work.take() && text == key }
             let characters = Array(text)
-            guard characters.starts(with: pieces[0]) else { return false }
+            guard work.take(max(1, pieces[0].count)), characters.starts(with: pieces[0]) else { return false }
             var places: Set<Int> = [pieces[0].count]
             for (index, formula) in formulas.enumerated() {
                 let piece = pieces[index + 1]
                 var next: Set<Int> = []
                 for place in places {
                     formula.forEachEnd(in: characters, from: place) { end in
-                        guard work.take() else { return false }
+                        // The letters a piece compares are counted, so a long piece costs what it reads.
+                        guard work.take(max(1, piece.count)) else { return false }
                         if characters[end...].starts(with: piece) { next.insert(end + piece.count) }
                         return true
                     }
@@ -330,11 +351,13 @@ extension DocumentOutline {
                 guard left > 0 else { return }
                 let share = min(left, max(Self.leastWorkPerHeading, left / max(1, waiting)))
                 waiting -= 1
-                let begun = work.done
+                // The share holds inside the heading's matches too; when it runs out the next heading is looked for.
+                let saved = work.narrow(to: work.done + share)
+                defer { work.widen(to: saved) }
                 guard lower < upper[i] else { continue }
                 var match: Range<Int>?
                 index.forEachCandidate(for: heading, in: lower..<upper[i], starts: starts) { start in
-                    guard work.done - begun < share, work.take() else { return false }
+                    guard work.take() else { return false }
                     guard let end = index.ends(of: heading, from: start, excluding: excluded, work: &work).first,
                         end <= upper[i]
                     else { return true }
@@ -505,8 +528,13 @@ extension DocumentOutline {
             of entries: [Printed], from cursor: Int, starts: [Character: [Int]], work: inout Work
         ) -> RunSearch {
             let entries = Array(entries.drop(while: \.mayPrintNothing))
-            guard let first = entries.first, cursor < lines.count else { return .notFound }
-            func spent(_ work: Work) -> Bool { work.isSpent || work.done >= Work.contentsLimit }
+            // A table of symbols alone may take no line, so it is found where the search stands.
+            guard let first = entries.first else { return .found(cursor..<cursor) }
+            guard cursor < lines.count else { return .notFound }
+            // The tables' limit holds inside the entries' matches too.
+            let saved = work.narrow(to: Work.contentsLimit)
+            defer { work.widen(to: saved) }
+            func spent(_ work: Work) -> Bool { work.isSpent }
             var known: [String: [Int: [Int]]] = [:]
             func ends(of entry: Printed, from line: Int, work: inout Work) -> [Int] {
                 if let ends = known[entry.source]?[line] { return ends }

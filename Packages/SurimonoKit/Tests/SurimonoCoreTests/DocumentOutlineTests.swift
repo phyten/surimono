@@ -611,6 +611,26 @@ struct DocumentOutlineTests {
         #expect(DocumentOutline.pages(of: headings, inPageTexts: pages) == [1, 2])
     }
 
+    @Test("照合に重い見出しや目次の後でも、軽い見出しは自分の取り分で探す")
+    func heavySearchLeavesWorkForOthers() {
+        let xs = String(repeating: "x", count: 1_100)
+        let hardPrinted = "Head " + formula(xs) + formula(xs) + " End"
+        let hard = DocumentHeading(level: 2, text: "Hard", printed: hardPrinted)
+        let easy = DocumentHeading(level: 2, text: "Safe x", printed: "Safe " + formula("x"))
+        let pages = ["Head " + String(repeating: "x", count: 2_000) + "y End", "Safe x\nBody"]
+        #expect(DocumentOutline.pages(of: [hard, easy], inPageTexts: pages) == [nil, 1])
+        #expect(DocumentOutline.pages(of: [easy], inPageTexts: pages, contentsEntries: [hardPrinted]) == [1])
+    }
+
+    @Test("記号だけの式の目次の後にある目次も、見出しの照合から外す")
+    func contentsAfterSymbolOnlyContents() {
+        let headings = [DocumentHeading(level: 2, text: "Next")]
+        let pages = ["∞\nNext", "Next\nBody"]
+        #expect(
+            DocumentOutline.pages(
+                of: headings, inPageTexts: pages, contentsEntries: [formula("\\infty"), "", "Next"]) == [1])
+    }
+
     @Test("脚注の番号を付けて組まれた見出しは、題に番号を入れずにページが付く")
     func headingWithFootnoteNumber() {
         let heading = DocumentHeading(level: 2, text: "保存場所の変更", printed: "保存場所の変更1")
