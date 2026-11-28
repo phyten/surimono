@@ -654,6 +654,116 @@ struct LaTeXFlowPrintingTests {
         #expect(text.matches(of: /word[0-9]{3}/).map { String($0.output) } == tokens)
     }
 
+    @Test("段とページの切れ目でハイフンで切った語も前半を刷り、続きの行を段の左端から始める", .timeLimit(.minutes(1)))
+    func hyphenatedWordAtColumnBreak() async throws {
+        // Words longer than half a column make almost every browser line end inside a word,
+        // so several of the column and page cuts below fall on an automatic hyphen.
+        let words = [
+            "counterrevolutionaries", "electroencephalographic", "incomprehensibilities", "internationalization",
+            "uncharacteristically", "institutionalization", "disproportionately", "representationalism",
+        ]
+        let text = (0..<160).map { words[$0 % words.count] }.joined(separator: " ")
+        // The paragraph indent is inherited by anything measured inside the paragraph.
+        let (pdf, issues) = try await twoColumnPages(text, style: "p{text-indent:2em}")
+        #expect(issues.isEmpty)
+        #expect(pdf.pageCount > 1)
+        // The text layer keeps every letter in reading order; a cut hyphen reads like any other line-end hyphen.
+        let printed = (0..<pdf.pageCount).compactMap { pdf.page(at: $0)?.string }.joined(separator: "\n")
+        #expect(printed.replacing("-\n", with: "").split(whereSeparator: \.isWhitespace).joined(separator: " ") == text)
+        let columns = try (0..<pdf.pageCount).flatMap { index in
+            try (0..<2).map { try printedColumn(pdf, page: index, column: $0) }
+        }
+        // The case under test: a word divided both between the two columns and between pages.
+        let divided = columns.dropLast().map { $0.text.trimmingCharacters(in: .whitespacesAndNewlines).hasSuffix("-") }
+        #expect(divided.enumerated().contains { $0.offset % 2 == 0 && $0.element }, "段の切れ目=\(divided)")
+        #expect(divided.enumerated().contains { $0.offset % 2 == 1 && $0.element }, "ページの切れ目=\(divided)")
+        // Every line of the one justified paragraph starts at the column edge; a hidden first
+        // half of a word would push its continuation about four letters to the right.
+        let gap = 10 * 72 / 72.27
+        let edges = [
+            Self.flowMargin,
+            Self.flowPage.width - Self.flowMargin - (Self.flowPage.width - 2 * Self.flowMargin - gap) / 2,
+        ]
+        for (index, column) in columns.enumerated() where !column.lineStarts.isEmpty {
+            let shifted = column.lineStarts.dropFirst(index == 0 ? 1 : 0).filter { abs($0 - edges[index % 2]) > 1.5 }
+            #expect(
+                shifted.isEmpty,
+                "\(index / 2 + 1)ページ\(index % 2 + 1)段目で左端からずれた行の始まり(pt)=\(shifted)、左端=\(edges[index % 2])")
+        }
+    }
+
+    @Test(
+        "ハイフンなしで切れた長い英字列や和文は、段とページの切れ目でもハイフンを足さずに全文を刷る", .timeLimit(.minutes(1)),
+        arguments: ["overflow-wrap:anywhere", "overflow-wrap:break-word", "word-break:break-word", "japanese"])
+    func unhyphenatedBreakAtColumnBreak(variant: String) async throws {
+        // A run of one letter has no dictionary hyphenation point; each run is longer than a column.
+        let text =
+            variant == "japanese"
+            ? String(repeating: "紙の端で折り返した和文の行が次の段へ続く。", count: 60)
+            : (0..<50).map { _ in String(repeating: "x", count: 70) }.joined(separator: " ")
+        let style = variant == "japanese" ? "" : "p{\(variant)}"
+        let (pdf, issues) = try await twoColumnPages(text, style: style, language: variant == "japanese" ? "ja" : "en")
+        // An emergency break survives the split by itself, so these stay in two columns.
+        #expect(issues.isEmpty)
+        #expect(pdf.pageCount > 1)
+        let printed = (0..<pdf.pageCount).compactMap { pdf.page(at: $0)?.string }.joined()
+        #expect(!printed.contains("-") && !printed.contains("\u{2010}"), "元にないハイフンを刷った")
+        #expect(printed.filter { !$0.isWhitespace } == text.filter { !$0.isWhitespace })
+    }
+
+    @Test("分けた本文が切片の外へ動いたら、一段で全文を刷り直して確認に出す", .timeLimit(.minutes(1)))
+    func splitTextLeavingItsSlice() async throws {
+        let text = (0..<220).map { "paper\($0)" }.joined(separator: " ")
+        // Only the last piece of the divided paragraph matches once it is split. Its wider letters
+        // run past the end of the last slice while every character keeps its owner.
+        let (pdf, issues) = try await twoColumnPages(text, style: "p>span:last-child{letter-spacing:4px}")
+        #expect(issues.contains { $0.id == "latex-flow-fallback" })
+        let printed = (0..<pdf.pageCount).compactMap { pdf.page(at: $0)?.string }.joined(separator: "\n")
+        #expect(printed.replacing("-\n", with: "").split(whereSeparator: \.isWhitespace).joined(separator: " ") == text)
+    }
+
+    private static let flowPage = CGSize(width: 360, height: 240)
+    private static let flowMargin = 5 * 72 / 25.4
+
+    private func twoColumnPages(_ text: String, style: String, language: String = "en") async throws -> (
+        PDFDocument, [PrintIssue]
+    ) {
+        let html =
+            "<style>body{font:12px/18px Times,serif}p{margin:0;text-align:justify;-webkit-hyphens:auto;hyphens:auto}"
+            + style + "</style><div data-latex-columns=\"2\" data-latex-rule=\"0\"><p lang=\"\(language)\">"
+            + text + "</p></div>"
+        let result = try await WebPaginator().paginateWithResult(
+            .html(html, baseURL: nil), pageSize: Self.flowPage, margins: .uniform(millimeters: 5),
+            allowsJavaScript: false, latexFlow: true)
+        return (result.document, result.issues)
+    }
+
+    /// The column's text and the left end of each printed line, in page points.
+    private func printedColumn(_ pdf: PDFDocument, page index: Int, column: Int) throws -> (
+        text: String, lineStarts: [CGFloat]
+    ) {
+        let page = try #require(pdf.page(at: index))
+        let left = column == 0 ? Self.flowMargin : Self.flowPage.width / 2
+        let width = Self.flowPage.width / 2 - Self.flowMargin
+        let height = Self.flowPage.height - 2 * Self.flowMargin
+        let text = page.selection(for: CGRect(x: left, y: Self.flowMargin, width: width, height: height))?.string ?? ""
+        let scale: CGFloat = 4
+        let ctx = try grayCrop(
+            page, origin: CGPoint(x: left, y: Self.flowMargin), width: Int(width * scale),
+            height: Int(height * scale), scale: scale)
+        let pixels = try #require(ctx.data).assumingMemoryBound(to: UInt8.self)
+        var starts: [Int] = []
+        var inLine = false
+        for y in 0..<ctx.height {
+            let ink = (0..<ctx.width).first { pixels[y * ctx.bytesPerRow + $0] < 128 }
+            if let ink {
+                if inLine { starts[starts.count - 1] = min(starts[starts.count - 1], ink) } else { starts.append(ink) }
+            }
+            inLine = ink != nil
+        }
+        return (text, starts.map { left + CGFloat($0) / scale })
+    }
+
     @Test("脚注が用紙より長い場合は元の本文と注を一段で刷り、確認に理由を出す", .timeLimit(.minutes(1)))
     func fallback() async throws {
         let html =

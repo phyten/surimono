@@ -20,7 +20,11 @@ for (const [i, p] of pieces.entries()) {
     if (!entries.has(key)) entries.set(key, {...p, index:i});
     owners.push(entries.get(key).index);
 }
-const range = document.createRange(), edits = [];
+const range = document.createRange(), edits = [], splits = [];
+// Measures one character in its paragraph's inherited font without taking part in the line.
+// Absolute positioning makes it a block, so the inherited paragraph indent must be reset.
+const probe = document.createElement('span');
+probe.style.cssText = 'position:absolute;left:0;top:0;visibility:hidden;white-space:pre;text-indent:0;margin:0;padding:0;border:0';
 // Append all probes before reading geometry so a long contents does not force layout for each row.
 // Measuring a long rule once avoids accumulating a rounded layout unit in every pitch.
 const pitches = 128, periods = new Map();
@@ -194,13 +198,30 @@ for (const [id, unique] of byStrip) {
         const rect = range.getBoundingClientRect();
         if (!rect.width || !rect.height) continue;
         const fragment = document.createDocumentFragment();
-        const indexAt = i => {
+        const css = getComputedStyle(n.parentElement);
+        const autoHyphens = (css.hyphens || css.webkitHyphens) === 'auto';
+        const box = i => {
             range.setStart(n, i); range.setEnd(n, i+1);
-            const r = range.getBoundingClientRect();
+            return range.getBoundingClientRect();
+        };
+        const indexAt = i => {
+            const r = box(i);
             if (r.height) return at((r.top+r.bottom)/2);
             range.setStart(n, 0);
             const prefix = range.getBoundingClientRect();
             return at(prefix.height ? prefix.bottom-0.01 : rect.top);
+        };
+        // The selection box of a line's last character includes the hyphen WebKit drew there.
+        // An emergency break (overflow-wrap) draws none, so only a measured hyphen counts.
+        const drawsHyphen = i => {
+            const extra = box(i-1).width;
+            probe.textContent = n.data[i-1];
+            n.parentElement.append(probe);
+            const glyph = probe.getBoundingClientRect().width;
+            probe.textContent = '\u2010';
+            const hyphen = probe.getBoundingClientRect().width;
+            probe.remove();
+            return hyphen > 0 && extra - glyph > hyphen / 2;
         };
         for (let start = 0; start < n.length;) {
             const index = indexAt(start);
@@ -211,7 +232,22 @@ for (const [id, unique] of byStrip) {
             }
             const span = document.createElement('span');
             span.textContent = n.data.slice(start,lo);
+            // Owners differ only across a line break. When this WebKit hyphenated a word there,
+            // splitting the text node at that point loses the break: the word's first part
+            // moves to the next line, outside this capture and hidden in the next. Restore the
+            // measured break with a soft hyphen, which adds no gap inside the word.
+            if (autoHyphens && lo < n.length && /[\p{sc=Latin}\p{sc=Greek}\p{sc=Cyrillic}]\p{M}*$/u.test(span.textContent) &&
+                /^[\p{sc=Latin}\p{sc=Greek}\p{sc=Cyrillic}]/u.test(n.data.slice(lo,lo+2)) && drawsHyphen(lo)) {
+                span.textContent += '\u00AD';
+            }
+            // Record the printed ends of this piece to compare after the split.
+            const first = n.data.slice(start,lo).search(/\S/), last = n.data.slice(start,lo).search(/\S\s*$/);
+            const ends = first < 0 ? [] : [...new Set([first, last])].map(offset => {
+                const r = box(start+offset);
+                return {offset, x:r.left, y:(r.top+r.bottom)/2, drawn:r.height > 0};
+            });
             memberships[index].push(span); fragment.append(span);
+            splits.push({span, ends, piece:pieces[index], origin:origins[id].y});
             start = lo;
         }
         edits.push([n, fragment]);
@@ -219,6 +255,18 @@ for (const [id, unique] of byStrip) {
 }
 for (const period of periods.values()) period.remove();
 for (const [n,f] of edits) n.replaceWith(f);
+// A split must not move text: a moved character can leave every capture, and links were
+// measured before the split. Each printed end keeps its place and stays inside its own
+// slice in plan units, or the single-column print is used.
+for (const {span, ends, piece, origin} of splits) {
+    for (const {offset, x, y, drawn} of ends) {
+        range.setStart(span.firstChild, offset); range.setEnd(span.firstChild, offset+1);
+        const r = range.getBoundingClientRect(), mid = (r.top+r.bottom)/2, pos = (mid+scrollY)*unit - origin;
+        if (r.height ? Math.abs(r.left-x) > .5 || Math.abs(mid-y) > .5 || pos < piece.start-.02 || pos > piece.end+.02 : drawn) {
+            throw Error('Split text moved out of its slice');
+        }
+    }
+}
 // A complete paragraph or list item can be moved as one box without relaying out its text.
 // More complicated paint (shared borders, protruding graphics, or clipped line fragments)
 // keeps the individual capture. Clipping alone would leave its text in every PDF selection.
