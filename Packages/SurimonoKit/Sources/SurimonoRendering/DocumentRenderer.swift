@@ -306,6 +306,8 @@ public struct PaginationRequest: Sendable {
     public var flow = PrintFlow.horizontal
     var contentsHeadingIDs: [String] = []
     var footnotePass: WebPaginator.FootnotePass?
+    /// Whether a heading left at the foot of a page by WebKit's pagination is moved to the next (`HeadingKeep`).
+    var keepsHeadingsWithText = false
 }
 
 extension WebPaginator {
@@ -323,7 +325,8 @@ extension WebPaginator {
             latexFlow: request.latexFlow,
             latexMarginInk: request.latexMarginInk, checksVerticalLaTeXInk: request.checksVerticalLaTeXInk,
             verticalBooklet: request.verticalBooklet, verticalTextScale: request.verticalTextScale, flow: request.flow,
-            contentsHeadingIDs: request.contentsHeadingIDs, footnotePass: request.footnotePass)
+            contentsHeadingIDs: request.contentsHeadingIDs, footnotePass: request.footnotePass,
+            keepsHeadingsWithText: request.keepsHeadingsWithText)
     }
 }
 
@@ -1616,7 +1619,9 @@ public final class DocumentRenderer {
                             && (checksVerticalLaTeXInk || LaTeXFlowPaginator.hasMarginInk(in: fragment.body)),
                         checksVerticalLaTeXInk: checksVerticalLaTeXInk,
                         verticalBooklet: settings.layout.kind == .booklet,
-                        verticalTextScale: settings.textScale, flow: flow, contentsHeadingIDs: page.contentsHeadingIDs),
+                        verticalTextScale: settings.textScale, flow: flow, contentsHeadingIDs: page.contentsHeadingIDs,
+                        keepsHeadingsWithText: flow == .horizontal && !latexFlow
+                            && settings.finish.breaks.keepsHeadingsWithText),
                     source: source
                 )
             }
@@ -2294,7 +2299,8 @@ public final class DocumentRenderer {
                     latexPageNumbers: page.numbering, restartsAfterTitle: page.restartsAfterTitle,
                     collectsDiagrams: collectsDiagrams && page.collectsDiagrams && settings.markdownChanges.isEmpty,
                     indexesFormulas: collectsDiagrams && settings.indexesFormulas,
-                    contentsHeadingIDs: collectsDiagrams ? page.contentsHeadingIDs : [], footnotePass: pass)
+                    contentsHeadingIDs: collectsDiagrams ? page.contentsHeadingIDs : [], footnotePass: pass,
+                    keepsHeadingsWithText: settings.finish.breaks.keepsHeadingsWithText)
             }
             try Task.checkCancellation()
             let measured = try await paginateCheckingIssues(request(), source: source)
@@ -2353,7 +2359,8 @@ public final class DocumentRenderer {
             latexFlow: request.latexFlow,
             latexMarginInk: request.latexMarginInk, checksVerticalLaTeXInk: request.checksVerticalLaTeXInk,
             verticalBooklet: request.verticalBooklet, verticalTextScale: request.verticalTextScale, flow: request.flow,
-            contentsHeadingIDs: request.contentsHeadingIDs, footnotePass: request.footnotePass)
+            contentsHeadingIDs: request.contentsHeadingIDs, footnotePass: request.footnotePass,
+            keepsHeadingsWithText: request.keepsHeadingsWithText)
         let output = try await paginate(wrapped)
         let preparation = output.preparationResult.flatMap {
             try? JSONDecoder().decode(PrintIssueAnchors.Preparation.self, from: Data($0.utf8))
