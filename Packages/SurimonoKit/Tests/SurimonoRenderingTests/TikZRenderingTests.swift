@@ -87,6 +87,11 @@ struct TikZRenderingTests {
             \node[above] at ($(A)!0.5!(B)$) {$M=(A+B)/2$};
             \end{tikzpicture}
             """#,
+            #"""
+            \begin{tikzpicture}\begin{axis}[xlabel={$y=x^2$},xtick={},ytick={}]
+            \addplot coordinates {(0,1)(1,2)};
+            \end{axis}\end{tikzpicture}
+            """#,
         ])
     func relationInMathLabel(_ picture: String) async throws {
         _ = NSApplication.shared
@@ -96,7 +101,13 @@ struct TikZRenderingTests {
         #expect(result.diagrams.count == 1)
         #expect(result.issues.filter { $0.detail.contains("(TikZ)") }.isEmpty)
         #expect(result.viewDocument.string?.contains("Figure (TikZ)") == false)
-        #expect(result.diagrams.first?.svg.contains("data-math-glue") == false)
+        let svg = try #require(result.diagrams.first?.svg)
+        #expect(!svg.contains("data-math-glue"))
+        // The formula's own glyphs stay in the figure, not just an empty box where it was.
+        let xml = try XMLDocument(xmlString: svg, options: [])
+        let glyphs = try xml.nodes(forXPath: "//*[local-name()='text']").compactMap(\.stringValue).joined()
+        let expected = picture.contains("tau") ? "τ=10" : picture.contains("M=") ? "M=(A+B)/2" : "y=x2"
+        #expect(expected.allSatisfy { glyphs.contains($0) })
     }
 
     @Test("article の用紙に刷ったグラフの横幅が参照 PDF の軸枠に合う", .timeLimit(.minutes(1)))
@@ -124,20 +135,21 @@ struct TikZRenderingTests {
         #expect(abs(diagram.pointSize.width * axisWidth / svgWidth - 194.27) < 3)
     }
 
-    @Test("凡例にも本体と同じ形の印を描き、星の付かない印は塗らない", .timeLimit(.minutes(1)))
+    @Test("凡例にも本体と同じ形の印を描き、星の付かない印は系列の塗りの色があっても塗らない", .timeLimit(.minutes(1)))
     func legendMarks() async throws {
         _ = NSApplication.shared
-        let marks = ["diamond", "pentagon*", "oplus", "otimes", "|", "-", "asterisk"]
+        let marks = ["diamond", "pentagon", "oplus", "otimes", "|", "-", "asterisk"]
         let plots = marks.enumerated().map { index, mark in
-            "\\addplot[only marks,mark=\(mark)] coordinates {(\(index),1)};\\addlegendentry{M\(index)}"
+            "\\addplot[only marks,fill=yellow,mark=\(mark)] coordinates {(\(index),1)};\\addlegendentry{M\(index)}"
         }
         let result = try await render(
             #"\documentclass{article}\usepackage{pgfplots}\begin{document}\begin{tikzpicture}\begin{axis}"#
                 + plots.joined() + #"\end{axis}\end{tikzpicture}\end{document}"#)
         #expect(result.issues.filter { $0.detail.contains("(TikZ)") }.isEmpty)
         let diagram = try #require(result.diagrams.first)
+        #expect(!diagram.svg.lowercased().contains("#ffff00"))
         let xml = try XMLDocument(xmlString: diagram.svg, options: [])
-        // The legend draws its open diamond around the origin of its glyph group: 1.3 tall, 1 wide.
+        // The legend draws its open diamond around the origin of its glyph group: ±r tall, ±0.75r wide.
         let diamonds = try xml.nodes(forXPath: "//*[local-name()='path' and contains(@d, 'Z')]")
             .compactMap { $0 as? XMLElement }
             .filter { ($0.attribute(forName: "d")?.stringValue ?? "").hasPrefix("M0 -") }
@@ -147,7 +159,21 @@ struct TikZRenderingTests {
         let numbers = (legendDiamond.attribute(forName: "d")?.stringValue ?? "")
             .split(whereSeparator: { "MLZ ".contains($0) }).compactMap { Double($0) }
         try #require(numbers.count == 8)
-        #expect(abs(numbers[1] / numbers[2] + 1.3) < 0.001)
+        #expect(abs(numbers[1] / numbers[2] + 4.0 / 3) < 0.001)
+    }
+
+    @Test("星の付く印は本体も凡例も系列の塗りの色で塗る", .timeLimit(.minutes(1)))
+    func legendSeriesFill() async throws {
+        _ = NSApplication.shared
+        let result = try await render(
+            #"\documentclass{article}\usepackage{pgfplots}\begin{document}\begin{tikzpicture}\begin{axis}"#
+                + #"\addplot[only marks,draw=black,fill=yellow,mark=diamond*] coordinates {(0,1)};\addlegendentry{A}"#
+                + #"\end{axis}\end{tikzpicture}\end{document}"#)
+        let diagram = try #require(result.diagrams.first)
+        let xml = try XMLDocument(xmlString: diagram.svg, options: [])
+        let yellow = try xml.nodes(forXPath: "//*[translate(@fill, 'ABCDEF', 'abcdef')='#ffff00']")
+        // One diamond on the plot and its glyph group in the legend.
+        #expect(yellow.count == 2)
     }
 
     private func render(

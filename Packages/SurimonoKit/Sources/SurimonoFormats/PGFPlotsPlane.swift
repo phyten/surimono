@@ -183,12 +183,11 @@ struct PGFPlotsPlane {
         let r = plot.markSize
         func p(_ dx: Double, _ dy: Double) -> String { PGFPlots.point(x + dx * r, y + dy * r) }
         let color = plot.markFill.map { ",fill=" + $0 } ?? ""
-        let closed = mark.contains("*")
-        let paint =
-            (closed ? "\\filldraw[" : "\\draw[") + (plot.paths + ["solid"]).joined(separator: ",")
-            + (closed ? color : "") + "] "
+        // An unstarred mark is only stroked, as in PGF, even when the series asks for a fill.
         let line = "\\draw[" + (plot.paths + ["solid", "fill=none"]).joined(separator: ",") + "] "
-        // Polar points of PGF's pentagon and the six-pointed asterisk, in units of the mark size.
+        let paint =
+            mark.contains("*") ? "\\filldraw[" + (plot.paths + ["solid"]).joined(separator: ",") + color + "] " : line
+        // Polar points of PGF's triangle, pentagon and six-pointed asterisk, in units of the mark size.
         func polar(_ degrees: Double) -> String {
             p(cos(degrees * .pi / 180), sin(degrees * .pi / 180))
         }
@@ -204,9 +203,9 @@ struct PGFPlotsPlane {
         case "square", "square*":
             try add(paint + p(-1, -1) + " rectangle " + p(1, 1) + ";")
         case "triangle", "triangle*":
-            try add(paint + p(0, 1.33) + "--" + p(-1.15, -0.665) + "--" + p(1.15, -0.665) + "--cycle;")
+            try add(paint + [90, -30, -150].map(polar).joined(separator: "--") + "--cycle;")
         case "diamond", "diamond*":
-            try add(paint + p(0, 1.3) + "--" + p(1, 0) + "--" + p(0, -1.3) + "--" + p(-1, 0) + "--cycle;")
+            try add(paint + p(0, 1) + "--" + p(0.75, 0) + "--" + p(0, -1) + "--" + p(-0.75, 0) + "--cycle;")
         case "pentagon", "pentagon*":
             try add(paint + [90, 18, -54, 234, 162].map(polar).joined(separator: "--") + "--cycle;")
         case "star":
@@ -225,7 +224,8 @@ struct PGFPlotsPlane {
         }
     }
 
-    /// Every mark drawMark knows. The legend painter in tikz.js draws the same set with the same geometry.
+    /// Every mark drawMark knows. `plotMarkShape` in tikz.js draws the same set for the legend, and
+    /// PlotMarkContractTests compares the two outlines.
     static let marks: Set<String> = [
         "*", "o", "square", "square*", "triangle", "triangle*", "diamond", "diamond*", "pentagon", "pentagon*",
         "x", "+", "|", "-", "star", "asterisk", "oplus", "oplus*", "otimes", "otimes*",

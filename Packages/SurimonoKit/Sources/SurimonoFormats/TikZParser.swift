@@ -277,34 +277,41 @@ final class TikZParser {
         distances inherited: [String: String], label: (String) -> String
     ) throws {
         guard depth < 24 else { throw TikZError("tree limit") }
-        // These handlers restyle children or their edges, which the plain layout below would drop.
-        for name in ["every child", "every child node", "edge from parent"] where scope.definitions[name] != nil {
-            throw TikZError(name)
-        }
         var options = try shapeOptions(input.options())
         var distances = inherited
         for key in distances.keys {
             if let value = options.removeValue(forKey: key) { distances[key] = try length(value) }
         }
         guard options.isEmpty else { throw TikZError(options.keys.sorted().joined(separator: ", ")) }
-        // PGF applies `level` (with the level number as #1) and then `level <n>` as each child starts,
-        // so they override the parent's options for the children and everything below them.
-        for (name, argument) in [("level", "\(depth + 1)"), ("level \(depth + 1)", nil)] {
-            guard let definition = scope.definitions[name] else { continue }
-            guard argument != nil || !definition.contains("#1") else { throw TikZError(name) }
-            let keys = try shapeOptions(definition.replacingOccurrences(of: "#1", with: argument ?? ""))
-            for (key, value) in keys {
-                guard distances[key] != nil else { throw TikZError(name + ": " + key) }
-                distances[key] = try length(value)
-            }
-        }
-        let siblingDistance = distances["sibling distance"] ?? "15mm"
-        let levelDistance = distances["level distance"] ?? "15mm"
         var children: [String] = []
         while input.take("child") {
             guard children.count < 5_000 else { throw TikZError("tree limit") }
             children.append(try input.group("{", "}"))
         }
+        // PGF reads the child styles only when it lays out children, so a leaf never meets the next level.
+        if !children.isEmpty {
+            // These handlers restyle children or their edges, which the plain layout below would drop.
+            for name in ["every child", "every child node", "edge from parent"] where scope.definitions[name] != nil {
+                throw TikZError(name)
+            }
+            // `level` (with the level number as #1) and then `level <n>` override the parent's options
+            // for these children and everything below them.
+            for (name, argument) in [("level", "\(depth + 1)"), ("level \(depth + 1)", nil)] {
+                guard let definition = scope.definitions[name] else { continue }
+                guard argument != nil || !definition.contains("#1") else { throw TikZError(name) }
+                // Each parent rereads the definition. A level number is never longer than the "#1" it
+                // replaces, so the definition's length covers the substitution and the split.
+                guard definition.utf8.count <= work else { throw TikZError("style limit") }
+                work -= definition.utf8.count
+                let keys = try shapeOptions(definition.replacingOccurrences(of: "#1", with: argument ?? ""))
+                for (key, value) in keys {
+                    guard distances[key] != nil else { throw TikZError(name + ": " + key) }
+                    distances[key] = try length(value)
+                }
+            }
+        }
+        let siblingDistance = distances["sibling distance"] ?? "15mm"
+        let levelDistance = distances["level distance"] ?? "15mm"
         let name = node["name"] as? String ?? "#tree-\(items.count)"
         var parent = node
         parent["name"] = name
