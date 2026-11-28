@@ -452,12 +452,12 @@ extension LaTeXReader {
         for raw in paths.split(separator: ",") {
             let path = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !path.isEmpty else { continue }
-            if let source = readLocalText(path, defaultExtension: "bib") {
+            if let source = readLocalText(path, kind: .bibliography) {
                 var parser = LaTeXBibTeX(source, document: document)
                 parser.parse()
             } else {
-                let name = (path as NSString).pathExtension.isEmpty ? path + ".bib" : path
-                keepFileNote(fileNote(name))
+                let named = (path as NSString).pathExtension.isEmpty ? path + ".bib" : path
+                keepFileNote(fileNote(LaTeXFileLookup.names(path, kind: .bibliography)?.first ?? named))
             }
         }
     }

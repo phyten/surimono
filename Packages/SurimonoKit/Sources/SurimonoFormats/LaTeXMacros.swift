@@ -3,16 +3,17 @@ import SwaTex
 
 extension LaTeXDocument {
     /// Stop expanding on the first overrun so the reader can still print the surrounding paper and report one issue.
-    func reserveExpansion(characters: Int = 0) -> Bool {
+    func reserveExpansion(characters: Int = 0, site: String = #function) -> Bool {
         guard !endedDocument else { return false }
         // 200,000 calls allow many short substitutions but bound even empty ones. Two million generated characters
         // leave room for a long paper while also bounding macros that double their output in just a few calls.
         guard !stopsExpanding, expansions < 200_000, characters <= 2_000_000 - expandedCharacters else {
-            stopsExpanding = true
+            if !stopsExpanding { stopExpanding(expansions < 200_000 ? .characters : .calls, site: site) }
             return false
         }
         expansions += 1
         expandedCharacters += characters
+        budget.charge(calls: 1, characters: characters)
         return true
     }
 
@@ -62,8 +63,13 @@ extension LaTeXReader {
                 } else if !macroPrimitive(primitive) {
                     dispatchBuiltin(primitive)
                 }
-            } else if let body = replacement(macro) {
-                insertExpansion(body)
+            } else {
+                // The macro pays for its own expansion and for moving the unread tail past it.
+                let outer = document.budget.expanding
+                document.budget.macro = name
+                document.budget.expanding = "\\" + name
+                defer { document.budget.expanding = outer }
+                if let body = replacement(macro) { insertExpansion(body) }
             }
             return true
         }
@@ -89,7 +95,7 @@ extension LaTeXReader {
             let key = readCSName()
             guard !key.isEmpty, document.reserveExpansion() else { return true }
             guard document.depth < LaTeXDocument.maximumDepth, StackSpace.hasRoom else {
-                document.stopsExpanding = true
+                document.stopExpanding(.depth)
                 return true
             }
             document.depth += 1
@@ -118,7 +124,7 @@ extension LaTeXReader {
     func readCSName() -> String {
         // Name construction uses a prose reader. Never enter that reader from a math splice.
         if let mathBudget {
-            mathBudget.refused = true
+            mathBudget.refuse("csname")
             return ""
         }
         guard let end = LaTeXLexer.find("endcsname", in: characters, from: index) else {
@@ -256,10 +262,10 @@ extension LaTeXReader {
         }
         let cost = document.mathDefinitions.source.utf8.count + definition.utf8.count
         guard cost <= 50_000_000 - document.expansionWork else {
-            document.stopsExpanding = true
+            document.stopExpanding(.work)
             return
         }
-        document.expansionWork += cost
+        document.spendWork(cost)
         if definition.utf8.count > PreviewMathExpansion.maximumBytes {
             // Remember that this name is unavailable, including when it shadows a native symbol.
             document.mathDefinitions.app.append(definition[...], unsupported: true)
@@ -358,10 +364,10 @@ extension LaTeXReader {
         while let character = peek() {
             if character == marker.first {
                 guard marker.count <= 50_000_000 - document.expansionWork else {
-                    document.stopsExpanding = true
+                    document.stopExpanding(.work)
                     return nil
                 }
-                document.expansionWork += marker.count
+                document.spendWork(marker.count)
             }
             // Look ahead for a letter. Otherwise, \end would also match the start of \ending.
             if character == marker.first, characters[index...].starts(with: marker),
@@ -399,7 +405,7 @@ extension LaTeXReader {
         if let mathBudget {
             let bytes = macro.body.utf8.count
             guard bytes <= PreviewMathExpansion.maximumWork - mathBudget.inspected else {
-                mathBudget.refused = true
+                mathBudget.refuse("definition work")
                 return nil
             }
             mathBudget.inspected += bytes
@@ -421,10 +427,10 @@ extension LaTeXReader {
         guard !document.stopsExpanding else { return nil }
         if mathBudget == nil {
             guard macro.body.utf8.count <= 50_000_000 - document.expansionWork else {
-                document.stopsExpanding = true
+                document.stopExpanding(.work)
                 return nil
             }
-            document.expansionWork += macro.body.utf8.count
+            document.spendWork(macro.body.utf8.count)
         }
         // Allow a substantial paragraph or table in one substitution, but cap it at 100,000 UTF-8 bytes so a single
         // expansion cannot consume the entire document allowance.
@@ -439,7 +445,11 @@ extension LaTeXReader {
             let space = endsInWord && first.isASCII && first.isLetter
             size += length + (space ? 1 : 0)
             guard size <= limit else {
-                if mathBudget != nil { mathBudget?.refused = true } else { document.stopsExpanding = true }
+                if mathBudget != nil {
+                    mathBudget?.refuse("expansion size")
+                } else {
+                    document.stopExpanding(.characters)
+                }
                 return false
             }
             if space { result.append(" ") }
@@ -487,7 +497,7 @@ extension LaTeXReader {
         let size = begin.utf8.count + body.utf8.count + environment.end.utf8.count
         // Two token separators and the font-switch group can add up to four ASCII bytes.
         guard size <= 2_000_000 - document.expandedCharacters - 4 else {
-            document.stopsExpanding = true
+            document.stopExpanding(.characters)
             return
         }
         // TeX tokenizes the definition separately from the user's body. A final font switch
@@ -543,11 +553,11 @@ extension LaTeXReader {
         guard macroFrameEnds.count + document.depth < LaTeXDocument.maximumDepth, StackSpace.hasRoom,
             remaining + size <= 50_000_000 - document.expansionWork
         else {
-            document.stopsExpanding = true
+            document.stopExpanding(remaining + size <= 50_000_000 - document.expansionWork ? .depth : .work)
             return
         }
         guard document.reserveExpansion(characters: size), size > 0 else { return }
-        document.expansionWork += remaining + size
+        document.spendWork(remaining + size)
         macroFrameEnds.append(remaining)
         characters.insert(contentsOf: separate ? body + " " : body, at: index)
     }

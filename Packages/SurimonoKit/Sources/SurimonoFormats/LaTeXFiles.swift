@@ -39,25 +39,15 @@ extension LaTeXDocument {
 }
 
 extension LaTeXReader {
-    private static func localName(_ raw: String, defaultExtension: String? = nil) -> String? {
-        let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty, !name.hasPrefix("/"), !name.hasPrefix("~"), !name.contains("\0"),
-            URLComponents(string: name)?.scheme == nil
-        else { return nil }
-        if let defaultExtension, (name as NSString).pathExtension.isEmpty { return name + "." + defaultExtension }
-        return name
-    }
-
     /// Charge raw input before interpreting it. A file can be referenced repeatedly through macros or several
     /// branches, so the allowance belongs to the document, including bibliography and verbatim listings.
-    private func localText(_ path: String, defaultExtension: String?, asInput: Bool) -> (URL, String)? {
+    private func localText(_ path: String, kind: LaTeXFileLookup.Kind, asInput: Bool) -> (URL, String)? {
         document.lastFileAttempt = nil
-        guard let name = Self.localName(path, defaultExtension: defaultExtension),
+        guard let names = LaTeXFileLookup.names(path, kind: kind), let name = names.first,
             document.reserveExpansion()
         else { return nil }
-        var candidates: [URL] = []
-        for base in document.searchDirectories {
-            let url = base.appending(path: name).standardizedFileURL
+        var tried: [URL] = []
+        for url in document.lookupCandidates(names) {
             if asInput {
                 let identity = document.fileIdentity(url)
                 if (document.inputChain + [document.mainURL].compactMap { $0 }).contains(where: {
@@ -67,24 +57,24 @@ extension LaTeXReader {
                 }
             }
             guard let data = document.readFile(url) else {
-                candidates.append(url)
+                tried.append(url)
                 continue
             }
             // Four bytes per scalar covers UTF-8/32. Reject larger buffers before decoding or allocating tokens.
             guard data.count <= 4 * (2_000_000 - document.expandedCharacters) + 4 else {
-                document.stopsExpanding = true
+                document.stopExpanding(.characters)
                 return nil
             }
             let text = TextDecoding.decode(data).text
             guard document.reserveExpansion(characters: text.unicodeScalars.count) else { return nil }
             return (url, text)
         }
-        document.lastFileAttempt = (name, candidates)
+        document.lastFileAttempt = (name, tried)
         return nil
     }
 
-    func readLocalText(_ path: String, defaultExtension: String? = nil) -> String? {
-        localText(path, defaultExtension: defaultExtension, asInput: false)?.1
+    func readLocalText(_ path: String, kind: LaTeXFileLookup.Kind) -> String? {
+        localText(path, kind: kind, asInput: false)?.1
     }
 
     func fileNote(_ path: String) -> String {
@@ -113,7 +103,7 @@ extension LaTeXReader {
         case "includeonly":
             document.includeOnly = Set(
                 (argument() ?? "").split(separator: ",").compactMap {
-                    Self.localName(String($0), defaultExtension: "tex")
+                    LaTeXFileLookup.names(String($0), kind: .include)?.first
                 })
         case "input", "include", "subfile", "import":
             var path = argument() ?? ""
@@ -121,10 +111,11 @@ extension LaTeXReader {
                 let file = argument() ?? ""
                 path = path.isEmpty || path.hasSuffix("/") ? path + file : path + "/" + file
             }
-            let filename = Self.localName(path, defaultExtension: "tex") ?? path
+            let kind: LaTeXFileLookup.Kind = name == "include" ? .include : .input
+            let filename = LaTeXFileLookup.names(path, kind: kind)?.first ?? path
             if name == "include", let only = document.includeOnly, !only.contains(filename) { return true }
             guard document.inputChain.count < 20,
-                let (url, source) = localText(path, defaultExtension: "tex", asInput: true)
+                let (url, source) = localText(path, kind: kind, asInput: true)
             else {
                 keepFileNote(fileNote(filename))
                 return true
@@ -138,10 +129,10 @@ extension LaTeXReader {
             let remaining = characters.count - index
             let cost = body.utf8.count + remaining
             guard cost <= 50_000_000 - document.expansionWork else {
-                document.stopsExpanding = true
+                document.stopExpanding(.work)
                 return true
             }
-            document.expansionWork += cost
+            document.spendWork(cost)
             fileFrames.append((remaining, document.inputChain.count))
             document.inputChain.append(url)
             characters.insert(contentsOf: needsNewline ? body + "\n" : body, at: index)
@@ -202,7 +193,7 @@ extension LaTeXReader {
         }
         if let directory = document.directory {
             for candidate in candidates {
-                guard let name = Self.localName(candidate) else { continue }
+                guard let name = LaTeXFileLookup.names(candidate, kind: .listing)?.first else { continue }
                 let url = directory.appending(path: name)
                 // A drawable picture needs no folder grant. A ready-made image is only a reserve for a failed layout.
                 if optional, !document.canProbePictureFallback(url) { continue }

@@ -155,7 +155,7 @@ extension LaTeXReader {
         guard counters.formatting.count < LaTeXDocument.maximumDepth, StackSpace.hasRoom,
             counters.formatting.insert(name).inserted
         else {
-            document.stopsExpanding = true
+            document.stopExpanding(.depth)
             return String(counters[name])
         }
         defer { counters.formatting.remove(name) }

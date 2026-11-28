@@ -27,7 +27,7 @@ extension LaTeXDocument {
             let cost = referenceNames.count
             // Stop expansion after 200,000 copied entries so repeated renaming cannot keep cloning a large dictionary.
             guard cost <= 200_000 - nameCopies else {
-                stopsExpanding = true
+                stopExpanding(.copies)
                 return
             }
             nameCopies += cost
@@ -298,6 +298,10 @@ extension LaTeXDocument {
         if !seenFormulaIssues.contains(issue), reserveExpansion(characters: issue.utf8.count) {
             seenFormulaIssues.insert(issue)
             failedFormulas.append(issue)
+            if explainsFormulas {
+                formulaFailures.append(
+                    macros.map { MathRenderer.failure(latex, display: display, macros: $0) } ?? .budget)
+            }
         }
         return MathRenderer.fallback(source, display: display)
     }

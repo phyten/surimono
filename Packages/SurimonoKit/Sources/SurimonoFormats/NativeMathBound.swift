@@ -46,6 +46,37 @@ enum NativeMathBound {
         bound(formula, definitions: definitions) != nil
     }
 
+    /// For a conversion report only: the first token of the formula, or of a definition it uses, that the bound has
+    /// no cost for. Nil when there is none, or when the definitions themselves cannot be read.
+    static func firstUnknownToken(_ formula: String, definitions: String) -> String? {
+        let bytes = add(min(infinity, definitions.utf8.count), min(infinity, formula.utf8.count))
+        guard bytes <= PreviewMathExpansion.maximumWork else { return nil }
+        var lexer = Lexer(definitions + formula)
+        let boundary = definitions.utf8.count
+        var preamble: [String] = []
+        var expression: [String] = []
+        while true {
+            let token = lexer.lex()
+            if token.isEOF { break }
+            if token.loc.start >= boundary { expression.append(token.text) } else { preamble.append(token.text) }
+        }
+        var declarations = Declarations(tokens: preamble[...])
+        let macros = declarations.read() ?? [:]
+        var visited = Set<String>()
+        func first(_ tokens: [String]) -> String? {
+            for token in tokens where token != "\\begin" && token != "\\end" {
+                if let macro = macros[token] {
+                    if macro.unavailable { return token }
+                    if visited.insert(token).inserted, let inner = first(macro.body) { return inner }
+                } else if native(token) == nil {
+                    return token
+                }
+            }
+            return nil
+        }
+        return first(expression)
+    }
+
     static func bound(_ formula: String, definitions: String) -> Bound? {
         let bytes = add(min(infinity, definitions.utf8.count), min(infinity, formula.utf8.count))
         guard bytes <= PreviewMathExpansion.maximumWork, formula.utf8.count <= limit else { return nil }

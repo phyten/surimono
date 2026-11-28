@@ -100,7 +100,7 @@ extension LaTeXReader {
         /// Allow 10,000 iterations for long lists. A stuck loop then stops expansion, preserving text already read.
         mutating func next(_ document: LaTeXDocument) -> Bool {
             guard iterations < 10_000 else {
-                document.stopsExpanding = true
+                document.stopExpanding(.iterations)
                 return false
             }
             iterations += 1

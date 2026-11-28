@@ -74,7 +74,7 @@ extension LaTeXReader {
     func readExpansionBody(_ source: String) {
         guard !source.isEmpty, !document.stopsExpanding else { return }
         guard document.depth < LaTeXDocument.maximumDepth, StackSpace.hasRoom else {
-            document.stopsExpanding = true
+            document.stopExpanding(.depth)
             return
         }
         let parent = (characters, index, macroFrameEnds, inPreamble, fileFrames, document.inputChain)
@@ -300,7 +300,7 @@ extension LaTeXReader {
     /// ifthen evaluates and/or left to right. Parentheses are the package tokens \( and \), not math here.
     private func logicalExpression(depth: Int) -> Bool {
         guard document.depth + depth < LaTeXDocument.maximumDepth, StackSpace.hasRoom else {
-            document.stopsExpanding = true
+            document.stopExpanding(.depth)
             return false
         }
         var result = logicalAtom(depth: depth)

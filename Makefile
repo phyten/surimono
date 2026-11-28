@@ -21,14 +21,14 @@ FIXED ?=
 
 XCODEBUILD = xcodebuild -quiet -project Surimono.xcodeproj -scheme Surimono -derivedDataPath "$(DERIVED_DATA)" -destination 'platform=macOS'
 SWIFT_TEST = swift test --package-path Packages/SurimonoKit
-SWIFT_PATHS = Tools/PageAX/Package.swift Tools/PageAX/Sources Tools/PageAX/Tests Tools/Snapshots/Package.swift Tools/Snapshots/Sources Tools/Snapshots/Tests App QuickLook AppTests Packages/SurimonoKit/Sources Packages/SurimonoKit/Tests
+SWIFT_PATHS = Tools/PageAX/Package.swift Tools/PageAX/Sources Tools/PageAX/Tests Tools/Snapshots/Package.swift Tools/Snapshots/Sources Tools/Snapshots/Tests Tools/LaTeXCoverage/Package.swift Tools/LaTeXCoverage/Sources Tools/LaTeXCoverage/Tests App QuickLook AppTests Packages/SurimonoKit/Sources Packages/SurimonoKit/Tests
 APP = $(DERIVED_DATA)/Build/Products/$(CONFIGURATION)/Surimono.app
 RELEASE_APP = $(DERIVED_DATA)/Build/Products/Release/Surimono.app
 # Both app targets make Surimono.app (the menu bar shows PRODUCT_NAME), so the App Store app gets derived data of its own.
 APP_STORE_DERIVED_DATA ?= build/DerivedData-AppStore
 APP_STORE_APP = $(APP_STORE_DERIVED_DATA)/Build/Products/Release/Surimono.app
 
-.PHONY: help build run test test-kit test-formats test-core rst-compare latex-dump latex-line-dump latex-line-dump-webkit test-rendering test-app bench bench-compare lint format package build-appstore check-appstore clean
+.PHONY: help build run test test-kit test-formats test-core rst-compare latex-dump latex-coverage latex-coverage-compare latex-line-dump latex-line-dump-webkit test-rendering test-app bench bench-compare lint format package build-appstore check-appstore clean
 
 help:
 	@echo "build      Build the app (Debug by default)"
@@ -42,6 +42,8 @@ help:
 	@echo "test-formats Run the SurimonoFormats tests"
 	@echo "test-core  Run the SurimonoCore tests"
 	@echo "rst-compare Compare the Swift RST reader with rst2html5 on the fixture corpus"
+	@echo "latex-coverage  Read real manuscripts and count what the reader flags: DIR=<manuscripts> [OUT=] [BASELINE=<run>] [HTML=1]"
+	@echo "latex-coverage-compare  Compare two coverage runs: BEFORE=<run> AFTER=<run>"
 	@echo "test-rendering  Run the SurimonoRendering tests, one at a time"
 	@echo "test-app   Run hosted app tests"
 	@echo "snapshots  Render local snapshots; snapshots-report compares and snapshots-approve accepts reviewed cases"
@@ -99,6 +101,18 @@ rst-compare:
 latex-dump:
 	@test -n "$(DIR)" || { echo "Usage: make latex-dump DIR=<directory>" >&2; exit 2; }
 	SURIMONO_LATEX_DUMP="$(abspath $(DIR))" $(SWIFT_TEST) --filter LaTeXCorpusDumpTests
+
+# DIR here is where the manuscripts are (one folder each, or a manifest.json); latex-dump's DIR is its output.
+# The manuscripts stay outside the repository. OUT defaults to build/latex-coverage/<time>; BASELINE is an earlier OUT.
+LATEX_COVERAGE = swift run -c release --package-path Tools/LaTeXCoverage latex-coverage
+latex-coverage:
+	@test -n "$(DIR)" || { echo "Usage: make latex-coverage DIR=<manuscripts> [OUT=<run>] [BASELINE=<run>] [MANIFEST=<file>] [HTML=1]" >&2; exit 2; }
+	$(LATEX_COVERAGE) run "$(abspath $(DIR))" "$(abspath $(or $(OUT),build/latex-coverage/$(shell date +%Y%m%d-%H%M%S)))" \
+		$(if $(MANIFEST),--manifest "$(abspath $(MANIFEST))") $(if $(BASELINE),--baseline "$(abspath $(BASELINE))") $(if $(HTML),--html)
+
+latex-coverage-compare:
+	@test -n "$(BEFORE)" -a -n "$(AFTER)" || { echo "Usage: make latex-coverage-compare BEFORE=<run> AFTER=<run>" >&2; exit 2; }
+	$(LATEX_COVERAGE) compare "$(abspath $(BEFORE))" "$(abspath $(AFTER))"
 
 # Keep the opt-in measurement harness out of normal rendering and the ordinary test run.
 latex-line-dump:
@@ -262,6 +276,7 @@ SNAPSHOT_RUN ?= $(shell date -u +%Y%m%d-%H%M%S)-$(shell uuidgen | cut -c1-8 | tr
 test-tools:
 	swift test --package-path Tools/PageAX
 	swift test --package-path Tools/Snapshots
+	swift test --package-path Tools/LaTeXCoverage
 
 snapshots:
 	$(MAKE) build CONFIGURATION=Debug

@@ -31,7 +31,7 @@ final class MarkdownCitations {
         let reader = LaTeXReader("", document: document, isBlock: false)
         var files = Set<String>()
         for file in metadata.bibliography where files.insert(file).inserted {
-            if let source = reader.readLocalText(file, defaultExtension: "bib") {
+            if let source = reader.readLocalText(file, kind: .bibliography) {
                 var parser = LaTeXBibTeX(source, document: document)
                 parser.parse()
             } else {
