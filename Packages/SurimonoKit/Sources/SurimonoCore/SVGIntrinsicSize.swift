@@ -14,6 +14,8 @@ public enum SVGIntrinsicSize {
         case tooLarge
         /// Not an SVG root within `prologLimit`, or a size that is not a finite, positive number in range.
         case unreadable
+        /// Draws more than `SVGComplexity.maximumDrawnElements` once references are followed, or refers to itself.
+        case tooComplex
     }
 
     /// The size an image without dimensions takes in CSS (a replaced element's default object size).
@@ -45,6 +47,7 @@ public enum SVGIntrinsicSize {
         guard let attributes = reader.attributes, let size = size(attributes), usable(size) else {
             return .unusable(.unreadable)
         }
+        guard SVGComplexity.withinLimit(data) else { return .unusable(.tooComplex) }
         return .size(size)
     }
 

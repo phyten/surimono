@@ -106,7 +106,7 @@ WebKit の文書組版もメインディスプレイの倍率に影響される�
   ├ Markdown / Org / テキスト / CSV / LaTeX / AsciiDoc / Quarto / R Markdown / Word / reStructuredText / MediaWiki / Djot / Textile / Notebook / Graphviz / PlantUML → HTML 断片（SurimonoFormats）→ 印刷テーマ CSS を付けて HTML 文書化（テーマは `common.css` の後に重ね、その後にコードの配色と枠、欧文の書体、文字の大きさを順に重ねる。WebKit の印刷では CSS の段組みが効かないので、段組みのテーマは作れない）
   ├ HTML → そのまま。ノイズ除去プリセット（CSS / JS）を注入
   ├ PDF  → PDFDocument
-  └ 画像 → PDF ページ（ImagePageRenderer。SVG は ImageIO が読めないので、根要素の寸法・viewBox（`SVGIntrinsicSize`）で紙の形を決め、WebKit が `<img>` として描いたベクターのページを置く（`SVGImageDrawing`。スクリプトと外部の読み込みはない）。マークアップで始まるバイト列は SVG として扱い、50 MB を超えるもの、根要素が先頭 64 KiB に始まらないもの、SVG の名前空間の `svg` でないもの、寸法が有限・正・範囲内にならないもの、壊れた SVG、読み取りから数えて 15 秒の期限切れは、ImageIO に回さず読めない画像にする。根要素の読み取りはメインアクターの外で行う。単独・画像の束・ZIP・合本の子が同じ経路を通る）
+  └ 画像 → PDF ページ（ImagePageRenderer。SVG は ImageIO が読めないので、根要素の寸法・viewBox（`SVGIntrinsicSize`）で紙の形を決め、WebKit が `<img>` として描いたベクターのページを置く（`SVGImageDrawing`。スクリプトと外部の読み込みはない）。マークアップで始まるバイト列は SVG として扱い、50 MB を超えるもの、根要素が先頭 64 KiB に始まらないもの、SVG の名前空間の `svg` でないもの、寸法が有限・正・範囲内にならないもの、`<use>` や `url(#…)`・`href="#…"` の参照をたどると描く要素が 25 万を超えるものと参照が輪になるもの（`SVGComplexity`。WebKit に渡す前に markup から数える）、壊れた SVG、読み取りから数えた期限（4 秒＋1 MB あたり 4 秒、最大 15 秒）切れは、ImageIO に回さず読めない画像にする。根要素の読み取りはメインアクターの外で行う。単独・画像の束・ZIP・合本の子が同じ経路を通る）
 → 論理ページの PDF（WebPaginator: WKWebView を NSPrintOperation で論理ページ寸法に組版）
   ├ 読むための PDF（ReadingPDFExporter: 論理ページ・見出しのしおり・リンク・題名）
 → 面付け（PDFComposer: レイアウトに従って用紙へ配置。冊子・2ページ配置・4ページ配置・ページ番号・裏面回転）

@@ -30,7 +30,7 @@ public struct ImagePageRenderer {
             throw RenderingError.invalidGeometry
         }
         // The SVG deadline counts from here, before the bytes are read, copied or handed to WebKit.
-        let deadline = ContinuousClock.now + SVGImageDrawing.timeout
+        let deadline = ContinuousClock.now + SVGImageDrawing.timeout(forBytes: data.count)
         // Reading the SVG root and decoding pixels both stay off the main actor.
         let decoding = Task.detached(priority: Task.currentPriority) {
             try Self.decode(data, pageSize: pageSize, margins: margins, autoRotatesPage: autoRotatesPage)

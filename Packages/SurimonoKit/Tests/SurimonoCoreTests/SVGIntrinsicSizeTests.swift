@@ -140,3 +140,47 @@ struct SVGIntrinsicSizeLimitTests {
         #expect(SVGIntrinsicSize.read(Data()) == nil)
     }
 }
+
+struct SVGComplexityTests {
+    private func read(_ svg: String) -> SVGIntrinsicSize.Reading? { SVGIntrinsicSize.read(Data(svg.utf8)) }
+
+    /// Eleven levels that each use the one below ten times: 10^11 copies of one rectangle once drawn.
+    private func fanOut(levels: Int) -> String {
+        var svg = #"<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><defs>"#
+        svg += #"<rect id="l0" width="1" height="1"/>"#
+        for level in 1...levels {
+            svg += "<g id=\"l\(level)\">" + String(repeating: "<use href=\"#l\(level - 1)\"/>", count: 10) + "</g>"
+        }
+        return svg + "</defs><use href=\"#l\(levels)\"/></svg>"
+    }
+
+    @Test("use の入れ子で描く要素が爆発する SVG は描かずに断る")
+    func useFanOut() {
+        #expect(read(fanOut(levels: 11)) == .unusable(.tooComplex))
+    }
+
+    @Test("ふつうに use で部品を使い回す SVG はそのまま読む")
+    func ordinaryUse() {
+        #expect(read(fanOut(levels: 3)) == .size(CGSize(width: 100, height: 100)))
+    }
+
+    @Test("自分を参照する use の輪は断る")
+    func cycle() {
+        var svg = #"<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">"#
+        svg += ##"<g id="a"><use xlink:href="#a"/><use href="#b"/></g><g id="b"><use href="#a"/></g></svg>"##
+        #expect(read(svg) == .unusable(.tooComplex))
+    }
+
+    @Test("模様や効果を url で重ねて爆発する SVG も断る")
+    func patternFanOut() {
+        var svg = #"<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><defs>"#
+        svg += #"<pattern id="p0" width="1" height="1"><rect width="1" height="1"/></pattern>"#
+        for level in 1...11 {
+            let fill = "<rect width=\"1\" height=\"1\" fill=\"url(#p\(level - 1))\"/>"
+            svg += "<pattern id=\"p\(level)\" width=\"1\" height=\"1\">" + String(repeating: fill, count: 10)
+            svg += "</pattern>"
+        }
+        svg += #"</defs><rect width="100" height="100" style="fill: url(#p11)"/></svg>"#
+        #expect(read(svg) == .unusable(.tooComplex))
+    }
+}

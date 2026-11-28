@@ -7,8 +7,12 @@ import WebKit
 /// an SVG loaded as an image runs no script and loads nothing outside itself, which is how an image file should print.
 @MainActor
 enum SVGImageDrawing {
-    /// The whole of one SVG image, from reading its root to taking the PDF.
-    static let timeout: Duration = .seconds(15)
+    /// The whole of one SVG image, from reading its root to taking the PDF: 4 seconds and 4 more for each megabyte,
+    /// at most 15. An ordinary drawing takes well under a second; a file that runs on is refused sooner when small,
+    /// so a damaged image does not hold its document (or a bundle) for the full 15 seconds.
+    static func timeout(forBytes count: Int) -> Duration {
+        .milliseconds(min(15_000, 4_000 + 4 * count / 1_000))
+    }
 
     /// A one-page PDF of the SVG drawn at `size` CSS pixels (one PDF point each), finished before `deadline`.
     static func document(_ data: Data, size: CGSize, until deadline: ContinuousClock.Instant) async throws
@@ -28,7 +32,8 @@ enum SVGImageDrawing {
         let source = WebPaginator.Source.html(html, baseURL: nil)
         let session = PaginationSession(
             source: source, pageSize: CGSize(width: width, height: height), margins: .uniform(millimeters: 0),
-            allowsJavaScript: false, printsBackgrounds: true, printTimeout: timeout, onPrintStart: { _ in },
+            allowsJavaScript: false, printsBackgrounds: true, printTimeout: ContinuousClock.now.duration(to: deadline),
+            onPrintStart: { _ in },
             onPrintFinish: {}, onClose: {})
         defer { session.requestClose() }
         do {
