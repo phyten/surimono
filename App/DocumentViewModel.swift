@@ -3692,6 +3692,9 @@ final class DocumentViewModel {
         defaultBandVisibility = origin.defaultBandVisibility
         openingViewDefaults = origin.openingViewDefaults
         defaultViewOptions = origin.defaultViewOptions
+        // The kind of document may have become known since the reset (a deck found once its folder was allowed). The
+        // defaults' page turn is this kind's; a page turn the reader chose comes back with the settings below.
+        followKnownKindInDefaults()
         apply(origin.settings)
         chosenReadingOrder = origin.chosenReadingOrder
         selectedSettingSetID = origin.selectedSettingSetID
@@ -3780,6 +3783,7 @@ final class DocumentViewModel {
             defaultViewOptions = ViewOptions.resolved(
                 for: viewDefaultsContext(for: document), preferences: openingViewDefaults)
         }
+        followKnownKindInDefaults()
         viewOptions = viewDefaults(forTheme: themeID)
         if resizesWindow, mode == .view, let window, let unit = paperUnitSize {
             ViewerWindow.setPaperSize(
@@ -4135,6 +4139,18 @@ final class DocumentViewModel {
         defaultViewOptions?.transition = transition
         guard transitionFollows != nil else { return }
         followKind(kind, transition: transition)
+    }
+
+    /// Gives the defaults the page turn of the document's kind as now known, which a layout still under way may not
+    /// tell yet: a granted folder knows the class first.
+    private func followKnownKindInDefaults() {
+        var context =
+            result.map { viewDefaultsContext(for: $0.viewDocument) }
+            ?? ViewDefaultsContext(kind: documentKind, pageCount: 3, firstPageSize: PaperSize.a4.size)
+        context.kind = documentKind
+        let transition = ViewOptions.resolved(for: context, preferences: openingViewDefaults).transition
+        defaultViewOptions?.transition = transition
+        initialViewOptions.transition = transition
     }
 
     /// The baseline follows along, so that this alone saves nothing. A record already saved keeps the kind it followed

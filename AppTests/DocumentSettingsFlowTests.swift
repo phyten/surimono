@@ -1297,6 +1297,74 @@ struct DocumentSettingsFlowTests {
         #expect(keepsChange(reopened.viewOptions))
     }
 
+    @Test("beamer と分かる前に表示の型だけを変えて保存し、前置きが読める状態で開き直すと、スライドになり表示の型は残る", .timeLimit(.minutes(1)))
+    func savedBeforeDeckFoundReopensAsDeck() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let model = try deckBehindInput(environment, readable: false)
+        defer { model.stop() }
+        try await open(model)
+        model.setLayout(.spread)
+        model.rememberedSettingsDidChange()
+        model.flushPendingSettings()
+        let hash = try #require(model.contentHash)
+        let record = try #require(environment.store.record(for: hash.hex))
+        #expect(record.view?.transition == .pageCurl && record.transitionFollowsKind == .typeset)
+        let reopened = try deckBehindInput(environment, readable: true)
+        defer { reopened.stop() }
+        try await open(reopened)
+        #expect(reopened.viewOptions.transition == .slide)
+        #expect(reopened.viewOptions.layout == .spread)
+    }
+
+    @Test(
+        "既定に戻したあと beamer と分かってから取り消すと、変えた項目は戻り、選んでいない送り方はスライド、選んだフェードはフェードのまま",
+        .timeLimit(.minutes(1)), arguments: [false, true])
+    func undoResetAfterDeckFound(choosesFade: Bool) async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let model = try deckBehindInput(environment, readable: false)
+        defer { model.stop() }
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 500, height: 600), styleMask: [.titled], backing: .buffered,
+            defer: true)
+        window.isReleasedWhenClosed = false
+        model.window = window
+        let undo = try #require(window.undoManager)
+        undo.groupsByEvent = false
+        try await open(model)
+        model.setLayout(.spread)
+        if choosesFade { model.updateViewOptions { $0.transition = .fade } }
+        model.rememberedSettingsDidChange()
+        model.flushPendingSettings()
+        let hash = try #require(model.contentHash)
+        #expect(environment.store.record(for: hash.hex)?.transitionFollowsKind == (choosesFade ? nil : .typeset))
+        undo.beginUndoGrouping()
+        model.resetDocumentSettings()
+        undo.endUndoGrouping()
+        #expect(model.viewOptions.layout == .single && model.viewOptions.transition == .pageCurl)
+        model.useDocumentFolder(FolderAccess.Lease(url: environment.directory, release: {}))
+        model.render()
+        try await waitUntil { !model.isRendering && model.slideDeck != nil }
+        #expect(model.viewOptions.transition == .slide)
+        let restored: ViewOptions.Transition = choosesFade ? .fade : .slide
+        undo.undo()
+        #expect(model.viewOptions.layout == .spread && model.viewOptions.transition == restored)
+        undo.redo()
+        #expect(model.viewOptions.layout == .single && model.viewOptions.transition == .slide)
+        undo.undo()
+        #expect(model.viewOptions.layout == .spread && model.viewOptions.transition == restored)
+        model.flushPendingSettings()
+        let record = try #require(environment.store.record(for: hash.hex))
+        #expect(record.view?.layout == .spread && record.view?.transition == restored)
+        #expect(record.transitionFollowsKind == (choosesFade ? nil : .slides))
+        let reopened = try deckBehindInput(environment, readable: true)
+        defer { reopened.stop() }
+        try await open(reopened)
+        #expect(reopened.viewOptions.layout == .spread && reopened.viewOptions.transition == restored)
+        withExtendedLifetime(window) {}
+    }
+
     @Test("参照先のクラスがあとから読めても、自分で選んだ送り方は変わらず、開き直しても残る", .timeLimit(.minutes(1)))
     func chosenPageTurnSurvivesDeckFoundLater() async throws {
         let environment = try environment()

@@ -25,6 +25,35 @@ struct DocumentSettingsTests {
         #expect(!String(decoding: try encoder.encode(DocumentSettings(zoom: 1)), as: UTF8.self).contains("Kind"))
     }
 
+    @Test("表示を含む古い記録と知らない種類の記録は、表示を保ち、送り方を選んだ物として読む")
+    func olderViewRecords() throws {
+        let view =
+            #"{"layout":"spread","direction":"leftToRight","scrollAxis":"vertical","transition":"pageCurl","showsCoverAlone":false}"#
+        let expected = ViewOptions(
+            layout: .spread, scrollAxis: .vertical, transition: .pageCurl, showsCoverAlone: false)
+        let old = try JSONDecoder().decode(DocumentSettings.self, from: Data(#"{"view":\#(view),"zoom":1.5}"#.utf8))
+        #expect(old.view == expected && old.transitionFollowsKind == nil && old.zoom == 1.5)
+        let future = try JSONDecoder().decode(
+            DocumentSettings.self, from: Data(#"{"view":\#(view),"transitionFollowsKind":"hologram"}"#.utf8))
+        #expect(future.view == expected && future.transitionFollowsKind == nil)
+    }
+
+    /// The fields of a record as a version before `transitionFollowsKind` knew them, for the round trip through it.
+    private struct EarlierRecord: Codable {
+        var view: ViewOptions?
+        var zoom: Double?
+    }
+
+    @Test("新しい版の記録を古い版が読んで書き直しても、表示は残り、従った種類だけが消える")
+    func roundTripThroughEarlierVersion() throws {
+        let view = ViewOptions(layout: .spread, scrollAxis: .vertical, transition: .slide, showsCoverAlone: false)
+        let written = try JSONEncoder().encode(DocumentSettings(view: view, zoom: 1.5, transitionFollowsKind: .slides))
+        let rewritten = try JSONEncoder().encode(try JSONDecoder().decode(EarlierRecord.self, from: written))
+        let read = try JSONDecoder().decode(DocumentSettings.self, from: rewritten)
+        #expect(read.view == view && read.zoom == 1.5)
+        #expect(read.transitionFollowsKind == nil)
+    }
+
     @Test("Org の選択が空なら旧形式を保ち、変更と上書き許可は読み戻せる")
     func orgSettingsStorage() throws {
         let decoder = JSONDecoder()
