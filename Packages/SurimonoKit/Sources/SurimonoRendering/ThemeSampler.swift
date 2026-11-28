@@ -325,8 +325,9 @@ public final class ThemeSampler {
     }
 
     /// The height of the capture from `top` that ends between lines: a line of text, an image or a diagram the bottom
-    /// edge would cut through is left out, and the paper stays blank below the last whole one. The full height when
-    /// nothing fits, as a figure taller than the page.
+    /// edge would cut through is left out, and the paper stays blank below the last whole one. A figure taller than
+    /// the sample is cut at the bottom as before, and so is the whole sample when moving the edge up would keep
+    /// nothing but the space above what it left out.
     private func settledHeight(from top: CGFloat, height: CGFloat, in webView: WKWebView) async throws -> CGFloat {
         let settled = try await webView.evaluateForPrinting(
             Self.unscaling + Self.settling, arguments: ["top": top, "height": height], world: world,
@@ -393,15 +394,27 @@ public final class ThemeSampler {
     /// Moves the bottom edge up above anything it would cut, again and again, since a line moved out of the sample
     /// may bring the edge into the line above it.
     private static let settling = """
+        const toPoints = (box) => ({ top: (box.top + window.scrollY) * unscaled,
+            bottom: (box.bottom + window.scrollY) * unscaled });
+        // A figure taller than the whole sample has no place to end between lines; it is cut at the bottom as it was,
+        // and the text inside it does not move the edge either.
+        const figures = [...document.body.querySelectorAll('img, svg, canvas, video, iframe, object, embed')];
+        const tall = figures.filter((figure) => {
+            const span = toPoints(figure.getBoundingClientRect());
+            return span.bottom - span.top > height;
+        });
+        const inTall = (node) => tall.some((figure) => figure.contains(node));
         const boxes = [];
         const range = document.createRange();
+        const start = top / unscaled - window.scrollY;
         const edge = (top + height) / unscaled - window.scrollY;
-        // Only the boxes that reach the bottom edge matter; a document's other pages are skipped a block at a time.
+        // Only the boxes within the sample matter; a document's other pages are skipped a block at a time.
         const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
             acceptNode(node) {
                 if (node.nodeType === Node.TEXT_NODE) { return NodeFilter.FILTER_ACCEPT; }
+                if (tall.includes(node)) { return NodeFilter.FILTER_REJECT; }
                 const box = node.getBoundingClientRect();
-                const outside = box.height > 0 && (box.bottom < edge - 1 || box.top > edge + 1)
+                const outside = box.height > 0 && (box.bottom < start - 1 || box.top > edge + 1)
                     && getComputedStyle(node).position === 'static';
                 return outside ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_SKIP;
             },
@@ -412,11 +425,10 @@ public final class ThemeSampler {
             range.selectNodeContents(node);
             boxes.push(...range.getClientRects());
         }
-        for (const element of document.body.querySelectorAll('img, svg, canvas, video, iframe, object, embed')) {
-            boxes.push(element.getBoundingClientRect());
+        for (const figure of figures) {
+            if (!inTall(figure)) { boxes.push(figure.getBoundingClientRect()); }
         }
-        const spans = boxes.map((box) => ({ top: (box.top + window.scrollY) * unscaled,
-            bottom: (box.bottom + window.scrollY) * unscaled })).filter((span) => span.bottom > span.top);
+        const spans = boxes.map(toPoints).filter((span) => span.bottom > span.top);
         let cut = top + height;
         for (let pass = 0; pass < 200; pass += 1) {
             let next = cut;
@@ -426,7 +438,14 @@ public final class ThemeSampler {
             if (next === cut) { break; }
             cut = next;
         }
-        return cut > top + 1 ? cut - top : height;
+        if (cut === top + height) { return height; }
+        // Moving the edge up must keep something whole above it, not only the space before what it left out.
+        const kept = spans.some((span) => span.bottom > top + 0.5 && span.bottom <= cut + 0.5 && span.top < cut);
+        const keptFigure = tall.some((figure) => {
+            const span = toPoints(figure.getBoundingClientRect());
+            return span.top < cut && span.bottom > top;
+        });
+        return kept && !keptFigure ? cut - top : height;
         """
 
     /// Releases the web view, its window and temporary file. Later requests fail with `SamplingError.closed`.

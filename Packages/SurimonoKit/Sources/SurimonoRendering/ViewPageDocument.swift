@@ -357,7 +357,11 @@ public enum ViewPageDocument {
         return result
     }
 
-    /// A heading is told from the text after it by size alone: themes set headings at least about 1.2 times the body.
+    /// Whether the page's first line of extracted text is set clearly larger than most of the page's text: by 1.3 times,
+    /// or by 1.15 times in bold. This is a guess from the PDF alone, not the heading the layout knew: "most of the
+    /// text" is the size with the most characters, so a page of small code or a table under one line of body text
+    /// would make that body line look large, which the larger ratio for regular text keeps out. A wrong guess only
+    /// keeps some 20 pt of margin above the page at a seam; nothing is cut.
     private static func startsWithHeading(_ page: PDFPage) -> Bool {
         guard let text = page.attributedString, text.length > 0 else { return false }
         let string = text.string as NSString
@@ -366,16 +370,20 @@ public enum ViewPageDocument {
         let firstLine = string.lineRange(for: NSRange(location: start, length: 0))
         var counts: [CGFloat: Int] = [:]
         var lineSize: CGFloat = 0
+        var lineIsBold = false
         text.enumerateAttribute(.font, in: NSRange(location: 0, length: text.length)) { value, range, _ in
             guard let font = value as? NSFont else { return }
             let size = (font.pointSize * 10).rounded() / 10
             counts[size, default: 0] += range.length
-            if NSIntersectionRange(range, firstLine).length > 0 { lineSize = max(lineSize, font.pointSize) }
+            guard NSIntersectionRange(range, firstLine).length > 0, font.pointSize >= lineSize else { return }
+            lineIsBold = font.pointSize > lineSize ? false : lineIsBold
+            lineSize = font.pointSize
+            lineIsBold = lineIsBold || font.fontDescriptor.symbolicTraits.contains(.bold)
         }
         guard let body = counts.max(by: { $0.value < $1.value || ($0.value == $1.value && $0.key > $1.key) })?.key,
             body > 0
         else { return false }
-        return lineSize >= body * 1.15
+        return lineSize >= body * 1.3 || (lineIsBold && lineSize >= body * 1.15)
     }
 
     /// Renders `page` at 1 pt resolution to find the lowest row above the bottom margin that differs at all from a

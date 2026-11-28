@@ -460,7 +460,70 @@ struct PaperViewTests {
 
     @Test("縦の連続スクロールで開いた直後は、短い 1 ページ目より次のページが大きく見えても 1 ページ目と報告する")
     func shortFirstPageIsCurrentAtTheStart() throws {
-        // Diagram pages take their own heights: a short first page, a tall second one and short ones after it.
+        let (view, window, reports) = try shortFirstPaper()
+        #expect(view.currentPageIndex == 0)
+        #expect(reports.values.allSatisfy { $0 == 0 })
+        // Once the first page's top leaves the view, the reader is on the page PDFKit names, and the band hears it.
+        try scroll(view, byHalfOf: 0)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        #expect(view.currentPageIndex == 1)
+        #expect(reports.values.last == 1)
+        withExtendedLifetime(window) {}
+    }
+
+    @Test("先頭ページの上端が出入りしたことは、スクロールの最中に同期で知らせず、次のメインループで 1 回知らせる")
+    func edgeReportWaitsForTheMainLoop() throws {
+        let (view, window, reports) = try shortFirstPaper()
+        let before = reports.values.count
+        try scroll(view, byHalfOf: 0)
+        // A scroll can come from SwiftUI's own update of the view; the model must not be written back from inside it.
+        #expect(reports.values.count == before)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        #expect(reports.values.count == before + 1)
+        #expect(reports.values.last == 1)
+        withExtendedLifetime(window) {}
+    }
+
+    @Test("知らせを待つ間に文書が替わったら、前の文書のページは知らせない")
+    func pendingEdgeReportDropsAReplacedDocument() throws {
+        let (view, window, reports) = try shortFirstPaper()
+        try scroll(view, byHalfOf: 0)
+        let replacement = try #require(PDFDocument(data: TestFixtures.pdf("replacement", pages: 3)))
+        view.show(replacement, at: 0)
+        view.layoutSubtreeIfNeeded()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        #expect(view.currentPageIndex == 0)
+        #expect(reports.values.last == 0)
+        withExtendedLifetime(window) {}
+    }
+
+    @Test("拡大から戻る途中の「次へ」は、帯が示す 1 ページ目から 2 ページ目へ送る", .timeLimit(.minutes(1)))
+    func turnDuringZoomReturnStartsFromTheShownPage() throws {
+        let (view, window, _) = try shortFirstPaper()
+        view.shouldReduceMotion = { false }
+        #expect(view.currentPageIndex == 0)
+        // Zoomed a little at the top, the first page's top is still in view and the tall second page fills the rest.
+        let top = NSPoint(x: view.bounds.midX, y: view.bounds.maxY - 10)
+        view.setZoom(1.3, anchor: top)
+        view.layoutSubtreeIfNeeded()
+        view.magnify(by: 0, at: top, phase: .began, time: 1)
+        view.magnify(by: -0.2, at: top, phase: .changed, time: 1.04)
+        #expect(view.isReturningToFit)
+        #expect(view.currentPageIndex == 0)
+        view.turnPage(forward: true)
+        view.layoutSubtreeIfNeeded()
+        #expect(view.currentPageIndex == 1)
+        withExtendedLifetime(window) {}
+    }
+
+    /// Keeps the reports a closure appends to, so a test can read them after the view's callbacks ran.
+    private final class Reports {
+        var values: [Int] = []
+    }
+
+    /// A continuous vertical paper at the top of diagram-like pages: a short first page, a tall second one and short
+    /// ones after it, shown the way SwiftUI does, before the paper has a size.
+    private func shortFirstPaper() throws -> (PaperPDFView, NSWindow, Reports) {
         let source = try #require(PDFDocument(data: TestFixtures.pdf("short-first", pages: 4)))
         for (index, height) in [175.0, 552, 107, 300].enumerated() {
             let box = CGRect(x: 0, y: 0, width: 595, height: height)
@@ -473,33 +536,30 @@ struct PaperViewTests {
         window.isReleasedWhenClosed = false
         let container = NSView(frame: NSRect(x: 0, y: 0, width: 659, height: 932))
         window.contentView = container
-        // SwiftUI shows the document before the paper has a size; PDFKit names its current page again once it has.
         let view = PaperPDFView(frame: .zero)
         container.addSubview(view)
         view.configure(
             source, at: 0,
             options: ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false),
             logicalMargin: 0, showsPageNumbers: false)
-        var reported: [Int] = []
-        view.onPageChange = { reported.append($0) }
+        let reports = Reports()
+        view.onPageChange = { reports.values.append($0) }
         view.frame = container.bounds
         view.layoutSubtreeIfNeeded()
         view.goToPage(index: 0)
         view.layoutSubtreeIfNeeded()
         RunLoop.current.run(until: Date().addingTimeInterval(0.3))
-        #expect(view.currentPageIndex == 0)
-        #expect(reported.allSatisfy { $0 == 0 })
-        // Once the first page's top leaves the view, the reader is on the page PDFKit names, and the band hears it.
+        return (view, window, reports)
+    }
+
+    /// Scrolls the paper down by half the height of the page at `index`.
+    private func scroll(_ view: PaperPDFView, byHalfOf index: Int) throws {
         let clip = try #require(view.documentView?.enclosingScrollView?.contentView)
-        let first = try #require(view.document?.page(at: 0))
+        let page = try #require(view.document?.page(at: index))
         let start = clip.bounds.origin
-        let down = view.convert(first.bounds(for: .cropBox), from: first).height / 2
+        let down = view.convert(page.bounds(for: .cropBox), from: page).height / 2
         clip.scroll(to: NSPoint(x: start.x, y: clip.isFlipped ? start.y + down : start.y - down))
         view.documentView?.enclosingScrollView?.reflectScrolledClipView(clip)
-        RunLoop.current.run(until: Date().addingTimeInterval(0.3))
-        #expect(view.currentPageIndex == 1)
-        #expect(reported.last == 1)
-        withExtendedLifetime(window) {}
     }
 
     @Test("横スクロールでは 1 ページが窓の幅いっぱいで、隣のページがのぞかない")

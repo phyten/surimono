@@ -236,6 +236,38 @@ struct ThemeSamplerTests {
         }
     }
 
+    @Test("ページより背の高い図は、上に少し空きがあっても見本から外さず、下端で切って描く", .timeLimit(.minutes(1)))
+    func tallFigureStaysInTheSample() async throws {
+        // A figure taller than the page cannot end between lines; leaving it out would leave only the gap above it.
+        for gap in [0, 8, 20] {
+            let markdown = """
+                <div style="height: \(gap)px"></div><svg xmlns="http://www.w3.org/2000/svg" width="300" height="1600">\
+                <rect width="300" height="1600" fill="#ddd"/><text x="10" y="40">FIGURETOP</text>\
+                <text x="10" y="900">FIGUREMIDDLE</text></svg>
+
+                ## After the figure
+
+                Closing words.
+                """
+            let sampler = try sampler(markdown, theme: theme("plain", css: "body { margin: 0; }"))
+            defer { sampler.close() }
+            let page = try await sampler.firstPage(for: theme("plain", css: "body { margin: 0; }"))
+            #expect(page.string?.contains("FIGURETOP") == true, "gap \(gap)px")
+        }
+        // A short heading before the figure stays, and the figure under it is cut at the bottom as before.
+        let headed = """
+            ## Before the figure
+
+            <svg xmlns="http://www.w3.org/2000/svg" width="300" height="1600"><rect width="300" height="1600" \
+            fill="#ddd"/><text x="10" y="40">FIGURETOP</text></svg>
+            """
+        let sampler = try sampler(headed, theme: theme("plain", css: ""))
+        defer { sampler.close() }
+        let page = try await sampler.firstPage(for: theme("plain", css: ""))
+        #expect(page.string?.contains("Before the figure") == true)
+        #expect(page.string?.contains("FIGURETOP") == true)
+    }
+
     @Test("文書の終わりの見出しでは、見本は同じ大きさのまま下が空く", .timeLimit(.minutes(1)))
     func lastHeadingLeavesThePageOpen() async throws {
         let standard = try #require(PrintThemeLibrary.load().first { $0.id == "standard" })
