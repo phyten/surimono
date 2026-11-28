@@ -246,7 +246,14 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
             guard location == "H" else { return ["", "", ""] }
             return even ? [label, leftMark.uppercased(), ""] : ["", rightMark.uppercased(), label]
         case "empty": return ["", "", ""]
-        case "plainhead", "runningheads":
+        case "runningheads":
+            // llncs separates the number and the mark by \headlineindent (1.166cm): about three and a half
+            // quads of its small header type.
+            let indent = "\u{2003}\u{2003}\u{2003}\u{2002}"
+            guard location == "H" else { return ["", "", ""] }
+            if even { return [leftMark.isEmpty ? label : label + indent + leftMark, "", ""] }
+            return ["", "", rightMark.isEmpty ? label : rightMark + indent + label]
+        case "plainhead":
             return location == "F" ? ["", "", ""] : even ? [label, "", ""] : ["", "", label]
         default: return location == "F" ? ["", label, ""] : ["", "", ""]
         }

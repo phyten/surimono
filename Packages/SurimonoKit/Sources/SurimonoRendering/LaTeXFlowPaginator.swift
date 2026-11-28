@@ -347,7 +347,7 @@ enum LaTeXFlowPaginator {
             return try await view.evaluateForPrinting(js, arguments: arguments, until: end)
         }
         // Failed passes are discarded with their session. Successful passes restore the exact preparation DOM.
-        let measure = try japaneseLineScript() + "\n" + script("latex-flow")
+        let measure = try japaneseLineScript() + "\n" + LaTeXEquationTags.definition + "\n" + script("latex-flow")
         var dimensions: [String: Any] = [
             "width": width, "leftMargin": margins.left * ratio, "rightMargin": margins.right * ratio,
             "paperHeight": pageSize.height * ratio, "bodyHeight": height,
@@ -537,7 +537,9 @@ enum LaTeXFlowPaginator {
     }
 
     /// Capture outside the strip's layout box without changing the measure or scaling its contents.
-    /// Inner columns share their gutter; the outside columns can paint into their page margins.
+    /// The outside columns can paint into their page margins. Ink beside an inner edge, such as listings
+    /// numbers placed numbersep left of the right column, crosses the gutter in TeX too, so an inner
+    /// edge reaches as far as the body padding reserved for captures (half the measure).
     static func captureRects(
         _ piece: LaTeXFlowLayout.Piece, origin: CGPoint, pageSize: CGSize, margins: WebPaginator.Margins,
         above: Bool = false, below: Bool = false
@@ -545,9 +547,9 @@ enum LaTeXFlowPaginator {
         let ratio = WebPaginator.printPixelsPerPoint
         let width = (pageSize.width - margins.left - margins.right) * ratio
         let slice = piece.slice
-        let gutter = max(0, width - 2 * slice.width) / 2
-        let left = piece.x < 0.01 ? margins.left * ratio : gutter
-        let right = piece.x + slice.width >= width - 0.01 ? margins.right * ratio : gutter
+        let inner = width / 2
+        let left = piece.x < 0.01 ? margins.left * ratio : inner
+        let right = piece.x + slice.width >= width - 0.01 ? margins.right * ratio : inner
         let top = above ? min(origin.y + slice.start - 1, (margins.top * ratio + piece.y) / piece.scale) : 0
         let bottom = below ? max(0, (pageSize.height - margins.top) * ratio - piece.end) / piece.scale : 0
         // WebKit rounds its PDF viewport to device pixels. Enclose the last fractional stroke on each

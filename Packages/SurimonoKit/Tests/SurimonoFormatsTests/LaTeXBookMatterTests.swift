@@ -256,6 +256,67 @@ struct LaTeXBookMatterTests {
         }
     }
 
+    @Test("acmart の \\ccsdesc は CCS Concepts の見出しのもと、上位の概念ごとに矢印で下位の概念を続ける")
+    func acmConcepts() {
+        let tex = #"""
+            \documentclass[manuscript]{acmart}
+            \begin{document}
+            \title{Bench}\author{A. Maker}
+            \begin{abstract}Short.\end{abstract}
+            \ccsdesc[500]{Information systems~Document representation}
+            \ccsdesc[300]{Applied computing~Document management}
+            \ccsdesc[100]{Information systems~Version control}
+            \maketitle
+            Body.
+            \end{document}
+            """#
+        let body = LaTeXConverter.convert(tex).body
+        #expect(
+            body.contains(
+                "<p class=\"latex-front-classifications\"><strong>CCS Concepts:</strong> "
+                    + "•\u{00A0}<strong>Information systems</strong> → <strong>Document representation</strong>; "
+                    + "Version control; •\u{00A0}<strong>Applied computing</strong> → "
+                    + "<em>Document management</em>.</p>"))
+    }
+
+    @Test("llncs の runningheads は偶数ページに著者の略称、奇数ページに題の略称をノンブルと並べる")
+    func lncsRunningHeads() throws {
+        let tex = #"""
+            \documentclass[runningheads]{llncs}
+            \title{A Long Bench Title}\titlerunning{Bench title}
+            \author{Fold Maker\inst{1} \and Slot Gauge\inst{2}}\authorrunning{F. Maker and S. Gauge}
+            \institute{Workshop\and Studio}
+            \begin{document}\maketitle\end{document}
+            """#
+        let result = LaTeXConverter.convert(tex)
+        var numbers = try #require(result.latexClass?.pageNumbers)
+        for action in ["leftmark", "rightmark"] {
+            let pattern = "data-latex-page-action=\"\(action)\" data-value=\""
+            let tail = try #require(result.body.components(separatedBy: pattern).dropFirst().first)
+            let value = tail.prefix { $0 != "\"" }
+            numbers.apply(action, value: String(value))
+        }
+        numbers.advance()
+        #expect(numbers.header == ["2\u{2003}\u{2003}\u{2003}\u{2002}F. Maker and S. Gauge", "", ""])
+        numbers.advance()
+        #expect(numbers.header == ["", "", "Bench title\u{2003}\u{2003}\u{2003}\u{2002}3"])
+        #expect(numbers.footer == ["", "", ""])
+    }
+
+    @Test(
+        "AMS の 3 クラスは式番号を既定で左に置き、reqno があれば書いた順によらず右に置く",
+        arguments: ["amsart", "amsproc", "amsbook"])
+    func amsTagSide(name: String) {
+        // amsclass processes its options in declaration order, and reqno is declared after leqno.
+        let cases = [
+            ("", true), ("leqno", true), ("reqno", false), ("leqno,reqno", false), ("reqno,leqno", false),
+        ]
+        for (options, left) in cases {
+            let info = LaTeXConverter.documentClassInfo("\\documentclass[\(options)]{\(name)}")
+            #expect(info.styleVariables.contains("--latex-eqno-start: 0px") == left, "\(name) [\(options)]")
+        }
+    }
+
     @Test("AMS 論文集の柱は最後の著者を and で結び式番号は既定で左に置く")
     func proceedings() {
         let tex =

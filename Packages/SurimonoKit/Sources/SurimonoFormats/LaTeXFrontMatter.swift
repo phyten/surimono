@@ -22,6 +22,7 @@ final class LaTeXFrontMatter {
     var title: String?
     var shortTitle: String?
     var runningTitle: String?
+    var runningAuthors: String?
     var namedAuthors: [Author] = []
     var titleBottomSkip: String?
     var affiliationSymbols: [String: String] = [:]
@@ -45,6 +46,8 @@ final class LaTeXFrontMatter {
     var abstractHTML: String?
     var keywords: [String] = []
     var classifications: [String] = []
+    /// acmart groups `\ccsdesc` entries by their general concept in order of first use.
+    var ccsConcepts: [(general: String, specifics: [String])] = []
     var printed = false
     var reservedKeywords = false
     var insideEnvironment = false
@@ -77,9 +80,21 @@ final class LaTeXFrontMatter {
         }
         guard printed || abstractHTML != nil || reservedKeywords else { return html }
         let abstract = abstractHTML ?? ""
-        let classification =
-            classifications.isEmpty
-            ? "" : "<p class=\"latex-front-classifications\">\(classifications.joined(separator: "; "))</p>\n"
+        let classification: String
+        if !ccsConcepts.isEmpty {
+            // acmart prints "• General → Specific; …" and ends the last concept with a period.
+            let entries = ccsConcepts.map { concept in
+                "•\u{00A0}<strong>\(concept.general)</strong>"
+                    + (concept.specifics.isEmpty ? "" : " → " + concept.specifics.joined(separator: "; "))
+            }
+            classification =
+                "<p class=\"latex-front-classifications\"><strong>CCS Concepts:</strong> "
+                + entries.joined(separator: "; ") + ".</p>\n"
+        } else {
+            classification =
+                classifications.isEmpty
+                ? "" : "<p class=\"latex-front-classifications\">\(classifications.joined(separator: "; "))</p>\n"
+        }
         let separator = document.classInfo.profile.titleBlock.keywordSeparator
         let keywordGap = keywordLabel(document).hasSuffix("—") ? "" : " "
         let keywordLine =
@@ -202,6 +217,8 @@ extension LaTeXReader {
             let label = document.classInfo.profile.titleBlock.usesAffiliationLabels ? option : nil
             let source = argument() ?? ""
             front.addAffiliation(label: label, parts: affiliationParts(source), attach: label == nil)
+        case "titlerunning": front.runningTitle = argument()
+        case "authorrunning": front.runningAuthors = argument()
         case "institute":
             if document.classInfo.profile.titleBlock.readsShortInstitute { _ = optional() }
             let sources = LaTeXLexer.split(argument() ?? "", at: ["\\and"])
@@ -274,9 +291,26 @@ extension LaTeXReader {
             }
         case "keywords", "IEEEkeywords":
             readKeywords(argument() ?? "")
-        case "subjclass", "ccsdesc":
+        case "ccsdesc":
+            let weight = Int(optional()?.trimmingCharacters(in: .whitespaces) ?? "") ?? 100
+            let parts = LaTeXLexer.split(argument() ?? "", at: ["~"]).map {
+                inline($0.trimmingCharacters(in: .whitespacesAndNewlines))
+            }
+            if let general = parts.first, !general.isEmpty {
+                // acmart's \ccsdesc@parse: weight 500 and above is bold, 300 and above italic.
+                let specific = parts.dropFirst().first.map { text in
+                    weight >= 500 ? "<strong>\(text)</strong>" : weight >= 300 ? "<em>\(text)</em>" : text
+                }
+                if let index = front.ccsConcepts.firstIndex(where: { $0.general == general }) {
+                    if let specific { front.ccsConcepts[index].specifics.append(specific) }
+                } else {
+                    front.ccsConcepts.append((general, specific.map { [$0] } ?? []))
+                }
+            }
+            reserveFrontKeywords()
+        case "subjclass":
             let option = optional()
-            if command == "subjclass", let option, ["1991", "2000", "2010", "2020"].contains(option) {
+            if let option, ["1991", "2000", "2010", "2020"].contains(option) {
                 front.classificationYear = option
             }
             let value = inline(argument() ?? "")
@@ -508,25 +542,29 @@ extension LaTeXReader {
         if let publishers = front.publishers {
             html += "<p class=\"latex-front-publishers\">\(inline(publishers))</p>\n"
         }
-        if document.classInfo.journalStyle == .ams {
-            if info.profile.titleBlock.writesAuthorMarks {
-                let names = front.authors.map { $0.shortName ?? $0.name }
-                var byline = names.dropLast().joined(separator: ", ")
-                if let last = names.last {
-                    if names.count > 1 { byline += names.count == 2 ? " and " : ", and " }
-                    byline += last
-                }
-                let marks = [
-                    ("leftmark", byline),
-                    ("rightmark", front.shortTitle ?? front.title ?? ""),
-                ]
-                for (kind, source) in marks {
-                    html +=
-                        "<span data-latex-page-action=\"\(kind)\" data-value=\"\(HTML.escape(LaTeXPageNumbers.text(source)))\"></span>"
-                }
+        func byline() -> String {
+            let names = front.authors.map { $0.shortName ?? $0.name }
+            var byline = names.dropLast().joined(separator: ", ")
+            if let last = names.last {
+                if names.count > 1 { byline += names.count == 2 ? " and " : ", and " }
+                byline += last
             }
-            html += document.placeholder("F", 3)
+            return byline
         }
+        var runningMarks: [(String, String)] = []
+        if document.classInfo.journalStyle == .ams, info.profile.titleBlock.writesAuthorMarks {
+            runningMarks = [("leftmark", byline()), ("rightmark", front.shortTitle ?? front.title ?? "")]
+        } else if info.profile.titleBlock.writesRunningMarks {
+            runningMarks = [
+                ("leftmark", front.runningAuthors ?? byline()),
+                ("rightmark", front.runningTitle ?? front.title ?? ""),
+            ]
+        }
+        for (kind, source) in runningMarks {
+            html +=
+                "<span data-latex-page-action=\"\(kind)\" data-value=\"\(HTML.escape(LaTeXPageNumbers.text(source)))\"></span>"
+        }
+        if document.classInfo.journalStyle == .ams { html += document.placeholder("F", 3) }
         appendBlock(html + "</header>\n" + document.placeholder("F", 2))
     }
 }

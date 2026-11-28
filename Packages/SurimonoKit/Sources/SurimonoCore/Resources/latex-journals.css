@@ -184,7 +184,7 @@ body[data-latex-class="amsart"] {
 body[data-latex-journal="ams"]:not([data-latex-class="amsbook"]) :is(.latex-ams-address,.latex-ams-curraddr,.latex-ams-urladdr,.latex-ams-email) {
     font-size: var(--latex-size-footnotesize); line-height: calc(var(--ams-note-pitch) * var(--tex-pt));
 }
-body[data-latex-class="amsproc"] .latex-equation > .eqno {
+body[data-latex-journal="ams"] :is(.latex-equation > .eqno, .math-display > .latex-row-number) {
     inset-inline-start: var(--latex-eqno-start, auto); inset-inline-end: var(--latex-eqno-end, 0);
 }
 body[data-latex-class="amsproc"] .latex-title-block { padding-block-start: calc(84 * var(--tex-pt)); }

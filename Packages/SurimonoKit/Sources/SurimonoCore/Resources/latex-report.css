@@ -1,10 +1,12 @@
 /* report/book put the title on its own page and begin each chapter on a fresh one.
    Padding rather than a collapsing margin keeps the chapter head away from the page edge. */
 .latex-title-block { padding-block-start: min(37vh, 28em); break-after: page; page-break-after: always; }
+/* \tableofcontents opens like \chapter* but ends without a page break: text after it continues on its page.
+   The report abstract is a titlepage and fills its own page. */
 body[data-latex-chapters="true"] nav.toc, body[data-latex-chapters="true"] .abstract {
-    break-before: page; page-break-before: always; break-after: page; page-break-after: always;
-    margin: 0;
+    break-before: page; page-break-before: always; margin: 0;
 }
+body[data-latex-chapters="true"] .abstract { break-after: page; page-break-after: always; }
 body[data-latex-chapters="true"] .latex-contents-title {
     --tex-toc-title: 20.74;
     padding-block-start: var(--tex-chapter-top, calc((50 + var(--tex-body)) * var(--tex-pt) + var(--tex-baseline))); margin-block-end: calc(40 * var(--tex-pt));

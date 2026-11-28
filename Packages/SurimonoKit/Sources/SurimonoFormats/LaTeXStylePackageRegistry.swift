@@ -301,7 +301,8 @@ enum LaTeXStylePackageRegistry {
         style.paragraphIndent = 10.95
         style.outerParsep = 4.5
         style.pointSize = 11
-        style.showsPageNumbers = mode == .submission
+        // acl.sty: review and preprint set \acl@pagenumberstrue; only final uses the empty page style.
+        style.showsPageNumbers = mode != .final
         style.noteRuleWidth = 60
         return style
     }

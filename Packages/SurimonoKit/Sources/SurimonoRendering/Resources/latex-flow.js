@@ -477,9 +477,11 @@ function displayBaseline(svg) {
     const rect = svg.getBoundingClientRect();
     return rect.top + rect.height * fraction;
 }
+// The column measure decides again whether each equation number shares its display's line.
+surimonoFitEquationTags(body);
 if (measuredGrid) {
     const labels = [];
-    for (const label of body.querySelectorAll('.latex-equation > .eqno')) {
+    for (const label of body.querySelectorAll('.latex-equation:not([data-latex-tag-line]) > .eqno')) {
         const svg = label.parentElement.querySelector(':scope > .math-display > svg:only-child');
         if (!svg || label.parentElement.querySelector('.latex-row-number')) continue;
         const mark = baselineProbe();
@@ -1216,6 +1218,37 @@ function lines(box, endsPage) {
     // The column's first baseline is governed by the class topskip, even when
     // its first text line is an abstract heading or uses the bibliography font.
     const columnTopSkip = publicationTopSkip || texPoint * (Number(body.dataset.latexSize) || 10);
+    // An exam solution frame that fits an empty column moves whole, as break-inside: avoid does in
+    // WebKit's own pagination. Its chained lines carry the notes cited inside, which the layout
+    // reserves with them, so those count towards the fit. A taller frame still breaks between lines.
+    const keptFrames = new Map();
+    function keptFrame(el) {
+        const frame = el.closest('.latex-exam-solution');
+        if (!frame) return null;
+        if (!keptFrames.has(frame)) {
+            const ids = new Set([...frame.querySelectorAll('[data-flow-note]')].map(a => a.dataset.flowNote));
+            let need = frame.getBoundingClientRect().height * unit;
+            if (ids.size) need += noteSkip;
+            for (const id of ids) {
+                const note = pendingMeasurements.find(([key]) => key === id)?.[1];
+                need += note ? note.getBoundingClientRect().height * unit : Infinity;
+            }
+            keptFrames.set(frame, need <= bodyHeight);
+        }
+        return keptFrames.get(frame) ? frame : null;
+    }
+    // The kept frame travels with its border and padding: widen its first and last rows to its edges.
+    for (const [i, r] of rows.entries()) {
+        const frame = keptFrame(r.element);
+        if (!frame) continue;
+        const rect = frame.getBoundingClientRect();
+        if (i === 0 || keptFrame(rows[i-1].element) !== frame) {
+            r.start = Math.max(i ? rows[i-1].end : 0, Math.min(r.start, (rect.top + scrollY)*unit - origin));
+        }
+        if (i === rows.length - 1 || keptFrame(rows[i+1].element) !== frame) {
+            r.end = Math.min(i + 1 < rows.length ? rows[i+1].start : Infinity, Math.max(r.end, (rect.bottom + scrollY)*unit - origin));
+        }
+    }
     return rows.map((r,i) => {
         const [plus, minus] = conferenceGlue(rows[i-1],r);
         return {slice:slice(box,r.start,r.end), brokenAfter:r.broken || undefined,
@@ -1224,7 +1257,8 @@ function lines(box, endsPage) {
         gap:i ? Math.max(0,r.start-rows[i-1].end) : r.start, stretchBefore:flushBottom && plus ? plus * texPoint : undefined,
         shrinkBefore:((rows[i-1]?.shrinkAfter || 0) + r.shrinkAbove + minus * texPoint) || undefined, discardable:r.discard, extraAfter:r.extra,
         topSkip:r.element.closest(publicationGrid ? '[data-latex-heading="section"]' :
-            '[data-latex-heading="section"],[data-latex-heading="subsection"],[data-latex-heading="subsubsection"]') ? sectionTop : 0, paragraph:r.para, heading:r.heading, keepBefore:r.element.hasAttribute('data-flow-after-text') || undefined};
+            '[data-latex-heading="section"],[data-latex-heading="subsection"],[data-latex-heading="subsubsection"]') ? sectionTop : 0, paragraph:r.para, heading:r.heading,
+        keepBefore:r.element.hasAttribute('data-flow-after-text') || (i > 0 && !!keptFrame(r.element) && keptFrame(r.element) === keptFrame(rows[i-1].element)) || undefined};
     });
 }
 // A TeX paragraph ends at the deepest glyph on its final line. Its HTML line box includes
