@@ -67,6 +67,51 @@ struct WebPaginatorTests {
         #expect(abs(size.width - a4.width) < 0.01 && abs(size.height - a4.height) < 0.01)
     }
 
+    @Test("改ページで次のページへ送られた見出しへの文書内リンクは、見出しのあるページを指す")
+    func linkToHeadingPushedToNextPage() async throws {
+        // A heading that holds a float in a formatting context of its own, as an Org heading with tags does. WebKit
+        // gave a link to such a heading, pushed down by a page break, the place on the page before where it would
+        // have started. The sections vary in length so that some headings fall at a page break whatever the scale.
+        let count = 40
+        let contents = (1...count).map { "<li><a href=\"#s\($0)\">TO-\($0)</a></li>" }.joined()
+        let sections = (1...count).map { n in
+            "<h2 id=\"s\(n)\">HEAD-\(n)<span class=\"tag\">tag</span></h2><p>"
+                + String(repeating: "本文。", count: 15 + (n * 37) % 110) + "</p>"
+        }.joined()
+        let html = """
+            <!doctype html><meta charset="utf-8"><style>
+            h2 { display: flow-root; margin: 1.2em 0 0.4em; break-after: avoid } .tag { float: right; font-size: 0.7em }
+            p { orphans: 3; widows: 3 }
+            </style><body><ul>\(contents)</ul>\(sections)</body>
+            """
+        let document = try await WebPaginator().paginate(
+            .html(html, baseURL: nil), pageSize: a4, margins: .uniform(millimeters: 15), allowsJavaScript: false)
+        var headingPages: [Int: Int] = [:]
+        for index in 0..<document.pageCount {
+            let lines = document.page(at: index)?.string?.components(separatedBy: .newlines) ?? []
+            for line in lines where line.hasPrefix("HEAD-") {
+                let number = Int(line.dropFirst("HEAD-".count).prefix { $0.isNumber })
+                if let number, headingPages[number] == nil { headingPages[number] = index }
+            }
+        }
+        #expect(headingPages.count == count)
+        var checked = 0
+        for index in 0..<document.pageCount {
+            guard let page = document.page(at: index) else { continue }
+            for annotation in page.annotations where annotation.type == "Link" {
+                let label = page.selection(for: annotation.bounds)?.string ?? ""
+                guard let range = label.range(of: "TO-"),
+                    let number = Int(label[range.upperBound...].prefix { $0.isNumber }),
+                    let destination = (annotation.action as? PDFActionGoTo)?.destination ?? annotation.destination,
+                    let target = destination.page
+                else { continue }
+                checked += 1
+                #expect(document.index(for: target) == headingPages[number], "TO-\(number)")
+            }
+        }
+        #expect(checked == count)
+    }
+
     /// A sheet 1.5 pixels taller than A4 (1122.52 CSS pixels) whose footer's descenders, set larger than its line,
     /// reach below the paper.
     static let overhangingSheet = """
