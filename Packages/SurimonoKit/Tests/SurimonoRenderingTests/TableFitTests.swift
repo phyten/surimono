@@ -673,19 +673,20 @@ struct TableFitTests {
         "https://example.com/a/very/long/url/that/keeps/going/and/going/without/any/space/in/it/at/all/index.html"
         + "?query=1&another=2&more=3"
 
-    @Test("短い列は表の幅の3割以下で決め、長い列には8文字ぶんか3割を列の数で分けた幅を、もとの幅までは残す")
+    @Test("短い列は表の幅の3割以下で決め、長い列には合わせて3割と各4文字ぶんを、もとの幅までは残す")
     func labelArithmetic() throws {
         let js = try #require(JSContext())
         js.evaluateScript(TableFit.labelFunctions)
         let isShort = try #require(js.objectForKeyedSubscript("isShortColumn"))
-        let floor = try #require(js.objectForKeyedSubscript("columnFloor"))
+        let together = try #require(js.objectForKeyedSubscript("longColumnsFloor"))
+        let each = try #require(js.objectForKeyedSubscript("columnFloor"))
         #expect(isShort.call(withArguments: [191.25, 637.5]).toBool())
         #expect(!isShort.call(withArguments: [191.5, 637.5]).toBool())
-        // One long column keeps 30% of the room; three keep eight ems each, more than their 10%.
-        #expect(floor.call(withArguments: [400, 14, 637.5, 1]).toDouble() == 191.25)
-        #expect(floor.call(withArguments: [500, 14, 637.5, 3]).toDouble() == 112)
-        // A column that had less keeps what it had.
-        #expect(floor.call(withArguments: [100, 14, 637.5, 1]).toDouble() == 100)
+        #expect(together.call(withArguments: [400, 637.5]).toDouble() == 191.25)
+        #expect(each.call(withArguments: [500, 14]).toDouble() == 56)
+        // Columns that had less keep what they had.
+        #expect(together.call(withArguments: [100, 637.5]).toDouble() == 100)
+        #expect(each.call(withArguments: [40, 14]).toDouble() == 40)
         #expect(js.exception == nil)
     }
 
@@ -724,15 +725,23 @@ struct TableFitTests {
         #expect(pages.fitted.data == pages.original.data)
     }
 
-    @Test("短い列を守ると長い列が下限より狭くなる表は、どの列も守らない", .timeLimit(.minutes(1)))
+    @Test("短い列を全部守ると長い列が下限より狭くなる表は、狭い列から守れるだけ守る", .timeLimit(.minutes(1)))
     func longColumnFloorKept() async throws {
-        // Four kept whole would still fit, but leave the URL less than 30% of the room.
-        let labels = Array(repeating: "Not applicable", count: 4)
+        // All four kept whole would still fit, but leave the URL less than 30% of the room, and so would three;
+        // the two narrower ones, after the wider ones, leave it enough.
+        let narrow = "<span style='color:lime'>Not applicable</span>"
+        let wide = "<span style='color:blue'>Not applicable for now</span>"
         let source =
-            "| " + labels.joined(separator: " | ") + " | 値 |\n|" + String(repeating: "---|", count: 5) + "\n| "
-            + labels.joined(separator: " | ") + " | \(Self.longURL) |\n"
-        let pages = try await withAndWithout(source)
-        #expect(pages.fitted.data == pages.original.data)
+            "| a | b | c | d | 値 |\n|---|---|---|---|---|\n"
+            + "| \(wide) | Not applicable for now | \(narrow) | Not applicable | \(Self.longURL) |\n"
+        let control = try await Raster(printPage(narrow + " " + wide + "\n"))
+        let actual = try await Raster(printPage(source))
+        let line = try control.bounds(channel: 1)
+        let kept = try actual.bounds(channel: 1)
+        #expect(kept.height == line.height, "kept \(kept), in a paragraph \(line)")
+        // The wider ones wrap as they did.
+        let wrapped = try actual.bounds(channel: 2)
+        #expect(wrapped.height > 2 * line.height, "wrapped \(wrapped), a line \(line)")
     }
 
     @Test("改行を保つ指定で改行のあるセルがある列は、短くても今までどおりにする", .timeLimit(.minutes(1)))
@@ -870,35 +879,90 @@ struct TableFitTests {
         }
     }
 
-    @Test("短い列を守るのをやめた表では、空白の扱いだけを書いたセルのスタイルもそのまま残す", .timeLimit(.minutes(1)))
+    @Test("守るのをやめた短い列では、空白の扱いだけを書いたセルのスタイルもそのまま残す", .timeLimit(.minutes(1)))
     func styleRestoredWhole() async throws {
-        // Four labels kept whole would leave the URL less than 30% of the room, so none is kept.
-        let label = "<td data-kept style='white-space-collapse: preserve'>Not applicable</td>"
+        // All four labels kept whole would leave the URL less than 30% of the room; the widest is given up.
+        let label = "<td data-kept style='white-space-collapse: preserve'>Not applicable now</td>"
         let others = String(repeating: "<td>Not applicable</td>", count: 3)
         let source =
             "<table><tr><th>a</th><th>b</th><th>c</th><th>d</th><th>値</th></tr>"
             + "<tr>\(label)\(others)<td>\(Self.longURL)</td></tr></table>\n"
         let style = KeptStyle()
-        let fitted = try await printed(source, inspect: style.record)
-        let original = try await printed(source, fit: false)
+        _ = try await printed(source, inspect: style.record)
         #expect(style.value == "white-space-collapse: preserve")
-        #expect(
-            try Raster(#require(fitted.logicalDocument.page(at: 0))).data
-                == Raster(#require(original.logicalDocument.page(at: 0))).data)
     }
 
     @Test("長い列の余白が大きく、本文の幅が下限より狭くなる表は、どの列も守らない", .timeLimit(.minutes(1)))
     func longColumnContentFloor() async throws {
-        // With its padding the URL's column would keep more than 30% of the room, its text less.
+        // With its padding the URL's column would keep more than 30% of the room with any label kept, its text
+        // less even with one.
         let labels = Array(repeating: "Not applicable", count: 3)
         let source =
             "| " + labels.joined(separator: " | ") + " | 値 |\n|" + String(repeating: "---|", count: 4) + "\n| "
             + labels.joined(separator: " | ") + " | \(Self.longURL) |\n"
-        let css = "th, td { box-sizing: border-box } th:last-child, td:last-child { padding: 0 60px }"
+        let css = "th, td { box-sizing: border-box } th:last-child, td:last-child { padding: 0 140px }"
         let fitted = try await printed(source, css: css)
         let original = try await printed(source, fit: false, css: css)
         #expect(
             try Raster(#require(fitted.logicalDocument.page(at: 0))).data
                 == Raster(#require(original.logicalDocument.page(at: 0))).data)
+    }
+
+    /// The rows of pixels that hold lime, as runs of rows with lime in them, top to bottom.
+    private func limeRuns(_ raster: Raster) -> [ClosedRange<Int>] {
+        let height = raster.data.count / 4 / raster.width
+        var runs: [ClosedRange<Int>] = []
+        raster.data.withUnsafeBytes { (bytes: UnsafeRawBufferPointer) in
+            for y in 0..<height {
+                let row = (0..<raster.width).contains { x in
+                    let i = (y * raster.width + x) * 4
+                    return bytes[i + 1] > 160 && bytes[i] < 80 && bytes[i + 2] < 80
+                }
+                guard row else { continue }
+                if let last = runs.last, last.upperBound == y - 1 {
+                    runs[runs.count - 1] = last.lowerBound...y
+                } else {
+                    runs.append(y...y)
+                }
+            }
+        }
+        return runs
+    }
+
+    @Test(
+        "短い6列と長い2列の表は、短い列を1行のまま本文の幅に収め、本文の大きさを変えない", .timeLimit(.minutes(1)),
+        arguments: [1.0, 2.0])
+    func manyLabelsBesideTwoLongColumns(scale: Double) async throws {
+        func row(_ cells: [String]) -> String { "| " + cells.joined(separator: " | ") + " |\n" }
+        let long = "見開きの面付けを目視で確かめ、余白と折り目の位置に問題がないことを確かめました。"
+        let note = "予備を含む。次回は別の判でも同じ原稿を試す予定。"
+        let table =
+            row(["No", "日付", "区分", "状態", "金額", "担当者", "説明", "備考"])
+            + row(["---:", "---", "---", "---", "---:", "---", "---", "---"])
+            + row(["1", "2026-11-01", "印刷", "完了", "12,800", "担当甲", long, note])
+            + row(["2", "2026-11-12", "組版", "確認中", "4,500", "担当乙", long, note])
+            + row(["100", "2026-11-28", "配布", "未着手", "128,000", "担当丙", long, note])
+        // Every cell of the six short columns is lime, so a cell that wraps adds a line of lime below the rest.
+        let css = ":is(th, td):nth-child(-n+6) { color: lime }"
+        let (control, result, line) = try await atDeviceScale(CGFloat(scale)) {
+            (
+                try await Raster(printPage(paragraph)), try await printed(paragraph + table, css: css),
+                try await Raster(printPage("<span style='color:lime'>2026-11-28 128,000 未着手</span>\n"))
+            )
+        }
+        let page = try #require(result.logicalDocument.page(at: 0))
+        let actual = try Raster(page)
+        // The text above the table is the same pixels as without it: the page was not shrunk.
+        let body = try control.bounds(channel: 2)
+        #expect(actual.rows(through: body.maxY + 4) == control.rows(through: body.maxY + 4))
+        // One line of lime a row, the header's and the three of the body, each as tall as a line of them.
+        let oneLine = try line.bounds(channel: 1).height
+        let runs = limeRuns(actual)
+        #expect(runs.count == 4, "\(runs)")
+        #expect(runs.allSatisfy { $0.count <= Int(oneLine) + 1 }, "\(runs), a line \(oneLine)")
+        // The right rule is inside the text column.
+        let border = try actual.bounds(channel: 0)
+        let rightEdge = (page.bounds(for: .mediaBox).width - 15 * 72 / 25.4) * 2
+        #expect(border.maxX <= ceil(rightEdge))
     }
 }
