@@ -143,6 +143,12 @@ final class DocumentViewModel {
         }
     }
     private var chosenReadingOrder: (direction: ViewOptions.Direction?, axis: ViewOptions.ScrollAxis?) = (nil, nil)
+    /// The kind of document whose default the page turn follows; nil once the reader chose a page turn (or a record
+    /// from before this existed says one). Changing the layout or the reading direction is not a choice of page turn.
+    private var transitionFollows: ViewDefaultsContext.Kind?
+    /// The kind of document as now known. It can change: a deck's class may come from a file read once its folder is
+    /// allowed.
+    @ObservationIgnored private var documentKind: ViewDefaultsContext.Kind
 
     private func viewDefaults(forTheme id: String?) -> ViewOptions {
         (defaultViewOptions ?? initialViewOptions).following(
@@ -770,7 +776,7 @@ final class DocumentViewModel {
     private var hasResolvedViewOptions = false
     @ObservationIgnored private var defaultViewOptions: ViewOptions?
     /// The guess shown before the pages are known; a different value then can only come from the user.
-    @ObservationIgnored private let initialViewOptions: ViewOptions
+    @ObservationIgnored private var initialViewOptions: ViewOptions
     let renderer: DocumentRenderer
     @ObservationIgnored private var composingSheets = false
     private(set) var renderTask: Task<Void, Never>?
@@ -894,10 +900,12 @@ final class DocumentViewModel {
         // class already: a choice made during the first layout keeps the guess's page turn, which must be the deck's.
         let isSlideDeck =
             source.map { $0.format == .latex && renderer.latexClassInfo(for: $0).beamerPageSize != nil } ?? false
+        let kind = isSlideDeck ? .slides : Self.viewKind(format: format, isBundle: imageBundle != nil)
+        documentKind = kind
+        transitionFollows = kind
         let guess = ViewOptions.resolved(
-            for: ViewDefaultsContext(
-                kind: isSlideDeck ? .slides : Self.viewKind(format: format, isBundle: imageBundle != nil),
-                pageCount: 3, firstPageSize: PaperSize.a4.size), preferences: preferences.viewDefaults)
+            for: ViewDefaultsContext(kind: kind, pageCount: 3, firstPageSize: PaperSize.a4.size),
+            preferences: preferences.viewDefaults)
         viewOptions = guess.following(
             library.theme(initialTheme, for: themeFormat, classStyle: inferredStyle)?.flow ?? .horizontal,
             preferredScrollAxis: preferences.viewDefaults.scrollAxis)
@@ -2166,6 +2174,8 @@ final class DocumentViewModel {
         paperOrientation = source.paperOrientation
         printOptions = source.printOptions
         chosenReadingOrder = source.chosenReadingOrder
+        transitionFollows = source.transitionFollows
+        documentKind = source.documentKind
         viewOptions = source.viewOptions
         hasResolvedViewOptions = true
         zoom = source.zoom
@@ -2341,6 +2351,7 @@ final class DocumentViewModel {
         change(&options)
         if options.direction != viewOptions.direction { chosenReadingOrder.direction = options.direction }
         if options.scrollAxis != viewOptions.scrollAxis { chosenReadingOrder.axis = options.scrollAxis }
+        if options.transition != viewOptions.transition { transitionFollows = nil }
         hasResolvedViewOptions = true
         viewOptions = options
     }
@@ -3051,12 +3062,23 @@ final class DocumentViewModel {
 
     /// Picks the reading layout once the pages are known, unless the user already chose one for this document.
     private func resolveViewOptionsIfNeeded(for document: PDFDocument) {
-        guard defaultViewOptions == nil else { return }
-        let defaults = ViewOptions.resolved(for: viewDefaultsContext(for: document), preferences: openingViewDefaults)
+        let context = viewDefaultsContext(for: document)
+        let defaults = ViewOptions.resolved(for: context, preferences: openingViewDefaults)
+        guard defaultViewOptions == nil else {
+            // A later layout can know the document better, such as a deck whose class came from a newly readable file.
+            if context.kind != documentKind { documentKindDidChange(context.kind, transition: defaults.transition) }
+            return
+        }
+        documentKind = context.kind
         defaultViewOptions = defaults
         if !hasResolvedViewOptions {
             hasResolvedViewOptions = true
             viewOptions = viewDefaults(forTheme: themeID)
+            transitionFollows = context.kind
+        } else if let followed = transitionFollows, followed != context.kind {
+            // A layout or reading direction chosen during the first layout is not a choice of page turn; nor does a
+            // record keep a page turn that followed another kind than this document now is.
+            followKind(context.kind, transition: defaults.transition)
         }
         guard !hasSavedSettings else { return }
         // Now that the defaults are complete, whatever differs from them was chosen by the user.
@@ -3122,7 +3144,7 @@ final class DocumentViewModel {
             latexComposition: format == .latex && savedComposition != .document ? savedComposition : nil,
             contentsPanel: contentsPanel == .init() ? nil : contentsPanel,
             orgReading: format == .org && binder == nil && orgDocumentReading != .init() ? orgDocumentReading : nil,
-            formatReading: formatReading)
+            formatReading: formatReading, transitionFollowsKind: transitionFollows)
     }
 
     var currentPrintSettingSet: PrintSettingSet {
@@ -3251,7 +3273,8 @@ final class DocumentViewModel {
             htmlPresentation: usesHTMLPresentation ? .web : nil,
             binderStartsOnFront: binder != nil ? false : nil,
             printFinish: finishAppliesToText ? preferences.printFinish : nil,
-            codePaletteID: usesPrintTheme ? Self.defaultCodePaletteID(preferences, library) : nil)
+            codePaletteID: usesPrintTheme ? Self.defaultCodePaletteID(preferences, library) : nil,
+            transitionFollowsKind: documentKind)
     }
 
     private func defaultsWithDirectives(_ defaults: DocumentSettings) -> DocumentSettings {
@@ -3507,6 +3530,11 @@ final class DocumentViewModel {
         if let view = saved.view {
             chosenReadingOrder = (view.direction, view.scrollAxis)
             viewOptions = view
+            transitionFollows = saved.transitionFollowsKind
+            // A page turn that followed another kind than this document is now known to be takes this kind's default.
+            if let followed = transitionFollows, followed != documentKind {
+                followKind(documentKind, transition: (defaultViewOptions ?? initialViewOptions).transition)
+            }
             hasResolvedViewOptions = true
         }
         if let zoom = saved.zoom { self.zoom = min(max(zoom, 1), PaperPDFView.maximumZoom) }
@@ -3709,6 +3737,7 @@ final class DocumentViewModel {
         }
         hasSavedSettings = false
         chosenReadingOrder = (nil, nil)
+        transitionFollows = documentKind
         validatesMigratedContent = false
         pendingImageOrder = nil
         restoredPaperSize = nil
@@ -4086,6 +4115,35 @@ final class DocumentViewModel {
         } else if theme(themeID) == nil {
             themeID = defaultThemeID
         }
+        // The class may also make the document a deck, which turns its pages differently.
+        let isSlideDeck = themedSource.map { renderer.latexClassInfo(for: $0).beamerPageSize != nil } ?? false
+        let transition = ViewOptions.resolved(
+            for: ViewDefaultsContext(
+                kind: isSlideDeck ? .slides : .typeset, pageCount: 3, firstPageSize: PaperSize.a4.size),
+            preferences: openingViewDefaults
+        ).transition
+        let kind: ViewDefaultsContext.Kind = isSlideDeck ? .slides : .typeset
+        if kind != documentKind { documentKindDidChange(kind, transition: transition) }
+    }
+
+    /// The document turned out to be of another kind. Only a page turn the reader never chose follows it: their own
+    /// choice and one an older record saved stay, and so do their other view choices. `transition` is the kind's
+    /// default with the app's chosen default applied.
+    private func documentKindDidChange(_ kind: ViewDefaultsContext.Kind, transition: ViewOptions.Transition) {
+        documentKind = kind
+        initialViewOptions.transition = transition
+        defaultViewOptions?.transition = transition
+        guard transitionFollows != nil else { return }
+        followKind(kind, transition: transition)
+    }
+
+    /// The baseline follows along, so that this alone saves nothing. A record already saved keeps the kind it followed
+    /// and takes this kind's default again when it is next opened.
+    private func followKind(_ kind: ViewDefaultsContext.Kind, transition: ViewOptions.Transition) {
+        viewOptions.transition = transition
+        transitionFollows = kind
+        settingsBaseline?.view?.transition = transition
+        settingsBaseline?.transitionFollowsKind = kind
     }
 
     func requestFolderAccess() {

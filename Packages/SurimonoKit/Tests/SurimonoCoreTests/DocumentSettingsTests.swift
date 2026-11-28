@@ -4,6 +4,27 @@ import SurimonoCore
 import Testing
 
 struct DocumentSettingsTests {
+    @Test("選んでいない送り方が従った文書の種類を書いて読み戻し、古い記録と未知の種類は選んだ送り方として読む")
+    func transitionFollowsKind() throws {
+        let decoder = JSONDecoder()
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        let followed = DocumentSettings(
+            view: ViewOptions(layout: .spread, scrollAxis: .vertical, transition: .pageCurl, showsCoverAlone: false),
+            transitionFollowsKind: .typeset)
+        let data = try encoder.encode(followed)
+        #expect(String(decoding: data, as: UTF8.self).contains(#""transitionFollowsKind":"typeset""#))
+        #expect(try decoder.decode(DocumentSettings.self, from: data) == followed)
+        // Records from before the key, and a kind a later version wrote, keep their saved page turn.
+        let old = try decoder.decode(DocumentSettings.self, from: Data(#"{"zoom":1.5}"#.utf8))
+        #expect(old.transitionFollowsKind == nil)
+        let future = try decoder.decode(
+            DocumentSettings.self, from: Data(#"{"zoom":1.5,"transitionFollowsKind":"hologram"}"#.utf8))
+        #expect(future.transitionFollowsKind == nil && future.zoom == 1.5)
+        // A chosen page turn writes no kind.
+        #expect(!String(decoding: try encoder.encode(DocumentSettings(zoom: 1)), as: UTF8.self).contains("Kind"))
+    }
+
     @Test("Org の選択が空なら旧形式を保ち、変更と上書き許可は読み戻せる")
     func orgSettingsStorage() throws {
         let decoder = JSONDecoder()

@@ -1184,14 +1184,13 @@ struct DocumentSettingsFlowTests {
     }
 
     @Test(
-        "LaTeX の文書は組版の前からめくりで、組版中に表示の型か読む向きだけを変えても組版のあともめくり",
+        "LaTeX の文書は組版の前からめくりで、組版中に表示の型か読む向きだけを変えても、組版のあとも開き直してもめくりで、変えた項目は残る",
         .timeLimit(.minutes(1)), arguments: ["layout", "direction"])
     func latexPageCurlDuringLayout(change: String) async throws {
         let environment = try environment()
         defer { environment.cleanUp() }
-        let model = source(
-            #"\documentclass{article}\begin{document}\section{North}Gauge.\section{South}Gauge.\end{document}"#,
-            format: .latex, in: environment)
+        let text = #"\documentclass{article}\begin{document}\section{North}Gauge.\section{South}Gauge.\end{document}"#
+        let model = source(text, format: .latex, in: environment)
         defer { model.stop() }
         #expect(model.viewOptions.transition == .pageCurl)
         model.start()
@@ -1202,9 +1201,125 @@ struct DocumentSettingsFlowTests {
         } else {
             model.updateViewOptions { $0.direction = .rightToLeft }
         }
-        try await waitUntil { model.result != nil && !model.isRendering }
+        func keepsChange(_ options: ViewOptions?) -> Bool {
+            change == "layout" ? options?.layout == .spread : options?.direction == .rightToLeft
+        }
+        try await waitUntil { model.result != nil && !model.isRendering && model.contentHash != nil }
         try #require(model.slideDeck == nil)
         #expect(model.viewOptions.transition == .pageCurl)
+        #expect(keepsChange(model.viewOptions))
+        let hash = try #require(model.contentHash)
+        model.rememberedSettingsDidChange()
+        model.flushPendingSettings()
+        let record = try #require(environment.store.record(for: hash.hex))
+        #expect(record.view?.transition == .pageCurl && record.transitionFollowsKind == .typeset)
+        #expect(keepsChange(record.view))
+        let reopened = source(text, format: .latex, in: environment)
+        defer { reopened.stop() }
+        try await open(reopened)
+        #expect(reopened.viewOptions.transition == .pageCurl)
+        #expect(keepsChange(reopened.viewOptions))
+    }
+
+    @Test("縦組みの文書クラスは右から左へ読み、めくりで開く", .timeLimit(.minutes(1)))
+    func verticalLaTeXPageCurl() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let model = source(
+            #"\documentclass{tarticle}\begin{document}\section{北}本文です。\end{document}"#, format: .latex,
+            in: environment)
+        defer { model.stop() }
+        #expect(model.viewOptions.direction == .rightToLeft && model.viewOptions.transition == .pageCurl)
+        try await open(model)
+        #expect(model.viewOptions.direction == .rightToLeft && model.viewOptions.transition == .pageCurl)
+    }
+
+    /// A deck whose class sits in an included file, which a sandboxed app reads only once the folder is allowed.
+    private func deckBehindInput(_ environment: Environment, readable: Bool) throws -> DocumentViewModel {
+        let bytes = Data(#"\input{deck}\begin{document}\frame{North}\frame{South}\end{document}"#.utf8)
+        let main = try environment.file(bytes, named: "main.tex")
+        _ = try environment.file(Data(#"\documentclass{beamer}"#.utf8), named: "deck.tex")
+        let pages = pdf("Slide", pages: 2)
+        return DocumentViewModel(
+            data: bytes, fileURL: main, format: .latex, preferences: environment.preferences,
+            library: environment.library,
+            renderer: DocumentRenderer(
+                isSandboxed: { !readable }, paginate: { _ in try #require(PDFDocument(data: pages)) }),
+            settingsStore: environment.store)
+    }
+
+    @Test(
+        "参照先のクラスがあとから読めて beamer と分かると、選んでいない送り方はスライドになり、変えた項目は開き直しても残る",
+        .timeLimit(.minutes(1)), arguments: ["none", "layout", "direction"])
+    func deckFoundLater(change: String) async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let model = try deckBehindInput(environment, readable: false)
+        defer { model.stop() }
+        #expect(model.viewOptions.transition == .pageCurl)
+        model.start()
+        try #require(model.result == nil)
+        switch change {
+        case "layout": model.setLayout(.spread)
+        case "direction": model.updateViewOptions { $0.direction = .rightToLeft }
+        default: break
+        }
+        func keepsChange(_ options: ViewOptions?) -> Bool {
+            switch change {
+            case "layout": options?.layout == .spread
+            case "direction": options?.direction == .rightToLeft
+            default: options?.layout == .single && options?.direction == .leftToRight
+            }
+        }
+        try await waitUntil { model.result != nil && !model.isRendering && model.contentHash != nil }
+        // The class is not readable yet: an ordinary LaTeX document.
+        #expect(model.viewOptions.transition == .pageCurl)
+        model.useDocumentFolder(FolderAccess.Lease(url: environment.directory, release: {}))
+        model.render()
+        try await waitUntil { !model.isRendering && model.slideDeck != nil }
+        #expect(model.viewOptions.transition == .slide)
+        #expect(keepsChange(model.viewOptions))
+        let hash = try #require(model.contentHash)
+        model.rememberedSettingsDidChange()
+        model.flushPendingSettings()
+        let record = environment.store.record(for: hash.hex)
+        if change == "none" {
+            // Learning the class is no choice of the reader's: nothing is saved.
+            #expect(record == nil)
+        } else {
+            #expect(record?.view?.transition == .slide && record?.transitionFollowsKind == .slides)
+            #expect(keepsChange(record?.view))
+        }
+        let reopened = try deckBehindInput(environment, readable: true)
+        defer { reopened.stop() }
+        try await open(reopened)
+        #expect(reopened.viewOptions.transition == .slide)
+        #expect(keepsChange(reopened.viewOptions))
+    }
+
+    @Test("参照先のクラスがあとから読めても、自分で選んだ送り方は変わらず、開き直しても残る", .timeLimit(.minutes(1)))
+    func chosenPageTurnSurvivesDeckFoundLater() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let model = try deckBehindInput(environment, readable: false)
+        defer { model.stop() }
+        model.start()
+        try #require(model.result == nil)
+        model.updateViewOptions { $0.transition = .fade }
+        try await waitUntil { model.result != nil && !model.isRendering && model.contentHash != nil }
+        model.useDocumentFolder(FolderAccess.Lease(url: environment.directory, release: {}))
+        model.render()
+        try await waitUntil { !model.isRendering && model.slideDeck != nil }
+        #expect(model.viewOptions.transition == .fade)
+        let hash = try #require(model.contentHash)
+        model.rememberedSettingsDidChange()
+        model.flushPendingSettings()
+        let record = try #require(environment.store.record(for: hash.hex))
+        #expect(record.view?.transition == .fade && record.transitionFollowsKind == nil)
+        let reopened = try deckBehindInput(environment, readable: true)
+        defer { reopened.stop() }
+        try await open(reopened)
+        #expect(reopened.viewOptions.transition == .fade)
     }
 
     @Test("何も選んでいなければ LaTeX はめくり、beamer はスライド、Markdown はスクロールで開く", .timeLimit(.minutes(1)))

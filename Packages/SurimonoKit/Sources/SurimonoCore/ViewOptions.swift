@@ -117,7 +117,8 @@ public struct ViewOptions: Codable, Equatable, Sendable {
 
 /// What the view mode knows about a document when it picks the initial view options.
 public struct ViewDefaultsContext: Equatable, Sendable {
-    public enum Kind: Sendable {
+    /// The raw values are stored in document records (`DocumentSettings.transitionFollowsKind`).
+    public enum Kind: String, Codable, Sendable {
         case pdf
         /// Markdown, Org, plain text, CSV and HTML, which flow onto as many pages as they need.
         case flowingText

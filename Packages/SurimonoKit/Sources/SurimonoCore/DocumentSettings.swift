@@ -36,6 +36,11 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
     public var orgReading: OrgDocumentReadingSettings?
     public var contentsPanel: ContentsPanel?
     public var view: ViewOptions?
+    /// The kind of document whose default gave the page turn in `view`, when the reader never chose one. The kind can
+    /// be known better later (a deck whose class comes from a file the app may read once the folder is allowed); a
+    /// document then of another kind takes that kind's default. Nil, as in every record before the key existed, is a
+    /// page turn the reader chose, which always stays.
+    public var transitionFollowsKind: ViewDefaultsContext.Kind?
     /// Magnification relative to fitting the current page or spread into the window.
     public var zoom: Double?
     /// The view mode's content size in points.
@@ -84,8 +89,9 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         notes: NotePages? = nil, bookletBinding: BookletBinding? = nil,
         pageRange: PageRange? = nil, bookmarks: Bookmarks? = nil, latexComposition: LaTeXComposition? = nil,
         contentsPanel: ContentsPanel? = nil, orgReading: OrgDocumentReadingSettings? = nil,
-        formatReading: FormatReadingChoices = .init()
+        formatReading: FormatReadingChoices = .init(), transitionFollowsKind: ViewDefaultsContext.Kind? = nil
     ) {
+        self.transitionFollowsKind = transitionFollowsKind
         self.formatReading = formatReading
         self.orgReading = orgReading
         self.contentsPanel = contentsPanel
@@ -118,7 +124,8 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case contentsPanel, orgReading, formatReading
-        case view, zoom, windowSize, paperOrientation, layoutID, themeID, textScale, typeface, presetID, smartRemoval,
+        case view, transitionFollowsKind, zoom, windowSize, paperOrientation, layoutID, themeID, textScale,
+            typeface, presetID, smartRemoval,
             printOptions, printFinish, imageOrder
         case htmlPresentation, ignoresSlides, binderOrder, binderStartsOnFront, codePaletteID, codeBlock
         case latexComposition, bandVisibility, paperSeries, notes, bookletBinding, pageRange, bookmarks
@@ -146,6 +153,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         if let orgReading, orgReading != .init() { try values.encode(orgReading, forKey: .orgReading) }
         try values.encodeIfPresent(contentsPanel, forKey: .contentsPanel)
         try values.encodeIfPresent(view, forKey: .view)
+        try values.encodeIfPresent(transitionFollowsKind, forKey: .transitionFollowsKind)
         try values.encodeIfPresent(zoom, forKey: .zoom)
         try values.encodeIfPresent(windowSize, forKey: .windowSize)
         try values.encodeIfPresent(layoutID, forKey: .layoutID)
@@ -183,6 +191,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         orgReading = field(OrgDocumentReadingSettings.self, .orgReading)
         contentsPanel = field(ContentsPanel.self, .contentsPanel)
         view = field(ViewOptions.self, .view)
+        transitionFollowsKind = field(ViewDefaultsContext.Kind.self, .transitionFollowsKind)
         zoom = field(Double.self, .zoom)
         windowSize = field(CGSize.self, .windowSize)
         layoutID = field(String.self, .layoutID)
