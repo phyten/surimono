@@ -351,25 +351,34 @@ struct BandArrangementRenderingTests {
                 + "title=\(String(describing: row?.chapterTitleWidth)) chapter=\(model.currentChapterTitle) "
                 + "page=\(model.currentPageIndex)"
         }
-        var frames: [Int: CGRect] = [:]
-        var titles: [Int: CGFloat?] = [:]
-        for page in [1, 2, 0, 1] {
-            model.jumpToReadingPage(page)
-            let chapter = page == 0 ? "" : page == 1 ? long : "Short"
-            try await waitUntil(state()) {
-                model.currentPageIndex == page && model.currentChapterTitle == chapter && scrubber.frame.width > 0
+        // The page's chapter is current and the band shows the slider beside the chapter, and what the slider and the
+        // title take has held still for a run of checks: measuring the title and planning again come after the page
+        // turns, so a single check could read the previous page's band.
+        func settled(on page: Int, chapter: String) async throws -> (slider: CGRect, title: CGFloat) {
+            var last: (CGRect, CGFloat?)?
+            var still = 0
+            for _ in 0..<500 {
+                let ready =
+                    model.currentPageIndex == page && model.currentChapterTitle == chapter && scrubber.frame.width > 0
                     && model.bandAnchors.plan?.bottom?.trailing.first == .chapter
+                let now = (scrubber.frame, model.bandAnchors.plan?.bottom?.chapterTitleWidth)
+                if ready, let last, last.0 == now.0, last.1 == now.1 { still += 1 } else { still = 0 }
+                last = now
+                if still >= 10 { break }
+                try await Task.sleep(for: .milliseconds(10))
             }
-            // Let the band measure and plan again for the page's title before reading where the slider is.
-            try await Task.sleep(for: .milliseconds(200))
-            frames[page] = scrubber.frame
-            titles[page] = model.bandAnchors.plan?.bottom?.chapterTitleWidth
-            #expect(titles[page] != nil, "\(state())")
-            if let first = frames[1] {
-                #expect(abs(scrubber.frame.minX - first.minX) < 0.5, "left end on page \(page): \(state())")
-                #expect(abs(scrubber.frame.maxX - first.maxX) < 0.5, "right end on page \(page): \(state())")
-                #expect(titles[page] == titles[1], "title frame on page \(page): \(state())")
-            }
+            try #require(still >= 10, "page \(page) did not settle: \(state())")
+            let title = try #require(model.bandAnchors.plan?.bottom?.chapterTitleWidth, "page \(page): \(state())")
+            return (scrubber.frame, title)
+        }
+        model.jumpToReadingPage(1)
+        let first = try await settled(on: 1, chapter: long)
+        for page in [2, 0, 1] {
+            model.jumpToReadingPage(page)
+            let shown = try await settled(on: page, chapter: page == 0 ? "" : page == 1 ? long : "Short")
+            #expect(abs(shown.slider.minX - first.slider.minX) < 0.5, "left end on page \(page): \(state())")
+            #expect(abs(shown.slider.maxX - first.slider.maxX) < 0.5, "right end on page \(page): \(state())")
+            #expect(shown.title == first.title, "title frame on page \(page): \(state())")
         }
     }
 
