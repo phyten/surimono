@@ -345,7 +345,7 @@ struct LaTeXStylePackageTests {
         #expect(override.body.contains(#"class="latex-caption-label">Figure 1</span>: Gauge"#))
     }
 
-    @Test("ACL は既定で最終稿を選び、査読時だけ匿名と欄外番号を使う")
+    @Test("ACL は既定で最終稿を選び、査読時だけ匿名と欄外番号を使い、査読時とプレプリントはページ番号を出す")
     func aclModes() throws {
         for (option, mode) in [
             ("", "final"), ("[final]", "final"), ("[review]", "submission"), ("[preprint]", "preprint"),
@@ -356,7 +356,7 @@ struct LaTeXStylePackageTests {
             let info = try #require(fragment.latexClass)
             #expect(info.resolvedStyle?.mode.rawValue == mode)
             #expect((info.resolvedStyle?.review == .grayColumnLines) == (mode == "submission"))
-            #expect(info.pageNumbers.footer.contains("1") == (mode == "submission"))
+            #expect(info.pageNumbers.footer.contains("1") == (mode != "final"))
             #expect(fragment.body.contains("Anonymous ACL submission") == (mode == "submission"))
             #expect(fragment.body.contains("First Writer") != (mode == "submission"))
             #expect(fragment.body.contains(#"<span class="secnum">1</span>"#))

@@ -26,7 +26,7 @@ enum LaTeXGraphicPreparation {
                 \(japaneseAbstract ? japaneseAbstractGlue : "")
                 \(bibliography ? measureLabels : "")
                 \(thinSpaces ? tieThinSpaces : "")
-                \(displays ? measureDisplays : "")
+                \(displays ? measureDisplays + "\n" + LaTeXEquationTags.definition + "\nsurimonoFitEquationTags(document.body);" : "")
                 \(tables ? tableStruts : "")
                 \(graphics ? measure : "")
                 \(exam ? examRules : "")

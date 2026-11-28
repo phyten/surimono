@@ -296,7 +296,7 @@ struct LaTeXClassRegistryTests {
                 ["beamer"],
                 ["institute", "subtitle", "frame", "titlepage", "frametitle", "framesubtitle", "setbeamertemplate"]
             ),
-            (["llncs"], ["institute", "inst", "email", "orcidID", "keywords"]),
+            (["llncs"], ["institute", "inst", "email", "orcidID", "keywords", "titlerunning", "authorrunning"]),
             (
                 ["acmart"],
                 [
@@ -450,7 +450,7 @@ struct LaTeXClassRegistryTests {
             #expect(body.usesListingDesignSize == standard)
             #expect(body.captionSkip == (scaled ? .fiveScaledPoints : name == "memoir" ? .halfBaseline : .inherited))
             let japanese = row.language == "ja"
-            #expect(body.equationNumberOnLeft == (name == "amsproc"))
+            #expect(body.equationNumberOnLeft == ["amsart", "amsproc", "amsbook"].contains(name))
             #expect(
                 body.captionSeparator
                     == (Self.horizontalTraditional.contains(name) ? ":\u{2002}" : nil))

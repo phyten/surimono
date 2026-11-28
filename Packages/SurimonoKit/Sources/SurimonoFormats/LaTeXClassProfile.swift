@@ -133,6 +133,7 @@ package struct LaTeXClassProfile: Equatable, Sendable {
         var uprightClassificationYear = false
         var noteDateLabel = "Received by the editors"
         var writesAuthorMarks = false
+        var writesRunningMarks = false
         // The title block also requests empty for amsbook; kept apart until each consumer is checked against real LaTeX.
         var pageStyle: String?
     }

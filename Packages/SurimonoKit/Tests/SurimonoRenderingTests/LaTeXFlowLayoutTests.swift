@@ -814,6 +814,18 @@ struct LaTeXFlowLayoutTests {
         #expect(result.first?.pieces.last?.y == 85)
         #expect(result.last?.pieces.map(\.slice.strip) == [3])
     }
+    @Test("2 段組で図表だけの段になる段幅の図表は、その段だけを使い、隣の段に本文を続ける")
+    func floatColumnInTwoColumns() throws {
+        let items = [item(0, 30), item(1, 75, placement: "htbp")] + (2...9).map { item($0, 30) }
+        let result = try pages([segment(items, columns: 2)])
+        let page = try #require(result.first { $0.pieces.contains { $0.slice.strip == 1 } })
+        let table = try #require(page.pieces.first { $0.slice.strip == 1 })
+        #expect(page.pieces.contains { $0.x != table.x }, "the other column keeps text")
+        #expect(page.pieces.filter { $0.x == table.x }.map(\.slice.strip) == [1])
+        // fptop and fpbot centre the float in its column.
+        #expect(abs(table.y - 12.5) < 0.01)
+    }
+
     @Test("段頭の見出しの前の十五ポイントと通常の空きは捨て、星付きの空きは保つ")
     func columnTopGlue() throws {
         var heading = item(1, 18)

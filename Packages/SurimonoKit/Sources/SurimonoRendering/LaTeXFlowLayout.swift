@@ -702,8 +702,9 @@ struct LaTeXFlowLayout {
     ) throws -> CGFloat {
         let width = (full.width - CGFloat(segment.columns - 1) * segment.gap) / CGFloat(segment.columns)
         var base = top
+        // In two-column mode LaTeX's @tryfcolumn builds a float column, not a float page, for a column-wide float.
         if let first = cursor.waiting.first, isFloatPage(first.item), page.pieces.isEmpty, page.footers.isEmpty,
-            !first.item.wide || first.page < pages.count
+            first.item.wide ? first.page < pages.count : segment.columns == 1
         {
             return try placeFloatPage(segment, cursor: &cursor, width: width, limit: limit)
         }
@@ -715,6 +716,13 @@ struct LaTeXFlowLayout {
         var deepest = base
         for index in 0..<segment.columns {
             let lane = Lane(x: CGFloat(index) * (width + segment.gap), width: width)
+            if segment.columns > 1, let first = cursor.waiting.first, !first.item.wide, isFloatPage(first.item),
+                (page.depths[lane] ?? base) <= base + 0.001,
+                let depth = try placeFloatColumn(segment, lane: lane, base: base, cursor: &cursor, limit: limit)
+            {
+                deepest = max(deepest, depth)
+                continue
+            }
             let column: (depth: CGFloat, endPage: Bool)
             if shrinkColumns, segment.columns == 2, input.comparesColumnBreakBadness == true {
                 column = try fillJournalColumn(
@@ -1290,6 +1298,32 @@ struct LaTeXFlowLayout {
         let offset = max(0, height - page.reserved(full, full: full) - used) / 2
         for i in page.pieces.indices { page.pieces[i].y += offset }
         return height
+    }
+
+    /// LaTeX's @startcolumn tries a float column first. Its floats are centred in the column by fptop and fpbot.
+    private mutating func placeFloatColumn(
+        _ segment: Segment, lane: Lane, base: CGFloat, cursor: inout Cursor, limit: CGFloat
+    ) throws -> CGFloat? {
+        let first = page.pieces.count
+        var used = base
+        while let next = cursor.waiting.first, !next.item.wide, isFloatPage(next.item), let s = next.item.slice {
+            let scale = min(1, (height - base) / s.height)
+            let y = used + (page.pieces.count > first ? floatSep : 0)
+            guard
+                try reserve(
+                    next.item, in: lane, footLane: segment.pageNotes ? full : lane, end: y + s.height * scale,
+                    limit: limit)
+            else { break }
+            page.draw(s, at: y, lane: lane, scale: scale)
+            used = y + s.height * scale
+            cursor.waiting.removeFirst()
+        }
+        guard page.pieces.count > first else { return nil }
+        let bottom = height - page.reserved(lane, full: full)
+        let offset = max(0, bottom - used) / 2
+        for i in page.pieces.indices.dropFirst(first) { page.pieces[i].y += offset }
+        page.depths[lane] = used + offset
+        return used + offset
     }
 
     private func isFloatPage(_ item: Item) -> Bool {

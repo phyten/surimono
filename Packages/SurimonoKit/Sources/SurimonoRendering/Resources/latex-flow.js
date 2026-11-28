@@ -477,9 +477,11 @@ function displayBaseline(svg) {
     const rect = svg.getBoundingClientRect();
     return rect.top + rect.height * fraction;
 }
+// The column measure decides again whether each equation number shares its display's line.
+surimonoFitEquationTags(body);
 if (measuredGrid) {
     const labels = [];
-    for (const label of body.querySelectorAll('.latex-equation > .eqno')) {
+    for (const label of body.querySelectorAll('.latex-equation:not([data-latex-tag-line]) > .eqno')) {
         const svg = label.parentElement.querySelector(':scope > .math-display > svg:only-child');
         if (!svg || label.parentElement.querySelector('.latex-row-number')) continue;
         const mark = baselineProbe();

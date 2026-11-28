@@ -197,6 +197,11 @@ body.format-latex[data-latex-publication-grid="bilingualJournal"][data-latex-siz
     & .latex-bibliography .bib-label { text-align: start; }
 }
 
+/* ipsj adds no separator text; English captions that do not hang keep the same label gap. */
+body.format-latex[data-latex-publication-grid="bilingualJournal"][data-latex-size] figcaption:not([data-latex-caption-style]):not([data-latex-caption-hang]) > .latex-caption-label {
+    margin-inline-end: var(--latex-caption-label-gap);
+}
+
 body.format-latex[data-latex-publication-grid="insetBilingual"][data-latex-size] {
     --latex-footnote-rule-thickness: calc(.1 * var(--society-mm));
     --latex-footnote-rule-to-baseline: calc(3 * var(--tex-pt) + 2.275 * var(--society-mm));

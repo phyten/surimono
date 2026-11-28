@@ -63,4 +63,25 @@ struct LaTeXKOMAPrintingTests {
         let references = try font("References")
         #expect(abs(section.pointSize - references.pointSize) < 0.2)
     }
+
+    @Test("scrreprt の表紙の題は scrbook と同じく見出しの書体（サンセリフの太字）の \\huge で刷る", .timeLimit(.minutes(1)))
+    func reportTitleFont() async throws {
+        var widths: [String: CGFloat] = [:]
+        for name in ["scrbook", "scrreprt"] {
+            let tex =
+                #"\documentclass{"# + name
+                + #"}\title{Spacer trial}\author{Desk}\begin{document}\maketitle Body.\end{document}"#
+            let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
+            let settings = RenderSettings(layout: .a4Single, theme: theme, preset: .init(id: "none", name: ""))
+            let pdf = try await DocumentRenderer().prepare(
+                DocumentSource(data: Data(tex.utf8), format: .latex), settings: settings
+            ).logicalDocument
+            let selection = try #require(pdf.findString("Spacer trial").first)
+            let page = try #require(selection.pages.first)
+            widths[name] = selection.bounds(for: page).width
+        }
+        let book = try #require(widths["scrbook"])
+        let report = try #require(widths["scrreprt"])
+        #expect(abs(book - report) < 1, "scrbook \(book) scrreprt \(report)")
+    }
 }

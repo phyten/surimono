@@ -278,6 +278,13 @@ ol.latex-bibliography.latex-author-year { padding-inline-start: 1em; }
 .latex-author-year > li { text-indent: -1em; }
 .latex-multline-row > .math-display { min-width: 0; margin-block: 0.2em; }
 .latex-multline-row:only-child > .eqno { position: absolute; inset-inline-end: 0; }
+/* TeX moves the number of a display too wide to share its line, or recentres a display that leaves
+   too little room beside it. The rendering measures this at the actual measure. */
+.latex-equation[data-latex-tag-room="end"] > .math-display { padding-inline-end: var(--latex-tag-room); }
+.latex-equation[data-latex-tag-room="start"] > .math-display { padding-inline-start: var(--latex-tag-room); }
+.latex-equation[data-latex-tag-line] { display: flex; flex-direction: column; }
+.latex-equation[data-latex-tag-line] > .eqno { position: static; transform: none; translate: none; align-self: flex-end; }
+.latex-equation[data-latex-tag-line="above"] > .eqno { order: -1; align-self: flex-start; }
 .latex-bibliography .bib-label { margin-inline-start: -2em; margin-inline-end: 0.4em; min-width: 1.6em; }
 /* Position the number outside the text block so justification cannot stretch the gap after it.
    Digits are tabular in Computer Modern, and the two brackets together occupy about 0.56em. */
@@ -528,19 +535,24 @@ body[data-latex-js-toc][data-latex-chapters="false"] nav.toc > .latex-contents-t
 
 ol.latex-exam-list { list-style: none; padding-inline-start: 1.78em; }
 .latex-exam-list > li > p:first-child { text-indent: 0; }
-.latex-exam-marker { display: inline-block; width: 1.3em; text-align: end; margin-inline: -1.78em 0.15em; }
+/* LaTeX boxes a label wider than \labelwidth at its natural width, pushing the item text instead of wrapping. */
+.latex-exam-marker { display: inline-block; min-width: 1.3em; white-space: nowrap; text-align: end; margin-inline: -1.78em 0.15em; }
 ol.latex-exam-oneparchoices { padding-inline-start: 0; }
 .latex-exam-oneparchoices > li, .latex-exam-oneparchoices > li > p { display: inline; }
-.latex-exam-oneparchoices .latex-exam-marker { margin-inline: 0.5em 0; width: auto; }
+.latex-exam-oneparchoices .latex-exam-marker { margin-inline: 0.5em 0; min-width: 0; }
 .latex-exam-correct, .latex-exam-fillin { font-weight: bold; }
 .latex-exam-fillin { display: inline-block; text-align: center; border-bottom: 1px solid; min-height: 1em; }
 .latex-exam-space { box-sizing: border-box; break-inside: avoid; }
 .latex-exam-box, .latex-exam-solution { border: 1px solid; }
-.latex-exam-solution { padding: 0.5em; }
+/* exam.cls closes the frame on each page of a split solution; WebKit's printing leaves a sliced frame open,
+   so a solution that fits on a page moves whole instead. */
+.latex-exam-solution { padding: 0.5em; break-inside: avoid; }
 table.latex-exam-table { width: auto; border-collapse: collapse; margin-inline: 0 auto; }
 .latex-exam-table td {
     min-width: 2em; box-sizing: content-box; border: calc(0.4 * var(--tex-pt)) solid;
     text-align: center; padding: 0 0.6em; height: calc(1.5 * var(--latex-array-baseline, 12) * var(--tex-pt));
+    /* The table cells are TeX hboxes: a row wider than the line overflows rather than breaking words. */
+    white-space: nowrap;
 }
 .latex-exam-table td:first-child { text-align: start; }
 
@@ -555,11 +567,15 @@ table.latex-exam-table { width: auto; border-collapse: collapse; margin-inline: 
 .latex-letter-closing p { margin-block-start: 4.2em; }
 body[data-latex-class="moderncv"] { font-family: var(--latex-cv-font, var(--tex-body-fonts)); --latex-parindent: 0px; text-align: start; }
 .latex-cv-title { display: flex; justify-content: space-between; align-items: end; gap: 1em; margin-block-end: 2em; }
-.latex-cv-title h1 { margin: 0; font-size: calc(34 * var(--tex-pt)); line-height: calc(36 * var(--tex-pt)); font-weight: normal; color: #737373; }
-.latex-cv-title p { color: #737373; font-style: italic; font-size: var(--latex-size-LARGE); }
-body[data-latex-class="moderncv"] h2 { font-weight: normal; color: var(--latex-cv-ink); }
+/* moderncv boxes the name at its natural width; only the details beside it give way. */
+.latex-cv-title h1 { margin: 0; font-size: calc(34 * var(--tex-pt)); line-height: calc(36 * var(--tex-pt)); font-weight: normal; color: #737373; white-space: nowrap; }
+/* A wrapped title keeps the \LARGE baselineskip (22pt at 17.28pt) instead of the body's. */
+.latex-cv-title p { color: #737373; font-style: italic; font-size: var(--latex-size-LARGE); line-height: 1.273; }
+/* moderncv sets the title in a \parbox beside the rule, so a wrapped title stays in the main column.
+   The rule's percentages refer to the heading's content box, which starts at 20% of the measure. */
+body[data-latex-class="moderncv"] h2 { font-weight: normal; color: var(--latex-cv-ink); padding-inline-start: 20%; }
 body[data-latex-class="moderncv"] h2::before {
-    content: ""; display: inline-block; width: 17.5%; margin-inline-end: 2.5%; height: .95ex; background: currentColor;
+    content: ""; display: inline-block; width: 21.875%; margin-inline: -25% 3.125%; height: .95ex; background: currentColor;
 }
 /* WebKit cannot split a grid or flex item between printed pages; it slices the line
    at the page edge instead. The label floats in the gutter so the entry body stays in

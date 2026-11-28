@@ -122,8 +122,9 @@ enum LaTeXClassRegistry {
             builder.titleBlock.uprightClassificationYear = true
             builder.body.proceedingsTheoremStyle = true
             builder.page.usesFixedClassOrigin = true
-            builder.body.equationNumberOnLeft = builder.options.last { $0 == "leqno" || $0 == "reqno" } != "reqno"
         }
+        // All three AMS classes execute leqno by default; only a later reqno moves the tags right.
+        builder.body.equationNumberOnLeft = builder.options.last { $0 == "leqno" || $0 == "reqno" } != "reqno"
         builder.headings.unprefixedChapterCounters = book
         builder.titleBlock.notesOnVerso = book
         builder.titleBlock.writesAuthorMarks = !book
@@ -162,6 +163,8 @@ enum LaTeXClassRegistry {
         builder.pageStyle.twoSidedFields = true
         builder.pageStyle.twoSidedNumbers = true
         builder.pageStyle.running = builder.options.contains("runningheads") ? .runningHeads : .empty
+        // llncs marks both running heads in \maketitle, from \authorrunning and \titlerunning when given.
+        builder.titleBlock.writesRunningMarks = builder.options.contains("runningheads")
     }
 
     private static func acm(_ builder: Builder) {
@@ -563,7 +566,9 @@ private enum Commands {
     static let beamer: Set<String> = [
         "institute", "subtitle", "frame", "titlepage", "frametitle", "framesubtitle", "setbeamertemplate",
     ]
-    static let lncs: Set<String> = ["institute", "inst", "email", "orcidID", "keywords"]
+    static let lncs: Set<String> = [
+        "institute", "inst", "email", "orcidID", "keywords", "titlerunning", "authorrunning",
+    ]
     static let acm: Set<String> = [
         "subtitle", "affiliation", "institution", "city", "country", "orcid", "email", "authornote",
         "authornotemark", "keywords", "ccsdesc",

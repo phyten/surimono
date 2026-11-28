@@ -151,6 +151,13 @@ body[data-latex-class="scrartcl"] .abstract-title + p { text-indent: 1em; }
     body[data-latex-class="scrartcl"] .abstract-title + p { text-box-trim: trim-start; }
 }
 
+/* scrreprt's \maketitle sets the title in \usekomafont{title} (the disposition font) at \huge, like scrbook. */
+body[data-latex-class="scrreprt"] :is(.latex-front-title, .latex-front-subtitle) {
+    font-family: var(--latex-koma-disposition-family, var(--tex-sans-fonts));
+    font-weight: var(--latex-koma-disposition-weight, bold);
+}
+body[data-latex-class="scrreprt"] .latex-front-title { font-size: var(--latex-size-huge); }
+
 body[data-latex-class="scrbook"] {
     --latex-display-to-table-skip: calc(.8 * var(--tex-body) * var(--tex-pt));
     --latex-footnote-rule-width: calc(.4 * var(--latex-text-width-tex-pt) * var(--tex-pt));

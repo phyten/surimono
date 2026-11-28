@@ -112,6 +112,21 @@ struct LaTeXStockAndInkTests {
         #expect(try RenderingFixtures.pixel(page, x: 30, y: 33)[0] > 240)
     }
 
+    @Test("2 段組の内側の切片は、段の間より外へ出た行番号のインクも段の間の向こうまで取り込む")
+    func innerColumnInk() {
+        // A4-like measure in print pixels: two 140-pixel columns with a 20-pixel gutter.
+        let margins = WebPaginator.Margins(top: 20, left: 20, bottom: 20, right: 20)
+        let pageSize = CGSize(width: 300 / WebPaginator.printPixelsPerPoint + 40, height: 400)
+        let right = LaTeXFlowLayout.Piece(slice: .init(strip: 0, start: 0, end: 50, width: 140), x: 160, y: 0, scale: 1)
+        let left = LaTeXFlowLayout.Piece(slice: .init(strip: 0, start: 0, end: 50, width: 140), x: 0, y: 0, scale: 1)
+        let origin = CGPoint(x: 400, y: 0)
+        // listings puts numbers numbersep (10pt) plus their own width left of the code: beyond half the gutter.
+        let rightCapture = LaTeXFlowPaginator.captureRects(right, origin: origin, pageSize: pageSize, margins: margins)
+        #expect(rightCapture.source.minX <= origin.x - 30)
+        let leftCapture = LaTeXFlowPaginator.captureRects(left, origin: origin, pageSize: pageSize, margins: margins)
+        #expect(leftCapture.source.maxX >= origin.x + 140 + 30)
+    }
+
     @Test("切片の外の番号と端にまたがるベクトル罫が同じ縮尺・位置で PDF に載る")
     func captureInk() async throws {
         let piece = LaTeXFlowLayout.Piece(
