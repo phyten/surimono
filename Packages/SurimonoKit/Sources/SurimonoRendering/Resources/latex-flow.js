@@ -1219,13 +1219,35 @@ function lines(box, endsPage) {
     // its first text line is an abstract heading or uses the bibliography font.
     const columnTopSkip = publicationTopSkip || texPoint * (Number(body.dataset.latexSize) || 10);
     // An exam solution frame that fits an empty column moves whole, as break-inside: avoid does in
-    // WebKit's own pagination. Chain its lines; a taller frame still breaks between lines.
+    // WebKit's own pagination. Its chained lines carry the notes cited inside, which the layout
+    // reserves with them, so those count towards the fit. A taller frame still breaks between lines.
     const keptFrames = new Map();
     function keptFrame(el) {
         const frame = el.closest('.latex-exam-solution');
         if (!frame) return null;
-        if (!keptFrames.has(frame)) keptFrames.set(frame, frame.getBoundingClientRect().height * unit <= bodyHeight);
+        if (!keptFrames.has(frame)) {
+            const ids = new Set([...frame.querySelectorAll('[data-flow-note]')].map(a => a.dataset.flowNote));
+            let need = frame.getBoundingClientRect().height * unit;
+            if (ids.size) need += noteSkip;
+            for (const id of ids) {
+                const note = pendingMeasurements.find(([key]) => key === id)?.[1];
+                need += note ? note.getBoundingClientRect().height * unit : Infinity;
+            }
+            keptFrames.set(frame, need <= bodyHeight);
+        }
         return keptFrames.get(frame) ? frame : null;
+    }
+    // The kept frame travels with its border and padding: widen its first and last rows to its edges.
+    for (const [i, r] of rows.entries()) {
+        const frame = keptFrame(r.element);
+        if (!frame) continue;
+        const rect = frame.getBoundingClientRect();
+        if (i === 0 || keptFrame(rows[i-1].element) !== frame) {
+            r.start = Math.max(i ? rows[i-1].end : 0, Math.min(r.start, (rect.top + scrollY)*unit - origin));
+        }
+        if (i === rows.length - 1 || keptFrame(rows[i+1].element) !== frame) {
+            r.end = Math.min(i + 1 < rows.length ? rows[i+1].start : Infinity, Math.max(r.end, (rect.bottom + scrollY)*unit - origin));
+        }
     }
     return rows.map((r,i) => {
         const [plus, minus] = conferenceGlue(rows[i-1],r);

@@ -111,6 +111,135 @@ struct LaTeXExamPrintingTests {
         #expect(abs(first.bounds(for: firstPage).height - last.bounds(for: lastPage).height) < 0.5)
     }
 
+    @Test(
+        "段の境目へ送った短い exam の解答は、枠の上辺と下辺と内側の空きも一緒に送る", .timeLimit(.minutes(1)),
+        arguments: [Route.footnote, .twoColumns])
+    func movedSolutionKeepsFrame(route: Route) async throws {
+        var missing: [String] = []
+        var moved = 0
+        let sentence = "The workshop records an unmatched label separately."
+        for count in stride(from: 34, through: 52, by: 3) {
+            let filler = (1...count).map { "Filler line \($0) keeps the frame low.\\par " }.joined()
+            let tex = #"""
+                \documentclass[\#(route.options)]{exam}
+                \printanswers
+                \begin{document}
+                Bench text\#(route.note).
+                """# + filler + #"""
+                    \begin{questions}
+                    \question Explain the bench record.
+                    \begin{solution}
+                    QA1. \#(Array(repeating: sentence, count: 6).joined(separator: " ")) QA2.
+                    \end{solution}
+                    Closing text after the frame.
+                    \end{questions}
+                    \end{document}
+                    """#
+            let document = try await printed(tex)
+            let open = try place(of: "QA1", in: document, columns: route == .twoColumns)
+            if open != (try place(of: "Filler line \(count) ", in: document, columns: route == .twoColumns)) {
+                moved += 1
+            }
+            let first = try #require(document.findString("QA1", withOptions: []).first)
+            let last = try #require(document.findString("QA2", withOptions: []).first)
+            let page = try #require(first.pages.first)
+            let image = try bitmap(page)
+            // PDF y grows upwards; the frame's rules lie beyond the 0.5em padding around the text.
+            let top = image.rule(from: first.bounds(for: page).maxY, upwards: true)
+            let bottom = image.rule(from: last.bounds(for: page).minY, upwards: false)
+            if !(top.map { $0 > 2 } ?? false) || !(bottom.map { $0 > 2 } ?? false) {
+                missing.append(
+                    "\(count) lines: top \(top.map { "\($0)" } ?? "none"), bottom \(bottom.map { "\($0)" } ?? "none")")
+            }
+        }
+        #expect(moved > 0, "some filler count must move the frame")
+        #expect(missing == [])
+    }
+
+    @Test("枠の中の脚注まで含めると段に入らない exam の解答は、行の境目で分けて組み上げる", .timeLimit(.minutes(1)))
+    func solutionWithFootnoteFallsBackToLines() async throws {
+        let note = Array(repeating: "The bench note explains how each label was matched to its shelf.", count: 12)
+            .joined(separator: " ")
+        var fallbacks: [Int] = []
+        // Around a page of solution text, some length fits the column alone but not with its note.
+        for count in stride(from: 50, through: 68, by: 3) {
+            let body = (1...count).map { "QS\($0) The workshop records an unmatched label separately." }
+                .joined(separator: " ")
+            let tex = #"""
+                \documentclass[a4paper,11pt]{exam}
+                \printanswers
+                \begin{document}
+                \begin{questions}
+                \question Explain the bench record.
+                \begin{solution}
+                \#(body) Closing mark\footnote{\#(note)}.
+                \end{solution}
+                \end{questions}
+                \end{document}
+                """#
+            let info = LaTeXConverter.documentClassInfo(tex)
+            let theme = try #require(
+                PrintThemeLibrary.load().first { $0.id == PrintThemeLibrary.defaultLaTeXStyle(for: info) })
+            var settings = RenderSettings(
+                layout: .a4Single, theme: theme, preset: .init(id: "none", name: ""),
+                options: PrintOptions().defaults(for: .latex))
+            settings.applyLaTeXPage(info)
+            let result = try await DocumentRenderer().prepare(
+                DocumentSource(data: Data(tex.utf8), format: .latex), settings: settings)
+            // The LaTeX flow must complete instead of falling back to the plain print.
+            if result.issues.contains(where: { $0.id == "latex-flow-fallback" }) { fallbacks.append(count) }
+            let text = (0..<result.logicalDocument.pageCount).compactMap { result.logicalDocument.page(at: $0)?.string }
+                .joined(separator: "\n")
+            #expect(text.matches(of: /QS\d+/).count == count)
+        }
+        #expect(fallbacks == [])
+    }
+
+    private struct Bitmap {
+        let width: Int
+        let height: Int
+        let scale: CGFloat
+        let bytes: [UInt8]
+
+        /// Distance in points from `y` (PDF coordinates) to the first row at least 30% dark across the page.
+        func rule(from y: CGFloat, upwards: Bool) -> CGFloat? {
+            let start = Int((CGFloat(height) / scale - y) * scale)
+            for step in 1...Int(25 * scale) {
+                let row = upwards ? start - step : start + step
+                guard row >= 0, row < height else { return nil }
+                var dark = 0
+                for x in 0..<width {
+                    let offset = (row * width + x) * 4
+                    if Int(bytes[offset]) + Int(bytes[offset + 1]) + Int(bytes[offset + 2]) < 3 * 180 { dark += 1 }
+                }
+                if dark * 10 > width * 3 { return CGFloat(step) / scale }
+            }
+            return nil
+        }
+    }
+
+    private func bitmap(_ page: PDFPage) throws -> Bitmap {
+        let box = page.bounds(for: .mediaBox)
+        let scale: CGFloat = 2
+        let width = Int(box.width * scale)
+        let height = Int(box.height * scale)
+        var bytes = [UInt8](repeating: 255, count: width * height * 4)
+        try bytes.withUnsafeMutableBytes { raw in
+            let space = try #require(CGColorSpace(name: CGColorSpace.sRGB))
+            let context = try #require(
+                CGContext(
+                    data: raw.baseAddress, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                    space: space,
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue))
+            context.setFillColor(CGColor(gray: 1, alpha: 1))
+            context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+            context.scaleBy(x: scale, y: scale)
+            page.draw(with: .mediaBox, to: context)
+        }
+        // CGContext rows start at the top of the buffer for this bitmap layout.
+        return Bitmap(width: width, height: height, scale: scale, bytes: bytes)
+    }
+
     /// The page and, on a two-column page, the column that hold a word.
     private func place(of word: String, in document: PDFDocument, columns: Bool) throws -> String {
         let selection = try #require(document.findString(word, withOptions: []).first, "\(word)")
