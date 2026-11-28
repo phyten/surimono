@@ -169,6 +169,100 @@ struct DjotTextileTests {
         #expect(body.contains("*Fold*"))
     }
 
+    @Test("Textileの定義リストは空行をはさんだ項目もひとつのリストにし、続く段落を段落のまま組む")
+    func textileDefinitionsWithBlankLines() throws {
+        let source = """
+            - Sheet := A single piece of paper.
+
+            - Fold := A crease across the sheet.
+
+            - Booklet := Sheets *folded* together.
+
+            - Spine := The folded edge.
+
+            The [glossary]https://example.org/terms ends here.
+            """
+        let body = try TextileConverter.convert(source).body
+        #expect(body.components(separatedBy: "<dt>").count == 5)
+        #expect(body.components(separatedBy: "<dd>").count == 5)
+        #expect(body.components(separatedBy: "<dl>").count == 2)
+        #expect(body.contains("<dd>Sheets <strong>folded</strong> together.</dd>"))
+        #expect(body.contains("<p>The "))
+        #expect(!body.contains(":=") && !body.contains("surimono-textile-dl"))
+    }
+
+    @Test("Textileの定義リストのすぐ後の段落も段落になり、語だけの行は次の説明に付く")
+    func textileDefinitionsBeforeParagraph() throws {
+        let body = try TextileConverter.convert("- Leaf\n- Page := One side.\n- Sheet := Two pages.\n\nAfter.").body
+        #expect(body.contains("<dt>Leaf</dt>"))
+        #expect(body.components(separatedBy: "<dt>").count == 4)
+        #expect(body.contains("<p>After.</p>"))
+    }
+
+    @Test("Textileのコードと整形抑止の中の定義リストの形の行は変えない")
+    func textileDefinitionShapesInCode() throws {
+        let source = """
+            bc.. - Sheet := code
+
+            - Fold := code
+
+            p. Back.
+
+            <pre>
+            - Page := pre
+
+            - Leaf := pre
+            </pre>
+
+            notextile. - Spine := raw
+            """
+        let body = try TextileConverter.convert(source).body
+        #expect(body.contains("- Sheet := code\n\n- Fold := code"))
+        #expect(body.contains("- Page := pre\n\n- Leaf := pre"))
+        #expect(body.contains("- Spine := raw"))
+        #expect(!body.contains("<dl>"))
+        #expect(body.contains("<p>Back.</p>"))
+    }
+
+    @Test("Textileの拡張ブロックが続いても、後のブロックの中の定義リストの形の行は変えない", arguments: ["bc", "notextile"])
+    func textileDefinitionShapesInSecondExtendedBlock(_ second: String) throws {
+        let body = try TextileConverter.convert("bc.. first\n\n\(second).. second\n\n- Sheet := literal\n\np. back")
+            .body
+        #expect(body.contains("second\n\n- Sheet := literal"))
+        #expect(!body.contains("<dl>") && !body.contains("surimono-textile-dl"))
+        #expect(body.contains("<p>back</p>"))
+    }
+
+    @Test("Textileの行の途中で開いた pre の中の定義リストの形の行は変えず、閉じた後のリストはまとめる")
+    func textileDefinitionShapesInPreAfterTag() throws {
+        let source = "<div><pre>\n\n- Sheet := literal\n\n</pre></div>\n\n- Fold := one\n\n- Leaf := two\n\nAfter."
+        let body = try TextileConverter.convert(source).body
+        #expect(body.contains("\n\n- Sheet := literal\n\n</code></pre>"))
+        #expect(!body.contains("surimono-textile-dl"))
+        #expect(body.components(separatedBy: "<dt>").count == 3)
+        #expect(body.contains("<p>After.</p>"))
+    }
+
+    @Test("Textileの原文が書いた目印と同じ div とコメントは消さない")
+    func textileMarkerInSource() throws {
+        let written =
+            "<div class=\"surimono-textile-dl\">\n<!--surimono-textile-dl-->\n<dl><dt>a</dt><dd>b</dd></dl>\n</div>"
+        let body = try TextileConverter.convert(written + "\n\n- Fold := one\n\n- Leaf := two\n\nAfter.").body
+        // PrintMarkup drops comments; the written div must stay.
+        #expect(body.contains("<div class=\"surimono-textile-dl\">"))
+        #expect(body.components(separatedBy: "<dt>").count == 4)
+        #expect(!body.contains("surimono-textile-dlx"))
+    }
+
+    @Test("Textileで採らなかった定義リストは原文のまま一度だけ出し、後ろのリストと段落を読む")
+    func textileRejectedDefinitionRun() throws {
+        let source = "- A := x\n\n- Z := <div>raw</div>\n\nAfter.\n\n- P := q\n\n- R := s\n\nEnd."
+        let body = try TextileConverter.convert(source).body
+        #expect(body.components(separatedBy: "Z := ").count == 2)
+        #expect(body.contains("<dt>P</dt>") && body.contains("<dt>R</dt>"))
+        #expect(body.contains("<p>After.</p>") && body.contains("<p>End.</p>"))
+    }
+
     private func convert(_ format: DocumentFormat, _ djot: String, _ textile: String) throws -> HTMLFragment {
         try format == .djot ? DjotConverter.convert(djot) : TextileConverter.convert(textile)
     }

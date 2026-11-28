@@ -68,6 +68,24 @@ struct PrintIssueRenderingTests {
         #expect(result.issues.map(\.pageNumber) == [2, nil])
     }
 
+    @Test("組めなかった LaTeX の数式は、紙面の診断と読み取りの診断をひとつにまとめ、ページを残す")
+    func formulaIssue() async throws {
+        let renderer = DocumentRenderer(paginateWithResult: { _ in
+            let printed = PrintIssue(id: "0", kind: .math, detail: #"$\frac{1$"#, pageNumber: 2)
+            let payload = try JSONEncoder().encode([printed])
+            return WebPaginator.Result(
+                document: try RenderingFixtures.pdf(count: 2),
+                preparationResult: "{\"issues\":" + String(decoding: payload, as: UTF8.self) + "}")
+        })
+        // The second formula has no printed anchor here, so its reader diagnostic stays.
+        let source = #"Text $\frac{1$ and $\frac{2$."#
+        let input = DocumentSource(data: Data(source.utf8), format: .latex)
+        let result = try await renderer.render(input, settings: settings)
+        #expect(result.issues.map(\.kind) == [.math, .latex])
+        #expect(result.issues.map(\.detail) == [#"$\frac{1$"#, #"Formula could not be typeset: $\frac{2$"#])
+        #expect(result.issues.map(\.pageNumber) == [2, nil])
+    }
+
     @Test("問題と既存の準備結果はキャッシュと両面の再合成で失われない")
     func cache() async throws {
         let renderer = DocumentRenderer(paginateWithResult: { _ in
