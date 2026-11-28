@@ -1493,6 +1493,7 @@ final class LaTeXReader {
             }
         }
         if let number, number.contains(where: \.isLetter) { document.hasNonArabicHeading = true }
+        if level == 0, number != nil { document.noteChapter = display.map { DocumentOutline.plainText(ofHTML: $0) } }
         let endDot = document.classInfo.resolvedStyle?.headingDot == true ? "." : document.headingEndDot
         display = display.map {
             headings.sectionDot && name == "section" && !$0.hasSuffix(".") ? $0 + "." : $0 + endDot

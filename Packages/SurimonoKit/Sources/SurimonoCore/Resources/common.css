@@ -284,6 +284,8 @@ figure.latex-table > table { margin-inline: auto; }
 figcaption { margin: 0.4em 0; font-size: 0.95em; }
 .latex-caption-label { font-weight: 700; }
 img.latex-graphic { max-width: 100%; }
+/* The page flow can shorten a float's image to fit the body (latex-flow.js); keep its aspect ratio when it does. */
+body.format-latex figure[data-latex-float] img.latex-graphic { object-fit: contain; }
 .latex-box-fill { text-align-last: justify; }
 .latex-minipage { display: inline-block; box-sizing: border-box; max-width: 100%; text-align: justify; text-align-last: auto; }
 .format-latex .latex-minipage p { text-indent: 0; }

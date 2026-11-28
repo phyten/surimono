@@ -468,6 +468,19 @@ public struct DocumentFacts: Equatable, Sendable {
     public var continuedBeamerFrames = 0
     /// Source frame numbers survive both overlay expansion and measured page continuation.
     public var beamerPageFrames: [Int] = []
+    /// The logical page of each heading, by id, where the layout measured it. Vertical pages cannot be read back
+    /// in reading order, so their headings are placed by where they were laid out rather than found in the text.
+    public var headingPages: [String: Int] = [:]
+
+    /// The headings' entries, placed by their measured pages and otherwise found in the pages' text.
+    public func outlineEntries(inPageTexts pages: [String], contentsEntries: [String] = []) -> [OutlineEntry] {
+        var entries = DocumentOutline.entries(
+            of: headings, inPageTexts: headingPages.isEmpty ? pages : [], contentsEntries: contentsEntries)
+        for index in entries.indices {
+            if let id = headings[index].id, let page = headingPages[id] { entries[index].pageIndex = page }
+        }
+        return entries
+    }
     private var beamerSectionFrames: [Int] = []
     public var beamerOutline: [OutlineEntry]? {
         guard beamerPageSize != nil else { return nil }

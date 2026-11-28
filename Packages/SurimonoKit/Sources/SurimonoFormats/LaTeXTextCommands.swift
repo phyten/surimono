@@ -9,6 +9,7 @@ extension LaTeXDocument {
         // nil means the mark still awaits its text. An explicitly empty note is already paired.
         var html: String?
         var lineParameters = ""
+        var chapter: String? = nil
 
         var bearingAttribute: String {
             mark?.first == "（" && mark?.last == "）" ? " data-latex-tight-parentheses" : ""
@@ -35,7 +36,17 @@ extension LaTeXDocument {
     /// exact mark into a superscript, including jumps, resets, and symbolic title acknowledgements.
     func footnoteSection(from start: Int = 0) -> String {
         guard start < footnotes.count else { return "" }
-        let items = footnotes[start...].map { note in
+        // When the numbers restart with each chapter, a list collected at the end repeats them. Mark where each
+        // chapter's notes begin, so that list can name the chapter they belong to.
+        let notes = footnotes[start...]
+        let groupsChapters = Set(notes.map(\.chapter)).count > 1
+        var previousChapter: String??
+        let items = notes.map { note in
+            defer { previousChapter = .some(note.chapter) }
+            let opensChapter = groupsChapters && previousChapter != .some(note.chapter)
+            // Notes before the first numbered chapter have no number to name them.
+            let chapterAttribute =
+                opensChapter ? note.chapter.map { " data-latex-note-chapter=\"\(HTML.escape($0))\"" } ?? "" : ""
             let value = note.mark == nil ? Int(note.number) : nil
             let attribute = value.map { " value=\"\($0)\"" } ?? " style=\"list-style:none\""
             var content = note.html ?? ""
@@ -51,7 +62,7 @@ extension LaTeXDocument {
                     content = mark + content
                 }
             }
-            return "<li id=\"\(note.id)\"\(attribute)\(note.lineParameters)>\(content)</li>\n"
+            return "<li id=\"\(note.id)\"\(attribute)\(chapterAttribute)\(note.lineParameters)>\(content)</li>\n"
         }.joined()
         return "<section class=\"footnotes\">\n<ol>\n\(items)</ol>\n</section>\n"
     }
@@ -159,7 +170,8 @@ extension LaTeXReader {
                     }
                 }
             }
-            document.footnotes.append(.init(id: id, number: number, mark: mark, html: nil))
+            document.footnotes.append(
+                .init(id: id, number: number, mark: mark, html: nil, chapter: document.noteChapter))
             if command == "footnotemark" { document.pendingByNumber[number, default: []].append(slot) }
         }
         let number = document.footnotes[slot].number

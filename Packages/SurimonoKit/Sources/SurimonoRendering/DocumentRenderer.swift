@@ -768,7 +768,7 @@ public final class DocumentRenderer {
             if source.format == .latex, source.children == nil,
                 settings.latexComposition != .document
                     || settings.options.latexMargins?.applies(to: settings.theme) == true
-                    || settings.options.latexFurniture?.applies(to: settings.theme) == true
+                    || settings.options.latexFurniture?.appliesFurniture(to: settings.theme) == true
             {
                 settings.applyLaTeXPage(latexClassInfo(for: source, composition: settings.latexComposition))
             }
@@ -1843,7 +1843,10 @@ public final class DocumentRenderer {
                 || source.format == .latex && fragment.body.contains("class=\"tikz-block\""))
         try Task.checkCancellation()
         let headingIDs: [String]
-        if settings.finish.frontDepth(format: source.format, lead: lead) == nil || facts.beamerPageSize != nil {
+        if settings.theme.flow == .vertical && settings.theme.supports(source.format) {
+            // Vertical pages read back out of order, so the outline takes every heading's page from the layout.
+            headingIDs = Array(facts.headings.lazy.compactMap(\.id).prefix(4096))
+        } else if settings.finish.frontDepth(format: source.format, lead: lead) == nil || facts.beamerPageSize != nil {
             headingIDs = []
         } else if settings.finish.originalPresetContents?.mode == .front {
             headingIDs = Array(facts.headings.lazy.compactMap(\.id).prefix(4096))
@@ -1888,6 +1891,10 @@ public final class DocumentRenderer {
         source: DocumentSource, settings: RenderSettings
     ) async throws -> WebPaginator.Result {
         var result = text
+        var facts = facts
+        if settings.theme.flow == .vertical && settings.theme.supports(source.format) {
+            facts.headingPages = text.fragmentAnchors.mapValues(\.page)
+        }
         result.finishing.facts = facts
         let finish = settings.finish
         let usesRightPages = settings.layout.hasFacingPages && finish.breaks.usesRightPages
@@ -2034,6 +2041,10 @@ public final class DocumentRenderer {
                 plan.bodyPageIndices.indices.contains(number - 1) ? plan.bodyPageIndices[number - 1] + 1 : number
             }
             return issue
+        }
+        let bodyPages = plan.bodyPageIndices
+        facts.headingPages = facts.headingPages.compactMapValues {
+            bodyPages.indices.contains($0) ? bodyPages[$0] : nil
         }
         finished.finishing = FinishedPages(
             latexPages: text.finishing.latexPages, facts: facts, contentsPageCount: contents?.pageCount ?? 0,

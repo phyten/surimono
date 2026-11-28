@@ -780,7 +780,14 @@
                     let success = await export(model, kind: kind, path: path)
                     captured = true
                     scheduled = false
-                    if success, flag("SurimonoSnapshotQuit") { quitAfterCapture() }
+                    if success {
+                        if flag("SurimonoSnapshotQuit") { quitAfterCapture() }
+                    } else {
+                        // A refused or superseded export used to leave the process idle until the runner's
+                        // deadline, which read as a hang. Record why and end at once.
+                        DebugSnapshotProgress.failed(
+                            ExportFailure(reason: model.outputError ?? "refused, or superseded by a newer layout"))
+                    }
                 }
                 return
             }

@@ -2361,7 +2361,7 @@ final class DocumentViewModel {
     }
 
     var usesDocumentFurniture: Bool {
-        themeFormat == .latex && printOptions.latexFurniture?.applies(to: theme(themeID)) == true
+        themeFormat == .latex && printOptions.latexFurniture?.appliesFurniture(to: theme(themeID)) == true
     }
 
     func marginLabel(in unit: MarginUnit) -> String {
@@ -2823,8 +2823,10 @@ final class DocumentViewModel {
             guard !Task.isCancelled, let read else { return }
             self?.readStructure = (source, proof, org, read.headings, read.statistics, read.contents, read.title)
             self?.documentStatistics = read.statistics
+            // Vertical pages carry their headings' measured pages; their text does not read in order.
+            let measured = prepared.facts.flatMap { $0.headingPages.isEmpty ? nil : $0 }
             var texts: [String] = []
-            for index in 0..<(read.headings.isEmpty ? 0 : document.pageCount) {
+            for index in 0..<(read.headings.isEmpty || measured != nil ? 0 : document.pageCount) {
                 texts.append(document.page(at: index)?.string ?? "")
                 await Task.yield()
                 guard !Task.isCancelled else { return }
@@ -2834,7 +2836,8 @@ final class DocumentViewModel {
             // A table the finish hides is not on the pages, and its lines would be taken from the real headings.
             let contents = includesSourceContents ? read.contents : []
             let entries = await Task.detached(priority: .utility) {
-                DocumentOutline.entries(of: headings, inPageTexts: pages, contentsEntries: contents)
+                measured?.outlineEntries(inPageTexts: pages, contentsEntries: contents)
+                    ?? DocumentOutline.entries(of: headings, inPageTexts: pages, contentsEntries: contents)
             }.value
             guard !Task.isCancelled else { return }
             self?.outlineEntries = entries

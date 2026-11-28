@@ -30,7 +30,7 @@ extension RenderSettings {
     mutating func applyLaTeXPage(_ info: LaTeXDocumentClassInfo) {
         if let slide = info.beamerPageSize {
             readingTrim = slide
-            if options.latexFurniture?.applies(to: theme) == true { options.furniture = PageFurniture() }
+            if options.latexFurniture?.appliesFurniture(to: theme) == true { options.furniture = PageFurniture() }
             return
         }
         if options.latexMargins?.applies(to: theme) == true && layout.kind != .handout3 {
@@ -55,7 +55,7 @@ extension RenderSettings {
             // Mirroring swaps the normal margins only. Keep the notes on the right of a verso too.
             options.versoOffset -= LaTeXComposition.notesMarginMM * 72 / 25.4
         }
-        if options.latexFurniture?.applies(to: theme) == true {
+        if options.latexFurniture?.appliesFurniture(to: theme) == true {
             options.furniture = .pageNumber
             latexFooter = .init(
                 fontName: info.mainFontName,
@@ -72,6 +72,32 @@ extension RenderSettings {
                 * textScale
             latexFooter?.headerFont = info.pageHeadFont
             latexFooter?.numberFont = info.pageNumberFont
+            if theme.flow == .vertical, options.latexMargins?.applies(to: theme) != true, layout.kind != .handout3 {
+                options.margins = verticalGridMargins(info)
+            }
         }
+    }
+
+    /// The vertical style centres its grid inside the reader's margins. The class's head and foot are measured
+    /// from the text block, so they take the grid's own edges; laid out within these, the grid stays where it was.
+    private func verticalGridMargins(_ info: LaTeXDocumentClassInfo) -> PageMargins {
+        let size = logicalPageSize
+        let box = info.pageBox
+        let manuscript = VerticalPaginator.Manuscript(
+            rows: info.columns == 2 ? 2 : 1, font: CGFloat(info.pointSize),
+            textArea: CGSize(
+                width: box.textWidth > 0 ? box.textWidth : size.width,
+                height: box.textHeight > 0 ? box.textHeight : size.height))
+        let frame = VerticalPaginator.Frame(
+            pageSize: size, margins: WebPaginator.Margins(layout.logicalMargins(options: options)),
+            textScale: textScale, manuscript: manuscript)
+        let top = frame.top(of: 0)
+        let bottom = frame.top(of: frame.rows - 1) - frame.height
+        // A sliver of slack keeps the grid's whole cells when the frame is fitted again to these margins.
+        let slack: CGFloat = 0.05
+        func millimeters(_ points: CGFloat) -> Double { max(0, Double(points - slack) * 25.4 / 72) }
+        return PageMargins(
+            top: millimeters(size.height - top), left: millimeters(frame.right - frame.width),
+            bottom: millimeters(bottom), right: millimeters(size.width - frame.right))
     }
 }

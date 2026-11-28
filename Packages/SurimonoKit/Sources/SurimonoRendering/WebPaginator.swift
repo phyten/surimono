@@ -524,14 +524,38 @@ public final class WebPaginator: NSObject {
         if flow == .vertical {
             if indexesFormulas { try await installFormulaIndex() }
             var layout = PrintedFragmentLinks.VerticalLayout()
+            let webView = session.webView
+            // The contents' page fields must be in the strip before it is measured. Their numbers fit in the
+            // room the fields reserve, so filling them after the cuts are known leaves every line in place.
+            var installation: LaTeXPageReferences.Installation?
+            if let latexPageNumbers {
+                let json = try await runPreparationScript(
+                    LaTeXPageReferences.install(
+                        token: UUID().uuidString, runningMarks: latexPageNumbers.needsRunningMarks,
+                        classPlain: latexPageNumbers.usesClassPlain),
+                    in: webView, timeout: timeout)
+                installation = json.flatMap {
+                    try? JSONDecoder().decode(LaTeXPageReferences.Installation.self, from: Data($0.utf8))
+                }
+            }
+            let measured = LaTeXPageReferences.VerticalMeasurement()
+            let resolvePages = installation.flatMap { installation in
+                latexPageNumbers.map {
+                    measured.resolver(
+                        $0, installation: installation, restartsAfterTitle: restartsAfterTitle, in: webView)
+                }
+            }
             let printed = try await VerticalPaginator.data(
-                in: session.webView, pageSize: pageSize, margins: margins, timeout: printTimeout,
-                booklet: verticalBooklet, textScale: verticalTextScale, recordSlice: { layout.record($0, $1) })
+                in: webView, pageSize: pageSize, margins: margins, timeout: printTimeout,
+                booklet: verticalBooklet, textScale: verticalTextScale, recordSlice: { layout.record($0, $1) },
+                beforeCapture: resolvePages)
             let document = try openPrinted(printed)
             try session.checkPrintNavigation()
             var result = Result(
                 document: document, preparationResult: preparationResult, pageRules: pageRules,
                 requiredFolderAccess: session.localHandler?.requiredFolderAccess)
+            result.finishing.latexPages = measured.pages
+            if measured.incomplete { result.issues.append(.unresolvedLaTeXPages) }
             if indexesFormulas { result.diagramPass = try await formulaPass(document) }
             try await applyLinks(bytes: printed, to: &result, verticalLayout: layout)
             return result

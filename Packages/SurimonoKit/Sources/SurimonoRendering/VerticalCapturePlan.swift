@@ -80,6 +80,17 @@ struct VerticalCapturePlan {
             }
 
             for group in groups {
+                if group.columnBreak == true, used > 0 {
+                    // Only the row ends; the last row's end is the page's, as in TeX's two columns.
+                    try flushProse()
+                    row += 1
+                    if row == rows {
+                        pages.append(page)
+                        page = []
+                        row = 0
+                    }
+                    used = 0
+                }
                 var gap = previousEnd.map { max(0, group.start - $0) } ?? 0
                 previousEnd = group.end
                 if let continuation = group.continuation {

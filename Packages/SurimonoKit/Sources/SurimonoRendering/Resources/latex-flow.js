@@ -265,6 +265,18 @@ function append(node, parents) {
 }
 begin(defaults);
 for (const node of nodes) command(node, []);
+// LaTeX lets an image taller than the text block run past its foot, which paper would cut off. Shrink only the
+// image, keeping its aspect ratio, by what its figure exceeds the body as measured at its column width, so the
+// caption keeps its size and every line, and the figure stays centred.
+for (const figure of body.querySelectorAll('[data-flow-strip] figure[data-latex-float]')) {
+    const images = figure.querySelectorAll('img.latex-graphic');
+    if (images.length !== 1) continue;
+    const excess = figure.getBoundingClientRect().height * unit - bodyHeight;
+    const height = images[0].getBoundingClientRect().height * unit;
+    if (excess > 0 && height > excess) {
+        images[0].style.setProperty('max-height', (height - excess) / zoom + 'px', 'important');
+    }
+}
 const hasColumnTitleNotes = segments.some(seg => seg.titleNoteWidth);
 // Use the first reference's measure, even when numbers repeat in a later chapter.
 const notes = {};
@@ -1224,7 +1236,9 @@ function lines(box, endsPage) {
         gap:i ? Math.max(0,r.start-rows[i-1].end) : r.start, stretchBefore:flushBottom && plus ? plus * texPoint : undefined,
         shrinkBefore:((rows[i-1]?.shrinkAfter || 0) + r.shrinkAbove + minus * texPoint) || undefined, discardable:r.discard, extraAfter:r.extra,
         topSkip:r.element.closest(publicationGrid ? '[data-latex-heading="section"]' :
-            '[data-latex-heading="section"],[data-latex-heading="subsection"],[data-latex-heading="subsubsection"]') ? sectionTop : 0, paragraph:r.para, heading:r.heading, keepBefore:r.element.hasAttribute('data-flow-after-text') || undefined};
+            '[data-latex-heading="section"],[data-latex-heading="subsection"],[data-latex-heading="subsubsection"]') ? sectionTop : 0, paragraph:r.para, heading:r.heading, keepBefore:r.element.hasAttribute('data-flow-after-text') || undefined,
+        // \chapter empties the top float list of its page (\@topnum is zero there).
+        opensChapter:r.heading && body.dataset.latexChapters === 'true' && !!r.element.closest('h2[id^="sec-"],[data-latex-heading="chapter"],[data-latex-chapter-opening]') || undefined};
     });
 }
 // A TeX paragraph ends at the deepest glyph on its final line. Its HTML line box includes

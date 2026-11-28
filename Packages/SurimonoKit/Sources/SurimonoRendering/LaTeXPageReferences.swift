@@ -2,6 +2,7 @@ import Foundation
 import PDFKit
 import SurimonoCore
 import SurimonoFormats
+import WebKit
 
 /// Source headings and float captions can have identical text. Read their actual destinations
 /// from a disposable print rather than guessing which occurrence of a title starts a section.
@@ -392,6 +393,65 @@ enum LaTeXPageReferences {
               next?.nodeType === 1 && (next.matches('.latex-pagebreak') || forced(getComputedStyle(next).breakBefore)) ||
               prior?.nodeType === 1 && forced(getComputedStyle(prior).breakAfter)) marker.hidden = true;
         }
+        """
+
+    /// Reads the targets' pages from a measured vertical strip and fills the fields before its capture. It returns
+    /// whether the strip must be measured again: filling moved the text, and the pages may still change.
+    @MainActor final class VerticalMeasurement {
+        private(set) var pages: [Page] = []
+        private(set) var incomplete = false
+        private var previous: (locations: [Int: Int], references: [String: String])?
+
+        func resolver(
+            _ numbers: LaTeXPageNumbers, installation: Installation, restartsAfterTitle: Bool, in webView: WKWebView
+        ) -> @MainActor ([Int: Int], Int, Bool, ContinuousClock.Instant) async throws -> Bool {
+            { [self] pageOfSource, pageCount, isLastPass, deadline in
+                let json = try await webView.evaluateForPrinting(verticalTargets, until: deadline) as? String
+                let sources = json.flatMap { try? JSONDecoder().decode([String: Int].self, from: Data($0.utf8)) } ?? [:]
+                var locations: [Int: Int] = [:]
+                for (key, source) in sources {
+                    if let index = Int(key), let page = pageOfSource[source] { locations[index] = page }
+                }
+                let map = LaTeXPageReferences.map(
+                    numbers, targets: installation.targets, locations: locations, pageCount: pageCount,
+                    restartsAfterTitle: restartsAfterTitle)
+                pages = map.pages
+                incomplete = installation.missing != 0 || installation.targets.indices.contains { locations[$0] == nil }
+                // The strip already holds these numbers when the last measurement placed everything as before.
+                let settled = previous.map { $0.locations == locations && $0.references == map.references } ?? false
+                var layout = "stable"
+                if !settled {
+                    layout =
+                        try await webView.evaluateForPrinting(
+                            try fill(map.references, physicalPages: locations, examScores: map.examScores),
+                            until: deadline) as? String ?? "remeasure"
+                    previous = (locations, map.references)
+                }
+                guard layout == "stable" || isLastPass else { return true }
+                _ = try await webView.evaluateForPrinting(removeProbes, until: deadline)
+                // The last pass keeps its numbers, but the strip is still measured again if they moved the text.
+                return layout != "stable"
+            }
+        }
+    }
+
+    /// The source band of each target in the measured vertical strip. A vertical line starts at its right edge.
+    /// A heading's box also holds the space before it, which can lie in the previous band, so its first line counts.
+    static let verticalTargets = """
+        const sources = {};
+        const range = document.createRange();
+        for (const el of document.querySelectorAll('[data-latex-page-target],a[data-latex-probe]')) {
+          const index = el.dataset.latexPageTarget ?? el.dataset.latexProbe;
+          // A probe stands at the start of the element it was put in, or at its end when appended to it.
+          const probe = el.matches('a[data-latex-probe]');
+          range.selectNodeContents(probe ? el.parentElement : el);
+          const lines = [...range.getClientRects()].filter(r => r.width && r.height);
+          let box = (probe && !el.nextSibling ? lines.at(-1) : lines[0]) ?? el.getBoundingClientRect();
+          if (!box.width && !box.height) box = el.parentElement.getBoundingClientRect();
+          if (!box.width && !box.height) continue;
+          sources[index] = surimonoVerticalFragment(new DOMRect(box.right - 1, box.top, 1, box.height)).slice;
+        }
+        return JSON.stringify(sources);
         """
 
     static let removeProbes = """

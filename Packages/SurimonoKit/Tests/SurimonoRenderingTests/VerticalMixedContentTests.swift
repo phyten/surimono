@@ -211,7 +211,8 @@ struct VerticalMixedContentTests {
                 const base = document.querySelector('.surimono-vertical ' + selector);
                 const [latin, japanese, explicit] = [...base.children].map(el => getComputedStyle(el));
                 return latin.fontStyle === 'italic' && latin.textEmphasisStyle === 'none' &&
-                    (i === 0 ? japanese.textEmphasisStyle.includes('sesame') :
+                    // LaTeX's \\emph sets vertical Japanese in gothic, as tbook and jlreq do; \\kenten keeps the dots.
+                    (i === 0 ? japanese.textEmphasisStyle === 'none' && japanese.fontFamily.includes('Hiragino Sans') :
                         japanese.fontStyle === 'italic' && japanese.textEmphasisStyle === 'none') &&
                     explicit.textEmphasisStyle.includes('sesame');
             });

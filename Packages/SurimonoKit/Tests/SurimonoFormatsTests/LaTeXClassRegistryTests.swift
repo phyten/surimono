@@ -89,12 +89,18 @@ struct LaTeXClassRegistryTests {
             names: ["jbook", "ltjbook", "ujbook"], chapters: true, title: .separate, language: "ja",
             nativeHeadings: true, traditionalNames: true, paper: .a4, boxSides: true, fieldSides: true,
             numberSides: true, running: .markedBook(numberInHead: true, ruled: false)),
+        // The vertical classes take the horizontal ones' title page and sides; tbook heads its pages (checked
+        // against upLaTeX: the number on the outer side above the text, the chapter and section marks inside).
         .init(
-            names: ["utarticle", "tarticle", "ltjtarticle"], language: "ja",
+            names: ["utarticle", "tarticle", "ltjtarticle"], title: .inline, language: "ja",
             nativeHeadings: true, traditionalNames: true, paper: .a4),
         .init(
-            names: ["utreport", "treport", "utbook", "tbook", "ltjtreport", "ltjtbook"],
-            chapters: true, language: "ja", nativeHeadings: true, traditionalNames: true, paper: .a4),
+            names: ["utreport", "treport", "ltjtreport"], chapters: true, title: .separate, language: "ja",
+            nativeHeadings: true, traditionalNames: true, paper: .a4),
+        .init(
+            names: ["utbook", "tbook", "ltjtbook"], chapters: true, title: .separate, language: "ja",
+            nativeHeadings: true, traditionalNames: true, paper: .a4, boxSides: true, fieldSides: true,
+            numberSides: true, running: .verticalHead(outer: true, marks: true)),
         .init(names: ["ctexart"], language: "zh-Hans", nativeHeadings: true),
         .init(names: ["ctexrep", "ctexbook"], chapters: true, language: "zh-Hans", nativeHeadings: true),
         .init(names: ["oblivoir"], language: "ko", nativeHeadings: true),
@@ -382,7 +388,8 @@ struct LaTeXClassRegistryTests {
             #expect(headings.endDots == (name == "scrbook" ? .automatic : .never))
             #expect(
                 profile.structure.bookOpening
-                    == ((["scrbook", "jsbook", "ltjsbook", "bxjsbook"] + Self.traditionalBooks).contains(name)
+                    == ((["scrbook", "jsbook", "ltjsbook", "bxjsbook", "tbook", "utbook", "ltjtbook"]
+                        + Self.traditionalBooks).contains(name)
                         ? .right : nil)
             )
             #expect(

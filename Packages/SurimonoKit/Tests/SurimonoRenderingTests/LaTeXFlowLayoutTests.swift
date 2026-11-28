@@ -745,6 +745,20 @@ struct LaTeXFlowLayoutTests {
         #expect(moved.map { $0.pieces.map(\.slice.strip) } == [[0], [2, 1, 3]])
     }
 
+    @Test("章で始まるページには上の浮動図表を置かず、本文の下か次のページへ送る")
+    func chapterPageTop() throws {
+        var chapter = item(1, 10)
+        chapter.heading = true
+        chapter.opensChapter = true
+        let forced = Flow.Item(forced: "page")
+        let result = try pages([segment([item(0, 40), forced, chapter, item(2, 20, placement: "tb"), item(3, 20)])])
+        #expect(result.map { $0.pieces.map(\.slice.strip) } == [[0], [1, 3, 2]])
+        var section = item(1, 10)
+        section.heading = true
+        let after = try pages([segment([item(0, 40), forced, section, item(2, 20, placement: "tb"), item(3, 20)])])
+        #expect(after.map { $0.pieces.map(\.slice.strip) } == [[0], [2, 1, 3]])
+    }
+
     @Test("段抜き表題の下で二段を始め、通常の段は詰め、均等割りの末尾だけを揃える")
     func balance() throws {
         let rows = (1...6).map { item($0, 10) }

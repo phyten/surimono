@@ -335,6 +335,7 @@ enum LaTeXClassRegistry {
             builder.structure.formatsContentsChapterNames = true
         }
         builder.pageStyle.japanesePlain = true
+        builder.structure.contentsMeasure.startsSectionPageNumber = builder.id == .ltjsarticle
         let bx = [.bxjsarticle, .bxjsreport, .bxjsbook].contains(builder.id)
         let scale = magnification(builder.options, bx: bx)
         builder.typography.jsMagnification = scale
@@ -372,6 +373,14 @@ enum LaTeXClassRegistry {
         builder.headings.chapterLabel = .spacedJapaneseNumber
         builder.headings.emptyPartPage = builder.structure.hasChapters
         builder.headings.marksHeadingLevel = true
+        if builder.options.contains("tate") {
+            // jlreq's tate nombre sits above the text: centred, or on the outer side in a book.
+            builder.pageStyle.running = .verticalHead(outer: builder.options.contains("book"), marks: false)
+            builder.setBookSides(builder.options.contains("book"))
+            if builder.options.contains("book") {
+                builder.structure.bookOpening = builder.effectiveOpening(builder.openingOption ?? .right)
+            }
+        }
     }
 
     private enum TraditionalDivision { case article, report, book }
@@ -387,6 +396,15 @@ enum LaTeXClassRegistry {
         }
     }
 
+    private static func verticalTraditionalDivision(_ id: LaTeXClassID) -> TraditionalDivision? {
+        switch id {
+        case .tarticle, .utarticle, .ltjtarticle: .article
+        case .treport, .utreport, .ltjtreport: .report
+        case .tbook, .utbook, .ltjtbook: .book
+        default: nil
+        }
+    }
+
     private static func traditionalJapanese(_ builder: Builder) {
         builder.body.usesLatinModernBullet = [.ltjarticle, .ltjreport, .ltjbook].contains(builder.id)
         builder.structure.offersCompositionChoice = true
@@ -396,6 +414,18 @@ enum LaTeXClassRegistry {
         builder.structure.hasChapters = ![.jarticle, .ltjarticle, .ujarticle, .utarticle, .tarticle, .ltjtarticle]
             .contains(
                 builder.id)
+        if let division = verticalTraditionalDivision(builder.id) {
+            // The vertical classes share the horizontal ones' title page and sides; tarticle and treport
+            // keep plain's centred foot number, while tbook heads its pages.
+            builder.setStandardTitlePage(separate: division != .article)
+            builder.setBookSides(division == .book)
+            if division == .book {
+                builder.pageStyle.running = .verticalHead(outer: true, marks: true)
+                // Like jbook, tbook defaults to openright, so \frontmatter and \mainmatter restart the numbers.
+                builder.structure.bookOpening = builder.effectiveOpening(builder.openingOption ?? .right)
+            }
+            return
+        }
         guard let division = horizontalTraditionalDivision(builder.id) else { return }
         let book = division == .book
         builder.page.layoutRule = .standard(book ? .traditionalBook : .traditionalArticle)
