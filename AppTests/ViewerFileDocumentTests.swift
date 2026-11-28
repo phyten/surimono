@@ -553,26 +553,57 @@ struct ViewerFileDocumentTests {
 
     // MARK: - The window's size before and without pages
 
+    /// Holds an async step open until the test lets it go, so that real time never decides order.
+    @MainActor private final class Gate {
+        private var waiting: [CheckedContinuation<Void, Never>] = []
+        private var isOpen = false
+        private(set) var enterCount = 0
+        private(set) var exitCount = 0
+        var isWaiting: Bool { !waiting.isEmpty }
+
+        func wait() async {
+            enterCount += 1
+            if !isOpen {
+                await withCheckedContinuation { waiting.append($0) }
+            }
+            exitCount += 1
+        }
+
+        func open() {
+            isOpen = true
+            let held = waiting
+            waiting = []
+            for continuation in held { continuation.resume() }
+        }
+    }
+
     /// A file's window as the document controller makes it, without adding the file to the recent documents.
+    /// `configure` runs before the size observer is attached and before the window is ordered front, so tests can
+    /// install gates or initial window state before `start()` runs.
     private func fileWindow(
-        at url: URL, type: UTType, delay: Duration? = nil
-    ) throws -> (ViewerFileDocument, NSWindow, DocumentViewModel) {
+        at url: URL, type: UTType, configure: (NSWindow, DocumentViewModel) -> Void = { _, _ in }
+    ) throws -> (ViewerFileDocument, NSWindow, DocumentViewModel, ContentSizes) {
         let document = ViewerFileDocument()
         try document.read(from: url, ofType: type.identifier)
         document.fileURL = url
         document.makeWindowControllers()
         let window = try #require(document.windowControllers.first?.window)
         let model = try #require(DocumentWindows.shared.model(for: window))
-        if let delay { model.roomWithoutPagesDelay = delay }
+        configure(window, model)
+        let sizes = ContentSizes(of: window)
         // Shown, so that the content appears and starts the model, but not seen.
         window.alphaValue = 0
         window.orderFrontRegardless()
-        return (document, window, model)
+        return (document, window, model, sizes)
     }
 
-    private func waitUntil(_ detail: @autoclosure () -> String, _ condition: () -> Bool) async throws {
-        for _ in 0..<500 where !condition() { try await Task.sleep(for: .milliseconds(10)) }
-        #expect(condition(), "\(detail())")
+    private func waitUntil(
+        _ detail: @autoclosure () -> String, timeout: Duration = .seconds(15),
+        sourceLocation: SourceLocation = #_sourceLocation, _ condition: () -> Bool
+    ) async throws {
+        let deadline = ContinuousClock.now + timeout
+        while !condition(), ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(10)) }
+        try #require(condition(), "\(detail())", sourceLocation: sourceLocation)
     }
 
     /// The content sizes the window passes through, from now on.
@@ -614,24 +645,36 @@ struct ViewerFileDocumentTests {
         defer { try? FileManager.default.removeItem(at: directory) }
         let url = directory.appendingPathComponent("broken.pdf")
         try Data("%PDF-1.7 broken".utf8).write(to: url)
-        // Long enough that only the error can give the window its size.
-        let (document, window, model) = try fileWindow(at: url, type: .pdf, delay: .seconds(60))
-        defer { document.close() }
+        // Kept closed so that only the error can give the window its size.
+        let waitGate = Gate()
+        defer { waitGate.open() }
+        let (document, window, model, sizes) = try fileWindow(at: url, type: .pdf) { _, model in
+            model.awaitRoomWithoutPages = { await waitGate.wait() }
+        }
+        defer {
+            sizes.stop()
+            document.close()
+        }
         func state() -> String {
-            "content=\(window.contentRect(forFrameRect: window.frame).size) error=\(model.error ?? "nil") "
-                + "rendering=\(model.isRendering) result=\(model.result != nil)"
+            "content=\(window.contentRect(forFrameRect: window.frame).size) sizes=\(sizes.sizes) "
+                + "error=\(model.error ?? "nil") rendering=\(model.isRendering) result=\(model.result != nil) "
+                + "wait=(\(waitGate.enterCount),\(waitGate.exitCount))"
         }
         try await waitUntil(state()) { model.error != nil && !model.isRendering }
         #expect(model.result == nil, "\(state())")
         #expect(window.contentRect(forFrameRect: window.frame).size == Self.plainSize, "\(state())")
+        #expect(!model.hasSizedWindow, "\(state())")
+        #expect(waitGate.exitCount == 0, "\(state())")
     }
 
     @Test("組版が待ち時間より早く終わるファイルの窓は、760×760 を経ずに紙の形になる", .timeLimit(.minutes(1)))
     func readableFileTakesThePapersShape() async throws {
         let url = try fixtureURL()
-        let opened = ContinuousClock.now
-        let (document, window, model) = try fileWindow(at: url, type: .png)
-        let sizes = ContentSizes(of: window)
+        let waitGate = Gate()
+        defer { waitGate.open() }
+        let (document, window, model, sizes) = try fileWindow(at: url, type: .png) { _, model in
+            model.awaitRoomWithoutPages = { await waitGate.wait() }
+        }
         defer {
             sizes.stop()
             document.close()
@@ -640,11 +683,15 @@ struct ViewerFileDocumentTests {
             "content=\(window.contentRect(forFrameRect: window.frame).size) sizes=\(sizes.sizes) "
                 + "unit=\(String(describing: model.paperUnitSize)) band=\(model.bandInset) side=\(model.sideInset) "
                 + "sized=\(model.hasSizedWindow) error=\(model.error ?? "nil") "
-                + "after=\(ContinuousClock.now - opened)"
+                + "wait=(\(waitGate.enterCount),\(waitGate.exitCount))"
         }
-        try await waitUntil(state()) { model.result != nil && !model.isRendering && model.hasSizedWindow }
-        // Past the wait, so that a size given late would have been seen as well.
-        try await Task.sleep(until: opened + model.roomWithoutPagesDelay + .milliseconds(300))
+        try await waitUntil(state()) {
+            model.result != nil && !model.isRendering && model.hasSizedWindow && waitGate.isWaiting
+        }
+        // Let the wait finish after the pages have sized the window, so a late fallback would be caught too.
+        waitGate.open()
+        try await waitUntil(state()) { waitGate.exitCount == 1 }
+        await Task.yield()
         #expect(!sizes.sizes.contains(Self.plainSize), "\(state())")
         try expectPapersShape(window, model, state())
     }
@@ -656,10 +703,16 @@ struct ViewerFileDocumentTests {
         defer { try? FileManager.default.removeItem(at: directory) }
         let url = directory.appendingPathComponent("slow.md")
         try Data("# Heading\n\nA paragraph.\n".utf8).write(to: url)
-        // No wait at all stands in for pages that are slower than it: the layout cannot finish first.
-        let (document, window, model) = try fileWindow(
-            at: url, type: try #require(UTType(filenameExtension: "md")), delay: .zero)
-        let sizes = ContentSizes(of: window)
+        let waitGate = Gate()
+        defer { waitGate.open() }
+        let renderGate = Gate()
+        defer { renderGate.open() }
+        let (document, window, model, sizes) = try fileWindow(
+            at: url, type: try #require(UTType(filenameExtension: "md"))
+        ) { _, model in
+            model.awaitRoomWithoutPages = { await waitGate.wait() }
+            model.beforePrepare = { await renderGate.wait() }
+        }
         defer {
             sizes.stop()
             document.close()
@@ -667,11 +720,134 @@ struct ViewerFileDocumentTests {
         func state() -> String {
             "content=\(window.contentRect(forFrameRect: window.frame).size) sizes=\(sizes.sizes) "
                 + "unit=\(String(describing: model.paperUnitSize)) sized=\(model.hasSizedWindow) "
-                + "error=\(model.error ?? "nil")"
+                + "error=\(model.error ?? "nil") wait=(\(waitGate.enterCount),\(waitGate.exitCount)) "
+                + "render=(\(renderGate.enterCount),\(renderGate.exitCount))"
         }
-        try await waitUntil(state()) { sizes.sizes.contains(Self.plainSize) }
+        try await waitUntil(state()) { waitGate.isWaiting && renderGate.isWaiting }
+        #expect(!sizes.sizes.contains(Self.plainSize), "\(state())")
         #expect(!model.hasSizedWindow, "\(state())")
+
+        // Release the wait while pagination is still held, so the plain size is observed before any pages arrive.
+        waitGate.open()
+        try await waitUntil(state()) { waitGate.exitCount == 1 && sizes.sizes.contains(Self.plainSize) }
+        #expect(window.contentRect(forFrameRect: window.frame).size == Self.plainSize, "\(state())")
+        #expect(!model.hasSizedWindow, "\(state())")
+        #expect(model.result == nil, "\(state())")
+
+        renderGate.open()
         try await waitUntil(state()) { model.result != nil && !model.isRendering && model.hasSizedWindow }
         try expectPapersShape(window, model, state())
+    }
+
+    @Test("待ち時間のあいだに窓を閉じると、あとから待ちが終わっても大きさと位置は変わらない", .timeLimit(.minutes(1)))
+    func closingDuringWaitLeavesWindowUntouched() async throws {
+        let url = try fixtureURL()
+        let waitGate = Gate()
+        defer { waitGate.open() }
+        let renderGate = Gate()
+        defer { renderGate.open() }
+        let (document, window, model, sizes) = try fileWindow(at: url, type: .png) { _, model in
+            model.awaitRoomWithoutPages = { await waitGate.wait() }
+            model.beforePrepare = { await renderGate.wait() }
+        }
+        var closed = false
+        defer {
+            sizes.stop()
+            if !closed { document.close() }
+        }
+        func state() -> String {
+            "frame=\(window.frame) sizes=\(sizes.sizes) closed=\(model.isWindowClosed) "
+                + "wait=(\(waitGate.enterCount),\(waitGate.exitCount)) "
+                + "render=(\(renderGate.enterCount),\(renderGate.exitCount))"
+        }
+        try await waitUntil(state()) { waitGate.isWaiting && renderGate.isWaiting }
+        let frameBeforeClose = window.frame
+        let sizesBeforeClose = sizes.sizes
+        document.close()
+        closed = true
+        waitGate.open()
+        renderGate.open()
+        try await waitUntil(state()) { waitGate.exitCount == 1 && renderGate.exitCount == 1 }
+        await Task.yield()
+        #expect(model.isWindowClosed, "\(state())")
+        #expect(window.frame == frameBeforeClose, "\(state())")
+        #expect(sizes.sizes == sizesBeforeClose, "\(state())")
+        #expect(!sizes.sizes.contains(Self.plainSize), "\(state())")
+    }
+
+    @Test("刷り台にいる間にエラーになった窓は、表示へ戻ると 760×760 になる", .timeLimit(.minutes(1)))
+    func errorOnTrayResizesWindowAfterReturningToViewMode() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("broken.pdf")
+        try Data("%PDF-1.7 broken".utf8).write(to: url)
+        let waitGate = Gate()
+        defer { waitGate.open() }
+        let renderGate = Gate()
+        defer { renderGate.open() }
+        let (document, window, model, sizes) = try fileWindow(at: url, type: .pdf) { _, model in
+            model.awaitRoomWithoutPages = { await waitGate.wait() }
+            model.beforePrepare = { await renderGate.wait() }
+        }
+        defer {
+            sizes.stop()
+            document.close()
+        }
+        func state() -> String {
+            "mode=\(model.mode) content=\(window.contentRect(forFrameRect: window.frame).size) "
+                + "sizes=\(sizes.sizes) error=\(model.error ?? "nil") rendering=\(model.isRendering) "
+                + "sized=\(model.hasSizedWindow) wait=(\(waitGate.enterCount),\(waitGate.exitCount)) "
+                + "render=(\(renderGate.enterCount),\(renderGate.exitCount))"
+        }
+        try await waitUntil(state()) { waitGate.isWaiting && renderGate.isWaiting }
+        model.enterPrintMode()
+        try #require(model.mode == .print, "\(state())")
+        renderGate.open()
+        try await waitUntil(state()) { model.error != nil && !model.isRendering }
+        #expect(model.mode == .print, "\(state())")
+        #expect(!model.hasSizedWindow, "\(state())")
+        #expect(window.contentRect(forFrameRect: window.frame).size != Self.plainSize, "\(state())")
+        #expect(waitGate.exitCount == 0, "\(state())")
+
+        model.exitPrintMode()
+        try await waitUntil(state()) { model.mode == .view }
+        #expect(window.contentRect(forFrameRect: window.frame).size == Self.plainSize, "\(state())")
+        #expect(!model.hasSizedWindow, "\(state())")
+    }
+
+    @Test("仮の大きさを求めない窓は、エラーになっても大きさと位置を変えない", .timeLimit(.minutes(1)))
+    func windowNotNeedingRoomWithoutPagesStaysUnchanged() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("broken.pdf")
+        try Data("%PDF-1.7 broken".utf8).write(to: url)
+        let waitGate = Gate()
+        defer { waitGate.open() }
+        var keptFrame = NSRect.zero
+        let (document, window, model, sizes) = try fileWindow(at: url, type: .pdf) { window, model in
+            model.needsRoomWithoutPages = false
+            model.awaitRoomWithoutPages = { await waitGate.wait() }
+            window.setContentSize(NSSize(width: 420, height: 310))
+            if let visible = (window.screen ?? NSScreen.main)?.visibleFrame {
+                window.setFrameOrigin(NSPoint(x: visible.minX + 40, y: visible.minY + 40))
+            }
+            keptFrame = window.frame
+        }
+        defer {
+            sizes.stop()
+            document.close()
+        }
+        func state() -> String {
+            "frame=\(window.frame) kept=\(keptFrame) sizes=\(sizes.sizes) error=\(model.error ?? "nil") "
+                + "rendering=\(model.isRendering) wait=(\(waitGate.enterCount),\(waitGate.exitCount))"
+        }
+        try #require(window.contentRect(forFrameRect: keptFrame).size != Self.plainSize, "\(state())")
+        try await waitUntil(state()) { model.error != nil && !model.isRendering }
+        #expect(model.result == nil, "\(state())")
+        #expect(waitGate.enterCount == 0, "\(state())")
+        #expect(window.frame == keptFrame, "\(state())")
+        #expect(sizes.sizes.isEmpty, "\(state())")
     }
 }

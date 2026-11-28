@@ -765,7 +765,15 @@ final class DocumentViewModel {
     /// given a plain one when its document fails or its pages are slow to come.
     @ObservationIgnored var needsRoomWithoutPages = false
     /// How long a window without a size waits for its pages before it is shown at a plain size.
-    @ObservationIgnored var roomWithoutPagesDelay: Duration = .seconds(2)
+    static let roomWithoutPagesDelay: Duration = .seconds(2)
+    /// Waits before giving an unsized window a plain size; tests hold it open and release it in order.
+    @ObservationIgnored var awaitRoomWithoutPages: () async -> Void = {
+        try? await Task.sleep(for: DocumentViewModel.roomWithoutPagesDelay)
+    }
+    /// Runs before each layout preparation; tests use it to hold pagination until the wait has run.
+    @ObservationIgnored var beforePrepare: (() async -> Void)?
+    /// The wait has passed or the first render failed; the window takes the plain size once back in the view mode.
+    @ObservationIgnored private var roomWithoutPagesIsDue = false
     @ObservationIgnored private var roomWithoutPagesTask: Task<Void, Never>?
     /// The tray was asked for before the first pages were there.
     @ObservationIgnored private(set) var isPrintModeRequested = false
@@ -1504,25 +1512,36 @@ final class DocumentViewModel {
             }
         }
         refreshIncludePlan()
-        if needsRoomWithoutPages, roomWithoutPagesTask == nil {
-            let delay = roomWithoutPagesDelay
+        if roomWithoutPagesIsDue {
+            giveRoomWithoutPagesIfDue()
+        } else if needsRoomWithoutPages, roomWithoutPagesTask == nil {
+            let wait = awaitRoomWithoutPages
             roomWithoutPagesTask = Task { [weak self] in
-                try? await Task.sleep(for: delay)
+                await wait()
                 guard !Task.isCancelled else { return }
-                self?.giveRoomWithoutPages()
+                self?.roomWithoutPagesBecameDue()
             }
         }
         // A window that replaces another has its pages from before it appeared.
         if result == nil { render() }
     }
 
-    /// Shows a window that has no size yet at a plain one, centred, so that its error or "preparing" is seen. A window
-    /// the pages, a restoration or the tray have sized keeps its size.
-    private func giveRoomWithoutPages() {
+    private func roomWithoutPagesBecameDue() {
         roomWithoutPagesTask?.cancel()
         roomWithoutPagesTask = nil
-        guard needsRoomWithoutPages, !hasSizedWindow, !isWindowClosed, !isInFullScreen, mode == .view, let window
+        guard needsRoomWithoutPages else { return }
+        roomWithoutPagesIsDue = true
+        giveRoomWithoutPagesIfDue()
+    }
+
+    /// Shows a window that has no size yet at a plain one, centred, so that its error or "preparing" is seen. A window
+    /// the pages, a restoration or the tray have sized keeps its size; one in full screen or on a stage waits until it
+    /// returns to the view mode.
+    private func giveRoomWithoutPagesIfDue() {
+        guard roomWithoutPagesIsDue, needsRoomWithoutPages, !hasSizedWindow, !isWindowClosed, !isInFullScreen,
+            mode == .view, let window
         else { return }
+        roomWithoutPagesIsDue = false
         needsRoomWithoutPages = false
         window.setContentSize(NSSize(width: 760, height: 760))
         window.center()
@@ -2009,6 +2028,10 @@ final class DocumentViewModel {
                     }
                     // Reading a bundle can outlast cancellation while a file read is in progress.
                     guard let renderer = self?.renderer else { return }
+                    if let beforePrepare = self?.beforePrepare {
+                        await beforePrepare()
+                        try Task.checkCancellation()
+                    }
                     if showsLeadingPages {
                         prepared = try await renderer.prepare(source, settings: settings) { [weak self] preview in
                             guard let self, !Task.isCancelled, mode == .view, generation == dataGeneration,
@@ -2166,7 +2189,7 @@ final class DocumentViewModel {
         if succeeded {
             applyRestoredPageIfReady()
         } else {
-            giveRoomWithoutPages()
+            roomWithoutPagesBecameDue()
             previewPrintRequest.cancel()
             if readingPreview != nil { isPrintModeRequested = false }
             refreshPageUpdate()
@@ -2572,6 +2595,7 @@ final class DocumentViewModel {
                 // jump back and then slide to the pages' new shape.
                 sizeWindowToPaper(keepHeight: true, animate: false)
             }
+            giveRoomWithoutPagesIfDue()
             resumePrintIssueNavigation()
         }
     }
@@ -3974,6 +3998,7 @@ final class DocumentViewModel {
         } else {
             sizeWindowToPaper(keepHeight: true)
         }
+        giveRoomWithoutPagesIfDue()
     }
 
     /// The paper the window shows in the view mode. Before the first pages fit the window to the paper, its size is
