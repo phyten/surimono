@@ -5,6 +5,8 @@ import SwiftUI
 enum BandSlot: Hashable {
     case item(BandLayout.Item, BandLayout.Form)
     case name, more, scrubber
+    /// The current chapter's whole title, and the chapter part around a title of no width.
+    case chapterTitle, chapterChrome
 }
 
 extension BandLayout.Item {
@@ -434,6 +436,11 @@ struct BandMeasurements: View {
                 }
             }
             measure(.more) { BandMoreButton { EmptyView() } }
+            if items.contains(.chapter) {
+                // The whole title, however long: the plan decides the frame it gets.
+                measure(.chapterTitle) { CurrentChapterButton.titleText(model.currentChapterTitle).lineLimit(1) }
+                measure(.chapterChrome) { CurrentChapterButton(model: model, trailing: false, titleWidth: 0) }
+            }
             ForEach(items, id: \.self) { item in
                 measure(.item(item, .full)) { BandItemView(model: model, item: item, form: .full) }
                 if item.hasIntermediateForm(for: model) {

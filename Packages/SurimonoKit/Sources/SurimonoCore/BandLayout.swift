@@ -292,28 +292,55 @@ public enum BandLayout {
         }
         var preferredForms = Dictionary(
             uniqueKeysWithValues: widths.map { ($0.key, names.preferredForm(for: $0.key, widths: $0.value)) })
+        let scrubber = position == .bottom ? measurements.scrubber.flatMap { $0 > 0 ? $0 : nil } : nil
+        // On the bottom band the chapter title and the slider share what the other parts leave, the slider first:
+        // the title shrinks, then leaves, then the slider leaves, and only then do the other parts fold.
+        let sharesChapter = position == .bottom && widths[.chapter] != nil
+        var folding = widths
+        if sharesChapter { folding[.chapter] = nil }
+        preferredForms[.chapter] = sharesChapter ? nil : preferredForms[.chapter]
         // The preparation word yields before the slider, even when the entire row otherwise fits.
-        if position == .bottom, let rail = measurements.scrubber, widths[.pageIndicator]?.withoutSuffix != nil,
-            itemWidth(preferredForms, widths: widths) + geometry(preferredForms).spacingWidth + rail > availableWidth
+        if let rail = scrubber, widths[.pageIndicator]?.withoutSuffix != nil,
+            itemWidth(preferredForms, widths: folding) + geometry(preferredForms).spacingWidth + rail > availableWidth
         {
             preferredForms[.pageIndicator] = .withoutSuffix
         }
-        let plan = collapse(
-            forms: preferredForms, widths: widths, name: name, available: availableWidth,
-            steps: physicalSteps(at: position),
-            compactBeforeName: additionalCompactOrder
-        ) { geometry($0).spacingWidth }
+        let room = availableWidth - itemWidth(preferredForms, widths: folding) - geometry(preferredForms).spacingWidth
+        var share = ChapterShare()
+        var shown = widths
+        if sharesChapter, let part = widths[.chapter] {
+            let chrome = measurements.chapterChrome
+            var withChapter = preferredForms
+            withChapter[.chapter] = .full
+            let gap = geometry(withChapter).spacingWidth - geometry(preferredForms).spacingWidth
+            share = shareChapterRoom(
+                room: room, scrubber: scrubber, title: measurements.chapterTitle ?? (part.full - chrome),
+                chrome: chrome, gap: gap)
+            if let title = share.titleWidth {
+                preferredForms[.chapter] = .full
+                shown[.chapter] = Widths(full: chrome + title)
+            }
+        }
+        // A shared row that holds the slider, or the title without a slider, has nothing to fold. Otherwise the title
+        // has left and the row folds as before.
+        let plan =
+            sharesChapter && (share.showsScrubber || (scrubber == nil && room >= 0))
+            ? Plan(forms: preferredForms, overflow: [], nameWidth: 0)
+            : collapse(
+                forms: preferredForms, widths: folding, name: name, available: availableWidth,
+                steps: physicalSteps(at: position), compactBeforeName: additionalCompactOrder
+            ) { geometry($0).spacingWidth }
         var minimumForms: [Item: Form] = widths[.print].map { [.print: $0.compact == nil ? .full : .compact] } ?? [:]
         if widths[.pageIndicator]?.withoutSuffix != nil { minimumForms[.pageIndicator] = .withoutSuffix }
-        // Only the surplus of the *unfolded* row belongs to the scrubber. A label folding must never
-        // make the scrubber reappear. The ordinary spacer minimum remains as clearance for the controls.
+        // The ordinary spacer minimum remains as clearance for the controls.
         let resolvedGeometry = geometry(plan.forms)
-        let required = itemWidth(plan.forms, widths: widths) + resolvedGeometry.spacingWidth + plan.nameWidth
+        let required = itemWidth(plan.forms, widths: shown) + resolvedGeometry.spacingWidth + plan.nameWidth
+        // Only the surplus of the *unfolded* row belongs to the slider. A label folding must never make it reappear.
         let scrubberWidth: CGFloat
-        if position == .bottom, let width = measurements.scrubber, width > 0, availableWidth - required >= width,
-            plan.forms == preferredForms
-        {
-            scrubberWidth = width
+        if sharesChapter {
+            scrubberWidth = share.showsScrubber ? scrubber ?? 0 : 0
+        } else if let rail = scrubber, availableWidth - required >= rail, plan.forms == preferredForms {
+            scrubberWidth = rail
         } else {
             scrubberWidth = 0
         }
@@ -322,7 +349,49 @@ public enum BandLayout {
             trailing: trailing.compactMap(\.item).filter { plan.forms[$0] != nil },
             forms: plan.forms, nameWidth: plan.nameWidth,
             minimumWidth: itemWidth(minimumForms, widths: widths) + geometry(minimumForms).spacingWidth,
-            geometry: resolvedGeometry, requiredWidth: required + scrubberWidth, showsScrubber: scrubberWidth > 0)
+            geometry: resolvedGeometry, requiredWidth: required + scrubberWidth, showsScrubber: scrubberWidth > 0,
+            chapterTitleWidth: share.titleWidth)
+    }
+
+    /// The narrowest frame worth a chapter title: below it the title leaves the band rather than show a few letters.
+    /// The decision rests on the room, never on the title's own length, so that it does not come and go from page to
+    /// page with titles of different lengths.
+    public static let chapterTitleMinimum: CGFloat = 72
+    /// The widest frame a chapter title takes; a longer title ends with "…".
+    public static let chapterTitleMaximum: CGFloat = 160
+
+    public struct ChapterShare: Equatable, Sendable {
+        /// The frame of the chapter title, nil when the title is left out.
+        public var titleWidth: CGFloat?
+        /// What the slider and its room take, nil when the slider is left out.
+        public var scrubberWidth: CGFloat?
+
+        public var showsScrubber: Bool { scrubberWidth != nil }
+
+        public init(titleWidth: CGFloat? = nil, scrubberWidth: CGFloat? = nil) {
+            self.titleWidth = titleWidth
+            self.scrubberWidth = scrubberWidth
+        }
+    }
+
+    /// Shares what a band leaves between the page slider and the current chapter's title. The slider comes first: it
+    /// shows whenever the room holds it at its narrowest. The title then takes what remains, at most
+    /// `chapterTitleMaximum`, and only when that is at least `chapterTitleMinimum`. The slider grows into the rest.
+    /// - Parameters:
+    ///   - room: What the other parts of the row leave, their gaps and the row's fixed room counted.
+    ///   - scrubber: The slider at its narrowest with its room; nil where the band offers none.
+    ///   - title: The width of the whole title.
+    ///   - chrome: What the chapter part adds around its title.
+    ///   - gap: The spacing the chapter part brings into the row.
+    public static func shareChapterRoom(
+        room: CGFloat, scrubber: CGFloat?, title: CGFloat, chrome: CGFloat = 0, gap: CGFloat = 0
+    ) -> ChapterShare {
+        if let scrubber, room < scrubber { return ChapterShare() }
+        let frame = room - (scrubber ?? 0) - gap - chrome
+        // An empty title, before the first chapter, leaves its room to the slider.
+        let titleWidth = frame >= chapterTitleMinimum && title > 0 ? min(title, frame, chapterTitleMaximum) : nil
+        let used = titleWidth.map { $0 + chrome + gap } ?? 0
+        return ChapterShare(titleWidth: titleWidth, scrubberWidth: scrubber.map { _ in room - used })
     }
 
     private static func physicalSteps(at position: Position) -> [Step] {

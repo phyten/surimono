@@ -145,6 +145,9 @@ struct ViewModeView: View {
             if let window = model.window { ViewerWindow.setTrafficLightsVisible(visible, in: window) }
         }
         // The band, which anchors its popovers, must stay while one is open, however it was opened.
+        .onChange(of: model.scrubber.dragging) { [menu] _, dragging in
+            menu.heldChapterTitle = dragging ? menu.bandWidths[.chapterTitle].map { $0.rounded(.up) } : nil
+        }
         .onChange(of: model.scrubber.holdsBand, initial: true) { _, held in
             menu.scrubberHeld = held
         }

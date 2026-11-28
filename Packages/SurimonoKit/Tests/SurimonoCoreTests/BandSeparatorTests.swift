@@ -235,8 +235,8 @@ extension BandSeparatorTests {
         let restored = try JSONDecoder().decode(BandArrangement.self, from: JSONEncoder().encode(arrangement))
         let plan = BandLayout.resolve(
             arrangement: restored, mode: .split, availableItems: Set(BandLayout.Item.allCases),
-            measurements: .init(items: [:], name: 0), metrics: .init(topFixed: 0, bottomFixed: 0, separator: 9),
-            availableWidth: 1000)
+            measurements: .init(items: [:], name: 0, chapterTitle: 100),
+            metrics: .init(topFixed: 0, bottomFixed: 0, separator: 9), availableWidth: 1000)
         let geometry = try #require(plan.bottom?.geometry)
         #expect(geometry.usesStandardSpacing)
         var expected: [BandLayout.Item: CGFloat] = [

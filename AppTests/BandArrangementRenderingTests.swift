@@ -118,7 +118,9 @@ struct BandArrangementRenderingTests {
         }
         func widths(top: Bool) -> [BandLayout.Item: BandLayout.Widths] {
             var result: [BandLayout.Item: BandLayout.Widths] = [:]
-            for item in applicable where (mode == .top || topItems.contains(item)) == top {
+            // On the bottom band the chapter shares the room with the slider by its own rule, checked on its own.
+            for item in applicable
+            where (mode == .top || topItems.contains(item)) == top && (top || item != .chapter) {
                 // The docked Print button's gap is already in the fixed top width.
                 let gap: CGFloat = item == .print ? 0 : 6
                 result[item] = BandLayout.Widths(
@@ -202,12 +204,23 @@ struct BandArrangementRenderingTests {
             let reference = referencePlan(model, mode: mode, width: width)
             #expect(plans.top.forms == reference.top.forms, "top at \(width)")
             #expect(plans.top.nameWidth == reference.top.nameWidth, "name at \(width)")
-            #expect(plans.bottom?.forms == reference.bottom?.forms, "bottom at \(width)")
+            #expect(plans.bottom?.forms.filter { $0.key != .chapter } == reference.bottom?.forms, "bottom at \(width)")
             #expect(plans.top.requiredWidth <= max(width, 141 + 34), "top footprint at \(width)")
+            var pushedOut = Set(reference.top.overflow + (reference.bottom?.overflow ?? []))
             if let bottom = plans.bottom {
                 #expect(bottom.requiredWidth <= max(width, 28), "bottom footprint at \(width)")
+                // With no slider here, the 72-point title shows only beside the unfolded parts, in a frame of at least 72
+                // after its gap; otherwise it leaves first, before anything else folds.
+                let chapterShown = bottom.forms[.chapter] != nil
+                let gap = OverlayBand.toolSpacing
+                let unfolded = reference.bottom.map {
+                    $0.overflow.isEmpty && $0.forms.values.allSatisfy { $0 == .full }
+                }
+                let room = width - (bottom.requiredWidth - (chapterShown ? 72 + gap : 0))
+                #expect(chapterShown == (unfolded == true && room - gap >= 72), "chapter at \(width)")
+                #expect(bottom.chapterTitleWidth == (chapterShown ? 72 : nil), "chapter frame at \(width)")
+                if !chapterShown { pushedOut.insert(.chapter) }
             }
-            let pushedOut = Set(reference.top.overflow + (reference.bottom?.overflow ?? []))
             #expect(Set(plans.resolved.overflow) == pushedOut, "overflow at \(width)")
         }
     }

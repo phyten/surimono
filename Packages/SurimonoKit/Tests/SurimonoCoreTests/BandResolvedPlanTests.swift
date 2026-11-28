@@ -53,8 +53,8 @@ struct BandResolvedPlanTests {
     func splitStandardSpacing() throws {
         let plan = BandLayout.resolve(
             arrangement: .standard(for: .split), mode: .split, availableItems: Set(BandLayout.Item.allCases),
-            measurements: .init(items: [:], name: 0), metrics: .init(topFixed: 0, bottomFixed: 0, separator: 9),
-            availableWidth: 2000)
+            measurements: .init(items: [:], name: 0, chapterTitle: 100),
+            metrics: .init(topFixed: 0, bottomFixed: 0, separator: 9), availableWidth: 2000)
         let bottom = try #require(plan.bottom)
         #expect(!plan.top.geometry.usesStandardSpacing && !bottom.geometry.usesStandardSpacing)
         #expect(
@@ -123,7 +123,7 @@ struct BandResolvedPlanTests {
         #expect(wide.top.geometry.moreDock == .trailing && narrow.top.geometry.moreDock == .trailing)
     }
 
-    @Test("画像の束では実測したページ入口の幅で線を畳み、章を外す前に入口をアイコンにする")
+    @Test("下の帯では今の章、スクラバーの順に場所を譲り、そのあとでページ入口をアイコンにする")
     func bundleDrawerFolds() {
         let layout = BandArrangement(bottomLeft: [.thumbnails], bottomRight: [.chapter, .pageIndicator])
         func plan(_ width: CGFloat) -> BandRowPlan? {
@@ -138,11 +138,13 @@ struct BandResolvedPlanTests {
                 availableWidth: width
             ).bottom
         }
-        #expect(plan(267)?.showsScrubber == true)
-        #expect(plan(266)?.showsScrubber == false)
-        #expect(plan(147)?.forms[.thumbnails] == .full)
-        #expect(plan(100)?.forms == [.thumbnails: .compact, .chapter: .full, .pageIndicator: .full])
-        #expect(plan(99)?.forms == [.thumbnails: .compact, .pageIndicator: .full])
+        // The other parts take 107; the chapter needs 72 beside the 120 of the slider.
+        #expect(plan(299)?.showsScrubber == true && plan(299)?.chapterTitleWidth == 40)
+        #expect(plan(298)?.showsScrubber == true && plan(298)?.chapterTitleWidth == nil)
+        #expect(plan(227)?.showsScrubber == true && plan(227)?.forms[.chapter] == nil)
+        #expect(plan(226)?.showsScrubber == false)
+        #expect(plan(107)?.forms == [.thumbnails: .full, .pageIndicator: .full])
+        #expect(plan(106)?.forms == [.thumbnails: .compact, .pageIndicator: .full])
     }
 
     @Test("目次を外した旧配置も標準の隙間を保ち名前や他の部品を動かさない")

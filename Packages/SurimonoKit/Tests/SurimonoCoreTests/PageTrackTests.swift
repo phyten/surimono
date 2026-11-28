@@ -58,7 +58,8 @@ struct PageTrackTests {
     @Test("余り幅120ptで下の帯に現れ、それ未満では既存の配置も省略メニューも変わらない")
     func fitsBeforeAnyCollapse() throws {
         let layout = BandArrangement.standard(for: .split)
-        let items = Set(BandLayout.Item.allCases)
+        // The current chapter shares the slider's room by a rule of its own (BandChapterTests).
+        let items = Set(BandLayout.Item.allCases).subtracting([.chapter])
         let measurements = BandMeasurementsValue(
             items: Dictionary(uniqueKeysWithValues: items.map { ($0, .init(full: 32, compact: 16)) }), name: 80)
         func plan(_ width: CGFloat, _ scrubber: CGFloat?) -> BandResolvedPlan {
