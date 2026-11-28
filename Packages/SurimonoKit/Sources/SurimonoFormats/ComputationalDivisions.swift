@@ -143,6 +143,13 @@ extension ComputationalBody {
             let target = register(String(match.2), kind: "tbl")
             block(
                 "<div\(target.attribute) class=\"table-caption\">\(target.text) \(HTML.escape(String(match.1)))</div>")
+        } else if line.hasPrefix(":") || line.hasPrefix("Table:"),
+            let match = line.wholeMatch(of: /^(?:Table)?:\s+\(\\#(tab:[\w:.-]+)\)\s*(.*?)\s*$/)
+        {
+            // bookdown labels a Markdown table in its caption: `Table: (\#tab:id) Caption`.
+            let target = register(String(match.1), kind: "tab")
+            block(
+                "<div\(target.attribute) class=\"table-caption\">\(target.text) \(HTML.escape(String(match.2)))</div>")
         } else if line.contains("{#eq-"), let match = line.wholeMatch(of: /^(.*\$\$)\s*\{#(eq-[\w:.-]+)\}\s*$/) {
             let target = register(String(match.2), kind: "eq")
             output.append(String(match.1))
@@ -169,6 +176,13 @@ extension ComputationalBody {
                     label.value = .heading(anchor.text)
                 }
                 labels[requested] = label
+            } else if let requested = anchor.customID, labels[requested] == nil, bookdownTargets.contains(requested) {
+                // bookdown refers to a section by its heading's ID, and prints its number.
+                let text = anchor.text.contains(token) ? titles[requested] ?? anchor.text : anchor.text
+                labels[requested] = ComputationalLabel(
+                    id: anchor.id, kind: "sec",
+                    value: anchor.number.isEmpty ? .heading(text) : .number(String(anchor.number.dropLast())),
+                    name: metadata.japanese ? "節" : "Section")
             }
             let title = anchor.customID.flatMap { titles[$0] }
             guard numbered || title != nil, !unlisted.contains(anchor.customID ?? "") else { return nil }

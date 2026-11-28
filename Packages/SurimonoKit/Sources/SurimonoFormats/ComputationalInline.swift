@@ -37,8 +37,10 @@ struct ComputationalLabel {
 }
 
 enum ComputationalInsertion {
+    /// Which tool's syntax wrote a reference, which decides what an unresolved one prints.
+    enum Form { case quarto, bookdown }
     case literal(String)
-    case reference(id: String, numberOnly: Bool, original: String)
+    case reference(id: String, numberOnly: Bool, original: String, form: Form)
 }
 
 extension ComputationalBody {
@@ -50,9 +52,12 @@ extension ComputationalBody {
 
     mutating func register(_ id: String, kind: String, heading: String? = nil) -> ComputationalLabel {
         if let existing = labels[id] { return existing }
-        counts[kind, default: 0] += 1
-        let value = heading.map(ComputationalLabel.Value.heading) ?? .number(String(counts[kind, default: 0]))
-        let name = ComputationalLabel.names[kind]
+        // bookdown's tables (`tab:`) are Quarto's `tbl-` under another prefix, kept out of `names` so that a Quarto
+        // `@tab-…` stays a citation.
+        let counter = kind == "tab" ? "tbl" : kind
+        counts[counter, default: 0] += 1
+        let value = heading.map(ComputationalLabel.Value.heading) ?? .number(String(counts[counter, default: 0]))
+        let name = ComputationalLabel.names[counter]
         let label = ComputationalLabel(
             id: id, kind: kind, value: value,
             name: (metadata.japanese ? name?.1 : name?.0) ?? kind)
@@ -98,15 +103,40 @@ extension ComputationalBody {
                 prior.isLetter || prior.isNumber || prior == "_" || prior == "\\"
             {
                 html += original
-            } else if let ref = match.bookdown ?? match.crossReference ?? match.bareReference {
+            } else if let ref = match.bookdown {
+                // bookdown's `\@ref()` gives the number alone; the text around it names the figure or table.
+                bookdownTargets.insert(text(ref))
+                html += deferInsertion(.reference(id: text(ref), numberOnly: true, original: original, form: .bookdown))
+            } else if let ref = match.crossReference ?? match.bareReference {
                 let numberOnly = match.crossReferenceMinus.map { !$0.isEmpty } ?? false
-                html += deferInsertion(.reference(id: text(ref), numberOnly: numberOnly, original: original))
+                html += deferInsertion(
+                    .reference(id: text(ref), numberOnly: numberOnly, original: original, form: .quarto))
             } else {
                 html += original
             }
             start = match.range.upperBound
         }
         return html + text(start..<characters.count)
+    }
+
+    /// What bookdown and Quarto print for a reference they cannot find: bookdown `??`, Quarto `?@id`. A bare `@id`
+    /// whose prefix names no kind of target is a citation, and stays as written.
+    private static func unresolvedMark(id: String, form: ComputationalInsertion.Form) -> String? {
+        switch form {
+        case .bookdown: "??"
+        case .quarto: ComputationalLabel.kind(id) == nil ? nil : "?@" + id
+        }
+    }
+
+    /// The targets of references that name no label in the document, once each in the order they are first used.
+    var unresolvedReferences: [String] {
+        var seen: Set<String> = []
+        return insertions.compactMap { insertion in
+            guard case .reference(let id, _, _, let form) = insertion, labels[id] == nil,
+                Self.unresolvedMark(id: id, form: form) != nil, seen.insert(id).inserted
+            else { return nil }
+            return id
+        }
     }
 
     func resolve(_ html: String, plainText: Bool = false) -> String {
@@ -131,10 +161,13 @@ extension ComputationalBody {
             case .literal(let value):
                 result +=
                     textOnly ? value.replacingOccurrences(of: "<[^>]*>", with: "", options: .regularExpression) : value
-            case .reference(let id, let numberOnly, let original):
+            case .reference(let id, let numberOnly, let original, let form):
                 if let target = labels[id] {
                     let text = HTML.escape(numberOnly ? target.shortText : target.text)
                     result += textOnly ? text : "<a href=\"#\(HTML.escape(target.id))\">\(text)</a>"
+                } else if let mark = Self.unresolvedMark(id: id, form: form) {
+                    let text = HTML.escape(mark)
+                    result += textOnly ? text : "<strong>\(text)</strong>"
                 } else {
                     result += HTML.escape(original)
                 }

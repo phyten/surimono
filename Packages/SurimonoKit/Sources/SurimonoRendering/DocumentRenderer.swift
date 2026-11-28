@@ -1629,9 +1629,13 @@ public final class DocumentRenderer {
             // A formula that failed is printed as its source, which the page check reports with its page.
             // The reader names each distinct source once; drop that copy when the paper already shows it.
             let printedFormulas = Set(text.issues.filter { $0.kind == .math }.map { String($0.detail.prefix(100)) })
-            for (offset, detail) in fragment.readingIssues.enumerated() {
+            for (offset, reported) in fragment.readingIssues.enumerated() {
+                let referencePrefix = ComputationalMarkdown.unresolvedReferencePrefix
+                let references = reported.hasPrefix(referencePrefix)
+                let detail = references ? String(reported.dropFirst(referencePrefix.count)) : reported
                 let kind: PrintIssue.Kind =
                     switch source.format {
+                    case _ where references: .reference
                     case _ where detail == StackSpace.limitIssue: .nestingLimit
                     case _ where detail == StackSpace.omissionIssue: .nestingOmission
                     case .org where detail == OrgConverter.contentsLimitIssue: .contentsLimit

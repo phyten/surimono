@@ -1,6 +1,9 @@
 import Foundation
 
 public enum ComputationalMarkdown {
+    /// Starts the reading issue that names the references no label answers; the targets follow, comma separated.
+    public static let unresolvedReferencePrefix = "Unresolved cross-references: "
+
     public static func convert(
         _ text: String, format: DocumentFormat = .quarto, reading: FormatReadingSettings = .init(),
         pageBreakLine: String = "", proof: ProofMarks = .shown, contentsDepth: Int? = nil,
@@ -22,7 +25,9 @@ public enum ComputationalMarkdown {
             source, pageBreakLine: pageBreakLine, proof: proof,
             options: .init(numberDepth: options.numbers, unnumbered: document.unnumbered))
         let fragment = rendered.fragment
-        if options.numbers != nil || options.lead != nil || proposedLeadDepth != nil || !document.labels.isEmpty {
+        if options.numbers != nil || options.lead != nil || proposedLeadDepth != nil || !document.labels.isEmpty
+            || !document.bookdownTargets.isEmpty
+        {
             document.resolveHeadings(rendered.embeddedHeadings, numbered: options.numbers != nil)
         }
         if PreviewConversion.expired { return HTMLFragment(body: "") }
@@ -34,7 +39,10 @@ public enum ComputationalMarkdown {
                 + document.resolve(fragment.body),
             title: metadata.values["title"]
                 ?? fragment.title.map { HTML.unescape(document.resolve($0, plainText: true)) }, language: language,
-            readingIssues: fragment.readingIssues, decidesHeadingNumbers: options.ownsNumbers
+            readingIssues: fragment.readingIssues
+                + (document.unresolvedReferences.isEmpty
+                    ? [] : [unresolvedReferencePrefix + document.unresolvedReferences.joined(separator: ", ")]),
+            decidesHeadingNumbers: options.ownsNumbers
         ).recordingContents(file.contents)
         result.numberInstructions = file.numbers
         result.inTextContentsMarker = fragment.inTextContentsMarker
@@ -103,6 +111,8 @@ struct ComputationalBody {
     var counts: [String: Int] = [:]
     var labels: [String: ComputationalLabel] = [:]
     var insertions: [ComputationalInsertion] = []
+    /// What `\@ref()` asks for, which may be a heading's ID as well as a figure or table label.
+    var bookdownTargets: Set<String> = []
     var headings: [(level: Int, id: String, text: String)] = []
     var headingSuffixes: [String: Int] = [:]
     var unnumbered: Set<String> = []

@@ -89,7 +89,7 @@ struct PrintIssuesPopover: View {
                     .disabled(TextScale.smaller(than: model.textScale) == model.textScale)
             }
         case .math, .latex, .rst, .bibliography, .mermaid, .mermaidTimeout, .verticalWriting, .nestingLimit,
-            .nestingOmission, .contentsLimit:
+            .nestingOmission, .contentsLimit, .reference:
             EmptyView()
         }
     }
@@ -127,6 +127,8 @@ enum PrintIssueText {
         case .mermaid: key = "Could Not Render Diagram: %@"
         case .rst:
             return PrintModeText.format("Unrecognized RST constructs: %@", language: language, issue.detail)
+        case .reference:
+            return PrintModeText.format("Cross-references not found: %@", language: language, issue.detail)
         case .bibliography:
             if issue.detail.hasSuffix(" could not be read") {
                 let file = String(issue.detail.dropLast(" could not be read".count))
@@ -167,7 +169,8 @@ enum PrintIssueText {
                 key = "Showing images needs permission to read the folder"
             case .other, nil: key = "Check that the image is readable and in a supported format."
             }
-        case .rst, .verticalWriting, .bibliography, .mermaidTimeout, .nestingLimit, .nestingOmission, .contentsLimit:
+        case .rst, .verticalWriting, .bibliography, .mermaidTimeout, .nestingLimit, .nestingOmission, .contentsLimit,
+            .reference:
             return ""
         case .overflow: key = "Try landscape paper or smaller text, or adjust this element in the source document."
         case .math: key = "Check the formula's syntax and use supported commands in the source document."
