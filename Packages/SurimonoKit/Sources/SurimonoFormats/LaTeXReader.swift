@@ -141,7 +141,7 @@ final class LaTeXReader {
         // Nested environments and arguments create readers. Beyond the shared nesting
         // limit, or when the thread's stack runs short first, their text still prints, including the unexpanded braces.
         guard document.depth <= LaTeXDocument.maximumDepth, StackSpace.hasRoom else {
-            document.stopsExpanding = true
+            document.stopExpanding(.depth)
             let text = HTML.escape(String(characters))
             return isBlock ? "<p>\(text)</p>\n" : text
         }
@@ -209,7 +209,7 @@ final class LaTeXReader {
                 groups.append(groupRestorer())
                 document.depth += 1
             } else {
-                document.stopsExpanding = true
+                document.stopExpanding(.depth)
                 appendHTML(HTML.escape(balanced()), last: lastCharacter)
             }
         case "}":
@@ -821,6 +821,7 @@ final class LaTeXReader {
     }
 
     func dispatch(_ name: String) {
+        document.budget.dispatching = name
         if handleMacro(name) { return }
         dispatchBuiltin(name)
     }
@@ -2012,7 +2013,7 @@ final class LaTeXReader {
                 }
                 totalBytes += frozen.utf8.count
                 if budget.steps > 0, totalBytes > PreviewMathExpansion.maximumBytes {
-                    document.mathExpansionLimitReached = true
+                    document.stopMathExpansion(detail: "resolved size")
                     fallback()
                     return
                 }

@@ -7,6 +7,13 @@ final class ReaderMathBudget {
     var inspected = 0
     var steps = 0
     var refused = false
+    /// Why the formula was refused, for a conversion report.
+    var reason: String?
+
+    func refuse(_ why: String) {
+        if !refused { reason = why }
+        refused = true
+    }
 
     func available(pending: ArraySlice<Character>, depth: Int) -> Int {
         guard !refused, steps < PreviewMathExpansion.maximumSteps, depth < PreviewMathExpansion.maximumDepth
@@ -21,7 +28,7 @@ final class ReaderMathBudget {
 
     func reserve(bytes: Int, pending: ArraySlice<Character>, depth: Int) -> Bool {
         guard bytes <= available(pending: pending, depth: depth) else {
-            refused = true
+            refuse("expansion size")
             return false
         }
         steps += 1
@@ -93,8 +100,8 @@ extension LaTeXReader {
         guard !budget.refused, latex.utf8.count <= PreviewMathExpansion.maximumBytes,
             latex.utf8.count <= PreviewMathExpansion.maximumWork - budget.scheduled
         else {
-            budget.refused = true
-            document.mathExpansionLimitReached = true
+            budget.refuse(latex.utf8.count > PreviewMathExpansion.maximumBytes ? "formula size" : "formula work")
+            document.stopMathExpansion(detail: budget.reason)
             return nil
         }
         let reader = LaTeXReader(latex, document: document, isBlock: false)
@@ -102,7 +109,7 @@ extension LaTeXReader {
         reader.mathBudget = budget
         let result = reader.readMathCommands(includingCounters: includingCounters)
         if reader.mathBudget?.refused == true {
-            document.mathExpansionLimitReached = true
+            document.stopMathExpansion(detail: reader.mathBudget?.reason)
             return nil
         }
         return result
@@ -117,7 +124,7 @@ extension LaTeXReader {
             guard let first = piece.first else { return }
             let space = endsInWord && first.isASCII && first.isLetter
             guard piece.utf8.count + (space ? 1 : 0) <= PreviewMathExpansion.maximumBytes - result.utf8.count else {
-                mathBudget?.refused = true
+                mathBudget?.refuse("output size")
                 return
             }
             if space { result.append(" ") }
@@ -130,7 +137,7 @@ extension LaTeXReader {
         /// An ordinary wrapper can call an xparse macro indirectly. Cache finished searches and skip cyclic edges.
         func needsReader(_ name: String) -> Bool {
             if document.mathDefinitions.app.isRejected("\\" + name) {
-                mathBudget?.refused = true
+                mathBudget?.refuse("rejected definition \\" + name)
                 return false
             }
             if isMathCounter(name) { return includingCounters }
@@ -145,7 +152,7 @@ extension LaTeXReader {
             guard visiting.count <= PreviewMathExpansion.maximumDepth, StackSpace.hasRoom,
                 macro.body.utf8.count <= PreviewMathExpansion.maximumWork - (mathBudget?.inspected ?? 0)
             else {
-                mathBudget?.refused = true
+                mathBudget?.refuse("dependency search")
                 return false
             }
             mathBudget?.inspected += macro.body.utf8.count
@@ -196,7 +203,7 @@ extension LaTeXReader {
                 let after = index
                 if let key = argument(), let environment = document.environments[key] {
                     guard !document.mathDefinitions.app.isRejected("environment:" + key) else {
-                        mathBudget?.refused = true
+                        mathBudget?.refuse("rejected environment " + key)
                         return nil
                     }
                     append(String(characters[start..<before]))
@@ -206,7 +213,7 @@ extension LaTeXReader {
                     guard let begin else { return nil }
                     let joinedBytes = begin.utf8.count + body.utf8.count + environment.end.utf8.count
                     guard joinedBytes <= PreviewMathExpansion.maximumBytes - 2 else {
-                        mathBudget?.refused = true
+                        mathBudget?.refuse("environment size")
                         return nil
                     }
                     insertExpansion(Self.joinTokens(Self.joinTokens(begin, body), environment.end))
@@ -239,7 +246,7 @@ extension LaTeXReader {
             } else if token == missingArgument {
                 append("\\text{-NoValue-}")
             } else if name == "csname" {
-                mathBudget?.refused = true
+                mathBudget?.refuse("csname")
                 return nil
             }
             start = index

@@ -32,7 +32,30 @@ public enum LaTeXConverter {
                 text, composition: composition, fontIndex: fontIndex, directory: directory, documentURL: documentURL,
                 textWidthPoints: textWidthPoints, imageExists: imageExists,
                 canProbePictureFallback: canProbePictureFallback, imageSizeInPoints: imageSizeInPoints,
-                readFile: readFile, modificationDate: modificationDate, fileIdentity: fileIdentity)
+                readFile: readFile, modificationDate: modificationDate, fileIdentity: fileIdentity, reports: false
+            ).fragment
+        }
+    }
+
+    /// `convert`, with what it could not read as data. The fragment is the one `convert` returns; finding why each
+    /// formula failed typesets the failed ones once more, so this is for measuring, not for the app.
+    public static func convertWithReport(
+        _ text: String, composition: LaTeXComposition = .document, fontIndex: InstalledFontIndex = .system,
+        directory: URL? = nil,
+        documentURL: URL? = nil, textWidthPoints: Double? = nil,
+        imageExists: @escaping @Sendable (URL) -> Bool = { _ in false },
+        canProbePictureFallback: @escaping @Sendable (URL) -> Bool = { _ in true },
+        imageSizeInPoints: @escaping @Sendable (URL) -> CGSize? = { _ in nil },
+        readFile: @escaping @Sendable (URL) -> Data? = { _ in nil },
+        modificationDate: @escaping @Sendable (URL) -> Date? = { _ in nil },
+        fileIdentity: @escaping @Sendable (URL) -> URL = { $0.standardizedFileURL }
+    ) -> (fragment: HTMLFragment, report: LaTeXConversionReport) {
+        StackSpace.onLargeStack {
+            convertInPlace(
+                text, composition: composition, fontIndex: fontIndex, directory: directory, documentURL: documentURL,
+                textWidthPoints: textWidthPoints, imageExists: imageExists,
+                canProbePictureFallback: canProbePictureFallback, imageSizeInPoints: imageSizeInPoints,
+                readFile: readFile, modificationDate: modificationDate, fileIdentity: fileIdentity, reports: true)
         }
     }
 
@@ -41,8 +64,8 @@ public enum LaTeXConverter {
         documentURL: URL?, textWidthPoints: Double?, imageExists: @escaping (URL) -> Bool,
         canProbePictureFallback: @escaping (URL) -> Bool, imageSizeInPoints: @escaping (URL) -> CGSize?,
         readFile: @escaping (URL) -> Data?, modificationDate: @escaping (URL) -> Date?,
-        fileIdentity: @escaping (URL) -> URL
-    ) -> HTMLFragment {
+        fileIdentity: @escaping (URL) -> URL, reports: Bool
+    ) -> (fragment: HTMLFragment, report: LaTeXConversionReport) {
         let source = TextDecoding.normalizeNewlines(text)
         func makeReader(_ choice: LaTeXComposition) -> LaTeXReader {
             let document = LaTeXDocument(fontIndex: fontIndex)
@@ -56,22 +79,24 @@ public enum LaTeXConverter {
             document.canProbePictureFallback = canProbePictureFallback
             document.imageExists = imageExists
             document.imageSizeInPoints = imageSizeInPoints
+            document.explainsFormulas = reports
+            document.budget.chargesCommands = reports
             return LaTeXReader(source, document: document, isBlock: true)
         }
-        func read(_ choice: LaTeXComposition) -> HTMLFragment {
+        func read(_ choice: LaTeXComposition) -> (fragment: HTMLFragment, report: LaTeXConversionReport) {
             var reader = makeReader(choice)
             // Definitions, comments, code and untaken branches may quote a document boundary. Only a command
             // actually reached by the reader starts or ends the body. A fragment can quote both boundaries.
             if source.range(of: #"\\begin\s*\{document\}"#, options: .regularExpression) != nil {
                 reader.readPreamble()
-                if PreviewConversion.expired { return HTMLFragment(body: "") }
+                if PreviewConversion.expired { return (HTMLFragment(body: ""), LaTeXConversionReport()) }
                 if !reader.document.startedDocument { reader = makeReader(choice) }
             }
             let document = reader.document
             document.initialHyperref = document.hyperref
             let prefix = document.classInfo.columns > 1 ? document.columnMarker(document.classInfo.columns) : ""
             var html = prefix + document.preambleFileNotes + reader.read()
-            if PreviewConversion.expired { return HTMLFragment(body: "") }
+            if PreviewConversion.expired { return (HTMLFragment(body: ""), LaTeXConversionReport()) }
             document.endedDocument = false
             if document.titleHTML == nil, let title = document.frontMatter.title {
                 // Without \maketitle the title still names the window and the exported PDF.
@@ -104,16 +129,24 @@ public enum LaTeXConverter {
                 && (html.contains("class=\"latex-item-mark\"") || html.contains("class=\"beamer-bib-arrow\""))
             let fonts = MathRenderer.fontFaces(for: html, includesAMSMarkers: usesAMSMarkers)
             if !fonts.isEmpty { html += "<style>\n\(fonts)\n</style>\n" }
-            return HTMLFragment(
+            let issues = document.readingIssues
+            let fragment = HTMLFragment(
                 body: html, title: document.plainTitle, language: document.classInfo.mainLanguage,
-                readingIssues: document.readingIssues,
+                readingIssues: issues,
                 latexClass: document.typesettingInfo
             ).recordingContents().with(unreadFiles: document.readingUnreadFiles)
+            guard reports else { return (fragment, LaTeXConversionReport()) }
+            return (
+                fragment,
+                LaTeXConversionReport(diagnostics: document.diagnostics(issues: issues), budget: document.budgetUse)
+            )
         }
-        let fragment = read(composition)
+        let result = read(composition)
         // A saved choice can outlive a change of class, conference package or body (including an input file).
-        if composition != .document, fragment.latexClass?.offersCompositionChoice != true { return read(.document) }
-        return fragment
+        if composition != .document, result.fragment.latexClass?.offersCompositionChoice != true {
+            return read(.document)
+        }
+        return result
     }
 
 }
@@ -394,6 +427,12 @@ final class LaTeXDocument {
     /// Plain source continues to print after expansion stops; the fragment reports the limit once.
     var stopsExpanding = false
     var mathExpansionLimitReached = false
+    /// Where the allowance went, for a conversion report. Set the limits through `stopExpanding(_:site:)`.
+    let budget = LaTeXBudgetLedger()
+    /// Only a conversion report asks why each failed formula failed, which typesets it once more.
+    var explainsFormulas = false
+    /// One per `failedFormulas` entry when `explainsFormulas`.
+    var formulaFailures: [LaTeXFormulaFailure] = []
     let nonce = String((0..<12).map { _ in "abcdefghijklmnopqrstuvwxyz".randomElement() ?? "x" })
 
     /// The print check panel can explain omissions here without putting diagnostic text on the paper.
@@ -837,16 +876,10 @@ final class LaTeXDocument {
     /// named without one, in the document's folder and in `\graphicspath`.
     func imageSource(_ file: String) -> (source: String, url: URL?) {
         guard let directory else { return (file, nil) }
-        let names =
-            (file as NSString).pathExtension.isEmpty
-            ? ["pdf", "png", "jpg", "jpeg", "svg", "gif"].map { file + "." + $0 } : [file]
-        for base in searchDirectories {
-            for folder in [""] + graphicsPaths {
-                for name in names {
-                    let url = base.appending(path: folder + name)
-                    if imageExists(url) { return (resourceSource(url, relativeTo: directory), url) }
-                }
-            }
+        let names = LaTeXFileLookup.names(file, kind: .graphic) ?? [file]
+        for url in lookupCandidates(([""] + graphicsPaths).flatMap { folder in names.map { folder + $0 } })
+        where imageExists(url) {
+            return (resourceSource(url, relativeTo: directory), url)
         }
         if let base = inputChain.last?.deletingLastPathComponent() {
             return (resourceSource(base.appending(path: file), relativeTo: directory), nil)

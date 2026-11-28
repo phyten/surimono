@@ -88,6 +88,26 @@ public enum MathRenderer {
             measureRows: measureRows, reportTruncation: reportTruncation, sansMathAlphabet: sansMathAlphabet)
     }
 
+    /// For a conversion report only: the stage at which `html(_:display:macros:…)` gave up on a formula, found by
+    /// taking the same steps again without the options that only decorate the result.
+    static func failure(_ latex: String, display: Bool, macros: String) -> LaTeXFormulaFailure {
+        let source = latex.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let prepared = AppMathInput.prepare(source, definitions: macros) else {
+            let command = NativeMathBound.firstUnknownToken(source, definitions: macros)
+            return macros.isEmpty ? .standaloneRefused(command: command) : .boundRefused(command: command)
+        }
+        let parsed: [ParseNode]
+        do {
+            parsed = try parseLaTeX(prepared.input)
+        } catch {
+            return .parse(message: String(describing: error))
+        }
+        guard let box = checkedLayout(parsed, options: LayoutOptions(style: display ? .display : .text)),
+            !toDisplayList(box).truncated
+        else { return .layout }
+        return .output
+    }
+
     static func renderParsed(
         _ parsed: [ParseNode], source: String, original: String, display: Bool, rowNumberHTML: [String?] = [],
         measureRows: Bool = false, reportTruncation: Bool = true, sansMathAlphabet: Bool = false

@@ -52,7 +52,7 @@ struct LaTeXBibTeX {
             } else if c == open {
                 depth += 1
                 if depth > LaTeXDocument.maximumDepth {
-                    document.stopsExpanding = true
+                    document.stopExpanding(.depth)
                     return ""
                 }
             } else if c == (open == "(" ? ")" : "}"), depth > 0 {

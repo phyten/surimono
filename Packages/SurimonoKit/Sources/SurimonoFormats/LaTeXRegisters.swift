@@ -107,7 +107,7 @@ extension LaTeXReader {
 
     private func numericAtom(dimension: Bool, depth: Int) -> Int? {
         guard document.depth + depth < LaTeXDocument.maximumDepth, StackSpace.hasRoom else {
-            document.stopsExpanding = true
+            document.stopExpanding(.depth)
             return nil
         }
         skipSpaces()

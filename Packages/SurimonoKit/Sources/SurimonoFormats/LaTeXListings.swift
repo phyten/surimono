@@ -43,7 +43,7 @@ extension LaTeXReader {
             case "style":
                 guard let style = document.listingStyles[value] else { continue }
                 guard depth + document.depth < LaTeXDocument.maximumDepth else {
-                    document.stopsExpanding = true
+                    document.stopExpanding(.depth)
                     pending.removeLast()
                     continue
                 }
@@ -65,7 +65,7 @@ extension LaTeXReader {
         var settings = listingSettings(optional(), minted: minted)
         if minted { settings["language"] = argument() }
         let path = argument() ?? ""
-        guard let code = readLocalText(path) else {
+        guard let code = readLocalText(path, kind: .listing) else {
             appendBlock(fileNote(path))
             return
         }
