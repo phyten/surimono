@@ -26,21 +26,50 @@ public enum DocumentOutline {
         scan(html).map(\.followsHeading)
     }
 
+    /// What a heading holds besides its title: Org's tags, which the paper sets apart at the end of the line.
+    private static let headingExtras: Set<String> = ["org-tags"]
+    /// A section number the paper sets apart from its title by a margin, not by a space.
+    private static let sectionNumber = "secnum"
+
     private static func scan(_ html: String) -> [(heading: DocumentHeading, followsHeading: Bool)] {
         var headings: [(heading: DocumentHeading, followsHeading: Bool)] = []
         var open: (tag: HTMLScanner.Tag, level: Int, text: String, follows: Bool)?
         var hidden: (name: String, depth: Int)?
+        // The spans still open in a heading's section number, and whether the title after it needs a space.
+        var number: Int?
+        var spaceAfterNumber = false
         var afterHeading = false
         for token in HTMLScanner.tokens(html) {
             switch token {
             case .text(let text):
-                if hidden == nil { open?.text += text }
+                if hidden == nil, open != nil {
+                    if spaceAfterNumber, let first = HTMLScanner.decodingEntities(String(text.prefix(8))).first,
+                        !first.isWhitespace
+                    {
+                        open?.text += " "
+                    }
+                    if !text.isEmpty { spaceAfterNumber = false }
+                    open?.text += text
+                }
                 if open == nil, !text.allSatisfy(\.isWhitespace) { afterHeading = false }
             case .opaque: break
             case .tag(let tag):
-                if updateHidden(&hidden, with: tag) { continue }
+                if updateHidden(&hidden, with: tag, alsoHiding: open == nil ? [] : headingExtras) { continue }
+                if open != nil, tag.name == "span", !tag.isSelfClosing {
+                    if let depth = number {
+                        number = depth + (tag.isClosing ? -1 : 1)
+                        if number == 0 {
+                            number = nil
+                            spaceAfterNumber = true
+                        }
+                    } else if !tag.isClosing, Self.classes(of: tag).contains { $0 == sectionNumber } {
+                        number = 1
+                    }
+                }
                 if let current = open {
                     guard tag.isClosing, tag.name == current.tag.name else { continue }
+                    number = nil
+                    spaceAfterNumber = false
                     let text = HTMLScanner.decodingEntities(current.text).trimmingCharacters(
                         in: .whitespacesAndNewlines)
                     if !text.isEmpty {
@@ -183,8 +212,15 @@ public enum DocumentOutline {
         return level
     }
 
-    /// Whether the tag belongs to an element whose text is not read, keeping track of the one being skipped.
-    private static func updateHidden(_ hidden: inout (name: String, depth: Int)?, with tag: HTMLScanner.Tag) -> Bool {
+    private static func classes(of tag: HTMLScanner.Tag) -> [Substring] {
+        tag.attribute("class")?.split(separator: " ") ?? []
+    }
+
+    /// Whether the tag belongs to an element whose text is not read, keeping track of the one being skipped. Elements
+    /// with a class of `alsoHiding` are skipped as well.
+    private static func updateHidden(
+        _ hidden: inout (name: String, depth: Int)?, with tag: HTMLScanner.Tag, alsoHiding extras: Set<String> = []
+    ) -> Bool {
         if let current = hidden {
             if tag.name == current.name, !tag.isSelfClosing {
                 let depth = current.depth + (tag.isClosing ? -1 : 1)
@@ -192,8 +228,8 @@ public enum DocumentOutline {
             }
             return true
         }
-        let isComment = tag.attribute("class")?.split(separator: " ").contains("critic-comment") == true
-        guard hiddenElements.contains(tag.name) || isComment, !tag.isClosing, !tag.isSelfClosing else { return false }
+        let skipped = classes(of: tag).contains { $0 == "critic-comment" || extras.contains(String($0)) }
+        guard hiddenElements.contains(tag.name) || skipped, !tag.isClosing, !tag.isSelfClosing else { return false }
         hidden = (tag.name, 1)
         return true
     }

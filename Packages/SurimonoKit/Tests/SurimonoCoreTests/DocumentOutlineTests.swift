@@ -188,6 +188,27 @@ struct DocumentOutlineTests {
             ])
     }
 
+    @Test("節の番号の後に空白を入れ、入れ子の番号も、もとからある空白も二重にしない")
+    func spacesSectionNumbers() {
+        let html =
+            #"<h2><span class="secnum">1</span>はじめに</h2>"#
+            + #"<h2><span class="secnum">第<span class="latex-xkanjiskip"> </span>2<span> </span>章</span>決まり</h2>"#
+            + #"<h3><span class="secnum">2.1</span> 冊数</h3><h3><span class="secnum">2.2</span>&nbsp;手順</h3>"#
+            + #"<h3><span class="secnum">2.3</span></h3><h3><span class="other">3</span>題</h3>"#
+        #expect(
+            DocumentOutline.headings(inHTML: html).map(\.text) == [
+                "1 はじめに", "第 2 章 決まり", "2.1 冊数", "2.2\u{A0}手順", "2.3", "3題",
+            ])
+    }
+
+    @Test("Org のタグは見出しの文字に入れず、本文の文字数には数える")
+    func leavesOutOrgTags() {
+        let tags = #"<span class="org-tags"><span class="org-tag">list</span> <span class="org-tag">art</span></span>"#
+        let html = "<h3><span class=\"org-todo\">NEXT</span> 持ち物 \(tags)</h3><p>\(tags)</p>"
+        #expect(DocumentOutline.headings(inHTML: html).map(\.text) == ["NEXT 持ち物"])
+        #expect(DocumentStatistics(html: html).characters == "NEXT持ち物listartlistart".count)
+    }
+
     @Test("ルビの読みは見出しの文字に入れない")
     func dropsRubyText() {
         let html = "<h1><ruby>図書室<rp>(</rp><rt>としょしつ</rt><rp>)</rp></ruby>の手引き</h1>"
