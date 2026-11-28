@@ -21,6 +21,8 @@ public struct ViewPageLayout: Equatable, Sendable {
     private let keptEdges: [Int: CropEdges]
     /// Distance in points from the bottom of a logical page's crop box to its lowest drawn content.
     private let contentBottoms: [Int: CGFloat]
+    /// Logical pages whose first line is a heading. The page break dropped the space above it, so a seam keeps some.
+    private let headingStarts: Set<Int>
     private let seamPadding: CGFloat
 
     public struct CropEdges: Equatable, Sendable {
@@ -48,13 +50,14 @@ public struct ViewPageLayout: Equatable, Sendable {
         let logicalIndices: [Int?]
         let edges: [CropEdges]
         let trimmedBottoms: [Int: Double]
+        let headingTops: [Int]
         let showsNumbers: Bool
         let margin: Double
         let pageScales: [CGFloat]
 
         public var requiresCopy: Bool {
             logicalIndices.contains(nil) || showsNumbers || edges.contains { $0 != CropEdges() }
-                || !trimmedBottoms.isEmpty || !pageScales.isEmpty
+                || !trimmedBottoms.isEmpty || !headingTops.isEmpty || !pageScales.isEmpty
         }
     }
 
@@ -71,9 +74,12 @@ public struct ViewPageLayout: Equatable, Sendable {
                 if trimmed > baseMargin { trimmedBottoms[viewIndex] = trimmed }
             }
         }
+        let headingTops = logicalIndices.indices.filter { viewIndex in
+            crops(at: viewIndex).top && logicalIndex(at: viewIndex).map(headingStarts.contains) == true
+        }
         let usesMargin = showsNumbers || edges.contains { $0 != CropEdges() }
         return DocumentKey(
-            logicalIndices: logicalIndices, edges: edges, trimmedBottoms: trimmedBottoms,
+            logicalIndices: logicalIndices, edges: edges, trimmedBottoms: trimmedBottoms, headingTops: headingTops,
             showsNumbers: showsNumbers, margin: usesMargin ? margin : 0, pageScales: pageScales)
     }
 
@@ -82,13 +88,16 @@ public struct ViewPageLayout: Equatable, Sendable {
     ///     stands in them. A page without one has its margins cut at the seams as before.
     ///   - contentBottoms: Distance from the bottom of a logical page's crop box to its lowest drawn content, in
     ///     points, used to trim unused paper below the last content on non-final pages in vertical Scroll mode.
+    ///   - headingStarts: Logical pages whose first line is a heading; a seam above one keeps room for the heading.
     ///   - textScale: Content magnification for print themes (1.0 at 100%), used to scale the trailing seam room.
     public init(
         pageCount: Int, options: ViewOptions, hasLogicalMargins: Bool, showsNumbers: Bool, pageSizes: [CGSize] = [],
-        keptEdges: [Int: CropEdges] = [:], contentBottoms: [Int: CGFloat] = [:], textScale: Double = 1
+        keptEdges: [Int: CropEdges] = [:], contentBottoms: [Int: CGFloat] = [:], headingStarts: Set<Int> = [],
+        textScale: Double = 1
     ) {
         self.keptEdges = keptEdges
         self.contentBottoms = contentBottoms
+        self.headingStarts = headingStarts
         seamPadding = Self.seamTrailingPadding(for: textScale)
         var indices = (0..<max(0, pageCount)).map(Optional.some)
         if options.layout == .spread && !indices.isEmpty {
@@ -166,15 +175,29 @@ public struct ViewPageLayout: Equatable, Sendable {
         }
     }
 
+    /// Logical page indices whose top margin is cut at a scroll seam, where a heading at the top needs room kept.
+    public var trimmableTopPages: [Int] {
+        guard cropsMargins, logicalIndices.count <= Self.seamTrimPageLimit else { return [] }
+        return logicalIndices.indices.compactMap { viewIndex in
+            guard crops(at: viewIndex).top else { return nil }
+            return logicalIndex(at: viewIndex)
+        }
+    }
+
     /// The vertical crop insets for the page at `viewIndex`, in points.
     ///
     /// When pages are joined in vertical Scroll mode and a non-final page has unused paper below its lowest drawn
     /// content, the bottom inset extends up to `contentBottom - seamTrailingPadding` while leaving at least `margin`
-    /// cut and at least one point of visible page height.
+    /// cut and at least one point of visible page height. A page that starts with a heading keeps twice that room
+    /// above it: on paper the heading's own space above it falls at the page break, so the joined view would set the
+    /// heading as close to the text before it as one paragraph to the next.
     public func cropInsets(at viewIndex: Int, pageHeight: CGFloat, margin: CGFloat) -> CropInsets {
         guard pageHeight.isFinite, pageHeight > 0, margin.isFinite, margin >= 0 else { return CropInsets() }
         let edges = crops(at: viewIndex)
-        let top: CGFloat = edges.top ? margin : 0
+        var top: CGFloat = edges.top ? margin : 0
+        if edges.top, let index = logicalIndex(at: viewIndex), headingStarts.contains(index) {
+            top = max(0, margin - seamPadding * 2)
+        }
         var bottom: CGFloat = edges.bottom ? margin : 0
         if edges.bottom, let index = logicalIndex(at: viewIndex), let contentBottom = contentBottoms[index],
             contentBottom.isFinite, contentBottom > 0

@@ -481,6 +481,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
         }
         isUpdatingDocument = false
         onPageChange?(currentPageIndex)
+        scheduleReadingCheck()
     }
 
     private var pageSize = CGSize(width: 595, height: 842)
@@ -618,8 +619,72 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
     }
 
     var currentPageIndex: Int {
-        guard let document, let page = currentPage else { return 0 }
+        guard let document, let page = readingPage else { return 0 }
         return pagePlan?.readingIndex(at: document.index(for: page)) ?? 0
+    }
+
+    /// The page the reader is on. In a continuous view PDFKit names the page filling most of the view, even when the
+    /// view sits at the very start of a document whose first page is short (a small diagram before a tall one); the
+    /// reader has not left the first page until its top scrolls out of sight, up or, zoomed in, to the side.
+    /// Horizontal scrolling shows one page or spread to the window's width, so it keeps PDFKit's choice.
+    private var readingPage: PDFPage? {
+        guard options?.isContinuous == true, options?.scrollAxis == .vertical, let first = document?.page(at: 0),
+            currentPage !== first
+        else { return currentPage }
+        let rect = convert(first.bounds(for: displayBox), from: first)
+        let showsTop = rect.maxY <= bounds.maxY + 1 && rect.maxY > bounds.minY
+        let showsAcross = rect.maxX > bounds.minX && rect.minX < bounds.maxX
+        return showsTop && showsAcross ? first : currentPage
+    }
+
+    private weak var observedClip: NSClipView?
+    /// Whether the last report named the first page over PDFKit's choice; PDFKit posts nothing when that ends.
+    private var readsFirstPageByEdge = false
+    private var readingCheck = 0
+    private weak var readingCheckDocument: PDFDocument?
+
+    /// PDFKit moves its current page while the paper is measured, scaled, switched or replaced; the pages it passes
+    /// then are not where the reader is, so no page is reported until it is done.
+    private var holdsPageReports: Bool {
+        isRetired || isMeasuringFit || isUpdatingDocument || isSettingScale || isSwitchingSpreadMode
+    }
+
+    private func observeScrolling() {
+        guard let clip = documentView?.enclosingScrollView?.contentView, clip !== observedClip else { return }
+        let center = NotificationCenter.default
+        if let observedClip {
+            center.removeObserver(self, name: NSView.boundsDidChangeNotification, object: observedClip)
+        }
+        observedClip = clip
+        clip.postsBoundsChangedNotifications = true
+        center.addObserver(
+            self, selector: #selector(clipDidScroll), name: NSView.boundsDidChangeNotification, object: clip)
+    }
+
+    @objc private func clipDidScroll() { scheduleReadingCheck() }
+
+    /// Looks at the first page's top again once the main loop is free, after a scroll or once a measure, a scale, a
+    /// switch or a replacement is done. A scroll may come from inside SwiftUI's update of this view, which must not
+    /// write back to the model; a burst of scrolls is looked at once, and a check for a replaced document is dropped.
+    private func scheduleReadingCheck() {
+        guard !isRetired else { return }
+        readingCheck += 1
+        let check = readingCheck
+        readingCheckDocument = document
+        // The run loop, not a task: it also turns while a modal session or a nested run loop is open.
+        RunLoop.main.perform(inModes: [.common]) { [weak self] in
+            MainActor.assumeIsolated { self?.checkReadingPage(check) }
+        }
+    }
+
+    private func checkReadingPage(_ check: Int) {
+        guard check == readingCheck, document === readingCheckDocument, !holdsPageReports,
+            options?.isContinuous == true
+        else { return }
+        let byEdge = readingPage !== currentPage
+        guard byEdge != readsFirstPageByEdge else { return }
+        readsFirstPageByEdge = byEdge
+        onPageChange?(currentPageIndex)
     }
 
     func show(_ source: PDFDocument, at index: Int, since revision: UInt? = nil) {
@@ -628,7 +693,10 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
         isUpdatingDocument = true
         defer {
             isUpdatingDocument = wasUpdating
-            if !wasUpdating { onPageChange?(currentPageIndex) }
+            if !wasUpdating {
+                onPageChange?(currentPageIndex)
+                scheduleReadingCheck()
+            }
         }
         let effectiveOptions =
             options
@@ -649,8 +717,9 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
             pageCount: source.pageCount, options: effectiveOptions, hasLogicalMargins: logicalMargin != nil,
             showsNumbers: showsPageNumbers, pageSizes: sizes, keptEdges: keptEdges, textScale: textScale)
         let trimmable = basePlan.trimmableBottomPages
+        let trimmableTops = basePlan.trimmableTopPages
         let plan: ViewPageLayout
-        if trimmable.isEmpty {
+        if trimmable.isEmpty && trimmableTops.isEmpty {
             plan = basePlan
         } else {
             let contentBottoms = ViewPageDocument.contentBottoms(
@@ -658,7 +727,8 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
             plan = ViewPageLayout(
                 pageCount: source.pageCount, options: effectiveOptions, hasLogicalMargins: logicalMargin != nil,
                 showsNumbers: showsPageNumbers, pageSizes: sizes, keptEdges: keptEdges,
-                contentBottoms: contentBottoms, textScale: textScale)
+                contentBottoms: contentBottoms,
+                headingStarts: ViewPageDocument.headingStarts(of: source, pages: trimmableTops), textScale: textScale)
         }
         let key = plan.documentKey(margin: Double(logicalMargin ?? 0))
         if sourceDocument === source, documentKey == key, drawnChangeMarks == changeMarks,
@@ -873,6 +943,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
         super.layout()
         guard !isRetired else { return }
         hideScrollersAndInsets()
+        observeScrolling()
         // Fit again when the window changes size; the zoom the user chose is relative to the fit.
         if bounds.size != fittedSize { refit() }
         changeController?.revealPendingChange()
@@ -919,6 +990,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
                 isSettingScale = true
                 scaleFactor = target
                 isSettingScale = false
+                scheduleReadingCheck()
             }
             layoutDocumentView()
             guard let clip = documentView?.enclosingScrollView?.contentView else { return }
@@ -941,6 +1013,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
         isSettingScale = true
         scaleFactor = target
         isSettingScale = false
+        scheduleReadingCheck()
         if let destination { go(to: destination) }
         // A new scale can bring PDFKit's scroll bars back over the paper.
         hideScrollersAndInsets()
@@ -1037,7 +1110,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
     }
 
     @objc private func pageDidChange() {
-        guard !isRetired, !isMeasuringFit, !isUpdatingDocument, !isSettingScale, !isSwitchingSpreadMode else { return }
+        guard !holdsPageReports else { return }
         // PDFKit may turn pages itself, such as onto the blank before the cover or past the cover while showing one
         // page; show what the reader expects there.
         if let document, let page = currentPage, options?.layout == .spread, options?.isContinuous != true {
@@ -1051,6 +1124,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
             }
         }
         if options?.isContinuous != true { refit() }
+        readsFirstPageByEdge = readingPage !== currentPage
         onPageChange?(currentPageIndex)
     }
 
@@ -1127,6 +1201,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
         clip.scroll(to: startOrigin)
         documentView?.enclosingScrollView?.reflectScrolledClipView(clip)
         isMeasuringFit = false
+        scheduleReadingCheck()
         zoomReturn = ZoomReturn(
             path: PinchZoom.Return(startZoom: startZoom), startedAt: CACurrentMediaTime(), page: page,
             pagePoint: pagePoint, start: start, end: end)
@@ -1253,12 +1328,13 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
         isSwitchingSpreadMode = true
         setDisplay(\.displayMode, to: mode)
         isSwitchingSpreadMode = false
+        scheduleReadingCheck()
     }
 
     func turnPage(forward: Bool) {
         guard let options else { return }
         finishZoomReturnForNavigation()
-        guard let document, let page = currentPage,
+        guard let document, let page = readingPage,
             let next = pagePlan?.adjacentReadingIndex(at: document.index(for: page), forward: forward)
         else { return }
         addTransition(forward: forward, options: options)
@@ -1268,8 +1344,9 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
 
     private func finishZoomReturnForNavigation() {
         guard isReturningToFit else { return }
-        // Only explicit navigation settles the return; PDFKit's scale-driven page notifications must not.
-        let page = currentPage
+        // Only explicit navigation settles the return; PDFKit's scale-driven page notifications must not. The page
+        // kept is the one the band shows, so that a turn starts from it rather than from PDFKit's choice.
+        let page = readingPage
         setZoom(1, anchor: nil)
         // Fitting a continuous document may change currentPage; a relative turn must still start at the old page.
         if let page { go(to: page) }

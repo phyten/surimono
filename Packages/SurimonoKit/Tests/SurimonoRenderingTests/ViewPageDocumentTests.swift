@@ -53,6 +53,53 @@ struct ViewPageDocumentTests {
                 == (rotation == 0 ? CGSize(width: 500, height: 300) : CGSize(width: 300, height: 500)))
     }
 
+    @Test("最初の行が本文より大きな字のページを、見出しから始まるページと見る")
+    func findsPagesStartingWithAHeading() throws {
+        // Page 0 is body text only, page 1 starts with a larger heading, page 2 starts with body text and has a
+        // heading further down, and page 3 is blank.
+        let source = try textPDF([
+            [("Plain words", 11, false), ("More plain words", 11, false)],
+            [("Next part", 16, false), ("Body after the heading", 11, false), ("Another body line", 11, false)],
+            [("Body continues", 11, false), ("Later part", 16, false), ("Body again", 11, false)],
+            [],
+        ])
+        #expect(ViewPageDocument.headingStarts(of: source, pages: [0, 1, 2, 3]) == [1])
+    }
+
+    @Test("本文の行のあとにそれより小さなコードや表が多いページは、見出しから始まるページと見ない")
+    func smallerCodeBelowBodyIsNoHeading() throws {
+        // The most common size on page 0 is the code's 9 pt, below the 11 pt body line it starts with. A bold heading
+        // a little larger than the body (page 1) and a plain heading clearly larger than the code (page 2) still count.
+        let code = (0..<6).map { ("let value\($0) = table[\($0)] + offset * scale", CGFloat(9), false) }
+        let source = try textPDF([
+            [("Body line before the listing", 11, false)] + code,
+            [("Section", 11, true)] + code,
+            [("Section", 13, false)] + code,
+        ])
+        #expect(ViewPageDocument.headingStarts(of: source, pages: [0, 1, 2]) == [1, 2])
+    }
+
+    /// One line of text a row, from the top of each page, at the given size, bold or regular. Hiragino Sans keeps its
+    /// weight in the PDF's font name; the system font comes back from a PDF without its weight.
+    private func textPDF(_ pages: [[(String, CGFloat, Bool)]]) throws -> PDFDocument {
+        let data = NSMutableData()
+        var box = CGRect(x: 0, y: 0, width: 400, height: 400)
+        let consumer = try #require(CGDataConsumer(data: data as CFMutableData))
+        let context = try #require(CGContext(consumer: consumer, mediaBox: &box, nil))
+        for lines in pages {
+            context.beginPDFPage(nil)
+            for (offset, line) in lines.enumerated() {
+                let font = try #require(NSFont(name: line.2 ? "HiraginoSans-W6" : "HiraginoSans-W3", size: line.1))
+                let text = NSAttributedString(string: line.0, attributes: [.font: font])
+                context.textPosition = CGPoint(x: 20, y: 370 - CGFloat(offset) * 24)
+                CTLineDraw(CTLineCreateWithAttributedString(text), context)
+            }
+            context.endPDFPage()
+        }
+        context.closePDF()
+        return try #require(PDFDocument(data: data as Data))
+    }
+
     @Test("ページをつなぐ表示の写しで余白を切っても、元の文書を保存したページは切らない")
     func joinedCopyLeavesSourceUncut() throws {
         let source = try RenderingFixtures.pdf(count: 3, size: CGSize(width: 300, height: 500))

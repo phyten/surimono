@@ -49,6 +49,25 @@ struct SmartRemovalWebTests {
         #expect(kept.logicalDocument.string?.contains("COOKIE-MARKER") == false)
     }
 
+    @Test("隣り合うボタンの抜粋は、語の間を空けて並べる", .timeLimit(.minutes(1)))
+    func excerptSeparatesAdjacentButtons() async throws {
+        _ = NSApplication.shared
+        let html = """
+            <html><body><article><h1>Paper notes</h1>
+            <p>A fictional note about folding paper into small books for friends and neighbours.</p>
+            <p>Each page is cut, folded and stitched by hand before the weekend market opens.</p></article>
+            <div id="share" class="share-buttons"><button>Share</button><button>Read later</button></div>
+            </body></html>
+            """
+        let settings = RenderSettings(
+            layout: .a4Single, theme: PrintTheme(id: "test", name: "Test", css: ""),
+            preset: HTMLCleanupPreset(id: "none", name: "None"), smartRemoval: SmartRemovalRequest())
+        let result = try await DocumentRenderer().render(
+            DocumentSource(data: Data(html.utf8), format: .html), settings: settings)
+        let share = try #require(result.smartRemovalCandidates.first { $0.id == "#share" })
+        #expect(share.excerpt == "Share Read later")
+    }
+
     @Test("URL の記事を紙に組み、相対リンク、本文、プリセットとスマート削除の結果を PDF で確かめる", .timeLimit(.minutes(1)))
     func downloadedPaper() async throws {
         _ = NSApplication.shared

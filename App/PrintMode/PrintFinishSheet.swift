@@ -745,12 +745,14 @@ struct PrintMarginEditor: View {
                         isOn: model.controlBinding(\.printOptions.mirrorsMargins))
                 }
             }
-            Text("PDFs keep their own margins.")
-                .font(.system(size: 11))
-                .foregroundStyle(PrintPalette.ink3)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 4)
+            if model.notesPDFMargins {
+                Text("PDFs keep their own margins.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(PrintPalette.ink3)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 4)
+            }
         }
     }
 

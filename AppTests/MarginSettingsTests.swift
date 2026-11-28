@@ -94,6 +94,23 @@ struct MarginSettingsTests {
         #expect(handout.marginsAffectPrinting)
     }
 
+    @Test("PDF の余白は変わらないという注記は、PDF を含む合本にだけ出す")
+    func pdfMarginNoteNeedsAPDF() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let library = UserLibrary(
+            root: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+        func binder(_ names: [String]) -> DocumentViewModel {
+            DocumentViewModel(
+                data: Data(), fileURL: nil, format: .markdown, preferences: AppPreferences(defaults: suite.defaults),
+                library: library,
+                binder: BinderModel(orderedURLs: names.map { URL(fileURLWithPath: "/tmp/\($0)") }))
+        }
+        #expect(!makeModel(format: .markdown, suite: suite).notesPDFMargins)
+        #expect(!binder(["a.md", "b.org"]).notesPDFMargins)
+        #expect(binder(["a.md", "b.pdf"]).notesPDFMargins)
+    }
+
     @Test("余白のメニューは 0・5・10・15・20・25 mm を並べる")
     func presets() {
         let suite = TestDefaultsSuite()

@@ -50,6 +50,23 @@ public enum SmartRemovalScript {
             const clean = value => (value || '').replace(/\s+/g, ' ').trim();
             const text = element => clean(element.innerText);
             const clip = (value, count) => Array.from(value).slice(0, count).join('');
+            // innerText runs adjacent inline-blocks together ("ShareRead later"), so the excerpt puts a space around
+            // every box that is not inline.
+            const excerptOf = element => {
+              const pieces = [];
+              const walk = node => {
+                if (node.nodeType === Node.TEXT_NODE) { pieces.push(node.data); return; }
+                if (node.nodeType !== Node.ELEMENT_NODE) return;
+                const style = getComputedStyle(node);
+                if (style.display === 'none' || style.visibility === 'hidden') return;
+                const boxed = style.display !== 'inline' && style.display !== 'contents';
+                if (boxed || node.localName === 'br') pieces.push(' ');
+                for (const child of node.childNodes) walk(child);
+                if (boxed) pieces.push(' ');
+              };
+              walk(element);
+              return clean(pieces.join(''));
+            };
             const tokens = value => clean(value).replace(/([a-z])([A-Z])/g, '$1 $2')
               .toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
             const elements = Array.from(body.querySelectorAll('*'));
@@ -198,7 +215,8 @@ public enum SmartRemovalScript {
               }
               if (!nested) selected.push({element, candidate: {
                 id: identifier(element), category: match.category,
-                excerpt: clip(text(element) || clean(element.getAttribute('aria-label')), 40).trim(), reason: match.reason
+                excerpt: clip(excerptOf(element) || clean(element.getAttribute('aria-label')), 40).trim(),
+                reason: match.reason
               }});
             }
             // Complete detection before mutating the DOM so kept IDs cannot change candidate identity or order.
