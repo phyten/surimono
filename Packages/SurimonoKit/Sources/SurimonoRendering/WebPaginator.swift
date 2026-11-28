@@ -4,6 +4,7 @@ import SurimonoCore
 import SurimonoFormats
 import UniformTypeIdentifiers
 import WebKit
+import os
 
 /// Lays out HTML in an off-screen WKWebView and prints it into a paginated PDF.
 @MainActor
@@ -1279,6 +1280,10 @@ final class PaginationSession {
             printInfo.leftMargin = 0
             printInfo.rightMargin = 0
         }
+        // The footnote passes find their notes by WebKit's own destinations and place the notes themselves.
+        let linkTargets =
+            footnotePass == nil
+            ? try await PushedDestinations.targets(in: webView, until: deadline) : PushedDestinations.Targets()
         printInfo.horizontalPagination = .fit
         printInfo.verticalPagination = .automatic
         printInfo.isHorizontallyCentered = false
@@ -1344,7 +1349,8 @@ final class PaginationSession {
                 arguments: [:], until: deadline)
         }
         return try await Self.cutToPaper(
-            at: outputURL, pageSize: pageSize, checkingBelowPaper: checkingBelowPaper, footnotePass: footnotePass)
+            at: outputURL, pageSize: pageSize, checkingBelowPaper: checkingBelowPaper, footnotePass: footnotePass,
+            linkTargets: linkTargets)
     }
 
     /// WebKit cuts the printable height into pages of whole CSS pixels and lets a document's `@page` size and margins
@@ -1360,7 +1366,8 @@ final class PaginationSession {
     /// The cut pages come back as a document read anew: PDFKit keeps reporting some characters of a page whose boxes
     /// were just changed at zero size, which would break finding and selecting text on the paper.
     @concurrent private static func cutToPaper(
-        at url: URL, pageSize: CGSize, checkingBelowPaper: Bool, footnotePass: WebPaginator.FootnotePass?
+        at url: URL, pageSize: CGSize, checkingBelowPaper: Bool, footnotePass: WebPaginator.FootnotePass?,
+        linkTargets: PushedDestinations.Targets = .init()
     ) async throws
         -> Data
     {
@@ -1387,7 +1394,18 @@ final class PaginationSession {
             page.setBounds(paper, for: .cropBox)
         }
         guard let cut = document.dataRepresentation() else { throw WebPaginator.PaginationError.printFailed }
-        return cut
+        guard !linkTargets.isEmpty else { return cut }
+        do {
+            return try PushedDestinations.moving(cut, targets: linkTargets)
+        } catch {
+            try Task.checkCancellation()
+            // Moving the destinations only corrects links; the pages as cut are still the document.
+            Logger(subsystem: "app.surimono.Surimono", category: "Pagination")
+                .error(
+                    "Pushed link destinations were left as printed: \(String(describing: type(of: error)), privacy: .public)"
+                )
+            return cut
+        }
     }
 
     /// Whether the page draws anything below the paper's height. The strip is rendered on white and any pixel that is

@@ -25,6 +25,12 @@ struct OutlineTitleTests {
         #expect(titles(body) == ["NEXT 持ち物"])
     }
 
+    @Test("Org の本文の目次の項目にも、見出しのタグを入れない")
+    func orgContentsTagsLeftOut() {
+        let body = OrgConverter.convert("#+OPTIONS: toc:t tags:t\n* 前提 :scope:\n** 関係 :evidence:art:\n* 結び").body
+        #expect(DocumentOutline.sourceContentsEntries(inHTML: body) == ["前提", "関係", "結び"])
+    }
+
     @Test("LaTeX の節の番号と題の間に空白を入れる")
     func latexNumberSpaced() {
         let body = LaTeXConverter.convert(
