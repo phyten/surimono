@@ -175,7 +175,7 @@ enum PrintIssueText {
             // A figure is a diagram that was read but needs HTML or images to draw: its syntax is not the problem.
             key =
                 issue.element == .figure
-                ? "This kind of diagram cannot be drawn on paper. Replace it with an image in the source document."
+                ? "Surimono cannot display this diagram. Replace it with an image in the source document."
                 : "Check the Mermaid syntax and simplify the diagram in the source document."
         case .latex:
             if issue.unreadLaTeXCommands != nil {

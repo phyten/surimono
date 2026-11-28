@@ -52047,54 +52047,54 @@
         }
       }
     },
-    "This kind of diagram cannot be drawn on paper. Replace it with an image in the source document.": {
+    "Surimono cannot display this diagram. Replace it with an image in the source document.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This kind of diagram cannot be drawn on paper. Replace it with an image in the source document."
+            "value": "Surimono cannot display this diagram. Replace it with an image in the source document."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "この種類の図は紙に描けません。元の文書で画像に置き換えてください。"
+            "value": "Surimono ではこの図を表示できません。元の文書で画像に置き換えてください。"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Diese Art von Diagramm kann nicht auf Papier dargestellt werden. Ersetze es im Quelldokument durch ein Bild."
+            "value": "Surimono kann dieses Diagramm nicht darstellen. Ersetze es im Quelldokument durch ein Bild."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Este tipo de diagrama no se puede representar en papel. Sustitúyelo por una imagen en el documento original."
+            "value": "Surimono no puede mostrar este diagrama. Sustitúyelo por una imagen en el documento original."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ce type de diagramme ne peut pas être représenté sur papier. Remplacez-le par une image dans le document source."
+            "value": "Surimono ne peut pas afficher ce diagramme. Remplacez-le par une image dans le document source."
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "이 종류의 다이어그램은 용지에 표시할 수 없습니다. 원본 문서에서 이미지로 바꾸세요."
+            "value": "Surimono에서는 이 다이어그램을 표시할 수 없습니다. 원본 문서에서 이미지로 바꾸세요."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "无法在纸上绘制此类图表。请在源文档中将其替换为图像。"
+            "value": "Surimono 无法显示此图表。请在源文档中将其替换为图像。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "無法在紙上繪製此類圖表。請在原始文件中將其替換為影像。"
+            "value": "Surimono 無法顯示此圖表。請在原始文件中將其替換為影像。"
           }
         }
       }

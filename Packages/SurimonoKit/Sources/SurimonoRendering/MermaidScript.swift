@@ -160,15 +160,16 @@ enum MermaidScript {
             svg.style.height = 'auto';
             const rendered = document.importNode(svg, true);
             block.replaceChildren(rendered);
-            // Gantt lets d3 choose its date ticks regardless of label width; keep every n-th label so none overlap.
+            // Gantt lets d3 choose its date ticks regardless of label width; keep every n-th label so none overlap,
+            // down to the first label alone. Measured once, with every label shown, then hidden once.
             if (rendered.getAttribute('aria-roledescription') === 'gantt') {
               for (const axis of rendered.querySelectorAll('g.grid')) {
                 const labels = Array.from(axis.querySelectorAll('.tick text'));
-                for (let step = 1; step < labels.length; step++) {
-                  labels.forEach((label, i) => { label.style.display = i % step ? 'none' : ''; });
-                  const boxes = labels.filter((_, i) => i % step === 0).map(label => label.getBoundingClientRect());
-                  if (boxes.every((box, i) => i === 0 || box.left >= boxes[i - 1].right)) break;
-                }
+                const boxes = labels.map(label => label.getBoundingClientRect());
+                let step = 1;
+                while (step < labels.length && !boxes.every((box, i) =>
+                  i % step || i < step || box.left >= boxes[i - step].right)) step++;
+                labels.forEach((label, i) => { if (i % step) label.style.display = 'none'; });
               }
             }
             globalThis.surimonoRenderedDiagrams?.add(rendered);

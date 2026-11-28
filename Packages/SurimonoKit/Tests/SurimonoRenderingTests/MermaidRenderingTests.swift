@@ -61,13 +61,26 @@ struct MermaidRenderingTests {
         #expect(!pages.issues.contains { $0.kind == .mermaid })
     }
 
-    @Test("MarkdownとOrgの図だけがMermaidの準備を要求する")
+    @Test("図のブロックを作る読み取りの文書だけがMermaidの準備を要求し、HTML・テキスト・CSV・図のない文書は要求しない")
     func eligibleFormats() async throws {
+        let block = "<div class=\"mermaid-block\"><pre class=\"mermaid-source\">flowchart LR</pre></div>"
+        let cell = { (source: String) -> String in
+            let notebook: [String: Any] = [
+                "cells": [["cell_type": "markdown", "metadata": [String: Any](), "source": "# 見出し\n\n" + source]],
+                "metadata": [String: Any](), "nbformat": 4, "nbformat_minor": 5,
+            ]
+            let data = (try? JSONSerialization.data(withJSONObject: notebook)) ?? Data()
+            return String(decoding: data, as: UTF8.self)
+        }
         let inputs: [(DocumentFormat, String, Bool)] = [
             (.markdown, "```mermaid\nflowchart LR\nA --> B\n```", true),
             (.org, "#+begin_src mermaid\nflowchart LR\nA --> B\n#+end_src", true),
+            (.notebook, cell("```mermaid\nflowchart LR\nA --> B\n```"), true),
             (.markdown, "# 図のない文書", false),
-            (.html, "<div class=\"mermaid-block\"><pre class=\"mermaid-source\">flowchart LR</pre></div>", false),
+            (.notebook, cell("図のない文書"), false),
+            (.html, block, false),
+            (.plainText, "```mermaid\nflowchart LR\nA --> B\n```\n" + block, false),
+            (.csv, "kind,source\nmermaid,\"" + block.replacingOccurrences(of: "\"", with: "\"\"") + "\"", false),
         ]
         for (format, text, expected) in inputs {
             let renderer = DocumentRenderer(paginate: { request in
@@ -198,7 +211,7 @@ struct MermaidRenderingTests {
     // MARK: - Paper output of individual diagram types
 
     /// Lays the diagrams out on an A4 page with the real library and returns what `inspection` reports about them.
-    private func inspect(_ sources: [String], _ inspection: String) async throws -> String {
+    private func inspect(_ sources: [String], columnWidth: Int? = nil, _ inspection: String) async throws -> String {
         _ = NSApplication.shared
         let blocks = sources.map {
             let escaped = $0.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
@@ -207,8 +220,9 @@ struct MermaidRenderingTests {
         }
         let style =
             "<style>body { font-family: 'Hiragino Sans', sans-serif; } .mermaid-source { white-space: pre-wrap; }</style>"
+        let column = columnWidth.map { "<div style=\"width: \($0)px\">" + blocks.joined() + "</div>" }
         let result = try await WebPaginator().paginateWithResult(
-            .html(style + blocks.joined(), baseURL: nil), pageSize: CGSize(width: 595, height: 842),
+            .html(style + (column ?? blocks.joined()), baseURL: nil), pageSize: CGSize(width: 595, height: 842),
             margins: .uniform(millimeters: 15), allowsJavaScript: false, preparationScript: inspection,
             rendersMermaid: true)
         return try #require(result.preparationResult)
@@ -270,6 +284,96 @@ struct MermaidRenderingTests {
         #expect(values["overlaps"] == 0)
     }
 
+    @Test("ガントチャートの日付が2つだけで重なるときは1つだけ残す", .timeLimit(.minutes(1)))
+    func ganttKeepsOneOfTwoOverlappingLabels() async throws {
+        // A week between two ticks in a narrow column, with labels wider than the gap between them.
+        let gantt = """
+            gantt
+              dateFormat YYYY-MM-DD
+              axisFormat %Y年%m月%d日 %A
+              tickInterval 1week
+              weekday monday
+              section 原稿
+              書く :a1, 2027-01-04, 8d
+            """
+        let json = try await inspect(
+            [gantt], columnWidth: 220,
+            """
+            const labels = Array.from(document.querySelectorAll('.mermaid-block > svg .tick text'));
+            const shown = labels.filter(t => t.getClientRects().length).map(t => t.getBoundingClientRect());
+            return JSON.stringify({
+              labels: labels.length, shown: shown.length,
+              overlaps: shown.filter((box, i) => i > 0 && box.left < shown[i - 1].right).length});
+            """)
+        let values = try #require(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Int])
+        #expect(values["labels"] == 2)
+        #expect(values["shown"] == 1)
+        #expect(values["overlaps"] == 0)
+    }
+
+    @Test("文書の初期化指示とfront matterは、アプリが決めた設定・配色・CSSを変えられない", .timeLimit(.minutes(1)))
+    func documentsCannotOverrideLockedSettings() async throws {
+        let red = "#ff0000"
+        let sources = [
+            """
+            %%{init: {"securityLevel": "loose", "htmlLabels": true, "journey": {"textPlacement": "fo"}, \
+            "themeCSS": "text { fill: \(red); }", "themeVariables": {"cScale0": "\(red)", "fillType0": "\(red)"}}}%%
+            journey
+              section 準備
+                開く: 4: 読者
+            """,
+            """
+            ---
+            config:
+              securityLevel: loose
+              themeCSS: "text { fill: \(red); } rect, path { fill: \(red); }"
+              themeVariables:
+                cScale0: "\(red)"
+                cScale1: "\(red)"
+              journey:
+                textPlacement: fo
+            ---
+            mindmap
+              root((冊子))
+                読者
+                内容
+            """,
+            """
+            %%{init: {"c4": {"person_bg_color": "\(red)", "system_bg_color": "\(red)"}}}%%
+            C4Context
+              Person(reader, "Reader", "Reads records")
+              System(archive, "Archive", "Catalogue")
+              Rel(reader, archive, "Finds")
+            """,
+            """
+            ---
+            config:
+              htmlLabels: true
+              flowchart:
+                htmlLabels: true
+            ---
+            flowchart LR
+              A[受付] --> B[完了]
+            """,
+        ]
+        let json = try await inspect(
+            sources,
+            """
+            const svgs = Array.from(document.querySelectorAll('.mermaid-block > svg'));
+            const painted = svgs.flatMap(svg => Array.from(svg.querySelectorAll('*')))
+              .flatMap(el => { const css = getComputedStyle(el); return [css.fill, css.stroke, css.color]; });
+            return JSON.stringify({
+              drawn: svgs.length, errors: document.querySelectorAll('.mermaid-error').length,
+              foreignObjects: document.querySelectorAll('.mermaid-block foreignObject').length,
+              red: painted.filter(value => value === 'rgb(255, 0, 0)').length});
+            """)
+        let values = try #require(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Int])
+        #expect(values["drawn"] == 4)
+        #expect(values["errors"] == 0)
+        #expect(values["foreignObjects"] == 0)
+        #expect(values["red"] == 0)
+    }
+
     @Test("フローチャートの日本語8字のラベルは1行に収まる", .timeLimit(.minutes(1)))
     func shortJapaneseLabelStaysOnOneLine() async throws {
         let json = try await inspect(
@@ -282,15 +386,40 @@ struct MermaidRenderingTests {
         #expect(json == "1")
     }
 
-    @Test("どの種類の図でも文字と地のコントラストが4.5対1以上になる", .timeLimit(.minutes(1)))
+    @Test("代表的な図のどの種類でも、ラベルが描かれ、文字と地のコントラストが4.5対1以上になる", .timeLimit(.minutes(1)))
     func everyDiagramTypeIsReadable() async throws {
         let json = try await inspect(Self.everyType.map(\.source), Self.contrastInspection)
         let reports = try JSONDecoder().decode([ContrastReport].self, from: Data(json.utf8))
         #expect(reports.count == Self.everyType.count)
         for (report, type) in zip(reports, Self.everyType) {
             #expect(report.drawn, "\(type.name) が図にならない")
+            #expect(report.text.contains(type.label), "\(type.name) に「\(type.label)」がない")
+            #expect(report.checked > 0, "\(type.name) の文字を1つも確かめていない")
+            #expect(report.unverified.isEmpty, "\(type.name) で確かめられない文字: \(report.unverified)")
             #expect(report.unreadable.isEmpty, "\(type.name): \(report.unreadable)")
         }
+    }
+
+    @Test("コントラストの検査は透明なグループとtspanを読めないと数え、グラデーションの地は確かめられないと数える", .timeLimit(.minutes(1)))
+    func contrastInspectionSeesThroughOpacity() async throws {
+        _ = NSApplication.shared
+        let svgs = [
+            "<g opacity=\"0.1\"><text x=\"10\" y=\"20\" fill=\"#000\">faint group</text></g>",
+            "<text x=\"10\" y=\"20\" fill=\"#000\"><tspan fill-opacity=\"0.1\">faint tspan</tspan></text>",
+            "<defs><linearGradient id=\"g\"><stop offset=\"0\" stop-color=\"#000\"/></linearGradient></defs>"
+                + "<rect width=\"200\" height=\"40\" fill=\"url(#g)\"/><text x=\"10\" y=\"20\" fill=\"#fff\">on gradient</text>",
+            "<rect width=\"200\" height=\"40\" fill=\"#eee\"/>",
+        ].map {
+            "<div class=\"mermaid-block\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"200\" height=\"40\">\($0)</svg></div>"
+        }
+        let result = try await WebPaginator().paginateWithResult(
+            .html(svgs.joined(), baseURL: nil), pageSize: CGSize(width: 595, height: 842),
+            margins: .uniform(millimeters: 15), allowsJavaScript: false, preparationScript: Self.contrastInspection)
+        let reports = try JSONDecoder().decode(
+            [ContrastReport].self, from: Data(try #require(result.preparationResult).utf8))
+        #expect(reports.map(\.unreadable.count) == [1, 1, 0, 0])
+        #expect(reports.map(\.unverified) == [[], [], ["on gradient"], []])
+        #expect(reports.map(\.checked) == [1, 1, 0, 0])
     }
 
     @Test("NotebookのMarkdownセルのMermaidは図になる", .timeLimit(.minutes(1)))
@@ -326,11 +455,18 @@ struct MermaidRenderingTests {
 
     private struct ContrastReport: Decodable {
         let drawn: Bool
+        let text: String
+        /// Labels whose ink and ground could both be worked out.
+        let checked: Int
+        /// Labels painted with something this check cannot read (a gradient or pattern fill), in itself or below it.
+        let unverified: [String]
         let unreadable: [String]
     }
 
     /// For every label, the ground is what is painted under its middle: the fills, earlier in paint order, that
-    /// contain that point, laid over white paper. Labels on a marker (sequence numbers) cannot be seen this way.
+    /// contain that point, laid over white paper. Opacity is multiplied down from every ancestor group, which matches
+    /// the drawing when the label and its ground are not inside the same translucent group. Labels on a marker
+    /// (sequence numbers) cannot be seen this way and are left out.
     private static let contrastInspection = """
         const parse = value => {
           const match = /rgba?\\(([^)]+)\\)/.exec(value || '');
@@ -348,10 +484,15 @@ struct MermaidRenderingTests {
           const [x, y] = [luminance(a), luminance(b)];
           return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
         };
-        const painted = (el, color) => {
-          const css = getComputedStyle(el);
-          return {...color, a: color.a * Number(css.fillOpacity) * Number(css.opacity)};
+        // fill-opacity is inherited, so the element's own value already holds its ancestors'; opacity is not.
+        const painted = (el, svg, color) => {
+          let alpha = color.a * Number(getComputedStyle(el).fillOpacity);
+          for (let node = el; node && node !== svg.parentElement; node = node.parentElement) {
+            alpha *= Number(getComputedStyle(node).opacity);
+          }
+          return {...color, a: alpha};
         };
+        // The ground under a label, or null when something below it is painted with a fill this cannot read.
         function ground(svg, text) {
           const box = text.getBoundingClientRect();
           const point = new DOMPoint(box.left + box.width / 2, box.top + box.height / 2);
@@ -360,51 +501,60 @@ struct MermaidRenderingTests {
             if (!(el.compareDocumentPosition(text) & Node.DOCUMENT_POSITION_FOLLOWING)) break;
             if (!el.getClientRects().length || el.closest('clipPath,defs,mask,marker,pattern,symbol')) continue;
             const css = getComputedStyle(el);
-            const fill = parse(css.fill);
-            if (css.visibility === 'hidden' || !fill || fill.a === 0) continue;
+            if (css.visibility === 'hidden' || css.fill === 'none') continue;
             const matrix = el.getScreenCTM();
-            if (matrix && el.isPointInFill(point.matrixTransform(matrix.inverse()))) color = over(painted(el, fill), color);
+            if (!matrix || !el.isPointInFill(point.matrixTransform(matrix.inverse()))) continue;
+            const fill = parse(css.fill);
+            if (!fill) return null;
+            color = over(painted(el, svg, fill), color);
           }
           return color;
         }
         return JSON.stringify(Array.from(document.querySelectorAll('.mermaid-block')).map(block => {
           const svg = block.querySelector(':scope > svg');
-          if (!svg) return {drawn: false, unreadable: []};
+          if (!svg) return {drawn: false, text: '', checked: 0, unverified: [], unreadable: []};
+          let checked = 0;
+          const unverified = [];
           const unreadable = [];
           for (const text of svg.querySelectorAll('text, tspan')) {
             if (text.querySelector('tspan') || text.closest('.sequenceNumber')) continue;
             if (!text.textContent.trim() || !text.getClientRects().length) continue;
             const fill = parse(getComputedStyle(text).fill);
-            if (!fill) continue;
-            const back = ground(svg, text);
-            const value = ratio(over(painted(text.closest('text'), fill), back), back);
+            const back = fill && ground(svg, text);
+            if (!back) {
+              unverified.push(text.textContent.trim());
+              continue;
+            }
+            checked++;
+            const value = ratio(over(painted(text, svg, fill), back), back);
             if (value < 4.5) unreadable.push(text.textContent.trim() + ' ' + value.toFixed(2));
           }
-          return {drawn: true, unreadable};
+          return {drawn: true, text: svg.textContent, checked, unverified, unreadable};
         }));
         """
 
-    /// One small diagram of each kind the bundled library draws without HTML labels (eventmodeling always needs them).
-    private static let everyType: [(name: String, source: String)] = [
-        ("flowchart", ["flowchart TD", "  A[原稿] --> B{確認}", "  B -->|はい| C[組版]", "  B -->|いいえ| A"]),
+    /// One small diagram of each kind the bundled library draws without HTML labels (eventmodeling always needs them),
+    /// with a word that its drawing must show.
+    private static let everyType: [(name: String, label: String, source: String)] = [
+        ("flowchart", "原稿", ["flowchart TD", "  A[原稿] --> B{確認}", "  B -->|はい| C[組版]", "  B -->|いいえ| A"]),
         (
-            "sequence",
+            "sequence", "読者",
             [
                 "sequenceDiagram", "  autonumber", "  actor R as 読者", "  participant V as ビューア",
                 "  R->>V: 開く", "  V-->>R: 紙面", "  Note over R,V: 確かめる",
             ]
         ),
         (
-            "class",
+            "class", "Record",
             [
                 "classDiagram", "  class Record {", "    +String title", "    +print()", "  }",
                 "  Record --> Page : has",
             ]
         ),
-        ("state", ["stateDiagram-v2", "  [*] --> Draft", "  Draft --> Review : 依頼", "  Review --> [*]"]),
-        ("er", ["erDiagram", "  READER ||--o{ LOAN : makes", "  LOAN {", "    string id PK", "  }"]),
+        ("state", "Draft", ["stateDiagram-v2", "  [*] --> Draft", "  Draft --> Review : 依頼", "  Review --> [*]"]),
+        ("er", "READER", ["erDiagram", "  READER ||--o{ LOAN : makes", "  LOAN {", "    string id PK", "  }"]),
         (
-            "requirement",
+            "requirement", "readable",
             [
                 "requirementDiagram", "  requirement readable {", "    id: R01",
                 "    text: Paper stays clear", "    risk: medium", "    verifymethod: test", "  }", "  element trial {",
@@ -412,7 +562,7 @@ struct MermaidRenderingTests {
             ]
         ),
         (
-            "c4",
+            "c4", "Archive",
             [
                 "C4Context", "  Person(reader, \"Reader\", \"Reads records\")",
                 "  System(archive, \"Archive\", \"Catalogue\")", "  System_Ext(store, \"Storage\", \"Keeps sources\")",
@@ -420,136 +570,136 @@ struct MermaidRenderingTests {
             ]
         ),
         (
-            "architecture",
+            "architecture", "Source",
             [
                 "architecture-beta", "  group local(cloud)[Workspace]",
                 "  service source(disk)[Source] in local", "  service reader(server)[Reader] in local",
                 "  source:R --> L:reader",
             ]
         ),
-        ("block", ["block-beta", "  columns 2", "  a[\"Title\"]:2", "  b[\"Body\"] c[\"Notes\"]"]),
+        ("block", "Body", ["block-beta", "  columns 2", "  a[\"Title\"]:2", "  b[\"Body\"] c[\"Notes\"]"]),
         (
-            "gantt",
+            "gantt", "書く",
             [
                 "gantt", "  dateFormat YYYY-MM-DD", "  section 原稿", "  書く :a1, 2027-01-04, 5d",
                 "  組む :crit, a2, after a1, 3d",
             ]
         ),
         (
-            "timeline",
+            "timeline", "初版",
             [
                 "timeline", "  title 経緯", "  section 準備", "    一月 : 方針 : 番号", "    二月 : 選定", "  section 公開",
                 "    三月 : 初版", "    四月 : 改訂", "    五月 : 保存", "    六月 : 点検",
             ]
         ),
-        ("journey", ["journey", "  section 準備", "    開く: 4: 読者", "  section 確認", "    選ぶ: 3: 読者, 編集者"]),
+        ("journey", "選ぶ", ["journey", "  section 準備", "    開く: 4: 読者", "  section 確認", "    選ぶ: 3: 読者, 編集者"]),
         (
-            "mindmap",
+            "mindmap", "冊子",
             [
                 "mindmap", "  root((冊子))", "    読者", "      目的", "    内容", "      章", "    用紙", "      判型",
                 "    品質", "      校正", "    綴じ", "      向き", "    配布", "      部数",
             ]
         ),
         (
-            "kanban",
+            "kanban", "図を描く",
             [
                 "kanban", "  a[受付]", "    a1[一覧を確かめる]", "  b[作業中]", "    b1[図を描く]", "  c[確認]", "    c1[校正]",
                 "  d[完了]", "    d1[番号を振る]",
             ]
         ),
         (
-            "gitGraph",
+            "gitGraph", "fix",
             [
                 "gitGraph", "  commit id: \"1\"", "  branch fix", "  checkout fix", "  commit id: \"2\"",
                 "  checkout main", "  merge fix id: \"3\"", "  branch next", "  checkout next", "  commit id: \"4\"",
             ]
         ),
         (
-            "swimlane",
+            "swimlane", "受け取る",
             [
                 "swimlane-beta TB", "  subgraph 受付", "    A[受け取る]", "  end", "  subgraph 編集", "    B[書く]",
                 "  end", "  A --> B",
             ]
         ),
         (
-            "agentflow",
+            "agentflow", "Check",
             [
                 "agentflow-beta TB", "  input[\"Manuscript\"]@{ shape: input }",
                 "  check[\"Check\"]@{ shape: task }", "  input --> check",
             ]
         ),
         (
-            "pie",
+            "pie", "Photographs",
             [
                 "pie showData", "  \"Photographs\" : 240", "  \"Booklets\" : 120", "  \"Maps\" : 60",
                 "  \"Letters\" : 100", "  \"Notes\" : 40",
             ]
         ),
         (
-            "quadrant",
+            "quadrant", "Plan",
             [
                 "quadrantChart", "  x-axis Low --> High", "  y-axis Low --> High", "  quadrant-1 Plan",
                 "  quadrant-2 Try", "  quadrant-3 Drop", "  quadrant-4 Limit", "  Captions: [0.2, 0.8]",
             ]
         ),
-        ("sankey", ["sankey-beta", "Intake,Reviewed,600", "Reviewed,Public,360", "Reviewed,Pending,240"]),
+        ("sankey", "Intake", ["sankey-beta", "Intake,Reviewed,600", "Reviewed,Public,360", "Reviewed,Pending,240"]),
         (
-            "xychart",
+            "xychart", "Feb",
             [
                 "xychart-beta", "  x-axis [Jan, Feb, Mar]", "  y-axis \"Records\" 0 --> 80",
                 "  bar [24, 41, 68]", "  line [30, 40, 70]",
             ]
         ),
         (
-            "radar",
+            "radar", "Content",
             [
                 "radar-beta", "  axis a[\"Content\"], b[\"Figures\"], c[\"Paper\"]",
                 "  curve first[\"First\"]{4,3,4}", "  curve second[\"Second\"]{5,4,5}", "  max 5", "  min 0",
             ]
         ),
         (
-            "treemap",
+            "treemap", "Masters",
             [
                 "treemap-beta", "  \"Images\"", "    \"Masters\": 240", "    \"Copies\": 120", "  \"Texts\"",
                 "    \"Booklets\": 100", "  \"Metadata\"", "    \"Catalogue\": 35",
             ]
         ),
         (
-            "venn",
+            "venn", "Evidence",
             [
                 "venn-beta", "  set A[\"Content\"]", "  set B[\"Evidence\"]", "  set C[\"Paper\"]",
                 "  union A,B[\"Supported\"]",
             ]
         ),
         (
-            "ishikawa",
+            "ishikawa", "Layout",
             [
                 "ishikawa", "  Unreadable proof", "  Content", "    Undefined terms", "  Layout",
                 "    Narrow columns",
             ]
         ),
         (
-            "wardley",
+            "wardley", "Storage",
             [
                 "wardley-beta", "  anchor Reader [0.95, 0.7]", "  component Copy [0.6, 0.5]",
                 "  component Storage [0.2, 0.9]", "  Reader -> Copy", "  Copy -> Storage",
             ]
         ),
         (
-            "cynefin",
+            "cynefin", "typo",
             [
                 "cynefin-beta", "  complex", "    \"New needs\"", "  clear", "    \"Known typo\"",
                 "  complex --> clear : \"Pattern\"",
             ]
         ),
-        ("packet", ["packet-beta", "  0-7: \"Version\"", "  8-15: \"Flags\"", "  16-31: \"Count\""]),
-        ("treeView", ["treeView-beta", "  project/", "    notes.md", "    figures/", "      map.svg"]),
+        ("packet", "Flags", ["packet-beta", "  0-7: \"Version\"", "  8-15: \"Flags\"", "  16-31: \"Count\""]),
+        ("treeView", "notes.md", ["treeView-beta", "  project/", "    notes.md", "    figures/", "      map.svg"]),
         (
-            "railroad",
+            "railroad", "prefix",
             [
                 "railroad-ebnf-beta", "  record = prefix \"-\" digit ;", "  prefix = \"SM\" | \"AR\" ;",
                 "  digit = \"0\" | \"1\" ;",
             ]
         ),
-    ].map { ($0.0, $0.1.joined(separator: "\n")) }
+    ].map { ($0.0, $0.1, $0.2.joined(separator: "\n")) }
 }
