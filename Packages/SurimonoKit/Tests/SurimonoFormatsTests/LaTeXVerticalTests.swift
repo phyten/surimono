@@ -95,4 +95,24 @@ struct LaTeXVerticalTests {
         #expect(
             body.contains(#"<span class="kenten">点</span><span class="kenten">粒</span><span class="bousen">線</span>"#))
     }
+
+    @Test("縦組みの参考文献は番号ラベルを項目ごとに1つだけ出し、桁幅をスタイルへ渡す")
+    func bibliographyLabels() {
+        let entries = (1...12).map { #"\bibitem{k\#($0)} 資料\#($0)。"# }.joined(separator: "\n")
+        let source = """
+            \\documentclass[a4paper]{utarticle}
+            \\begin{document}
+            本文\\cite{k1,k12}。
+            \\begin{thebibliography}{99}
+            \(entries)
+            \\end{thebibliography}
+            \\end{document}
+            """
+        let body = LaTeXConverter.convert(source).body
+        #expect(body.contains(#"<ol class="latex-bibliography latex-numbered" style="--latex-label-digits: 2ch">"#))
+        #expect(body.matches(of: /<span class="bib-label">/).count == 12)
+        #expect(body.contains(#"<li id="bib-1-1"><span class="bib-label">[1]</span>資料1。</li>"#))
+        #expect(body.contains(#"<li id="bib-1-10"><span class="bib-label">[10]</span>資料10。</li>"#))
+        #expect(body.contains(#"<li id="bib-1-12"><span class="bib-label">[12]</span>資料12。</li>"#))
+    }
 }
