@@ -21,6 +21,9 @@ public struct PrintIssue: Codable, Sendable, Equatable, Identifiable {
     public let kind: Kind
     public var detail: String
     public var imageFailure: ImageFailure?
+    /// The file a reader could not read because it lies outside the document's folder, as the document names it. A
+    /// folder that contains it, once allowed, lets it be read.
+    public var outsideFile: String?
     public let element: Element?
     /// One-based logical page, independent of the sheet's imposition. Nil when WebKit left no usable link.
     public var pageNumber: Int?

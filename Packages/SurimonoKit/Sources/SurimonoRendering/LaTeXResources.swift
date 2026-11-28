@@ -5,10 +5,11 @@ import SurimonoFormats
 
 extension DocumentRenderer {
     /// Every themed entry point (including exports and outline extraction) uses the same policy. Outside the
-    /// sandbox, opening a document admits companion text under its directory, never arbitrary files on the Mac.
+    /// sandbox, opening a document admits companion text under its directory and under the folders the reader allowed
+    /// (`allowedResourceFolders`), never arbitrary files on the Mac.
     nonisolated static func latexFragment(
         _ source: DocumentSource, composition: LaTeXComposition, textWidthPoints: Double?, access: LocalResourceAccess?,
-        onDenied: @escaping @Sendable () -> Void,
+        onDenied: @escaping @Sendable (URL) -> Void,
         imageExists: @escaping @Sendable (URL) -> Bool
     ) throws -> HTMLFragment {
         let resources = CompanionTextResources(source, access: access, onDenied: onDenied)
@@ -21,7 +22,8 @@ extension DocumentRenderer {
             canProbePictureFallback: { access?.permits($0) != false },
             imageSizeInPoints: { url in
                 if let cached = measuredImages.value[url] { return cached }
-                let result = resources.read(url).flatMap(Self.imageSizeInPoints) ?? .zero
+                // Outside the sandbox WebKit shows the image itself without a grant, so measuring it asks for none.
+                let result = resources.read(url, reportsDenial: access != nil).flatMap(Self.imageSizeInPoints) ?? .zero
                 measuredImages.value[url] = result
                 return result
             }, readFile: { resources.read($0) },
@@ -53,7 +55,7 @@ extension DocumentRenderer {
     nonisolated static func markdownFragment(
         _ source: DocumentSource, pageBreakLine: String, proof: ProofMarks, mapsSource: Bool, contentsDepth: Int?,
         reading: FormatReadingSettings,
-        access: LocalResourceAccess?, onDenied: @escaping @Sendable () -> Void
+        access: LocalResourceAccess?, onDenied: @escaping @Sendable (URL) -> Void
     ) throws -> HTMLFragment {
         let text = try decodedText(source.data)
         let directory = source.fileURL.flatMap { $0.isFileURL ? $0.deletingLastPathComponent() : nil }
@@ -61,10 +63,11 @@ extension DocumentRenderer {
         // the converter's own thread.
         let resources = SharedValue<CompanionTextResources?>(nil)
         let readBibliography: @Sendable (URL) -> Data? = { url in
-            let found = resources.value ?? CompanionTextResources(source, access: access, onDenied: {})
+            let found = resources.value ?? CompanionTextResources(source, access: access, onDenied: onDenied)
             resources.value = found
             let data = found.read(url)
-            if data == nil, access != nil { onDenied() }
+            // Inside the sandbox a file that cannot be read is taken as one the folder grant would let through.
+            if data == nil, access != nil { onDenied(url) }
             return data
         }
         if mapsSource {
@@ -87,7 +90,7 @@ extension DocumentRenderer {
     {
         if cachedLaTeXInfo?.source != source { cachedLaTeXInfo = (source, [:]) }
         if let info = cachedLaTeXInfo?.infos[composition] { return info }
-        let resources = CompanionTextResources(source, access: resourceAccess(for: source), onDenied: {})
+        let resources = CompanionTextResources(source, access: resourceAccess(for: source), onDenied: { _ in })
         let infos = LaTeXConverter.classInfos(
             TextDecoding.decode(source.data, preservingLineEndings: true).text, composition: composition,
             documentURL: resources.file, readFile: { resources.read($0) }, fileIdentity: { resources.identity($0) })
@@ -97,18 +100,22 @@ extension DocumentRenderer {
     }
 }
 
+/// Reads the text a document names (bibliographies, inputs, listings) from the folders it may read: the folders the
+/// reader allowed and, outside the sandbox, where opening the document already lets the app read, its own folder.
+/// A file outside them is refused, reported to `onDenied`, and can be read once a folder that contains it is allowed.
 private struct CompanionTextResources: Sendable {
     let file: URL?
     let access: LocalResourceAccess?
-    let onDenied: @Sendable () -> Void
+    let onDenied: @Sendable (URL) -> Void
     let roots: [String]
 
-    init(_ source: DocumentSource, access: LocalResourceAccess?, onDenied: @escaping @Sendable () -> Void) {
+    init(_ source: DocumentSource, access: LocalResourceAccess?, onDenied: @escaping @Sendable (URL) -> Void) {
         self.access = access
         self.onDenied = onDenied
         let file = source.fileURL.flatMap { $0.isFileURL ? $0 : nil }
         self.file = file
-        let folders = access?.folders ?? [file?.deletingLastPathComponent()].compactMap { $0 }
+        let ownFolder = access == nil ? [file?.deletingLastPathComponent()].compactMap { $0 } : []
+        let folders = ownFolder + (access?.folders ?? source.allowedResourceFolders)
         roots = folders.compactMap { try? ConfinedFile.canonicalPath($0) }
     }
 
@@ -118,25 +125,26 @@ private struct CompanionTextResources: Sendable {
 
     func permits(_ url: URL) -> Bool {
         guard access?.permits(url) != false else {
-            onDenied()
+            onDenied(url)
             return false
         }
         return url.isFileURL
     }
 
-    func read(_ url: URL) -> Data? {
+    func read(_ url: URL, reportsDenial: Bool = true) -> Data? {
         guard permits(url) else { return nil }
         do {
-            // Compare two real paths: Foundation can spell /private/var as /var on macOS.
+            // Compare two real paths: Foundation can spell /private/var as /var on macOS. A file that does not exist
+            // has no real path and asks for no folder.
             let canonical = try ConfinedFile.canonicalPath(url)
             guard let root = roots.first(where: { canonical.hasPrefix($0.hasSuffix("/") ? $0 : $0 + "/") }) else {
-                if access != nil { onDenied() }
+                if reportsDenial { onDenied(url) }
                 return nil
             }
             // Validate the descriptor as well as the name: a changed symlink cannot redirect this read.
             return try ConfinedFile.read(url, within: root, maximumSize: 8_000_004)
         } catch let error as POSIXError where error.code == .EACCES || error.code == .EPERM {
-            if access != nil { onDenied() }
+            if access != nil { onDenied(url) }
             return nil
         } catch {
             return nil

@@ -66,6 +66,14 @@ struct Toast: Equatable, Identifiable {
             systemImage: "folder", title: String(localized: "Showing images needs permission to read the folder"),
             action: .allowFolderAccess)
     }
+
+    /// For text the document names outside its folder, as a bibliography in a parent folder.
+    static var outsideFolderAccess: Toast {
+        Toast(
+            systemImage: "folder",
+            title: String(localized: "Reading files outside the document’s folder needs permission"),
+            action: .allowFolderAccess)
+    }
 }
 
 @Observable
@@ -1461,7 +1469,8 @@ final class DocumentViewModel {
 
     func start() {
         guard !isWindowClosed else { return }
-        if SandboxEnvironment.isSandboxed, folderLease == nil, let fileURL,
+        // Inside the sandbox a grant lets the document read even its own folder; outside it, folders beyond that.
+        if folderLease == nil, let fileURL,
             let lease = FolderAccess.shared.acquire(for: fileURL)
         {
             useDocumentFolder(lease)
@@ -4218,26 +4227,35 @@ final class DocumentViewModel {
         settingsBaseline?.transitionFollowsKind = kind
     }
 
+    /// Inside the sandbox any companion file asks for its folder. Outside it only a file the document names outside
+    /// its own folder does, so the same toast, list entry and panel serve both.
     func requestFolderAccess() {
-        guard SandboxEnvironment.isSandboxed, fileURL != nil || binder != nil, !closedFolderAccessNotice,
-            folderAccessNotice == nil
-        else { return }
-        showToast(.folderAccess)
+        guard fileURL != nil || binder != nil, !closedFolderAccessNotice, folderAccessNotice == nil else { return }
+        showToast(outsideFiles.isEmpty ? .folderAccess : .outsideFolderAccess)
     }
 
     var fileNeedingFolderAccess: URL? { fileURL ?? binder?.fileRequiringAccess(result?.requiredFolderAccess) }
 
+    /// The files, as the document names them, that the last layout could not read for lying outside its folder.
+    private var outsideFiles: [String] { result?.issues.compactMap(\.outsideFile) ?? [] }
+
     func allowFolderAccess() {
-        guard SandboxEnvironment.isSandboxed, let fileURL = fileNeedingFolderAccess, let window else { return }
+        guard let fileURL = fileNeedingFolderAccess, let window else { return }
         let folder = fileURL.deletingLastPathComponent()
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.canCreateDirectories = false
         panel.allowsMultipleSelection = false
-        panel.directoryURL = folder
-        panel.message = String(
-            localized: "Choose the document’s folder or a parent folder to display images and other resources.")
+        let outside = outsideFiles
+        // A file named as ../../x is two folders up: open where one folder holds both the document and the file.
+        let levels = outside.map { $0.split(separator: "/").prefix { $0 == ".." }.count }.max() ?? 0
+        panel.directoryURL = (0..<levels).reduce(folder) { url, _ in url.deletingLastPathComponent() }
+        panel.message =
+            outside.isEmpty
+            ? String(
+                localized: "Choose the document’s folder or a parent folder to display images and other resources.")
+            : String(localized: "Choose a folder that contains both this document and the files it refers to.")
         panel.prompt = String(localized: "Allow Access")
         panel.beginSheetModal(for: window) { [weak self] response in
             let opensIncludes = self?.opensIncludesWithAccess == true

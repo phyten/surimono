@@ -1545,6 +1545,7 @@ public final class DocumentRenderer {
                 facts.continuedBeamerFrames = slides.continued
                 facts.beamerPageFrames = slides.frames
                 if page.needsFolderAccess { result.requiredFolderAccess = directory }
+                result.issues = Self.markingOutsideFiles(result.issues, denied: page.deniedFiles, directory: directory)
                 result.finishing.facts = facts
                 result.finishing.bodyHTML = fragment.body
                 return result
@@ -1620,11 +1621,11 @@ public final class DocumentRenderer {
                     source: source
                 )
             }
-            // A fallback is also reported by its printed anchor. Keep that occurrence (and page),
-            // retaining the reader diagnostic when pagination supplied no matching figure.
-            var printedPictures: [String: Int] = [:]
-            for issue in text.issues where issue.kind == .latex && issue.element == .figure {
-                printedPictures[issue.detail, default: 0] += 1
+            // A fallback figure or a file note is also reported by its printed anchor. Keep that occurrence (and
+            // page), retaining the reader diagnostic when pagination supplied no matching anchor.
+            var printedAnchors: [String: Int] = [:]
+            for issue in text.issues where issue.kind == .latex {
+                printedAnchors[issue.detail, default: 0] += 1
             }
             for (offset, detail) in fragment.readingIssues.enumerated() {
                 let kind: PrintIssue.Kind =
@@ -1636,13 +1637,14 @@ public final class DocumentRenderer {
                     case .markdown: .bibliography
                     default: .latex
                     }
-                if kind == .latex, let count = printedPictures[detail], count > 0 {
-                    printedPictures[detail] = count - 1
+                if kind == .latex, let count = printedAnchors[detail], count > 0 {
+                    printedAnchors[detail] = count - 1
                     continue
                 }
                 text.issues.append(PrintIssue(id: "\(kind.rawValue)-reader-\(offset)", kind: kind, detail: detail))
             }
             if page.needsFolderAccess { text.requiredFolderAccess = directory }
+            text.issues = Self.markingOutsideFiles(text.issues, denied: page.deniedFiles, directory: directory)
             text = try await finished(
                 text, fragment: fragment, facts: page.facts, source: source,
                 settings: settings)
@@ -1723,11 +1725,14 @@ public final class DocumentRenderer {
         let diagrams: Bool
         var collectsDiagrams: Bool { mermaid || diagrams }
         let needsFolderAccess: Bool
+        let deniedFiles: [URL]
     }
 
     private struct ThemedInput: Sendable {
         let fragment: HTMLFragment
         let needsFolderAccess: Bool
+        /// The files the readers named and were refused, which a folder grant could let them read.
+        var deniedFiles: [URL] = []
     }
 
     @concurrent private static func readThemedInput(
@@ -1736,6 +1741,7 @@ public final class DocumentRenderer {
         try Task.checkCancellation()
         // Set by the readers' file callbacks, which run on the conversion thread while this one waits.
         let needsFolderAccess = LockedFlag()
+        let deniedFiles = SharedValue<[URL]>([])
         guard
             let fragment = try Self.themedFragment(
                 source, pageBreakLine: settings.finish.breaks.customLine, proof: settings.finish.proof,
@@ -1746,7 +1752,10 @@ public final class DocumentRenderer {
                 composition: settings.latexComposition, textWidthPoints: settings.textWidthPoints(in: settings.layout),
                 textScale: settings.textScale,
                 mapsMarkdownSource: !settings.markdownChanges.isEmpty, access: access,
-                onDenied: { needsFolderAccess.set() },
+                onDenied: { url in
+                    needsFolderAccess.set()
+                    deniedFiles.value.append(url)
+                },
                 imageExists: { url in
                     if let access, !access.permits(url) {
                         needsFolderAccess.set()
@@ -1768,7 +1777,8 @@ public final class DocumentRenderer {
                     }
                 })
         else { throw RenderingError.unsupportedFormat }
-        return ThemedInput(fragment: fragment, needsFolderAccess: needsFolderAccess.isSet)
+        return ThemedInput(
+            fragment: fragment, needsFolderAccess: needsFolderAccess.isSet, deniedFiles: deniedFiles.value)
     }
 
     @concurrent private static func themedPage(
@@ -1836,7 +1846,8 @@ public final class DocumentRenderer {
         return ThemedPage(
             fragment: fragment, needsLaTeXFlow: needsLaTeXFlow, paper: paper, html: html,
             contentsHeadingIDs: headingIDs, facts: facts,
-            mermaid: mermaid, diagrams: diagrams, needsFolderAccess: read.needsFolderAccess)
+            mermaid: mermaid, diagrams: diagrams, needsFolderAccess: read.needsFolderAccess,
+            deniedFiles: read.deniedFiles)
     }
 
     @concurrent static func builtHTML(
@@ -2384,6 +2395,39 @@ public final class DocumentRenderer {
         return result
     }
 
+    /// Names, on the reader issues about a file that could not be read, the file when it lies outside the document's
+    /// folder and was refused for that: the reader is asked for a folder that contains it, not told the file is
+    /// missing. A file the document names relative to another input's folder is matched only by its main folder.
+    nonisolated static func markingOutsideFiles(_ issues: [PrintIssue], denied: [URL], directory: URL?)
+        -> [PrintIssue]
+    {
+        guard let directory, !denied.isEmpty else { return issues }
+        let outside = Set(
+            denied.filter { !LocalResourceAccess.contains($0, in: directory) }.map(\.standardizedFileURL.path))
+        guard !outside.isEmpty else { return issues }
+        return issues.map { issue in
+            guard issue.kind == .bibliography || issue.kind == .latex, let name = unreadFileName(issue.detail),
+                [name, name + ".bib"].contains(where: {
+                    outside.contains(directory.appending(path: $0).standardizedFileURL.path)
+                })
+            else { return issue }
+            var issue = issue
+            issue.outsideFile = name
+            return issue
+        }
+    }
+
+    /// The file in a reader's "could not be read" note, in English or in the Japanese a LaTeX document is read in.
+    private nonisolated static func unreadFileName(_ detail: String) -> String? {
+        let english = " could not be read"
+        if detail.hasSuffix(english) { return String(detail.dropLast(english.count)) }
+        let japanese = (prefix: "ファイル ", suffix: " を読み込めません")
+        guard detail.hasPrefix(japanese.prefix), detail.hasSuffix(japanese.suffix),
+            detail.count > japanese.prefix.count + japanese.suffix.count
+        else { return nil }
+        return String(detail.dropFirst(japanese.prefix.count).dropLast(japanese.suffix.count))
+    }
+
     func resourceAccess(for source: DocumentSource) -> LocalResourceAccess? {
         guard isSandboxed(), let file = source.fileURL else { return nil }
         return LocalResourceAccess(documentURL: file, folders: source.allowedResourceFolders)
@@ -2464,7 +2508,7 @@ public final class DocumentRenderer {
         composition: LaTeXComposition = .document, textWidthPoints: Double? = nil, textScale: Double = 1,
         mapsMarkdownSource: Bool = false,
         access: LocalResourceAccess? = nil,
-        onDenied: @escaping @Sendable () -> Void = {},
+        onDenied: @escaping @Sendable (URL) -> Void = { _ in },
         imageExists: @escaping @Sendable (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
     ) throws -> HTMLFragment? {
         let access =
@@ -2495,7 +2539,7 @@ public final class DocumentRenderer {
                 permitsFile: {
                     url in
                     guard access?.permits(url) != false else {
-                        onDenied()
+                        onDenied(url)
                         return false
                     }
                     return true
