@@ -1,11 +1,42 @@
 import Foundation
 
+/// One failed read of a file the document names. It ties the places looked in to the note it gave, by `id`, so a
+/// host can tell a file that is not there from one it refused without reading any text. Two references that read
+/// the same, as `\input{../part}` from two folders, are two failures with notes of the same words.
+public struct UnreadFile: Equatable, Sendable {
+    /// Tells this failure from every other in the document; the note on the page carries it as `data-unread-file`.
+    public let id: String
+    /// The words of the note, as the page shows them.
+    public var note: String
+    /// Where the note's words stand in `readingIssues`, which lists each wording once.
+    public let issueIndex: Int
+    /// The file as the document names it, with the extension the reader added.
+    public let reference: String
+    /// Every place the reader looked for the file, in the order it looked.
+    public let candidates: [URL]
+    /// The candidate the host refused to read for lying outside the folders the document may read. Set by the host.
+    public var refusedURL: URL?
+
+    public init(
+        id: String, note: String, issueIndex: Int, reference: String, candidates: [URL], refusedURL: URL? = nil
+    ) {
+        self.id = id
+        self.note = note
+        self.issueIndex = issueIndex
+        self.reference = reference
+        self.candidates = candidates
+        self.refusedURL = refusedURL
+    }
+}
+
 public struct HTMLFragment: Equatable, Sendable {
     public var body: String
     public var title: String?
     public var language: String?
     /// Document-level diagnostics that have no position on a printed page.
     public var readingIssues: [String]
+    /// Each failed read behind the reading issues that say a file could not be read.
+    public var unreadFiles: [UnreadFile] = []
     /// Whether the document settles its heading numbers itself, with numbers in the headings or by asking for
     /// none. A style then adds no numbers of its own.
     public var decidesHeadingNumbers: Bool
@@ -55,6 +86,12 @@ public struct HTMLFragment: Equatable, Sendable {
         self.language = language
         self.readingIssues = readingIssues
         self.latexClass = latexClass
+    }
+
+    func with(unreadFiles: [UnreadFile]) -> Self {
+        var fragment = self
+        fragment.unreadFiles = unreadFiles
+        return fragment
     }
 }
 

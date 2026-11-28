@@ -266,7 +266,7 @@ final class BinderModel {
             if !scopedURLs.contains(item.url), item.url.startAccessingSecurityScopedResource() {
                 scopedURLs.insert(item.url)
             }
-            if SandboxEnvironment.isSandboxed, leases[item.url] == nil {
+            if leases[item.url] == nil {
                 leases[item.url] = FolderAccess.shared.acquire(for: item.url)
             }
         }

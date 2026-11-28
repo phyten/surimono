@@ -104,7 +104,7 @@ struct LaTeXResourceTests {
         let fragment = try #require(
             try DocumentRenderer.themedFragment(
                 source, access: LocalResourceAccess(documentURL: main, folders: [folder]),
-                onDenied: { denied.value = true }))
+                onDenied: { _ in denied.value = true }))
         #expect(denied.value)
         #expect(!fragment.body.contains("OutsideContent"))
         #expect(fragment.readingIssues.count == 2)
