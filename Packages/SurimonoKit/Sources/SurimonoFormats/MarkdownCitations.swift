@@ -21,6 +21,7 @@ final class MarkdownCitations {
     private let nonce = UUID().uuidString
     var referencesMarker: String { "<!--\(nonce)-->" }
     var issues: [String] { document.readingIssues }
+    var unreadFiles: [UnreadFile] { document.readingUnreadFiles }
 
     init(metadata: MarkdownMetadata, directory: URL?, readFile: @escaping (URL) -> Data?) {
         self.metadata = metadata
@@ -34,7 +35,7 @@ final class MarkdownCitations {
                 var parser = LaTeXBibTeX(source, document: document)
                 parser.parse()
             } else {
-                document.reportFileIssue("\(file) could not be read")
+                document.reportFileIssue("\(file) could not be read", unread: document.takeFileAttempt())
             }
         }
     }

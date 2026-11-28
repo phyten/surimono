@@ -21,6 +21,14 @@ public struct PrintIssue: Codable, Sendable, Equatable, Identifiable {
     public let kind: Kind
     public var detail: String
     public var imageFailure: ImageFailure?
+    /// The file a reader could not read because it lies outside the document's folder, as the document names it. A
+    /// folder that contains it, once allowed, lets it be read.
+    public var outsideFile: String?
+    /// Where the outside file is, for finding a folder that holds both it and the document.
+    public var outsideURL: URL?
+    /// The failed read of a named file this issue is about (`UnreadFile.id`), which ties the note on the page to the
+    /// places the reader looked in.
+    public var unreadFile: String?
     public let element: Element?
     /// One-based logical page, independent of the sheet's imposition. Nil when WebKit left no usable link.
     public var pageNumber: Int?
@@ -38,6 +46,18 @@ public struct PrintIssue: Codable, Sendable, Equatable, Identifiable {
         self.element = element
         self.pageNumber = pageNumber
         self.rect = rect
+    }
+
+    /// The issue as a binder lists it: its identity told apart from the other documents' and its page counted from
+    /// the binder's start. Everything else it says about the problem stays as it was.
+    public func inBinder(prefix: String, pageOffset: Int) -> Self {
+        var issue = Self(
+            id: prefix + id, kind: kind, detail: detail, imageFailure: imageFailure, element: element,
+            pageNumber: pageNumber.map { $0 + pageOffset }, rect: rect, locationKey: locationKey.map { prefix + $0 })
+        issue.outsideFile = outsideFile
+        issue.outsideURL = outsideURL
+        issue.unreadFile = unreadFile
+        return issue
     }
 
     public func pageIndex(in issues: [Self], pageCount: Int, sourcePageCount: Int) -> Int {
