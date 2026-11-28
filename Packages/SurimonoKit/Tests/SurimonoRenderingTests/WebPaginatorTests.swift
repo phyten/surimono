@@ -67,7 +67,7 @@ struct WebPaginatorTests {
         #expect(abs(size.width - a4.width) < 0.01 && abs(size.height - a4.height) < 0.01)
     }
 
-    @Test("改ページで次のページへ送られた見出しへの文書内リンクは、見出しのあるページを指す")
+    @Test("改ページで次のページへ送られた見出しへの文書内リンクは、見出しのあるページを指す", .timeLimit(.minutes(1)))
     func linkToHeadingPushedToNextPage() async throws {
         // A heading that holds a float in a formatting context of its own, as an Org heading with tags does. WebKit
         // gave a link to such a heading, pushed down by a page break, the place on the page before where it would
@@ -87,11 +87,15 @@ struct WebPaginatorTests {
         let document = try await WebPaginator().paginate(
             .html(html, baseURL: nil), pageSize: a4, margins: .uniform(millimeters: 15), allowsJavaScript: false)
         var headingPages: [Int: Int] = [:]
+        var headingTops: [Int: CGFloat] = [:]
         for index in 0..<document.pageCount {
-            let lines = document.page(at: index)?.string?.components(separatedBy: .newlines) ?? []
-            for line in lines where line.hasPrefix("HEAD-") {
+            guard let page = document.page(at: index), let text = page.string else { continue }
+            for line in text.components(separatedBy: .newlines) where line.hasPrefix("HEAD-") {
                 let number = Int(line.dropFirst("HEAD-".count).prefix { $0.isNumber })
-                if let number, headingPages[number] == nil { headingPages[number] = index }
+                guard let number, headingPages[number] == nil else { continue }
+                headingPages[number] = index
+                let range = (text as NSString).range(of: "HEAD-\(number)")
+                headingTops[number] = page.selection(for: range)?.bounds(for: page).maxY
             }
         }
         #expect(headingPages.count == count)
@@ -107,6 +111,8 @@ struct WebPaginatorTests {
                 else { continue }
                 checked += 1
                 #expect(document.index(for: target) == headingPages[number], "TO-\(number)")
+                // The reader lands at the heading, not below it.
+                #expect(destination.point.y >= (headingTops[number] ?? .infinity) - 1, "TO-\(number)")
             }
         }
         #expect(checked == count)

@@ -4,6 +4,7 @@ import SurimonoCore
 import SurimonoFormats
 import UniformTypeIdentifiers
 import WebKit
+import os
 
 /// Lays out HTML in an off-screen WKWebView and prints it into a paginated PDF.
 @MainActor
@@ -1279,6 +1280,10 @@ final class PaginationSession {
             printInfo.leftMargin = 0
             printInfo.rightMargin = 0
         }
+        // The footnote passes find their notes by WebKit's own destinations and place the notes themselves.
+        let linkTargets =
+            footnotePass == nil
+            ? try await PushedDestinations.targets(in: webView, until: deadline) : PushedDestinations.Targets()
         printInfo.horizontalPagination = .fit
         printInfo.verticalPagination = .automatic
         printInfo.isHorizontallyCentered = false
@@ -1344,7 +1349,8 @@ final class PaginationSession {
                 arguments: [:], until: deadline)
         }
         return try await Self.cutToPaper(
-            at: outputURL, pageSize: pageSize, checkingBelowPaper: checkingBelowPaper, footnotePass: footnotePass)
+            at: outputURL, pageSize: pageSize, checkingBelowPaper: checkingBelowPaper, footnotePass: footnotePass,
+            linkTargets: linkTargets)
     }
 
     /// WebKit cuts the printable height into pages of whole CSS pixels and lets a document's `@page` size and margins
@@ -1360,7 +1366,8 @@ final class PaginationSession {
     /// The cut pages come back as a document read anew: PDFKit keeps reporting some characters of a page whose boxes
     /// were just changed at zero size, which would break finding and selecting text on the paper.
     @concurrent private static func cutToPaper(
-        at url: URL, pageSize: CGSize, checkingBelowPaper: Bool, footnotePass: WebPaginator.FootnotePass?
+        at url: URL, pageSize: CGSize, checkingBelowPaper: Bool, footnotePass: WebPaginator.FootnotePass?,
+        linkTargets: PushedDestinations.Targets = .init()
     ) async throws
         -> Data
     {
@@ -1387,79 +1394,28 @@ final class PaginationSession {
             page.setBounds(paper, for: .cropBox)
         }
         guard let cut = document.dataRepresentation() else { throw WebPaginator.PaginationError.printFailed }
-        // The footnote passes find their notes by WebKit's own destinations; they place the notes themselves.
-        return footnotePass == nil ? try movingPushedDestinations(in: cut) : cut
-    }
-
-    /// WebKit puts a link's destination at the top of the target's box. A heading that is a formatting context of its
-    /// own (an Org heading with tags is `flow-root` around a float) and that a page break pushes onto the next page
-    /// keeps the top of its box on the page before, below everything drawn there, so the link took the reader a page
-    /// short. A destination with nothing drawn below it on its page goes to the top of the next page instead.
-    ///
-    /// The destinations are read from a copy and rewritten in the bytes: when some of a page's link actions were
-    /// replaced through PDFKit, its write of that page lost the target page of every link on it.
-    nonisolated static func movingPushedDestinations(in bytes: Data) throws -> Data {
-        guard let document = PDFDocument(data: bytes) else { return bytes }
-        var moves: [ReadingPDFNavigationWriter.Link] = []
-        var lowestText: [Int: CGFloat] = [:]
-        var drawn: [Int: [CGFloat: Bool]] = [:]
-        for index in 0..<document.pageCount {
-            guard let page = document.page(at: index) else { continue }
-            for (slot, annotation) in page.annotations.enumerated() where annotation.type == "Link" {
-                try Task.checkCancellation()
-                guard let destination = (annotation.action as? PDFActionGoTo)?.destination ?? annotation.destination,
-                    let target = destination.page, destination.point.y.isFinite,
-                    destination.point.y != kPDFDestinationUnspecifiedValue
-                else { continue }
-                let targetIndex = document.index(for: target)
-                guard targetIndex >= 0, let next = document.page(at: targetIndex + 1) else { continue }
-                let crop = target.bounds(for: .cropBox)
-                // Half a point of slack for rounding in the destination and in the glyph boxes.
-                let limit = min(destination.point.y, crop.maxY) - 0.5
-                if lowestText[targetIndex] == nil {
-                    var lowest = CGFloat.infinity
-                    for character in 0..<target.numberOfCharacters {
-                        let box = target.characterBounds(at: character)
-                        if box.width > 0, box.height > 0, box.maxY > crop.minY { lowest = min(lowest, box.minY) }
-                    }
-                    lowestText[targetIndex] = lowest
-                }
-                let isDrawn: Bool
-                if let text = lowestText[targetIndex], text < limit {
-                    isDrawn = true
-                } else if let known = drawn[targetIndex]?[limit] {
-                    isDrawn = known
-                } else {
-                    // A picture or a rule with no text can still be the target's content.
-                    isDrawn = drawsInBottomStrip(of: target, box: .cropBox, height: limit - crop.minY, scale: 2)
-                    drawn[targetIndex, default: [:]][limit] = isDrawn
-                }
-                guard !isDrawn else { continue }
-                let top = next.bounds(for: .cropBox).maxY
-                moves.append(
-                    .init(
-                        page: index, annotation: slot,
-                        destination: .init(
-                            page: targetIndex + 1, mode: "XYZ", arguments: [destination.point.x, top, nil])
-                    ))
-            }
+        guard !linkTargets.isEmpty else { return cut }
+        do {
+            return try PushedDestinations.moving(cut, targets: linkTargets)
+        } catch {
+            try Task.checkCancellation()
+            // Moving the destinations only corrects links; the pages as cut are still the document.
+            Logger(subsystem: "app.surimono.Surimono", category: "Pagination")
+                .error(
+                    "Pushed link destinations were left as printed: \(String(describing: type(of: error)), privacy: .public)"
+                )
+            return cut
         }
-        return try ReadingPDFNavigationWriter.repair(bytes, links: moves, bookmarks: nil)
     }
 
     /// Whether the page draws anything below the paper's height. The strip is rendered on white and any pixel that is
     /// not near-white counts, so text, rules, images and backgrounds all keep the page whole.
     nonisolated static func drawsBelowPaper(_ page: PDFPage, paperHeight: CGFloat) -> Bool {
         let media = page.bounds(for: .mediaBox)
-        return drawsInBottomStrip(of: page, box: .mediaBox, height: media.height - paperHeight, scale: 4)
-    }
-
-    /// Whether anything that is not near-white is drawn in the strip of the given height at the bottom of the box.
-    private nonisolated static func drawsInBottomStrip(
-        of page: PDFPage, box: PDFDisplayBox, height stripHeight: CGFloat, scale: CGFloat
-    ) -> Bool {
+        let stripHeight = media.height - paperHeight
         guard stripHeight > 0 else { return false }
-        let width = max(1, Int((page.bounds(for: box).width * scale).rounded(.up)))
+        let scale: CGFloat = 4
+        let width = max(1, Int((media.width * scale).rounded(.up)))
         let height = max(1, Int((stripHeight * scale).rounded(.up)))
         guard
             let context = CGContext(
@@ -1471,7 +1427,7 @@ final class PaginationSession {
         context.fill(CGRect(x: 0, y: 0, width: width, height: height))
         // The box's lower left corner lands on the bitmap's origin, so the bitmap holds the bottom of the page.
         context.scaleBy(x: scale, y: scale)
-        page.draw(with: box, to: context)
+        page.draw(with: .mediaBox, to: context)
         let pixels = data.assumingMemoryBound(to: UInt8.self)
         for index in stride(from: 0, to: width * height * 4, by: 4)
         where pixels[index] < 250 || pixels[index + 1] < 250 || pixels[index + 2] < 250 {
