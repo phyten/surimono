@@ -41,7 +41,9 @@ struct LanguageFontsTests {
                 fragment: HTMLFragment(body: body, language: language), format: .markdown, theme: theme)
         }
         #expect(build("本文です").contains("<html lang=\"ja\">"))
-        #expect(HTMLDocumentBuilder.styleSheet(theme: theme, language: "ja") == theme.css)
+        #expect(
+            HTMLDocumentBuilder.styleSheet(theme: theme, language: "ja")
+                == LanguageFonts.separatingWesternScripts(theme.css))
         #expect(build("本文です", language: "en").contains("<html lang=\"en\">"))
         #expect(build("这是一座虚构的图书馆，每天早上都会开放。读者可以在这里阅读书籍，学习新的知识，并且记录自己的生活经验。").contains("<html lang=\"zh-Hans\">"))
         #expect(build("", language: "zh").contains("<html lang=\"zh-Hans\">"))
@@ -148,5 +150,36 @@ extension LanguageFontsTests {
     func shorthandDuplicate() {
         let css = "p{font:italic 12pt/1.5 'Helvetica Neue','Hiragino Sans',sans-serif}"
         #expect(LanguageFonts.adapt(css, language: "ru") == css)
+    }
+}
+
+extension LanguageFontsTests {
+    @Test("最初の東アジアの書体の前に、キリル文字とギリシャ文字だけの欧文書体を種類に合わせて置く")
+    func westernScripts() {
+        let css = "p{font-family:'Helvetica Neue','Hiragino Mincho ProN',serif} code{font-family:Osaka-Mono}"
+        let result = LanguageFonts.separatingWesternScripts(css)
+        #expect(
+            result.hasPrefix(
+                "p{font-family:'Helvetica Neue',\"Surimono Western Serif\", 'Hiragino Mincho ProN',serif} "
+                    + "code{font-family:\"Surimono Western Mono\", Osaka-Mono}"))
+        #expect(result.contains("src: local(\"TimesNewRomanPSMT\")"))
+        #expect(result.contains("src: local(\"Menlo-Bold\"); font-weight: 600 900; font-style: normal"))
+        #expect(!result.contains("HelveticaNeue"))
+        #expect(result.contains("unicode-range: U+0370-03FF, U+0400-052F"))
+        #expect(LanguageFonts.separatingWesternScripts(result) == result)
+    }
+
+    @Test("中国語の書体に置き換えたあとも、その前に欧文書体を置く")
+    func westernScriptsAfterChinese() {
+        let adapted = LanguageFonts.adapt("p{font-family:'Hiragino Sans'}", language: "zh-Hans")
+        #expect(
+            LanguageFonts.separatingWesternScripts(adapted).hasPrefix(
+                "p{font-family:\"Surimono Western Sans\", \"PingFang SC\", 'Hiragino Sans'}"))
+    }
+
+    @Test("東アジアの書体のない書体の指定は変えない")
+    func westernScriptsUnchanged() {
+        let css = "p{font-family:Georgia,serif} @font-face{font-family:'Hiragino Sans';src:url(x)}"
+        #expect(LanguageFonts.separatingWesternScripts(css) == css)
     }
 }

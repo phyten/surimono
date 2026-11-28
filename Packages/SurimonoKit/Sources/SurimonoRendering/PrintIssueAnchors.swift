@@ -105,6 +105,11 @@ enum PrintIssueAnchors {
             const key = locationKey('mermaid', detail);
             if (visible(el)) add(el, 'mermaid', detail, key);
           }
+          for (const el of document.querySelectorAll('[data-diagram-scale]')) {
+            const detail = el.dataset.diagramScale || '';
+            const key = locationKey('shrunkDiagram', el.textContent || '');
+            if (visible(el)) add(el, 'shrunkDiagram', detail, key, 'figure');
+          }
           for (const el of document.querySelectorAll('.latex-unsupported')) {
             const picture = el.matches('body.format-latex [data-latex-picture]');
             const detail = (picture && el.dataset.issue) || el.textContent || '';

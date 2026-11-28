@@ -356,7 +356,7 @@ struct ResourceLibraryTests {
         #expect(body.contains("<title>本 &lt;&amp;&gt;</title>"))
         #expect(body.contains("<base href=\"file:///tmp/book/\">"))
         #expect(body.contains("<body class=\"surimono format-markdown\">"))
-        #expect(body.contains(theme.css))
+        #expect(body.contains(HTMLDocumentBuilder.styleSheet(theme: theme)))
         #expect(!body.contains("@page"))
     }
 

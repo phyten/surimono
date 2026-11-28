@@ -88,8 +88,9 @@ struct PrintIssuesPopover: View {
                 Button("Make Text Smaller") { model.decreaseTextSize() }
                     .disabled(TextScale.smaller(than: model.textScale) == model.textScale)
             }
+        // A tall diagram gets smaller still on landscape paper, and smaller text leaves it as it is.
         case .math, .latex, .rst, .bibliography, .mermaid, .mermaidTimeout, .verticalWriting, .nestingLimit,
-            .nestingOmission, .contentsLimit:
+            .nestingOmission, .contentsLimit, .shrunkDiagram:
             EmptyView()
         }
     }
@@ -121,11 +122,18 @@ enum PrintIssueText {
                 "Part of the document is nested too deeply and will not be printed.", language: language)
         case .image: key = "Could Not Load Image: %@"
         case .math: key = "Could Not Render Formula: %@"
+        case .shrunkDiagram:
+            return PrintModeText.format(
+                "Diagram Reduced to %lld%% to Fit the Page", language: language, Int64(issue.detail) ?? 0)
         case .mermaidTimeout:
             return PrintModeText.format(
                 "%lld diagrams were not drawn in time.", language: language, Int64(issue.detail) ?? 0)
         case .mermaid: key = "Could Not Render Diagram: %@"
         case .rst:
+            if issue.detail.hasPrefix(RSTConverter.unreadableFileIssuePrefix) {
+                let file = String(issue.detail.dropFirst(RSTConverter.unreadableFileIssuePrefix.count))
+                return PrintModeText.format("Could not read file: %@", language: language, file)
+            }
             return PrintModeText.format("Unrecognized RST constructs: %@", language: language, issue.detail)
         case .bibliography:
             if issue.detail.hasSuffix(" could not be read") {
@@ -170,6 +178,7 @@ enum PrintIssueText {
         case .rst, .verticalWriting, .bibliography, .mermaidTimeout, .nestingLimit, .nestingOmission, .contentsLimit:
             return ""
         case .overflow: key = "Try landscape paper or smaller text, or adjust this element in the source document."
+        case .shrunkDiagram: key = "Split the diagram into smaller ones in the source document, or choose larger paper."
         case .math: key = "Check the formula's syntax and use supported commands in the source document."
         case .mermaid: key = "Check the Mermaid syntax and simplify the diagram in the source document."
         case .latex:

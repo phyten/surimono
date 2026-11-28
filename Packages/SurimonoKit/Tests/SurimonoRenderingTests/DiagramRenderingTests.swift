@@ -99,3 +99,22 @@ struct DiagramRenderingTests {
         #expect(DiagramScript.plantUMLLoading(try #require(DiagramScript.plantuml)) != nil)
     }
 }
+
+extension DiagramRenderingTests {
+    @Test("半分より小さく縮めた図は印刷前の確認に出し、収まる図は出さない", .timeLimit(.minutes(1)))
+    func shrunkDiagram() async throws {
+        _ = NSApplication.shared
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "standard" })
+        let settings = RenderSettings(layout: .a4Single, theme: theme, preset: .init(id: "none", name: "None"))
+        func issues(_ dot: String) async throws -> [PrintIssue] {
+            try await DocumentRenderer().render(
+                DocumentSource(data: Data(dot.utf8), format: .graphviz), settings: settings
+            ).issues
+        }
+        let chain = (0..<60).map { "n\($0) -> n\($0 + 1);" }.joined(separator: " ")
+        let tall = try await issues("digraph { \(chain) }")
+        #expect(tall.map(\.kind) == [.shrunkDiagram])
+        #expect((Int(tall.first?.detail ?? "") ?? 100) < 50)
+        #expect(try await issues("digraph { a -> b }").isEmpty)
+    }
+}

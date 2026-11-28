@@ -209,7 +209,7 @@ struct MediaWikiTests {
         let source = "__FORCETOC__\nIntro.\n== One ==\n__TOC__\n== Two =="
         let expected = """
             <p>Intro.</p>
-            <h2 id="one">One</h2><nav class="toc"><ul><li><a href="#one">One</a></li><li><a href="#two">Two</a></li></ul></nav>
+            <h2 id="one">One</h2><nav class="toc"><p class="toc-title">Contents</p><ul><li><a href="#one">One</a></li><li><a href="#two">Two</a></li></ul></nav>
             <h2 id="two">Two</h2>
             """
         #expect(MediaWikiConverter.convert(source).body.utf8.elementsEqual(expected.utf8))
@@ -262,5 +262,41 @@ struct MediaWikiTests {
         print("MediaWiki pathological", source.utf8.count, duration)
         // Only the time is skipped under a sanitizer, which slows the code several times over.
         if !Sanitizer.isActive { #expect(duration < .seconds(15)) }
+    }
+}
+
+extension MediaWikiTests {
+    @Test("__TOC__ の目次には、文書の言語の題を付ける")
+    func contentsTitle() {
+        #expect(
+            MediaWikiConverter.convert("__TOC__\n== 第一節 ==\n本文です。\n== 第二節 ==").body.contains(
+                "<nav class=\"toc\"><p class=\"toc-title\">目次</p>"))
+        #expect(
+            MediaWikiConverter.convert("__TOC__\n== One ==\nText.\n== Two ==").body.contains(
+                "<nav class=\"toc\"><p class=\"toc-title\">Contents</p>"))
+    }
+}
+
+extension MediaWikiTests {
+    @Test("文書のフォルダーの下のフォルダーの画像も読み、外へ出る名前とリンクは読まない")
+    func subfolderImages() throws {
+        let fm = FileManager.default
+        let base = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let folder = base.appendingPathComponent("wiki")
+        try fm.createDirectory(at: folder.appendingPathComponent("assets"), withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: base) }
+        try Data([0x89]).write(to: folder.appendingPathComponent("assets/a b.png"))
+        try Data([0x89]).write(to: base.appendingPathComponent("outside.png"))
+        try fm.createSymbolicLink(
+            at: folder.appendingPathComponent("assets/link.png"),
+            withDestinationURL: base.appendingPathComponent("outside.png"))
+        let body = MediaWikiConverter.convert(
+            "<gallery>\nFile:assets/a b.png|説明\nFile:../outside.png\nFile:assets/link.png\n</gallery>",
+            directory: folder
+        ).body
+        #expect(body.contains("<img src=\"./assets/a%20b.png\""))
+        #expect(!body.contains("outside.png\" alt"))
+        #expect(!body.contains("src=\"./assets/link.png\""))
+        #expect(body.components(separatedBy: "Image unavailable").count == 3)
     }
 }

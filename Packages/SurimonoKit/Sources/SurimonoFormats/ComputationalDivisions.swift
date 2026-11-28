@@ -79,7 +79,8 @@ extension ComputationalBody {
                     heading = String(match.1)
                     index = first + 1
                 }
-                let title = HTML.escape(attributes.options["title"] ?? heading ?? kind.defaultTitle)
+                let title =
+                    (attributes.options["title"] ?? heading).map { HTML.escape($0) } ?? kind.defaultTitleHTML
                 let tag =
                     attributes.options["icon"] == "false"
                     ? "<p class=\"callout-title\">\(title)</p>" : kind.title(title)

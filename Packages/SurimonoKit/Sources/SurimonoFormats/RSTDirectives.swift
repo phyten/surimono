@@ -138,7 +138,7 @@ extension RSTDocument {
             let titles = [
                 "attention": "Attention!", "caution": "Caution!", "danger": "!DANGER!", "seealso": "See also",
             ]
-            let label = titles[d.name] ?? kind.defaultTitle
+            let label = kind.defaultTitleHTML(HTML.escape(titles[d.name] ?? kind.defaultTitle), as: d.name)
             rendered = kind.opening + kind.title(label) + blocks(content) + "</div>"
         case "admonition":
             let kind = MarkdownCallouts.Kind(name: "neutral")
@@ -165,10 +165,16 @@ extension RSTDocument {
                     + "</div>"
             }.joined()
         case "table", "csv-table", "list-table":
-            guard let table = rstTableDirective(d) else { return rstUnreadable(first, body) }
+            guard let table = rstTableDirective(d) else {
+                if d.name == "csv-table", let path = d.options["file"], !rstCanRead(path) {
+                    return rstUnreadableFile(path)
+                }
+                return rstUnreadable(first, body)
+            }
             rendered = table
         case "include":
             guard d.options["literal"] != nil || d.options["code"] != nil, let (_, lines) = rstIncludedFile(d) else {
+                if !rstCanRead(d.argument) { return rstUnreadableFile(d.argument) }
                 return rstUnreadable(first, body)
             }
             if let language = d.options["code"] { return rstCode(Array(lines), language: language, options: d.options) }
@@ -266,6 +272,18 @@ extension RSTDocument {
             selected = selected.prefix(upTo: cut)
         }
         return (file, selected)
+    }
+
+    /// Whether the file a directive names reads, so a failure can tell a missing file from a construct not read.
+    private func rstCanRead(_ path: String) -> Bool {
+        rstFile(path).flatMap { rstRead($0) } != nil
+    }
+
+    /// Says on paper that the file is not there to print, rather than printing the directive as code.
+    private func rstUnreadableFile(_ path: String) -> String {
+        unreadableFiles.append(path)
+        let label = japanese ? "ファイルを読み込めません: " : "File could not be read: "
+        return "<div class=\"reader-note\">\(HTML.escape(label + path))</div>"
     }
 
     private func rstUnreadable(_ first: String, _ body: [String]) -> String {

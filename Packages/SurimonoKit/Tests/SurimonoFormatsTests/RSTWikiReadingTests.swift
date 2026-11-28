@@ -29,7 +29,8 @@ struct RSTWikiReadingTests {
             "2600701fb17c2ef407863f518ff4d482b74fa2d1353524af08f06c402b878d4b",
             "7497e8e957aea5700a87685deba2db4806e7286f8b566a70538defd16ce31615",
             "0ef9a1d827c0d11fd468be98ad421419281091ba59fd5e3e0c4d8f71ec338364",
-            "854f0111e6fbbb1bb6bbe04aff8d94a1adfa195463d8b6904e5890cb7ec605ea",
+            // __TOC__ now titles its contents (MediaWiki's own box has a title).
+            "8707cf460dcd6ac1d354d5401389e24e629fba6e0a813a7c3ec994fc3f7a38ac",
             "854f0111e6fbbb1bb6bbe04aff8d94a1adfa195463d8b6904e5890cb7ec605ea",
             "0ef9a1d827c0d11fd468be98ad421419281091ba59fd5e3e0c4d8f71ec338364",
         ]

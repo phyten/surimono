@@ -23,7 +23,7 @@ struct MarkdownExtensionTests {
         let html = body("本文[^a]と[^b]。\n\n[^b]: 二つ目\n[^a]: 一つ目\n    続きの行\n\n後の段落")
         #expect(html.contains("<sup class=\"footnote-ref\"><a href=\"#fn-1\" id=\"fnref-1\">1</a></sup>と"))
         #expect(html.contains("<a href=\"#fn-2\" id=\"fnref-2\">2</a>"))
-        #expect(html.contains("<li id=\"fn-1\"><p>一つ目\n続きの行</p>\n</li>"))
+        #expect(html.contains("<li id=\"fn-1\"><p>一つ目続きの行</p>\n</li>"))
         #expect(html.contains("<li id=\"fn-2\"><p>二つ目</p>\n</li>"))
         #expect(html.contains("<p>後の段落</p>"))
         #expect(!html.contains("[^"))
@@ -104,7 +104,7 @@ struct MarkdownExtensionTests {
     func looseDefinitionList() {
         let html = body("りんご\n\n: 赤い果物\n\n: 会社の\n名前\n\n次の段落")
         #expect(
-            html.hasPrefix("<dl>\n<dt>りんご</dt>\n<dd>赤い果物</dd>\n<dd>会社の\n名前</dd>\n</dl>\n<p>次の段落</p>"))
+            html.hasPrefix("<dl>\n<dt>りんご</dt>\n<dd>赤い果物</dd>\n<dd>会社の名前</dd>\n</dl>\n<p>次の段落</p>"))
     }
 
     @Test("見出しに GitHub と同じ ID を付け、重複には番号を足し、{#id} はその ID にして文字から外す")

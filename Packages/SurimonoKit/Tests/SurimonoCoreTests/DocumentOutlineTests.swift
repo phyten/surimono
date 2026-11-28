@@ -603,3 +603,23 @@ struct DocumentOutlineTests {
     }
 
 }
+
+extension DocumentOutlineTests {
+    @Test("表の文字の行の末尾に続いた見出しも、前後の見出しの間で見つける")
+    func headingJoinedToTable() {
+        let headings = ["受け入れ", "読者どうしで確かめる問い", "付録"].map { DocumentHeading(level: 2, text: $0) }
+        let pages = [
+            "受け入れ\nID 分類 A01 公開 A02 範囲",
+            "A03 例外 A04 公開 読者どうしで確かめる問い\n本文。\n状態\n未実施",
+            "付録\n本文。",
+        ]
+        #expect(DocumentOutline.pages(of: headings, inPageTexts: pages) == [0, 1, 2])
+    }
+
+    @Test("短い見出しや、行の途中の見出しの語は行の末尾として拾わない")
+    func shortTail() {
+        let headings = ["序", "まとめ", "付録"].map { DocumentHeading(level: 2, text: $0) }
+        #expect(
+            DocumentOutline.pages(of: headings, inPageTexts: ["序\n今回のまとめ", "付録"]) == [0, nil, 1])
+    }
+}

@@ -34,18 +34,22 @@ extension DocumentOutline {
             // Both spellings read the same lines; the check only guards the line numbers they share.
             if folded.index.lines.count == written.index.lines.count { folded.fill(&found) }
         }
+        if found.contains(nil) { written.fillTails(&found) }
         return found.map { $0.map { written.index.lines[$0.lowerBound].page } }
     }
 
     /// The headings' spellings looked for in the lines of the pages, with or without case.
     private struct Matching {
         let titles: [Int]
+        let spellings: [String]
         let index: LineIndex
         let matches: [Int: [Range<Int>]]
+        let excluded: Set<Int>
 
         init(headings: [DocumentHeading], pages: [String], contentsEntries: [String], foldsCase: Bool) {
             var labels = Labels()
-            titles = headings.map { labels.insert(normalized($0.text, foldsCase: foldsCase)) }
+            spellings = headings.map { normalized($0.text, foldsCase: foldsCase) }
+            titles = spellings.map { labels.insert($0) }
             let tables = contentsEntries.split(separator: "").map {
                 $0.map { normalized($0, foldsCase: foldsCase) }.filter { !$0.isEmpty }
             }
@@ -65,6 +69,7 @@ extension DocumentOutline {
                 }
             }
             matches = index.headingMatches(excluding: excluded)
+            self.excluded = excluded
         }
 
         /// The lines of each heading, each found after the one before it.
@@ -76,6 +81,40 @@ extension DocumentOutline {
                 guard let match = matches[id]?.popLast() else { return nil }
                 cursor = match.upperBound
                 return match
+            }
+        }
+
+        /// Fills the headings still not found with a line that ends in one, between the headings found around it.
+        ///
+        /// PDFKit reads a table's columns as one run of text and can join the line after the table to it, so a
+        /// heading right below a table ends the line holding the table's text. Short spellings are left out: a
+        /// sentence ends in two or three characters of a heading far more often than in a whole one.
+        func fillTails(_ found: inout [Range<Int>?]) {
+            // Lines by their last four characters, in order, so each heading reads only the lines it could end.
+            var endings: [String: [Int]] = [:]
+            for (position, line) in index.lines.enumerated() where line.forms[0].count > 4 {
+                endings[String(line.forms[0].suffix(4)), default: []].append(position)
+            }
+            var upper = Array(repeating: index.lines.count, count: found.count)
+            for i in found.indices.dropLast().reversed() { upper[i] = found[i + 1]?.lowerBound ?? upper[i + 1] }
+            var lower = 0
+            for i in found.indices {
+                if let match = found[i] {
+                    lower = match.upperBound
+                    continue
+                }
+                let title = spellings[i]
+                // A line that only adds a number in front is a numbered heading, which `forms` reads already.
+                guard title.count >= 4, let candidates = endings[String(title.suffix(4))],
+                    let line = candidates.first(where: { line in
+                        let form = index.lines[line].forms[0]
+                        return line >= lower && line < upper[i] && !excluded.contains(line)
+                            && form.count > title.count && form.hasSuffix(title)
+                            && !form.dropLast(title.count).allSatisfy(\.isNumber)
+                    })
+                else { continue }
+                found[i] = line..<(line + 1)
+                lower = line + 1
             }
         }
 

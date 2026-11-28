@@ -40,7 +40,8 @@ struct TypefaceTests {
         let css = HTMLDocumentBuilder.styleSheet(theme: theme, textScale: 1.5, typeface: .latex, language: "ko")
         #expect(
             css.contains(
-                #"--surimono-style-family: "Apple SD Gothic Neo", "Hiragino Sans", serif !important"#))
+                #"--surimono-style-family: "Surimono Western Sans", "Apple SD Gothic Neo", "Hiragino Sans", serif !important"#
+            ))
         #expect(
             css.contains(
                 "font: 500 1em/1.4 var(--surimono-western) var(--surimono-style-family, serif); --surimono-style-family: var(--code, monospace)"
@@ -64,7 +65,7 @@ struct TypefaceTests {
                 pre { font: inherit; }
                 """)
         let css = HTMLDocumentBuilder.styleSheet(theme: theme, typeface: .latex)
-        #expect(css.contains(#"--surimono-family--reading: Georgia, "YuMincho", serif"#))
+        #expect(css.contains(#"--surimono-family--reading: Georgia, "Surimono Western Serif", "YuMincho", serif"#))
         #expect(css.contains("--surimono-family--reading: Charter, serif"))
         #expect(css.contains("font: var(--reading) !important"))
         #expect(css.contains("--surimono-style-family: var(--surimono-family--reading, serif) !important"))

@@ -20,6 +20,9 @@ p { orphans: 3; widows: 3; }
 img { box-sizing: border-box; max-width: 100%; height: auto; }
 pre { white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 4; }
 code, pre { font-family: "SFMono-Regular", Menlo, monospace; }
+/* An italic comment slants the code face, which has an italic; a Japanese comment falls back to a face that has
+   none, and slanting its upright glyphs by machine is not how Japanese is set. */
+code, pre { font-synthesis-style: none; }
 pre code { font-size: inherit; }
 table { border-collapse: collapse; max-width: 100%; }
 /* Cells take the start of the line, the right in a right-to-left document; a column aligned to a side keeps that side. */
@@ -247,6 +250,9 @@ nav.toc { margin-block: 1em; }
 nav.toc ul { list-style: none; margin-block: 0.15em; padding-inline-start: 1.2em; }
 nav.toc > ul { padding-inline-start: 0; }
 nav.toc a { text-decoration: none; }
+nav.toc > .toc-title { margin-block: 0 0.3em; font-weight: bold; }
+/* MediaWiki prints its contents as a framed box sized to its entries. */
+.format-mediawiki nav.toc { display: table; padding: 0.5em 1em; border: 0.5pt solid #999; }
 /* Formulas are SwaTex's SVG. A display formula wider than the page shrinks to fit instead of running into the margin. */
 .math svg { overflow: visible; }
 .math-display { display: block; margin-block: 0.6em; text-align: center; }
@@ -303,13 +309,14 @@ table.latex-tabular .latex-bottom-light { border-block-end: var(--latex-light-ru
 table.latex-tabular .latex-top-double { border-block-start: 2pt double currentColor; }
 table.latex-tabular .latex-bottom-double { border-block-end: 2pt double currentColor; }
 .latex-equation { position: relative; }
-.format-latex .eqno, .format-latex .latex-row-number, .format-latex .latex-number-ref, .format-latex .latex-pageref { font-style: normal; }
-.format-latex .math-display:has(> .latex-row-number) { position: relative; padding-inline: 2em; }
-.format-latex .math-display:has(> .latex-row-number) > svg { display: block; margin-inline: auto; }
-.format-latex .latex-row-number { position: absolute; inset-inline-end: 0; line-height: 1; transform: translateY(-0.8em); }
+.format-latex .eqno, :is(.format-latex, .format-org) .latex-row-number, .format-latex .latex-number-ref, .format-latex .latex-pageref { font-style: normal; }
+:is(.format-latex, .format-org) .math-display:has(> .latex-row-number) { position: relative; padding-inline: 2em; }
+:is(.format-latex, .format-org) .math-display:has(> .latex-row-number) > svg { display: block; margin-inline: auto; }
+:is(.format-latex, .format-org) .latex-row-number { position: absolute; inset-inline-end: 0; line-height: 1; transform: translateY(-0.8em); }
 .latex-equation > .eqno { position: absolute; inset-inline-end: 0; top: 50%; transform: translateY(-50%); }
 span.wiki-note { display: inline-block; }
 .wiki-note,
+.reader-note,
 .latex-unsupported {
     margin: 1em 0;
     padding: 0.8em 1em;
@@ -656,12 +663,18 @@ pre:not(.surimono-plain), code, .long-token, .paper-link-url, h1, h2, h3, h4, h5
 /* Asciidoctor wraps every cell in a paragraph and titles a table with a caption as narrow as the table. */
 :is(.format-asciidoc, .format-docx, .format-mediawiki) :is(td, th) > p { margin: 0; }
 :is(.format-asciidoc, .format-djot, .format-mediawiki) table > caption { white-space: nowrap; text-align: start; }
+/* Textile's ABC(expansion) writes the expansion in the text; on paper there is no tooltip to show it. */
+.format-textile acronym[title]::after { content: " (" attr(title) ")"; }
+.format-textile acronym[title]:lang(ja)::after,
+.format-textile acronym[title]:lang(zh)::after { content: "（" attr(title) "）"; }
 
 :is(.format-quarto, .format-rmarkdown) .smallcaps { font-variant: small-caps; }
 :is(.format-quarto, .format-rmarkdown) .underline { text-decoration: underline; }
 :is(.format-quarto, .format-rmarkdown) .mark { background-color: #fff2ae; }
-:is(.format-quarto, .format-rmarkdown) :is(.code-filename, .table-caption, figcaption) { font-size: .9em; }
-:is(.format-quarto, .format-rmarkdown) .code-filename { break-after: avoid; }
+:is(.format-quarto, .format-rmarkdown) :is(.table-caption, figcaption) { font-size: .9em; }
+/* A listing's caption or file name stays with the code below it. */
+.code-filename { font-size: .9em; margin-block-end: .3em; break-after: avoid; page-break-after: avoid; }
+.code-filename + pre { margin-block-start: 0; }
 :is(.format-quarto, .format-rmarkdown) .equation-number { text-align: end; }
 
 :is(.format-quarto, .format-rmarkdown) .callout-simple { border-width: 0 0 0 2pt; background: transparent; }

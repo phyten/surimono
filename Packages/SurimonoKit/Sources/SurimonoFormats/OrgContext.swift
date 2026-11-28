@@ -72,13 +72,13 @@ final class OrgContext {
     var anchorsHeadings: Bool { reading.tableOfContents.limit > 0 || hasContentsKeyword }
 
     /// A formula as HTML, or its source marked as unreadable. The discovery pass draws nothing.
-    func formula(_ latex: String, display: Bool, source: String) -> String {
+    func formula(_ latex: String, display: Bool, source: String, numbers: [String?] = []) -> String {
         guard !discovering else { return "" }
         guard let macros = mathDefinitions.preamble(for: latex) else {
             return MathRenderer.fallback(source, display: display)
         }
         return MathRenderer.html(
-            latex, display: display, macros: macros, rowNumberHTML: [], reportTruncation: false,
+            latex, display: display, macros: macros, rowNumberHTML: numbers, reportTruncation: false,
             originalSource: MathRenderer.withoutDelimiters(source))
             ?? MathRenderer.fallback(source, display: display)
     }

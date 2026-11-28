@@ -22,7 +22,7 @@ struct MarkdownCalloutTests {
     func styles(type: String, style: String, title: String) {
         let body = MarkdownConverter.convert(":::\(type)\n本文\n:::").body
         #expect(body.contains("callout-\(style)\" data-callout=\"\(type)\""))
-        #expect(body.contains(">\(title)</p>"))
+        #expect(body.contains(">\(title)</span></p>") || body.contains(">\(title)</p>"))
     }
 
     @Test(
@@ -147,14 +147,14 @@ struct MarkdownCalloutTests {
     func quoteTitle() {
         let body = MarkdownConverter.convert("> [!tip] **太字**の表題\n> 本文\n> 次の行").body
         #expect(body.contains("</svg><strong>太字</strong>の表題</p>"))
-        #expect(body.contains("<p>本文\n次の行</p>"))
+        #expect(body.contains("<p>本文次の行</p>"))
         #expect(!body.contains("[!tip]"))
     }
 
     @Test("引用の既定表題と折りたたみ記号と空本文を扱う", arguments: ["", "-", "+"])
     func quoteMarker(suffix: String) {
         let body = MarkdownConverter.convert("> [!NOTE]\(suffix)").body
-        #expect(body.contains(">Note</p>"))
+        #expect(body.contains("<span class=\"callout-default-title\" data-callout-title=\"note\">Note</span></p>"))
         #expect(!body.contains("<blockquote>"))
     }
 
@@ -561,5 +561,53 @@ extension MarkdownCalloutTests {
         let body = MarkdownConverter.convert(source).body
         #expect(body.contains("<a href=\"/url\" title=\"first\n:::note\nlast\">label</a>"))
         #expect(!body.contains("callout-"))
+    }
+}
+
+struct MarkdownCodeFenceTests {
+    @Test("フェンスの title= と言語:名前を、コードの上のファイル名にし、言語は最初の語で決める")
+    func titles() {
+        #expect(
+            MarkdownConverter.convert("```json title=record.json\n{}\n```").body.hasPrefix(
+                "<div class=\"code-filename\">record.json</div>\n<pre><code class=\"language-json hl\">"))
+        #expect(
+            MarkdownConverter.convert("```ts title=\"src/a b.ts\"\nx\n```").body.hasPrefix(
+                "<div class=\"code-filename\">src/a b.ts</div>\n<pre><code class=\"language-ts"))
+        #expect(
+            MarkdownConverter.convert("```python:main.py\nx\n```").body.hasPrefix(
+                "<div class=\"code-filename\">main.py</div>\n<pre><code class=\"language-python"))
+        #expect(
+            MarkdownConverter.convert("```swift\nx\n```").body.hasPrefix("<pre><code class=\"language-swift"))
+    }
+}
+
+extension MarkdownCalloutTests {
+    @Test("表題を書かない囲みの札は、日本語の文書では日本語の名前にし、ほかの言語と書いた表題はそのまま")
+    func japaneseDefaultTitles() {
+        let body = MarkdownConverter.convert("> [!quote]\n> 引用文\n\n:::note\n本文\n:::\n\n:::tip 自分の題\n本文\n:::").body
+        let ja = MarkdownCallouts.localizingDefaultTitles(in: body, language: "ja")
+        #expect(ja.contains("data-callout-title=\"quote\">引用</span>"))
+        #expect(ja.contains("data-callout-title=\"note\">メモ</span>"))
+        #expect(ja.contains(">自分の題</p>"))
+        #expect(MarkdownCallouts.localizingDefaultTitles(in: body, language: "en") == body)
+        let custom = MarkdownConverter.convert(":::custom\n本文\n:::").body
+        #expect(MarkdownCallouts.localizingDefaultTitles(in: custom, language: "ja") == custom)
+    }
+}
+
+struct MarkdownWideLineBreakTests {
+    @Test("和文と和文の間の改行は空白にせず、欧文や韓国語の間の改行は残す")
+    func softBreaks() {
+        #expect(MarkdownConverter.convert("和文の\n改行。").body == "<p>和文の改行。</p>\n")
+        #expect(
+            MarkdownConverter.convert("校正。{++見えるときは、\n外側と内側。++}後").body
+                == "<p>校正。<ins class=\"critic\">見えるときは、外側と内側。</ins>後</p>\n")
+        #expect(MarkdownConverter.convert("和文の{++\n改行++}").body == "<p>和文の<ins class=\"critic\">改行</ins></p>\n")
+        #expect(MarkdownConverter.convert(String(repeating: "あ\n", count: 20_000)).body.count < 30_000)
+        #expect(MarkdownConverter.convert("*強調の、\n中*も").body == "<p><em>強調の、中</em>も</p>\n")
+        #expect(MarkdownConverter.convert("English\nwords").body == "<p>English\nwords</p>\n")
+        #expect(MarkdownConverter.convert("和文\nEnglish").body == "<p>和文\nEnglish</p>\n")
+        #expect(MarkdownConverter.convert("한국어\n문장").body == "<p>한국어\n문장</p>\n")
+        #expect(MarkdownConverter.convert("和文の`code`\n改行").body.contains("</code>\n改行"))
     }
 }

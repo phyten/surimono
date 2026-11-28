@@ -229,3 +229,45 @@ extension RSTDirectiveTests {
         #expect(SyntaxHighlighter.canonicalLanguage(for: "pycon") == nil)
     }
 }
+
+extension RSTDirectiveTests {
+    @Test("読めない CSV の表と取り込みは、指示の原文ではなく読めなかったファイルの注記にし、確認に出す")
+    func unreadableTableFile() throws {
+        let fm = FileManager.default
+        let base = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let folder = base.appendingPathComponent("draft")
+        try fm.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: base) }
+        try Data("a,b\n1,2\n".utf8).write(to: base.appendingPathComponent("outside.csv"))
+        let source = """
+            在庫の表です。
+
+            .. csv-table:: 欠けた表
+               :file: data/missing.csv
+               :header-rows: 1
+
+            .. csv-table:: 外の表
+               :file: ../outside.csv
+
+            .. include:: notes.txt
+               :literal:
+
+            後の段落。
+            """
+        let result = RSTConverter.convert(source, directory: folder)
+        #expect(!result.body.contains("csv-table"))
+        #expect(result.body.contains("<div class=\"reader-note\">ファイルを読み込めません: data/missing.csv</div>"))
+        #expect(result.body.contains("<div class=\"reader-note\">ファイルを読み込めません: ../outside.csv</div>"))
+        #expect(result.body.contains("<div class=\"reader-note\">ファイルを読み込めません: notes.txt</div>"))
+        #expect(!result.body.contains("1</td>"))
+        #expect(result.body.contains("後の段落。"))
+        #expect(
+            result.readingIssues
+                == ["data/missing.csv", "../outside.csv", "notes.txt"].map {
+                    RSTConverter.unreadableFileIssuePrefix + $0
+                })
+        #expect(
+            RSTConverter.convert(".. csv-table::\n   :file: gone.csv\n\nText.", directory: folder).body.contains(
+                "File could not be read: gone.csv"))
+    }
+}

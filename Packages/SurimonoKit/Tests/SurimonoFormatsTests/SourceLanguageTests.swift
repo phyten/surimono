@@ -191,7 +191,7 @@ struct SourceLanguageTests {
         let expected = """
             <pre class="surimono-source"><span class="hl-meta">&lt;?xml version=&quot;1.0&quot;?&gt;</span>
             <span class="hl-comment">&lt;!-- 見本 --&gt;</span>
-            &lt;<span class="hl-tag">job</span> <span class="hl-attr">copies</span>=<span class="hl-string">&quot;2&quot;</span>&gt;
+            &lt;<span class="hl-tag">job</span> <span class="hl-attr">copies</span>=<span class="hl-string hl-unbroken">&quot;2&quot;</span>&gt;
               &lt;<span class="hl-tag">paper</span>&gt;A4 <span class="hl-literal">&amp;amp;</span> B5&lt;/<span class="hl-tag">paper</span>&gt;
             &lt;/<span class="hl-tag">job</span>&gt;
             </pre>
@@ -302,5 +302,18 @@ struct SourceLanguageTests {
         #expect(PlainTextConverter.convert(unterminated, fileName: "a.swift").body.contains("never closed"))
         let minified = String(repeating: "var a=function(b){return b+1};", count: 6000)
         #expect(PlainTextConverter.convert(minified, fileName: "app.min.js").body.contains("hl-keyword"))
+    }
+}
+
+extension SourceLanguageTests {
+    @Test("空白のない短い文字列は折り返しで切らない印を付け、長い文字列や空白のある文字列には付けない")
+    func shortStringsStayWhole() {
+        let long = String(repeating: "x", count: 60)
+        let body = PlainTextConverter.convert(
+            "{\"id\": \"KH-00163\", \"note\": \"二つの 語\", \"long\": \"\(long)\"}", fileName: "a.jsonl"
+        ).body
+        #expect(body.contains("<span class=\"hl-string hl-unbroken\">&quot;KH-00163&quot;</span>"))
+        #expect(body.contains("<span class=\"hl-string\">&quot;二つの 語&quot;</span>"))
+        #expect(body.contains("<span class=\"hl-string\">&quot;\(long)&quot;</span>"))
     }
 }

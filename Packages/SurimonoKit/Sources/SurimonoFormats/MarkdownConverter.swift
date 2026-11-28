@@ -371,20 +371,23 @@ public enum MarkdownConverter {
                 : HTML.escape(MarkdownExtensions.emojified(text.string))
             return context.formulas.restore(html)
         case let code as InlineCode: return "<code>\(HTML.escape(code.code))</code>"
-        case let code as CodeBlock where code.language?.lowercased() == "math":
+        case let code as CodeBlock where CodeFence(code.language).language?.lowercased() == "math":
             let formula =
                 MathRenderer.html(code.code, display: true) ?? MathRenderer.fallback(code.code, display: true)
             return "<div class=\"math-block\">\(formula)</div>\n"
-        case let code as CodeBlock where code.language?.lowercased() == "mermaid":
+        case let code as CodeBlock where CodeFence(code.language).language?.lowercased() == "mermaid":
             return MermaidBlock.html(code.code)
-        case let code as CodeBlock where DiagramConverter.format(language: code.language) != nil:
+        case let code as CodeBlock
+        where DiagramConverter.format(language: CodeFence(code.language).language) != nil:
             return DiagramConverter.block(
-                code.code, format: DiagramConverter.format(language: code.language) ?? .graphviz)
+                code.code, format: DiagramConverter.format(language: CodeFence(code.language).language) ?? .graphviz)
         case let code as CodeBlock:
-            let highlighted = code.language.flatMap { SyntaxHighlighter.highlight(code.code, language: $0) }
+            let fence = CodeFence(code.language)
+            let highlighted = fence.language.flatMap { SyntaxHighlighter.highlight(code.code, language: $0) }
             let language =
-                code.language.map { " class=\"language-\(HTML.escape($0))\(highlighted == nil ? "" : " hl")\"" } ?? ""
-            return "<pre><code\(language)>\(highlighted ?? HTML.escape(code.code))</code></pre>\n"
+                fence.language.map { " class=\"language-\(HTML.escape($0))\(highlighted == nil ? "" : " hl")\"" } ?? ""
+            let title = fence.title.map { "<div class=\"code-filename\">\(HTML.escape($0))</div>\n" } ?? ""
+            return title + "<pre><code\(language)>\(highlighted ?? HTML.escape(code.code))</code></pre>\n"
         case let heading as Heading:
             var attributes = ""
             var number = ""
@@ -522,7 +525,7 @@ public enum MarkdownConverter {
             }
         }
         let title = renderChildren(Paragraph(titleNodes), context, autolinks: autolinks)
-        let titleHTML = title.isEmpty ? HTML.escape(marker.kind.defaultTitle) : title
+        let titleHTML = title.isEmpty ? marker.kind.defaultTitleHTML : title
         var body = ""
         if breakIndex < inline.count {
             let remainder = inline.dropFirst(breakIndex + 1).compactMap { $0 as? any InlineMarkup }
@@ -626,6 +629,12 @@ public enum MarkdownConverter {
                 continue
             }
             let child = children[index]
+            // A line break inside a sentence is no space between two ideographs or kana, as CSS Text's segment break
+            // rule says; WebKit draws a space there. Dropping it keeps the line ends of a source that wraps.
+            if child is SoftBreak, !context.preservesBreaks, Self.joinsWideCharacters(children, at: index) {
+                index += 1
+                continue
+            }
             if let html = child as? InlineHTML {
                 if html.rawHTML.range(of: #"^<a(?:\s|>)"#, options: [.regularExpression, .caseInsensitive]) != nil {
                     insideRawAnchor = true
@@ -853,5 +862,48 @@ enum MarkdownPageBreaks {
             let syntax = PageBreakSyntax(rawValue: String(block.dropFirst(markerPrefix.count).dropLast(3)))
         else { return nil }
         return "<div class=\"page-break\" data-syntax=\"\(syntax.rawValue)\"></div>\n"
+    }
+}
+
+extension MarkdownConverter {
+    /// Whether the characters on both sides of a soft break are Chinese or Japanese, looking through inline HTML
+    /// (CriticMarkup and the other rewritten marks) and emphasis. Code, math placeholders and the rest end the search.
+    static func joinsWideCharacters(_ siblings: [any Markup], at index: Int) -> Bool {
+        func edge(of node: any Markup, last: Bool) -> Character?? {
+            switch node {
+            case let text as Text: return .some(last ? text.string.last : text.string.first)
+            case is InlineHTML: return nil
+            case is Emphasis, is Strong, is Strikethrough:
+                let children = Array(node.children)
+                for child in last ? children.reversed() : children {
+                    if let found = edge(of: child, last: last) { return found }
+                }
+                return nil
+            default: return .some(nil)
+            }
+        }
+        func neighbour(_ range: some Sequence<Int>, last: Bool) -> Character? {
+            for position in range {
+                if let found = edge(of: siblings[position], last: last) { return found }
+            }
+            return nil
+        }
+        guard let before = neighbour(stride(from: index - 1, through: 0, by: -1), last: true), isWide(before),
+            let after = neighbour((index + 1)..<siblings.count, last: false), isWide(after)
+        else { return false }
+        return true
+    }
+
+    /// East Asian wide characters other than Hangul, whose words are separated by spaces.
+    static func isWide(_ character: Character) -> Bool {
+        guard let scalar = character.unicodeScalars.first else { return false }
+        switch scalar.value {
+        case 0x2E80...0x2FDF, 0x3000...0x303F, 0x3040...0x30FF, 0x3100...0x312F, 0x3190...0x31FF, 0x3200...0x33FF,
+            0x3400...0x4DBF, 0x4E00...0x9FFF, 0xF900...0xFAFF, 0xFE30...0xFE4F, 0xFF01...0xFF60, 0xFFE0...0xFFE6,
+            0x20000...0x3FFFF:
+            return true
+        default:
+            return false
+        }
     }
 }

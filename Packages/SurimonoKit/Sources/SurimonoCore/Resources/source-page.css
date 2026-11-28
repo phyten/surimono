@@ -21,6 +21,7 @@ pre.surimono-source > code {
     display: block; min-height: 1.4em; white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 4;
     text-indent: min(var(--source-indent, 2ch), 50%) hanging;
 }
+.surimono-source .hl-unbroken { white-space: nowrap; }
 .surimono-source.source-measuring .source-ink, .surimono-source.source-cut .source-ink { white-space: pre; padding-left: 0; text-indent: 0; }
 .surimono-source.source-cut .source-ink { overflow: hidden; text-overflow: ellipsis; }
 .surimono-source.source-cut .source-line.code-is-cut { display: flex; }

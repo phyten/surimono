@@ -1,6 +1,9 @@
 import Foundation
 
 public enum RSTConverter {
+    /// Begins a reading issue that names a file a directive asked for and the reader could not read.
+    public static let unreadableFileIssuePrefix = "unreadable-file:"
+
     /// The root directory is the source file's directory. The caller may further restrict file access.
     /// The callbacks run on the converter's own thread while the caller waits for it (`StackSpace.onLargeStack`):
     /// they must not need the caller's thread or actor, and do not see its task-local values.
@@ -39,6 +42,10 @@ public enum RSTConverter {
             if PreviewConversion.expired { return HTMLFragment(body: "") }
             lines.append(RSTDocument.expandTabs(line))
         }
+        document.japanese =
+            DocumentLanguage.primary(
+                DocumentLanguage.detect(html: HTML.escape(String(normalized.prefix(20_000))), fallback: "en").code)
+            == "ja"
         let body = document.blocks(lines)
         if PreviewConversion.expired { return HTMLFragment(body: "") }
         document.finishHeadingText()
@@ -51,7 +58,8 @@ public enum RSTConverter {
         let fonts = MathRenderer.fontFaces(for: html)
         var fragment = HTMLFragment(
             body: html + (fonts.isEmpty ? "" : "<style>\(fonts)</style>"), title: document.title,
-            readingIssues: document.issueCount > 0 ? [String(document.issueCount)] : [],
+            readingIssues: (document.issueCount > 0 ? [String(document.issueCount)] : [])
+                + document.unreadableFiles.map { unreadableFileIssuePrefix + $0 },
             decidesHeadingNumbers: options.ownsNumbers
         ).recordingContents(directive?.instructions ?? .init())
         fragment.numberInstructions = document.directives.numbers
@@ -75,6 +83,9 @@ final class RSTDocument {
     var title: String?
     var promotedHeadingIDs: Set<String> = []
     var issueCount = 0
+    /// Files named by a directive that could not be read, missing or outside the permitted folder.
+    var unreadableFiles: [String] = []
+    var japanese = false
     private var adornments: [String: Int] = [:]
     var depth = 0
 

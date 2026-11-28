@@ -76,9 +76,10 @@ struct ThemeSamplerTests {
                     if theme.id == custom.id {
                         let fallback = Array(row.dropFirst(2))
                         switch row[0] {
-                        case "body", "pre": #expect(fallback == ["Georgia", "YuMincho", "serif"])
-                        case "h2": #expect(fallback == ["Hiragino Sans", "sans-serif"])
-                        case "code": #expect(fallback == ["Menlo", "Osaka", "monospace"])
+                        case "body", "pre":
+                            #expect(fallback == ["Georgia", "Surimono Western Serif", "YuMincho", "serif"])
+                        case "h2": #expect(fallback == ["Surimono Western Sans", "Hiragino Sans", "sans-serif"])
+                        case "code": #expect(fallback == ["Menlo", "Surimono Western Sans", "Osaka", "monospace"])
                         default: break
                         }
                     }

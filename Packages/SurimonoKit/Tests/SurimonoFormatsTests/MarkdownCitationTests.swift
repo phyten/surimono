@@ -197,3 +197,28 @@ struct MarkdownCitationTests {
         #expect(body.contains("<em>paper</em>"))
     }
 }
+
+extension MarkdownCitationTests {
+    @Test("日本語の文書では、漢字やかなの著者名を中黒でつなぎ、欧文の名前は and のまま")
+    func japaneseAuthorNames() throws {
+        let bib = """
+            @article{pair, author={糸葉, 澄 and 璃舟, 凪}, title={架空の水路}, year={2043}}
+            @book{latin, author={Ada Lovelace and Donald Knuth}, title={Notes}, year={1843}}
+            """
+        func convert(_ text: String) -> String {
+            MarkdownConverter.convert("---\nbibliography: refs.bib\n---\n" + text, directory: directory) { _ in
+                Data(bib.utf8)
+            }.body
+        }
+        let japanese = convert("@pair では二人が比べた。@latin も読む。\n\n[^1]\n\n[^1]: 注の本文。\n\n::: {#refs}\n:::\n")
+        #expect(japanese.contains("糸葉・璃舟 ["))
+        #expect(!japanese.contains("糸葉 and"))
+        #expect(japanese.contains("Lovelace and Knuth ["))
+        let atEnd = convert("@pair を読む。[^1]\n\n[^1]: 注の本文。\n")
+        let references = try #require(atEnd.range(of: "latex-bibliography-heading"))
+        let notes = try #require(atEnd.range(of: "<section class=\"footnotes\""))
+        #expect(references.lowerBound < notes.lowerBound)
+        let english = convert("@pair compared them.")
+        #expect(english.contains("糸葉 and 璃舟 ["))
+    }
+}

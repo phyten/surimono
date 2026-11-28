@@ -90,12 +90,23 @@ public enum PlainTextConverter {
 
     package static func convert(_ text: String, language: SourceLanguage?, highlights: Bool) -> HTMLFragment {
         // Code too long to color is shown whole without colors rather than cut.
-        let colored = highlights ? language.flatMap { SyntaxHighlighter.highlight(text, language: $0.id) } : nil
+        let colored =
+            highlights
+            ? language.flatMap { SyntaxHighlighter.highlight(text, language: $0.id) }.map(keepingShortStringsWhole)
+            : nil
         let opening = language == nil ? "<pre class=\"surimono-plain\">" : sourceOpen
         var fragment = HTMLFragment(body: "\(opening)\(colored ?? HTML.escape(text))</pre>")
         if language != nil { fragment.sourceText = text }
         fragment.sourceLanguage = language
         return fragment
+    }
+
+    /// A short string with no space (an ID such as "KH-00163", a time) reads as one value; a wrapped line does not
+    /// break it at its hyphen. A long or spaced string still wraps where the line ends.
+    static func keepingShortStringsWhole(_ html: String) -> String {
+        html.replacing(/<span class="hl-string">([^<\s]{1,40})<\/span>/) { match in
+            "<span class=\"hl-string hl-unbroken\">\(match.1)</span>"
+        }
     }
 
     public static func convert(_ text: String, fileExtension: String? = nil) -> HTMLFragment {

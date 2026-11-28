@@ -24,18 +24,29 @@ extension WikiReader {
                 caption = inline(value)
             }
         }
-        if let directory, !name.isEmpty, !name.contains("/"), !name.contains("\\"), ![".", ".."].contains(name) {
+        // A name may also go down into a folder below the document's, as a local wiki often keeps its pictures in
+        // one; it never leaves the document's folder, through `..`, an absolute path or a symbolic link.
+        let components = name.split(separator: "/", omittingEmptySubsequences: false)
+        if let directory, !name.isEmpty, !name.contains("\\"),
+            components.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." })
+        {
             let candidates = [
                 name, name.replacingOccurrences(of: "_", with: " "), name.replacingOccurrences(of: " ", with: "_"),
             ]
             let canonical = name.replacingOccurrences(of: "_", with: " ")
             func nearby(_ file: String) -> Bool {
                 let url = directory.appendingPathComponent(file)
-                return url.resolvingSymlinksInPath().deletingLastPathComponent().standardizedFileURL.path
-                    == directory.resolvingSymlinksInPath().standardizedFileURL.path && imageExists(url)
+                if components.count == 1 {
+                    return url.resolvingSymlinksInPath().deletingLastPathComponent().standardizedFileURL.path
+                        == directory.resolvingSymlinksInPath().standardizedFileURL.path && imageExists(url)
+                }
+                guard let root = try? ConfinedFile.canonicalPath(directory),
+                    let path = try? ConfinedFile.canonicalPath(url)
+                else { return false }
+                return path.hasPrefix(root.hasSuffix("/") ? root : root + "/") && imageExists(url)
             }
             var found = candidates.first(where: nearby)
-            if found == nil, canonical.contains(" "), imageExists(directory) {
+            if found == nil, components.count == 1, canonical.contains(" "), imageExists(directory) {
                 if adjacentNames == nil {
                     var names: [String: String] = [:]
                     for file in ((try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []).sorted()
@@ -50,11 +61,12 @@ extension WikiReader {
             if let file = found {
                 let size = width.map { " width=\"\($0)\"" } ?? ""
                 let label = caption.isEmpty ? "" : "<figcaption>\(caption)</figcaption>"
-                // Encode the whole basename as one relative path component, including any colon, hash or question mark.
-                let src =
-                    file.addingPercentEncoding(
+                // Encode each name as one relative path component, including any colon, hash or question mark.
+                let src = file.split(separator: "/").map {
+                    $0.addingPercentEncoding(
                         withAllowedCharacters: CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-._~")))
-                    ?? ""
+                        ?? ""
+                }.joined(separator: "/")
                 return "<figure><img src=\"./\(src)\" alt=\"\(HTML.escape(alt))\"\(size)>\(label)</figure>"
             }
         }
