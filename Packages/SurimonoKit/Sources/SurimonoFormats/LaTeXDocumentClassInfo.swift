@@ -80,6 +80,7 @@ public struct LaTeXDocumentClassInfo: Sendable, Equatable {
     package var usesNaturalTableCaptionHeight: Bool { profile.body.naturalTableCaptionHeight && resolvedStyle == nil }
     public var usesJSChapterSpacing: Bool { profile.structure.usesJSChapterSpacing }
     package var jsMagnification: Double? { profile.typography.jsMagnification }
+    package var followsJClassesSizeFiles: Bool { profile.typography.followsJClassesSizeFiles }
     package var japaneseFurnitureScale: Double { LaTeXLabelMetrics(self).japaneseScale ?? 1 }
     package var japaneseMainFontName: String?
     package var normalStrutDepth: Double { 0.3 * LaTeXLabelMetrics(self).baselines[4] * 72 / 72.27 }
