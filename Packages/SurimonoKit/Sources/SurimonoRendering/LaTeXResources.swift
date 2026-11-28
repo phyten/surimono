@@ -15,15 +15,14 @@ extension DocumentRenderer {
         let resources = CompanionTextResources(source, access: access, onDenied: onDenied)
         // The callbacks run on the converter's own thread, while this one waits for it.
         let measuredImages = SharedValue<[URL: CGSize]>([:])
-        return LaTeXConverter.convert(
+        var fragment = LaTeXConverter.convert(
             try decodedText(source.data), composition: composition, documentURL: resources.file,
             textWidthPoints: textWidthPoints,
             imageExists: { resources.permits($0) && imageExists($0) },
             canProbePictureFallback: { access?.permits($0) != false },
             imageSizeInPoints: { url in
                 if let cached = measuredImages.value[url] { return cached }
-                // Outside the sandbox WebKit shows the image itself without a grant, so measuring it asks for none.
-                let result = resources.read(url, reportsDenial: access != nil).flatMap(Self.imageSizeInPoints) ?? .zero
+                let result = resources.read(url).flatMap(Self.imageSizeInPoints) ?? .zero
                 measuredImages.value[url] = result
                 return result
             }, readFile: { resources.read($0) },
@@ -32,6 +31,8 @@ extension DocumentRenderer {
                 return try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
             },
             fileIdentity: { resources.identity($0) })
+        resources.markRefusedFiles(in: &fragment)
+        return fragment
     }
 
     /// graphicx trims in big points before scaling to the requested output width.
@@ -65,22 +66,21 @@ extension DocumentRenderer {
         let readBibliography: @Sendable (URL) -> Data? = { url in
             let found = resources.value ?? CompanionTextResources(source, access: access, onDenied: onDenied)
             resources.value = found
-            let data = found.read(url)
-            // Inside the sandbox a file that cannot be read is taken as one the folder grant would let through.
-            if data == nil, access != nil { onDenied(url) }
-            return data
+            return found.read(url)
         }
-        if mapsSource {
-            return MarkdownConverter.convertWithSourceMap(
+        var fragment =
+            mapsSource
+            ? MarkdownConverter.convertWithSourceMap(
                 text, pageBreakLine: pageBreakLine, proof: proof, contentsDepth: contentsDepth, reading: reading,
                 directory: directory,
                 readFile: readBibliography
             ).fragment
-        }
-        return MarkdownConverter.convert(
-            text, pageBreakLine: pageBreakLine, proof: proof, contentsDepth: contentsDepth, reading: reading,
-            directory: directory,
-            readFile: readBibliography)
+            : MarkdownConverter.convert(
+                text, pageBreakLine: pageBreakLine, proof: proof, contentsDepth: contentsDepth, reading: reading,
+                directory: directory,
+                readFile: readBibliography)
+        resources.value?.markRefusedFiles(in: &fragment)
+        return fragment
     }
 
     /// Find the default style without laying out pages or converting the body. Includes in the preamble
@@ -102,12 +102,17 @@ extension DocumentRenderer {
 
 /// Reads the text a document names (bibliographies, inputs, listings) from the folders it may read: the folders the
 /// reader allowed and, outside the sandbox, where opening the document already lets the app read, its own folder.
-/// A file outside them is refused, reported to `onDenied`, and can be read once a folder that contains it is allowed.
+/// A file outside them is refused, and can be read once a folder that contains it is allowed. A file that is not
+/// there is only missing: no folder would help it.
 private struct CompanionTextResources: Sendable {
+    enum Failure: Error { case refused, missing, other }
+
     let file: URL?
     let access: LocalResourceAccess?
     let onDenied: @Sendable (URL) -> Void
     let roots: [String]
+    /// Why each read failed, kept until the reader says which named files it could not read in the end.
+    let failures = SharedValue<[URL: Failure]>([:])
 
     init(_ source: DocumentSource, access: LocalResourceAccess?, onDenied: @escaping @Sendable (URL) -> Void) {
         self.access = access
@@ -131,23 +136,48 @@ private struct CompanionTextResources: Sendable {
         return url.isFileURL
     }
 
-    func read(_ url: URL, reportsDenial: Bool = true) -> Data? {
-        guard permits(url) else { return nil }
+    func read(_ url: URL) -> Data? {
+        switch contents(of: url) {
+        case .success(let data): return data
+        case .failure(let failure):
+            failures.value[url] = failure
+            // Inside the sandbox every refusal asks for the folder at once, as images do. Outside it only a named
+            // file the reader could not find anywhere else does (`markRefusedFiles`).
+            if failure == .refused, access != nil { onDenied(url) }
+            return nil
+        }
+    }
+
+    private func contents(of url: URL) -> Result<Data, Failure> {
+        // Inside the sandbox a place outside the grant cannot even be looked at, so it is refused, not missing.
+        guard access?.permits(url) != false else { return .failure(.refused) }
+        guard url.isFileURL else { return .failure(.other) }
         do {
-            // Compare two real paths: Foundation can spell /private/var as /var on macOS. A file that does not exist
-            // has no real path and asks for no folder.
+            // Compare two real paths: Foundation can spell /private/var as /var on macOS.
             let canonical = try ConfinedFile.canonicalPath(url)
             guard let root = roots.first(where: { canonical.hasPrefix($0.hasSuffix("/") ? $0 : $0 + "/") }) else {
-                if reportsDenial { onDenied(url) }
-                return nil
+                return .failure(.refused)
             }
             // Validate the descriptor as well as the name: a changed symlink cannot redirect this read.
-            return try ConfinedFile.read(url, within: root, maximumSize: 8_000_004)
+            return .success(try ConfinedFile.read(url, within: root, maximumSize: 8_000_004))
         } catch let error as POSIXError where error.code == .EACCES || error.code == .EPERM {
-            if access != nil { onDenied(url) }
-            return nil
+            return .failure(.refused)
+        } catch let error as POSIXError where error.code == .ENOENT || error.code == .ENOTDIR {
+            return .failure(.missing)
         } catch {
-            return nil
+            return .failure(.other)
+        }
+    }
+
+    /// Marks each named file the reader could not read in the end with the place it was refused, and asks for a
+    /// folder for it. A file found in a later place, or missing from every place, asks for nothing.
+    func markRefusedFiles(in fragment: inout HTMLFragment) {
+        let failures = failures.value
+        for index in fragment.unreadFiles.indices {
+            guard let url = fragment.unreadFiles[index].candidates.first(where: { failures[$0] == .refused })
+            else { continue }
+            fragment.unreadFiles[index].refusedURL = url
+            onDenied(url)
         }
     }
 }

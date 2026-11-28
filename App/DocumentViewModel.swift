@@ -4248,9 +4248,13 @@ final class DocumentViewModel {
         panel.canCreateDirectories = false
         panel.allowsMultipleSelection = false
         let outside = outsideFiles
-        // A file named as ../../x is two folders up: open where one folder holds both the document and the file.
-        let levels = outside.map { $0.split(separator: "/").prefix { $0 == ".." }.count }.max() ?? 0
-        panel.directoryURL = (0..<levels).reduce(folder) { url, _ in url.deletingLastPathComponent() }
+        // Open where one folder holds both the document and the files where they really are, links followed. Only
+        // where the panel starts: what may be read is still checked when it is read.
+        panel.directoryURL = (result?.issues.compactMap(\.outsideURL) ?? []).reduce(folder.resolvingSymlinksInPath()) {
+            let shared = zip($0.pathComponents, $1.resolvingSymlinksInPath().deletingLastPathComponent().pathComponents)
+                .prefix { $0 == $1 }.map(\.0)
+            return URL(fileURLWithPath: NSString.path(withComponents: shared), isDirectory: true)
+        }
         panel.message =
             outside.isEmpty
             ? String(

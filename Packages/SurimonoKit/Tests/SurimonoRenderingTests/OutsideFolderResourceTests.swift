@@ -36,11 +36,15 @@ struct OutsideFolderResourceTests {
         preset: HTMLCleanupPreset(id: "none", name: "None"))
 
     /// A renderer that keeps the HTML it was asked to lay out, as the unsandboxed app gives it to WebKit.
-    private func renderer(keeping html: SharedValue<String>) -> DocumentRenderer {
+    private func renderer(keeping html: SharedValue<String>, sandboxed: Bool = false) -> DocumentRenderer {
         DocumentRenderer(
-            isSandboxed: { false },
+            isSandboxed: { sandboxed },
             paginateWithResult: { request in
-                if case .html(let body, _) = request.source { html.value = body }
+                switch request.source {
+                case .html(let body, _): html.value = body
+                case .sandboxed(let body, _, _): html.value = body ?? ""
+                default: break
+                }
                 return WebPaginator.Result(document: try RenderingFixtures.pdf(count: 1))
             })
     }
@@ -168,5 +172,95 @@ struct OutsideFolderResourceTests {
         #expect(notes.count == 1)
         #expect(notes.first?.pageNumber == 1)
         #expect(notes.first?.outsideFile == "../assets/s.bib")
+    }
+
+    @Test("取り込んだ章の .tex が外のファイルを入力すると、その章のフォルダーから解いた場所で許可を求め、許可すると読む")
+    func nestedLaTeXInput() async throws {
+        let workspace = try Workspace()
+        defer { workspace.remove() }
+        try FileManager.default.createDirectory(
+            at: workspace.documents.appending(path: "chapters", directoryHint: .isDirectory),
+            withIntermediateDirectories: true)
+        let outside = try workspace.write("Outside paragraph.", to: "assets/s.tex")
+        _ = try workspace.write(#"Chapter text. \input{../../assets/s}"#, to: "doc/chapters/a.tex")
+        let latex = #"\documentclass{article}\begin{document}\input{chapters/a}\end{document}"#
+        let file = try workspace.write(latex, to: "doc/main.tex")
+        var source = DocumentSource(data: Data(latex.utf8), fileURL: file, format: .latex)
+        let html = SharedValue("")
+        let renderer = renderer(keeping: html)
+
+        let denied = try await renderer.prepare(source, settings: settings)
+        #expect(denied.requiredFolderAccess != nil)
+        let marked = denied.issues.filter { $0.outsideFile != nil }
+        #expect(marked.count == 1)
+        #expect(marked.first?.outsideFile == "../../assets/s.tex")
+        #expect(marked.first?.outsideURL?.standardizedFileURL == outside.standardizedFileURL)
+        #expect(!html.value.contains("Outside paragraph"))
+
+        source.allowedResourceFolders = [workspace.root]
+        let allowed = try await renderer.prepare(source, settings: settings)
+        #expect(allowed.requiredFolderAccess == nil)
+        #expect(allowed.issues.allSatisfy { $0.outsideFile == nil })
+        #expect(html.value.contains("Outside paragraph"))
+    }
+
+    @Test("見つからない拡張子なしのコードと、外にある同じ名前の .bib を取り違えない")
+    func missingListingBesideOutsideBibliography() async throws {
+        let workspace = try Workspace()
+        defer { workspace.remove() }
+        _ = try workspace.write("@book{key, title={Outside edition}}", to: "assets/s.bib")
+        let latex = #"""
+            \documentclass{article}
+            \usepackage{listings}
+            \begin{document}
+            \cite{key}
+            \lstinputlisting{../assets/s}
+            \bibliographystyle{plain}
+            \bibliography{../assets/s}
+            \end{document}
+            """#
+        let file = try workspace.write(latex, to: "doc/a.tex")
+        let source = DocumentSource(data: Data(latex.utf8), fileURL: file, format: .latex)
+        let prepared = try await renderer(keeping: SharedValue("")).prepare(source, settings: settings)
+        let listing = prepared.issues.filter { $0.detail == "../assets/s could not be read" }
+        let bibliography = prepared.issues.filter { $0.detail == "../assets/s.bib could not be read" }
+        #expect(listing.count == 1)
+        #expect(listing.allSatisfy { $0.outsideFile == nil })
+        #expect(bibliography.count == 1)
+        #expect(bibliography.first?.outsideFile == "../assets/s.bib")
+    }
+
+    @Test("サンドボックスで親のフォルダーを許可済みなら、見つからない外の文献に許可を求めない")
+    func sandboxMissingBibliographyAsksNothing() async throws {
+        let workspace = try Workspace()
+        defer { workspace.remove() }
+        let markdown = "---\nbibliography: ../assets/missing.bib\n---\n[@key]\n"
+        let file = try workspace.write(markdown, to: "doc/a.md")
+        var source = DocumentSource(data: Data(markdown.utf8), fileURL: file, format: .markdown)
+        source.allowedResourceFolders = [workspace.root]
+        let prepared = try await renderer(keeping: SharedValue(""), sandboxed: true).prepare(source, settings: settings)
+        #expect(prepared.requiredFolderAccess == nil)
+        #expect(prepared.issues.contains { $0.kind == .bibliography && $0.detail.contains("missing.bib") })
+        #expect(prepared.issues.allSatisfy { $0.outsideFile == nil })
+    }
+
+    @Test("合本に入れても、外の文献の問題は外のファイルの情報を保ったまま一覧に出る")
+    func binderKeepsOutsideFile() async throws {
+        let workspace = try Workspace()
+        defer { workspace.remove() }
+        _ = try workspace.write("@book{key, title={Outside edition}}", to: "assets/s.bib")
+        let markdown = "---\nbibliography: ../assets/s.bib\n---\n[@key]\n"
+        let outsideChild = try workspace.write(markdown, to: "doc/a.md")
+        let plainChild = try workspace.write("Plain text.\n", to: "doc/b.md")
+        let binder = DocumentSource.binder([
+            DocumentSource(data: Data(markdown.utf8), fileURL: outsideChild, format: .markdown),
+            DocumentSource(data: Data("Plain text.\n".utf8), fileURL: plainChild, format: .markdown),
+        ])
+        let prepared = try await renderer(keeping: SharedValue("")).prepare(binder, settings: settings)
+        let marked = prepared.issues.filter { $0.outsideFile != nil }
+        #expect(marked.count == 1)
+        #expect(marked.first?.outsideFile == "../assets/s.bib")
+        #expect(marked.first?.outsideURL?.lastPathComponent == "s.bib")
+        #expect(prepared.requiredFolderAccess?.standardizedFileURL == workspace.documents.standardizedFileURL)
     }
 }

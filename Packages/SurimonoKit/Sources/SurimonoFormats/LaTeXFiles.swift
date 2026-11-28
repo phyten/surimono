@@ -18,8 +18,21 @@ extension LaTeXDocument {
         return parts.percentEncodedPath
     }
 
-    func reportFileIssue(_ issue: String) {
+    /// `unread` is the attempt the issue is about, when it says a named file could not be read.
+    func reportFileIssue(_ issue: String, unread attempt: (reference: String, candidates: [URL])? = nil) {
         if seenFileIssues.insert(issue).inserted { fileIssues.append(issue) }
+        guard let attempt else { return }
+        if let index = unreadFiles.firstIndex(where: { $0.note == issue }) {
+            unreadFiles[index].candidates += attempt.candidates.filter { !unreadFiles[index].candidates.contains($0) }
+        } else {
+            unreadFiles.append(UnreadFile(note: issue, reference: attempt.reference, candidates: attempt.candidates))
+        }
+    }
+
+    /// The attempt the last failed local read left, which only the note right after it may take.
+    func takeFileAttempt() -> (reference: String, candidates: [URL])? {
+        defer { lastFileAttempt = nil }
+        return lastFileAttempt
     }
 }
 
@@ -36,9 +49,11 @@ extension LaTeXReader {
     /// Charge raw input before interpreting it. A file can be referenced repeatedly through macros or several
     /// branches, so the allowance belongs to the document, including bibliography and verbatim listings.
     private func localText(_ path: String, defaultExtension: String?, asInput: Bool) -> (URL, String)? {
+        document.lastFileAttempt = nil
         guard let name = Self.localName(path, defaultExtension: defaultExtension),
             document.reserveExpansion()
         else { return nil }
+        var candidates: [URL] = []
         for base in document.searchDirectories {
             let url = base.appending(path: name).standardizedFileURL
             if asInput {
@@ -49,7 +64,10 @@ extension LaTeXReader {
                     return nil
                 }
             }
-            guard let data = document.readFile(url) else { continue }
+            guard let data = document.readFile(url) else {
+                candidates.append(url)
+                continue
+            }
             // Four bytes per scalar covers UTF-8/32. Reject larger buffers before decoding or allocating tokens.
             guard data.count <= 4 * (2_000_000 - document.expandedCharacters) + 4 else {
                 document.stopsExpanding = true
@@ -59,6 +77,7 @@ extension LaTeXReader {
             guard document.reserveExpansion(characters: text.unicodeScalars.count) else { return nil }
             return (url, text)
         }
+        document.lastFileAttempt = (name, candidates)
         return nil
     }
 
@@ -68,7 +87,7 @@ extension LaTeXReader {
 
     func fileNote(_ path: String) -> String {
         let message = document.isJapanese ? "ファイル \(path) を読み込めません" : "\(path) could not be read"
-        document.reportFileIssue(message)
+        document.reportFileIssue(message, unread: document.takeFileAttempt())
         return unsupported(message)
     }
 

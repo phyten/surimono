@@ -147,6 +147,7 @@ public enum MarkdownConverter {
             language: metadata.language, readingIssues: issues, decidesHeadingNumbers: options.ownsNumbers
         ).recordingContents(metadata.contentsInstructions)
         fragment.numberInstructions = metadata.numberInstructions
+        fragment.unreadFiles = citations?.unreadFiles ?? []
         fragment.inTextContentsMarker = marker
         fragment.contentsTitle = metadata.contentsTitle
         if !metadata.tableOfContents, let lead {

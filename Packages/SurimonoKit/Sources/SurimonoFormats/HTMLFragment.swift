@@ -1,11 +1,33 @@
 import Foundation
 
+/// A file the document names that the reader could not read. It ties the reading issue to the places looked in, so a
+/// host can tell a file that is not there from one it refused, without reading the issue's text.
+public struct UnreadFile: Equatable, Sendable {
+    /// The reading issue the file gave, as `readingIssues` and the note on the page have it.
+    public var note: String
+    /// The file as the document names it, with the extension the reader added.
+    public let reference: String
+    /// Every place the reader looked for the file, in the order it looked.
+    public var candidates: [URL]
+    /// The candidate the host refused to read for lying outside the folders the document may read. Set by the host.
+    public var refusedURL: URL?
+
+    public init(note: String, reference: String, candidates: [URL], refusedURL: URL? = nil) {
+        self.note = note
+        self.reference = reference
+        self.candidates = candidates
+        self.refusedURL = refusedURL
+    }
+}
+
 public struct HTMLFragment: Equatable, Sendable {
     public var body: String
     public var title: String?
     public var language: String?
     /// Document-level diagnostics that have no position on a printed page.
     public var readingIssues: [String]
+    /// The named files behind the reading issues that say a file could not be read.
+    public var unreadFiles: [UnreadFile] = []
     /// Whether the document settles its heading numbers itself, with numbers in the headings or by asking for
     /// none. A style then adds no numbers of its own.
     public var decidesHeadingNumbers: Bool
@@ -55,6 +77,12 @@ public struct HTMLFragment: Equatable, Sendable {
         self.language = language
         self.readingIssues = readingIssues
         self.latexClass = latexClass
+    }
+
+    func with(unreadFiles: [UnreadFile]) -> Self {
+        var fragment = self
+        fragment.unreadFiles = unreadFiles
+        return fragment
     }
 }
 

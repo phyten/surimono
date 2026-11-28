@@ -1317,13 +1317,7 @@ public final class DocumentRenderer {
                     return diagram
                 }
                 let prefix = "\(key):\(occurrence):"
-                output.issues += prepared.issues.map { issue in
-                    PrintIssue(
-                        id: prefix + issue.id, kind: issue.kind, detail: issue.detail,
-                        imageFailure: issue.imageFailure, element: issue.element,
-                        pageNumber: issue.pageNumber.map { $0 + offset }, rect: issue.rect,
-                        locationKey: issue.locationKey.map { prefix + $0 })
-                }
+                output.issues += prepared.issues.map { $0.inBinder(prefix: prefix, pageOffset: offset) }
                 output.requiredFolderAccess = output.requiredFolderAccess ?? prepared.requiredFolderAccess
             } catch {
                 if error is CancellationError { throw error }
@@ -1545,7 +1539,8 @@ public final class DocumentRenderer {
                 facts.continuedBeamerFrames = slides.continued
                 facts.beamerPageFrames = slides.frames
                 if page.needsFolderAccess { result.requiredFolderAccess = directory }
-                result.issues = Self.markingOutsideFiles(result.issues, denied: page.deniedFiles, directory: directory)
+                result.issues = Self.markingOutsideFiles(
+                    result.issues, unread: fragment.unreadFiles, directory: directory)
                 result.finishing.facts = facts
                 result.finishing.bodyHTML = fragment.body
                 return result
@@ -1654,7 +1649,7 @@ public final class DocumentRenderer {
                 text.issues.append(PrintIssue(id: "\(kind.rawValue)-reader-\(offset)", kind: kind, detail: detail))
             }
             if page.needsFolderAccess { text.requiredFolderAccess = directory }
-            text.issues = Self.markingOutsideFiles(text.issues, denied: page.deniedFiles, directory: directory)
+            text.issues = Self.markingOutsideFiles(text.issues, unread: fragment.unreadFiles, directory: directory)
             text = try await finished(
                 text, fragment: fragment, facts: page.facts, source: source,
                 settings: settings)
@@ -1735,14 +1730,11 @@ public final class DocumentRenderer {
         let diagrams: Bool
         var collectsDiagrams: Bool { mermaid || diagrams }
         let needsFolderAccess: Bool
-        let deniedFiles: [URL]
     }
 
     private struct ThemedInput: Sendable {
         let fragment: HTMLFragment
         let needsFolderAccess: Bool
-        /// The files the readers named and were refused, which a folder grant could let them read.
-        var deniedFiles: [URL] = []
     }
 
     @concurrent private static func readThemedInput(
@@ -1751,7 +1743,6 @@ public final class DocumentRenderer {
         try Task.checkCancellation()
         // Set by the readers' file callbacks, which run on the conversion thread while this one waits.
         let needsFolderAccess = LockedFlag()
-        let deniedFiles = SharedValue<[URL]>([])
         guard
             let fragment = try Self.themedFragment(
                 source, pageBreakLine: settings.finish.breaks.customLine, proof: settings.finish.proof,
@@ -1762,10 +1753,7 @@ public final class DocumentRenderer {
                 composition: settings.latexComposition, textWidthPoints: settings.textWidthPoints(in: settings.layout),
                 textScale: settings.textScale,
                 mapsMarkdownSource: !settings.markdownChanges.isEmpty, access: access,
-                onDenied: { url in
-                    needsFolderAccess.set()
-                    deniedFiles.value.append(url)
-                },
+                onDenied: { _ in needsFolderAccess.set() },
                 imageExists: { url in
                     if let access, !access.permits(url) {
                         needsFolderAccess.set()
@@ -1787,8 +1775,7 @@ public final class DocumentRenderer {
                     }
                 })
         else { throw RenderingError.unsupportedFormat }
-        return ThemedInput(
-            fragment: fragment, needsFolderAccess: needsFolderAccess.isSet, deniedFiles: deniedFiles.value)
+        return ThemedInput(fragment: fragment, needsFolderAccess: needsFolderAccess.isSet)
     }
 
     @concurrent private static func themedPage(
@@ -1856,8 +1843,7 @@ public final class DocumentRenderer {
         return ThemedPage(
             fragment: fragment, needsLaTeXFlow: needsLaTeXFlow, paper: paper, html: html,
             contentsHeadingIDs: headingIDs, facts: facts,
-            mermaid: mermaid, diagrams: diagrams, needsFolderAccess: read.needsFolderAccess,
-            deniedFiles: read.deniedFiles)
+            mermaid: mermaid, diagrams: diagrams, needsFolderAccess: read.needsFolderAccess)
     }
 
     @concurrent static func builtHTML(
@@ -2405,37 +2391,26 @@ public final class DocumentRenderer {
         return result
     }
 
-    /// Names, on the reader issues about a file that could not be read, the file when it lies outside the document's
-    /// folder and was refused for that: the reader is asked for a folder that contains it, not told the file is
-    /// missing. A file the document names relative to another input's folder is matched only by its main folder.
-    nonisolated static func markingOutsideFiles(_ issues: [PrintIssue], denied: [URL], directory: URL?)
+    /// Names, on the issues about a file the reader could not read, the file when it was refused for lying outside
+    /// the document's folder: the reader is asked for a folder that contains it, not told the file is missing. The
+    /// reader ties each such issue to its file (`UnreadFile.note`), so nothing is read back from the issue's text.
+    nonisolated static func markingOutsideFiles(_ issues: [PrintIssue], unread: [UnreadFile], directory: URL?)
         -> [PrintIssue]
     {
-        guard let directory, !denied.isEmpty else { return issues }
-        let outside = Set(
-            denied.filter { !LocalResourceAccess.contains($0, in: directory) }.map(\.standardizedFileURL.path))
+        guard let directory else { return issues }
+        let outside = unread.filter { file in
+            file.refusedURL.map { !LocalResourceAccess.contains($0, in: directory) } ?? false
+        }
         guard !outside.isEmpty else { return issues }
         return issues.map { issue in
-            guard issue.kind == .bibliography || issue.kind == .latex, let name = unreadFileName(issue.detail),
-                [name, name + ".bib"].contains(where: {
-                    outside.contains(directory.appending(path: $0).standardizedFileURL.path)
-                })
+            guard issue.kind == .bibliography || issue.kind == .latex,
+                let file = outside.first(where: { $0.note == issue.detail })
             else { return issue }
             var issue = issue
-            issue.outsideFile = name
+            issue.outsideFile = file.reference
+            issue.outsideURL = file.refusedURL
             return issue
         }
-    }
-
-    /// The file in a reader's "could not be read" note, in English or in the Japanese a LaTeX document is read in.
-    private nonisolated static func unreadFileName(_ detail: String) -> String? {
-        let english = " could not be read"
-        if detail.hasSuffix(english) { return String(detail.dropLast(english.count)) }
-        let japanese = (prefix: "ファイル ", suffix: " を読み込めません")
-        guard detail.hasPrefix(japanese.prefix), detail.hasSuffix(japanese.suffix),
-            detail.count > japanese.prefix.count + japanese.suffix.count
-        else { return nil }
-        return String(detail.dropFirst(japanese.prefix.count).dropLast(japanese.suffix.count))
     }
 
     func resourceAccess(for source: DocumentSource) -> LocalResourceAccess? {
