@@ -78,7 +78,7 @@ struct ViewDefaultPreferencesTests {
 
     @Test("自動は文書の種類・寸法・PDFヒントごとの従来の既定値を変えない")
     func automaticPreservesDocumentDefaults() {
-        for kind in [ViewDefaultsContext.Kind.flowingText, .slides, .image, .imageBundle, .pdf] {
+        for kind in [ViewDefaultsContext.Kind.flowingText, .typeset, .slides, .image, .imageBundle, .pdf] {
             for pages in [1, 2, 10] {
                 for size in [CGSize(width: 100, height: 200), CGSize(width: 200, height: 100)] {
                     for hint in [
@@ -120,7 +120,9 @@ struct ViewDefaultPreferencesTests {
         #expect(ViewOptions.resolved(for: context, preferences: preferences, saved: saved) == saved)
     }
 
-    @Test("本文と画像の束にはアプリの既定値を重ね、方向と表紙を保つ", arguments: [ViewDefaultsContext.Kind.flowingText, .imageBundle])
+    @Test(
+        "本文と LaTeX と画像の束にはアプリの既定値を重ね、方向と表紙を保つ",
+        arguments: [ViewDefaultsContext.Kind.flowingText, .typeset, .imageBundle])
     func appDefaults(kind: ViewDefaultsContext.Kind) {
         let context = ViewDefaultsContext(kind: kind, pageCount: 10, firstPageSize: CGSize(width: 100, height: 200))
         let result = ViewOptions.resolved(for: context, preferences: preferences)
@@ -128,7 +130,7 @@ struct ViewDefaultPreferencesTests {
         #expect(result.transition == .fade)
         #expect(!result.joinsPages)
         #expect(result.showsCoverAlone == (kind == .imageBundle))
-        #expect(result.scrollAxis == (kind == .flowingText ? .vertical : .horizontal))
+        #expect(result.scrollAxis == (kind == .imageBundle ? .horizontal : .vertical))
     }
 
     @Test("単独画像と短いPDFと横長PDFは単ページを保つ")

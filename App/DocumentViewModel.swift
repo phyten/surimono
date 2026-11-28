@@ -3073,7 +3073,7 @@ final class DocumentViewModel {
         let hints = format == .pdf && imageBundle == nil ? PDFViewerHints.read(from: document) : PDFViewerHints()
         let kind = Self.viewKind(format: format, isBundle: imageBundle != nil)
         return ViewDefaultsContext(
-            kind: kind == .flowingText && result?.facts?.beamerPageSize != nil ? .slides : kind,
+            kind: kind == .typeset && result?.facts?.beamerPageSize != nil ? .slides : kind,
             pageCount: document.pageCount,
             firstPageSize: size ?? PaperSize.a4.size, pdfPageLayout: hints.pageLayout, pdfDirection: hints.direction)
     }
@@ -3084,7 +3084,8 @@ final class DocumentViewModel {
         case .pdf: return .pdf
         case .image: return .image
         case .zipArchive: return .imageBundle
-        case .markdown, .org, .plainText, .html, .csv, .latex, .asciidoc, .quarto, .rMarkdown, .djot, .textile,
+        case .latex: return .typeset
+        case .markdown, .org, .plainText, .html, .csv, .asciidoc, .quarto, .rMarkdown, .djot, .textile,
             .mediawiki, .rst,
             .docx, .notebook, .graphviz,
             .plantuml:

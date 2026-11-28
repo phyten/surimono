@@ -1177,6 +1177,56 @@ struct DocumentSettingsFlowTests {
         #expect(model.viewOptions.transition == .fade)
     }
 
+    private func source(_ text: String, format: DocumentFormat, in environment: Environment) -> DocumentViewModel {
+        DocumentViewModel(
+            data: Data(text.utf8), fileURL: nil, format: format, preferences: environment.preferences,
+            library: environment.library, settingsStore: environment.store)
+    }
+
+    @Test(
+        "LaTeX の文書は組版の前からめくりで、組版中に表示の型か読む向きだけを変えても組版のあともめくり",
+        .timeLimit(.minutes(1)), arguments: ["layout", "direction"])
+    func latexPageCurlDuringLayout(change: String) async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let model = source(
+            #"\documentclass{article}\begin{document}\section{North}Gauge.\section{South}Gauge.\end{document}"#,
+            format: .latex, in: environment)
+        defer { model.stop() }
+        #expect(model.viewOptions.transition == .pageCurl)
+        model.start()
+        // The first layout has started and cannot finish before this test yields the main actor.
+        try #require(model.result == nil)
+        if change == "layout" {
+            model.setLayout(.spread)
+        } else {
+            model.updateViewOptions { $0.direction = .rightToLeft }
+        }
+        try await waitUntil { model.result != nil && !model.isRendering }
+        try #require(model.slideDeck == nil)
+        #expect(model.viewOptions.transition == .pageCurl)
+    }
+
+    @Test("何も選んでいなければ LaTeX はめくり、beamer はスライド、Markdown はスクロールで開く", .timeLimit(.minutes(1)))
+    func pageTurnByFormat() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let latex = source(
+            #"\documentclass{article}\begin{document}\section{North}Gauge.\end{document}"#, format: .latex,
+            in: environment)
+        let deck = beamer(environment)
+        let markdown = source("# North\n\nGauge.\n", format: .markdown, in: environment)
+        defer {
+            latex.stop()
+            deck.stop()
+            markdown.stop()
+        }
+        for model in [latex, deck, markdown] { try await open(model) }
+        #expect(latex.viewOptions.transition == .pageCurl && latex.viewOptions.layout == .single)
+        #expect(deck.viewOptions.transition == .slide)
+        #expect(markdown.viewOptions.transition == .scroll)
+    }
+
     @Test("用紙の向きは操作したときだけ保存して復元し既定に戻すと自動になる", .timeLimit(.minutes(1)))
     func paperOrientationPersistence() async throws {
         let environment = try environment()
