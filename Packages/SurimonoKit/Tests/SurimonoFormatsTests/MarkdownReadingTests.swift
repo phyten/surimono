@@ -27,10 +27,11 @@ struct MarkdownReadingTests {
                 """ + "\n"
             ),
             (
+                // Since then the lead contents follow the lone title instead of standing before it.
                 "---\ntoc: true\n---\n# Book\n\n## A\n\n[TOC]\n\n### B",
                 """
-                <nav class="toc"><ul><li><a href="#a">A</a><ul><li><a href="#b">B</a></li></ul></li></ul></nav>
                 <h1 id="book">Book</h1>
+                <nav class="toc"><ul><li><a href="#a">A</a><ul><li><a href="#b">B</a></li></ul></li></ul></nav>
                 <h2 id="a">A</h2>
                 <nav class="toc"><ul><li><a href="#a">A</a><ul><li><a href="#b">B</a></li></ul></li></ul></nav>
                 <h3 id="b">B</h3>

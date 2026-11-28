@@ -822,7 +822,7 @@ final class LaTeXDocument {
             let chapterBreak = entry.chapter != nil && lastChapter != nil && entry.chapter != lastChapter
             lastChapter = entry.chapter
             html +=
-                "<li\(kind)\(chapterBreak ? " data-latex-list-chapter" : "")><a href=\"#\(HTML.escape(entry.id))\">\(number)\(entry.title)</a>"
+                "<li\(kind)\(chapterBreak ? " data-latex-list-chapter" : "")><a href=\"#\(HTML.escape(entry.id))\">\(number)\(contentsTitle(entry.title))</a>"
             open[open.count - 1] = true
         }
         while depth > 0 {
@@ -831,6 +831,12 @@ final class LaTeXDocument {
             depth -= 1
         }
         return html
+    }
+
+    /// An entry's title as the contents list prints it: its references and citations are filled in here, so their
+    /// links can be taken out with the heading's footnotes; the entry links to the heading itself.
+    private func contentsTitle(_ title: String) -> String {
+        DocumentOutline.contentsHTML(ofHeading: replacing("C", in: replacing("R", in: title)))
     }
 
     /// An image's path as written, or with the extension LaTeX would find: graphicx tries several when a file is

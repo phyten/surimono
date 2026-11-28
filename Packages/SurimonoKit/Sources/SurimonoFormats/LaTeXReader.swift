@@ -1565,7 +1565,7 @@ final class LaTeXReader {
                         ? number.replacingOccurrences(of: " ", with: "\u{2005}") + "　"
                         : number + headings.runningNumberSeparator
                 } ?? ""
-            let text = prefix + DocumentOutline.plainText(ofHTML: shortTitle)
+            let text = prefix + DocumentOutline.title(ofHeading: shortTitle)
             bookMark = " data-latex-book-mark=\"\(HTML.escape(text))\""
         } else {
             bookMark = ""

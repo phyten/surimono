@@ -1135,6 +1135,8 @@ enum MarkdownExtensions {
         let id: String
         let text: String
         var customID: String?
+        /// The entry's HTML when the heading holds a formula: the contents show it as the heading does.
+        var html: String?
     }
 
     private static let customID = try? NSRegularExpression(pattern: #"\s*\{#([^}\s]+)\}\s*$"#)
@@ -1216,7 +1218,13 @@ enum MarkdownExtensions {
             if let heading = node as? Heading {
                 let (text, custom) = splitCustomID(plainText(heading, formulas: formulas))
                 let id = headingID(custom ?? slug(text), used: &used, hasFootnotes: hasFootnotes)
-                anchors.append(HeadingAnchor(level: heading.level, id: id, text: text, customID: custom))
+                var anchor = HeadingAnchor(level: heading.level, id: id, text: text, customID: custom)
+                if let formulas {
+                    let written = splitCustomID(plainText(heading)).text
+                    let html = formulas.restore(HTML.escape(written))
+                    if html != HTML.escape(written) { anchor.html = html }
+                }
+                anchors.append(anchor)
                 return
             }
             for child in node.children { visit(child) }
@@ -1263,7 +1271,8 @@ enum MarkdownExtensions {
                 depth -= 1
             }
             if open.last == true { html += "</li>" }
-            html += "<li><a href=\"#\(HTML.escape(entry.id))\">\(entry.number)\(HTML.escape(entry.text))</a>"
+            html +=
+                "<li><a href=\"#\(HTML.escape(entry.id))\">\(entry.number)\(entry.html ?? HTML.escape(entry.text))</a>"
             open[open.count - 1] = true
         }
         while depth > 0 {

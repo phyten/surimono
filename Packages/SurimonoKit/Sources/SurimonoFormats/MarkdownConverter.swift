@@ -294,7 +294,7 @@ public enum MarkdownConverter {
         context.notebookTOC = embedded.notebookTOC
         let toc = leadDepth.map { ReaderContentsKind.lead.mark(context.tableOfContents(levels: $0)) } ?? ""
         let body = render(document, context)
-        return (toc + body, document, context.contentsMarker, anchors)
+        return (HTMLFragment.placingLead(toc, in: body), document, context.contentsMarker, anchors)
     }
 
     private static func sourceLines(of node: any Markup, _ context: Context) -> Set<Int> {

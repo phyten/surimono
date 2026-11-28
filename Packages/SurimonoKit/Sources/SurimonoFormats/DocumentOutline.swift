@@ -2,15 +2,29 @@ import Foundation
 
 public struct DocumentHeading: Equatable, Sendable {
     public var level: Int
+    /// The title shown in contents, bookmarks and the band: what the heading says, without the marks the paper sets
+    /// beside it, with a link's words and a formula's source.
     public var text: String
     /// The heading's anchor, when the converter gave it one.
     public var id: String?
+    /// The heading as the page prints it, when that differs from `text`: with a footnote's number or a task's keyword,
+    /// and a formula's source between `formulaStart` and `formulaEnd`, since the page's text spells a formula's glyphs
+    /// in an order of its own.
+    public var printed: String?
 
-    public init(level: Int, text: String, id: String? = nil) {
+    /// Open and close a formula's source in `printed`.
+    public static let formulaStart: Character = "\u{FFF9}"
+    public static let formulaEnd: Character = "\u{FFFB}"
+
+    public init(level: Int, text: String, id: String? = nil, printed: String? = nil) {
         self.level = level
         self.text = text
         self.id = id
+        self.printed = printed == text ? nil : printed
     }
+
+    /// What to look for on the page.
+    public var printedText: String { printed ?? text }
 }
 
 /// Reads the structure of a document's HTML: the headings for tables of contents and the amount of text.
@@ -26,9 +40,18 @@ public enum DocumentOutline {
         scan(html).map(\.followsHeading)
     }
 
-    /// What a heading or a contents entry holds besides its title: Org's tags, which the paper sets apart at the end of
-    /// the line.
-    private static let headingExtras: Set<String> = ["org-tags"]
+    /// For each of `headings(inHTML:)`, its HTML as a table of contents shows it (`contentsHTML(ofHeading:)`).
+    package static func headingsContentsHTML(inHTML html: String) -> [String] {
+        scan(html).map { contentsHTML(ofHeading: $0.html) }
+    }
+
+    /// What a heading or a contents entry holds besides its title and the page prints with it: a footnote's mark and a
+    /// task's keyword and priority. Contents, bookmarks and the band leave them out: Surimono's choice for a title to
+    /// read at a glance, which LaTeX itself makes only when the author writes a short title or uses footmisc's
+    /// `stable`.
+    private static let printedExtras: Set<String> = ["footnote-ref", "org-todo", "org-done", "org-priority"]
+    /// What a heading holds that the paper sets apart from its line: Org's tags, at the end of the line.
+    private static let setApartExtras: Set<String> = ["org-tags"]
     /// Elements without a closing tag, which hold no text to leave out.
     private static let voidElements: Set<String> = [
         "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr",
@@ -36,73 +59,152 @@ public enum DocumentOutline {
     /// A section number the paper sets apart from its title by a margin, not by a space.
     private static let sectionNumber = "secnum"
 
-    private static func scan(_ html: String) -> [(heading: DocumentHeading, followsHeading: Bool)] {
-        var headings: [(heading: DocumentHeading, followsHeading: Bool)] = []
-        var open: (tag: HTMLScanner.Tag, level: Int, text: String, follows: Bool)?
-        var hidden: (name: String, depth: Int)?
-        // An element of `headingExtras` being left out. It belongs to the heading: its end ends it too, so an element
-        // that is not closed does not take later headings with it.
-        var extra: (name: String, depth: Int)?
-        // The spans still open in a heading's section number, and whether the title after it needs a space.
-        var number: Int?
-        var spaceAfterNumber = false
+    /// The text of a heading or of a contents entry, read token by token: one rule for every format, so the title a
+    /// table of contents shows and the text looked for on the page come from the same reading.
+    struct HeadingTextReader {
+        private var title = ""
+        private var printed = ""
+        private var collecting = false
+        private var hidden: (name: String, depth: Int)?
+        var isHiding: Bool { hidden != nil }
+        // An extra being left out, and whether the page prints it on the heading's line. It belongs to the heading:
+        // the heading's end ends it too, so an element that is not closed does not take later headings with it.
+        private var extra: (name: String, depth: Int, printed: Bool)?
+        // The spans still open in a section number, and whether the title after it needs a space.
+        private var number: Int?
+        private var spaceAfterNumber = false
+
+        mutating func begin() {
+            self = Self()
+            collecting = true
+        }
+
+        /// The title and the printed text, with their character references decoded and the white space around them
+        /// trimmed.
+        mutating func end() -> (title: String, printed: String) {
+            func finished(_ text: String) -> String {
+                HTMLScanner.decodingEntities(text).trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            let result = (finished(title), finished(printed))
+            self = Self()
+            return result
+        }
+
+        mutating func text(_ text: String) {
+            guard collecting, hidden == nil, extra?.printed != false else { return }
+            if spaceAfterNumber, let first = HTMLScanner.decodingEntities(text).first, !first.isWhitespace {
+                append(" ")
+            }
+            if !text.isEmpty { spaceAfterNumber = false }
+            append(text)
+        }
+
+        private mutating func append(_ text: String) {
+            printed += text
+            if extra == nil { title += text }
+        }
+
+        /// Whether the tag belongs to what is not read as the heading's text. A closing tag named `boundary`, which
+        /// ends the heading or the entry, also ends an extra left open.
+        mutating func tag(_ tag: HTMLScanner.Tag, boundary: String?) -> Bool {
+            if let current = hidden {
+                if tag.name == current.name, !tag.isSelfClosing {
+                    let depth = current.depth + (tag.isClosing ? -1 : 1)
+                    hidden = depth == 0 ? nil : (current.name, depth)
+                }
+                return true
+            }
+            let isComment = classes(of: tag).contains(where: { $0 == "critic-comment" })
+            if hiddenElements.contains(tag.name) || isComment, !tag.isClosing, !tag.isSelfClosing {
+                if collecting, extra?.printed != false, !isComment,
+                    let label = tag.attribute(tag.name == "math" ? "alttext" : "aria-label"), !label.isEmpty
+                {
+                    if spaceAfterNumber { append(" ") }
+                    spaceAfterNumber = false
+                    let source = HTMLScanner.decodingEntities(label).filter {
+                        $0 != DocumentHeading.formulaStart && $0 != DocumentHeading.formulaEnd
+                    }
+                    // The source is kept escaped, as the rest of the text is until `end()` decodes it.
+                    printed +=
+                        String(DocumentHeading.formulaStart) + HTML.escape(source)
+                        + String(DocumentHeading.formulaEnd)
+                    if extra == nil { title += label }
+                }
+                hidden = (tag.name, 1)
+                return true
+            }
+            guard collecting else { return false }
+            if let skipping = extra {
+                if tag.isClosing, tag.name == boundary {
+                    extra = nil
+                    return false
+                }
+                if tag.name == skipping.name, !tag.isSelfClosing {
+                    let depth = skipping.depth + (tag.isClosing ? -1 : 1)
+                    extra = depth == 0 ? nil : (skipping.name, depth, skipping.printed)
+                }
+                return true
+            }
+            if !tag.isClosing, !tag.isSelfClosing, !voidElements.contains(tag.name) {
+                let names = classes(of: tag)
+                if names.contains(where: { setApartExtras.contains(String($0)) }) {
+                    extra = (tag.name, 1, false)
+                    return true
+                }
+                if names.contains(where: { printedExtras.contains(String($0)) }) {
+                    extra = (tag.name, 1, true)
+                    return true
+                }
+            }
+            if tag.name == "span", !tag.isSelfClosing {
+                if let depth = number {
+                    number = depth + (tag.isClosing ? -1 : 1)
+                    if number == 0 {
+                        number = nil
+                        spaceAfterNumber = true
+                    }
+                } else if !tag.isClosing, classes(of: tag).contains(where: { $0 == sectionNumber }) {
+                    number = 1
+                }
+            }
+            return false
+        }
+    }
+
+    private static func scan(_ html: String) -> [(heading: DocumentHeading, followsHeading: Bool, html: String)] {
+        var headings: [(heading: DocumentHeading, followsHeading: Bool, html: String)] = []
+        var open: (tag: HTMLScanner.Tag, level: Int, follows: Bool)?
+        // The heading's own HTML, between its tags.
+        var inner = ""
+        var reader = HeadingTextReader()
         var afterHeading = false
         for token in HTMLScanner.tokens(html) {
             switch token {
             case .text(let text):
-                if hidden == nil, extra == nil, open != nil {
-                    if spaceAfterNumber, let first = HTMLScanner.decodingEntities(text).first, !first.isWhitespace {
-                        open?.text += " "
-                    }
-                    if !text.isEmpty { spaceAfterNumber = false }
-                    open?.text += text
-                }
+                reader.text(text)
+                if open != nil { inner += text }
                 if open == nil, !text.allSatisfy(\.isWhitespace) { afterHeading = false }
-            case .opaque: break
+            case .opaque(let text): if open != nil { inner += text }
             case .tag(let tag):
-                if updateHidden(&hidden, with: tag) { continue }
-                if let current = open, let skipping = extra {
-                    if tag.isClosing, tag.name == current.tag.name {
-                        extra = nil
-                    } else {
-                        if tag.name == skipping.name, !tag.isSelfClosing {
-                            let depth = skipping.depth + (tag.isClosing ? -1 : 1)
-                            extra = depth == 0 ? nil : (skipping.name, depth)
-                        }
-                        continue
-                    }
-                } else if open != nil, !tag.isClosing, !tag.isSelfClosing, !voidElements.contains(tag.name),
-                    classes(of: tag).contains(where: { headingExtras.contains(String($0)) })
-                {
-                    extra = (tag.name, 1)
-                    continue
+                let skipped = reader.tag(tag, boundary: open?.tag.name)
+                if let current = open, skipped || !(tag.isClosing && tag.name == current.tag.name) {
+                    inner += tag.source
                 }
-                if open != nil, tag.name == "span", !tag.isSelfClosing {
-                    if let depth = number {
-                        number = depth + (tag.isClosing ? -1 : 1)
-                        if number == 0 {
-                            number = nil
-                            spaceAfterNumber = true
-                        }
-                    } else if !tag.isClosing, classes(of: tag).contains(where: { $0 == sectionNumber }) {
-                        number = 1
-                    }
-                }
+                if skipped { continue }
                 if let current = open {
                     guard tag.isClosing, tag.name == current.tag.name else { continue }
-                    number = nil
-                    spaceAfterNumber = false
-                    let text = HTMLScanner.decodingEntities(current.text).trimmingCharacters(
-                        in: .whitespacesAndNewlines)
-                    if !text.isEmpty {
+                    let (title, printed) = reader.end()
+                    if !title.isEmpty {
                         let heading = DocumentHeading(
-                            level: current.level, text: text, id: current.tag.attribute("id"))
-                        headings.append((heading, current.follows))
+                            level: current.level, text: title, id: current.tag.attribute("id"), printed: printed)
+                        headings.append((heading, current.follows, inner))
                         afterHeading = true
                     }
                     open = nil
                 } else if !tag.isClosing, let level = headingLevel(tag.name) {
-                    open = (tag, level, "", afterHeading)
+                    open = (tag, level, afterHeading)
+                    inner = ""
+                    reader.begin()
                 } else if !tag.isClosing {
                     afterHeading = false
                 }
@@ -111,12 +213,68 @@ public enum DocumentOutline {
         return headings
     }
 
+    /// A heading's HTML as a table of contents shows it: without the marks the page sets beside the title, such as a
+    /// footnote's number, and without links, whose words stay. An entry is a link of its own; a link inside it would
+    /// break it in two. Ids stay with the heading.
+    package static func contentsHTML(ofHeading html: String) -> String {
+        guard html.contains("<") else { return html }
+        var output = ""
+        var skipping: (name: String, depth: Int)?
+        HTMLScanner.forEachToken(html) { token in
+            switch token {
+            case .text(let text), .opaque(let text): if skipping == nil { output += text }
+            case .tag(let tag):
+                if let current = skipping {
+                    if tag.name == current.name, !tag.isSelfClosing {
+                        let depth = current.depth + (tag.isClosing ? -1 : 1)
+                        skipping = depth == 0 ? nil : (current.name, depth)
+                    }
+                    return
+                }
+                if !tag.isClosing, !tag.isSelfClosing, !voidElements.contains(tag.name),
+                    classes(of: tag).contains(where: {
+                        printedExtras.contains(String($0)) || setApartExtras.contains(String($0))
+                    })
+                {
+                    skipping = (tag.name, 1)
+                    return
+                }
+                if tag.name == "a" { return }
+                output += tag.isClosing || tag.attribute("id") == nil ? tag.source : withoutID(tag.source)
+            }
+        }
+        return output
+    }
+
+    /// The plain title of a heading's HTML, as `headings(inHTML:)` reads it, for a running head or a bookmark.
+    package static func title(ofHeading html: String) -> String {
+        var reader = HeadingTextReader()
+        reader.begin()
+        HTMLScanner.forEachToken(html) { token in
+            switch token {
+            case .text(let text): reader.text(text)
+            case .opaque: break
+            case .tag(let tag): _ = reader.tag(tag, boundary: nil)
+            }
+        }
+        return reader.end().title
+    }
+
+    private static let idAttribute = try? NSRegularExpression(
+        pattern: #"\s+id\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'>]+)"#, options: [.caseInsensitive])
+
+    private static func withoutID(_ source: String) -> String {
+        guard let idAttribute else { return source }
+        return idAttribute.stringByReplacingMatches(
+            in: source, range: NSRange(source.startIndex..., in: source), withTemplate: "")
+    }
+
     /// Link labels in print order, with an empty string between separate tables of contents.
     public static func sourceContentsEntries(inHTML html: String) -> [String] {
         var entries: [String] = []
         visitContentsLinks(in: html, navIndex: nil) { entry, startsTable in
             if startsTable && !entries.isEmpty { entries.append("") }
-            entries.append(entry.text)
+            entries.append(entry.printedText)
         }
         return entries
     }
@@ -136,32 +294,14 @@ public enum DocumentOutline {
         var nesting = 0
         var listLevel = 0
         var startsTable = false
-        var link: String?
+        var reader: HeadingTextReader?
         var id: String?
-        // An element of `headingExtras` inside a link: the paper prints it away from the entry's line, as it does in
-        // the heading, so the entry must leave it out to be found on the page.
-        var extra: (name: String, depth: Int)?
         HTMLScanner.forEachToken(html) { token in
             switch token {
-            case .text(let text): if extra == nil { link? += text }
+            case .text(let text): reader?.text(text)
             case .opaque: break
             case .tag(let tag):
-                if link != nil, let skipping = extra {
-                    if tag.isClosing, tag.name == "a" {
-                        extra = nil
-                    } else {
-                        if tag.name == skipping.name, !tag.isSelfClosing {
-                            let depth = skipping.depth + (tag.isClosing ? -1 : 1)
-                            extra = depth == 0 ? nil : (skipping.name, depth)
-                        }
-                        return
-                    }
-                } else if link != nil, !tag.isClosing, !tag.isSelfClosing, !voidElements.contains(tag.name),
-                    classes(of: tag).contains(where: { headingExtras.contains(String($0)) })
-                {
-                    extra = (tag.name, 1)
-                    return
-                }
+                if reader?.tag(tag, boundary: "a") == true { return }
                 if tag.name == "nav" {
                     if tag.isClosing {
                         if nesting > 0 { nesting -= 1 }
@@ -183,14 +323,16 @@ public enum DocumentOutline {
                     case "ul", "ol": listLevel = max(0, listLevel + (tag.isClosing ? -1 : 1))
                     case "a":
                         if !tag.isClosing {
-                            link = ""
+                            reader = HeadingTextReader()
+                            reader?.begin()
                             id = tag.attribute("href").flatMap { $0.first == "#" ? String($0.dropFirst()) : nil }
-                        } else if let text = link {
-                            link = nil
-                            let label = HTMLScanner.decodingEntities(text).trimmingCharacters(
-                                in: .whitespacesAndNewlines)
-                            if !label.isEmpty {
-                                visit(.init(level: max(1, listLevel), text: label, id: id), startsTable)
+                        } else if var current = reader {
+                            reader = nil
+                            let (title, printed) = current.end()
+                            if !title.isEmpty {
+                                visit(
+                                    .init(level: max(1, listLevel), text: title, id: id, printed: printed),
+                                    startsTable)
                                 startsTable = false
                             }
                         }
@@ -258,30 +400,16 @@ public enum DocumentOutline {
         tag.attribute("class")?.split(whereSeparator: { " \t\n\r\u{0C}".contains($0) }) ?? []
     }
 
-    /// Whether the tag belongs to an element whose text is not read, keeping track of the one being skipped.
-    private static func updateHidden(_ hidden: inout (name: String, depth: Int)?, with tag: HTMLScanner.Tag) -> Bool {
-        if let current = hidden {
-            if tag.name == current.name, !tag.isSelfClosing {
-                let depth = current.depth + (tag.isClosing ? -1 : 1)
-                hidden = depth == 0 ? nil : (current.name, depth)
-            }
-            return true
-        }
-        let isComment = classes(of: tag).contains(where: { $0 == "critic-comment" })
-        guard hiddenElements.contains(tag.name) || isComment, !tag.isClosing, !tag.isSelfClosing else { return false }
-        hidden = (tag.name, 1)
-        return true
-    }
-
     package static func plainText(ofHTML html: String) -> String {
         var text = ""
-        var hidden: (name: String, depth: Int)?
+        // Only the hidden elements are left out: the reader is not collecting.
+        var reader = HeadingTextReader()
         for token in HTMLScanner.tokens(html) {
             switch token {
             case .text(let value):
-                if hidden == nil { text += value }
+                if !reader.isHiding { text += value }
             case .opaque: break
-            case .tag(let tag): _ = updateHidden(&hidden, with: tag)
+            case .tag(let tag): _ = reader.tag(tag, boundary: nil)
             }
         }
         return HTMLScanner.decodingEntities(text)
