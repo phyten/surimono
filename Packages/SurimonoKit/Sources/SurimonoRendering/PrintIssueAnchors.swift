@@ -58,17 +58,36 @@ enum PrintIssueAnchors {
           return el.matches('.math-block') ? 'math' :
             ({TABLE:'table',IMG:'image',PRE:'code'})[el.tagName] || 'figure';
         }
-        function add(el, kind, detail, key, element = null) {
+        function add(el, kind, detail, key, element = null, target = el) {
           const id = String(issues.length);
           issues.push({id, kind, detail, element, locationKey: key});
-          targets.push({el, id});
+          targets.push({el: target, id});
+        }
+        // A broken image draws nothing when it has no alternative text. In a themed document a dashed frame with
+        // the file's name takes its place on the paper, whatever the format; a web page keeps its own layout.
+        function missingImageFrame(el, src) {
+          if (!\(themed)) return el;
+          let name = el.getAttribute('alt') || '';
+          if (!name && !/^data:/i.test(src)) {
+            const path = (el.getAttribute('src') || src).split(/[?#]/)[0];
+            try { name = decodeURIComponent(path.split('/').pop()); } catch (_) { name = path.split('/').pop(); }
+          }
+          const japanese = /^ja(-|$)/i.test(document.documentElement.lang || '');
+          const frame = document.createElement('span');
+          frame.className = 'surimono-missing-image';
+          frame.textContent = japanese
+            ? '画像を読み込めません' + (name ? '：' + name : '')
+            : 'Image could not be read' + (name ? ': ' + name : '');
+          el.before(frame);
+          el.style.setProperty('display', 'none', 'important');
+          return frame;
         }
         for (const el of document.querySelectorAll('img')) {
           const key = locationKey('image', [el.getAttribute('src') || '', el.getAttribute('srcset') || '']);
           if (!visible(el) || !el.complete || el.naturalWidth !== 0) continue;
           const src = el.currentSrc || el.src || '';
           if (!\(themed) && !/^(file:|surimono-local:)/i.test(src)) continue;
-          add(el, 'image', src, key);
+          add(el, 'image', src, key, null, missingImageFrame(el, src));
         }
         if (\(themed)) {
           const selector = 'table,img,svg,pre,figure,.math-block';

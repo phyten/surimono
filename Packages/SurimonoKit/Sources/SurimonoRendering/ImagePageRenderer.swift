@@ -29,25 +29,35 @@ public struct ImagePageRenderer {
         guard PDFDrawing.validGeometry(pageSize: pageSize, margins: margins) else {
             throw RenderingError.invalidGeometry
         }
-        let decoding = Task.detached(priority: Task.currentPriority) {
-            try Self.decode(data, pageSize: pageSize, margins: margins, autoRotatesPage: autoRotatesPage)
-        }
-        let (image, size) = try await withTaskCancellationHandler {
-            do {
-                let decoded = try await decoding.value
-                try Task.checkCancellation()
-                return decoded
-            } catch {
-                try Task.checkCancellation()
-                throw error
+        let ink: Ink
+        let size: CGSize
+        let rect: CGRect
+        if let shape = SVGIntrinsicSize.of(data) {
+            size = Self.paperSize(pageSize, image: shape, autoRotatesPage: autoRotatesPage)
+            rect = PDFDrawing.fittedRect(size: shape, in: Self.textArea(size, margins: margins))
+            ink = .vector(try await SVGImageDrawing.document(data, size: rect.size))
+        } else {
+            let decoding = Task.detached(priority: Task.currentPriority) {
+                try Self.decode(data, pageSize: pageSize, margins: margins, autoRotatesPage: autoRotatesPage)
             }
-        } onCancel: {
-            decoding.cancel()
+            let (image, decodedSize) = try await withTaskCancellationHandler {
+                do {
+                    let decoded = try await decoding.value
+                    try Task.checkCancellation()
+                    return decoded
+                } catch {
+                    try Task.checkCancellation()
+                    throw error
+                }
+            } onCancel: {
+                decoding.cancel()
+            }
+            size = decodedSize
+            rect = PDFDrawing.fittedRect(
+                size: CGSize(width: image.width, height: image.height), in: Self.textArea(size, margins: margins))
+            ink = .raster(image)
         }
-        let textArea = CGRect(
-            x: margins.left, y: margins.bottom, width: size.width - margins.left - margins.right,
-            height: size.height - margins.top - margins.bottom)
-        let rect = PDFDrawing.fittedRect(size: CGSize(width: image.width, height: image.height), in: textArea)
+        try Task.checkCancellation()
         // The art box marks the image and its margins, so the screen can leave out the paper the image's shape does
         // not fill; printing still places the whole page.
         var artBox = CGRect(
@@ -59,8 +69,20 @@ public struct ImagePageRenderer {
             return try await PDFDrawing.document(pageSize: size) { context in
                 try Task.checkCancellation()
                 context.beginPDFPage(pageInfo)
-                context.interpolationQuality = .high
-                context.draw(image, in: rect)
+                switch ink {
+                case .raster(let image):
+                    context.interpolationQuality = .high
+                    context.draw(image, in: rect)
+                case .vector(let document):
+                    guard let page = document.page(at: 1) else { break }
+                    let box = page.getBoxRect(.cropBox)
+                    context.saveGState()
+                    context.translateBy(x: rect.minX, y: rect.minY)
+                    context.scaleBy(x: rect.width / box.width, y: rect.height / box.height)
+                    context.translateBy(x: -box.minX, y: -box.minY)
+                    context.drawPDFPage(page)
+                    context.restoreGState()
+                }
                 context.endPDFPage()
             }
         } catch is CancellationError {
@@ -68,6 +90,24 @@ public struct ImagePageRenderer {
         } catch {
             throw RenderingError.pdfCreationFailed
         }
+    }
+
+    /// What an image page draws: decoded pixels, or the vector page WebKit drew from an SVG file.
+    private enum Ink {
+        case raster(CGImage)
+        case vector(CGPDFDocument)
+    }
+
+    private nonisolated static func textArea(_ size: CGSize, margins: WebPaginator.Margins) -> CGRect {
+        CGRect(
+            x: margins.left, y: margins.bottom, width: size.width - margins.left - margins.right,
+            height: size.height - margins.top - margins.bottom)
+    }
+
+    /// The paper, turned to landscape for a wide image when the page follows each image's shape.
+    private nonisolated static func paperSize(_ pageSize: CGSize, image: CGSize, autoRotatesPage: Bool) -> CGSize {
+        autoRotatesPage && image.width > image.height && pageSize.width < pageSize.height
+            ? CGSize(width: pageSize.height, height: pageSize.width) : pageSize
     }
 
     /// Copies of the pages cropped to their art boxes, for the screen. The pages themselves keep the whole paper,
@@ -88,6 +128,7 @@ public struct ImagePageRenderer {
     }
 
     nonisolated static func contentSize(_ data: Data) throws -> CGSize {
+        if let shape = SVGIntrinsicSize.of(data) { return shape }
         guard let source = CGImageSourceCreateWithData(data as CFData, nil),
             let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
             let width = properties[kCGImagePropertyPixelWidth] as? NSNumber,
@@ -117,10 +158,8 @@ public struct ImagePageRenderer {
         let swapsAxes = (5...8).contains(orientation)
         let imageWidth = CGFloat(swapsAxes ? height.intValue : width.intValue)
         let imageHeight = CGFloat(swapsAxes ? width.intValue : height.intValue)
-        var size = pageSize
-        if autoRotatesPage && imageWidth > imageHeight && size.width < size.height {
-            size = CGSize(width: size.height, height: size.width)
-        }
+        let size = paperSize(
+            pageSize, image: CGSize(width: imageWidth, height: imageHeight), autoRotatesPage: autoRotatesPage)
         let fitScale = min(
             (size.width - margins.left - margins.right) / imageWidth,
             (size.height - margins.top - margins.bottom) / imageHeight)

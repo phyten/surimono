@@ -308,8 +308,9 @@ table.latex-tabular .latex-bottom-double { border-block-end: 2pt double currentC
 .format-latex .math-display:has(> .latex-row-number) > svg { display: block; margin-inline: auto; }
 .format-latex .latex-row-number { position: absolute; inset-inline-end: 0; line-height: 1; transform: translateY(-0.8em); }
 .latex-equation > .eqno { position: absolute; inset-inline-end: 0; top: 50%; transform: translateY(-50%); }
-span.wiki-note { display: inline-block; }
+span.wiki-note, .surimono-missing-image { display: inline-block; }
 .wiki-note,
+.surimono-missing-image,
 .latex-unsupported {
     margin: 1em 0;
     padding: 0.8em 1em;

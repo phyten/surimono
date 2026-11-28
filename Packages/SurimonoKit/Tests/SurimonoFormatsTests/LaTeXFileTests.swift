@@ -26,6 +26,42 @@ struct LaTeXFileTests {
         )
     }
 
+    @Test("見つからない画像は空白にせず、名前を書いた枠を残して読み取りの問題に出す")
+    func missingImage() throws {
+        try withProject([
+            "main.tex": #"""
+            \documentclass{article}\usepackage{graphicx}
+            \begin{document}
+            \includegraphics[width=3cm]{figs/absent}
+            \includegraphics{present}
+            \end{document}
+            """#,
+            "present.png": "",
+        ]) { file in
+            let fragment = try convert(file)
+            let frame = #"<span class="latex-unsupported">Image figs/absent could not be read</span>"#
+            #expect(fragment.body.contains(frame))
+            #expect(!fragment.body.contains("figs/absent\""))
+            #expect(fragment.body.contains(#"src="present.png""#))
+            #expect(fragment.readingIssues.contains("Image figs/absent could not be read"))
+        }
+    }
+
+    @Test("和文の文書では見つからない画像の枠を日本語で書く")
+    func missingImageJapanese() throws {
+        try withProject([
+            "main.tex": #"""
+            \documentclass{ltjsarticle}
+            \begin{document}
+            本文\includegraphics{absent.png}
+            \end{document}
+            """#
+        ]) { file in
+            let fragment = try convert(file)
+            #expect(fragment.body.contains("画像 absent.png を読み込めません"))
+        }
+    }
+
     @Test("前置きの入力と章からの相対入力を本文に差し込み includeonly で選んだ章だけを改ページする")
     func nestedInputs() throws {
         try withProject([
