@@ -56,6 +56,8 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
     }
 
     private var definitions: [String: Definition] = [:]
+    /// The style a chapter opening its page uses while headings run, when the class names one other than plain.
+    private var chapterOpeningStyle: String?
     private var leftMark = ""
     private var rightMark = ""
     private var firstRightMark: String?
@@ -112,20 +114,31 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
             }
             style = "headings"
         case .verticalHead(let outer, let marks):
-            // pLaTeX's tbook headnombre (and jlreq's tate nombre) is mirrored from jbook's, since recto pages
-            // are on the left. The chapter opening keeps the head number without the marks.
             let number = #"\thepage"#
-            var plain = outer ? ["OLH": number, "ERH": number] : ["OCH": number, "ECH": number]
-            plain["headrulewidth"] = "0pt"
-            var running = plain
+            // pLaTeX's tbook mirrors jbook's head number, since recto pages are on the left. jlreq's tate plain
+            // is its head number; tbook keeps plain's centred foot and opens a chapter under headings with
+            // headnombre (\ps@jpl@in), so an explicit plain stays at the foot.
+            let head = outer ? ["OLH": number, "ERH": number] : ["OCH": number, "ECH": number]
+            var styles: [(String, [String: String])]
             if marks {
+                var running = head
                 running["ELH"] = #"\leftmark"#
                 running["ORH"] = #"\rightmark"#
+                styles = [
+                    ("headings", running), ("headnombre", head), ("footnombre", ["OLF": number, "ERF": number]),
+                    ("plain", ["OCF": number, "ECF": number]),
+                ]
+                chapterOpeningStyle = "headnombre"
+                style = "headings"
+            } else {
+                styles = [("plain", head)]
+                style = "plain"
             }
-            for (name, rows) in [("headings", running), ("plain", plain)] {
+            for (name, fields) in styles {
+                var rows = fields
+                rows["headrulewidth"] = "0pt"
                 definitions[name] = Definition(name: name, snapshotsFields: false, fields: rows, snapshot: [:])
             }
-            style = marks ? "headings" : "plain"
         case .exam:
             style = "headandfoot"
             examFirst = [:]
@@ -328,7 +341,7 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
             }
         case "classPlain":
             if style == "headings", definitions["headings"] != nil {
-                thisPageStyle = "plain"
+                thisPageStyle = chapterOpeningStyle ?? "plain"
             } else if japanesePlain {
                 // plainifnotempty preserves empty front matter and uses the outer header
                 // for a page number when the running style has installed a header.

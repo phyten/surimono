@@ -44,8 +44,9 @@ extension LaTeXDocument {
         let items = notes.map { note in
             defer { previousChapter = .some(note.chapter) }
             let opensChapter = groupsChapters && previousChapter != .some(note.chapter)
+            // Notes before the first numbered chapter have no number to name them.
             let chapterAttribute =
-                opensChapter ? " data-latex-note-chapter=\"\(HTML.escape(note.chapter ?? ""))\"" : ""
+                opensChapter ? note.chapter.map { " data-latex-note-chapter=\"\(HTML.escape($0))\"" } ?? "" : ""
             let value = note.mark == nil ? Int(note.number) : nil
             let attribute = value.map { " value=\"\($0)\"" } ?? " style=\"list-style:none\""
             var content = note.html ?? ""

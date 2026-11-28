@@ -106,8 +106,12 @@ struct LaTeXCounterTests {
             }
             #expect(html.contains("<li class=\"latex-toc-chapter\"><a href=\"#sec-\(chapter)\">"))
         }
+        // The first note of each chapter also names its chapter for a list collected at the end.
+        let notes = html.replacingOccurrences(
+            of: #" data-latex-note-chapter="[^"]*""#, with: "", options: .regularExpression)
+        #expect(html.components(separatedBy: "data-latex-note-chapter=").count == 3)
         for id in ["fn-1", "fn-repeat-2"] {
-            #expect(html.contains("<li id=\"\(id)\" value=\"1\">"))
+            #expect(notes.contains("<li id=\"\(id)\" value=\"1\">"))
             #expect(html.contains("class=\"latex-number-ref\" href=\"#\(id)\">1</a>"))
         }
     }
@@ -146,8 +150,10 @@ struct LaTeXCounterTests {
             #expect(html.contains("href=\"#eq-\(n)\">(\(n))</a>"))
             #expect(html.contains(">(\(n))</span>"))
         }
+        let notes = html.replacingOccurrences(
+            of: #" data-latex-note-chapter="[^"]*""#, with: "", options: .regularExpression)
         for (id, text) in [("fn-1", "front note"), ("fn-repeat-2", "main note"), ("fn-repeat-3", "appendix note")] {
-            #expect(html.contains("<li id=\"\(id)\" value=\"1\"><p>\(text)</p>"))
+            #expect(notes.contains("<li id=\"\(id)\" value=\"1\"><p>\(text)</p>"))
             #expect(html.contains("class=\"latex-number-ref\" href=\"#\(id)\">1</a>"))
         }
     }

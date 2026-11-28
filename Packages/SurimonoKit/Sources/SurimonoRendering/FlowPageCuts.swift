@@ -39,6 +39,8 @@ enum FlowPageCuts {
         var end: CGFloat
         var keepNext: Bool = false
         var chapter: Bool?
+        /// The band starts the next row of a two-row page (TeX's \newpage in two columns).
+        var columnBreak: Bool?
         var ink: Ink?
         var continuation: Continuation?
 
@@ -55,6 +57,7 @@ enum FlowPageCuts {
                 lines[last].includeInk(of: fragment)
                 lines[last].end = max(lines[last].end, fragment.end)
                 if fragment.chapter == true { lines[last].chapter = true }
+                if fragment.columnBreak == true { lines[last].columnBreak = true }
                 lines[last].keepNext = lines[last].keepNext || fragment.keepNext
             } else {
                 lines.append(fragment)
@@ -83,6 +86,8 @@ enum FlowPageCuts {
             {
                 groups[next].includeInk(of: line)
                 groups[next].start = line.start
+                // The group now starts with this line, so it carries the line's break.
+                groups[next].columnBreak = line.columnBreak
             } else {
                 var group = line
                 group.keepNext = false

@@ -284,12 +284,8 @@ figure.latex-table > table { margin-inline: auto; }
 figcaption { margin: 0.4em 0; font-size: 0.95em; }
 .latex-caption-label { font-weight: 700; }
 img.latex-graphic { max-width: 100%; }
-/* LaTeX lets an image taller than the text block run past its foot, which paper would cut off. The page flow
-   shrinks only the image, keeping its aspect ratio and lines for the caption, so the figure stays centred and
-   the caption keeps its size (the whole figure used to be scaled down from the left). */
-body.format-latex figure[data-latex-float] img.latex-graphic {
-    max-height: calc(var(--latex-page-goal, 100000px) - 4lh); object-fit: contain;
-}
+/* The page flow can shorten a float's image to fit the body (latex-flow.js); keep its aspect ratio when it does. */
+body.format-latex figure[data-latex-float] img.latex-graphic { object-fit: contain; }
 .latex-box-fill { text-align-last: justify; }
 .latex-minipage { display: inline-block; box-sizing: border-box; max-width: 100%; text-align: justify; text-align-last: auto; }
 .format-latex .latex-minipage p { text-indent: 0; }

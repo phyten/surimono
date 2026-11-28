@@ -132,8 +132,8 @@ enum VerticalPaginator {
         samplePosition: (@MainActor (ContinuousClock.Instant) async throws -> CGFloat?)? = nil,
         recordSlice: (@MainActor (Int, PrintedFragmentLinks.VerticalLayout.Slice) -> Void)? = nil,
         beforeCapture: (
-            @MainActor (_ pageOfSource: [Int: Int], _ pageCount: Int, ContinuousClock.Instant) async throws
-                -> Void
+            @MainActor (_ pageOfSource: [Int: Int], _ pageCount: Int, _ isLastPass: Bool, ContinuousClock.Instant)
+                async throws -> Bool
         )? = nil
     ) async throws -> Data {
         try Task.checkCancellation()
@@ -167,20 +167,32 @@ enum VerticalPaginator {
             let frame = Frame(pageSize: pageSize, margins: margins, textScale: textScale, manuscript: manuscript)
             let width = frame.width * pixelsPerPoint
             let height = frame.height * pixelsPerPoint
-            let (plan, originY) = try await measure(
+            var (plan, originY) = try await measure(
                 in: webView, script: measurement, width: width, height: height, font: frame.font,
                 booklet: booklet, rows: frame.rows, until: deadline)
             try Task.checkCancellation()
-            let pages = plan.pages
             if let beforeCapture {
-                // The first page that shows any part of a source band owns the elements that start in it.
-                var pageOfSource: [Int: Int] = [:]
-                for (page, slices) in pages.enumerated() {
-                    for slice in slices where pageOfSource[slice.index] == nil { pageOfSource[slice.index] = page }
+                // Filling page references can rewrap lines. Measure, cut and index the strip again until the
+                // pages it assigns stop changing, within a fixed number of passes.
+                for pass in 0..<Self.referencePasses {
+                    // The first page that shows any part of a source band owns the elements that start in it.
+                    var pageOfSource: [Int: Int] = [:]
+                    for (page, slices) in plan.pages.enumerated() {
+                        for slice in slices where pageOfSource[slice.index] == nil { pageOfSource[slice.index] = page }
+                    }
+                    let remeasures = try await beforeCapture(
+                        pageOfSource, max(1, plan.pages.count), pass == Self.referencePasses - 1, deadline)
+                    try Task.checkCancellation()
+                    guard remeasures else { break }
+                    // After the last pass only the cuts are made again; the numbers it filled in stay.
+                    (plan, originY) = try await measure(
+                        in: webView, script: "return surimonoRemeasureVertical(trace)", width: width, height: height,
+                        font: frame.font, booklet: booklet, rows: frame.rows, until: deadline,
+                        stage: "remeasure after page references")
+                    try Task.checkCancellation()
                 }
-                try await beforeCapture(pageOfSource, max(1, pages.count), deadline)
-                try Task.checkCancellation()
             }
+            let pages = plan.pages
             var selected = pages.startIndex..<pages.endIndex
             if let samplePosition, !pages.isEmpty {
                 let position = try await samplePosition(deadline)
@@ -276,12 +288,15 @@ enum VerticalPaginator {
         return try result.get()
     }
 
+    /// Page references settle in at most this many measurements; the last one keeps the numbers it filled in.
+    static let referencePasses = 3
+
     private static func measure(
         in webView: WKWebView, script: String, width: CGFloat, height: CGFloat, font: CGFloat,
-        booklet: Bool, rows: Int, until deadline: ContinuousClock.Instant
+        booklet: Bool, rows: Int, until deadline: ContinuousClock.Instant, stage: String = "prepare vertical strip"
     ) async throws -> (VerticalCapturePlan, CGFloat) {
         let value = try await webView.evaluateForPrinting(
-            diagnosed(script, stage: "prepare vertical strip"),
+            diagnosed(script, stage: stage),
             arguments: [
                 "width": width, "height": height, "font": font, "booklet": booklet, "inkEdges": punctuationEdges,
             ],

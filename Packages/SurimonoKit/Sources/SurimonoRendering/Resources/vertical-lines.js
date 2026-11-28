@@ -200,10 +200,13 @@ const annotations = latex ? 'em,.kenten,.bousen' : 'em';
 const breaksChapters = latex ? body.dataset.latexChapters === 'true' : booklet;
 // The reader marks what TeX ships on a page of its own. A separate title and an explicit page break end the
 // page after them; contents, lists and the bibliography of a class with chapters open one like a chapter.
+// \newpage ends only the row in the two-row layout (TeX's column); \clearpage, \include and the book matter end
+// the page. An opening side is not padded with a blank page here, so right and left start the next page.
 const breakAfter = latex
-    ? '.latex-pagebreak,.latex-titlepage,body[data-latex-title-layout="separate"] .latex-title-block,'
+    ? '.latex-pagebreak,[data-latex-break],.latex-titlepage,body[data-latex-title-layout="separate"] .latex-title-block,'
         + 'body[data-latex-chapters="true"]:not([data-latex-title-layout]) .latex-title-block' : null;
 const breakBefore = latex ? '[data-latex-chapter-opening]' : null;
+const breakKind = element => element.dataset.latexBreak === 'column' ? 'column' : 'page';
 
 const range = document.createRange();
 function paintBounds(element, box = element.getBoundingClientRect()) {
@@ -464,17 +467,20 @@ function measureLayout(trace) {
     const bands = [];
     originX = window.scrollX;
     const stripTop = strip.getBoundingClientRect().top;
-    let pendingBreak = false;
+    // null, 'column' or 'page': a page break wins over a column break waiting for the same band.
+    let pendingBreak = null;
     let openBreak = null;
+    function request(kind) { if (pendingBreak !== 'page') pendingBreak = kind; }
     function add(rect, keepNext, paint = rect, rightInk = 0, chapter = false, continuation) {
         if (!rect.width || !rect.height) return;
         if (bands.length >= limit) throw new Error('Vertical layout exceeds the fragment limit');
-        chapter ||= pendingBreak;
-        pendingBreak = false;
+        chapter ||= pendingBreak === 'page';
+        const columnBreak = !chapter && pendingBreak === 'column' || undefined;
+        pendingBreak = null;
         // Keep the line advance independent of the ink allowance, even when two neighboring
         // lines' ruby or emphasis marks overlap. Both use the same fractional CSS coordinates.
         bands.push({start: -(rect.right + originX) * unit, end: -(rect.left + originX) * unit,
-            keepNext, chapter, continuation, ink: {start: -(paint.right + originX) * unit - rightInk - 1,
+            keepNext, chapter, columnBreak, continuation, ink: {start: -(paint.right + originX) * unit - rightInk - 1,
                 end: -(paint.left + originX) * unit + 1, top: (paint.top - stripTop) * unit,
                 bottom: (paint.bottom - stripTop) * unit}});
     }
@@ -484,7 +490,9 @@ function measureLayout(trace) {
     }
     const walker = document.createTreeWalker(strip, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
         acceptNode(n) {
-            if (n.nodeType === Node.ELEMENT_NODE && n.matches(excluded)) return NodeFilter.FILTER_REJECT;
+            // A break template has no layout, but it is where the reader put the book matter's page break.
+            if (n.nodeType === Node.ELEMENT_NODE && n.matches(excluded))
+                return latex && n.matches('template[data-latex-break]') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
             if (n.parentElement.closest(atomic)) return NodeFilter.FILTER_REJECT;
             return NodeFilter.FILTER_ACCEPT;
         }
@@ -492,12 +500,13 @@ function measureLayout(trace) {
     for (let n = walker.nextNode(); n; n = walker.nextNode()) {
         trace.call = 'measure band / DOM bounds';
         if (openBreak && !openBreak.contains(n)) {
-            pendingBreak = true;
+            request(breakKind(openBreak));
             openBreak = null;
         }
         if (n.nodeType === Node.ELEMENT_NODE) {
             if (breakAfter && n.matches(breakAfter)) openBreak = n;
-            if (breakBefore && n.matches(breakBefore)) pendingBreak = true;
+            if (breakBefore && n.matches(breakBefore)) request('page');
+            if (n.localName === 'template') continue;
         }
         if (n.nodeType === Node.TEXT_NODE) {
             trace.call = 'measure text / Range.getClientRects';
@@ -669,6 +678,8 @@ globalThis.surimonoIndexSlices = (slices, trace) => {
     };
     return null;
 };
+// Filled page references can rewrap lines; the strip is then measured and indexed again from scratch.
+globalThis.surimonoRemeasureVertical = trace => measureLayout(trace);
 const measured = measureLayout(trace);
 trace.call = 'formula index';
 globalThis.surimonoFormulaIndex?.native();

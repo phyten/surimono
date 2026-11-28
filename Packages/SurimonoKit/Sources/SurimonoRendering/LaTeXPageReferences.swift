@@ -395,15 +395,17 @@ enum LaTeXPageReferences {
         }
         """
 
-    /// Reads the targets' pages from a measured vertical strip and fills the fields before its capture.
+    /// Reads the targets' pages from a measured vertical strip and fills the fields before its capture. It returns
+    /// whether the strip must be measured again: filling moved the text, and the pages may still change.
     @MainActor final class VerticalMeasurement {
         private(set) var pages: [Page] = []
         private(set) var incomplete = false
+        private var previous: (locations: [Int: Int], references: [String: String])?
 
         func resolver(
             _ numbers: LaTeXPageNumbers, installation: Installation, restartsAfterTitle: Bool, in webView: WKWebView
-        ) -> @MainActor ([Int: Int], Int, ContinuousClock.Instant) async throws -> Void {
-            { [self] pageOfSource, pageCount, deadline in
+        ) -> @MainActor ([Int: Int], Int, Bool, ContinuousClock.Instant) async throws -> Bool {
+            { [self] pageOfSource, pageCount, isLastPass, deadline in
                 let json = try await webView.evaluateForPrinting(verticalTargets, until: deadline) as? String
                 let sources = json.flatMap { try? JSONDecoder().decode([String: Int].self, from: Data($0.utf8)) } ?? [:]
                 var locations: [Int: Int] = [:]
@@ -415,9 +417,20 @@ enum LaTeXPageReferences {
                     restartsAfterTitle: restartsAfterTitle)
                 pages = map.pages
                 incomplete = installation.missing != 0 || installation.targets.indices.contains { locations[$0] == nil }
-                _ = try await webView.evaluateForPrinting(
-                    try fill(map.references, physicalPages: locations, examScores: map.examScores), until: deadline)
+                // The strip already holds these numbers when the last measurement placed everything as before.
+                let settled = previous.map { $0.locations == locations && $0.references == map.references } ?? false
+                var layout = "stable"
+                if !settled {
+                    layout =
+                        try await webView.evaluateForPrinting(
+                            try fill(map.references, physicalPages: locations, examScores: map.examScores),
+                            until: deadline) as? String ?? "remeasure"
+                    previous = (locations, map.references)
+                }
+                guard layout == "stable" || isLastPass else { return true }
                 _ = try await webView.evaluateForPrinting(removeProbes, until: deadline)
+                // The last pass keeps its numbers, but the strip is still measured again if they moved the text.
+                return layout != "stable"
             }
         }
     }

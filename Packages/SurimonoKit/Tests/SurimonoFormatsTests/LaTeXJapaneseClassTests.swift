@@ -13,8 +13,43 @@ struct LaTeXJapaneseClassTests {
         #expect(state.footer == ["", "", ""])
         state.advance()
         #expect(state.header == ["第1章 春", "", "2"])
+        // A chapter that opens its page while headings are running keeps only the head number (headnombre).
+        state.apply("classPlain", value: "")
+        #expect(state.header == ["", "", "2"] && state.footer == ["", "", ""])
+    }
+
+    @Test("tbook で明示した plain はヘッダーなしで下の中央にノンブルを置き、empty は何も置かない")
+    func explicitPlain() {
+        var page = LaTeXPageNumbers(name: "tbook", options: [])
+        page.apply("thispagestyle", value: "plain")
+        #expect(page.header == ["", "", ""] && page.footer == ["", "1", ""])
+        var running = LaTeXPageNumbers(name: "utbook", options: [])
+        running.apply("pagestyle", value: "plain")
+        running.advance()
+        #expect(running.header == ["", "", ""] && running.footer == ["", "2", ""])
+        // Under plain, a chapter opening keeps plain's foot number, as tbook's \ps@plain sets jpl@in to plain.
+        running.apply("classPlain", value: "")
+        #expect(running.header == ["", "", ""] && running.footer == ["", "2", ""])
+        var empty = LaTeXPageNumbers(name: "ltjtbook", options: [])
+        empty.apply("thispagestyle", value: "empty")
+        #expect(empty.header == ["", "", ""] && empty.footer == ["", "", ""])
+    }
+
+    @Test("fancyhdr で plain を定義し直した tbook は、その定義を章の始まりにも使わず明示の plain にだけ使う")
+    func redefinedPlain() throws {
+        var state = LaTeXPageNumbers(name: "tbook", options: [])
+        let definition = try String(
+            decoding: JSONEncoder().encode(
+                LaTeXPageNumbers.Definition(
+                    name: "plain", base: nil, snapshotsFields: false,
+                    fields: ["OCF": "p.\\thepage", "ECF": "p.\\thepage"],
+                    snapshot: [:])), as: UTF8.self)
+        state.apply("fancyStyle", value: definition)
         state.apply("thispagestyle", value: "plain")
-        #expect(state.header == ["", "", "2"])
+        #expect(state.footer == ["", "p.1", ""])
+        state.advance()
+        state.apply("classPlain", value: "")
+        #expect(state.header == ["", "", "2"] && state.footer == ["", "", ""])
     }
 
     @Test("縦組みの tarticle と treport は下の中央に、jlreq の縦組みは上の中央、本は上の小口側にノンブルを置く")
