@@ -8,6 +8,9 @@ import Foundation
 public enum LaTeXConverter {
     package static let unreadCommandPrefix = "commands not read: "
     package static let japaneseUnreadCommandPrefix = "読み取れなかったコマンド："
+    /// Followed by the first 100 characters of the formula's source, as the paper prints it in place.
+    package static let formulaIssuePrefix = "Formula could not be typeset: "
+    package static let japaneseFormulaIssuePrefix = "数式を描けません: "
 
     /// Companion files are supplied by the caller so parsing never implicitly opens a path from the document.
     /// Reads on a stack of known size (`StackSpace.onLargeStack`), so a document reads the same on every thread.

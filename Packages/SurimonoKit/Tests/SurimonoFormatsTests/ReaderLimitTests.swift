@@ -186,6 +186,29 @@ struct ReaderLimitTests {
         #expect(fragment.body.contains("After."))
     }
 
+    @Test("閉じない括弧が続く Textile のブロック記号の形も時間内に読む")
+    func textileParenthesesRun() async throws {
+        // The block signature was a backtracking regular expression: 30 parentheses took about 6 seconds.
+        let text = "p" + String(repeating: "(", count: 40) + "x\n\nAfter.\n"
+        let fragment = try await onSmallStack(limit: .milliseconds(300)) { try TextileConverter.convert(text) }
+        #expect(fragment.body.contains("<p>After.</p>"))
+    }
+
+    @Test("採らない定義リストの項目が二万続く Textile も、定義リストをまとめる前処理は時間内に終える")
+    func textileRejectedDefinitions() async throws {
+        // Searched again from every item, 2,000 items took about 0.2 seconds and the time grew with the square.
+        // The bundled parser itself slows down on this many blocks; a stand-in measures the bridge alone.
+        let host = ScriptConverterHost(
+            "textile-2.1.1", bridge: "textile-bridge", category: "Test",
+            testing: .init(script: "module.exports = source => '<p>' + source.length + '</p>';"))
+        let text = String(repeating: "- A := x\n\n", count: 20_000) + "- Z := <div>raw</div>\n\nAfter.\n"
+        let fragment = try await onSmallStack(limit: .milliseconds(300)) {
+            try host.fragment(text, notice: "") { try PrintMarkup.fragment($0.html, format: .textile) }
+        }
+        // Not accepted, so the bridge hands the whole text to the parser unchanged.
+        #expect(fragment.body.contains("<p>\(text.utf16.count)</p>"))
+    }
+
     @Test("一万重のテンプレートの MediaWiki でも落ちず、後ろの段落を読む")
     func deepWikiTemplates() async throws {
         let text = String(repeating: "{{", count: 10_000) + "x" + String(repeating: "}}", count: 10_000) + "\n\nAfter."

@@ -1627,6 +1627,9 @@ public final class DocumentRenderer {
             for issue in text.issues where issue.kind == .latex {
                 printedAnchors[issue.detail, default: 0] += 1
             }
+            // A formula that failed is printed as its source, which the page check reports with its page.
+            // The reader names each distinct source once; drop that copy when the paper already shows it.
+            let printedFormulas = Set(text.issues.filter { $0.kind == .math }.map { String($0.detail.prefix(100)) })
             for (offset, detail) in fragment.readingIssues.enumerated() {
                 let kind: PrintIssue.Kind =
                     switch source.format {
@@ -1639,6 +1642,13 @@ public final class DocumentRenderer {
                     }
                 if kind == .latex, let count = printedAnchors[detail], count > 0 {
                     printedAnchors[detail] = count - 1
+                    continue
+                }
+                if kind == .latex,
+                    let prefix = [LaTeXConverter.formulaIssuePrefix, LaTeXConverter.japaneseFormulaIssuePrefix]
+                        .first(where: detail.hasPrefix),
+                    printedFormulas.contains(String(detail.dropFirst(prefix.count)))
+                {
                     continue
                 }
                 text.issues.append(PrintIssue(id: "\(kind.rawValue)-reader-\(offset)", kind: kind, detail: detail))
