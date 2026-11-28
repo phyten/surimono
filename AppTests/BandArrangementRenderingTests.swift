@@ -118,7 +118,9 @@ struct BandArrangementRenderingTests {
         }
         func widths(top: Bool) -> [BandLayout.Item: BandLayout.Widths] {
             var result: [BandLayout.Item: BandLayout.Widths] = [:]
-            for item in applicable where (mode == .top || topItems.contains(item)) == top {
+            // On the bottom band the chapter shares the room with the slider by its own rule, checked on its own.
+            for item in applicable
+            where (mode == .top || topItems.contains(item)) == top && (top || item != .chapter) {
                 // The docked Print button's gap is already in the fixed top width.
                 let gap: CGFloat = item == .print ? 0 : 6
                 result[item] = BandLayout.Widths(
@@ -138,6 +140,25 @@ struct BandArrangementRenderingTests {
                     steps: top ? BandLayout.steps : BandLayout.bottomSteps)
             }
             guard mode == .top || !top else { return plan() }
+            if mode == .split {
+                // On the bottom band Reading Settings shares the style's group. Its label folds first, then the
+                // band folds in its own order, which takes the icon after the chapter and before the other tools. The
+                // other labels it folded meanwhile stay folded, as on the band.
+                var full = items
+                full[.readingSettings] = BandLayout.Widths(full: Self.widths[.item(.readingSettings, .full)]! + 6)
+                let unfolded = BandLayout.plan(
+                    widths: full, fixed: fixed, separator: 7, name: name, available: width,
+                    steps: BandLayout.bottomSteps)
+                if unfolded.forms.values.allSatisfy({ $0 == .full }), unfolded.overflow.isEmpty { return unfolded }
+                var folded = items
+                folded[.readingSettings] = BandLayout.Widths(
+                    full: Self.widths[.item(.readingSettings, .compact)]! + 6)
+                var plan = BandLayout.plan(
+                    widths: folded, fixed: fixed, separator: 7, name: name, available: width,
+                    steps: BandLayout.bottomSteps)
+                if plan.forms[.readingSettings] != nil { plan.forms[.readingSettings] = .compact }
+                return plan
+            }
             // Reading Settings has a 6pt gap and, on the top band, its own 7pt separator.
             let gap: CGFloat = top ? 13 : 6
             var full = plan(reserving: Self.widths[.item(.readingSettings, .full)]! + gap)
@@ -202,14 +223,104 @@ struct BandArrangementRenderingTests {
             let reference = referencePlan(model, mode: mode, width: width)
             #expect(plans.top.forms == reference.top.forms, "top at \(width)")
             #expect(plans.top.nameWidth == reference.top.nameWidth, "name at \(width)")
-            #expect(plans.bottom?.forms == reference.bottom?.forms, "bottom at \(width)")
+            #expect(plans.bottom?.forms.filter { $0.key != .chapter } == reference.bottom?.forms, "bottom at \(width)")
             #expect(plans.top.requiredWidth <= max(width, 141 + 34), "top footprint at \(width)")
+            var pushedOut = Set(reference.top.overflow + (reference.bottom?.overflow ?? []))
             if let bottom = plans.bottom {
                 #expect(bottom.requiredWidth <= max(width, 28), "bottom footprint at \(width)")
+                // With no slider here, the 72-point title shows only beside the unfolded parts, in a frame of at least 72
+                // after its 6pt gap; otherwise it leaves first, before anything else folds. What the other parts take
+                // comes from the fixture alone: 28 fixed, each part with its 6pt gap, one 7pt line per further group.
+                let chapterShown = bottom.forms[.chapter] != nil
+                let unfolded = reference.bottom.map {
+                    $0.overflow.isEmpty && $0.forms.values.allSatisfy { $0 == .full }
+                }
+                var others: CGFloat = 28
+                for item in reference.bottom?.forms.keys.map({ $0 }) ?? [] {
+                    let part: CGFloat = Self.widths[.item(item, .full)] ?? 0
+                    others += part + 6
+                }
+                let groups = Set((reference.bottom?.forms.keys.map { $0 } ?? []).compactMap(\.group)).count
+                others += 7 * CGFloat(max(groups - 1, 0))
+                let room: CGFloat = width - others - 6
+                let expectsChapter = unfolded == true && room >= 72
+                #expect(chapterShown == expectsChapter, "chapter at \(width)")
+                #expect(bottom.chapterTitleWidth == (expectsChapter ? 72 : nil), "chapter frame at \(width)")
+                if !chapterShown { pushedOut.insert(.chapter) }
             }
-            let pushedOut = Set(reference.top.overflow + (reference.bottom?.overflow ?? []))
             #expect(Set(plans.resolved.overflow) == pushedOut, "overflow at \(width)")
         }
+    }
+
+    @Test("上下配置の標準は、測った章の名前の全文・縁・スライダーで計画し、短い章でも長い章でもスライダーは同じ幅から出る")
+    func splitStandardSharesSliderWithChapter() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        environment.preferences.menuArrangement = .split
+        let model = environment.chapters()
+        defer { model.stop() }
+        try await open(model)
+        func bottom(_ width: CGFloat, title: CGFloat) -> BandRowPlan? {
+            let menu = menu(width: width)
+            menu.bandWidths[.scrubber] = 142
+            menu.bandWidths[.chapterChrome] = 16
+            menu.bandWidths[.chapterTitle] = title
+            return BandPlans(model: model, menu: menu).bottom
+        }
+        // Without the chapter the bottom band takes 393: 28 fixed, style 90, 6, reading settings 80, 6 and a 7 line,
+        // contents 60, pages 50, 6, page turn 60. The chapter adds its 16 of chrome and the 6 before the pages.
+        let cases: [(width: CGFloat, slider: Bool, long: CGFloat?, short: CGFloat?)] = [
+            (534, false, nil, nil), (535, true, nil, nil), (628, true, nil, nil), (629, true, 72, 40),
+            (717, true, 160, 40), (900, true, 160, 40),
+        ]
+        for (width, slider, long, short) in cases {
+            let longRow = try #require(bottom(width, title: 400))
+            let shortRow = try #require(bottom(width, title: 40))
+            #expect(longRow.leading == [.style, .readingSettings, .outline], "\(width)")
+            #expect(longRow.showsScrubber == slider && shortRow.showsScrubber == slider, "slider at \(width)")
+            #expect(longRow.chapterTitleWidth == long, "long title at \(width)")
+            #expect(shortRow.chapterTitleWidth == short, "short title at \(width)")
+        }
+    }
+
+    @Test("今の章を下の左に置いた配置で、スライダーをつかんだまま帯の幅を変えて離しても、ページは変わらない")
+    func scrubCancelsWhenBandResizes() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        environment.preferences.menuArrangement = .split
+        environment.preferences.defaultBandVisibility = .always
+        var layouts = BandArrangementVariants()
+        layouts.split = try layouts.split.moving(.chapter, to: .zone(.bottomLeft), for: .split)
+        try environment.preferences.saveBandArrangement(BandArrangementSet(name: "Chapter Left", layouts: layouts))
+        let model = environment.chapters()
+        defer { model.stop() }
+        let controller = MemoryDocumentWindowController(model: model, onClose: {})
+        defer { controller.close() }
+        let window = try #require(controller.window)
+        window.orderFrontRegardless()
+        try await open(model)
+        let opened = window.contentRect(forFrameRect: window.frame).size
+        window.setContentSize(NSSize(width: max(opened.width, 1200), height: opened.height))
+        let scrubber = model.scrubber
+        func state() -> String {
+            let row = model.bandAnchors.plan?.bottom
+            return "content=\(window.contentRect(forFrameRect: window.frame).size) slider=\(scrubber.frame) "
+                + "dragging=\(scrubber.dragging) leading=\(row?.leading.map(\.rawValue) ?? []) "
+                + "shows=\(String(describing: row?.showsScrubber)) title=\(String(describing: row?.chapterTitleWidth)) "
+                + "page=\(model.currentPageIndex)"
+        }
+        try await waitUntil(state()) {
+            scrubber.frame.width > 0 && model.bandAnchors.plan?.bottom?.leading.last == .chapter
+        }
+        let page = model.currentPageIndex
+        scrubber.press(1)
+        #expect(scrubber.dragging, "\(state())")
+        let held = window.contentRect(forFrameRect: window.frame).size
+        window.setContentSize(NSSize(width: held.width - 120, height: held.height))
+        // The slider starts or ends elsewhere now, so the place under the pointer would mean another page.
+        try await waitUntil(state()) { !scrubber.dragging }
+        #expect(scrubber.release(1, inside: true) == nil, "\(state())")
+        #expect(model.currentPageIndex == page, "\(state())")
     }
 
     @Test("上下配置の標準は文字の選択と表示の道具を上の右に、読む道具を下に並べ、どの幅でも帯に収まる")

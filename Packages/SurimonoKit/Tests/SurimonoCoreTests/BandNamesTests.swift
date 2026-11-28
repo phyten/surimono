@@ -65,10 +65,12 @@ struct BandNamesTests {
             : [.chapter, .margins, .transition, .style, .pageIndicator]
         let widths = Dictionary(uniqueKeysWithValues: parts.map { ($0, BandLayout.Widths(full: 10, compact: 10)) })
         for count in 0...removed.count {
+            // The bottom band shows a chapter title only in a frame of at least 72 points.
+            let titleRoom: CGFloat = position == .bottom && count == 0 ? 72 : 0
             let plan = BandLayout.resolve(
                 arrangement: layout, mode: .split, availableItems: Set(parts),
                 measurements: .init(items: widths, name: 0), metrics: metrics,
-                availableWidth: CGFloat(60 - 10 * count), names: .hidden)
+                availableWidth: CGFloat(60 - 10 * count) + titleRoom, names: .hidden)
             #expect(Set(plan.overflow) == Set(removed.prefix(count)))
             let row = position == .top ? plan.top : try #require(plan.bottom)
             #expect(row.forms[.print] == .compact)

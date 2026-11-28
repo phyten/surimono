@@ -31,6 +31,8 @@ final class OverlayMenuState {
     var hasReadTrafficLights = false
     // Measurements outlive the band so it reopens with the tools that fit.
     var bandWidths: [BandSlot: CGFloat] = [:]
+    /// The chapter title's width when the slider was taken hold of; the slider is laid out again once it is let go.
+    @ObservationIgnored var heldChapterTitle: CGFloat?
     var bandWidth: CGFloat = 0
     var scrubberHeld = false {
         didSet { if scrubberHeld { showFull() } else { updateHideTimer() } }
@@ -190,7 +192,11 @@ struct BandPlans {
             availableItems: Set(applicable),
             measurements: BandMeasurementsValue(
                 items: widths, name: measured[.name] ?? .greatestFiniteMagnitude,
-                scrubber: model.showsScrubberSlot && menu.bandWidth > 0 ? measured[.scrubber] : nil),
+                scrubber: model.showsScrubberSlot && menu.bandWidth > 0 ? measured[.scrubber] : nil,
+                // While the slider is held, the title keeps the width it had, so the slider stays under the pointer.
+                chapterTitle: (model.scrubber.dragging ? menu.heldChapterTitle : nil)
+                    ?? measured[.chapterTitle].map { $0.rounded(.up) },
+                chapterChrome: measured[.chapterChrome] ?? 0),
             metrics: metrics,
             availableWidth: availableWidth ?? (menu.bandWidth > 0 ? menu.bandWidth : .greatestFiniteMagnitude),
             names: model.preferences.bandNames)
@@ -399,6 +405,7 @@ struct BandPart: View {
 
     @Environment(\.bandHints) private var hints
     @Environment(\.hintsAboveBand) private var above
+    @Environment(\.bandChapterTitleWidth) private var plannedChapterTitleWidth
 
     var body: some View {
         let id = item.rawValue
@@ -442,8 +449,9 @@ struct BandPart: View {
     func displaysName(_ name: String) -> Bool {
         if item == .print { return form != .compact }
         if item == .chapter {
+            // The card names the chapter only when its title was cut short.
             return !model.currentChapterTitle.isEmpty && name == model.currentChapterTitle
-                && CurrentChapterButton.titleFits(name)
+                && CurrentChapterButton.titleFits(name, in: plannedChapterTitleWidth)
         }
         guard form == .full else { return false }
         switch item {
@@ -630,6 +638,7 @@ struct BottomBand: View {
             }
             bandParts(row.trailing, row: row, model: model)
         }
+        .environment(\.bandChapterTitleWidth, row.chapterTitleWidth)
         .cornerButton(model.preferences.corners, .borderless)
         // The same size as the top band's, whose widths the same measurements give.
         .controlSize(ViewerWindow.bandControlSize)
