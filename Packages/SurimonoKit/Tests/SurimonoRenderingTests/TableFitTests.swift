@@ -122,6 +122,7 @@ struct TableFitTests {
         var ems: [Double] = []
         var outside = -1
         var zoom = 1.0
+        var narrowing = 1.0
         var fitted = false
         var log = ""
         func record(_ view: WKWebView) async {
@@ -185,6 +186,7 @@ struct TableFitTests {
             self.ems = ems
             self.outside = outside
             zoom = object["zoom"] as? Double ?? 1
+            narrowing = (object["log"] as? [[String: Any]])?.first?["narrowing"] as? Double ?? 1
             fitted = object["fitted"] as? Bool ?? false
             log = text + " on " + ProcessInfo.processInfo.operatingSystemVersionString
         }
@@ -949,6 +951,33 @@ struct TableFitTests {
         let columns = Columns()
         _ = try await printed(source, inspect: columns.record)
         try #require(columns.lines.count == 2, Comment(rawValue: columns.log))
+        #expect(columns.outside == 0, Comment(rawValue: columns.log))
+    }
+
+    @Test(
+        "幅の上限を決めたセルに直接書いた短い列も、1行にすると文字がセルの外へ出るので守らず、文字をセルの中に刷る",
+        .timeLimit(.minutes(1)), arguments: ["ltr", "rtl"])
+    func cappedCellNotKept(direction: String) async throws {
+        let source =
+            "<table dir='\(direction)'><tr><td style='max-width:20px'>Status Confirmed</td><td>"
+            + String(repeating: "X", count: 500) + "</td></tr></table>\n"
+        let columns = Columns()
+        _ = try await printed(source, inspect: columns.record)
+        try #require(columns.lines.count == 2, Comment(rawValue: columns.log))
+        #expect(columns.outside == 0, Comment(rawValue: columns.log))
+    }
+
+    @Test("列の間のすき間で実際には横に半分より詰めることになる表は、短い列を守らずに組み直す", .timeLimit(.minutes(1)))
+    func spacingCountedBeforeKeepingShortColumns() async throws {
+        // The plan, which sums the columns, keeps them whole; the 29 gaps of 28 pixels take the table to about 0.41.
+        let row = "<tr>" + String(repeating: "<td>12-34</td>", count: 28) + "</tr>"
+        let css = "table { border-collapse: separate !important; border-spacing: 28px !important }"
+        let columns = Columns()
+        _ = try await printed("<table>\(row)\(row)</table>\n", css: css, inspect: columns.record)
+        try #require(columns.lines.count == 28, Comment(rawValue: columns.log))
+        #expect(
+            columns.narrowing >= 0.5 || columns.lines.contains { $0 > 1 },
+            "narrowed to \(columns.narrowing) with every value kept on one line: \(columns.log)")
         #expect(columns.outside == 0, Comment(rawValue: columns.log))
     }
 

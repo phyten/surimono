@@ -65,6 +65,9 @@ enum TableFit {
         function isShortColumn(width, room) {
             return width <= \(shortColumnShare) * room;
         }
+        function keepsShortColumns(narrowing) {
+            return narrowing >= \(minimumNarrowing);
+        }
         function tablePlan(room, fontSize, textPixels, columns) {
             let shorts = 0, longEach = 0, longWidth = 0;
             const floors = columns.map(column => {
@@ -83,7 +86,7 @@ enum TableFit {
             const least = textPixels > 0 ? Math.min(1, \(minimumTextPixels) / textPixels) : 1;
             const scale = need <= room ? 1 : Math.max(least, room / need);
             const narrowing = need <= room ? 1 : Math.min(1, room / (need * scale));
-            return { scale, narrowing, need, least, floors, keepsShort: narrowing >= \(minimumNarrowing) };
+            return { scale, narrowing, need, least, floors, keepsShort: keepsShortColumns(narrowing) };
         }
         """
 
@@ -235,7 +238,6 @@ enum TableFit {
                     if (!/^(inline|block)$/.test(css.display) || el.matches('br, img, svg, math, table, .math')) {
                         return null;
                     }
-                    if (css.display === 'block') changes.boxed = true;
                 }
                 const space = css.whiteSpaceCollapse || collapses[css.whiteSpace] || 'preserve';
                 const own = [...el.childNodes].some(node => node.nodeType === Node.TEXT_NODE && node.data.includes('\n'));
@@ -268,11 +270,9 @@ enum TableFit {
             return column.cells.reduce((most, cell) => Math.max(most, cell.offsetWidth), 0) * zoom;
         }
         // Whether a column's text or the boxes in it now lie past the left or right edge of their cell: a
-        // paragraph of fixed width kept on one line runs out of it, to the left when it reads from the right.
-        // Text set in the cell itself cannot: the cell takes the width of its unwrapped line. So only columns
-        // with paragraphs in their cells are measured, which keeps a table of plain cells quick.
+        // paragraph of fixed width kept on one line runs out of it, to the left when it reads from the right,
+        // and so does text set in a cell whose own width is capped (max-width), into the next cell.
         function spills(column) {
-            if (!column.boxed) return false;
             for (const cell of column.cells) {
                 const box = cell.getBoundingClientRect();
                 if (!box.width) continue;
@@ -311,7 +311,6 @@ enum TableFit {
                 const styles = shown.map(styleOf);
                 columns.push({
                     cells: own, shown, short, free: false, estimate, changes: short ? changes.flat() : [],
-                    boxed: short && changes.some(change => change.boxed),
                     wraps: short && own.some(wraps),
                     width: columnWidth({ cells: own }, zoom),
                     padding: Math.max(...styles.map(css => sides(css, 'padding') + borders(css))) * zoom,
@@ -464,25 +463,23 @@ enum TableFit {
                 item.plan = planFor(item, limitOf(item));
             }
             // Each long column keeps its floor: the table's automatic layout shares out the width as it likes,
-            // so the floor is set on the column's cells, their own padding counted by their own box.
+            // so the floor is set as a minimum width. A column is as wide as the widest minimum of its cells, so
+            // one cell carries it, sized for the column's widest padding: every cell of the column then has the
+            // floor for its text, whatever its own padding, and a long table is not written row by row.
+            const minimums = [];
             for (const item of touched) {
                 const zoom = zoomOf(item.table);
                 (item.columns ?? []).forEach((column, index) => {
                     const floor = item.plan.floors[index];
                     if (!floor) return;
                     column.floor = floor / zoom;
-                    for (const cell of column.shown) {
-                        const css = styleOf(cell);
-                        const box = css.boxSizing === 'border-box' ? sides(css, 'padding') + borders(css) : 0;
-                        column.minimums = [...(column.minimums ?? []), [cell, column.floor + box]];
-                    }
+                    const cell = column.shown[0], css = styleOf(cell);
+                    const own = sides(css, 'padding') + borders(css);
+                    const box = column.floor + column.padding / zoom;
+                    minimums.push([cell, css.boxSizing === 'border-box' ? box : box - own]);
                 });
             }
-            for (const item of touched) {
-                for (const column of item.columns ?? []) {
-                    for (const [cell, minimum] of column.minimums ?? []) set(cell, 'min-width', minimum + 'px');
-                }
-            }
+            for (const [cell, minimum] of minimums) set(cell, 'min-width', minimum + 'px');
 
             // A table that fits with its short columns whole and its long columns at their floor is done.
             // The others are zoomed, as one plan decides for every table.
@@ -496,10 +493,12 @@ enum TableFit {
             for (const item of zoomed) item.plan = planFor(item, item.room);
             // Wrapped, the long cells give way; short columns are unwrapped and stay so. Breaking inside words
             // is only for tables that need it.
-            let over = overflowing(zoomed);
-            restyle(over, 'overflowWrap', wrap => wrap === 'anywhere' ? null : 'anywhere');
-            over = overflowing(zoomed);
-            for (const item of zoomed) item.wrapped = item.width;
+            function wrapLong(items) {
+                restyle(overflowing(items), 'overflowWrap', wrap => wrap === 'anywhere' ? null : 'anywhere');
+                const over = overflowing(items);
+                for (const item of items) item.wrapped = item.width;
+                return over;
+            }
 
             // Then the table is zoomed, filling the column: a zoomed table given the whole column has its right
             // rule at the column's edge, unless the plan already knows it needs narrowing too, which keeps the
@@ -513,57 +512,73 @@ enum TableFit {
                 set(item.table, 'zoom', String(zoom));
                 keepRight(item, zoom);
             }
-            // Not every WebKit holds a table to its max-width (macOS 15 kept the author's fixed width), so
-            // the width itself is set to the column even at the table's own size. Only what its contents keep
-            // wider than that is zoomed further.
-            const sized = zoomed.filter(item => over.includes(item) || item.plan.scale < 1);
-            for (const item of sized) {
-                item.least = item.plan.least;
-                item.scale = item.plan.scale;
-                if (item.plan.narrowing < 1) item.need = item.plan.need;
-                zoomTable(item);
-            }
-            over = overflowing(sized);
-            for (const item of zoomed) item.clamped = item.width;
-            let stalled = [];
-            for (let pass = 0; pass < passes && over.length; pass++) {
-                for (const item of over) {
-                    item.last = { scale: item.scale, width: item.width };
-                    item.scale = Math.max(item.least, nextScale(item.scale, item.room, item.width));
+            function zoomAll(items, over) {
+                // Not every WebKit holds a table to its max-width (macOS 15 kept the author's fixed width), so
+                // the width itself is set to the column even at the table's own size. Only what its contents
+                // keep wider than that is zoomed further.
+                const sized = items.filter(item => over.includes(item) || item.plan.scale < 1);
+                for (const item of sized) {
+                    item.least = item.plan.least;
+                    item.scale = item.plan.scale;
+                    if (item.plan.narrowing < 1) item.need = item.plan.need;
                     zoomTable(item);
                 }
-                const still = overflowing(over);
-                over = [];
-                for (const item of still) {
-                    // At the smallest type, the rest is narrowed.
-                    if (item.scale <= item.least) {
-                        stalled.push(item);
-                        continue;
-                    }
-                    // Text may stop shrinking before the smallest type, and spacing set in ems stops with it.
-                    // A zoom that took off less than half of what it was meant to went past that point and
-                    // would only thin the rules. It goes back to the zoom that would have taken off what this
-                    // one did at full effect, which is where the text stopped, and no further than the last zoom.
-                    if (item.last.width - item.width < (item.last.width - item.room) / 2) {
-                        const reached = item.last.scale * item.width / item.last.width;
-                        item.scale = Math.min(item.last.scale, Math.max(item.scale, reached));
+                over = overflowing(sized);
+                for (const item of items) item.clamped = item.width;
+                const stalled = [];
+                for (let pass = 0; pass < passes && over.length; pass++) {
+                    for (const item of over) {
+                        item.last = { scale: item.scale, width: item.width };
+                        item.scale = Math.max(item.least, nextScale(item.scale, item.room, item.width));
                         zoomTable(item);
-                        stalled.push(item);
-                    } else {
-                        over.push(item);
+                    }
+                    const still = overflowing(over);
+                    over = [];
+                    for (const item of still) {
+                        // At the smallest type, the rest is narrowed.
+                        if (item.scale <= item.least) {
+                            stalled.push(item);
+                            continue;
+                        }
+                        // Text may stop shrinking before the smallest type, and spacing set in ems stops with
+                        // it. A zoom that took off less than half of what it was meant to went past that point
+                        // and would only thin the rules. It goes back to the zoom that would have taken off what
+                        // this one did at full effect, which is where the text stopped, and no further than the
+                        // last zoom.
+                        if (item.last.width - item.width < (item.last.width - item.room) / 2) {
+                            const reached = item.last.scale * item.width / item.last.width;
+                            item.scale = Math.min(item.last.scale, Math.max(item.scale, reached));
+                            zoomTable(item);
+                            stalled.push(item);
+                        } else {
+                            over.push(item);
+                        }
                     }
                 }
-            }
 
-            // What still overflows is narrowed alone, measured as it now stands. A transform keeps the row
-            // heights, so the table still breaks between its lines across pages, and the narrowed box is
-            // what counts towards the page's width. It is placed from its container's start edge.
-            const narrowed = overflowing([...stalled, ...over]);
-            for (const item of narrowed) {
-                item.narrowing = item.room / item.width;
-                set(item.table, 'transform-origin', item.fromRight ? 'right top' : 'left top');
-                set(item.table, 'transform', 'scaleX(' + item.narrowing + ')');
+                // What still overflows is narrowed alone, measured as it now stands. A transform keeps the row
+                // heights, so the table still breaks between its lines across pages, and the narrowed box is
+                // what counts towards the page's width. It is placed from its container's start edge.
+                for (const item of overflowing([...stalled, ...over])) {
+                    item.narrowing = item.room / item.width;
+                    set(item.table, 'transform-origin', item.fromRight ? 'right top' : 'left top');
+                    set(item.table, 'transform', 'scaleX(' + item.narrowing + ')');
+                }
             }
+            for (const item of zoomed) item.unzoomed = item.table.getAttribute('style');
+            zoomAll(zoomed, wrapLong(zoomed));
+            // The plan does not see everything the table takes (the gaps of separated borders, say). A table
+            // narrowed past `minimumNarrowing` with short columns still kept whole goes back to how it was
+            // before the zoom, lets them wrap where they already may, and is zoomed once more.
+            const again = zoomed.filter(item => !keepsShortColumns(item.narrowing) && shortOf(item).length);
+            for (const item of again) {
+                if (item.unzoomed === null) item.table.removeAttribute('style');
+                else item.table.setAttribute('style', item.unzoomed);
+                Object.assign(item, { scale: 1, narrowing: 1, need: 0 });
+                shortOf(item).forEach(letWrap);
+            }
+            for (const item of again) item.plan = planFor(item, item.room);
+            if (again.length) zoomAll(again, wrapLong(again));
 
             // A table counts as fitted when its painted width is within its room; anything else is still
             // reported as wider than the page. Only the width is compared, not where the table sits: a table
