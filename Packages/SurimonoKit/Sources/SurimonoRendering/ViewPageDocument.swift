@@ -166,6 +166,7 @@ public enum ViewPageDocument {
                 } else {
                     // Only an undecorated, uncut page without live or stored annotations uses a native copy, which is
                     // never edited: its bounds would be the source's too.
+                    assert(box == original.bounds(for: .cropBox), "A shared page copy must not be cut")
                     guard let copy = StandalonePage.copy(of: original) else { return nil }
                     result.insert(copy, at: viewIndex)
                     continue

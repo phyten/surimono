@@ -66,6 +66,9 @@ public enum StandalonePage {
         return copy
     }
 
+    /// A copy of `page` for another document. A page without annotations is copied natively, and that copy shares its
+    /// page dictionary with `page`: whatever is set on it (its boxes, say) is saved with `page`'s document too. Such a
+    /// copy is never edited; a page to change is taken from a document of its own.
     public static func copy(of page: PDFPage) -> PDFPage? {
         if !page.annotations.isEmpty || hasStoredAnnotations(page) {
             return independentCopy(of: page)

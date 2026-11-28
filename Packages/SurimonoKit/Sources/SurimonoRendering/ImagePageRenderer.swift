@@ -72,12 +72,17 @@ public struct ImagePageRenderer {
 
     /// Copies of the pages cropped to their art boxes, for the screen. The pages themselves keep the whole paper,
     /// because the sheets are composed from their crop boxes.
+    ///
+    /// A page's copy shares its page dictionary with the page, so a crop box set on it would be saved with the logical
+    /// document too. The pages are cut in a document of their own, read from the saved bytes; when that cannot be
+    /// read, the screen shows the whole paper instead.
     static func viewDocument(of document: PDFDocument) -> PDFDocument {
-        let cropped = PDFDocument()
-        for index in 0..<document.pageCount {
-            guard let page = document.page(at: index), let copy = StandalonePage.copy(of: page) else { continue }
-            copy.setBounds(page.bounds(for: .artBox), for: .cropBox)
-            cropped.insert(copy, at: cropped.pageCount)
+        guard let data = document.dataRepresentation(), let cropped = PDFDocument(data: data),
+            cropped.pageCount == document.pageCount
+        else { return document }
+        for index in 0..<cropped.pageCount {
+            guard let page = cropped.page(at: index), let original = document.page(at: index) else { continue }
+            page.setBounds(original.bounds(for: .artBox), for: .cropBox)
         }
         return cropped
     }

@@ -2,11 +2,44 @@ import Foundation
 import ImageIO
 import PDFKit
 import SurimonoCore
-import SurimonoRendering
 import Testing
+
+@testable import SurimonoRendering
 
 @MainActor
 struct ImagePageRendererTests {
+    @Test("画像の表示用の写しを画像の形に切っても、元の文書を保存した用紙は切らない")
+    func viewDocumentLeavesPaperWhole() throws {
+        let source = try RenderingFixtures.pdf(count: 2, size: CGSize(width: 595, height: 842))
+        let paper = CGRect(x: 0, y: 0, width: 595, height: 842)
+        let art = CGRect(x: 42, y: 200, width: 510, height: 300)
+        for index in 0..<2 { source.page(at: index)?.setBounds(art, for: .artBox) }
+        let view = ImagePageRenderer.viewDocument(of: source)
+        #expect(view.page(at: 0)?.bounds(for: .cropBox) == art)
+        let saved = try #require(source.dataRepresentation().flatMap(PDFDocument.init(data:)))
+        for index in 0..<2 {
+            let page = try #require(saved.page(at: index))
+            #expect(page.bounds(for: .mediaBox) == paper)
+            #expect(page.bounds(for: .cropBox) == paper, "\(page.bounds(for: .cropBox))")
+        }
+    }
+
+    @Test("画像を開いて表示の形に切ったあとも、論理ページは用紙の大きさで保存する", .timeLimit(.minutes(1)))
+    func imageDocumentKeepsPaper() async throws {
+        let source = DocumentSource(data: try RenderingFixtures.image(), format: .image)
+        let settings = RenderSettings(
+            layout: .a4Single, theme: PrintTheme(id: "plain", name: "Plain", css: ""),
+            preset: HTMLCleanupPreset(id: "none", name: "None"))
+        let prepared = try await DocumentRenderer().prepare(source, settings: settings)
+        let view = try #require(prepared.viewDocument.page(at: 0))
+        let logical = try #require(prepared.logicalDocument.page(at: 0))
+        #expect(view.bounds(for: .cropBox) == logical.bounds(for: .artBox))
+        let saved = try #require(prepared.logicalDocument.dataRepresentation().flatMap(PDFDocument.init(data:)))
+        let page = try #require(saved.page(at: 0))
+        #expect(page.bounds(for: .cropBox) == page.bounds(for: .mediaBox))
+        #expect(page.bounds(for: .cropBox) != view.bounds(for: .cropBox))
+    }
+
     @Test("8000×6000画像の埋め込み画素数を配置領域の300dpi以下に抑える")
     func limitsLargeImageResolution() async throws {
         let data = try largeImage()

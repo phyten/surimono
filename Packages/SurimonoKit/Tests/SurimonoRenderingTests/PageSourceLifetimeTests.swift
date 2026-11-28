@@ -135,15 +135,16 @@ struct PageSourceLifetimeTests {
         #expect(backing == nil)
     }
 
-    @Test("画像の表示用切り抜きはコピー元の文書を残す")
-    func imageCropKeepsSource() throws {
+    @Test("画像の表示用切り抜きは自分の文書のページで、元の文書がなくなっても読める")
+    func imageCropOwnsItsPages() throws {
         weak var backing: CGPDFDocument?
         let cropped = try autoreleasepool {
             let source = try RenderingFixtures.pdf()
             backing = source.page(at: 0)?.pageRef?.document
             return ImagePageRenderer.viewDocument(of: source)
         }
-        try #require(backing != nil)
+        #expect(backing == nil)
+        #expect(cropped.page(at: 0)?.pageRef?.document != nil)
         #expect(cropped.page(at: 0)?.string?.contains("PAGE-1") == true)
     }
 
