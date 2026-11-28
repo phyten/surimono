@@ -1320,13 +1320,7 @@ public final class DocumentRenderer {
                     return diagram
                 }
                 let prefix = "\(key):\(occurrence):"
-                output.issues += prepared.issues.map { issue in
-                    PrintIssue(
-                        id: prefix + issue.id, kind: issue.kind, detail: issue.detail,
-                        imageFailure: issue.imageFailure, element: issue.element,
-                        pageNumber: issue.pageNumber.map { $0 + offset }, rect: issue.rect,
-                        locationKey: issue.locationKey.map { prefix + $0 })
-                }
+                output.issues += prepared.issues.map { $0.inBinder(prefix: prefix, pageOffset: offset) }
                 output.requiredFolderAccess = output.requiredFolderAccess ?? prepared.requiredFolderAccess
             } catch {
                 if error is CancellationError { throw error }
@@ -1548,6 +1542,8 @@ public final class DocumentRenderer {
                 facts.continuedBeamerFrames = slides.continued
                 facts.beamerPageFrames = slides.frames
                 if page.needsFolderAccess { result.requiredFolderAccess = directory }
+                result.issues = Self.markingOutsideFiles(
+                    result.issues, unread: fragment.unreadFiles, directory: directory)
                 result.finishing.facts = facts
                 result.finishing.bodyHTML = fragment.body
                 return result
@@ -1625,16 +1621,26 @@ public final class DocumentRenderer {
                     source: source
                 )
             }
-            // A fallback is also reported by its printed anchor. Keep that occurrence (and page),
-            // retaining the reader diagnostic when pagination supplied no matching figure.
-            var printedPictures: [String: Int] = [:]
-            for issue in text.issues where issue.kind == .latex && issue.element == .figure {
-                printedPictures[issue.detail, default: 0] += 1
+            // A fallback figure, or a note without a failed read of its own, is also reported by its printed anchor.
+            // Keep that occurrence (and page), retaining the reader diagnostic when pagination supplied no anchor.
+            var printedAnchors: [String: Int] = [:]
+            for issue in text.issues where issue.kind == .latex {
+                printedAnchors[issue.detail, default: 0] += 1
             }
             // A formula that failed is printed as its source, which the page check reports with its page.
             // The reader names each distinct source once; drop that copy when the paper already shows it.
             let printedFormulas = Set(text.issues.filter { $0.kind == .math }.map { String($0.detail.prefix(100)) })
-            for (offset, detail) in fragment.readingIssues.enumerated() {
+            // A file that could not be read is one issue for each failed read, tied to it by id: the page's note
+            // reports it with its page, else the reader's record does. The reader lists the words only once.
+            let printedFailures = Set(text.issues.compactMap(\.unreadFile))
+            for file in fragment.unreadFiles where !printedFailures.contains(file.id) {
+                let kind: PrintIssue.Kind = source.format == .markdown ? .bibliography : .latex
+                var issue = PrintIssue(id: "\(kind.rawValue)-\(file.id)", kind: kind, detail: file.note)
+                issue.unreadFile = file.id
+                text.issues.append(issue)
+            }
+            let fileNotes = Set(fragment.unreadFiles.map(\.issueIndex))
+            for (offset, detail) in fragment.readingIssues.enumerated() where !fileNotes.contains(offset) {
                 let kind: PrintIssue.Kind =
                     switch source.format {
                     case _ where detail == StackSpace.limitIssue: .nestingLimit
@@ -1644,8 +1650,8 @@ public final class DocumentRenderer {
                     case .markdown: .bibliography
                     default: .latex
                     }
-                if kind == .latex, let count = printedPictures[detail], count > 0 {
-                    printedPictures[detail] = count - 1
+                if kind == .latex, let count = printedAnchors[detail], count > 0 {
+                    printedAnchors[detail] = count - 1
                     continue
                 }
                 if kind == .latex,
@@ -1658,6 +1664,7 @@ public final class DocumentRenderer {
                 text.issues.append(PrintIssue(id: "\(kind.rawValue)-reader-\(offset)", kind: kind, detail: detail))
             }
             if page.needsFolderAccess { text.requiredFolderAccess = directory }
+            text.issues = Self.markingOutsideFiles(text.issues, unread: fragment.unreadFiles, directory: directory)
             text = try await finished(
                 text, fragment: fragment, facts: page.facts, source: source,
                 settings: settings)
@@ -1761,7 +1768,7 @@ public final class DocumentRenderer {
                 composition: settings.latexComposition, textWidthPoints: settings.textWidthPoints(in: settings.layout),
                 textScale: settings.textScale,
                 mapsMarkdownSource: !settings.markdownChanges.isEmpty, access: access,
-                onDenied: { needsFolderAccess.set() },
+                onDenied: { _ in needsFolderAccess.set() },
                 imageExists: { url in
                     if let access, !access.permits(url) {
                         needsFolderAccess.set()
@@ -2401,6 +2408,26 @@ public final class DocumentRenderer {
         return result
     }
 
+    /// Names, on the issues about a file the reader could not read, the file when it was refused for lying outside
+    /// the document's folder: the reader is asked for a folder that contains it, not told the file is missing. Each
+    /// issue names its failed read (`unreadFile`), so nothing is read back from the issue's text.
+    nonisolated static func markingOutsideFiles(_ issues: [PrintIssue], unread: [UnreadFile], directory: URL?)
+        -> [PrintIssue]
+    {
+        guard let directory else { return issues }
+        let outside = unread.filter { file in
+            file.refusedURL.map { !LocalResourceAccess.contains($0, in: directory) } ?? false
+        }
+        guard !outside.isEmpty else { return issues }
+        return issues.map { issue in
+            guard let id = issue.unreadFile, let file = outside.first(where: { $0.id == id }) else { return issue }
+            var issue = issue
+            issue.outsideFile = file.reference
+            issue.outsideURL = file.refusedURL
+            return issue
+        }
+    }
+
     func resourceAccess(for source: DocumentSource) -> LocalResourceAccess? {
         guard isSandboxed(), let file = source.fileURL else { return nil }
         return LocalResourceAccess(documentURL: file, folders: source.allowedResourceFolders)
@@ -2481,7 +2508,7 @@ public final class DocumentRenderer {
         composition: LaTeXComposition = .document, textWidthPoints: Double? = nil, textScale: Double = 1,
         mapsMarkdownSource: Bool = false,
         access: LocalResourceAccess? = nil,
-        onDenied: @escaping @Sendable () -> Void = {},
+        onDenied: @escaping @Sendable (URL) -> Void = { _ in },
         imageExists: @escaping @Sendable (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
     ) throws -> HTMLFragment? {
         let access =
@@ -2512,7 +2539,7 @@ public final class DocumentRenderer {
                 permitsFile: {
                     url in
                     guard access?.permits(url) != false else {
-                        onDenied()
+                        onDenied(url)
                         return false
                     }
                     return true

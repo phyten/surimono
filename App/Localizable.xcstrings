@@ -8623,6 +8623,266 @@
         }
       }
     },
+    "Bibliography file %@ is outside the document’s folder.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bibliography file %@ is outside the document’s folder."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Literaturdatei %@ liegt außerhalb des Ordners des Dokuments."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El archivo de bibliografía %@ está fuera de la carpeta del documento."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le fichier bibliographique %@ se trouve en dehors du dossier du document."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文献ファイル %@ は、文書のフォルダの外にあります。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "참고 문헌 파일 %@이(가) 문서 폴더 밖에 있습니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "参考文献文件 %@ 位于文档所在文件夹之外。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "參考文獻檔案 %@ 位於文件所在檔案夾之外。"
+          }
+        }
+      }
+    },
+    "File %@ is outside the document’s folder.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File %@ is outside the document’s folder."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Datei %@ liegt außerhalb des Ordners des Dokuments."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El archivo %@ está fuera de la carpeta del documento."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le fichier %@ se trouve en dehors du dossier du document."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ファイル %@ は、文書のフォルダの外にあります。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "파일 %@이(가) 문서 폴더 밖에 있습니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文件 %@ 位于文档所在文件夹之外。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "檔案 %@ 位於文件所在檔案夾之外。"
+          }
+        }
+      }
+    },
+    "To read it, choose a folder that contains both the document and the file, and allow access.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To read it, choose a folder that contains both the document and the file, and allow access."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wähle zum Lesen einen Ordner, der das Dokument und die Datei enthält, und erlaube den Zugriff."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Para leerlo, elige una carpeta que contenga el documento y el archivo, y permite el acceso."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pour le lire, choisissez un dossier qui contient le document et le fichier, puis autorisez l’accès."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "読むには、文書とそのファイルの両方を含むフォルダを選んで許可してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "읽으려면 문서와 파일이 모두 들어 있는 폴더를 선택하고 접근을 허용하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "若要读取，请选择同时包含文档和该文件的文件夹并允许访问。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "若要讀取，請選擇同時包含文件與該檔案的檔案夾並允許取用。"
+          }
+        }
+      }
+    },
+    "Reading files outside the document’s folder needs permission": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading files outside the document’s folder needs permission"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zum Lesen von Dateien außerhalb des Ordners des Dokuments ist eine Erlaubnis erforderlich"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Para leer archivos fuera de la carpeta del documento se necesita permiso"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La lecture de fichiers en dehors du dossier du document nécessite une autorisation"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文書のフォルダの外にあるファイルを読むには、許可が必要です"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "문서 폴더 밖의 파일을 읽으려면 권한이 필요합니다"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "读取文档所在文件夹之外的文件需要权限"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "讀取文件所在檔案夾之外的檔案需要權限"
+          }
+        }
+      }
+    },
+    "Choose a folder that contains both this document and the files it refers to.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a folder that contains both this document and the files it refers to."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wähle einen Ordner, der dieses Dokument und die Dateien enthält, auf die es verweist."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige una carpeta que contenga este documento y los archivos a los que hace referencia."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez un dossier qui contient ce document et les fichiers auxquels il fait référence."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この文書と、文書が参照するファイルの両方を含むフォルダを選んでください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 문서와 문서가 참조하는 파일이 모두 들어 있는 폴더를 선택하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请选择同时包含此文档及其引用文件的文件夹。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請選擇同時包含此文件及其參照檔案的檔案夾。"
+          }
+        }
+      }
+    },
     "Could not read bibliography file: %@": {
       "localizations": {
         "en": {
