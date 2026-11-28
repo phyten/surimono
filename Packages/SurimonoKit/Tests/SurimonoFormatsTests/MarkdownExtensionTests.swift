@@ -18,6 +18,25 @@ struct MarkdownExtensionTests {
 
     private func body(_ markdown: String) -> String { MarkdownConverter.convert(markdown).body }
 
+    // `MarkdownExtensions.protection` also records HTML code elements for Quarto and R Markdown; Markdown itself
+    // must read them as before.
+    @Test(
+        "HTMLのコード要素とコードスパンの中のタグは、Markdownでは今までどおりに読む",
+        arguments: [
+            (
+                #"a <code title="x > y">*b*</code> c"#,
+                "<p>a <code title=\"x > y\"><em>b</em></code> c</p>\n"
+            ),
+            (
+                "Use `<code>`; *x*; close `</code>`.",
+                "<p>Use <code>&lt;code&gt;</code>; <em>x</em>; close <code>&lt;/code&gt;</code>.</p>\n"
+            ),
+            ("Example: <code>\n*b*\n</code> end", "<p>Example: <code>\n<em>b</em>\n</code> end</p>\n"),
+        ])
+    func htmlCodeInMarkdown(source: String, expected: String) {
+        #expect(body(source) == expected)
+    }
+
     @Test("脚注は最初に参照した順に番号を振り、定義を本文から外して末尾にまとめる")
     func footnotes() {
         let html = body("本文[^a]と[^b]。\n\n[^b]: 二つ目\n[^a]: 一つ目\n    続きの行\n\n後の段落")

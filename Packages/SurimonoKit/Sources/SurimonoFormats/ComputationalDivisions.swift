@@ -119,7 +119,18 @@ extension ComputationalBody {
         }
     }
 
-    mutating func prose(_ line: String) {
+    mutating func prose(_ line: String, at index: Int? = nil) {
+        if let index, literal.lines.indices.contains(index), literal.lines[index] || formulaLines.contains(index) {
+            output.append(line)
+            return
+        }
+        let spans = index.map { (literal.spans[$0] ?? []) + (literal.htmlCode[$0] ?? []) } ?? []
+        // The spans of a part of the line, measured from where the part starts.
+        func spansOfPart(from start: String.Index, to end: String.Index? = nil) -> [Range<Int>] {
+            let lower = line.utf8.distance(from: line.startIndex, to: start)
+            let upper = line.utf8.distance(from: line.startIndex, to: end ?? line.endIndex)
+            return ComputationalLiterals.spans(spans, within: lower..<upper)
+        }
         if line.trimmingCharacters(in: .whitespaces) == #"\newpage"# {
             block("<div class=\"page-break\"></div>")
         } else if line.hasPrefix("#"), let match = line.wholeMatch(of: /^(#{1,6})\s+(.*?)(?:\s+\{([^{}]+)\})?\s*$/) {
@@ -131,7 +142,7 @@ extension ComputationalBody {
             if ComputationalLabel.kind(id) == "sec" { _ = register(id, kind: "sec", heading: title) }
             if attrs.classes.contains("unnumbered") { unnumbered.insert(id) }
             if attrs.classes.contains("unlisted") { unlisted.insert(id) } else { headings.append((level, id, title)) }
-            output.append("\(match.1) \(inline(title)) {#\(id)}")
+            output.append("\(match.1) \(inline(title, literalSpans: spansOfPart(from: match.2.startIndex))) {#\(id)}")
         } else if line.contains("{#fig-"),
             let match = line.wholeMatch(of: /^\s*(!\[([^\]]*)\]\(.+\))\s*\{#(fig-[\w:.-]+)\}\s*$/)
         {
@@ -143,17 +154,42 @@ extension ComputationalBody {
             let target = register(String(match.2), kind: "tbl")
             block(
                 "<div\(target.attribute) class=\"table-caption\">\(target.text) \(HTML.escape(String(match.1)))</div>")
+        } else if line.hasPrefix(":") || line.hasPrefix("Table:"),
+            let match = line.wholeMatch(of: /^(?:Table)?:\s+\(\\#(tab:[\w:.-]+)\)\s*(.*?)\s*$/)
+        {
+            // bookdown labels a Markdown table in its caption: `Table: (\#tab:id) Caption`. The caption is a paragraph
+            // the Markdown reader typesets as any other; `unwrappingCaptions` then takes its `p` away.
+            let target = register(String(match.1), kind: "tab")
+            block("<div\(target.attribute) class=\"table-caption\" \(captionMark)>")
+            let caption = spansOfPart(from: match.2.startIndex, to: match.2.endIndex)
+            output.append(target.text + " " + inline(String(match.2), literalSpans: caption))
+            block("</div>")
         } else if line.contains("{#eq-"), let match = line.wholeMatch(of: /^(.*\$\$)\s*\{#(eq-[\w:.-]+)\}\s*$/) {
             let target = register(String(match.2), kind: "eq")
             output.append(String(match.1))
             block("<div\(target.attribute) class=\"equation-number\">(\(target.shortText))</div>")
         } else if line.hasPrefix("| "), !line.dropFirst().contains("|") {
-            output.append(inline(String(line.dropFirst(2))) + "  ")
+            // The line loses its first two characters, so the UTF-8 spans move with it.
+            let rest = line.index(line.startIndex, offsetBy: 2)
+            output.append(inline(String(line[rest...]), literalSpans: spansOfPart(from: rest)) + "  ")
         } else if line.hasPrefix("    ") || line.hasPrefix("\t") {
             output.append(line)
         } else {
-            output.append(inline(line))
+            output.append(inline(line, literalSpans: spans))
         }
+    }
+
+    /// Marks a caption written as a paragraph in its own element.
+    var captionMark: String { "data-\(token)-caption" }
+
+    /// The captions as the Markdown reader typeset them, without the paragraph around their text.
+    func unwrappingCaptions(_ html: String) -> String {
+        guard html.contains(captionMark) else { return html }
+        let mark = NSRegularExpression.escapedPattern(for: " " + captionMark)
+        let unwrapped = html.replacingOccurrences(
+            of: "(<div[^>]*?)\(mark)>\\s*<p>([\\s\\S]*?)</p>\\s*</div>", with: "$1>$2</div>",
+            options: .regularExpression)
+        return unwrapped.replacingOccurrences(of: " " + captionMark, with: "")
     }
 
     mutating func resolveHeadings(_ anchors: [MarkdownExtensions.HeadingAnchor], numbered: Bool) {
@@ -169,6 +205,15 @@ extension ComputationalBody {
                     label.value = .heading(anchor.text)
                 }
                 labels[requested] = label
+            } else if case let requested = anchor.customID ?? anchor.id, labels[requested] == nil,
+                bookdownTargets.contains(requested), !anchor.number.isEmpty
+            {
+                // bookdown refers to a section by its heading's ID and prints its number; a heading without a number
+                // is not in its table, so the reference stays unresolved as bookdown leaves it. A Setext heading has
+                // no written ID, only the one made from its title.
+                labels[requested] = ComputationalLabel(
+                    id: anchor.id, kind: "sec", value: .number(String(anchor.number.dropLast())),
+                    name: metadata.japanese ? "節" : "Section")
             }
             let title = anchor.customID.flatMap { titles[$0] }
             guard numbered || title != nil, !unlisted.contains(anchor.customID ?? "") else { return nil }

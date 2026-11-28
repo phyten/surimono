@@ -25,6 +25,21 @@ struct PrintIssueTests {
         }
     }
 
+    @Test("見つからない相互参照は名前を並べて選択言語で知らせる")
+    func unresolvedReferences() {
+        let issue = PrintIssue(id: "0", kind: .reference, detail: "fig:plan, tab:sizes")
+        let english = PrintIssueText.title(issue, language: "en")
+        #expect(english == "Cross-references not found: fig:plan, tab:sizes")
+        #expect(PrintIssueText.title(issue, language: "ja") == "見つからない相互参照：fig:plan, tab:sizes")
+        for language in ["de", "es", "fr", "ko", "zh-Hans", "zh-Hant"] {
+            let title = PrintIssueText.title(issue, language: language)
+            #expect(title != english)
+            #expect(title.hasSuffix("fig:plan, tab:sizes"))
+            #expect(!title.contains("%@"))
+        }
+        #expect(issue.group == .content)
+    }
+
     @Test("問題がなければ札もメニューも出さず、問題があれば件数を示す", .timeLimit(.minutes(1)))
     func count() async throws {
         let suite = TestDefaultsSuite()

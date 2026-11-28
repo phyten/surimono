@@ -704,7 +704,8 @@ struct OrgParser {
         while index < lines.count {
             let line = lines[index].trimmingCharacters(in: .whitespaces)
             guard line.hasPrefix("|") else { break }
-            if orgCaptures(#"^\|-[\-+]*\|?$"#, line) != nil {
+            // Org takes any row that starts with `|-` as a rule, whatever follows (`|---+---|--|` too).
+            if line.hasPrefix("|-") {
                 rows.append(nil)
             } else {
                 var content = String(line.dropFirst())

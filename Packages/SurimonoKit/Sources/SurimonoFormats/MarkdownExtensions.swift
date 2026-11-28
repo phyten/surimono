@@ -115,6 +115,10 @@ enum MarkdownExtensions {
         /// UTF-8 offsets within each line.
         var spans: [Int: [Range<Int>]] = [:]
         var paragraphEnds: [Int: Int] = [:]
+        /// UTF-8 offsets within each line of the contents of inline HTML code elements (`<code>`, `<pre>`, `<kbd>`,
+        /// `<samp>`), between tags cmark read as HTML; an element may run over the lines of its paragraph. The
+        /// Markdown reader leaves them to cmark; Quarto and R Markdown look for no cross-references there.
+        var htmlCode: [Int: [Range<Int>]] = [:]
 
         /// Whether the line's first character is left as written.
         func protectsStart(of line: Int) -> Bool {
@@ -127,10 +131,45 @@ enum MarkdownExtensions {
         pattern: #"^(?:[ \t]*(?:>|(?:[-+*]|[0-9]{1,9}[.)])(?=[ \t])))*[ \t]*"#)
     private static let referenceLabel = try? NSRegularExpression(pattern: #"^\[(?!\^)(?:[^\]\\]|\\.)+\]:"#)
 
+    // cmark has already read the tag as HTML; only its name and whether it closes are wanted here, since an
+    // attribute value may hold a `>`.
+    private static let htmlCodeTag = try? NSRegularExpression(
+        pattern: #"^<(/?)(code|pre|kbd|samp)(?=[\s/>])"#, options: [.caseInsensitive])
+
     static func protection(_ lines: [String]) -> Protection {
         var result = Protection(lines: Array(repeating: false, count: lines.count))
+        // The open HTML code element in the current block: its name and where its contents start.
+        var openCode: (name: String, line: Int, column: Int)?
+        func codeTag(_ html: InlineHTML) -> (closing: Bool, name: String)? {
+            let raw = html.rawHTML
+            guard let tag = htmlCodeTag?.firstMatch(in: raw, range: NSRange(raw.startIndex..., in: raw)),
+                let slash = Range(tag.range(at: 1), in: raw), let name = Range(tag.range(at: 2), in: raw)
+            else { return nil }
+            return (!raw[slash].isEmpty, raw[name].lowercased())
+        }
+        func protectCode(from start: (line: Int, column: Int), to end: (line: Int, column: Int)) {
+            for index in start.line...end.line where index >= 0 && index < lines.count {
+                let lower = index == start.line ? start.column : 0
+                let upper = index == end.line ? end.column : lines[index].utf8.count
+                if lower < upper { result.htmlCode[index, default: []].append(lower..<upper) }
+            }
+        }
         func visit(_ node: any Markup) {
             if PreviewConversion.expired { return }
+            if node is BlockMarkup { openCode = nil }
+            if let html = node as? InlineHTML, let range = html.range, let tag = codeTag(html) {
+                if let open = openCode {
+                    if tag.closing, tag.name == open.name {
+                        protectCode(
+                            from: (open.line, open.column),
+                            to: (range.lowerBound.line - 1, range.lowerBound.column - 1))
+                        openCode = nil
+                    }
+                } else if !tag.closing {
+                    openCode = (tag.name, range.upperBound.line - 1, range.upperBound.column - 1)
+                }
+                return
+            }
             guard let range = node.range else {
                 for child in node.children { visit(child) }
                 return
@@ -160,6 +199,26 @@ enum MarkdownExtensions {
         }
         visit(MarkdownNesting.document(parsing: lines.joined(separator: "\n"), options: [.disableSmartOpts]))
         for index in referenceDefinitionLines(lines, skipping: result.lines) { result.lines[index] = true }
+        return result
+    }
+
+    /// The lines of the display formulas (`$$` or `\[` at the start of a line, on one line or several) that
+    /// `rewriteInline` typesets as blocks, found with the same search.
+    static func displayFormulaLines(_ lines: [String], protection: Protection) -> Set<Int> {
+        var result = Set<Int>()
+        var searched: [String: Int] = [:]
+        var index = 0
+        while index < lines.count {
+            if PreviewConversion.expired { break }
+            if !protection.lines[index], protection.spans[index] == nil,
+                case .block(let block) = displayBlock(lines, at: index, protection: protection, searched: &searched)
+            {
+                result.formUnion(index..<block.end)
+                index = block.end
+            } else {
+                index += 1
+            }
+        }
         return result
     }
 

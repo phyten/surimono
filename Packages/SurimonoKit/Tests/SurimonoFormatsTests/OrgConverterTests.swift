@@ -88,6 +88,20 @@ struct OrgConverterTests {
         #expect(!body.contains("---"))
     }
 
+    @Test("|- で始まる行は、途中に | があっても表の横罫になる")
+    func tableRuleWithBars() {
+        let body = OrgConverter.convert("| 記号 | 意味 | 値 |\n|------+------|----|\n| a | 紙 | 1 |").body
+        #expect(body.contains("<thead><tr><th>記号</th><th>意味</th><th align=\"right\">値</th></tr></thead>"))
+        #expect(body.contains("<tbody><tr><td>a</td><td>紙</td><td align=\"right\">1</td></tr></tbody>"))
+        #expect(!body.contains("---"))
+    }
+
+    @Test("中括弧のない下付きと上付きは、Emacsと同じく続く英数字（かなと漢字を含む）まで取る")
+    func bracelessScriptsTakeLetters() {
+        let body = OrgConverter.convert("#+OPTIONS: ^:t\n長さL^2のように、体積V_0、").body
+        #expect(body.contains("長さL<sup>2のように</sup>、体積V<sub>0</sub>、"))
+    }
+
     @Test("区切りのない表はすべて本文になる")
     func tableWithoutHeader() {
         let body = OrgConverter.convert("| a | b |").body

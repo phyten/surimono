@@ -1635,9 +1635,13 @@ public final class DocumentRenderer {
                 text.issues.append(issue)
             }
             let fileNotes = Set(fragment.unreadFiles.map(\.issueIndex))
-            for (offset, detail) in fragment.readingIssues.enumerated() where !fileNotes.contains(offset) {
+            for (offset, reported) in fragment.readingIssues.enumerated() where !fileNotes.contains(offset) {
+                let referencePrefix = ComputationalMarkdown.unresolvedReferencePrefix
+                let references = reported.hasPrefix(referencePrefix)
+                let detail = references ? String(reported.dropFirst(referencePrefix.count)) : reported
                 let kind: PrintIssue.Kind =
                     switch source.format {
+                    case _ where references: .reference
                     case _ where detail == StackSpace.limitIssue: .nestingLimit
                     case _ where detail == StackSpace.omissionIssue: .nestingOmission
                     case .org where detail == OrgConverter.contentsLimitIssue: .contentsLimit
