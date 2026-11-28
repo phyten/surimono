@@ -458,6 +458,50 @@ struct PaperViewTests {
         withExtendedLifetime(window) {}
     }
 
+    @Test("縦の連続スクロールで開いた直後は、短い 1 ページ目より次のページが大きく見えても 1 ページ目と報告する")
+    func shortFirstPageIsCurrentAtTheStart() throws {
+        // Diagram pages take their own heights: a short first page, a tall second one and short ones after it.
+        let source = try #require(PDFDocument(data: TestFixtures.pdf("short-first", pages: 4)))
+        for (index, height) in [175.0, 552, 107, 300].enumerated() {
+            let box = CGRect(x: 0, y: 0, width: 595, height: height)
+            source.page(at: index)?.setBounds(box, for: .mediaBox)
+            source.page(at: index)?.setBounds(box, for: .cropBox)
+        }
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 659, height: 932), styleMask: [.titled], backing: .buffered,
+            defer: true)
+        window.isReleasedWhenClosed = false
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 659, height: 932))
+        window.contentView = container
+        // SwiftUI shows the document before the paper has a size; PDFKit names its current page again once it has.
+        let view = PaperPDFView(frame: .zero)
+        container.addSubview(view)
+        view.configure(
+            source, at: 0,
+            options: ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false),
+            logicalMargin: 0, showsPageNumbers: false)
+        var reported: [Int] = []
+        view.onPageChange = { reported.append($0) }
+        view.frame = container.bounds
+        view.layoutSubtreeIfNeeded()
+        view.goToPage(index: 0)
+        view.layoutSubtreeIfNeeded()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        #expect(view.currentPageIndex == 0)
+        #expect(reported.allSatisfy { $0 == 0 })
+        // Once the first page's top leaves the view, the reader is on the page PDFKit names, and the band hears it.
+        let clip = try #require(view.documentView?.enclosingScrollView?.contentView)
+        let first = try #require(view.document?.page(at: 0))
+        let start = clip.bounds.origin
+        let down = view.convert(first.bounds(for: .cropBox), from: first).height / 2
+        clip.scroll(to: NSPoint(x: start.x, y: clip.isFlipped ? start.y + down : start.y - down))
+        view.documentView?.enclosingScrollView?.reflectScrolledClipView(clip)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        #expect(view.currentPageIndex == 1)
+        #expect(reported.last == 1)
+        withExtendedLifetime(window) {}
+    }
+
     @Test("横スクロールでは 1 ページが窓の幅いっぱいで、隣のページがのぞかない")
     func horizontalPageFillsWindow() throws {
         let source = try #require(PDFDocument(data: TestFixtures.pdf("axis-fill", pages: 4)))

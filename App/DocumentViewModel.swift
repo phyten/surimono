@@ -2347,6 +2347,9 @@ final class DocumentViewModel {
     /// Whether the margin changes the printed sheets: everything but PDFs, including the 3-up handout's sheet.
     var marginsAffectPrinting: Bool { binder != nil || format != .pdf }
 
+    /// Whether the margin editor should say PDFs keep theirs: only a binder can show the editor with a PDF in it.
+    var notesPDFMargins: Bool { binder?.items.contains { $0.format == .pdf } == true }
+
     var usesDocumentMargins: Bool {
         themeFormat == .latex && printOptions.latexMargins?.applies(to: theme(themeID)) == true
     }

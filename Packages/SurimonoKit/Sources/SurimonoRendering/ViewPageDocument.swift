@@ -11,6 +11,7 @@ extension PDFDocument {
 
     private static var viewPageOriginKey: UInt8 = 0
     private static var contentBottomCacheKey: UInt8 = 0
+    private static var headingStartCacheKey: UInt8 = 0
 
     var viewPageOrigin: ViewPageOrigin? {
         get { objc_getAssociatedObject(self, &Self.viewPageOriginKey) as? ViewPageOrigin }
@@ -34,6 +35,23 @@ extension PDFDocument {
         }
         let cache = ContentBottomCache()
         objc_setAssociatedObject(self, &Self.contentBottomCacheKey, cache, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        return cache
+    }
+
+    final class HeadingStartCache {
+        struct Entry {
+            weak var page: PDFPage?
+            let startsWithHeading: Bool
+        }
+        var entries: [Int: Entry] = [:]
+    }
+
+    var headingStartCache: HeadingStartCache {
+        if let existing = objc_getAssociatedObject(self, &Self.headingStartCacheKey) as? HeadingStartCache {
+            return existing
+        }
+        let cache = HeadingStartCache()
+        objc_setAssociatedObject(self, &Self.headingStartCacheKey, cache, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
         return cache
     }
 }
@@ -318,6 +336,46 @@ public enum ViewPageDocument {
             result[index] = bottom
         }
         return result
+    }
+
+    /// The requested pages whose first line of text is set larger than most of the page's text: a heading the page
+    /// break moved to the top of the page. Cached on `source` under the same read-only contract as `contentBottoms`.
+    public static func headingStarts(of source: PDFDocument, pages: [Int]) -> Set<Int> {
+        let cache = source.headingStartCache
+        var result: Set<Int> = []
+        for index in pages {
+            guard let page = source.page(at: index) else { continue }
+            let starts: Bool
+            if let entry = cache.entries[index], entry.page === page {
+                starts = entry.startsWithHeading
+            } else {
+                starts = startsWithHeading(page)
+                cache.entries[index] = .init(page: page, startsWithHeading: starts)
+            }
+            if starts { result.insert(index) }
+        }
+        return result
+    }
+
+    /// A heading is told from the text after it by size alone: themes set headings at least about 1.2 times the body.
+    private static func startsWithHeading(_ page: PDFPage) -> Bool {
+        guard let text = page.attributedString, text.length > 0 else { return false }
+        let string = text.string as NSString
+        let start = string.rangeOfCharacter(from: CharacterSet.whitespacesAndNewlines.inverted).location
+        guard start != NSNotFound else { return false }
+        let firstLine = string.lineRange(for: NSRange(location: start, length: 0))
+        var counts: [CGFloat: Int] = [:]
+        var lineSize: CGFloat = 0
+        text.enumerateAttribute(.font, in: NSRange(location: 0, length: text.length)) { value, range, _ in
+            guard let font = value as? NSFont else { return }
+            let size = (font.pointSize * 10).rounded() / 10
+            counts[size, default: 0] += range.length
+            if NSIntersectionRange(range, firstLine).length > 0 { lineSize = max(lineSize, font.pointSize) }
+        }
+        guard let body = counts.max(by: { $0.value < $1.value || ($0.value == $1.value && $0.key > $1.key) })?.key,
+            body > 0
+        else { return false }
+        return lineSize >= body * 1.15
     }
 
     /// Renders `page` at 1 pt resolution to find the lowest row above the bottom margin that differs at all from a

@@ -204,6 +204,27 @@ struct ViewPageLayoutTests {
         #expect(plan.cropInsets(at: 2, pageHeight: 842, margin: 42) == ViewPageLayout.CropInsets(top: 42, bottom: 0))
     }
 
+    @Test("結合の継ぎ目で見出しから始まるページは、見出しの上に継ぎ目の空きの 2 倍を残して上の余白を切る")
+    func keepsRoomAboveAHeadingAtTheSeam() {
+        let options = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false)
+        let plan = ViewPageLayout(
+            pageCount: 3, options: options, hasLogicalMargins: true, showsNumbers: false, headingStarts: [1, 2])
+        #expect(plan.trimmableTopPages == [1, 2])
+        // 42 - 2 × 10 (seamTrailingPadding) = 22
+        #expect(plan.cropInsets(at: 1, pageHeight: 842, margin: 42) == ViewPageLayout.CropInsets(top: 22, bottom: 42))
+        #expect(plan.cropInsets(at: 2, pageHeight: 842, margin: 42) == ViewPageLayout.CropInsets(top: 22, bottom: 0))
+        // The first page has no seam above it.
+        #expect(plan.cropInsets(at: 0, pageHeight: 842, margin: 42) == ViewPageLayout.CropInsets(top: 0, bottom: 42))
+        let plain = ViewPageLayout(pageCount: 3, options: options, hasLogicalMargins: true, showsNumbers: false)
+        #expect(plan.documentKey(margin: 42) != plain.documentKey(margin: 42))
+        // Text twice the size keeps twice the room, and a small margin is never cut below zero.
+        let large = ViewPageLayout(
+            pageCount: 2, options: options, hasLogicalMargins: true, showsNumbers: false, headingStarts: [1],
+            textScale: 2)
+        #expect(large.cropInsets(at: 1, pageHeight: 842, margin: 42) == ViewPageLayout.CropInsets(top: 2, bottom: 0))
+        #expect(large.cropInsets(at: 1, pageHeight: 842, margin: 30) == ViewPageLayout.CropInsets(top: 0, bottom: 0))
+    }
+
     @Test("フッターがあるページは下端の未使用領域を詰めない")
     func footerPreventsBottomTrimming() {
         let options = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false)

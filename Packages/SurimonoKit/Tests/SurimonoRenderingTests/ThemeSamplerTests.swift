@@ -216,6 +216,26 @@ struct ThemeSamplerTests {
         }
     }
 
+    @Test("見本の下端は行の途中で切らず、入りきらない行は描かない", .timeLimit(.minutes(1)))
+    func sampleEndsBetweenLines() async throws {
+        let sampler = try sampler(longDocument(), theme: theme("plain", css: ""))
+        defer { sampler.close() }
+        let place = try #require(try await sampler.places().first { $0.title == "見出し5番" })
+        // Line pitches that leave a fraction of a line at the bottom of the text area.
+        for (index, pitch) in [23, 29, 31, 37].enumerated() {
+            let theme = theme("pitch\(index)", css: "body { font-size: 17px; line-height: \(pitch)px; }")
+            let margins = sampler.margins(for: theme)
+            for page in [try await sampler.firstPage(for: theme), try await sampler.page(for: theme, at: place)] {
+                let lines = try #require(page.selection(for: page.bounds(for: .mediaBox))?.selectionsByLine())
+                #expect(!lines.isEmpty)
+                for line in lines where !(line.string ?? "").trimmingCharacters(in: .whitespaces).isEmpty {
+                    // PDF pages count upward, so the text area's bottom edge is the bottom margin.
+                    #expect(line.bounds(for: page).minY >= margins.bottom - 0.5, "\(pitch)px: \(line.string ?? "")")
+                }
+            }
+        }
+    }
+
     @Test("文書の終わりの見出しでは、見本は同じ大きさのまま下が空く", .timeLimit(.minutes(1)))
     func lastHeadingLeavesThePageOpen() async throws {
         let standard = try #require(PrintThemeLibrary.load().first { $0.id == "standard" })

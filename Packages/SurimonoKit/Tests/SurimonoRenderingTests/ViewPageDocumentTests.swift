@@ -53,6 +53,34 @@ struct ViewPageDocumentTests {
                 == (rotation == 0 ? CGSize(width: 500, height: 300) : CGSize(width: 300, height: 500)))
     }
 
+    @Test("最初の行が本文より大きな字のページを、見出しから始まるページと見る")
+    func findsPagesStartingWithAHeading() throws {
+        // Page 0 is body text only, page 1 starts with a larger heading, page 2 starts with body text and has a
+        // heading further down, and page 3 is blank.
+        let pages: [[(String, CGFloat)]] = [
+            [("Plain words", 11), ("More plain words", 11)],
+            [("Next part", 16), ("Body after the heading", 11), ("Another body line", 11)],
+            [("Body continues", 11), ("Later part", 16), ("Body again", 11), ("And more", 11)],
+            [],
+        ]
+        let data = NSMutableData()
+        var box = CGRect(x: 0, y: 0, width: 300, height: 400)
+        let consumer = try #require(CGDataConsumer(data: data as CFMutableData))
+        let context = try #require(CGContext(consumer: consumer, mediaBox: &box, nil))
+        for lines in pages {
+            context.beginPDFPage(nil)
+            for (offset, line) in lines.enumerated() {
+                let text = NSAttributedString(string: line.0, attributes: [.font: NSFont.systemFont(ofSize: line.1)])
+                context.textPosition = CGPoint(x: 30, y: 360 - CGFloat(offset) * 30)
+                CTLineDraw(CTLineCreateWithAttributedString(text), context)
+            }
+            context.endPDFPage()
+        }
+        context.closePDF()
+        let source = try #require(PDFDocument(data: data as Data))
+        #expect(ViewPageDocument.headingStarts(of: source, pages: [0, 1, 2, 3]) == [1])
+    }
+
     @Test("ページをつなぐ表示の写しで余白を切っても、元の文書を保存したページは切らない")
     func joinedCopyLeavesSourceUncut() throws {
         let source = try RenderingFixtures.pdf(count: 3, size: CGSize(width: 300, height: 500))

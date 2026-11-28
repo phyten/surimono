@@ -69,6 +69,20 @@ struct SmartRemovalSettingsTests {
         #expect(markdown.renderSettings?.smartRemoval == nil)
     }
 
+    @Test("「そのまま」でスマート削除をオンにすると、帯のスタイルの名前はスマート削除になる")
+    func bandNameNamesSmartRemovalOverAsIs() throws {
+        let (preferences, library, _, cleanUp) = try environment()
+        defer { cleanUp() }
+        let html = model(preferences, library, nil, format: .html)
+        html.presetID = "none"
+        let asIs = try #require(html.selectedPresetName)
+        #expect(html.styleName == asIs)
+        html.setSmartRemoval(enabled: true)
+        #expect(html.styleName == String(localized: "Smart Removal"))
+        html.presetID = "article"
+        #expect(html.styleName == html.selectedPresetName)
+    }
+
     @Test("スマート削除の状態と残す部分を内容のハッシュで覚え、次に開いたときに戻す", .timeLimit(.minutes(1)))
     func remembersSmartRemoval() async throws {
         let (preferences, library, store, cleanUp) = try environment()

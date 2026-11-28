@@ -110,7 +110,7 @@ public final class ThemeSampler {
     // an older specimen. Length prefixes keep adjacent fields unambiguous without persisting their contents.
     public func cacheKey(for theme: PrintTheme, language: String, sourceHash: String = "") -> String {
         let effectiveMargins = margins(for: theme)
-        let version = theme.flow == .vertical ? "theme-sample-vertical-v3-\(booklet)" : "theme-sample-v3"
+        let version = theme.flow == .vertical ? "theme-sample-vertical-v3-\(booklet)" : "theme-sample-v4"
         let fields = [
             version, theme.id,
             language, sourceHash, html, format.rawValue,
@@ -265,6 +265,7 @@ public final class ThemeSampler {
             placementMargins.left = 0
             placementMargins.right = 0
         }
+        captureSize.height = try await settledHeight(from: top, height: captureSize.height, in: session.webView)
         configuration.rect = CGRect(origin: CGPoint(x: 0, y: top), size: captureSize)
         let data = try await session.webView.pdfForPrinting(configuration: configuration, until: .now + timeout)
         if usesPaperWidth {
@@ -317,10 +318,20 @@ public final class ThemeSampler {
     /// Where `place` starts under the theme in the web view, in the web view's points; the top without such a place.
     private func top(of place: SamplePlace, in webView: WKWebView) async throws -> CGFloat {
         let top = try await webView.evaluateForPrinting(
-            Self.placeElements + Self.locating,
+            Self.placeElements + Self.unscaling + Self.locating,
             arguments: ["kind": place.kind.rawValue, "index": place.index, "lead": Self.placeLead], world: world,
             until: .now + timeout)
         return (top as? NSNumber).map { CGFloat(truncating: $0) } ?? 0
+    }
+
+    /// The height of the capture from `top` that ends between lines: a line of text, an image or a diagram the bottom
+    /// edge would cut through is left out, and the paper stays blank below the last whole one. The full height when
+    /// nothing fits, as a figure taller than the page.
+    private func settledHeight(from top: CGFloat, height: CGFloat, in webView: WKWebView) async throws -> CGFloat {
+        let settled = try await webView.evaluateForPrinting(
+            Self.unscaling + Self.settling, arguments: ["top": top, "height": height], world: world,
+            until: .now + timeout)
+        return (settled as? NSNumber).map { CGFloat(truncating: $0) } ?? height
     }
 
     /// Room kept above a place, out of its own margin, so that a border or a shadow on the element is not cut.
@@ -359,9 +370,7 @@ public final class ThemeSampler {
     /// The text size is a CSS zoom on the root. Rectangles include it from Safari 26.4 on and leave it out before, so a
     /// box of a known height tells which this WebKit does. Inline `!important` keeps the document's and the reader's
     /// styles off the box, which would change its height and throw every place off.
-    private static let locating = """
-        const element = elements[kind][index];
-        if (!element) { return 0; }
+    private static let unscaling = """
         const probe = document.createElement('surimono-probe');
         probe.style.cssText = `all: initial !important; display: block !important; position: absolute !important;
             height: 100px !important; visibility: hidden !important;`;
@@ -370,9 +379,54 @@ public final class ThemeSampler {
         probe.remove();
         const zoom = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
         const unscaled = reported > 0 ? zoom / reported : 1;
+
+        """
+
+    private static let locating = """
+        const element = elements[kind][index];
+        if (!element) { return 0; }
         const margin = parseFloat(getComputedStyle(element).marginTop) || 0;
         const top = (element.getBoundingClientRect().top + window.scrollY) * unscaled;
         return Math.max(top - Math.min(margin, lead), 0);
+        """
+
+    /// Moves the bottom edge up above anything it would cut, again and again, since a line moved out of the sample
+    /// may bring the edge into the line above it.
+    private static let settling = """
+        const boxes = [];
+        const range = document.createRange();
+        const edge = (top + height) / unscaled - window.scrollY;
+        // Only the boxes that reach the bottom edge matter; a document's other pages are skipped a block at a time.
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+            acceptNode(node) {
+                if (node.nodeType === Node.TEXT_NODE) { return NodeFilter.FILTER_ACCEPT; }
+                const box = node.getBoundingClientRect();
+                const outside = box.height > 0 && (box.bottom < edge - 1 || box.top > edge + 1)
+                    && getComputedStyle(node).position === 'static';
+                return outside ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_SKIP;
+            },
+        });
+        while (walker.nextNode()) {
+            const node = walker.currentNode;
+            if (!node.data.trim()) { continue; }
+            range.selectNodeContents(node);
+            boxes.push(...range.getClientRects());
+        }
+        for (const element of document.body.querySelectorAll('img, svg, canvas, video, iframe, object, embed')) {
+            boxes.push(element.getBoundingClientRect());
+        }
+        const spans = boxes.map((box) => ({ top: (box.top + window.scrollY) * unscaled,
+            bottom: (box.bottom + window.scrollY) * unscaled })).filter((span) => span.bottom > span.top);
+        let cut = top + height;
+        for (let pass = 0; pass < 200; pass += 1) {
+            let next = cut;
+            for (const span of spans) {
+                if (span.top >= top && span.top < next - 0.5 && span.bottom > next + 0.5) { next = span.top; }
+            }
+            if (next === cut) { break; }
+            cut = next;
+        }
+        return cut > top + 1 ? cut - top : height;
         """
 
     /// Releases the web view, its window and temporary file. Later requests fail with `SamplingError.closed`.

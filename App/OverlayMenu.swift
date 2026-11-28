@@ -742,9 +742,13 @@ struct StyleMenu: View {
 }
 
 extension DocumentViewModel {
-    /// The chosen print theme, or for HTML the cleanup preset (Smart Removal shows in the band's icon).
+    /// The chosen print theme, or for HTML the cleanup preset (Smart Removal shows in the band's icon). "As Is" with
+    /// Smart Removal removes parts, so the band names what is in effect rather than claiming the page is untouched.
     var styleName: String {
-        if usesHTMLPreset && !usesPrintTheme { return selectedPresetName ?? presetID }
+        if usesHTMLPreset && !usesPrintTheme {
+            if presetID == "none", isSmartRemovalEnabled, binder == nil { return String(localized: "Smart Removal") }
+            return selectedPresetName ?? presetID
+        }
         return scaledThemeName(selectedThemeName ?? themeID)
     }
 
