@@ -174,6 +174,87 @@ struct ComputationalMarkdownTests {
         #expect(fragment.readingIssues == ["Unresolved cross-references: fig-none"])
     }
 
+    @Test(
+        "コード・数式・リンク先の中の参照らしい文字は、そのまま残し確認にも出さない",
+        arguments: [
+            ("`begin\n\\@ref(fig:missing)\nend`", "\\@ref(fig:missing)"),
+            ("<code>\\@ref(fig:missing)</code>", "<code>@ref(fig:missing)</code>"),
+            ("[link](https://example.com/a(b)/@fig-missing)", "href=\"https://example.com/a(b)/@fig-missing\""),
+            ("See [link].\n\n[link]: https://example.com/@fig-missing", "href=\"https://example.com/@fig-missing\""),
+        ])
+    func literalReferences(source: String, kept: String) {
+        let fragment = ComputationalMarkdown.convert(source, format: .rMarkdown)
+        #expect(fragment.body.contains(kept))
+        #expect(!fragment.body.contains("??"))
+        #expect(!fragment.body.contains("?@"))
+        #expect(fragment.readingIssues.isEmpty)
+    }
+
+    @Test("数式の中の参照らしい文字は参照として数えない")
+    func referenceInsideFormula() {
+        let fragment = ComputationalMarkdown.convert(#"Inline \(\text{@fig-missing}\) here."#)
+        #expect(!fragment.body.contains("?@fig-missing"))
+        #expect(fragment.readingIssues.isEmpty)
+    }
+
+    @Test("Quartoの参照の形でない[@fig:key]は文献の引用として原文のまま残す")
+    func colonCitation() {
+        let fragment = ComputationalMarkdown.convert("See [@fig:smith2020].")
+        #expect(fragment.body.contains("See [@fig:smith2020]."))
+        #expect(fragment.readingIssues.isEmpty)
+    }
+
+    @Test("見出しと同じ名前の文献の引用は、bookdownの参照があっても節へのリンクにしない")
+    func citationNamedLikeHeading() {
+        let html = ComputationalMarkdown.convert(
+            """
+            ---
+            output:
+              html_document:
+                number_sections: true
+            ---
+            # Methods {#methods}
+
+            See Section \\@ref(methods). Citation [@methods].
+            """, format: .rMarkdown
+        ).body
+        #expect(html.contains("See Section <a href=\"#methods\">1</a>. Citation [@methods]."))
+    }
+
+    @Test("Quartoの先頭を大文字にした参照も同じ図を指す")
+    func capitalizedQuartoReference() {
+        let html = ComputationalMarkdown.convert("@Fig-a shows it.\n\n![Paper](paper.png){#fig-a}").body
+        #expect(html.contains("<a href=\"#fig-a\">Figure 1</a> shows it."))
+    }
+
+    @Test("bookdownの表の題は強調と参照を本文と同じに読む")
+    func bookdownTableCaptionInline() {
+        let fragment = ComputationalMarkdown.convert(
+            """
+            | A | B |
+            |---|---|
+            | 1 | 2 |
+
+            Table: (\\#tab:t) **Sizes**; see Figure \\@ref(fig:later) and \\@ref(fig:missing)
+
+            ```{r later, fig.cap='Later'}
+            plot(1)
+            ```
+            """, format: .rMarkdown)
+        #expect(
+            fragment.body.contains(
+                "<div id=\"tab:t\" class=\"table-caption\">Table 1 <strong>Sizes</strong>; see Figure "
+                    + "<a href=\"#fig:later\">1</a> and <strong>??</strong></div>"))
+        #expect(fragment.readingIssues == ["Unresolved cross-references: fig:missing"])
+    }
+
+    @Test("bookdownで番号のない見出しを指す参照は、bookdownと同じく??になる")
+    func bookdownUnnumberedSection() {
+        let fragment = ComputationalMarkdown.convert("# Methods {#methods}\n\nSee \\@ref(methods).", format: .rMarkdown)
+        #expect(fragment.body.contains("See <strong>??</strong>."))
+        #expect(fragment.readingIssues == ["Unresolved cross-references: methods"])
+    }
+
     @Test("章番号と目次に深さと見出しごとの指定を反映する")
     func contents() {
         let html = ComputationalMarkdown.convert(

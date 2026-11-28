@@ -119,7 +119,12 @@ extension ComputationalBody {
         }
     }
 
-    mutating func prose(_ line: String) {
+    mutating func prose(_ line: String, at index: Int? = nil) {
+        if let index, literal.lines.indices.contains(index), literal.lines[index] {
+            output.append(line)
+            return
+        }
+        let spans = index.flatMap { literal.spans[$0] } ?? []
         if line.trimmingCharacters(in: .whitespaces) == #"\newpage"# {
             block("<div class=\"page-break\"></div>")
         } else if line.hasPrefix("#"), let match = line.wholeMatch(of: /^(#{1,6})\s+(.*?)(?:\s+\{([^{}]+)\})?\s*$/) {
@@ -146,21 +151,38 @@ extension ComputationalBody {
         } else if line.hasPrefix(":") || line.hasPrefix("Table:"),
             let match = line.wholeMatch(of: /^(?:Table)?:\s+\(\\#(tab:[\w:.-]+)\)\s*(.*?)\s*$/)
         {
-            // bookdown labels a Markdown table in its caption: `Table: (\#tab:id) Caption`.
+            // bookdown labels a Markdown table in its caption: `Table: (\#tab:id) Caption`. The caption is a paragraph
+            // the Markdown reader typesets as any other; `unwrappingCaptions` then takes its `p` away.
             let target = register(String(match.1), kind: "tab")
-            block(
-                "<div\(target.attribute) class=\"table-caption\">\(target.text) \(HTML.escape(String(match.2)))</div>")
+            block("<div\(target.attribute) class=\"table-caption\" \(captionMark)>")
+            output.append(target.text + " " + inline(String(match.2)))
+            block("</div>")
         } else if line.contains("{#eq-"), let match = line.wholeMatch(of: /^(.*\$\$)\s*\{#(eq-[\w:.-]+)\}\s*$/) {
             let target = register(String(match.2), kind: "eq")
             output.append(String(match.1))
             block("<div\(target.attribute) class=\"equation-number\">(\(target.shortText))</div>")
         } else if line.hasPrefix("| "), !line.dropFirst().contains("|") {
-            output.append(inline(String(line.dropFirst(2))) + "  ")
+            // The line loses its first two characters, so the UTF-8 spans move with it.
+            let shifted = spans.compactMap { $0.upperBound > 2 ? max($0.lowerBound - 2, 0)..<($0.upperBound - 2) : nil }
+            output.append(inline(String(line.dropFirst(2)), literalSpans: shifted) + "  ")
         } else if line.hasPrefix("    ") || line.hasPrefix("\t") {
             output.append(line)
         } else {
-            output.append(inline(line))
+            output.append(inline(line, literalSpans: spans))
         }
+    }
+
+    /// Marks a caption written as a paragraph in its own element.
+    var captionMark: String { "data-\(token)-caption" }
+
+    /// The captions as the Markdown reader typeset them, without the paragraph around their text.
+    func unwrappingCaptions(_ html: String) -> String {
+        guard html.contains(captionMark) else { return html }
+        let mark = NSRegularExpression.escapedPattern(for: " " + captionMark)
+        let unwrapped = html.replacingOccurrences(
+            of: "(<div[^>]*?)\(mark)>\\s*<p>([\\s\\S]*?)</p>\\s*</div>", with: "$1>$2</div>",
+            options: .regularExpression)
+        return unwrapped.replacingOccurrences(of: " " + captionMark, with: "")
     }
 
     mutating func resolveHeadings(_ anchors: [MarkdownExtensions.HeadingAnchor], numbered: Bool) {
@@ -176,12 +198,13 @@ extension ComputationalBody {
                     label.value = .heading(anchor.text)
                 }
                 labels[requested] = label
-            } else if let requested = anchor.customID, labels[requested] == nil, bookdownTargets.contains(requested) {
-                // bookdown refers to a section by its heading's ID, and prints its number.
-                let text = anchor.text.contains(token) ? titles[requested] ?? anchor.text : anchor.text
+            } else if let requested = anchor.customID, labels[requested] == nil, bookdownTargets.contains(requested),
+                !anchor.number.isEmpty
+            {
+                // bookdown refers to a section by its heading's ID and prints its number; a heading without a number
+                // is not in its table, so the reference stays unresolved as bookdown leaves it.
                 labels[requested] = ComputationalLabel(
-                    id: anchor.id, kind: "sec",
-                    value: anchor.number.isEmpty ? .heading(text) : .number(String(anchor.number.dropLast())),
+                    id: anchor.id, kind: "sec", value: .number(String(anchor.number.dropLast())),
                     name: metadata.japanese ? "節" : "Section")
             }
             let title = anchor.customID.flatMap { titles[$0] }

@@ -34,13 +34,26 @@ struct ComputationalLabel {
         let prefix = String(id[..<split])
         return names[prefix] == nil ? nil : prefix
     }
+
+    /// The label a Quarto reference written as `@id` points to, or nil when it is a citation. Quarto takes `@` for a
+    /// cross-reference only when a known kind and a hyphen start the name (`fig-a`, or `Fig-a` for a capitalized
+    /// "Figure"); anything else, `fig:a` included, is a citation key.
+    static func quartoTarget(_ id: String) -> String? {
+        guard let split = id.firstIndex(of: "-") else { return nil }
+        let prefix = id[..<split]
+        if names[String(prefix)] != nil { return id }
+        guard let first = prefix.first, first.isUppercase, names[prefix.lowercased()] != nil,
+            prefix.dropFirst().allSatisfy(\.isLowercase)
+        else { return nil }
+        return prefix.lowercased() + id[split...]
+    }
 }
 
 enum ComputationalInsertion {
-    /// Which tool's syntax wrote a reference, which decides what an unresolved one prints.
-    enum Form { case quarto, bookdown }
     case literal(String)
-    case reference(id: String, numberOnly: Bool, original: String, form: Form)
+    /// A cross-reference to the label `id`. `unresolved` is what the tool that wrote it prints when no label answers,
+    /// and `written` the name as the document wrote it.
+    case reference(id: String, numberOnly: Bool, unresolved: String, written: String)
 }
 
 extension ComputationalBody {
@@ -65,13 +78,20 @@ extension ComputationalBody {
         return label
     }
 
-    mutating func inline(_ source: String) -> String {
+    /// `literalSpans` are UTF-8 offsets within the line that belong to a code span running over several lines.
+    mutating func inline(_ source: String, literalSpans: [Range<Int>] = []) -> String {
         // Every alternative starts with one of these characters; a line without any is returned as it is.
         guard source.utf8.contains(where: { [96, 36, 60, 93, 123, 94, 91, 92, 64].contains($0) }) else { return source }
         // Literal spans, math, tags and link destinations are consumed before the prose extensions are looked for.
         let scanner = ComputationalInlineScanner(source)
         let characters = scanner.characters
         func text(_ range: Range<Int>) -> String { String(characters[range]) }
+        // Found only once the line holds something that may be a reference.
+        var literals: ComputationalLiterals?
+        func isLiteral(_ range: Range<Int>) -> Bool {
+            if literals == nil { literals = ComputationalLiterals(characters, spans: literalSpans) }
+            return literals?.contains(range) ?? false
+        }
         var html = ""
         var start = 0
         for match in scanner.matches() {
@@ -103,14 +123,18 @@ extension ComputationalBody {
                 prior.isLetter || prior.isNumber || prior == "_" || prior == "\\"
             {
                 html += original
-            } else if let ref = match.bookdown {
+            } else if let ref = match.bookdown, !isLiteral(match.range) {
                 // bookdown's `\@ref()` gives the number alone; the text around it names the figure or table.
-                bookdownTargets.insert(text(ref))
-                html += deferInsertion(.reference(id: text(ref), numberOnly: true, original: original, form: .bookdown))
-            } else if let ref = match.crossReference ?? match.bareReference {
+                let id = text(ref)
+                bookdownTargets.insert(id)
+                html += deferInsertion(.reference(id: id, numberOnly: true, unresolved: "??", written: id))
+            } else if let ref = match.crossReference ?? match.bareReference,
+                let target = ComputationalLabel.quartoTarget(text(ref)), !isLiteral(match.range)
+            {
+                // A citation never reaches here, so a heading or figure with the same name cannot capture it.
                 let numberOnly = match.crossReferenceMinus.map { !$0.isEmpty } ?? false
                 html += deferInsertion(
-                    .reference(id: text(ref), numberOnly: numberOnly, original: original, form: .quarto))
+                    .reference(id: target, numberOnly: numberOnly, unresolved: "?@" + text(ref), written: text(ref)))
             } else {
                 html += original
             }
@@ -119,23 +143,14 @@ extension ComputationalBody {
         return html + text(start..<characters.count)
     }
 
-    /// What bookdown and Quarto print for a reference they cannot find: bookdown `??`, Quarto `?@id`. A bare `@id`
-    /// whose prefix names no kind of target is a citation, and stays as written.
-    private static func unresolvedMark(id: String, form: ComputationalInsertion.Form) -> String? {
-        switch form {
-        case .bookdown: "??"
-        case .quarto: ComputationalLabel.kind(id) == nil ? nil : "?@" + id
-        }
-    }
-
-    /// The targets of references that name no label in the document, once each in the order they are first used.
+    /// The references that name no label in the document, as written, once each in the order they are first used.
     var unresolvedReferences: [String] {
         var seen: Set<String> = []
         return insertions.compactMap { insertion in
-            guard case .reference(let id, _, _, let form) = insertion, labels[id] == nil,
-                Self.unresolvedMark(id: id, form: form) != nil, seen.insert(id).inserted
+            guard case .reference(let id, _, _, let written) = insertion, labels[id] == nil,
+                seen.insert(written).inserted
             else { return nil }
-            return id
+            return written
         }
     }
 
@@ -161,15 +176,14 @@ extension ComputationalBody {
             case .literal(let value):
                 result +=
                     textOnly ? value.replacingOccurrences(of: "<[^>]*>", with: "", options: .regularExpression) : value
-            case .reference(let id, let numberOnly, let original, let form):
+            case .reference(let id, let numberOnly, let unresolved, _):
+                // bookdown and Quarto print an unresolved reference in bold.
                 if let target = labels[id] {
                     let text = HTML.escape(numberOnly ? target.shortText : target.text)
                     result += textOnly ? text : "<a href=\"#\(HTML.escape(target.id))\">\(text)</a>"
-                } else if let mark = Self.unresolvedMark(id: id, form: form) {
-                    let text = HTML.escape(mark)
-                    result += textOnly ? text : "<strong>\(text)</strong>"
                 } else {
-                    result += HTML.escape(original)
+                    let text = HTML.escape(unresolved)
+                    result += textOnly ? text : "<strong>\(text)</strong>"
                 }
             }
             start = NSMaxRange(match.range)

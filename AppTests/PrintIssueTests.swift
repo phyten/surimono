@@ -32,7 +32,10 @@ struct PrintIssueTests {
         #expect(english == "Cross-references not found: fig:plan, tab:sizes")
         #expect(PrintIssueText.title(issue, language: "ja") == "見つからない相互参照：fig:plan, tab:sizes")
         for language in ["de", "es", "fr", "ko", "zh-Hans", "zh-Hant"] {
-            #expect(PrintIssueText.title(issue, language: language) != english)
+            let title = PrintIssueText.title(issue, language: language)
+            #expect(title != english)
+            #expect(title.hasSuffix("fig:plan, tab:sizes"))
+            #expect(!title.contains("%@"))
         }
         #expect(issue.group == .content)
     }

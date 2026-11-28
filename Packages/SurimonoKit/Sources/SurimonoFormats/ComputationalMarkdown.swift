@@ -36,7 +36,7 @@ public enum ComputationalMarkdown {
         var result = HTMLFragment(
             body: fallback + metadata.header
                 + (lead.map { ReaderContentsKind.lead.mark(document.contents(depth: $0.headingLevels)) } ?? "")
-                + document.resolve(fragment.body),
+                + document.resolve(document.unwrappingCaptions(fragment.body)),
             title: metadata.values["title"]
                 ?? fragment.title.map { HTML.unescape(document.resolve($0, plainText: true)) }, language: language,
             readingIssues: fragment.readingIssues
@@ -113,6 +113,9 @@ struct ComputationalBody {
     var insertions: [ComputationalInsertion] = []
     /// What `\@ref()` asks for, which may be a heading's ID as well as a figure or table label.
     var bookdownTargets: Set<String> = []
+    /// What the Markdown reader leaves as written in the body's lines: code and HTML blocks, link reference
+    /// definitions, and code spans over several lines. Cross-references are not looked for there.
+    var literal = MarkdownExtensions.Protection(lines: [])
     var headings: [(level: Int, id: String, text: String)] = []
     var headingSuffixes: [String: Int] = [:]
     var unnumbered: Set<String> = []
@@ -132,6 +135,7 @@ struct ComputationalBody {
             output.append(inline(abstract))
             block("</div>")
         }
+        literal = MarkdownExtensions.protection(lines)
         var index = 0
         while index < lines.count {
             if PreviewConversion.expired { return "" }
@@ -173,7 +177,7 @@ struct ComputationalBody {
                 continue
             } else if divisions.last?.hidden != true {
                 if !line.trimmingCharacters(in: .whitespaces).isEmpty { previousHiddenResult = false }
-                prose(line)
+                prose(line, at: index - 1)
             }
         }
         while !divisions.isEmpty { closeDivision() }

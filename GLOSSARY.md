@@ -69,3 +69,4 @@
 | Org の印刷対象を選ぶ群 | `What Is Printed` | What Is Printed | 印刷に含める内容 | Druckinhalt | Contenido impreso | Contenu imprimé | 인쇄할 내용 | 打印内容 | 列印內容 |
 | Org のコロンで始める等幅の行 | `Fixed-Width Sections` | Fixed-Width Sections | 等幅の行 | Zeilen in Festbreitenschrift | Líneas de ancho fijo | Lignes à chasse fixe | 고정폭 줄 | 等宽行 | 等寬行 |
 | Org で ARCHIVE タグを付けた部分木 | `Archived Trees` | Archived Trees | アーカイブした項目 | Archivierte Teilbäume | Subárboles archivados | Branches archivées | 보관된 하위 트리 | 已归档的子树 | 已封存的子樹 |
+| 図・表・節の番号を指す参照 | `Cross-references not found: %@` | Cross-references | 相互参照 | Querverweise | Referencias cruzadas | Renvois | 상호 참조 | 交叉引用 | 交互參照 |
