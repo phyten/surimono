@@ -565,6 +565,52 @@ struct DocumentOutlineTests {
         #expect(DocumentOutline.chapterEnds(of: headings, pages: [0, 2], inPageTexts: texts) == [2])
     }
 
+    @Test("同じ文字を取り合う数式が多く並ぶ見出しも、一度の照合が短時間で終わる")
+    func manyFormulasMatchQuickly() {
+        let printed = "Head " + Array(repeating: formula("x+x"), count: 24).joined(separator: " ") + " End"
+        let headings = [DocumentHeading(level: 2, text: "Head x End", printed: printed)]
+        let line = "Head " + String(repeating: "x", count: 36) + "y End"
+        let elapsed = ContinuousClock().measure {
+            #expect(DocumentOutline.pages(of: headings, inPageTexts: [line + "\nBody"]) == [nil])
+        }
+        #expect(elapsed < .seconds(2), "\(elapsed)")
+    }
+
+    @Test("文字の残らない記号だけの式を含む見出しにもページが付く")
+    func symbolOnlyFormula() {
+        for (source, glyph) in [("\\infty", "∞"), ("\\times", "×"), ("\\sum", "∑")] {
+            let headings = [DocumentHeading(level: 2, text: "Limit " + source, printed: "Limit " + formula(source))]
+            #expect(DocumentOutline.pages(of: headings, inPageTexts: ["前書き", "Limit \(glyph)\nBody"]) == [1])
+        }
+    }
+
+    @Test("記号だけの式を含む項目のある原文の目次も、見出しの照合から外す")
+    func contentsWithSymbolOnlyFormula() {
+        let headings = [
+            DocumentHeading(level: 2, text: "Intro"),
+            DocumentHeading(level: 2, text: "Limit \\infty", printed: "Limit " + formula("\\infty")),
+            DocumentHeading(level: 2, text: "Next"),
+        ]
+        let pages = ["Contents\nIntro\nLimit ∞\nNext", "Intro\nBody", "Limit ∞\nBody", "Next\nBody"]
+        let entries = ["Intro", "Limit " + formula("\\infty"), "Next"]
+        #expect(DocumentOutline.pages(of: headings, inPageTexts: pages, contentsEntries: entries) == [1, 2, 3])
+    }
+
+    @Test("記号だけの式が項目の原文の目次も、見出しの照合から外す")
+    func contentsWithSymbolOnlyEntry() {
+        let headings = [DocumentHeading(level: 2, text: "Intro"), DocumentHeading(level: 2, text: "Next")]
+        let pages = ["Contents\nIntro\n∞\nNext", "Intro\nBody", "Next\nBody"]
+        let entries = ["Intro", formula("\\infty"), "Next"]
+        #expect(DocumentOutline.pages(of: headings, inPageTexts: pages, contentsEntries: entries) == [1, 2])
+    }
+
+    @Test("書いたとおりの綴りで行をつないだ見出しを、大文字だけ違う行より先に採る")
+    func writtenJoinedLinesBeforeFoldedIndex() {
+        let headings = [DocumentHeading(level: 1, text: "1 Introduction"), DocumentHeading(level: 1, text: "Next")]
+        let pages = ["1 INTRODUCTION\nBody", "1\nIntroduction\nBody", "Next\nBody"]
+        #expect(DocumentOutline.pages(of: headings, inPageTexts: pages) == [1, 2])
+    }
+
     @Test("脚注の番号を付けて組まれた見出しは、題に番号を入れずにページが付く")
     func headingWithFootnoteNumber() {
         let heading = DocumentHeading(level: 2, text: "保存場所の変更", printed: "保存場所の変更1")
