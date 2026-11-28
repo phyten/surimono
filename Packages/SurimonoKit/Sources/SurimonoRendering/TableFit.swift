@@ -32,19 +32,22 @@ enum TableFit {
 
     /// A column is short when none of its cells needs more than this share of the table's room on one line.
     static let shortColumnShare = 0.30
-    /// What a long column keeps beside short columns kept whole: this many ems, or its share of the room...
-    static let longColumnEms = 8.0
-    /// ...this share of the room, divided among the long columns, whichever is wider; never more than it had.
+    /// What the long columns keep together beside short columns kept whole: this share of the room, never more
+    /// than they had. How the table shares it among them is its own, as it was before.
     static let longColumnsShare = 0.30
+    /// What each long column keeps, in ems, never more than it had.
+    static let longColumnEms = 4.0
 
     /// Which columns are short, and how narrow the other columns may become when short columns are kept whole.
     static let labelFunctions = """
         function isShortColumn(width, room) {
             return width <= \(shortColumnShare) * room;
         }
-        function columnFloor(before, fontSize, room, longColumns) {
-            const floor = Math.max(\(longColumnEms) * fontSize, \(longColumnsShare) * room / Math.max(1, longColumns));
-            return Math.min(before, floor);
+        function longColumnsFloor(before, room) {
+            return Math.min(before, \(longColumnsShare) * room);
+        }
+        function columnFloor(before, fontSize) {
+            return Math.min(before, \(longColumnEms) * fontSize);
         }
         """
 
@@ -127,9 +130,9 @@ enum TableFit {
 
         // A column of labels ("Status", a date, a short Japanese word, which can break between any two
         // characters) gets next to nothing beyond its narrowest width beside a long cell, and its words come
-        // out one character a line. Short columns where a cell wraps are kept on one line, all at once, and
-        // only if the table still fits, no long column gets too narrow, and no short column starts to wrap;
-        // otherwise the table is left as it was.
+        // out one character a line. Short columns where a cell wraps are kept on one line, as many as the
+        // table allows, narrowest first: the table must still fit, the long columns must not get too narrow,
+        // and no short column may start to wrap.
 
         // The pieces of text in a cell, one rectangle a line of each text node: elements' own boxes would
         // swallow lines.
@@ -224,46 +227,75 @@ enum TableFit {
                     const width = own.reduce((most, cell) => Math.max(most, oneLine(cell)), 0) * zoom;
                     column.short = isShortColumn(width, item.limit);
                     column.lines = own.map(lines);
+                    column.estimate = width;
                 }
                 column.before = contentOf(column);
                 columns.push(column);
             }
-            const kept = columns.filter(column => column.short && column.lines.some(count => count > 1));
-            return kept.length ? { item, columns, kept, zoom } : null;
+            const candidates = columns.filter(column => column.short && column.lines.some(count => count > 1))
+                .sort((a, b) => a.estimate - b.estimate);
+            return candidates.length ? { item, columns, candidates, zoom } : null;
+        }
+        // Whether the first `count` candidates of a plan, now laid out on one line, may stay so.
+        function accepts(plan, count) {
+            const { item, columns, candidates, zoom } = plan;
+            const kept = candidates.slice(0, count);
+            // A column with no cell shown has no width to keep (and would make the sum endless).
+            const long = columns.filter(column => !column.short && column.filled && Number.isFinite(column.before));
+            const fontSize = px(getComputedStyle(item.table).fontSize);
+            const room = item.limit / zoom;
+            const sum = values => values.reduce((total, value) => total + value, 0);
+            return outer(item.table) <= item.limit + 0.5
+                && kept.every(column => column.cells.every(cell => lines(cell) <= 1))
+                // The width a kept column needs was estimated from its text, which can miss spaces; laid out on
+                // one line, each must still be short. offsetWidth is rounded to whole pixels.
+                && kept.every(column => isShortColumn(columnWidth(column, zoom) - 0.5, item.limit))
+                && sum(long.map(contentOf)) >= longColumnsFloor(sum(long.map(column => column.before)), room) - 0.5
+                && long.every(column => contentOf(column) >= columnFloor(column.before, fontSize) - 0.5)
+                && columns.filter(column => column.short && !candidates.includes(column))
+                    .every(column => column.cells.every(cell => lines(cell) <= 1));
         }
         // Each item is a table and the width it may take. Returns the tables whose short columns were kept.
         function keepLabels(items) {
-            const plans = items.map(labelPlan).filter(Boolean);
+            // Keeping a column whole only widens the table, so a table that does not fit already cannot.
+            const plans = items.filter(item => outer(item.table) <= item.limit + 0.5).map(labelPlan).filter(Boolean);
             // Each element's style attribute is kept whole as it stands now, after any earlier step of TableFit,
             // so that going back restores exactly that, whichever white-space properties it named.
-            for (const plan of plans) {
-                plan.changed = plan.kept.flatMap(column => column.changes).map(([el, value]) =>
-                    [el, value, el.getAttribute('style')]);
-            }
-            // Descendants too: wrapping a wide table may have set their white-space of their own.
-            for (const plan of plans) for (const [el, value] of plan.changed) set(el, 'white-space', value);
-            for (const plan of plans) {
-                const { item, columns, zoom } = plan;
-                const long = columns.filter(column => !column.short && column.filled);
-                const fontSize = px(getComputedStyle(item.table).fontSize);
-                // The width a kept column needs was estimated from its text, which can miss spaces; laid out on
-                // one line, each must still be short. offsetWidth is rounded to whole pixels.
-                plan.accepted = outer(item.table) <= item.limit + 0.5
-                    && plan.kept.every(column => column.cells.every(cell => lines(cell) <= 1))
-                    && plan.kept.every(column => isShortColumn(columnWidth(column, zoom) - 0.5, item.limit))
-                    && long.every(column =>
-                        contentOf(column) >= columnFloor(column.before, fontSize, item.limit / zoom, long.length) - 0.5)
-                    && columns.filter(column => column.short && !plan.kept.includes(column))
-                        .every(column => column.cells.every(cell => lines(cell) <= 1));
-            }
-            for (const plan of plans) {
-                if (plan.accepted) continue;
+            const keep = (plan, count) => {
+                const changed = plan.candidates.slice(0, count).flatMap(column => column.changes);
+                plan.changed = changed.map(([el, value]) => [el, value, el.getAttribute('style')]);
+                // Descendants too: wrapping a wide table may have set their white-space of their own.
+                for (const [el, value] of changed) set(el, 'white-space', value);
+            };
+            const restore = plan => {
                 for (const [el, , style] of plan.changed) {
                     if (style === null) el.removeAttribute('style');
                     else el.setAttribute('style', style);
                 }
+            };
+            // All the candidates are tried first. Fewer kept leave the other columns more room, so when all
+            // are too many, the most that are not is searched for by halves, every table at once, so that the
+            // page is laid out once a round.
+            for (const plan of plans) {
+                const all = plan.candidates.length;
+                Object.assign(plan, { low: 0, high: all, trying: all, count: 0 });
             }
-            return plans.filter(plan => plan.accepted).map(plan => plan.item.table);
+            let open = plans;
+            while (open.length) {
+                for (const plan of open) keep(plan, plan.trying);
+                for (const plan of open) plan.accepted = accepts(plan, plan.trying);
+                for (const plan of open) {
+                    if (plan.accepted) plan.low = plan.count = plan.trying;
+                    else plan.high = plan.trying - 1;
+                    if (!plan.accepted || plan.low < plan.high) restore(plan);
+                }
+                open = open.filter(plan => plan.low < plan.high);
+                for (const plan of open) plan.trying = Math.ceil((plan.low + plan.high) / 2);
+            }
+            // A table whose last try was refused goes back to the most it kept.
+            const settled = plans.filter(plan => plan.count && !plan.accepted);
+            for (const plan of settled) keep(plan, plan.count);
+            return plans.filter(plan => plan.count).map(plan => plan.item.table);
         }
 
         function fitTables() {
