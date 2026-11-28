@@ -19,6 +19,7 @@ package enum VerticalText {
         var afterURL = 0
         var linkedURL: String?
         let tokens = HTMLScanner.tokens(html)
+        let labelEdges = latex ? bibliographyLabelEdges(in: tokens) : []
         for (index, token) in tokens.enumerated() {
             if index < afterURL { continue }
             switch token {
@@ -32,9 +33,12 @@ package enum VerticalText {
                     try writer.text(text, plain: plain, note: note, headingNumber: heading) { direction in
                         var i = index + direction
                         return AnyIterator<Substring> {
-                            // A section number or bibliography label and its following text are separate runs even
-                            // without intervening HTML text.
-                            while numberDepth == 0 && tokens.indices.contains(i) && i != runBoundary {
+                            // A section number and its title are separate runs even without intervening HTML text. A
+                            // bibliography label is read as one run of its own: its text joins across its markup, as
+                            // a citation's does, but not with the text around it.
+                            while numberDepth == 0 && tokens.indices.contains(i) && i != runBoundary
+                                && !labelEdges.contains(i)
+                            {
                                 let token = tokens[i]
                                 i += direction
                                 switch token {
@@ -91,6 +95,8 @@ package enum VerticalText {
                     // Ruby annotations are transparent to the boundary on either side of their base.
                     if tag.name != "rt" && tag.name != "rp" { try writer.begin(edge) }
                     if !tag.isSelfClosing { skipped = (tag.name, 1) }
+                } else if labelEdges.contains(index) {
+                    try writer.begin(.start)
                 } else if latex && tag.name == "span" && !tag.isSelfClosing {
                     if numberDepth > 0 {
                         numberDepth += tag.isClosing ? -1 : 1
@@ -98,7 +104,7 @@ package enum VerticalText {
                             try writer.begin(.start)
                             runBoundary = index
                         }
-                    } else if (classes.contains("secnum") || classes.contains("bib-label")) && !tag.isClosing {
+                    } else if classes.contains("secnum") && !tag.isClosing {
                         try writer.begin(.start)
                         numberDepth = 1
                     }
@@ -118,6 +124,25 @@ package enum VerticalText {
         }
         try writer.begin(.start)
         return writer.output
+    }
+
+    /// The opening and closing tags of the bibliography labels: where a label's run starts and ends.
+    private static func bibliographyLabelEdges(in tokens: [HTMLScanner.Token]) -> Set<Int> {
+        var edges: Set<Int> = []
+        var open: (start: Int, depth: Int)?
+        for (index, token) in tokens.enumerated() {
+            guard case .tag(let tag) = token, tag.name == "span", !tag.isSelfClosing else { continue }
+            if let label = open {
+                let depth = label.depth + (tag.isClosing ? -1 : 1)
+                open = depth == 0 ? nil : (label.start, depth)
+                if depth == 0 { edges.formUnion([label.start, index]) }
+            } else if !tag.isClosing,
+                tag.attribute("class")?.split(whereSeparator: \.isWhitespace).contains("bib-label") == true
+            {
+                open = (index, 1)
+            }
+        }
+        return edges
     }
 
     private static let inlineElements: Set<String> = [

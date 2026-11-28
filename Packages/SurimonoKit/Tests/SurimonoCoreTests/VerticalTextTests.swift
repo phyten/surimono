@@ -435,4 +435,25 @@ struct VerticalTextTests {
             #expect(!other.css.contains(".surimono-vertical ol.latex-bibliography"))
         }
     }
+
+    @Test("装飾で分かれた参考文献のラベルの中の数字は、本文の引用と同じ向きにし、ラベルの後ろの開き括弧も詰める")
+    func bibliographyLabelReadsAcrossMarkup() throws {
+        let label = try VerticalText.marked(
+            #"<ol class="latex-bibliography"><li><span class="bib-label">[A<strong>12</strong>]</span>「資料」。</li></ol>"#,
+            latex: true)
+        let citation = try VerticalText.marked(
+            #"<p>本文<span class="latex-cite">[A<strong>12</strong>]</span>。</p>"#, latex: true)
+        let marked = #"[<span class="v-latin">A</span><strong><span class="v-latin">12</span></strong>]</span>"#
+        #expect(citation.contains(#"<span class="latex-cite">"# + marked))
+        #expect(label.contains(#"<span class="bib-label">"# + marked + #"<span class="v-half">「</span>資料"#))
+    }
+
+    @Test("LaTeX でない文書では、参考文献のラベルもほかの span と同じに扱う")
+    func bibliographyLabelOutsideLaTeX() throws {
+        let source = #"<ol><li><span class="bib-label">[A<strong>12</strong>]</span>「資料」。</li></ol>"#
+        let other = source.replacingOccurrences(of: "bib-label", with: "other-label")
+        #expect(
+            try VerticalText.marked(source)
+                == VerticalText.marked(other).replacingOccurrences(of: "other-label", with: "bib-label"))
+    }
 }
