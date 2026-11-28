@@ -628,14 +628,18 @@ struct ViewerFileDocumentTests {
         }
     }
 
-    private static let plainSize = CGSize(width: 760, height: 760)
+    /// Whether a content size is the plain one (760 × 760). A screen lower than that keeps the window's height inside
+    /// it (the CI runner's is), so a lower height counts; the tray's 760 × 560 does not.
+    private static func isPlain(_ size: CGSize) -> Bool {
+        size.width == 760 && size.height > 600 && size.height <= 760
+    }
 
     private func expectPapersShape(_ window: NSWindow, _ model: DocumentViewModel, _ detail: String) throws {
         let unit = try #require(model.paperUnitSize, "\(detail)")
         let content = window.contentRect(forFrameRect: window.frame).size
         let paper = CGSize(width: content.width - model.sideInset, height: content.height - model.bandInset)
         #expect(abs(paper.width / paper.height - unit.width / unit.height) < 0.02, "\(detail)")
-        #expect(content != Self.plainSize, "\(detail)")
+        #expect(!Self.isPlain(content), "\(detail)")
     }
 
     @Test("読めない PDF のファイルの窓は 1×1 に縮まず、エラーのあと 760×760 で開く", .timeLimit(.minutes(1)))
@@ -662,7 +666,7 @@ struct ViewerFileDocumentTests {
         }
         try await waitUntil(state()) { model.error != nil && !model.isRendering }
         #expect(model.result == nil, "\(state())")
-        #expect(window.contentRect(forFrameRect: window.frame).size == Self.plainSize, "\(state())")
+        #expect(Self.isPlain(window.contentRect(forFrameRect: window.frame).size), "\(state())")
         #expect(!model.hasSizedWindow, "\(state())")
         #expect(waitGate.exitCount == 0, "\(state())")
     }
@@ -692,7 +696,7 @@ struct ViewerFileDocumentTests {
         waitGate.open()
         try await waitUntil(state()) { waitGate.exitCount == 1 }
         await Task.yield()
-        #expect(!sizes.sizes.contains(Self.plainSize), "\(state())")
+        #expect(!sizes.sizes.contains(where: Self.isPlain), "\(state())")
         try expectPapersShape(window, model, state())
     }
 
@@ -724,13 +728,13 @@ struct ViewerFileDocumentTests {
                 + "render=(\(renderGate.enterCount),\(renderGate.exitCount))"
         }
         try await waitUntil(state()) { waitGate.isWaiting && renderGate.isWaiting }
-        #expect(!sizes.sizes.contains(Self.plainSize), "\(state())")
+        #expect(!sizes.sizes.contains(where: Self.isPlain), "\(state())")
         #expect(!model.hasSizedWindow, "\(state())")
 
         // Release the wait while pagination is still held, so the plain size is observed before any pages arrive.
         waitGate.open()
-        try await waitUntil(state()) { waitGate.exitCount == 1 && sizes.sizes.contains(Self.plainSize) }
-        #expect(window.contentRect(forFrameRect: window.frame).size == Self.plainSize, "\(state())")
+        try await waitUntil(state()) { waitGate.exitCount == 1 && sizes.sizes.contains(where: Self.isPlain) }
+        #expect(Self.isPlain(window.contentRect(forFrameRect: window.frame).size), "\(state())")
         #expect(!model.hasSizedWindow, "\(state())")
         #expect(model.result == nil, "\(state())")
 
@@ -772,7 +776,7 @@ struct ViewerFileDocumentTests {
         #expect(model.isWindowClosed, "\(state())")
         #expect(window.frame == frameBeforeClose, "\(state())")
         #expect(sizes.sizes == sizesBeforeClose, "\(state())")
-        #expect(!sizes.sizes.contains(Self.plainSize), "\(state())")
+        #expect(!sizes.sizes.contains(where: Self.isPlain), "\(state())")
     }
 
     @Test("刷り台にいる間にエラーになった窓は、表示へ戻ると 760×760 になる", .timeLimit(.minutes(1)))
@@ -807,12 +811,12 @@ struct ViewerFileDocumentTests {
         try await waitUntil(state()) { model.error != nil && !model.isRendering }
         #expect(model.mode == .print, "\(state())")
         #expect(!model.hasSizedWindow, "\(state())")
-        #expect(window.contentRect(forFrameRect: window.frame).size != Self.plainSize, "\(state())")
+        #expect(!Self.isPlain(window.contentRect(forFrameRect: window.frame).size), "\(state())")
         #expect(waitGate.exitCount == 0, "\(state())")
 
         model.exitPrintMode()
         try await waitUntil(state()) { model.mode == .view }
-        #expect(window.contentRect(forFrameRect: window.frame).size == Self.plainSize, "\(state())")
+        #expect(Self.isPlain(window.contentRect(forFrameRect: window.frame).size), "\(state())")
         #expect(!model.hasSizedWindow, "\(state())")
     }
 
@@ -843,7 +847,7 @@ struct ViewerFileDocumentTests {
             "frame=\(window.frame) kept=\(keptFrame) sizes=\(sizes.sizes) error=\(model.error ?? "nil") "
                 + "rendering=\(model.isRendering) wait=(\(waitGate.enterCount),\(waitGate.exitCount))"
         }
-        try #require(window.contentRect(forFrameRect: keptFrame).size != Self.plainSize, "\(state())")
+        try #require(!Self.isPlain(window.contentRect(forFrameRect: keptFrame).size), "\(state())")
         try await waitUntil(state()) { model.error != nil && !model.isRendering }
         #expect(model.result == nil, "\(state())")
         #expect(waitGate.enterCount == 0, "\(state())")
