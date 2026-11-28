@@ -167,6 +167,17 @@ struct ViewOptionsTests {
                     showsCoverAlone: false))
     }
 
+    @Test("LaTeX の文書は単ページのめくりで開く")
+    func typesetDefaults() {
+        let options = ViewOptions.defaults(
+            for: ViewDefaultsContext(kind: .typeset, pageCount: 30, firstPageSize: portrait))
+        #expect(
+            options
+                == ViewOptions(
+                    layout: .single, direction: .leftToRight, scrollAxis: .vertical, transition: .pageCurl,
+                    showsCoverAlone: false))
+    }
+
     @Test("スライドの文書はスクロールせず単ページの縦のスライドで開く")
     func slidesDefaults() {
         let options = ViewOptions.defaults(

@@ -117,10 +117,13 @@ public struct ViewOptions: Codable, Equatable, Sendable {
 
 /// What the view mode knows about a document when it picks the initial view options.
 public struct ViewDefaultsContext: Equatable, Sendable {
-    public enum Kind: Sendable {
+    /// The raw values are stored in document records (`DocumentSettings.transitionFollowsKind`).
+    public enum Kind: String, Codable, Sendable {
         case pdf
         /// Markdown, Org, plain text, CSV and HTML, which flow onto as many pages as they need.
         case flowingText
+        /// A LaTeX document other than a deck: pages set as a book is, turned with a curl.
+        case typeset
         /// A deck laid out one slide per page, such as a beamer document.
         case slides
         case image
@@ -148,12 +151,14 @@ public struct ViewDefaultsContext: Equatable, Sendable {
 }
 
 extension ViewOptions {
-    /// Flowing documents scroll top to bottom without a cover; PDFs and image bundles read like the bound booklet
-    /// they are often printed as. Slides turn one at a time, as they are presented.
+    /// Flowing documents scroll top to bottom without a cover, and LaTeX turns its pages with a curl; PDFs and image
+    /// bundles read like the bound booklet they are often printed as. Slides turn one at a time, as they are presented.
     public static func defaults(for context: ViewDefaultsContext) -> ViewOptions {
         switch context.kind {
         case .flowingText:
             return ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false)
+        case .typeset:
+            return ViewOptions(layout: .single, scrollAxis: .vertical, transition: .pageCurl, showsCoverAlone: false)
         case .slides:
             return ViewOptions(layout: .single, scrollAxis: .vertical, transition: .slide, showsCoverAlone: false)
         case .image:

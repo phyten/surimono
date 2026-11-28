@@ -54,16 +54,30 @@ struct DocumentSettingsFlowTests {
 
     private func pdf(_ label: String, pages: Int = 4) -> Data { TestFixtures.pdf(label, pages: pages) }
 
-    private func waitUntil(_ condition: () -> Bool) async throws {
+    private func waitUntil(
+        _ detail: @autoclosure () -> String = "", sourceLocation: SourceLocation = #_sourceLocation,
+        _ condition: () -> Bool
+    ) async throws {
         for _ in 0..<500 where !condition() {
             try await Task.sleep(for: .milliseconds(20))
         }
-        #expect(condition())
+        #expect(condition(), "\(detail())", sourceLocation: sourceLocation)
     }
 
-    private func open(_ model: DocumentViewModel) async throws {
+    /// What decides a page turn, for a wait that times out.
+    private func pageTurnState(_ model: DocumentViewModel, waitingFor condition: String) -> String {
+        "waiting for \(condition): transition=\(model.viewOptions.transition) layout=\(model.viewOptions.layout) "
+            + "direction=\(model.viewOptions.direction) slideDeck=\(model.slideDeck != nil) "
+            + "beamer=\(model.result?.facts?.beamerPageSize != nil) result=\(model.result != nil) "
+            + "rendering=\(model.isRendering) hash=\(model.contentHash != nil) theme=\(model.themeID) "
+            + "\(model.pageTurnDiagnostics)"
+    }
+
+    private func open(_ model: DocumentViewModel, sourceLocation: SourceLocation = #_sourceLocation) async throws {
         model.start()
-        try await waitUntil { model.contentHash != nil && model.result != nil && !model.isRendering }
+        try await waitUntil(pageTurnState(model, waitingFor: "the first layout"), sourceLocation: sourceLocation) {
+            model.contentHash != nil && model.result != nil && !model.isRendering
+        }
     }
 
     @Test("形式別の全体既定は別のキーで往復し、Org の旧記録と文書の保存値を保つ")
@@ -1175,6 +1189,254 @@ struct DocumentSettingsFlowTests {
         #expect(model.viewOptions.transition == .fade)
         try await open(model)
         #expect(model.viewOptions.transition == .fade)
+    }
+
+    private func source(_ text: String, format: DocumentFormat, in environment: Environment) -> DocumentViewModel {
+        DocumentViewModel(
+            data: Data(text.utf8), fileURL: nil, format: format, preferences: environment.preferences,
+            library: environment.library, settingsStore: environment.store)
+    }
+
+    @Test(
+        "LaTeX の文書は組版の前からめくりで、組版中に表示の型か読む向きだけを変えても、組版のあとも開き直してもめくりで、変えた項目は残る",
+        .timeLimit(.minutes(1)), arguments: ["layout", "direction"])
+    func latexPageCurlDuringLayout(change: String) async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let text = #"\documentclass{article}\begin{document}\section{North}Gauge.\section{South}Gauge.\end{document}"#
+        let model = source(text, format: .latex, in: environment)
+        defer { model.stop() }
+        #expect(model.viewOptions.transition == .pageCurl)
+        model.start()
+        // The first layout has started and cannot finish before this test yields the main actor.
+        try #require(model.result == nil)
+        if change == "layout" {
+            model.setLayout(.spread)
+        } else {
+            model.updateViewOptions { $0.direction = .rightToLeft }
+        }
+        func keepsChange(_ options: ViewOptions?) -> Bool {
+            change == "layout" ? options?.layout == .spread : options?.direction == .rightToLeft
+        }
+        try await waitUntil(pageTurnState(model, waitingFor: "the first layout and the hash")) {
+            model.result != nil && !model.isRendering && model.contentHash != nil
+        }
+        try #require(model.slideDeck == nil)
+        #expect(model.viewOptions.transition == .pageCurl)
+        #expect(keepsChange(model.viewOptions))
+        let hash = try #require(model.contentHash)
+        model.rememberedSettingsDidChange()
+        model.flushPendingSettings()
+        let record = try #require(environment.store.record(for: hash.hex))
+        #expect(record.view?.transition == .pageCurl && record.transitionFollowsKind == .typeset)
+        #expect(keepsChange(record.view))
+        let reopened = source(text, format: .latex, in: environment)
+        defer { reopened.stop() }
+        try await open(reopened)
+        #expect(reopened.viewOptions.transition == .pageCurl)
+        #expect(keepsChange(reopened.viewOptions))
+    }
+
+    @Test("縦組みの文書クラスは右から左へ読み、めくりで開く", .timeLimit(.minutes(1)))
+    func verticalLaTeXPageCurl() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let model = source(
+            #"\documentclass{tarticle}\begin{document}\section{北}本文です。\end{document}"#, format: .latex,
+            in: environment)
+        defer { model.stop() }
+        #expect(model.viewOptions.direction == .rightToLeft && model.viewOptions.transition == .pageCurl)
+        try await open(model)
+        #expect(model.viewOptions.direction == .rightToLeft && model.viewOptions.transition == .pageCurl)
+    }
+
+    /// What allowing the folder does after the panel (`allowFolderAccess`): the pages are made again from the files
+    /// now readable, not from the ones laid out before.
+    private func grantFolder(of model: DocumentViewModel, in environment: Environment) {
+        model.useDocumentFolder(FolderAccess.Lease(url: environment.directory, release: {}))
+        model.renderer.clearCache()
+        model.render()
+    }
+
+    /// A deck whose class sits in an included file, which a sandboxed app reads only once the folder is allowed.
+    private func deckBehindInput(_ environment: Environment, readable: Bool) throws -> DocumentViewModel {
+        let bytes = Data(#"\input{deck}\begin{document}\frame{North}\frame{South}\end{document}"#.utf8)
+        let main = try environment.file(bytes, named: "main.tex")
+        _ = try environment.file(Data(#"\documentclass{beamer}"#.utf8), named: "deck.tex")
+        // Real layout: a deck is laid out slide by slide, which a stand-in PDF of fixed pages cannot give.
+        return DocumentViewModel(
+            data: bytes, fileURL: main, format: .latex, preferences: environment.preferences,
+            library: environment.library, renderer: DocumentRenderer(isSandboxed: { !readable }),
+            settingsStore: environment.store)
+    }
+
+    @Test(
+        "参照先のクラスがあとから読めて beamer と分かると、選んでいない送り方はスライドになり、変えた項目は開き直しても残る",
+        .timeLimit(.minutes(1)), arguments: ["none", "layout", "direction"])
+    func deckFoundLater(change: String) async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let model = try deckBehindInput(environment, readable: false)
+        defer { model.stop() }
+        #expect(model.viewOptions.transition == .pageCurl)
+        model.start()
+        try #require(model.result == nil)
+        switch change {
+        case "layout": model.setLayout(.spread)
+        case "direction": model.updateViewOptions { $0.direction = .rightToLeft }
+        default: break
+        }
+        func keepsChange(_ options: ViewOptions?) -> Bool {
+            switch change {
+            case "layout": options?.layout == .spread
+            case "direction": options?.direction == .rightToLeft
+            default: options?.layout == .single && options?.direction == .leftToRight
+            }
+        }
+        try await waitUntil(pageTurnState(model, waitingFor: "the first layout and the hash")) {
+            model.result != nil && !model.isRendering && model.contentHash != nil
+        }
+        // The class is not readable yet: an ordinary LaTeX document.
+        #expect(model.viewOptions.transition == .pageCurl)
+        grantFolder(of: model, in: environment)
+        try await waitUntil(pageTurnState(model, waitingFor: "the deck's layout")) {
+            !model.isRendering && model.slideDeck != nil
+        }
+        #expect(model.viewOptions.transition == .slide)
+        #expect(keepsChange(model.viewOptions))
+        let hash = try #require(model.contentHash)
+        model.rememberedSettingsDidChange()
+        model.flushPendingSettings()
+        let record = environment.store.record(for: hash.hex)
+        if change == "none" {
+            // Learning the class is no choice of the reader's: nothing is saved.
+            #expect(record == nil)
+        } else {
+            #expect(record?.view?.transition == .slide && record?.transitionFollowsKind == .slides)
+            #expect(keepsChange(record?.view))
+        }
+        let reopened = try deckBehindInput(environment, readable: true)
+        defer { reopened.stop() }
+        try await open(reopened)
+        #expect(reopened.viewOptions.transition == .slide)
+        #expect(keepsChange(reopened.viewOptions))
+    }
+
+    @Test("beamer と分かる前に表示の型だけを変えて保存し、前置きが読める状態で開き直すと、スライドになり表示の型は残る", .timeLimit(.minutes(1)))
+    func savedBeforeDeckFoundReopensAsDeck() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let model = try deckBehindInput(environment, readable: false)
+        defer { model.stop() }
+        try await open(model)
+        model.setLayout(.spread)
+        model.rememberedSettingsDidChange()
+        model.flushPendingSettings()
+        let hash = try #require(model.contentHash)
+        let record = try #require(environment.store.record(for: hash.hex))
+        #expect(record.view?.transition == .pageCurl && record.transitionFollowsKind == .typeset)
+        let reopened = try deckBehindInput(environment, readable: true)
+        defer { reopened.stop() }
+        try await open(reopened)
+        #expect(reopened.viewOptions.transition == .slide)
+        #expect(reopened.viewOptions.layout == .spread)
+    }
+
+    @Test(
+        "既定に戻したあと beamer と分かってから取り消すと、変えた項目は戻り、選んでいない送り方はスライド、選んだフェードはフェードのまま",
+        .timeLimit(.minutes(1)), arguments: [false, true])
+    func undoResetAfterDeckFound(choosesFade: Bool) async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let model = try deckBehindInput(environment, readable: false)
+        defer { model.stop() }
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 500, height: 600), styleMask: [.titled], backing: .buffered,
+            defer: true)
+        window.isReleasedWhenClosed = false
+        model.window = window
+        let undo = try #require(window.undoManager)
+        undo.groupsByEvent = false
+        try await open(model)
+        model.setLayout(.spread)
+        if choosesFade { model.updateViewOptions { $0.transition = .fade } }
+        model.rememberedSettingsDidChange()
+        model.flushPendingSettings()
+        let hash = try #require(model.contentHash)
+        #expect(environment.store.record(for: hash.hex)?.transitionFollowsKind == (choosesFade ? nil : .typeset))
+        undo.beginUndoGrouping()
+        model.resetDocumentSettings()
+        undo.endUndoGrouping()
+        #expect(model.viewOptions.layout == .single && model.viewOptions.transition == .pageCurl)
+        grantFolder(of: model, in: environment)
+        try await waitUntil(pageTurnState(model, waitingFor: "the deck's layout")) {
+            !model.isRendering && model.slideDeck != nil
+        }
+        #expect(model.viewOptions.transition == .slide)
+        let restored: ViewOptions.Transition = choosesFade ? .fade : .slide
+        undo.undo()
+        #expect(model.viewOptions.layout == .spread && model.viewOptions.transition == restored)
+        undo.redo()
+        #expect(model.viewOptions.layout == .single && model.viewOptions.transition == .slide)
+        undo.undo()
+        #expect(model.viewOptions.layout == .spread && model.viewOptions.transition == restored)
+        model.flushPendingSettings()
+        let record = try #require(environment.store.record(for: hash.hex))
+        #expect(record.view?.layout == .spread && record.view?.transition == restored)
+        #expect(record.transitionFollowsKind == (choosesFade ? nil : .slides))
+        let reopened = try deckBehindInput(environment, readable: true)
+        defer { reopened.stop() }
+        try await open(reopened)
+        #expect(reopened.viewOptions.layout == .spread && reopened.viewOptions.transition == restored)
+        withExtendedLifetime(window) {}
+    }
+
+    @Test("参照先のクラスがあとから読めても、自分で選んだ送り方は変わらず、開き直しても残る", .timeLimit(.minutes(1)))
+    func chosenPageTurnSurvivesDeckFoundLater() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let model = try deckBehindInput(environment, readable: false)
+        defer { model.stop() }
+        model.start()
+        try #require(model.result == nil)
+        model.updateViewOptions { $0.transition = .fade }
+        try await waitUntil(pageTurnState(model, waitingFor: "the first layout and the hash")) {
+            model.result != nil && !model.isRendering && model.contentHash != nil
+        }
+        grantFolder(of: model, in: environment)
+        try await waitUntil(pageTurnState(model, waitingFor: "the deck's layout")) {
+            !model.isRendering && model.slideDeck != nil
+        }
+        #expect(model.viewOptions.transition == .fade)
+        let hash = try #require(model.contentHash)
+        model.rememberedSettingsDidChange()
+        model.flushPendingSettings()
+        let record = try #require(environment.store.record(for: hash.hex))
+        #expect(record.view?.transition == .fade && record.transitionFollowsKind == nil)
+        let reopened = try deckBehindInput(environment, readable: true)
+        defer { reopened.stop() }
+        try await open(reopened)
+        #expect(reopened.viewOptions.transition == .fade)
+    }
+
+    @Test("何も選んでいなければ LaTeX はめくり、beamer はスライド、Markdown はスクロールで開く", .timeLimit(.minutes(1)))
+    func pageTurnByFormat() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let latex = source(
+            #"\documentclass{article}\begin{document}\section{North}Gauge.\end{document}"#, format: .latex,
+            in: environment)
+        let deck = beamer(environment)
+        let markdown = source("# North\n\nGauge.\n", format: .markdown, in: environment)
+        defer {
+            latex.stop()
+            deck.stop()
+            markdown.stop()
+        }
+        for model in [latex, deck, markdown] { try await open(model) }
+        #expect(latex.viewOptions.transition == .pageCurl && latex.viewOptions.layout == .single)
+        #expect(deck.viewOptions.transition == .slide)
+        #expect(markdown.viewOptions.transition == .scroll)
     }
 
     @Test("用紙の向きは操作したときだけ保存して復元し既定に戻すと自動になる", .timeLimit(.minutes(1)))
