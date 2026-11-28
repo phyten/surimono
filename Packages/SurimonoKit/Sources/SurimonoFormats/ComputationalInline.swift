@@ -52,8 +52,9 @@ struct ComputationalLabel {
 enum ComputationalInsertion {
     case literal(String)
     /// A cross-reference to the label `id`. `unresolved` is what the tool that wrote it prints when no label answers,
-    /// and `written` the name as the document wrote it.
-    case reference(id: String, numberOnly: Bool, unresolved: String, written: String)
+    /// and `written` the name as the document wrote it. bookdown's references only find numbered targets
+    /// (`numbered`): a heading without a number is not in its table.
+    case reference(id: String, numberOnly: Bool, numbered: Bool, unresolved: String, written: String)
 }
 
 extension ComputationalBody {
@@ -127,14 +128,18 @@ extension ComputationalBody {
                 // bookdown's `\@ref()` gives the number alone; the text around it names the figure or table.
                 let id = text(ref)
                 bookdownTargets.insert(id)
-                html += deferInsertion(.reference(id: id, numberOnly: true, unresolved: "??", written: id))
-            } else if let ref = match.crossReference ?? match.bareReference,
+                html += deferInsertion(
+                    .reference(id: id, numberOnly: true, numbered: true, unresolved: "??", written: id))
+            } else if format == .quarto, let ref = match.crossReference ?? match.bareReference,
                 let target = ComputationalLabel.quartoTarget(text(ref)), !isLiteral(match.range)
             {
-                // A citation never reaches here, so a heading or figure with the same name cannot capture it.
+                // A citation never reaches here, so a heading or figure with the same name cannot capture it. R Markdown
+                // writes its cross-references with `\@ref()` and cites with `@`, whatever the key looks like.
                 let numberOnly = match.crossReferenceMinus.map { !$0.isEmpty } ?? false
                 html += deferInsertion(
-                    .reference(id: target, numberOnly: numberOnly, unresolved: "?@" + text(ref), written: text(ref)))
+                    .reference(
+                        id: target, numberOnly: numberOnly, numbered: false, unresolved: "?@" + text(ref),
+                        written: text(ref)))
             } else {
                 html += original
             }
@@ -143,12 +148,19 @@ extension ComputationalBody {
         return html + text(start..<characters.count)
     }
 
+    /// The label a reference finds, if any. The display and the print check both ask here, so they agree.
+    private func target(_ id: String, numbered: Bool) -> ComputationalLabel? {
+        guard let label = labels[id] else { return nil }
+        if numbered, case .heading = label.value { return nil }
+        return label
+    }
+
     /// The references that name no label in the document, as written, once each in the order they are first used.
     var unresolvedReferences: [String] {
         var seen: Set<String> = []
         return insertions.compactMap { insertion in
-            guard case .reference(let id, _, _, let written) = insertion, labels[id] == nil,
-                seen.insert(written).inserted
+            guard case .reference(let id, _, let numbered, _, let written) = insertion,
+                target(id, numbered: numbered) == nil, seen.insert(written).inserted
             else { return nil }
             return written
         }
@@ -176,9 +188,9 @@ extension ComputationalBody {
             case .literal(let value):
                 result +=
                     textOnly ? value.replacingOccurrences(of: "<[^>]*>", with: "", options: .regularExpression) : value
-            case .reference(let id, let numberOnly, let unresolved, _):
+            case .reference(let id, let numberOnly, let numbered, let unresolved, _):
                 // bookdown and Quarto print an unresolved reference in bold.
-                if let target = labels[id] {
+                if let target = target(id, numbered: numbered) {
                     let text = HTML.escape(numberOnly ? target.shortText : target.text)
                     result += textOnly ? text : "<a href=\"#\(HTML.escape(target.id))\">\(text)</a>"
                 } else {

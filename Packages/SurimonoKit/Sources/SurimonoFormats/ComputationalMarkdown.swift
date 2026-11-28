@@ -18,7 +18,7 @@ public enum ComputationalMarkdown {
         let file = metadata.reading
         let options = reading.resolve(
             for: format, numbers: file.numbers, contents: file.contents, contentsDepth: contentsDepth)
-        var document = ComputationalBody(metadata: metadata)
+        var document = ComputationalBody(metadata: metadata, format: format)
         let source = document.prepare(lines)
         if PreviewConversion.expired { return HTMLFragment(body: "") }
         let rendered = MarkdownConverter.embeddedBody(
@@ -116,6 +116,8 @@ struct ComputationalBody {
     /// What the Markdown reader leaves as written in the body's lines: code and HTML blocks, link reference
     /// definitions, and code spans over several lines. Cross-references are not looked for there.
     var literal = MarkdownExtensions.Protection(lines: [])
+    /// The lines of display formulas over several lines, which the Markdown reader typesets as written.
+    var formulaLines: Set<Int> = []
     var headings: [(level: Int, id: String, text: String)] = []
     var headingSuffixes: [String: Int] = [:]
     var unnumbered: Set<String> = []
@@ -124,8 +126,12 @@ struct ComputationalBody {
     let token = "surimono" + UUID().uuidString.replacingOccurrences(of: "-", with: "")
     var previousHiddenResult = false
 
-    init(metadata: ComputationalMetadata) {
+    /// Quarto or R Markdown: only Quarto reads `@fig-a` as a cross-reference; R Markdown cites with it.
+    let format: DocumentFormat
+
+    init(metadata: ComputationalMetadata, format: DocumentFormat) {
         self.metadata = metadata
+        self.format = format
         defaults = metadata.defaults
     }
 
@@ -136,6 +142,7 @@ struct ComputationalBody {
             block("</div>")
         }
         literal = MarkdownExtensions.protection(lines)
+        formulaLines = MarkdownExtensions.displayFormulaLines(lines, protection: literal)
         var index = 0
         while index < lines.count {
             if PreviewConversion.expired { return "" }

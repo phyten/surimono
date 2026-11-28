@@ -248,11 +248,48 @@ struct ComputationalMarkdownTests {
         #expect(fragment.readingIssues == ["Unresolved cross-references: fig:missing"])
     }
 
-    @Test("bookdownで番号のない見出しを指す参照は、bookdownと同じく??になる")
-    func bookdownUnnumberedSection() {
-        let fragment = ComputationalMarkdown.convert("# Methods {#methods}\n\nSee \\@ref(methods).", format: .rMarkdown)
+    @Test(
+        "bookdownで番号のない見出しを指す参照は、bookdownと同じく??になる",
+        arguments: ["methods", "sec-methods"])
+    func bookdownUnnumberedSection(id: String) {
+        let fragment = ComputationalMarkdown.convert(
+            "# Methods {#\(id)}\n\nSee \\@ref(\(id)).", format: .rMarkdown)
         #expect(fragment.body.contains("See <strong>??</strong>."))
-        #expect(fragment.readingIssues == ["Unresolved cross-references: methods"])
+        #expect(fragment.readingIssues == ["Unresolved cross-references: \(id)"])
+    }
+
+    @Test("複数行の\\[…\\]の中の参照らしい文字は参照として数えない")
+    func referenceInsideDisplayFormula() {
+        let fragment = ComputationalMarkdown.convert("Before.\n\n\\[\n\\text{@fig-missing}\n\\]\n\nAfter.")
+        #expect(!fragment.body.contains("?@fig-missing"))
+        #expect(fragment.readingIssues.isEmpty)
+    }
+
+    @Test("コードスパンの中に書いた<code>は、その外の参照を隠さない")
+    func codeTagsInsideCodeSpans() {
+        let html = ComputationalMarkdown.convert(
+            "Use `<code>`; see @fig-a; close with `</code>`.\n\n![Paper](paper.png){#fig-a}"
+        ).body
+        #expect(html.contains("see <a href=\"#fig-a\">Figure 1</a>; close"))
+    }
+
+    @Test("段落の中で行をまたぐ<code>…</code>の中は参照として読まない")
+    func codeElementOverLines() {
+        let fragment = ComputationalMarkdown.convert(
+            "Example: <code>\n\\@ref(fig:missing)\n</code>.", format: .rMarkdown)
+        #expect(!fragment.body.contains("??"))
+        #expect(fragment.readingIssues.isEmpty)
+    }
+
+    @Test("[@fig-key]はR Markdownでは文献の引用、Quartoでは相互参照として読む")
+    func citationOrReferenceByFormat() {
+        let rMarkdown = ComputationalMarkdown.convert(
+            "See [@fig-smith2020].\n\n![Paper](paper.png){#fig-smith2020}", format: .rMarkdown)
+        #expect(rMarkdown.body.contains("See [@fig-smith2020]."))
+        #expect(rMarkdown.readingIssues.isEmpty)
+        let quarto = ComputationalMarkdown.convert("See [@fig-smith2020].", format: .quarto)
+        #expect(quarto.body.contains("See <strong>?@fig-smith2020</strong>."))
+        #expect(quarto.readingIssues == ["Unresolved cross-references: fig-smith2020"])
     }
 
     @Test("章番号と目次に深さと見出しごとの指定を反映する")

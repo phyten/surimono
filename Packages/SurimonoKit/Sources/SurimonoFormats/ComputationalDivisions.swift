@@ -120,11 +120,18 @@ extension ComputationalBody {
     }
 
     mutating func prose(_ line: String, at index: Int? = nil) {
-        if let index, literal.lines.indices.contains(index), literal.lines[index] {
+        if let index, literal.lines.indices.contains(index), literal.lines[index] || formulaLines.contains(index) {
             output.append(line)
             return
         }
-        let spans = index.flatMap { literal.spans[$0] } ?? []
+        let spans = index.map { (literal.spans[$0] ?? []) + (literal.htmlCode[$0] ?? []) } ?? []
+        // The spans of a part of the line, measured from where the part starts.
+        func spansOfPart(from start: String.Index) -> [Range<Int>] {
+            let offset = line.utf8.distance(from: line.startIndex, to: start)
+            return spans.compactMap { span in
+                span.upperBound > offset ? max(span.lowerBound - offset, 0)..<(span.upperBound - offset) : nil
+            }
+        }
         if line.trimmingCharacters(in: .whitespaces) == #"\newpage"# {
             block("<div class=\"page-break\"></div>")
         } else if line.hasPrefix("#"), let match = line.wholeMatch(of: /^(#{1,6})\s+(.*?)(?:\s+\{([^{}]+)\})?\s*$/) {
@@ -136,7 +143,7 @@ extension ComputationalBody {
             if ComputationalLabel.kind(id) == "sec" { _ = register(id, kind: "sec", heading: title) }
             if attrs.classes.contains("unnumbered") { unnumbered.insert(id) }
             if attrs.classes.contains("unlisted") { unlisted.insert(id) } else { headings.append((level, id, title)) }
-            output.append("\(match.1) \(inline(title)) {#\(id)}")
+            output.append("\(match.1) \(inline(title, literalSpans: spansOfPart(from: match.2.startIndex))) {#\(id)}")
         } else if line.contains("{#fig-"),
             let match = line.wholeMatch(of: /^\s*(!\[([^\]]*)\]\(.+\))\s*\{#(fig-[\w:.-]+)\}\s*$/)
         {
@@ -163,8 +170,8 @@ extension ComputationalBody {
             block("<div\(target.attribute) class=\"equation-number\">(\(target.shortText))</div>")
         } else if line.hasPrefix("| "), !line.dropFirst().contains("|") {
             // The line loses its first two characters, so the UTF-8 spans move with it.
-            let shifted = spans.compactMap { $0.upperBound > 2 ? max($0.lowerBound - 2, 0)..<($0.upperBound - 2) : nil }
-            output.append(inline(String(line.dropFirst(2)), literalSpans: shifted) + "  ")
+            let rest = line.index(line.startIndex, offsetBy: 2)
+            output.append(inline(String(line[rest...]), literalSpans: spansOfPart(from: rest)) + "  ")
         } else if line.hasPrefix("    ") || line.hasPrefix("\t") {
             output.append(line)
         } else {
