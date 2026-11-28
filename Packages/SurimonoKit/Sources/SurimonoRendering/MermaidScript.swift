@@ -20,24 +20,100 @@ enum MermaidScript {
 
     static let probe = "return String(document.querySelectorAll('.mermaid-block > .mermaid-source').length);"
 
-    private static var offlineRules: WKContentRuleList?
+    /// Compiled lists by the images they let through; a document compiles one only for a new set of images. All share
+    /// one stored identifier, so the store keeps a single file, and a web view holds only the latest of them.
+    private static var offlineRules: [String: WKContentRuleList] = [:]
 
+    /// Blocks every load from now on, except local images the document has already shown. Later preparation (figure
+    /// placement, paragraph composition, the flow layout) moves or copies those images, and each copy loads its
+    /// image again; blocking them too left LaTeX figures blank once a TikZ picture had been drawn. A copy reads the
+    /// same local file again, which is no communication; an image from the network is not let through, so a copy of
+    /// it stays blank rather than fetch it a second time. Engines cannot load anything the document did not show.
+    /// Only the first 1,000 shown addresses of up to 2,048 characters are let through; copies of others stay blank.
     static func preventResourceLoads(in webView: WKWebView) async throws {
-        if offlineRules == nil {
-            offlineRules = try await WebKitReply<WKContentRuleList>.wait(until: .now + .seconds(15)) { reply in
-                WKContentRuleListStore.default().compileContentRuleList(
-                    forIdentifier: "surimono-mermaid-offline",
-                    encodedContentRuleList: #"[{"trigger":{"url-filter":".*"},"action":{"type":"block"}}]"#
-                ) { list, error in
-                    if let list {
-                        reply(.success(list))
-                    } else {
-                        reply(.failure(error ?? WebPaginator.PaginationError.printFailed))
-                    }
+        let shown =
+            (try? await webView.evaluateForPrinting(shownImagesScript, until: .now + .seconds(15))) as? [String] ?? []
+        let rules = try await offlineRules(keeping: shown)
+        webView.configuration.userContentController.add(rules)
+    }
+
+    static let shownImagesScript = """
+        const urls = new Set();
+        for (const image of document.images) {
+          const url = image.currentSrc || '';
+          if (image.complete && image.naturalWidth && /^[\\x21-\\x7e]{1,2048}$/.test(url)) urls.add(url);
+        }
+        return Array.from(urls).sort().slice(0, 1000);
+        """
+
+    /// Schemes that read a file on this Mac: the document's own folder, the sandbox's handler and a live snapshot.
+    static let localSchemes = ["file", LocalResourceSchemeHandler.scheme, SnapshotSchemeHandler.scheme]
+
+    /// The rules: block everything, then let through embedded images and exactly the shown local addresses. WebKit
+    /// compares filters without regard to case unless told; `Chart.svg` and `chart.svg` are different images.
+    static func offlineRuleSet(keeping images: [String]) -> [[String: Any]] {
+        var rules: [[String: Any]] = [
+            ["trigger": ["url-filter": ".*"], "action": ["type": "block"]],
+            [
+                "trigger": ["url-filter": "^data:", "resource-type": ["image"]],
+                "action": ["type": "ignore-previous-rules"],
+            ],
+        ]
+        for url in images {
+            guard let scheme = url.split(separator: ":", maxSplits: 1).first?.lowercased(),
+                localSchemes.contains(scheme)
+            else { continue }
+            rules.append([
+                "trigger": [
+                    "url-filter": "^" + escapedFilter(url) + "$", "url-filter-is-case-sensitive": true,
+                    "resource-type": ["image"],
+                ],
+                "action": ["type": "ignore-previous-rules"],
+            ])
+        }
+        return rules
+    }
+
+    static func offlineRules(keeping images: [String]) async throws -> WKContentRuleList {
+        let key = images.joined(separator: "\n")
+        if let cached = offlineRules[key] { return cached }
+        let encoded = String(
+            decoding: try JSONSerialization.data(withJSONObject: offlineRuleSet(keeping: images)), as: UTF8.self)
+        let list: WKContentRuleList
+        do {
+            list = try await compile(encoded, identifier: "surimono-offline")
+        } catch {
+            // An address WebKit's filter grammar refuses must not let the engines go online: block everything.
+            list = try await compile(
+                #"[{"trigger":{"url-filter":".*"},"action":{"type":"block"}}]"#, identifier: "surimono-offline")
+        }
+        if offlineRules.count >= 16 { offlineRules.removeAll() }
+        offlineRules[key] = list
+        return list
+    }
+
+    private static func compile(_ encoded: String, identifier: String) async throws -> WKContentRuleList {
+        try await WebKitReply<WKContentRuleList>.wait(until: .now + .seconds(15)) { reply in
+            WKContentRuleListStore.default().compileContentRuleList(
+                forIdentifier: identifier, encodedContentRuleList: encoded
+            ) { list, error in
+                if let list {
+                    reply(.success(list))
+                } else {
+                    reply(.failure(error ?? WebPaginator.PaginationError.printFailed))
                 }
             }
         }
-        if let offlineRules { webView.configuration.userContentController.add(offlineRules) }
+    }
+
+    /// A URL as a literal in WebKit's content rule filter, a subset of JavaScript regular expressions.
+    static func escapedFilter(_ url: String) -> String {
+        var escaped = ""
+        for character in url {
+            if "\\^$.|?*+()[]{}".contains(character) { escaped.append("\\") }
+            escaped.append(character)
+        }
+        return escaped
     }
 
     static let fallback = """

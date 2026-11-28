@@ -2938,6 +2938,14 @@ final class LaTeXReader {
         let options = optional()
         let file = argument()?.trimmingCharacters(in: .whitespaces) ?? ""
         let (source, url) = document.imageSource(file)
+        if url == nil, document.directory != nil {
+            // An image that is not there would draw nothing, and an empty alt leaves no trace on the paper: name it
+            // in a frame, as a missing \input is, and list it among the reading issues.
+            let message =
+                document.isJapanese ? "画像 \(file) を読み込めません" : "Image \(file) could not be read"
+            document.reportFileIssue(message)
+            return "<span class=\"latex-unsupported\">\(HTML.escape(message))</span>"
+        }
         let keys = LaTeXPageSettings.options(options ?? "")
         if clipped || keys.contains(where: { $0.key == "clip" && $0.value != "false" }),
             let trim = keys.last(where: { $0.key == "trim" })?.value,

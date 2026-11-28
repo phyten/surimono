@@ -211,7 +211,7 @@ struct LaTeXConverterTests {
             imageExists: { FileManager.default.fileExists(atPath: $0.path) }
         ).body
         #expect(html.contains("src=\"figures/plot.pdf\""))
-        #expect(html.contains("src=\"missing\""))
+        #expect(html.contains(#"<span class="latex-unsupported">Image missing could not be read</span>"#))
     }
 
     @Test("表は列の揃えと縦線・横線、booktabs の見出し、\\multicolumn と \\multirow を表にする")
