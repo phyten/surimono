@@ -195,7 +195,6 @@ enum TableFit {
             }
             return width;
         }
-        // The width of a column's content box, from any of its cells: they share it.
         // The text width a column leaves its narrowest cell: cells share the column's width, but not always
         // their padding. Content boxes, whatever box the cells size.
         function contentOf(column) {
