@@ -240,7 +240,9 @@ struct LaTeXConverterTests {
     func unsupported() {
         let html = body(document("\\begin{tikzpicture}\\draw (0,0) -- (1,1);\\end{tikzpicture}\\input{chapter1}"))
         #expect(html.contains("<span class=\"tikz-block\""))
-        #expect(html.contains("<div class=\"latex-unsupported\">chapter1.tex could not be read</div>"))
+        #expect(
+            html.contains(
+                "<div class=\"latex-unsupported\" data-unread-file=\"unread-0\">chapter1.tex could not be read</div>"))
         #expect(
             body(document("\\begin{tikzpicture}\\end{tikzpicture}", class: "jsarticle")).contains("図（TikZ）"))
     }

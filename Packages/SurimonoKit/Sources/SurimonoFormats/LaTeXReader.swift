@@ -1605,9 +1605,10 @@ final class LaTeXReader {
         if let target = document.labelTarget, !key.isEmpty { document.labels[key] = target }
     }
 
-    func unsupported(_ message: String, picture: Bool = false) -> String {
+    func unsupported(_ message: String, picture: Bool = false, unreadFile: String? = nil) -> String {
         let role = picture ? " data-latex-picture" : ""
-        return "<div class=\"latex-unsupported\"\(role)>\(HTML.escape(message))</div>\n"
+        let file = unreadFile.map { " data-unread-file=\"\(HTML.escape($0))\"" } ?? ""
+        return "<div class=\"latex-unsupported\"\(role)\(file)>\(HTML.escape(message))</div>\n"
     }
 
     // MARK: - Links and colors

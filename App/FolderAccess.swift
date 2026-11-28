@@ -57,8 +57,10 @@ final class FolderAccess {
     }
 
     func acquire(for document: URL) -> Lease? {
-        var records = defaults.dictionary(forKey: key) as? [String: Data] ?? [:]
-        defer { defaults.set(records, forKey: key) }
+        let saved = defaults.dictionary(forKey: key) as? [String: Data]
+        var records = saved ?? [:]
+        // Every document asks when it opens, so leave the defaults alone unless a record changed.
+        defer { if records != saved ?? [:] { defaults.set(records, forKey: key) } }
         var selected: (url: URL, path: String)?
         for (name, data) in records.sorted(by: { $0.key < $1.key }) {
             do {
