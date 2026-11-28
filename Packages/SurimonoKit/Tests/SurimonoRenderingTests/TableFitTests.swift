@@ -39,6 +39,7 @@ struct TableFitTests {
     private func printed(
         _ body: String, layout: PrintLayout = .a4Single, fit: Bool = true, css: String = "",
         theme chosen: PrintTheme? = nil, footnotes: FootnotePlacement = .end, textScale: Double = 1,
+        format: DocumentFormat = .markdown,
         inspect: (@MainActor (WKWebView) async -> Void)? = nil,
         requested: (@MainActor (PaginationRequest) -> Void)? = nil
     ) async throws -> RenderResult {
@@ -60,7 +61,7 @@ struct TableFitTests {
             preset: HTMLCleanupPreset(id: "none", name: "None"))
         settings.finish.footnotes = footnotes
         settings.textScale = textScale
-        return try await renderer.render(DocumentSource(data: Data(body.utf8), format: .markdown), settings: settings)
+        return try await renderer.render(DocumentSource(data: Data(body.utf8), format: format), settings: settings)
     }
 
     private func printPage(
@@ -672,9 +673,25 @@ struct TableFitTests {
         "https://example.com/a/very/long/url/that/keeps/going/and/going/without/any/space/in/it/at/all/index.html"
         + "?query=1&another=2&more=3"
 
+    @Test("短い列は表の幅の3割以下で決め、長い列には8文字ぶんか3割を列の数で分けた幅を、もとの幅までは残す")
+    func labelArithmetic() throws {
+        let js = try #require(JSContext())
+        js.evaluateScript(TableFit.labelFunctions)
+        let isShort = try #require(js.objectForKeyedSubscript("isShortColumn"))
+        let floor = try #require(js.objectForKeyedSubscript("columnFloor"))
+        #expect(isShort.call(withArguments: [191.25, 637.5]).toBool())
+        #expect(!isShort.call(withArguments: [191.5, 637.5]).toBool())
+        // One long column keeps 30% of the room; three keep eight ems each, more than their 10%.
+        #expect(floor.call(withArguments: [400, 14, 637.5, 1]).toDouble() == 191.25)
+        #expect(floor.call(withArguments: [500, 14, 637.5, 3]).toDouble() == 112)
+        // A column that had less keeps what it had.
+        #expect(floor.call(withArguments: [100, 14, 637.5, 1]).toDouble() == 100)
+        #expect(js.exception == nil)
+    }
+
     @Test(
-        "長いURLの隣の短い語の列は、日本語も英語も本文と同じ1行で刷る", .timeLimit(.minutes(1)),
-        arguments: [("項目名", 1.0), ("項目名", 2.0), ("Status", 1.0), ("Status", 2.0)])
+        "長いURLの隣の短い列は、日本語も14文字の英語も本文と同じ1行で刷る", .timeLimit(.minutes(1)),
+        arguments: [("項目名", 1.0), ("項目名", 2.0), ("Not applicable", 1.0), ("Not applicable", 2.0)])
     func labelsKeptWhole(label: String, scale: Double) async throws {
         let mark = "<span style='color:lime'>\(label)</span>"
         let table = "| \(label) | 値 |\n|---|---|\n| \(mark) | \(Self.longURL) |\n"
@@ -689,17 +706,125 @@ struct TableFitTests {
         #expect(abs(cell.width - expected.width) <= 1, "label \(cell), in a paragraph \(expected)")
     }
 
-    @Test("短い語の隣の長いURLは、本文の幅の中で折り返し、右の外罫を刷る", .timeLimit(.minutes(1)))
-    func longCellWrapsBesideLabels() async throws {
-        let table = "| 項目名 | 値 |\n|---|---|\n| 名前 | <span style='color:lime'>\(Self.longURL)</span> |\n"
-        let page = try await printPage(table)
+    /// The page as printed, and as printed without TableFit.
+    private func withAndWithout(_ source: String) async throws -> (fitted: Raster, original: Raster) {
+        let fitted = try await printed(source)
+        let original = try await printed(source, fit: false)
+        return (
+            try Raster(#require(fitted.logicalDocument.page(at: 0))),
+            try Raster(#require(original.logicalDocument.page(at: 0)))
+        )
+    }
+
+    @Test("表の幅の3割より長い語の列は、隣に長いURLがあっても今までどおりにする", .timeLimit(.minutes(1)))
+    func longWordColumnLeftAlone() async throws {
+        // Japanese, so it is squeezed to a character a line like a short label, but wider than 30% on one line.
+        let word = "とても長い項目の名前がここに続きます"
+        let pages = try await withAndWithout("| 名前 | 値 |\n|---|---|\n| \(word) | \(Self.longURL) |\n")
+        #expect(pages.fitted.data == pages.original.data)
+    }
+
+    @Test("短い列を守ると長い列が下限より狭くなる表は、どの列も守らない", .timeLimit(.minutes(1)))
+    func longColumnFloorKept() async throws {
+        // Four kept whole would still fit, but leave the URL less than 30% of the room.
+        let labels = Array(repeating: "Not applicable", count: 4)
+        let source =
+            "| " + labels.joined(separator: " | ") + " | 値 |\n|" + String(repeating: "---|", count: 5) + "\n| "
+            + labels.joined(separator: " | ") + " | \(Self.longURL) |\n"
+        let pages = try await withAndWithout(source)
+        #expect(pages.fitted.data == pages.original.data)
+    }
+
+    @Test("改行を保つ指定で改行のあるセルがある列は、短くても今までどおりにする", .timeLimit(.minutes(1)))
+    func keptLineBreaksLeftAlone() async throws {
+        let source =
+            "<table><tr><th>名前</th><th>値</th></tr><tr><td style='white-space:pre-wrap'>A\nB</td>"
+            + "<td>\(Self.longURL)</td></tr></table>\n"
+        let pages = try await withAndWithout(source)
+        #expect(pages.fitted.data == pages.original.data)
+    }
+
+    @Test("空白を保つ指定のセルの短い列は、空白をそのままに1行で刷る", .timeLimit(.minutes(1)))
+    func keptSpacesOnOneLine() async throws {
+        let mark = "<span style='color:lime'>A    B</span>"
+        let source =
+            "<table><tr><th>名前</th><th>値</th></tr><tr><td style='white-space:pre-wrap'>\(mark)</td>"
+            + "<td>\(Self.longURL)</td></tr></table>\n"
+        // Four spaces kept, as pre draws them in a paragraph; collapsed to one, the label would be narrower.
+        let control = try await Raster(printPage("<p style='white-space:pre'>\(mark)</p>\n"))
+        let actual = try await Raster(printPage(source))
+        let expected = try control.bounds(channel: 1)
+        let cell = try actual.bounds(channel: 1)
+        #expect(cell.height == expected.height, "label \(cell), in a paragraph \(expected)")
+        #expect(abs(cell.width - expected.width) <= 1, "label \(cell), in a paragraph \(expected)")
+    }
+
+    @Test("CSVの表でも、長いセルの隣の短い列は1行で刷る", .timeLimit(.minutes(1)))
+    func csvLabelsKeptWhole() async throws {
+        let css = ".surimono-csv td:first-child { color: lime }"
+        let control = try await Raster(printPage("<span style='color:lime'>項目名</span>\n"))
+        let result = try await printed(
+            "名前,値\n項目名,\(Self.longURL)\n", css: css, format: .csv)
+        let actual = try Raster(#require(result.logicalDocument.page(at: 0)))
+        let expected = try control.bounds(channel: 1)
+        let cell = try actual.bounds(channel: 1)
+        #expect(cell.height == expected.height, "label \(cell), in a paragraph \(expected)")
+        #expect(abs(cell.width - expected.width) <= 1, "label \(cell), in a paragraph \(expected)")
+    }
+
+    @Test("行の残りをまたぐセルのある表は、列の並びが単純でないので今までどおりにする", .timeLimit(.minutes(1)))
+    func spanningRowsLeftAlone() async throws {
+        let source =
+            "<table><tr><td rowspan='0'>項目名</td><td>\(Self.longURL)</td></tr>"
+            + "<tr><td>担当者</td></tr></table>\n"
+        let pages = try await withAndWithout(source)
+        #expect(pages.fitted.data == pages.original.data)
+    }
+
+    @Test("短い列を守った表は収まった表として扱って警告せず、何もしなかった表は扱わない", .timeLimit(.minutes(1)))
+    func keptTablesRegistered() async throws {
+        let kept = Fitted()
+        let result = try await printed(
+            "| 項目名 | 値 |\n|---|---|\n| 項目名 | \(Self.longURL) |\n", inspect: kept.record)
+        #expect(kept.value)
+        #expect(result.issues.isEmpty)
+        let untouched = Fitted()
+        _ = try await printed("| 名前 | URL |\n|---|---|\n| one | two |\n", inspect: untouched.record)
+        #expect(!untouched.value)
+    }
+
+    @Test("折り返さない指定で広い表でも、強調の中の短い語の列は1行で刷る", .timeLimit(.minutes(1)))
+    func labelsKeptInWideTable() async throws {
+        let mark = "<em style='color:lime'>Status</em>"
+        let source =
+            "<table style='white-space:nowrap'><tr><td>\(mark)</td><td>"
+            + String(repeating: "折り返さない指定の長いセルの中身です。", count: 6) + "</td></tr></table>\n"
+        let control = try await Raster(printPage(mark + "\n"))
+        let actual = try await Raster(printPage(source))
+        let expected = try control.bounds(channel: 1)
+        let cell = try actual.bounds(channel: 1)
+        #expect(cell.height == expected.height, "label \(cell), in a paragraph \(expected)")
+        #expect(abs(cell.width - expected.width) <= 1, "label \(cell), in a paragraph \(expected)")
+    }
+
+    @Test(
+        "短い語の隣の長いURLは、末尾まで本文の幅の中で折り返し、右の外罫を太さそのままに刷る", .timeLimit(.minutes(1)),
+        arguments: [1.0, 1.2])
+    func longCellWrapsBesideLabels(textScale: Double) async throws {
+        // The last characters of the URL are blue, so a cut end shows.
+        let url = Self.longURL.dropLast(7) + "<span style='color:blue'>" + Self.longURL.suffix(7) + "</span>"
+        let table = "| 項目名 | 値 |\n|---|---|\n| 名前 | \(url) |\n"
+        let result = try await printed(table, textScale: textScale)
+        let page = try #require(result.logicalDocument.page(at: 0))
         let pixels = try Raster(page)
-        let url = try pixels.bounds(channel: 1)
+        let end = try pixels.bounds(channel: 2)
         let border = try pixels.bounds(channel: 0)
-        #expect(url.maxX < border.minX)
-        // Wrapped onto several lines rather than run off the page.
-        #expect(url.height > 30)
+        #expect(end.width > 20 && end.maxX < border.minX)
+        // The right rule of a narrow table, wholly inside the page, is as thick as this one.
+        let narrow = try await printed("| a | b |\n|---|---|\n| 1 | 2 |\n", textScale: textScale)
+        let whole = try Raster(#require(narrow.logicalDocument.page(at: 0))).bounds(channel: 0)
+        #expect(border.width == whole.width, "rule \(border), whole \(whole)")
         let rightEdge = (page.bounds(for: .mediaBox).width - 15 * 72 / 25.4) * 2
-        #expect(border.maxX <= ceil(rightEdge) && border.width >= 2)
+        #expect(border.maxX <= ceil(rightEdge))
     }
 }

@@ -30,6 +30,24 @@ enum TableFit {
         }
         """
 
+    /// A column is short when none of its cells needs more than this share of the table's room on one line.
+    static let shortColumnShare = 0.30
+    /// What a long column keeps beside short columns kept whole: this many ems, or its share of the room...
+    static let longColumnEms = 8.0
+    /// ...this share of the room, divided among the long columns, whichever is wider; never more than it had.
+    static let longColumnsShare = 0.30
+
+    /// Which columns are short, and how narrow the other columns may become when short columns are kept whole.
+    static let labelFunctions = """
+        function isShortColumn(width, room) {
+            return width <= \(shortColumnShare) * room;
+        }
+        function columnFloor(before, fontSize, room, longColumns) {
+            const floor = Math.max(\(longColumnEms) * fontSize, \(longColumnsShare) * room / Math.max(1, longColumns));
+            return Math.min(before, floor);
+        }
+        """
+
     /// CSS pixels kept free on the right of a fitted table, for the half of a collapsed outside rule that lies
     /// beyond the table's box and for rounding in the print.
     static let reserve = 2
@@ -44,7 +62,7 @@ enum TableFit {
     @MainActor
     @discardableResult
     static func fit(in view: WKWebView, width: CGFloat?, until deadline: ContinuousClock.Instant) async throws -> Bool {
-        let script = scaleFunction + "\n" + Self.script
+        let script = scaleFunction + "\n" + labelFunctions + "\n" + Self.script
         var arguments: [String: Any] = ["reserve": reserve, "passes": zoomPasses]
         if let width { arguments["width"] = Double(width) }
         return try await view.evaluateForPrinting(script, arguments: arguments, until: deadline) as? Bool == true
@@ -107,62 +125,132 @@ enum TableFit {
             return Math.max(used, table.offsetWidth - 0.5, spill - 0.5) * zoomOf(table);
         }
 
-        // A column whose every cell holds a few characters reads as a label: "Status", a date, or a short
-        // Japanese word, which can break between any two characters. Beside a long cell, the table hands that
-        // column next to nothing beyond its narrowest width, and the word comes out one character a line.
-        // Such a column, where a cell does wrap, keeps its words on one line, unless that makes the table too
-        // wide for its room; then the table is left as it was.
+        // A column of labels ("Status", a date, a short Japanese word, which can break between any two
+        // characters) gets next to nothing beyond its narrowest width beside a long cell, and its words come
+        // out one character a line. Short columns where a cell wraps are kept on one line, all at once, and
+        // only if the table still fits, no long column gets too narrow, and no short column starts to wrap;
+        // otherwise the table is left as it was.
+
+        // The pieces of text in a cell, one rectangle a line of each text node: elements' own boxes would
+        // swallow lines.
+        function textRects(cell) {
+            const rects = [];
+            const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+            for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+                if (!node.data.trim()) continue;
+                const range = document.createRange();
+                range.selectNodeContents(node);
+                for (const rect of range.getClientRects()) if (rect.width && rect.height) rects.push(rect);
+            }
+            return rects;
+        }
         // Inline code and the like sit a little higher or lower on the same line, so a line only starts where
         // a piece of text lies wholly below the one before.
         function lines(cell) {
-            const range = document.createRange();
-            range.selectNodeContents(cell);
-            const rects = [...range.getClientRects()].filter(rect => rect.width && rect.height);
-            rects.sort((a, b) => a.top - b.top);
+            const rects = textRects(cell).sort((a, b) => a.top - b.top);
             let count = 0, bottom = -Infinity;
             for (const rect of rects) {
-                if (rect.top >= bottom - 1) count++;
-                bottom = count && rect.top >= bottom - 1 ? rect.bottom : Math.max(bottom, rect.bottom);
+                if (rect.top >= bottom - 1) {
+                    count++;
+                    bottom = rect.bottom;
+                } else {
+                    bottom = Math.max(bottom, rect.bottom);
+                }
             }
             return count;
         }
-        function shortColumns(table) {
-            const shortLength = 12;
-            const notShort = 'br, img, svg, math, table, pre, p, div, ul, ol, dl, figure, blockquote';
-            const rows = [...table.rows];
-            if (!rows.length || rows.some(row => [...row.cells].some(cell => cell.colSpan > 1 || cell.rowSpan > 1))) {
-                return [];
+        // How to keep a cell's text on one line, element by element, or null when that would change more than
+        // its wrapping. Text that collapses its spaces (or keeps only line breaks) is kept with nowrap; text
+        // that keeps its spaces, as a CSV cell does, with pre, which keeps them too. A line break that is kept,
+        // pictures, formulas, tables and blocks of any kind leave the column alone.
+        function wholeLine(cell) {
+            const collapses = { normal: 'collapse', nowrap: 'collapse', 'pre-line': 'preserve-breaks' };
+            const changes = [];
+            for (const el of [cell, ...cell.querySelectorAll('*')]) {
+                const css = getComputedStyle(el);
+                if (el !== cell && (css.display !== 'inline' || el.matches('br, img, svg, math, table, .math'))) {
+                    return null;
+                }
+                const space = css.whiteSpaceCollapse || collapses[css.whiteSpace] || 'preserve';
+                const own = [...el.childNodes].some(node => node.nodeType === Node.TEXT_NODE && node.data.includes('\n'));
+                if (space !== 'collapse' && own) return null;
+                changes.push([el, space === 'collapse' || space === 'preserve-breaks' ? 'nowrap' : 'pre']);
             }
-            const count = Math.max(...rows.map(row => row.cells.length));
-            const cells = [];
-            for (let column = 0; count > 1 && column < count; column++) {
-                const own = rows.map(row => row.cells[column]).filter(Boolean);
-                const texts = own.map(cell => cell.textContent.trim());
-                const short = own.every((cell, index) =>
-                    !texts[index].includes('\n') && [...texts[index].replace(/\s+/g, ' ')].length <= shortLength
-                    && !cell.querySelector(notShort));
-                if (short && texts.some(text => text) && own.some(cell => lines(cell) > 1)) cells.push(...own);
-            }
-            return cells;
+            return changes;
         }
-        // Each item is a table and the width it may take. Returns the tables whose labels were kept whole.
+        // The width a cell needs on one line, in its own pixels: its pieces of text side by side, with the
+        // padding and rules of the cell and of the inline elements in it. Rectangles are in the page's pixels,
+        // so they are converted by the cell's own drawn and laid-out widths.
+        function oneLine(cell) {
+            const rects = textRects(cell);
+            if (!rects.length) return 0;
+            const drawn = cell.getBoundingClientRect().width;
+            const ratio = drawn ? cell.offsetWidth / drawn : 1;
+            let width = rects.reduce((sum, rect) => sum + rect.width, 0) * ratio;
+            for (const el of [cell, ...cell.querySelectorAll('*')]) {
+                const css = getComputedStyle(el);
+                width += sides(css, 'padding') + borders(css) + (el === cell ? 0 : sides(css, 'margin'));
+            }
+            return width;
+        }
+        // The width of a column's content box, from any of its cells: they share it.
+        function contentOf(column) {
+            return px(getComputedStyle(column.cells[0]).width);
+        }
+        function labelPlan(item) {
+            const table = item.table, rows = [...table.rows];
+            const cells = rows.flatMap(row => [...row.cells]);
+            // Spanning cells (rowspan="0" spans the rest of the group) put other columns under a column's place.
+            if (!cells.length || cells.some(cell => cell.colSpan !== 1 || cell.rowSpan !== 1)) return null;
+            const count = rows.reduce((most, row) => Math.max(most, row.cells.length), 0);
+            // A fixed layout sizes its columns without their content: kept whole, a label would only spill.
+            if (count < 2 || getComputedStyle(table).tableLayout === 'fixed') return null;
+            const zoom = zoomOf(table);
+            const columns = [];
+            for (let index = 0; index < count; index++) {
+                const own = rows.map(row => row.cells[index]).filter(Boolean);
+                const column = { cells: own, filled: own.some(cell => cell.textContent.trim()), short: false };
+                const changes = own.map(wholeLine);
+                if (column.filled && changes.every(Boolean)) {
+                    column.changes = changes.flat();
+                    const width = own.reduce((most, cell) => Math.max(most, oneLine(cell)), 0) * zoom;
+                    column.short = isShortColumn(width, item.limit);
+                    column.lines = own.map(lines);
+                }
+                column.before = contentOf(column);
+                columns.push(column);
+            }
+            const kept = columns.filter(column => column.short && column.lines.some(count => count > 1));
+            return kept.length ? { item, columns, kept, zoom } : null;
+        }
+        // Each item is a table and the width it may take. Returns the tables whose short columns were kept.
         function keepLabels(items) {
-            const plans = items.map(item => ({ item, cells: shortColumns(item.table) })).filter(plan => plan.cells.length);
+            const plans = items.map(labelPlan).filter(Boolean);
             for (const plan of plans) {
-                plan.prior = plan.cells.map(cell =>
-                    [cell.style.getPropertyValue('white-space'), cell.style.getPropertyPriority('white-space')]);
-                for (const cell of plan.cells) set(cell, 'white-space', 'nowrap');
+                plan.changed = plan.kept.flatMap(column => column.changes).map(([el, value]) =>
+                    [el, value, el.style.getPropertyValue('white-space'), el.style.getPropertyPriority('white-space')]);
             }
-            for (const plan of plans) plan.fits = outer(plan.item.table) <= plan.item.limit + 0.5;
+            // Descendants too: wrapping a wide table may have set their white-space of their own.
+            for (const plan of plans) for (const [el, value] of plan.changed) set(el, 'white-space', value);
             for (const plan of plans) {
-                if (plan.fits) continue;
-                plan.cells.forEach((cell, index) => {
-                    const [value, priority] = plan.prior[index];
-                    if (value) cell.style.setProperty('white-space', value, priority);
-                    else cell.style.removeProperty('white-space');
-                });
+                const { item, columns, zoom } = plan;
+                const long = columns.filter(column => !column.short && column.filled);
+                const fontSize = px(getComputedStyle(item.table).fontSize);
+                plan.accepted = outer(item.table) <= item.limit + 0.5
+                    && plan.kept.every(column => column.cells.every(cell => lines(cell) <= 1))
+                    && long.every(column =>
+                        contentOf(column) >= columnFloor(column.before, fontSize, item.limit / zoom, long.length) - 0.5)
+                    && columns.filter(column => column.short && !plan.kept.includes(column))
+                        .every(column => column.cells.every(cell => lines(cell) <= 1));
             }
-            return plans.filter(plan => plan.fits).map(plan => plan.item.table);
+            for (const plan of plans) {
+                if (plan.accepted) continue;
+                for (const [el, , value, priority] of plan.changed) {
+                    if (value) el.style.setProperty('white-space', value, priority);
+                    else el.style.removeProperty('white-space');
+                }
+            }
+            return plans.filter(plan => plan.accepted).map(plan => plan.item.table);
         }
 
         function fitTables() {
@@ -194,7 +282,11 @@ enum TableFit {
                 });
             }
             const labelled = keepLabels(fitting);
-            if (!wide.length) return labelled.length > 0;
+            if (!wide.length) {
+                // Kept, a table fits on paper though it may be wider than the view that checks for overflow.
+                if (labelled.length) globalThis.surimonoFittedTables = new WeakSet(labelled);
+                return labelled.length > 0;
+            }
 
             // The print cuts the column's right edge back to whole points, and half of a collapsed outside
             // rule lies beyond the table's box. A table placed from the right starts at that edge, so its
@@ -229,11 +321,12 @@ enum TableFit {
                 set(item.table, 'max-width', item.room / item.zoom + 'px');
                 keepRight(item, item.zoom);
             }
-            // Wrapped, the long cells give way; labels beside them are kept whole when the table still fits.
-            keepLabels(wide.map(item => ({ table: item.table, limit: item.room })));
             let over = overflowing(wide);
             for (const item of wide) item.unwrapped = item.width;
             restyle(over, 'overflowWrap', wrap => wrap === 'anywhere' ? null : 'anywhere');
+            // Wrapped, the long cells give way; short columns beside them are kept whole when the table fits.
+            // A kept table fitted already, so the tables still too wide are the same.
+            labelled.push(...keepLabels(wide.map(item => ({ table: item.table, limit: item.room }))));
             over = overflowing(over);
 
             // Then zoom what is still too wide, filling the column: a zoomed table given the whole column
@@ -295,7 +388,7 @@ enum TableFit {
                 item.inside = outer(item.table) * item.narrowing <= item.room + 0.5;
                 return item.inside;
             });
-            globalThis.surimonoFittedTables = new WeakSet(fitted.map(item => item.table));
+            globalThis.surimonoFittedTables = new WeakSet([...fitted.map(item => item.table), ...labelled]);
             // What each step measured, for a test that fails on a WebKit it cannot run on to report.
             globalThis.surimonoTableFitLog = wide.map(
                 ({ room, unwrapped, wrapped, clamped, scale, narrowing, inside }) =>
