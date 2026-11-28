@@ -103,7 +103,7 @@ enum PrintIssueAnchors {
           for (const el of document.querySelectorAll('.mermaid-error:not(.mermaid-timeout)')) {
             const detail = el.textContent || '';
             const key = locationKey('mermaid', detail);
-            if (visible(el)) add(el, 'mermaid', detail, key);
+            if (visible(el)) add(el, 'mermaid', detail, key, el.matches('.mermaid-unsupported') ? 'figure' : null);
           }
           for (const el of document.querySelectorAll('.latex-unsupported')) {
             const picture = el.matches('body.format-latex [data-latex-picture]');

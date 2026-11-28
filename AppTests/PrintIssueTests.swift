@@ -377,6 +377,15 @@ struct PrintIssueTests {
         }
     }
 
+    @Test("紙に描けない種類の図には構文の確認ではなく画像への置き換えを勧める")
+    func unsupportedMermaidAdvice() {
+        let issue = PrintIssue(id: "0", kind: .mermaid, detail: "eventmodeling", element: .figure)
+        #expect(PrintIssueText.advice(issue, language: "ja") == "この種類の図は紙に描けません。元の文書で画像に置き換えてください。")
+        for language in ["de", "es", "fr", "ko", "zh-Hans", "zh-Hant"] {
+            #expect(PrintIssueText.advice(issue, language: language) != PrintIssueText.advice(issue, language: "en"))
+        }
+    }
+
     /// A model with its three pages laid out, since the paper is only asked to frame a spot of pages that exist.
     private func renderedSpotModel(_ suite: TestDefaultsSuite, directory: URL) async throws -> DocumentViewModel {
         let renderer = DocumentRenderer(paginateWithResult: { _ in
