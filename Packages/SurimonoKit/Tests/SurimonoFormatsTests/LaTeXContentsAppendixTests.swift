@@ -29,4 +29,19 @@ struct LaTeXContentsAppendixTests {
         let appendix = ##"<a href="#sec-A"><span class="secnum">付 録<span class="latex-xkanjiskip"> </span>A</span>"##
         #expect(body.contains(appendix))
     }
+
+    @Test("番号のない章と付録のあとの部は、目次で番号も付録の名前も付かない")
+    func unnumberedEntriesAroundAppendix() {
+        let tex = #"""
+            \documentclass{jbook}\begin{document}\frontmatter\tableofcontents\chapter{序}
+            \mainmatter\chapter{棚}\chapter*{星}\addcontentsline{toc}{chapter}{星}
+            \appendix\chapter{箱}\part{後編}\chapter{末}\end{document}
+            """#
+        let body = LaTeXConverter.convert(tex).body
+        #expect(body.contains(##"<a href="#sec-u1">序</a>"##))
+        #expect(body.contains(##"<a href="#sec-u3">星</a>"##))
+        #expect(body.contains(##"<a href="#part-1"><span class="secnum">I</span>後編</a>"##))
+        let skip = #"<span class="latex-xkanjiskip"> </span>"#
+        #expect(body.contains(##"<a href="#sec-B"><span class="secnum">付 録"## + skip + "B</span>末</a>"))
+    }
 }

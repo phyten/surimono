@@ -1010,7 +1010,8 @@ final class LaTeXReader {
         case "listoftables": (list, key) = (.tables, "listtablename")
         default:
             let depth = min(5, max(-2, document.counters["tocdepth"]))
-            // Each .toc line keeps the prefix in force at its chapter, so entries after \appendix are named as such.
+            // Each heading records whether it is in the appendix, which selects one of these two formats.
+            // Both use the names in force here: renaming \appendixname after the contents does not reach them.
             let formats =
                 document.classInfo.profile.structure.formatsContentsChapterNames && document.language == "ja"
             let number = document.placeholder("N", 0)
@@ -1506,12 +1507,15 @@ final class LaTeXReader {
         let dot =
             document.language == "es" && document.classicBabelLanguages.contains("es") && document.spanishSectionDots
         if dot, level > 0 { display = display.map { $0.hasSuffix(".") ? $0 : $0 + "." } }
-        let tocNumber = listed && !starred ? number.map { $0 + (dot ? "." : document.headingEndDot) } ?? "" : nil
+        let tocSuffix = dot ? "." : document.headingEndDot
+        let tocNumber = listed && !starred ? number.map { $0 + tocSuffix } ?? "" : nil
+        // The contents prefer this label to the number, so it keeps the suffix outside the upright letters.
         let chapterLabel =
             name == "chapter" && document.classInfo.profile.structure.contents == .chapterMarks
                 && document.language == "ja"
             ? display
-            : level == first && document.isAppendix && document.classInfo.isVertical ? number.map(appendixNumber) : nil
+            : level == first && document.isAppendix && document.classInfo.isVertical
+                ? number.map { appendixNumber($0) + HTML.escape(tocSuffix) } : nil
         let shortTitle = short.map(inline) ?? title
         document.headings.append(
             .init(
