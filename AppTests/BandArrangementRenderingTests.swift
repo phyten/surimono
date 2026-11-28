@@ -53,12 +53,16 @@ struct BandArrangementRenderingTests {
         }
 
         /// A two-chapter Markdown document on two pages: it has a style, contents, a page indicator and page turns.
-        func chapters() -> DocumentViewModel {
+        /// Other pages put each text on a page of its own, and the Markdown gives the headings among them.
+        func chapters(
+            pages: [String] = ["First Chapter", "Second Chapter"],
+            markdown: String = "# First Chapter\n\n# Second Chapter\n"
+        ) -> DocumentViewModel {
             let renderer = DocumentRenderer(paginate: { _ in
-                try #require(PDFDocument(data: TestFixtures.textPDF(["First Chapter", "Second Chapter"])))
+                try #require(PDFDocument(data: TestFixtures.textPDF(pages)))
             })
             let model = DocumentViewModel(
-                data: Data("# First Chapter\n\n# Second Chapter\n".utf8), fileURL: nil, format: .markdown,
+                data: Data(markdown.utf8), fileURL: nil, format: .markdown,
                 preferences: preferences, library: library, renderer: renderer, settingsStore: store)
             model.isolateBandTestOutput()
             return model
@@ -321,6 +325,61 @@ struct BandArrangementRenderingTests {
         try await waitUntil(state()) { !scrubber.dragging }
         #expect(scrubber.release(1, inside: true) == nil, "\(state())")
         #expect(model.currentPageIndex == page, "\(state())")
+    }
+
+    @Test("上下配置の下の帯では、長い章・短い章・最初の章より前のどのページでも、スライダーの位置と長さが同じ")
+    func sliderKeepsItsPlaceFromPageToPage() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        environment.preferences.menuArrangement = .split
+        environment.preferences.defaultBandVisibility = .always
+        let long = "A Chapter Whose Title Is Much Longer Than The Band Gives It"
+        let model = environment.chapters(
+            pages: ["Before the chapters", long, "Short"], markdown: "Before the chapters\n\n# \(long)\n\n# Short\n")
+        defer { model.stop() }
+        let controller = MemoryDocumentWindowController(model: model, onClose: {})
+        defer { controller.close() }
+        let window = try #require(controller.window)
+        window.orderFrontRegardless()
+        try await open(model)
+        let opened = window.contentRect(forFrameRect: window.frame).size
+        window.setContentSize(NSSize(width: max(opened.width, 1200), height: opened.height))
+        let scrubber = model.scrubber
+        func state() -> String {
+            let row = model.bandAnchors.plan?.bottom
+            return "content=\(window.contentRect(forFrameRect: window.frame).size) slider=\(scrubber.frame) "
+                + "title=\(String(describing: row?.chapterTitleWidth)) chapter=\(model.currentChapterTitle) "
+                + "page=\(model.currentPageIndex)"
+        }
+        // The page's chapter is current and the band shows the slider beside the chapter, and what the slider and the
+        // title take has held still for a run of checks: measuring the title and planning again come after the page
+        // turns, so a single check could read the previous page's band.
+        func settled(on page: Int, chapter: String) async throws -> (slider: CGRect, title: CGFloat) {
+            var last: (CGRect, CGFloat?)?
+            var still = 0
+            for _ in 0..<500 {
+                let ready =
+                    model.currentPageIndex == page && model.currentChapterTitle == chapter && scrubber.frame.width > 0
+                    && model.bandAnchors.plan?.bottom?.trailing.first == .chapter
+                let now = (scrubber.frame, model.bandAnchors.plan?.bottom?.chapterTitleWidth)
+                if ready, let last, last.0 == now.0, last.1 == now.1 { still += 1 } else { still = 0 }
+                last = now
+                if still >= 10 { break }
+                try await Task.sleep(for: .milliseconds(10))
+            }
+            try #require(still >= 10, "page \(page) did not settle: \(state())")
+            let title = try #require(model.bandAnchors.plan?.bottom?.chapterTitleWidth, "page \(page): \(state())")
+            return (scrubber.frame, title)
+        }
+        model.jumpToReadingPage(1)
+        let first = try await settled(on: 1, chapter: long)
+        for page in [2, 0, 1] {
+            model.jumpToReadingPage(page)
+            let shown = try await settled(on: page, chapter: page == 0 ? "" : page == 1 ? long : "Short")
+            #expect(abs(shown.slider.minX - first.slider.minX) < 0.5, "left end on page \(page): \(state())")
+            #expect(abs(shown.slider.maxX - first.slider.maxX) < 0.5, "right end on page \(page): \(state())")
+            #expect(shown.title == first.title, "title frame on page \(page): \(state())")
+        }
     }
 
     @Test("上下配置の標準は文字の選択と表示の道具を上の右に、読む道具を下に並べ、どの幅でも帯に収まる")

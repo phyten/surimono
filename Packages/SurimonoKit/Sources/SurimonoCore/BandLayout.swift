@@ -354,8 +354,8 @@ public enum BandLayout {
     }
 
     /// The narrowest frame worth a chapter title: below it the title leaves the band rather than show a few letters.
-    /// The decision rests on the room, never on the title's own length, so that it does not come and go from page to
-    /// page with titles of different lengths.
+    /// The decision rests on the room, never on the current title's length, so that it does not come and go from page
+    /// to page with titles of different lengths.
     public static let chapterTitleMinimum: CGFloat = 72
     /// The widest frame a chapter title takes; a longer title ends with "…".
     public static let chapterTitleMaximum: CGFloat = 160
@@ -380,7 +380,8 @@ public enum BandLayout {
     /// - Parameters:
     ///   - room: What the other parts of the row leave, their gaps and the row's fixed room counted.
     ///   - scrubber: The slider at its narrowest with its room; nil where the band offers none.
-    ///   - title: The width of the whole title.
+    ///   - title: The width of the document's widest whole chapter title. The frame is the same on every page, so the
+    ///     slider beside it keeps its place and length while the reader turns pages.
     ///   - chrome: What the chapter part adds around its title.
     ///   - gap: The spacing the chapter part brings into the row.
     public static func shareChapterRoom(
@@ -388,7 +389,7 @@ public enum BandLayout {
     ) -> ChapterShare {
         if let scrubber, room < scrubber { return ChapterShare() }
         let frame = room - (scrubber ?? 0) - gap - chrome
-        // An empty title, before the first chapter, leaves its room to the slider.
+        // Chapters without a title to show leave their room to the slider.
         let titleWidth = frame >= chapterTitleMinimum && title > 0 ? min(title, frame, chapterTitleMaximum) : nil
         let used = titleWidth.map { $0 + chrome + gap } ?? 0
         return ChapterShare(titleWidth: titleWidth, scrubberWidth: scrubber.map { _ in room - used })

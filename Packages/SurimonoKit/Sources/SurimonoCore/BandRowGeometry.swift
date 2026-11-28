@@ -5,7 +5,8 @@ public struct BandMeasurementsValue: Equatable, Sendable {
     public var items: [BandLayout.Item: BandLayout.Widths]
     public var name: CGFloat
     public var scrubber: CGFloat?
-    /// The current chapter's whole title. Nil takes the chapter part's measured width as the title's.
+    /// The widest of the document's chapter titles, whole: the frame the band keeps for the current one on every
+    /// page. Nil takes the chapter part's measured width as the title's.
     public var chapterTitle: CGFloat?
     /// What the chapter part adds around its title.
     public var chapterChrome: CGFloat

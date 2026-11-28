@@ -27,8 +27,10 @@ struct CurrentChapterButton: View {
         return width <= (frame ?? maximumTitleWidth) + 0.5
     }
 
-    private var widestTitle: String {
-        let font = NSFont.systemFont(ofSize: Self.fontSize)
+    /// The widest of the document's chapter titles. Both bands keep its room on every page, so that the parts beside
+    /// the chapter, the page slider among them, do not move as the reader turns from a short chapter to a long one.
+    static func widestTitle(of model: DocumentViewModel) -> String {
+        let font = NSFont.systemFont(ofSize: fontSize)
         return model.chapterEntries.map(\.title).max {
             ($0 as NSString).size(withAttributes: [.font: font]).width
                 < ($1 as NSString).size(withAttributes: [.font: font]).width
@@ -49,7 +51,7 @@ struct CurrentChapterButton: View {
                     .font(.system(size: Self.fontSize))
                     .contentShape(Rectangle())
             } else {
-                Text(verbatim: widestTitle)
+                Text(verbatim: Self.widestTitle(of: model))
                     .lineLimit(1).truncationMode(.tail)
                     .frame(maxWidth: Self.maximumTitleWidth, alignment: alignment)
                     .fixedSize(horizontal: true, vertical: false)

@@ -131,21 +131,23 @@ struct BandChapterTests {
         #expect(BandLayout.shareChapterRoom(room: 500, scrubber: nil, title: 90, gap: 10) == .init(titleWidth: 90))
     }
 
-    @Test("最初の章より前で名前が空なら、場所をスライダーに渡す")
+    @Test("章の名前がどれも空なら、場所をスライダーに渡す")
     func emptyTitle() {
         #expect(
             BandLayout.shareChapterRoom(room: 600, scrubber: 142, title: 0, gap: 10)
                 == .init(titleWidth: nil, scrubberWidth: 600))
     }
 
-    private func bottomRow(available: CGFloat, title: CGFloat, scrubber: CGFloat? = 142) throws -> BandRowPlan {
+    private func bottomRow(
+        available: CGFloat, title: CGFloat, scrubber: CGFloat? = 142, part: CGFloat = 196
+    ) throws -> BandRowPlan {
         // An order of its own, so that the row spaces by neighbours: the chapter brings the 10 before the pages.
         let layout = BandArrangement(bottomLeft: [.margins], bottomRight: [.chapter, .pageIndicator])
         let plan = BandLayout.resolve(
             arrangement: layout, mode: .split, availableItems: [.margins, .chapter, .pageIndicator],
             measurements: .init(
                 items: [
-                    .margins: .init(full: 90, compact: 40), .chapter: .init(full: 196),
+                    .margins: .init(full: 90, compact: 40), .chapter: .init(full: part),
                     .pageIndicator: .init(full: 50),
                 ], name: 0, scrubber: scrubber, chapterTitle: title, chapterChrome: 16),
             metrics: .init(topFixed: 0, bottomFixed: 28, separator: 9, titleGap: 6, toolGap: 8, outerGap: 10),
@@ -153,7 +155,7 @@ struct BandChapterTests {
         return try #require(plan.bottom)
     }
 
-    @Test("下の帯の長い章はスライダーを残したまま 160 の枠で省き、短い章ではスライダーが広い")
+    @Test("最も広い章の名前が 160 を超える文書は、スライダーを残したまま 160 の枠で省き、どれも短い文書ではスライダーが広い")
     func bottomBandLongAndShortTitles() throws {
         // The row without the chapter: 28 fixed, 90 margins, 50 pages. The chapter brings 16 of chrome and a 10 gap.
         let long = try bottomRow(available: 700, title: 400)
@@ -163,6 +165,29 @@ struct BandChapterTests {
         let short = try bottomRow(available: 700, title: 40)
         #expect(short.showsScrubber && short.chapterTitleWidth == 40)
         #expect(short.requiredWidth == 376)  // 28 + 90 + 50 + 16 + 40 + 10 + 142
+    }
+
+    @Test("題の長さが違うページでも、文書で最も広い章の名前で計画すれば、題とスライダーの枠はどのページも同じ")
+    func sameFramesOnEveryPage() throws {
+        // A long chapter, a short one and the pages before the first chapter. The band's own chapter part, measured
+        // with the page's title, changes from page to page; the plan takes the frame from the widest title only.
+        let widest: CGFloat = 400
+        for width: CGFloat in [400, 420, 500, 700, 900] {
+            let pages = try [widest, 40, 0].map { current in
+                try bottomRow(available: width, title: widest, part: 16 + current)
+            }
+            let first = try #require(pages.first)
+            for page in pages.dropFirst() {
+                #expect(page.chapterTitleWidth == first.chapterTitleWidth, "title frame at \(width)")
+                #expect(page.showsScrubber == first.showsScrubber, "slider at \(width)")
+                #expect(page.requiredWidth == first.requiredWidth, "slider room at \(width)")
+                #expect(page.forms == first.forms, "forms at \(width)")
+            }
+        }
+        // 168 for the other parts, 142 for the slider, 26 around the title: the frame is min(widest, rest, 160).
+        #expect(try bottomRow(available: 168 + 142 + 26 + 100, title: widest, part: 16).chapterTitleWidth == 100)
+        #expect(try bottomRow(available: 900, title: widest, part: 16).chapterTitleWidth == 160)
+        #expect(try bottomRow(available: 900, title: 90, part: 16).chapterTitleWidth == 90)
     }
 
     @Test("下の帯が狭まると今の章を縮め、外し、スライダーを外してから、ほかの部品を畳む")
@@ -259,7 +284,7 @@ struct BandChapterTests {
         return try #require(plan.bottom)
     }
 
-    @Test("上下配置の標準では、短い章でも長い章でもスライダーの出る幅は同じで、章の名前はその横に収める")
+    @Test("上下配置の標準では、章の名前が短い文書でも長い文書でもスライダーの出る幅は同じで、章の名前はその横に収める")
     func standardSharesSliderAndTitle() throws {
         // Without the chapter: 28 fixed, style 90, 6, reading settings 80, 6 and a 7 line, contents 60, pages 50,
         // 6, page turn 60. The chapter adds its 16 of chrome and the 6 before the pages.
