@@ -178,8 +178,10 @@ enum TableFit {
             }
             return changes;
         }
-        // The width a cell needs on one line, in its own pixels: its pieces of text side by side, with the
-        // padding and rules of the cell and of the inline elements in it. Rectangles are in the page's pixels,
+        // The width a cell needs on one line, in its own pixels, estimated: its pieces of text side by side, with
+        // the padding and rules of the cell and of the inline elements in it. Spaces between elements and at the
+        // ends of wrapped lines are left out, so it can come out short; it only picks the columns to try, and
+        // the columns kept are measured again on one line. Rectangles are in the page's pixels,
         // so they are converted by the cell's own drawn and laid-out widths.
         function oneLine(cell) {
             const rects = textRects(cell);
@@ -194,8 +196,15 @@ enum TableFit {
             return width;
         }
         // The width of a column's content box, from any of its cells: they share it.
+        // The text width a column leaves its narrowest cell: cells share the column's width, but not always
+        // their padding. Content boxes, whatever box the cells size.
         function contentOf(column) {
-            return px(getComputedStyle(column.cells[0]).width);
+            const shown = column.cells.filter(cell => cell.offsetWidth);
+            return shown.reduce((least, cell) => Math.min(least, contentWidth(getComputedStyle(cell))), Infinity);
+        }
+        // The width a column takes, padding and rules included, in its table's parent's pixels.
+        function columnWidth(column, zoom) {
+            return column.cells.reduce((most, cell) => Math.max(most, cell.offsetWidth), 0) * zoom;
         }
         function labelPlan(item) {
             const table = item.table, rows = [...table.rows];
@@ -226,9 +235,11 @@ enum TableFit {
         // Each item is a table and the width it may take. Returns the tables whose short columns were kept.
         function keepLabels(items) {
             const plans = items.map(labelPlan).filter(Boolean);
+            // Each element's style attribute is kept whole as it stands now, after any earlier step of TableFit,
+            // so that going back restores exactly that, whichever white-space properties it named.
             for (const plan of plans) {
                 plan.changed = plan.kept.flatMap(column => column.changes).map(([el, value]) =>
-                    [el, value, el.style.getPropertyValue('white-space'), el.style.getPropertyPriority('white-space')]);
+                    [el, value, el.getAttribute('style')]);
             }
             // Descendants too: wrapping a wide table may have set their white-space of their own.
             for (const plan of plans) for (const [el, value] of plan.changed) set(el, 'white-space', value);
@@ -236,8 +247,11 @@ enum TableFit {
                 const { item, columns, zoom } = plan;
                 const long = columns.filter(column => !column.short && column.filled);
                 const fontSize = px(getComputedStyle(item.table).fontSize);
+                // The width a kept column needs was estimated from its text, which can miss spaces; laid out on
+                // one line, each must still be short. offsetWidth is rounded to whole pixels.
                 plan.accepted = outer(item.table) <= item.limit + 0.5
                     && plan.kept.every(column => column.cells.every(cell => lines(cell) <= 1))
+                    && plan.kept.every(column => isShortColumn(columnWidth(column, zoom) - 0.5, item.limit))
                     && long.every(column =>
                         contentOf(column) >= columnFloor(column.before, fontSize, item.limit / zoom, long.length) - 0.5)
                     && columns.filter(column => column.short && !plan.kept.includes(column))
@@ -245,9 +259,9 @@ enum TableFit {
             }
             for (const plan of plans) {
                 if (plan.accepted) continue;
-                for (const [el, , value, priority] of plan.changed) {
-                    if (value) el.style.setProperty('white-space', value, priority);
-                    else el.style.removeProperty('white-space');
+                for (const [el, , style] of plan.changed) {
+                    if (style === null) el.removeAttribute('style');
+                    else el.setAttribute('style', style);
                 }
             }
             return plans.filter(plan => plan.accepted).map(plan => plan.item.table);

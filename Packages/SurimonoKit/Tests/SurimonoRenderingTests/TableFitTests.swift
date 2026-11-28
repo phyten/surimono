@@ -809,22 +809,96 @@ struct TableFitTests {
 
     @Test(
         "短い語の隣の長いURLは、末尾まで本文の幅の中で折り返し、右の外罫を太さそのままに刷る", .timeLimit(.minutes(1)),
-        arguments: [1.0, 1.2])
-    func longCellWrapsBesideLabels(textScale: Double) async throws {
+        arguments: [(1.0, 1.0), (1.0, 2.0), (1.2, 1.0), (1.2, 2.0)])
+    func longCellWrapsBesideLabels(textScale: Double, scale: Double) async throws {
         // The last characters of the URL are blue, so a cut end shows.
         let url = Self.longURL.dropLast(7) + "<span style='color:blue'>" + Self.longURL.suffix(7) + "</span>"
         let table = "| 項目名 | 値 |\n|---|---|\n| 名前 | \(url) |\n"
-        let result = try await printed(table, textScale: textScale)
+        let (result, narrow) = try await atDeviceScale(CGFloat(scale)) {
+            (
+                try await printed(table, textScale: textScale),
+                try await printed("| a | b |\n|---|---|\n| 1 | 2 |\n", textScale: textScale)
+            )
+        }
         let page = try #require(result.logicalDocument.page(at: 0))
         let pixels = try Raster(page)
         let end = try pixels.bounds(channel: 2)
         let border = try pixels.bounds(channel: 0)
         #expect(end.width > 20 && end.maxX < border.minX)
-        // The right rule of a narrow table, wholly inside the page, is as thick as this one.
-        let narrow = try await printed("| a | b |\n|---|---|\n| 1 | 2 |\n", textScale: textScale)
+        // The right rule of a narrow table, wholly inside the page, is as thick as this one: on a screen that is
+        // not Retina, where the rule falls between pixels moves a pixel of it, but a rule cut in half or gone
+        // would be far thinner.
         let whole = try Raster(#require(narrow.logicalDocument.page(at: 0))).bounds(channel: 0)
-        #expect(border.width == whole.width, "rule \(border), whole \(whole)")
+        #expect(abs(border.width - whole.width) <= 1, "rule \(border), whole \(whole)")
         let rightEdge = (page.bounds(for: .mediaBox).width - 15 * 72 / 25.4) * 2
         #expect(border.maxX <= ceil(rightEdge))
+    }
+
+    @Test(
+        "空白で区切った語の列は、1行にして表の幅の3割をわずかに超えるなら守らない", .timeLimit(.minutes(1)),
+        arguments: [
+            // About 194 and 195 pixels on one line, padding and rules included; 30% of the room is 191.25.
+            Array(repeating: "A", count: 12).joined(separator: " "),
+            Array(repeating: "<b>AB</b>", count: 7).joined(separator: " "),
+        ])
+    func spacedWordsJustTooWide(words: String) async throws {
+        let pages = try await withAndWithout("| X | 値 |\n|---|---|\n| \(words) | \(Self.longURL) |\n")
+        #expect(pages.fitted.data == pages.original.data)
+    }
+
+    @Test("空白で区切った語の列は、1行にして表の幅の3割をわずかに下回るなら1行で刷る", .timeLimit(.minutes(1)))
+    func spacedWordsJustShort() async throws {
+        // About 179 pixels on one line.
+        let mark = "<span style='color:lime'>" + Array(repeating: "A", count: 11).joined(separator: " ") + "</span>"
+        let control = try await Raster(printPage(mark + "\n"))
+        let actual = try await Raster(printPage("| X | 値 |\n|---|---|\n| \(mark) | \(Self.longURL) |\n"))
+        let expected = try control.bounds(channel: 1)
+        let cell = try actual.bounds(channel: 1)
+        #expect(cell.height == expected.height, "label \(cell), in a paragraph \(expected)")
+        #expect(abs(cell.width - expected.width) <= 1, "label \(cell), in a paragraph \(expected)")
+    }
+
+    /// The style attribute of the first element marked data-kept, as the print saw it.
+    @MainActor
+    private final class KeptStyle {
+        var value: String?
+        func record(_ view: WKWebView) async {
+            value =
+                try? await view.evaluateForPrinting(
+                    "return document.querySelector('[data-kept]')?.getAttribute('style') ?? 'none'",
+                    until: .now + .seconds(10)) as? String
+        }
+    }
+
+    @Test("短い列を守るのをやめた表では、空白の扱いだけを書いたセルのスタイルもそのまま残す", .timeLimit(.minutes(1)))
+    func styleRestoredWhole() async throws {
+        // Four labels kept whole would leave the URL less than 30% of the room, so none is kept.
+        let label = "<td data-kept style='white-space-collapse: preserve'>Not applicable</td>"
+        let others = String(repeating: "<td>Not applicable</td>", count: 3)
+        let source =
+            "<table><tr><th>a</th><th>b</th><th>c</th><th>d</th><th>値</th></tr>"
+            + "<tr>\(label)\(others)<td>\(Self.longURL)</td></tr></table>\n"
+        let style = KeptStyle()
+        let fitted = try await printed(source, inspect: style.record)
+        let original = try await printed(source, fit: false)
+        #expect(style.value == "white-space-collapse: preserve")
+        #expect(
+            try Raster(#require(fitted.logicalDocument.page(at: 0))).data
+                == Raster(#require(original.logicalDocument.page(at: 0))).data)
+    }
+
+    @Test("長い列の余白が大きく、本文の幅が下限より狭くなる表は、どの列も守らない", .timeLimit(.minutes(1)))
+    func longColumnContentFloor() async throws {
+        // With its padding the URL's column would keep more than 30% of the room, its text less.
+        let labels = Array(repeating: "Not applicable", count: 3)
+        let source =
+            "| " + labels.joined(separator: " | ") + " | 値 |\n|" + String(repeating: "---|", count: 4) + "\n| "
+            + labels.joined(separator: " | ") + " | \(Self.longURL) |\n"
+        let css = "th, td { box-sizing: border-box } th:last-child, td:last-child { padding: 0 60px }"
+        let fitted = try await printed(source, css: css)
+        let original = try await printed(source, fit: false, css: css)
+        #expect(
+            try Raster(#require(fitted.logicalDocument.page(at: 0))).data
+                == Raster(#require(original.logicalDocument.page(at: 0))).data)
     }
 }
