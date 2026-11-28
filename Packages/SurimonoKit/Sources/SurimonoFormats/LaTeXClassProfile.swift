@@ -250,6 +250,8 @@ package struct LaTeXClassProfile: Equatable, Sendable {
         var pointSize = 10
         var baselineTable = BaselineTable.standard
         var selectsParagraphPitch = false
+        // Heading glue, list skips and contents entries follow the horizontal jclasses size files.
+        var followsJClassesSizeFiles = false
         // Heading faces extend to prefix-only classes, unlike the scaled body face; kept apart until each consumer is checked against real LaTeX.
         var selectsGothicHeadings = false
         var prefersHiraginoSansW4 = false

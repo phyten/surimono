@@ -184,6 +184,7 @@ final class LaTeXDocument {
         let number: String?
         let id: String
         let title: String
+        var appendix = false
     }
 
     struct Theorem {
@@ -796,7 +797,7 @@ final class LaTeXDocument {
     }
 
     enum ContentsList: Equatable {
-        case headings(depth: Int, chapterFormat: String?)
+        case headings(depth: Int, chapterFormat: String?, appendixFormat: String?)
         case figures
         case tables
     }
@@ -813,10 +814,12 @@ final class LaTeXDocument {
         guard contentsLists.indices.contains(index) else { return "" }
         let entries: [Heading]
         var chapterFormat: String?
+        var appendixFormat: String?
         switch contentsLists[index] {
-        case .headings(let depth, let format):
+        case .headings(let depth, let chapter, let appendix):
             entries = headings.filter { $0.number != nil && $0.level <= depth }
-            chapterFormat = format
+            chapterFormat = chapter
+            appendixFormat = appendix
         case .figures: entries = lists["figure"] ?? []
         case .tables: entries = lists["table"] ?? []
         }
@@ -843,7 +846,8 @@ final class LaTeXDocument {
                     guard !number.isEmpty else { return nil }
                     let formatted =
                         entry.level == 0
-                        ? chapterFormat?.replacingOccurrences(of: placeholder("N", 0), with: HTML.escape(number)) : nil
+                        ? (entry.appendix ? appendixFormat : chapterFormat)?.replacingOccurrences(
+                            of: placeholder("N", 0), with: HTML.escape(number)) : nil
                     return "<span class=\"secnum\">\(formatted ?? entry.chapterLabelHTML ?? HTML.escape(number))</span>"
                 } ?? ""
             let kind: String

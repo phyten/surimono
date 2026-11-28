@@ -31,6 +31,12 @@ struct LaTeXClassRegistryTests {
         var unknown = false
     }
 
+    // pLaTeX, upLaTeX and LuaTeX-ja share the horizontal jclasses rules.
+    static let traditionalArticles = ["jarticle", "ujarticle", "ltjarticle"]
+    static let traditionalReports = ["jreport", "ujreport", "ltjreport"]
+    static let traditionalBooks = ["jbook", "ujbook", "ltjbook"]
+    static let horizontalTraditional = traditionalArticles + traditionalReports + traditionalBooks
+
     static let defaults: [Defaults] = [
         .init(names: ["article"], title: .inline),
         .init(names: ["report"], chapters: true, title: .separate),
@@ -74,20 +80,20 @@ struct LaTeXClassRegistryTests {
             numberSides: true, running: .markedBook(numberInHead: true, ruled: true)),
         .init(names: ["jlreq"], language: "ja", nativeHeadings: true, paper: .a4),
         .init(
-            names: ["jarticle", "ltjarticle"], title: .inline, language: "ja",
+            names: ["jarticle", "ltjarticle", "ujarticle"], title: .inline, language: "ja",
             nativeHeadings: true, traditionalNames: true, paper: .a4),
         .init(
-            names: ["jbook", "ltjbook"], chapters: true, title: .separate, language: "ja", nativeHeadings: true,
-            traditionalNames: true, paper: .a4, boxSides: true, fieldSides: true, numberSides: true,
-            running: .markedBook(numberInHead: true, ruled: false)),
-        .init(
-            names: ["ujarticle", "utarticle", "tarticle", "ltjtarticle"], language: "ja",
+            names: ["jreport", "ltjreport", "ujreport"], chapters: true, title: .separate, language: "ja",
             nativeHeadings: true, traditionalNames: true, paper: .a4),
         .init(
-            names: [
-                "jreport", "ltjreport", "ujreport", "utreport", "treport", "ujbook", "utbook",
-                "tbook", "ltjtreport", "ltjtbook",
-            ],
+            names: ["jbook", "ltjbook", "ujbook"], chapters: true, title: .separate, language: "ja",
+            nativeHeadings: true, traditionalNames: true, paper: .a4, boxSides: true, fieldSides: true,
+            numberSides: true, running: .markedBook(numberInHead: true, ruled: false)),
+        .init(
+            names: ["utarticle", "tarticle", "ltjtarticle"], language: "ja",
+            nativeHeadings: true, traditionalNames: true, paper: .a4),
+        .init(
+            names: ["utreport", "treport", "utbook", "tbook", "ltjtreport", "ltjtbook"],
             chapters: true, language: "ja", nativeHeadings: true, traditionalNames: true, paper: .a4),
         .init(names: ["ctexart"], language: "zh-Hans", nativeHeadings: true),
         .init(names: ["ctexrep", "ctexbook"], chapters: true, language: "zh-Hans", nativeHeadings: true),
@@ -349,7 +355,7 @@ struct LaTeXClassRegistryTests {
             let label: LaTeXClassProfile.ChapterLabel =
                 row.typeArea
                 ? .bareNumber
-                : ["ltjbook", "jbook"].contains(name)
+                : (Self.traditionalReports + Self.traditionalBooks).contains(name)
                     ? .traditionalJapaneseNumber
                     : row.jsChapters || name == "jlreq" ? .spacedJapaneseNumber : .localized
             #expect(headings.chapterLabel == label)
@@ -370,12 +376,14 @@ struct LaTeXClassRegistryTests {
             #expect(profile.structure.contentsDepth == (["jsbook", "ltjsbook", "bxjsbook"].contains(name) ? 1 : nil))
             #expect(
                 profile.structure.formatsContentsChapterNames
-                    == (["jsbook", "ltjsbook", "bxjsbook", "jbook", "ltjbook"].contains(name)))
+                    == ((["jsbook", "ltjsbook", "bxjsbook"] + Self.traditionalReports + Self.traditionalBooks)
+                        .contains(name)))
             #expect(profile.structure.readsMatterOptions == (name == "scrbook"))
             #expect(headings.endDots == (name == "scrbook" ? .automatic : .never))
             #expect(
                 profile.structure.bookOpening
-                    == (["scrbook", "jsbook", "ltjsbook", "bxjsbook", "jbook", "ltjbook"].contains(name) ? .right : nil)
+                    == ((["scrbook", "jsbook", "ltjsbook", "bxjsbook"] + Self.traditionalBooks).contains(name)
+                        ? .right : nil)
             )
             #expect(
                 profile.structure.contents == (row.jsArticle ? .sectionTitle : row.jsChapters ? .chapterMarks : .plain))
@@ -386,7 +394,7 @@ struct LaTeXClassRegistryTests {
             #expect(headings.emptyPartPage == row.jsChapters)
             #expect(
                 headings.marksHeadingLevel
-                    == (["ltjarticle", "ltjbook", "jarticle", "jbook"].contains(name) || scaled || name == "jlreq"
+                    == (Self.horizontalTraditional.contains(name) || scaled || name == "jlreq"
                         || row.journal == .ams))
             #expect(headings.smallCapsSections == (name == "amsart"))
             #expect(headings.navigationOnlySections == (name == "beamer"))
@@ -445,7 +453,7 @@ struct LaTeXClassRegistryTests {
             #expect(body.equationNumberOnLeft == (name == "amsproc"))
             #expect(
                 body.captionSeparator
-                    == (["ltjarticle", "ltjbook", "jarticle", "jbook"].contains(name) ? ":\u{2002}" : nil))
+                    == (Self.horizontalTraditional.contains(name) ? ":\u{2002}" : nil))
             #expect(body.styledCaptionSeparator == (japanese ? ": " : nil))
             #expect(body.untranslatedProofName == (japanese ? "Proof" : nil))
             #expect(body.spacesLinkedCounters == japanese)
@@ -460,7 +468,8 @@ struct LaTeXClassRegistryTests {
             #expect(body.alignsHangingCaptions == scaled)
             #expect(
                 profile.typography.selectsParagraphPitch
-                    == (scaled || ["ltjarticle", "ltjbook", "jarticle", "jbook"].contains(name)))
+                    == (scaled || Self.horizontalTraditional.contains(name)))
+            #expect(profile.typography.followsJClassesSizeFiles == Self.horizontalTraditional.contains(name))
             #expect(profile.typography.usesScaledBodyFont == scaled)
             #expect(profile.typography.spacingDesignSize == (scaled ? 10 : nil))
             #expect(profile.usesGridFlow == scaled)
@@ -483,8 +492,9 @@ struct LaTeXClassRegistryTests {
             case "jlreq": (layout, baselines) = (.characterGrid, .characterGrid)
             case "article", "report": (layout, baselines) = (.standard(.doubleColumn), .standard)
             case "book": (layout, baselines) = (.standard(.bookOffsets), .standard)
-            case "ltjarticle", "jarticle": (layout, baselines) = (.standard(.traditionalArticle), .traditional)
-            case "ltjbook", "jbook": (layout, baselines) = (.standard(.traditionalBook), .traditional)
+            case "ltjarticle", "jarticle", "ujarticle", "ltjreport", "jreport", "ujreport":
+                (layout, baselines) = (.standard(.traditionalArticle), .traditional)
+            case "ltjbook", "jbook", "ujbook": (layout, baselines) = (.standard(.traditionalBook), .traditional)
             case "letter": (layout, baselines) = (.standard(.letterOffsets), .standard)
             default:
                 if row.jsScale != nil {

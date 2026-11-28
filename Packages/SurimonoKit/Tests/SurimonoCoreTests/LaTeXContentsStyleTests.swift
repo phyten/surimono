@@ -25,6 +25,32 @@ struct LaTeXContentsStyleTests {
             body.contains("font-family: var(--tex-sans-fonts); font-weight: normal; --latex-toc-number-width: 3.7em;"))
     }
 
+    @Test(
+        "従来の和文クラスは report 系も目次の章番号に 4 字分の幅を取る",
+        arguments: ["jreport", "ujreport", "ltjreport", "jbook", "ujbook", "ltjbook"])
+    func traditionalChapterNumberWidth(name: String) throws {
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-plain-ja" })
+        let tex = "\\documentclass{\(name)}\\begin{document}\\tableofcontents\\chapter{棚}\\end{document}"
+        let html = HTMLDocumentBuilder.build(fragment: LaTeXConverter.convert(tex), format: .latex, theme: theme)
+        let bodyTag = try #require(html.firstRange(of: /<body[^>]*>/))
+        #expect(html[bodyTag].contains(" data-latex-jclasses-size"))
+        // The width belongs to the block that this attribute selects, not to every Japanese class.
+        let block = try #require(theme.css.firstRange(of: "body.format-latex[data-latex-jclasses-size] {"))
+        let end = try #require(theme.css[block.upperBound...].firstRange(of: "\n}\n"))
+        #expect(
+            theme.css[block.upperBound..<end.lowerBound].contains(
+                ".latex-toc-chapter > a { --latex-toc-number-width: 4em; }"))
+    }
+
+    @Test("jsclasses の文書には従来の和文クラスの寸法を当てない")
+    func scaledClassesSkipTraditionalMetrics() throws {
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-plain-ja" })
+        let tex = #"\documentclass{jsbook}\begin{document}\tableofcontents\chapter{棚}\end{document}"#
+        let html = HTMLDocumentBuilder.build(fragment: LaTeXConverter.convert(tex), format: .latex, theme: theme)
+        let bodyTag = try #require(html.firstRange(of: /<body[^>]*>/))
+        #expect(!html[bodyTag].contains("data-latex-jclasses-size"))
+    }
+
     @Test("伝統和文の概要・目次・箇条書きと図表名はクラスのグルーを使う")
     func traditionalVerticalGlue() throws {
         let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-plain-ja" })

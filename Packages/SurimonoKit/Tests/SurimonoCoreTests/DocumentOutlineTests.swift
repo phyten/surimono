@@ -399,6 +399,55 @@ struct DocumentOutlineTests {
             DocumentOutline.pages(of: headings, inPageTexts: pages, contentsEntries: ["第一章", "第二章"]) == [0, 1])
     }
 
+    @Test("タグ付きの Org の目次を照合から外し、章が本文のページに当たる")
+    func orgContentsWithTags() {
+        let html = OrgConverter.convert("#+OPTIONS: toc:t num:t tags:t\n* 前提 :scope:\n本文\n* 関係 :evidence:\n本文").body
+        let headings = DocumentOutline.headings(inHTML: html)
+        // The tags float to the right of each line; the page's text gives them after the whole table.
+        let pages = ["目次\n1. 前提\n2. 関係\nscope\nevidence", "1. 前提\nscope\n本文", "2. 関係\nevidence\n本文"]
+        #expect(
+            DocumentOutline.pages(
+                of: headings, inPageTexts: pages, contentsEntries: DocumentOutline.sourceContentsEntries(inHTML: html))
+                == [1, 2])
+    }
+
+    @Test("大文字に組まれた見出しにページが付く")
+    func capitalizedHeadings() {
+        let headings = ["I. Introduction", "II. Related work", "A. Data sets"].map {
+            DocumentHeading(level: 1, text: $0)
+        }
+        let pages = ["Title\nI. INTRODUCTION\nWe study paper.", "II. RELATED WORK\nEarlier work.\nA. DATA SETS\nRows."]
+        #expect(DocumentOutline.pages(of: headings, inPageTexts: pages) == [0, 1, 1])
+    }
+
+    @Test("ß を含む見出しは、大文字で SS と組まれてもページが付く")
+    func capitalizedSharpS() {
+        let headings = [DocumentHeading(level: 1, text: "Die Straße")]
+        #expect(DocumentOutline.pages(of: headings, inPageTexts: ["Vorwort\nDIE STRASSE\nText"]) == [0])
+    }
+
+    @Test("大文字と小文字だけが違う前の行より、書いたとおりの綴りの見出しを採る")
+    func writtenCaseFirst() {
+        let headings = [DocumentHeading(level: 1, text: "US")]
+        #expect(DocumentOutline.pages(of: headings, inPageTexts: ["Us\n前置きの本文", "US\nこの節の本文"]) == [1])
+    }
+
+    @Test("大文字に組まれた見出しは、前後の見つかった見出しの間でだけ探す")
+    func capitalizedHeadingBetweenFoundOnes() {
+        let headings = ["Alpha", "Notes", "Gamma"].map { DocumentHeading(level: 1, text: $0) }
+        let pages = ["NOTES\n本文", "Alpha\n本文", "NOTES\n本文", "Gamma\n本文"]
+        #expect(DocumentOutline.pages(of: headings, inPageTexts: pages) == [1, 2, 3])
+        // A "NOTES" before Alpha or after Gamma is not taken for the heading between them, and Gamma keeps its page.
+        let outside = ["NOTES\n本文", "Alpha\n本文", "Gamma\n本文", "NOTES\n本文"]
+        #expect(DocumentOutline.pages(of: headings, inPageTexts: outside) == [1, nil, 2])
+    }
+
+    @Test("大文字と小文字をそろえても、ǰ と J、ΐ と Ι のような付け記号の違いは区別する")
+    func foldingKeepsMarks() {
+        #expect(DocumentOutline.pages(of: [DocumentHeading(level: 1, text: "ǰ")], inPageTexts: ["J\n本文"]) == [nil])
+        #expect(DocumentOutline.pages(of: [DocumentHeading(level: 1, text: "ΐ")], inPageTexts: ["Ι\n本文"]) == [nil])
+    }
+
     @Test("先頭の項目が折り返した原文の目次も見出しに取らない")
     func skipsSourceContentsWithWrappedFirstEntry() {
         let headings = [DocumentHeading(level: 1, text: "導入方法について"), DocumentHeading(level: 1, text: "第二章")]

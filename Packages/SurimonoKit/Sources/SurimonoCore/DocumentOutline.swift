@@ -18,35 +18,84 @@ extension DocumentOutline {
     /// number in front of it, so the same words in a sentence do not count. The search only moves forward, past each
     /// heading it found. The lines are indexed by their text, so a heading that cannot be found costs one lookup. The
     /// lines of `contentsEntries`, where the text lists its headings itself, are not taken for them.
+    ///
+    /// A style can set a heading in capitals or small capitals, and the page's text then holds "I. INTRODUCTION" for
+    /// the heading "Introduction". Only a heading the spelling as written does not find is looked for without case,
+    /// and only between the headings found before and after it, so a line that differs from a heading only in case
+    /// does not take the place of the heading found as written.
     public static func pages(
         of headings: [DocumentHeading], inPageTexts pages: [String], contentsEntries: [String] = []
     ) -> [Int?] {
         guard !headings.isEmpty else { return [] }
-        var labels = Labels()
-        let titles = headings.map { labels.insert(normalized($0.text)) }
-        let tables = contentsEntries.split(separator: "").map { $0.map(normalized).filter { !$0.isEmpty } }
-        for table in tables {
-            for entry in table { _ = labels.insert(entry) }
+        let written = Matching(headings: headings, pages: pages, contentsEntries: contentsEntries, foldsCase: false)
+        var found = written.forward()
+        if found.contains(nil) {
+            let folded = Matching(headings: headings, pages: pages, contentsEntries: contentsEntries, foldsCase: true)
+            // Both spellings read the same lines; the check only guards the line numbers they share.
+            if folded.index.lines.count == written.index.lines.count { folded.fill(&found) }
         }
-        let index = LineIndex(pages: pages, labels: labels)
-        var excluded: Set<Int> = []
-        if !tables.isEmpty {
-            let contents = ContentsIndex(lines: index.lines, labels: labels)
+        return found.map { $0.map { written.index.lines[$0.lowerBound].page } }
+    }
+
+    /// The headings' spellings looked for in the lines of the pages, with or without case.
+    private struct Matching {
+        let titles: [Int]
+        let index: LineIndex
+        let matches: [Int: [Range<Int>]]
+
+        init(headings: [DocumentHeading], pages: [String], contentsEntries: [String], foldsCase: Bool) {
+            var labels = Labels()
+            titles = headings.map { labels.insert(normalized($0.text, foldsCase: foldsCase)) }
+            let tables = contentsEntries.split(separator: "").map {
+                $0.map { normalized($0, foldsCase: foldsCase) }.filter { !$0.isEmpty }
+            }
+            for table in tables {
+                for entry in table { _ = labels.insert(entry) }
+            }
+            index = LineIndex(pages: pages, labels: labels, foldsCase: foldsCase)
+            var excluded: Set<Int> = []
+            if !tables.isEmpty {
+                let contents = ContentsIndex(lines: index.lines, labels: labels)
+                var cursor = 0
+                for table in tables where !table.isEmpty {
+                    // An unsuccessful search has reached EOF; later tables share the same forward cursor.
+                    guard let run = contents.firstRun(of: table, from: cursor) else { break }
+                    excluded.formUnion(run)
+                    cursor = run.upperBound
+                }
+            }
+            matches = index.headingMatches(excluding: excluded)
+        }
+
+        /// The lines of each heading, each found after the one before it.
+        func forward() -> [Range<Int>?] {
+            var matches = matches
             var cursor = 0
-            for table in tables where !table.isEmpty {
-                // An unsuccessful search has reached EOF; later tables share the same forward cursor.
-                guard let run = contents.firstRun(of: table, from: cursor) else { break }
-                excluded.formUnion(run)
-                cursor = run.upperBound
+            return titles.map { id in
+                while let first = matches[id]?.last, first.lowerBound < cursor { matches[id]?.removeLast() }
+                guard let match = matches[id]?.popLast() else { return nil }
+                cursor = match.upperBound
+                return match
             }
         }
-        var matches = index.headingMatches(excluding: excluded)
-        var cursor = 0
-        return titles.map { id in
-            while let first = matches[id]?.last, first.lowerBound < cursor { matches[id]?.removeLast() }
-            guard let match = matches[id]?.popLast() else { return nil }
-            cursor = match.upperBound
-            return index.lines[match.lowerBound].page
+
+        /// Fills the headings not found with lines between the headings found around them.
+        func fill(_ found: inout [Range<Int>?]) {
+            var upper = Array(repeating: index.lines.count, count: found.count)
+            for i in found.indices.dropLast().reversed() { upper[i] = found[i + 1]?.lowerBound ?? upper[i + 1] }
+            var lower = 0
+            for i in found.indices {
+                if let match = found[i] {
+                    lower = match.upperBound
+                    continue
+                }
+                // The matches run from the last line to the first, so this is the first one at or after `lower`.
+                guard let match = matches[titles[i]]?.last(where: { $0.lowerBound >= lower }),
+                    match.upperBound <= upper[i]
+                else { continue }
+                found[i] = match
+                lower = match.upperBound
+            }
         }
     }
 
@@ -93,13 +142,13 @@ extension DocumentOutline {
         }
         var lines: [Line] = []
 
-        init(pages: [String], labels: Labels) {
+        init(pages: [String], labels: Labels, foldsCase: Bool) {
             for (page, text) in pages.enumerated() {
                 var previous: [Int] = []
                 var continued: [Int] = []
                 var start = 0
                 for raw in text.components(separatedBy: .newlines) {
-                    let forms = Self.forms(of: raw)
+                    let forms = Self.forms(of: raw, foldsCase: foldsCase)
                     guard !forms[0].isEmpty else { continue }
                     let line = lines.count
                     lines.append(Line(page: page, forms: forms))
@@ -153,13 +202,13 @@ extension DocumentOutline {
 
         /// The line as it stands, and without a number when it has one: a theme can number a heading with a counter,
         /// which puts text in front of it on the page only.
-        private static func forms(of line: String) -> [String] {
+        private static func forms(of line: String, foldsCase: Bool) -> [String] {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             let number = trimmed.prefix { $0.isNumber || ".．、:：-)）(（".contains($0) }
             let rest = trimmed.dropFirst(number.count)
             let endsNumber = rest.first?.isWhitespace == true || number.last.map { !$0.isNumber } == true
-            guard !number.isEmpty, !rest.isEmpty, endsNumber else { return [normalized(line)] }
-            return [normalized(line), normalized(String(rest))]
+            guard !number.isEmpty, !rest.isEmpty, endsNumber else { return [normalized(line, foldsCase: foldsCase)] }
+            return [normalized(line, foldsCase: foldsCase), normalized(String(rest), foldsCase: foldsCase)]
         }
     }
 
@@ -357,8 +406,8 @@ extension DocumentOutline {
     /// Whether a heading stands first on a page. A theme can put a number in front of it, so the line only has to
     /// hold the heading; a long heading wraps, so it may also go on past the line.
     private static func opens(_ text: String, with heading: DocumentHeading) -> Bool {
-        let target = normalized(heading.text)
-        let lines = text.components(separatedBy: .newlines).lazy.map(normalized)
+        let target = normalized(heading.text, foldsCase: true)
+        let lines = text.components(separatedBy: .newlines).lazy.map { normalized($0, foldsCase: true) }
         guard !target.isEmpty, let first = lines.first(where: { !$0.isEmpty }) else { return false }
         return first.contains(target) || target.hasPrefix(first)
     }
@@ -385,10 +434,16 @@ extension DocumentOutline {
     }
 
     /// Only letters and digits take part: a PDF's text can come back with its own ligatures and widths, and WebKit's
-    /// PDF returns an em dash as a combining stroke, which `CharacterSet.alphanumerics` would keep.
-    private static func normalized(_ text: String) -> String {
-        String(
-            text.precomposedStringWithCompatibilityMapping.unicodeScalars
+    /// PDF returns an em dash as a combining stroke, which `CharacterSet.alphanumerics` would keep. With `foldsCase`,
+    /// case does not take part either; folding can leave a letter as its base and a combining mark (ǰ, ΐ), so the
+    /// marks are composed again before the filter drops them.
+    private static func normalized(_ text: String, foldsCase: Bool = false) -> String {
+        var text = text.precomposedStringWithCompatibilityMapping
+        if foldsCase {
+            text = text.folding(options: .caseInsensitive, locale: nil).precomposedStringWithCanonicalMapping
+        }
+        return String(
+            text.unicodeScalars
                 .filter { $0.properties.isAlphabetic || $0.properties.numericType != nil }
                 .map(Character.init))
     }
