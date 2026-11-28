@@ -464,19 +464,22 @@ enum TableFit {
             }
             // Each long column keeps its floor: the table's automatic layout shares out the width as it likes,
             // so the floor is set as a minimum width. A column is as wide as the widest minimum of its cells, so
-            // one cell carries it, sized for the column's widest padding: every cell of the column then has the
-            // floor for its text, whatever its own padding, and a long table is not written row by row.
+            // with separate borders one cell carries it, sized for the column's widest padding and rules, and a
+            // long table is not written row by row. Collapsed borders are shared between neighbours and resolved
+            // between them, so a cell's own rules do not say how much of the column they take: there every cell
+            // gets the floor for its own text.
             const minimums = [];
             for (const item of touched) {
-                const zoom = zoomOf(item.table);
+                const zoom = zoomOf(item.table), collapsed = styleOf(item.table).borderCollapse === 'collapse';
                 (item.columns ?? []).forEach((column, index) => {
                     const floor = item.plan.floors[index];
                     if (!floor) return;
                     column.floor = floor / zoom;
-                    const cell = column.shown[0], css = styleOf(cell);
-                    const own = sides(css, 'padding') + borders(css);
-                    const box = column.floor + column.padding / zoom;
-                    minimums.push([cell, css.boxSizing === 'border-box' ? box : box - own]);
+                    for (const cell of collapsed ? column.shown : column.shown.slice(0, 1)) {
+                        const css = styleOf(cell), own = sides(css, 'padding') + borders(css);
+                        const box = collapsed ? column.floor + own : column.floor + column.padding / zoom;
+                        minimums.push([cell, css.boxSizing === 'border-box' ? box : box - own]);
+                    }
                 });
             }
             for (const [cell, minimum] of minimums) set(cell, 'min-width', minimum + 'px');

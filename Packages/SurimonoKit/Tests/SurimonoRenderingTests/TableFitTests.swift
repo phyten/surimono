@@ -981,6 +981,24 @@ struct TableFitTests {
         #expect(columns.outside == 0, Comment(rawValue: columns.log))
     }
 
+    @Test("罫を重ねる表で余白と罫の違うセルが並ぶ長い列も、後ろの行まで4文字ぶんの文字の幅を残す", .timeLimit(.minutes(1)))
+    func collapsedBordersKeepTheFloorInEveryRow() async throws {
+        // The first cell's rules are shared with its neighbours, so they take less of the column than its own
+        // width says; the next row's cell has wide padding instead.
+        let shorts = String(repeating: "<td>short label</td>", count: 4)
+        let wide = String(repeating: "X", count: 60)
+        let long = "<td>" + String(repeating: "X", count: 250) + "</td>"
+        let source =
+            "<table><tr>\(shorts)<td style='padding:0;border-left:16px solid #888;border-right:16px solid #888'>"
+            + "\(wide)</td>\(long)</tr><tr>\(shorts)<td style='padding:0 12px'>\(wide)</td>\(long)</tr></table>\n"
+        let columns = Columns()
+        _ = try await printed(source, inspect: columns.record)
+        try #require(columns.lines.count == 6, Comment(rawValue: columns.log))
+        #expect(columns.lines.prefix(4).allSatisfy { $0 == 1 }, Comment(rawValue: columns.log))
+        // A pixel of rounding either way.
+        #expect(columns.ems.suffix(2).allSatisfy { $0 >= 3.9 }, Comment(rawValue: columns.log))
+    }
+
     @Test("短い4列と長い2列の表は、長い列のどちらにも4文字ぶんの文字の幅を残す", .timeLimit(.minutes(1)))
     func eachLongColumnKeepsItsFloor() async throws {
         let cells =
