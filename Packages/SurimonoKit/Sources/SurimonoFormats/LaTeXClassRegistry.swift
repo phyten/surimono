@@ -374,29 +374,42 @@ enum LaTeXClassRegistry {
         builder.headings.marksHeadingLevel = true
     }
 
+    private enum TraditionalDivision { case article, report, book }
+
+    // pLaTeX, upLaTeX and LuaTeX-ja generate their horizontal classes from one source and the same size files:
+    // only the engine-specific font declarations differ. report shares the article size files.
+    private static func horizontalTraditionalDivision(_ id: LaTeXClassID) -> TraditionalDivision? {
+        switch id {
+        case .jarticle, .ujarticle, .ltjarticle: .article
+        case .jreport, .ujreport, .ltjreport: .report
+        case .jbook, .ujbook, .ltjbook: .book
+        default: nil
+        }
+    }
+
     private static func traditionalJapanese(_ builder: Builder) {
         builder.body.usesLatinModernBullet = [.ltjarticle, .ltjreport, .ltjbook].contains(builder.id)
         builder.structure.offersCompositionChoice = true
         builder.japanese()
         builder.structure.usesTraditionalJapaneseNames = true
         builder.typography.baselineTable = .traditional
-        if [.ltjarticle, .jarticle, .ltjbook, .jbook].contains(builder.id) {
-            let book = builder.id == .ltjbook || builder.id == .jbook
-            builder.page.layoutRule = .standard(book ? .traditionalBook : .traditionalArticle)
-            builder.setStandardTitlePage(separate: book)
-            builder.setBookSides(book)
-            builder.body.captionSeparator = ":\u{2002}"
-            if book { builder.headings.chapterLabel = .traditionalJapaneseNumber }
-            builder.headings.marksHeadingLevel = true
-            builder.typography.selectsParagraphPitch = true
-            if book {
-                builder.setBookOpening(numberInHead: true)
-                builder.structure.formatsContentsChapterNames = true
-            }
-        }
         builder.structure.hasChapters = ![.jarticle, .ltjarticle, .ujarticle, .utarticle, .tarticle, .ltjtarticle]
             .contains(
                 builder.id)
+        guard let division = horizontalTraditionalDivision(builder.id) else { return }
+        let book = division == .book
+        builder.page.layoutRule = .standard(book ? .traditionalBook : .traditionalArticle)
+        builder.typography.followsJClassesSizeFiles = true
+        builder.setStandardTitlePage(separate: division != .article)
+        builder.setBookSides(book)
+        builder.body.captionSeparator = ":\u{2002}"
+        builder.headings.marksHeadingLevel = true
+        builder.typography.selectsParagraphPitch = true
+        if division != .article {
+            builder.headings.chapterLabel = .traditionalJapaneseNumber
+            builder.structure.formatsContentsChapterNames = true
+        }
+        if book { builder.setBookOpening(numberInHead: true) }
     }
 
     private static func chinese(_ builder: Builder) {

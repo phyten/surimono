@@ -49,7 +49,7 @@ struct LaTeXBookMatterTests {
         #expect(html.contains(#"<template data-latex-break="right">"#))
     }
 
-    @Test("和文書籍の目次は読み込み時の章名と深さを使う")
+    @Test("和文書籍の目次は章ごとの章名と、読み込み時の深さを使う")
     func contents() {
         let tex = #"""
             \documentclass{ltjsbook}\begin{document}
@@ -62,7 +62,9 @@ struct LaTeXBookMatterTests {
         let skip = #"<span class="latex-xkanjiskip"> </span>"#
         #expect(lists.first?.contains("第" + skip + "I" + skip + "部") == true)
         #expect(lists.first?.contains("板厚") == false)
-        #expect(lists.first?.contains("付録" + skip + "A") == false)
+        // Like the .toc LaTeX wrote at each chapter, a list read before \appendix still names the appendix.
+        #expect(lists.first?.contains("付録" + skip + "A") == true)
+        #expect(lists.first?.contains("第" + skip + "A") == false)
         #expect(lists.last?.contains("板厚") == true)
         #expect(lists.last?.contains("付録" + skip + "A") == true)
     }

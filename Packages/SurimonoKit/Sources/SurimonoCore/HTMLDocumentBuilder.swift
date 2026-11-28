@@ -62,6 +62,7 @@ public enum HTMLDocumentBuilder {
                     + (info.columns == 2 && info.profile.usesGridFlow
                         ? " data-latex-js-twocolumn" : "")
                     + (info.usesJSChapterSpacing ? " data-latex-js-chapters" : "")
+                    + (info.followsJClassesSizeFiles ? " data-latex-jclasses-size" : "")
                     + (info.usesNativeCJKHeadings ? " data-latex-native-headings" : "")
                     + (info.journalStyle.map { " data-latex-journal=\"\($0.rawValue)\"" } ?? "")
                     + (info.profile.usesGridFlow ? " data-latex-js-toc" : "")

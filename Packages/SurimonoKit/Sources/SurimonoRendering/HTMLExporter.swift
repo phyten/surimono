@@ -148,7 +148,7 @@ public enum HTMLExporter {
           for (const attr of Array.from(el.attributes)) {
             if (latexBody && el.closest('.beamer-frame') &&
                 /^(data-align|data-kind|data-plain|data-shaded|data-squeeze|data-beamer-covered|data-text-width)$/.test(attr.name)) continue;
-            if (composedHTML && /^data-latex-(size|class|chapters|title-layout|js-toc|js-chapters|js-twocolumn|heading|float|column|placement|caption-style|caption-hang|tabularx|rule-line|breakable|undotted|text-size)$/.test(attr.name) &&
+            if (composedHTML && /^data-latex-(size|class|chapters|title-layout|js-toc|js-chapters|js-twocolumn|jclasses-size|heading|float|column|placement|caption-style|caption-hang|tabularx|rule-line|breakable|undotted|text-size)$/.test(attr.name) &&
                 /^[a-zA-Z0-9 *._-]{0,50}$/.test(attr.value)) continue;
             if (el === latexBody && ((attr.name === 'data-latex-size' && /^(10|11|12)$/.test(attr.value)) ||
                 (attr.name === 'data-latex-chapters' && /^(true|false)$/.test(attr.value)))) continue;

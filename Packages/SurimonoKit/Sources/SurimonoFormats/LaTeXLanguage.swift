@@ -171,7 +171,7 @@ extension LaTeXReader {
 
     func numberedHeading(_ name: String, number: String) -> String {
         let caption = captionName(name + "name")
-        let number = HTML.escape(number)
+        let number = name == "appendix" ? appendixNumber(number) : HTML.escape(number)
         let label = document.classInfo.profile.headings.chapterLabel
         if label == .traditionalJapaneseNumber, name == "chapter", document.language == "ja" {
             // The explicit spaces share the searchable chapter label's text run.
@@ -191,6 +191,14 @@ extension LaTeXReader {
         }
         if document.language == "ko", name != "appendix" { return "제 " + number + " " + caption }
         return caption + " " + number
+    }
+
+    /// The vertical classes set the appendix letter with \rensuji (jlreq with \tatechuyoko*), so it stands upright
+    /// like the two-digit chapter numbers instead of lying on its side.
+    func appendixNumber(_ number: String) -> String {
+        let escaped = HTML.escape(number)
+        guard document.classInfo.isVertical, !number.isEmpty else { return escaped }
+        return #"<span class="explicit-tcy">"# + escaped + "</span>"
     }
 
     func handleLanguage(_ name: String) -> Bool {

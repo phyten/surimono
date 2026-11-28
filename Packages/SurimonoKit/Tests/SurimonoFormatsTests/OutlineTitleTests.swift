@@ -41,7 +41,7 @@ struct OutlineTitleTests {
 
     @Test(
         "和文の章は「第1章 題」の形になり、縦組みのクラスでも同じ",
-        arguments: [("jreport", "第1章 はじめに"), ("tbook", "第1章 はじめに"), ("jlreq", "第 1 章 はじめに")])
+        arguments: [("jreport", "第 1 章 はじめに"), ("tbook", "第1章 はじめに"), ("jlreq", "第 1 章 はじめに")])
     func japaneseChapters(documentClass: String, expected: String) {
         let body = LaTeXConverter.convert(
             "\\documentclass{\(documentClass)}\\begin{document}\\chapter{はじめに}本文\\end{document}"
