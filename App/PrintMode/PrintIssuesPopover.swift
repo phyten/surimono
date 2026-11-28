@@ -71,6 +71,9 @@ struct PrintIssuesPopover: View {
         if issue.pageNumber != nil {
             Button("Check Location") { model.showPrintIssue(issue) }
         }
+        if issue.outsideFile != nil, model.fileNeedingFolderAccess != nil {
+            Button("Choose Folder…") { model.allowFolderAccess() }
+        }
         switch issue.kind {
         case .image:
             if issue.imageFailure == .missing, model.fileURL != nil {
@@ -103,6 +106,13 @@ enum PrintIssueText {
     }
 
     static func title(_ issue: PrintIssue, language: String) -> String {
+        if let file = issue.outsideFile {
+            let bibliography = (file as NSString).pathExtension.lowercased() == "bib"
+            return PrintModeText.format(
+                bibliography
+                    ? "Bibliography file %@ is outside the document’s folder."
+                    : "File %@ is outside the document’s folder.", language: language, file)
+        }
         let key: String
         switch issue.kind {
         case .verticalWriting:
@@ -158,6 +168,11 @@ enum PrintIssueText {
     }
 
     static func advice(_ issue: PrintIssue, language: String) -> String {
+        if issue.outsideFile != nil {
+            return PrintModeText.string(
+                "To read it, choose a folder that contains both the document and the file, and allow access.",
+                language: language)
+        }
         let key: String
         switch issue.kind {
         case .image:

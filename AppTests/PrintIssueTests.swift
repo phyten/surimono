@@ -93,6 +93,54 @@ struct PrintIssueTests {
         #expect(PrintIssueText.advice(issue, language: "ja") == "画像を表示するには、フォルダを読む許可が必要です")
     }
 
+    @Test(
+        "サンドボックスの外でも、文書のフォルダーの外の文献は許可を求め、許可すると組まれて確認が消える",
+        .timeLimit(.minutes(1)))
+    func outsideFolderBibliography() async throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            .resolvingSymlinksInPath()
+        defer { try? FileManager.default.removeItem(at: root) }
+        for folder in ["doc", "assets"] {
+            try FileManager.default.createDirectory(
+                at: root.appendingPathComponent(folder), withIntermediateDirectories: true)
+        }
+        try Data("@book{key, title={Outside edition}}".utf8).write(to: root.appendingPathComponent("assets/s.bib"))
+        let markdown = Data("---\nbibliography: ../assets/s.bib\n---\n[@key]\n".utf8)
+        let file = root.appendingPathComponent("doc/a.md")
+        try markdown.write(to: file)
+        let renderer = DocumentRenderer(
+            isSandboxed: { false },
+            paginateWithResult: { _ in
+                WebPaginator.Result(document: try #require(PDFDocument(data: TestFixtures.pdf("Text"))))
+            })
+        let model = DocumentViewModel(
+            data: markdown, fileURL: file, format: .markdown,
+            preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: root),
+            renderer: renderer)
+        defer { model.stop() }
+        model.render()
+        try await waitUntil { model.isUpToDate && model.toast != nil }
+        #expect(model.toast?.title == Toast.outsideFolderAccess.title)
+        #expect(model.toast?.action == .allowFolderAccess)
+        let issue = try #require(model.printIssues.first)
+        #expect(model.printIssues.count == 1)
+        #expect(issue.outsideFile == "../assets/s.bib")
+        #expect(model.fileNeedingFolderAccess == file)
+        #expect(PrintIssueText.title(issue, language: "ja") == "文献ファイル ../assets/s.bib は、文書のフォルダの外にあります。")
+        #expect(
+            PrintIssueText.advice(issue, language: "ja") == "読むには、文書とそのファイルの両方を含むフォルダを選んで許可してください。")
+
+        // What the panel's Allow Access does once the folder is chosen.
+        model.useDocumentFolder(FolderAccess.Lease(url: root, release: {}))
+        model.renderer.clearCache()
+        model.render()
+        try await waitUntil { model.isUpToDate && model.printIssues.isEmpty }
+        #expect(model.result?.requiredFolderAccess == nil)
+        #expect(try Data(contentsOf: file) == markdown)
+    }
+
     @Test("縦書きの注記は組版をやり直しても一覧に残り、通知は開いたときの一度だけ", .timeLimit(.minutes(1)))
     func verticalWritingNote() async throws {
         let suite = TestDefaultsSuite()
