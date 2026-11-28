@@ -654,6 +654,66 @@ struct LaTeXFlowPrintingTests {
         #expect(text.matches(of: /word[0-9]{3}/).map { String($0.output) } == tokens)
     }
 
+    @Test("段とページの切れ目でハイフンで切った語も前半を刷り、続きの行を段の左端から始める", .timeLimit(.minutes(1)))
+    func hyphenatedWordAtColumnBreak() async throws {
+        // Words longer than half a column make almost every browser line end inside a word,
+        // so several of the column and page cuts below fall on an automatic hyphen.
+        let words = [
+            "counterrevolutionaries", "electroencephalographic", "incomprehensibilities", "internationalization",
+            "uncharacteristically", "institutionalization", "disproportionately", "representationalism",
+        ]
+        let text = (0..<160).map { words[$0 % words.count] }.joined(separator: " ")
+        let html =
+            "<style>body{font:12px/18px Times,serif}p{margin:0;text-align:justify;-webkit-hyphens:auto;hyphens:auto}"
+            + "</style><div data-latex-columns=\"2\" data-latex-rule=\"0\"><p lang=\"en\">"
+            + text + "</p></div>"
+        let pageSize = CGSize(width: 360, height: 240)
+        let margin = 5 * 72 / 25.4
+        let result = try await WebPaginator().paginateWithResult(
+            .html(html, baseURL: nil), pageSize: pageSize, margins: .uniform(millimeters: 5),
+            allowsJavaScript: false, latexFlow: true)
+        #expect(result.issues.isEmpty)
+        let pdf = result.document
+        #expect(pdf.pageCount > 1)
+        // The text layer keeps every letter in reading order; a cut hyphen reads like any other line-end hyphen.
+        let printed = (0..<pdf.pageCount).compactMap { pdf.page(at: $0)?.string }.joined(separator: "\n")
+        #expect(printed.replacing("-\n", with: "").split(whereSeparator: \.isWhitespace).joined(separator: " ") == text)
+        let scale: CGFloat = 4
+        let columnWidth = pageSize.width / 2 - margin
+        let height = pageSize.height - 2 * margin
+        for index in 0..<pdf.pageCount {
+            let page = try #require(pdf.page(at: index))
+            for (column, left) in [margin, pageSize.width / 2].enumerated() {
+                let ctx = try grayCrop(
+                    page, origin: CGPoint(x: left, y: margin), width: Int(columnWidth * scale),
+                    height: Int(height * scale), scale: scale)
+                let pixels = try #require(ctx.data).assumingMemoryBound(to: UInt8.self)
+                // Collect the first inked column of each printed line, from the top of the column.
+                var starts: [(row: Int, x: Int)] = []
+                var inLine = false
+                for y in 0..<ctx.height {
+                    let ink = (0..<ctx.width).first { pixels[y * ctx.bytesPerRow + $0] < 128 }
+                    if let ink {
+                        if inLine {
+                            starts[starts.count - 1].x = min(starts[starts.count - 1].x, ink)
+                        } else {
+                            starts.append((y, ink))
+                        }
+                    }
+                    inLine = ink != nil
+                }
+                guard let edge = starts.map(\.x).min() else { continue }
+                // Every line of the one justified paragraph starts at the column edge; a hidden
+                // first half of a word would push its continuation about four letters to the right.
+                let indented = starts.filter { CGFloat($0.x - edge) / scale > 2 }
+                #expect(
+                    indented.isEmpty,
+                    "\(index + 1)ページ\(column + 1)段目で左端から字下げされた行(上からの px, 字下げ pt)=\(indented.map { ($0.row, CGFloat($0.x - edge) / scale) })"
+                )
+            }
+        }
+    }
+
     @Test("脚注が用紙より長い場合は元の本文と注を一段で刷り、確認に理由を出す", .timeLimit(.minutes(1)))
     func fallback() async throws {
         let html =

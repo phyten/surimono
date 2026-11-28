@@ -20,7 +20,7 @@ for (const [i, p] of pieces.entries()) {
     if (!entries.has(key)) entries.set(key, {...p, index:i});
     owners.push(entries.get(key).index);
 }
-const range = document.createRange(), edits = [];
+const range = document.createRange(), edits = [], splits = [];
 // Append all probes before reading geometry so a long contents does not force layout for each row.
 // Measuring a long rule once avoids accumulating a rounded layout unit in every pitch.
 const pitches = 128, periods = new Map();
@@ -194,6 +194,9 @@ for (const [id, unique] of byStrip) {
         const rect = range.getBoundingClientRect();
         if (!rect.width || !rect.height) continue;
         const fragment = document.createDocumentFragment();
+        const css = getComputedStyle(n.parentElement);
+        const hyphenates = (css.hyphens || css.webkitHyphens) === 'auto' && css.wordBreak !== 'break-all' &&
+            css.lineBreak !== 'anywhere';
         const indexAt = i => {
             range.setStart(n, i); range.setEnd(n, i+1);
             const r = range.getBoundingClientRect();
@@ -211,7 +214,17 @@ for (const [id, unique] of byStrip) {
             }
             const span = document.createElement('span');
             span.textContent = n.data.slice(start,lo);
+            // Owners differ only across a line break. Between two letters of a hyphenating
+            // script that break is an automatic hyphen, and an element boundary has no
+            // hyphenation opportunity: WebKit would move the word's first part to the next
+            // line, outside this capture and hidden in the next. A soft hyphen restores the
+            // same break and its drawn hyphen without adding a gap inside the word.
+            if (hyphenates && lo < n.length && /[\p{sc=Latin}\p{sc=Greek}\p{sc=Cyrillic}]\p{M}*$/u.test(span.textContent) &&
+                /^[\p{sc=Latin}\p{sc=Greek}\p{sc=Cyrillic}]/u.test(n.data.slice(lo,lo+2))) {
+                span.textContent += '\u00AD';
+            }
             memberships[index].push(span); fragment.append(span);
+            splits.push({span, index, at, length:lo-start});
             start = lo;
         }
         edits.push([n, fragment]);
@@ -219,6 +232,15 @@ for (const [id, unique] of byStrip) {
 }
 for (const period of periods.values()) period.remove();
 for (const [n,f] of edits) n.replaceWith(f);
+// Splitting must not move text between lines. Check the two ends of every piece in the new
+// layout; a moved end would print in no capture, so fall back to the single-column print.
+for (const {span, index, at, length} of splits) {
+    for (const i of [0, length-1]) {
+        range.setStart(span.firstChild, i); range.setEnd(span.firstChild, i+1);
+        const r = range.getBoundingClientRect();
+        if (r.height && at((r.top+r.bottom)/2) !== index) throw Error('Split text moved to another slice');
+    }
+}
 // A complete paragraph or list item can be moved as one box without relaying out its text.
 // More complicated paint (shared borders, protruding graphics, or clipped line fragments)
 // keeps the individual capture. Clipping alone would leave its text in every PDF selection.
