@@ -28,6 +28,10 @@ public enum DocumentOutline {
 
     /// What a heading holds besides its title: Org's tags, which the paper sets apart at the end of the line.
     private static let headingExtras: Set<String> = ["org-tags"]
+    /// Elements without a closing tag, which hold no text to leave out.
+    private static let voidElements: Set<String> = [
+        "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr",
+    ]
     /// A section number the paper sets apart from its title by a margin, not by a space.
     private static let sectionNumber = "secnum"
 
@@ -35,6 +39,9 @@ public enum DocumentOutline {
         var headings: [(heading: DocumentHeading, followsHeading: Bool)] = []
         var open: (tag: HTMLScanner.Tag, level: Int, text: String, follows: Bool)?
         var hidden: (name: String, depth: Int)?
+        // An element of `headingExtras` being left out. It belongs to the heading: its end ends it too, so an element
+        // that is not closed does not take later headings with it.
+        var extra: (name: String, depth: Int)?
         // The spans still open in a heading's section number, and whether the title after it needs a space.
         var number: Int?
         var spaceAfterNumber = false
@@ -42,10 +49,8 @@ public enum DocumentOutline {
         for token in HTMLScanner.tokens(html) {
             switch token {
             case .text(let text):
-                if hidden == nil, open != nil {
-                    if spaceAfterNumber, let first = HTMLScanner.decodingEntities(String(text.prefix(8))).first,
-                        !first.isWhitespace
-                    {
+                if hidden == nil, extra == nil, open != nil {
+                    if spaceAfterNumber, let first = HTMLScanner.decodingEntities(text).first, !first.isWhitespace {
                         open?.text += " "
                     }
                     if !text.isEmpty { spaceAfterNumber = false }
@@ -54,7 +59,23 @@ public enum DocumentOutline {
                 if open == nil, !text.allSatisfy(\.isWhitespace) { afterHeading = false }
             case .opaque: break
             case .tag(let tag):
-                if updateHidden(&hidden, with: tag, alsoHiding: open == nil ? [] : headingExtras) { continue }
+                if updateHidden(&hidden, with: tag) { continue }
+                if let current = open, let skipping = extra {
+                    if tag.isClosing, tag.name == current.tag.name {
+                        extra = nil
+                    } else {
+                        if tag.name == skipping.name, !tag.isSelfClosing {
+                            let depth = skipping.depth + (tag.isClosing ? -1 : 1)
+                            extra = depth == 0 ? nil : (skipping.name, depth)
+                        }
+                        continue
+                    }
+                } else if open != nil, !tag.isClosing, !tag.isSelfClosing, !voidElements.contains(tag.name),
+                    classes(of: tag).contains(where: { headingExtras.contains(String($0)) })
+                {
+                    extra = (tag.name, 1)
+                    continue
+                }
                 if open != nil, tag.name == "span", !tag.isSelfClosing {
                     if let depth = number {
                         number = depth + (tag.isClosing ? -1 : 1)
@@ -62,7 +83,7 @@ public enum DocumentOutline {
                             number = nil
                             spaceAfterNumber = true
                         }
-                    } else if !tag.isClosing, Self.classes(of: tag).contains { $0 == sectionNumber } {
+                    } else if !tag.isClosing, classes(of: tag).contains(where: { $0 == sectionNumber }) {
                         number = 1
                     }
                 }
@@ -212,15 +233,13 @@ public enum DocumentOutline {
         return level
     }
 
+    /// The classes of an element, split at ASCII white space as HTML does.
     private static func classes(of tag: HTMLScanner.Tag) -> [Substring] {
-        tag.attribute("class")?.split(separator: " ") ?? []
+        tag.attribute("class")?.split(whereSeparator: { " \t\n\r\u{0C}".contains($0) }) ?? []
     }
 
-    /// Whether the tag belongs to an element whose text is not read, keeping track of the one being skipped. Elements
-    /// with a class of `alsoHiding` are skipped as well.
-    private static func updateHidden(
-        _ hidden: inout (name: String, depth: Int)?, with tag: HTMLScanner.Tag, alsoHiding extras: Set<String> = []
-    ) -> Bool {
+    /// Whether the tag belongs to an element whose text is not read, keeping track of the one being skipped.
+    private static func updateHidden(_ hidden: inout (name: String, depth: Int)?, with tag: HTMLScanner.Tag) -> Bool {
         if let current = hidden {
             if tag.name == current.name, !tag.isSelfClosing {
                 let depth = current.depth + (tag.isClosing ? -1 : 1)
@@ -228,8 +247,8 @@ public enum DocumentOutline {
             }
             return true
         }
-        let skipped = classes(of: tag).contains { $0 == "critic-comment" || extras.contains(String($0)) }
-        guard hiddenElements.contains(tag.name) || skipped, !tag.isClosing, !tag.isSelfClosing else { return false }
+        let isComment = classes(of: tag).contains(where: { $0 == "critic-comment" })
+        guard hiddenElements.contains(tag.name) || isComment, !tag.isClosing, !tag.isSelfClosing else { return false }
         hidden = (tag.name, 1)
         return true
     }
