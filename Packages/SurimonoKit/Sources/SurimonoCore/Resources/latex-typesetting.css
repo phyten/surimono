@@ -545,7 +545,7 @@ ol.latex-exam-oneparchoices { padding-inline-start: 0; }
 .latex-exam-space { box-sizing: border-box; break-inside: avoid; }
 .latex-exam-box, .latex-exam-solution { border: 1px solid; }
 /* exam.cls closes the frame on each page of a split solution; WebKit's printing leaves a sliced frame open,
-   so a solution that fits on a page moves whole instead. */
+   so a solution that fits on a page moves whole instead. latex-flow.js keeps the same frames together. */
 .latex-exam-solution { padding: 0.5em; break-inside: avoid; }
 table.latex-exam-table { width: auto; border-collapse: collapse; margin-inline: 0 auto; }
 .latex-exam-table td {

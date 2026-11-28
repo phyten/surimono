@@ -826,6 +826,30 @@ struct LaTeXFlowLayoutTests {
         #expect(abs(table.y - 12.5) < 0.01)
     }
 
+    @Test("全幅のブロックの下の 2 段組で残りに入らない段幅の図表は、縮めずに次のページの図表だけの段へ送る")
+    func floatColumnKeepsNaturalSize() throws {
+        let wide = segment([item(0, 40)])
+        let columns = segment([item(1, 30), item(2, 80, placement: "p")] + (3...6).map { item($0, 20) }, columns: 2)
+        let result = try pages([wide, columns])
+        let first = try #require(result.firstIndex { $0.pieces.contains { $0.slice.strip == 0 } })
+        let index = try #require(result.firstIndex { $0.pieces.contains { $0.slice.strip == 2 } })
+        let table = try #require(result[index].pieces.first { $0.slice.strip == 2 })
+        #expect(index > first)
+        #expect(table.scale == 1)
+    }
+
+    @Test("均等割りの試しで置いた図表だけの段も、その試しの高さを超えない")
+    func floatColumnRespectsLimit() throws {
+        let items = [item(0, 10), item(1, 30, placement: "p"), item(2, 10)]
+        let result = try pages([segment(items, columns: 2, balance: true), segment([item(3, 10)])])
+        let page = try #require(result.first)
+        let table = try #require(page.pieces.first { $0.slice.strip == 1 })
+        let after = try #require(page.pieces.first { $0.slice.strip == 3 })
+        // The balanced columns need only the 30-point float; centring it on the full page would push the next block to 65.
+        #expect(after.y < 31, "\(after.y)")
+        #expect(table.end <= after.y + 0.001, "\(table.end) \(after.y)")
+    }
+
     @Test("段頭の見出しの前の十五ポイントと通常の空きは捨て、星付きの空きは保つ")
     func columnTopGlue() throws {
         var heading = item(1, 18)

@@ -1218,6 +1218,15 @@ function lines(box, endsPage) {
     // The column's first baseline is governed by the class topskip, even when
     // its first text line is an abstract heading or uses the bibliography font.
     const columnTopSkip = publicationTopSkip || texPoint * (Number(body.dataset.latexSize) || 10);
+    // An exam solution frame that fits an empty column moves whole, as break-inside: avoid does in
+    // WebKit's own pagination. Chain its lines; a taller frame still breaks between lines.
+    const keptFrames = new Map();
+    function keptFrame(el) {
+        const frame = el.closest('.latex-exam-solution');
+        if (!frame) return null;
+        if (!keptFrames.has(frame)) keptFrames.set(frame, frame.getBoundingClientRect().height * unit <= bodyHeight);
+        return keptFrames.get(frame) ? frame : null;
+    }
     return rows.map((r,i) => {
         const [plus, minus] = conferenceGlue(rows[i-1],r);
         return {slice:slice(box,r.start,r.end), brokenAfter:r.broken || undefined,
@@ -1226,7 +1235,8 @@ function lines(box, endsPage) {
         gap:i ? Math.max(0,r.start-rows[i-1].end) : r.start, stretchBefore:flushBottom && plus ? plus * texPoint : undefined,
         shrinkBefore:((rows[i-1]?.shrinkAfter || 0) + r.shrinkAbove + minus * texPoint) || undefined, discardable:r.discard, extraAfter:r.extra,
         topSkip:r.element.closest(publicationGrid ? '[data-latex-heading="section"]' :
-            '[data-latex-heading="section"],[data-latex-heading="subsection"],[data-latex-heading="subsubsection"]') ? sectionTop : 0, paragraph:r.para, heading:r.heading, keepBefore:r.element.hasAttribute('data-flow-after-text') || undefined};
+            '[data-latex-heading="section"],[data-latex-heading="subsection"],[data-latex-heading="subsubsection"]') ? sectionTop : 0, paragraph:r.para, heading:r.heading,
+        keepBefore:r.element.hasAttribute('data-flow-after-text') || (i > 0 && !!keptFrame(r.element) && keptFrame(r.element) === keptFrame(rows[i-1].element)) || undefined};
     });
 }
 // A TeX paragraph ends at the deepest glyph on its final line. Its HTML line box includes

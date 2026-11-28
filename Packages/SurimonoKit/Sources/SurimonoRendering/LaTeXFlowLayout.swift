@@ -1307,7 +1307,8 @@ struct LaTeXFlowLayout {
         let first = page.pieces.count
         var used = base
         while let next = cursor.waiting.first, !next.item.wide, isFloatPage(next.item), let s = next.item.slice {
-            let scale = min(1, (height - base) / s.height)
+            // Only a float taller than a whole empty column shrinks. Otherwise it waits for a fresh column.
+            let scale = min(1, height / s.height)
             let y = used + (page.pieces.count > first ? floatSep : 0)
             guard
                 try reserve(
@@ -1319,7 +1320,8 @@ struct LaTeXFlowLayout {
             cursor.waiting.removeFirst()
         }
         guard page.pieces.count > first else { return nil }
-        let bottom = height - page.reserved(lane, full: full)
+        // A balancing trial must not place the centred group below the height it is testing.
+        let bottom = min(limit, height - page.reserved(lane, full: full))
         let offset = max(0, bottom - used) / 2
         for i in page.pieces.indices.dropFirst(first) { page.pieces[i].y += offset }
         page.depths[lane] = used + offset

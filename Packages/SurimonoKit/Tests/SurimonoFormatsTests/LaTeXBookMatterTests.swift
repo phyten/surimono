@@ -303,6 +303,20 @@ struct LaTeXBookMatterTests {
         #expect(numbers.footer == ["", "", ""])
     }
 
+    @Test(
+        "AMS の 3 クラスは式番号を既定で左に置き、reqno があれば書いた順によらず右に置く",
+        arguments: ["amsart", "amsproc", "amsbook"])
+    func amsTagSide(name: String) {
+        // amsclass processes its options in declaration order, and reqno is declared after leqno.
+        let cases = [
+            ("", true), ("leqno", true), ("reqno", false), ("leqno,reqno", false), ("reqno,leqno", false),
+        ]
+        for (options, left) in cases {
+            let info = LaTeXConverter.documentClassInfo("\\documentclass[\(options)]{\(name)}")
+            #expect(info.styleVariables.contains("--latex-eqno-start: 0px") == left, "\(name) [\(options)]")
+        }
+    }
+
     @Test("AMS 論文集の柱は最後の著者を and で結び式番号は既定で左に置く")
     func proceedings() {
         let tex =

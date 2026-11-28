@@ -123,8 +123,9 @@ enum LaTeXClassRegistry {
             builder.body.proceedingsTheoremStyle = true
             builder.page.usesFixedClassOrigin = true
         }
-        // All three AMS classes execute leqno by default; only a later reqno moves the tags right.
-        builder.body.equationNumberOnLeft = builder.options.last { $0 == "leqno" || $0 == "reqno" } != "reqno"
+        // All three AMS classes execute leqno by default. \ProcessOptions runs options in declaration order and
+        // reqno is declared after leqno, so reqno moves the tags right wherever the document lists it.
+        builder.body.equationNumberOnLeft = !builder.options.contains("reqno")
         builder.headings.unprefixedChapterCounters = book
         builder.titleBlock.notesOnVerso = book
         builder.titleBlock.writesAuthorMarks = !book
