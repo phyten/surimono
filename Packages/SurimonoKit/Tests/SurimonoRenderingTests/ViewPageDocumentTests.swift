@@ -53,6 +53,38 @@ struct ViewPageDocumentTests {
                 == (rotation == 0 ? CGSize(width: 500, height: 300) : CGSize(width: 300, height: 500)))
     }
 
+    @Test("ページをつなぐ表示の写しで余白を切っても、元の文書を保存したページは切らない")
+    func joinedCopyLeavesSourceUncut() throws {
+        let source = try RenderingFixtures.pdf(count: 3, size: CGSize(width: 300, height: 500))
+        let options = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false)
+        let plan = ViewPageLayout(
+            pageCount: 3, options: options, hasLogicalMargins: true, showsNumbers: false,
+            pageSizes: Array(repeating: CGSize(width: 300, height: 500), count: 3))
+        let copy = try #require(ViewPageDocument.make(source, plan: plan, margin: 40))
+        #expect(copy.page(at: 1)?.bounds(for: .cropBox) == CGRect(x: 0, y: 40, width: 300, height: 420))
+        let saved = try #require(source.dataRepresentation().flatMap(PDFDocument.init(data:)))
+        for index in 0..<3 {
+            #expect(saved.page(at: index)?.bounds(for: .cropBox) == CGRect(x: 0, y: 0, width: 300, height: 500))
+        }
+    }
+
+    @Test("同じ文書から切る量の違う写しを2つ作っても、互いの切り取りは変わらない")
+    func twoCopiesStayApart() throws {
+        let source = try RenderingFixtures.pdf(count: 3, size: CGSize(width: 300, height: 500))
+        let options = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false)
+        let plan = ViewPageLayout(
+            pageCount: 3, options: options, hasLogicalMargins: true, showsNumbers: false,
+            pageSizes: Array(repeating: CGSize(width: 300, height: 500), count: 3))
+        let wide = try #require(ViewPageDocument.make(source, plan: plan, margin: 40))
+        let narrow = try #require(ViewPageDocument.make(source, plan: plan, margin: 10))
+        #expect(wide.page(at: 1)?.bounds(for: .cropBox) == CGRect(x: 0, y: 40, width: 300, height: 420))
+        #expect(narrow.page(at: 1)?.bounds(for: .cropBox) == CGRect(x: 0, y: 10, width: 300, height: 480))
+        let saved = try #require(wide.dataRepresentation().flatMap(PDFDocument.init(data:)))
+        #expect(saved.page(at: 1)?.bounds(for: .cropBox) == CGRect(x: 0, y: 40, width: 300, height: 420))
+        let savedNarrow = try #require(narrow.dataRepresentation().flatMap(PDFDocument.init(data:)))
+        #expect(savedNarrow.page(at: 1)?.bounds(for: .cropBox) == CGRect(x: 0, y: 10, width: 300, height: 480))
+    }
+
     @Test("横スクロールは広いページと高いページを縮め小さいページを拡大しない", arguments: ViewOptions.Layout.allCases)
     func horizontalMixedSizes(layout: ViewOptions.Layout) throws {
         let source = try RenderingFixtures.pdf(count: 6, size: CGSize(width: 1000, height: 600))

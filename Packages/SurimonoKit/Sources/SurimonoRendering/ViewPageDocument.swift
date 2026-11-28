@@ -66,7 +66,17 @@ public enum ViewPageDocument {
             let number = placement?.lines.bottom.contains { !$0.isEmpty } == true ? nil : plan.number(at: viewIndex)
             if scale == 1, number == nil, marks.isEmpty, placement == nil {
                 let annotations = original.annotations
-                guard !annotations.isEmpty || StandalonePage.hasStoredAnnotations(original) else { continue }
+                guard !annotations.isEmpty || StandalonePage.hasStoredAnnotations(original) else {
+                    // PDFPage.copy() shares its page dictionary with the source: a crop box set on the copy is
+                    // written whenever the source is saved, the reading PDF among others. A page the view cuts is
+                    // cut in a private page tree.
+                    if visibleBox(of: original, at: viewIndex, plan: plan, margin: margin)
+                        != original.bounds(for: .cropBox)
+                    {
+                        needsPrivatePages = true
+                    }
+                    continue
+                }
                 // Reuse immutable page content when available. Only a typeset page without
                 // those bytes needs drawing to isolate its local links from the view copy.
                 guard original.pageRef != nil, case .typeset(nil) = origin,
@@ -154,10 +164,11 @@ public enum ViewPageDocument {
                         }
                     }
                 } else {
-                    // Only an undecorated page without live or stored annotations uses a native copy.
+                    // Only an undecorated, uncut page without live or stored annotations uses a native copy, which is
+                    // never edited: its bounds would be the source's too.
+                    assert(box == original.bounds(for: .cropBox), "A shared page copy must not be cut")
                     guard let copy = StandalonePage.copy(of: original) else { return nil }
                     result.insert(copy, at: viewIndex)
-                    copy.setBounds(box, for: .cropBox)
                     continue
                 }
                 // Some PDFKit versions reload a copied page's annotations on insertion.
