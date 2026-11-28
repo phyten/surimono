@@ -25,6 +25,7 @@ struct LaTeXCorrespondencePrintingTests {
         #expect(document.pageCount >= 3)
         #expect(repeatedBoundaryLines(document) == [])
         #expect(widenedLineGaps(document, paragraphs: 1...9) == [])
+        #expect(sentenceMarks(in: document) == (1...9).flatMap(marks))
     }
 
     @Test("複数ページの履歴書は、境目の行を両方のページに切って刷らず、項目の途中に空きを作らない", .timeLimit(.minutes(1)))
@@ -46,10 +47,61 @@ struct LaTeXCorrespondencePrintingTests {
         #expect(document.pageCount >= 3)
         #expect(repeatedBoundaryLines(document) == [])
         #expect(widenedLineGaps(document, paragraphs: 1...9) == [])
+        #expect(sentenceMarks(in: document) == (1...9).flatMap(marks))
+    }
+
+    @Test("ページの残りに入らない短い履歴書の項目は、ラベルと本文をそろえて次のページへ送る", .timeLimit(.minutes(1)))
+    func shortEntryMovesWhole() async throws {
+        var pages: Set<Int> = []
+        var split: [String] = []
+        // Each filler row moves the entry by one line, so some count puts it across the page edge.
+        for count in 28...44 {
+            let filler = (0..<count).map { "\\cvitem{Row \($0)}{One short filler line.}\n" }.joined()
+            let tex = #"""
+                \documentclass[11pt,a4paper]{moderncv}
+                \moderncvstyle{classic}\name{Model}{Workshop}
+                \begin{document}
+                """# + filler + #"""
+                    \cvitem{Pivot}{\#(paragraph(1, sentences: 2))}
+                    \cvitemwithcomment{Hinge}{\#(paragraph(2, sentences: 2))}{Bench note}
+                    \end{document}
+                    """#
+            let document = try await printed(tex)
+            for (label, number) in [("Pivot", 1), ("Hinge", 2)] {
+                let found = [label, "Ka\(number)", "Zu\(number)"].map { word in
+                    document.findString(word, withOptions: .caseInsensitive).first?.pages.first
+                        .map { document.index(for: $0) }
+                }
+                if let page = found[0] { pages.insert(page) }
+                if Set(found).count != 1 || found[0] == nil { split.append("\(count) rows: \(label) \(found)") }
+            }
+            let printed = sentenceMarks(in: document)
+            if printed != marks(1, sentences: 2) + marks(2, sentences: 2) { split.append("\(count) rows: \(printed)") }
+        }
+        #expect(pages.count > 1)
+        #expect(split == [])
+    }
+
+    @Test("1 ページを超える 1 つの履歴書の項目は、行を切らずに次のページへ続け、本文を欠かさない", .timeLimit(.minutes(1)))
+    func entryTallerThanPage() async throws {
+        let tex = #"""
+            \documentclass[11pt,a4paper]{moderncv}
+            \moderncvstyle{classic}\name{Model}{Workshop}
+            \begin{document}
+            \cvitem{Scope}{One short line.}
+            \cvitem{Method}{\#(paragraph(1, sentences: 60))}
+            \end{document}
+            """#
+        let document = try await printed(tex)
+        #expect(document.pageCount >= 2)
+        #expect(repeatedBoundaryLines(document) == [])
+        #expect(widenedLineGaps(document, paragraphs: 1...1) == [])
+        #expect(sentenceMarks(in: document) == marks(1, sentences: 60))
     }
 
     /// A long synthetic paragraph opened by `Ka<n>` and closed by `Zu<n>` so its lines can be found again.
-    private func paragraph(_ index: Int) -> String {
+    /// Each sentence starts with a mark such as `Q0103` so lost or repeated text shows up.
+    private func paragraph(_ index: Int, sentences count: Int? = nil) -> String {
         let sentences = [
             "The folded strip keeps the rail level at the second mark while the glue sets overnight.",
             "Every revision of the packet travels with its local resources and a short description of its purpose.",
@@ -57,9 +109,23 @@ struct LaTeXCorrespondencePrintingTests {
             "Interchangeable denominators would conceal the difference between readings and complete inspection rounds.",
             "The workshop records an unmatched label separately instead of converting the missing value to zero.",
         ]
+        let text = zip(marks(index, sentences: count), 0...).map { mark, number in
+            mark + " " + sentences[(number + index) % sentences.count]
+        }
+        return "Ka\(index) " + text.joined(separator: " ") + " Zu\(index)"
+    }
+
+    private func marks(_ index: Int) -> [String] { marks(index, sentences: nil) }
+
+    private func marks(_ index: Int, sentences count: Int?) -> [String] {
         // Uneven paragraphs put the page edges at different places in each one.
-        let text = (0..<(5 + index * 2)).map { sentences[($0 + index) % sentences.count] }.joined(separator: " ")
-        return "Ka\(index) " + text + " Zu\(index)"
+        (1...(count ?? 5 + index * 2)).map { String(format: "Q%02d%02d", index, $0) }
+    }
+
+    /// Sentence marks in reading order across all pages.
+    private func sentenceMarks(in document: PDFDocument) -> [String] {
+        let text = (0..<document.pageCount).compactMap { document.page(at: $0)?.string }.joined(separator: "\n")
+        return text.matches(of: /Q\d{4}/).map { String($0.output) }
     }
 
     private func printed(_ tex: String) async throws -> PDFDocument {

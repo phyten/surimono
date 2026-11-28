@@ -28,7 +28,9 @@ struct LaTeXTypesettingTests {
         let containers: Set = [".latex-letter", ".latex-letter > *", ".latex-cv-item", ".latex-cv-label + div"]
         let rule = /([^{}]+)\{([^{}]*)\}/
         let layered = /display:\s*(inline-)?(flex|grid)/
-        for theme in try PrintThemeLibrary.load().filter({ $0.id.hasPrefix("latex-") }) {
+        let themes = try PrintThemeLibrary.load().filter { $0.id.hasPrefix("latex-") }
+        #expect(themes.count == 6)
+        for theme in themes {
             var checked = Set<String>()
             for match in theme.css.replacing(/\/\*[\s\S]*?\*\//, with: "").matches(of: rule) {
                 let selectors = match.output.1.split(separator: ",").map {
