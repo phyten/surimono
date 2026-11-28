@@ -149,6 +149,8 @@ final class DocumentViewModel {
     /// The kind of document as now known. It can change: a deck's class may come from a file read once its folder is
     /// allowed.
     @ObservationIgnored private var documentKind: ViewDefaultsContext.Kind
+    /// What decides an unchosen page turn, for a test that waits on it to say why it timed out.
+    var pageTurnDiagnostics: String { "kind=\(documentKind) follows=\(String(describing: transitionFollows))" }
 
     private func viewDefaults(forTheme id: String?) -> ViewOptions {
         (defaultViewOptions ?? initialViewOptions).following(

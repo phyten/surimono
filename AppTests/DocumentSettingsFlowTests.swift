@@ -54,16 +54,30 @@ struct DocumentSettingsFlowTests {
 
     private func pdf(_ label: String, pages: Int = 4) -> Data { TestFixtures.pdf(label, pages: pages) }
 
-    private func waitUntil(_ condition: () -> Bool) async throws {
+    private func waitUntil(
+        _ detail: @autoclosure () -> String = "", sourceLocation: SourceLocation = #_sourceLocation,
+        _ condition: () -> Bool
+    ) async throws {
         for _ in 0..<500 where !condition() {
             try await Task.sleep(for: .milliseconds(20))
         }
-        #expect(condition())
+        #expect(condition(), "\(detail())", sourceLocation: sourceLocation)
     }
 
-    private func open(_ model: DocumentViewModel) async throws {
+    /// What decides a page turn, for a wait that times out.
+    private func pageTurnState(_ model: DocumentViewModel, waitingFor condition: String) -> String {
+        "waiting for \(condition): transition=\(model.viewOptions.transition) layout=\(model.viewOptions.layout) "
+            + "direction=\(model.viewOptions.direction) slideDeck=\(model.slideDeck != nil) "
+            + "beamer=\(model.result?.facts?.beamerPageSize != nil) result=\(model.result != nil) "
+            + "rendering=\(model.isRendering) hash=\(model.contentHash != nil) theme=\(model.themeID) "
+            + "\(model.pageTurnDiagnostics)"
+    }
+
+    private func open(_ model: DocumentViewModel, sourceLocation: SourceLocation = #_sourceLocation) async throws {
         model.start()
-        try await waitUntil { model.contentHash != nil && model.result != nil && !model.isRendering }
+        try await waitUntil(pageTurnState(model, waitingFor: "the first layout"), sourceLocation: sourceLocation) {
+            model.contentHash != nil && model.result != nil && !model.isRendering
+        }
     }
 
     @Test("形式別の全体既定は別のキーで往復し、Org の旧記録と文書の保存値を保つ")
@@ -1204,7 +1218,9 @@ struct DocumentSettingsFlowTests {
         func keepsChange(_ options: ViewOptions?) -> Bool {
             change == "layout" ? options?.layout == .spread : options?.direction == .rightToLeft
         }
-        try await waitUntil { model.result != nil && !model.isRendering && model.contentHash != nil }
+        try await waitUntil(pageTurnState(model, waitingFor: "the first layout and the hash")) {
+            model.result != nil && !model.isRendering && model.contentHash != nil
+        }
         try #require(model.slideDeck == nil)
         #expect(model.viewOptions.transition == .pageCurl)
         #expect(keepsChange(model.viewOptions))
@@ -1234,17 +1250,23 @@ struct DocumentSettingsFlowTests {
         #expect(model.viewOptions.direction == .rightToLeft && model.viewOptions.transition == .pageCurl)
     }
 
+    /// What allowing the folder does after the panel (`allowFolderAccess`): the pages are made again from the files
+    /// now readable, not from the ones laid out before.
+    private func grantFolder(of model: DocumentViewModel, in environment: Environment) {
+        model.useDocumentFolder(FolderAccess.Lease(url: environment.directory, release: {}))
+        model.renderer.clearCache()
+        model.render()
+    }
+
     /// A deck whose class sits in an included file, which a sandboxed app reads only once the folder is allowed.
     private func deckBehindInput(_ environment: Environment, readable: Bool) throws -> DocumentViewModel {
         let bytes = Data(#"\input{deck}\begin{document}\frame{North}\frame{South}\end{document}"#.utf8)
         let main = try environment.file(bytes, named: "main.tex")
         _ = try environment.file(Data(#"\documentclass{beamer}"#.utf8), named: "deck.tex")
-        let pages = pdf("Slide", pages: 2)
+        // Real layout: a deck is laid out slide by slide, which a stand-in PDF of fixed pages cannot give.
         return DocumentViewModel(
             data: bytes, fileURL: main, format: .latex, preferences: environment.preferences,
-            library: environment.library,
-            renderer: DocumentRenderer(
-                isSandboxed: { !readable }, paginate: { _ in try #require(PDFDocument(data: pages)) }),
+            library: environment.library, renderer: DocumentRenderer(isSandboxed: { !readable }),
             settingsStore: environment.store)
     }
 
@@ -1271,12 +1293,15 @@ struct DocumentSettingsFlowTests {
             default: options?.layout == .single && options?.direction == .leftToRight
             }
         }
-        try await waitUntil { model.result != nil && !model.isRendering && model.contentHash != nil }
+        try await waitUntil(pageTurnState(model, waitingFor: "the first layout and the hash")) {
+            model.result != nil && !model.isRendering && model.contentHash != nil
+        }
         // The class is not readable yet: an ordinary LaTeX document.
         #expect(model.viewOptions.transition == .pageCurl)
-        model.useDocumentFolder(FolderAccess.Lease(url: environment.directory, release: {}))
-        model.render()
-        try await waitUntil { !model.isRendering && model.slideDeck != nil }
+        grantFolder(of: model, in: environment)
+        try await waitUntil(pageTurnState(model, waitingFor: "the deck's layout")) {
+            !model.isRendering && model.slideDeck != nil
+        }
         #expect(model.viewOptions.transition == .slide)
         #expect(keepsChange(model.viewOptions))
         let hash = try #require(model.contentHash)
@@ -1343,9 +1368,10 @@ struct DocumentSettingsFlowTests {
         model.resetDocumentSettings()
         undo.endUndoGrouping()
         #expect(model.viewOptions.layout == .single && model.viewOptions.transition == .pageCurl)
-        model.useDocumentFolder(FolderAccess.Lease(url: environment.directory, release: {}))
-        model.render()
-        try await waitUntil { !model.isRendering && model.slideDeck != nil }
+        grantFolder(of: model, in: environment)
+        try await waitUntil(pageTurnState(model, waitingFor: "the deck's layout")) {
+            !model.isRendering && model.slideDeck != nil
+        }
         #expect(model.viewOptions.transition == .slide)
         let restored: ViewOptions.Transition = choosesFade ? .fade : .slide
         undo.undo()
@@ -1374,10 +1400,13 @@ struct DocumentSettingsFlowTests {
         model.start()
         try #require(model.result == nil)
         model.updateViewOptions { $0.transition = .fade }
-        try await waitUntil { model.result != nil && !model.isRendering && model.contentHash != nil }
-        model.useDocumentFolder(FolderAccess.Lease(url: environment.directory, release: {}))
-        model.render()
-        try await waitUntil { !model.isRendering && model.slideDeck != nil }
+        try await waitUntil(pageTurnState(model, waitingFor: "the first layout and the hash")) {
+            model.result != nil && !model.isRendering && model.contentHash != nil
+        }
+        grantFolder(of: model, in: environment)
+        try await waitUntil(pageTurnState(model, waitingFor: "the deck's layout")) {
+            !model.isRendering && model.slideDeck != nil
+        }
         #expect(model.viewOptions.transition == .fade)
         let hash = try #require(model.contentHash)
         model.rememberedSettingsDidChange()
