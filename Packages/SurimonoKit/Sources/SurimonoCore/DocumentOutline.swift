@@ -385,10 +385,13 @@ extension DocumentOutline {
     }
 
     /// Only letters and digits take part: a PDF's text can come back with its own ligatures and widths, and WebKit's
-    /// PDF returns an em dash as a combining stroke, which `CharacterSet.alphanumerics` would keep.
+    /// PDF returns an em dash as a combining stroke, which `CharacterSet.alphanumerics` would keep. Case does not take
+    /// part either: a style can set a heading in capitals or small capitals (`text-transform`, `font-variant`), and the
+    /// page's text then holds "I. INTRODUCTION" for the heading "Introduction".
     private static func normalized(_ text: String) -> String {
         String(
-            text.precomposedStringWithCompatibilityMapping.unicodeScalars
+            text.precomposedStringWithCompatibilityMapping.folding(options: .caseInsensitive, locale: nil)
+                .unicodeScalars
                 .filter { $0.properties.isAlphabetic || $0.properties.numericType != nil }
                 .map(Character.init))
     }

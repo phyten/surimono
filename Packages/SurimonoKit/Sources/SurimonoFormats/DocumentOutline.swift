@@ -26,7 +26,8 @@ public enum DocumentOutline {
         scan(html).map(\.followsHeading)
     }
 
-    /// What a heading holds besides its title: Org's tags, which the paper sets apart at the end of the line.
+    /// What a heading or a contents entry holds besides its title: Org's tags, which the paper sets apart at the end of
+    /// the line.
     private static let headingExtras: Set<String> = ["org-tags"]
     /// Elements without a closing tag, which hold no text to leave out.
     private static let voidElements: Set<String> = [
@@ -137,11 +138,30 @@ public enum DocumentOutline {
         var startsTable = false
         var link: String?
         var id: String?
+        // An element of `headingExtras` inside a link: the paper prints it away from the entry's line, as it does in
+        // the heading, so the entry must leave it out to be found on the page.
+        var extra: (name: String, depth: Int)?
         HTMLScanner.forEachToken(html) { token in
             switch token {
-            case .text(let text): link? += text
+            case .text(let text): if extra == nil { link? += text }
             case .opaque: break
             case .tag(let tag):
+                if link != nil, let skipping = extra {
+                    if tag.isClosing, tag.name == "a" {
+                        extra = nil
+                    } else {
+                        if tag.name == skipping.name, !tag.isSelfClosing {
+                            let depth = skipping.depth + (tag.isClosing ? -1 : 1)
+                            extra = depth == 0 ? nil : (skipping.name, depth)
+                        }
+                        return
+                    }
+                } else if link != nil, !tag.isClosing, !tag.isSelfClosing, !voidElements.contains(tag.name),
+                    classes(of: tag).contains(where: { headingExtras.contains(String($0)) })
+                {
+                    extra = (tag.name, 1)
+                    return
+                }
                 if tag.name == "nav" {
                     if tag.isClosing {
                         if nesting > 0 { nesting -= 1 }
