@@ -53,12 +53,16 @@ struct BandArrangementRenderingTests {
         }
 
         /// A two-chapter Markdown document on two pages: it has a style, contents, a page indicator and page turns.
-        func chapters() -> DocumentViewModel {
+        /// Other pages put each text on a page of its own, and the Markdown gives the headings among them.
+        func chapters(
+            pages: [String] = ["First Chapter", "Second Chapter"],
+            markdown: String = "# First Chapter\n\n# Second Chapter\n"
+        ) -> DocumentViewModel {
             let renderer = DocumentRenderer(paginate: { _ in
-                try #require(PDFDocument(data: TestFixtures.textPDF(["First Chapter", "Second Chapter"])))
+                try #require(PDFDocument(data: TestFixtures.textPDF(pages)))
             })
             let model = DocumentViewModel(
-                data: Data("# First Chapter\n\n# Second Chapter\n".utf8), fileURL: nil, format: .markdown,
+                data: Data(markdown.utf8), fileURL: nil, format: .markdown,
                 preferences: preferences, library: library, renderer: renderer, settingsStore: store)
             model.isolateBandTestOutput()
             return model
@@ -321,6 +325,52 @@ struct BandArrangementRenderingTests {
         try await waitUntil(state()) { !scrubber.dragging }
         #expect(scrubber.release(1, inside: true) == nil, "\(state())")
         #expect(model.currentPageIndex == page, "\(state())")
+    }
+
+    @Test("上下配置の下の帯では、長い章・短い章・最初の章より前のどのページでも、スライダーの位置と長さが同じ")
+    func sliderKeepsItsPlaceFromPageToPage() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        environment.preferences.menuArrangement = .split
+        environment.preferences.defaultBandVisibility = .always
+        let long = "A Chapter Whose Title Is Much Longer Than The Band Gives It"
+        let model = environment.chapters(
+            pages: ["Before the chapters", long, "Short"], markdown: "Before the chapters\n\n# \(long)\n\n# Short\n")
+        defer { model.stop() }
+        let controller = MemoryDocumentWindowController(model: model, onClose: {})
+        defer { controller.close() }
+        let window = try #require(controller.window)
+        window.orderFrontRegardless()
+        try await open(model)
+        let opened = window.contentRect(forFrameRect: window.frame).size
+        window.setContentSize(NSSize(width: max(opened.width, 1200), height: opened.height))
+        let scrubber = model.scrubber
+        func state() -> String {
+            let row = model.bandAnchors.plan?.bottom
+            return "content=\(window.contentRect(forFrameRect: window.frame).size) slider=\(scrubber.frame) "
+                + "title=\(String(describing: row?.chapterTitleWidth)) chapter=\(model.currentChapterTitle) "
+                + "page=\(model.currentPageIndex)"
+        }
+        var frames: [Int: CGRect] = [:]
+        var titles: [Int: CGFloat?] = [:]
+        for page in [1, 2, 0, 1] {
+            model.jumpToReadingPage(page)
+            let chapter = page == 0 ? "" : page == 1 ? long : "Short"
+            try await waitUntil(state()) {
+                model.currentPageIndex == page && model.currentChapterTitle == chapter && scrubber.frame.width > 0
+                    && model.bandAnchors.plan?.bottom?.trailing.first == .chapter
+            }
+            // Let the band measure and plan again for the page's title before reading where the slider is.
+            try await Task.sleep(for: .milliseconds(200))
+            frames[page] = scrubber.frame
+            titles[page] = model.bandAnchors.plan?.bottom?.chapterTitleWidth
+            #expect(titles[page] != nil, "\(state())")
+            if let first = frames[1] {
+                #expect(abs(scrubber.frame.minX - first.minX) < 0.5, "left end on page \(page): \(state())")
+                #expect(abs(scrubber.frame.maxX - first.maxX) < 0.5, "right end on page \(page): \(state())")
+                #expect(titles[page] == titles[1], "title frame on page \(page): \(state())")
+            }
+        }
     }
 
     @Test("上下配置の標準は文字の選択と表示の道具を上の右に、読む道具を下に並べ、どの幅でも帯に収まる")

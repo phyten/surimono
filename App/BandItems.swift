@@ -437,8 +437,11 @@ struct BandMeasurements: View {
             }
             measure(.more) { BandMoreButton { EmptyView() } }
             if items.contains(.chapter) {
-                // The whole title, however long: the plan decides the frame it gets.
-                measure(.chapterTitle) { CurrentChapterButton.titleText(model.currentChapterTitle).lineLimit(1) }
+                // The widest whole title, however long, rather than the current page's: the plan decides the frame
+                // it gets, the same on every page.
+                measure(.chapterTitle) {
+                    CurrentChapterButton.titleText(CurrentChapterButton.widestTitle(of: model)).lineLimit(1)
+                }
                 measure(.chapterChrome) { CurrentChapterButton(model: model, trailing: false, titleWidth: 0) }
             }
             ForEach(items, id: \.self) { item in
