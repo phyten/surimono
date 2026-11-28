@@ -183,32 +183,51 @@ struct PGFPlotsPlane {
         let r = plot.markSize
         func p(_ dx: Double, _ dy: Double) -> String { PGFPlots.point(x + dx * r, y + dy * r) }
         let color = plot.markFill.map { ",fill=" + $0 } ?? ""
-        let closed = mark.contains("*")
-        let paint =
-            (closed ? "\\filldraw[" : "\\draw[") + (plot.paths + ["solid"]).joined(separator: ",")
-            + (closed ? color : "") + "] "
+        // An unstarred mark is only stroked, as in PGF, even when the series asks for a fill.
         let line = "\\draw[" + (plot.paths + ["solid", "fill=none"]).joined(separator: ",") + "] "
+        let paint =
+            mark.contains("*") ? "\\filldraw[" + (plot.paths + ["solid"]).joined(separator: ",") + color + "] " : line
+        // Polar points of PGF's triangle, pentagon and six-pointed asterisk, in units of the mark size.
+        func polar(_ degrees: Double) -> String {
+            p(cos(degrees * .pi / 180), sin(degrees * .pi / 180))
+        }
+        let k = sqrt(0.5)
         switch mark {
-        case "*", "o", "otimes*":
+        case "*", "o", "otimes", "otimes*", "oplus", "oplus*":
             try add(paint + p(0, 0) + " circle (" + PGFPlots.number(r) + "pt);")
-            if mark == "otimes*" {
-                let k = sqrt(0.5)
+            if mark.hasPrefix("otimes") {
                 try add(line + p(-k, -k) + "--" + p(k, k) + " " + p(-k, k) + "--" + p(k, -k) + ";")
+            } else if mark.hasPrefix("oplus") {
+                try add(line + p(-1, 0) + "--" + p(1, 0) + " " + p(0, -1) + "--" + p(0, 1) + ";")
             }
         case "square", "square*":
             try add(paint + p(-1, -1) + " rectangle " + p(1, 1) + ";")
         case "triangle", "triangle*":
-            try add(paint + p(0, 1.33) + "--" + p(-1.15, -0.665) + "--" + p(1.15, -0.665) + "--cycle;")
-        case "diamond*":
-            try add(paint + p(0, 1.3) + "--" + p(1, 0) + "--" + p(0, -1.3) + "--" + p(-1, 0) + "--cycle;")
+            try add(paint + [90, -30, -150].map(polar).joined(separator: "--") + "--cycle;")
+        case "diamond", "diamond*":
+            try add(paint + p(0, 1) + "--" + p(0.75, 0) + "--" + p(0, -1) + "--" + p(-0.75, 0) + "--cycle;")
+        case "pentagon", "pentagon*":
+            try add(paint + [90, 18, -54, 234, 162].map(polar).joined(separator: "--") + "--cycle;")
         case "star":
             for i in 0..<5 {
                 let angle = (Double(i) / 5 * 2 + 0.5) * .pi
                 try add(line + p(0, 0) + "--" + p(cos(angle), sin(angle)) + ";")
             }
+        case "asterisk":
+            let spokes = [p(0, -1) + "--" + p(0, 1), polar(30) + "--" + polar(210), polar(-30) + "--" + polar(150)]
+            try add(line + spokes.joined(separator: " ") + ";")
         case "x": try add(line + p(-1, -1) + "--" + p(1, 1) + " " + p(-1, 1) + "--" + p(1, -1) + ";")
         case "+": try add(line + p(-1, 0) + "--" + p(1, 0) + " " + p(0, -1) + "--" + p(0, 1) + ";")
+        case "|": try add(line + p(0, 1) + "--" + p(0, -1) + ";")
+        case "-": try add(line + p(1, 0) + "--" + p(-1, 0) + ";")
         default: throw TikZError("mark=" + mark)
         }
     }
+
+    /// Every mark drawMark knows. `plotMarkShape` in tikz.js draws the same set for the legend, and
+    /// PlotMarkContractTests compares the two outlines.
+    static let marks: Set<String> = [
+        "*", "o", "square", "square*", "triangle", "triangle*", "diamond", "diamond*", "pentagon", "pentagon*",
+        "x", "+", "|", "-", "star", "asterisk", "oplus", "oplus*", "otimes", "otimes*",
+    ]
 }

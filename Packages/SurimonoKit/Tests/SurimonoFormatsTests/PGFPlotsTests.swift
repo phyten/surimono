@@ -106,6 +106,69 @@ struct PGFPlotsTests {
         #expect(legend.entries[2].series.points.last?.y == 1)
     }
 
+    @Test(
+        "pgfplots の標準の印を描き、星の付かない印は塗らない",
+        arguments: [
+            ("diamond", 1, false), ("diamond*", 1, true), ("pentagon", 1, false), ("pentagon*", 1, true),
+            ("oplus", 2, false), ("oplus*", 2, true), ("otimes", 2, false), ("|", 1, false), ("-", 1, false),
+            ("asterisk", 1, false),
+        ])
+    func standardMarks(mark: String, commands: Int, filled: Bool) throws {
+        let plot = try PGFPlots.lower(
+            environment: "axis", options: "xtick={},ytick={}",
+            body: "\\addplot[only marks,mark=\(mark)] coordinates {(0,0)};\\addlegendentry{A}")
+        #expect(plot.legend?.entries.first?.series.mark == mark)
+        let lines = plot.source.split(separator: "\n").filter { $0.contains("solid") }
+        #expect(lines.count == commands)
+        #expect(lines.first?.hasPrefix(#"\filldraw"#) == filled)
+    }
+
+    @Test(
+        "星の付かない印は系列に塗りの色があっても塗らず、星の付く印はその色で塗る",
+        arguments: ["diamond", "pentagon", "oplus", "otimes", "o", "square", "triangle", "diamond*", "square*"])
+    func seriesFill(mark: String) throws {
+        let plot = try PGFPlots.lower(
+            environment: "axis", options: "xtick={},ytick={}",
+            body: "\\addplot[only marks,draw=black,fill=yellow,mark=\(mark)] coordinates {(0,0)};")
+        let lines = plot.source.split(separator: "\n").filter { $0.contains("solid") }
+        // TikZ lets the last fill key win, so read the final one in each option list.
+        let fills = try lines.map { line in
+            try #require(line.split(separator: "]").first).split(separator: ",").last { $0.hasPrefix("fill=") }
+        }
+        try #require(!fills.isEmpty)
+        #expect(fills.first == (mark.hasSuffix("*") ? "fill=yellow" : "fill=none"))
+        #expect(fills.dropFirst().allSatisfy { $0 == "fill=none" })
+    }
+
+    @Test("菱形と三角形の印は PGF の定義と同じ寸法で描く")
+    func pgfMarkDimensions() throws {
+        func outline(_ mark: String) throws -> [[Double]] {
+            // A filled circle at the same point gives the mark's center.
+            let plot = try PGFPlots.lower(
+                environment: "axis", options: "xtick={},ytick={}",
+                body: "\\addplot[only marks,mark=*] coordinates {(0,0)};"
+                    + "\\addplot[only marks,mark=\(mark),mark size=4pt] coordinates {(0,0)};")
+            let lines = plot.source.split(separator: "\n").filter { $0.contains("solid") }
+            try #require(lines.count == 2)
+            func points(_ line: Substring) -> [[Double]] {
+                line.matches(of: /\((-?[0-9.e+-]+)pt,(-?[0-9.e+-]+)pt\)/).compactMap { match in
+                    guard let x = Double(match.1), let y = Double(match.2) else { return nil }
+                    return [x, y]
+                }
+            }
+            let center = try #require(points(lines[0]).first)
+            return points(lines[1]).map { [$0[0] - center[0], $0[1] - center[1]] }
+        }
+        func close(_ actual: [[Double]], _ expected: [[Double]]) -> Bool {
+            actual.count == expected.count
+                && zip(actual, expected).allSatisfy { abs($0[0] - $1[0]) < 1e-6 && abs($0[1] - $1[1]) < 1e-6 }
+        }
+        // pgflibraryplotmarks: the diamond reaches ±r vertically and ±0.75r horizontally; the triangle
+        // has its apex at r and its base corners at polar −30° and −150°.
+        #expect(close(try outline("diamond"), [[0, 4], [3, 0], [0, -4], [-3, 0]]))
+        #expect(close(try outline("triangle*"), [[0, 4], [3.4641016, -2], [-3.4641016, -2]]))
+    }
+
     @Test("棒の表を列名で読み横軸の文字と目盛りに対応付ける")
     func namedTable() throws {
         let plot = try PGFPlots.lower(

@@ -6,6 +6,55 @@ const ns = 'http://www.w3.org/2000/svg';
 function fail(feature) {
   throw new Error(feature);
 }
+// The outlines PGFPlotsPlane.drawMark draws on the plot, in units of the mark size with y up, as
+// pgflibraryplotmarks defines them. Only a starred mark is filled. Declared at the top level (and
+// without the script's constants) so PlotMarkContractTests can read it without running a picture.
+function plotMarkShape(mark) {
+  const polar = (a) => [Math.cos((a * Math.PI) / 180), Math.sin((a * Math.PI) / 180)];
+  const k = Math.SQRT1_2;
+  const segments = (...pairs) => pairs.map((pair) => ({ points: pair, close: false }));
+  const shapes = {
+    '*': [],
+    o: [],
+    square: [{ points: [[-1, -1], [1, -1], [1, 1], [-1, 1]], close: true }],
+    triangle: [{ points: [90, -30, -150].map(polar), close: true }],
+    diamond: [{ points: [[0, 1], [0.75, 0], [0, -1], [-0.75, 0]], close: true }],
+    pentagon: [{ points: [90, 18, -54, 234, 162].map(polar), close: true }],
+    x: segments([[-1, -1], [1, 1]], [[-1, 1], [1, -1]]),
+    '+': segments([[-1, 0], [1, 0]], [[0, -1], [0, 1]]),
+    '|': segments([[0, 1], [0, -1]]),
+    '-': segments([[1, 0], [-1, 0]]),
+    star: segments(...[0, 1, 2, 3, 4].map((i) => [[0, 0], polar(90 + i * 72)])),
+    asterisk: segments([[0, -1], [0, 1]], [polar(30), polar(210)], [polar(-30), polar(150)]),
+    oplus: segments([[-1, 0], [1, 0]], [[0, -1], [0, 1]]),
+    otimes: segments([[-k, -k], [k, k]], [[-k, k], [k, -k]])
+  };
+  const name = mark.length > 1 ? mark.replace(/\*$/, '') : mark;
+  const starred = mark === '*' || (name !== mark && ['square', 'triangle', 'diamond', 'pentagon', 'oplus', 'otimes'].includes(name));
+  if (!Object.hasOwn(shapes, name) || (name !== mark && !starred)) return null;
+  return { circle: ['*', 'o', 'oplus', 'otimes'].includes(name), filled: starred, paths: shapes[name] };
+}
+// The safety boundary for a formula copied from a label into the figure: only these elements and
+// presentation attributes pass. Top-level (and free of the script's constants) so a test can probe
+// it directly.
+function mathElement(name) {
+  return ['svg', 'g', 'text', 'path', 'rect', 'line'].includes(name);
+}
+// Returns false for an attribute to drop, true for one to copy, and throws for anything else.
+function mathAttribute(name, value) {
+  // data-* attributes are reader markers for page layout (data-math-glue lets justified Latin lines
+  // stretch the formula's glue). A picture label is never justified, so they are dropped.
+  if (['style', 'role', 'aria-label', 'xmlns'].includes(name) || name.startsWith('data-')) return false;
+  const presentation = [
+    'x', 'y', 'x1', 'y1', 'x2', 'y2', 'width', 'height', 'd', 'viewBox', 'fill', 'stroke', 'stroke-width',
+    'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin', 'font-family', 'font-size', 'font-weight',
+    'font-style', 'transform', 'opacity', 'fill-rule', 'text-anchor', 'dominant-baseline'
+  ];
+  if (!presentation.includes(name) || value.length > 100000) fail('math');
+  if (name === 'font-family' ? !/^KaTeX_[A-Za-z0-9]+$/.test(value) : !/^[a-zA-Z0-9 #.,()+\-]*$/.test(value))
+    fail(name === 'font-family' ? 'math font' : 'math');
+  return true;
+}
 function number(value) {
   const n = Number(value);
   if (!Number.isFinite(n) || Math.abs(n) > 1e7) fail('dimension');
@@ -381,49 +430,19 @@ for (const [index, block] of blocks.entries()) {
     const inkGuards = new Map();
     let fallbackFontMargin = 0;
     const unique = () => 'surimono-tikz-' + index + '-' + serial++;
-    const attributes = new Set([
-      'x',
-      'y',
-      'x1',
-      'y1',
-      'x2',
-      'y2',
-      'width',
-      'height',
-      'd',
-      'viewBox',
-      'fill',
-      'stroke',
-      'stroke-width',
-      'stroke-dasharray',
-      'stroke-linecap',
-      'stroke-linejoin',
-      'font-family',
-      'font-size',
-      'font-weight',
-      'font-style',
-      'transform',
-      'opacity',
-      'fill-rule',
-      'text-anchor',
-      'dominant-baseline'
-    ]);
     function copyMath(el, depth = 0) {
       check();
-      if (depth > 40 || !['svg', 'g', 'text', 'path', 'rect', 'line'].includes(el.localName)) fail('math');
+      if (depth > 40 || !mathElement(el.localName)) fail('math');
       const out = svg(el.localName);
       for (const attr of el.attributes) {
         const k = attr.name,
           v = attr.value;
-        if (['style', 'role', 'aria-label', 'xmlns'].includes(k)) continue;
-        if (!attributes.has(k) || v.length > 100000) fail('math');
+        if (!mathAttribute(k, v)) continue;
         if (k === 'fill' || k === 'stroke') paint(v);
-        if (k === 'font-family') {
-          if (!/^KaTeX_[A-Za-z0-9]+$/.test(v)) fail('math font');
+        if (k === 'font-family')
           usedFaces.add(
             [v, el.getAttribute('font-weight') || 'normal', el.getAttribute('font-style') || 'normal'].join('/')
           );
-        } else if (!/^[a-zA-Z0-9 #.,()+\-]*$/.test(v)) fail('math');
         out.setAttribute(k, v);
       }
       if (el.localName === 'text') out.textContent = el.textContent;
@@ -1295,34 +1314,23 @@ for (const [index, block] of blocks.entries()) {
         }
         if (row.mark) {
           const r = number(row.markSize ?? 2) * pt;
+          const shape = plotMarkShape(row.mark) || fail('mark');
+          // A starred mark takes the mark fill, then the series fill, then the pen, as \filldraw does.
+          const fill = row.markFill || (row.style.fill && row.style.fill !== 'none' ? row.style.fill : null);
           const glyph = svg('g', {
             transform: 'translate(' + swatch / 2 + ' ' + cy + ')',
             stroke: ink,
-            fill: row.markFill ? paint(row.markFill) : row.mark === 'o' ? 'none' : ink,
+            fill: shape.filled ? (fill ? paint(fill) : ink) : 'none',
             'stroke-width': size(row.style['line width'] || '.4pt')
           });
-          const paths = {
-            square: 'M-' + r + ' -' + r + 'h' + 2 * r + 'v' + 2 * r + 'h-' + 2 * r + 'Z',
-            triangle: 'M0 -' + r + 'L' + r + ' ' + r + 'H-' + r + 'Z',
-            x: 'M-' + r + ' -' + r + 'L' + r + ' ' + r + 'M-' + r + ' ' + r + 'L' + r + ' -' + r,
-            '+': 'M-' + r + ' 0H' + r + 'M0 -' + r + 'V' + r
-          };
-          paths['square*'] = paths.square;
-          paths['triangle*'] = paths.triangle;
-          paths['diamond*'] = 'M0 -' + r + 'L' + r + ' 0 0 ' + r + ' ' + -r + ' 0Z';
-          if (row.mark === 'star') {
-            paths.star = Array.from({ length: 5 }, (_, i) => {
-              const v = mul(unit(90 + i * 72), r);
-              return 'M0 0L' + v.x + ' ' + -v.y;
-            }).join(' ');
+          if (shape.circle) glyph.append(svg('circle', { r }));
+          if (shape.paths.length) {
+            const d = shape.paths
+              .map((s) => s.points.map(([x, y], i) => (i ? 'L' : 'M') + x * r + ' ' + -y * r).join('') + (s.close ? 'Z' : ''))
+              .join('');
+            // A line drawn over a filled circle keeps the plot's stroke and adds no fill of its own.
+            glyph.append(svg('path', shape.circle ? { d, fill: 'none' } : { d }));
           }
-          if (!row.markFill && (row.mark === 'o' || row.mark === 'square' || row.mark === 'triangle'))
-            glyph.setAttribute('fill', 'none');
-          if (row.mark === '*' || row.mark === 'o' || row.mark === 'otimes*') {
-            glyph.append(svg('circle', { r }));
-            if (row.mark === 'otimes*')
-              glyph.append(svg('path', { d: paths.x, stroke: '#ffffff', transform: 'scale(.65)' }));
-          } else glyph.append(svg('path', { d: paths[row.mark] || fail('mark') }));
           content.append(glyph);
         }
         row.label.group.setAttribute(
