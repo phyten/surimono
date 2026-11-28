@@ -18,15 +18,17 @@ extension LaTeXDocument {
         return parts.percentEncodedPath
     }
 
-    /// `unread` is the attempt the issue is about, when it says a named file could not be read.
-    func reportFileIssue(_ issue: String, unread attempt: (reference: String, candidates: [URL])? = nil) {
+    /// `unread` is the attempt the issue is about, when it says a named file could not be read. Each attempt is a
+    /// failure of its own, whose id the note on the page carries; the issue's words are listed once.
+    @discardableResult
+    func reportFileIssue(_ issue: String, unread attempt: (reference: String, candidates: [URL])? = nil) -> String? {
         if seenFileIssues.insert(issue).inserted { fileIssues.append(issue) }
-        guard let attempt else { return }
-        if let index = unreadFiles.firstIndex(where: { $0.note == issue }) {
-            unreadFiles[index].candidates += attempt.candidates.filter { !unreadFiles[index].candidates.contains($0) }
-        } else {
-            unreadFiles.append(UnreadFile(note: issue, reference: attempt.reference, candidates: attempt.candidates))
-        }
+        guard let attempt, let index = fileIssues.lastIndex(of: issue) else { return nil }
+        let id = "unread-\(unreadFiles.count)"
+        unreadFiles.append(
+            UnreadFile(
+                id: id, note: issue, issueIndex: index, reference: attempt.reference, candidates: attempt.candidates))
+        return id
     }
 
     /// The attempt the last failed local read left, which only the note right after it may take.
@@ -87,8 +89,8 @@ extension LaTeXReader {
 
     func fileNote(_ path: String) -> String {
         let message = document.isJapanese ? "ファイル \(path) を読み込めません" : "\(path) could not be read"
-        document.reportFileIssue(message, unread: document.takeFileAttempt())
-        return unsupported(message)
+        let unread = document.reportFileIssue(message, unread: document.takeFileAttempt())
+        return unsupported(message, unreadFile: unread)
     }
 
     func keepFileNote(_ html: String) {

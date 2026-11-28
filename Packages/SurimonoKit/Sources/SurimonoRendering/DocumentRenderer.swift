@@ -1616,8 +1616,8 @@ public final class DocumentRenderer {
                     source: source
                 )
             }
-            // A fallback figure or a file note is also reported by its printed anchor. Keep that occurrence (and
-            // page), retaining the reader diagnostic when pagination supplied no matching anchor.
+            // A fallback figure, or a note without a failed read of its own, is also reported by its printed anchor.
+            // Keep that occurrence (and page), retaining the reader diagnostic when pagination supplied no anchor.
             var printedAnchors: [String: Int] = [:]
             for issue in text.issues where issue.kind == .latex {
                 printedAnchors[issue.detail, default: 0] += 1
@@ -1625,7 +1625,17 @@ public final class DocumentRenderer {
             // A formula that failed is printed as its source, which the page check reports with its page.
             // The reader names each distinct source once; drop that copy when the paper already shows it.
             let printedFormulas = Set(text.issues.filter { $0.kind == .math }.map { String($0.detail.prefix(100)) })
-            for (offset, detail) in fragment.readingIssues.enumerated() {
+            // A file that could not be read is one issue for each failed read, tied to it by id: the page's note
+            // reports it with its page, else the reader's record does. The reader lists the words only once.
+            let printedFailures = Set(text.issues.compactMap(\.unreadFile))
+            for file in fragment.unreadFiles where !printedFailures.contains(file.id) {
+                let kind: PrintIssue.Kind = source.format == .markdown ? .bibliography : .latex
+                var issue = PrintIssue(id: "\(kind.rawValue)-\(file.id)", kind: kind, detail: file.note)
+                issue.unreadFile = file.id
+                text.issues.append(issue)
+            }
+            let fileNotes = Set(fragment.unreadFiles.map(\.issueIndex))
+            for (offset, detail) in fragment.readingIssues.enumerated() where !fileNotes.contains(offset) {
                 let kind: PrintIssue.Kind =
                     switch source.format {
                     case _ where detail == StackSpace.limitIssue: .nestingLimit
@@ -2392,8 +2402,8 @@ public final class DocumentRenderer {
     }
 
     /// Names, on the issues about a file the reader could not read, the file when it was refused for lying outside
-    /// the document's folder: the reader is asked for a folder that contains it, not told the file is missing. The
-    /// reader ties each such issue to its file (`UnreadFile.note`), so nothing is read back from the issue's text.
+    /// the document's folder: the reader is asked for a folder that contains it, not told the file is missing. Each
+    /// issue names its failed read (`unreadFile`), so nothing is read back from the issue's text.
     nonisolated static func markingOutsideFiles(_ issues: [PrintIssue], unread: [UnreadFile], directory: URL?)
         -> [PrintIssue]
     {
@@ -2403,9 +2413,7 @@ public final class DocumentRenderer {
         }
         guard !outside.isEmpty else { return issues }
         return issues.map { issue in
-            guard issue.kind == .bibliography || issue.kind == .latex,
-                let file = outside.first(where: { $0.note == issue.detail })
-            else { return issue }
+            guard let id = issue.unreadFile, let file = outside.first(where: { $0.id == id }) else { return issue }
             var issue = issue
             issue.outsideFile = file.reference
             issue.outsideURL = file.refusedURL

@@ -406,6 +406,7 @@ final class LaTeXDocument {
         }
     }
 
+    /// The file issues come first: `UnreadFile.issueIndex` counts on it.
     var readingIssues: [String] {
         var issues = pictureHeadings.isEmpty ? fileIssues : fileIssues.map { replacing("P", in: $0, rawText: true) }
         if !unknownNames.isEmpty {

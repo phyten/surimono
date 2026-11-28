@@ -105,7 +105,9 @@ extension DocumentRenderer {
 /// A file outside them is refused, and can be read once a folder that contains it is allowed. A file that is not
 /// there is only missing: no folder would help it.
 private struct CompanionTextResources: Sendable {
-    enum Failure: Error { case refused, missing, other }
+    /// `refused`: outside the folders the document may read, which a folder grant answers. `denied`: the system's
+    /// own file permissions, which no grant changes.
+    enum Failure: Error { case refused, denied, missing, other }
 
     let file: URL?
     let access: LocalResourceAccess?
@@ -161,7 +163,8 @@ private struct CompanionTextResources: Sendable {
             // Validate the descriptor as well as the name: a changed symlink cannot redirect this read.
             return .success(try ConfinedFile.read(url, within: root, maximumSize: 8_000_004))
         } catch let error as POSIXError where error.code == .EACCES || error.code == .EPERM {
-            return .failure(.refused)
+            // Inside the sandbox this is the sandbox refusing a place it was not given, which a grant answers.
+            return .failure(access == nil ? .denied : .refused)
         } catch let error as POSIXError where error.code == .ENOENT || error.code == .ENOTDIR {
             return .failure(.missing)
         } catch {

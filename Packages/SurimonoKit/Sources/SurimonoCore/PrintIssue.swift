@@ -26,6 +26,9 @@ public struct PrintIssue: Codable, Sendable, Equatable, Identifiable {
     public var outsideFile: String?
     /// Where the outside file is, for finding a folder that holds both it and the document.
     public var outsideURL: URL?
+    /// The failed read of a named file this issue is about (`UnreadFile.id`), which ties the note on the page to the
+    /// places the reader looked in.
+    public var unreadFile: String?
     public let element: Element?
     /// One-based logical page, independent of the sheet's imposition. Nil when WebKit left no usable link.
     public var pageNumber: Int?
@@ -53,6 +56,7 @@ public struct PrintIssue: Codable, Sendable, Equatable, Identifiable {
             pageNumber: pageNumber.map { $0 + pageOffset }, rect: rect, locationKey: locationKey.map { prefix + $0 })
         issue.outsideFile = outsideFile
         issue.outsideURL = outsideURL
+        issue.unreadFile = unreadFile
         return issue
     }
 

@@ -156,18 +156,21 @@ struct OutsideFolderResourceTests {
         let latex = #"\documentclass{article}\begin{document}\cite{key}\bibliography{../assets/s}\end{document}"#
         let file = try workspace.write(latex, to: "doc/a.tex")
         let source = DocumentSource(data: Data(latex.utf8), fileURL: file, format: .latex)
+        let html = SharedValue("")
         let renderer = DocumentRenderer(
             isSandboxed: { false },
-            paginateWithResult: { _ in
-                // The printed note's anchor, as the preparation script reports it.
+            paginateWithResult: { request in
+                if case .html(let body, _) = request.source { html.value = body }
+                // The printed note's anchor, as the preparation script reports it from the note's attribute.
                 var result = WebPaginator.Result(document: try RenderingFixtures.pdf(count: 1))
-                result.issues = [
-                    PrintIssue(
-                        id: "latex-0", kind: .latex, detail: "../assets/s.bib could not be read", pageNumber: 1)
-                ]
+                var anchor = PrintIssue(
+                    id: "latex-0", kind: .latex, detail: "../assets/s.bib could not be read", pageNumber: 1)
+                anchor.unreadFile = "unread-0"
+                result.issues = [anchor]
                 return result
             })
         let prepared = try await renderer.prepare(source, settings: settings)
+        #expect(html.value.contains(#"data-unread-file="unread-0""#))
         let notes = prepared.issues.filter { $0.detail == "../assets/s.bib could not be read" }
         #expect(notes.count == 1)
         #expect(notes.first?.pageNumber == 1)
@@ -262,5 +265,57 @@ struct OutsideFolderResourceTests {
         #expect(marked.first?.outsideFile == "../assets/s.bib")
         #expect(marked.first?.outsideURL?.lastPathComponent == "s.bib")
         #expect(prepared.requiredFolderAccess?.standardizedFileURL == workspace.documents.standardizedFileURL)
+    }
+
+    @Test("同じ文の注記になる 2 つの入力でも、見つからないだけの側に別の入力の拒否先を付けず、許可すると拒否された側だけが消える")
+    func sameWordsTwoFailures() async throws {
+        let workspace = try Workspace()
+        defer { workspace.remove() }
+        let manager = FileManager.default
+        let documents = workspace.root.appending(path: "project/doc", directoryHint: .isDirectory)
+        try manager.createDirectory(
+            at: documents.appending(path: "deep", directoryHint: .isDirectory), withIntermediateDirectories: true)
+        // From doc/deep the input is project/part.tex, outside the document's folder; from doc it is part.tex at
+        // the root, which is not there.
+        let refused = try workspace.write("Deep part.", to: "project/part.tex")
+        _ = try workspace.write(#"\input{../../part}"#, to: "project/doc/shallow.tex")
+        _ = try workspace.write(#"\input{../../part}"#, to: "project/doc/deep/chapter.tex")
+        let latex = #"\documentclass{article}\begin{document}\input{shallow}\input{deep/chapter}\end{document}"#
+        let file = try workspace.write(latex, to: "project/doc/main.tex")
+        var source = DocumentSource(data: Data(latex.utf8), fileURL: file, format: .latex)
+        let html = SharedValue("")
+        let renderer = renderer(keeping: html)
+        let note = "../../part.tex could not be read"
+
+        let denied = try await renderer.prepare(source, settings: settings)
+        let notes = denied.issues.filter { $0.detail == note }
+        #expect(notes.count == 2)
+        #expect(notes.filter { $0.outsideURL == nil }.count == 1)
+        #expect(notes.compactMap(\.outsideURL).map(\.standardizedFileURL) == [refused.standardizedFileURL])
+
+        source.allowedResourceFolders = [workspace.root.appending(path: "project", directoryHint: .isDirectory)]
+        let allowed = try await renderer.prepare(source, settings: settings)
+        let left = allowed.issues.filter { $0.detail == note }
+        #expect(left.count == 1)
+        #expect(left.first?.outsideURL == nil)
+        #expect(allowed.requiredFolderAccess == nil)
+        #expect(html.value.contains("Deep part."))
+    }
+
+    @Test("許可したフォルダーの中でもファイルの権限で読めない文献には、許可を案内しない")
+    func systemDeniedFileAsksNothing() async throws {
+        let workspace = try Workspace()
+        defer { workspace.remove() }
+        let bib = try workspace.write("@book{key, title={Locked edition}}", to: "assets/s.bib")
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: bib.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: bib.path) }
+        let markdown = "---\nbibliography: ../assets/s.bib\n---\n[@key]\n"
+        let file = try workspace.write(markdown, to: "doc/a.md")
+        var source = DocumentSource(data: Data(markdown.utf8), fileURL: file, format: .markdown)
+        source.allowedResourceFolders = [workspace.root]
+        let prepared = try await renderer(keeping: SharedValue("")).prepare(source, settings: settings)
+        #expect(prepared.requiredFolderAccess == nil)
+        #expect(prepared.issues.contains { $0.kind == .bibliography })
+        #expect(prepared.issues.allSatisfy { $0.outsideFile == nil })
     }
 }

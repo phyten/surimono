@@ -135,6 +135,7 @@ public enum MarkdownConverter {
                 footnotes, formulas: formulas, definitions: extracted.definitions, mapping: mapping, proof: proof,
                 preservesBreaks: options.preservesBreaks)
         if let citations { html = citations.finish(html) }
+        // The citations' issues come first: `UnreadFile.issueIndex` counts on it.
         var issues = citations?.issues ?? []
         if nesting.changed { issues.append(MarkdownNesting.issue) }
         if metadata.hasCSL && notebookTOC == nil {
