@@ -112,6 +112,86 @@ struct TableFitTests {
         }
     }
 
+    /// How the first table of the printed DOM was laid out: the most lines a cell of each column takes, the least
+    /// text width a cell of each column has in its own ems, how many pieces of text or boxes in it lie outside their
+    /// cell's left or right edge, its zoom, and whether it counts as fitted. A table that could not be observed
+    /// records an issue, so that empty columns do not pass for kept ones.
+    @MainActor
+    private final class Columns {
+        var lines: [Int] = []
+        var ems: [Double] = []
+        var outside = -1
+        var zoom = 1.0
+        var narrowing = 1.0
+        var fitted = false
+        var log = ""
+        func record(_ view: WKWebView) async {
+            let json = try? await view.evaluateForPrinting(
+                """
+                const table = document.querySelector('table');
+                const px = value => parseFloat(value) || 0;
+                const rectsIn = cell => {
+                    const rects = [];
+                    const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+                    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+                        if (!node.data.trim()) continue;
+                        const range = document.createRange();
+                        range.selectNodeContents(node);
+                        for (const rect of range.getClientRects()) if (rect.width && rect.height) rects.push(rect);
+                    }
+                    return rects;
+                };
+                const lines = cell => {
+                    const rects = rectsIn(cell).sort((a, b) => a.top - b.top);
+                    let count = 0, bottom = -Infinity;
+                    for (const rect of rects) {
+                        if (rect.top >= bottom - 1) { count++; bottom = rect.bottom; }
+                        else bottom = Math.max(bottom, rect.bottom);
+                    }
+                    return count;
+                };
+                const ems = cell => {
+                    const css = getComputedStyle(cell);
+                    const text = cell.clientWidth - px(css.paddingLeft) - px(css.paddingRight);
+                    return text / px(css.fontSize);
+                };
+                let outside = 0;
+                for (const cell of table.querySelectorAll('td, th')) {
+                    const box = cell.getBoundingClientRect();
+                    const pieces = [...rectsIn(cell), ...[...cell.querySelectorAll('*')].map(el => el.getBoundingClientRect())];
+                    outside += pieces.filter(r => r.width && (r.left < box.left - 1 || r.right > box.right + 1)).length;
+                }
+                const rows = [...table.rows];
+                const count = rows.reduce((most, row) => Math.max(most, row.cells.length), 0);
+                const columns = [], widths = [];
+                for (let i = 0; i < count; i++) {
+                    const cells = rows.map(row => row.cells[i]).filter(Boolean);
+                    columns.push(cells.reduce((most, cell) => Math.max(most, lines(cell)), 0));
+                    widths.push(cells.reduce((least, cell) => Math.min(least, ems(cell)), Infinity));
+                }
+                return JSON.stringify({ lines: columns, ems: widths, outside,
+                    zoom: parseFloat(getComputedStyle(table).zoom) || 1,
+                    fitted: globalThis.surimonoFittedTables?.has(table) === true,
+                    log: globalThis.surimonoTableFitLog ?? null });
+                """, until: .now + .seconds(10))
+            guard let text = json as? String,
+                let object = try? JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any],
+                let lines = object["lines"] as? [Int], let ems = object["ems"] as? [Double],
+                let outside = object["outside"] as? Int
+            else {
+                Issue.record("The printed table could not be observed")
+                return
+            }
+            self.lines = lines
+            self.ems = ems
+            self.outside = outside
+            zoom = object["zoom"] as? Double ?? 1
+            narrowing = (object["log"] as? [[String: Any]])?.first?["narrowing"] as? Double ?? 1
+            fitted = object["fitted"] as? Bool ?? false
+            log = text + " on " + ProcessInfo.processInfo.operatingSystemVersionString
+        }
+    }
+
     /// Whether the last table of the printed DOM was narrowed by a transform, the last resort.
     @MainActor
     private final class Transformed {
@@ -240,11 +320,20 @@ struct TableFitTests {
             }.joined()
     }
 
-    @Test("40列表だけを縮めて最後の列を刷り、外罫と本文の右端の間に余裕を残す", .timeLimit(.minutes(1)))
+    @Test("40列表だけを縮めて最後の列を刷り、どの列の見出しと数も割らず、外罫と本文の右端の間に余裕を残す", .timeLimit(.minutes(1)))
     func fortyColumns() async throws {
         let lead = "# Comparison\n\n<span style='color:blue'>H</span>\n\n"
         let control = try await Raster(printPage(lead))
-        let page = try await printPage(lead + wideTable(rows: 1))
+        let columns = Columns()
+        let document = try await printed(lead + wideTable(rows: 1), inspect: columns.record).logicalDocument
+        try #require(document.pageCount == 1)
+        let page = try #require(document.page(at: 0))
+        // "c10" and "10" each on one line, not "c1" over "0". The first column holds the row markers, boxes that
+        // are not text.
+        try #require(columns.lines.count == 40, Comment(rawValue: columns.log))
+        #expect(columns.lines.dropFirst().allSatisfy { $0 == 1 }, Comment(rawValue: columns.log))
+        // Narrowed sideways, the header is still text: found once, as it was written.
+        #expect(document.findString("c37", withOptions: []).count == 1)
         let actual = try Raster(page)
         let body = try control.bounds(channel: 2)
         // Heading and body text, everything above the table, are the same pixels as without the table.
@@ -673,21 +762,119 @@ struct TableFitTests {
         "https://example.com/a/very/long/url/that/keeps/going/and/going/without/any/space/in/it/at/all/index.html"
         + "?query=1&another=2&more=3"
 
-    @Test("短い列は表の幅の3割以下で決め、長い列には合わせて3割と各4文字ぶんを、もとの幅までは残す")
-    func labelArithmetic() throws {
+    @Test("短い列は1行にしたときの幅が表の幅の3割以下の列")
+    func shortColumnShare() throws {
         let js = try #require(JSContext())
-        js.evaluateScript(TableFit.labelFunctions)
+        js.evaluateScript(TableFit.planFunctions)
         let isShort = try #require(js.objectForKeyedSubscript("isShortColumn"))
-        let together = try #require(js.objectForKeyedSubscript("longColumnsFloor"))
-        let each = try #require(js.objectForKeyedSubscript("columnFloor"))
         #expect(isShort.call(withArguments: [191.25, 637.5]).toBool())
         #expect(!isShort.call(withArguments: [191.5, 637.5]).toBool())
-        #expect(together.call(withArguments: [400, 637.5]).toDouble() == 191.25)
-        #expect(each.call(withArguments: [500, 14]).toDouble() == 56)
-        // Columns that had less keep what they had.
-        #expect(together.call(withArguments: [100, 637.5]).toDouble() == 100)
-        #expect(each.call(withArguments: [40, 14]).toDouble() == 40)
         #expect(js.exception == nil)
+    }
+
+    private struct Plan: Equatable {
+        let scale: Double
+        let narrowing: Double
+    }
+
+    private static func short(_ width: Double) -> [String: Any] { ["short": true, "width": width, "padding": 14] }
+    private static func long(_ width: Double, padding: Double = 14) -> [String: Any] {
+        ["short": false, "width": width, "padding": padding, "text": width - padding]
+    }
+
+    /// The whole plan for a table with this room, 14-pixel type laid out at `text` pixels, and these columns.
+    private func fullPlan(room: Double, text: Double = 14, _ columns: [[String: Any]]) throws -> JSValue {
+        let js = try #require(JSContext())
+        js.evaluateScript(TableFit.planFunctions)
+        let function = try #require(js.objectForKeyedSubscript("tablePlan"))
+        let result = try #require(function.call(withArguments: [room, 14, text, columns]))
+        #expect(js.exception == nil)
+        return result
+    }
+
+    /// The zoom and narrowing of the plan.
+    private func plan(room: Double, text: Double = 14, _ columns: [[String: Any]]) throws -> Plan {
+        let result = try fullPlan(room: room, text: text, columns)
+        return Plan(
+            scale: result.objectForKeyedSubscript("scale").toDouble(),
+            narrowing: result.objectForKeyedSubscript("narrowing").toDouble())
+    }
+
+    @Test("長い列ごとに、文字の幅と4文字ぶんの小さい方を下限として返し、余白は列ごとに数える")
+    func planFloorsEachLongColumn() throws {
+        let result = try fullPlan(
+            room: 600, [Self.short(100), Self.long(400), Self.long(40), Self.long(300, padding: 30)])
+        let floors = try #require(result.objectForKeyedSubscript("floors").toArray() as? [Double])
+        #expect(floors == [0, 56, 26, 56])
+        // 100 + (14 + 56) + (14 + 26) + (30 + 56), more than 30% of the room.
+        #expect(result.objectForKeyedSubscript("need").toDouble() == 296)
+    }
+
+    @Test("短い列を守ると横に半分より詰めることになる表は、短い列を守らない")
+    func planGivesUpShortColumnsBelowHalfWidth() throws {
+        // 1500 in 600 at 9 of 14 pixels: narrowed to 0.62. 3000: 0.31.
+        let kept = try fullPlan(room: 600, Array(repeating: Self.short(50), count: 30))
+        let given = try fullPlan(room: 600, Array(repeating: Self.short(50), count: 60))
+        #expect(kept.objectForKeyedSubscript("keepsShort").toBool())
+        #expect(!given.objectForKeyedSubscript("keepsShort").toBool())
+    }
+
+    @Test("守らない短い列は、表の縮め方に数えない")
+    func planIgnoresFreeColumns() throws {
+        let free: [String: Any] = ["short": false, "free": true, "width": 50, "padding": 14, "text": 36]
+        #expect(
+            try plan(room: 600, Array(repeating: free, count: 60) + [Self.long(400)]) == Plan(scale: 1, narrowing: 1))
+    }
+
+    @Test("短い列の1行の幅と長い列の下限が本文の幅に入る表は、縮めない")
+    func planAtFullSize() throws {
+        // The long column keeps 30% of 600, less than the 400 it has: 100 + 120 + 180 = 400.
+        let columns = [Self.short(100), Self.short(120), Self.long(400)]
+        #expect(try plan(room: 600, columns) == Plan(scale: 1, narrowing: 1))
+    }
+
+    @Test("入らない表は、短い列を1行のまま、長い列に下限が残る倍率まで表ごと縮める")
+    func planZoomsTheTable() throws {
+        // 300 + 300 + 180 = 780 at full size, in 600.
+        #expect(
+            try plan(room: 600, [Self.short(300), Self.short(300), Self.long(400)])
+                == Plan(scale: 600.0 / 780, narrowing: 1))
+    }
+
+    @Test("縮める倍率は列の数によらず、短い列の幅の合計と長い列の下限だけで決まる")
+    func planIgnoresColumnCount() throws {
+        let one = try plan(room: 600, [Self.short(600), Self.long(400)])
+        let four = try plan(room: 600, Array(repeating: Self.short(150), count: 4) + [Self.long(400)])
+        let forty = try plan(room: 600, Array(repeating: Self.short(15), count: 40) + [Self.long(400)])
+        // Two long columns of 200 keep 30% of the room together, as one of 400 does.
+        let twoLong = try plan(room: 600, [Self.short(600), Self.long(200), Self.long(200)])
+        #expect(one == Plan(scale: 600.0 / 780, narrowing: 1))
+        #expect(four == one)
+        #expect(forty == one)
+        #expect(twoLong == one)
+    }
+
+    @Test("長い列は合わせて表の幅の3割か各4文字ぶんの大きい方を、もとの幅までは残す")
+    func planLongColumnFloor() throws {
+        // A long column that had less keeps what it had: 500 + 100 = 600 fits.
+        #expect(try plan(room: 600, [Self.short(500), Self.long(100)]) == Plan(scale: 1, narrowing: 1))
+        // Five long columns keep 14 + 4 × 14 each, 350 together, more than 30%: 400 + 350 = 750.
+        #expect(
+            try plan(room: 600, [Self.short(400)] + Array(repeating: Self.long(300), count: 5))
+                == Plan(scale: 600.0 / 750, narrowing: 1))
+    }
+
+    @Test("文字が9ピクセルになる倍率より先は縮めず、残りは横に詰める")
+    func planStopsAtTheSmallestType() throws {
+        // 1500 in 600 would be 0.4; the type stops at 9 of 14 pixels, and the rest is narrowed.
+        let least = 9.0 / 14
+        #expect(
+            try plan(room: 600, Array(repeating: Self.short(50), count: 30))
+                == Plan(scale: least, narrowing: 600 / (1500 * least)))
+        // Type already smaller than that is not zoomed at all.
+        #expect(
+            try plan(room: 600, text: 7, Array(repeating: Self.short(50), count: 30))
+                == Plan(scale: 1, narrowing: 0.4))
     }
 
     @Test(
@@ -725,23 +912,133 @@ struct TableFitTests {
         #expect(pages.fitted.data == pages.original.data)
     }
 
-    @Test("短い列を全部守ると長い列が下限より狭くなる表は、狭い列から守れるだけ守る", .timeLimit(.minutes(1)))
+    @Test("短い列を全部1行にすると長い列が下限より狭くなる表は、どの短い列も割らずに表を縮める", .timeLimit(.minutes(1)))
     func longColumnFloorKept() async throws {
-        // All four kept whole would still fit, but leave the URL less than 30% of the room, and so would three;
-        // the two narrower ones, after the wider ones, leave it enough.
-        let narrow = "<span style='color:lime'>Not applicable</span>"
-        let wide = "<span style='color:blue'>Not applicable for now</span>"
+        // All four kept whole would still fit, but leave the URL less than 30% of the room.
         let source =
             "| a | b | c | d | 値 |\n|---|---|---|---|---|\n"
-            + "| \(wide) | Not applicable for now | \(narrow) | \(narrow) | \(Self.longURL) |\n"
-        let control = try await Raster(printPage(narrow + " " + wide + "\n"))
-        let actual = try await Raster(printPage(source))
-        let line = try control.bounds(channel: 1)
-        let kept = try actual.bounds(channel: 1)
-        #expect(kept.height == line.height, "kept \(kept), in a paragraph \(line)")
-        // The wider ones wrap as they did.
-        let wrapped = try actual.bounds(channel: 2)
-        #expect(wrapped.height > 2 * line.height, "wrapped \(wrapped), a line \(line)")
+            + "| Not applicable for now | Not applicable for now | Not applicable | Not applicable | \(Self.longURL) |\n"
+        let columns = Columns()
+        let result = try await printed(source, inspect: columns.record)
+        try #require(columns.lines.count == 5, Comment(rawValue: columns.log))
+        #expect(columns.lines.prefix(4).allSatisfy { $0 == 1 }, Comment(rawValue: columns.log))
+        #expect(columns.zoom < 1, Comment(rawValue: columns.log))
+        #expect(columns.fitted)
+        #expect(result.issues.isEmpty)
+    }
+
+    @Test("Word の表のように段落に入ったセルでも、長いセルの隣の短い列は1行で刷る", .timeLimit(.minutes(1)))
+    func paragraphCellsKeptWhole() async throws {
+        func row(_ cells: [String]) -> String { "<tr>" + cells.map { "<td><p>\($0)</p></td>" }.joined() + "</tr>" }
+        let note = "内側の線は製作時の目印で、割れではないことを記録票と照合した。"
+        let source =
+            "<table><thead><tr>" + ["番号", "高さ", "状態", "備考"].map { "<th><p>\($0)</p></th>" }.joined()
+            + "</tr></thead><tbody>" + row(["A-001", "181 mm", "確認済み", note]) + row(["A-002", "182 mm", "要再確認", note])
+            + "</tbody></table>\n"
+        let columns = Columns()
+        _ = try await printed(source, inspect: columns.record)
+        try #require(columns.lines.count == 4, Comment(rawValue: columns.log))
+        #expect(columns.lines.prefix(3).allSatisfy { $0 == 1 }, Comment(rawValue: columns.log))
+        // There is room for them at full size.
+        #expect(columns.zoom == 1, Comment(rawValue: columns.log))
+    }
+
+    @Test("幅を決めた段落の短い列は、1行にすると文字がセルの外へ出るので守らず、文字をセルの中に刷る", .timeLimit(.minutes(1)))
+    func boxedParagraphNotKept() async throws {
+        let source =
+            "<table><tr><td><p style='width:20px;direction:rtl'>Status Confirmed</p></td><td>"
+            + String(repeating: "X", count: 500) + "</td></tr></table>\n"
+        let columns = Columns()
+        _ = try await printed(source, inspect: columns.record)
+        try #require(columns.lines.count == 2, Comment(rawValue: columns.log))
+        #expect(columns.outside == 0, Comment(rawValue: columns.log))
+    }
+
+    @Test(
+        "幅の上限を決めたセルに直接書いた短い列も、1行にすると文字がセルの外へ出るので守らず、文字をセルの中に刷る",
+        .timeLimit(.minutes(1)), arguments: ["ltr", "rtl"])
+    func cappedCellNotKept(direction: String) async throws {
+        let source =
+            "<table dir='\(direction)'><tr><td style='max-width:20px'>Status Confirmed</td><td>"
+            + String(repeating: "X", count: 500) + "</td></tr></table>\n"
+        let columns = Columns()
+        _ = try await printed(source, inspect: columns.record)
+        try #require(columns.lines.count == 2, Comment(rawValue: columns.log))
+        #expect(columns.outside == 0, Comment(rawValue: columns.log))
+    }
+
+    @Test("列の間のすき間で実際には横に半分より詰めることになる表は、短い列を守らずに組み直す", .timeLimit(.minutes(1)))
+    func spacingCountedBeforeKeepingShortColumns() async throws {
+        // The plan, which sums the columns, keeps them whole; the 29 gaps of 28 pixels take the table to about 0.41.
+        let row = "<tr>" + String(repeating: "<td>12-34</td>", count: 28) + "</tr>"
+        let css = "table { border-collapse: separate !important; border-spacing: 28px !important }"
+        let columns = Columns()
+        _ = try await printed("<table>\(row)\(row)</table>\n", css: css, inspect: columns.record)
+        try #require(columns.lines.count == 28, Comment(rawValue: columns.log))
+        #expect(
+            columns.narrowing >= 0.5 || columns.lines.contains { $0 > 1 },
+            "narrowed to \(columns.narrowing) with every value kept on one line: \(columns.log)")
+        #expect(columns.outside == 0, Comment(rawValue: columns.log))
+    }
+
+    @Test("罫を重ねる表で余白と罫の違うセルが並ぶ長い列も、後ろの行まで4文字ぶんの文字の幅を残す", .timeLimit(.minutes(1)))
+    func collapsedBordersKeepTheFloorInEveryRow() async throws {
+        // The first cell's rules are shared with its neighbours, so they take less of the column than its own
+        // width says; the next row's cell has wide padding instead.
+        let shorts = String(repeating: "<td>short label</td>", count: 4)
+        let wide = String(repeating: "X", count: 60)
+        let long = "<td>" + String(repeating: "X", count: 250) + "</td>"
+        let source =
+            "<table><tr>\(shorts)<td style='padding:0;border-left:16px solid #888;border-right:16px solid #888'>"
+            + "\(wide)</td>\(long)</tr><tr>\(shorts)<td style='padding:0 12px'>\(wide)</td>\(long)</tr></table>\n"
+        let columns = Columns()
+        _ = try await printed(source, inspect: columns.record)
+        try #require(columns.lines.count == 6, Comment(rawValue: columns.log))
+        #expect(columns.lines.prefix(4).allSatisfy { $0 == 1 }, Comment(rawValue: columns.log))
+        // A pixel of rounding either way.
+        #expect(columns.ems.suffix(2).allSatisfy { $0 >= 3.9 }, Comment(rawValue: columns.log))
+    }
+
+    @Test("短い4列と長い2列の表は、長い列のどちらにも4文字ぶんの文字の幅を残す", .timeLimit(.minutes(1)))
+    func eachLongColumnKeepsItsFloor() async throws {
+        let cells =
+            Array(repeating: "short label", count: 4)
+            + [String(repeating: "X", count: 60), String(repeating: "X", count: 250)]
+        let source = "<table><tr>" + cells.map { "<td>\($0)</td>" }.joined() + "</tr></table>\n"
+        let columns = Columns()
+        _ = try await printed(source, inspect: columns.record)
+        try #require(columns.lines.count == 6, Comment(rawValue: columns.log))
+        #expect(columns.lines.prefix(4).allSatisfy { $0 == 1 }, Comment(rawValue: columns.log))
+        // A pixel of rounding either way.
+        #expect(columns.ems.suffix(2).allSatisfy { $0 >= 3.9 }, Comment(rawValue: columns.log))
+    }
+
+    @Test("1行のままでは横に半分より詰めることになる日付50列の表は、ハイフンの後でだけ折り返し、数字の途中で割らない", .timeLimit(.minutes(1)))
+    func datesWrapAtHyphensWhenTooNarrow() async throws {
+        let row = "<tr>" + String(repeating: "<td>2026-11-29</td>", count: 50) + "</tr>"
+        let columns = Columns()
+        let result = try await printed("<table>\(row)\(row)</table>\n", inspect: columns.record)
+        try #require(columns.lines.count == 50, Comment(rawValue: columns.log))
+        // "2026-", "11-", "29": three lines at most, never "20" over "26".
+        #expect(columns.lines.allSatisfy { $0 >= 1 && $0 <= 3 }, Comment(rawValue: columns.log))
+        #expect(columns.lines.contains { $0 > 1 }, Comment(rawValue: columns.log))
+        #expect(columns.outside == 0, Comment(rawValue: columns.log))
+        #expect(result.issues.isEmpty)
+    }
+
+    @Test("短い列だけで本文の幅を超えるCSVの表は、どの列も割らずに表を縮めて本文の幅に収める", .timeLimit(.minutes(1)))
+    func manyShortColumnsZoomed() async throws {
+        let head = (1...16).map { "項目\($0)" }
+        let row = (1...15).map { "K-\(String(format: "%03d", $0))" } + ["記録を照合する"]
+        let source = ([head] + Array(repeating: row, count: 3))
+            .map { $0.joined(separator: ",") }.joined(separator: "\n")
+        let columns = Columns()
+        let result = try await printed(source + "\n", format: .csv, inspect: columns.record)
+        try #require(columns.lines.count == 16, Comment(rawValue: columns.log))
+        #expect(columns.lines.dropLast().allSatisfy { $0 == 1 }, Comment(rawValue: columns.log))
+        #expect(columns.zoom < 1, Comment(rawValue: columns.log))
+        #expect(columns.fitted)
+        #expect(result.issues.isEmpty)
     }
 
     @Test("改行を保つ指定で改行のあるセルがある列は、短くても今までどおりにする", .timeLimit(.minutes(1)))
@@ -879,54 +1176,65 @@ struct TableFitTests {
         }
     }
 
-    @Test("守るのをやめた短い列では、空白の扱いだけを書いたセルのスタイルもそのまま残す", .timeLimit(.minutes(1)))
+    @Test(
+        "1行にすると表の幅の3割を超えて守るのをやめた列では、空白の扱いだけを書いたセルのスタイルを残し、折り返さない指定を戻す",
+        .timeLimit(.minutes(1)))
     func styleRestoredWhole() async throws {
-        // All four labels kept whole would leave the URL less than 30% of the room; the widest is given up.
-        let label = "<td data-kept style='white-space-collapse: preserve'>Not applicable now</td>"
-        let others = String(repeating: "<td>Not applicable</td>", count: 3)
+        // The words of spacedWordsJustTooWide: estimated short, measured on one line just too wide.
+        let words = Array(repeating: "A", count: 12).joined(separator: " ")
         let source =
-            "<table><tr><th>a</th><th>b</th><th>c</th><th>d</th><th>値</th></tr>"
-            + "<tr>\(label)\(others)<td>\(Self.longURL)</td></tr></table>\n"
+            "<table><tr><th>X</th><th>値</th></tr><tr><td data-kept style='white-space-collapse: collapse'>"
+            + "\(words)</td><td>\(Self.longURL)</td></tr></table>\n"
         let style = KeptStyle()
         _ = try await printed(source, inspect: style.record)
-        #expect(style.value == "white-space-collapse: preserve")
+        // As a long column it may get its floor (a min-width) after the author's own style.
+        let value = try #require(style.value)
+        #expect(value.hasPrefix("white-space-collapse: collapse"), "\(value)")
+        #expect(!value.contains("white-space:"), "\(value)")
     }
 
-    @Test("長い列の余白が大きく、本文の幅が下限より狭くなる表は、どの列も守らない", .timeLimit(.minutes(1)))
+    @Test("長い列の余白が大きく、その文字の幅が下限より狭くなる表は、短い列を割らずに表を縮める", .timeLimit(.minutes(1)))
     func longColumnContentFloor() async throws {
-        // With its padding the URL's column would keep more than 30% of the room with any label kept, its text
-        // less even with one.
+        // With its padding the URL's column keeps more than 30% of the room, its text 4 ems.
         let labels = Array(repeating: "Not applicable", count: 3)
         let source =
             "| " + labels.joined(separator: " | ") + " | 値 |\n|" + String(repeating: "---|", count: 4) + "\n| "
             + labels.joined(separator: " | ") + " | \(Self.longURL) |\n"
         let css = "th, td { box-sizing: border-box } th:last-child, td:last-child { padding: 0 140px }"
-        let fitted = try await printed(source, css: css)
-        let original = try await printed(source, fit: false, css: css)
-        #expect(
-            try Raster(#require(fitted.logicalDocument.page(at: 0))).data
-                == Raster(#require(original.logicalDocument.page(at: 0))).data)
+        let columns = Columns()
+        _ = try await printed(source, css: css, inspect: columns.record)
+        try #require(columns.lines.count == 4, Comment(rawValue: columns.log))
+        #expect(columns.lines.prefix(3).allSatisfy { $0 == 1 }, Comment(rawValue: columns.log))
+        #expect(columns.zoom < 1, Comment(rawValue: columns.log))
+        #expect(columns.fitted)
     }
 
-    @Test("表示しない列があっても、長い列の幅の下限は見えている列だけで決める", .timeLimit(.minutes(1)))
+    @Test("表示しない列があっても、表の縮め方は見えている列だけで決める", .timeLimit(.minutes(1)))
     func hiddenColumnDoesNotCount() async throws {
-        // The table of longColumnContentFloor, with a column that is not displayed and holds a block.
-        let label = "<td>Not applicable</td>"
-        let hidden = "<td style=\"display:none\"><p>hidden</p></td>"
-        let source = """
-            <table>
-            <thead><tr><th>Not applicable</th><th>Not applicable</th><th>Not applicable</th><th class="wide">値</th>\
-            <th style="display:none"><p>hidden</p></th></tr></thead>
-            <tbody><tr>\(label)\(label)\(label)<td class="wide">\(Self.longURL)</td>\(hidden)</tr></tbody>
-            </table>
+        // The table of longColumnContentFloor, with and without a column that is not displayed and holds a block.
+        func table(hidden: Bool) -> String {
+            let label = "<td>Not applicable</td>"
+            let head = hidden ? "<th style=\"display:none\"><p>hidden</p></th>" : ""
+            let cell = hidden ? "<td style=\"display:none\"><p>hidden</p></td>" : ""
+            return """
+                <table>
+                <thead><tr><th>Not applicable</th><th>Not applicable</th><th>Not applicable</th><th class="wide">値</th>\
+                \(head)</tr></thead>
+                <tbody><tr>\(label)\(label)\(label)<td class="wide">\(Self.longURL)</td>\(cell)</tr></tbody>
+                </table>
 
-            """
+                """
+        }
         let css = "th, td { box-sizing: border-box } .wide { padding: 0 140px }"
-        let fitted = try await printed(source, css: css)
-        let original = try await printed(source, fit: false, css: css)
-        #expect(
-            try Raster(#require(fitted.logicalDocument.page(at: 0))).data
-                == Raster(#require(original.logicalDocument.page(at: 0))).data)
+        let with = Columns()
+        let without = Columns()
+        _ = try await printed(table(hidden: true), css: css, inspect: with.record)
+        _ = try await printed(table(hidden: false), css: css, inspect: without.record)
+        try #require(with.lines.count == 5 && without.lines.count == 4, Comment(rawValue: with.log + without.log))
+        #expect(with.lines.prefix(3).allSatisfy { $0 == 1 }, Comment(rawValue: with.log))
+        // WebKit lays the two tables out a few pixels apart even untouched, so the zooms are close, not equal.
+        #expect(with.zoom < 1 && abs(with.zoom - without.zoom) < 0.01, Comment(rawValue: with.log + without.log))
+        #expect(with.fitted)
     }
 
     /// The rows of pixels that hold lime, as runs of rows with lime in them, top to bottom.
