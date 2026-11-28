@@ -169,6 +169,61 @@ struct DjotTextileTests {
         #expect(body.contains("*Fold*"))
     }
 
+    @Test("Textileの定義リストは空行をはさんだ項目もひとつのリストにし、続く段落を段落のまま組む")
+    func textileDefinitionsWithBlankLines() throws {
+        let source = """
+            - Sheet := A single piece of paper.
+
+            - Fold := A crease across the sheet.
+
+            - Booklet := Sheets *folded* together.
+
+            - Spine := The folded edge.
+
+            The [glossary]https://example.org/terms ends here.
+            """
+        let body = try TextileConverter.convert(source).body
+        #expect(body.components(separatedBy: "<dt>").count == 5)
+        #expect(body.components(separatedBy: "<dd>").count == 5)
+        #expect(body.components(separatedBy: "<dl>").count == 2)
+        #expect(body.contains("<dd>Sheets <strong>folded</strong> together.</dd>"))
+        #expect(body.contains("<p>The "))
+        #expect(!body.contains(":=") && !body.contains("surimono-textile-dl"))
+    }
+
+    @Test("Textileの定義リストのすぐ後の段落も段落になり、語だけの行は次の説明に付く")
+    func textileDefinitionsBeforeParagraph() throws {
+        let body = try TextileConverter.convert("- Leaf\n- Page := One side.\n- Sheet := Two pages.\n\nAfter.").body
+        #expect(body.contains("<dt>Leaf</dt>"))
+        #expect(body.components(separatedBy: "<dt>").count == 4)
+        #expect(body.contains("<p>After.</p>"))
+    }
+
+    @Test("Textileのコードと整形抑止の中の定義リストの形の行は変えない")
+    func textileDefinitionShapesInCode() throws {
+        let source = """
+            bc.. - Sheet := code
+
+            - Fold := code
+
+            p. Back.
+
+            <pre>
+            - Page := pre
+
+            - Leaf := pre
+            </pre>
+
+            notextile. - Spine := raw
+            """
+        let body = try TextileConverter.convert(source).body
+        #expect(body.contains("- Sheet := code\n\n- Fold := code"))
+        #expect(body.contains("- Page := pre\n\n- Leaf := pre"))
+        #expect(body.contains("- Spine := raw"))
+        #expect(!body.contains("<dl>"))
+        #expect(body.contains("<p>Back.</p>"))
+    }
+
     private func convert(_ format: DocumentFormat, _ djot: String, _ textile: String) throws -> HTMLFragment {
         try format == .djot ? DjotConverter.convert(djot) : TextileConverter.convert(textile)
     }
