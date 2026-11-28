@@ -32,7 +32,8 @@ package enum VerticalText {
                     try writer.text(text, plain: plain, note: note, headingNumber: heading) { direction in
                         var i = index + direction
                         return AnyIterator<Substring> {
-                            // A section number and its title are separate runs even without intervening HTML text.
+                            // A section number or bibliography label and its following text are separate runs even
+                            // without intervening HTML text.
                             while numberDepth == 0 && tokens.indices.contains(i) && i != runBoundary {
                                 let token = tokens[i]
                                 i += direction
@@ -97,7 +98,7 @@ package enum VerticalText {
                             try writer.begin(.start)
                             runBoundary = index
                         }
-                    } else if classes.contains("secnum") && !tag.isClosing {
+                    } else if (classes.contains("secnum") || classes.contains("bib-label")) && !tag.isClosing {
                         try writer.begin(.start)
                         numberDepth = 1
                     }

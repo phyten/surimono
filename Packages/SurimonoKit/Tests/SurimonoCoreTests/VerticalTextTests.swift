@@ -358,4 +358,81 @@ struct VerticalTextTests {
         let actual = try VerticalText.marked(source)
         #expect(actual == expected)
     }
+
+    @Test("縦組みの参考文献ラベルは一桁を正立、二桁を縦中横、三桁以上を横倒しにし、本文の開き括弧に余分な空きを入れない")
+    func latexBibliographyLabels() throws {
+        let entries = (1...12).map { index in
+            index == 1 ? #"\bibitem{k1} 「書名」第一資料。"# : #"\bibitem{k\#(index)} 資料\#(index)。"#
+        }.joined(separator: "\n")
+        let source = """
+            \\documentclass[a4paper]{utarticle}
+            \\begin{document}
+            本文\\cite{k1,k12}。
+            \\begin{thebibliography}{99}
+            \(entries)
+            \\end{thebibliography}
+            \\end{document}
+            """
+        let fragment = LaTeXConverter.convert(source)
+        let themes = try PrintThemeLibrary.load()
+        let vertical = try #require(themes.first { $0.id == "tategaki" })
+        let horizontal = try #require(themes.first { $0.id == "latex-plain-ja" })
+        let html = HTMLDocumentBuilder.build(fragment: fragment, format: .latex, theme: vertical)
+        #expect(html.matches(of: /<span class="bib-label">/).count == 12)
+        #expect(
+            html.contains(
+                #"<li id="bib-1-1"><span class="bib-label">[<span class="upright-digit">1</span>]</span><span class="v-half">「</span>書名」第一資料。</li>"#
+            ))
+        #expect(
+            html.contains(
+                #"<li id="bib-1-10"><span class="bib-label">[<span class="tcy">10</span>]</span>資料<span class="tcy">10</span>。</li>"#
+            ))
+        #expect(
+            html.contains(
+                #"<li id="bib-1-12"><span class="bib-label">[<span class="tcy">12</span>]</span>資料<span class="tcy">12</span>。</li>"#
+            ))
+        let threeDigit = try VerticalText.marked(
+            #"<ol class="latex-bibliography"><li><span class="bib-label">[100]</span>百番目の資料。</li></ol>"#,
+            latex: true)
+        #expect(threeDigit.contains(#"<span class="bib-label">[<span class="v-latin">100</span>]</span>百番目の資料。"#))
+        let horizontalHTML = HTMLDocumentBuilder.build(fragment: fragment, format: .latex, theme: horizontal)
+        #expect(horizontalHTML.contains(#"<li id="bib-1-1"><span class="bib-label">[1]</span>「書名」第一資料。</li>"#))
+        #expect(!horizontalHTML.contains(#"<span class="upright-digit">"#))
+    }
+
+    @Test("縦書きスタイルは LaTeX の参考文献で漢数字の番号を消し、ラベル幅のぶら下げと論理寸法を使う")
+    func latexBibliographyStyle() throws {
+        let themes = try PrintThemeLibrary.load()
+        let vertical = try #require(themes.first { $0.id == "tategaki" })
+        let rules = vertical.css.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        let cjkMarker = try #require(
+            rules.firstRange(of: ".surimono-vertical ol { list-style-type: cjk-ideographic; }"))
+        let bibliographyRule = try #require(
+            rules.firstRange(of: ".format-latex .surimono-vertical ol.latex-bibliography {"))
+        #expect(cjkMarker.lowerBound < bibliographyRule.lowerBound)
+        #expect(
+            rules.contains(
+                ".format-latex .surimono-vertical ol.latex-bibliography { --bib-label-size: 2em; --bib-label-gap: 0.5em; --bib-hang: calc(var(--bib-label-size) + var(--bib-label-gap)); list-style: none; margin: 0; padding-inline-start: 0; }"
+            ))
+        #expect(
+            rules.contains(
+                ".format-latex .surimono-vertical ol.latex-bibliography.latex-numbered { --bib-label-size: max(2em, calc(var(--latex-label-digits, 2ch) + 0.75em)); }"
+            ))
+        #expect(
+            rules.contains(
+                ".format-latex .surimono-vertical ol.latex-bibliography.latex-author-year { --bib-hang: 1em; }"
+            ))
+        #expect(
+            rules.contains(
+                ".format-latex .surimono-vertical ol.latex-bibliography > li { margin: 0; padding-inline-start: var(--bib-hang); text-indent: calc(-1 * var(--bib-hang)); }"
+            ))
+        #expect(
+            rules.contains(
+                ".format-latex .surimono-vertical ol.latex-bibliography .bib-label { display: inline-block; min-block-size: 0; min-inline-size: var(--bib-label-size); margin-inline: 0 var(--bib-label-gap); line-height: 1; text-indent: 0; text-align: start; white-space: nowrap; }"
+            ))
+        for id in ["standard", "latex-article", "latex-plain-ja"] {
+            let other = try #require(themes.first { $0.id == id })
+            #expect(!other.css.contains(".surimono-vertical ol.latex-bibliography"))
+        }
+    }
 }
