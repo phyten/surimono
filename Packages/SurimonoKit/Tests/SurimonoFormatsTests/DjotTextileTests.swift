@@ -224,6 +224,45 @@ struct DjotTextileTests {
         #expect(body.contains("<p>Back.</p>"))
     }
 
+    @Test("Textileの拡張ブロックが続いても、後のブロックの中の定義リストの形の行は変えない", arguments: ["bc", "notextile"])
+    func textileDefinitionShapesInSecondExtendedBlock(_ second: String) throws {
+        let body = try TextileConverter.convert("bc.. first\n\n\(second).. second\n\n- Sheet := literal\n\np. back")
+            .body
+        #expect(body.contains("second\n\n- Sheet := literal"))
+        #expect(!body.contains("<dl>") && !body.contains("surimono-textile-dl"))
+        #expect(body.contains("<p>back</p>"))
+    }
+
+    @Test("Textileの行の途中で開いた pre の中の定義リストの形の行は変えず、閉じた後のリストはまとめる")
+    func textileDefinitionShapesInPreAfterTag() throws {
+        let source = "<div><pre>\n\n- Sheet := literal\n\n</pre></div>\n\n- Fold := one\n\n- Leaf := two\n\nAfter."
+        let body = try TextileConverter.convert(source).body
+        #expect(body.contains("\n\n- Sheet := literal\n\n</code></pre>"))
+        #expect(!body.contains("surimono-textile-dl"))
+        #expect(body.components(separatedBy: "<dt>").count == 3)
+        #expect(body.contains("<p>After.</p>"))
+    }
+
+    @Test("Textileの原文が書いた目印と同じ div とコメントは消さない")
+    func textileMarkerInSource() throws {
+        let written =
+            "<div class=\"surimono-textile-dl\">\n<!--surimono-textile-dl-->\n<dl><dt>a</dt><dd>b</dd></dl>\n</div>"
+        let body = try TextileConverter.convert(written + "\n\n- Fold := one\n\n- Leaf := two\n\nAfter.").body
+        // PrintMarkup drops comments; the written div must stay.
+        #expect(body.contains("<div class=\"surimono-textile-dl\">"))
+        #expect(body.components(separatedBy: "<dt>").count == 4)
+        #expect(!body.contains("surimono-textile-dlx"))
+    }
+
+    @Test("Textileで採らなかった定義リストは原文のまま一度だけ出し、後ろのリストと段落を読む")
+    func textileRejectedDefinitionRun() throws {
+        let source = "- A := x\n\n- Z := <div>raw</div>\n\nAfter.\n\n- P := q\n\n- R := s\n\nEnd."
+        let body = try TextileConverter.convert(source).body
+        #expect(body.components(separatedBy: "Z := ").count == 2)
+        #expect(body.contains("<dt>P</dt>") && body.contains("<dt>R</dt>"))
+        #expect(body.contains("<p>After.</p>") && body.contains("<p>End.</p>"))
+    }
+
     private func convert(_ format: DocumentFormat, _ djot: String, _ textile: String) throws -> HTMLFragment {
         try format == .djot ? DjotConverter.convert(djot) : TextileConverter.convert(textile)
     }

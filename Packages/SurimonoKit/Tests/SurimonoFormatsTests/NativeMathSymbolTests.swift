@@ -67,6 +67,37 @@ struct NativeMathSymbolTests {
         }
     }
 
+    @Test("利用者のマクロで複製した \\ne と \\dotsx も、バイト・作業量・展開回数の上界に入る")
+    func expandingSymbolsInsideMacros() throws {
+        let definitions = #"\def\pair#1{#1#1}"#
+        let formula = #"\pair{\ne\dotsx}+b"#
+        let bound = try #require(NativeMathBound.bound(formula, definitions: definitions))
+        // In 0.6.0 one \ne expands to 137 bytes of tokens; the argument is copied twice.
+        #expect(bound.bytes >= 2 * 137)
+        // The user macro's own copies, with the builtins left as written, as Quick Look's expander counts them.
+        var expander = PreviewMathExpansion()
+        let output = try expander.expand(formula, definitions: definitions)
+        #expect(bound.bytes >= output.utf8.count && bound.bytes >= expander.peakPendingBytes)
+        #expect(bound.work >= expander.scheduledBytes && bound.work >= bound.bytes)
+        let parser = Parser(definitions + formula)
+        #expect(!(try parser.parse()).isEmpty)
+        let count = try #require(Mirror(reflecting: parser).descendant("gullet", "expansionCount") as? Int)
+        #expect(count <= bound.steps)
+    }
+
+    @Test("展開のある記号は利用者のマクロの深さを増やさず、深さの上限は今までどおり 32 段")
+    func expandingSymbolsAtDepthLimit() {
+        func name(_ level: Int) -> String { #"\m"# + String(repeating: "i", count: level) }
+        func chain(_ depth: Int, ending last: String) -> String {
+            (1..<depth).map { #"\def"# + name($0) + "{" + name($0 + 1) + "}" }.joined()
+                + #"\def"# + name(depth) + "{" + last + "}"
+        }
+        for last in ["x", #"\ne"#, #"\dotsx"#] {
+            #expect(NativeMathBound.accepts(#"\mi"#, definitions: chain(32, ending: last)), "\(last)")
+            #expect(!NativeMathBound.accepts(#"\mi"#, definitions: chain(33, ending: last)), "\(last)")
+        }
+    }
+
     @Test("記号を多く並べた式も上限の中で組み、上限を超える長さは今までどおり拒む")
     func symbolsStayInsideLimits() {
         let row = String(repeating: #"a\ne b,\ldots,"#, count: 6)
