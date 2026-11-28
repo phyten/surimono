@@ -24,63 +24,142 @@ extension DocumentOutline {
     /// and only between the headings found before and after it, so a line that differs from a heading only in case
     /// does not take the place of the heading found as written.
     ///
-    /// Last, a heading still not found is looked for line by line between the headings found around it: one whose
-    /// number the page sets on a line of its own, too short for the index to start a wrap from, and one with a
-    /// formula, whose glyphs the page's text does not spell reliably, so only the words around it are compared.
+    /// Last, a heading still not found is looked for line by line between the headings found around it, as written
+    /// and then without case: one whose number the page sets on a line of its own, too short for the index to start a
+    /// wrap from, and one with a formula, whose glyphs the page's text spells in an order of its own, so a formula
+    /// only takes letters its source could print.
     public static func pages(
         of headings: [DocumentHeading], inPageTexts pages: [String], contentsEntries: [String] = []
     ) -> [Int?] {
         guard !headings.isEmpty else { return [] }
         let written = Matching(headings: headings, pages: pages, contentsEntries: contentsEntries, foldsCase: false)
         var found = written.forward()
+        var folded: Matching?
         if found.contains(nil) {
-            let folded = Matching(headings: headings, pages: pages, contentsEntries: contentsEntries, foldsCase: true)
+            let matching = Matching(
+                headings: headings, pages: pages, contentsEntries: contentsEntries, foldsCase: true)
             // Both spellings read the same lines; the check only guards the line numbers they share.
-            if folded.index.lines.count == written.index.lines.count { folded.fill(&found) }
+            if matching.index.lines.count == written.index.lines.count {
+                matching.fill(&found)
+                folded = matching
+            }
         }
         if found.contains(nil) { written.fillLineByLine(&found) }
+        if found.contains(nil) { folded?.fillLineByLine(&found) }
         return found.map { $0.map { written.index.lines[$0.lowerBound].page } }
     }
 
     /// A heading or a contents entry as the page prints it: its letters and digits, in the pieces between its
-    /// formulas. A formula's glyphs come back from the page's text in an order and with letters of their own, so a
-    /// formula matches any short run of letters.
+    /// formulas.
     fileprivate struct Printed {
-        let pieces: [String]
+        /// The letters a formula's glyphs can come back as in the page's text: those of its source, commands' names
+        /// included (`\sin`), and for each command one letter of another script (`\alpha` prints α).
+        struct Formula {
+            let letters: [Character: Int]
+            let commands: Int
+            let mostLetters: Int
+
+            init(_ source: String, foldsCase: Bool) {
+                var letters: [Character: Int] = [:]
+                for letter in normalized(source, foldsCase: foldsCase) { letters[letter, default: 0] += 1 }
+                self.letters = letters
+                var commands = 0
+                var afterBackslash = false
+                for character in source {
+                    if afterBackslash, character.isLetter { commands += 1 }
+                    afterBackslash = character == "\\"
+                }
+                self.commands = commands
+                mostLetters = letters.values.reduce(0, +) + commands
+            }
+
+            /// Whether the page's letters in the formula's place can be the formula's. A formula that prints letters
+            /// must leave some, so a line of the words around it alone is not taken for it.
+            func admits(_ gap: ArraySlice<Character>) -> Bool {
+                guard gap.count <= mostLetters, !gap.isEmpty || mostLetters == 0 else { return false }
+                var letters = letters
+                var others = commands
+                for character in gap {
+                    if let count = letters[character], count > 0 {
+                        letters[character] = count - 1
+                    } else if others > 0, Self.isSymbolLetter(character) {
+                        others -= 1
+                    } else {
+                        return false
+                    }
+                }
+                return true
+            }
+
+            /// A letter a command prints, of a script a formula's source does not spell: Greek and Hebrew.
+            private static func isSymbolLetter(_ character: Character) -> Bool {
+                guard let scalar = character.unicodeScalars.first?.value else { return false }
+                return (0x0370...0x03FF).contains(scalar) || (0x1F00...0x1FFF).contains(scalar)
+                    || (0x05D0...0x05EA).contains(scalar)
+            }
+        }
+
+        /// The text as given, which names an entry for the work its search keeps.
+        let source: String
+        let pieces: [[Character]]
+        let formulas: [Formula]
         let key: String
-        var hasFormula: Bool { pieces.count > 1 }
-        /// Enough of its own words to be told from other lines.
-        var isSearchable: Bool { hasFormula ? key.count >= 2 : !key.isEmpty }
-        /// The letters a formula in a heading can print.
-        static let longestFormula = 32
+        var hasFormula: Bool { !formulas.isEmpty }
+        /// Enough of its own words to be told from other lines: a formula may take a short line's letters, so a
+        /// heading with one needs letters besides the formula and its number.
+        let isSearchable: Bool
+        /// Something the page prints: a formula alone is an entry of a table of contents.
+        var isEmpty: Bool { key.isEmpty && formulas.isEmpty }
 
         init(_ text: String, foldsCase: Bool) {
-            pieces = text.split(separator: DocumentHeading.formula, omittingEmptySubsequences: false).map {
-                normalized(String($0), foldsCase: foldsCase)
+            source = text
+            var pieces = [""]
+            var formulas: [Formula] = []
+            var formula: String?
+            for character in text {
+                if character == DocumentHeading.formulaStart {
+                    formula = ""
+                } else if character == DocumentHeading.formulaEnd, let source = formula {
+                    formulas.append(Formula(source, foldsCase: foldsCase))
+                    pieces.append("")
+                    formula = nil
+                } else if formula != nil {
+                    formula?.append(character)
+                } else {
+                    pieces[pieces.count - 1].append(character)
+                }
             }
-            key = pieces.joined()
+            let normalizedPieces = pieces.map { normalized($0, foldsCase: foldsCase) }
+            self.pieces = normalizedPieces.map(Array.init)
+            self.formulas = formulas
+            key = normalizedPieces.joined()
+            isSearchable = formulas.isEmpty ? !key.isEmpty : key.filter(\.isLetter).count >= 2
         }
 
         func matches(_ text: String) -> Bool {
             guard hasFormula else { return text == key }
-            guard let first = pieces.first, let last = pieces.last, text.count >= key.count, text.hasPrefix(first),
-                text.hasSuffix(last)
-            else { return false }
-            var rest = text.dropFirst(first.count).dropLast(last.count)
-            for piece in pieces.dropFirst().dropLast() where !piece.isEmpty {
-                guard let found = rest.range(of: piece),
-                    rest.distance(from: rest.startIndex, to: found.lowerBound) <= Self.longestFormula
-                else { return false }
-                rest = rest[found.upperBound...]
+            return matches(Array(text)[...], from: 0)
+        }
+
+        /// Whether `text` is piece `index` and what follows it; each formula is tried at every length it allows.
+        private func matches(_ text: ArraySlice<Character>, from index: Int) -> Bool {
+            let piece = pieces[index]
+            guard text.starts(with: piece) else { return false }
+            let rest = text.dropFirst(piece.count)
+            guard index < formulas.count else { return rest.isEmpty }
+            let formula = formulas[index]
+            for length in 0...min(rest.count, formula.mostLetters)
+            where formula.admits(rest.prefix(length)) && matches(rest.dropFirst(length), from: index + 1) {
+                return true
             }
-            return rest.count <= Self.longestFormula
+            return false
         }
 
         /// Whether a line added to `text` could still make the heading.
         func mayGrow(_ text: String) -> Bool {
             guard hasFormula else { return text.count < key.count && key.hasPrefix(text) }
-            let first = pieces[0]
-            return text.count < key.count + (pieces.count - 1) * Self.longestFormula
+            let first = String(pieces[0])
+            return text.count < key.count + formulas.reduce(0) { $0 + $1.mostLetters }
                 && (text.hasPrefix(first) || first.hasPrefix(text))
         }
     }
@@ -101,7 +180,7 @@ extension DocumentOutline {
             // the line the page prints.
             titles = printed.map { labels.insert($0.hasFormula ? "" : $0.key) }
             let tables = contentsEntries.split(separator: "").map {
-                $0.map { Printed($0, foldsCase: foldsCase) }.filter { !$0.key.isEmpty }
+                $0.map { Printed($0, foldsCase: foldsCase) }.filter { !$0.isEmpty }
             }
             for table in tables {
                 for entry in table where !entry.hasFormula { _ = labels.insert(entry.key) }
@@ -110,14 +189,23 @@ extension DocumentOutline {
             var excluded: Set<Int> = []
             if !tables.isEmpty {
                 let contents = ContentsIndex(lines: index.lines, labels: labels)
+                let starts = index.lineStarts()
                 var cursor = 0
-                for table in tables where !table.isEmpty {
-                    // An unsuccessful search has reached EOF; later tables share the same forward cursor.
-                    let run =
-                        table.contains(where: \.hasFormula)
-                        ? index.firstRun(of: table, from: cursor)
-                        : contents.firstRun(of: table.map(\.key), from: cursor)
-                    guard let run else { break }
+                var work = 0
+                tables: for table in tables where !table.isEmpty {
+                    // An unsuccessful search has reached EOF; later tables share the same forward cursor. A search that
+                    // ran out of work has not, so the next table is still looked for.
+                    let run: Range<Int>
+                    if table.contains(where: \.hasFormula) {
+                        switch index.firstRun(of: table, from: cursor, starts: starts, work: &work) {
+                        case .found(let found): run = found
+                        case .gaveUp: continue tables
+                        case .notFound: break tables
+                        }
+                    } else {
+                        guard let found = contents.firstRun(of: table.map(\.key), from: cursor) else { break }
+                        run = found
+                    }
                     excluded.formUnion(run)
                     cursor = run.upperBound
                 }
@@ -138,7 +226,8 @@ extension DocumentOutline {
             }
         }
 
-        /// The first line each heading not found may take: after the heading found before it.
+        /// For each heading, the end of the lines it may be looked for in: the first line of the next heading found
+        /// after it, or the end of the text.
         private func bounds(of found: [Range<Int>?]) -> [Int] {
             var upper = Array(repeating: index.lines.count, count: found.count)
             for i in found.indices.dropLast().reversed() { upper[i] = found[i + 1]?.lowerBound ?? upper[i + 1] }
@@ -163,16 +252,19 @@ extension DocumentOutline {
             }
         }
 
+        /// The work the line-by-line search may do in all, and the least each heading gets, so headings that are not
+        /// on any page cannot use up the search of those after them.
+        static let lineByLineWork = 200_000
+        static let leastWorkPerHeading = 16
+
         /// Fills the headings not found by reading the lines between the headings found around them, a few lines
-        /// joined at a time. Only lines whose letters begin as the heading's do are read, and the reading stops after a
-        /// fixed number of them, so headings that are not on any page cannot make it read the pages over and over.
+        /// joined at a time. Only lines whose letters begin as the heading's do are read, and each heading may only do
+        /// its share of the work.
         func fillLineByLine(_ found: inout [Range<Int>?]) {
             let upper = bounds(of: found)
-            var starts: [Character: [Int]] = [:]
-            for (position, line) in index.lines.enumerated() {
-                for form in Set(line.forms.compactMap(\.first)) { starts[form, default: []].append(position) }
-            }
-            var budget = 200_000
+            let starts = index.lineStarts()
+            var waiting = found.indices.filter { found[$0] == nil && printed[$0].isSearchable }.count
+            var left = Self.lineByLineWork
             var lower = 0
             for i in found.indices {
                 if let match = found[i] {
@@ -180,29 +272,25 @@ extension DocumentOutline {
                     continue
                 }
                 let heading = printed[i]
-                guard heading.isSearchable, lower < upper[i] else { continue }
-                let candidates: [Int]
-                if let first = heading.key.first, heading.pieces[0].first == first {
-                    let all = starts[first] ?? []
-                    var low = 0
-                    var high = all.count
-                    while low < high {
-                        let middle = (low + high) / 2
-                        if all[middle] < lower { low = middle + 1 } else { high = middle }
-                    }
-                    candidates = Array(all[low...].prefix { $0 < upper[i] })
-                } else {
-                    candidates = Array(lower..<upper[i])
+                guard heading.isSearchable else { continue }
+                let share = max(Self.leastWorkPerHeading, left / max(1, waiting))
+                waiting -= 1
+                var work = 0
+                defer { left -= work }
+                guard lower < upper[i] else { continue }
+                var match: Range<Int>?
+                index.forEachCandidate(for: heading, in: lower..<upper[i], starts: starts) { start in
+                    guard work < share else { return false }
+                    work += 1
+                    guard let end = index.ends(of: heading, from: start, excluding: excluded, work: &work).first,
+                        end <= upper[i]
+                    else { return true }
+                    match = start..<end
+                    return false
                 }
-                for start in candidates {
-                    budget -= 1
-                    if budget < 0 { return }
-                    guard let end = index.end(of: heading, from: start, excluding: excluded), end <= upper[i] else {
-                        continue
-                    }
-                    found[i] = start..<end
-                    lower = end
-                    break
+                if let match {
+                    found[i] = match
+                    lower = match.upperBound
                 }
             }
         }
@@ -296,15 +384,49 @@ extension DocumentOutline {
         /// The most lines one heading is read from: a number set on a line of its own and a title wrapped over a few.
         static let joinedLines = 5
 
-        /// The line after the last one `text` takes when it starts at `start`, on one page, or nil when it does not
-        /// start there. The fewest lines are taken.
-        fileprivate func end(of text: Printed, from start: Int, excluding excluded: Set<Int> = []) -> Int? {
-            guard !excluded.contains(start) else { return nil }
+        /// Where the lines begin: for each first letter of a line's spellings, the lines in order.
+        func lineStarts() -> [Character: [Int]] {
+            var starts: [Character: [Int]] = [:]
+            for (position, line) in lines.enumerated() {
+                for first in Set(line.forms.compactMap(\.first)) { starts[first, default: []].append(position) }
+            }
+            return starts
+        }
+
+        /// Visits the lines in `range` the text can start at, in order, until `visit` returns false: those beginning
+        /// with its first letter, or every line when it begins with a formula.
+        fileprivate func forEachCandidate(
+            for text: Printed, in range: Range<Int>, starts: [Character: [Int]], _ visit: (Int) -> Bool
+        ) {
+            guard let first = text.pieces[0].first else {
+                for line in range where !visit(line) { return }
+                return
+            }
+            guard let all = starts[first] else { return }
+            var low = 0
+            var high = all.count
+            while low < high {
+                let middle = (low + high) / 2
+                if all[middle] < range.lowerBound { low = middle + 1 } else { high = middle }
+            }
+            var position = low
+            while position < all.count, all[position] < range.upperBound, visit(all[position]) { position += 1 }
+        }
+
+        /// The lines after the last one `text` takes when it starts at `start`, on one page, fewest first: a formula
+        /// can take a line's letters or a line of its own, so the text can end in more than one place. `work` counts
+        /// the spellings compared.
+        fileprivate func ends(of text: Printed, from start: Int, excluding excluded: Set<Int> = [], work: inout Int)
+            -> [Int]
+        {
+            guard !excluded.contains(start) else { return [] }
+            var found: [Int] = []
             for form in lines[start].forms where !form.isEmpty {
                 var joined = form
                 var next = start + 1
                 while true {
-                    if text.matches(joined) { return next }
+                    work += 1
+                    if text.matches(joined), !found.contains(next) { found.append(next) }
                     guard next - start < Self.joinedLines, text.mayGrow(joined), next < lines.count,
                         lines[next].page == lines[start].page, !excluded.contains(next)
                     else { break }
@@ -312,29 +434,58 @@ extension DocumentOutline {
                     next += 1
                 }
             }
-            return nil
+            return found.sorted()
         }
 
+        enum RunSearch {
+            case found(Range<Int>)
+            case notFound
+            /// The search did the most work it may for the tables of one text.
+            case gaveUp
+        }
+
+        /// The most work the search for tables of contents with formulas may do in one text.
+        static let contentsWork = 400_000
+
         /// The first run of lines at or after `cursor` that prints the entries of a table of contents in order, for a
-        /// table with a formula in an entry. The run's start is tried at a fixed number of lines at most.
-        fileprivate func firstRun(of entries: [Printed], from cursor: Int) -> Range<Int>? {
-            guard let first = entries.first else { return nil }
-            var start = cursor
-            var budget = 100_000
-            while start < lines.count, budget > 0 {
-                budget -= 1
-                if var line = end(of: first, from: start) {
-                    var matched = 1
-                    for entry in entries.dropFirst() {
-                        guard line < lines.count, let next = end(of: entry, from: line) else { break }
-                        line = next
-                        matched += 1
-                    }
-                    if matched == entries.count { return start..<line }
-                }
-                start += 1
+        /// table with a formula in an entry. Every run is followed at once, entry by entry, keeping for each line it
+        /// can reach the earliest start, so an entry that can end on more than one line is tried at each, and the
+        /// lines an entry can end on are found once for each spelling and line.
+        fileprivate func firstRun(
+            of entries: [Printed], from cursor: Int, starts: [Character: [Int]], work: inout Int
+        ) -> RunSearch {
+            guard let first = entries.first, cursor < lines.count else { return .notFound }
+            var known: [String: [Int: [Int]]] = [:]
+            func ends(of entry: Printed, from line: Int, work: inout Int) -> [Int] {
+                if let ends = known[entry.source]?[line] { return ends }
+                let ends = self.ends(of: entry, from: line, work: &work)
+                known[entry.source, default: [:]][line] = ends
+                return ends
             }
-            return nil
+            var reach: [Int: Int] = [:]
+            var gaveUp = false
+            forEachCandidate(for: first, in: cursor..<lines.count, starts: starts) { start in
+                work += 1
+                if work > Self.contentsWork {
+                    gaveUp = true
+                    return false
+                }
+                for end in ends(of: first, from: start, work: &work) { reach[end] = min(reach[end] ?? start, start) }
+                return true
+            }
+            if gaveUp { return .gaveUp }
+            for entry in entries.dropFirst() {
+                var next: [Int: Int] = [:]
+                for (line, start) in reach where line < lines.count {
+                    work += 1
+                    if work > Self.contentsWork { return .gaveUp }
+                    for end in ends(of: entry, from: line, work: &work) { next[end] = min(next[end] ?? start, start) }
+                }
+                guard !next.isEmpty else { return .notFound }
+                reach = next
+            }
+            guard let run = reach.min(by: { ($0.value, $0.key) < ($1.value, $1.key) }) else { return .notFound }
+            return .found(run.value..<run.key)
         }
 
         /// Index body matches only. A wrapped heading cannot continue through the start of a table.
@@ -557,13 +708,21 @@ extension DocumentOutline {
     }
 
     /// Whether a heading stands first on a page. A theme can put a number in front of it, so the line only has to
-    /// hold the heading; a long heading wraps, so it may also go on past the line.
+    /// hold the heading; a long heading wraps, so it may also go on past the line. A heading with a formula has to be
+    /// read from the page's first lines as a whole, the formula's place holding only letters it can print.
     private static func opens(_ text: String, with heading: DocumentHeading) -> Bool {
-        // A formula's glyphs do not spell it, so a heading with one is known by its words before it.
-        let target = Printed(heading.printedText, foldsCase: true).pieces[0]
+        let printed = Printed(heading.printedText, foldsCase: true)
         let lines = text.components(separatedBy: .newlines).lazy.map { normalized($0, foldsCase: true) }
-        guard !target.isEmpty, let first = lines.first(where: { !$0.isEmpty }) else { return false }
-        return first.contains(target) || target.hasPrefix(first)
+        guard let first = lines.first(where: { !$0.isEmpty }) else { return false }
+        guard printed.hasFormula else {
+            return !printed.key.isEmpty && (first.contains(printed.key) || printed.key.hasPrefix(first))
+        }
+        let opening = text.components(separatedBy: .newlines).lazy.filter {
+            !normalized($0, foldsCase: true).isEmpty
+        }.prefix(LineIndex.joinedLines)
+        let index = LineIndex(pages: [opening.joined(separator: "\n")], labels: Labels(), foldsCase: true)
+        var work = 0
+        return !index.lines.isEmpty && !index.ends(of: printed, from: 0, work: &work).isEmpty
     }
 
     public static func entries(

@@ -207,7 +207,16 @@ struct ReadingPDFExporterTests {
             outline.entries.map(\.title) == [
                 "第 1 章 返却と予約", "1.1 開室の識別", "1.2 x_1 = x_2 と札の確認", "1.3 注を含む見出し", "第 2 章 所在を探す",
             ])
-        #expect(outline.entries.allSatisfy { $0.pageIndex != nil }, "\(outline.entries)")
+        // Every heading points at the body after the contents, in order, each chapter on a page of its own.
+        let pages = outline.entries.compactMap(\.pageIndex)
+        try #require(pages.count == 5, "\(outline.entries)")
+        let document = prepared.logicalDocument
+        let contents = try #require(
+            (0..<document.pageCount).first { document.page(at: $0)?.string?.contains("返却と予約") == true })
+        #expect(pages.allSatisfy { $0 > contents }, "\(outline.entries)")
+        #expect(pages == pages.sorted() && pages[4] > pages[0], "\(outline.entries)")
+        #expect(document.page(at: pages[0])?.string?.contains("返却口の資料") == true)
+        #expect(document.page(at: pages[4])?.string?.contains("所在の本文") == true)
     }
 
     @Test("スクロールでページをつないだ表示のあとでも、読むための PDF と用紙のどのページも論理ページの大きさのまま", .timeLimit(.minutes(1)))

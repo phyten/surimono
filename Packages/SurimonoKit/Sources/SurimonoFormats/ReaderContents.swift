@@ -66,23 +66,56 @@ extension HTMLFragment {
 
     /// The body with the lead contents at its head, after the title when the body opens with one: a first-level
     /// heading the document begins with and the only one it has is its title, as the contents leave it out, and the
-    /// contents come after a title. Among several first-level headings the first is a chapter the contents list.
+    /// contents come after a title. Among several first-level headings the first is a chapter the contents list. The
+    /// elements are read as elements: a heading in a comment or with an upper-case tag counts as what it is.
     package static func placingLead(_ nav: String, in body: String) -> String {
         guard !nav.isEmpty else { return body }
-        func opensTitle(_ text: Substring) -> Bool {
-            guard text.hasPrefix("<h1"), let next = text.dropFirst(3).first else { return false }
-            return next == ">" || next.isWhitespace
+        enum Stage {
+            case start, title, afterTitle, rest
         }
-        let start = body.drop(while: \.isWhitespace)
-        guard opensTitle(start), let close = start.range(of: "</h1>") else { return nav + body }
-        var end = close.upperBound
-        if end < start.endIndex, start[end] == "\n" { end = start.index(after: end) }
-        var rest = body[end...]
-        while let found = rest.range(of: "<h1") {
-            if opensTitle(rest[found.lowerBound...]) { return nav + body }
-            rest = rest[found.upperBound...]
+        var stage = Stage.start
+        var head = ""
+        var titled = false
+        var anotherTitle = false
+        HTMLScanner.forEachToken(body) { token in
+            guard !anotherTitle else { return }
+            let source: String
+            var opensTitle = false
+            var closesTitle = false
+            switch token {
+            case .text(let text), .opaque(let text): source = text
+            case .tag(let tag):
+                source = tag.source
+                opensTitle = tag.name == "h1" && !tag.isClosing
+                closesTitle = tag.name == "h1" && tag.isClosing
+            }
+            switch stage {
+            case .start:
+                head += source
+                if opensTitle {
+                    stage = .title
+                } else if case .tag = token {
+                    stage = .rest
+                } else if case .text(let text) = token, !text.allSatisfy(\.isWhitespace) {
+                    stage = .rest
+                }
+            case .title:
+                head += source
+                if closesTitle {
+                    stage = .afterTitle
+                    titled = true
+                }
+            case .afterTitle:
+                // The line break after the title stays with it.
+                if case .text(let text) = token, text.hasPrefix("\n") { head += "\n" }
+                stage = .rest
+                if opensTitle { anotherTitle = true }
+            case .rest:
+                if opensTitle { anotherTitle = true }
+            }
         }
-        return String(body[..<end]) + nav + String(body[end...])
+        guard titled, !anotherTitle else { return nav + body }
+        return head + nav + String(body.dropFirst(head.count))
     }
 
     private func contentsKind(of nav: HTMLScanner.Tag, at index: Int) -> ReaderContentsKind? {
@@ -177,9 +210,15 @@ extension HTMLFragment {
             copy.body = anchored
             headings = DocumentOutline.headings(inHTML: anchored)
         }
-        let nav = MarkdownExtensions.tableOfContents(
-            headings.map { .init(level: $0.level, id: $0.id ?? "", text: $0.text) }, levels: depth.headingLevels,
-            title: contentsTitle)
+        // A heading with a formula is listed as it is printed, as the manuscript's own contents list it.
+        let printedHTML = DocumentOutline.headingsContentsHTML(inHTML: copy.body)
+        let anchors = headings.enumerated().map { index, heading in
+            MarkdownExtensions.HeadingAnchor(
+                level: heading.level, id: heading.id ?? "", text: heading.text,
+                html: heading.printedText.contains(DocumentHeading.formulaStart) && printedHTML.count == headings.count
+                    ? printedHTML[index] : nil)
+        }
+        let nav = MarkdownExtensions.tableOfContents(anchors, levels: depth.headingLevels, title: contentsTitle)
         return copy.prependingLead(nav)
     }
 }

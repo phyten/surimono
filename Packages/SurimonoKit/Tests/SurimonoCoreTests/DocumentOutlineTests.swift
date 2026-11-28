@@ -3,6 +3,11 @@ import Testing
 
 @testable import SurimonoCore
 
+/// A formula as a heading's printed text marks it, with its source.
+private func formula(_ tex: String) -> String {
+    "\(DocumentHeading.formulaStart)\(tex)\(DocumentHeading.formulaEnd)"
+}
+
 @Suite("文書の構造", .timeLimit(.minutes(1)))
 struct DocumentOutlineTests {
     @Test("コードに行番号が加わっても原稿順の目次を読み飛ばす")
@@ -427,8 +432,8 @@ struct DocumentOutlineTests {
     @Test("数式を含む見出しは、式の所を飛ばして前後の文字でページを探す")
     func headingWithFormula() {
         let headings = [
-            DocumentHeading(level: 2, text: "収録条件 n\\neq0", printed: "収録条件 \u{FFFC}"),
-            DocumentHeading(level: 2, text: "α+β と index の対応", printed: "\u{FFFC} と index の対応"),
+            DocumentHeading(level: 2, text: "収録条件 n\\neq0", printed: "収録条件 " + formula("n\\neq0")),
+            DocumentHeading(level: 2, text: "α+β と index の対応", printed: formula("\\alpha+\\beta") + " と index の対応"),
         ]
         let pages = ["表題\n1. 収録条件 n≠0\n本文の文。", "4.1. α + β と index の対応\n本文の文。"]
         #expect(DocumentOutline.pages(of: headings, inPageTexts: pages) == [0, 1])
@@ -436,7 +441,7 @@ struct DocumentOutlineTests {
 
     @Test("数式を含む見出しの前の言葉で始まる文の行は、その見出しとはしない")
     func formulaHeadingNotInSentence() {
-        let headings = [DocumentHeading(level: 2, text: "収録条件 n\\neq0", printed: "収録条件 \u{FFFC}")]
+        let headings = [DocumentHeading(level: 2, text: "収録条件 n\\neq0", printed: "収録条件 " + formula("n\\neq0"))]
         let pages = ["収録条件を満たす標本は、棚の上段に置いて記録を付ける決まりとし、例外は設けないことにした。", "収録条件 n≠0\n本文の文。"]
         #expect(DocumentOutline.pages(of: headings, inPageTexts: pages) == [1])
     }
@@ -444,13 +449,120 @@ struct DocumentOutlineTests {
     @Test("数式を含む原文の目次の行も見出しに取らない")
     func contentsWithFormula() {
         let headings = [
-            DocumentHeading(level: 2, text: "収録条件 n\\neq0", printed: "収録条件 \u{FFFC}"),
+            DocumentHeading(level: 2, text: "収録条件 n\\neq0", printed: "収録条件 " + formula("n\\neq0")),
             DocumentHeading(level: 2, text: "保存"),
         ]
         let pages = ["目次\n1. 収録条件 n≠0\n2. 保存", "1. 収録条件 n≠0\n本文の文。\n2. 保存\n本文の文。"]
         #expect(
             DocumentOutline.pages(
-                of: headings, inPageTexts: pages, contentsEntries: ["1. 収録条件 \u{FFFC}", "2. 保存"]) == [1, 1])
+                of: headings, inPageTexts: pages, contentsEntries: ["1. 収録条件 " + formula("n\\neq0"), "2. 保存"]) == [
+                    1, 1,
+                ])
+    }
+
+    @Test("数式の前の言葉で始まる短い文の行は、数式を含む見出しとはしない")
+    func formulaHeadingNotInShortSentence() {
+        let headings = [DocumentHeading(level: 2, text: "収録条件 n\\neq0", printed: "収録条件 " + formula("n\\neq0"))]
+        #expect(DocumentOutline.pages(of: headings, inPageTexts: ["収録条件を確認する。", "収録条件 n≠0\n本文"]) == [1])
+    }
+
+    @Test("番号と数式だけの見出しは、別の見出しの行に当てない")
+    func numberAndFormulaOnly() {
+        let headings = [DocumentHeading(level: 3, text: "1.1 x", printed: "1.1 " + formula("x"))]
+        #expect(DocumentOutline.pages(of: headings, inPageTexts: ["1.1 違う見出し\n本文の文。"]) == [nil])
+    }
+
+    @Test("数式の所に式にない言葉が入った行は、その見出しとはしない")
+    func formulaGapHoldsOnlyFormulaLetters() {
+        let headings = [DocumentHeading(level: 2, text: "Section x", printed: "Section " + formula("x"))]
+        #expect(DocumentOutline.pages(of: headings, inPageTexts: ["Section intro\nBody", "Section x\nBody"]) == [1])
+    }
+
+    @Test("数式が別の行に出た原文の目次も、見出しの照合から外す")
+    func contentsWithFormulaOnNextLine() {
+        let headings = [
+            DocumentHeading(level: 2, text: "Section x", printed: "Section " + formula("x")),
+            DocumentHeading(level: 2, text: "Next"),
+        ]
+        let pages = ["Contents\nSection\nx\nNext", "Section x\nBody\nNext\nBody"]
+        #expect(
+            DocumentOutline.pages(
+                of: headings, inPageTexts: pages, contentsEntries: ["Section " + formula("x"), "Next"]) == [1, 1])
+    }
+
+    @Test("数式だけの項目がある原文の目次も、見出しの照合から外す")
+    func contentsWithFormulaOnlyEntry() {
+        let headings = [DocumentHeading(level: 2, text: "Intro"), DocumentHeading(level: 2, text: "Next")]
+        let pages = ["Contents\nIntro\nE = mc2\nNext", "Intro\nBody\nE = mc2\nNext\nBody"]
+        #expect(
+            DocumentOutline.pages(
+                of: headings, inPageTexts: pages, contentsEntries: ["Intro", formula("E=mc^2"), "Next"]) == [1, 1])
+    }
+
+    @Test("数式が別の行に出た先の原文の目次を見つければ、後の目次も見出しの照合から外す")
+    func laterContentsAfterFormulaContents() {
+        let headings = [
+            DocumentHeading(level: 2, text: "Section x", printed: "Section " + formula("x")),
+            DocumentHeading(level: 2, text: "Next"), DocumentHeading(level: 2, text: "Alpha"),
+            DocumentHeading(level: 2, text: "Beta"),
+        ]
+        let pages = [
+            "Contents\nSection\nx\nNext\nMore contents\nAlpha\nBeta",
+            "Section x\nBody\nNext\nBody\nAlpha\nBody\nBeta\nBody",
+        ]
+        let entries = ["Section " + formula("x"), "Next", "", "Alpha", "Beta"]
+        #expect(DocumentOutline.pages(of: headings, inPageTexts: pages, contentsEntries: entries) == [1, 1, 1, 1])
+    }
+
+    @Test("同じ項目が二千続き数式を含む目次の照合も、三百ページで短時間に終わる")
+    func repeatedFormulaContentsIsBounded() {
+        let title = "Repeated " + formula("x")
+        let entries = Array(repeating: title, count: 1999) + ["Missing " + formula("y")]
+        let headings = entries.map { DocumentHeading(level: 2, text: "Repeated x", printed: $0) }
+        let pages = Array(repeating: Array(repeating: "Repeated x", count: 50).joined(separator: "\n"), count: 300)
+        let clock = ContinuousClock()
+        let elapsed = clock.measure {
+            _ = DocumentOutline.pages(of: headings, inPageTexts: pages, contentsEntries: entries)
+        }
+        #expect(elapsed < .seconds(3), "\(elapsed)")
+    }
+
+    @Test("見つからない見出しが多くても、後ろの番号だけの行の見出しを探す")
+    func lineByLineSearchSharesItsBudget() {
+        let lines = (0..<5000).map { "xline\($0)" } + ["1", "Last heading", "Body."]
+        let headings =
+            (0..<100).map { DocumentHeading(level: 2, text: "xmissing\($0)") }
+            + [DocumentHeading(level: 2, text: "1 Last heading")]
+        let pages = DocumentOutline.pages(of: headings, inPageTexts: [lines.joined(separator: "\n")])
+        #expect(pages.last == 0)
+    }
+
+    @Test("大文字に組まれ、番号だけの行に続く見出しや数式を含む見出しにもページが付く")
+    func capitalsWithJoinedLinesAndFormulas() {
+        let numbered = [DocumentHeading(level: 1, text: "1 Introduction")]
+        #expect(DocumentOutline.pages(of: numbered, inPageTexts: ["Title\n1\nINTRODUCTION\nWe study paper."]) == [0])
+        let energy = [DocumentHeading(level: 1, text: "Energy E=mc^2", printed: "Energy " + formula("E=mc^2"))]
+        #expect(DocumentOutline.pages(of: energy, inPageTexts: ["ENERGY E=mc2\nBody"]) == [0])
+    }
+
+    @Test("数式で始まる章がページの頭にあれば、前の章はその前のページで終わる")
+    func chapterOpeningWithFormula() {
+        let headings = [
+            DocumentHeading(level: 1, text: "Intro"),
+            DocumentHeading(level: 1, text: "\\alpha の章", printed: formula("\\alpha") + " の章"),
+        ]
+        let texts = ["Intro\nBody", "Body", "α の章\nBody"]
+        #expect(DocumentOutline.chapterEnds(of: headings, pages: [0, 2], inPageTexts: texts) == [1])
+    }
+
+    @Test("数式を含む章の前の言葉で始まる文がページの頭にあっても、章はそのページを開かない")
+    func chapterNotOpenedBySentence() {
+        let headings = [
+            DocumentHeading(level: 1, text: "Intro"),
+            DocumentHeading(level: 1, text: "収録条件 n\\neq0", printed: "収録条件 " + formula("n\\neq0")),
+        ]
+        let texts = ["Intro\nBody", "Body", "収録条件を確認する。\n収録条件 n≠0\nBody"]
+        #expect(DocumentOutline.chapterEnds(of: headings, pages: [0, 2], inPageTexts: texts) == [2])
     }
 
     @Test("脚注の番号を付けて組まれた見出しは、題に番号を入れずにページが付く")

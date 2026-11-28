@@ -56,14 +56,14 @@ struct OutlineTitleTests {
         let body = MarkdownConverter.convert("## 収録条件 $n\\neq0$ の確認\n\n本文").body
         let heading = DocumentOutline.headings(inHTML: body).first
         #expect(heading?.text == "収録条件 n\\neq0 の確認")
-        #expect(heading?.printedText == "収録条件 \u{FFFC} の確認")
+        #expect(heading?.printedText == "収録条件 \u{FFF9}n\\neq0\u{FFFB} の確認")
     }
 
     @Test("Markdown の目次の項目に、見出しの数式を見出しと同じ形で入れる")
     func markdownContentsKeepFormula() throws {
         let body = MarkdownConverter.convert("[TOC]\n\n## 収録条件 $n\\neq0$\n\n本文\n\n## 保存\n\n本文").body
         #expect(try contents(in: body).contains("<svg"))
-        #expect(DocumentOutline.sourceContentsEntries(inHTML: body) == ["収録条件 \u{FFFC}", "保存"])
+        #expect(DocumentOutline.sourceContentsEntries(inHTML: body) == ["収録条件 \u{FFF9}n\\neq0\u{FFFB}", "保存"])
     }
 
     @Test("front matter の toc の目次は、文書の始めの # の表題の後に置く")
@@ -91,6 +91,43 @@ struct OutlineTitleTests {
         #expect(
             DocumentOutline.sourceContentsEntries(inHTML: body) == ["1 はじめに", "2 注を含む見出し", "3 最初の説明へ戻る"])
         #expect(titles(body) == ["1 はじめに", "2 注を含む見出し", "3 最初の説明へ戻る"])
+    }
+
+    @Test("LaTeX の紙の目次は短い題を使い、引用の文字を残してリンクと ID を持ち込まない")
+    func latexContentsShortTitleCitationLabel() throws {
+        let body = LaTeXConverter.convert(
+            """
+            \\documentclass{article}\\begin{document}\\tableofcontents
+            \\section[短い題]{長い題\\footnote{注の文。}}\\label{s1}本文
+            \\section{\\protect\\cite{k}を読む}本文は\\ref{s1}を見る。
+            \\begin{thebibliography}{9}\\bibitem{k} 架空の文献。\\end{thebibliography}
+            \\end{document}
+            """
+        ).body
+        let nav = try contents(in: body)
+        #expect(DocumentOutline.sourceContentsEntries(inHTML: body) == ["1 短い題", "2 [1]を読む"])
+        #expect(nav.components(separatedBy: "<a ").count - 1 == 2)
+        #expect(!nav.contains(" id="))
+        #expect(body.contains("href=\"#sec-1\""), "the reference still reaches the section")
+    }
+
+    @Test("アプリで足した Markdown の先頭の目次にも、見出しの数式を見出しと同じ形で入れる")
+    func addedLeadContentsKeepFormula() throws {
+        var reading = FormatReadingSettings()
+        reading.document.set(.outline(present: true, depth: .levels(3)), for: .tableOfContents, format: .markdown)
+        let body = MarkdownConverter.convert("## 収録条件 $n\\neq0$\n\n本文\n\n## 保存\n\n本文", reading: reading).body
+        #expect(try contents(in: body).contains("<svg"))
+    }
+
+    @Test("先頭の目次は、コメントの中の h1 を見出しと数えず、大文字の H1 の表題の後に置く")
+    func leadAfterTitleReadsElements() throws {
+        let nav = "<nav class=\"toc\"></nav>"
+        let commented = HTMLFragment.placingLead(nav, in: "<h1>表題</h1>\n<!-- <h1>例</h1> -->\n<h2>本文</h2>")
+        #expect(commented.hasPrefix("<h1>表題</h1>\n<nav"))
+        let upper = HTMLFragment.placingLead(nav, in: "<H1 id=\"t\">表題</H1><h2>本文</h2>")
+        #expect(upper == "<H1 id=\"t\">表題</H1>" + nav + "<h2>本文</h2>")
+        let two = HTMLFragment.placingLead(nav, in: "<h1>一</h1><h1>二</h1>")
+        #expect(two.hasPrefix(nav))
     }
 
     @Test("目次の項目のHTMLは、見出しの中の脚注の印と ID を持ち込まない")

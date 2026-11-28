@@ -8,11 +8,13 @@ public struct DocumentHeading: Equatable, Sendable {
     /// The heading's anchor, when the converter gave it one.
     public var id: String?
     /// The heading as the page prints it, when that differs from `text`: with a footnote's number or a task's keyword,
-    /// and `DocumentHeading.formula` where a formula stands, whose glyphs the page's text does not spell reliably.
+    /// and a formula's source between `formulaStart` and `formulaEnd`, since the page's text spells a formula's glyphs
+    /// in an order of its own.
     public var printed: String?
 
-    /// Stands for a formula in `printed`.
-    public static let formula: Character = "\u{FFFC}"
+    /// Open and close a formula's source in `printed`.
+    public static let formulaStart: Character = "\u{FFF9}"
+    public static let formulaEnd: Character = "\u{FFFB}"
 
     public init(level: Int, text: String, id: String? = nil, printed: String? = nil) {
         self.level = level
@@ -38,9 +40,15 @@ public enum DocumentOutline {
         scan(html).map(\.followsHeading)
     }
 
+    /// For each of `headings(inHTML:)`, its HTML as a table of contents shows it (`contentsHTML(ofHeading:)`).
+    package static func headingsContentsHTML(inHTML html: String) -> [String] {
+        scan(html).map { contentsHTML(ofHeading: $0.html) }
+    }
+
     /// What a heading or a contents entry holds besides its title and the page prints with it: a footnote's mark and a
-    /// task's keyword and priority. Contents, bookmarks and the band leave them out, as LaTeX's contents leave out a
-    /// heading's footnote.
+    /// task's keyword and priority. Contents, bookmarks and the band leave them out: Surimono's choice for a title to
+    /// read at a glance, which LaTeX itself makes only when the author writes a short title or uses footmisc's
+    /// `stable`.
     private static let printedExtras: Set<String> = ["footnote-ref", "org-todo", "org-done", "org-priority"]
     /// What a heading holds that the paper sets apart from its line: Org's tags, at the end of the line.
     private static let setApartExtras: Set<String> = ["org-tags"]
@@ -113,7 +121,13 @@ public enum DocumentOutline {
                 {
                     if spaceAfterNumber { append(" ") }
                     spaceAfterNumber = false
-                    printed.append(DocumentHeading.formula)
+                    let source = HTMLScanner.decodingEntities(label).filter {
+                        $0 != DocumentHeading.formulaStart && $0 != DocumentHeading.formulaEnd
+                    }
+                    // The source is kept escaped, as the rest of the text is until `end()` decodes it.
+                    printed +=
+                        String(DocumentHeading.formulaStart) + HTML.escape(source)
+                        + String(DocumentHeading.formulaEnd)
                     if extra == nil { title += label }
                 }
                 hidden = (tag.name, 1)
@@ -157,31 +171,39 @@ public enum DocumentOutline {
         }
     }
 
-    private static func scan(_ html: String) -> [(heading: DocumentHeading, followsHeading: Bool)] {
-        var headings: [(heading: DocumentHeading, followsHeading: Bool)] = []
+    private static func scan(_ html: String) -> [(heading: DocumentHeading, followsHeading: Bool, html: String)] {
+        var headings: [(heading: DocumentHeading, followsHeading: Bool, html: String)] = []
         var open: (tag: HTMLScanner.Tag, level: Int, follows: Bool)?
+        // The heading's own HTML, between its tags.
+        var inner = ""
         var reader = HeadingTextReader()
         var afterHeading = false
         for token in HTMLScanner.tokens(html) {
             switch token {
             case .text(let text):
                 reader.text(text)
+                if open != nil { inner += text }
                 if open == nil, !text.allSatisfy(\.isWhitespace) { afterHeading = false }
-            case .opaque: break
+            case .opaque(let text): if open != nil { inner += text }
             case .tag(let tag):
-                if reader.tag(tag, boundary: open?.tag.name) { continue }
+                let skipped = reader.tag(tag, boundary: open?.tag.name)
+                if let current = open, skipped || !(tag.isClosing && tag.name == current.tag.name) {
+                    inner += tag.source
+                }
+                if skipped { continue }
                 if let current = open {
                     guard tag.isClosing, tag.name == current.tag.name else { continue }
                     let (title, printed) = reader.end()
                     if !title.isEmpty {
                         let heading = DocumentHeading(
                             level: current.level, text: title, id: current.tag.attribute("id"), printed: printed)
-                        headings.append((heading, current.follows))
+                        headings.append((heading, current.follows, inner))
                         afterHeading = true
                     }
                     open = nil
                 } else if !tag.isClosing, let level = headingLevel(tag.name) {
                     open = (tag, level, afterHeading)
+                    inner = ""
                     reader.begin()
                 } else if !tag.isClosing {
                     afterHeading = false
