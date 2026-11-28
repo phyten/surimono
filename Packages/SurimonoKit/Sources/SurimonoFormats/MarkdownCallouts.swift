@@ -2,7 +2,7 @@ import Foundation
 import Markdown
 
 // Both syntaxes share this mapping so print themes have only one set of classes to style.
-enum MarkdownCallouts {
+public enum MarkdownCallouts {
     struct Kind: Sendable {
         let name: String
 
@@ -41,6 +41,15 @@ enum MarkdownCallouts {
         }
 
         var defaultTitle: String { name.prefix(1).uppercased() + name.dropFirst() }
+
+        /// The tag's text when the author wrote none, marked so the document's language can name it once known.
+        var defaultTitleHTML: String { defaultTitleHTML(HTML.escape(defaultTitle), as: name) }
+
+        /// `text` is HTML. An unknown name stays as written: it is what tells that callout from a plain one.
+        func defaultTitleHTML(_ text: String, as written: String) -> String {
+            guard canonicalName != nil else { return text }
+            return "<span class=\"callout-default-title\" data-callout-title=\"\(HTML.escape(written))\">\(text)</span>"
+        }
 
         /// Kept beside the group's class for a user's CSS: these names had this class before the four groups.
         private var compatibilityClass: String? {
@@ -98,6 +107,28 @@ enum MarkdownCallouts {
         ]
     }
 
+    /// Japanese names for the tags of callouts whose author wrote no title. Other languages keep the written name.
+    private static let japaneseTitles: [String: String] = [
+        "note": "メモ", "abstract": "要約", "summary": "要約", "tldr": "要約", "info": "情報", "todo": "やること",
+        "example": "例", "tip": "ヒント", "hint": "ヒント", "success": "成功", "check": "確認済み", "done": "完了",
+        "important": "重要", "warning": "警告", "attention": "注意", "question": "質問", "help": "ヘルプ",
+        "faq": "よくある質問", "danger": "危険", "caution": "注意", "error": "エラー", "failure": "失敗", "fail": "失敗",
+        "missing": "不足", "alert": "警告", "bug": "バグ", "quote": "引用", "cite": "引用", "neutral": "メモ",
+        "details": "詳細", "seealso": "参考",
+    ]
+
+    /// Names the default tags in the document's language, which is decided only from the finished fragment.
+    public static func localizingDefaultTitles(in html: String, language: String) -> String {
+        guard DocumentLanguage.primary(language) == "ja", html.contains("<span class=\"callout-default-title\"")
+        else { return html }
+        return html.replacing(
+            /<span class="callout-default-title" data-callout-title="([a-z0-9_-]+)">[^<]*<\/span>/
+        ) { match in
+            guard let title = japaneseTitles[String(match.1)] else { return String(match.0) }
+            return "<span class=\"callout-default-title\" data-callout-title=\"\(match.1)\">\(title)</span>"
+        }
+    }
+
     struct Marker: Sendable {
         let kind: Kind
         let consumed: Int
@@ -152,7 +183,7 @@ enum MarkdownCallouts {
                 if let kind {
                     output.append(
                         "\n\(kind.opening(extraClasses: classes, attributes: id))\n", from: mapped.origins[index])
-                    output.append("\(kind.title(HTML.escape(kind.defaultTitle)))\n", from: mapped.origins[index])
+                    output.append("\(kind.title(kind.defaultTitleHTML))\n", from: mapped.origins[index])
                 } else {
                     let attribute = classes.isEmpty ? "" : " class=\"\(HTML.escape(classes))\""
                     output.append("\n<div\(attribute)\(id)>\n", from: mapped.origins[index])
@@ -175,10 +206,10 @@ enum MarkdownCallouts {
             }
             let kind = Kind(name: type)
             // Zenn's message is a box without a heading, so it gets no tag unless the author wrote a title.
-            if !isMessage, title.isEmpty { title = kind.defaultTitle }
+            let titleHTML = title.isEmpty ? (isMessage ? "" : kind.defaultTitleHTML) : HTML.escape(title)
             let opening = output.lines.count + 1
             output.append("\n\(kind.opening)\n", from: mapped.origins[index])
-            if !title.isEmpty { output.append("\(kind.title(HTML.escape(title)))\n", from: mapped.origins[index]) }
+            if !titleHTML.isEmpty { output.append("\(kind.title(titleHTML))\n", from: mapped.origins[index]) }
             stack.append((length, index, opening))
         }
         // Close an unfinished code fence first so generated closing divs cannot become code text.

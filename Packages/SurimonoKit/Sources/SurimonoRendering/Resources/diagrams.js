@@ -98,6 +98,10 @@ for (const [index, source] of Array.from(sources).entries()) {
     svg.style.cssText += `;width:${width * scale}px;max-width:100%;height:auto;display:block;margin:auto;background:white;color:black;direction:ltr;letter-spacing:normal;word-spacing:normal;text-transform:none`;
     const rendered = document.importNode(svg, true);
     block.replaceChildren(rendered);
+    // A diagram reduced below half its size prints text too small to read; the print check says so.
+    const reduced = Math.min(scale, (block.clientWidth || width) / width);
+    if (reduced < 0.5) block.dataset.diagramScale = String(Math.max(1, Math.round(reduced * 100)));
+    else delete block.dataset.diagramScale;
     globalThis.surimonoRenderedDiagrams?.add(rendered);
     block.classList.remove('diagram-error');
   } catch (error) {

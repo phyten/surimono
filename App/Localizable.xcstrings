@@ -8675,6 +8675,58 @@
         }
       }
     },
+    "Could not read file: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not read file: %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Datei konnte nicht gelesen werden: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo leer el archivo: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de lire le fichier : %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ファイル「%@」を読み込めませんでした"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "파일을 읽을 수 없습니다: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法读取文件：%@"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法讀取檔案：%@"
+          }
+        }
+      }
+    },
     "Citations use the numeric style.": {
       "localizations": {
         "en": {
@@ -80987,6 +81039,110 @@
           "stringUnit": {
             "state": "translated",
             "value": "LaTeX"
+          }
+        }
+      }
+    },
+    "Diagram Reduced to %lld%% to Fit the Page": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagram Reduced to %lld%% to Fit the Page"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagramm auf %lld %% verkleinert, damit es auf die Seite passt"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagrama reducido al %lld %% para que quepa en la página"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagramme réduit à %lld %% pour tenir sur la page"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "図をページに収めるため %lld%% に縮小しています"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "페이지에 맞추기 위해 다이어그램을 %lld%%로 축소했습니다"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "为适合页面，图表已缩小到 %lld%%"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "為符合頁面，圖表已縮小至 %lld%%"
+          }
+        }
+      }
+    },
+    "Split the diagram into smaller ones in the source document, or choose larger paper.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Split the diagram into smaller ones in the source document, or choose larger paper."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Teile das Diagramm im Quelldokument in kleinere auf, oder wähle größeres Papier."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Divide el diagrama en partes más pequeñas en el documento original o elige un papel más grande."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Divisez le diagramme en plusieurs plus petits dans le document source, ou choisissez un papier plus grand."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "元の文書で図を小さく分けるか、大きい用紙を選んでください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "원본 문서에서 다이어그램을 더 작게 나누거나 더 큰 용지를 선택하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请在源文档中将图表拆分为较小的部分，或选择更大的纸张。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請在原始文件中將圖表拆分為較小的部分，或選擇更大的紙張。"
           }
         }
       }

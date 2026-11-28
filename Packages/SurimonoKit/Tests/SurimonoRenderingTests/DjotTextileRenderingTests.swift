@@ -30,3 +30,16 @@ struct DjotTextileRenderingTests {
         #expect(DocumentOutline.pages(of: headings, inPageTexts: texts).allSatisfy { $0 != nil })
     }
 }
+
+extension DjotTextileRenderingTests {
+    @Test("Textile の略語の展開語は紙に括弧で添える", .timeLimit(.minutes(1)))
+    func acronymExpansion() async throws {
+        _ = NSApplication.shared
+        let source = DocumentSource(data: Data("和文の PIM(Paper Index Mark) を読む。".utf8), format: .textile)
+        let theme = try #require(try PrintThemeLibrary.load().first { $0.id == "standard" })
+        let settings = RenderSettings(layout: .a4Single, theme: theme, preset: .init(id: "none", name: "None"))
+        let result = try await DocumentRenderer().render(source, settings: settings)
+        let text = result.logicalDocument.page(at: 0)?.string ?? ""
+        #expect(text.contains("PIM（Paper Index Mark）"), "\(text)")
+    }
+}

@@ -164,7 +164,13 @@ Document.prototype.finalizeHeader = function(...args) {
     // toc2 and explicit placement can supersede the spelling of toc itself.
     if ('toc2' in attrs || attrs['toc-placement'] !== 'auto' || attrs['toc-position']) delete positions.toc;
     const values = Object.fromEntries(readingFields.filter(key => key in attrs).map(key => [key, attrs[key]]));
-    if (this._attributesModified.has('toc-title')) contentsTitle = attrs['toc-title'];
+    if (this._attributesModified.has('toc-title')) {
+        contentsTitle = attrs['toc-title'];
+    } else if (/^ja(?:-|$)/i.test(String(attrs.lang ?? ''))) {
+        // Asciidoctor's default title is English whatever the language; a Japanese document gets the
+        // word the other formats print. A title the author wrote, or a translation file set, is kept.
+        for (const snapshot of [attrs, this._headerAttributes]) if (snapshot) snapshot['toc-title'] = '目次';
+    }
     const result = finishHeader.apply(this, args);
     const lead = 'toc' in attrs && attrs['toc-placement'] !== 'macro';
     if (!lead && 'toc' in attrs) delete positions.toc;

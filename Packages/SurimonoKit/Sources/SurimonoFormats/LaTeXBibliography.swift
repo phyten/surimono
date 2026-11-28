@@ -36,6 +36,9 @@ final class LaTeXBibliography {
     var sortsAndCompresses = false
     var hasManualBibliography = false
     var startsBlocksAsParagraphs = false
+    /// Set for a Japanese Markdown document: names all written in kanji or kana are listed with a nakaguro, as
+    /// Japanese reference lists do, rather than with BibTeX's English "and".
+    var joinsWideNames = false
     private var manualSquareBrackets: Bool?
     struct ManualLabel {
         let author: String
@@ -138,7 +141,11 @@ final class LaTeXBibliography {
                 }
             }
             guard document.reserveExpansion() else { break }
-            selected.append((key, Entry(fields, key: key, type: record.type, alpha: style == "alpha")))
+            selected.append(
+                (
+                    key,
+                    Entry(fields, key: key, type: record.type, alpha: style == "alpha", joinsWideNames: joinsWideNames)
+                ))
         }
         let citationOrdered =
             citationOrderOverride ?? (style.hasPrefix("unsrt") || style == "none" || style.isEmpty && !authorYear)
@@ -225,16 +232,20 @@ final class LaTeXBibliography {
         let sortKey: String
         let alphaLabel: String
 
-        init(_ fields: [String: String], key: String, type: String, alpha: Bool) {
+        init(_ fields: [String: String], key: String, type: String, alpha: Bool, joinsWideNames: Bool = false) {
             let authors = LaTeXBibText.names(fields["author"] ?? "")
             let editors = LaTeXBibText.names(fields["editor"] ?? "")
             let citedNames = authors.isEmpty ? editors : authors
             let organization =
                 ["manual", "proceedings"].contains(type) ? LaTeXBibText.decode(fields["organization"] ?? "") : ""
             let first = citedNames.first?.family ?? (organization.isEmpty ? key : organization)
+            func wide(_ names: [(family: String, printedHTML: String)]) -> Bool {
+                joinsWideNames && !names.isEmpty
+                    && names.allSatisfy { !$0.family.isEmpty && $0.family.allSatisfy(MarkdownConverter.isWide) }
+            }
             let short =
                 citedNames.count >= 3 || citedNames.last?.family == "et al."
-                ? first + " et al." : citedNames.map(\.family).joined(separator: " and ")
+                ? first + " et al." : citedNames.map(\.family).joined(separator: wide(citedNames) ? "・" : " and ")
             shortAuthor = HTML.escape(short.isEmpty ? first : short)
             func field(_ name: String, sentenceCase: Bool = false) -> String {
                 LaTeXBibText.decode(fields[name] ?? "", html: true, sentenceCase: sentenceCase)
@@ -243,6 +254,7 @@ final class LaTeXBibliography {
                 let words = names.map(\.printedHTML)
                 guard let last = words.last else { return "" }
                 if words.count == 1 { return last }
+                if wide(names) { return words.joined(separator: "・") }
                 if last == "et al." { return words.dropLast().joined(separator: ", ") + " " + last }
                 return words.dropLast().joined(separator: ", ") + (words.count > 2 ? ", and " : " and ") + last
             }

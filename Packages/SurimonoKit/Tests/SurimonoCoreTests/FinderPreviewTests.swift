@@ -95,7 +95,7 @@ struct FinderPreviewTests {
             for expected in [
                 #"body class="surimono format-mediawiki""#, "font-size: 10.5pt",
                 #"<h1 id="field-notes">Field Notes</h1>"#, #"<h2 id="paper">Paper</h2>"#,
-                ##"<nav class="toc"><ul><li><a href="#paper">Paper</a>"##,
+                ##"<nav class="toc"><p class="toc-title">Contents</p><ul><li><a href="#paper">Paper</a>"##,
                 "<ul><li>Washi</li></ul>", #"<table class="wikitable">"#,
                 "<th><p>Material</p>", "<td><p>Kozo</p>", ##"<a href="#paper">Back to paper</a>"##,
             ] {

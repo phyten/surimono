@@ -62,14 +62,18 @@ enum OrgMath {
         latex = LaTeXReader.removingLabels(latex).0
         let wrapper = LaTeXReader.mathEnvironments[base] ?? nil
         let source = "\\begin{\(name)}\(body)\\end{\(name)}"
-        func render(_ formula: String) -> String {
-            context.formula(wrapper.map { $0.0 + formula + $0.1 } ?? formula, display: true, source: source)
+        func render(_ formula: String, numbers: [String?] = []) -> String {
+            context.formula(
+                wrapper.map { $0.0 + formula + $0.1 } ?? formula, display: true, source: source, numbers: numbers)
         }
         func withoutSkips(_ text: String) -> String {
             text.replacingOccurrences(of: "\\nonumber", with: "").replacingOccurrences(of: "\\notag", with: "")
         }
         if LaTeXReader.numberedRows.contains(base) {
             var rows = LaTeXReader.rows(of: latex)
+            // Numbers sit at the right margin on their row's baseline, as LaTeX prints them; a \\tag would
+            // draw each one just after its formula.
+            var numbers = [String?](repeating: nil, count: rows.count)
             for position in rows.indices {
                 var row = rows[position]
                 // eqnarray's three columns read as align's two: `a & = & b` becomes `a &= b`.
@@ -84,11 +88,13 @@ enum OrgMath {
                     !row.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 {
                     context.equationCount += 1
-                    row += "\\tag{\(context.equationCount)}"
+                    numbers[position] = "(\(context.equationCount))"
                 }
                 rows[position] = row
             }
-            return "<div class=\"math-block\">\(render(rows.joined(separator: "\\\\")))</div>\n"
+            let numbered = numbers.contains { $0 != nil }
+            return
+                "<div class=\"math-block\">\(render(rows.joined(separator: "\\\\"), numbers: numbered ? numbers : []))</div>\n"
         }
         let formula = withoutSkips(latex)
         guard !starred, base != "displaymath", LaTeXReader.explicitTag(formula) == nil else {

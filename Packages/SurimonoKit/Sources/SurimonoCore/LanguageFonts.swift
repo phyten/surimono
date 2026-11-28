@@ -49,8 +49,70 @@ public enum LanguageFonts {
             }
         }
         return inserting(in: css) { declaration, _ in
-            insertion(in: declaration, replacements: replacements).map { ($0.0, "\"\($0.1)\", ") }
+            insertion(in: declaration, families: families, replacements: replacements).map {
+                ($0.0, "\"\($0.1)\", ")
+            }
         }
+    }
+
+    /// The East Asian faces a stack may start with after `adapt(_:language:)`.
+    private static let eastAsianFamilies: [String: Family] = {
+        let added: [(String, Family)] = [
+            ("PingFang SC", .gothic), ("PingFang TC", .gothic), ("Songti SC", .mincho), ("Songti TC", .mincho),
+            ("Yuanti SC", .rounded), ("Yuanti TC", .rounded), ("Kaiti SC", .textbook), ("Kaiti TC", .textbook),
+            ("Apple SD Gothic Neo", .gothic), ("AppleMyungjo", .mincho),
+        ]
+        return families.merging(added.map { ($0.0.lowercased(), $0.1) }) { old, _ in old }
+    }()
+
+    private static let westernScriptFamilies = [
+        "Surimono Western Sans", "Surimono Western Serif", "Surimono Western Sans", "Surimono Western Serif",
+        "Surimono Western Mono",
+    ]
+
+    /// Cyrillic and Greek, which East Asian character sets carry as full-width glyphs.
+    static let westernScriptRange =
+        "U+0370-03FF, U+0400-052F, U+1C80-1C8F, U+1F00-1FFF, U+2DE0-2DFF, U+A640-A69F"
+
+    /// Puts a Western face limited to Cyrillic and Greek ahead of the first East Asian face of every list.
+    ///
+    /// Japanese, Chinese and Korean faces draw these letters full-width, so a Russian or Greek word in an
+    /// East Asian document reads one letter at a time. Themes that already start with a Western face drew
+    /// them proportionally; this gives every theme the same result. Other characters never use these faces.
+    public static func separatingWesternScripts(_ css: String) -> String {
+        var used: Set<String> = []
+        let result = inserting(in: css) { declaration, _ in
+            insertion(in: declaration, families: eastAsianFamilies, replacements: westernScriptFamilies).map {
+                used.insert($0.1)
+                return ($0.0, "\"\($0.1)\", ")
+            }
+        }
+        guard !used.isEmpty else { return css }
+        let sources: [(String, [String])] = [
+            (
+                "Surimono Western Sans",
+                ["HelveticaNeue", "HelveticaNeue-Bold", "HelveticaNeue-Italic", "HelveticaNeue-BoldItalic"]
+            ),
+            (
+                "Surimono Western Serif",
+                [
+                    "TimesNewRomanPSMT", "TimesNewRomanPS-BoldMT", "TimesNewRomanPS-ItalicMT",
+                    "TimesNewRomanPS-BoldItalicMT",
+                ]
+            ),
+            ("Surimono Western Mono", ["Menlo-Regular", "Menlo-Bold", "Menlo-Italic", "Menlo-BoldItalic"]),
+        ]
+        var faces = ""
+        for (family, names) in sources where used.contains(family) {
+            for (index, name) in names.enumerated() {
+                let weight = index % 2 == 0 ? "100 500" : "600 900"
+                let style = index < 2 ? "normal" : "italic"
+                faces +=
+                    "\n@font-face { font-family: \"\(family)\"; src: local(\"\(name)\"); font-weight: \(weight); "
+                    + "font-style: \(style); unicode-range: \(westernScriptRange); }"
+            }
+        }
+        return result + faces
     }
 
     // Keep the fallback stack as an inherited property: a user's "pre { font: inherit }" takes
@@ -188,7 +250,9 @@ public enum LanguageFonts {
         var isSymbol: Bool = false
     }
 
-    private static func insertion(in declaration: ArraySlice<Token>, replacements: [String]) -> (Int, String)? {
+    private static func insertion(
+        in declaration: ArraySlice<Token>, families: [String: Family], replacements: [String]
+    ) -> (Int, String)? {
         guard let colon = declaration.firstIndex(where: { $0.isSymbol && $0.value == ":" }),
             let property = declaration.first?.value.lowercased(),
             property == "font-family" || property == "font" || property.hasPrefix("--")

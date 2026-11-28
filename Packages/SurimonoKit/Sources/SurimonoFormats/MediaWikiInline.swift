@@ -116,7 +116,11 @@ extension WikiReader {
                     forceTOC = true
                 case "__TOC__" where !explicitTOC:
                     explicitTOC = true
-                    return later { [self] in ReaderContentsKind.text.mark(MarkdownExtensions.tableOfContents(anchors)) }
+                    // MediaWiki titles its contents box; without the title the list reads as prose.
+                    return later { [self] in
+                        ReaderContentsKind.text.mark(
+                            MarkdownExtensions.tableOfContents(anchors, title: japanese ? "目次" : "Contents"))
+                    }
                 default: break
                 }
                 return ""

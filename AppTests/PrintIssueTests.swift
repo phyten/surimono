@@ -25,6 +25,22 @@ struct PrintIssueTests {
         }
     }
 
+    @Test("縮めた図と読めないファイルの知らせを、選択言語の文で配置と内容の組に分けて出す")
+    func shrunkDiagramAndUnreadableFile() {
+        let diagram = PrintIssue(id: "0", kind: .shrunkDiagram, detail: "23", element: .figure)
+        #expect(PrintIssueText.title(diagram, language: "en") == "Diagram Reduced to 23% to Fit the Page")
+        #expect(PrintIssueText.title(diagram, language: "ja") == "図をページに収めるため 23% に縮小しています")
+        #expect(diagram.group == .layout)
+        #expect(!PrintIssueText.advice(diagram, language: "ja").isEmpty)
+        let file = PrintIssue(id: "1", kind: .rst, detail: RSTConverter.unreadableFileIssuePrefix + "data/a.csv")
+        #expect(PrintIssueText.title(file, language: "ja") == "ファイル「data/a.csv」を読み込めませんでした")
+        #expect(PrintIssueText.title(file, language: "en") == "Could not read file: data/a.csv")
+        for language in ["de", "es", "fr", "ko", "zh-Hans", "zh-Hant"] {
+            #expect(PrintIssueText.title(diagram, language: language).contains("23"))
+            #expect(PrintIssueText.title(file, language: language).contains("data/a.csv"))
+        }
+    }
+
     @Test("問題がなければ札もメニューも出さず、問題があれば件数を示す", .timeLimit(.minutes(1)))
     func count() async throws {
         let suite = TestDefaultsSuite()

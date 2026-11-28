@@ -224,7 +224,8 @@ private final class PrintMarkupWriter {
                 let kinds = classes.split(separator: " ").map { MarkdownCallouts.Kind(name: String($0)) }
                 if let kind = kinds.first(where: { $0.canonicalName != nil }) {
                     let attributes = node.attributes(excluding: ["class", "data-callout", "data-djot-div"])
-                    return kind.opening(extraClasses: classes, attributes: attributes) + kind.title(kind.defaultTitle)
+                    return kind.opening(extraClasses: classes, attributes: attributes)
+                        + kind.title(kind.defaultTitleHTML)
                         + inner(node) + "</div>"
                 }
                 return "<div\(node.attributes(excluding: ["data-djot-div"]))>\(inner(node))</div>"

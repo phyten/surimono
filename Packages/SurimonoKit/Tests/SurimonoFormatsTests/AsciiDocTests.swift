@@ -160,3 +160,16 @@ struct AsciiDocTests {
         #expect(html.contains("href=\"https://example.org\""))
     }
 }
+
+extension AsciiDocTests {
+    @Test("lang が ja の文書の目次の題は「目次」にし、原稿の toc-title と英語の文書の題は変えない")
+    func japaneseContentsTitle() throws {
+        let japanese = try AsciiDocConverter.convert("= 題\n:lang: ja\n:toc:\n\n== 節\n\n本文。").body
+        #expect(japanese.contains(">目次</"))
+        #expect(!japanese.contains("Table of Contents"))
+        let written = try AsciiDocConverter.convert("= 題\n:lang: ja\n:toc:\n:toc-title: 項目\n\n== 節\n\n本文。").body
+        #expect(written.contains(">項目</"))
+        let english = try AsciiDocConverter.convert("= Title\n:toc:\n\n== Part\n\nText.").body
+        #expect(english.contains("Table of Contents"))
+    }
+}

@@ -506,3 +506,20 @@ struct ReadingPDFExporterTests {
     }
 
 }
+
+extension ReadingPDFExporterTests {
+    @Test("表のすぐ後の見出しも、しおりにそのページで入る", .timeLimit(.minutes(1)))
+    func headingAfterTable() async throws {
+        let rows = (1...12).map { "| A\($0) | 範囲 | 一覧から未許可の資料を除ける | 未実施 |" }.joined(separator: "\n")
+        let text = "# 題\n\n## 受け入れ\n\n| 番号 | 分類 | 条件 | 状態 |\n|---|---|---|---|\n\(rows)\n\n## 読者どうしで確かめる問い\n\n本文。\n"
+        let source = DocumentSource(data: Data(text.utf8), format: .markdown)
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "standard" })
+        let settings = RenderSettings(
+            layout: .a4Single, theme: theme, preset: HTMLCleanupPreset(id: "none", name: "None"))
+        let prepared = try await DocumentRenderer().prepare(source, settings: settings)
+        let outline = await ReadingPDFExporter.outline(
+            of: source, in: prepared.logicalDocument, proof: .shown, includesSourceContents: true)
+        let entry = try #require(outline.entries.first { $0.title == "読者どうしで確かめる問い" })
+        #expect(entry.pageIndex == 0)
+    }
+}

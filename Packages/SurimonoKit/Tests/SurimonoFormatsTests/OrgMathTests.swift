@@ -87,8 +87,10 @@ struct OrgMathTests {
         #expect(count("<div class=\"math-block\">", in: html) == 1)
         #expect(!html.contains("math-error"))
         #expect(!html.contains("eq:first"))
-        // The row numbers are drawn inside the formula.
-        #expect(html.contains(">(1)<") || html.contains(">1<"))
+        // Each number sits at the right margin on its row, outside the formula's drawing.
+        #expect(count("<span class=\"latex-row-number\" style=\"top: ", in: html) == 2)
+        #expect(html.contains("%\">(1)</span><span class=\"latex-row-number\""))
+        #expect(html.contains("%\">(2)</span>"))
     }
 
     @Test("閉じていない環境と、数式でない環境は文字のまま残す")

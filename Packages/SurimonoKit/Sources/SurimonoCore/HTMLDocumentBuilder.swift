@@ -82,7 +82,7 @@ public enum HTMLDocumentBuilder {
         let marked = try CodeBlockMarkup.apply(
             code, to: fragment.body, language: sourcePage ? fragment.sourceLanguage : nil,
             checkSourceBytes: checkSourceBytes)
-        var body = marked
+        var body = MarkdownCallouts.localizingDefaultTitles(in: marked, language: language.code)
         if !preparesThemeSampler, !sourcePage, theme.flow == .vertical, theme.supports(format) {
             body = try verticalMarkup(body, format == .latex)
             try checkSourceBytes(body.utf8.count)
@@ -250,7 +250,9 @@ public enum HTMLDocumentBuilder {
         language: String = "ja", sourcePage: Bool = false
     ) -> String {
         // Prose fallbacks can put a proportional face ahead of the code face for some languages.
-        var families = sourcePage ? theme.css : LanguageFonts.adapt(theme.css, language: language)
+        var families =
+            sourcePage
+            ? theme.css : LanguageFonts.separatingWesternScripts(LanguageFonts.adapt(theme.css, language: language))
         if sourcePage && theme.id == "mimeograph" {
             // This theme normally starts even code in proportional Osaka. Use its fixed-pitch sibling.
             families += "\npre.surimono-source > code { font-family: \"Osaka-Mono\", Menlo, monospace; }"

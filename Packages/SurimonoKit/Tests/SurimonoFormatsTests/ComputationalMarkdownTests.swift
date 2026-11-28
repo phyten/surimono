@@ -255,3 +255,20 @@ struct ComputationalMarkdownTests {
         #expect(ComputationalMarkdown.convert(source).body.contains("class=\"language-r hl\""))
     }
 }
+
+extension ComputationalMarkdownTests {
+    @Test("別行の数式の式番号は、数式と同じ箱の右端に置き、参照先の id も数式に付ける", arguments: [DocumentFormat.quarto, .rMarkdown])
+    func equationNumberOnFormulaLine(format: DocumentFormat) {
+        let body = ComputationalMarkdown.convert(
+            "$$ x = 1 $$ {#eq-a}\n\n@eq-a を見る。\n\n$$\ny\n$$ {#eq-b}\n", format: format
+        )
+        .body
+        #expect(!body.contains("equation-number"))
+        let blocks = body.matches(
+            of:
+                /<div class="math-block latex-equation" id="(eq-[ab])"><span class="math math-display">[\s\S]*?<\/span><span class="eqno">\((\d)\)<\/span><\/div>/
+        )
+        #expect(blocks.map { "\($0.1)=\($0.2)" } == ["eq-a=1", "eq-b=2"])
+        #expect(body.contains("href=\"#eq-a\""))
+    }
+}

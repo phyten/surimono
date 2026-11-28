@@ -31,7 +31,7 @@ public enum ComputationalMarkdown {
         var result = HTMLFragment(
             body: fallback + metadata.header
                 + (lead.map { ReaderContentsKind.lead.mark(document.contents(depth: $0.headingLevels)) } ?? "")
-                + document.resolve(fragment.body),
+                + document.resolve(numberingEquations(fragment.body)),
             title: metadata.values["title"]
                 ?? fragment.title.map { HTML.unescape(document.resolve($0, plainText: true)) }, language: language,
             readingIssues: fragment.readingIssues, decidesHeadingNumbers: options.ownsNumbers
@@ -44,6 +44,37 @@ public enum ComputationalMarkdown {
             if options.lead != nil { result = result.prependingLead(html) }
         }
         return result
+    }
+
+    /// Moves each `{#eq-…}` number into its display formula, where it sits at the right margin on the
+    /// formula's line as LaTeX and Org print it, instead of on a line of its own below.
+    static func numberingEquations(_ html: String) -> String {
+        let opening = "<div class=\"math-block\">"
+        let marker = " class=\"equation-number\">"
+        guard html.contains(marker) else { return html }
+        var result = ""
+        var rest = html[...]
+        while let number = rest.range(of: marker) {
+            // `<div id="eq-…" class="equation-number">(n)</div>` directly after `<div class="math-block">…</div>\n`.
+            guard let start = rest[..<number.lowerBound].range(of: "<div id=\"", options: .backwards),
+                let close = rest[number.upperBound...].range(of: "</div>"),
+                rest[start.upperBound..<number.lowerBound].dropLast().allSatisfy({ $0 != "\"" && $0 != "<" }),
+                rest[..<start.lowerBound].hasSuffix("</div>\n"),
+                let block = rest[..<start.lowerBound].range(of: opening, options: .backwards),
+                !rest[block.upperBound..<start.lowerBound].dropLast(7).contains("<div")
+            else {
+                result += rest[..<number.upperBound]
+                rest = rest[number.upperBound...]
+                continue
+            }
+            let id = rest[start.upperBound..<rest.index(before: number.lowerBound)]
+            let formula = rest[block.upperBound..<rest.index(start.lowerBound, offsetBy: -7)]
+            result += rest[..<block.lowerBound]
+            result += "<div class=\"math-block latex-equation\" id=\"\(id)\">\(formula)"
+            result += "<span class=\"eqno\">\(rest[number.upperBound..<close.lowerBound])</span></div>"
+            rest = rest[close.upperBound...]
+        }
+        return result + rest
     }
 
     private static func proseLanguage(_ lines: [String], metadata: ComputationalMetadata) -> String {

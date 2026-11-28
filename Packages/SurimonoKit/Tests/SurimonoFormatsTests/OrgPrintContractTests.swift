@@ -75,7 +75,7 @@ struct OrgPrintContractTests {
     @Test("注意の囲みはMarkdownと同じHTMLになる")
     func callout() throws {
         let expected =
-            "<div class=\"callout callout-note\" data-callout=\"note\">\n<p class=\"callout-title\"><svg class=\"callout-icon\" viewBox=\"0 0 16 16\" aria-hidden=\"true\"><path d=\"M3 13l.6-2.6 6.8-6.8a1.1 1.1 0 0 1 1.6 0l.4.4a1.1 1.1 0 0 1 0 1.6l-6.8 6.8z M9.4 4.6l2 2\"/></svg>Note</p>\n<p><strong>本文</strong></p>\n</div>\n"
+            "<div class=\"callout callout-note\" data-callout=\"note\">\n<p class=\"callout-title\"><svg class=\"callout-icon\" viewBox=\"0 0 16 16\" aria-hidden=\"true\"><path d=\"M3 13l.6-2.6 6.8-6.8a1.1 1.1 0 0 1 1.6 0l.4.4a1.1 1.1 0 0 1 0 1.6l-6.8 6.8z M9.4 4.6l2 2\"/></svg><span class=\"callout-default-title\" data-callout-title=\"note\">Note</span></p>\n<p><strong>本文</strong></p>\n</div>\n"
         #expect(try MarkdownConverter.convert(":::note\n**本文**\n:::").body == expected)
         #expect(OrgConverter.convert("#+begin_note\n*本文*\n#+end_note").body == expected)
     }
@@ -97,6 +97,19 @@ struct OrgPrintContractTests {
         #expect(
             OrgConverter.convert("#+CAPTION: 消す\n本文\n\n[[a.png]]").body
                 == "<p>本文</p>\n<p><img src=\"a.png\" alt=\"a.png\"></p>\n")
+    }
+
+    @Test("コードと例のブロックの直前のキャプションを、ブロックの上の題にする")
+    func listingCaptions() {
+        #expect(
+            OrgConverter.convert("#+CAPTION: main.ts の *要点*\n#+NAME: x\n#+begin_src\nlet a = 1\n#+end_src").body
+                == "<div class=\"code-filename\">main.ts の <strong>要点</strong></div>\n<pre><code>let a = 1</code></pre>\n"
+        )
+        #expect(
+            OrgConverter.convert("#+CAPTION: 出力\n#+begin_example\nok\n#+end_example").body
+                == "<div class=\"code-filename\">出力</div>\n<pre>ok</pre>\n")
+        #expect(
+            OrgConverter.convert("#+CAPTION: 消す\n\n#+begin_src\nx\n#+end_src").body == "<pre><code>x</code></pre>\n")
     }
 
     @Test("表の配置指定を隠して数値列を右に揃える")

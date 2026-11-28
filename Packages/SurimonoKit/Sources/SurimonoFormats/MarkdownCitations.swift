@@ -141,6 +141,7 @@ final class MarkdownCitations {
             html: body.replacingOccurrences(of: nonce, with: ""), declared: metadata.language, fallback: "en")
         let heading =
             metadata.referenceSectionTitle ?? (DocumentLanguage.primary(language.code) == "ja" ? "参考文献" : "References")
+        document.bibDatabase.joinsWideNames = DocumentLanguage.primary(language.code) == "ja"
         let bibliography = document.bibDatabase.render(in: document, heading: heading)
         // Repeating a long BibTeX author in a short source should not multiply its size without bound.
         var authorBudget = 2_000_000
@@ -163,6 +164,11 @@ final class MarkdownCitations {
         if let place = html.range(of: referencesMarker) {
             html.replaceSubrange(place, with: bibliography)
             return html.replacingOccurrences(of: referencesMarker, with: "")
+        }
+        // Without a `#refs` division the references end the text, and the notes follow them, as in Pandoc.
+        if let notes = html.range(of: "<section class=\"footnotes\"", options: .backwards) {
+            html.insert(contentsOf: bibliography, at: notes.lowerBound)
+            return html
         }
         return html + bibliography
     }

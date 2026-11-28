@@ -8,6 +8,8 @@ public struct PrintIssue: Codable, Sendable, Equatable, Identifiable {
         /// A reader left out part of the document (a Word part, a notebook's JSON), because it nested too deeply.
         case nestingOmission
         case contentsLimit
+        /// A diagram reduced to fit the page so far that its text may be too small to read on paper.
+        case shrunkDiagram
     }
     public enum ImageFailure: String, Codable, Sendable { case missing, folderAccess, other }
     public enum Element: String, Codable, Sendable { case table, image, figure, code, math }
@@ -70,7 +72,9 @@ public struct PrintIssue: Codable, Sendable, Equatable, Identifiable {
         return nil
     }
 
-    public var group: Group { kind == .overflow || kind == .verticalWriting ? .layout : .content }
+    public var group: Group {
+        kind == .overflow || kind == .verticalWriting || kind == .shrunkDiagram ? .layout : .content
+    }
 
     /// The issues by group, those that cost content first. A group without issues is left out, and each group keeps
     /// the order it was given in.

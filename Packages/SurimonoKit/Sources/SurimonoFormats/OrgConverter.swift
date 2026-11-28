@@ -333,6 +333,7 @@ struct OrgParser {
             } else if let region = delimitedRegion(at: index) {
                 if let end = endOfRegion(region, after: index) {
                     flush()
+                    let blockCaption = caption
                     caption = nil
                     let start = index + 1
                     index = end + 1
@@ -346,7 +347,12 @@ struct OrgParser {
                     } else if case .block(let kind, let arguments) = region {
                         let content = Array(lines[start..<end])
                         if region.isLiteral {
-                            output += literalBlock(kind: kind, arguments: arguments, content: content)
+                            let block = literalBlock(kind: kind, arguments: arguments, content: content)
+                            // Org exports a caption above a listing, as it does above a table.
+                            if let blockCaption, !block.isEmpty, kind == "SRC" || kind == "EXAMPLE" {
+                                output += "<div class=\"code-filename\">\(inline(blockCaption))</div>\n"
+                            }
+                            output += block
                         } else {
                             let wrapper = blockWrapper(kind)
                             output += wrapper.opening
@@ -605,7 +611,7 @@ struct OrgParser {
             let callout = MarkdownCallouts.Kind(name: name)
             if callout.canonicalName != nil {
                 let title =
-                    name == "message" ? "" : callout.title(HTML.escape(callout.defaultTitle)) + "\n"
+                    name == "message" ? "" : callout.title(callout.defaultTitleHTML) + "\n"
                 return (callout.opening + "\n" + title, "</div>\n")
             }
             return ("<div class=\"org-block org-block-\(HTML.escape(name))\">", "</div>\n")
