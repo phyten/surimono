@@ -240,7 +240,8 @@ enum TableFit {
         function accepts(plan, count) {
             const { item, columns, candidates, zoom } = plan;
             const kept = candidates.slice(0, count);
-            const long = columns.filter(column => !column.short && column.filled);
+            // A column with no cell shown has no width to keep (and would make the sum endless).
+            const long = columns.filter(column => !column.short && column.filled && Number.isFinite(column.before));
             const fontSize = px(getComputedStyle(item.table).fontSize);
             const room = item.limit / zoom;
             const sum = values => values.reduce((total, value) => total + value, 0);

@@ -733,7 +733,7 @@ struct TableFitTests {
         let wide = "<span style='color:blue'>Not applicable for now</span>"
         let source =
             "| a | b | c | d | 値 |\n|---|---|---|---|---|\n"
-            + "| \(wide) | Not applicable for now | \(narrow) | Not applicable | \(Self.longURL) |\n"
+            + "| \(wide) | Not applicable for now | \(narrow) | \(narrow) | \(Self.longURL) |\n"
         let control = try await Raster(printPage(narrow + " " + wide + "\n"))
         let actual = try await Raster(printPage(source))
         let line = try control.bounds(channel: 1)
@@ -901,6 +901,27 @@ struct TableFitTests {
             "| " + labels.joined(separator: " | ") + " | 値 |\n|" + String(repeating: "---|", count: 4) + "\n| "
             + labels.joined(separator: " | ") + " | \(Self.longURL) |\n"
         let css = "th, td { box-sizing: border-box } th:last-child, td:last-child { padding: 0 140px }"
+        let fitted = try await printed(source, css: css)
+        let original = try await printed(source, fit: false, css: css)
+        #expect(
+            try Raster(#require(fitted.logicalDocument.page(at: 0))).data
+                == Raster(#require(original.logicalDocument.page(at: 0))).data)
+    }
+
+    @Test("表示しない列があっても、長い列の幅の下限は見えている列だけで決める", .timeLimit(.minutes(1)))
+    func hiddenColumnDoesNotCount() async throws {
+        // The table of longColumnContentFloor, with a column that is not displayed and holds a block.
+        let label = "<td>Not applicable</td>"
+        let hidden = "<td style=\"display:none\"><p>hidden</p></td>"
+        let source = """
+            <table>
+            <thead><tr><th>Not applicable</th><th>Not applicable</th><th>Not applicable</th><th class="wide">値</th>\
+            <th style="display:none"><p>hidden</p></th></tr></thead>
+            <tbody><tr>\(label)\(label)\(label)<td class="wide">\(Self.longURL)</td>\(hidden)</tr></tbody>
+            </table>
+
+            """
+        let css = "th, td { box-sizing: border-box } .wide { padding: 0 140px }"
         let fitted = try await printed(source, css: css)
         let original = try await printed(source, fit: false, css: css)
         #expect(
