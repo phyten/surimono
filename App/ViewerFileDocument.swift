@@ -151,6 +151,9 @@ final class ViewerFileDocument: NSDocument {
             // AppKit can still encode the window during termination after the model has gone.
             window?.lastReadingPage = model?.pageForWindowRestoration
         }
+        // Taking the hosting controller shrinks the window to its empty view (1×1), which the pages size later; the
+        // model gives it a plain size if they fail or are slow.
+        model.needsRoomWithoutPages = true
         window.representedURL = fileURL
         window.title = displayName
         window.center()

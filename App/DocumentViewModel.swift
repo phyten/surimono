@@ -761,6 +761,12 @@ final class DocumentViewModel {
     /// is applied to the view mode's frame on the way back.
     @ObservationIgnored private var stageBandRoom: BandRoom?
     @ObservationIgnored private(set) var hasSizedWindow = false
+    /// A window that opens without a size of its own (a file's window starts invisible, until the pages size it) is
+    /// given a plain one when its document fails or its pages are slow to come.
+    @ObservationIgnored var needsRoomWithoutPages = false
+    /// How long a window without a size waits for its pages before it is shown at a plain size.
+    @ObservationIgnored var roomWithoutPagesDelay: Duration = .seconds(2)
+    @ObservationIgnored private var roomWithoutPagesTask: Task<Void, Never>?
     /// The tray was asked for before the first pages were there.
     @ObservationIgnored private(set) var isPrintModeRequested = false
     @ObservationIgnored private var didResizeWindow = false
@@ -1498,8 +1504,28 @@ final class DocumentViewModel {
             }
         }
         refreshIncludePlan()
+        if needsRoomWithoutPages, roomWithoutPagesTask == nil {
+            let delay = roomWithoutPagesDelay
+            roomWithoutPagesTask = Task { [weak self] in
+                try? await Task.sleep(for: delay)
+                guard !Task.isCancelled else { return }
+                self?.giveRoomWithoutPages()
+            }
+        }
         // A window that replaces another has its pages from before it appeared.
         if result == nil { render() }
+    }
+
+    /// Shows a window that has no size yet at a plain one, centred, so that its error or "preparing" is seen. A window
+    /// the pages, a restoration or the tray have sized keeps its size.
+    private func giveRoomWithoutPages() {
+        roomWithoutPagesTask?.cancel()
+        roomWithoutPagesTask = nil
+        guard needsRoomWithoutPages, !hasSizedWindow, !isWindowClosed, !isInFullScreen, mode == .view, let window
+        else { return }
+        needsRoomWithoutPages = false
+        window.setContentSize(NSSize(width: 760, height: 760))
+        window.center()
     }
 
     /// A document that cannot be opened at all, such as an encrypted ZIP, shows the reason instead of pages.
@@ -1509,6 +1535,8 @@ final class DocumentViewModel {
     }
 
     func stop() {
+        roomWithoutPagesTask?.cancel()
+        roomWithoutPagesTask = nil
         previewPrintRequest.cancel()
         scrubber.cancel()
         thumbnailCache = nil
@@ -2138,6 +2166,7 @@ final class DocumentViewModel {
         if succeeded {
             applyRestoredPageIfReady()
         } else {
+            giveRoomWithoutPages()
             previewPrintRequest.cancel()
             if readingPreview != nil { isPrintModeRequested = false }
             refreshPageUpdate()

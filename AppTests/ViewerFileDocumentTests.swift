@@ -550,4 +550,128 @@ struct ViewerFileDocumentTests {
         let selected = try #require(reloaded.visibleURLs.first)
         #expect(reloaded.urlForOpening(selected).resolvingSymlinksInPath() == moved.resolvingSymlinksInPath())
     }
+
+    // MARK: - The window's size before and without pages
+
+    /// A file's window as the document controller makes it, without adding the file to the recent documents.
+    private func fileWindow(
+        at url: URL, type: UTType, delay: Duration? = nil
+    ) throws -> (ViewerFileDocument, NSWindow, DocumentViewModel) {
+        let document = ViewerFileDocument()
+        try document.read(from: url, ofType: type.identifier)
+        document.fileURL = url
+        document.makeWindowControllers()
+        let window = try #require(document.windowControllers.first?.window)
+        let model = try #require(DocumentWindows.shared.model(for: window))
+        if let delay { model.roomWithoutPagesDelay = delay }
+        // Shown, so that the content appears and starts the model, but not seen.
+        window.alphaValue = 0
+        window.orderFrontRegardless()
+        return (document, window, model)
+    }
+
+    private func waitUntil(_ detail: @autoclosure () -> String, _ condition: () -> Bool) async throws {
+        for _ in 0..<500 where !condition() { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(condition(), "\(detail())")
+    }
+
+    /// The content sizes the window passes through, from now on.
+    @MainActor private final class ContentSizes {
+        private(set) var sizes: [CGSize] = []
+        private var observer: (any NSObjectProtocol)?
+
+        init(of window: NSWindow) {
+            observer = NotificationCenter.default.addObserver(
+                forName: NSWindow.didResizeNotification, object: window, queue: .main
+            ) { [weak self, weak window] _ in
+                MainActor.assumeIsolated {
+                    guard let window else { return }
+                    self?.sizes.append(window.contentRect(forFrameRect: window.frame).size)
+                }
+            }
+        }
+
+        func stop() {
+            if let observer { NotificationCenter.default.removeObserver(observer) }
+            observer = nil
+        }
+    }
+
+    private static let plainSize = CGSize(width: 760, height: 760)
+
+    private func expectPapersShape(_ window: NSWindow, _ model: DocumentViewModel, _ detail: String) throws {
+        let unit = try #require(model.paperUnitSize, "\(detail)")
+        let content = window.contentRect(forFrameRect: window.frame).size
+        let paper = CGSize(width: content.width - model.sideInset, height: content.height - model.bandInset)
+        #expect(abs(paper.width / paper.height - unit.width / unit.height) < 0.02, "\(detail)")
+        #expect(content != Self.plainSize, "\(detail)")
+    }
+
+    @Test("読めない PDF のファイルの窓は 1×1 に縮まず、エラーのあと 760×760 で開く", .timeLimit(.minutes(1)))
+    func unreadableFileKeepsItsWindow() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("broken.pdf")
+        try Data("%PDF-1.7 broken".utf8).write(to: url)
+        // Long enough that only the error can give the window its size.
+        let (document, window, model) = try fileWindow(at: url, type: .pdf, delay: .seconds(60))
+        defer { document.close() }
+        func state() -> String {
+            "content=\(window.contentRect(forFrameRect: window.frame).size) error=\(model.error ?? "nil") "
+                + "rendering=\(model.isRendering) result=\(model.result != nil)"
+        }
+        try await waitUntil(state()) { model.error != nil && !model.isRendering }
+        #expect(model.result == nil, "\(state())")
+        #expect(window.contentRect(forFrameRect: window.frame).size == Self.plainSize, "\(state())")
+    }
+
+    @Test("組版が待ち時間より早く終わるファイルの窓は、760×760 を経ずに紙の形になる", .timeLimit(.minutes(1)))
+    func readableFileTakesThePapersShape() async throws {
+        let url = try fixtureURL()
+        let opened = ContinuousClock.now
+        let (document, window, model) = try fileWindow(at: url, type: .png)
+        let sizes = ContentSizes(of: window)
+        defer {
+            sizes.stop()
+            document.close()
+        }
+        func state() -> String {
+            "content=\(window.contentRect(forFrameRect: window.frame).size) sizes=\(sizes.sizes) "
+                + "unit=\(String(describing: model.paperUnitSize)) band=\(model.bandInset) side=\(model.sideInset) "
+                + "sized=\(model.hasSizedWindow) error=\(model.error ?? "nil") "
+                + "after=\(ContinuousClock.now - opened)"
+        }
+        try await waitUntil(state()) { model.result != nil && !model.isRendering && model.hasSizedWindow }
+        // Past the wait, so that a size given late would have been seen as well.
+        try await Task.sleep(until: opened + model.roomWithoutPagesDelay + .milliseconds(300))
+        #expect(!sizes.sizes.contains(Self.plainSize), "\(state())")
+        try expectPapersShape(window, model, state())
+    }
+
+    @Test("組版が待ち時間を過ぎるファイルの窓は、760×760 で見せたあと紙の形になる", .timeLimit(.minutes(1)))
+    func slowFileShowsItsWindowThenThePaper() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("slow.md")
+        try Data("# Heading\n\nA paragraph.\n".utf8).write(to: url)
+        // No wait at all stands in for pages that are slower than it: the layout cannot finish first.
+        let (document, window, model) = try fileWindow(
+            at: url, type: try #require(UTType(filenameExtension: "md")), delay: .zero)
+        let sizes = ContentSizes(of: window)
+        defer {
+            sizes.stop()
+            document.close()
+        }
+        func state() -> String {
+            "content=\(window.contentRect(forFrameRect: window.frame).size) sizes=\(sizes.sizes) "
+                + "unit=\(String(describing: model.paperUnitSize)) sized=\(model.hasSizedWindow) "
+                + "error=\(model.error ?? "nil")"
+        }
+        try await waitUntil(state()) { sizes.sizes.contains(Self.plainSize) }
+        #expect(!model.hasSizedWindow, "\(state())")
+        try await waitUntil(state()) { model.result != nil && !model.isRendering && model.hasSizedWindow }
+        try expectPapersShape(window, model, state())
+    }
 }
