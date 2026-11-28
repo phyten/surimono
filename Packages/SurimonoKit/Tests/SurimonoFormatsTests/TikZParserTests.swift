@@ -58,6 +58,46 @@ extension TikZParserTests {
         #expect(left == ["x": "-15mm", "y": "-12mm"])
     }
 
+    @Test("図とスコープで指定した木の間隔を子の配置に使う")
+    func treeDistancesFromPicture() throws {
+        let tree = #"\node {root} child {node {a}} child {node {b}};"#
+        let picture = try items("[level distance=15mm,sibling distance=37mm]" + tree)
+        let left = try #require((picture[1]["at"] as? [String: Any])?["b"] as? [String: String])
+        #expect(left == ["x": "-18.5mm", "y": "-15mm"])
+        let scoped = try items(#"\begin{scope}[sibling distance=2cm,level distance=1cm]"# + tree + #"\end{scope}"#)
+        let nodes = scoped.filter { $0["kind"] as? String == "node" }
+        let right = try #require((nodes[2]["at"] as? [String: Any])?["b"] as? [String: String])
+        #expect(right == ["x": "1cm", "y": "-1cm"])
+        #expect(nodes.allSatisfy { ($0["style"] as? [String: Any])?["sibling distance"] == nil })
+    }
+
+    @Test("段ごとの level スタイルはその段の子とその下に効く")
+    func treeLevelStyles() throws {
+        let values = try items(
+            #"[level 1/.style={sibling distance=40mm},level 2/.style={sibling distance=10mm,level distance=8mm}]\node {r} child {node {a} child {node {c}} child {node {d}}} child {node {b}};"#
+        )
+        let nodes = values.filter { $0["kind"] as? String == "node" }
+        let offsets = try nodes.dropFirst().map {
+            try #require(($0["at"] as? [String: Any])?["b"] as? [String: String])
+        }
+        #expect(
+            offsets == [
+                ["x": "-20mm", "y": "-15mm"], ["x": "-5mm", "y": "-8mm"], ["x": "5mm", "y": "-8mm"],
+                ["x": "20mm", "y": "-15mm"],
+            ])
+    }
+
+    @Test("木の子や辺を飾るスタイルと、間隔以外を変える level スタイルは図を退ける")
+    func treeRejectsUnreadStyles() {
+        let tree = #"\node {r} child {node {a}};"#
+        for options in [
+            "[edge from parent/.style={draw,red}]", "[every child node/.style={draw}]",
+            "[level 1/.style={red}]", "[level/.style={sibling distance=60mm/#1}]",
+        ] {
+            #expect(throws: TikZError.self) { try items(options + tree) }
+        }
+    }
+
     @Test("折れ線・直交・弧・ベジェ・格子・相対座標は順序を保つ")
     func primitives() throws {
         let values = try items(

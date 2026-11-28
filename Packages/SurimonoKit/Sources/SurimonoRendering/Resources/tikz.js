@@ -415,7 +415,10 @@ for (const [index, block] of blocks.entries()) {
       for (const attr of el.attributes) {
         const k = attr.name,
           v = attr.value;
-        if (['style', 'role', 'aria-label', 'xmlns'].includes(k)) continue;
+        // data-* attributes are reader markers for page layout (data-math-glue lets justified Latin
+        // lines stretch the formula's glue). A picture label is never justified, so they are dropped
+        // instead of being copied into the figure.
+        if (['style', 'role', 'aria-label', 'xmlns'].includes(k) || k.startsWith('data-')) continue;
         if (!attributes.has(k) || v.length > 100000) fail('math');
         if (k === 'fill' || k === 'stroke') paint(v);
         if (k === 'font-family') {
@@ -1295,34 +1298,43 @@ for (const [index, block] of blocks.entries()) {
         }
         if (row.mark) {
           const r = number(row.markSize ?? 2) * pt;
+          // Same outlines as PGFPlotsPlane.drawMark, in units of the mark size with y up. Only a
+          // starred mark is filled, as on the plot.
+          const closed = row.mark.includes('*');
           const glyph = svg('g', {
             transform: 'translate(' + swatch / 2 + ' ' + cy + ')',
             stroke: ink,
-            fill: row.markFill ? paint(row.markFill) : row.mark === 'o' ? 'none' : ink,
+            fill: closed ? (row.markFill ? paint(row.markFill) : ink) : 'none',
             'stroke-width': size(row.style['line width'] || '.4pt')
           });
-          const paths = {
-            square: 'M-' + r + ' -' + r + 'h' + 2 * r + 'v' + 2 * r + 'h-' + 2 * r + 'Z',
-            triangle: 'M0 -' + r + 'L' + r + ' ' + r + 'H-' + r + 'Z',
-            x: 'M-' + r + ' -' + r + 'L' + r + ' ' + r + 'M-' + r + ' ' + r + 'L' + r + ' -' + r,
-            '+': 'M-' + r + ' 0H' + r + 'M0 -' + r + 'V' + r
+          const k = Math.SQRT1_2,
+            polar = (a) => [Math.cos(a * radians), Math.sin(a * radians)];
+          const segments = (...pairs) => pairs.map((pair) => ({ points: pair }));
+          const shapes = {
+            square: [{ points: [[-1, -1], [1, -1], [1, 1], [-1, 1]], close: true }],
+            triangle: [{ points: [[0, 1.33], [-1.15, -0.665], [1.15, -0.665]], close: true }],
+            diamond: [{ points: [[0, 1.3], [1, 0], [0, -1.3], [-1, 0]], close: true }],
+            pentagon: [{ points: [90, 18, -54, 234, 162].map(polar), close: true }],
+            x: segments([[-1, -1], [1, 1]], [[-1, 1], [1, -1]]),
+            '+': segments([[-1, 0], [1, 0]], [[0, -1], [0, 1]]),
+            '|': segments([[0, 1], [0, -1]]),
+            '-': segments([[1, 0], [-1, 0]]),
+            star: segments(...[0, 1, 2, 3, 4].map((i) => [[0, 0], polar(90 + i * 72)])),
+            asterisk: segments([[0, -1], [0, 1]], [polar(30), polar(210)], [polar(-30), polar(150)]),
+            otimes: segments([[-k, -k], [k, k]], [[-k, k], [k, -k]])
           };
-          paths['square*'] = paths.square;
-          paths['triangle*'] = paths.triangle;
-          paths['diamond*'] = 'M0 -' + r + 'L' + r + ' 0 0 ' + r + ' ' + -r + ' 0Z';
-          if (row.mark === 'star') {
-            paths.star = Array.from({ length: 5 }, (_, i) => {
-              const v = mul(unit(90 + i * 72), r);
-              return 'M0 0L' + v.x + ' ' + -v.y;
-            }).join(' ');
+          shapes.oplus = shapes['+'];
+          const name = row.mark.length > 1 ? row.mark.replace(/\*$/, '') : row.mark;
+          const circled = ['*', 'o', 'oplus', 'otimes'].includes(name);
+          if (circled) glyph.append(svg('circle', { r }));
+          if (name !== '*' && name !== 'o') {
+            const outline = shapes[name] || fail('mark');
+            const d = outline
+              .map((s) => s.points.map(([x, y], i) => (i ? 'L' : 'M') + x * r + ' ' + -y * r).join('') + (s.close ? 'Z' : ''))
+              .join('');
+            // A line drawn over a filled circle keeps the plot's stroke and adds no fill of its own.
+            glyph.append(svg('path', circled ? { d, fill: 'none' } : { d }));
           }
-          if (!row.markFill && (row.mark === 'o' || row.mark === 'square' || row.mark === 'triangle'))
-            glyph.setAttribute('fill', 'none');
-          if (row.mark === '*' || row.mark === 'o' || row.mark === 'otimes*') {
-            glyph.append(svg('circle', { r }));
-            if (row.mark === 'otimes*')
-              glyph.append(svg('path', { d: paths.x, stroke: '#ffffff', transform: 'scale(.65)' }));
-          } else glyph.append(svg('path', { d: paths[row.mark] || fail('mark') }));
           content.append(glyph);
         }
         row.label.group.setAttribute(

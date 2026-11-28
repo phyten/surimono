@@ -116,7 +116,7 @@ final class TikZParser {
                 if input.take(";") {
                     try append(node)
                 } else if command == "node" {
-                    try tree(node, input: &input, scope: scope, depth: 0, sibling: "15mm", level: "15mm", label: label)
+                    try tree(node, input: &input, scope: scope, depth: 0, distances: scope.tree, label: label)
                     guard input.take(";") else { throw TikZError(String(input.tail.prefix(48))) }
                 } else {
                     throw TikZError("coordinate")
@@ -274,13 +274,32 @@ final class TikZParser {
     /// symbolic coordinate so moving or rotating the containing scope moves the complete subtree.
     private func tree(
         _ node: Object, input: inout TikZScanner, scope: TikZScope, depth: Int,
-        sibling: String, level: String, label: (String) -> String
+        distances inherited: [String: String], label: (String) -> String
     ) throws {
         guard depth < 24 else { throw TikZError("tree limit") }
+        // These handlers restyle children or their edges, which the plain layout below would drop.
+        for name in ["every child", "every child node", "edge from parent"] where scope.definitions[name] != nil {
+            throw TikZError(name)
+        }
         var options = try shapeOptions(input.options())
-        let siblingDistance = try length(options.removeValue(forKey: "sibling distance") ?? sibling)
-        let levelDistance = try length(options.removeValue(forKey: "level distance") ?? level)
+        var distances = inherited
+        for key in distances.keys {
+            if let value = options.removeValue(forKey: key) { distances[key] = try length(value) }
+        }
         guard options.isEmpty else { throw TikZError(options.keys.sorted().joined(separator: ", ")) }
+        // PGF applies `level` (with the level number as #1) and then `level <n>` as each child starts,
+        // so they override the parent's options for the children and everything below them.
+        for (name, argument) in [("level", "\(depth + 1)"), ("level \(depth + 1)", nil)] {
+            guard let definition = scope.definitions[name] else { continue }
+            guard argument != nil || !definition.contains("#1") else { throw TikZError(name) }
+            let keys = try shapeOptions(definition.replacingOccurrences(of: "#1", with: argument ?? ""))
+            for (key, value) in keys {
+                guard distances[key] != nil else { throw TikZError(name + ": " + key) }
+                distances[key] = try length(value)
+            }
+        }
+        let siblingDistance = distances["sibling distance"] ?? "15mm"
+        let levelDistance = distances["level distance"] ?? "15mm"
         var children: [String] = []
         while input.take("child") {
             guard children.count < 5_000 else { throw TikZError("tree limit") }
@@ -311,9 +330,7 @@ final class TikZParser {
                     "calc": "add", "a": ["name": name, "anchor": "center"],
                     "b": ["x": try times(siblingDistance, dx), "y": try times(levelDistance, -1)],
                 ] as Object
-            try tree(
-                next, input: &tokens, scope: scope, depth: depth + 1, sibling: siblingDistance, level: levelDistance,
-                label: label)
+            try tree(next, input: &tokens, scope: scope, depth: depth + 1, distances: distances, label: label)
             tokens.space()
             guard tokens.tail.isEmpty else { throw TikZError(String(tokens.tail.prefix(48))) }
             let ops: [Object] = [["op": "M", "p": ["name": name]], ["op": "L", "p": ["name": childName]]]

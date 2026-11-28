@@ -106,6 +106,23 @@ struct PGFPlotsTests {
         #expect(legend.entries[2].series.points.last?.y == 1)
     }
 
+    @Test(
+        "pgfplots の標準の印を描き、星の付かない印は塗らない",
+        arguments: [
+            ("diamond", 1, false), ("diamond*", 1, true), ("pentagon", 1, false), ("pentagon*", 1, true),
+            ("oplus", 2, false), ("oplus*", 2, true), ("otimes", 2, false), ("|", 1, false), ("-", 1, false),
+            ("asterisk", 1, false),
+        ])
+    func standardMarks(mark: String, commands: Int, filled: Bool) throws {
+        let plot = try PGFPlots.lower(
+            environment: "axis", options: "xtick={},ytick={}",
+            body: "\\addplot[only marks,mark=\(mark)] coordinates {(0,0)};\\addlegendentry{A}")
+        #expect(plot.legend?.entries.first?.series.mark == mark)
+        let lines = plot.source.split(separator: "\n").filter { $0.contains("solid") }
+        #expect(lines.count == commands)
+        #expect(lines.first?.hasPrefix(#"\filldraw"#) == filled)
+    }
+
     @Test("棒の表を列名で読み横軸の文字と目盛りに対応付ける")
     func namedTable() throws {
         let plot = try PGFPlots.lower(

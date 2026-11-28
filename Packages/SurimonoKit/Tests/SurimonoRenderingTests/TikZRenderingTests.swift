@@ -72,6 +72,33 @@ struct TikZRenderingTests {
         #expect(result.viewDocument.string?.contains("NeverPaint") == false)
     }
 
+    @Test(
+        "関係記号を含む数式のラベルも図の中に組み、図全体を紙の注記にしない",
+        .timeLimit(.minutes(1)),
+        arguments: [
+            #"""
+            \begin{tikzpicture}\begin{axis}
+            \addplot coordinates {(0,1)(1,2)};\addlegendentry{$\tau=10$}
+            \end{axis}\end{tikzpicture}
+            """#,
+            #"""
+            \begin{tikzpicture}
+            \coordinate (A) at (0,0);\coordinate (B) at (2,0);
+            \node[above] at ($(A)!0.5!(B)$) {$M=(A+B)/2$};
+            \end{tikzpicture}
+            """#,
+        ])
+    func relationInMathLabel(_ picture: String) async throws {
+        _ = NSApplication.shared
+        let result = try await render(
+            #"\documentclass{article}\usepackage{pgfplots}\usetikzlibrary{calc}\begin{document}"# + picture
+                + #"\end{document}"#)
+        #expect(result.diagrams.count == 1)
+        #expect(result.issues.filter { $0.detail.contains("(TikZ)") }.isEmpty)
+        #expect(result.viewDocument.string?.contains("Figure (TikZ)") == false)
+        #expect(result.diagrams.first?.svg.contains("data-math-glue") == false)
+    }
+
     @Test("article の用紙に刷ったグラフの横幅が参照 PDF の軸枠に合う", .timeLimit(.minutes(1)))
     func articleAxisWidth() async throws {
         _ = NSApplication.shared
@@ -95,6 +122,32 @@ struct TikZRenderingTests {
         let svgWidth = try #require(viewBox.split(separator: " ").dropFirst(2).first.flatMap { Double($0) })
         // Corpus 073's reference PDF has its axis border at x=-16.188469 and x=178.081063 pt.
         #expect(abs(diagram.pointSize.width * axisWidth / svgWidth - 194.27) < 3)
+    }
+
+    @Test("凡例にも本体と同じ形の印を描き、星の付かない印は塗らない", .timeLimit(.minutes(1)))
+    func legendMarks() async throws {
+        _ = NSApplication.shared
+        let marks = ["diamond", "pentagon*", "oplus", "otimes", "|", "-", "asterisk"]
+        let plots = marks.enumerated().map { index, mark in
+            "\\addplot[only marks,mark=\(mark)] coordinates {(\(index),1)};\\addlegendentry{M\(index)}"
+        }
+        let result = try await render(
+            #"\documentclass{article}\usepackage{pgfplots}\begin{document}\begin{tikzpicture}\begin{axis}"#
+                + plots.joined() + #"\end{axis}\end{tikzpicture}\end{document}"#)
+        #expect(result.issues.filter { $0.detail.contains("(TikZ)") }.isEmpty)
+        let diagram = try #require(result.diagrams.first)
+        let xml = try XMLDocument(xmlString: diagram.svg, options: [])
+        // The legend draws its open diamond around the origin of its glyph group: 1.3 tall, 1 wide.
+        let diamonds = try xml.nodes(forXPath: "//*[local-name()='path' and contains(@d, 'Z')]")
+            .compactMap { $0 as? XMLElement }
+            .filter { ($0.attribute(forName: "d")?.stringValue ?? "").hasPrefix("M0 -") }
+        let legendDiamond = try #require(diamonds.first)
+        let group = try #require(legendDiamond.parent as? XMLElement)
+        #expect(group.attribute(forName: "fill")?.stringValue == "none")
+        let numbers = (legendDiamond.attribute(forName: "d")?.stringValue ?? "")
+            .split(whereSeparator: { "MLZ ".contains($0) }).compactMap { Double($0) }
+        try #require(numbers.count == 8)
+        #expect(abs(numbers[1] / numbers[2] + 1.3) < 0.001)
     }
 
     private func render(

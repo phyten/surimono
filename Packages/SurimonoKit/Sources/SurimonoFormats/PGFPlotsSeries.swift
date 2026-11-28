@@ -53,12 +53,7 @@ struct PGFPlotsSeries {
             case ("samples", let v?): samples = try Self.count(v)
             case ("mark size", let v?): markSize = try PGFPlotsInput.length(v)
             case ("mark", let v?):
-                guard
-                    [
-                        "none", "*", "o", "square", "square*", "triangle", "triangle*", "x", "+", "star", "otimes*",
-                        "diamond*",
-                    ].contains(v)
-                else { throw TikZError("mark=" + v) }
+                guard v == "none" || PGFPlotsPlane.marks.contains(v) else { throw TikZError("mark=" + v) }
                 mark = v == "none" ? nil : v
             case ("only marks", nil): onlyMarks = true
             case ("ybar", nil): bars = true

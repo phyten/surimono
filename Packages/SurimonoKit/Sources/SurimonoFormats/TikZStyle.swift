@@ -3,6 +3,9 @@ import Foundation
 struct TikZScope {
     var values: [String: Any] = [:]
     var definitions: [String: String] = [:]
+    /// `level distance` and `sibling distance` only steer the child layout of a tree, so they stay
+    /// out of the node and path styles that reach the painter.
+    var tree = ["level distance": "15mm", "sibling distance": "15mm"]
 }
 
 extension TikZParser {
@@ -226,6 +229,9 @@ extension TikZParser {
                 case "sloped":
                     try bare()
                     state.values[key] = true
+                case "level distance", "sibling distance":
+                    guard kind == "scope", assigned else { throw TikZError(key) }
+                    state.tree[key] = try length(value)
                 case "in", "out", "bend left", "bend right":
                     guard kind == "to" else { throw TikZError(key) }
                     guard assigned || key.hasPrefix("bend ") else { throw TikZError(key) }
