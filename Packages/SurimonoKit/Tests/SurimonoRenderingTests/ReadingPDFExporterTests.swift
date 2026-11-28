@@ -178,6 +178,46 @@ struct ReadingPDFExporterTests {
         #expect(outline.entries.allSatisfy { $0.pageIndex != nil }, "\(outline.entries)")
     }
 
+    @Test("スクロールでページをつないだ表示のあとでも、読むための PDF と用紙のどのページも論理ページの大きさのまま", .timeLimit(.minutes(1)))
+    func readingPDFAfterJoinedView() async throws {
+        // Each section ends high on its page, so the view cuts the unused paper below it.
+        let text = "# 一\n\n短い段落。\n\n<!-- pagebreak -->\n\n# 二\n\n短い段落。\n\n<!-- pagebreak -->\n\n# 三\n\n終わり。\n"
+        let source = DocumentSource(data: Data(text.utf8), format: .markdown)
+        let standard = try #require(PrintThemeLibrary.load().first { $0.id == "standard" })
+        let settings = RenderSettings(
+            layout: .a4Single, theme: standard, preset: HTMLCleanupPreset(id: "none", name: "None"))
+        let renderer = DocumentRenderer()
+        let prepared = try await renderer.prepare(source, settings: settings)
+        let document = prepared.viewDocument
+        try #require(document.pageCount == 3)
+        let size = CGSize(width: 595.28, height: 841.89)
+        let options = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false)
+        let margin = 15 * 72 / 25.4
+        let sizes = Array(repeating: size, count: 3)
+        let base = ViewPageLayout(
+            pageCount: 3, options: options, hasLogicalMargins: true, showsNumbers: false, pageSizes: sizes)
+        let bottoms = ViewPageDocument.contentBottoms(of: document, pages: base.trimmableBottomPages, margin: margin)
+        let plan = ViewPageLayout(
+            pageCount: 3, options: options, hasLogicalMargins: true, showsNumbers: false, pageSizes: sizes,
+            contentBottoms: bottoms)
+        let view = try #require(ViewPageDocument.make(document, plan: plan, margin: margin))
+        // The view itself is cut well above the bottom margin.
+        #expect(try #require(view.page(at: 0)?.bounds(for: .cropBox).height) < size.height / 2)
+        func expectLogicalPages(_ bytes: Data?, _ name: String) throws {
+            let saved = try #require(bytes.flatMap(PDFDocument.init(data:)), "\(name)")
+            for index in 0..<saved.pageCount {
+                let page = try #require(saved.page(at: index))
+                let crop = page.bounds(for: .cropBox)
+                #expect(crop == page.bounds(for: .mediaBox), "\(name) page \(index)")
+                #expect(abs(crop.width - size.width) < 0.5 && abs(crop.height - size.height) < 0.5, "\(name) \(crop)")
+            }
+        }
+        try expectLogicalPages(
+            try await ReadingPDFExporter.data(from: document, entries: [], title: "T"), "reading PDF")
+        let sheets = try await renderer.render(source, settings: settings).sheetDocument
+        try expectLogicalPages(sheets.dataRepresentation(), "sheets")
+    }
+
     @Test("本文で目次の項目が別順に現れても、書き出した PDF のしおりは本文のページを指す")
     func trailingOrgContents() async throws {
         let source = DocumentSource(
