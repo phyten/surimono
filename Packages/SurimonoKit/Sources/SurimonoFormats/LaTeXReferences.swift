@@ -292,7 +292,9 @@ extension LaTeXDocument {
             // The counters and link targets already exist. Row numbers normally live inside the SVG.
             return MathRenderer.fallback(source, display: display) + numbers.compactMap { $0 }.joined(separator: " ")
         }
-        let issue = (isJapanese ? "数式を描けません: " : "Formula could not be typeset: ") + String(source.prefix(100))
+        let issue =
+            (isJapanese ? LaTeXConverter.japaneseFormulaIssuePrefix : LaTeXConverter.formulaIssuePrefix)
+            + String(source.prefix(100))
         if !seenFormulaIssues.contains(issue), reserveExpansion(characters: issue.utf8.count) {
             seenFormulaIssues.insert(issue)
             failedFormulas.append(issue)

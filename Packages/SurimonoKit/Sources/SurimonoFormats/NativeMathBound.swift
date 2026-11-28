@@ -1,4 +1,5 @@
 import SwaTex
+import Synchronization
 
 /// Bound the entire token stream without building replacements or estimating sizes from parsed arguments.
 enum NativeMathBound {
@@ -195,7 +196,27 @@ enum NativeMathBound {
         #"alpha beta gamma delta epsilon varepsilon zeta eta theta vartheta iota kappa lambda mu nu xi pi rho sigma tau upsilon phi varphi chi psi omega Gamma Delta Theta Lambda Xi Pi Sigma Upsilon Phi Psi Omega S P in cap cup subset subseteq supset supseteq infty lfloor rfloor lceil rceil lVert rVert lvert rvert langle rangle nabla partial mid vert Vert sim approx equiv le ge leq geq to times cdot pm mp sum prod int iint iiint oint det dim exp lim log ln max min sin cos tan gcd sup inf rm limits nolimits "#
             .split(separator: " ").map { "\\" + $0 })
     static func ordinarySymbol(_ name: String) -> Bool {
-        atoms.contains(name) && SymbolInfo(name: name, mode: .math) != nil
+        (atoms.contains(name) && SymbolInfo(name: name, mode: .math) != nil) || symbolLeaf(name)
+    }
+
+    private static let leaves = Mutex<[String: Bool]>([:])
+
+    /// Any control word in SwaTex's math symbol table that is neither a macro nor a function: the parser reads
+    /// exactly this one token and makes one symbol node of it. It copies nothing and reads no argument, so it
+    /// costs only its own bytes. Deciding this from the pinned parser, not from a list, keeps a symbol that a
+    /// list forgot from refusing every formula in a document with a single definition.
+    private static func symbolLeaf(_ name: String) -> Bool {
+        guard PreviewMathExpansion.controlWord(name), PreviewMathExpansion.permitted(name),
+            SymbolInfo(name: name, mode: .math) != nil
+        else { return false }
+        if let known = leaves.withLock({ $0[name] }) { return known }
+        // noexpand turns an expandable builtin into relax. A one-token parse tells a function, which
+        // takes precedence over the symbol table, from a symbol.
+        let leaf =
+            (try? Parser("\\noexpand" + name).fetch().text) == name
+            && (try? Parser(name).parse()).map { $0.count == 1 && $0[0].isSymbolNode } == true
+        leaves.withLock { $0[name] = leaf }
+        return leaf
     }
 
     private static let groups = Set(
@@ -215,13 +236,16 @@ enum NativeMathBound {
         switch token {
         case #"\$"#, #"\{"#, #"\}"#, #"\%"#, #"\_"#, #"\|"#, #"\ "#, #"\\"#: return Potential(transfers: 1)
         // Each constant includes all literal descendants and argument-forwarding steps, in either mode.
-        case #"\,"#, #"\;"#, #"\:"#, #"\!"#, #"\dotsc"#, #"\operatorname"#:
+        case #"\,"#, #"\;"#, #"\:"#, #"\!"#, #"\dotsc"#, #"\dotsx"#, #"\operatorname"#:
             return Potential(bytes: 96, steps: 5, transfers: 4)
-        case #"\quad"#, #"\qquad"#, #"\boxed"#, #"\TextOrMath"#, #"\R"#, #"\N"#, #"\bra"#, #"\ket"#:
+        case #"\quad"#, #"\qquad"#, #"\boxed"#, #"\TextOrMath"#, #"\R"#, #"\N"#, #"\bra"#, #"\ket"#, #"\dots"#,
+            #"\cdots"#, #"\dotsb"#, #"\dotsm"#, #"\dotso"#:
             return Potential(bytes: 48, steps: 2, transfers: 3)
-        case #"\argmin"#, #"\argmax"#: return Potential(bytes: 192, steps: 12, transfers: 6)
+        // ne reaches neq, html@mathml, not and two short char codes: 137 bytes and 5 expansions in 0.6.0.
+        case #"\argmin"#, #"\argmax"#, #"\ne"#, #"\neq"#, #"\not"#:
+            return Potential(bytes: 192, steps: 12, transfers: 6)
         case #"\char"#: return Potential(bytes: 320, steps: 1, transfers: 2)
-        default: return nil
+        default: return symbolLeaf(token) ? Potential() : nil
         }
     }
 
@@ -235,7 +259,11 @@ enum NativeMathBound {
             #"\operatorname"#: [#"\@ifstar"#, #"\operatornamewithlimits"#, #"\operatorname@"#],
             #"\boxed"#: [#"\fbox"#, #"\displaystyle"#], #"\DOTSB"#: [#"\relax"#],
             #"\bra"#: [#"\mathinner"#, #"\langle"#], #"\ket"#: [#"\mathinner"#, #"\rangle"#],
+            #"\dotsx"#: [#"\ldots"#, #"\,"#], #"\dotso"#: [#"\ldots"#],
+            #"\ne"#: [#"\neq"#], #"\neq"#: [#"\mathrel"#, #"\not"#, #"\char"#],
+            #"\not"#: [#"\mathrel"#, #"\mathrlap"#, #"\nobreak"#, #"\char"#],
         ]
+        for name in [#"\dots"#, #"\dotsb"#, #"\dotsm"#] { calls[name] = [#"\cdots"#] }
         for name in [#"\R"#, #"\N"#] { calls[name] = [#"\mathbb"#] }
         for name in [#"\quad"#, #"\qquad"#] { calls[name] = [#"\hskip"#, #"\relax"#] }
         for name in [#"\,"#, #"\;"#, #"\:"#, #"\!"#] { calls[name] = [#"\TextOrMath"#, #"\kern"#, #"\mskip"#] }
