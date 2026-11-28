@@ -22,6 +22,27 @@ struct LaTeXTypesettingTests {
         }
     }
 
+    @Test("手紙と履歴書の本文を入れる箱は、WebKit が行の間で改ページできるよう flex や grid にしない")
+    func correspondenceTextFlows() throws {
+        // WebKit slices a flex or grid item at the page edge instead of breaking it between lines.
+        let containers: Set = [".latex-letter", ".latex-letter > *", ".latex-cv-item", ".latex-cv-label + div"]
+        let rule = /([^{}]+)\{([^{}]*)\}/
+        let layered = /display:\s*(inline-)?(flex|grid)/
+        for theme in try PrintThemeLibrary.load().filter({ $0.id.hasPrefix("latex-") }) {
+            var checked = Set<String>()
+            for match in theme.css.replacing(/\/\*[\s\S]*?\*\//, with: "").matches(of: rule) {
+                let selectors = match.output.1.split(separator: ",").map {
+                    $0.trimmingCharacters(in: .whitespacesAndNewlines)
+                }
+                for selector in selectors where containers.contains(selector) {
+                    checked.insert(selector)
+                    #expect(match.output.2.firstMatch(of: layered) == nil, "\(theme.id): \(selector)")
+                }
+            }
+            #expect(checked.isSuperset(of: [".latex-letter", ".latex-cv-item"]), "\(theme.id)")
+        }
+    }
+
     @Test("LaTeX 専用スタイルは追い込み見出しの短い最終行を行頭に寄せる")
     func runInLastLine() throws {
         let themes = try PrintThemeLibrary.load().filter { $0.id.hasPrefix("latex-") }
