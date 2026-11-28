@@ -108,7 +108,7 @@ public enum LaTeXConverter {
                 body: html, title: document.plainTitle, language: document.classInfo.mainLanguage,
                 readingIssues: document.readingIssues,
                 latexClass: document.typesettingInfo
-            ).recordingContents()
+            ).recordingContents().with(unreadFiles: document.readingUnreadFiles)
         }
         let fragment = read(composition)
         // A saved choice can outlive a change of class, conference package or body (including an input file).
@@ -132,6 +132,9 @@ final class LaTeXDocument {
     var includeOnly: Set<String>?
     var fileIssues: [String] = []
     var seenFileIssues: Set<String> = []
+    var unreadFiles: [UnreadFile] = []
+    /// The last local file the reader looked for and could not read, until a note about it takes it.
+    var lastFileAttempt: (reference: String, candidates: [URL])?
     var preambleFileNotes = ""
     var pictureCaptions: LaTeXPictureCaptions?
     var pictureHeadings: [Int: String] = [:]
@@ -394,6 +397,17 @@ final class LaTeXDocument {
     let nonce = String((0..<12).map { _ in "abcdefghijklmnopqrstuvwxyz".randomElement() ?? "x" })
 
     /// The print check panel can explain omissions here without putting diagnostic text on the paper.
+    /// The unread files, their notes spelled as `readingIssues` spells them.
+    var readingUnreadFiles: [UnreadFile] {
+        guard !pictureHeadings.isEmpty else { return unreadFiles }
+        return unreadFiles.map {
+            var file = $0
+            file.note = replacing("P", in: file.note, rawText: true)
+            return file
+        }
+    }
+
+    /// The file issues come first: `UnreadFile.issueIndex` counts on it.
     var readingIssues: [String] {
         var issues = pictureHeadings.isEmpty ? fileIssues : fileIssues.map { replacing("P", in: $0, rawText: true) }
         if !unknownNames.isEmpty {

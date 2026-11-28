@@ -58,9 +58,9 @@ enum PrintIssueAnchors {
           return el.matches('.math-block') ? 'math' :
             ({TABLE:'table',IMG:'image',PRE:'code'})[el.tagName] || 'figure';
         }
-        function add(el, kind, detail, key, element = null) {
+        function add(el, kind, detail, key, element = null, unreadFile = null) {
           const id = String(issues.length);
-          issues.push({id, kind, detail, element, locationKey: key});
+          issues.push({id, kind, detail, element, locationKey: key, unreadFile});
           targets.push({el, id});
         }
         for (const el of document.querySelectorAll('img')) {
@@ -109,7 +109,8 @@ enum PrintIssueAnchors {
             const picture = el.matches('body.format-latex [data-latex-picture]');
             const detail = (picture && el.dataset.issue) || el.textContent || '';
             const key = locationKey('latex', detail);
-            if (visible(el)) add(el, 'latex', detail, key, el.hasAttribute('data-latex-picture') ? 'figure' : null);
+            const element = el.hasAttribute('data-latex-picture') ? 'figure' : null;
+            if (visible(el)) add(el, 'latex', detail, key, element, el.dataset.unreadFile || null);
           }
         }
         if (!targets.length) return issues;

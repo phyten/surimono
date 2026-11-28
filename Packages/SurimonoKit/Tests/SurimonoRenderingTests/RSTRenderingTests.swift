@@ -51,7 +51,7 @@ extension RSTRenderingTests {
         let denied = Locked(false)
         let blocked = try #require(
             try DocumentRenderer.themedFragment(
-                source, access: LocalResourceAccess(documentURL: url), onDenied: { denied.value = true }))
+                source, access: LocalResourceAccess(documentURL: url), onDenied: { _ in denied.value = true }))
         #expect(denied.value)
         #expect(!blocked.body.contains("Shared gauge notes."))
         let accepted = try #require(
