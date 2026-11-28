@@ -273,6 +273,31 @@ struct ComputationalMarkdownTests {
         #expect(html.contains("see <a href=\"#fig-a\">Figure 1</a>; close"))
     }
 
+    @Test(
+        "表の題・脚注・属性付きのspanの中の<code>…</code>も参照として読まない",
+        arguments: [
+            "| x |\n|---|\n| 1 |\n\nTable: (\\#tab:t) Example <code>\\@ref(fig:missing)</code>",
+            "Note^[<code>\\@ref(fig:missing)</code>].",
+            "[<code>\\@ref(fig:missing)</code>]{.x}",
+        ])
+    func codeElementInsideNestedText(source: String) {
+        let fragment = ComputationalMarkdown.convert(source, format: .rMarkdown)
+        #expect(!fragment.body.contains("??"))
+        #expect(fragment.readingIssues.isEmpty)
+    }
+
+    @Test(
+        "属性の値に>を含む<code>の中も参照として読まず、外の参照は解決する",
+        arguments: [#"<code title="a > b">"#, #"<code title='a > b'>"#])
+    func codeTagWithAngleInAttribute(tag: String) {
+        let fragment = ComputationalMarkdown.convert(
+            "Example: \(tag)\\@ref(fig:missing)</code> and Figure \\@ref(fig:cars).\n\n"
+                + "~~~{r cars, fig.cap='Cars', results='show'}\nx\n~~~", format: .rMarkdown)
+        #expect(!fragment.body.contains("??"))
+        #expect(fragment.body.contains("and Figure <a href=\"#fig:cars\">1</a>."))
+        #expect(fragment.readingIssues.isEmpty)
+    }
+
     @Test("段落の中で行をまたぐ<code>…</code>の中は参照として読まない")
     func codeElementOverLines() {
         let fragment = ComputationalMarkdown.convert(

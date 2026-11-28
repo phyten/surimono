@@ -45,6 +45,16 @@ struct ComputationalLiterals {
         self.ranges = ranges
     }
 
+    /// The parts of `spans` (UTF-8 offsets within a line) that fall in `part`, measured from the start of `part`, for
+    /// a piece of the line read again on its own: a heading's title, a caption, a footnote or a span.
+    static func spans(_ spans: [Range<Int>], within part: Range<Int>) -> [Range<Int>] {
+        spans.compactMap { span in
+            let lower = max(span.lowerBound, part.lowerBound)
+            let upper = min(span.upperBound, part.upperBound)
+            return lower < upper ? (lower - part.lowerBound)..<(upper - part.lowerBound) : nil
+        }
+    }
+
     /// Whether any of the characters in `range` print as written.
     func contains(_ range: Range<Int>) -> Bool {
         let lower = starts[min(range.lowerBound, starts.count - 1)]

@@ -126,11 +126,10 @@ extension ComputationalBody {
         }
         let spans = index.map { (literal.spans[$0] ?? []) + (literal.htmlCode[$0] ?? []) } ?? []
         // The spans of a part of the line, measured from where the part starts.
-        func spansOfPart(from start: String.Index) -> [Range<Int>] {
-            let offset = line.utf8.distance(from: line.startIndex, to: start)
-            return spans.compactMap { span in
-                span.upperBound > offset ? max(span.lowerBound - offset, 0)..<(span.upperBound - offset) : nil
-            }
+        func spansOfPart(from start: String.Index, to end: String.Index? = nil) -> [Range<Int>] {
+            let lower = line.utf8.distance(from: line.startIndex, to: start)
+            let upper = line.utf8.distance(from: line.startIndex, to: end ?? line.endIndex)
+            return ComputationalLiterals.spans(spans, within: lower..<upper)
         }
         if line.trimmingCharacters(in: .whitespaces) == #"\newpage"# {
             block("<div class=\"page-break\"></div>")
@@ -162,7 +161,8 @@ extension ComputationalBody {
             // the Markdown reader typesets as any other; `unwrappingCaptions` then takes its `p` away.
             let target = register(String(match.1), kind: "tab")
             block("<div\(target.attribute) class=\"table-caption\" \(captionMark)>")
-            output.append(target.text + " " + inline(String(match.2)))
+            let caption = spansOfPart(from: match.2.startIndex, to: match.2.endIndex)
+            output.append(target.text + " " + inline(String(match.2), literalSpans: caption))
             block("</div>")
         } else if line.contains("{#eq-"), let match = line.wholeMatch(of: /^(.*\$\$)\s*\{#(eq-[\w:.-]+)\}\s*$/) {
             let target = register(String(match.2), kind: "eq")

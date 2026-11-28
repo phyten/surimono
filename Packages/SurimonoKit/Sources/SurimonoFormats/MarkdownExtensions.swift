@@ -131,8 +131,10 @@ enum MarkdownExtensions {
         pattern: #"^(?:[ \t]*(?:>|(?:[-+*]|[0-9]{1,9}[.)])(?=[ \t])))*[ \t]*"#)
     private static let referenceLabel = try? NSRegularExpression(pattern: #"^\[(?!\^)(?:[^\]\\]|\\.)+\]:"#)
 
+    // cmark has already read the tag as HTML; only its name and whether it closes are wanted here, since an
+    // attribute value may hold a `>`.
     private static let htmlCodeTag = try? NSRegularExpression(
-        pattern: #"^<(/?)(code|pre|kbd|samp)(?:\s[^>]*)?>$"#, options: [.caseInsensitive])
+        pattern: #"^<(/?)(code|pre|kbd|samp)(?=[\s/>])"#, options: [.caseInsensitive])
 
     static func protection(_ lines: [String]) -> Protection {
         var result = Protection(lines: Array(repeating: false, count: lines.count))

@@ -79,7 +79,8 @@ extension ComputationalBody {
         return label
     }
 
-    /// `literalSpans` are UTF-8 offsets within the line that belong to a code span running over several lines.
+    /// `literalSpans` are UTF-8 offsets within `source` that print as written: code spans running over several lines
+    /// and HTML code elements, as `MarkdownExtensions.protection` found them.
     mutating func inline(_ source: String, literalSpans: [Range<Int>] = []) -> String {
         // Every alternative starts with one of these characters; a line without any is returned as it is.
         guard source.utf8.contains(where: { [96, 36, 60, 93, 123, 94, 91, 92, 64].contains($0) }) else { return source }
@@ -92,6 +93,16 @@ extension ComputationalBody {
         func isLiteral(_ range: Range<Int>) -> Bool {
             if literals == nil { literals = ComputationalLiterals(characters, spans: literalSpans) }
             return literals?.contains(range) ?? false
+        }
+        // A footnote or a span is read again on its own, and keeps the part of the spans that falls in it.
+        var utf8Starts: [Int] = []
+        func nested(_ range: Range<Int>) -> [Range<Int>] {
+            guard !literalSpans.isEmpty else { return [] }
+            if utf8Starts.isEmpty {
+                utf8Starts = characters.reduce(into: [0]) { $0.append($0[$0.count - 1] + $1.utf8.count) }
+            }
+            return ComputationalLiterals.spans(
+                literalSpans, within: utf8Starts[range.lowerBound]..<utf8Starts[range.upperBound])
         }
         var html = ""
         var start = 0
@@ -114,11 +125,12 @@ extension ComputationalBody {
                 }
             } else if let footnote = match.footnote {
                 let id = "\(token)note\(notes.count)"
-                let definition = inline(text(footnote))
+                let definition = inline(text(footnote), literalSpans: nested(footnote))
                 notes.append("[^\(id)]: \(definition)")
                 html += "[^\(id)]"
             } else if let spanText = match.spanText, let attrs = match.spanAttributes {
-                html += "<span\(ComputationalAttributes(text(attrs)).html)>\(inline(text(spanText)))</span>"
+                let content = inline(text(spanText), literalSpans: nested(spanText))
+                html += "<span\(ComputationalAttributes(text(attrs)).html)>\(content)</span>"
             } else if match.bareReference != nil, match.range.lowerBound > 0,
                 case let prior = characters[match.range.lowerBound - 1],
                 prior.isLetter || prior.isNumber || prior == "_" || prior == "\\"
