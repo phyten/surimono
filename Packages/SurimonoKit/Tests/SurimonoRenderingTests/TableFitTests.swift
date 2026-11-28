@@ -112,11 +112,15 @@ struct TableFitTests {
         }
     }
 
-    /// How the first table of the printed DOM was laid out: the most lines a cell of each column takes, its zoom, and
-    /// whether it counts as fitted.
+    /// How the first table of the printed DOM was laid out: the most lines a cell of each column takes, the least
+    /// text width a cell of each column has in its own ems, how many pieces of text or boxes in it lie outside their
+    /// cell's left or right edge, its zoom, and whether it counts as fitted. A table that could not be observed
+    /// records an issue, so that empty columns do not pass for kept ones.
     @MainActor
     private final class Columns {
         var lines: [Int] = []
+        var ems: [Double] = []
+        var outside = -1
         var zoom = 1.0
         var fitted = false
         var log = ""
@@ -124,7 +128,8 @@ struct TableFitTests {
             let json = try? await view.evaluateForPrinting(
                 """
                 const table = document.querySelector('table');
-                const lines = cell => {
+                const px = value => parseFloat(value) || 0;
+                const rectsIn = cell => {
                     const rects = [];
                     const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
                     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
@@ -133,7 +138,10 @@ struct TableFitTests {
                         range.selectNodeContents(node);
                         for (const rect of range.getClientRects()) if (rect.width && rect.height) rects.push(rect);
                     }
-                    rects.sort((a, b) => a.top - b.top);
+                    return rects;
+                };
+                const lines = cell => {
+                    const rects = rectsIn(cell).sort((a, b) => a.top - b.top);
                     let count = 0, bottom = -Infinity;
                     for (const rect of rects) {
                         if (rect.top >= bottom - 1) { count++; bottom = rect.bottom; }
@@ -141,20 +149,41 @@ struct TableFitTests {
                     }
                     return count;
                 };
+                const ems = cell => {
+                    const css = getComputedStyle(cell);
+                    const text = cell.clientWidth - px(css.paddingLeft) - px(css.paddingRight);
+                    return text / px(css.fontSize);
+                };
+                let outside = 0;
+                for (const cell of table.querySelectorAll('td, th')) {
+                    const box = cell.getBoundingClientRect();
+                    const pieces = [...rectsIn(cell), ...[...cell.querySelectorAll('*')].map(el => el.getBoundingClientRect())];
+                    outside += pieces.filter(r => r.width && (r.left < box.left - 1 || r.right > box.right + 1)).length;
+                }
                 const rows = [...table.rows];
                 const count = rows.reduce((most, row) => Math.max(most, row.cells.length), 0);
-                const columns = [];
+                const columns = [], widths = [];
                 for (let i = 0; i < count; i++) {
-                    columns.push(rows.reduce((most, row) => row.cells[i] ? Math.max(most, lines(row.cells[i])) : most, 0));
+                    const cells = rows.map(row => row.cells[i]).filter(Boolean);
+                    columns.push(cells.reduce((most, cell) => Math.max(most, lines(cell)), 0));
+                    widths.push(cells.reduce((least, cell) => Math.min(least, ems(cell)), Infinity));
                 }
-                return JSON.stringify({ lines: columns, zoom: parseFloat(getComputedStyle(table).zoom) || 1,
+                return JSON.stringify({ lines: columns, ems: widths, outside,
+                    zoom: parseFloat(getComputedStyle(table).zoom) || 1,
                     fitted: globalThis.surimonoFittedTables?.has(table) === true,
                     log: globalThis.surimonoTableFitLog ?? null });
                 """, until: .now + .seconds(10))
             guard let text = json as? String,
-                let object = try? JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any]
-            else { return }
-            lines = object["lines"] as? [Int] ?? []
+                let object = try? JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any],
+                let lines = object["lines"] as? [Int], let ems = object["ems"] as? [Double],
+                let outside = object["outside"] as? Int
+            else {
+                Issue.record("The printed table could not be observed")
+                return
+            }
+            self.lines = lines
+            self.ems = ems
+            self.outside = outside
             zoom = object["zoom"] as? Double ?? 1
             fitted = object["fitted"] as? Bool ?? false
             log = text + " on " + ProcessInfo.processInfo.operatingSystemVersionString
@@ -299,8 +328,10 @@ struct TableFitTests {
         let page = try #require(document.page(at: 0))
         // "c10" and "10" each on one line, not "c1" over "0". The first column holds the row markers, boxes that
         // are not text.
-        #expect(columns.lines.count == 40, Comment(rawValue: columns.log))
+        try #require(columns.lines.count == 40, Comment(rawValue: columns.log))
         #expect(columns.lines.dropFirst().allSatisfy { $0 == 1 }, Comment(rawValue: columns.log))
+        // Narrowed sideways, the header is still text: found once, as it was written.
+        #expect(document.findString("c37", withOptions: []).count == 1)
         let actual = try Raster(page)
         let body = try control.bounds(channel: 2)
         // Heading and body text, everything above the table, are the same pixels as without the table.
@@ -745,18 +776,52 @@ struct TableFitTests {
     }
 
     private static func short(_ width: Double) -> [String: Any] { ["short": true, "width": width, "padding": 14] }
-    private static func long(_ width: Double) -> [String: Any] { ["short": false, "width": width, "padding": 14] }
+    private static func long(_ width: Double, padding: Double = 14) -> [String: Any] {
+        ["short": false, "width": width, "padding": padding, "text": width - padding]
+    }
 
-    /// The plan for a table with this room, 14-pixel type laid out at `text` pixels, and these columns.
-    private func plan(room: Double, text: Double = 14, _ columns: [[String: Any]]) throws -> Plan {
+    /// The whole plan for a table with this room, 14-pixel type laid out at `text` pixels, and these columns.
+    private func fullPlan(room: Double, text: Double = 14, _ columns: [[String: Any]]) throws -> JSValue {
         let js = try #require(JSContext())
         js.evaluateScript(TableFit.planFunctions)
         let function = try #require(js.objectForKeyedSubscript("tablePlan"))
         let result = try #require(function.call(withArguments: [room, 14, text, columns]))
         #expect(js.exception == nil)
+        return result
+    }
+
+    /// The zoom and narrowing of the plan.
+    private func plan(room: Double, text: Double = 14, _ columns: [[String: Any]]) throws -> Plan {
+        let result = try fullPlan(room: room, text: text, columns)
         return Plan(
             scale: result.objectForKeyedSubscript("scale").toDouble(),
             narrowing: result.objectForKeyedSubscript("narrowing").toDouble())
+    }
+
+    @Test("長い列ごとに、文字の幅と4文字ぶんの小さい方を下限として返し、余白は列ごとに数える")
+    func planFloorsEachLongColumn() throws {
+        let result = try fullPlan(
+            room: 600, [Self.short(100), Self.long(400), Self.long(40), Self.long(300, padding: 30)])
+        let floors = try #require(result.objectForKeyedSubscript("floors").toArray() as? [Double])
+        #expect(floors == [0, 56, 26, 56])
+        // 100 + (14 + 56) + (14 + 26) + (30 + 56), more than 30% of the room.
+        #expect(result.objectForKeyedSubscript("need").toDouble() == 296)
+    }
+
+    @Test("短い列を守ると横に半分より詰めることになる表は、短い列を守らない")
+    func planGivesUpShortColumnsBelowHalfWidth() throws {
+        // 1500 in 600 at 9 of 14 pixels: narrowed to 0.62. 3000: 0.31.
+        let kept = try fullPlan(room: 600, Array(repeating: Self.short(50), count: 30))
+        let given = try fullPlan(room: 600, Array(repeating: Self.short(50), count: 60))
+        #expect(kept.objectForKeyedSubscript("keepsShort").toBool())
+        #expect(!given.objectForKeyedSubscript("keepsShort").toBool())
+    }
+
+    @Test("守らない短い列は、表の縮め方に数えない")
+    func planIgnoresFreeColumns() throws {
+        let free: [String: Any] = ["short": false, "free": true, "width": 50, "padding": 14, "text": 36]
+        #expect(
+            try plan(room: 600, Array(repeating: free, count: 60) + [Self.long(400)]) == Plan(scale: 1, narrowing: 1))
     }
 
     @Test("短い列の1行の幅と長い列の下限が本文の幅に入る表は、縮めない")
@@ -853,6 +918,7 @@ struct TableFitTests {
             + "| Not applicable for now | Not applicable for now | Not applicable | Not applicable | \(Self.longURL) |\n"
         let columns = Columns()
         let result = try await printed(source, inspect: columns.record)
+        try #require(columns.lines.count == 5, Comment(rawValue: columns.log))
         #expect(columns.lines.prefix(4).allSatisfy { $0 == 1 }, Comment(rawValue: columns.log))
         #expect(columns.zoom < 1, Comment(rawValue: columns.log))
         #expect(columns.fitted)
@@ -869,9 +935,48 @@ struct TableFitTests {
             + "</tbody></table>\n"
         let columns = Columns()
         _ = try await printed(source, inspect: columns.record)
+        try #require(columns.lines.count == 4, Comment(rawValue: columns.log))
         #expect(columns.lines.prefix(3).allSatisfy { $0 == 1 }, Comment(rawValue: columns.log))
         // There is room for them at full size.
         #expect(columns.zoom == 1, Comment(rawValue: columns.log))
+    }
+
+    @Test("幅を決めた段落の短い列は、1行にすると文字がセルの外へ出るので守らず、文字をセルの中に刷る", .timeLimit(.minutes(1)))
+    func boxedParagraphNotKept() async throws {
+        let source =
+            "<table><tr><td><p style='width:20px;direction:rtl'>Status Confirmed</p></td><td>"
+            + String(repeating: "X", count: 500) + "</td></tr></table>\n"
+        let columns = Columns()
+        _ = try await printed(source, inspect: columns.record)
+        try #require(columns.lines.count == 2, Comment(rawValue: columns.log))
+        #expect(columns.outside == 0, Comment(rawValue: columns.log))
+    }
+
+    @Test("短い4列と長い2列の表は、長い列のどちらにも4文字ぶんの文字の幅を残す", .timeLimit(.minutes(1)))
+    func eachLongColumnKeepsItsFloor() async throws {
+        let cells =
+            Array(repeating: "short label", count: 4)
+            + [String(repeating: "X", count: 60), String(repeating: "X", count: 250)]
+        let source = "<table><tr>" + cells.map { "<td>\($0)</td>" }.joined() + "</tr></table>\n"
+        let columns = Columns()
+        _ = try await printed(source, inspect: columns.record)
+        try #require(columns.lines.count == 6, Comment(rawValue: columns.log))
+        #expect(columns.lines.prefix(4).allSatisfy { $0 == 1 }, Comment(rawValue: columns.log))
+        // A pixel of rounding either way.
+        #expect(columns.ems.suffix(2).allSatisfy { $0 >= 3.9 }, Comment(rawValue: columns.log))
+    }
+
+    @Test("1行のままでは横に半分より詰めることになる日付50列の表は、ハイフンの後でだけ折り返し、数字の途中で割らない", .timeLimit(.minutes(1)))
+    func datesWrapAtHyphensWhenTooNarrow() async throws {
+        let row = "<tr>" + String(repeating: "<td>2026-11-29</td>", count: 50) + "</tr>"
+        let columns = Columns()
+        let result = try await printed("<table>\(row)\(row)</table>\n", inspect: columns.record)
+        try #require(columns.lines.count == 50, Comment(rawValue: columns.log))
+        // "2026-", "11-", "29": three lines at most, never "20" over "26".
+        #expect(columns.lines.allSatisfy { $0 >= 1 && $0 <= 3 }, Comment(rawValue: columns.log))
+        #expect(columns.lines.contains { $0 > 1 }, Comment(rawValue: columns.log))
+        #expect(columns.outside == 0, Comment(rawValue: columns.log))
+        #expect(result.issues.isEmpty)
     }
 
     @Test("短い列だけで本文の幅を超えるCSVの表は、どの列も割らずに表を縮めて本文の幅に収める", .timeLimit(.minutes(1)))
@@ -882,6 +987,7 @@ struct TableFitTests {
             .map { $0.joined(separator: ",") }.joined(separator: "\n")
         let columns = Columns()
         let result = try await printed(source + "\n", format: .csv, inspect: columns.record)
+        try #require(columns.lines.count == 16, Comment(rawValue: columns.log))
         #expect(columns.lines.dropLast().allSatisfy { $0 == 1 }, Comment(rawValue: columns.log))
         #expect(columns.zoom < 1, Comment(rawValue: columns.log))
         #expect(columns.fitted)
@@ -1023,7 +1129,9 @@ struct TableFitTests {
         }
     }
 
-    @Test("1行にすると表の幅の3割を超えて守るのをやめた列では、空白の扱いだけを書いたセルのスタイルもそのまま残す", .timeLimit(.minutes(1)))
+    @Test(
+        "1行にすると表の幅の3割を超えて守るのをやめた列では、空白の扱いだけを書いたセルのスタイルを残し、折り返さない指定を戻す",
+        .timeLimit(.minutes(1)))
     func styleRestoredWhole() async throws {
         // The words of spacedWordsJustTooWide: estimated short, measured on one line just too wide.
         let words = Array(repeating: "A", count: 12).joined(separator: " ")
@@ -1032,7 +1140,10 @@ struct TableFitTests {
             + "\(words)</td><td>\(Self.longURL)</td></tr></table>\n"
         let style = KeptStyle()
         _ = try await printed(source, inspect: style.record)
-        #expect(style.value == "white-space-collapse: collapse")
+        // As a long column it may get its floor (a min-width) after the author's own style.
+        let value = try #require(style.value)
+        #expect(value.hasPrefix("white-space-collapse: collapse"), "\(value)")
+        #expect(!value.contains("white-space:"), "\(value)")
     }
 
     @Test("長い列の余白が大きく、その文字の幅が下限より狭くなる表は、短い列を割らずに表を縮める", .timeLimit(.minutes(1)))
@@ -1045,6 +1156,7 @@ struct TableFitTests {
         let css = "th, td { box-sizing: border-box } th:last-child, td:last-child { padding: 0 140px }"
         let columns = Columns()
         _ = try await printed(source, css: css, inspect: columns.record)
+        try #require(columns.lines.count == 4, Comment(rawValue: columns.log))
         #expect(columns.lines.prefix(3).allSatisfy { $0 == 1 }, Comment(rawValue: columns.log))
         #expect(columns.zoom < 1, Comment(rawValue: columns.log))
         #expect(columns.fitted)
@@ -1071,6 +1183,7 @@ struct TableFitTests {
         let without = Columns()
         _ = try await printed(table(hidden: true), css: css, inspect: with.record)
         _ = try await printed(table(hidden: false), css: css, inspect: without.record)
+        try #require(with.lines.count == 5 && without.lines.count == 4, Comment(rawValue: with.log + without.log))
         #expect(with.lines.prefix(3).allSatisfy { $0 == 1 }, Comment(rawValue: with.log))
         // WebKit lays the two tables out a few pixels apart even untouched, so the zooms are close, not equal.
         #expect(with.zoom < 1 && abs(with.zoom - without.zoom) < 0.01, Comment(rawValue: with.log + without.log))
