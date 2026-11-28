@@ -1010,12 +1010,16 @@ final class LaTeXReader {
         case "listoftables": (list, key) = (.tables, "listtablename")
         default:
             let depth = min(5, max(-2, document.counters["tocdepth"]))
-            // The .toc stores only the counter. The prefix used when it is read may precede the appendix.
-            let chapterFormat =
+            // Each .toc line keeps the prefix in force at its chapter, so entries after \appendix are named as such.
+            let formats =
                 document.classInfo.profile.structure.formatsContentsChapterNames && document.language == "ja"
-                ? numberedHeading(
-                    document.isAppendix ? "appendix" : "chapter", number: document.placeholder("N", 0)) : nil
-            (list, key) = (.headings(depth: depth, chapterFormat: chapterFormat), "contentsname")
+            let number = document.placeholder("N", 0)
+            (list, key) = (
+                .headings(
+                    depth: depth, chapterFormat: formats ? numberedHeading("chapter", number: number) : nil,
+                    appendixFormat: formats ? numberedHeading("appendix", number: number) : nil),
+                "contentsname"
+            )
         }
         let opening = document.classInfo.hasChapters ? " data-latex-chapter-opening" : ""
         let pageStyle = document.bodyPageStyles ?? document.classInfo.pageNumbers
@@ -1477,6 +1481,8 @@ final class LaTeXReader {
                     headings.chapterLabel == .bareNumber || document.classInfo.bookStyle.chapterStyle != "default"
                     ? HTML.escape(chapter)
                     : numberedHeading(document.isAppendix ? "appendix" : "chapter", number: chapter)
+            } else if level == first, document.isAppendix, document.classInfo.isVertical, let section = number {
+                display = appendixNumber(section)
             } else {
                 display = number.map {
                     HTML.escape(
@@ -1503,12 +1509,14 @@ final class LaTeXReader {
         let tocNumber = listed && !starred ? number.map { $0 + (dot ? "." : document.headingEndDot) } ?? "" : nil
         let chapterLabel =
             name == "chapter" && document.classInfo.profile.structure.contents == .chapterMarks
-                && document.language == "ja" ? display : nil
+                && document.language == "ja"
+            ? display
+            : level == first && document.isAppendix && document.classInfo.isVertical ? number.map(appendixNumber) : nil
         let shortTitle = short.map(inline) ?? title
         document.headings.append(
             .init(
                 chapterLabelHTML: chapterLabel, level: level, number: tocNumber, id: id,
-                title: shortTitle))
+                title: shortTitle, appendix: document.isAppendix))
         if headings.navigationOnlySections, name == "section" || name == "subsection" || name == "subsubsection" {
             // Navigation and explicit contents pages still need the section destination.
             beamerSection(name, title: title, id: id, listed: !starred && listed)
