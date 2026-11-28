@@ -157,6 +157,27 @@ struct ReadingPDFExporterTests {
         #expect(reread.index(for: try #require(second.child(at: 0)?.destination?.page)) == 3)
     }
 
+    @Test("タグの付いた Org の見本の見出しも、しおりの題にタグを入れずにどれもページを指す", .timeLimit(.minutes(1)))
+    func orgHeadingsWithTags() async throws {
+        // The tags float to the end of a heading's line; in the page's text they can come after the caption of the
+        // table under the heading.
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let url = root.appending(path: "Samples/sample.org")
+        let source = DocumentSource(data: try Data(contentsOf: url), fileURL: url, format: .org)
+        let standard = try #require(PrintThemeLibrary.load().first { $0.id == "standard" })
+        let settings = RenderSettings(
+            layout: .a4Single, theme: standard, preset: HTMLCleanupPreset(id: "none", name: "None"))
+        let prepared = try await DocumentRenderer().prepare(source, settings: settings)
+        let outline = await ReadingPDFExporter.outline(
+            of: source, in: prepared.logicalDocument, proof: .shown, includesSourceContents: true)
+        #expect(
+            outline.entries.map(\.title) == [
+                "摺物のサンプル", "TODO 印刷の準備 [2/4]", "NEXT 持ち物", "DONE 原稿を集める", "WAITING 表紙の絵", "ページ数を数える",
+            ])
+        #expect(outline.entries.allSatisfy { $0.pageIndex != nil }, "\(outline.entries)")
+    }
+
     @Test("本文で目次の項目が別順に現れても、書き出した PDF のしおりは本文のページを指す")
     func trailingOrgContents() async throws {
         let source = DocumentSource(
