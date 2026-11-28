@@ -155,7 +155,11 @@ extension ComputationalReadingTests {
         var reading = FormatReadingSettings()
         reading.document.set(.outline(present: true, depth: .levels(1)), for: .tableOfContents, format: format)
         let fragment = ComputationalMarkdown.convert("# One\n\n## Two\n\n[TOC]", format: format, reading: reading)
-        #expect(fragment.body.hasPrefix("<nav") && fragment.body.components(separatedBy: "</nav>").count == 3)
+        // The single first-level heading is the title, which the lead contents follow.
+        #expect(fragment.body.hasPrefix("<h1") && fragment.body.components(separatedBy: "</nav>").count == 3)
+        let title = fragment.body.range(of: "</h1>")
+        let nav = fragment.body.range(of: "<nav")
+        #expect(title != nil && nav != nil && title!.upperBound <= nav!.lowerBound)
     }
 
     @Test("Quarto の番号の深さだけを原稿が決めたときは有無だけを変更できる")

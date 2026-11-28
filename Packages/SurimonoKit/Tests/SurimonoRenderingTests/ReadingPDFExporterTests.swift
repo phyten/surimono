@@ -157,7 +157,7 @@ struct ReadingPDFExporterTests {
         #expect(reread.index(for: try #require(second.child(at: 0)?.destination?.page)) == 3)
     }
 
-    @Test("タグの付いた Org の見本の見出しも、しおりの題にタグを入れずにどれもページを指す", .timeLimit(.minutes(1)))
+    @Test("タグの付いた Org の見本の見出しも、しおりの題にタグと作業の語を入れずにどれもページを指す", .timeLimit(.minutes(1)))
     func orgHeadingsWithTags() async throws {
         // The tags float to the end of a heading's line; in the page's text they can come after the caption of the
         // table under the heading.
@@ -173,7 +173,39 @@ struct ReadingPDFExporterTests {
             of: source, in: prepared.logicalDocument, proof: .shown, includesSourceContents: true)
         #expect(
             outline.entries.map(\.title) == [
-                "摺物のサンプル", "TODO 印刷の準備 [2/4]", "NEXT 持ち物", "DONE 原稿を集める", "WAITING 表紙の絵", "ページ数を数える",
+                "摺物のサンプル", "印刷の準備 [2/4]", "持ち物", "原稿を集める", "表紙の絵", "ページ数を数える",
+            ])
+        #expect(outline.entries.allSatisfy { $0.pageIndex != nil }, "\(outline.entries)")
+    }
+
+    @Test("和文の LaTeX の章と節、数式や脚注を含む見出しも、しおりに本文の題で並び、どれもページを指す", .timeLimit(.minutes(1)))
+    func japaneseLaTeXHeadings() async throws {
+        // jsbook sets a chapter's label and a section's number on lines of their own in the page's text.
+        let tex = """
+            \\documentclass{jsbook}
+            \\begin{document}
+            \\tableofcontents
+            \\chapter{返却と予約}
+            \\section{開室の識別}
+            返却口の資料は配架前として扱う。
+            \\section{$x_1 = x_2$ と札の確認}
+            札の番号を照らし合わせる。
+            \\section{注を含む見出し\\footnote{注の文。}}
+            注を付けた見出しの本文。
+            \\chapter{所在を探す}
+            所在の本文。
+            \\end{document}
+            """
+        let source = DocumentSource(data: Data(tex.utf8), fileURL: nil, format: .latex)
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-plain-ja" })
+        let settings = RenderSettings(
+            layout: .a4Single, theme: theme, preset: HTMLCleanupPreset(id: "none", name: "None"))
+        let prepared = try await DocumentRenderer().prepare(source, settings: settings)
+        let outline = await ReadingPDFExporter.outline(
+            of: source, in: prepared.logicalDocument, proof: .shown, includesSourceContents: true)
+        #expect(
+            outline.entries.map(\.title) == [
+                "第 1 章 返却と予約", "1.1 開室の識別", "1.2 x_1 = x_2 と札の確認", "1.3 注を含む見出し", "第 2 章 所在を探す",
             ])
         #expect(outline.entries.allSatisfy { $0.pageIndex != nil }, "\(outline.entries)")
     }

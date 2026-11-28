@@ -58,10 +58,31 @@ extension HTMLFragment {
     package func prependingLead(_ nav: String) -> Self {
         guard !nav.isEmpty else { return self }
         var copy = self
-        copy.body = nav + body
+        copy.body = Self.placingLead(nav, in: body)
         copy.contentsKinds = Dictionary(uniqueKeysWithValues: contentsKinds.map { ($0.key + 1, $0.value) })
         copy.contentsKinds[0] = .lead
         return copy
+    }
+
+    /// The body with the lead contents at its head, after the title when the body opens with one: a first-level
+    /// heading the document begins with and the only one it has is its title, as the contents leave it out, and the
+    /// contents come after a title. Among several first-level headings the first is a chapter the contents list.
+    package static func placingLead(_ nav: String, in body: String) -> String {
+        guard !nav.isEmpty else { return body }
+        func opensTitle(_ text: Substring) -> Bool {
+            guard text.hasPrefix("<h1"), let next = text.dropFirst(3).first else { return false }
+            return next == ">" || next.isWhitespace
+        }
+        let start = body.drop(while: \.isWhitespace)
+        guard opensTitle(start), let close = start.range(of: "</h1>") else { return nav + body }
+        var end = close.upperBound
+        if end < start.endIndex, start[end] == "\n" { end = start.index(after: end) }
+        var rest = body[end...]
+        while let found = rest.range(of: "<h1") {
+            if opensTitle(rest[found.lowerBound...]) { return nav + body }
+            rest = rest[found.upperBound...]
+        }
+        return String(body[..<end]) + nav + String(body[end...])
     }
 
     private func contentsKind(of nav: HTMLScanner.Tag, at index: Int) -> ReaderContentsKind? {

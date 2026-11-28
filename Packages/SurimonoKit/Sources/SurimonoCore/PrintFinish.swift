@@ -413,7 +413,9 @@ public enum PaperContents {
         return headings.enumerated().compactMap { index, heading in
             let level = heading.level - top
             guard level >= 0, level < depth.headingLevels else { return nil }
-            return (index, DocumentHeading(level: level + 1, text: heading.text, id: heading.id))
+            var listed = heading
+            listed.level = level + 1
+            return (index, listed)
         }
     }
 
