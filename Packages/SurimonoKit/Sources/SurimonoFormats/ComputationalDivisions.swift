@@ -205,11 +205,12 @@ extension ComputationalBody {
                     label.value = .heading(anchor.text)
                 }
                 labels[requested] = label
-            } else if let requested = anchor.customID, labels[requested] == nil, bookdownTargets.contains(requested),
-                !anchor.number.isEmpty
+            } else if case let requested = anchor.customID ?? anchor.id, labels[requested] == nil,
+                bookdownTargets.contains(requested), !anchor.number.isEmpty
             {
                 // bookdown refers to a section by its heading's ID and prints its number; a heading without a number
-                // is not in its table, so the reference stays unresolved as bookdown leaves it.
+                // is not in its table, so the reference stays unresolved as bookdown leaves it. A Setext heading has
+                // no written ID, only the one made from its title.
                 labels[requested] = ComputationalLabel(
                     id: anchor.id, kind: "sec", value: .number(String(anchor.number.dropLast())),
                     name: metadata.japanese ? "節" : "Section")

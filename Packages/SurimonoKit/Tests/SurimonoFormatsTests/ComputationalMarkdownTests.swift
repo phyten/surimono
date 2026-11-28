@@ -273,6 +273,34 @@ struct ComputationalMarkdownTests {
         #expect(html.contains("see <a href=\"#fig-a\">Figure 1</a>; close"))
     }
 
+    @Test("bookdownでSetextの見出しの自動のIDを指す参照も節番号になる")
+    func bookdownSetextSection() {
+        let html = ComputationalMarkdown.convert(
+            """
+            ---
+            output:
+              html_document:
+                number_sections: true
+            ---
+            Methods
+            =======
+
+            See Section \\@ref(methods).
+            """, format: .rMarkdown
+        ).body
+        #expect(html.contains("See Section <a href=\"#methods\">1</a>."))
+    }
+
+    @Test("日本語と絵文字の後の脚注でも、<code>の中は原文のまま残り、外の参照は番号になる")
+    func footnoteAfterWideCharacters() {
+        let fragment = ComputationalMarkdown.convert(
+            "図の説明😀^[<code>\\@ref(fig:missing)</code> と \\@ref(fig:cars)]。\n\n"
+                + "~~~{r cars, fig.cap='Cars', results='show'}\nx\n~~~", format: .rMarkdown)
+        #expect(fragment.body.contains("<code>@ref(fig:missing)</code>"))
+        #expect(fragment.body.contains("と <a href=\"#fig:cars\">1</a>"))
+        #expect(fragment.readingIssues.isEmpty)
+    }
+
     @Test(
         "表の題・脚注・属性付きのspanの中の<code>…</code>も参照として読まない",
         arguments: [
