@@ -107,16 +107,78 @@ enum TableFit {
             return Math.max(used, table.offsetWidth - 0.5, spill - 0.5) * zoomOf(table);
         }
 
+        // A column whose every cell holds a few characters reads as a label: "Status", a date, or a short
+        // Japanese word, which can break between any two characters. Beside a long cell, the table hands that
+        // column next to nothing beyond its narrowest width, and the word comes out one character a line.
+        // Such a column, where a cell does wrap, keeps its words on one line, unless that makes the table too
+        // wide for its room; then the table is left as it was.
+        // Inline code and the like sit a little higher or lower on the same line, so a line only starts where
+        // a piece of text lies wholly below the one before.
+        function lines(cell) {
+            const range = document.createRange();
+            range.selectNodeContents(cell);
+            const rects = [...range.getClientRects()].filter(rect => rect.width && rect.height);
+            rects.sort((a, b) => a.top - b.top);
+            let count = 0, bottom = -Infinity;
+            for (const rect of rects) {
+                if (rect.top >= bottom - 1) count++;
+                bottom = count && rect.top >= bottom - 1 ? rect.bottom : Math.max(bottom, rect.bottom);
+            }
+            return count;
+        }
+        function shortColumns(table) {
+            const shortLength = 12;
+            const notShort = 'br, img, svg, math, table, pre, p, div, ul, ol, dl, figure, blockquote';
+            const rows = [...table.rows];
+            if (!rows.length || rows.some(row => [...row.cells].some(cell => cell.colSpan > 1 || cell.rowSpan > 1))) {
+                return [];
+            }
+            const count = Math.max(...rows.map(row => row.cells.length));
+            const cells = [];
+            for (let column = 0; count > 1 && column < count; column++) {
+                const own = rows.map(row => row.cells[column]).filter(Boolean);
+                const texts = own.map(cell => cell.textContent.trim());
+                const short = own.every((cell, index) =>
+                    !texts[index].includes('\n') && [...texts[index].replace(/\s+/g, ' ')].length <= shortLength
+                    && !cell.querySelector(notShort));
+                if (short && texts.some(text => text) && own.some(cell => lines(cell) > 1)) cells.push(...own);
+            }
+            return cells;
+        }
+        // Each item is a table and the width it may take. Returns the tables whose labels were kept whole.
+        function keepLabels(items) {
+            const plans = items.map(item => ({ item, cells: shortColumns(item.table) })).filter(plan => plan.cells.length);
+            for (const plan of plans) {
+                plan.prior = plan.cells.map(cell =>
+                    [cell.style.getPropertyValue('white-space'), cell.style.getPropertyPriority('white-space')]);
+                for (const cell of plan.cells) set(cell, 'white-space', 'nowrap');
+            }
+            for (const plan of plans) plan.fits = outer(plan.item.table) <= plan.item.limit + 0.5;
+            for (const plan of plans) {
+                if (plan.fits) continue;
+                plan.cells.forEach((cell, index) => {
+                    const [value, priority] = plan.prior[index];
+                    if (value) cell.style.setProperty('white-space', value, priority);
+                    else cell.style.removeProperty('white-space');
+                });
+            }
+            return plans.filter(plan => plan.fits).map(plan => plan.item.table);
+        }
+
         function fitTables() {
             delete globalThis.surimonoFittedTables;
             delete globalThis.surimonoTableFitLog;
-            const wide = [];
+            const wide = [], fitting = [];
             for (const table of document.querySelectorAll('table')) {
                 // The outer grid owns its tracks, including nested tables. TeX graphics and slides have
                 // already been measured and placed by their own scripts.
                 if (table.parentElement.closest('table,svg,.latex-graphic-box,.beamer-frame') || !table.offsetWidth) continue;
                 const place = roomFor(table);
-                if (!place || outer(table) <= place.room + 0.5) continue;
+                if (!place) continue;
+                if (outer(table) <= place.room + 0.5) {
+                    fitting.push({ table, limit: place.room });
+                    continue;
+                }
                 // The reserve is a length on paper, so it is the same at every text scale.
                 const reserved = reserve / place.zoom;
                 // A block is placed from its container's start edge, whatever the direction of its own cells,
@@ -131,7 +193,8 @@ enum TableFit {
                     marginRight: px(css.marginRight) * zoom,
                 });
             }
-            if (!wide.length) return false;
+            const labelled = keepLabels(fitting);
+            if (!wide.length) return labelled.length > 0;
 
             // The print cuts the column's right edge back to whole points, and half of a collapsed outside
             // rule lies beyond the table's box. A table placed from the right starts at that edge, so its
@@ -166,6 +229,8 @@ enum TableFit {
                 set(item.table, 'max-width', item.room / item.zoom + 'px');
                 keepRight(item, item.zoom);
             }
+            // Wrapped, the long cells give way; labels beside them are kept whole when the table still fits.
+            keepLabels(wide.map(item => ({ table: item.table, limit: item.room })));
             let over = overflowing(wide);
             for (const item of wide) item.unwrapped = item.width;
             restyle(over, 'overflowWrap', wrap => wrap === 'anywhere' ? null : 'anywhere');

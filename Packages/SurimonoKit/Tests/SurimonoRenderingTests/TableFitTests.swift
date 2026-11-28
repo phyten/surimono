@@ -667,4 +667,39 @@ struct TableFitTests {
         let fitted = try await Raster(#require(printed(source).logicalDocument.page(at: 0)))
         #expect(original.data == fitted.data)
     }
+
+    private static let longURL =
+        "https://example.com/a/very/long/url/that/keeps/going/and/going/without/any/space/in/it/at/all/index.html"
+        + "?query=1&another=2&more=3"
+
+    @Test(
+        "長いURLの隣の短い語の列は、日本語も英語も本文と同じ1行で刷る", .timeLimit(.minutes(1)),
+        arguments: [("項目名", 1.0), ("項目名", 2.0), ("Status", 1.0), ("Status", 2.0)])
+    func labelsKeptWhole(label: String, scale: Double) async throws {
+        let mark = "<span style='color:lime'>\(label)</span>"
+        let table = "| \(label) | 値 |\n|---|---|\n| \(mark) | \(Self.longURL) |\n"
+        let (control, actual) = try await atDeviceScale(CGFloat(scale)) {
+            (try await Raster(printPage(mark + "\n")), try await Raster(printPage(table)))
+        }
+        // The label in the table is drawn as in a paragraph: the same glyphs on one line, not one per line. A
+        // pixel of width comes and goes with where the glyphs fall between pixels.
+        let expected = try control.bounds(channel: 1)
+        let cell = try actual.bounds(channel: 1)
+        #expect(cell.height == expected.height, "label \(cell), in a paragraph \(expected)")
+        #expect(abs(cell.width - expected.width) <= 1, "label \(cell), in a paragraph \(expected)")
+    }
+
+    @Test("短い語の隣の長いURLは、本文の幅の中で折り返し、右の外罫を刷る", .timeLimit(.minutes(1)))
+    func longCellWrapsBesideLabels() async throws {
+        let table = "| 項目名 | 値 |\n|---|---|\n| 名前 | <span style='color:lime'>\(Self.longURL)</span> |\n"
+        let page = try await printPage(table)
+        let pixels = try Raster(page)
+        let url = try pixels.bounds(channel: 1)
+        let border = try pixels.bounds(channel: 0)
+        #expect(url.maxX < border.minX)
+        // Wrapped onto several lines rather than run off the page.
+        #expect(url.height > 30)
+        let rightEdge = (page.bounds(for: .mediaBox).width - 15 * 72 / 25.4) * 2
+        #expect(border.maxX <= ceil(rightEdge) && border.width >= 2)
+    }
 }
