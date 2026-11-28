@@ -1224,7 +1224,9 @@ function lines(box, endsPage) {
         gap:i ? Math.max(0,r.start-rows[i-1].end) : r.start, stretchBefore:flushBottom && plus ? plus * texPoint : undefined,
         shrinkBefore:((rows[i-1]?.shrinkAfter || 0) + r.shrinkAbove + minus * texPoint) || undefined, discardable:r.discard, extraAfter:r.extra,
         topSkip:r.element.closest(publicationGrid ? '[data-latex-heading="section"]' :
-            '[data-latex-heading="section"],[data-latex-heading="subsection"],[data-latex-heading="subsubsection"]') ? sectionTop : 0, paragraph:r.para, heading:r.heading, keepBefore:r.element.hasAttribute('data-flow-after-text') || undefined};
+            '[data-latex-heading="section"],[data-latex-heading="subsection"],[data-latex-heading="subsubsection"]') ? sectionTop : 0, paragraph:r.para, heading:r.heading, keepBefore:r.element.hasAttribute('data-flow-after-text') || undefined,
+        // \chapter empties the top float list of its page (\@topnum is zero there).
+        opensChapter:r.heading && body.dataset.latexChapters === 'true' && !!r.element.closest('h2[id^="sec-"],[data-latex-heading="chapter"],[data-latex-chapter-opening]') || undefined};
     });
 }
 // A TeX paragraph ends at the deepest glyph on its final line. Its HTML line box includes

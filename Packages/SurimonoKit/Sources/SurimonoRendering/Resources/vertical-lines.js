@@ -39,12 +39,40 @@ function wrapper(tag, className) {
     return element;
 }
 
+// A LaTeX class with chapters restarts its note numbers in each chapter. The notes collected at the end then
+// repeat them, so each chapter's notes open under the chapter's number.
+trace.call = 'label chapter notes';
+for (const note of strip.querySelectorAll('.footnotes li[data-latex-note-chapter]')) {
+    const label = note.dataset.latexNoteChapter;
+    if (!label) continue;
+    const heading = wrapper('li', 'vertical-note-chapter');
+    for (const part of label.split(/(\d{1,2})/u)) {
+        if (!part) continue;
+        if (/^\d+$/u.test(part)) heading.appendChild(wrapper('span', 'tcy')).textContent = part;
+        else heading.append(part);
+    }
+    note.before(heading);
+}
+
+// pTeX and jlreq turn a LaTeX display formula along the vertical line, with its number at the foot of the line.
+// Such a formula takes the columns of its height, instead of the columns of its width as an upright box would.
+trace.call = 'turn display formulas';
+const turnedFormulas = body.classList.contains('format-latex')
+    ? [...strip.querySelectorAll('.math-block')].filter(block =>
+        !block.parentElement.closest('.math-block,table,figure,li,.explicit-tcy,.footnotes'))
+    : [];
+for (const block of turnedFormulas) {
+    const turn = wrapper('div', 'vertical-display-formula');
+    block.replaceWith(turn);
+    turn.appendChild(block);
+}
+
 // The pre holding a plain-text document inherits the body's type and remains in vertical flow.
 const horizontal = 'pre:not(.surimono-plain),table,figure,img,.math-block,.math-display,'
     + '.mermaid-block,.graphviz-block,.plantuml-block';
 trace.call = 'wrap horizontal boxes';
 for (const box of strip.querySelectorAll(horizontal)) {
-    if (box.closest('.explicit-tcy')) continue;
+    if (box.closest('.explicit-tcy,.vertical-display-formula')) continue;
     if (box.localName === 'pre') box.classList.add('vertical-code');
     if (box.parentElement.closest('.horizontal-box')) continue;
     const line = wrapper('div', 'horizontal-box-line');
@@ -64,7 +92,7 @@ for (const list of strip.querySelectorAll('section.footnotes > ol')) {
     list.before(rule);
     let number = list.start;
     for (const item of list.children) {
-        if (item.localName !== 'li') continue;
+        if (item.localName !== 'li' || item.classList.contains('vertical-note-chapter')) continue;
         if (item.hasAttribute('value')) number = item.value;
         if (item.style.listStyleType !== 'none') {
             const label = wrapper('span', 'vertical-note-number');
@@ -130,6 +158,15 @@ for (const svg of formulas) svg.parentElement.classList.add('vertical-inline-for
 strip.getBoundingClientRect();
 trace.call = 'document.fonts.ready';
 await document.fonts.ready;
+// The turned formula's thickness across the lines is its height, read before the turn is applied.
+trace.call = 'measure turned formulas';
+const turnedHeights = turnedFormulas.map(block => block.getBoundingClientRect().height * unit / zoom);
+turnedFormulas.forEach((block, i) => {
+    const turn = block.parentElement;
+    turn.style.blockSize = turnedHeights[i] + 'px';
+    turn.style.setProperty('--turned-height', turnedHeights[i] + 'px');
+    turn.classList.add('turned');
+});
 trace.call = 'inline SVG getBBox';
 const formulaSizes = formulas.map(svg => {
     const vb = svg.viewBox.baseVal;
@@ -153,7 +190,7 @@ formulas.forEach((svg, i) => {
     svg.style.width = svg.parentElement.style.height = (w * scale) + 'px';
     svg.style.height = (h * scale) + 'px';
 });
-const atomic = '.explicit-tcy,.horizontal-box,.vertical-inline-formula,.vertical-note-base,.vertical-note-number,ruby,.tcy,svg,canvas,input,hr';
+const atomic = '.explicit-tcy,.horizontal-box,.vertical-display-formula,.vertical-inline-formula,.vertical-note-base,.vertical-note-number,ruby,.tcy,svg,canvas,input,hr';
 const excluded = 'style,script,template,noscript';
 const heading = 'h1,h2,h3,h4,h5,h6';
 // LaTeX titles and sections also use heading tags. Only the reader knows which command opened a chapter.
@@ -161,6 +198,12 @@ const latex = body.classList.contains('format-latex');
 const chapter = latex ? '[data-latex-heading="chapter"],template[data-latex-break] + h2[id^="sec-"]' : 'h1';
 const annotations = latex ? 'em,.kenten,.bousen' : 'em';
 const breaksChapters = latex ? body.dataset.latexChapters === 'true' : booklet;
+// The reader marks what TeX ships on a page of its own. A separate title and an explicit page break end the
+// page after them; contents, lists and the bibliography of a class with chapters open one like a chapter.
+const breakAfter = latex
+    ? '.latex-pagebreak,.latex-titlepage,body[data-latex-title-layout="separate"] .latex-title-block,'
+        + 'body[data-latex-chapters="true"]:not([data-latex-title-layout]) .latex-title-block' : null;
+const breakBefore = latex ? '[data-latex-chapter-opening]' : null;
 
 const range = document.createRange();
 function paintBounds(element, box = element.getBoundingClientRect()) {
@@ -421,9 +464,13 @@ function measureLayout(trace) {
     const bands = [];
     originX = window.scrollX;
     const stripTop = strip.getBoundingClientRect().top;
+    let pendingBreak = false;
+    let openBreak = null;
     function add(rect, keepNext, paint = rect, rightInk = 0, chapter = false, continuation) {
         if (!rect.width || !rect.height) return;
         if (bands.length >= limit) throw new Error('Vertical layout exceeds the fragment limit');
+        chapter ||= pendingBreak;
+        pendingBreak = false;
         // Keep the line advance independent of the ink allowance, even when two neighboring
         // lines' ruby or emphasis marks overlap. Both use the same fractional CSS coordinates.
         bands.push({start: -(rect.right + originX) * unit, end: -(rect.left + originX) * unit,
@@ -444,6 +491,14 @@ function measureLayout(trace) {
     });
     for (let n = walker.nextNode(); n; n = walker.nextNode()) {
         trace.call = 'measure band / DOM bounds';
+        if (openBreak && !openBreak.contains(n)) {
+            pendingBreak = true;
+            openBreak = null;
+        }
+        if (n.nodeType === Node.ELEMENT_NODE) {
+            if (breakAfter && n.matches(breakAfter)) openBreak = n;
+            if (breakBefore && n.matches(breakBefore)) pendingBreak = true;
+        }
         if (n.nodeType === Node.TEXT_NODE) {
             trace.call = 'measure text / Range.getClientRects';
             const parent = n.parentElement;

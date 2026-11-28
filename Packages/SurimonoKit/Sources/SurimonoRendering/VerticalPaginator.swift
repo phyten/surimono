@@ -130,7 +130,11 @@ enum VerticalPaginator {
         in webView: WKWebView, pageSize: CGSize, margins: WebPaginator.Margins, timeout: Duration,
         booklet: Bool = false, textScale: Double = 1,
         samplePosition: (@MainActor (ContinuousClock.Instant) async throws -> CGFloat?)? = nil,
-        recordSlice: (@MainActor (Int, PrintedFragmentLinks.VerticalLayout.Slice) -> Void)? = nil
+        recordSlice: (@MainActor (Int, PrintedFragmentLinks.VerticalLayout.Slice) -> Void)? = nil,
+        beforeCapture: (
+            @MainActor (_ pageOfSource: [Int: Int], _ pageCount: Int, ContinuousClock.Instant) async throws
+                -> Void
+        )? = nil
     ) async throws -> Data {
         try Task.checkCancellation()
         guard PDFDrawing.validGeometry(pageSize: pageSize, margins: margins), let measurement else {
@@ -168,6 +172,15 @@ enum VerticalPaginator {
                 booklet: booklet, rows: frame.rows, until: deadline)
             try Task.checkCancellation()
             let pages = plan.pages
+            if let beforeCapture {
+                // The first page that shows any part of a source band owns the elements that start in it.
+                var pageOfSource: [Int: Int] = [:]
+                for (page, slices) in pages.enumerated() {
+                    for slice in slices where pageOfSource[slice.index] == nil { pageOfSource[slice.index] = page }
+                }
+                try await beforeCapture(pageOfSource, max(1, pages.count), deadline)
+                try Task.checkCancellation()
+            }
             var selected = pages.startIndex..<pages.endIndex
             if let samplePosition, !pages.isEmpty {
                 let position = try await samplePosition(deadline)

@@ -28,6 +28,13 @@ public enum ReadingPDFExporter {
             // Section names need not appear on any painted slide.
             return (entries, facts.title, facts.headings)
         }
+        if let facts, !facts.headingPages.isEmpty {
+            // Vertical pages do not read back in order; their headings carry the pages they were laid out on.
+            return (
+                facts.outlineEntries(inPageTexts: [], contentsEntries: facts.visibleContentsEntries), facts.title,
+                facts.headings
+            )
+        }
         let structure = await Task.detached(priority: .utility) {
             if let facts { return (facts.headings, facts.visibleContentsEntries, facts.title) }
             let html = DocumentRenderer.structureHTML(of: source, proof: proof, orgReading: orgReading) ?? ""

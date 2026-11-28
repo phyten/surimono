@@ -35,6 +35,7 @@ struct LaTeXFlowLayout {
         var forced: String?
         var paragraph: Int?
         var heading: Bool?
+        var opensChapter: Bool?
         var keepBefore: Bool?
         var brokenAfter: Bool?
         var discardable: Bool?
@@ -155,6 +156,7 @@ struct LaTeXFlowLayout {
         fileprivate var columnEnds: [Lane: Int] = [:]
         fileprivate var depths: [Lane: CGFloat] = [:]
         fileprivate var floats: [Lane: FloatUsage] = [:]
+        fileprivate var closesTopFloats = false
 
         fileprivate mutating func draw(
             _ slice: Slice, at y: CGFloat, lane: Lane, scale: CGFloat = 1, plus: CGFloat = 0, fill: Fill = Fill()
@@ -707,6 +709,10 @@ struct LaTeXFlowLayout {
         {
             return try placeFloatPage(segment, cursor: &cursor, width: width, limit: limit)
         }
+        // A chapter that opens its page sets LaTeX's \@topnum to zero there: its floats go below the text or later.
+        if page.pieces.isEmpty && page.footers.isEmpty {
+            page.closesTopFloats = segment.items.dropFirst(cursor.item).first { $0.slice != nil }?.opensChapter == true
+        }
         // Starred floats wait for a fresh physical page, even if its second column is empty.
         if top == 0 && page.pieces.isEmpty && page.footers.isEmpty {
             var band = ColumnTop(index: page.pieces.count, textStart: base, hasFloats: false)
@@ -1220,7 +1226,7 @@ struct LaTeXFlowLayout {
         let spanning = lane == full ? FloatUsage() : page.floats[full] ?? FloatUsage()
         let separation = band.hasFloats ? floatSep : 0
         let cost = slice.height + (band.hasFloats ? separation : textFloatSep)
-        guard use.top + spanning.top < 2,
+        guard !page.closesTopFloats, use.top + spanning.top < 2,
             item.placement?.contains("!") == true
                 || use.topHeight + spanning.topHeight + separation + slice.height <= height
                     * (input.floatFractions?.top ?? 0.7),

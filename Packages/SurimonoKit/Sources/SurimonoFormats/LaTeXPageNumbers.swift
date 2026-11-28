@@ -111,6 +111,21 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
                 definitions[name] = Definition(name: name, snapshotsFields: false, fields: rows, snapshot: [:])
             }
             style = "headings"
+        case .verticalHead(let outer, let marks):
+            // pLaTeX's tbook headnombre (and jlreq's tate nombre) is mirrored from jbook's, since recto pages
+            // are on the left. The chapter opening keeps the head number without the marks.
+            let number = #"\thepage"#
+            var plain = outer ? ["OLH": number, "ERH": number] : ["OCH": number, "ECH": number]
+            plain["headrulewidth"] = "0pt"
+            var running = plain
+            if marks {
+                running["ELH"] = #"\leftmark"#
+                running["ORH"] = #"\rightmark"#
+            }
+            for (name, rows) in [("headings", running), ("plain", plain)] {
+                definitions[name] = Definition(name: name, snapshotsFields: false, fields: rows, snapshot: [:])
+            }
+            style = marks ? "headings" : "plain"
         case .exam:
             style = "headandfoot"
             examFirst = [:]

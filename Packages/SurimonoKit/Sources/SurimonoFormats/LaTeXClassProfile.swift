@@ -33,13 +33,18 @@ package struct LaTeXClassProfile: Equatable, Sendable {
         var dotSeparationMu: Double? = 4.5
         var pageNumberWidth = "1.55em"
         var rightMargin = "2.55em"
+        /// ltjsarticle sets a section's page number at the start of its box; jsarticle and bxjsarticle end it.
+        var startsSectionPageNumber = false
 
         var attributes: String {
-            guard self != Self() else { return "" }
+            let start = startsSectionPageNumber ? " data-latex-section-page-start" : ""
+            var measure = self
+            measure.startsSectionPageNumber = false
+            guard measure != Self() else { return start }
             var values = ["--latex-toc-page-width: " + pageNumberWidth, "--latex-toc-right-margin: " + rightMargin]
             if let dotSeparationMu { values.append("--latex-toc-dotsep: " + LaTeXPageSettings.number(dotSeparationMu)) }
             let undotted = dotSeparationMu == nil ? " data-latex-undotted" : ""
-            return undotted + " style=\"" + values.joined(separator: "; ") + "\""
+            return start + undotted + " style=\"" + values.joined(separator: "; ") + "\""
         }
     }
 
@@ -264,6 +269,9 @@ package struct LaTeXClassProfile: Equatable, Sendable {
         case plain
         case ams(fontSize: Double)
         case markedBook(numberInHead: Bool, ruled: Bool)
+        /// Vertical classes set their yoko furniture above the text. The number goes in the
+        /// middle, or on the outer side of a page, which is the left of a recto in a right-bound book.
+        case verticalHead(outer: Bool, marks: Bool)
         case exam, empty, runningHeads
         case journalIssueLine, ruledArticleType, outerHeadNumber, technicalReportNotice
         case journalReportTitle(bilingual: Bool)

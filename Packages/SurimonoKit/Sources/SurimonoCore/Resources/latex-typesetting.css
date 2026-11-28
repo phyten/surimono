@@ -372,8 +372,8 @@ body[data-latex-chapters="false"][data-latex-js-toc] nav.toc .latex-toc-section 
     font-family: var(--tex-sans-fonts); font-weight: normal; --latex-toc-number-width: 3.7em;
 }
 body[data-latex-js-chapters] nav.toc .latex-toc-chapter > a { font-weight: bold; }
-/* jsarticle's section puts the page number at the start of its pnumwidth box. */
-body[data-latex-js-toc][data-latex-chapters="false"] nav.toc .latex-toc-section > a > .latex-page-label {
+/* ltjsarticle's section puts the page number at the start of its pnumwidth box (jsarticle and bxjsarticle end it). */
+body[data-latex-js-toc][data-latex-chapters="false"] nav.toc[data-latex-section-page-start] .latex-toc-section > a > .latex-page-label {
     min-width: 1.55em; text-align: start;
 }
 nav.toc li > a .secnum { display: inline-block; min-width: var(--latex-toc-number-width, 2.3em); box-sizing: border-box; padding-inline-end: 0.2em; margin-inline-end: 0; }

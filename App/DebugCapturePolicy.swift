@@ -91,6 +91,11 @@
         var errorDescription: String? { "Timed out waiting for " + stage }
     }
 
+    struct ExportFailure: LocalizedError {
+        let reason: String
+        var errorDescription: String? { "Export did not finish: " + reason }
+    }
+
     enum CaptureSequence {
         // ScreenCaptureKit may never resume its async call. A task group would join that call on timeout.
         @MainActor static func bounded<T>(

@@ -440,6 +440,12 @@ public enum LaTeXPageMode: String, Codable, Sendable {
     public func applies(to theme: PrintTheme?) -> Bool {
         self == .document || theme?.formats == [.latex]
     }
+
+    /// The class's page numbers and running heads also apply under the vertical style. That style keeps its own
+    /// grid and margins, because a vertical class describes its text block in the transposed directions.
+    public func appliesFurniture(to theme: PrintTheme?) -> Bool {
+        applies(to: theme) || theme?.flow == .vertical
+    }
 }
 
 public struct PrintOptions: Codable, Equatable, Sendable {

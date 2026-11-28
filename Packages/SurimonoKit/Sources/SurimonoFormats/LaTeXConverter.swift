@@ -335,6 +335,8 @@ final class LaTeXDocument {
     var listingDefaults: [String: String] = [:]
     var listingStyles: [String: String] = [:]
     var footnotes: [Footnote] = []
+    /// The printed number of the chapter that notes now belong to; a class with chapters restarts their numbers.
+    var noteChapter: String?
     var references: [Reference] = []
     var resolvingReferences: Set<Int> = []
     /// After 200 KB of nested link text, use an ellipsis so repeated captions cannot multiply indefinitely.
