@@ -561,17 +561,27 @@ body[data-latex-class="moderncv"] h2 { font-weight: normal; color: var(--latex-c
 body[data-latex-class="moderncv"] h2::before {
     content: ""; display: inline-block; width: 17.5%; margin-inline-end: 2.5%; height: .95ex; background: currentColor;
 }
-.latex-cv-item { display: grid; grid-template-columns: 17.5% 1fr; column-gap: 2.5%; margin-block-end: var(--cv-item-skip, .25em); }
-.latex-cv-label { text-align: end; overflow-wrap: normal; word-break: normal; hyphens: none; -webkit-hyphens: none; }
+/* WebKit cannot split a grid or flex item between printed pages; it slices the line
+   at the page edge instead. The label floats in the gutter so the entry body stays in
+   the block flow and breaks between lines. Like moderncv's tabular row, an entry moves
+   to the next page whole; only one taller than a page is broken. */
+.latex-cv-item { display: flow-root; margin-block-end: var(--cv-item-skip, .25em); break-inside: avoid; }
+.latex-cv-label {
+    float: inline-start; width: 17.5%; text-align: end;
+    overflow-wrap: normal; word-break: normal; hyphens: none; -webkit-hyphens: none;
+}
+.latex-cv-label + div { margin-inline-start: 20%; }
 .latex-cv-detail, .latex-cv-comment em { font-size: var(--latex-size-small); }
-.latex-cv-comment { display: flex; justify-content: space-between; gap: 1em; }
-.latex-cv-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5%; }
-.latex-cv-pair > .latex-cv-item { grid-template-columns: 35.9% 1fr; gap: 5.13%; }
-.latex-cv-double { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5%; }
-/* Keep paragraph margins independent as in letter.cls, including in short letters.
-   Only the space above a short letter is needed in the printable flow. */
-.latex-letter { display: flex; flex-direction: column; }
-.latex-letter > * { flex: none; }
+/* Side-by-side rows are short. Keep each one whole so a page break moves it intact. */
+.latex-cv-comment { display: flex; justify-content: space-between; gap: 1em; break-inside: avoid; }
+.latex-cv-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5%; break-inside: avoid; }
+.latex-cv-pair > .latex-cv-item > .latex-cv-label { width: 35.9%; }
+.latex-cv-pair > .latex-cv-item > .latex-cv-label + div { margin-inline-start: 41.03%; }
+.latex-cv-double { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5%; break-inside: avoid; }
+/* The letter stays in the block flow so WebKit can break its paragraphs between lines
+   (a flex column is sliced at the page edge). A new formatting context keeps the first
+   and last margins inside the box whose height sizes the leading glue of a short letter. */
+.latex-letter { display: flow-root; }
 
 /* jsclasses scales the entire design. Cvs is saved during class loading, before a
    document can change baselinestretch. A heading's own line box is stretched. */
