@@ -1817,9 +1817,9 @@ public final class DocumentRenderer {
         let html = try await builtHTML(paper, source: source, settings: settings, separatesPaper: separatesPaper)
         // Text and tables cannot emit diagram elements. Check markup before adding styles or duplicating it for notes.
         let markup = source.format != .plainText && source.format != .csv
-        let mermaid =
-            [.markdown, .org, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .mediawiki].contains(source.format)
-            && fragment.body.contains("class=\"mermaid-block\"")
+        // Decided by the markup, not by a list of formats, so that a reader which starts emitting diagram blocks
+        // (notebook Markdown cells) cannot be left out. Authors' own HTML documents never reach this themed path.
+        let mermaid = markup && fragment.body.contains("class=\"mermaid-block\"")
         let diagrams =
             markup
             && (fragment.body.contains("graphviz-block") || fragment.body.contains("plantuml-block")

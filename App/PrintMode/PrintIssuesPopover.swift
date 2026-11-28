@@ -171,7 +171,12 @@ enum PrintIssueText {
             return ""
         case .overflow: key = "Try landscape paper or smaller text, or adjust this element in the source document."
         case .math: key = "Check the formula's syntax and use supported commands in the source document."
-        case .mermaid: key = "Check the Mermaid syntax and simplify the diagram in the source document."
+        case .mermaid:
+            // A figure is a diagram that was read but needs HTML or images to draw: its syntax is not the problem.
+            key =
+                issue.element == .figure
+                ? "Surimono cannot display this diagram. Replace it with an image in the source document."
+                : "Check the Mermaid syntax and simplify the diagram in the source document."
         case .latex:
             if issue.unreadLaTeXCommands != nil {
                 key = "Check the command spelling and its definition in the source document."

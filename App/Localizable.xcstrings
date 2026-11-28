@@ -52047,6 +52047,58 @@
         }
       }
     },
+    "Surimono cannot display this diagram. Replace it with an image in the source document.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Surimono cannot display this diagram. Replace it with an image in the source document."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Surimono ではこの図を表示できません。元の文書で画像に置き換えてください。"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Surimono kann dieses Diagramm nicht darstellen. Ersetze es im Quelldokument durch ein Bild."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Surimono no puede mostrar este diagrama. Sustitúyelo por una imagen en el documento original."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Surimono ne peut pas afficher ce diagramme. Remplacez-le par une image dans le document source."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Surimono에서는 이 다이어그램을 표시할 수 없습니다. 원본 문서에서 이미지로 바꾸세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Surimono 无法显示此图表。请在源文档中将其替换为图像。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Surimono 無法顯示此圖表。請在原始文件中將其替換為影像。"
+          }
+        }
+      }
+    },
     "Could Not Render Formula: %@": {
       "localizations": {
         "en": {
