@@ -197,4 +197,82 @@ struct BandChapterTests {
             metrics: .init(topFixed: 150, bottomFixed: 28, separator: 9), availableWidth: 2000)
         #expect(plan.top.forms[.chapter] == .full && plan.top.chapterTitleWidth == nil)
     }
+
+    /// The previous Split standard with the widths the app's rendering test gives a two-chapter Markdown document.
+    private func quietBottom(available: CGFloat, chapter: Bool) throws -> BandRowPlan {
+        let items: Set<BandLayout.Item> = [.style, .outline, .layout, .pageIndicator, .pageTurn, .readingSettings]
+        let plan = BandLayout.resolve(
+            arrangement: BandLayoutTests.quietSplit, mode: .split,
+            availableItems: chapter ? items.union([.chapter]) : items,
+            measurements: .init(
+                items: [
+                    .style: .init(full: 90, compact: 40), .outline: .init(full: 60, compact: 30),
+                    .layout: .init(full: 60), .chapter: .init(full: 72), .pageIndicator: .init(full: 50),
+                    .pageTurn: .init(full: 60), .readingSettings: .init(full: 80, compact: 30),
+                ], name: 120),
+            metrics: .init(topFixed: 141, bottomFixed: 28, separator: 7, titleGap: 6, toolGap: 6, outerGap: 6),
+            availableWidth: available)
+        return try #require(plan.bottom)
+    }
+
+    @Test("下の帯で今の章が出ない幅では、ほかの部品の計画は今の章のない配置と同じ")
+    func hiddenChapterLeavesOtherParts() throws {
+        for width in stride(from: CGFloat(1), through: 600, by: 1) {
+            let row = try quietBottom(available: width, chapter: true)
+            guard row.chapterTitleWidth == nil else { continue }
+            let without = try quietBottom(available: width, chapter: false)
+            #expect(row.forms == without.forms, "forms at \(width)")
+            #expect(row.leading == without.leading && row.trailing == without.trailing, "order at \(width)")
+            #expect(row.geometry == without.geometry && row.requiredWidth == without.requiredWidth, "room at \(width)")
+        }
+    }
+
+    @Test("下の帯の 335pt では、今の章を外したうえで目次とスタイルの名前を省き、読み方の設定を外す")
+    func hiddenChapterBoundary() throws {
+        for width: CGFloat in [335, 336, 340] {
+            let row = try quietBottom(available: width, chapter: true)
+            #expect(row.chapterTitleWidth == nil)
+            #expect(
+                row.forms == [
+                    .style: .compact, .outline: .compact, .layout: .full, .pageIndicator: .full, .pageTurn: .full,
+                ], "\(width)")
+        }
+    }
+
+    /// The Split standard with the app test's widths for a two-chapter Markdown document, a 142-point slider and a
+    /// 16-point chapter chrome.
+    private func standardBottom(available: CGFloat, title: CGFloat) throws -> BandRowPlan {
+        let plan = BandLayout.resolve(
+            arrangement: .standard(for: .split), mode: .split,
+            availableItems: [
+                .selectText, .layout, .viewOptions, .print, .style, .readingSettings, .outline, .chapter,
+                .pageIndicator, .pageTurn,
+            ],
+            measurements: .init(
+                items: [
+                    .style: .init(full: 90, compact: 40), .readingSettings: .init(full: 80, compact: 30),
+                    .outline: .init(full: 60, compact: 30), .chapter: .init(full: 72), .pageIndicator: .init(full: 50),
+                    .pageTurn: .init(full: 60),
+                ], name: 120, scrubber: 142, chapterTitle: title, chapterChrome: 16),
+            metrics: .init(topFixed: 141, bottomFixed: 28, separator: 7, titleGap: 6, toolGap: 6, outerGap: 6),
+            availableWidth: available)
+        return try #require(plan.bottom)
+    }
+
+    @Test("上下配置の標準では、短い章でも長い章でもスライダーの出る幅は同じで、章の名前はその横に収める")
+    func standardSharesSliderAndTitle() throws {
+        // Without the chapter: 28 fixed, style 90, 6, reading settings 80, 6 and a 7 line, contents 60, pages 50,
+        // 6, page turn 60. The chapter adds its 16 of chrome and the 6 before the pages.
+        let others: CGFloat = 393
+        for width in stride(from: CGFloat(300), through: 900, by: 1) {
+            let short = try standardBottom(available: width, title: 40)
+            let long = try standardBottom(available: width, title: 400)
+            #expect(short.showsScrubber == long.showsScrubber, "slider at \(width)")
+            #expect(long.showsScrubber == (width - others >= 142), "slider room at \(width)")
+            let frame = width - others - 142 - 6 - 16
+            let shows = long.showsScrubber && frame >= 72
+            #expect(long.chapterTitleWidth == (shows ? min(frame, 160) : nil), "long title at \(width)")
+            #expect(short.chapterTitleWidth == (shows ? 40 : nil), "short title at \(width)")
+        }
+    }
 }

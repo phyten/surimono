@@ -170,6 +170,27 @@ struct ReadingNavigationTests {
         #expect(!state.holdsBand)
     }
 
+    @Test("ドラッグ中にスライダーの横の位置か幅が変わると、つかんだ操作を取り消し、離しても移動しない")
+    func scrubMovesUnderPointer() {
+        let state = PageScrubSession()
+        state.frame = CGRect(x: 200, y: 0, width: 300, height: 20)
+        state.press(0.5)
+        // Moving up or down does not change which page a place on the line points at.
+        state.frame = CGRect(x: 200, y: 4, width: 300, height: 20)
+        #expect(state.dragging)
+        state.frame = CGRect(x: 240, y: 4, width: 300, height: 20)
+        #expect(!state.dragging && !state.holdsBand)
+        #expect(state.release(0.5, inside: true) == nil)
+        state.press(0.5)
+        state.frame = CGRect(x: 240, y: 4, width: 260, height: 20)
+        #expect(!state.dragging)
+        #expect(state.release(0.5, inside: true) == nil)
+        // Without a drag the line may move freely, and the next drag starts from where it is.
+        state.frame = CGRect(x: 0, y: 0, width: 100, height: 20)
+        state.press(0.3)
+        #expect(state.release(0.3, inside: true) == 0.3)
+    }
+
     @Test("普通のページ通知と検索では履歴を積まず紙のないモードでは操作しない", .timeLimit(.minutes(1)))
     func ordinaryTurns() async throws {
         let fixture = Fixture()

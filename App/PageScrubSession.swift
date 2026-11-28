@@ -11,7 +11,16 @@ struct PageScrubImageKey: Hashable {
 
 @Observable
 final class PageScrubSession {
-    var frame: CGRect = .zero
+    var frame: CGRect = .zero {
+        didSet {
+            // A slider that moves or changes width under a held pointer would point at another page than the one the
+            // reader aimed at (the band shares its room with the chapter title): let the drag go instead.
+            guard dragging, abs(frame.minX - pressFrame.minX) > 0.5 || abs(frame.width - pressFrame.width) > 0.5
+            else { return }
+            cancel()
+        }
+    }
+    @ObservationIgnored private var pressFrame: CGRect = .zero
     private(set) var bitmap: (PageScrubImageKey, CGImage)?
     private(set) var fraction: CGFloat?
     private(set) var showsPreview = false
@@ -48,6 +57,7 @@ final class PageScrubSession {
     }
 
     func press(_ fraction: CGFloat) {
+        pressFrame = frame
         dragging = true
         point(fraction, immediately: true)
     }
