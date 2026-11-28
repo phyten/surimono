@@ -70,3 +70,73 @@ struct SVGIntrinsicSizeTests {
         #expect(size("<?xml version=\"1.0\"?>\n<!-- no element -->") == nil)
     }
 }
+
+struct SVGIntrinsicSizeOverflowTests {
+    @Test("算出した寸法が有限でない SVG や不正な viewBox の寸法を返さない")
+    func overflowAndViewBox() {
+        let tall = #"<svg xmlns="http://www.w3.org/2000/svg" width="10" viewBox="0 0 1e-308 10"/>"#
+        #expect(SVGIntrinsicSize.of(Data(tall.utf8)) == nil)
+        let extra = #"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 invalid 200 100"/>"#
+        #expect(SVGIntrinsicSize.of(Data(extra.utf8)) == SVGIntrinsicSize.defaultSize)
+        let spaced = String(repeating: " ", count: 200) + #"<svg xmlns="http://www.w3.org/2000/svg"/>"#
+        #expect(SVGIntrinsicSize.of(Data(spaced.utf8)) == SVGIntrinsicSize.defaultSize)
+        #expect(SVGIntrinsicSize.of(Data(#"<svg xmlns="urn:not-svg"/>"#.utf8)) == nil)
+    }
+}
+
+struct SVGIntrinsicSizeLimitTests {
+    private func read(_ svg: String) -> SVGIntrinsicSize.Reading? { SVGIntrinsicSize.read(Data(svg.utf8)) }
+
+    @Test("縦横比から算出した寸法が有限でなければ、使えない SVG にする")
+    func computedOverflow() {
+        let tall = #"<svg xmlns="http://www.w3.org/2000/svg" width="10" viewBox="0 0 1e-308 10"/>"#
+        #expect(read(tall) == .unusable(.unreadable))
+        let wide = #"<svg xmlns="http://www.w3.org/2000/svg" height="10" viewBox="0 0 10 1e-308"/>"#
+        #expect(read(wide) == .unusable(.unreadable))
+    }
+
+    @Test("viewBox は有限な数がちょうど 4 つのときだけ使う")
+    func strictViewBox() {
+        let extra = #"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 invalid 200 100"/>"#
+        #expect(read(extra) == .size(SVGIntrinsicSize.defaultSize))
+        let notANumber = #"<svg xmlns="http://www.w3.org/2000/svg" viewBox="nan 0 200 100"/>"#
+        #expect(read(notANumber) == .size(SVGIntrinsicSize.defaultSize))
+    }
+
+    @Test("上限を超えるマークアップは解析せず、大きすぎる SVG として断る")
+    func tooLarge() {
+        var data = Data(#"<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1">"#.utf8)
+        data.append(Data(repeating: 0x20, count: SVGIntrinsicSize.maximumBytes))
+        #expect(SVGIntrinsicSize.read(data) == .unusable(.tooLarge))
+    }
+
+    @Test("根要素の前の序文が長すぎる SVG は読めない画像にする")
+    func longProlog() {
+        let comment = "<!--" + String(repeating: "x", count: 200_000) + "-->"
+        #expect(read(comment + #"<svg xmlns="http://www.w3.org/2000/svg"/>"#) == .unusable(.unreadable))
+    }
+
+    @Test("先頭の長い空白と UTF-16 の BOM のあとの svg も読む")
+    func leadingWhitespaceAndUTF16() throws {
+        let svg = #"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="20"/>"#
+        let spaced = String(repeating: " ", count: 200) + svg
+        #expect(read(spaced) == .size(CGSize(width: 10, height: 20)))
+        let utf16 = try #require(svg.data(using: .utf16))
+        #expect(utf16.starts(with: [0xFF, 0xFE]) || utf16.starts(with: [0xFE, 0xFF]))
+        #expect(SVGIntrinsicSize.read(utf16) == .size(CGSize(width: 10, height: 20)))
+    }
+
+    @Test("SVG の名前空間でない svg 要素は使えない SVG にする")
+    func namespace() {
+        #expect(read(#"<svg width="10" height="20"/>"#) == .unusable(.unreadable))
+        #expect(read(#"<svg xmlns="urn:not-svg" width="10" height="20"/>"#) == .unusable(.unreadable))
+        let prefixed = #"<s:svg xmlns:s="http://www.w3.org/2000/svg" width="10" height="20"/>"#
+        #expect(read(prefixed) == .size(CGSize(width: 10, height: 20)))
+    }
+
+    @Test("画像のバイト列はマークアップでないので SVG の判定に入らない")
+    func binary() {
+        #expect(SVGIntrinsicSize.read(Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])) == nil)
+        #expect(SVGIntrinsicSize.read(Data()) == nil)
+    }
+}

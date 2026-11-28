@@ -42,9 +42,29 @@ struct OfflineRulesTests {
               copy.onload = () => done(true);
               copy.onerror = () => done(false);
             });
-            return [copied, await load('later.svg')];
+            // A volume that ignores case would serve this file; only the rule can tell the two addresses apart.
+            return [copied, await load('later.svg'), await load('SHOWN%20(1).svg')];
             """, until: .now + .seconds(15))
-        #expect(loaded as? [Bool] == [true, false])
+        #expect(loaded as? [Bool] == [true, false, false])
+    }
+
+    @Test("通す画像の規則は大文字と小文字を区別し、ローカルの画像だけを通す")
+    func ruleSet() throws {
+        let rules = MermaidScript.offlineRuleSet(keeping: [
+            "file:///tmp/Chart.svg", "https://example.com/a.png", "surimono-local://doc/b.png",
+            "surimono-snapshot://page/c.png",
+        ])
+        let triggers = rules.compactMap { $0["trigger"] as? [String: Any] }
+        let filters = triggers.compactMap { $0["url-filter"] as? String }
+        #expect(
+            filters == [
+                ".*", "^data:", #"^file:///tmp/Chart\.svg$"#, #"^surimono-local://doc/b\.png$"#,
+                #"^surimono-snapshot://page/c\.png$"#,
+            ])
+        for trigger in triggers.dropFirst(2) {
+            #expect(trigger["url-filter-is-case-sensitive"] as? Bool == true)
+            #expect(trigger["resource-type"] as? [String] == ["image"])
+        }
     }
 
     @Test("フィルターの正規表現の記号は文字どおりにする")

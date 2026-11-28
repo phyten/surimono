@@ -48,6 +48,15 @@ struct SVGImagePageTests {
         #expect(!String(decoding: data, as: UTF8.self).contains("/Subtype /Image"))
     }
 
+    @Test("UTF-16 で書いた SVG も描く", .timeLimit(.minutes(1)))
+    func utf16() async throws {
+        let text = String(decoding: wide, as: UTF8.self)
+        let data = try #require(text.data(using: .utf16))
+        let document = try await ImagePageRenderer().render(data, pageSize: PaperSize.a4.size)
+        let pixel = try RenderingFixtures.pixel(try #require(document.page(at: 0)), x: 297, y: 421)
+        #expect(pixel[0] > 200 && pixel[1] < 60 && pixel[2] < 60)
+    }
+
     @Test("viewBox だけの SVG は viewBox の縦横比のページになる", .timeLimit(.minutes(1)))
     func viewBox() async throws {
         let document = try await ImagePageRenderer().render(viewBoxOnly, pageSize: PaperSize.a4.size)
@@ -66,6 +75,27 @@ struct SVGImagePageTests {
     func brokenSVG() async throws {
         await #expect(throws: ImagePageRenderer.RenderingError.invalidImage) {
             _ = try await ImagePageRenderer().render(broken, pageSize: PaperSize.a4.size)
+        }
+    }
+
+    @Test("寸法が有限にならない SVG と大きすぎる SVG は、束の中でその画像だけを読めない画像にする", .timeLimit(.minutes(1)))
+    func unusableShapes() async throws {
+        let overflow = Data(#"<svg xmlns="http://www.w3.org/2000/svg" width="10" viewBox="0 0 1e-308 10"/>"#.utf8)
+        var huge = Data(#"<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1">"#.utf8)
+        huge.append(Data(repeating: 0x20, count: 50_000_001))
+        let images = [
+            DocumentSource.Image(data: overflow, fileURL: URL(fileURLWithPath: "/fixtures/overflow.svg")),
+            DocumentSource.Image(data: wide, fileURL: URL(fileURLWithPath: "/fixtures/wide.svg")),
+            DocumentSource.Image(data: huge, fileURL: URL(fileURLWithPath: "/fixtures/huge.svg")),
+        ]
+        let result = try await DocumentRenderer().render(.images(images), settings: settings)
+        #expect(result.logicalDocument.pageCount == 1)
+        #expect(
+            result.unreadableImageURLs == [
+                URL(fileURLWithPath: "/fixtures/overflow.svg"), URL(fileURLWithPath: "/fixtures/huge.svg"),
+            ])
+        #expect(throws: ImagePageRenderer.RenderingError.invalidImage) {
+            _ = try ImagePageRenderer.contentSize(huge)
         }
     }
 

@@ -24,10 +24,12 @@ enum MermaidScript {
     /// one stored identifier, so the store keeps a single file, and a web view holds only the latest of them.
     private static var offlineRules: [String: WKContentRuleList] = [:]
 
-    /// Blocks every load from now on, except the images the document has already shown. Later preparation (figure
+    /// Blocks every load from now on, except local images the document has already shown. Later preparation (figure
     /// placement, paragraph composition, the flow layout) moves or copies those images, and each copy loads its
-    /// image again; blocking them too left LaTeX figures blank once a TikZ picture had been drawn. Engines still
-    /// cannot fetch anything the document did not already show.
+    /// image again; blocking them too left LaTeX figures blank once a TikZ picture had been drawn. A copy reads the
+    /// same local file again, which is no communication; an image from the network is not let through, so a copy of
+    /// it stays blank rather than fetch it a second time. Engines cannot load anything the document did not show.
+    /// Only the first 1,000 shown addresses of up to 2,048 characters are let through; copies of others stay blank.
     static func preventResourceLoads(in webView: WKWebView) async throws {
         let shown =
             (try? await webView.evaluateForPrinting(shownImagesScript, until: .now + .seconds(15))) as? [String] ?? []
@@ -44,17 +46,39 @@ enum MermaidScript {
         return Array.from(urls).sort().slice(0, 1000);
         """
 
-    static func offlineRules(keeping images: [String]) async throws -> WKContentRuleList {
-        let key = images.joined(separator: "\n")
-        if let cached = offlineRules[key] { return cached }
-        var rules: [[String: Any]] = [["trigger": ["url-filter": ".*"], "action": ["type": "block"]]]
-        for url in ["^data:"] + images.map({ "^" + escapedFilter($0) + "$" }) {
+    /// Schemes that read a file on this Mac: the document's own folder, the sandbox's handler and a live snapshot.
+    static let localSchemes = ["file", LocalResourceSchemeHandler.scheme, SnapshotSchemeHandler.scheme]
+
+    /// The rules: block everything, then let through embedded images and exactly the shown local addresses. WebKit
+    /// compares filters without regard to case unless told; `Chart.svg` and `chart.svg` are different images.
+    static func offlineRuleSet(keeping images: [String]) -> [[String: Any]] {
+        var rules: [[String: Any]] = [
+            ["trigger": ["url-filter": ".*"], "action": ["type": "block"]],
+            [
+                "trigger": ["url-filter": "^data:", "resource-type": ["image"]],
+                "action": ["type": "ignore-previous-rules"],
+            ],
+        ]
+        for url in images {
+            guard let scheme = url.split(separator: ":", maxSplits: 1).first?.lowercased(),
+                localSchemes.contains(scheme)
+            else { continue }
             rules.append([
-                "trigger": ["url-filter": url, "resource-type": ["image"]],
+                "trigger": [
+                    "url-filter": "^" + escapedFilter(url) + "$", "url-filter-is-case-sensitive": true,
+                    "resource-type": ["image"],
+                ],
                 "action": ["type": "ignore-previous-rules"],
             ])
         }
-        let encoded = String(decoding: try JSONSerialization.data(withJSONObject: rules), as: UTF8.self)
+        return rules
+    }
+
+    static func offlineRules(keeping images: [String]) async throws -> WKContentRuleList {
+        let key = images.joined(separator: "\n")
+        if let cached = offlineRules[key] { return cached }
+        let encoded = String(
+            decoding: try JSONSerialization.data(withJSONObject: offlineRuleSet(keeping: images)), as: UTF8.self)
         let list: WKContentRuleList
         do {
             list = try await compile(encoded, identifier: "surimono-offline")

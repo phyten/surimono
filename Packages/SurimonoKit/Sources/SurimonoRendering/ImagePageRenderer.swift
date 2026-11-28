@@ -29,33 +29,41 @@ public struct ImagePageRenderer {
         guard PDFDrawing.validGeometry(pageSize: pageSize, margins: margins) else {
             throw RenderingError.invalidGeometry
         }
+        // The SVG deadline counts from here, before the bytes are read, copied or handed to WebKit.
+        let deadline = ContinuousClock.now + SVGImageDrawing.timeout
+        // Reading the SVG root and decoding pixels both stay off the main actor.
+        let decoding = Task.detached(priority: Task.currentPriority) {
+            try Self.decode(data, pageSize: pageSize, margins: margins, autoRotatesPage: autoRotatesPage)
+        }
+        let decoded = try await withTaskCancellationHandler {
+            do {
+                let decoded = try await decoding.value
+                try Task.checkCancellation()
+                return decoded
+            } catch {
+                try Task.checkCancellation()
+                throw error
+            }
+        } onCancel: {
+            decoding.cancel()
+        }
         let ink: Ink
         let size: CGSize
         let rect: CGRect
-        if let shape = SVGIntrinsicSize.of(data) {
-            size = Self.paperSize(pageSize, image: shape, autoRotatesPage: autoRotatesPage)
-            rect = PDFDrawing.fittedRect(size: shape, in: Self.textArea(size, margins: margins))
-            ink = .vector(try await SVGImageDrawing.document(data, size: rect.size))
-        } else {
-            let decoding = Task.detached(priority: Task.currentPriority) {
-                try Self.decode(data, pageSize: pageSize, margins: margins, autoRotatesPage: autoRotatesPage)
-            }
-            let (image, decodedSize) = try await withTaskCancellationHandler {
-                do {
-                    let decoded = try await decoding.value
-                    try Task.checkCancellation()
-                    return decoded
-                } catch {
-                    try Task.checkCancellation()
-                    throw error
-                }
-            } onCancel: {
-                decoding.cancel()
-            }
-            size = decodedSize
+        switch decoded {
+        case .raster(let image, let paper):
+            size = paper
             rect = PDFDrawing.fittedRect(
                 size: CGSize(width: image.width, height: image.height), in: Self.textArea(size, margins: margins))
             ink = .raster(image)
+        case .svg(let shape, let paper):
+            size = paper
+            rect = PDFDrawing.fittedRect(size: shape, in: Self.textArea(size, margins: margins))
+            // An extreme shape can still fit to nothing; it is not placed as a sliver or a point.
+            guard SVGIntrinsicSize.usable(rect.size), rect.width >= 0.01, rect.height >= 0.01,
+                rect.minX.isFinite, rect.minY.isFinite
+            else { throw RenderingError.invalidImage }
+            ink = .vector(try await SVGImageDrawing.document(data, size: rect.size, until: deadline))
         }
         try Task.checkCancellation()
         // The art box marks the image and its margins, so the screen can leave out the paper the image's shape does
@@ -128,7 +136,10 @@ public struct ImagePageRenderer {
     }
 
     nonisolated static func contentSize(_ data: Data) throws -> CGSize {
-        if let shape = SVGIntrinsicSize.of(data) { return shape }
+        if let reading = SVGIntrinsicSize.read(data) {
+            guard case .size(let shape) = reading else { throw RenderingError.invalidImage }
+            return shape
+        }
         guard let source = CGImageSourceCreateWithData(data as CFData, nil),
             let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
             let width = properties[kCGImagePropertyPixelWidth] as? NSNumber,
@@ -141,10 +152,21 @@ public struct ImagePageRenderer {
             : CGSize(width: width.doubleValue, height: height.doubleValue)
     }
 
+    /// What the bytes decode to off the main actor: pixels, or an SVG's shape for WebKit to draw.
+    private enum Decoded: @unchecked Sendable {
+        // CGImage is immutable once made, so handing it to the main actor is safe.
+        case raster(CGImage, paper: CGSize)
+        case svg(CGSize, paper: CGSize)
+    }
+
     private nonisolated static func decode(
         _ data: Data, pageSize: CGSize, margins: WebPaginator.Margins, autoRotatesPage: Bool
-    ) throws -> (CGImage, CGSize) {
+    ) throws -> Decoded {
         try Task.checkCancellation()
+        if let reading = SVGIntrinsicSize.read(data) {
+            guard case .size(let shape) = reading else { throw RenderingError.invalidImage }
+            return .svg(shape, paper: paperSize(pageSize, image: shape, autoRotatesPage: autoRotatesPage))
+        }
         guard
             let source = CGImageSourceCreateWithData(
                 data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
@@ -178,6 +200,6 @@ public struct ImagePageRenderer {
         let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
         try Task.checkCancellation()
         guard let image else { throw RenderingError.invalidImage }
-        return (image, size)
+        return .raster(image, paper: size)
     }
 }

@@ -36,7 +36,8 @@ extension DocumentRenderer {
     /// Inspect metadata through the same confined read as other companion files, without decoding pixels.
     nonisolated static func imageSizeInPoints(_ bytes: Data) -> CGSize? {
         // An SVG's CSS pixels are 96 to the inch, as the svg package's Inkscape export measures them.
-        if let shape = SVGIntrinsicSize.of(bytes) {
+        if let reading = SVGIntrinsicSize.read(bytes) {
+            guard case .size(let shape) = reading else { return nil }
             return CGSize(width: shape.width * 0.75, height: shape.height * 0.75)
         }
         guard let source = CGImageSourceCreateWithData(bytes as CFData, nil),
